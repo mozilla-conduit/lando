@@ -10,24 +10,41 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/dev/ref/settings/
 """
 
+
+import os
 from pathlib import Path
+
+
+def get_setting(
+    key: str, default: any, source: any = os.environ, target_type=None
+) -> any:
+    """Fetch a setting from a source defined by `source`.
+
+    `source` should have a `get` method defined, which will be called when fetching the
+    configuration. The type of the variable is determined by the default value, or an
+    optional `target_type` if provided.
+    """
+    target_type = target_type or type(default)
+
+    if isinstance(target_type, (list, tuple)) and key in source:
+        return [value.strip() for value in source.get(key).split(",")]
+    return target_type(source.get(key, default))
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+SECRET_KEY = get_setting(
+    "SECRET_KEY",
+    "django-insecure-26k#ouat@%d6w5gmuhvo_vc=_@on^6=eh9*g!p-k9ynjvyc#(_",
+)
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/dev/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-26k#ouat@%d6w5gmuhvo_vc=_@on^6=eh9*g!p-k9ynjvyc#(_"
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = ["localhost", "lando.local"]
-CSRF_TRUSTED_ORIGINS = ["https://localhost", "https://lando.local"]
-
+DEBUG = get_setting("DEBUG", False)
+ALLOWED_HOSTS = get_setting("ALLOWED_HOSTS", ["localhost", "lando.local"])
+CSRF_TRUSTED_ORIGINS = get_setting(
+    "CSRF_TRUSTED_ORIGINS",
+    ["https://localhost", "https://lando.local"],
+)
 
 # Application definition
 
@@ -79,11 +96,11 @@ WSGI_APPLICATION = "lando.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "postgres",
-        "USER": "postgres",
-        "PASSWORD": "postgres",
-        "HOST": "db",
-        "PORT": 5432,
+        "NAME": get_setting("DEFAULT_DB_NAME", "postgres"),
+        "USER": get_setting("DEFAULT_DB_USER", "postgres"),
+        "PASSWORD": get_setting("DEFAULT_DB_PASSWORD", "postgres"),
+        "HOST": get_setting("DEFAULT_DB_HOST", "db"),
+        "PORT": get_setting("DEFAULT_DB_PORT", 5432),
     }
 }
 
