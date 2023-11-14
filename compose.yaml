@@ -22,6 +22,8 @@ services:
       - ./src/lando:/code
       - ./staticfiles:/staticfiles
       - media:/mediafiles
+    env_file:
+      - .env
     depends_on:
       db:
         condition: service_healthy

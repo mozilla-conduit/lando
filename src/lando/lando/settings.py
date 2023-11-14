@@ -16,7 +16,7 @@ from pathlib import Path
 
 
 def get_setting(
-    key: str, default: any, source: any = os.environ, target_type=None
+    key: str, default: any = None, source: any = os.environ, target_type=None
 ) -> any:
     """Fetch a setting from a source defined by `source`.
 
@@ -24,6 +24,9 @@ def get_setting(
     configuration. The type of the variable is determined by the default value, or an
     optional `target_type` if provided.
     """
+    if default is None and target_type is None:
+        raise TypeError("Could not determine value type")
+
     target_type = target_type or type(default)
 
     if isinstance(target_type, (list, tuple)) and key in source:
@@ -55,6 +58,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "mozilla_django_oidc",
     "main",
     "utils",
 ]
@@ -155,3 +159,18 @@ MEDIA_ROOT = "/mediafiles"
 # https://docs.djangoproject.com/en/dev/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+OIDC_DOMAIN = get_setting("OIDC_DOMAIN", target_type=str)
+OIDC_OP_TOKEN_ENDPOINT = f"{OIDC_DOMAIN}/oauth/token"
+OIDC_OP_USER_ENDPOINT = f"{OIDC_DOMAIN}/userinfo"
+OIDC_OP_AUTHORIZATION_ENDPOINT = f"{OIDC_DOMAIN}/authorize"
+OIDC_REDIRECT_REQUIRE_HTTPS = True
+
+OIDC_DOMAIN = get_setting("OIDC_DOMAIN", target_type=str)
+OIDC_RP_CLIENT_ID = get_setting("OIDC_RP_CLIENT_ID", target_type=str)
+OIDC_RP_CLIENT_SECRET = get_setting("OIDC_RP_CLIENT_SECRET", target_type=str)
+
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "mozilla_django_oidc.auth.OIDCAuthenticationBackend",
+]
