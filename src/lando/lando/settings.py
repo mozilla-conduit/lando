@@ -154,6 +154,8 @@ STATICFILES_DIRS = [
 MEDIA_URL = "media/"
 MEDIA_ROOT = "/mediafiles"
 
+REPO_ROOT = f"{MEDIA_ROOT}/repos"
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/dev/ref/settings/#default-auto-field
