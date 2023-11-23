@@ -47,7 +47,7 @@ class Revision(BaseModel):
     # A general purpose data field to store arbitrary information about this revision.
     data = models.JSONField(default=dict)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return a human-readable representation of the instance."""
         # Add an identifier for the Phabricator revision if it exists.
         phab_identifier = (
@@ -59,11 +59,6 @@ class Revision(BaseModel):
     def patch_string(self) -> str:
         """Return the patch as a UTF-8 encoded string."""
         return self.patch_bytes.decode("utf-8")
-
-    @classmethod
-    def get_from_revision_id(cls, revision_id: int) -> "Revision" | None:
-        """Return a Revision object from a given ID."""
-        return cls.query.filter(Revision.revision_id == revision_id).one_or_none()
 
     def set_patch(self, raw_diff: str, patch_data: dict[str, str]):
         """Given a raw_diff and patch data, build the patch and store it."""
@@ -124,21 +119,6 @@ class LandingJob(BaseModel):
     target_commit_hash = models.TextField(default="")
 
     revisions = models.ManyToManyField(Revision)  # TODO: order by index
-
-    @property
-    def landed_revisions(self) -> dict:
-        """Return revision and diff ID mapping associated with the landing job."""
-        return None  # TODO: fix this up.
-
-    @property
-    def serialized_landing_path(self):
-        """Return landing path based on associated revisions or legacy fields."""
-        return None  # TODO: fix this up.
-
-    @property
-    def landing_job_identifier(self) -> str:
-        """Human-readable representation of the branch head."""
-        return None  # TODO: fix this up.
 
     @classmethod
     def job_queue_query(
