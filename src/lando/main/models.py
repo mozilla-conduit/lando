@@ -73,7 +73,7 @@ class Revision(BaseModel):
 
 
 class LandingJob(BaseModel):
-    class LandingJobStatus(models.TextChoices):
+    class Status(models.TextChoices):
         SUBMITTED = "SUBMITTED", gettext_lazy("Submitted")
         IN_PROGRESS = "IN_PROGRESS", gettext_lazy("In progress")
         DEFERRED = "DEFERRED", gettext_lazy("Deferred")
@@ -83,7 +83,7 @@ class LandingJob(BaseModel):
 
     status = models.CharField(
         max_length=12,
-        choices=LandingJobStatus,
+        choices=Status,
         default=None,
         null=True,  # TODO: should change this to not-nullable
         blank=True,
@@ -155,9 +155,9 @@ class LandingJob(BaseModel):
                 many seconds ago.
         """
         applicable_statuses = (
-            cls.LandingJobStatus.SUBMITTED,
-            cls.LandingJobStatus.IN_PROGRESS,
-            cls.LandingJobStatus.DEFERRED,
+            cls.Status.SUBMITTED,
+            cls.Status.IN_PROGRESS,
+            cls.Status.DEFERRED,
         )
         q = cls.objects.filter(status__in=applicable_statuses)
 
@@ -169,9 +169,9 @@ class LandingJob(BaseModel):
             grace_cutoff = now - datetime.timedelta(seconds=grace_seconds)
             q = q.filter(created_at__lt=grace_cutoff)
 
-        # Any `LandingJobStatus.IN_PROGRESS` job is first and there should
+        # Any `Status.IN_PROGRESS` job is first and there should
         # be a maximum of one (per repository). For
-        # `LandingJobStatus.SUBMITTED` jobs, higher priority items come first
+        # `Status.SUBMITTED` jobs, higher priority items come first
         # and then we order by creation time (older first).
         q = q.order_by("-status").order_by("-priority").order_by("created_at")
 
