@@ -10,44 +10,22 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/dev/ref/settings/
 """
 
-
 import os
 from pathlib import Path
-
-
-def get_setting(
-    key: str, default: any = None, source: any = os.environ, target_type=None
-) -> any:
-    """Fetch a setting from a source defined by `source`.
-
-    `source` should have a `get` method defined, which will be called when fetching the
-    configuration. The type of the variable is determined by the default value, or an
-    optional `target_type` if provided.
-    """
-    if default is None and target_type is None:
-        raise TypeError("Could not determine value type")
-
-    target_type = target_type or type(default)
-
-    if isinstance(target_type, (list, tuple)) and key in source:
-        return [value.strip() for value in source.get(key).split(",")]
-    return target_type(source.get(key, default))
-
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = get_setting(
+SECRET_KEY = os.getenv(
     "SECRET_KEY",
     "django-insecure-26k#ouat@%d6w5gmuhvo_vc=_@on^6=eh9*g!p-k9ynjvyc#(_",
 )
 
-DEBUG = get_setting("DEBUG", False)
-ALLOWED_HOSTS = get_setting("ALLOWED_HOSTS", ["localhost", "lando.local"])
-CSRF_TRUSTED_ORIGINS = get_setting(
-    "CSRF_TRUSTED_ORIGINS",
-    ["https://localhost", "https://lando.local"],
-)
+DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1")
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,lando.local").split(",")
+CSRF_TRUSTED_ORIGINS = os.getenv(
+    "CSRF_TRUSTED_ORIGINS", "https://localhost,https://lando.local"
+).split(",")
 
 # Application definition
 
@@ -100,11 +78,11 @@ WSGI_APPLICATION = "lando.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": get_setting("DEFAULT_DB_NAME", "postgres"),
-        "USER": get_setting("DEFAULT_DB_USER", "postgres"),
-        "PASSWORD": get_setting("DEFAULT_DB_PASSWORD", "postgres"),
-        "HOST": get_setting("DEFAULT_DB_HOST", "db"),
-        "PORT": get_setting("DEFAULT_DB_PORT", 5432),
+        "NAME": os.getenv("DEFAULT_DB_NAME", "postgres"),
+        "USER": os.getenv("DEFAULT_DB_USER", "postgres"),
+        "PASSWORD": os.getenv("DEFAULT_DB_PASSWORD", "postgres"),
+        "HOST": os.getenv("DEFAULT_DB_HOST", "db"),
+        "PORT": os.getenv("DEFAULT_DB_PORT", "5432"),
     }
 }
 
