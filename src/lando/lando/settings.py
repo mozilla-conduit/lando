@@ -13,7 +13,6 @@ https://docs.djangoproject.com/en/dev/ref/settings/
 import os
 from pathlib import Path
 
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -24,7 +23,9 @@ SECRET_KEY = os.getenv(
 
 DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1")
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,lando.local").split(",")
-CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "https://localhost,https://lando.local").split(",")
+CSRF_TRUSTED_ORIGINS = os.getenv(
+    "CSRF_TRUSTED_ORIGINS", "https://localhost,https://lando.local"
+).split(",")
 
 # Application definition
 
