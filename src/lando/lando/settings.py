@@ -13,11 +13,11 @@ https://docs.djangoproject.com/en/dev/ref/settings/
 import os
 from pathlib import Path
 
-from typing import Any
+from typing import Any, Mapping
 
 
 def get_setting(
-    key: str, default: Any, source: Any = os.environ, target_type=None
+    key: str, default: Any, source: Mapping = os.environ, target_type=None
 ) -> Any:
     """Fetch a setting from a source defined by `source`.
 
