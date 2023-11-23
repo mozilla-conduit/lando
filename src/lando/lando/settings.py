@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "mozilla_django_oidc",
     "main",
     "utils",
 ]
@@ -136,3 +137,18 @@ MEDIA_ROOT = "/mediafiles"
 # https://docs.djangoproject.com/en/dev/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+OIDC_DOMAIN = os.getenv("OIDC_DOMAIN")
+OIDC_OP_TOKEN_ENDPOINT = f"{OIDC_DOMAIN}/oauth/token"
+OIDC_OP_USER_ENDPOINT = f"{OIDC_DOMAIN}/userinfo"
+OIDC_OP_AUTHORIZATION_ENDPOINT = f"{OIDC_DOMAIN}/authorize"
+OIDC_REDIRECT_REQUIRE_HTTPS = True
+
+OIDC_DOMAIN = os.getenv("OIDC_DOMAIN")
+OIDC_RP_CLIENT_ID = os.getenv("OIDC_RP_CLIENT_ID")
+OIDC_RP_CLIENT_SECRET = os.getenv("OIDC_RP_CLIENT_SECRET")
+
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "mozilla_django_oidc.auth.OIDCAuthenticationBackend",
+]
