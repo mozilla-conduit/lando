@@ -14,10 +14,12 @@ https://docs.djangoproject.com/en/dev/ref/settings/
 import os
 from pathlib import Path
 
+from typing import Any
+
 
 def get_setting(
-    key: str, default: any, source: any = os.environ, target_type=None
-) -> any:
+    key: str, default: Any, source: Any = os.environ, target_type=None
+) -> Any:
     """Fetch a setting from a source defined by `source`.
 
     `source` should have a `get` method defined, which will be called when fetching the
