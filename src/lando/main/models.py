@@ -50,7 +50,7 @@ class Revision(BaseModel):
     # A general purpose data field to store arbitrary information about this revision.
     data = models.JSONField(default=dict)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return a human-readable representation of the instance."""
         # Add an identifier for the Phabricator revision if it exists.
         phab_identifier = (
@@ -63,11 +63,6 @@ class Revision(BaseModel):
         """Return the patch as a UTF-8 encoded string."""
         return self.patch_bytes.decode("utf-8")
 
-    @classmethod
-    def get_from_revision_id(cls, revision_id: int) -> "Revision" | None:
-        """Return a Revision object from a given ID."""
-        return cls.query.filter(Revision.revision_id == revision_id).one_or_none()
-
     def set_patch(self, raw_diff: str, patch_data: dict[str, str]):
         """Given a raw_diff and patch data, build the patch and store it."""
         self.patch_data = patch_data
@@ -76,7 +71,7 @@ class Revision(BaseModel):
 
 
 class LandingJob(BaseModel):
-    class LandingJobStatus(models.TextChoices):
+    class Status(models.TextChoices):
         SUBMITTED = "SUBMITTED", gettext_lazy("Submitted")
         IN_PROGRESS = "IN_PROGRESS", gettext_lazy("In progress")
         DEFERRED = "DEFERRED", gettext_lazy("Deferred")
@@ -86,7 +81,7 @@ class LandingJob(BaseModel):
 
     status = models.CharField(
         max_length=12,
-        choices=LandingJobStatus,
+        choices=Status,
         default=None,
         null=True,  # TODO: should change this to not-nullable
         blank=True,
@@ -128,21 +123,6 @@ class LandingJob(BaseModel):
 
     revisions = models.ManyToManyField(Revision)  # TODO: order by index
 
-    @property
-    def landed_revisions(self) -> dict:
-        """Return revision and diff ID mapping associated with the landing job."""
-        return None  # TODO: fix this up.
-
-    @property
-    def serialized_landing_path(self):
-        """Return landing path based on associated revisions or legacy fields."""
-        return None  # TODO: fix this up.
-
-    @property
-    def landing_job_identifier(self) -> str:
-        """Human-readable representation of the branch head."""
-        return None  # TODO: fix this up.
-
     @classmethod
     def job_queue_query(
         cls,
@@ -158,9 +138,9 @@ class LandingJob(BaseModel):
                 many seconds ago.
         """
         applicable_statuses = (
-            cls.LandingJobStatus.SUBMITTED,
-            cls.LandingJobStatus.IN_PROGRESS,
-            cls.LandingJobStatus.DEFERRED,
+            cls.Status.SUBMITTED,
+            cls.Status.IN_PROGRESS,
+            cls.Status.DEFERRED,
         )
         q = cls.objects.filter(status__in=applicable_statuses)
 
@@ -172,9 +152,9 @@ class LandingJob(BaseModel):
             grace_cutoff = now - datetime.timedelta(seconds=grace_seconds)
             q = q.filter(created_at__lt=grace_cutoff)
 
-        # Any `LandingJobStatus.IN_PROGRESS` job is first and there should
+        # Any `Status.IN_PROGRESS` job is first and there should
         # be a maximum of one (per repository). For
-        # `LandingJobStatus.SUBMITTED` jobs, higher priority items come first
+        # `Status.SUBMITTED` jobs, higher priority items come first
         # and then we order by creation time (older first).
         q = q.order_by("-status").order_by("-priority").order_by("created_at")
 
