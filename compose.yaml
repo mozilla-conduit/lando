@@ -1,0 +1,40 @@
+version: "3.8"
+services:
+  db:
+    image: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - 5432:5432
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "postgres"]
+      interval: 10s
+      timeout: 20s
+      retries: 5
+
+  lando:
+    build:
+      context: src/lando/.
+    image: lando 
+    command: bash -c "python manage.py migrate && python manage.py collectstatic --no-input && python manage.py runserver 0.0.0.0:80"
+    volumes:
+      - ./src/lando:/code
+      - ./staticfiles:/staticfiles
+      - media:/mediafiles
+    depends_on:
+      db:
+        condition: service_healthy
+
+  proxy:
+    build: ./nginx
+    ports:
+      - 443:443
+    depends_on:
+      - lando
+    volumes:
+      - ./staticfiles:/staticfiles
+      - media:/mediafiles
+
+volumes:
+  media:
