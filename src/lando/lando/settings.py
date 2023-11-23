@@ -10,24 +10,22 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/dev/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+SECRET_KEY = os.getenv(
+    "SECRET_KEY",
+    "django-insecure-26k#ouat@%d6w5gmuhvo_vc=_@on^6=eh9*g!p-k9ynjvyc#(_",
+)
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/dev/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-26k#ouat@%d6w5gmuhvo_vc=_@on^6=eh9*g!p-k9ynjvyc#(_"
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = ["localhost", "lando.local"]
-CSRF_TRUSTED_ORIGINS = ["https://localhost", "https://lando.local"]
-
+DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1")
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,lando.local").split(",")
+CSRF_TRUSTED_ORIGINS = os.getenv(
+    "CSRF_TRUSTED_ORIGINS", "https://localhost,https://lando.local"
+).split(",")
 
 # Application definition
 
@@ -79,11 +77,11 @@ WSGI_APPLICATION = "lando.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "postgres",
-        "USER": "postgres",
-        "PASSWORD": "postgres",
-        "HOST": "db",
-        "PORT": 5432,
+        "NAME": os.getenv("DEFAULT_DB_NAME", "postgres"),
+        "USER": os.getenv("DEFAULT_DB_USER", "postgres"),
+        "PASSWORD": os.getenv("DEFAULT_DB_PASSWORD", "postgres"),
+        "HOST": os.getenv("DEFAULT_DB_HOST", "db"),
+        "PORT": os.getenv("DEFAULT_DB_PORT", "5432"),
     }
 }
 
