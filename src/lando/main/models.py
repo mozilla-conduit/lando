@@ -10,6 +10,7 @@ from typing import (
 )
 
 from django.db import models
+from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy
 
 from lando.utils import build_patch_for_revision
@@ -125,7 +126,7 @@ class LandingJob(BaseModel):
         cls,
         repositories: Optional[Iterable[str]] = None,
         grace_seconds: int = DEFAULT_GRACE_SECONDS,
-    ):
+    ) -> QuerySet:
         """Return a query which selects the queued jobs.
 
         Args:
@@ -158,7 +159,9 @@ class LandingJob(BaseModel):
         return q
 
     @classmethod
-    def next_job_for_update_query(cls, repositories: Optional[Iterable[str]] = None):
+    def next_job_for_update_query(
+        cls, repositories: Optional[Iterable[str]] = None
+    ) -> QuerySet:
         """Return a query which selects the next job and locks the row."""
         query = cls.job_queue_query(repositories=repositories)
 
