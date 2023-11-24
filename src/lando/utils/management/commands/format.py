@@ -1,8 +1,10 @@
 import subprocess
 
 from django.core.management.base import BaseCommand
+from lando.settings import BASE_DIR
 
-LINT_PATHS = ("lando", "main", "utils", "api")
+LINT_PATHS = ("main", "utils", "api")
+LINT_PATHS = tuple(f"{BASE_DIR}/{path}" for path in LINT_PATHS)
 
 
 class Command(BaseCommand):
