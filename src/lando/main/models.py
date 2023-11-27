@@ -25,6 +25,15 @@ class BaseModel(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
 
+class LandingJobStatus(models.TextChoices):
+    SUBMITTED = "SUBMITTED", gettext_lazy("Submitted")
+    IN_PROGRESS = "IN_PROGRESS", gettext_lazy("In progress")
+    DEFERRED = "DEFERRED", gettext_lazy("Deferred")
+    FAILED = "FAILED", gettext_lazy("Failed")
+    LANDED = "LANDED", gettext_lazy("Landed")
+    CANCELLED = "CANCELLED", gettext_lazy("Cancelled")
+
+
 class Revision(BaseModel):
     """
     A representation of a revision in the database.
@@ -69,17 +78,9 @@ class Revision(BaseModel):
 
 
 class LandingJob(BaseModel):
-    class Status(models.TextChoices):
-        SUBMITTED = "SUBMITTED", gettext_lazy("Submitted")
-        IN_PROGRESS = "IN_PROGRESS", gettext_lazy("In progress")
-        DEFERRED = "DEFERRED", gettext_lazy("Deferred")
-        FAILED = "FAILED", gettext_lazy("Failed")
-        LANDED = "LANDED", gettext_lazy("Landed")
-        CANCELLED = "CANCELLED", gettext_lazy("Cancelled")
-
     status = models.CharField(
         max_length=12,
-        choices=Status,
+        choices=LandingJobStatus,
         default=None,
         null=True,  # TODO: should change this to not-nullable
         blank=True,
@@ -91,7 +92,7 @@ class LandingJob(BaseModel):
     # Error details in a dictionary format, listing failed merges, etc...
     # E.g. {
     #    "failed_paths": [{"path": "...", "url": "..."}],
-    #     "reject_paths": [{"path": "...", "content": "..."}]
+    #    "reject_paths": [{"path": "...", "content": "..."}]
     # }
     error_breakdown = models.JSONField(null=True, blank=True, default=dict)
 
@@ -136,9 +137,9 @@ class LandingJob(BaseModel):
                 many seconds ago.
         """
         applicable_statuses = (
-            cls.Status.SUBMITTED,
-            cls.Status.IN_PROGRESS,
-            cls.Status.DEFERRED,
+            cls.LandingJobStatus.SUBMITTED,
+            cls.LandingJobStatus.IN_PROGRESS,
+            cls.LandingJobStatus.DEFERRED,
         )
         q = cls.objects.filter(status__in=applicable_statuses)
 
@@ -150,11 +151,11 @@ class LandingJob(BaseModel):
             grace_cutoff = now - datetime.timedelta(seconds=grace_seconds)
             q = q.filter(created_at__lt=grace_cutoff)
 
-        # Any `Status.IN_PROGRESS` job is first and there should
+        # Any `LandingJobStatus.IN_PROGRESS` job is first and there should
         # be a maximum of one (per repository). For
-        # `Status.SUBMITTED` jobs, higher priority items come first
+        # `LandingJobStatus.SUBMITTED` jobs, higher priority items come first
         # and then we order by creation time (older first).
-        q = q.order_by("-status").order_by("-priority").order_by("created_at")
+        q = q.order_by("-status", "-priority", "created_at")
 
         return q
 
