@@ -3,6 +3,8 @@ from __future__ import annotations
 import datetime
 import logging
 import os
+import subprocess
+from pathlib import Path
 from typing import (
     Any,
     Iterable,
@@ -13,6 +15,7 @@ from django.db import models
 from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy
 
+from lando import settings
 from lando.utils import build_patch_for_revision
 
 logger = logging.getLogger(__name__)
@@ -180,3 +183,53 @@ def add_job_with_revisions(revisions: list[Revision], **params: Any) -> LandingJ
     for revision in revisions:
         job.revisions.add(revision)
     return job
+
+
+class Repo(BaseModel):
+    name = models.CharField(max_length=255, unique=True)
+    default_branch = models.CharField(max_length=255, default="main")
+    url = models.CharField(max_length=255)
+    push_path = models.CharField(max_length=255)
+    pull_path = models.CharField(max_length=255)
+    is_initialized = models.BooleanField(default=False)
+
+    system_path = models.FilePathField(
+        path=settings.REPO_ROOT, max_length=255, allow_folders=True
+    )
+
+    def _run(self, *args, cwd=None):
+        cwd = cwd or self.system_path
+        command = ["git"] + list(args)
+        result = subprocess.run(command, cwd=cwd)
+        return result
+
+    def initialize(self):
+        if self.is_initialized:
+            raise
+
+        self.system_path = str(Path(settings.REPO_ROOT) / self.name)
+        self.save()
+        result = self._run("clone", self.pull_path, self.name, cwd=settings.REPO_ROOT)
+        if result.returncode == 0:
+            self.is_initialized = True
+        else:
+            raise Exception(result.returncode)
+        self.save()
+
+    def update(self):
+        self._run("pull", "--all", "--prune")
+
+    def reset(self, branch=None):
+        self._run("reset", "--hard", branch or self.default_branch)
+        self._run("clean", "--force")
+
+
+class Worker(BaseModel):
+    name = models.CharField(max_length=255, unique=True)
+    is_paused = models.BooleanField(default=False)
+    is_stopped = models.BooleanField(default=False)
+    ssh_private_key = models.TextField(null=True, blank=True)
+    applicable_repos = models.ManyToManyField(Repo)
+
+    throttle_seconds = models.IntegerField(default=10)
+    sleep_seconds = models.IntegerField(default=10)
