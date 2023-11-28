@@ -1,6 +1,6 @@
 [project]
 authors = [
-    {name="Zeid Zabaneh", email="zeid@mozilla.com"},
+    {name = "Mozilla", email = "conduit-team@mozilla.com"},
 ]
 classifiers = [
     "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
