@@ -1,0 +1,33 @@
+[project]
+authors = [
+    {name = "Mozilla", email = "conduit-team@mozilla.com"},
+]
+classifiers = [
+    "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+]
+description =  "Unified Lando Project"
+dependencies = [
+    "django==5.0.rc1",
+    "mozilla_django_oidc",
+    "psycopg2-binary"
+]
+name = "lando"
+requires-python = ">=3.10"
+version = "0.1.0"
+
+[project.scripts]
+lando = "lando.manage:main"
+
+[build-system]
+requires = [
+    "setuptools>=45",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent
 
 SECRET_KEY = os.getenv(
     "SECRET_KEY",
@@ -37,8 +37,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "mozilla_django_oidc",
-    "main",
-    "utils",
+    "lando.main",
+    "lando.utils",
 ]
 
 MIDDLEWARE = [
@@ -133,10 +133,6 @@ MEDIA_URL = "media/"
 MEDIA_ROOT = "/mediafiles"
 
 REPO_ROOT = f"{MEDIA_ROOT}/repos"
-
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/dev/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

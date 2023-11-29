@@ -3,11 +3,9 @@ EXPOSE 80
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE 1
 
-COPY requirements.txt /requirements.txt
-
 RUN mkdir /code
-WORKDIR /code
-COPY ./lando /code
+COPY ./ /code
 RUN pip install --upgrade pip
-RUN pip install -r /requirements.txt
+RUN pip install -r /code/requirements.txt
+RUN pip install -e /code
 CMD ["bash"]

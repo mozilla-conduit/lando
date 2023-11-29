@@ -15,11 +15,14 @@ services:
 
   lando:
     build:
-      context: src/lando/.
+      context: .
     image: lando 
-    command: bash -c "python manage.py migrate && python manage.py collectstatic --no-input && python manage.py runserver 0.0.0.0:80"
+    command: bash -c "
+      lando migrate &&
+      lando collectstatic --no-input &&
+      lando runserver 0.0.0.0:80"
     volumes:
-      - ./src/lando:/code
+      - ./:/code
       - ./staticfiles:/staticfiles
       - media:/mediafiles
     env_file:

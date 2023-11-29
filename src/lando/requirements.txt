@@ -1,6 +1,0 @@
-Django==5.0b1
-psycopg2-binary==2.9.9
-requests
-ruff
-black
-mozilla-django-oidc
