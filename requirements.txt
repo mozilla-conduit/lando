@@ -1,2 +1,4 @@
 ruff
 black
+pytest
+pytest-django
