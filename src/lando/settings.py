@@ -151,4 +151,6 @@ AUTHENTICATION_BACKENDS = [
     "mozilla_django_oidc.auth.OIDCAuthenticationBackend",
 ]
 
+LINT_PATHS = tuple(f"{BASE_DIR}/{path}" for path in ("main", "utils", "api"))
+
 GITHUB_ACCESS_TOKEN = os.getenv("LANDO_GITHUB_ACCESS_TOKEN")
