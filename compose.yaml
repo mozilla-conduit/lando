@@ -20,7 +20,7 @@ services:
     command: bash -c "
       lando migrate &&
       lando collectstatic --no-input &&
-      lando runserver 0.0.0.0:80"
+      uwsgi --ini /code/uwsgi.ini"
     volumes:
       - ./:/code
       - ./staticfiles:/staticfiles
