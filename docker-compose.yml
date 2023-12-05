@@ -1,0 +1,50 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+version: '2'
+services:
+  build-requirements:
+    build:
+        context: ./
+        dockerfile: ./docker/Dockerfile-prod
+        target: assets
+    volumes:
+      - ./:/app
+    command: sh -c "cd /app && pip install pip --upgrade && pip install pip-tools && python -m piptools compile requirements.in --generate-hashes --allow-unsafe"
+  lando-ui:
+    build:
+      context: ./
+      dockerfile: ./docker/Dockerfile-dev
+    volumes:
+      - ./:/app
+    ports:
+      - "7777:7777"
+    environment:
+      - DEBUG=True
+      - HOST=0.0.0.0
+      - PORT=7777
+      - OIDC_DOMAIN=oidc_domain_change_me
+      - OIDC_CLIENT_ID=oidc_client_id_change_me
+      - OIDC_CLIENT_SECRET=oidc_client_secret_change_me
+      - LANDO_API_OIDC_IDENTIFIER=lando-api-oidc-identifier
+      - VERSION_PATH=/version.json
+      - SECRET_KEY=secret_key_change_me
+      - SESSION_COOKIE_NAME=lando-ui.test:7777
+      - SESSION_COOKIE_DOMAIN=lando-ui.test:7777
+      - SESSION_COOKIE_SECURE=0
+      - USE_HTTPS=0
+      - LANDO_API_URL=http://lando-api.test:8888
+      - BUGZILLA_URL=http://bmo.test
+      - PHABRICATOR_URL=http://phabricator.test
+      - ENV=localdev
+      - SENTRY_DSN=
+      - LOG_LEVEL=DEBUG
+      - ENABLE_SEC_APPROVAL=1
+      - ENABLE_EMBEDDED_TRANSPLANT_UI=1
+  py3-linter:
+    build:
+      context: ./
+      dockerfile: ./docker/py3-linter-dockerfile
+    volumes:
+     - ./:/code/

@@ -1,0 +1,27 @@
+{#
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#}
+
+{% extends "partials/layout.html" %}
+{% block page_title %}Revision/Diff Not Available - Lando - Mozilla{% endblock %}
+
+{% block main %}
+<main class="ErrorPage container content">
+
+  <h1>Revision/Diff Not Available</h1>
+
+  <p>
+    The revision or diff you've requested does not exist or you do not have
+    permission to view it.
+  </p>
+  {% if is_user_authenticated() and not request.cookies['phabricator-api-token'] %}
+    <p>
+      If you were trying to view a stack which includes a secure revision, you need to
+      <a href='#' class="ErrorPage-showAPIToken">provide your Phabricator API Token</a>.
+    </p>
+  {% endif %}
+
+</main>
+{% endblock %}

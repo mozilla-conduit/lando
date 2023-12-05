@@ -1,0 +1,204 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
+$revision-spacing: 20px;
+
+/* Page Structure */
+.RevisionPage {
+  background-color: #fff;
+  padding-left: 5rem;
+  padding-right: 5rem;
+}
+
+h1.RevisionPage-heading {
+  margin-top: .25em;
+  margin-bottom: .5em;
+  font-weight: 600;
+}
+
+.RevisionPage-heading-statuses {
+  margin-bottom: $revision-spacing*2;
+}
+
+.RevisionPage-heading-statuses .revision-badge {
+  font-size: 1em;
+}
+
+.RevisionPage-section-block {
+  display: grid;
+  grid-template-columns: 150px auto;
+  margin-bottom: $revision-spacing;
+
+  /* TODO: How do I use the $tablet bulma column var? */
+  @media screen and (max-width: 769px) {
+    display: block;
+  }
+}
+
+.RevisionPage-section-label {
+  font-weight: bold;
+}
+
+.RevisionPage-section-contents {
+  border-bottom: 1px solid #ddd;
+  padding-bottom: $revision-spacing;
+}
+
+.Revision-Page-timeline-item {
+  display: grid;
+  grid-template-columns: 150px auto;
+  margin-bottom: $revision-spacing/2;
+}
+
+.RevisionPage-commit-message {
+  font-family: 'Fira Mono', monospace;
+  font-size: 1em;
+  white-space: pre-wrap;
+  height: auto;
+  max-height: 1.25em * 8.5;
+  line-height: 1.25em;
+  overflow-y: hidden;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  background-color: inherit;
+}
+
+.RevisionPage-commit-expand {
+  display: none;
+  font-size: .9em;
+  font-weight: normal;
+}
+
+.RevisionPage-commit-see-more {
+  display: none;
+  color: #999;
+  font-size: .9em;
+}
+
+.RevisionPage-landing-info {
+  display: none;
+}
+
+ul.RevisionPage-warnings {
+  list-style-type: none;
+  margin-bottom: $revision-spacing;
+  margin-left: 0;
+}
+
+.RevisionPage-warning {
+  background: #fdf3da;
+  border-color: #e9dbcd;
+  color:#726f56;
+  margin-bottom: 4px;
+  padding: 3px 9px 3px 30px;
+  position: relative;
+
+  input {
+    position: absolute;
+    top: 10px;
+    left: 8px;
+  }
+}
+
+ul.RevisionPage-blockers {
+  list-style-type: none;
+  margin-bottom: $revision-spacing;
+  margin-left: 0;
+
+  & li {
+    background: #E8A2A2;
+    border-color: #A53030;
+    color:#A53030;
+    margin-bottom: 4px;
+    padding: 3px 9px 3px 30px;
+    position: relative;
+  }
+}
+
+ul.RevisionPage-success {
+  list-style-type: none;
+  margin-bottom: $revision-spacing;
+  margin-left: 0;
+
+  & li {
+    background: #b1e8bf;
+    border-color: #50a529;
+    color: #40a529;
+    margin-bottom: 4px;
+    padding: 3px 9px 3px 30px;
+    position: relative;
+  }
+}
+
+.RevisionPage-errors {
+  background: #E8A2A2;
+  border: 1px solid #A53030;
+  color:#A53030;
+  padding: 6px 12px 6px 12px;
+  width: 100%;
+
+  & ul {
+    list-style: disc outside;
+    margin-left: 2em;
+  }
+}
+
+.RevisionPage-actions {
+  text-align: right;
+
+  button {
+    border: 0;
+    text-align: center;
+    color: #fff;
+    background: #3F9B47;
+    padding: 8px 20px;
+    border-radius: 5px;
+    min-width: 16rem;
+    min-height: 4.5rem;
+  }
+
+  button[disabled] {
+    background: #efefef;
+    color: inherit;
+    pointer-events: none;
+    cursor: default;
+  }
+
+  button[inprogress] {
+    background: #e5ac00;
+    color: white;
+  }
+
+  &-headline {
+    font-size: 1.6rem;
+  }
+
+  &-subtitle {
+    font-size: 0.8rem;
+  }
+}
+
+.RevisionPage-reviewer-list {
+  display: flex;
+
+  & > div {
+    margin-right: 1rem;
+  }
+
+  &-name {
+    font-weight: 600;
+  }
+
+  & ul > li {
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* Put this somewhere */
+button, label {
+  cursor: pointer;
+}

@@ -1,0 +1,25 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
+@import "../colors";
+
+.FlashMessages {
+  padding: 1.5rem 1.5rem 0.5rem;
+
+  &-content {
+    &.notification {
+      &.is-success {
+        background: #ddefdd;
+        color: #326d34;
+      }
+
+      &.is-warning {
+        background: #ffa83b;
+        color: $black;
+      }
+    }
+  }
+}

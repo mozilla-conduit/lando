@@ -1,5 +1,10 @@
-env
-staticfiles
-.env
-__pycache__
 *.egg-info
+.env
+.webassets-cache
+/*.egg-info/
+/.cache/
+__pycache__
+docker-compose.override.yml
+env
+landoui/static/build
+staticfiles
