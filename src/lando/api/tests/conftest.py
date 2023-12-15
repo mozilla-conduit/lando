@@ -11,7 +11,6 @@ from types import SimpleNamespace
 
 import flask.testing
 import pytest
-import redis
 import requests
 import requests_mock
 import sqlalchemy
@@ -19,7 +18,6 @@ from flask import current_app
 from pytest_flask.plugin import JSONResponse
 
 from landoapi.app import SUBSYSTEMS, construct_app, load_config
-from landoapi.cache import cache
 from landoapi.mocks.auth import TEST_JWKS, MockAuth0
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
@@ -159,9 +157,6 @@ def docker_env_vars(versionfile, monkeypatch):
     monkeypatch.setenv("BUGZILLA_URL", "asdfasdfasdfasdfasdfasdf")
     monkeypatch.setenv("OIDC_IDENTIFIER", "lando-api")
     monkeypatch.setenv("OIDC_DOMAIN", "lando-api.auth0.test")
-    # Explicitly shut off cache use for all tests.  Tests can re-enable the cache
-    # with the redis_cache fixture.
-    monkeypatch.delenv("CACHE_REDIS_HOST", raising=False)
     monkeypatch.delenv("CSP_REPORTING_URL", raising=False)
     # Don't suppress email in tests, but point at localhost so that any
     # real attempt would fail.
@@ -360,23 +355,6 @@ def get_phab_client(app):
         return PhabricatorClient(current_app.config["PHABRICATOR_URL"], api_key)
 
     return get_client
-
-
-@pytest.fixture
-def redis_cache(app):
-    cache.init_app(
-        app, config={"CACHE_TYPE": "redis", "CACHE_REDIS_HOST": "redis.cache"}
-    )
-    try:
-        cache.clear()
-    except redis.exceptions.ConnectionError:
-        if EXTERNAL_SERVICES_SHOULD_BE_PRESENT:
-            raise
-        else:
-            pytest.skip("Could not connect to Redis")
-    yield cache
-    cache.clear()
-    cache.init_app(app, config={"CACHE_TYPE": "null", "CACHE_NO_NULL_WARNING": True})
 
 
 @pytest.fixture

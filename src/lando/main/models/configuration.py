@@ -8,7 +8,6 @@ from typing import (
     Union,
 )
 
-from landoapi.cache import cache
 from landoapi.models.base import Base
 from landoapi.storage import db
 
@@ -71,7 +70,6 @@ class ConfigurationVariable(Base):
         raise ValueError("Could not parse raw value for configuration variable.")
 
     @classmethod
-    @cache.memoize()
     def get(
         cls, key: ConfigurationKey, default: ConfigurationValueType
     ) -> ConfigurationValueType:
@@ -114,13 +112,11 @@ class ConfigurationVariable(Base):
             logger.info(f"Creating new configuration variable {key.value}.")
             record = cls()
 
-        logger.info("Deleting memoized cache for configuration variables.")
         if record.raw_value:
             logger.info(
                 f"Configuration variable {key.value} previously set to {record.raw_value} "
                 f"({record.value})"
             )
-        cache.delete_memoized(cls.get)
         record.variable_type = variable_type
         record.key = key.value
         record.raw_value = raw_value
@@ -129,4 +125,6 @@ class ConfigurationVariable(Base):
         logger.info(
             f"Configuration variable {key.value} set to {raw_value} ({record.value})"
         )
+
+        # TODO: add caching
         return record
