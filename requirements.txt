@@ -128,8 +128,8 @@ flask==1.1.1 \
 flask-assets==0.12 \
     --hash=sha256:6031527b89fb3509d1581d932affa5a79dd348cfffb58d0aef99a43461d47847
     # via -r requirements.in
-flask-pyoidc==3.7.0 \
-    --hash=sha256:42ba26e5935c1ca04e41cde60bab7b19518a7565256cc7c9dbe1fbdcedc2a739
+flask-pyoidc==3.10.0 \
+    --hash=sha256:858196f9fb6e5fa2d96c5aca84a1349a85bdffb21378d6acb860fad97d6370f2
     # via -r requirements.in
 flask-talisman==0.6.0 \
     --hash=sha256:5a88c0ee2b0d509610ae74cbd7059d91228ad56ab3e955813428fe8e63a3e195 \
