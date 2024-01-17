@@ -1,0 +1,20 @@
+{#
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#}
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <section class="FlashMessages">
+      <div class="container">
+        {% for category, message in messages %}
+          <div class="FlashMessages-content notification {{ category | message_type_to_notification_class }}">
+            <button class="FlashMessages-close delete"></button>
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+{% endwith %}

@@ -1,0 +1,58 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
+@import "bulma/sass/utilities/initial-variables";
+@import "colors";
+
+// Customize Bulma variables
+$primary: $blue;
+$info: $turquoise;
+$success: $green;
+$warning: $orange;
+$danger: $red;
+
+$family-sans-serif: 'Fira Sans', Arial, Helvetica, sans-serif;
+$family-monospace: 'Fira Mono' monospace;
+
+$primary: $blue;
+
+@import "bulma/bulma";
+
+// Makes sure the footer stays near the bottom of the page.
+body {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
+main {
+  flex: 1 0 auto;
+  padding: 1em;
+}
+
+h1 {
+  font-size: 2em;
+  font-weight: bold;
+  margin-bottom: .25em;
+  margin-top: .5em;
+}
+
+p {
+  margin-bottom: 1em;
+}
+
+// The banner that appears at the top of every page
+section.hero {
+  padding: 0.25rem 0 0.25rem 0.25rem;
+
+  p {
+    font-size: 1.25rem;
+  }
+}
+
+.hidden-content {
+    display: none;
+}
