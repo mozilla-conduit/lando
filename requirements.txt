@@ -131,9 +131,9 @@ flask-assets==0.12 \
 flask-pyoidc==3.7.0 \
     --hash=sha256:42ba26e5935c1ca04e41cde60bab7b19518a7565256cc7c9dbe1fbdcedc2a739
     # via -r requirements.in
-flask-talisman==0.6.0 \
-    --hash=sha256:5a88c0ee2b0d509610ae74cbd7059d91228ad56ab3e955813428fe8e63a3e195 \
-    --hash=sha256:85c6688bcbc8de6c37b86bfb60db2da295ee1935c2ed27ca16396792ab45a3ef
+flask-talisman==1.1.0 \
+    --hash=sha256:3c42b610ebe49b0e35ca150e179bf51aa1da01e4635b49a674868ea681046208 \
+    --hash=sha256:c5f486f5f54420729f84b3c3850cd63f96e8b033a9629bee66c524ea363797ff
     # via -r requirements.in
 flask-wtf==0.14.3 \
     --hash=sha256:57b3faf6fe5d6168bda0c36b0df1d05770f8e205e18332d0376ddb954d17aef2 \
@@ -440,7 +440,6 @@ six==1.14.0 \
     --hash=sha256:8f3cd2e254d8f793e7f3d6d9df77b92252b52637291d0f0da013c76ea2724b6c
     # via
     #   cryptography
-    #   flask-talisman
     #   packaging
     #   pathlib2
     #   pyjwkest
