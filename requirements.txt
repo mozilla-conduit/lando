@@ -307,9 +307,9 @@ pytest==5.3.5 \
     # via
     #   -r requirements.in
     #   pytest-flask
-pytest-flask==0.15.1 \
-    --hash=sha256:9001f6128c5c4a0d243ce46c117f3691052828d2faf39ac151b8388657dce447 \
-    --hash=sha256:cbd8c5b9f8f1b83e9c159ac4294964807c4934317a5fba181739ac15e1b823e6
+pytest-flask==1.3.0 \
+    --hash=sha256:58be1c97b21ba3c4d47e0a7691eb41007748506c36bf51004f78df10691fa95e \
+    --hash=sha256:c0e36e6b0fddc3b91c4362661db83fa694d1feb91fa505475be6732b5bc8c253
     # via -r requirements.in
 pyyaml==5.4.1 \
     --hash=sha256:08682f6b72c722394747bddaf0aa62277e02557c0fd1c42cb853016a38f8dedf \
