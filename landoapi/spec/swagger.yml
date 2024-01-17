@@ -1,0 +1,807 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+swagger: '2.0'
+info:
+  title: Lando API
+  description: An API to get and land Phabricator revisions.
+  version: "3.0.0"
+produces:
+  - application/json
+paths:
+  /:
+    get:
+      summary: Redirect to the API specification
+      responses:
+        302:
+          description: Redirect to swagger.json
+          headers:
+            Location:
+              description: Where to redirect to
+              type: string
+  /transplants/dryrun:
+    post:
+      operationId: landoapi.api.transplants.dryrun
+      description: |
+        Check for any issues that may prevent the caller from landing the given
+        revision. By default only public revisions are accessible. If a
+        Phabricator API key is set in the X-Phabricator-API-Key header, then
+        you may access private Revisions which the owner of the api key has
+        access to.
+      parameters:
+        - name: data
+          description: The data required to request a landing.
+          required: true
+          in: body
+          schema:
+            $ref: '#/definitions/TransplantRequest'
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: '#/definitions/TransplantAssessment'
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+  /transplants:
+    get:
+      operationId: landoapi.api.transplants.get_list
+      description: |
+        Returns the list of transplants for any revisions in the stack
+        of a given revision.
+      parameters:
+        - name: stack_revision_id
+          in: query
+          type: string
+          required: true
+      responses:
+        200:
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Transplant'
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+    post:
+      description: |
+        Sends request to transplant service. If a Phabricator API
+        key is set in the X-Phabricator-API-Key header, then you may access
+        private Revisions which the owner of the api key has access to.
+      parameters:
+        - name: data
+          description: The data required to request a landing.
+          required: true
+          in: body
+          schema:
+            allOf:
+              - $ref: '#/definitions/TransplantRequest'
+              - type: object
+                properties:
+                  confirmation_token:
+                    type: string
+                    description: |
+                      A token representing the set of acknowledged warnings
+                      when landing. The /transplants/dryrun endpoint responds
+                      with the current warnings and the matching token. If
+                      the warnings have changed between requesting a dryrun
+                      and requesting a landing, the landing will fail.
+                  flags:
+                    description: |
+                      A list of flags that will be appended to the commit
+                      message upon transplant. For example, ["DONTBUILD"].
+                    type: array
+                    items:
+                      type: string
+      responses:
+        202:
+          description: OK
+          schema:
+            type: object
+            properties:
+              id:
+                type: integer
+                description: |
+                  A newly created Transplant id
+        400:
+          description: Blockers or Unacknowledged Warnings
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+              - $ref: '#/definitions/TransplantAssessment'
+        default:
+          description: Error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+  /diff_warnings/{pk}:
+    delete:
+      operationId: landoapi.api.diff_warnings.delete
+      description: Archives a given diff warning.
+      parameters:
+        - name: pk
+          in: path
+          type: integer
+          required: true
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+        400:
+          description: Bad request
+          schema:
+            type: object
+        404:
+          description: Not found
+          schema:
+            type: object
+  /diff_warnings:
+    get:
+      operationId: landoapi.api.diff_warnings.get
+      description: Gets a list of diff warnings based on provided filters
+      parameters:
+        - name: revision_id 
+          in: query
+          required: true
+          type: integer
+        - name: diff_id
+          in: query
+          required: true
+          type: integer
+        - name: group
+          in: query
+          required: true
+          type: string
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+    post:
+      operationId: landoapi.api.diff_warnings.post
+      description: Creates a new diff warning
+      parameters:
+        - name: data 
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - revision_id
+              - diff_id
+              - group
+              - data
+            properties:
+              revision_id:
+                type: integer
+              diff_id:
+                type: integer
+              group:
+                type: string
+              data:
+                type: object
+      responses:
+        201:
+          description: OK
+          schema:
+            type: object
+        400:
+          description: Bad request
+          schema:
+            type: object
+  /landing_jobs/{landing_job_id}:
+    put:
+      operationId: landoapi.api.landing_jobs.put
+      description: Updates a request to land (i.e. a landing job)
+      parameters:
+        - name: landing_job_id
+          in: path
+          type: string
+          required: true
+        - name: data
+          required: true
+          in: body
+          schema:
+            type: object
+            required:
+              - status
+            properties:
+              status:
+                type: string
+                enum:
+                  - CANCELLED
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+            properties:
+              id:
+                type: integer
+                description: Landing Job id
+        403:
+          description: Service not authorized
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+        404:
+          description: Landing job does not exist
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+  /stacks/{revision_id}:
+    get:
+      description: |
+        Get the stack a revision is part of
+      parameters:
+        - name: revision_id
+          in: path
+          type: string
+          description: |
+            The id of the revision in the form of 'D{number}', e.g. 'D12345'.
+          required: true
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: '#/definitions/Stack'
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+  /requestSecApproval:
+    post:
+      operationId: landoapi.api.revisions.request_sec_approval
+      description: |
+        Submit a sanitized, safe-to-land commit message for a security-sensitive
+        revision. This starts the Security Bug Approval Process.
+      parameters:
+        - name: data
+          description: The data we want to submit
+          required: true
+          in: body
+          schema:
+            type: object
+            required:
+              - revision_id
+              - sanitized_message
+            properties:
+              revision_id:
+                type: string
+                description: |
+                  The ID of a revision in the form of 'D{number}', e.g. 'D12345'.
+              sanitized_message:
+                type: string
+                description: |
+                  The santized commit message we want to use when landing this revision.
+                  See the Security Bug Approval Process for guidelines for crafting an
+                  appropriate message.
+      responses:
+        200:
+          description: OK
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+  /uplift:
+    get:
+      operationId: landoapi.api.uplift.get
+      description: |
+        Return the list of valid uplift repositories.
+      responses:
+        201:
+          description: OK
+
+    post:
+      operationId: landoapi.api.uplift.create
+      description: |
+        Create an uplift request for a revision and target repository
+      parameters:
+        - name: data
+          in: body
+          description: |
+            Provide information about which revision to uplift and which repository
+            the uplift will land in.
+          required: true
+          schema:
+            type: object
+            required:
+              - revision_id
+              - repository
+            properties:
+              repository:
+                type: string
+              revision_id:
+                type: string
+                description: |
+                  The ID of a revision in the form of 'D{number}', e.g.
+                  'D12345'.
+      responses:
+        201:
+          description: OK
+        400:
+          description: Invalid payload
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+        403:
+          description: Service not authorized
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+  /try/patches:
+    post:
+      operationId: landoapi.api.try_push.post_patches
+      description: |
+        Submit a set of patches to the Try server.
+      parameters:
+        - name: data
+          in: body
+          description: |
+            Provide the content of the push for submission to Lando.
+          required: true
+          schema:
+            type: object
+            required:
+              - base_commit
+              - patches
+              - patch_format
+            properties:
+              base_commit:
+                type: string
+                minLength: 40
+                maxLength: 40
+                description: |
+                  The published base commit on which to apply `patches`.
+              patches:
+                type: array
+                minItems: 1
+                description: |
+                  Ordered array of base64 encoded patches for submission to Lando.
+                items:
+                  type: string
+              patch_format:
+                type: string
+                enum: ["git-format-patch", "hgexport"]
+                description: |
+                  The format of the encoded patches in `patches`. Either `hgexport` or
+                  `git-format-patch` are accepted.
+      responses:
+        201:
+          description: Push was submitted successfully.
+definitions:
+  LandingPath:
+    type: array
+    description: |
+      A list of revision and diff pairs which form the path to land.
+    items:
+      type: object
+      required:
+        - revision_id
+        - diff_id
+      properties:
+        revision_id:
+          type: string
+          description: |
+            The ID of a revision in the form of 'D{number}', e.g.
+            'D12345'.
+        diff_id:
+          type: integer
+          description: |
+            The ID of a phabricator diff which is associated with the
+            provided revision_id.
+  ErrorBreakdown:
+    type: object
+    properties:
+      revision_id:
+        type: integer
+        description: The revision number (e.g. for D123 it will be 123.)
+      failed_paths:
+        type: array
+        description: List of paths that failed to merge.
+        items:
+          type: string
+      reject_paths:
+        type: array
+        description: List of names of .rej files.
+        items:
+          type: string
+  TransplantRequest:
+    type: object
+    required:
+      - landing_path
+    properties:
+      landing_path:
+        $ref: '#/definitions/LandingPath'
+  Transplant:
+    type: object
+    properties:
+      id:
+        type: integer
+        description: |
+          The id of the Transplant.
+      request_id:
+        type: integer
+        description: |
+          The id of the Request in Autoland Transplant.
+      status:
+        type: string
+        enum: [aborted, landed, failed, submitted]
+        description: |
+          Status of the landing job in Autoland Transplant.
+      landing_path:
+        $ref: '#/definitions/LandingPath'
+      error_breakdown:
+        $ref: '#/definitions/ErrorBreakdown'
+      details:
+        type: string
+        description: |
+          revision (sha) of push if it is 'landed', otherwise a
+          status update or error message.
+      requester_email:
+        type: string
+        description: |
+          Email of the requester.
+      tree:
+        type: string
+        description: |
+          The repo the revision will land to.
+      repository_url:
+        type: string
+        description: |
+          The url of the repo the revision will land to.
+      created_at:
+        type: string
+        format: date-time
+        description: |
+          ISO format UTC time of creation.
+      updated_at:
+        type: string
+        format: date-time
+        description: |
+          ISO format UTC time of the last update.
+  Stack:
+    type: object
+    properties:
+      edges:
+        type: array
+        description: |
+          A list of edges defining the stacks dependency graph.
+        items:
+          $ref: '#/definitions/StackEdge'
+      landable_paths:
+        type: array
+        description: |
+          A list of landable paths through the stack graph.
+        items:
+          $ref: '#/definitions/LandablePath'
+      revisions:
+        type: array
+        description: |
+          A list of revisions which are part of the stack.
+        items:
+          $ref: '#/definitions/Revision'
+      repositories:
+        type: array
+        description: |
+          A list of all repositories that have revisions in the stack.
+          Lando may not support landing to all of these repositories.
+        items:
+          $ref: '#/definitions/Repository'
+      uplift_repositories:
+        type: array
+        description: |
+          A list of repositories needing an approval before landing.
+        items:
+          type: string
+  LandablePath:
+    type: array
+    description: |
+      A path through a revision stack indicating the set of revisions are
+      landable. Each item in the list is a child revision of the item before
+      it.
+    minItems: 1
+    items:
+      type: string
+      description: |
+        A revision PHID
+  StackEdge:
+    type: array
+    description: |
+      An edge between two revisions in a stack. The first item is the child
+      the second is the parent.
+    minItems: 2
+    maxItems: 2
+    items:
+      type: string
+      description: |
+        A revision PHID.
+  Repository:
+    type: object
+    properties:
+      phid:
+        type: string
+        description: |
+          The repository PHID.
+      short_name:
+        type: string
+        description: |
+          The repository short name as listed on Phabricator.
+      url:
+        type: string
+        description: |
+          The canonical repository URL if landing_supported is true. If false, then
+          this will be the url to the repository on Phabricator.
+      landing_supported:
+        type: boolean
+        description: |
+          Whether Lando is able to land to the repository or not.
+      approval_required:
+        type: boolean
+        description: |
+          Whether Lando needs an approval before landing the stack.
+  Revision:
+    type: object
+    properties:
+      id:
+        type: string
+        description: |
+          The id of the revision in the form of D{number}
+      phid:
+        type: string
+        description: |
+          The phid of the revision.
+      status:
+        type: object
+        description: |
+          The status of the revision.
+        properties:
+          value:
+            type: string
+            description: |
+              The value of this status from Phabricator, a unique identifier.
+          display:
+            type: string
+            description: |
+              A string suitable for displaying this status to a user.
+          closed:
+            type: boolean
+            description: |
+              Whether this status implies the revision is closed.
+      blocked_reason:
+        type: string
+        description: |
+          The reason a revision is blocked from landing. Will be an empty
+          string if the revision is not blocked.
+      bug_id:
+        type: integer
+        description: |
+          The ID of the Bugzilla bug this revision belongs to. Or null if
+          it is not attached to a specific bug.
+      title:
+        type: string
+        description: |
+          The title of the revision.
+      url:
+        type: string
+        description: |
+          A url to the revision on Phabricator.
+      date_created:
+        type: string
+        description: |
+          The date that the revision was created as an ISO format UTC timestamp.
+      date_modified:
+        type: string
+        description: |
+          The date that the revision was last modified as an ISO format UTC
+          timestamp.
+      summary:
+        type: string
+        description: |
+          The summary provided on the revision.
+      commit_message_title:
+        type: string
+        description: |
+          The first line of the commit message that will be used when landing
+          the revision.
+      commit_message:
+        type: string
+        description: |
+          The full commit message that will be used when landing the revision.
+          It is formatted to include the revision title, bug id, reviewers,
+          and revision URL.
+      repo_phid:
+        type: string
+        description: |
+          The PHID of this revision's repository.
+      diff:
+        $ref: '#/definitions/Diff'
+      author:
+        $ref: '#/definitions/User'
+      reviewers:
+        type: array
+        items:
+          $ref: '#/definitions/Reviewer'
+      is_secure:
+        type: boolean
+        description: |
+          Indicates this revision is security-sensitive and should follow the
+          Security Bug Approval Process.  See https://wiki.mozilla.org/Security/Bug_Approval_Process.
+      is_using_secure_commit_message:
+        type: boolean
+        description: |
+          Indicates that the patch author has given an alternative, secure commit
+          message to land this revision with, according to the Security Bug Approval
+          Process. The alternative message is available in the 'title' and
+          'summary' attributes.
+
+          See https://wiki.mozilla.org/Security/Bug_Approval_Process for details.
+  User:
+    type: object
+    properties:
+      phid:
+        type: string
+        description: |
+          The phid of the user.
+      username:
+        type: string
+        description: |
+          The user's username on Phabricator.
+      real_name:
+        type: string
+        description: |
+          The user's real name as they set it on Phabricator.
+  Reviewer:
+    type: object
+    description: |
+      Representation of the reviewer in the context of a revision.
+    properties:
+      phid:
+        type: string
+        description: |
+          The phid of the user.
+      status:
+        type: string
+        enum: [added, accepted, blocking, rejected, resigned]
+        description: |
+          Status set by or on the reviewer. Users added as blocking reviewers
+          have status set to "blocking" instead of "added".
+      for_other_diff:
+        type: boolean
+        description: |
+          True if the reviewer's status (acceptance/rejection) is on a
+          different diff.
+      identifier:
+        type: string
+        description: |
+          The identifying name for this reviewer. Username or project name
+          for reviewers that are users or projects respectively.
+      full_name:
+        type: string
+        description: |
+          A longer name for the reviewer. For a user this would be their
+          realName.
+      blocking_landing:
+        type: boolean
+        description: |
+          True if this reviewer is blocking the revision/diff from landing,
+          such as not having reviewed yet as a blocking reviewer or having
+          rejected the particular diff.
+  Diff:
+    type: object
+    properties:
+      id:
+        type: integer
+        description: |
+          The integer id of the Diff.
+      phid:
+        type: string
+        description: |
+          The phid of the Diff.
+      date_created:
+        type: string
+        description: |
+          The date this Diff was created as an ISO format UTC timestamp.
+      date_modified:
+        type: string
+        description: |
+          The date this Diff was last modified as an ISO format UTC timestamp.
+      vcs_base_revision:
+        type: string
+        description: |
+          The commit hash id of the commit that this Diff was based on. I.e.
+          the parent commit of the commits used to make this Diff.
+      author:
+        type: object
+        description: |
+          The author of the diff as returned by Phabricator. Both name and
+          email are possibly empty strings.
+        properties:
+          name:
+            type: string
+          email:
+            type: string
+  TransplantAssessment:
+    type: object
+    properties:
+      confirmation_token:
+        type: string
+        description: |
+          A token to be passed along with the transplant request when the
+          caller goes to land a revision.  By receiving and passing the token
+          along the caller asserts that they have acknowledged all of the
+          warnings. For example, the caller could present a UI with the
+          warnings to the end user and have the user acknowledge the warnings
+          with a checkbox. Once acknowledged, the UI can pass the confirmation
+          token to the transplant endpoint so the transplant can proceed.
+      blocker:
+        type: string
+        description: |
+          A description of why landing is blocked. Only contains data when
+          the landing is blocked.
+      warnings:
+        type: array
+        description: |
+          A list of issues that the caller should acknowledge before landing
+          their revision.  The caller can signal acknowledgement by sending the
+          confirmation_token with their landing request.
+        items:
+          type: object
+          properties:
+            id:
+              type: string
+              description: A unique identifier for this warning type.
+            display:
+              type: string
+              description: A description of this warning type for display.
+            instances:
+              type: array
+              description: |
+                A list of instances of this warning type.
+              minItems: 1
+              items:
+                type: object
+                properties:
+                  revision_id:
+                    type: string
+                    description: |
+                      ID in "D<int>" form of the revision this warning is for.
+                  details:
+                    type: string
+                    description: |
+                      Details of this warning specific to this instance.
+  # RFC 7807 Problem Details for HTTP APIs (https://tools.ietf.org/html/rfc7807)
+  # is used for error messages. Extensions to the error can be speced using an
+  # "allOf" schema keyword along with additional schema definition
+  Error:
+    type: object
+    properties:
+      status:
+        type: integer
+      type:
+        type: string
+      title:
+        type: string
+      detail:
+        type: string
+      instance:
+        type: string

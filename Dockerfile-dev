@@ -1,0 +1,57 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+FROM python:3.9 as python_base
+
+# Install the Rust toolchain. Some packages do not have pre-built wheels (e.g.
+# rs-parsepatch) and require this in order to compile.
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+
+# Include ~/.cargo/bin in PATH.
+# See: rust-lang.org/tools/install (Configuring the PATH environment variable).
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+FROM python_base
+
+EXPOSE 9000
+
+ENV PYTHONUNBUFFERED=1
+ENV FLASK_RUN_PORT=9000
+ENV FLASK_RUN_HOST=0.0.0.0
+ENV FLASK_DEBUG=1
+
+ENTRYPOINT ["lando-cli"]
+CMD ["run"]
+
+RUN addgroup --gid 10001 app \
+    && adduser \
+        --disabled-password \
+        --uid 10001 \
+        --gid 10001 \
+        --home /app \
+        --gecos "app,,," \
+        app
+
+# TODO: there are some packages here that we do not need.
+COPY requirements.txt /python_requirements.txt
+RUN pip install pip --upgrade
+RUN pip install --no-cache -r /python_requirements.txt
+
+COPY migrations /migrations
+COPY . /app
+
+# We install outside of the app directory to create the .egg-info in a
+# location that will not be mounted over. This means /app needs to be
+# added to PYTHONPATH though.
+RUN cd / && pip install --no-cache /app
+ENV PYTHONPATH /app
+RUN chown -R app:app /app
+
+RUN mkdir /repos
+RUN chown -R app:app /repos
+
+# Run as a non-privileged user
+USER app
+
+WORKDIR /app

@@ -1,10 +1,8 @@
 *.egg-info
+*.pyc
 .env
-.webassets-cache
+.pytest_cache
 /*.egg-info/
-/.cache/
 __pycache__
-docker-compose.override.yml
 env
-landoui/static/build
 staticfiles
