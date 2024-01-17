@@ -1,5 +1,6 @@
-ruff
 black
+jinja2
 pytest
 pytest-django
+ruff
 uwsgi
