@@ -8,8 +8,9 @@ from typing import Optional
 
 import kombu
 from django.conf import settings
+from django.contrib.auth.models import User
+from django.core.exceptions import PermissionDenied
 
-from lando.api.legacy import auth
 from lando.api.legacy.commit_message import format_commit_message
 from lando.api.legacy.decorators import require_phabricator_api_key
 from lando.api.legacy.phabricator import PhabricatorClient
@@ -65,7 +66,7 @@ from lando.main.models.landing_job import (
     add_revisions_to_job,
 )
 from lando.main.models.revision import Revision
-from lando.main.support import ProblemException, g, problem
+from lando.main.support import ProblemException, problem
 from lando.utils.tasks import admin_remove_phab_project
 
 logger = logging.getLogger(__name__)
@@ -133,7 +134,10 @@ def _find_stack_from_landing_path(
 
 
 def _assess_transplant_request(
-    phab: PhabricatorClient, landing_path: list[tuple[int, int]], relman_group_phid: str
+    lando_user: User,
+    phab: PhabricatorClient,
+    landing_path: list[tuple[int, int]],
+    relman_group_phid: str,
 ) -> tuple[
     TransplantAssessment,
     Optional[list[tuple[dict, dict]]],
@@ -158,7 +162,7 @@ def _assess_transplant_request(
     )
 
     assessment = check_landing_blockers(
-        g.auth0_user, landing_path_phid, stack_data, landable, landable_repos
+        lando_user, landing_path_phid, stack_data, landable, landable_repos
     )
     if assessment.blocker is not None:
         return (assessment, None, None, None)
@@ -195,7 +199,7 @@ def _assess_transplant_request(
 
     assessment = check_landing_warnings(
         phab,
-        g.auth0_user,
+        lando_user,
         to_land,
         repo,
         landing_repo,
@@ -209,10 +213,12 @@ def _assess_transplant_request(
     return (assessment, to_land, landing_repo, stack_data)
 
 
-# TODO: auth stuff
-@auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
 @require_phabricator_api_key(optional=True)
-def dryrun(phab: PhabricatorClient, data: dict):
+def dryrun(phab: PhabricatorClient, request, data: dict):
+    lando_user = request.user
+    if not lando_user.is_authenticated:
+        raise PermissionDenied
+
     landing_path = _parse_transplant_request(data)["landing_path"]
 
     release_managers = get_release_managers(phab)
@@ -220,13 +226,18 @@ def dryrun(phab: PhabricatorClient, data: dict):
         raise Exception("Could not find `#release-managers` project on Phabricator.")
 
     relman_group_phid = phab.expect(release_managers, "phid")
-    assessment, *_ = _assess_transplant_request(phab, landing_path, relman_group_phid)
+    assessment, *_ = _assess_transplant_request(
+        lando_user, phab, landing_path, relman_group_phid
+    )
     return assessment.to_dict()
 
 
-@auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
 @require_phabricator_api_key(optional=True)
-def post(phab: PhabricatorClient, data: dict):
+def post(phab: PhabricatorClient, request, data: dict):
+    lando_user = request.user
+    if not lando_user.is_authenticated:
+        raise PermissionDenied
+
     parsed_transplant_request = _parse_transplant_request(data)
     confirmation_token = parsed_transplant_request["confirmation_token"]
     flags = parsed_transplant_request["flags"]
@@ -248,7 +259,7 @@ def post(phab: PhabricatorClient, data: dict):
     relman_group_phid = phab.expect(release_managers, "phid")
 
     assessment, to_land, landing_repo, stack_data = _assess_transplant_request(
-        phab, landing_path, relman_group_phid
+        lando_user, phab, landing_path, relman_group_phid
     )
 
     assessment.raise_if_blocked_or_unacknowledged(confirmation_token)
@@ -353,6 +364,7 @@ def post(phab: PhabricatorClient, data: dict):
         lando_revision = Revision.get_from_revision_id(revision_id)
         if not lando_revision:
             lando_revision = Revision(revision_id=revision_id)
+
         lando_revision.diff_id = diff_id
         lando_revision.save()
 
@@ -373,7 +385,7 @@ def post(phab: PhabricatorClient, data: dict):
         lando_revision.save()
         lando_revisions.append(lando_revision)
 
-    ldap_username = g.auth0_user.email
+    ldap_username = lando_user.email
 
     submitted_assessment = TransplantAssessment(
         blocker=(
@@ -399,6 +411,7 @@ def post(phab: PhabricatorClient, data: dict):
             repository_url=landing_repo.url,
         )
         job.save()
+
     add_revisions_to_job(lando_revisions, job)
     logger.info(f"Setting {revision_reviewers} reviewer data on each revision.")
     for revision in lando_revisions:
@@ -429,7 +442,7 @@ def post(phab: PhabricatorClient, data: dict):
 
 
 @require_phabricator_api_key(optional=True)
-def get_list(phab: PhabricatorClient, stack_revision_id: str):
+def get_list(phab: PhabricatorClient, request, stack_revision_id: str):
     """Return a list of Transplant objects"""
     revision_id_int = revision_id_to_int(stack_revision_id)
 
@@ -456,4 +469,4 @@ def get_list(phab: PhabricatorClient, stack_revision_id: str):
 
     landing_jobs = LandingJob.revisions_query(rev_ids).all()
 
-    return [job.serialize() for job in landing_jobs], 200
+    return [job.serialize() for job in landing_jobs]

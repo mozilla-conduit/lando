@@ -1,7 +1,3 @@
-# This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 import json
 import logging
 import re
@@ -19,6 +15,8 @@ from packaging.version import (
 )
 
 from lando.api.legacy import bmo
+
+# from lando.api.legacy.cache import DEFAULT_CACHE_KEY_TIMEOUT_SECONDS, cache
 from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.phabricator_patch import patch_to_changes
 from lando.api.legacy.repos import (
@@ -68,7 +66,7 @@ def get_uplift_request_form(revision: dict) -> Optional[str]:
 
 
 # @cache.cached(
-#    key_prefix="uplift-repositories"
+#     key_prefix="uplift-repositories", timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
 # )
 def get_uplift_repositories(phab: PhabricatorClient) -> list:
     repos = phab.call_conduit(

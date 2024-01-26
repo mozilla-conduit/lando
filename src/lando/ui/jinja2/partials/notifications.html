@@ -1,9 +1,9 @@
-{% with messages = get_flashed_messages(with_categories=true) %}
+{% with messages = get_messages(request) %}
   {% if messages %}
     <section class="FlashMessages">
       <div class="container">
-        {% for category, message in messages %}
-          <div class="FlashMessages-content notification {{ category | message_type_to_notification_class }}">
+        {% for message in messages %}
+            <div class="FlashMessages-content notification"> {# TODO: message.level should be used to add a class #}
             <button class="FlashMessages-close delete"></button>
             {{ message }}
           </div>

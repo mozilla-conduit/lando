@@ -30,6 +30,7 @@ from lando.api.legacy.stacks import (
 )
 from lando.api.legacy.transactions import get_inline_comments
 from lando.main.models.landing_job import LandingJob, LandingJobStatus
+from lando.main.models.profile import CLAIM_GROUPS_KEY
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.main.support import ProblemException
 
@@ -111,7 +112,7 @@ class TransplantAssessment:
 
     def raise_if_blocked_or_unacknowledged(self, confirmation_token):
         if self.blocker is not None:
-            raise ProblemException(
+            return ProblemException(
                 400,
                 "Landing is Blocked",
                 "There are landing blockers present which prevent landing.",
@@ -122,7 +123,7 @@ class TransplantAssessment:
         details = self.to_dict()
         if not tokens_are_equal(details["confirmation_token"], confirmation_token):
             if confirmation_token is None:
-                raise ProblemException(
+                return ProblemException(
                     400,
                     "Unacknowledged Warnings",
                     "There are landing warnings present which have not "
@@ -131,7 +132,7 @@ class TransplantAssessment:
                     type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
                 )
 
-            raise ProblemException(
+            return ProblemException(
                 400,
                 "Acknowledged Warnings Have Changed",
                 "The warnings present when the request was constructed have "
@@ -387,15 +388,18 @@ def user_block_no_auth0_email(*, auth0_user, **kwargs):
 
 def user_block_scm_level(*, auth0_user, landing_repo, **kwargs):
     """Check the user has the scm level required for this repository."""
-    if auth0_user.is_in_groups(landing_repo.access_group.active_group):
+    required_permission = f"main.{landing_repo.access_group.permission}"
+    if auth0_user.has_perm(required_permission):
         return None
 
-    if auth0_user.is_in_groups(landing_repo.access_group.membership_group):
-        return "Your {} has expired.".format(landing_repo.access_group.display_name)
+    if landing_repo.access_group.membership_group in auth0_user.profile.userinfo.get(
+        CLAIM_GROUPS_KEY, []
+    ):
+        return "Your {} has expired.".format(landing_repo.access_group.permission)
 
     return (
         "You have insufficient permissions to land. {} is required. "
-        "See the FAQ for help.".format(landing_repo.access_group.display_name)
+        "See the FAQ for help.".format(landing_repo.access_group.permission)
     )
 
 

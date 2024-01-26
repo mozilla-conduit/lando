@@ -10,7 +10,7 @@
     The revision or diff you've requested does not exist or you do not have
     permission to view it.
   </p>
-  {% if is_user_authenticated() and not request.cookies['phabricator-api-token'] %}
+  {% if user_is_authenticated and not request.cookies['phabricator-api-token'] %}
     <p>
       If you were trying to view a stack which includes a secure revision, you need to
       <a href='#' class="ErrorPage-showAPIToken">provide your Phabricator API Token</a>.

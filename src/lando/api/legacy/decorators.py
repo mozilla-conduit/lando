@@ -7,9 +7,9 @@ from typing import (
 )
 
 from django.conf import settings
+from django.http import HttpResponse
 
 from lando.api.legacy.phabricator import PhabricatorClient
-from lando.main.support import problem, request
 
 
 class require_phabricator_api_key:
@@ -36,35 +36,30 @@ class require_phabricator_api_key:
 
     def __call__(self, f: Callable) -> Callable:
         @functools.wraps(f)
-        def wrapped(*args, **kwargs):
-            api_key = request["headers"].get("X-Phabricator-API-Key")
+        def wrapped(request, *args, **kwargs):
+            user = request.user
+            if (
+                user.is_authenticated
+                and hasattr(user, "profile")
+                and user.profile.phabricator_api_key
+            ):
+                api_key = user.profile.phabricator_api_key
+            else:
+                api_key = None
 
             if api_key is None and not self.optional:
-                return problem(
-                    401,
-                    "X-Phabricator-API-Key Required",
-                    (
-                        "Phabricator api key not provided in "
-                        "X-Phabricator-API-Key header"
-                    ),
-                    type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401",
-                )
+                return HttpResponse("Phabricator API key is required", status=401)
 
             phab = PhabricatorClient(
                 settings.PHABRICATOR_URL,
                 api_key or settings.PHABRICATOR_UNPRIVILEGED_API_KEY,
             )
             if api_key is not None and not phab.verify_api_token():
-                return problem(
-                    403,
-                    "X-Phabricator-API-Key Invalid",
-                    "Phabricator api key is not valid",
-                    type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
-                )
+                return HttpResponse("Phabricator API key is invalid", status=403)
 
             if self.provide_client:
-                return f(phab, *args, **kwargs)
+                return f(phab, request, *args, **kwargs)
             else:
-                return f(*args, **kwargs)
+                return f(request, *args, **kwargs)
 
         return wrapped

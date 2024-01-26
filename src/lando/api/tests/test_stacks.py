@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import pytest
+from django.http import Http404
 
 from lando.api.legacy.phabricator import PhabricatorRevisionStatus
 from lando.api.legacy.repos import get_repos_for_env
@@ -746,8 +747,8 @@ def test_integrated_stack_response_mismatch_returns_404(
         revision for revision in phabdouble._revisions if revision["id"] != r2["id"]
     ]
 
-    response = proxy_client.get("/stacks/D{}".format(r1["id"]))
-    assert response.status_code == 404
+    with pytest.raises(Http404):
+        response = proxy_client.get("/stacks/D{}".format(r1["id"]))
 
     # Remove dependency on r2.
     phabdouble.update_revision_dependencies(r1["phid"], [])

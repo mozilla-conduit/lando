@@ -86,7 +86,7 @@
   <div class="StackPage-landing-info">
 
   {% set blockers = [] %}
-  {% if is_user_authenticated() and blockers %}
+  {% if user_is_authenticated and blockers %}
     <h2>Landing is blocked:</h2>
     <ul class="StackPage-blockers">
     {% for blocker in blockers %}
@@ -99,12 +99,12 @@
   </div>
 
   <div class="StackPage-actions">
-  {% if not is_user_authenticated() %}
+  {% if not user_is_authenticated %}
     <button disabled>
       <div class="StackPage-actions-headline">Preview Landing</div>
       <div class="StackPage-actions-subtitle">You must log in first</div>
     </button>
-  {% elif not user_has_phabricator_token() and (not series or dryrun is none) %}
+  {% elif not user_has_phabricator_token and (not series or dryrun is none) %}
     <button disabled>
       <div class="StackPage-actions-headline">Landing Blocked</div>
       <div class="StackPage-actions-subtitle">This revision is blocked from landing</div>
@@ -117,7 +117,7 @@
 
   </div>
 
-  {% if is_user_authenticated() %}
+  {% if user_is_authenticated %}
   <div class="StackPage-landingPreview modal">
     <div class="modal-background"></div>
     <div class="modal-card">
@@ -130,7 +130,7 @@
       </section>
       <footer class="modal-card-foot">
         <form class="StackPage-form" action="" method="post">
-          {{form.csrf_token}}
+          {{csrf_input}}
           {{form.landing_path}}
           {{form.confirmation_token}}
           {{form.flags}}
@@ -142,11 +142,11 @@
           </button>
           <button class="StackPage-landingPreview-close button">Cancel</button>
         </form>
-        {% if user_has_phabricator_token() %}
-            <form class="StackPage-landingPreview-uplift" action="{{ url_for('revisions.uplift') }}" method="post">
-              {{ uplift_request_form.csrf_token }}
+        {% if user_has_phabricator_token %}
+        <form class="StackPage-landingPreview-uplift" action="{# {{ url_for('revisions.uplift') }} #}" method="post">
+              {# {{ uplift_request_form.csrf_token }} #}
               <input type="hidden" name="revision_id" value="{{ revision_id }}" />
-              {{ uplift_request_form.repository }}
+              {# {{ uplift_request_form.repository }} #}
               <button
                 class="button"
                 title="Create Phabricator review requests for the selected patch stack to land in the specified uplift train." >

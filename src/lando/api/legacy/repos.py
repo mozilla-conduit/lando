@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 AccessGroup = namedtuple(
     "AccessGroup",
     (
+        # Django permission equivalent to having the right group membership.
+        "permission",
         # LDAP group for active members. Required for landing.
         "active_group",
         # LDAP group for expired members. Indicates the user had the
@@ -110,54 +112,63 @@ class Repo:
 
 
 SCM_ALLOW_DIRECT_PUSH = AccessGroup(
+    permission="scm_allow_direct_push",
     active_group="active_scm_allow_direct_push",
     expired_group="expired_scm_allow_direct_push",
     membership_group="all_scm_allow_direct_push",
     display_name="Above Level 3 Commit Access",
 )
 SCM_LEVEL_3 = AccessGroup(
+    permission="scm_level_3",
     active_group="active_scm_level_3",
     expired_group="expired_scm_level_3",
     membership_group="all_scm_level_3",
     display_name="Level 3 Commit Access",
 )
 SCM_LEVEL_2 = AccessGroup(
+    permission="scm_level_2",
     active_group="active_scm_level_2",
     expired_group="expired_scm_level_2",
     membership_group="all_scm_level_2",
     display_name="Level 2 Commit Access",
 )
 SCM_LEVEL_1 = AccessGroup(
+    permission="scm_level_1",
     active_group="active_scm_level_1",
     expired_group="expired_scm_level_1",
     membership_group="all_scm_level_1",
     display_name="Level 1 Commit Access",
 )
 SCM_VERSIONCONTROL = AccessGroup(
+    permission="scm_versioncontrol",
     active_group="active_scm_versioncontrol",
     expired_group="expired_scm_versioncontrol",
     membership_group="all_scm_versioncontrol",
     display_name="scm_versioncontrol",
 )
 SCM_CONDUIT = AccessGroup(
+    permission="scm_conduit",
     active_group="active_scm_conduit",
     expired_group="expired_scm_conduit",
     membership_group="all_scm_conduit",
     display_name="scm_conduit",
 )
 SCM_L10N_INFRA = AccessGroup(
+    permission="scm_l10n_infra",
     active_group="active_scm_l10n_infra",
     expired_group="expired_scm_l10n_infra",
     membership_group="all_scm_l10n_infra",
     display_name="scm_l10n_infra",
 )
 SCM_NSS = AccessGroup(
+    permission="scm_nss",
     active_group="active_scm_nss",
     expired_group="expired_scm_nss",
     membership_group="all_scm_nss",
     display_name="scm_nss",
 )
 SCM_FIREFOXCI = AccessGroup(
+    permission="scm_firefoxci",
     active_group="active_scm_firefoxci",
     expired_group="expired_scm_firefoxci",
     membership_group="all_scm_firefoxci",
@@ -214,6 +225,13 @@ REPO_CONFIG = {
             access_group=SCM_LEVEL_1,
             approval_required=True,
             milestone_tracking_flag_template="cf_status_firefox{milestone}",
+        ),
+    },
+    "dev": {
+        "git-test-repo": Repo(
+            tree="git-test-repo",
+            url="https://github.com/zzzeid/test-repo.git",
+            access_group=SCM_CONDUIT,
         ),
     },
     "devsvcdev": {
