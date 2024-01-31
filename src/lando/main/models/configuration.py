@@ -106,7 +106,7 @@ class ConfigurationVariable(BaseModel):
         """
         try:
             record = cls.objects.get(cls.key == key.value)
-        except record.DoesNotExist:
+        except cls.DoesNotExist:
             record = None
         if (
             record
