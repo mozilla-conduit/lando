@@ -2,7 +2,6 @@ import logging
 
 
 from lando.ui.legacy.forms import (
-    SecApprovalRequestForm,
     TransplantRequestForm,
     UpliftRequestForm,
 )
