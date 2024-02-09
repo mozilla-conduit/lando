@@ -4,7 +4,7 @@ from django.utils.html import escape
 
 from jinja2 import Environment
 from lando import settings
-
+from lando.ui.legacy.forms import UserSettingsForm
 
 import datetime
 import logging
@@ -12,6 +12,8 @@ import re
 import urllib.parse
 
 from typing import Optional
+
+from django.contrib import messages
 
 FAQ_URL = "https://wiki.mozilla.org/Phabricator/FAQ#Lando"
 SEC_BUG_DOCS = "https://firefox-source-docs.mozilla.org/bug-mgmt/processes/security-approval.html"  # noqa: E501
@@ -313,6 +315,17 @@ def environment(**options):
     env = Environment(**options)
     env.globals.update(
         {
+            "url": reverse,
+            "config": settings,
+            "is_user_authenticated": is_user_authenticated(env),
+            "new_settings_form": UserSettingsForm,
+            "get_messages": messages.get_messages,
+            "user_has_phabricator_token": user_has_phabricator_token(env),
+
+        }
+    )
+    env.filters.update(
+        {
             "avatar_url": avatar_url,
             "bug_url": bug_url,
             "calculate_duration": calculate_duration,
@@ -323,15 +336,7 @@ def environment(**options):
             "graph_height": graph_height,
             "graph_width": graph_width,
             "graph_x_pos": graph_x_pos,
-            "is_user_authenticated": is_user_authenticated(env),
-            "linkify_bug_numbers": linkify_bug_numbers,
-            "linkify_faq": linkify_faq,
-            "linkify_revision_ids": linkify_revision_ids,
-            "linkify_revision_urls": linkify_revision_urls,
-            "linkify_sec_bug_docs": linkify_sec_bug_docs,
-            "linkify_transplant_details": linkify_transplant_details,
             "message_type_to_notification_class": message_type_to_notification_class,
-            # "new_settings_form": new_settings_form,
             "repo_path": repo_path,
             "reviewer_to_action_text": reviewer_to_action_text,
             "reviewer_to_status_badge_class": reviewer_to_status_badge_class,
@@ -340,8 +345,6 @@ def environment(**options):
             "static": static,
             "tostatusbadgeclass": tostatusbadgeclass,
             "tostatusbadgename": tostatusbadgename,
-            "url": reverse,
-            "user_has_phabricator_token": user_has_phabricator_token(env),
         }
     )
     return env
