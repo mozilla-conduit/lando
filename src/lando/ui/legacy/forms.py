@@ -7,11 +7,6 @@ class TransplantRequestForm(forms.Form):
     flags = forms.JSONField(widget=forms.widgets.HiddenInput, required=False)
 
 
-class SecApprovalRequestForm(forms.Form):
-    new_message = forms.CharField(widget=forms.widgets.Textarea)
-    revision_id = forms.RegexField(regex="^D[0-9]+$")
-
-
 class UpliftRequestForm(forms.Form):
     """Form used to request uplift of a stack."""
 
