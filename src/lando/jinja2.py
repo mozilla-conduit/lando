@@ -315,13 +315,12 @@ def environment(**options):
     env = Environment(**options)
     env.globals.update(
         {
-            "url": reverse,
             "config": settings,
+            "get_messages": messages.get_messages,
             "is_user_authenticated": is_user_authenticated(env),
             "new_settings_form": UserSettingsForm,
-            "get_messages": messages.get_messages,
+            "url": reverse,
             "user_has_phabricator_token": user_has_phabricator_token(env),
-
         }
     )
     env.filters.update(
