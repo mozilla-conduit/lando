@@ -6,12 +6,12 @@ import smtplib
 import ssl
 from typing import Optional
 
-from flask import current_app
+from lando import settings
 
-from landoapi.celery import celery
-from landoapi.email import make_failure_email
-from landoapi.phabricator import PhabricatorClient, PhabricatorCommunicationException
-from landoapi.smtp import smtp
+from lando.api.legacy.celery import celery
+from lando.api.legacy.email import make_failure_email
+from lando.api.legacy.phabricator import PhabricatorClient, PhabricatorCommunicationException
+from lando.api.legacy.smtp import smtp
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ def send_landing_failure_email(
                 recipient_email,
                 landing_job_identifier,
                 error_msg,
-                current_app.config["LANDO_UI_URL"],
+                settings.LANDO_UI_URL,
             )
         )
 
@@ -119,7 +119,7 @@ def send_bug_update_failure_email(
                 recipient_email,
                 landing_job_identifier,
                 error_msg,
-                current_app.config["LANDO_UI_URL"],
+                settings.LANDO_UI_URL,
             )
         )
 
@@ -152,8 +152,8 @@ def admin_remove_phab_project(
         transactions.append({"type": "comment", "value": comment})
 
     privileged_phab = PhabricatorClient(
-        current_app.config["PHABRICATOR_URL"],
-        current_app.config["PHABRICATOR_ADMIN_API_KEY"],
+        settings.PHABRICATOR_URL,
+        settings.PHABRICATOR_ADMIN_API_KEY,
     )
     # We only retry for PhabricatorCommunicationException, rather than the
     # base PhabricatorAPIException to treat errors in this implementation as
@@ -175,7 +175,7 @@ def phab_trigger_repo_update(repo_identifier: str):
     """Trigger a repo update in Phabricator's backend."""
     # Tell Phabricator to scan the landing repo so revisions are closed quickly.
     phab = PhabricatorClient(
-        current_app.config["PHABRICATOR_URL"],
-        current_app.config["PHABRICATOR_ADMIN_API_KEY"],
+        settings.PHABRICATOR_URL,
+        settings.PHABRICATOR_ADMIN_API_KEY,
     )
     phab.call_conduit("diffusion.looksoon", repositories=[repo_identifier])

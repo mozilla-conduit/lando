@@ -3,11 +3,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import pytest
 
-from landoapi.phabricator import (
+from lando.api.legacy.phabricator import (
     PhabricatorAPIException,
     PhabricatorCommunicationException,
 )
-from landoapi.tasks import admin_remove_phab_project
+from lando.api.legacy.tasks import admin_remove_phab_project
 
 
 def test_admin_remove_phab_project_succeeds(phabdouble, app):

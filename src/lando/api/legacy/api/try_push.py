@@ -14,18 +14,18 @@ from flask import (
     g,
 )
 
-from landoapi import auth
-from landoapi.hgexports import (
+from lando.api import auth
+from lando.api.legacy.hgexports import (
     GitPatchHelper,
     HgPatchHelper,
     PatchHelper,
 )
-from landoapi.models.landing_job import (
+from lando.main.models.landing_job import (
     LandingJobStatus,
     add_job_with_revisions,
 )
-from landoapi.models.revisions import Revision
-from landoapi.repos import (
+from lando.main.models.revision import Revision
+from lando.api.legacy.repos import (
     get_repos_for_env,
 )
 

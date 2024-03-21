@@ -9,7 +9,7 @@ import json
 import pytest
 import socket
 
-from landoui.app import create_app
+from lando.ui.legacy.app import create_app
 
 
 @pytest.fixture

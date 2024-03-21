@@ -7,13 +7,13 @@ from packaging.version import (
     Version,
 )
 
-from landoapi.phabricator import (
+from lando.api.legacy.phabricator import (
     PhabricatorClient,
 )
-from landoapi.stacks import (
+from lando.api.legacy.stacks import (
     build_stack_graph,
 )
-from landoapi.uplift import (
+from lando.api.legacy.uplift import (
     add_original_revision_line_if_needed,
     create_uplift_bug_update_payload,
     get_revisions_without_bugs,

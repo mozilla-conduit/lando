@@ -10,13 +10,13 @@ from typing import (
     Optional,
 )
 
-from landoapi.phabricator import (
+from lando.api.legacy.phabricator import (
     PhabricatorClient,
     PhabricatorRevisionStatus,
     ReviewerStatus,
 )
-from landoapi.reviews import get_collated_reviewers
-from landoapi.uplift import (
+from lando.api.legacy.reviews import get_collated_reviewers
+from lando.api.legacy.uplift import (
     stack_uplift_form_submitted,
 )
 

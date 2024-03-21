@@ -6,14 +6,14 @@ import base64
 
 import pytest
 
-from landoapi.hg import HgRepo
-from landoapi.hgexports import (
+from lando.api.legacy.hg import HgRepo
+from lando.api.legacy.hgexports import (
     get_timestamp_from_git_date_header,
     parse_git_author_information,
 )
-from landoapi.models.landing_job import LandingJob, LandingJobStatus
-from landoapi.repos import SCM_LEVEL_1, Repo
-from landoapi.workers.landing_worker import LandingWorker
+from lando.api.legacy.models.landing_job import LandingJob, LandingJobStatus
+from lando.api.legacy.repos import SCM_LEVEL_1, Repo
+from lando.api.legacy.workers.landing_worker import LandingWorker
 
 PATCH_DIFF = rb"""
 diff --git a/test.txt b/test.txt

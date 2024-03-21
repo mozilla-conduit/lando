@@ -20,8 +20,8 @@ from typing import (
 
 import hglib
 
-from landoapi.commit_message import bug_list_to_commit_string
-from landoapi.hgexports import HgPatchHelper
+from lando.api.legacy.commit_message import bug_list_to_commit_string
+from lando.api.legacy.hgexports import HgPatchHelper
 
 logger = logging.getLogger(__name__)
 

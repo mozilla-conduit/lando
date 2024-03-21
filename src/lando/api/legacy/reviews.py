@@ -5,12 +5,12 @@
 import logging
 from collections import namedtuple
 
-from landoapi.phabricator import (
+from lando.api.legacy.phabricator import (
     PhabricatorClient,
     PhabricatorCommunicationException,
     ReviewerStatus,
 )
-from landoapi.projects import (
+from lando.api.legacy.projects import (
     RELMAN_PROJECT_SLUG,
 )
 

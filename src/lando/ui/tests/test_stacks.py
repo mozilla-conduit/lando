@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import pytest
 
-from landoui.stacks import (
+from lando.ui.legacy.stacks import (
     draw_stack_graph,
     Edge,
     sort_stack_topological,

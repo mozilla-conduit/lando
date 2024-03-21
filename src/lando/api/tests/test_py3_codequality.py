@@ -7,7 +7,7 @@ Code Style Tests.
 
 import subprocess
 
-from landoapi.cli import LINT_PATHS
+from lando.api.legacy.cli import LINT_PATHS
 
 
 def test_check_python_style():

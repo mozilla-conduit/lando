@@ -4,7 +4,7 @@
 import pytest
 from connexion import ProblemException
 
-from landoapi.validation import revision_id_to_int
+from lando.api.legacy.validation import revision_id_to_int
 
 
 def test_convertion_success():

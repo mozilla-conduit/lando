@@ -5,12 +5,12 @@ import inspect
 
 import pytest
 
-from landoapi.celery import FlaskCelery
-from landoapi.email import make_failure_email
-from landoapi.models.landing_job import LandingJob
-from landoapi.models.revisions import Revision
-from landoapi.notifications import notify_user_of_landing_failure
-from landoapi.tasks import send_landing_failure_email
+from lando.api.legacy.celery import FlaskCelery
+from lando.api.legacy.email import make_failure_email
+from lando.api.legacy.models.landing_job import LandingJob
+from lando.api.legacy.models.revisions import Revision
+from lando.api.legacy.notifications import notify_user_of_landing_failure
+from lando.api.legacy.tasks import send_landing_failure_email
 
 dedent = inspect.cleandoc
 

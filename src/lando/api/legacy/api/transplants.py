@@ -8,19 +8,20 @@ from typing import Optional
 
 import kombu
 from connexion import ProblemException, problem
-from flask import current_app, g
+from lando import settings
+from flask import g
 
-from landoapi import auth
-from landoapi.commit_message import format_commit_message
-from landoapi.decorators import require_phabricator_api_key
-from landoapi.models.landing_job import (
+from lando.api import auth
+from lando.api.legacy.commit_message import format_commit_message
+from lando.api.legacy.decorators import require_phabricator_api_key
+from lando.main.models.landing_job import (
     LandingJob,
     LandingJobStatus,
     add_revisions_to_job,
 )
-from landoapi.models.revisions import Revision
-from landoapi.phabricator import PhabricatorClient
-from landoapi.projects import (
+from lando.main.models.revision import Revision
+from lando.api.legacy.phabricator import PhabricatorClient
+from lando.api.legacy.projects import (
     CHECKIN_PROJ_SLUG,
     get_checkin_project_phid,
     get_release_managers,
@@ -30,41 +31,41 @@ from landoapi.projects import (
     get_testing_tag_project_phids,
     project_search,
 )
-from landoapi.repos import (
+from lando.api.legacy.repos import (
     Repo,
     get_repos_for_env,
 )
-from landoapi.reviews import (
+from lando.api.legacy.reviews import (
     approvals_for_commit_message,
     get_approved_by_ids,
     get_collated_reviewers,
     reviewers_for_commit_message,
 )
-from landoapi.revisions import (
+from lando.api.legacy.revisions import (
     find_title_and_summary_for_landing,
     gather_involved_phids,
     get_bugzilla_bug,
     revision_is_secure,
     select_diff_author,
 )
-from landoapi.stacks import (
+from lando.api.legacy.stacks import (
     RevisionData,
     build_stack_graph,
     calculate_landable_subgraphs,
     get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
-from landoapi.storage import db
-from landoapi.tasks import admin_remove_phab_project
-from landoapi.transplants import (
+from lando.api.legacy.storage import db
+from lando.api.legacy.tasks import admin_remove_phab_project
+from lando.api.legacy.transplants import (
     TransplantAssessment,
     check_landing_blockers,
     check_landing_warnings,
     convert_path_id_to_phid,
     get_blocker_checks,
 )
-from landoapi.users import user_search
-from landoapi.validation import (
+from lando.api.legacy.users import user_search
+from lando.api.legacy.validation import (
     parse_landing_path,
     revision_id_to_int,
 )
@@ -145,7 +146,7 @@ def _assess_transplant_request(
     stack_data = request_extended_revision_data(phab, list(nodes))
     landing_path_phid = convert_path_id_to_phid(landing_path, stack_data)
 
-    supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
+    supported_repos = get_repos_for_env(settings.ENVIRONMENT)
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
 
     other_checks = get_blocker_checks(
@@ -339,7 +340,7 @@ def post(phab: PhabricatorClient, data: dict):
             approval_reviewers,
             commit_description.summary,
             urllib.parse.urljoin(
-                current_app.config["PHABRICATOR_URL"], "D{}".format(revision["id"])
+                settings.PHABRICATOR_URL, "D{}".format(revision["id"])
             ),
             flags,
         )[1]

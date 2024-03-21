@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-from landoapi.hg import (
+from lando.api.legacy.hg import (
     REQUEST_USER_ENV_VAR,
     HgCommandError,
     HgException,

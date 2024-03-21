@@ -13,9 +13,9 @@ import logging
 
 from connexion import problem
 
-from landoapi.decorators import require_phabricator_api_key
-from landoapi.models.revisions import DiffWarning, DiffWarningStatus
-from landoapi.storage import db
+from lando.api.legacy.decorators import require_phabricator_api_key
+from lando.main.models.revision import DiffWarning, DiffWarningStatus
+from lando.api.legacy.storage import db
 
 logger = logging.getLogger(__name__)
 

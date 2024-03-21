@@ -18,11 +18,11 @@ from flask import (
     session,
 )
 
-from landoui.app import oidc
-from landoui.errorhandlers import UIError
-from landoui.forms import UserSettingsForm
-from landoui.helpers import set_last_local_referrer, is_user_authenticated
-from landoui.usersettings import manage_phab_api_token_cookie
+from lando.ui.legacy.app import oidc
+from lando.ui.legacy.errorhandlers import UIError
+from lando.ui.legacy.forms import UserSettingsForm
+from lando.ui.legacy.helpers import set_last_local_referrer, is_user_authenticated
+from lando.ui.legacy.usersettings import manage_phab_api_token_cookie
 
 logger = logging.getLogger(__name__)
 

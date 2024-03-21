@@ -6,7 +6,7 @@ import time
 
 from jose import jwt
 
-from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO_STANDARD
+from lando.api.legacy.mocks.canned_responses.auth0 import CANNED_USERINFO_STANDARD
 
 TEST_KEY_PUB = {
     "kid": "testkey",

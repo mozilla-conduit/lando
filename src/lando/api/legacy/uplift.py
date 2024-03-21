@@ -12,21 +12,21 @@ from typing import (
 )
 
 import requests
-from flask import current_app
+from lando import settings
 from packaging.version import (
     InvalidVersion,
     Version,
 )
 
-from landoapi import bmo
-from landoapi.cache import DEFAULT_CACHE_KEY_TIMEOUT_SECONDS, cache
-from landoapi.phabricator import PhabricatorClient
-from landoapi.phabricator_patch import patch_to_changes
-from landoapi.repos import (
+from lando.api import bmo
+from lando.api.legacy.cache import DEFAULT_CACHE_KEY_TIMEOUT_SECONDS, cache
+from lando.api.legacy.phabricator import PhabricatorClient
+from lando.api.legacy.phabricator_patch import patch_to_changes
+from lando.api.legacy.repos import (
     Repo,
     get_repos_for_env,
 )
-from landoapi.stacks import (
+from lando.api.legacy.stacks import (
     RevisionData,
     RevisionStack,
     build_stack_graph,
@@ -154,7 +154,7 @@ def get_local_uplift_repo(phab: PhabricatorClient, target_repository: dict) -> R
     Raise if the repo is not an uplift repo.
     """
     # Check the target repository needs an approval.
-    repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
+    repos = get_repos_for_env(settings.ENVIRONMENT)
     repo_shortname = phab.expect(target_repository, "fields", "shortName")
     local_repo = repos.get(repo_shortname)
 

@@ -5,7 +5,7 @@ import urllib.parse
 
 import pytest
 
-from landoui.template_helpers import (
+from lando.ui.legacy.template_helpers import (
     avatar_url,
     linkify_bug_numbers,
     linkify_revision_ids,

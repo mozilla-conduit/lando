@@ -1,8 +1,8 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-from landoui.forms import UserSettingsForm
-from landoui.usersettings import manage_phab_api_token_cookie
+from lando.ui.legacy.forms import UserSettingsForm
+from lando.ui.legacy.usersettings import manage_phab_api_token_cookie
 
 
 def test_setting_token(app):

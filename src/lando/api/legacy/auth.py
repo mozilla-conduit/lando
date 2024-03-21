@@ -16,13 +16,14 @@ from typing import (
 
 import requests
 from connexion import ProblemException, request
-from flask import current_app, g
+from lando import settings
+from flask import  g
 from jose import jwt
 
-from landoapi.cache import cache
-from landoapi.mocks.auth import MockAuth0
-from landoapi.repos import AccessGroup
-from landoapi.systems import Subsystem
+from django.core.cache import cache
+from lando.api.legacy.mocks.auth import MockAuth0
+from lando.api.legacy.repos import AccessGroup
+from lando.api.legacy.systems import Subsystem
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,7 @@ def jwks_cache_key(url: str) -> str:
 def get_jwks() -> dict:
     """Return the auth0 jwks."""
     jwks_url = "https://{oidc_domain}/.well-known/jwks.json".format(
-        oidc_domain=current_app.config["OIDC_DOMAIN"]
+        oidc_domain=settings.OIDC_DOMAIN
     )
     cache_key = jwks_cache_key(jwks_url)
 
@@ -163,7 +164,7 @@ def userinfo_cache_key(access_token: str, user_sub: str) -> str:
 
 
 def get_userinfo_url() -> str:
-    return "https://{}/userinfo".format(current_app.config["OIDC_DOMAIN"])
+    return "https://{}/userinfo".format(settings.OIDC_DOMAIN)
 
 
 def fetch_auth0_userinfo(access_token: str) -> requests.Response:
@@ -442,7 +443,7 @@ class require_auth0:
                 )
 
             issuer = "https://{oidc_domain}/".format(
-                oidc_domain=current_app.config["OIDC_DOMAIN"]
+                oidc_domain=settings.OIDC_DOMAIN
             )
 
             try:
@@ -450,7 +451,7 @@ class require_auth0:
                     token,
                     key,
                     algorithms=ALGORITHMS,
-                    audience=current_app.config["OIDC_IDENTIFIER"],
+                    audience=settings.OIDC_IDENTIFIER,
                     issuer=issuer,
                 )
             except jwt.ExpiredSignatureError:

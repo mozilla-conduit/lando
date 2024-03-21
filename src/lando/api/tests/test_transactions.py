@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from landoapi.transactions import get_inline_comments, transaction_search
+from lando.api.legacy.transactions import get_inline_comments, transaction_search
 
 
 def test_transaction_search_for_all_transactions(phabdouble):

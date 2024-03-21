@@ -14,7 +14,7 @@ from dataclasses import (
 )
 from typing import Optional
 
-from landoapi.systems import Subsystem
+from lando.api.legacy.systems import Subsystem
 
 logger = logging.getLogger(__name__)
 
@@ -435,7 +435,7 @@ class RepoCloneSubsystem(Subsystem):
         self.repos = {name: repos[name] for name in repo_names}
         self.repo_paths = {}
 
-        from landoapi.hg import HgRepo
+        from lando.api.legacy.hg import HgRepo
 
         for name, repo in self.repos.items():
             path = clones_path.joinpath(name)

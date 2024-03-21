@@ -18,20 +18,20 @@ import sqlalchemy
 from flask import current_app
 from pytest_flask.plugin import JSONResponse
 
-from landoapi.app import SUBSYSTEMS, construct_app, load_config
-from landoapi.cache import cache
-from landoapi.mocks.auth import TEST_JWKS, MockAuth0
-from landoapi.phabricator import PhabricatorClient
-from landoapi.projects import (
+from lando.api.legacy.app import SUBSYSTEMS, construct_app, load_config
+from lando.api.legacy.cache import cache
+from lando.api.legacy.mocks.auth import TEST_JWKS, MockAuth0
+from lando.api.legacy.phabricator import PhabricatorClient
+from lando.api.legacy.projects import (
     CHECKIN_PROJ_SLUG,
     RELMAN_PROJECT_SLUG,
     SEC_APPROVAL_PROJECT_SLUG,
     SEC_PROJ_SLUG,
 )
-from landoapi.repos import SCM_LEVEL_1, SCM_LEVEL_3, Repo
-from landoapi.storage import db as _db
-from landoapi.tasks import celery
-from landoapi.transplants import CODE_FREEZE_OFFSET, tokens_are_equal
+from lando.api.legacy.repos import SCM_LEVEL_1, SCM_LEVEL_3, Repo
+from lando.api.legacy.storage import db as _db
+from lando.api.legacy.tasks import celery
+from lando.api.legacy.transplants import CODE_FREEZE_OFFSET, tokens_are_equal
 from tests.mocks import PhabricatorDouble, TreeStatusDouble
 
 PATCH_NORMAL_1 = r"""

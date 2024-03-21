@@ -8,7 +8,7 @@ import os.path
 
 import pytest
 
-from landoapi.phabricator_patch import patch_to_changes
+from lando.api.legacy.phabricator_patch import patch_to_changes
 
 
 @pytest.mark.parametrize("patch_name", ["basic", "random", "add"])

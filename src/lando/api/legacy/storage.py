@@ -6,7 +6,7 @@ from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import DBAPIError, SQLAlchemyError
 
-from landoapi.systems import Subsystem
+from lando.api.legacy.systems import Subsystem
 
 db = SQLAlchemy()
 migrate = Migrate()

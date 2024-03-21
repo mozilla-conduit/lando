@@ -5,7 +5,7 @@ import pytest
 import requests
 import requests_mock
 
-from landoui.landoapi import (
+from lando.ui.legacy.landoapi import (
     LandoAPI,
     LandoAPIError,
     LandoAPICommunicationException,

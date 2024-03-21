@@ -4,7 +4,7 @@
 import logging
 from email.message import EmailMessage
 
-from landoapi.validation import REVISION_ID_RE
+from lando.api.legacy.validation import REVISION_ID_RE
 
 logger = logging.getLogger(__name__)
 

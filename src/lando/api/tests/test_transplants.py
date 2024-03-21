@@ -6,20 +6,20 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from landoapi.hg import HgRepo
-from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
-from landoapi.models.landing_job import (
+from lando.api.legacy.hg import HgRepo
+from lando.api.legacy.mocks.canned_responses.auth0 import CANNED_USERINFO
+from lando.api.legacy.models.landing_job import (
     LandingJob,
     LandingJobStatus,
     add_job_with_revisions,
 )
-from landoapi.models.revisions import Revision
-from landoapi.models.transplant import Transplant
-from landoapi.phabricator import PhabricatorRevisionStatus, ReviewerStatus
-from landoapi.repos import DONTBUILD, SCM_CONDUIT, SCM_LEVEL_3, Repo
-from landoapi.reviews import get_collated_reviewers
-from landoapi.tasks import admin_remove_phab_project
-from landoapi.transplants import (
+from lando.api.legacy.models.revisions import Revision
+from lando.api.legacy.models.transplant import Transplant
+from lando.api.legacy.phabricator import PhabricatorRevisionStatus, ReviewerStatus
+from lando.api.legacy.repos import DONTBUILD, SCM_CONDUIT, SCM_LEVEL_3, Repo
+from lando.api.legacy.reviews import get_collated_reviewers
+from lando.api.legacy.tasks import admin_remove_phab_project
+from lando.api.legacy.transplants import (
     RevisionWarning,
     TransplantAssessment,
     warning_not_accepted,
@@ -28,7 +28,7 @@ from landoapi.transplants import (
     warning_revision_secure,
     warning_wip_commit_message,
 )
-from landoapi.workers.landing_worker import LandingWorker
+from lando.api.legacy.workers.landing_worker import LandingWorker
 
 
 def _create_landing_job(

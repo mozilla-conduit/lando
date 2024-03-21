@@ -5,7 +5,7 @@ import pytest
 
 from werkzeug.datastructures import MultiDict
 
-from landoui.forms import UserSettingsForm
+from lando.ui.legacy.forms import UserSettingsForm
 
 
 class MockUserSettingsForm(UserSettingsForm):

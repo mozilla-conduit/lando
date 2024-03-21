@@ -7,10 +7,10 @@ from unittest.mock import Mock
 import redis
 from sqlalchemy.exc import SQLAlchemyError
 
-from landoapi.auth import auth0_subsystem
-from landoapi.cache import cache_subsystem
-from landoapi.phabricator import PhabricatorAPIException, phabricator_subsystem
-from landoapi.storage import db_subsystem
+from lando.api.legacy.auth import auth0_subsystem
+from lando.api.legacy.cache import cache_subsystem
+from lando.api.legacy.phabricator import PhabricatorAPIException, phabricator_subsystem
+from lando.api.legacy.storage import db_subsystem
 
 
 def test_database_healthy(db):

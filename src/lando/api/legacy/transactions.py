@@ -10,7 +10,7 @@ from typing import (
     Optional,
 )
 
-from landoapi.phabricator import PhabricatorClient
+from lando.api.legacy.phabricator import PhabricatorClient
 
 # Type for a Phabricator API Transaction returned by the transaction.search operation.
 Transaction = NewType("Transaction", dict)
