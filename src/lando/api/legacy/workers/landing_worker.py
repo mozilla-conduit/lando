@@ -26,8 +26,8 @@ from lando.api.legacy.hg import (
     TreeApprovalRequired,
     TreeClosed,
 )
-from lando.api.legacy.models.configuration import ConfigurationKey
-from lando.api.legacy.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
+from lando.main.models.configuration import ConfigurationKey
+from lando.main.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
 from lando.api.legacy.notifications import (
     notify_user_of_bug_update_failure,
     notify_user_of_landing_failure,
@@ -36,7 +36,6 @@ from lando.api.legacy.repos import (
     Repo,
     repo_clone_subsystem,
 )
-from lando.api.legacy.storage import SQLAlchemy, db
 from lando.api.legacy.tasks import phab_trigger_repo_update
 from lando.api.legacy.treestatus import (
     TreeStatus,
@@ -51,7 +50,7 @@ logger = logging.getLogger(__name__)
 
 
 @contextmanager
-def job_processing(worker: LandingWorker, job: LandingJob, db: SQLAlchemy):
+def job_processing(worker: LandingWorker, job: LandingJob):
     """Mutex-like context manager that manages job processing miscellany.
 
     This context manager facilitates graceful worker shutdown, tracks the duration of
@@ -60,14 +59,13 @@ def job_processing(worker: LandingWorker, job: LandingJob, db: SQLAlchemy):
     Args:
         worker: the landing worker that is processing jobs
         job: the job currently being processed
-        db: active database session
     """
     start_time = datetime.now()
     try:
         yield
     finally:
         job.duration_seconds = (datetime.now() - start_time).seconds
-        db.session.commit()
+        job.save()
 
 
 class LandingWorker(Worker):

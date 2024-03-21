@@ -8,13 +8,12 @@ import pytest
 
 from lando.api.legacy.hg import HgRepo
 from lando.api.legacy.mocks.canned_responses.auth0 import CANNED_USERINFO
-from lando.api.legacy.models.landing_job import (
+from lando.main.models.landing_job import (
     LandingJob,
     LandingJobStatus,
     add_job_with_revisions,
 )
-from lando.api.legacy.models.revisions import Revision
-from lando.api.legacy.models.transplant import Transplant
+from lando.main.models.revision import Revision
 from lando.api.legacy.phabricator import PhabricatorRevisionStatus, ReviewerStatus
 from lando.api.legacy.repos import DONTBUILD, SCM_CONDUIT, SCM_LEVEL_3, Repo
 from lando.api.legacy.reviews import get_collated_reviewers
@@ -49,9 +48,7 @@ def _create_landing_job(
     }
     revisions = []
     for revision_id, diff_id in landing_path:
-        revision = Revision.query.filter(
-            Revision.revision_id == revision_id
-        ).one_or_none()
+        revision = Revision.one_or_none(revision_id=revision_id)
         if not revision:
             revision = Revision(revision_id=revision_id)
         revision.diff_id = diff_id
@@ -83,9 +80,7 @@ def _create_landing_job_with_no_linked_revisions(
     db.session.add(job)
     revisions = []
     for revision_id, diff_id in landing_path:
-        revision = Revision.query.filter(
-            Revision.revision_id == revision_id
-        ).one_or_none()
+        revision = Revision.one_or_none(revision_id=revision_id)
         if not revision:
             revision = Revision(revision_id=revision_id)
         revision.diff_id = diff_id
@@ -705,7 +700,7 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     db.session.close()
 
     # Get LandingJob object by its id
-    job = LandingJob.query.get(job_id)
+    job = LandingJob.objects.get(pk=job_id)
     assert job.id == job_id
     assert [(revision.revision_id, revision.diff_id) for revision in job.revisions] == [
         (r1["id"], d1["id"]),
@@ -785,7 +780,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     db.session.close()
 
     # Get LandingJob object by its id
-    job = LandingJob.query.get(job_id)
+    job = LandingJob.objects.get(pk=job_id)
     assert job.id == job_id
     assert [(revision.revision_id, revision.diff_id) for revision in job.revisions] == [
         (r1["id"], d1["id"]),
@@ -845,7 +840,7 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     db.session.close()
 
     # Get LandingJob object by its id.
-    job = LandingJob.query.get(job_1_id)
+    job = LandingJob.objects.get(pk=job_1_id)
     assert job.id == job_1_id
     assert [(revision.revision_id, revision.diff_id) for revision in job.revisions] == [
         (r1["id"], d1a["id"]),
@@ -860,7 +855,7 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
         headers=auth0_mock.mock_headers,
     )
 
-    job = LandingJob.query.get(job_1_id)
+    job = LandingJob.objects.get(pk=job_1_id)
     assert job.status == LandingJobStatus.CANCELLED
 
     d1b = phabdouble.diff(revision=r1)
@@ -881,8 +876,8 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     db.session.close()
 
     # Get LandingJob objects by their ids.
-    job_1 = LandingJob.query.get(job_1_id)
-    job_2 = LandingJob.query.get(job_2_id)
+    job_1 = LandingJob.objects.get(pk=job_1_id)
+    job_2 = LandingJob.objects.get(pk=job_2_id)
 
     # The Revision objects always track the latest revisions.
     assert [
@@ -1203,10 +1198,6 @@ def test_warning_wip_commit_message(phabdouble):
     )
 
     assert warning_wip_commit_message(revision=revision) is not None
-
-
-def test_display_branch_head():
-    assert Transplant(revision_order=["1", "2"]).head_revision == "D2"
 
 
 def test_codefreeze_datetime_mock(codefreeze_datetime):

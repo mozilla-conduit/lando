@@ -5,24 +5,10 @@
 from unittest.mock import Mock
 
 import redis
-from sqlalchemy.exc import SQLAlchemyError
 
 from lando.api.legacy.auth import auth0_subsystem
 from lando.api.legacy.cache import cache_subsystem
 from lando.api.legacy.phabricator import PhabricatorAPIException, phabricator_subsystem
-from lando.api.legacy.storage import db_subsystem
-
-
-def test_database_healthy(db):
-    assert db_subsystem.healthy() is True
-
-
-def test_database_unhealthy(db, monkeypatch):
-    mock_db = Mock(db)
-    monkeypatch.setattr("landoapi.storage.db", mock_db)
-
-    mock_db.engine.connect.side_effect = SQLAlchemyError
-    assert db_subsystem.healthy() is not True
 
 
 def test_phabricator_healthy(app, phabdouble):

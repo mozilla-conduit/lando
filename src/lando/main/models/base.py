@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import ContextDecorator
 import logging
 import os
 import subprocess
@@ -7,6 +8,7 @@ import tempfile
 from pathlib import Path
 
 from django.db import models
+from django.db import connection
 
 from lando import settings
 from lando.utils import GitPatchHelper
@@ -22,6 +24,30 @@ class BaseModel(models.Model):
 
     class Meta:
         abstract = True
+
+    class lock_table(ContextDecorator):
+        """Decorator to lock table for current model."""
+
+        def __init__(self, model, lock):
+            self.lock = lock
+
+            if lock not in ("SHARE ROW EXCLUSIVE", ):
+                raise ValueError(f"{lock} not valid.")
+
+        def __enter__(self):
+            cursor = connection.cursor()
+            cursor.execute(f"LOCK TABLE {self._meta.db_table} IN {self.lock} MODE")
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+    @classmethod
+    def one_or_none(cls, *args, **kwargs):
+        try:
+            result = cls.objects.get(*args, **kwargs)
+        except cls.DoesNotExist:
+            return None
+        return result
 
 
 class Repo(BaseModel):

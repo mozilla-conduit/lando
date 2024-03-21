@@ -82,9 +82,6 @@ def landing_worker():
 @cli.command(name="run-pre-deploy-sequence")
 def run_pre_deploy_sequence():
     """Runs the sequence of commands required before a deployment."""
-    from lando.api.legacy.storage import db_subsystem
-
-    db_subsystem.ensure_ready()
     ConfigurationVariable.set(
         ConfigurationKey.API_IN_MAINTENANCE, VariableType.BOOL, "1"
     )
@@ -96,9 +93,6 @@ def run_pre_deploy_sequence():
 @cli.command(name="run-post-deploy-sequence")
 def run_post_deploy_sequence():
     """Runs the sequence of commands required after a deployment."""
-    from lando.api.legacy.storage import db_subsystem
-
-    db_subsystem.ensure_ready()
     ConfigurationVariable.set(
         ConfigurationKey.API_IN_MAINTENANCE, VariableType.BOOL, "0"
     )
