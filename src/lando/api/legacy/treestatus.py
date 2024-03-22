@@ -156,8 +156,8 @@ class TreeStatusSubsystem(Subsystem):
     def init_app(self, app):
         super().init_app(app)
 
-        self.client = TreeStatus(url=self.flask_app.config["TREESTATUS_URL"])
-        version_sha = self.flask_app.config["VERSION"].get("version", "dev")
+        self.client = TreeStatus(url=settings.TREESTATUS_URL)
+        version_sha = settings.VERSION.get("version", "dev")
         self.client.session.headers.update(
             {"User-Agent": f"landoapi.treestatus.TreeStatus/{version_sha}"}
         )

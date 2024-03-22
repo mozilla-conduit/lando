@@ -408,13 +408,13 @@ class RepoCloneSubsystem(Subsystem):
     name = "repo_clone"
 
     def ready(self) -> Optional[bool | str]:
-        clones_path = self.flask_app.config["REPO_CLONES_PATH"]
-        repo_names = self.flask_app.config["REPOS_TO_LAND"]
+        clones_path = settings.REPO_CLONES_PATH
+        repo_names = settings.REPOS_TO_LAND
 
         if not clones_path and not repo_names:
             return None
 
-        clones_path = pathlib.Path(self.flask_app.config["REPO_CLONES_PATH"])
+        clones_path = pathlib.Path(settings.REPO_CLONES_PATH)
         if not clones_path.exists() or not clones_path.is_dir():
             return (
                 "REPO_CLONES_PATH ({}) is not a valid path to an existing "
@@ -428,7 +428,7 @@ class RepoCloneSubsystem(Subsystem):
                 "of repository names."
             )
 
-        repos = get_repos_for_env(self.flask_app.config.get("ENVIRONMENT"))
+        repos = get_repos_for_env(settings.ENVIRONMENT)
         if not all(name in repos for name in repo_names):
             return "REPOS_TO_LAND contains unsupported repository names."
 

@@ -26,8 +26,8 @@ class CacheSubsystem(Subsystem):
 
     def init_app(self, app):
         super().init_app(app)
-        host = self.flask_app.config.get("CACHE_REDIS_HOST")
-        if self.flask_app.config.get("CACHE_DISABLED"):
+        host = settings.CACHE_REDIS_HOST
+        if settings.CACHE_DISABLED:
             # Default to not caching for testing.
             logger.warning("Cache initialized in null mode.")
             cache_config = {"CACHE_TYPE": "NullCache"}

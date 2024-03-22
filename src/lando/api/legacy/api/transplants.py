@@ -7,9 +7,8 @@ from datetime import datetime
 from typing import Optional
 
 import kombu
-from connexion import ProblemException, problem
+from lando.main.support import ProblemException, problem, g
 from lando import settings
-from flask import g
 
 from lando.api import auth
 from lando.api.legacy.commit_message import format_commit_message

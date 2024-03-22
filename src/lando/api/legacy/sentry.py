@@ -4,7 +4,7 @@
 import logging
 
 import sentry_sdk
-from sentry_sdk.integrations.flask import FlaskIntegration
+from sentry_sdk.integrations.django import DjangoIntegration
 
 from lando.api.legacy.systems import Subsystem
 
@@ -30,14 +30,14 @@ class SentrySubsystem(Subsystem):
     def init_app(self, app):
         super().init_app(app)
 
-        sentry_dsn = self.flask_app.config.get("SENTRY_DSN")
+        sentry_dsn = settings.SENTRY_DSN
         logger.info("sentry status", extra={"enabled": bool(sentry_dsn)})
         sentry_sdk.init(
             before_send=before_send,
             dsn=sentry_dsn,
-            integrations=[FlaskIntegration()],
+            integrations=[DjangoIntegration()],
             traces_sample_rate=1.0,
-            release=self.flask_app.config.get("VERSION").get("version", "0.0.0"),
+            release=self.settings.VERSION.get("version", "0.0.0"),
         )
 
 

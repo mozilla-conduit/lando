@@ -6,7 +6,7 @@ import logging
 import time
 from typing import Optional
 
-from connexion import FlaskApi, problem
+from lando.main.support import FlaskApi, problem
 from flask import (
     Flask,
     Response,
