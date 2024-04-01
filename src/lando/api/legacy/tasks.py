@@ -7,10 +7,12 @@ import ssl
 from typing import Optional
 
 from lando import settings
-
 from lando.api.legacy.celery import celery
 from lando.api.legacy.email import make_failure_email
-from lando.api.legacy.phabricator import PhabricatorClient, PhabricatorCommunicationException
+from lando.api.legacy.phabricator import (
+    PhabricatorClient,
+    PhabricatorCommunicationException,
+)
 from lando.api.legacy.smtp import smtp
 
 logger = logging.getLogger(__name__)

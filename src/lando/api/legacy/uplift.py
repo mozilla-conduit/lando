@@ -12,14 +12,13 @@ from typing import (
 )
 
 import requests
-from lando import settings
 from packaging.version import (
     InvalidVersion,
     Version,
 )
 
-from lando.api import bmo
-from lando.api.legacy.cache import DEFAULT_CACHE_KEY_TIMEOUT_SECONDS, cache
+from lando import settings
+from lando.api.legacy import bmo
 from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.phabricator_patch import patch_to_changes
 from lando.api.legacy.repos import (
@@ -68,9 +67,9 @@ def get_uplift_request_form(revision: dict) -> Optional[str]:
     return bug
 
 
-@cache.cached(
-    key_prefix="uplift-repositories", timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
-)
+#@cache.cached(
+#    key_prefix="uplift-repositories"
+#)
 def get_uplift_repositories(phab: PhabricatorClient) -> list:
     repos = phab.call_conduit(
         "diffusion.repository.search",

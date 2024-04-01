@@ -165,7 +165,7 @@ class HgRepo:
         "extensions.purge": "",
         "extensions.strip": "",
         "extensions.rebase": "",
-        "extensions.set_landing_system": "/app/hgext/set_landing_system.py",
+        "extensions.set_landing_system": "/code/src/lando/api/legacy/hgext/set_landing_system.py",
     }
 
     def __init__(self, path, config=None):

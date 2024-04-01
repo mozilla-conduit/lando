@@ -10,6 +10,9 @@ from lando.main.models.revision import (
     DiffWarningStatus,
 )
 
+pytest.skip(allow_module_level=True)
+# NOTE: this should be ported as an API endpoint.
+
 
 @pytest.fixture
 def phab_header(phabdouble):

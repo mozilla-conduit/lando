@@ -9,16 +9,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
-import flask.testing
 import pytest
 import redis
 import requests
 import requests_mock
-from flask import current_app
-from pytest_flask.plugin import JSONResponse
+from django.core.cache import cache
+from django.http import JsonResponse as JSONResponse
+from django.test import Client
 
-from lando.api.legacy.app import SUBSYSTEMS, construct_app, load_config
-from lando.api.legacy.cache import cache
+from lando import settings
 from lando.api.legacy.mocks.auth import TEST_JWKS, MockAuth0
 from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.projects import (
@@ -28,10 +27,8 @@ from lando.api.legacy.projects import (
     SEC_PROJ_SLUG,
 )
 from lando.api.legacy.repos import SCM_LEVEL_1, SCM_LEVEL_3, Repo
-from lando.api.legacy.storage import db as _db
-from lando.api.legacy.tasks import celery
 from lando.api.legacy.transplants import CODE_FREEZE_OFFSET, tokens_are_equal
-from tests.mocks import PhabricatorDouble, TreeStatusDouble
+from lando.api.tests.mocks import PhabricatorDouble, TreeStatusDouble
 
 PATCH_NORMAL_1 = r"""
 # HG changeset patch
@@ -87,6 +84,40 @@ new file mode 100644
 
 
 @pytest.fixture
+def app():
+    class _config:
+        """Bridge legacy testing config with new config."""
+        def __init__(self, overrides: dict = None):
+            self.overrides = overrides or {}
+
+        def __getitem__(self, key):
+            if key in self.overrides:
+                return self.overrides[key]
+            return getattr(settings, key)
+
+        def __setitem__(self, key, value):
+            setattr(settings, key, value)
+
+    class _app:
+        class test_request_context:
+            def __init__(self, *args, **kwargs):
+                self.args = args
+                self.kwargs = kwargs
+
+            def __enter__(self):
+                return Client(*self.args, **self.kwargs)
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+        config = _config({
+            "TESTING": True,
+            "CACHE_DISABLED": True,
+        })
+
+    return _app()
+
+
+@pytest.fixture
 def normal_patch():
     """Return one of several "normal" patches."""
     _patches = [
@@ -101,7 +132,7 @@ def normal_patch():
     return _patch
 
 
-class JSONClient(flask.testing.FlaskClient):
+class JSONClient(Client):
     """Custom Flask test client that sends JSON by default.
 
     HTTP methods have a 'json=...' keyword that will JSON-encode the
@@ -228,39 +259,8 @@ def versionfile(tmpdir):
 
 
 @pytest.fixture
-def disable_migrations(monkeypatch):
-    """Disable the Alembic DB migrations system in the app during testing."""
-
-    class StubAlembic:
-        def __init__(self):
-            pass
-
-        def init_app(self, app, db):
-            pass
-
-    monkeypatch.setattr("landoapi.storage.migrate", StubAlembic())
-
-
-@pytest.fixture
-def app(versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
-    """Needed for pytest-flask."""
-    config = load_config()
-    # We need the TESTING setting turned on to get tracebacks when testing API
-    # endpoints with the TestClient.
-    config["TESTING"] = True
-    config["CACHE_DISABLED"] = True
-    app = construct_app(config)
-    flask_app = app.app
-    flask_app.test_client_class = JSONClient
-    for system in SUBSYSTEMS:
-        system.init_app(flask_app)
-
-    return flask_app
-
-
-@pytest.fixture
 def jwks(monkeypatch):
-    monkeypatch.setattr("landoapi.auth.get_jwks", lambda *args, **kwargs: TEST_JWKS)
+    monkeypatch.setattr("lando.api.legacy.auth.get_jwks", lambda *args, **kwargs: TEST_JWKS)
 
 
 @pytest.fixture
@@ -270,7 +270,7 @@ def auth0_mock(jwks, monkeypatch):
         status_code=200, json=lambda: mock_auth0.userinfo
     )
     monkeypatch.setattr(
-        "landoapi.auth.fetch_auth0_userinfo", lambda token: mock_userinfo_response
+        "lando.api.legacy.auth.fetch_auth0_userinfo", lambda token: mock_userinfo_response
     )
     return mock_auth0
 
@@ -278,7 +278,7 @@ def auth0_mock(jwks, monkeypatch):
 @pytest.fixture
 def mock_repo_config(monkeypatch):
     def set_repo_config(config):
-        monkeypatch.setattr("landoapi.repos.REPO_CONFIG", config)
+        monkeypatch.setattr("lando.api.legacy.repos.REPO_CONFIG", config)
 
     return set_repo_config
 
@@ -330,7 +330,7 @@ def set_confirmation_token_comparison(monkeypatch):
         mem["val"] = val
 
     monkeypatch.setattr(
-        "landoapi.transplants.tokens_are_equal",
+        "lando.api.legacy.transplants.tokens_are_equal",
         lambda t1, t2: mem["val"] if mem["set"] else tokens_are_equal(t1, t2),
     )
     return set_value
@@ -339,8 +339,8 @@ def set_confirmation_token_comparison(monkeypatch):
 @pytest.fixture
 def get_phab_client(app):
     def get_client(api_key=None):
-        api_key = api_key or current_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"]
-        return PhabricatorClient(current_app.config["PHABRICATOR_URL"], api_key)
+        api_key = api_key or settings.PHABRICATOR_UNPRIVILEGED_API_KEY
+        return PhabricatorClient(settings.PHABRICATOR_URL, api_key)
 
     return get_client
 
@@ -360,21 +360,6 @@ def redis_cache(app):
     yield cache
     cache.clear()
     cache.init_app(app, config={"CACHE_TYPE": "null", "CACHE_NO_NULL_WARNING": True})
-
-
-@pytest.fixture
-def celery_app(app):
-    """Configure our app's Celery instance for use with the celery_worker fixture."""
-    # The test suite will fail if we don't override the default worker and
-    # default task set.
-    # Note: the test worker will fail if we don't specify a result_backend.  The test
-    # harness uses the backend for a custom ping() task that it uses as a health check.
-    celery.conf.update(broker_url="memory://", result_backend="rpc")
-    # Workaround for https://github.com/celery/celery/issues/4032.  If 'tasks.ping' is
-    # missing from the loaded task list then the test worker will fail with an
-    # AssertionError.
-    celery.loader.import_module("celery.contrib.testing.tasks")
-    return celery
 
 
 @pytest.fixture

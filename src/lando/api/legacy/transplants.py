@@ -9,11 +9,8 @@ from collections import namedtuple
 from datetime import datetime, timezone
 
 import requests
-from lando.main.support import ProblemException
-from lando import settings
 
-from lando.main.models.landing_job import LandingJob, LandingJobStatus
-from lando.main.models.revision import DiffWarning, DiffWarningStatus
+from lando import settings
 from lando.api.legacy.phabricator import (
     PhabricatorClient,
     PhabricatorRevisionStatus,
@@ -32,6 +29,9 @@ from lando.api.legacy.stacks import (
     RevisionData,
 )
 from lando.api.legacy.transactions import get_inline_comments
+from lando.main.models.landing_job import LandingJob, LandingJobStatus
+from lando.main.models.revision import DiffWarning, DiffWarningStatus
+from lando.main.support import ProblemException
 
 logger = logging.getLogger(__name__)
 
@@ -216,8 +216,8 @@ def warning_previously_landed(*, revision, diff, **kwargs):
 
     job = (
         LandingJob.revisions_query([revision_id])
-        .filter_by(status=LandingJobStatus.LANDED)
-        .order_by(LandingJob.updated_at.desc())
+        .filter(status=LandingJobStatus.LANDED)
+        .order_by("-updated_at")
         .first()
     )
 
@@ -233,7 +233,7 @@ def warning_previously_landed(*, revision, diff, **kwargs):
         revision_to_diff_id.update(legacy_data)
     landed_diff_id = revision_to_diff_id[revision_id]
     same = diff_id == landed_diff_id
-    only_revision = len(job.revisions) == 1
+    only_revision = job.revisions.count() == 1
 
     return (
         "Already landed with {is_same_string} diff ({landed_diff_id}), "

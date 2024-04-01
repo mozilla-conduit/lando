@@ -11,10 +11,9 @@ get, create, or archive warnings.
 
 import logging
 
-from lando.main.support import problem
-
 from lando.api.legacy.decorators import require_phabricator_api_key
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
+from lando.main.support import problem
 
 logger = logging.getLogger(__name__)
 

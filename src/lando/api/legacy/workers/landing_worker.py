@@ -26,8 +26,6 @@ from lando.api.legacy.hg import (
     TreeApprovalRequired,
     TreeClosed,
 )
-from lando.main.models.configuration import ConfigurationKey
-from lando.main.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
 from lando.api.legacy.notifications import (
     notify_user_of_bug_update_failure,
     notify_user_of_landing_failure,
@@ -45,6 +43,8 @@ from lando.api.legacy.uplift import (
     update_bugs_for_uplift,
 )
 from lando.api.legacy.workers.base import Worker
+from lando.main.models.configuration import ConfigurationKey
+from lando.main.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
 
 logger = logging.getLogger(__name__)
 
@@ -103,17 +103,15 @@ class LandingWorker(Worker):
         ).first()
 
         if job is None:
-            db.session.commit()
             self.throttle(self.sleep_seconds)
             return
 
-        with job_processing(self, job, db):
+        with job_processing(self, job):
             job.status = LandingJobStatus.IN_PROGRESS
             job.attempts += 1
+            job.save()
 
             # Make sure the status and attempt count are updated in the database
-            db.session.commit()
-
             repo = repo_clone_subsystem.repos[job.repository_name]
             hgrepo = HgRepo(
                 str(repo_clone_subsystem.repo_paths[job.repository_name]),
@@ -271,8 +269,6 @@ class LandingWorker(Worker):
             job.transition_status(
                 LandingJobAction.DEFER,
                 message=f"Tree {repo.tree} is closed - retrying later.",
-                commit=True,
-                db=db,
             )
             return False
 
@@ -288,7 +284,7 @@ class LandingWorker(Worker):
                 )
                 logger.exception(message)
                 job.transition_status(
-                    LandingJobAction.DEFER, message=message, commit=True, db=db
+                    LandingJobAction.DEFER, message=message
                 )
 
                 # Try again, this is a temporary failure.
@@ -299,14 +295,12 @@ class LandingWorker(Worker):
                 job.transition_status(
                     LandingJobAction.FAIL,
                     message=message + f"\n{e}",
-                    commit=True,
-                    db=db,
                 )
                 self.notify_user_of_landing_failure(job)
                 return True
 
             # Run through the patches one by one and try to apply them.
-            for revision in job.revisions:
+            for revision in job.revisions.all():
                 patch_buf = StringIO(revision.patch_string)
 
                 try:
@@ -323,7 +317,7 @@ class LandingWorker(Worker):
                     )
                     logger.exception(message)
                     job.transition_status(
-                        LandingJobAction.FAIL, message=message, commit=True, db=db
+                        LandingJobAction.FAIL, message=message
                     )
                     self.notify_user_of_landing_failure(job)
                     return True
@@ -337,8 +331,6 @@ class LandingWorker(Worker):
                     job.transition_status(
                         LandingJobAction.FAIL,
                         message=message,
-                        commit=True,
-                        db=db,
                     )
                     self.notify_user_of_landing_failure(job)
                     return True
@@ -351,8 +343,6 @@ class LandingWorker(Worker):
                     job.transition_status(
                         LandingJobAction.FAIL,
                         message=message,
-                        commit=True,
-                        db=db,
                     )
                     self.notify_user_of_landing_failure(job)
                     return True
@@ -388,7 +378,7 @@ class LandingWorker(Worker):
                     logger.exception(message)
 
                     job.transition_status(
-                        LandingJobAction.FAIL, message=message, commit=True, db=db
+                        LandingJobAction.FAIL, message=message
                     )
                     self.notify_user_of_landing_failure(job)
                     return False
@@ -418,7 +408,7 @@ class LandingWorker(Worker):
                 )
                 logger.exception(message)
                 job.transition_status(
-                    LandingJobAction.DEFER, message=message, commit=True, db=db
+                    LandingJobAction.DEFER, message=message
                 )
                 return False  # Try again, this is a temporary failure.
             except Exception as e:
@@ -427,21 +417,19 @@ class LandingWorker(Worker):
                 job.transition_status(
                     LandingJobAction.FAIL,
                     message=message,
-                    commit=True,
-                    db=db,
                 )
                 self.notify_user_of_landing_failure(job)
                 return True  # Do not try again, this is a permanent failure.
 
         job.transition_status(
-            LandingJobAction.LAND, commit_id=commit_id, commit=True, db=db
+            LandingJobAction.LAND, commit_id=commit_id
         )
 
         mots_path = Path(hgrepo.path) / "mots.yaml"
         if mots_path.exists():
             logger.info(f"{mots_path} found, setting reviewer data.")
             job.set_landed_reviewers(mots_path)
-            db.session.commit()
+            job.save()
         else:
             logger.info(f"{mots_path} not found, skipping setting reviewer data.")
 

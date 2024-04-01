@@ -8,12 +8,6 @@ import pytest
 
 from lando.api.legacy.hg import HgRepo
 from lando.api.legacy.mocks.canned_responses.auth0 import CANNED_USERINFO
-from lando.main.models.landing_job import (
-    LandingJob,
-    LandingJobStatus,
-    add_job_with_revisions,
-)
-from lando.main.models.revision import Revision
 from lando.api.legacy.phabricator import PhabricatorRevisionStatus, ReviewerStatus
 from lando.api.legacy.repos import DONTBUILD, SCM_CONDUIT, SCM_LEVEL_3, Repo
 from lando.api.legacy.reviews import get_collated_reviewers
@@ -28,6 +22,12 @@ from lando.api.legacy.transplants import (
     warning_wip_commit_message,
 )
 from lando.api.legacy.workers.landing_worker import LandingWorker
+from lando.main.models.landing_job import (
+    LandingJob,
+    LandingJobStatus,
+    add_job_with_revisions,
+)
+from lando.main.models.revision import Revision
 
 
 def _create_landing_job(
@@ -53,7 +53,8 @@ def _create_landing_job(
             revision = Revision(revision_id=revision_id)
         revision.diff_id = diff_id
         revisions.append(revision)
-    db.session.add_all(revisions)
+    for revision in revisions:
+        revision.save()
     job = add_job_with_revisions(revisions, **job_params)
     return job
 
@@ -77,7 +78,7 @@ def _create_landing_job_with_no_linked_revisions(
         "status": status,
     }
     job = LandingJob(**job_params)
-    db.session.add(job)
+    job.save()
     revisions = []
     for revision_id, diff_id in landing_path:
         revision = Revision.one_or_none(revision_id=revision_id)
@@ -85,12 +86,13 @@ def _create_landing_job_with_no_linked_revisions(
             revision = Revision(revision_id=revision_id)
         revision.diff_id = diff_id
         revisions.append(revision)
-    db.session.add_all(revisions)
+    for revision in revisions:
+        revision.save()
     job.revision_to_diff_id = {
         str(revision.revision_id): revision.diff_id for revision in revisions
     }
     job.revision_order = [str(revision.revision_id) for r in revisions]
-    db.session.commit()
+    job.save()
     return job
 
 
@@ -238,7 +240,7 @@ def test_dryrun_codefreeze_warn(
             "NEXT_MERGE_DATE": "tomorrow",
         },
     )
-    monkeypatch.setattr("landoapi.transplants.datetime", codefreeze_datetime())
+    monkeypatch.setattr("lando.api.legacy.transplants.datetime", codefreeze_datetime())
     mc_repo = Repo(
         tree="mozilla-conduit",
         url="https://hg.test/mozilla-conduit",
@@ -248,7 +250,7 @@ def test_dryrun_codefreeze_warn(
     )
     mc_mock = MagicMock()
     mc_mock.return_value = {"mozilla-central": mc_repo}
-    monkeypatch.setattr("landoapi.transplants.get_repos_for_env", mc_mock)
+    monkeypatch.setattr("lando.api.legacy.transplants.get_repos_for_env", mc_mock)
 
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -296,7 +298,7 @@ def test_dryrun_outside_codefreeze(
             "NEXT_MERGE_DATE": "five_weeks_from_today",
         },
     )
-    monkeypatch.setattr("landoapi.transplants.datetime", codefreeze_datetime())
+    monkeypatch.setattr("lando.api.legacy.transplants.datetime", codefreeze_datetime())
     mc_repo = Repo(
         tree="mozilla-conduit",
         url="https://hg.test/mozilla-conduit",
@@ -306,7 +308,7 @@ def test_dryrun_outside_codefreeze(
     )
     mc_mock = MagicMock()
     mc_mock.return_value = {"mozilla-central": mc_repo}
-    monkeypatch.setattr("landoapi.transplants.get_repos_for_env", mc_mock)
+    monkeypatch.setattr("lando.api.legacy.transplants.get_repos_for_env", mc_mock)
 
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -696,9 +698,6 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     assert "id" in response.json
     job_id = response.json["id"]
 
-    # Ensure DB access isn't using uncommitted data.
-    db.session.close()
-
     # Get LandingJob object by its id
     job = LandingJob.objects.get(pk=job_id)
     assert job.id == job_id
@@ -741,12 +740,12 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     # Mock a few mots-related things needed by the landing worker.
     # First, mock path existance.
     mock_path = MagicMock()
-    monkeypatch.setattr("landoapi.workers.landing_worker.Path", mock_path)
+    monkeypatch.setattr("lando.api.legacy.workers.landing_worker.Path", mock_path)
     (mock_path(hgrepo.path) / "mots.yaml").exists.return_value = True
 
     # Then mock the directory/file config.
     mock_Directory = MagicMock()
-    monkeypatch.setattr("landoapi.models.landing_job.Directory", mock_Directory)
+    monkeypatch.setattr("lando.main.models.landing_job.Directory", mock_Directory)
     mock_Directory.return_value = MagicMock()
     mock_Directory().peers_and_owners = [101, 102]
 
@@ -775,9 +774,6 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     assert response.content_type == "application/json"
     assert "id" in response.json
     job_id = response.json["id"]
-
-    # Ensure DB access isn't using uncommitted data.
-    db.session.close()
 
     # Get LandingJob object by its id
     job = LandingJob.objects.get(pk=job_id)
@@ -836,9 +832,6 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     assert "id" in response.json
     job_1_id = response.json["id"]
 
-    # Ensure DB access isn't using uncommitted data.
-    db.session.close()
-
     # Get LandingJob object by its id.
     job = LandingJob.objects.get(pk=job_1_id)
     assert job.id == job_1_id
@@ -871,9 +864,6 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     )
 
     job_2_id = response.json["id"]
-
-    # Ensure DB access isn't using uncommitted data.
-    db.session.close()
 
     # Get LandingJob objects by their ids.
     job_1 = LandingJob.objects.get(pk=job_1_id)
@@ -914,7 +904,7 @@ def test_integrated_transplant_with_flags(
     mock_format_commit_message = MagicMock()
     mock_format_commit_message.return_value = "Mock formatted commit message."
     monkeypatch.setattr(
-        "landoapi.api.transplants.format_commit_message", mock_format_commit_message
+        "lando.api.legacy.api.transplants.format_commit_message", mock_format_commit_message
     )
     response = client.post(
         "/transplants",
@@ -975,7 +965,7 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
 
     mock_remove = MagicMock(admin_remove_phab_project)
     monkeypatch.setattr(
-        "landoapi.api.transplants.admin_remove_phab_project", mock_remove
+        "lando.api.legacy.api.transplants.admin_remove_phab_project", mock_remove
     )
 
     response = client.post(
@@ -1009,7 +999,7 @@ def test_integrated_transplant_repo_checkin_project_removed(
 
     mock_remove = MagicMock(admin_remove_phab_project)
     monkeypatch.setattr(
-        "landoapi.api.transplants.admin_remove_phab_project", mock_remove
+        "lando.api.legacy.api.transplants.admin_remove_phab_project", mock_remove
     )
 
     response = client.post(

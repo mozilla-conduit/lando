@@ -3,10 +3,9 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
 
-from lando.main.support import ProblemException, g
-
 from lando.api import auth
 from lando.main.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
+from lando.main.support import ProblemException, g
 
 logger = logging.getLogger(__name__)
 

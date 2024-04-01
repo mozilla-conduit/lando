@@ -4,7 +4,8 @@
 import logging
 from typing import Optional
 
-from lando.api.legacy.cache import DEFAULT_CACHE_KEY_TIMEOUT_SECONDS, cache
+from django.core.cache import cache
+
 from lando.api.legacy.phabricator import PhabricatorClient, result_list_to_phid_dict
 
 logger = logging.getLogger(__name__)
@@ -50,14 +51,14 @@ def project_search(
     project_phids.sort()
     cache_key = ",".join(project_phids)
 
-    if cache.has(cache_key):
+    if cache.has_key(cache_key):
         return cache.get(cache_key)
 
     projects = phabricator.call_conduit(
         "project.search", constraints={"phids": project_phids}
     )
     result = result_list_to_phid_dict(phabricator.expect(projects, "data"))
-    cache.set(cache_key, result, timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS)
+    cache.set(cache_key, result)
     return result
 
 
@@ -80,7 +81,7 @@ def get_project_phid(
         A string with the project's PHID or None if the project isn't found.
     """
     key = f"PROJECT_{project_slug}"
-    if cache.has(key):
+    if cache.has_key(key):
         return cache.get(key)
 
     project = phabricator.single(
@@ -92,7 +93,7 @@ def get_project_phid(
     )
 
     value = phabricator.expect(project, "phid") if project else None
-    cache.set(key, value, timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS)
+    cache.set(key, value)
     return value
 
 

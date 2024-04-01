@@ -7,18 +7,11 @@ from datetime import datetime
 from typing import Optional
 
 import kombu
-from lando.main.support import ProblemException, problem, g
-from lando import settings
 
-from lando.api import auth
+from lando import settings
+from lando.api.legacy import auth
 from lando.api.legacy.commit_message import format_commit_message
 from lando.api.legacy.decorators import require_phabricator_api_key
-from lando.main.models.landing_job import (
-    LandingJob,
-    LandingJobStatus,
-    add_revisions_to_job,
-)
-from lando.main.models.revision import Revision
 from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.projects import (
     CHECKIN_PROJ_SLUG,
@@ -67,6 +60,13 @@ from lando.api.legacy.validation import (
     parse_landing_path,
     revision_id_to_int,
 )
+from lando.main.models.landing_job import (
+    LandingJob,
+    LandingJobStatus,
+    add_revisions_to_job,
+)
+from lando.main.models.revision import Revision
+from lando.main.support import ProblemException, g, problem
 
 logger = logging.getLogger(__name__)
 

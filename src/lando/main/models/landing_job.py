@@ -17,7 +17,7 @@ from django.utils.translation import gettext_lazy
 from mots.config import FileConfig
 from mots.directory import Directory
 
-from lando.main.models import BaseModel
+from lando.main.models.base import BaseModel
 from lando.main.models.revision import Revision, RevisionLandingJob
 
 logger = logging.getLogger(__name__)
@@ -26,12 +26,12 @@ DEFAULT_GRACE_SECONDS = int(os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2))
 
 
 class LandingJobStatus(models.TextChoices):
-    SUBMITTED = "SUBMITTED", gettext_lazy("Submitted")
-    IN_PROGRESS = "IN_PROGRESS", gettext_lazy("In progress")
-    DEFERRED = "DEFERRED", gettext_lazy("Deferred")
-    FAILED = "FAILED", gettext_lazy("Failed")
-    LANDED = "LANDED", gettext_lazy("Landed")
-    CANCELLED = "CANCELLED", gettext_lazy("Cancelled")
+    SUBMITTED = "1_SUBMITTED", gettext_lazy("Submitted")
+    IN_PROGRESS = "2_IN_PROGRESS", gettext_lazy("In progress")
+    DEFERRED = "3_DEFERRED", gettext_lazy("Deferred")
+    FAILED = "4_FAILED", gettext_lazy("Failed")
+    LANDED = "5_LANDED", gettext_lazy("Landed")
+    CANCELLED = "6_CANCELLED", gettext_lazy("Cancelled")
 
 
 @enum.unique
@@ -55,8 +55,10 @@ class LandingJobAction(enum.Enum):
 
 
 class LandingJob(BaseModel):
+    def __str__(self):
+        return f"LandingJob {self.id} [{self.status}]"
     status = models.CharField(
-        max_length=12,
+        max_length=32,
         choices=LandingJobStatus,
         default=None,
         null=True,  # TODO: should change this to not-nullable
@@ -96,7 +98,7 @@ class LandingJob(BaseModel):
     # after autoformatting.
     # eg.
     #    ["", ""]
-    formatted_replacements = models.JSONField(null=True, blank=True, default=list)
+    formatted_replacements = models.JSONField(null=True, blank=True, default=None)
 
     # Identifier of the published commit which this job should land on top of.
     target_commit_hash = models.TextField(blank=True, default="")
@@ -113,16 +115,16 @@ class LandingJob(BaseModel):
     @property
     def landed_revisions(self) -> dict:
         """Return revision and diff ID mapping associated with the landing job."""
-        revision_ids = [revision.id for revision in self.revisions]
+        revision_ids = [revision.id for revision in self.revisions.all()]
         revision_landing_jobs = (
             RevisionLandingJob.objects.filter(
                 revision__id__in=revision_ids,
                 landing_job=self,
             )
             .order_by("index")
-            .values("revision_id", "landing_job_id", "diff_id")
+            .values_list("revision_id", "diff_id")
         )
-        return dict(list(revision_landing_jobs))
+        return dict(revision_landing_jobs)
 
     @property
     def serialized_landing_path(self):
@@ -180,7 +182,7 @@ class LandingJob(BaseModel):
         not be included in this query.
         """
         revisions = [str(int(r)) for r in revisions]
-        return cls.objects.filter(revision_id__in=revisions)
+        return cls.objects.filter(revisions__revision_id__in=revisions)
 
     @classmethod
     def job_queue_query(
@@ -204,7 +206,7 @@ class LandingJob(BaseModel):
         q = cls.objects.filter(status__in=applicable_statuses)
 
         if repositories:
-            q = q.filter(target_repo__in=repositories)
+            q = q.filter(repository_name__in=repositories)
 
         if grace_seconds:
             now = datetime.datetime.now(datetime.timezone.utc)
@@ -235,7 +237,7 @@ class LandingJob(BaseModel):
 
     def sort_revisions(self, revisions: list[Revision]):
         """Sort the associated revisions based on provided list."""
-        if len(revisions) != len(self.revisions):
+        if len(revisions) != len(self.revisions.all()):
             raise ValueError("List of revisions does not match associated revisions")
 
         # Update association table records with correct index values.

@@ -90,4 +90,4 @@ class MockAuth0:
 
     @property
     def mock_headers(self):
-        return [("Authorization", "Bearer {}".format(self.access_token))]
+        return {"Authorization": "Bearer {}".format(self.access_token)}

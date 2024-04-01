@@ -6,10 +6,9 @@ from typing import (
     Callable,
 )
 
-from lando.main.support import problem, request
 from lando import settings
-
 from lando.api.legacy.phabricator import PhabricatorClient
+from lando.main.support import problem, request
 
 
 class require_phabricator_api_key:
@@ -37,7 +36,7 @@ class require_phabricator_api_key:
     def __call__(self, f: Callable) -> Callable:
         @functools.wraps(f)
         def wrapped(*args, **kwargs):
-            api_key = request.headers.get("X-Phabricator-API-Key")
+            api_key = request["headers"].get("X-Phabricator-API-Key")
 
             if api_key is None and not self.optional:
                 return problem(

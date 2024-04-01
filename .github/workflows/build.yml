@@ -8,6 +8,19 @@ on:
 jobs:
   run-tests:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options:
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -22,7 +35,10 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install -e .
       - name: Test
+        env:
+          DEFAULT_DB_HOST: 127.0.0.1
         run: |
           source env/bin/activate
+          lando migrate
           lando test
-          pytest
+          pytest src/lando/api
