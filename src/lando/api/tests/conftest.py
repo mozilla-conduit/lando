@@ -14,7 +14,6 @@ import pytest
 import redis
 import requests
 import requests_mock
-import sqlalchemy
 from flask import current_app
 from pytest_flask.plugin import JSONResponse
 
@@ -257,22 +256,6 @@ def app(versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
         system.init_app(flask_app)
 
     return flask_app
-
-
-@pytest.fixture
-def db(app):
-    """Reset database for each test."""
-    try:
-        _db.engine.connect()
-    except sqlalchemy.exc.OperationalError:
-        if EXTERNAL_SERVICES_SHOULD_BE_PRESENT:
-            raise
-        else:
-            pytest.skip("Could not connect to PostgreSQL")
-    _db.create_all()
-    yield _db
-    _db.session.remove()
-    _db.drop_all()
 
 
 @pytest.fixture

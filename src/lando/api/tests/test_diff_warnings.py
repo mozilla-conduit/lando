@@ -4,7 +4,7 @@
 
 import pytest
 
-from lando.api.legacy.models.revisions import (
+from lando.main.models.revision import (
     DiffWarning,
     DiffWarningGroup,
     DiffWarningStatus,
@@ -57,7 +57,7 @@ def test_diff_warning_create(db, client, diff_warning_data, phab_header):
     assert "id" in response.json
 
     pk = response.json["id"]
-    warning = DiffWarning.query.get(pk)
+    warning = DiffWarning.objects.get(pk=pk)
     assert warning.group == DiffWarningGroup.LINT
     assert warning.revision_id == 1
     assert warning.diff_id == 1
@@ -79,7 +79,7 @@ def test_diff_warning_delete(db, client, diff_warning_data, phab_header):
     )
     assert response.status_code == 201
     pk = response.json["id"]
-    warning = DiffWarning.query.get(pk)
+    warning = DiffWarning.objects.get(pk=pk)
     assert warning.status == DiffWarningStatus.ACTIVE
 
     response = client.delete(
@@ -89,7 +89,7 @@ def test_diff_warning_delete(db, client, diff_warning_data, phab_header):
 
     assert response.status_code == 200
 
-    warning = DiffWarning.query.get(pk)
+    warning = DiffWarning.objects.get(pk=pk)
     assert warning.status == DiffWarningStatus.ARCHIVED
 
 

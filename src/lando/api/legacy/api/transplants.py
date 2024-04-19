@@ -55,7 +55,6 @@ from lando.api.legacy.stacks import (
     get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
-from lando.api.legacy.storage import db
 from lando.api.legacy.tasks import admin_remove_phab_project
 from lando.api.legacy.transplants import (
     TransplantAssessment,
@@ -354,10 +353,8 @@ def post(phab: PhabricatorClient, data: dict):
         lando_revision = Revision.get_from_revision_id(revision_id)
         if not lando_revision:
             lando_revision = Revision(revision_id=revision_id)
-            db.session.add(lando_revision)
-
         lando_revision.diff_id = diff_id
-        db.session.commit()
+        lando_revision.save()
 
         revision_reviewers[lando_revision.id] = get_approved_by_ids(
             phab,
@@ -373,7 +370,7 @@ def post(phab: PhabricatorClient, data: dict):
 
         raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff["id"])
         lando_revision.set_patch(raw_diff, patch_data)
-        db.session.commit()
+        lando_revision.save()
         lando_revisions.append(lando_revision)
 
     ldap_username = g.auth0_user.email
@@ -384,8 +381,7 @@ def post(phab: PhabricatorClient, data: dict):
         )
     )
     stack_ids = [revision.revision_id for revision in lando_revisions]
-    with db.session.begin_nested():
-        LandingJob.lock_table()
+    with LandingJob.lock_table():
         if (
             LandingJob.revisions_query(stack_ids)
             .filter(
@@ -412,7 +408,7 @@ def post(phab: PhabricatorClient, data: dict):
     # Submit landing job.
     job.status = LandingJobStatus.SUBMITTED
     job.set_landed_revision_diffs()
-    db.session.commit()
+    job.save()
 
     logger.info(f"New landing job {job.id} created for {landing_repo.tree} repo.")
 

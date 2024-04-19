@@ -20,7 +20,6 @@ from lando.api.legacy.phabricator import phabricator_subsystem
 from lando.api.legacy.repos import repo_clone_subsystem
 from lando.api.legacy.sentry import sentry_subsystem
 from lando.api.legacy.smtp import smtp_subsystem
-from lando.api.legacy.storage import db_subsystem
 from lando.api.legacy.systems import Subsystem
 from lando.api.legacy.treestatus import treestatus_subsystem
 from lando.api.legacy.ui import lando_ui_subsystem
@@ -36,7 +35,6 @@ SUBSYSTEMS: list[Subsystem] = [
     auth0_subsystem,
     cache_subsystem,
     celery_subsystem,
-    db_subsystem,
     lando_ui_subsystem,
     phabricator_subsystem,
     smtp_subsystem,
@@ -54,8 +52,6 @@ def load_config() -> dict[str, Any]:
         "MAIL_SUPPRESS_SEND": bool(os.getenv("MAIL_SUPPRESS_SEND")),
         "MAIL_USE_SSL": bool(os.getenv("MAIL_USE_SSL")),
         "MAIL_USE_TLS": bool(os.getenv("MAIL_USE_TLS")),
-        "SQLALCHEMY_DATABASE_URI": os.getenv("DATABASE_URL"),
-        "SQLALCHEMY_TRACK_MODIFICATIONS": False,
         "VERSION": version(),
     }
 

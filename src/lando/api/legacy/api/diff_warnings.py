@@ -15,7 +15,6 @@ from connexion import problem
 
 from lando.api.legacy.decorators import require_phabricator_api_key
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
-from lando.api.legacy.storage import db
 
 logger = logging.getLogger(__name__)
 
@@ -41,15 +40,14 @@ def post(data: dict):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
     warning = DiffWarning(**data)
-    db.session.add(warning)
-    db.session.commit()
+    warning.save()
     return warning.serialize(), 201
 
 
 @require_phabricator_api_key(provide_client=False)
 def delete(pk: str):
     """Archive a `DiffWarning` based on provided pk."""
-    warning = DiffWarning.query.get(pk)
+    warning = DiffWarning.objects.get(pk=pk)
     if not warning:
         return problem(
             400,
@@ -58,17 +56,17 @@ def delete(pk: str):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
     warning.status = DiffWarningStatus.ARCHIVED
-    db.session.commit()
+    warning.save()
     return warning.serialize(), 200
 
 
 @require_phabricator_api_key(provide_client=False)
 def get(revision_id: str, diff_id: str, group: str):
     """Return a list of active revision diff warnings, if any."""
-    warnings = DiffWarning.query.filter(
-        DiffWarning.revision_id == revision_id,
-        DiffWarning.diff_id == diff_id,
-        DiffWarning.status == DiffWarningStatus.ACTIVE,
-        DiffWarning.group == group,
+    warnings = DiffWarning.objects.filter(
+        revision_id=revision_id,
+        diff_id=diff_id,
+        status=DiffWarningStatus.ACTIVE,
+        group=group,
     )
     return [w.serialize() for w in warnings], 200

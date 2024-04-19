@@ -119,9 +119,7 @@ def get(phab: PhabricatorClient, revision_id: str):
 
     revisions_response = []
     for _phid, phab_revision in stack_data.revisions.items():
-        lando_revision = Revision.query.filter(
-            Revision.revision_id == phab_revision["id"]
-        ).one_or_none()
+        lando_revision = Revision.one_or_none(revision_id=phab_revision["id"])
         revision_phid = PhabricatorClient.expect(phab_revision, "phid")
         fields = PhabricatorClient.expect(phab_revision, "fields")
         diff_phid = PhabricatorClient.expect(fields, "diffPHID")

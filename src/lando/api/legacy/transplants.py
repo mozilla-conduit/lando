@@ -303,10 +303,10 @@ def warning_revision_missing_testing_tag(
 
 @RevisionWarningCheck(6, "Revision has a diff warning.", True)
 def warning_diff_warning(*, revision, diff, **kwargs):
-    warnings = DiffWarning.query.filter(
-        DiffWarning.revision_id == revision["id"],
-        DiffWarning.diff_id == diff["id"],
-        DiffWarning.status == DiffWarningStatus.ACTIVE,
+    warnings = DiffWarning.objects.filter(
+        revision_id=revision["id"],
+        diff_id=diff["id"],
+        status=DiffWarningStatus.ACTIVE,
     )
     if warnings.count():
         return [w.data for w in warnings]

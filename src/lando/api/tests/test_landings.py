@@ -9,12 +9,12 @@ import unittest.mock as mock
 import pytest
 
 from lando.api.legacy.hg import AUTOFORMAT_COMMIT_MESSAGE, HgRepo
-from lando.api.legacy.models.landing_job import (
+from lando.main.models.landing_job import (
     LandingJob,
     LandingJobStatus,
     add_job_with_revisions,
 )
-from lando.api.legacy.models.revisions import Revision
+from lando.main.models.revision import Revision
 from lando.api.legacy.repos import SCM_LEVEL_3, Repo
 from lando.api.legacy.workers.landing_worker import LandingWorker
 
@@ -878,5 +878,5 @@ def test_landing_job_revisions_sorting(
     new_ordering = [revisions[2], revisions[0], revisions[1]]
     job.sort_revisions(new_ordering)
     db.session.commit()
-    job = LandingJob.query.get(job.id)
+    job = LandingJob.objects.get(id=job.id)
     assert job.revisions == new_ordering
