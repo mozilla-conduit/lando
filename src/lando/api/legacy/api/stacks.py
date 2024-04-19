@@ -4,7 +4,7 @@
 import logging
 import urllib.parse
 
-from connexion import problem
+from lando.main.support import problem
 from lando import settings
 
 from lando.api.legacy.commit_message import format_commit_message

@@ -15,9 +15,9 @@ from typing import (
 )
 
 import requests
-from connexion import ProblemException, request
+from lando.main.support import ProblemException, request
 from lando import settings
-from flask import  g
+from lando.main.support import  g
 from jose import jwt
 
 from django.core.cache import cache
@@ -535,8 +535,8 @@ class Auth0Subsystem(Subsystem):
     name = "auth0"
 
     def ready(self) -> bool | str:
-        domain = self.flask_app.config.get("OIDC_DOMAIN")
-        identifier = self.flask_app.config.get("OIDC_IDENTIFIER")
+        domain = settings.OIDC_DOMAIN
+        identifier = settings.OIDC_IDENTIFIER
 
         # OIDC_DOMAIN should be the domain assigned to the auth0 organization.
         # Leaving this unset could cause an application security problem.  We

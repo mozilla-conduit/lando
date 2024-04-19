@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import re
 
-from connexion import ProblemException
+from lando.main.support import ProblemException
 
 REVISION_ID_RE = re.compile(r"^D(?P<id>[1-9][0-9]*)$")
 

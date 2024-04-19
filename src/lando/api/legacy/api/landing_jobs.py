@@ -3,8 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
 
-from connexion import ProblemException
-from flask import g
+from lando.main.support import ProblemException, g
 
 from lando.api import auth
 from lando.main.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus

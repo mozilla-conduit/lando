@@ -142,12 +142,12 @@ class CelerySubsystem(Subsystem):
 
         celery.init_app(
             self.flask_app,
-            config={"broker_url": self.flask_app.config.get("CELERY_BROKER_URL")},
+            config={"broker_url": settings.CELERY_BROKER_URL},
         )
         celery.log.setup()
 
     def ready(self):
-        if self.flask_app.config.get("DISABLE_CELERY"):
+        if settings.DISABLE_CELERY:
             return True
 
         # TODO: Check connection to CELERY_BROKER_URL

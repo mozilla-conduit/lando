@@ -8,11 +8,7 @@ import enum
 import io
 import logging
 
-from connexion import ProblemException
-from flask import (
-    current_app,
-    g,
-)
+from lando.main.support import ProblemException, g
 
 from lando.api import auth
 from lando.api.legacy.hgexports import (
@@ -110,7 +106,7 @@ def post_patches(data: dict):
     patches = data["patches"]
     patch_format = PatchFormat(data["patch_format"])
 
-    environment_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
+    environment_repos = get_repos_for_env(settings.ENVIRONMENT)
     try_repo = environment_repos.get("try")
     if not try_repo:
         raise ProblemException(

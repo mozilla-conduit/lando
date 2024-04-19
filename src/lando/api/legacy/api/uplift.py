@@ -4,7 +4,7 @@
 
 import logging
 
-from connexion import problem
+from lando.main.support import problem
 from lando import settings
 
 from lando.api import auth

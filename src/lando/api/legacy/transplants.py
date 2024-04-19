@@ -9,7 +9,7 @@ from collections import namedtuple
 from datetime import datetime, timezone
 
 import requests
-from connexion import ProblemException
+from lando.main.support import ProblemException
 from lando import settings
 
 from lando.main.models.landing_job import LandingJob, LandingJobStatus

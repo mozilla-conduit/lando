@@ -16,7 +16,7 @@ class LandoUISubsystem(Subsystem):
     name = "lando_ui"
 
     def ready(self) -> bool | str:
-        url = urlparse(self.flask_app.config["LANDO_UI_URL"])
+        url = urlparse(settings.LANDO_UI_URL)
         if not url.scheme or not url.netloc:
             return "Invalid LANDO_UI_URL, missing a scheme and/or hostname"
 

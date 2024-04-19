@@ -6,7 +6,7 @@ from typing import (
     Callable,
 )
 
-from connexion import problem, request
+from lando.main.support import problem, request
 from lando import settings
 
 from lando.api.legacy.phabricator import PhabricatorClient

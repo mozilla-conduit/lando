@@ -7,9 +7,8 @@ import copy
 import pytest
 import requests
 import requests_mock
-from connexion import ProblemException
-from connexion.lifecycle import ConnexionResponse
-from flask import g
+from lando.main.support import ProblemException, ConnexionResponse
+from lando.main.support import g
 
 from lando.api.legacy.auth import (
     A0User,

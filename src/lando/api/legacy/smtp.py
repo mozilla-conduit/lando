@@ -23,26 +23,26 @@ class SMTP:
     def suppressed(self):
         return (
             self.flask_app is None
-            or bool(self.flask_app.config.get("MAIL_SUPPRESS_SEND"))
-            or not self.flask_app.config.get("MAIL_SERVER")
+            or bool(settings.MAIL_SUPPRESS_SEND)
+            or not settings.MAIL_SERVER
         )
 
     @property
     def default_from(self):
-        return self.flask_app.config.get("MAIL_FROM") or "mozphab-prod@mozilla.com"
+        return settings.MAIL_FROM or "mozphab-prod@mozilla.com"
 
     @contextmanager
     def connection(self):
         if self.suppressed:
             raise ValueError("Supressed SMTP has no connection")
 
-        host = self.flask_app.config.get("MAIL_SERVER") or None
-        port = self.flask_app.config.get("MAIL_PORT") or None
-        use_ssl = self.flask_app.config.get("MAIL_USE_SSL")
-        use_tls = self.flask_app.config.get("MAIL_USE_TLS")
+        host = settings.MAIL_SERVER or None
+        port = settings.MAIL_PORT or None
+        use_ssl = settings.MAIL_USE_SSL
+        use_tls = settings.MAIL_USE_TLS
 
-        username = self.flask_app.config.get("MAIL_USERNAME") or None
-        password = self.flask_app.config.get("MAIL_PASSWORD") or None
+        username = settings.MAIL_USERNAME or None
+        password = settings.MAIL_PASSWORD or None
 
         smtp_class = smtplib.SMTP_SSL if use_ssl else smtplib.SMTP
         c = smtp_class(host, port)
@@ -60,7 +60,7 @@ class SMTP:
         if self.flask_app is None:
             return True
 
-        whitelist = self.flask_app.config.get("MAIL_RECIPIENT_WHITELIST") or None
+        whitelist = settings.MAIL_RECIPIENT_WHITELIST or None
         if whitelist is None:
             return True
 
@@ -82,10 +82,8 @@ class SMTPSubsystem(Subsystem):
             logger.warning(
                 "SMTP is suppressed, assuming ready",
                 extra={
-                    "MAIL_SERVER": self.flask_app.config.get("MAIL_SERVER"),
-                    "MAIL_SUPPRESS_SEND": self.flask_app.config.get(
-                        "MAIL_SUPPRESS_SEND"
-                    ),
+                    "MAIL_SERVER": settings.MAIL_SERVER,
+                    "MAIL_SUPPRESS_SEND": settings.MAIL_SUPPRESS_SEND,
                 },
             )
             return True

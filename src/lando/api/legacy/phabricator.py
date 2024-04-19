@@ -24,6 +24,7 @@ from typing import (
 
 import requests
 
+from lando import settings
 from lando.api.legacy.systems import Subsystem
 
 logger = logging.getLogger(__name__)
@@ -362,8 +363,8 @@ class PhabricatorSubsystem(Subsystem):
     name = "phabricator"
 
     def ready(self) -> bool | str:
-        unpriv_key = self.flask_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"]
-        priv_key = self.flask_app.config["PHABRICATOR_ADMIN_API_KEY"]
+        unpriv_key = settings.PHABRICATOR_UNPRIVILEGED_API_KEY
+        priv_key = settings.PHABRICATOR_ADMIN_API_KEY
 
         if unpriv_key and PHAB_API_KEY_RE.search(unpriv_key) is None:
             return (
@@ -382,8 +383,8 @@ class PhabricatorSubsystem(Subsystem):
     def healthy(self) -> bool | str:
         try:
             PhabricatorClient(
-                self.flask_app.config["PHABRICATOR_URL"],
-                self.flask_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"],
+                settings.PHABRICATOR_URL,
+                settings.PHABRICATOR_UNPRIVILEGED_API_KEY,
             ).call_conduit("conduit.ping")
         except PhabricatorAPIException as exc:
             return "PhabricatorAPIException: {!s}".format(exc)
