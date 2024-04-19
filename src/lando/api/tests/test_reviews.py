@@ -4,15 +4,15 @@
 
 import pytest
 
-from landoapi.phabricator import PhabricatorCommunicationException
-from landoapi.projects import project_search
-from landoapi.reviews import (
+from lando.api.legacy.phabricator import PhabricatorCommunicationException
+from lando.api.legacy.projects import project_search
+from lando.api.legacy.reviews import (
     approvals_for_commit_message,
     collate_reviewer_attachments,
     get_collated_reviewers,
     reviewers_for_commit_message,
 )
-from landoapi.users import user_search
+from lando.api.legacy.users import user_search
 
 
 def test_collate_reviewer_attachments_malformed_raises():

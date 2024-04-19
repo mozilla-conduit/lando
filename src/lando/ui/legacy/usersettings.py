@@ -8,7 +8,7 @@ from flask import (
     Response,
 )
 
-from landoui.forms import UserSettingsForm
+from lando.ui.legacy.forms import UserSettingsForm
 
 
 def manage_phab_api_token_cookie(form: UserSettingsForm, payload: dict) -> Response:

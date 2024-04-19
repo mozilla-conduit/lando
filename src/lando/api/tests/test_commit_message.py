@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import pytest
 
-from landoapi.commit_message import (
+from lando.api.legacy.commit_message import (
     bug_list_to_commit_string,
     format_commit_message,
     split_title_and_summary,

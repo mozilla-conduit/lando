@@ -6,7 +6,7 @@ import logging
 import sentry_sdk
 from flask import render_template
 
-from landoui.landoapi import (
+from lando.ui.legacy.landoapi import (
     LandoAPICommunicationException,
     LandoAPIError,
     LandoAPIException,

@@ -4,7 +4,7 @@
 
 import pytest
 
-from landoapi.models.revisions import (
+from lando.api.legacy.models.revisions import (
     DiffWarning,
     DiffWarningGroup,
     DiffWarningStatus,

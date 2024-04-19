@@ -4,9 +4,9 @@
 
 import pytest
 
-from landoapi.phabricator import PhabricatorRevisionStatus
-from landoapi.repos import get_repos_for_env
-from landoapi.stacks import (
+from lando.api.legacy.phabricator import PhabricatorRevisionStatus
+from lando.api.legacy.repos import get_repos_for_env
+from lando.api.legacy.stacks import (
     RevisionStack,
     build_stack_graph,
     calculate_landable_subgraphs,

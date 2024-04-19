@@ -5,7 +5,7 @@ import logging
 
 import kombu
 
-from landoapi.tasks import (
+from lando.api.legacy.tasks import (
     send_bug_update_failure_email,
     send_landing_failure_email,
 )

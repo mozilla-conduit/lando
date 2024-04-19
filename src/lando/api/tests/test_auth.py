@@ -11,15 +11,15 @@ from connexion import ProblemException
 from connexion.lifecycle import ConnexionResponse
 from flask import g
 
-from landoapi.auth import (
+from lando.api.legacy.auth import (
     A0User,
     ensure_user_has_scm_level,
     fetch_auth0_userinfo,
     require_auth0,
 )
-from landoapi.mocks.auth import TEST_KEY_PRIV, create_access_token
-from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
-from landoapi.repos import SCM_LEVEL_1
+from lando.api.legacy.mocks.auth import TEST_KEY_PRIV, create_access_token
+from lando.api.legacy.mocks.canned_responses.auth0 import CANNED_USERINFO
+from lando.api.legacy.repos import SCM_LEVEL_1
 
 
 def noop(*args, **kwargs):

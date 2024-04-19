@@ -7,9 +7,9 @@ from typing import (
 )
 
 from connexion import problem, request
-from flask import current_app
+from lando import settings
 
-from landoapi.phabricator import PhabricatorClient
+from lando.api.legacy.phabricator import PhabricatorClient
 
 
 class require_phabricator_api_key:
@@ -51,8 +51,8 @@ class require_phabricator_api_key:
                 )
 
             phab = PhabricatorClient(
-                current_app.config["PHABRICATOR_URL"],
-                api_key or current_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"],
+                settings.PHABRICATOR_URL,
+                api_key or settings.PHABRICATOR_UNPRIVILEGED_API_KEY,
             )
             if api_key is not None and not phab.verify_api_token():
                 return problem(

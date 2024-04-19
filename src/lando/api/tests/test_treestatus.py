@@ -5,7 +5,7 @@ import pytest
 import requests
 import requests_mock
 
-from landoapi.treestatus import (
+from lando.api.legacy.treestatus import (
     TreeStatus,
     TreeStatusCommunicationException,
     TreeStatusError,

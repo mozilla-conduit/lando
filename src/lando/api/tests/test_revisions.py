@@ -4,16 +4,16 @@
 
 import pytest
 
-from landoapi.phabricator import PhabricatorRevisionStatus, ReviewerStatus
-from landoapi.repos import get_repos_for_env
-from landoapi.revisions import (
+from lando.api.legacy.phabricator import PhabricatorRevisionStatus, ReviewerStatus
+from lando.api.legacy.repos import get_repos_for_env
+from lando.api.legacy.revisions import (
     check_author_planned_changes,
     check_diff_author_is_known,
     check_uplift_approval,
     revision_is_secure,
     revision_needs_testing_tag,
 )
-from landoapi.stacks import (
+from lando.api.legacy.stacks import (
     request_extended_revision_data,
 )
 

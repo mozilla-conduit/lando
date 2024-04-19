@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from landoui.errorhandlers import UIError, RevisionNotFound
+from lando.ui.legacy.errorhandlers import UIError, RevisionNotFound
 
 
 def test_unknown_route_shows_default_404_page(client):

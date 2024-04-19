@@ -17,7 +17,7 @@ from flask import (
     session,
 )
 
-from landoui.helpers import get_phabricator_api_token
+from lando.ui.legacy.helpers import get_phabricator_api_token
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +120,7 @@ class LandoAPI:
 
 
 class LandoAPIException(Exception):
-    """Exception from LandoAPI."""
+    """Exception from lando.api.legacy."""
 
 
 class LandoAPICommunicationException(LandoAPIException):

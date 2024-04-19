@@ -5,7 +5,7 @@ import io
 
 import pytest
 
-from landoapi.hgexports import (
+from lando.api.legacy.hgexports import (
     GitPatchHelper,
     HgPatchHelper,
     build_patch_for_revision,

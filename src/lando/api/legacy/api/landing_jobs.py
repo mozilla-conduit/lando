@@ -6,9 +6,9 @@ import logging
 from connexion import ProblemException
 from flask import g
 
-from landoapi import auth
-from landoapi.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
-from landoapi.storage import db
+from lando.api import auth
+from lando.main.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
+from lando.api.legacy.storage import db
 
 logger = logging.getLogger(__name__)
 

@@ -5,19 +5,19 @@
 import logging
 
 from connexion import problem
-from flask import current_app
+from lando import settings
 
-from landoapi import auth
-from landoapi.decorators import require_phabricator_api_key
-from landoapi.phabricator import PhabricatorClient
-from landoapi.repos import get_repos_for_env
-from landoapi.uplift import (
+from lando.api import auth
+from lando.api.legacy.decorators import require_phabricator_api_key
+from lando.api.legacy.phabricator import PhabricatorClient
+from lando.api.legacy.repos import get_repos_for_env
+from lando.api.legacy.uplift import (
     create_uplift_revision,
     get_local_uplift_repo,
     get_uplift_conduit_state,
     get_uplift_repositories,
 )
-from landoapi.validation import revision_id_to_int
+from lando.api.legacy.validation import revision_id_to_int
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ def create(phab: PhabricatorClient, data: dict):
     revision_id = revision_id_to_int(data["revision_id"])
 
     # Validate repository.
-    all_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
+    all_repos = get_repos_for_env(settings.ENVIRONMENT)
     repository = all_repos.get(repo_name)
     if repository is None:
         return problem(

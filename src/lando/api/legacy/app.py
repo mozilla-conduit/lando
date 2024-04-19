@@ -10,21 +10,21 @@ import connexion
 from connexion.resolver import RestyResolver
 
 import landoapi.models  # noqa, makes sure alembic knows about the models.
-from landoapi.auth import auth0_subsystem
-from landoapi.cache import cache_subsystem
-from landoapi.celery import celery_subsystem
-from landoapi.dockerflow import dockerflow
-from landoapi.hooks import initialize_hooks
-from landoapi.logging import logging_subsystem
-from landoapi.phabricator import phabricator_subsystem
-from landoapi.repos import repo_clone_subsystem
-from landoapi.sentry import sentry_subsystem
-from landoapi.smtp import smtp_subsystem
-from landoapi.storage import db_subsystem
-from landoapi.systems import Subsystem
-from landoapi.treestatus import treestatus_subsystem
-from landoapi.ui import lando_ui_subsystem
-from landoapi.version import version
+from lando.api.legacy.auth import auth0_subsystem
+from lando.api.legacy.cache import cache_subsystem
+from lando.api.legacy.celery import celery_subsystem
+from lando.api.legacy.dockerflow import dockerflow
+from lando.api.legacy.hooks import initialize_hooks
+from lando.api.legacy.logging import logging_subsystem
+from lando.api.legacy.phabricator import phabricator_subsystem
+from lando.api.legacy.repos import repo_clone_subsystem
+from lando.api.legacy.sentry import sentry_subsystem
+from lando.api.legacy.smtp import smtp_subsystem
+from lando.api.legacy.storage import db_subsystem
+from lando.api.legacy.systems import Subsystem
+from lando.api.legacy.treestatus import treestatus_subsystem
+from lando.api.legacy.ui import lando_ui_subsystem
+from lando.api.legacy.version import version
 
 logger = logging.getLogger(__name__)
 

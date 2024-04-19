@@ -15,12 +15,12 @@ from typing import (
 
 import networkx as nx
 
-from landoapi.phabricator import (
+from lando.api.legacy.phabricator import (
     PhabricatorClient,
     PhabricatorRevisionStatus,
     result_list_to_phid_dict,
 )
-from landoapi.repos import Repo
+from lando.api.legacy.repos import Repo
 
 logger = logging.getLogger(__name__)
 

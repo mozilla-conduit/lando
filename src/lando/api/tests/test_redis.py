@@ -6,7 +6,7 @@ import logging
 import pytest
 from redis import RedisError
 
-from landoapi.redis import SuppressRedisFailure
+from lando.api.legacy.redis import SuppressRedisFailure
 
 
 def test_suppress_redis_failure_logs_exceptions(caplog):

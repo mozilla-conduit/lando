@@ -3,19 +3,19 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import requests
-from flask import current_app
+from lando import settings
 
 
 def bmo_uplift_endpoint() -> str:
     """Returns the BMO uplift endpoint url for bugs."""
-    return f"{current_app.config['BUGZILLA_URL']}/rest/lando/uplift"
+    return f"{settings.BUGZILLA_URL}/rest/lando/uplift"
 
 
 def bmo_default_headers() -> dict[str, str]:
     """Returns a `dict` containing the default REST API headers."""
     return {
         "User-Agent": "Lando-API",
-        "X-Bugzilla-API-Key": current_app.config["BUGZILLA_API_KEY"],
+        "X-Bugzilla-API-Key": settings.BUGZILLA_API_KEY,
     }
 
 

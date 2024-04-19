@@ -13,8 +13,8 @@ from typing import Any
 
 import kombu
 
-from landoapi.commit_message import parse_bugs
-from landoapi.hg import (
+from lando.api.legacy.commit_message import parse_bugs
+from lando.api.legacy.hg import (
     REJECTS_PATH,
     AutoformattingException,
     HgmoInternalServerError,
@@ -26,26 +26,26 @@ from landoapi.hg import (
     TreeApprovalRequired,
     TreeClosed,
 )
-from landoapi.models.configuration import ConfigurationKey
-from landoapi.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
-from landoapi.notifications import (
+from lando.api.legacy.models.configuration import ConfigurationKey
+from lando.api.legacy.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
+from lando.api.legacy.notifications import (
     notify_user_of_bug_update_failure,
     notify_user_of_landing_failure,
 )
-from landoapi.repos import (
+from lando.api.legacy.repos import (
     Repo,
     repo_clone_subsystem,
 )
-from landoapi.storage import SQLAlchemy, db
-from landoapi.tasks import phab_trigger_repo_update
-from landoapi.treestatus import (
+from lando.api.legacy.storage import SQLAlchemy, db
+from lando.api.legacy.tasks import phab_trigger_repo_update
+from lando.api.legacy.treestatus import (
     TreeStatus,
     treestatus_subsystem,
 )
-from landoapi.uplift import (
+from lando.api.legacy.uplift import (
     update_bugs_for_uplift,
 )
-from landoapi.workers.base import Worker
+from lando.api.legacy.workers.base import Worker
 
 logger = logging.getLogger(__name__)
 

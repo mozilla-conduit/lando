@@ -10,28 +10,28 @@ from datetime import datetime, timezone
 
 import requests
 from connexion import ProblemException
-from flask import current_app
+from lando import settings
 
-from landoapi.models.landing_job import LandingJob, LandingJobStatus
-from landoapi.models.revisions import DiffWarning, DiffWarningStatus
-from landoapi.phabricator import (
+from lando.main.models.landing_job import LandingJob, LandingJobStatus
+from lando.main.models.revision import DiffWarning, DiffWarningStatus
+from lando.api.legacy.phabricator import (
     PhabricatorClient,
     PhabricatorRevisionStatus,
     ReviewerStatus,
 )
-from landoapi.repos import Repo, get_repos_for_env
-from landoapi.reviews import calculate_review_extra_state, reviewer_identity
-from landoapi.revisions import (
+from lando.api.legacy.repos import Repo, get_repos_for_env
+from lando.api.legacy.reviews import calculate_review_extra_state, reviewer_identity
+from lando.api.legacy.revisions import (
     check_author_planned_changes,
     check_diff_author_is_known,
     check_uplift_approval,
     revision_is_secure,
     revision_needs_testing_tag,
 )
-from landoapi.stacks import (
+from lando.api.legacy.stacks import (
     RevisionData,
 )
-from landoapi.transactions import get_inline_comments
+from lando.api.legacy.transactions import get_inline_comments
 
 logger = logging.getLogger(__name__)
 
@@ -321,7 +321,7 @@ def warning_wip_commit_message(*, revision, **kwargs):
 
 @RevisionWarningCheck(8, "Repository is under a soft code freeze.", True)
 def warning_code_freeze(*, repo, **kwargs):
-    supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
+    supported_repos = get_repos_for_env(settings.ENVIRONMENT)
     try:
         repo_details = supported_repos[repo["fields"]["shortName"]]
     except KeyError:

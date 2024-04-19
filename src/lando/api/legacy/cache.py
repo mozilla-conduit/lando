@@ -10,8 +10,8 @@ from flask_caching import Cache
 from flask_caching.backends.rediscache import RedisCache
 from redis import RedisError
 
-from landoapi.redis import SuppressRedisFailure
-from landoapi.systems import Subsystem
+from lando.api.legacy.redis import SuppressRedisFailure
+from lando.api.legacy.systems import Subsystem
 
 # 60s * 60m * 24h
 DEFAULT_CACHE_KEY_TIMEOUT_SECONDS = 60 * 60 * 24

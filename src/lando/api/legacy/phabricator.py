@@ -24,7 +24,7 @@ from typing import (
 
 import requests
 
-from landoapi.systems import Subsystem
+from lando.api.legacy.systems import Subsystem
 
 logger = logging.getLogger(__name__)
 

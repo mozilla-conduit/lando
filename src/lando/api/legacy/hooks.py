@@ -15,10 +15,10 @@ from flask import (
     request,
 )
 
-from landoapi.models.configuration import ConfigurationKey, ConfigurationVariable
-from landoapi.phabricator import PhabricatorAPIException
-from landoapi.sentry import sentry_sdk
-from landoapi.treestatus import TreeStatusException
+from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
+from lando.api.legacy.phabricator import PhabricatorAPIException
+from lando.api.legacy.sentry import sentry_sdk
+from lando.api.legacy.treestatus import TreeStatusException
 
 logger = logging.getLogger(__name__)
 request_logger = logging.getLogger("request.summary")

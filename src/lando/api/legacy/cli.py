@@ -11,12 +11,12 @@ import click
 import connexion
 from flask.cli import FlaskGroup
 
-from landoapi.models.configuration import (
+from lando.main.models.configuration import (
     ConfigurationKey,
     ConfigurationVariable,
     VariableType,
 )
-from landoapi.systems import Subsystem
+from lando.api.legacy.systems import Subsystem
 
 LINT_PATHS = ("setup.py", "tasks.py", "landoapi", "migrations", "tests")
 
@@ -29,14 +29,14 @@ def get_subsystems(exclude: Optional[list[Subsystem]] = None) -> list[Subsystem]
 
     Returns: list of Subsystem
     """
-    from landoapi.app import SUBSYSTEMS
+    from lando.api.legacy.app import SUBSYSTEMS
 
     exclusions = exclude or []
     return [s for s in SUBSYSTEMS if s not in exclusions]
 
 
 def create_lando_api_app() -> connexion.App:
-    from landoapi.app import construct_app, load_config
+    from lando.api.legacy.app import construct_app, load_config
 
     config = load_config()
     app = construct_app(config)
@@ -55,25 +55,25 @@ def cli():
 @click.argument("celery_arguments", nargs=-1, type=click.UNPROCESSED)
 def worker(celery_arguments):
     """Initialize a Celery worker for this app."""
-    from landoapi.app import repo_clone_subsystem
+    from lando.api.legacy.app import repo_clone_subsystem
 
     for system in get_subsystems(exclude=[repo_clone_subsystem]):
         system.ensure_ready()
 
-    from landoapi.celery import celery
+    from lando.api.legacy.celery import celery
 
     celery.worker_main((sys.argv[0],) + celery_arguments)
 
 
 @cli.command(name="landing-worker")
 def landing_worker():
-    from landoapi.app import auth0_subsystem, lando_ui_subsystem
+    from lando.api.legacy.app import auth0_subsystem, lando_ui_subsystem
 
     exclusions = [auth0_subsystem, lando_ui_subsystem]
     for system in get_subsystems(exclude=exclusions):
         system.ensure_ready()
 
-    from landoapi.workers.landing_worker import LandingWorker
+    from lando.api.legacy.workers.landing_worker import LandingWorker
 
     worker = LandingWorker()
     worker.start()
@@ -82,7 +82,7 @@ def landing_worker():
 @cli.command(name="run-pre-deploy-sequence")
 def run_pre_deploy_sequence():
     """Runs the sequence of commands required before a deployment."""
-    from landoapi.storage import db_subsystem
+    from lando.api.legacy.storage import db_subsystem
 
     db_subsystem.ensure_ready()
     ConfigurationVariable.set(
@@ -96,7 +96,7 @@ def run_pre_deploy_sequence():
 @cli.command(name="run-post-deploy-sequence")
 def run_post_deploy_sequence():
     """Runs the sequence of commands required after a deployment."""
-    from landoapi.storage import db_subsystem
+    from lando.api.legacy.storage import db_subsystem
 
     db_subsystem.ensure_ready()
     ConfigurationVariable.set(
@@ -111,12 +111,12 @@ def run_post_deploy_sequence():
 @click.argument("celery_arguments", nargs=-1, type=click.UNPROCESSED)
 def celery(celery_arguments):
     """Run the celery base command for this app."""
-    from landoapi.app import repo_clone_subsystem
+    from lando.api.legacy.app import repo_clone_subsystem
 
     for system in get_subsystems(exclude=[repo_clone_subsystem]):
         system.ensure_ready()
 
-    from landoapi.celery import celery
+    from lando.api.legacy.celery import celery
 
     celery.start([sys.argv[0]] + list(celery_arguments))
 
@@ -124,7 +124,7 @@ def celery(celery_arguments):
 @cli.command()
 def uwsgi():
     """Run the service in production mode with uwsgi."""
-    from landoapi.app import repo_clone_subsystem
+    from lando.api.legacy.app import repo_clone_subsystem
 
     for system in get_subsystems(exclude=[repo_clone_subsystem]):
         system.ensure_ready()
