@@ -1,6 +1,15 @@
 black
 jinja2
+kombu
 pytest
 pytest-django
+python-hglib==2.6.2
+python-jose
+redis
+requests-mock
 ruff
 uwsgi
+celery
+datadog
+rs-parsepatch
+networkx

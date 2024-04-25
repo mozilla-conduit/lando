@@ -15,15 +15,14 @@ from typing import (
 )
 
 import requests
-from lando.main.support import ProblemException, request
-from lando import settings
-from lando.main.support import  g
+from django.core.cache import cache
 from jose import jwt
 
-from django.core.cache import cache
+from lando import settings
 from lando.api.legacy.mocks.auth import MockAuth0
 from lando.api.legacy.repos import AccessGroup
 from lando.api.legacy.systems import Subsystem
+from lando.main.support import ProblemException, g, request
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +31,7 @@ mock_auth0 = MockAuth0()
 
 
 def get_auth_token() -> str:
-    auth = request.headers.get("Authorization")
+    auth = request["headers"].get("Authorization")
     if auth is None:
         raise ProblemException(
             401,

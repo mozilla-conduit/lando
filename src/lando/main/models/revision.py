@@ -13,7 +13,7 @@ from typing import Any
 from django.db import models
 from django.utils.translation import gettext_lazy
 
-from lando.main.models import BaseModel
+from lando.main.models.base import BaseModel
 from lando.utils import build_patch_for_revision
 
 logger = logging.getLogger(__name__)

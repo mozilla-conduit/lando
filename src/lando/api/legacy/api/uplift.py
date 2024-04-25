@@ -4,9 +4,7 @@
 
 import logging
 
-from lando.main.support import problem
 from lando import settings
-
 from lando.api import auth
 from lando.api.legacy.decorators import require_phabricator_api_key
 from lando.api.legacy.phabricator import PhabricatorClient
@@ -18,6 +16,7 @@ from lando.api.legacy.uplift import (
     get_uplift_repositories,
 )
 from lando.api.legacy.validation import revision_id_to_int
+from lando.main.support import problem
 
 logger = logging.getLogger(__name__)
 

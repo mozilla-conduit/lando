@@ -2,10 +2,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import pytest
-from lando.main.support import ConnexionResponse
 
 from lando.api.legacy.decorators import require_phabricator_api_key
 from lando.api.legacy.phabricator import PhabricatorClient
+from lando.main.support import ConnexionResponse
 
 
 def noop(phab, *args, **kwargs):
@@ -30,14 +30,14 @@ def test_require_phabricator_api_key(monkeypatch, app, optional, valid_key, stat
     if valid_key is not None:
         headers.append(("X-Phabricator-API-Key", "custom-key"))
         monkeypatch.setattr(
-            "landoapi.decorators.PhabricatorClient.verify_api_token",
+            "lando.api.legacy.decorators.PhabricatorClient.verify_api_token",
             lambda *args, **kwargs: valid_key,
         )
 
-    with app.test_request_context("/", headers=headers):
+    with app.test_request_context("/", headers=dict(headers)):
         resp = require_phabricator_api_key(optional=optional)(noop)()
         if status == 200:
-            assert isinstance(resp.body, PhabricatorClient)
+            assert isinstance(resp.content, PhabricatorClient)
         if valid_key:
             assert resp.body.api_token == "custom-key"
 

@@ -59,7 +59,7 @@ TEMPLATES = [
         "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {
-            "environment": "lando.jinja2.environment"
+            "environment": "lando.jinja.environment"
         },
     },
     {
@@ -162,3 +162,8 @@ AUTHENTICATION_BACKENDS = [
 LINT_PATHS = tuple(f"{BASE_DIR}/{path}" for path in ("main", "utils", "api"))
 
 GITHUB_ACCESS_TOKEN = os.getenv("LANDO_GITHUB_ACCESS_TOKEN")
+PHABRICATOR_URL = os.getenv("PHABRICATOR_URL", "")
+PHABRICATOR_ADMIN_API_KEY = os.getenv("PHABRICATOR_ADMIN_API_KEY", "")
+PHABRICATOR_UNPRIVILEGED_API_KEY = os.getenv("PHABRICATOR_UNPRIVILEGED_API_KEY", "")
+
+CELERY_TASK_ALWAYS_EAGER = True

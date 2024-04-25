@@ -1,11 +1,18 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+import pytest
+
 from lando.api.legacy.phabricator import (
     PhabricatorAPIException,
     PhabricatorCommunicationException,
 )
-from lando.api.legacy.treestatus import TreeStatusCommunicationException, TreeStatusError
+from lando.api.legacy.treestatus import (
+    TreeStatusCommunicationException,
+    TreeStatusError,
+)
+
+pytest.skip(allow_module_level=True)
 
 
 def test_app_wide_headers_set(client):

@@ -8,22 +8,22 @@ import enum
 import io
 import logging
 
-from lando.main.support import ProblemException, g
-
+from lando import settings
 from lando.api import auth
 from lando.api.legacy.hgexports import (
     GitPatchHelper,
     HgPatchHelper,
     PatchHelper,
 )
+from lando.api.legacy.repos import (
+    get_repos_for_env,
+)
 from lando.main.models.landing_job import (
     LandingJobStatus,
     add_job_with_revisions,
 )
 from lando.main.models.revision import Revision
-from lando.api.legacy.repos import (
-    get_repos_for_env,
-)
+from lando.main.support import ProblemException, g
 
 logger = logging.getLogger(__name__)
 

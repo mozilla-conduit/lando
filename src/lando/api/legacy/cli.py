@@ -8,15 +8,13 @@ import sys
 from typing import Optional
 
 import click
-import connexion
-from flask.cli import FlaskGroup
 
+from lando.api.legacy.systems import Subsystem
 from lando.main.models.configuration import (
     ConfigurationKey,
     ConfigurationVariable,
-    VariableType,
+    VariableTypeChoices,
 )
-from lando.api.legacy.systems import Subsystem
 
 LINT_PATHS = ("setup.py", "tasks.py", "landoapi", "migrations", "tests")
 
@@ -35,7 +33,7 @@ def get_subsystems(exclude: Optional[list[Subsystem]] = None) -> list[Subsystem]
     return [s for s in SUBSYSTEMS if s not in exclusions]
 
 
-def create_lando_api_app() -> connexion.App:
+def create_lando_api_app():
     from lando.api.legacy.app import construct_app, load_config
 
     config = load_config()
@@ -46,7 +44,6 @@ def create_lando_api_app() -> connexion.App:
     return app.app
 
 
-@click.group(cls=FlaskGroup, create_app=create_lando_api_app)
 def cli():
     """Lando API cli."""
 
@@ -83,10 +80,10 @@ def landing_worker():
 def run_pre_deploy_sequence():
     """Runs the sequence of commands required before a deployment."""
     ConfigurationVariable.set(
-        ConfigurationKey.API_IN_MAINTENANCE, VariableType.BOOL, "1"
+        ConfigurationKey.API_IN_MAINTENANCE, VariableTypeChoices.BOOL, "1"
     )
     ConfigurationVariable.set(
-        ConfigurationKey.LANDING_WORKER_PAUSED, VariableType.BOOL, "1"
+        ConfigurationKey.LANDING_WORKER_PAUSED, VariableTypeChoices.BOOL, "1"
     )
 
 
@@ -94,10 +91,10 @@ def run_pre_deploy_sequence():
 def run_post_deploy_sequence():
     """Runs the sequence of commands required after a deployment."""
     ConfigurationVariable.set(
-        ConfigurationKey.API_IN_MAINTENANCE, VariableType.BOOL, "0"
+        ConfigurationKey.API_IN_MAINTENANCE, VariableTypeChoices.BOOL, "0"
     )
     ConfigurationVariable.set(
-        ConfigurationKey.LANDING_WORKER_PAUSED, VariableType.BOOL, "0"
+        ConfigurationKey.LANDING_WORKER_PAUSED, VariableTypeChoices.BOOL, "0"
     )
 
 

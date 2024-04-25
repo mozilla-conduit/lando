@@ -13,7 +13,7 @@ from lando.api.legacy.phabricator import (
     ReviewerStatus,
 )
 from lando.api.legacy.treestatus import TreeStatus, TreeStatusError
-from tests.canned_responses.phabricator.diffs import (
+from lando.api.tests.canned_responses.phabricator.diffs import (
     CANNED_DEFAULT_DIFF_CHANGES,
     CANNED_RAW_DEFAULT_DIFF,
 )
@@ -1172,7 +1172,7 @@ class PhabricatorDouble:
         if isinstance(transactions, list):
             transactions = list(enumerate(transactions))
         elif isinstance(transactions, dict):
-            transactions = [(k, v) for k, v, in transactions.items()]
+            transactions = list(transactions.items())
 
         # Validate each transaction.
         for key, t in transactions:

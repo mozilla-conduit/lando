@@ -6,6 +6,7 @@ from json.decoder import JSONDecodeError
 
 import requests
 
+from lando import settings
 from lando.api.legacy.systems import Subsystem
 
 logger = logging.getLogger(__name__)

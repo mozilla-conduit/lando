@@ -10,9 +10,9 @@ import re
 import subprocess
 from time import sleep
 
-from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 from lando.api.legacy.repos import repo_clone_subsystem
 from lando.api.legacy.treestatus import treestatus_subsystem
+from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 
 logger = logging.getLogger(__name__)
 
