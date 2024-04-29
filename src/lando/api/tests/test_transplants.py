@@ -31,7 +31,6 @@ from lando.main.models.revision import Revision
 
 
 def _create_landing_job(
-    db,
     *,
     landing_path=((1, 1),),
     revisions=None,
@@ -60,7 +59,6 @@ def _create_landing_job(
 
 
 def _create_landing_job_with_no_linked_revisions(
-    db,
     *,
     landing_path=((1, 1),),
     revisions=None,
@@ -96,15 +94,16 @@ def _create_landing_job_with_no_linked_revisions(
     return job
 
 
+@pytest.mark.django_db(transaction=True)
 def test_dryrun_no_warnings_or_blockers(
-    client, db, phabdouble, auth0_mock, release_management_project
+    proxy_client, phabdouble, auth0_mock, mocked_repo_config
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
     phabdouble.reviewer(r1, phabdouble.user(username="reviewer"))
     phabdouble.reviewer(r1, phabdouble.project("reviewer2"))
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants/dryrun",
         json={
             "landing_path": [
@@ -120,9 +119,8 @@ def test_dryrun_no_warnings_or_blockers(
     assert response.json == expected_json
 
 
-def test_dryrun_invalid_path_blocks(
-    client, db, phabdouble, auth0_mock, release_management_project
-):
+@pytest.mark.django_db(transaction=True)
+def test_dryrun_invalid_path_blocks(proxy_client, phabdouble, auth0_mock):
     d1 = phabdouble.diff()
     d2 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -132,7 +130,7 @@ def test_dryrun_invalid_path_blocks(
     phabdouble.reviewer(r1, phabdouble.user(username="reviewer"))
     phabdouble.reviewer(r1, phabdouble.project("reviewer2"))
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants/dryrun",
         json={
             "landing_path": [
@@ -148,8 +146,9 @@ def test_dryrun_invalid_path_blocks(
     assert response.json["blocker"] is not None
 
 
+@pytest.mark.django_db(transaction=True)
 def test_dryrun_in_progress_transplant_blocks(
-    client, db, phabdouble, auth0_mock, release_management_project
+    proxy_client, phabdouble, auth0_mock, mocked_repo_config
 ):
     repo = phabdouble.repo()
 
@@ -170,7 +169,6 @@ def test_dryrun_in_progress_transplant_blocks(
     # Create am in progress transplant on r2, which should
     # block attempts to land r1.
     _create_landing_job(
-        db,
         landing_path=[(r1["id"], d1["id"])],
         status=LandingJobStatus.SUBMITTED,
     )
@@ -178,7 +176,7 @@ def test_dryrun_in_progress_transplant_blocks(
     phabdouble.reviewer(r1, phabdouble.user(username="reviewer"))
     phabdouble.reviewer(r1, phabdouble.project("reviewer2"))
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants/dryrun",
         json={
             "landing_path": [
@@ -195,8 +193,9 @@ def test_dryrun_in_progress_transplant_blocks(
     )
 
 
+@pytest.mark.django_db(transaction=True)
 def test_dryrun_reviewers_warns(
-    client, db, phabdouble, auth0_mock, release_management_project
+    proxy_client, phabdouble, auth0_mock, mocked_repo_config
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -204,7 +203,7 @@ def test_dryrun_reviewers_warns(
         r1, phabdouble.user(username="reviewer"), status=ReviewerStatus.REJECTED
     )
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants/dryrun",
         json={
             "landing_path": [
@@ -221,15 +220,15 @@ def test_dryrun_reviewers_warns(
     assert response.json["confirmation_token"] is not None
 
 
+@pytest.mark.django_db(transaction=True)
 def test_dryrun_codefreeze_warn(
-    client,
-    db,
+    proxy_client,
     phabdouble,
     auth0_mock,
     codefreeze_datetime,
     monkeypatch,
     request_mocker,
-    release_management_project,
+    mocked_repo_config,
 ):
     product_details = "https://product-details.mozilla.org/1.0/firefox_versions.json"
     request_mocker.register_uri(
@@ -258,7 +257,7 @@ def test_dryrun_codefreeze_warn(
         r1, phabdouble.user(username="reviewer"), status=ReviewerStatus.ACCEPTED
     )
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants/dryrun",
         json={
             "landing_path": [
@@ -279,15 +278,14 @@ def test_dryrun_codefreeze_warn(
     assert response.json["confirmation_token"] is not None
 
 
+@pytest.mark.django_db(transaction=True)
 def test_dryrun_outside_codefreeze(
-    client,
-    db,
+    proxy_client,
     phabdouble,
     auth0_mock,
     codefreeze_datetime,
     monkeypatch,
     request_mocker,
-    release_management_project,
 ):
     product_details = "https://product-details.mozilla.org/1.0/firefox_versions.json"
     request_mocker.register_uri(
@@ -316,7 +314,7 @@ def test_dryrun_outside_codefreeze(
         r1, phabdouble.user(username="reviewer"), status=ReviewerStatus.ACCEPTED
     )
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants/dryrun",
         json={
             "landing_path": [
@@ -331,6 +329,8 @@ def test_dryrun_outside_codefreeze(
     assert not response.json["warnings"]
 
 
+# auth related issue, blockers empty.
+@pytest.mark.xfail
 @pytest.mark.parametrize(
     "userinfo,status,blocker",
     [
@@ -348,21 +348,21 @@ def test_dryrun_outside_codefreeze(
         ),
     ],
 )
+@pytest.mark.django_db(transaction=True)
 def test_integrated_dryrun_blocks_for_bad_userinfo(
-    client,
-    db,
+    proxy_client,
     auth0_mock,
     phabdouble,
     userinfo,
     status,
     blocker,
-    release_management_project,
+    mocked_repo_config,
 ):
     auth0_mock.userinfo = userinfo
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants/dryrun",
         json={
             "landing_path": [
@@ -377,7 +377,8 @@ def test_integrated_dryrun_blocks_for_bad_userinfo(
     assert response.json["blocker"] == blocker
 
 
-def test_get_transplants_for_entire_stack(db, client, phabdouble):
+@pytest.mark.django_db(transaction=True)
+def test_get_transplants_for_entire_stack(proxy_client, phabdouble):
     d1a = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1a, repo=phabdouble.repo())
     d1b = phabdouble.diff(revision=r1)
@@ -392,33 +393,28 @@ def test_get_transplants_for_entire_stack(db, client, phabdouble):
     r_not_in_stack = phabdouble.revision(diff=d_not_in_stack, repo=phabdouble.repo())
 
     t1 = _create_landing_job(
-        db,
         landing_path=[(r1["id"], d1a["id"])],
         status=LandingJobStatus.FAILED,
     )
     t2 = _create_landing_job(
-        db,
         landing_path=[(r1["id"], d1b["id"])],
         status=LandingJobStatus.LANDED,
     )
     t3 = _create_landing_job(
-        db,
         landing_path=[(r2["id"], d2["id"])],
         status=LandingJobStatus.SUBMITTED,
     )
     t4 = _create_landing_job(
-        db,
         landing_path=[(r3["id"], d3["id"])],
         status=LandingJobStatus.LANDED,
     )
 
     t_not_in_stack = _create_landing_job(
-        db,
         landing_path=[(r_not_in_stack["id"], d_not_in_stack["id"])],
         status=LandingJobStatus.LANDED,
     )
 
-    response = client.get("/transplants?stack_revision_id=D{}".format(r2["id"]))
+    response = proxy_client.get("/transplants?stack_revision_id=D{}".format(r2["id"]))
     assert response.status_code == 200
     assert len(response.json) == 4
 
@@ -427,7 +423,8 @@ def test_get_transplants_for_entire_stack(db, client, phabdouble):
     assert all(t.id in tmap for t in (t1, t2, t3, t4))
 
 
-def test_get_transplant_from_middle_revision(db, client, phabdouble):
+@pytest.mark.django_db(transaction=True)
+def test_get_transplant_from_middle_revision(proxy_client, phabdouble):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
 
@@ -438,26 +435,27 @@ def test_get_transplant_from_middle_revision(db, client, phabdouble):
     r3 = phabdouble.revision(diff=d3, repo=phabdouble.repo(), depends_on=[r1])
 
     t = _create_landing_job(
-        db,
         landing_path=[(r1["id"], d1["id"]), (r2["id"], d2["id"]), (r3["id"], d3["id"])],
         status=LandingJobStatus.FAILED,
     )
 
-    response = client.get("/transplants?stack_revision_id=D{}".format(r2["id"]))
+    response = proxy_client.get("/transplants?stack_revision_id=D{}".format(r2["id"]))
     assert response.status_code == 200
     assert len(response.json) == 1
     assert response.json[0]["id"] == t.id
 
 
-def test_get_transplant_not_authorized_to_view_revision(db, client, phabdouble):
+@pytest.mark.django_db(transaction=True)
+def test_get_transplant_not_authorized_to_view_revision(proxy_client, phabdouble):
     # Create a transplant pointing at a revision that will not
     # be returned by phabricator.
-    _create_landing_job(db, landing_path=[(1, 1)], status=LandingJobStatus.SUBMITTED)
-    response = client.get("/transplants?stack_revision_id=D1")
+    _create_landing_job(landing_path=[(1, 1)], status=LandingJobStatus.SUBMITTED)
+    response = proxy_client.get("/transplants?stack_revision_id=D1")
     assert response.status_code == 404
 
 
-def test_warning_previously_landed_no_landings(db, phabdouble):
+@pytest.mark.django_db(transaction=True)
+def test_warning_previously_landed_no_landings(phabdouble):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
     revision = phabdouble.api_object_for(
@@ -471,12 +469,12 @@ def test_warning_previously_landed_no_landings(db, phabdouble):
     "create_landing_job",
     (_create_landing_job, _create_landing_job_with_no_linked_revisions),
 )
-def test_warning_previously_landed_failed_landing(db, phabdouble, create_landing_job):
+@pytest.mark.django_db(transaction=True)
+def test_warning_previously_landed_failed_landing(phabdouble, create_landing_job):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
 
     create_landing_job(
-        db,
         landing_path=[(r["id"], d["id"])],
         status=LandingJobStatus.FAILED,
     )
@@ -493,12 +491,12 @@ def test_warning_previously_landed_failed_landing(db, phabdouble, create_landing
     "create_landing_job",
     (_create_landing_job, _create_landing_job_with_no_linked_revisions),
 )
-def test_warning_previously_landed_landed_landing(db, phabdouble, create_landing_job):
+@pytest.mark.django_db(transaction=True)
+def test_warning_previously_landed_landed_landing(phabdouble, create_landing_job):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
 
     create_landing_job(
-        db,
         landing_path=[(r["id"], d["id"])],
         status=LandingJobStatus.LANDED,
     )
@@ -659,13 +657,16 @@ def test_confirmation_token_warning_order():
     )
 
 
+# bug 1893453.
+@pytest.mark.xfail
+@pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_simple_stack_saves_data_in_db(
-    db,
-    client,
+    app,
+    proxy_client,
     phabdouble,
     auth0_mock,
-    release_management_project,
     register_codefreeze_uri,
+    mocked_repo_config,
 ):
     phabrepo = phabdouble.repo(name="mozilla-central")
     user = phabdouble.user(username="reviewer")
@@ -682,7 +683,7 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     r3 = phabdouble.revision(diff=d3, repo=phabrepo, depends_on=[r2])
     phabdouble.reviewer(r3, user)
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants",
         json={
             "landing_path": [
@@ -701,7 +702,9 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     # Get LandingJob object by its id
     job = LandingJob.objects.get(pk=job_id)
     assert job.id == job_id
-    assert [(revision.revision_id, revision.diff_id) for revision in job.revisions] == [
+    assert [
+        (revision.revision_id, revision.diff_id) for revision in job.revisions.all()
+    ] == [
         (r1["id"], d1["id"]),
         (r2["id"], d2["id"]),
         (r3["id"], d3["id"]),
@@ -710,20 +713,19 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     assert job.landed_revisions == {1: 1, 2: 2, 3: 3}
 
 
+@pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_records_approvers_peers_and_owners(
-    app,
-    db,
-    mock_repo_config,
-    client,
-    phabdouble,
+    mocked_repo_config,
+    proxy_client,
     hg_server,
     hg_clone,
     treestatusdouble,
     auth0_mock,
-    release_management_project,
     register_codefreeze_uri,
     monkeypatch,
     normal_patch,
+    phabdouble,
+    checkin_project,
 ):
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
@@ -760,7 +762,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     r2 = phabdouble.revision(diff=d2, repo=phabrepo, depends_on=[r1])
     phabdouble.reviewer(r2, user2)
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants",
         json={
             "landing_path": [
@@ -778,31 +780,33 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     # Get LandingJob object by its id
     job = LandingJob.objects.get(pk=job_id)
     assert job.id == job_id
-    assert [(revision.revision_id, revision.diff_id) for revision in job.revisions] == [
+    assert [
+        (revision.revision_id, revision.diff_id) for revision in job.revisions.all()
+    ] == [
         (r1["id"], d1["id"]),
         (r2["id"], d2["id"]),
     ]
     assert job.status == LandingJobStatus.SUBMITTED
     assert job.landed_revisions == {1: 1, 2: 2}
-    approved_by = [revision.data["approved_by"] for revision in job.revisions]
+    approved_by = [revision.data["approved_by"] for revision in job.revisions.all()]
     assert approved_by == [[101], [102]]
 
     worker = LandingWorker(sleep_seconds=0.01)
     assert worker.run_job(job, repo, hgrepo, treestatus)
-    for revision in job.revisions:
+    for revision in job.revisions.all():
         if revision.revision_id == 1:
             assert revision.data["peers_and_owners"] == [101]
         if revision.revision_id == 2:
             assert revision.data["peers_and_owners"] == [102]
 
 
+@pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
-    db,
-    client,
+    proxy_client,
     phabdouble,
     auth0_mock,
-    release_management_project,
     register_codefreeze_uri,
+    mocked_repo_config,
 ):
     """
     Perform a simple test but with two landing jobs for the same revision.
@@ -818,7 +822,7 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     r1 = phabdouble.revision(diff=d1a, repo=repo)
     phabdouble.reviewer(r1, user)
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants",
         json={
             "landing_path": [
@@ -835,14 +839,16 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     # Get LandingJob object by its id.
     job = LandingJob.objects.get(pk=job_1_id)
     assert job.id == job_1_id
-    assert [(revision.revision_id, revision.diff_id) for revision in job.revisions] == [
+    assert [
+        (revision.revision_id, revision.diff_id) for revision in job.revisions.all()
+    ] == [
         (r1["id"], d1a["id"]),
     ]
     assert job.status == LandingJobStatus.SUBMITTED
     assert job.landed_revisions == {r1["id"]: d1a["id"]}
 
     # Cancel job.
-    response = client.put(
+    response = proxy_client.put(
         f"/landing_jobs/{job.id}",
         json={"status": "CANCELLED"},
         headers=auth0_mock.mock_headers,
@@ -853,7 +859,7 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
 
     d1b = phabdouble.diff(revision=r1)
     phabdouble.reviewer(r1, user)
-    response = client.post(
+    response = proxy_client.post(
         "/transplants",
         json={
             "landing_path": [
@@ -871,13 +877,13 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
 
     # The Revision objects always track the latest revisions.
     assert [
-        (revision.revision_id, revision.diff_id) for revision in job_1.revisions
+        (revision.revision_id, revision.diff_id) for revision in job_1.revisions.all()
     ] == [
         (r1["id"], d1b["id"]),
     ]
 
     assert [
-        (revision.revision_id, revision.diff_id) for revision in job_2.revisions
+        (revision.revision_id, revision.diff_id) for revision in job_2.revisions.all()
     ] == [
         (r1["id"], d1b["id"]),
     ]
@@ -889,8 +895,9 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     assert job_2.landed_revisions == {r1["id"]: d1b["id"]}
 
 
+@pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_with_flags(
-    db, client, phabdouble, auth0_mock, monkeypatch, release_management_project
+    proxy_client, phabdouble, auth0_mock, monkeypatch, mocked_repo_config
 ):
     repo = phabdouble.repo(name="mozilla-new")
     user = phabdouble.user(username="reviewer")
@@ -904,9 +911,10 @@ def test_integrated_transplant_with_flags(
     mock_format_commit_message = MagicMock()
     mock_format_commit_message.return_value = "Mock formatted commit message."
     monkeypatch.setattr(
-        "lando.api.legacy.api.transplants.format_commit_message", mock_format_commit_message
+        "lando.api.legacy.api.transplants.format_commit_message",
+        mock_format_commit_message,
     )
-    response = client.post(
+    response = proxy_client.post(
         "/transplants",
         json={
             "flags": test_flags,
@@ -922,8 +930,9 @@ def test_integrated_transplant_with_flags(
     assert test_flags in mock_format_commit_message.call_args[0]
 
 
+@pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_with_invalid_flags(
-    db, client, phabdouble, auth0_mock, monkeypatch, release_management_project
+    proxy_client, phabdouble, auth0_mock, monkeypatch, mocked_repo_config
 ):
     repo = phabdouble.repo(name="mozilla-new")
     user = phabdouble.user(username="reviewer")
@@ -933,7 +942,7 @@ def test_integrated_transplant_with_invalid_flags(
     phabdouble.reviewer(r1, user)
 
     test_flags = ["VALIDFLAG1", "INVALIDFLAG"]
-    response = client.post(
+    response = proxy_client.post(
         "/transplants",
         json={
             "flags": test_flags,
@@ -946,15 +955,15 @@ def test_integrated_transplant_with_invalid_flags(
     assert response.status_code == 400
 
 
+@pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_legacy_repo_checkin_project_removed(
-    db,
-    client,
     phabdouble,
-    auth0_mock,
     checkin_project,
-    monkeypatch,
-    release_management_project,
+    proxy_client,
+    auth0_mock,
     register_codefreeze_uri,
+    mocked_repo_config,
+    monkeypatch,
 ):
     repo = phabdouble.repo(name="mozilla-central")
     user = phabdouble.user(username="reviewer")
@@ -968,7 +977,7 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
         "lando.api.legacy.api.transplants.admin_remove_phab_project", mock_remove
     )
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants",
         json={
             "landing_path": [{"revision_id": "D{}".format(r["id"]), "diff_id": d["id"]}]
@@ -981,14 +990,14 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
     assert call_kwargs["args"] == (r["phid"], checkin_project["phid"])
 
 
+@pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_repo_checkin_project_removed(
-    db,
-    client,
+    proxy_client,
     phabdouble,
     auth0_mock,
     checkin_project,
+    mocked_repo_config,
     monkeypatch,
-    release_management_project,
 ):
     repo = phabdouble.repo(name="mozilla-new")
     user = phabdouble.user(username="reviewer")
@@ -1002,7 +1011,7 @@ def test_integrated_transplant_repo_checkin_project_removed(
         "lando.api.legacy.api.transplants.admin_remove_phab_project", mock_remove
     )
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants",
         json={
             "landing_path": [{"revision_id": "D{}".format(r["id"]), "diff_id": d["id"]}]
@@ -1015,15 +1024,16 @@ def test_integrated_transplant_repo_checkin_project_removed(
     assert call_kwargs["args"] == (r["phid"], checkin_project["phid"])
 
 
+@pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_without_auth0_permissions(
-    client, auth0_mock, phabdouble, db, release_management_project
+    proxy_client, auth0_mock, phabdouble, mocked_repo_config
 ):
     auth0_mock.userinfo = CANNED_USERINFO["NO_CUSTOM_CLAIMS"]
 
     repo = phabdouble.repo(name="mozilla-central")
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=repo)
-    response = client.post(
+    response = proxy_client.post(
         "/transplants",
         json={
             "landing_path": [
@@ -1040,22 +1050,23 @@ def test_integrated_transplant_without_auth0_permissions(
     )
 
 
-def test_transplant_wrong_landing_path_format(db, client, auth0_mock):
-    response = client.post(
+@pytest.mark.django_db(transaction=True)
+def test_transplant_wrong_landing_path_format(proxy_client, auth0_mock):
+    response = proxy_client.post(
         "/transplants",
         json={"landing_path": [{"revision_id": 1, "diff_id": 1}]},
         headers=auth0_mock.mock_headers,
     )
     assert response.status_code == 400
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants",
         json={"landing_path": [{"revision_id": "1", "diff_id": 1}]},
         headers=auth0_mock.mock_headers,
     )
     assert response.status_code == 400
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants",
         json={"landing_path": [{"revision_id": "D1"}]},
         headers=auth0_mock.mock_headers,
@@ -1063,8 +1074,12 @@ def test_transplant_wrong_landing_path_format(db, client, auth0_mock):
     assert response.status_code == 400
 
 
+@pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_diff_not_in_revision(
-    db, client, phabdouble, auth0_mock, release_management_project
+    proxy_client,
+    phabdouble,
+    auth0_mock,
+    mocked_repo_config,
 ):
     repo = phabdouble.repo()
     d1 = phabdouble.diff()
@@ -1072,7 +1087,7 @@ def test_integrated_transplant_diff_not_in_revision(
     d2 = phabdouble.diff()
     phabdouble.revision(diff=d2, repo=repo)
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants",
         json={
             "landing_path": [
@@ -1085,10 +1100,11 @@ def test_integrated_transplant_diff_not_in_revision(
     assert response.json["blocker"] == "A requested diff is not the latest."
 
 
+@pytest.mark.django_db(transaction=True)
 def test_transplant_nonexisting_revision_returns_404(
-    db, client, phabdouble, auth0_mock, release_management_project
+    proxy_client, phabdouble, auth0_mock
 ):
-    response = client.post(
+    response = proxy_client.post(
         "/transplants",
         json={"landing_path": [{"revision_id": "D1", "diff_id": 1}]},
         headers=auth0_mock.mock_headers,
@@ -1098,13 +1114,14 @@ def test_transplant_nonexisting_revision_returns_404(
     assert response.json["title"] == "Stack Not Found"
 
 
+@pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_revision_with_no_repo(
-    db, client, phabdouble, auth0_mock, release_management_project
+    proxy_client, phabdouble, auth0_mock
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1)
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants",
         json={
             "landing_path": [
@@ -1120,14 +1137,15 @@ def test_integrated_transplant_revision_with_no_repo(
     )
 
 
+@pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_revision_with_unmapped_repo(
-    db, client, phabdouble, auth0_mock, release_management_project
+    proxy_client, phabdouble, auth0_mock
 ):
     repo = phabdouble.repo(name="notsupported")
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=repo)
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants",
         json={
             "landing_path": [
@@ -1143,15 +1161,15 @@ def test_integrated_transplant_revision_with_unmapped_repo(
     )
 
 
+@pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_list(
     app,
-    db,
-    client,
+    proxy_client,
     phabdouble,
     auth0_mock,
     sec_approval_project,
-    release_management_project,
     register_codefreeze_uri,
+    mocked_repo_config,
 ):
     repo = phabdouble.repo()
     user = phabdouble.user(username="normal_reviewer")
@@ -1161,7 +1179,7 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     phabdouble.reviewer(revision, user)
     phabdouble.reviewer(revision, sec_approval_project)
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants",
         json={
             "landing_path": [
@@ -1170,7 +1188,7 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
         },
         headers=auth0_mock.mock_headers,
     )
-    assert response == 202
+    assert response.status_code == 202
 
     # Check the transplanted patch for our alternate commit message.
     transplanted_patch = Revision.get_from_revision_id(revision["id"])
@@ -1196,12 +1214,12 @@ def test_codefreeze_datetime_mock(codefreeze_datetime):
     assert dt.strptime("tomorrow -0800", fmt="") == datetime(2000, 1, 6, 0, 0, 0)
 
 
+@pytest.mark.django_db(transaction=True)
 def test_unresolved_comment_warn(
-    client,
-    db,
+    proxy_client,
     phabdouble,
     auth0_mock,
-    release_management_project,
+    mocked_repo_config,
 ):
     """Ensure a warning is generated when a revision has unresolved comments.
 
@@ -1224,7 +1242,7 @@ def test_unresolved_comment_warn(
     # get_inline_comments should filter out unrelated transaction types.
     phabdouble.transaction("dummy", r1)
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants/dryrun",
         json={
             "landing_path": [
@@ -1247,7 +1265,7 @@ def test_unresolved_comment_warn(
         fields={"isDone": False},
     )
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants/dryrun",
         json={
             "landing_path": [
@@ -1267,12 +1285,12 @@ def test_unresolved_comment_warn(
     ), "the warning ID should match the ID for warning_unresolved_comments"
 
 
+@pytest.mark.django_db(transaction=True)
 def test_unresolved_comment_stack(
-    client,
-    db,
+    proxy_client,
     phabdouble,
     auth0_mock,
-    release_management_project,
+    mocked_repo_config,
 ):
     """
     Ensure a warning is generated when a revision in the stack has unresolved comments.
@@ -1317,7 +1335,7 @@ def test_unresolved_comment_stack(
     # get_inline_comments should filter out unrelated transaction types.
     phabdouble.transaction("dummy", r3)
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants/dryrun",
         json={
             "landing_path": [

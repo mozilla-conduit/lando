@@ -15,10 +15,10 @@ from typing import (
 )
 
 import requests
+from django.conf import settings
 from django.core.cache import cache
 from jose import jwt
 
-from django.conf import settings
 from lando.api.legacy.mocks.auth import MockAuth0
 from lando.api.legacy.repos import AccessGroup
 from lando.api.legacy.systems import Subsystem
@@ -101,8 +101,7 @@ def get_jwks() -> dict:
     cache_key = jwks_cache_key(jwks_url)
 
     jwks = None
-    with cache.suppress_failure():
-        jwks = cache.get(cache_key)
+    jwks = cache.get(cache_key)
 
     if jwks is not None:
         return jwks
@@ -149,8 +148,7 @@ def get_jwks() -> dict:
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500",
         )
 
-    with cache.suppress_failure():
-        cache.set(cache_key, jwks, timeout=60)
+    cache.set(cache_key, jwks, timeout=60)
 
     return jwks
 
@@ -178,8 +176,7 @@ def get_auth0_userinfo(access_token: str, user_sub: str) -> dict:
     cache_key = userinfo_cache_key(access_token, user_sub)
 
     userinfo = None
-    with cache.suppress_failure():
-        userinfo = cache.get(cache_key)
+    userinfo = cache.get(cache_key)
 
     if userinfo is not None:
         return userinfo
@@ -253,8 +250,7 @@ def get_auth0_userinfo(access_token: str, user_sub: str) -> dict:
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500",
         )
 
-    with cache.suppress_failure():
-        cache.set(cache_key, userinfo, timeout=60)
+    cache.set(cache_key, userinfo, timeout=60)
 
     return userinfo
 
@@ -441,9 +437,7 @@ class require_auth0:
                     type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401",
                 )
 
-            issuer = "https://{oidc_domain}/".format(
-                oidc_domain=settings.OIDC_DOMAIN
-            )
+            issuer = "https://{oidc_domain}/".format(oidc_domain=settings.OIDC_DOMAIN)
 
             try:
                 payload = jwt.decode(

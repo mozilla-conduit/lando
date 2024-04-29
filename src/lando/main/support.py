@@ -2,9 +2,31 @@ from django.http import HttpResponse
 
 
 class ProblemException(Exception):
-    def __init__(self, status=500, title=None, detail=None, type=None, instance=None, headers=None, ext=None):
+    def __init__(
+        self,
+        status=500,
+        title=None,
+        detail=None,
+        type=None,
+        instance=None,
+        headers=None,
+        ext=None,
+    ):
         # TODO: this should be reimplemented as either middleware or HttpResponse return values.
-        super().__init__(self)
+        super().__init__(detail)
+        self.detail = detail
+        self.ext = ext
+        self.headers = headers
+        self.instance = instance
+        self.status_code = status
+        self.title = title
+
+        self.json_detail = {
+            "title": self.title,
+            "detail": self.detail,
+        }
+        if self.ext:
+            self.json_detail.update(self.ext)
 
 
 def problem(status, title, detail, type=None, instance=None, headers=None, ext=None):
@@ -18,11 +40,7 @@ request = {
 session = {}
 
 
-class g:
-    auth0_user = None
-    access_token = None
-    access_token_payload = None
-    _request_start_timestamp = None
+g = None
 
 
 class FlaskApi:

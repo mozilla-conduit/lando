@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 DEFAULT_GRACE_SECONDS = int(os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2))
 
 
-
 class LandingJobStatus(models.TextChoices):
     SUBMITTED = "SUBMITTED", gettext_lazy("Submitted")
     IN_PROGRESS = "IN_PROGRESS", gettext_lazy("In progress")
@@ -58,6 +57,7 @@ class LandingJobAction(enum.Enum):
 class LandingJob(BaseModel):
     def __str__(self):
         return f"LandingJob {self.id} [{self.status}]"
+
     status = models.CharField(
         max_length=32,
         choices=LandingJobStatus,
@@ -123,7 +123,7 @@ class LandingJob(BaseModel):
                 landing_job=self,
             )
             .order_by("index")
-            .values_list("revision_id", "diff_id")
+            .values_list("revision__revision_id", "diff_id")
         )
         return dict(revision_landing_jobs)
 
@@ -182,8 +182,13 @@ class LandingJob(BaseModel):
         that stores revisions and diff IDs. Those records are now deprecated and will
         not be included in this query.
         """
+        from django.db.models import Q
+
         revisions = [str(int(r)) for r in revisions]
-        return cls.objects.filter(revisions__revision_id__in=revisions)
+        return cls.objects.filter(
+            Q(unsorted_revisions__revision_id__in=revisions)
+            | Q(revision_to_diff_id__has_keys=revisions)
+        ).distinct()
 
     @classmethod
     def job_queue_query(
@@ -226,10 +231,12 @@ class LandingJob(BaseModel):
             When(status=LandingJobStatus.LANDED, then=5),
             When(status=LandingJobStatus.CANCELLED, then=6),
             default=0,
-            output_field=IntegerField()
+            output_field=IntegerField(),
         )
 
-        q = q.annotate(status_order=ordering).order_by("-status_order", "-priority", "created_at")
+        q = q.annotate(status_order=ordering).order_by(
+            "-status_order", "-priority", "created_at"
+        )
 
         return q
 
@@ -260,12 +267,12 @@ class LandingJob(BaseModel):
 
     @property
     def revisions(self):
-        return self.unsorted_revisions.all().order_by('revisionlandingjob__index')
+        return self.unsorted_revisions.all().order_by("revisionlandingjob__index")
 
     def set_landed_revision_diffs(self):
         """Assign diff_ids, if available, to each association row."""
         # Update association table records with current diff_id values.
-        for revision in self.unsorted_revisions:
+        for revision in self.unsorted_revisions.all():
             RevisionLandingJob.objects.filter(
                 revision=revision, landing_job=self
             ).update(diff_id=revision.diff_id)
@@ -273,7 +280,7 @@ class LandingJob(BaseModel):
     def set_landed_reviewers(self, path: Path):
         """Set approving peers and owners at time of landing."""
         directory = Directory(FileConfig(path))
-        for revision in self.unsorted_revisions:
+        for revision in self.unsorted_revisions.all():
             approved_by = revision.data.get("approved_by")
             if not approved_by:
                 continue
@@ -344,7 +351,7 @@ class LandingJob(BaseModel):
         """Return a JSON compatible dictionary."""
         return {
             "id": self.id,
-            "status": self.status.value,
+            "status": self.status,
             "landing_path": self.serialized_landing_path,
             "error_breakdown": self.error_breakdown,
             "details": (

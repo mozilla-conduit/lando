@@ -627,11 +627,12 @@ def test_get_landable_repos_for_revision_data(phabdouble, mocked_repo_config):
 
 def test_integrated_stack_endpoint_simple(
     db,
-    client,
+    proxy_client,
     phabdouble,
     mocked_repo_config,
     release_management_project,
     sec_approval_project,
+    secure_project,
 ):
     repo = phabdouble.repo()
     unsupported_repo = phabdouble.repo(name="not-mozilla-central")
@@ -640,7 +641,7 @@ def test_integrated_stack_endpoint_simple(
     r3 = phabdouble.revision(repo=repo, depends_on=[r1])
     r4 = phabdouble.revision(repo=unsupported_repo, depends_on=[r2, r3])
 
-    response = client.get("/stacks/D{}".format(r3["id"]))
+    response = proxy_client.get("/stacks/D{}".format(r3["id"]))
     assert response.status_code == 200
 
     assert len(response.json["edges"]) == 4
@@ -667,7 +668,7 @@ def test_integrated_stack_endpoint_simple(
 
 def test_integrated_stack_endpoint_repos(
     db,
-    client,
+    proxy_client,
     phabdouble,
     mocked_repo_config,
     release_management_project,
@@ -680,7 +681,7 @@ def test_integrated_stack_endpoint_repos(
     r3 = phabdouble.revision(repo=repo, depends_on=[r1])
     r4 = phabdouble.revision(repo=unsupported_repo, depends_on=[r2, r3])
 
-    response = client.get("/stacks/D{}".format(r4["id"]))
+    response = proxy_client.get("/stacks/D{}".format(r4["id"]))
     assert response.status_code == 200
 
     assert len(response.json["repositories"]) == 2
@@ -698,12 +699,12 @@ def test_integrated_stack_endpoint_repos(
 
 def test_integrated_stack_has_revision_security_status(
     db,
-    client,
+    proxy_client,
     phabdouble,
     mock_repo_config,
-    secure_project,
     release_management_project,
     sec_approval_project,
+    secure_project,
 ):
     repo = phabdouble.repo()
     public_revision = phabdouble.revision(repo=repo)
@@ -711,7 +712,7 @@ def test_integrated_stack_has_revision_security_status(
         repo=repo, projects=[secure_project], depends_on=[public_revision]
     )
 
-    response = client.get("/stacks/D{}".format(secure_revision["id"]))
+    response = proxy_client.get("/stacks/D{}".format(secure_revision["id"]))
     assert response.status_code == 200
 
     revisions = {r["phid"]: r for r in response.json["revisions"]}
@@ -721,11 +722,12 @@ def test_integrated_stack_has_revision_security_status(
 
 def test_integrated_stack_response_mismatch_returns_404(
     db,
-    client,
+    proxy_client,
     phabdouble,
     mock_repo_config,
     release_management_project,
     sec_approval_project,
+    secure_project,
 ):
     # If the API response contains a different number of revisions than the
     # expected number based on the stack graph, a 404 error is expected.
@@ -734,7 +736,7 @@ def test_integrated_stack_response_mismatch_returns_404(
     r1 = phabdouble.revision(repo=repo)
     r2 = phabdouble.revision(repo=repo, depends_on=[r1])
 
-    response = client.get("/stacks/D{}".format(r1["id"]))
+    response = proxy_client.get("/stacks/D{}".format(r1["id"]))
     assert response.status_code == 200
     assert len(response.json["edges"]) == 1
     assert len(response.json["revisions"]) == 2
@@ -744,13 +746,13 @@ def test_integrated_stack_response_mismatch_returns_404(
         revision for revision in phabdouble._revisions if revision["id"] != r2["id"]
     ]
 
-    response = client.get("/stacks/D{}".format(r1["id"]))
+    response = proxy_client.get("/stacks/D{}".format(r1["id"]))
     assert response.status_code == 404
 
     # Remove dependency on r2.
     phabdouble.update_revision_dependencies(r1["phid"], [])
 
-    response = client.get("/stacks/D{}".format(r1["id"]))
+    response = proxy_client.get("/stacks/D{}".format(r1["id"]))
     assert response.status_code == 200
     assert len(response.json["edges"]) == 0
     assert len(response.json["revisions"]) == 1

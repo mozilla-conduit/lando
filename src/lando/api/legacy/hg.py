@@ -19,6 +19,7 @@ from typing import (
 )
 
 import hglib
+from django.conf import settings
 
 from lando.api.legacy.commit_message import bug_list_to_commit_string
 from lando.api.legacy.hgexports import HgPatchHelper
@@ -165,7 +166,8 @@ class HgRepo:
         "extensions.purge": "",
         "extensions.strip": "",
         "extensions.rebase": "",
-        "extensions.set_landing_system": "/code/src/lando/api/legacy/hgext/set_landing_system.py",
+        "extensions.set_landing_system": settings.BASE_DIR
+        / "api/legacy/hgext/set_landing_system.py",
     }
 
     def __init__(self, path, config=None):

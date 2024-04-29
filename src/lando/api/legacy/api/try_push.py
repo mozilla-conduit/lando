@@ -9,7 +9,8 @@ import io
 import logging
 
 from django.conf import settings
-from lando.api import auth
+
+from lando.api.legacy import auth
 from lando.api.legacy.hgexports import (
     GitPatchHelper,
     HgPatchHelper,

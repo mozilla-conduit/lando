@@ -13,11 +13,15 @@ import pytest
 import redis
 import requests
 import requests_mock
+from django.conf import settings
 from django.core.cache import cache
+from django.http import HttpResponse
 from django.http import JsonResponse as JSONResponse
 from django.test import Client
 
-from django.conf import settings
+import lando.api.legacy.api.landing_jobs as legacy_api_landing_jobs
+import lando.api.legacy.api.stacks as legacy_api_stacks
+import lando.api.legacy.api.transplants as legacy_api_transplants
 from lando.api.legacy.mocks.auth import TEST_JWKS, MockAuth0
 from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.projects import (
@@ -29,6 +33,7 @@ from lando.api.legacy.projects import (
 from lando.api.legacy.repos import SCM_LEVEL_1, SCM_LEVEL_3, Repo
 from lando.api.legacy.transplants import CODE_FREEZE_OFFSET, tokens_are_equal
 from lando.api.tests.mocks import PhabricatorDouble, TreeStatusDouble
+from lando.main.support import ProblemException
 
 PATCH_NORMAL_1 = r"""
 # HG changeset patch
@@ -83,10 +88,30 @@ new file mode 100644
 """.strip()
 
 
+@pytest.fixture(autouse=True)
+def g(monkeypatch):
+    class G:
+        def __init__(self):
+            self.email = None
+            self.auth0_user = None
+            self.access_token = None
+            self.access_token_payload = None
+            self._request_start_timestamp = None
+
+    g = G()
+    monkeypatch.setattr("lando.main.support.g", g)
+    monkeypatch.setattr("lando.api.legacy.auth.g", g)
+    monkeypatch.setattr("lando.api.legacy.api.try_push.g", g)
+    monkeypatch.setattr("lando.api.legacy.api.transplants.g", g)
+    monkeypatch.setattr("lando.api.legacy.api.landing_jobs.g", g)
+    yield g
+
+
 @pytest.fixture
 def app():
     class _config:
         """Bridge legacy testing config with new config."""
+
         def __init__(self, overrides: dict = None):
             self.overrides = overrides or {}
 
@@ -109,10 +134,13 @@ def app():
 
             def __exit__(self, exc_type, exc_val, exc_tb):
                 pass
-        config = _config({
-            "TESTING": True,
-            "CACHE_DISABLED": True,
-        })
+
+        config = _config(
+            {
+                "TESTING": True,
+                "CACHE_DISABLED": True,
+            }
+        )
 
     return _app()
 
@@ -175,11 +203,6 @@ def docker_env_vars(versionfile, monkeypatch):
     """Monkeypatch environment variables that we'd get running under docker."""
     monkeypatch.setenv("ENV", "test")
     monkeypatch.setenv("VERSION_PATH", str(versionfile))
-    # Overwrite any externally set DATABASE_URL with a unittest-only database URL.
-    monkeypatch.setenv(
-        "DATABASE_URL", "postgresql://postgres:password@lando-api.db/lando_api_test"
-    )
-    monkeypatch.setenv("LANDO_UI_URL", "http://lando-ui.test")
     monkeypatch.setenv("PHABRICATOR_URL", "http://phabricator.test")
     monkeypatch.setenv("PHABRICATOR_ADMIN_API_KEY", "api-thiskeymustbe32characterslen")
     monkeypatch.setenv(
@@ -189,14 +212,7 @@ def docker_env_vars(versionfile, monkeypatch):
     monkeypatch.setenv("BUGZILLA_URL", "asdfasdfasdfasdfasdfasdf")
     monkeypatch.setenv("OIDC_IDENTIFIER", "lando-api")
     monkeypatch.setenv("OIDC_DOMAIN", "lando-api.auth0.test")
-    # Explicitly shut off cache use for all tests.  Tests can re-enable the cache
-    # with the redis_cache fixture.
-    monkeypatch.delenv("CACHE_REDIS_HOST", raising=False)
     monkeypatch.delenv("CSP_REPORTING_URL", raising=False)
-    # Don't suppress email in tests, but point at localhost so that any
-    # real attempt would fail.
-    monkeypatch.setenv("MAIL_SERVER", "localhost")
-    monkeypatch.delenv("MAIL_SUPPRESS_SEND", raising=False)
 
 
 @pytest.fixture
@@ -209,7 +225,17 @@ def request_mocker():
 @pytest.fixture
 def phabdouble(monkeypatch):
     """Mock the Phabricator service and build fake response objects."""
-    yield PhabricatorDouble(monkeypatch)
+    phabdouble = PhabricatorDouble(monkeypatch)
+
+    # Create required projects.
+    phabdouble.project(SEC_PROJ_SLUG)
+    phabdouble.project(CHECKIN_PROJ_SLUG)
+    phabdouble.project(SEC_APPROVAL_PROJECT_SLUG)
+    phabdouble.project(
+        RELMAN_PROJECT_SLUG,
+        attachments={"members": {"members": [{"phid": "PHID-USER-1"}]}},
+    )
+    yield phabdouble
 
 
 @pytest.fixture
@@ -260,7 +286,9 @@ def versionfile(tmpdir):
 
 @pytest.fixture
 def jwks(monkeypatch):
-    monkeypatch.setattr("lando.api.legacy.auth.get_jwks", lambda *args, **kwargs: TEST_JWKS)
+    monkeypatch.setattr(
+        "lando.api.legacy.auth.get_jwks", lambda *args, **kwargs: TEST_JWKS
+    )
 
 
 @pytest.fixture
@@ -270,7 +298,8 @@ def auth0_mock(jwks, monkeypatch):
         status_code=200, json=lambda: mock_auth0.userinfo
     )
     monkeypatch.setattr(
-        "lando.api.legacy.auth.fetch_auth0_userinfo", lambda token: mock_userinfo_response
+        "lando.api.legacy.auth.fetch_auth0_userinfo",
+        lambda token: mock_userinfo_response,
     )
     return mock_auth0
 
@@ -471,3 +500,101 @@ def codefreeze_datetime(request_mocker):
             return dates[f"{date_string}"]
 
     return Mockdatetime
+
+
+@pytest.fixture
+def proxy_client(monkeypatch):
+    """A client that bridges tests designed to work with the API.
+
+    Most tests that use the API no longer need to access those endpoints through
+    the API as the data can be fetched directly within the application. This client
+    is a temporary implementation to bridge tests and minimize the number of changes
+    needed to the tests during the porting process.
+
+    This client should be removed and all the tests that depend on it should be
+    reimplemented to not need a response or response-like object.
+    """
+
+    class Response:
+        """Mock response class to satisfy some requirements of tests."""
+
+        # NOTE: The methods tested that rely on this class should be reimplemented
+        # to no longer need the structure of a response to function.
+        def __init__(self, status_code=200, json=None):
+            self.json = json or {}
+            self.status_code = status_code
+            self.content_type = (
+                "application/json"
+                if str(status_code)[0] not in ("4", "5")
+                else "application/problem+json"
+            )
+
+    class _proxy:
+        def get(self, path, *args, **kwargs):
+            """Handle various get endpoints."""
+            if path.startswith("/stacks/D"):
+                revision_id = path.lstrip("/stacks/")
+                json_response = legacy_api_stacks.get(revision_id)
+                if isinstance(json_response, HttpResponse):
+                    # In some cases, an actual response object is returned.
+                    return json_response
+                # In other cases, just the data is returned, and it should be
+                # mapped to a response.
+                return Response(json=json.loads(json.dumps(json_response)))
+
+            if path.startswith("/transplants?"):
+                stack_revision_id = path.lstrip("/transplants?stack_revision_id=")
+                result = legacy_api_transplants.get_list(
+                    stack_revision_id=stack_revision_id
+                )
+                if isinstance(result, tuple):
+                    # For these endpoints, some responses contain different status codes
+                    # which are represented as the second item in a tuple.
+                    json_response, status_code = result
+                    return Response(
+                        json=json.loads(json.dumps(json_response)),
+                        status_code=status_code,
+                    )
+                # In the rest of the cases, the returned result is a response object.
+                return result
+
+        def post(self, path, **kwargs):
+            """Handle various post endpoints."""
+            if "headers" in kwargs:
+                mock_request = {"headers": kwargs["headers"]}
+                monkeypatch.setattr("lando.api.legacy.auth.request", mock_request)
+
+            if path.startswith("/transplants/dryrun"):
+                json_response = legacy_api_transplants.dryrun(kwargs["json"])
+                return Response(json=json.loads(json.dumps(json_response)))
+
+            if path == "/transplants":
+                try:
+                    json_response, status_code = legacy_api_transplants.post(
+                        kwargs["json"]
+                    )
+                except ProblemException as e:
+                    # Handle exceptions and pass along the status code to the response object.
+                    if e.json_detail:
+                        return Response(json=e.json_detail, status_code=e.status_code)
+                    return Response(json=e.args, status_code=e.status_code)
+                except Exception:
+                    # TODO: double check that this is a thing in legacy?
+                    # Added this due to a validation error (test_transplant_wrong_landing_path_format)
+                    return Response(json=["error"], status_code=400)
+                return Response(
+                    json=json.loads(json.dumps(json_response)), status_code=status_code
+                )
+
+        def put(self, path, **kwargs):
+            """Handle put endpoints."""
+            if "headers" in kwargs:
+                mock_request = {"headers": kwargs["headers"]}
+                monkeypatch.setattr("lando.api.legacy.auth.request", mock_request)
+
+            if path.startswith("/landing_jobs/"):
+                job_id = int(path.lstrip("/landing_jobs/"))
+                json_response = legacy_api_landing_jobs.put(job_id, kwargs["json"])
+                return Response(json=json.loads(json.dumps(json_response)))
+
+    return _proxy()

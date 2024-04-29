@@ -63,14 +63,18 @@ def test_check_author_planned_changes_changes_planned(phabdouble):
 
 
 def test_secure_api_flag_on_public_revision_is_false(
-    db, client, phabdouble, release_management_project, sec_approval_project
+    db,
+    proxy_client,
+    phabdouble,
+    release_management_project,
+    sec_approval_project,
+    secure_project,
 ):
     repo = phabdouble.repo(name="test-repo")
     public_project = phabdouble.project("public")
     revision = phabdouble.revision(projects=[public_project], repo=repo)
 
-    response = client.get("/stacks/D{}".format(revision["id"]))
-
+    response = proxy_client.get("/stacks/D{}".format(revision["id"]))
     assert response.status_code == 200
     response_revision = response.json["revisions"].pop()
     assert not response_revision["is_secure"]
@@ -78,16 +82,16 @@ def test_secure_api_flag_on_public_revision_is_false(
 
 def test_secure_api_flag_on_secure_revision_is_true(
     db,
-    client,
+    proxy_client,
     phabdouble,
-    secure_project,
     release_management_project,
     sec_approval_project,
+    secure_project,
 ):
     repo = phabdouble.repo(name="test-repo")
     revision = phabdouble.revision(projects=[secure_project], repo=repo)
 
-    response = client.get("/stacks/D{}".format(revision["id"]))
+    response = proxy_client.get("/stacks/D{}".format(revision["id"]))
 
     assert response.status_code == 200
     response_revision = response.json["revisions"].pop()

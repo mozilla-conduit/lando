@@ -22,7 +22,9 @@ SECRET_KEY = os.getenv(
 )
 
 DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1")
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,lando.local,lando.test").split(",")
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,lando.local,lando.test").split(
+    ","
+)
 CSRF_TRUSTED_ORIGINS = os.getenv(
     "CSRF_TRUSTED_ORIGINS", "https://localhost,https://lando.local"
 ).split(",")
@@ -58,9 +60,7 @@ TEMPLATES = [
         "BACKEND": "django.template.backends.jinja2.Jinja2",
         "DIRS": [],
         "APP_DIRS": True,
-        "OPTIONS": {
-            "environment": "lando.jinja.environment"
-        },
+        "OPTIONS": {"environment": "lando.jinja.environment"},
     },
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -161,8 +161,9 @@ AUTHENTICATION_BACKENDS = [
 LINT_PATHS = tuple(f"{BASE_DIR}/{path}" for path in ("main", "utils", "api"))
 
 GITHUB_ACCESS_TOKEN = os.getenv("LANDO_GITHUB_ACCESS_TOKEN")
-PHABRICATOR_URL = os.getenv("PHABRICATOR_URL", "")
+PHABRICATOR_URL = os.getenv("PHABRICATOR_URL", "http://phabricator.test")
 PHABRICATOR_ADMIN_API_KEY = os.getenv("PHABRICATOR_ADMIN_API_KEY", "")
 PHABRICATOR_UNPRIVILEGED_API_KEY = os.getenv("PHABRICATOR_UNPRIVILEGED_API_KEY", "")
 
 CELERY_TASK_ALWAYS_EAGER = True
+ENVIRONMENT = os.getenv("ENVIRONMENT", "test")
