@@ -17,7 +17,7 @@ from django.core.cache import cache
 from django.http import JsonResponse as JSONResponse
 from django.test import Client
 
-from lando import settings
+from django.conf import settings
 from lando.api.legacy.mocks.auth import TEST_JWKS, MockAuth0
 from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.projects import (

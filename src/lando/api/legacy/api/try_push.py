@@ -8,7 +8,7 @@ import enum
 import io
 import logging
 
-from lando import settings
+from django.conf import settings
 from lando.api import auth
 from lando.api.legacy.hgexports import (
     GitPatchHelper,

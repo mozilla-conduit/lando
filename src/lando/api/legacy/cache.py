@@ -10,7 +10,7 @@ from flask_caching import Cache
 from flask_caching.backends.rediscache import RedisCache
 from redis import RedisError
 
-from lando import settings
+from django.conf import settings
 from lando.api.legacy.redis import SuppressRedisFailure
 from lando.api.legacy.systems import Subsystem
 

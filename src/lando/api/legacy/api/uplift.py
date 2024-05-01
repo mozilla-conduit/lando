@@ -4,7 +4,7 @@
 
 import logging
 
-from lando import settings
+from django.conf import settings
 from lando.api import auth
 from lando.api.legacy.decorators import require_phabricator_api_key
 from lando.api.legacy.phabricator import PhabricatorClient
