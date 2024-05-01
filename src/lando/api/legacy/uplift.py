@@ -17,7 +17,7 @@ from packaging.version import (
     Version,
 )
 
-from lando import settings
+from django.conf import settings
 from lando.api.legacy import bmo
 from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.phabricator_patch import patch_to_changes

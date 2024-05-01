@@ -18,7 +18,7 @@ import requests
 from django.core.cache import cache
 from jose import jwt
 
-from lando import settings
+from django.conf import settings
 from lando.api.legacy.mocks.auth import MockAuth0
 from lando.api.legacy.repos import AccessGroup
 from lando.api.legacy.systems import Subsystem

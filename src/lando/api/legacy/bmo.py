@@ -4,7 +4,7 @@
 
 import requests
 
-from lando import settings
+from django.conf import settings
 
 
 def bmo_uplift_endpoint() -> str:

@@ -6,7 +6,7 @@ from typing import (
     Callable,
 )
 
-from lando import settings
+from django.conf import settings
 from lando.api.legacy.phabricator import PhabricatorClient
 from lando.main.support import problem, request
 

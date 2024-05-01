@@ -3,7 +3,7 @@ from django.urls import reverse
 from django.utils.html import escape
 
 from jinja2 import Environment
-from lando import settings
+from django.conf import settings
 from lando.ui.legacy.forms import UserSettingsForm
 
 import datetime

@@ -10,7 +10,7 @@ from pathlib import Path
 from django.db import models
 from django.db import connection
 
-from lando import settings
+from django.conf import settings
 from lando.utils import GitPatchHelper
 
 logger = logging.getLogger(__name__)

@@ -4,7 +4,7 @@
 import logging
 import urllib.parse
 
-from lando import settings
+from django.conf import settings
 from lando.api.legacy.commit_message import format_commit_message
 from lando.api.legacy.decorators import require_phabricator_api_key
 from lando.api.legacy.phabricator import PhabricatorClient

@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 from urllib.parse import urlparse
 
-from lando import settings
+from django.conf import settings
 from lando.api.legacy.systems import Subsystem
 
 logger = logging.getLogger(__name__)
