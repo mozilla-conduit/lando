@@ -491,7 +491,7 @@ def check_landing_blockers(
             [PhabricatorClient.expect(r, "id") for r in stack_data.revisions.values()]
         )
         .filter(
-            LandingJob.status.in_(
+            status__in=(
                 (
                     LandingJobStatus.SUBMITTED,
                     LandingJobStatus.DEFERRED,

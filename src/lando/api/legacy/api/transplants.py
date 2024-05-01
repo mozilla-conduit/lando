@@ -384,7 +384,7 @@ def post(phab: PhabricatorClient, data: dict):
         if (
             LandingJob.revisions_query(stack_ids)
             .filter(
-                LandingJob.status.in_(
+                status__in=(
                     [LandingJobStatus.SUBMITTED, LandingJobStatus.IN_PROGRESS]
                 )
             )
