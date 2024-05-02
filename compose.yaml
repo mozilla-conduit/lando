@@ -16,6 +16,8 @@ services:
   lando:
     build:
       context: .
+    stdin_open: true
+    tty: true
     image: lando 
     command: bash -c "
       lando migrate &&
