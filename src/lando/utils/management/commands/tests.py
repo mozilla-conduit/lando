@@ -1,7 +1,7 @@
 import subprocess
 
 from django.conf import settings
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 ROOT_DIR = settings.BASE_DIR.parent.parent
 
@@ -30,4 +30,6 @@ class Command(BaseCommand):
         if options["paths"]:
             command += options["paths"]
 
-        subprocess.call(command, cwd=ROOT_DIR)
+        exit_code = subprocess.call(command, cwd=ROOT_DIR)
+        if exit_code:
+            raise CommandError(f"Pytest exited with exit code {exit_code}")
