@@ -35,3 +35,6 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "lando.test_settings"
+testpaths = [
+    "src/lando/api",
+]
