@@ -246,6 +246,9 @@ class LandingJob(BaseModel):
                 revision=revision, landing_job=self
             ).update(index=index)
 
+    def sorted_revisions(self):
+        return self.revisions.all().order_by('revisionlandingjob__index')
+
     def set_landed_revision_diffs(self):
         """Assign diff_ids, if available, to each association row."""
         # Update association table records with current diff_id values.
