@@ -300,7 +300,7 @@ class LandingWorker(Worker):
                 return True
 
             # Run through the patches one by one and try to apply them.
-            for revision in job.sorted_revisions():
+            for revision in job.revisions.all():
                 patch_buf = StringIO(revision.patch_string)
 
                 try:

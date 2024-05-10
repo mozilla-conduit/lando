@@ -103,7 +103,7 @@ class LandingJob(BaseModel):
     # Identifier of the published commit which this job should land on top of.
     target_commit_hash = models.TextField(blank=True, default="")
 
-    revisions = models.ManyToManyField(Revision, through="RevisionLandingJob")
+    unsorted_revisions = models.ManyToManyField(Revision, through="RevisionLandingJob")
 
     # These are automatically set, deprecated fields, but kept for compatibility.
     repository_name = models.TextField(default="", blank=True)
@@ -115,7 +115,7 @@ class LandingJob(BaseModel):
     @property
     def landed_revisions(self) -> dict:
         """Return revision and diff ID mapping associated with the landing job."""
-        revision_ids = [revision.id for revision in self.revisions.all()]
+        revision_ids = [revision.id for revision in self.unsorted_revisions.all()]
         revision_landing_jobs = (
             RevisionLandingJob.objects.filter(
                 revision__id__in=revision_ids,
@@ -129,7 +129,7 @@ class LandingJob(BaseModel):
     @property
     def serialized_landing_path(self):
         """Return landing path based on associated revisions or legacy fields."""
-        if self.revisions:
+        if self.unsorted_revisions:
             return [
                 {
                     "revision_id": "D{}".format(revision_id),
@@ -150,20 +150,20 @@ class LandingJob(BaseModel):
         Returns a Phabricator revision ID if the revisions are associated with a Phabricator
         repo, otherwise the first line of the commit message.
         """
-        if not self.revisions.exists():
+        if not self.unsorted_revisions.exists():
             raise ValueError(
                 "Job must be associated with a revision to have a relevant identifier."
             )
 
-        head = self.revisions.order_by("id").first()
+        head = self.unsorted_revisions.order_by("id").first()
         if head.revision_id:
             # Return the Phabricator identifier if the head revision has one.
             return f"D{head.revision_id}"
 
         # If there is no Phabricator identifier, return the first line of the
         # non-try-syntax commit's message for the patch.
-        if self.revisions.count() > 1:
-            head = self.revisions.order_by("-id")[1]
+        if self.unsorted_revisions.count() > 1:
+            head = self.unsorted_revisions.order_by("-id")[1]
 
         commit_message = head.patch_data.get("commit_message")
         if commit_message:
@@ -233,11 +233,11 @@ class LandingJob(BaseModel):
     def add_revisions(self, revisions: list[Revision]):
         """Associate a list of revisions with job."""
         for revision in revisions:
-            self.revisions.add(revision)
+            self.unsorted_revisions.add(revision)
 
     def sort_revisions(self, revisions: list[Revision]):
         """Sort the associated revisions based on provided list."""
-        if len(revisions) != len(self.revisions.all()):
+        if len(revisions) != len(self.unsorted_revisions.all()):
             raise ValueError("List of revisions does not match associated revisions")
 
         # Update association table records with correct index values.
@@ -246,13 +246,14 @@ class LandingJob(BaseModel):
                 revision=revision, landing_job=self
             ).update(index=index)
 
-    def sorted_revisions(self):
-        return self.revisions.all().order_by('revisionlandingjob__index')
+    @property
+    def revisions(self):
+        return self.unsorted_revisions.all().order_by('revisionlandingjob__index')
 
     def set_landed_revision_diffs(self):
         """Assign diff_ids, if available, to each association row."""
         # Update association table records with current diff_id values.
-        for revision in self.revisions:
+        for revision in self.unsorted_revisions:
             RevisionLandingJob.objects.filter(
                 revision=revision, landing_job=self
             ).update(diff_id=revision.diff_id)
@@ -260,7 +261,7 @@ class LandingJob(BaseModel):
     def set_landed_reviewers(self, path: Path):
         """Set approving peers and owners at time of landing."""
         directory = Directory(FileConfig(path))
-        for revision in self.revisions:
+        for revision in self.unsorted_revisions:
             approved_by = revision.data.get("approved_by")
             if not approved_by:
                 continue

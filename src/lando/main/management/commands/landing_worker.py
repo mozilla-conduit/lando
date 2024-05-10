@@ -72,7 +72,7 @@ class Command(BaseCommand, WorkerMixin):
         repo.reset()
         repo.pull()
 
-        for revision in job.sorted_revisions():
+        for revision in job.revisions.all():
             patch_buffer = StringIO(revision.patch)
             repo.apply_patch(patch_buffer)
 

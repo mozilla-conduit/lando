@@ -879,4 +879,4 @@ def test_landing_job_revisions_sorting(
     job.sort_revisions(new_ordering)
     job.save()
     job = LandingJob.objects.get(id=job.id)
-    assert list(job.sorted_revisions()) == new_ordering
+    assert list(job.revisions.all()) == new_ordering
