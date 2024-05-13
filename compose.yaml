@@ -20,6 +20,7 @@ services:
     tty: true
     image: lando 
     command: bash -c "
+      lando generate_version_file &&
       lando migrate &&
       lando collectstatic --no-input &&
       uwsgi --ini /code/uwsgi.ini"

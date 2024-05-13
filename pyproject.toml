@@ -18,17 +18,21 @@ dependencies = [
 ]
 name = "lando"
 requires-python = ">=3.10"
-version = "0.1.0"
+dynamic = ["version"]
 
 [project.scripts]
 lando = "lando.manage:main"
 
 [build-system]
 requires = [
-    "setuptools>=45",
+    "setuptools>=64",
+    "setuptools_scm>=8",
     "wheel",
 ]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+version_file = "src/lando/version.py"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -37,4 +41,5 @@ where = ["src"]
 DJANGO_SETTINGS_MODULE = "lando.test_settings"
 testpaths = [
     "src/lando/api",
+	"src/lando/tests",
 ]

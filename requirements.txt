@@ -13,3 +13,4 @@ celery
 datadog
 rs-parsepatch
 networkx
+setuptools-scm
