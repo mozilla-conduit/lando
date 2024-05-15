@@ -12,7 +12,7 @@ from typing import (
 )
 
 from django.db import models
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Case, When, IntegerField
 from django.utils.translation import gettext_lazy
 from mots.config import FileConfig
 from mots.directory import Directory
@@ -25,13 +25,14 @@ logger = logging.getLogger(__name__)
 DEFAULT_GRACE_SECONDS = int(os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2))
 
 
+
 class LandingJobStatus(models.TextChoices):
-    SUBMITTED = "1_SUBMITTED", gettext_lazy("Submitted")
-    IN_PROGRESS = "2_IN_PROGRESS", gettext_lazy("In progress")
-    DEFERRED = "3_DEFERRED", gettext_lazy("Deferred")
-    FAILED = "4_FAILED", gettext_lazy("Failed")
-    LANDED = "5_LANDED", gettext_lazy("Landed")
-    CANCELLED = "6_CANCELLED", gettext_lazy("Cancelled")
+    SUBMITTED = "SUBMITTED", gettext_lazy("Submitted")
+    IN_PROGRESS = "IN_PROGRESS", gettext_lazy("In progress")
+    DEFERRED = "DEFERRED", gettext_lazy("Deferred")
+    FAILED = "FAILED", gettext_lazy("Failed")
+    LANDED = "LANDED", gettext_lazy("Landed")
+    CANCELLED = "CANCELLED", gettext_lazy("Cancelled")
 
 
 @enum.unique
@@ -217,7 +218,18 @@ class LandingJob(BaseModel):
         # be a maximum of one (per repository). For
         # `LandingJobStatus.SUBMITTED` jobs, higher priority items come first
         # and then we order by creation time (older first).
-        q = q.order_by("-status", "-priority", "created_at")
+        ordering = Case(
+            When(status=LandingJobStatus.SUBMITTED, then=1),
+            When(status=LandingJobStatus.IN_PROGRESS, then=2),
+            When(status=LandingJobStatus.DEFERRED, then=3),
+            When(status=LandingJobStatus.FAILED, then=4),
+            When(status=LandingJobStatus.LANDED, then=5),
+            When(status=LandingJobStatus.CANCELLED, then=6),
+            default=0,
+            output_field=IntegerField()
+        )
+
+        q = q.annotate(status_order=ordering).order_by("-status_order", "-priority", "created_at")
 
         return q
 
