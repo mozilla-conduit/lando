@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "lando.main",
     "lando.utils",
     "lando.api",
+    "lando.dockerflow",
 ]
 
 MIDDLEWARE = [

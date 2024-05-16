@@ -18,9 +18,16 @@ from django.contrib import admin
 from django.urls import include, path
 
 from lando.ui.legacy import revisions
+from lando.dockerflow import views as DockerflowViews
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("oidc/", include("mozilla_django_oidc.urls")),
     path("D<int:revision_id>/", revisions.Revision.as_view()),
+]
+
+urlpatterns += [
+    path("__version__", DockerflowViews.VersionView.as_view(), name="version"),
+    path("__heartbeat__", DockerflowViews.HeartbeatView.as_view(), name="heartbeat"),
+    path("__lbheartbeat__", DockerflowViews.LoadBalancerHeartbeatView.as_view(), name="lbheartbeat"),
 ]
