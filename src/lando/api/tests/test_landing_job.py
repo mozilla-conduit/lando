@@ -140,7 +140,9 @@ def test_landing_job_acquire_job_job_queue_query(db):
         job.save()
     # Queue order should match the order the jobs were created in.
 
-    for qjob, job in zip(LandingJob.job_queue_query(repositories=[REPO_NAME]), jobs):
+    for qjob, job in zip(
+        LandingJob.job_queue_query(repositories=[REPO_NAME]), jobs, strict=False
+    ):
         assert qjob.id == job.id
 
     # Update the last job to be in progress and mark the middle job to be

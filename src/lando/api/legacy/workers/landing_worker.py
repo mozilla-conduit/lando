@@ -283,9 +283,7 @@ class LandingWorker(Worker):
                     f"encountered while pulling from {repo_pull_info}"
                 )
                 logger.exception(message)
-                job.transition_status(
-                    LandingJobAction.DEFER, message=message
-                )
+                job.transition_status(LandingJobAction.DEFER, message=message)
 
                 # Try again, this is a temporary failure.
                 return False
@@ -316,9 +314,7 @@ class LandingWorker(Worker):
                         f"{str(exc)}"
                     )
                     logger.exception(message)
-                    job.transition_status(
-                        LandingJobAction.FAIL, message=message
-                    )
+                    job.transition_status(LandingJobAction.FAIL, message=message)
                     self.notify_user_of_landing_failure(job)
                     return True
                 except NoDiffStartLine:
@@ -377,9 +373,7 @@ class LandingWorker(Worker):
 
                     logger.exception(message)
 
-                    job.transition_status(
-                        LandingJobAction.FAIL, message=message
-                    )
+                    job.transition_status(LandingJobAction.FAIL, message=message)
                     self.notify_user_of_landing_failure(job)
                     return False
 
@@ -407,9 +401,7 @@ class LandingWorker(Worker):
                     f"encountered while pushing to {repo_push_info}"
                 )
                 logger.exception(message)
-                job.transition_status(
-                    LandingJobAction.DEFER, message=message
-                )
+                job.transition_status(LandingJobAction.DEFER, message=message)
                 return False  # Try again, this is a temporary failure.
             except Exception as e:
                 message = f"Unexpected error while pushing to {repo.push_path}.\n{e}"
@@ -421,9 +413,7 @@ class LandingWorker(Worker):
                 self.notify_user_of_landing_failure(job)
                 return True  # Do not try again, this is a permanent failure.
 
-        job.transition_status(
-            LandingJobAction.LAND, commit_id=commit_id
-        )
+        job.transition_status(LandingJobAction.LAND, commit_id=commit_id)
 
         mots_path = Path(hgrepo.path) / "mots.yaml"
         if mots_path.exists():

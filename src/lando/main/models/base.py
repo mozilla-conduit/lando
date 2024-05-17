@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-from contextlib import ContextDecorator
 import logging
 import os
 import subprocess
 import tempfile
+from contextlib import ContextDecorator
 from pathlib import Path
 
-from django.db import models
-from django.db import connection
-from django.db import transaction
-
 from django.conf import settings
+from django.db import connection, models, transaction
+
 from lando.utils import GitPatchHelper
 
 logger = logging.getLogger(__name__)

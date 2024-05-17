@@ -7,6 +7,7 @@ from typing import (
 )
 
 from django.conf import settings
+
 from lando.api.legacy.phabricator import PhabricatorClient
 from lando.main.support import problem, request
 

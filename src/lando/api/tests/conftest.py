@@ -529,7 +529,7 @@ def proxy_client(monkeypatch):
 
     class ProxyClient:
         def _handle__get__stacks__id(self, path):
-            revision_id = path.lstrip("/stacks/")
+            revision_id = path.removeprefix("/stacks/")
             json_response = legacy_api_stacks.get(revision_id)
             if isinstance(json_response, HttpResponse):
                 # In some cases, an actual response object is returned.
@@ -539,7 +539,7 @@ def proxy_client(monkeypatch):
             return MockResponse(json=json.loads(json.dumps(json_response)))
 
         def _handle__get__transplants__id(self, path):
-            stack_revision_id = path.lstrip("/transplants?stack_revision_id=")
+            stack_revision_id = path.removeprefix("/transplants?stack_revision_id=")
             result = legacy_api_transplants.get_list(
                 stack_revision_id=stack_revision_id
             )
@@ -575,7 +575,7 @@ def proxy_client(monkeypatch):
             )
 
         def _handle__put__landing_jobs__id(self, path, **kwargs):
-            job_id = int(path.lstrip("/landing_jobs/"))
+            job_id = int(path.removeprefix("/landing_jobs/"))
             json_response = legacy_api_landing_jobs.put(job_id, kwargs["json"])
             return MockResponse(json=json.loads(json.dumps(json_response)))
 

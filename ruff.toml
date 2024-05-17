@@ -1,6 +1,6 @@
 line-length = 88
-select = ["C", "E", "F", "W", "B", "B9", "I"]
-ignore = ["B006", "B904", "C901", "E203", "E501"]
+lint.select = ["C", "E", "F", "W", "B", "B9", "I"]
+lint.ignore = ["B006", "B904", "C901", "E203", "E501"]
 exclude = [
     ".git",
     "__pycache__",
@@ -9,5 +9,5 @@ exclude = [
     "__pycache__",
 ]
 
-[isort]
+[lint.isort]
 split-on-trailing-comma = true

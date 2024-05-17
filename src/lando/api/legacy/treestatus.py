@@ -5,8 +5,8 @@ import logging
 from json.decoder import JSONDecodeError
 
 import requests
-
 from django.conf import settings
+
 from lando.api.legacy.systems import Subsystem
 
 logger = logging.getLogger(__name__)

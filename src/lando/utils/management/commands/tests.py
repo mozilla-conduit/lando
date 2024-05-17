@@ -1,8 +1,7 @@
-import subprocess
 import os
+import subprocess
 
 from django.conf import settings
-
 from django.core.management.base import BaseCommand, CommandError
 
 ROOT_DIR = settings.BASE_DIR.parent.parent

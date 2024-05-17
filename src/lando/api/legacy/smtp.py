@@ -6,6 +6,7 @@ import smtplib
 from contextlib import contextmanager
 
 from django.conf import settings
+
 from lando.api.legacy.systems import Subsystem
 
 logger = logging.getLogger(__name__)
