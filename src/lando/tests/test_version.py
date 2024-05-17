@@ -1,9 +1,7 @@
 from django.core.management import call_command
-
+from lando.version import version
 
 def test_version():
-    from lando.version import version
-
     # Explicitly generate the version.py file since we can't
     # guarantee it already exists in the testing environment.
     call_command('generate_version_file')
