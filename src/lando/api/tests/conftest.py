@@ -600,7 +600,7 @@ def proxy_client(monkeypatch):
                 return self._handle__post__transplants(path, **kwargs)
 
         def put(self, path, **kwargs):
-            """Handle put endpoints."""
+            """Handle put endpoint."""
             if "headers" in kwargs:
                 mock_request = {"headers": kwargs["headers"]}
                 monkeypatch.setattr("lando.api.legacy.auth.request", mock_request)
