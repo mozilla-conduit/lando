@@ -29,7 +29,6 @@ def put(landing_job_id: str, data: dict):
             updated (for example, when trying to cancel a job that is already in
             progress).
     """
-    # TODO: fix this based on locks/etc.
     with LandingJob.lock_table:
         landing_job = LandingJob.objects.get(pk=landing_job_id)
 
