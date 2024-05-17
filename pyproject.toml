@@ -41,5 +41,5 @@ where = ["src"]
 DJANGO_SETTINGS_MODULE = "lando.test_settings"
 testpaths = [
     "src/lando/api",
-	"src/lando/tests",
+    "src/lando/tests",
 ]
