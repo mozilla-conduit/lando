@@ -22,5 +22,5 @@ from lando.ui.legacy import revisions
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("oidc/", include("mozilla_django_oidc.urls")),
-    path("/D<int:revision_id>/", revisions.Revision.as_view()),
+    path("D<int:revision_id>/", revisions.Revision.as_view()),
 ]
