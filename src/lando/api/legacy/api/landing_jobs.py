@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
 
-from lando.api import auth
+from lando.api.legacy import auth
 from lando.main.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
 from lando.main.support import ProblemException, g
 
@@ -29,8 +29,8 @@ def put(landing_job_id: str, data: dict):
             updated (for example, when trying to cancel a job that is already in
             progress).
     """
-    # TODO: fix this based on locks/etc.
-    landing_job = LandingJob.query.with_for_update().get(landing_job_id)
+    with LandingJob.lock_table:
+        landing_job = LandingJob.objects.get(pk=landing_job_id)
 
     if not landing_job:
         raise ProblemException(
@@ -49,7 +49,8 @@ def put(landing_job_id: str, data: dict):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
         )
 
-    if data["status"] != LandingJobStatus.CANCELLED.value:
+    # TODO: fix this. See bug 1893455.
+    if data["status"] != "CANCELLED":
         raise ProblemException(
             400,
             "Invalid status provided",

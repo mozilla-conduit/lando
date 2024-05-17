@@ -22,4 +22,6 @@ RUN pip install -r /code/requirements.txt
 RUN pip install -e /code
 USER app
 
+WORKDIR /code
+
 CMD ["bash"]

@@ -5,6 +5,7 @@ import logging
 import urllib.parse
 
 from django.conf import settings
+
 from lando.api.legacy.commit_message import format_commit_message
 from lando.api.legacy.decorators import require_phabricator_api_key
 from lando.api.legacy.phabricator import PhabricatorClient
@@ -106,6 +107,8 @@ def get(phab: PhabricatorClient, revision_id: str):
     projects = project_search(phab, involved_phids)
 
     secure_project_phid = get_secure_project_phid(phab)
+    if not secure_project_phid:
+        raise Exception("Could not find `#secure-revision` project on Phabricator.")
 
     sec_approval_project_phid = get_sec_approval_project_phid(phab)
     if not sec_approval_project_phid:
@@ -125,9 +128,7 @@ def get(phab: PhabricatorClient, revision_id: str):
         repo_phid = PhabricatorClient.expect(fields, "repositoryPHID")
         diff = stack_data.diffs[diff_phid]
         human_revision_id = "D{}".format(PhabricatorClient.expect(phab_revision, "id"))
-        revision_url = urllib.parse.urljoin(
-            settings.PHABRICATOR_URL, human_revision_id
-        )
+        revision_url = urllib.parse.urljoin(settings.PHABRICATOR_URL, human_revision_id)
         secure = revision_is_secure(phab_revision, secure_project_phid)
         commit_description = find_title_and_summary_for_display(
             phab, phab_revision, secure
@@ -188,9 +189,9 @@ def get(phab: PhabricatorClient, revision_id: str):
                 "reviewers": serialize_reviewers(reviewers, users, projects, diff_phid),
                 "is_secure": secure,
                 "is_using_secure_commit_message": commit_description.sanitized,
-                "lando_revision": lando_revision.serialize()
-                if lando_revision
-                else None,
+                "lando_revision": (
+                    lando_revision.serialize() if lando_revision else None
+                ),
             }
         )
 

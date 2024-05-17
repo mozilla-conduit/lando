@@ -9,8 +9,8 @@ from collections import namedtuple
 from datetime import datetime, timezone
 
 import requests
-
 from django.conf import settings
+
 from lando.api.legacy.phabricator import (
     PhabricatorClient,
     PhabricatorRevisionStatus,
@@ -455,8 +455,9 @@ def check_landing_blockers(
     landable_paths,
     landable_repos,
     *,
-    user_blocks=[user_block_no_auth0_email, user_block_scm_level],
+    user_blocks=None,
 ):
+    user_blocks = user_blocks or [user_block_no_auth0_email, user_block_scm_level]
     revision_path = []
     revision_to_diff_id = {}
     for revision_phid, diff_id in requested_path:

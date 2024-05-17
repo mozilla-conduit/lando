@@ -9,6 +9,7 @@ from pathlib import Path
 
 from django.db import models
 from django.db import connection
+from django.db import transaction
 
 from django.conf import settings
 from lando.utils import GitPatchHelper
@@ -18,6 +19,27 @@ logger = logging.getLogger(__name__)
 DEFAULT_GRACE_SECONDS = int(os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2))
 
 
+class LockTableContextManager(ContextDecorator):
+    """Decorator to lock table for current model."""
+
+    def __init__(self, model, lock="SHARE ROW EXCLUSIVE"):
+        self.lock = lock
+        self.model = model
+
+        if lock not in ("SHARE ROW EXCLUSIVE",):
+            raise ValueError(f"{lock} not valid.")
+
+    def __enter__(self):
+        cursor = connection.cursor()
+        with transaction.atomic():
+            cursor.execute(
+                f"LOCK TABLE {self.model._meta.db_table} IN {self.lock} MODE"
+            )
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
+
 class BaseModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -25,21 +47,10 @@ class BaseModel(models.Model):
     class Meta:
         abstract = True
 
-    class lock_table(ContextDecorator):
-        """Decorator to lock table for current model."""
-
-        def __init__(self, model, lock):
-            self.lock = lock
-
-            if lock not in ("SHARE ROW EXCLUSIVE", ):
-                raise ValueError(f"{lock} not valid.")
-
-        def __enter__(self):
-            cursor = connection.cursor()
-            cursor.execute(f"LOCK TABLE {self._meta.db_table} IN {self.lock} MODE")
-
-        def __exit__(self, exc_type, exc_value, traceback):
-            pass
+    @classmethod
+    @property
+    def lock_table(cls):
+        return LockTableContextManager(cls)
 
     @classmethod
     def one_or_none(cls, *args, **kwargs):

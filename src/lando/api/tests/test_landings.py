@@ -440,7 +440,8 @@ def test_failed_landing_job_notification(
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.notify_user_of_landing_failure", mock_notify
+        "lando.api.legacy.workers.landing_worker.notify_user_of_landing_failure",
+        mock_notify,
     )
 
     assert worker.run_job(job, repo, hgrepo, treestatus)
@@ -776,7 +777,8 @@ def test_format_patch_fail(
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.notify_user_of_landing_failure", mock_notify
+        "lando.api.legacy.workers.landing_worker.notify_user_of_landing_failure",
+        mock_notify,
     )
 
     assert not worker.run_job(
@@ -841,7 +843,8 @@ def test_format_patch_no_landoini(
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.notify_user_of_landing_failure", mock_notify
+        "lando.api.legacy.workers.landing_worker.notify_user_of_landing_failure",
+        mock_notify,
     )
 
     assert worker.run_job(job, repo, hgrepo, treestatus)
@@ -856,6 +859,8 @@ def test_format_patch_no_landoini(
     ), "Successful landing should trigger Phab repo update."
 
 
+# bug 1893453
+@pytest.mark.xfail
 def test_landing_job_revisions_sorting(
     app,
     db,

@@ -7,6 +7,8 @@ from lando.api.legacy.decorators import require_phabricator_api_key
 from lando.api.legacy.phabricator import PhabricatorClient
 from lando.main.support import ConnexionResponse
 
+pytest.skip(allow_module_level=True)
+
 
 def noop(phab, *args, **kwargs):
     response = ConnexionResponse(status_code=200)

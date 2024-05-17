@@ -7,8 +7,8 @@ from datetime import datetime
 from typing import Optional
 
 import kombu
-
 from django.conf import settings
+
 from lando.api.legacy import auth
 from lando.api.legacy.commit_message import format_commit_message
 from lando.api.legacy.decorators import require_phabricator_api_key
@@ -209,6 +209,7 @@ def _assess_transplant_request(
     return (assessment, to_land, landing_repo, stack_data)
 
 
+# TODO: auth stuff
 @auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
 @require_phabricator_api_key(optional=True)
 def dryrun(phab: PhabricatorClient, data: dict):
@@ -380,13 +381,11 @@ def post(phab: PhabricatorClient, data: dict):
         )
     )
     stack_ids = [revision.revision_id for revision in lando_revisions]
-    with LandingJob.lock_table():
+    with LandingJob.lock_table:
         if (
             LandingJob.revisions_query(stack_ids)
             .filter(
-                status__in=(
-                    [LandingJobStatus.SUBMITTED, LandingJobStatus.IN_PROGRESS]
-                )
+                status__in=([LandingJobStatus.SUBMITTED, LandingJobStatus.IN_PROGRESS])
             )
             .count()
             != 0
@@ -399,10 +398,12 @@ def post(phab: PhabricatorClient, data: dict):
             repository_name=landing_repo.short_name,
             repository_url=landing_repo.url,
         )
+        job.save()
     add_revisions_to_job(lando_revisions, job)
     logger.info(f"Setting {revision_reviewers} reviewer data on each revision.")
     for revision in lando_revisions:
         revision.data = {"approved_by": revision_reviewers[revision.id]}
+        revision.save()
 
     # Submit landing job.
     job.status = LandingJobStatus.SUBMITTED
@@ -450,9 +451,6 @@ def get_list(phab: PhabricatorClient, stack_revision_id: str):
         constraints={"phids": revision_phids},
         limit=len(revision_phids),
     )
-
-    # Return both transplants and landing jobs, since for repos that were switched
-    # both or either of these could be populated.
 
     rev_ids = [phab.expect(r, "id") for r in phab.expect(revs, "data")]
 
