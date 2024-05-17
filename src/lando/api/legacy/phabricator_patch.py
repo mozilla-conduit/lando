@@ -144,9 +144,11 @@ def serialize_patched_file(diff: dict, public_node: str) -> dict:
         "metadata": metadata,
         "oldPath": old_path,
         "currentPath": diff["filename"],
-        "awayPaths": [old_path]
-        if change_kind in (ChangeKind.COPY_HERE, ChangeKind.MOVE_HERE)
-        else [],
+        "awayPaths": (
+            [old_path]
+            if change_kind in (ChangeKind.COPY_HERE, ChangeKind.MOVE_HERE)
+            else []
+        ),
         "commitHash": public_node,
         "type": change_kind.value,
         "fileType": file_type.value,

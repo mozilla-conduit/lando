@@ -4,9 +4,9 @@
 import logging
 
 import sentry_sdk
+from django.conf import settings
 from sentry_sdk.integrations.django import DjangoIntegration
 
-from django.conf import settings
 from lando.api.legacy.systems import Subsystem
 
 logger = logging.getLogger(__name__)

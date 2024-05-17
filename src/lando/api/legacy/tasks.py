@@ -7,6 +7,7 @@ import ssl
 from typing import Optional
 
 from django.conf import settings
+
 from lando.api.legacy.celery import celery
 from lando.api.legacy.email import make_failure_email
 from lando.api.legacy.phabricator import (

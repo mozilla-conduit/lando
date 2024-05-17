@@ -7,6 +7,10 @@ RUN adduser --system --no-create-home app
 
 RUN mkdir /code
 COPY ./ /code
+
+RUN mkdir -p /code/.ruff_cache
+RUN chown -R app /code/.ruff_cache
+
 RUN pip install --upgrade pip
 
 
