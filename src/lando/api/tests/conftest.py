@@ -515,7 +515,7 @@ def proxy_client(monkeypatch):
     reimplemented to not need a response or response-like object.
     """
 
-    class Response:
+    class MockResponse:
         """Mock response class to satisfy some requirements of tests."""
 
         # NOTE: The methods tested that rely on this class should be reimplemented
@@ -524,39 +524,68 @@ def proxy_client(monkeypatch):
             self.json = json or {}
             self.status_code = status_code
             self.content_type = (
-                "application/json"
-                if str(status_code)[0] not in ("4", "5")
-                else "application/problem+json"
+                "application/json" if status_code < 400 else "application/problem+json"
             )
 
-    class _proxy:
+    class ProxyClient:
+        def _handle__get__stacks__id(self, path):
+            revision_id = path.lstrip("/stacks/")
+            json_response = legacy_api_stacks.get(revision_id)
+            if isinstance(json_response, HttpResponse):
+                # In some cases, an actual response object is returned.
+                return json_response
+            # In other cases, just the data is returned, and it should be
+            # mapped to a response.
+            return MockResponse(json=json.loads(json.dumps(json_response)))
+
+        def _handle__get__transplants__id(self, path):
+            stack_revision_id = path.lstrip("/transplants?stack_revision_id=")
+            result = legacy_api_transplants.get_list(
+                stack_revision_id=stack_revision_id
+            )
+            if isinstance(result, tuple):
+                # For these endpoints, some responses contain different status codes
+                # which are represented as the second item in a tuple.
+                json_response, status_code = result
+                return MockResponse(
+                    json=json.loads(json.dumps(json_response)),
+                    status_code=status_code,
+                )
+            # In the rest of the cases, the returned result is a response object.
+            return result
+
+        def _handle__post__transplants__dryrun(self, **kwargs):
+            json_response = legacy_api_transplants.dryrun(kwargs["json"])
+            return MockResponse(json=json.loads(json.dumps(json_response)))
+
+        def _handle__post__transplants(self, path, **kwargs):
+            try:
+                json_response, status_code = legacy_api_transplants.post(kwargs["json"])
+            except ProblemException as e:
+                # Handle exceptions and pass along the status code to the response object.
+                if e.json_detail:
+                    return MockResponse(json=e.json_detail, status_code=e.status_code)
+                return MockResponse(json=e.args, status_code=e.status_code)
+            except Exception:
+                # TODO: double check that this is a thing in legacy?
+                # Added this due to a validation error (test_transplant_wrong_landing_path_format)
+                return MockResponse(json=["error"], status_code=400)
+            return MockResponse(
+                json=json.loads(json.dumps(json_response)), status_code=status_code
+            )
+
+        def _handle__put__landing_jobs__id(self, path, **kwargs):
+            job_id = int(path.lstrip("/landing_jobs/"))
+            json_response = legacy_api_landing_jobs.put(job_id, kwargs["json"])
+            return MockResponse(json=json.loads(json.dumps(json_response)))
+
         def get(self, path, *args, **kwargs):
             """Handle various get endpoints."""
             if path.startswith("/stacks/D"):
-                revision_id = path.lstrip("/stacks/")
-                json_response = legacy_api_stacks.get(revision_id)
-                if isinstance(json_response, HttpResponse):
-                    # In some cases, an actual response object is returned.
-                    return json_response
-                # In other cases, just the data is returned, and it should be
-                # mapped to a response.
-                return Response(json=json.loads(json.dumps(json_response)))
+                return self._handle__get__stacks__id(path)
 
             if path.startswith("/transplants?"):
-                stack_revision_id = path.lstrip("/transplants?stack_revision_id=")
-                result = legacy_api_transplants.get_list(
-                    stack_revision_id=stack_revision_id
-                )
-                if isinstance(result, tuple):
-                    # For these endpoints, some responses contain different status codes
-                    # which are represented as the second item in a tuple.
-                    json_response, status_code = result
-                    return Response(
-                        json=json.loads(json.dumps(json_response)),
-                        status_code=status_code,
-                    )
-                # In the rest of the cases, the returned result is a response object.
-                return result
+                return self._handle__get__transplants__id(path)
 
         def post(self, path, **kwargs):
             """Handle various post endpoints."""
@@ -565,26 +594,10 @@ def proxy_client(monkeypatch):
                 monkeypatch.setattr("lando.api.legacy.auth.request", mock_request)
 
             if path.startswith("/transplants/dryrun"):
-                json_response = legacy_api_transplants.dryrun(kwargs["json"])
-                return Response(json=json.loads(json.dumps(json_response)))
+                return self._handle__post__transplants__dryrun(**kwargs)
 
             if path == "/transplants":
-                try:
-                    json_response, status_code = legacy_api_transplants.post(
-                        kwargs["json"]
-                    )
-                except ProblemException as e:
-                    # Handle exceptions and pass along the status code to the response object.
-                    if e.json_detail:
-                        return Response(json=e.json_detail, status_code=e.status_code)
-                    return Response(json=e.args, status_code=e.status_code)
-                except Exception:
-                    # TODO: double check that this is a thing in legacy?
-                    # Added this due to a validation error (test_transplant_wrong_landing_path_format)
-                    return Response(json=["error"], status_code=400)
-                return Response(
-                    json=json.loads(json.dumps(json_response)), status_code=status_code
-                )
+                return self._handle__post__transplants(path, **kwargs)
 
         def put(self, path, **kwargs):
             """Handle put endpoints."""
@@ -593,8 +606,6 @@ def proxy_client(monkeypatch):
                 monkeypatch.setattr("lando.api.legacy.auth.request", mock_request)
 
             if path.startswith("/landing_jobs/"):
-                job_id = int(path.lstrip("/landing_jobs/"))
-                json_response = legacy_api_landing_jobs.put(job_id, kwargs["json"])
-                return Response(json=json.loads(json.dumps(json_response)))
+                return self._handle__put__landing_jobs__id(path, **kwargs)
 
-    return _proxy()
+    return ProxyClient()

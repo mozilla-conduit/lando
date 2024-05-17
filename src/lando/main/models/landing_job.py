@@ -12,7 +12,7 @@ from typing import (
 )
 
 from django.db import models
-from django.db.models import QuerySet, Case, When, IntegerField
+from django.db.models import Case, IntegerField, Q, QuerySet, When
 from django.utils.translation import gettext_lazy
 from mots.config import FileConfig
 from mots.directory import Directory
@@ -182,8 +182,6 @@ class LandingJob(BaseModel):
         that stores revisions and diff IDs. Those records are now deprecated and will
         not be included in this query.
         """
-        from django.db.models import Q
-
         revisions = [str(int(r)) for r in revisions]
         return cls.objects.filter(
             Q(unsorted_revisions__revision_id__in=revisions)

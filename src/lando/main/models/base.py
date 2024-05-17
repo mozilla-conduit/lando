@@ -49,7 +49,7 @@ class BaseModel(models.Model):
 
     @classmethod
     @property
-    def lock_table(cls, *args, **kwargs):
+    def lock_table(cls):
         return LockTableContextManager(cls)
 
     @classmethod
