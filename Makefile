@@ -5,8 +5,8 @@ DOCKER_COMPOSE := $(shell which docker-compose)
 
 .PHONY: help
 help:
-	@$(DOCKER) --version
-	@$(DOCKER_COMPOSE) --version
+	@"$(DOCKER)" --version
+	@"$(DOCKER_COMPOSE)" --version
 	@echo "usage: make <target>"
 	@echo
 	@echo "target is one of:"
