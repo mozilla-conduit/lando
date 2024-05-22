@@ -7,6 +7,7 @@ import ssl
 from typing import Optional
 
 from django.conf import settings
+from django.core import mail
 
 from lando.api.legacy.celery import celery
 from lando.api.legacy.email import make_failure_email
@@ -14,7 +15,6 @@ from lando.api.legacy.phabricator import (
     PhabricatorClient,
     PhabricatorCommunicationException,
 )
-from lando.api.legacy.smtp import smtp
 
 logger = logging.getLogger(__name__)
 
@@ -47,28 +47,15 @@ def send_landing_failure_email(
         revision_id: The Phabricator Revision ID that failed to land. e.g. D12345
         error_msg: The error message returned by the Transplant service.
     """
-    if smtp.suppressed:
-        logger.warning(
-            f"Email sending suppressed: application config has disabled "
-            f"all mail sending (recipient was: {recipient_email})"
-        )
-        return
-
-    if not smtp.recipient_allowed(recipient_email):
-        logger.info(
-            f"Email sending suppressed: recipient {recipient_email} not whitelisted"
-        )
-        return
-
-    with smtp.connection() as c:
-        c.send_message(
-            make_failure_email(
-                smtp.default_from,
-                recipient_email,
-                landing_job_identifier,
-                error_msg,
-                settings.LANDO_UI_URL,
-            )
+    with mail.get_connection() as c:
+        c.send_messages(
+            [
+                make_failure_email(
+                    recipient_email,
+                    landing_job_identifier,
+                    error_msg,
+                )
+            ]
         )
 
     logger.info(f"Notification email sent to {recipient_email}")
@@ -102,28 +89,15 @@ def send_bug_update_failure_email(
         revision_id: The Phabricator Revision ID that failed to update bugs. e.g. D12345
         error_msg: The error message returned by Bugzilla.
     """
-    if smtp.suppressed:
-        logger.warning(
-            f"Email sending suppressed: application config has disabled "
-            f"all mail sending (recipient was: {recipient_email})"
-        )
-        return
-
-    if not smtp.recipient_allowed(recipient_email):
-        logger.info(
-            f"Email sending suppressed: recipient {recipient_email} not whitelisted"
-        )
-        return
-
-    with smtp.connection() as c:
-        c.send_message(
-            make_failure_email(
-                smtp.default_from,
-                recipient_email,
-                landing_job_identifier,
-                error_msg,
-                settings.LANDO_UI_URL,
-            )
+    with mail.get_connection() as c:
+        c.send_messages(
+            [
+                make_failure_email(
+                    recipient_email,
+                    landing_job_identifier,
+                    error_msg,
+                )
+            ]
         )
 
     logger.info(f"Notification email sent to {recipient_email}")
