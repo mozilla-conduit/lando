@@ -48,20 +48,6 @@ def cli():
     """Lando API cli."""
 
 
-@cli.command(context_settings={"ignore_unknown_options": True})
-@click.argument("celery_arguments", nargs=-1, type=click.UNPROCESSED)
-def worker(celery_arguments):
-    """Initialize a Celery worker for this app."""
-    from lando.api.legacy.app import repo_clone_subsystem
-
-    for system in get_subsystems(exclude=[repo_clone_subsystem]):
-        system.ensure_ready()
-
-    from lando.api.legacy.celery import celery
-
-    celery.worker_main((sys.argv[0],) + celery_arguments)
-
-
 @cli.command(name="landing-worker")
 def landing_worker():
     from lando.api.legacy.app import auth0_subsystem, lando_ui_subsystem
@@ -107,7 +93,7 @@ def celery(celery_arguments):
     for system in get_subsystems(exclude=[repo_clone_subsystem]):
         system.ensure_ready()
 
-    from lando.api.legacy.celery import celery
+    from lando.utils.celery import celery
 
     celery.start([sys.argv[0]] + list(celery_arguments))
 

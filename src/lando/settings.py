@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "mozilla_django_oidc",
     "lando.main",
     "lando.utils",
+    "lando.api",
 ]
 
 MIDDLEWARE = [
@@ -167,6 +168,11 @@ PHABRICATOR_URL = os.getenv("PHABRICATOR_URL", "http://phabricator.test")
 PHABRICATOR_ADMIN_API_KEY = os.getenv("PHABRICATOR_ADMIN_API_KEY", "")
 PHABRICATOR_UNPRIVILEGED_API_KEY = os.getenv("PHABRICATOR_UNPRIVILEGED_API_KEY", "")
 
-CELERY_TASK_ALWAYS_EAGER = True
 ENVIRONMENT = os.getenv("ENVIRONMENT", "test")
+
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://lando.redis:6379")
+CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+
 DEFAULT_FROM_EMAIL = "Lando <lando@lando.test>"

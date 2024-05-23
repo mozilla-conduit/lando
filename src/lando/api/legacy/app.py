@@ -11,7 +11,6 @@ from connexion.resolver import RestyResolver
 
 from lando.api.legacy.auth import auth0_subsystem
 from lando.api.legacy.cache import cache_subsystem
-from lando.api.legacy.celery import celery_subsystem
 from lando.api.legacy.dockerflow import dockerflow
 from lando.api.legacy.hooks import initialize_hooks
 from lando.api.legacy.logging import logging_subsystem
@@ -33,7 +32,6 @@ SUBSYSTEMS: list[Subsystem] = [
     sentry_subsystem,
     auth0_subsystem,
     cache_subsystem,
-    celery_subsystem,
     lando_ui_subsystem,
     phabricator_subsystem,
     smtp_subsystem,
@@ -46,7 +44,6 @@ def load_config() -> dict[str, Any]:
     """Return configuration pulled from the environment."""
     config = {
         "ALEMBIC": {"script_location": "/migrations/"},
-        "DISABLE_CELERY": bool(os.getenv("DISABLE_CELERY")),
         "ENVIRONMENT": os.getenv("ENV"),
         "MAIL_SUPPRESS_SEND": bool(os.getenv("MAIL_SUPPRESS_SEND")),
         "MAIL_USE_SSL": bool(os.getenv("MAIL_USE_SSL")),
@@ -61,7 +58,6 @@ def load_config() -> dict[str, Any]:
         "CACHE_REDIS_HOST",
         "CACHE_REDIS_PASSWORD",
         "CACHE_REDIS_PORT",
-        "CELERY_BROKER_URL",
         "CSP_REPORTING_URL",
         "LANDO_UI_URL",
         "LOG_LEVEL",

@@ -7,7 +7,7 @@ from lando.api.legacy.phabricator import (
     PhabricatorAPIException,
     PhabricatorCommunicationException,
 )
-from lando.api.legacy.tasks import admin_remove_phab_project
+from lando.utils.tasks import admin_remove_phab_project
 
 
 def test_admin_remove_phab_project_succeeds(phabdouble, app):
