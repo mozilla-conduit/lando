@@ -22,3 +22,6 @@ CACHES = {
         "BACKEND": "django.core.cache.backends.dummy.DummyCache",
     }
 }
+
+DEFAULT_FROM_EMAIL = "Lando <lando@lando.test>"
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

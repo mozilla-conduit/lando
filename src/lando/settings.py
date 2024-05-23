@@ -142,6 +142,8 @@ MEDIA_ROOT = "/mediafiles"
 
 REPO_ROOT = f"{MEDIA_ROOT}/repos"
 
+SITE_URL = os.getenv("SITE_URL", "https://lando.test")
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 OIDC_DOMAIN = os.getenv("OIDC_DOMAIN")
@@ -167,3 +169,4 @@ PHABRICATOR_UNPRIVILEGED_API_KEY = os.getenv("PHABRICATOR_UNPRIVILEGED_API_KEY",
 
 CELERY_TASK_ALWAYS_EAGER = True
 ENVIRONMENT = os.getenv("ENVIRONMENT", "test")
+DEFAULT_FROM_EMAIL = "Lando <lando@lando.test>"
