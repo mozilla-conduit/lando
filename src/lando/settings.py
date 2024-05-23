@@ -143,6 +143,8 @@ MEDIA_ROOT = "/mediafiles"
 
 REPO_ROOT = f"{MEDIA_ROOT}/repos"
 
+SITE_URL = os.getenv("SITE_URL", "https://lando.test")
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 OIDC_DOMAIN = os.getenv("OIDC_DOMAIN")
@@ -172,3 +174,5 @@ CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://lando.redis:6379")
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
+
+DEFAULT_FROM_EMAIL = "Lando <lando@lando.test>"
