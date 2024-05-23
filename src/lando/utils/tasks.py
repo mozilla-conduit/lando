@@ -8,18 +8,24 @@ from typing import Optional
 
 from django.conf import settings
 
-from lando.api.legacy.celery import celery
 from lando.api.legacy.email import make_failure_email
 from lando.api.legacy.phabricator import (
     PhabricatorClient,
     PhabricatorCommunicationException,
 )
 from lando.api.legacy.smtp import smtp
+from lando.utils.celery import app as celery_app
 
 logger = logging.getLogger(__name__)
 
 
-@celery.task(
+@celery_app.task
+def debug_task():
+    print("hello")
+    return 1
+
+
+@celery_app.task(
     # Auto-retry for errors from the SMTP socket connection. Don't log
     # stack traces.  All other exceptions will log a stack trace and cause an
     # immediate job failure without retrying.
@@ -74,7 +80,7 @@ def send_landing_failure_email(
     logger.info(f"Notification email sent to {recipient_email}")
 
 
-@celery.task(
+@celery_app.task(
     # Auto-retry for errors from the SMTP socket connection. Don't log
     # stack traces.  All other exceptions will log a stack trace and cause an
     # immediate job failure without retrying.
@@ -129,7 +135,7 @@ def send_bug_update_failure_email(
     logger.info(f"Notification email sent to {recipient_email}")
 
 
-@celery.task(
+@celery_app.task(
     autoretry_for=(IOError, PhabricatorCommunicationException),
     default_retry_delay=20,
     acks_late=True,
@@ -168,7 +174,7 @@ def admin_remove_phab_project(
     )
 
 
-@celery.task(
+@celery_app.task(
     autoretry_for=(IOError, PhabricatorCommunicationException),
     default_retry_delay=3,
     acks_late=True,

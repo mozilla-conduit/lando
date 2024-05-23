@@ -34,7 +34,6 @@ from lando.api.legacy.repos import (
     Repo,
     repo_clone_subsystem,
 )
-from lando.api.legacy.tasks import phab_trigger_repo_update
 from lando.api.legacy.treestatus import (
     TreeStatus,
     treestatus_subsystem,
@@ -45,6 +44,7 @@ from lando.api.legacy.uplift import (
 from lando.api.legacy.workers.base import Worker
 from lando.main.models.configuration import ConfigurationKey
 from lando.main.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
+from lando.utils.tasks import phab_trigger_repo_update
 
 logger = logging.getLogger(__name__)
 

@@ -11,7 +11,6 @@ from lando.api.legacy.mocks.canned_responses.auth0 import CANNED_USERINFO
 from lando.api.legacy.phabricator import PhabricatorRevisionStatus, ReviewerStatus
 from lando.api.legacy.repos import DONTBUILD, SCM_CONDUIT, SCM_LEVEL_3, Repo
 from lando.api.legacy.reviews import get_collated_reviewers
-from lando.api.legacy.tasks import admin_remove_phab_project
 from lando.api.legacy.transplants import (
     RevisionWarning,
     TransplantAssessment,
@@ -28,6 +27,7 @@ from lando.main.models.landing_job import (
     add_job_with_revisions,
 )
 from lando.main.models.revision import Revision
+from lando.utils.tasks import admin_remove_phab_project
 
 
 def _create_landing_job(
