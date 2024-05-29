@@ -26,7 +26,7 @@ ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,lando.local,lando.test").s
     ","
 )
 CSRF_TRUSTED_ORIGINS = os.getenv(
-    "CSRF_TRUSTED_ORIGINS", "https://localhost,https://lando.local"
+    "CSRF_TRUSTED_ORIGINS", "https://localhost,https://lando.local,https://lando.test"
 ).split(",")
 
 # Application definition
