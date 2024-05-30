@@ -47,7 +47,6 @@ from lando.api.legacy.stacks import (
     get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
-from lando.api.legacy.tasks import admin_remove_phab_project
 from lando.api.legacy.transplants import (
     TransplantAssessment,
     check_landing_blockers,
@@ -67,6 +66,7 @@ from lando.main.models.landing_job import (
 )
 from lando.main.models.revision import Revision
 from lando.main.support import ProblemException, g, problem
+from lando.utils.tasks import admin_remove_phab_project
 
 logger = logging.getLogger(__name__)
 

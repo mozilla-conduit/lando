@@ -33,6 +33,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
 
   proxy:
     build: ./nginx
@@ -43,6 +45,18 @@ services:
     volumes:
       - ./staticfiles:/staticfiles
       - media:/mediafiles
+
+  redis:
+    image: redis:7.2
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+
+  celery:
+    image: suite_lando
+    command: lando start_celery_worker
+    depends_on:
+      redis:
+        condition: service_healthy
 
 volumes:
   media:
