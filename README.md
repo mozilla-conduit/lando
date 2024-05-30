@@ -1,334 +1,53 @@
-# Lando API
+# Lando
 
-A microservice to land Phabricator revisions to version control
-repositories.
+Lando is an application that applies patches and pushes them to Git and Mercurial repositories.
 
-Part of Mozilla Conduit, our code-management microservice ecosystem.
+## Development
 
-[![What's Deployed](https://img.shields.io/badge/whatsdeployed-prod,dev-green.svg)](https://whatsdeployed.io/s-46t)
+### Contributing
 
-## Building the service
+- All contributors must abide by the Mozilla Code of Conduct.
+- The [main repository](https://github.com/mozilla-conduit/lando) is hosted on GitHub. Pull requests should be submitted against the `main` branch.
+- Bugs are tracked [on Bugzilla](https://bugzilla.mozilla.org), under the `Conduit :: Lando` component.
+- It is recommended to fork the repository and create a new branch for each pull request. A good convention to use is to prefix your name and bug number to the branch, and add a brief description at the end, for example: `sarah/bug-4325743-changing-config-params`.
+- Commit messages must be of the following form: `<module name>: <brief description> (bug <bug number>)`.
+
 
 ### Prerequisites
 
-* docker and docker-compose (on OS X and Windows you should use
-  the full Docker for Mac or Docker for Windows systems,
-  respectively)
-* `pyinvoke`
-  * Because `pyinvoke` currently has no backward-compatibility guarantees,
-    it is suggested that you install exactly version 0.21.0 via `pip`:
-    `pip install invoke==0.21.0` or `pip install --user invoke==0.21.0`.
-  * You can use a virtualenv instead of installing it system-wide, but you
-    should create the virtualenv *outside* of the lando-api source directory so
-    that the linter doesn't check the virtualenv files.
-  * If you are running Windows, you will need a special file in your user
-    directory (typically `C:\Users\<username>\`) called `.invoke.yml`.  It
-    should contain the following:
-
-        ```yaml
-        run:
-          shell: C:\Windows\System32\cmd.exe
-        ```
+* docker
+* docker compose 
 
 ### Running the development server
 
-To build and start the development services containers (remove `-d` if logs
-should be printed out):
-
     ```shell
-    docker-compose up -d
+    make start
     ```
 
-To create a database:
+The above command will run any database migrations and start the development server and its dependencies.
 
     ```shell
-    invoke setup-db
+    make stop
     ```
 
-You can use a tool like httpie to test the service.
-
-To stop the containers run
-
-    ```shell
-    docker-compose down
-    ```
-
-## Browsing the API documentation
-
-Start the development services and visit `http://localhost:8888/ui/`
-in your browser to view the API documentation.
+The above command will shut down the containers running lando.
 
 ## Testing
 
-lando-api's tests use `pytest` with `pytest-flask`, executed within a
-Docker container.  The tests are located in `./tests/`.  You can run
-all of them via `invoke`:
+To run the test suite, invoke the following command:
 
     ```shell
-    invoke test
+    make test
     ```
 
-You can provide options to pytest in `testargs` argument:
-
-    ```shell
-    invoke test --testargs tests/test_landings.py
-    ```
-
-Please wrap the testargs with `""` if more than one is needed.
-
-Subsets of the tests, e.g. linters, and other commands are also available.  Run
-`invoke -l` to see all tasks.
-
-## Migrations
-
-### Developer machine
-
-> Please run the `lando-api.db` container before accessing the database.
+If you need to run specific tests, or pass additional arguments, use the `lando tests`
+command from within the Lando container.
 
 #### Add a new migration
 
     ```shell
-    invoke add-migration "{description of applied changes}"
+    make migrations
     ```
-
-#### Upgrade to the newest revision
-
-    ```shell
-    invoke upgrade
-    ```
-
-### Deployed server
-
-Upgrade to the newest migration:
-
-    ```shell
-    docker run [OPTIONS] IMAGE lando-cli db upgrade
-    ```
-
-## Accessing the database
-
-Run `lando-api.db` container if development containers are down.
-
-    ```shell
-    docker-compose up -d lando-api.db
-    ```
-
-Access the database server (password is `password`)
-
-    ```shell
-    $ psql -h localhost --port 54321 --user postgres -d lando_api_dev
-    Password for user postgres:
-    ```
-
-## Updating Requirements
-
-Requirements are managed with `pip-compile`. To add or update requirements
-in Lando, update `requirements.in` as needed, then run the following
-`docker-compose` recipe:
-
-    ```shell
-    docker-compose run build-requirements
-    ```
-
-## Useful Links
-
-[Transplant](https://hg.mozilla.org/hgcustom/version-control-tools/file/tip/autoland)
-[Conduit](https://wiki.mozilla.org/EngineeringProductivity/Projects/Conduit)
-[docker](https://docs.docker.com/engine/installation/)
-[docker-compose](https://docs.docker.com/compose/install/)
-[Docker for Mac](https://docs.docker.com/docker-for-mac/install/)
-[Docker for Windows](https://docs.docker.com/docker-for-windows/install/)
-[Homebrew formula](http://brewformulas.org/pyinvoke)
-[docker-compose.override.yml](https://docs.docker.com/compose/extends/)
-[httpie](http://httpie.org/)
-
-## Support
-
-To chat with Lando users and developers, join them on [Matrix](https://chat.mozilla.org/#/room/#conduit:mozilla.org).
-
-
-# Lando UI
-
-lando-ui is a Flask-based web application that serves as a graphical
-user interface to [Lando API](https://github.com/mozilla-conduit/lando-api).
-It is separate from the latter to isolate the logic of automatic landings
-from its interface(s).
-
-[![What's Deployed](https://img.shields.io/badge/whatsdeployed-prod,dev-green.svg)](https://whatsdeployed.io/s-a0C)
-
-## Contributing
-
-Please read the general [Conduit contribution guidelines](http://moz-conduit.readthedocs.io/en/latest/contributing.html)
-before getting into the specifics of lando-ui.
-
-### Prerequisites
-
-* [docker](https://docs.docker.com/engine/installation/) and [docker-compose](https://docs.docker.com/compose/install/)
-  (on OS X and Windows you should use the full [Docker for Mac](https://docs.docker.com/docker-for-mac/install/)
-  or [Docker for Windows](https://docs.docker.com/docker-for-windows/install/) systems,
-  respectively)
-* `pyinvoke`
-  * Because `pyinvoke` currently has no backwards-compatibility guarantees,
-    it is suggested that you install exactly version 0.21.0 via `pip`:
-    `pip install invoke==0.21.0` or `pip install --user invoke==0.21.0`.
-  * You can use a virtualenv instead of installing it system wide, but you
-    should create the virtualenv *outside* of the lando-ui source directory so
-    that the linter doesn't check the virtualenv files.
-  * If you are running Windows, you will need a special file in your user
-    directory (typically `C:\Users\<username>\`) called `.invoke.yml`.  It
-    should contain the following:
-
-        ```yaml
-        run:
-          shell: C:\Windows\System32\cmd.exe
-        ```
-
-### Basic setup
-
-As Flask [requires a real server name](https://flask.palletsprojects.com/en/1.1.x/config/#SESSION_COOKIE_DOMAIN)
-to use session cookies, you will need to make an entry in your host
-config or a local DNS server. On Linux and MacOS, the hosts file is
-located at `/etc/hosts`; on Windows, it is located at `C:\Windows\System32\Drivers\etc\hosts`.
-The format is the same on all three OSs, requiring the addition of the
-following line:
-
-    127.0.0.1           lando-ui.test
-
-If you are using [Docker Machine](https://docs.docker.com/machine/),
-you will need to replace `127.0.0.1` with the IP of your Docker Machine
-host.  Note that you should use `127.0.0.1` on Windows if you use the
-full Docker for Windows installation.
-
-After updating your hosts file (no reboot is required), in a terminal
-simply run `docker-compose up` in the root lando-ui directory.  On
-Windows, we recommend using [Git Bash](https://git-for-windows.github.io/),
-which provides a Linux-like terminal interface.
-
-After a while, you will see within docker-compose's output a line like
-this:
-
-    lando-ui_1    |  * Running on http://0.0.0.0:7777/ (Press CTRL+C to quit)
-
-At this point, you should be able to visit
-`http://lando-ui.test:7777/` in your browser.
-
-### Use with lando-api
-
-lando-ui requires an instance of lando-api to talk to in order to do
-anything interesting.  The default configuration sets the location of
-lando-api to `http://lando-api.test:8888`, which is the default for a
-local installation of lando-api.
-
-### Running the tests
-
-lando-ui's tests use `pytest` with `pytest-flask`, executed within a
-Docker container.  The tests are located in `./tests/`.  You can run
-all of them via `invoke`:
-
-    ```bash
-    invoke test
-    ```
-
-Subsets of the tests, e.g. linters, and other commands are also available.  Run
-`invoke -l` to see all tasks.
-
-### Updating Requirements
-
-Requirements are tracked using `pip-compile`'s input format as `requirements.in`,
-which generates a `requirements.txt`. You can re-compile the requirements file
-using the same Python version as in the `Dockerfile` using the `build-requirements`
-recipe in `docker-compose`:
-
-    ```shell
-    docker-compose run build-requirements
-    ```
-
-### Setting up Auth0
-
-We use [Auth0](https://auth0.com/) to authenticate application users.
-You will need to sign up for a personal Auth0 account to manually test
-code landing workflows and protected pages.
-
-After signing up you must create an Auth0 Application for lando-ui testing.
-See the Auth0 docs for details on how to do this.
-
-Once you have created the lando-ui Application in your Auth0 management dashboard,
-go to the `Application` page and configure the following:
-
-* `Client Type: Regular Web Application`
-* `Token Endpoint Authentication Method: POST`
-* `Allowed Callback URLs: http://lando-ui.test:7777/redirect_uri, http://lando-ui.test/redirect_uri`
-* `Allowed Web Origins: (leave blank)`
-* `Allowed Logout URLs: http://lando-ui.test:7777/signout, http://lando-ui.test/signout`
-* `Allowed Origins (CORS): (leave blank)`
-* Click `Show Advanced Settings` on the `Client Settings` page, then select the `OAuth`
-  tab:
-  * `JsonWebToken Signature Algorithm: HS256`
-
-Create an Auth0 API (click `API` in the Auth0 left side bar)
-
-* `Name: lando-api`
-* `Identifier/URI: http://lando-api.test`
-* `Signing Algorithm: RS256`
-* Go to the new API's `Permissions` tab and add a permission:
-  * `Name: lando`
-  * `Description: Bearer has authorized Lando to land code on their behalf`
-
-Create a `docker-compose.override.yml` file in repository's root directory with
-the following:
-
-    ```yaml
-    version: '2'
-    services:
-      lando-ui:
-        environment:
-          - OIDC_DOMAIN=your personal auth0 domain with no http prefix
-          - OIDC_CLIENT_ID=your Auth0 Client ID (from the Client Settings page)
-          - OIDC_CLIENT_SECRET=your Auth0 Client Secret (from the Client Settings page)
-          - LANDO_API_OIDC_IDENTIFIER=the identifier you gave to the API you made (e.g. http://lando-api.test)
-    ```
-
-Restart the lando-ui service with docker-compose.
-
-To log in to your new service you must create a User account.
-
-  1. Visit `http://lando-ui.test:7777/` in your browser.  You should  see the Lando
-     front page as a signed-out or anonymous user would see it.
-  1. Click the "Log in" button on the top navigation bar and you will be presented
-     with the lando-ui sign-in page.
-  1. On the lando-ui sign-in page click the "Sign Up" tab.
-  1. Follow the sign-up instructions. (Using the "Sign Up With Google" button makes
-     this task trivial.)
-
- You should now be able to use the lando-ui "Log in" and "Log out" buttons.
-
-### How do I make the Land button work?
-
-You need to change some settings in the lando-api service to make the
-Land button in lando-ui function.  See the `LOCALDEV_MOCK`
-environment variables in the [lando-api docker-compose.yml](https://github.com/mozilla-conduit/lando-api/blob/master/docker-compose.yml)
-for details.
-
-### Developing and testing against Conduit Suite
-
-Sometimes it's necessary to use a more realistic infrastructure setup to test template
-rendering, frontend/backend interactions, and to test with special case data such
-as secure revisions.  We can achieve this by running our Lando UI project code inside
-the [Conduit Suite](https://github.com/mozilla-conduit/suite) project's development
-environment. Conduit Suite provides all of the collaborating services (Lando API,
-Phabricator, BMO) necessary for Lando UI to function as the real service would.
-
-1. First set up Auth0 according to the Setting up Auth0 instruction section above.
-
-1. Next follow the [Conduit Suite] generic setup instructions.  Verify that you can
-run the Suite project from in it's own project directory with `docker-compose up`.
-Verify that you can use the `firefox-proxy` script in the Suite project's root
-directory to access the Suite's bundled copy of Lando UI.
-
-1. Once you have the Suite running with it's bundled copy of Lando UI you can modify
-its `docker-compose` configuration to build and run lando-ui from the sources in
-the project directory you have been hacking in.  Instructions are in the Conduit
-Suite project README.
 
 ## Support
 
