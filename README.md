@@ -1,13 +1,6 @@
 # Lando
 
-Lando is an application that lands (merges) revisions to Git and Mercurial repositories.
-
-Lando is comprised of many subcomponents, including:
-
-* The user interface
-* The API
-* Landing workers
-* A postgres database
+Lando is an application that applies patches and pushes them to Git and Mercurial repositories.
 
 ## Development
 
