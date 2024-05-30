@@ -1,6 +1,7 @@
 from django.templatetags.static import static
 from django.urls import reverse
 from django.utils.html import escape
+from compressor.contrib.jinja2ext import CompressorExtension
 
 from jinja2 import Environment
 from django.conf import settings
@@ -312,7 +313,7 @@ def message_type_to_notification_class(flash_message_category: str) -> str:
 
 
 def environment(**options):
-    env = Environment(**options)
+    env = Environment(extensions=[CompressorExtension], **options)
     env.globals.update(
         {
             "config": settings,
