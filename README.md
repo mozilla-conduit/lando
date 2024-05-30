@@ -48,7 +48,7 @@ To run the test suite, invoke the following command:
     ```
 
 If you need to run specific tests, or pass additional arguments, use the `lando tests`
-command from within the lando container.
+command from within the Lando container.
 
 #### Add a new migration
 
