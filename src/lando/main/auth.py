@@ -5,8 +5,7 @@ from lando.main.models.profile import Profile
 
 
 class LandoOIDCAuthenticationBackend(OIDCAuthenticationBackend):
-    def create_user(self, claims):
-        return super().create_user(claims)
+    """An extended OIDC auth backend that manipulates the user profile."""
 
     def get_userinfo(self, *args, **kwargs):
         self.userinfo = super().get_userinfo(*args, **kwargs)

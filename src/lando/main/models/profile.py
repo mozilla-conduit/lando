@@ -16,13 +16,12 @@ SCM_PERMISSIONS = (
 
 
 class Profile(BaseModel):
+      """A model to store additional information about users."""
+
     class Meta:
         permissions = SCM_PERMISSIONS
 
     user = models.OneToOneField(User, null=True, on_delete=models.SET_NULL)
-
-    # Phabricator API token.
-    phabricator_token = models.TextField(null=True, blank=True)
 
     # User info fetched from SSO.
     userinfo = models.JSONField(default=dict, blank=True)
