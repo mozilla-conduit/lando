@@ -16,7 +16,7 @@ SCM_PERMISSIONS = (
 
 
 class Profile(BaseModel):
-      """A model to store additional information about users."""
+    """A model to store additional information about users."""
 
     class Meta:
         permissions = SCM_PERMISSIONS
