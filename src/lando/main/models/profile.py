@@ -31,7 +31,7 @@ class Profile(BaseModel):
     userinfo = models.JSONField(default=dict, blank=True)
 
     def update_permissions(self):
-        """Remove permissions (currently SCM) and re-add them based on userinfo."""
+        """Remove SCM permissions and re-add them based on userinfo."""
         self.user.user_permissions.remove(
             **[permission[0] for permission in SCM_PERMISSIONS]
         )
