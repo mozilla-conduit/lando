@@ -8,11 +8,11 @@ from lando.main.models.profile import CLAIM_GROUPS_KEY
 @pytest.mark.django_db(transaction=True)
 def test_LandoOIDCAuthenticationBackend__update_user_scm_access(monkeypatch):
     backend = LandoOIDCAuthenticationBackend()
+    user = User.objects.create_user(username="test_user", password="test_password")
 
     # Test that having the active/all groups will add the correct permission.
     groups = ["active_scm_conduit", "all_scm_conduit"]
     claims = {CLAIM_GROUPS_KEY: groups}
-    user = User.objects.create_user(username="test_user", password="test_password")
     backend.update_user(user, claims)
     assert user.has_perm("main.scm_conduit")
 
