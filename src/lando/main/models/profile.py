@@ -32,10 +32,10 @@ class Profile(BaseModel):
     # User info fetched from SSO.
     userinfo = models.JSONField(default=dict, blank=True)
 
-    def _has_permission_groups(self, codename, groups):
+    def _has_scm_permission_groups(self, codename, groups):
         """Return whether the group membership provides the correct permission.
 
-        In order to have a particular permission, both the "active" and "all" groups
+        In order to have a particular SCM permission, both the "active" and "all" groups
         need to exist, and the "expired" group should not exist.
         """
         return {f"all_{codename}", f"active_{codename}"}.issubset(
@@ -58,5 +58,5 @@ class Profile(BaseModel):
         groups = self.userinfo.get(CLAIM_GROUPS_KEY, [])
 
         for codename in permissions:
-            if self._has_permission_groups(codename, groups):
+            if self._has_scm_permission_groups(codename, groups):
                 self.user.user_permissions.add(permissions[codename])
