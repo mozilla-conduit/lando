@@ -7,7 +7,7 @@ from django.db import models
 from lando.main.models.base import BaseModel
 
 SCM_PERMISSIONS = (
-    ("scm_allow_direct_push", "SCM_ALLOW_DIRECT_PUSH"),                                                                                                                                                               
+    ("scm_allow_direct_push", "SCM_ALLOW_DIRECT_PUSH"),
     ("scm_conduit", "SCM_CONDUIT"),
     ("scm_firefoxci", "SCM_FIREFOXCI"),
     ("scm_l10n_infra", "SCM_L10N_INFRA"),
