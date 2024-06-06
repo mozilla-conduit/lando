@@ -32,6 +32,16 @@ class Profile(BaseModel):
     # User info fetched from SSO.
     userinfo = models.JSONField(default=dict, blank=True)
 
+    def _has_permission_groups(self, codename, groups):
+        """Return whether the group membership provides the correct permission.
+
+        In order to have a particular permission, both the "active" and "all" groups
+        need to exist, and the "expired" group should not exist.
+        """
+        return {f"all_{codename}", f"active_{codename}"}.issubset(
+            groups
+        ) and f"expired_{codename}" not in groups
+
     def update_permissions(self):
         """Remove SCM permissions and re-add them based on userinfo."""
         content_type = ContentType.objects.get_for_model(self.__class__)
@@ -48,8 +58,5 @@ class Profile(BaseModel):
         groups = self.userinfo.get(CLAIM_GROUPS_KEY, [])
 
         for codename in permissions:
-            if (
-                set(groups).intersection((f"all_{codename}", f"active_{codename}"))
-                and f"expired_{codename}" not in groups
-            ):
+            if self._has_permission_groups(codename, groups):
                 self.user.user_permissions.add(permissions[codename])
