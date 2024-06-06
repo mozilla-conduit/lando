@@ -7,10 +7,14 @@ from django.db import models
 from lando.main.models.base import BaseModel
 
 SCM_PERMISSIONS = (
+    ("scm_allow_direct_push", "SCM_ALLOW_DIRECT_PUSH"),                                                                                                                                                               
     ("scm_conduit", "SCM_CONDUIT"),
+    ("scm_firefoxci", "SCM_FIREFOXCI"),
+    ("scm_l10n_infra", "SCM_L10N_INFRA"),
     ("scm_level_1", "SCM_LEVEL_1"),
     ("scm_level_2", "SCM_LEVEL_2"),
     ("scm_level_3", "SCM_LEVEL_3"),
+    ("scm_nss", "SCM_NSS"),
     ("scm_versioncontrol", "SCM_VERSIONCONTROL"),
 )
 
