@@ -178,10 +178,11 @@ OIDC_REDIRECT_REQUIRE_HTTPS = True
 
 OIDC_RP_CLIENT_ID = os.getenv("OIDC_RP_CLIENT_ID")
 OIDC_RP_CLIENT_SECRET = os.getenv("OIDC_RP_CLIENT_SECRET")
+OIDC_RP_SCOPES = "openid lando profile email"
 
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
-    "mozilla_django_oidc.auth.OIDCAuthenticationBackend",
+    "lando.main.auth.LandoOIDCAuthenticationBackend",
 ]
 
 LINT_PATHS = tuple(f"{BASE_DIR}/{path}" for path in ("main", "utils", "api"))
