@@ -18,6 +18,8 @@ SCM_PERMISSIONS = (
     ("scm_versioncontrol", "SCM_VERSIONCONTROL"),
 )
 
+CLAIM_GROUPS_KEY = "https://sso.mozilla.com/claim/groups"
+
 
 class Profile(BaseModel):
     """A model to store additional information about users."""
@@ -32,17 +34,22 @@ class Profile(BaseModel):
 
     def update_permissions(self):
         """Remove SCM permissions and re-add them based on userinfo."""
-        self.user.user_permissions.remove(
-            **[permission[0] for permission in SCM_PERMISSIONS]
-        )
-
-        groups = self.userinfo.get("https://sso.mozilla.com/claim/groups", [])
         content_type = ContentType.objects.get_for_model(self.__class__)
 
-        for codename in SCM_PERMISSIONS:
-            permission = Permission.objects.get(
-                codename=codename,
-                content_type=content_type,
+        permissions = {
+            codename: Permission.objects.get(
+                codename=codename, content_type=content_type
             )
-            if f"all_{permission}" in groups and f"expired_{permission}" not in groups:
-                self.user.user_permissions.add(permission)
+            for codename, name in SCM_PERMISSIONS
+        }
+
+        self.user.user_permissions.remove(*permissions.values())
+
+        groups = self.userinfo.get(CLAIM_GROUPS_KEY, [])
+
+        for codename in permissions:
+            if (
+                set(groups).intersection((f"all_{codename}", f"active_{codename}"))
+                and f"expired_{codename}" not in groups
+            ):
+                self.user.user_permissions.add(permissions[codename])
