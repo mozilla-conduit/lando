@@ -1,5 +1,5 @@
-import time
 import logging
+import time
 from functools import wraps
 
 # Logging is not yet implemented
@@ -36,9 +36,9 @@ def disable_caching(view):
         response = view(self, request, *args, **kwargs)
 
         if request.path.startswith("__"):
-            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-            response['Pragma'] = 'no-cache'
-            response['Expires'] = '0'
+            response["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response["Pragma"] = "no-cache"
+            response["Expires"] = "0"
 
         return response
 

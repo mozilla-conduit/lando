@@ -1,5 +1,4 @@
 import pytest
-from lando.tests.test_version import generate_version_file
 
 
 @pytest.mark.django_db
@@ -15,7 +14,7 @@ def test_dockerflow_version_endpoint_response(client, generate_version_file):
     response = client.get("/__version__")
 
     assert response.status_code == 200
-    assert response['Content-Type'] == "application/json"
+    assert response["Content-Type"] == "application/json"
 
 
 def test_dockerflow_version_matches_disk_contents(client, generate_version_file):
