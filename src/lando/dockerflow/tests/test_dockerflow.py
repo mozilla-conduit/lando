@@ -1,4 +1,5 @@
 import pytest
+from lando.tests.test_version import generate_version_file  # noqa: F401
 
 
 @pytest.mark.django_db
