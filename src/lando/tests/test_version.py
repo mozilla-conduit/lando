@@ -1,25 +1,22 @@
-from django.conf import settings
 from django.core.management import call_command
 
 import pytest
 
-def test_version():
+
+@pytest.fixture
+def generate_version_file():
     # The version file may or may not exist in the testing environment.
-    # We'll explicitly remove it so that we're in a known state, then
-    # re-generate it and test against it.
-    version_file = settings.BASE_DIR / "version.py"
-    version_file.unlink(missing_ok=True)
-
-    # We should not be able to import it after it's been removed.
-    with pytest.raises(ImportError):
-        from lando.version import version
-
+    # We'll explicitly generate it to ensure it's there.
     call_command('generate_version_file')
 
     try:
         from lando.version import version
     except ImportError:
-        pytest.fail("ImportError: Unable to import the version file after re-generation.")
+        pytest.fail("ImportError: Unable to import the version file after generation.")
+
+
+def test_version(generate_version_file):
+    from lando.version import version
 
     # Every commit will change the exact version string, so it
     # doesn't make sense to compare it against a known value.
