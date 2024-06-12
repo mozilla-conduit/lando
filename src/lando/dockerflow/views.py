@@ -31,16 +31,16 @@ class VersionView(DockerflowView):
     """
 
     def get(self, request):
+        status = 200
         try:
             from lando.version import version
-
-            data = {
-                "version": version,
-            }
-            status = 200
         except ImportError:
             data = {"error": "Service Unavailable"}
             status = 503
+        else:
+            data = {
+                "version": version,
+            }
 
         return self._json_response(data=data, status=status)
 
