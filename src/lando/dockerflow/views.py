@@ -31,7 +31,6 @@ class VersionView(DockerflowView):
     """
 
     def get(self, request):
-        status = 200
         try:
             from lando.version import version
         except ImportError:
@@ -41,6 +40,7 @@ class VersionView(DockerflowView):
             data = {
                 "version": version,
             }
+            status = 200
 
         return self._json_response(data=data, status=status)
 
@@ -54,11 +54,12 @@ class HeartbeatView(DockerflowView):
     """
 
     def get(self, request):
-        healthy = True
         try:
             connection.ensure_connection()
         except OperationalError:
             healthy = False
+        else:
+            healthy = True
 
         data = {
             "healthy": healthy,
