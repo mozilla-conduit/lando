@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "lando.main",
     "lando.utils",
     "lando.api",
+    "lando.dockerflow",
 ]
 
 MIDDLEWARE = [
@@ -185,7 +186,7 @@ AUTHENTICATION_BACKENDS = [
     "lando.main.auth.LandoOIDCAuthenticationBackend",
 ]
 
-LINT_PATHS = tuple(f"{BASE_DIR}/{path}" for path in ("main", "utils", "api"))
+LINT_PATHS = tuple(f"{BASE_DIR}/{path}" for path in ("api", "dockerflow", "main", "utils", "tests"))
 
 GITHUB_ACCESS_TOKEN = os.getenv("LANDO_GITHUB_ACCESS_TOKEN")
 PHABRICATOR_URL = os.getenv("PHABRICATOR_URL", "http://phabricator.test")
