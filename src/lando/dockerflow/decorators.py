@@ -2,8 +2,7 @@ import logging
 import time
 from functools import wraps
 
-# Logging is not yet implemented
-request_logger = logging.getLogger("dockerflow.request_summary.logger")
+request_logger = logging.getLogger("__name__")
 
 
 def log_request(view):
@@ -35,10 +34,9 @@ def disable_caching(view):
     def _wrapped_view(self, request, *args, **kwargs):
         response = view(self, request, *args, **kwargs)
 
-        if request.path.startswith("__"):
-            response["Cache-Control"] = "no-cache, no-store, must-revalidate"
-            response["Pragma"] = "no-cache"
-            response["Expires"] = "0"
+        response["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response["Pragma"] = "no-cache"
+        response["Expires"] = "0"
 
         return response
 

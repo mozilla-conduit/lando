@@ -1,4 +1,4 @@
-from django.db import connections
+from django.db import connection
 from django.db.utils import OperationalError
 from django.http import JsonResponse
 from django.views import View
@@ -6,17 +6,29 @@ from django.views import View
 from lando.dockerflow.decorators import disable_caching, log_request
 
 
-class VersionView(View):
+class DockerflowView(View):
     """
-    This view handles the version information of Lando.
+    This is the base class view for all Dockerflow related views.
 
-    It returns a JSON response containing the version information.
+    It handles common functionality needed by all Dockerflow views.
     """
 
     @disable_caching
     @log_request
     def dispatch(self, request, *args, **kwargs):
         return super().dispatch(request, *args, **kwargs)
+
+    @staticmethod
+    def _json_response(self, data, status):
+        return JsonResponse(data, status=status, json_dumps_params={"indent": 2})
+
+
+class VersionView(DockerflowView):
+    """
+    This view handles the version information of Lando.
+
+    It returns a JSON response containing the version information.
+    """
 
     def get(self, request):
         try:
@@ -25,15 +37,15 @@ class VersionView(View):
             data = {
                 "version": version,
             }
-            status_code = 200
+            status = 200
         except ImportError:
             data = {"error": "Service Unavailable"}
-            status_code = 503
+            status = 503
 
-        return JsonResponse(data, status=status_code, json_dumps_params={"indent": 2})
+        return self._json_response(self, data=data, status=status)
 
 
-class HeartbeatView(View):
+class HeartbeatView(DockerflowView):
     """
     This view handles the heartbeat check which determines if
     the application is healthy and running.
@@ -41,16 +53,10 @@ class HeartbeatView(View):
     It returns a JSON response containing the heartbeat information.
     """
 
-    @disable_caching
-    @log_request
-    def dispatch(self, request, *args, **kwargs):
-        return super().dispatch(request, *args, **kwargs)
-
     def get(self, request):
-        db_conn = connections["default"]
+        healthy = True
         try:
-            db_conn.cursor()
-            healthy = True
+            connection.ensure_connection()
         except OperationalError:
             healthy = False
 
@@ -61,12 +67,12 @@ class HeartbeatView(View):
             },
         }
 
-        status = 200 if healthy else 502
+        status = 200 if healthy else 503
 
-        return JsonResponse(data, status=status, json_dumps_params={"indent": 2})
+        return self._json_response(self, data=data, status=status)
 
 
-class LoadBalancerHeartbeatView(View):
+class LoadBalancerHeartbeatView(DockerflowView):
     """
     This view handles the load balancer heartbeat check which determines if
     the application is healthy and running.
@@ -74,10 +80,5 @@ class LoadBalancerHeartbeatView(View):
     It simply returns a JSON response with status 200.
     """
 
-    @disable_caching
-    @log_request
-    def dispatch(self, request, *args, **kwargs):
-        return super().dispatch(request, *args, **kwargs)
-
     def get(self, request):
-        return JsonResponse({}, status=200, json_dumps_params={"indent": 2})
+        return self._json_response(self, data={}, status=200)
