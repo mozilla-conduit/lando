@@ -9,8 +9,5 @@ def lando_version():
     # We'll explicitly generate it to ensure it's there.
     call_command('generate_version_file')
 
-    try:
-        from lando.version import version
-        return version
-    except ImportError:
-        pytest.fail("ImportError: Unable to import the version file after generation.")
+    from lando.version import version
+    return version

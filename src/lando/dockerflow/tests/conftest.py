@@ -1,1 +1,3 @@
-from lando.tests.conftest import lando_version  # noqa: F401
+from lando.tests.conftest import lando_version
+
+__all__ = ["lando_version"]

@@ -19,7 +19,7 @@ class DockerflowView(View):
         return super().dispatch(request, *args, **kwargs)
 
     @staticmethod
-    def _json_response(self, data, status):
+    def _json_response(data, status):
         return JsonResponse(data, status=status, json_dumps_params={"indent": 2})
 
 
@@ -42,7 +42,7 @@ class VersionView(DockerflowView):
             data = {"error": "Service Unavailable"}
             status = 503
 
-        return self._json_response(self, data=data, status=status)
+        return self._json_response(data=data, status=status)
 
 
 class HeartbeatView(DockerflowView):
@@ -69,7 +69,7 @@ class HeartbeatView(DockerflowView):
 
         status = 200 if healthy else 503
 
-        return self._json_response(self, data=data, status=status)
+        return self._json_response(data=data, status=status)
 
 
 class LoadBalancerHeartbeatView(DockerflowView):
@@ -81,4 +81,4 @@ class LoadBalancerHeartbeatView(DockerflowView):
     """
 
     def get(self, request):
-        return self._json_response(self, data={}, status=200)
+        return self._json_response(data={}, status=200)
