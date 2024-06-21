@@ -22,7 +22,7 @@ services:
     command: bash -c "
       lando generate_version_file &&
       lando migrate &&
-      lando collectstatic --no-input &&
+      lando collectstatic --clear --no-input &&
       uwsgi --ini /code/uwsgi.ini"
     volumes:
       - ./:/code
