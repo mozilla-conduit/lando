@@ -8,4 +8,4 @@ RUN openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 \
         -keyout /ssl/private.key  -out /ssl/certificate.crt
 
 RUN rm /etc/nginx/conf.d/default.conf
-COPY nginx.conf /etc/nginx/conf.d
+COPY nginx.conf /etc/nginx/conf.d/default.conf
