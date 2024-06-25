@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.models import User
 from mozilla_django_oidc.auth import OIDCAuthenticationBackend
 
@@ -13,8 +14,9 @@ class LandoOIDCAuthenticationBackend(OIDCAuthenticationBackend):
         user_profile.userinfo = claims
         user_profile.save()
 
-        # Update user permissions.
-        user_profile.update_permissions()
+        if settings.ENVIRONMENT != "localdev":
+            # Update user permissions.
+            user_profile.update_permissions()
 
     @staticmethod
     def _get_or_create_user_profile(user: User) -> Profile:
