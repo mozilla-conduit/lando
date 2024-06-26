@@ -23,7 +23,12 @@ from lando.dockerflow import views as DockerflowViews
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("oidc/", include("mozilla_django_oidc.urls")),
-    path("D<int:revision_id>/", revisions.Revision.as_view()),
+]
+
+# "UI" pages ported from legacy UI app.
+urlpatterns += [
+    path("", pages.Index.as_view()),
+    path("D<int:revision_id>/", revisions.Revision.as_view(), name="revisions-page"),
 ]
 
 urlpatterns += [

@@ -459,12 +459,14 @@ def codefreeze_datetime(request_mocker):
 
 
 @pytest.fixture
-def fake_request():
+def fake_request(is_authenticated=True):
     class FakeUser:
         def has_perm(self, permission, *args, **kwargs):
             return permission in self.permissions
 
-        def __init__(self, is_authenticated=True, has_email=True, permissions=None):
+        def __init__(
+            self, is_authenticated=is_authenticated, has_email=True, permissions=None
+        ):
             self.is_authenticated = is_authenticated
             self.permissions = permissions or ()
             if has_email:
