@@ -13,31 +13,12 @@ import re
 import urllib.parse
 
 from typing import Optional
-
 from django.contrib import messages
 
 FAQ_URL = "https://wiki.mozilla.org/Phabricator/FAQ#Lando"
 SEC_BUG_DOCS = "https://firefox-source-docs.mozilla.org/bug-mgmt/processes/security-approval.html"  # noqa: E501
 
 logger = logging.getLogger(__name__)
-
-
-def is_user_authenticated(env) -> callable:
-    # NOTE: this is just temporarily translated as-is from the legacy implementation.
-    # it will not actually work, and instead we should use the Django-specific auth
-    # functionality to determine this.
-    def _is_user_authenticated() -> bool:
-        request = env.globals.request
-        return "id_token" in request.session and "access_token" in request.session
-    return _is_user_authenticated
-
-
-def user_has_phabricator_token(env) -> callable:
-    def _user_has_phabricator_token() -> bool:
-        request = env.globals.request
-        if is_user_authenticated(env) and "phabricator-api-token" in request.cookies:
-            return request.cookies["phabricator-api-token"] is not None
-    return _user_has_phabricator_token
 
 
 # TODO: this should be ported once all forms are ported to Django forms.
@@ -318,10 +299,10 @@ def environment(**options):
         {
             "config": settings,
             "get_messages": messages.get_messages,
-            "is_user_authenticated": is_user_authenticated(env),
+            "graph_height": graph_height,
             "new_settings_form": UserSettingsForm,
             "url": reverse,
-            "user_has_phabricator_token": user_has_phabricator_token(env),
+            "static_url": settings.STATIC_URL,
         }
     )
     env.filters.update(
@@ -333,7 +314,6 @@ def environment(**options):
             "graph_above_path": graph_above_path,
             "graph_below_path": graph_below_path,
             "graph_color": graph_color,
-            "graph_height": graph_height,
             "graph_width": graph_width,
             "graph_x_pos": graph_x_pos,
             "linkify_bug_numbers": linkify_bug_numbers,

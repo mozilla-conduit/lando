@@ -27,7 +27,7 @@ services:
     volumes:
       - ./:/code
       - ./staticfiles:/staticfiles
-      - media:/mediafiles
+      - media:files/
     env_file:
       - .env
     depends_on:
@@ -44,7 +44,6 @@ services:
       - lando
     volumes:
       - ./staticfiles:/staticfiles
-      - media:/mediafiles
 
   redis:
     image: redis:7.2

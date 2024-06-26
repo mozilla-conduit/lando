@@ -104,7 +104,9 @@ class LandingJob(BaseModel):
     # Identifier of the published commit which this job should land on top of.
     target_commit_hash = models.TextField(blank=True, default="")
 
-    unsorted_revisions = models.ManyToManyField(Revision, through="RevisionLandingJob")
+    unsorted_revisions = models.ManyToManyField(
+        Revision, through="RevisionLandingJob", related_name="landing_jobs"
+    )
 
     # These are automatically set, deprecated fields, but kept for compatibility.
     repository_name = models.TextField(default="", blank=True)
@@ -212,10 +214,10 @@ class LandingJob(BaseModel):
         if repositories:
             q = q.filter(repository_name__in=repositories)
 
-        if grace_seconds:
-            now = datetime.datetime.now(datetime.timezone.utc)
-            grace_cutoff = now - datetime.timedelta(seconds=grace_seconds)
-            q = q.filter(created_at__lt=grace_cutoff)
+        # if grace_seconds:
+        #     now = datetime.datetime.now(datetime.timezone.utc)
+        #     grace_cutoff = now - datetime.timedelta(seconds=grace_seconds)
+        #     q = q.filter(created_at__lt=grace_cutoff)
 
         # Any `LandingJobStatus.IN_PROGRESS` job is first and there should
         # be a maximum of one (per repository). For

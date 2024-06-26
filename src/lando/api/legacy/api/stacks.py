@@ -5,6 +5,7 @@ import logging
 import urllib.parse
 
 from django.conf import settings
+from django.http import Http404
 
 from lando.api.legacy.commit_message import format_commit_message
 from lando.api.legacy.decorators import require_phabricator_api_key
@@ -41,25 +42,18 @@ from lando.api.legacy.transplants import get_blocker_checks
 from lando.api.legacy.users import user_search
 from lando.api.legacy.validation import revision_id_to_int
 from lando.main.models.revision import Revision
-from lando.main.support import problem
 
 logger = logging.getLogger(__name__)
 
-not_found_problem = problem(
-    404,
-    "Revision not found",
-    "The requested revision does not exist",
-    type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
-)
-
 
 @require_phabricator_api_key(optional=True)
-def get(phab: PhabricatorClient, revision_id: str):
+def get(phab: PhabricatorClient, request, revision_id: str):
     """Get the stack a revision is part of.
 
     Args:
         revision_id: (string) ID of the revision in 'D{number}' format
     """
+    revision_id = f"D{revision_id}"
     revision_id_int = revision_id_to_int(revision_id)
 
     revision = phab.call_conduit(
@@ -67,13 +61,13 @@ def get(phab: PhabricatorClient, revision_id: str):
     )
     revision = phab.single(revision, "data", none_when_empty=True)
     if revision is None:
-        return not_found_problem
+        raise Http404
 
     nodes, edges = build_stack_graph(revision)
     try:
         stack_data = request_extended_revision_data(phab, list(nodes))
     except ValueError:
-        return not_found_problem
+        raise Http404
 
     supported_repos = get_repos_for_env(settings.ENVIRONMENT)
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)

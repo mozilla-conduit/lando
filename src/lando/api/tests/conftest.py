@@ -102,8 +102,8 @@ def g(monkeypatch):
     monkeypatch.setattr("lando.main.support.g", g)
     monkeypatch.setattr("lando.api.legacy.auth.g", g)
     monkeypatch.setattr("lando.api.legacy.api.try_push.g", g)
-    monkeypatch.setattr("lando.api.legacy.api.transplants.g", g)
-    monkeypatch.setattr("lando.api.legacy.api.landing_jobs.g", g)
+    # monkeypatch.setattr("lando.api.legacy.api.transplants.g", g)
+    # monkeypatch.setattr("lando.api.legacy.api.landing_jobs.g", g)
     yield g
 
 
@@ -503,7 +503,23 @@ def codefreeze_datetime(request_mocker):
 
 
 @pytest.fixture
-def proxy_client(monkeypatch):
+def fake_request(is_authenticated=True):
+    class FakeUser:
+        def has_perm(*args, **kwargs):
+            return True
+
+        def __init__(self, is_authenticated=is_authenticated):
+            self.is_authenticated = is_authenticated
+            self.email = "email@example.org"
+
+    class FakeRequest:
+        user = FakeUser()
+
+    return FakeRequest()
+
+
+@pytest.fixture
+def proxy_client(monkeypatch, fake_request):
     """A client that bridges tests designed to work with the API.
 
     Most tests that use the API no longer need to access those endpoints through
@@ -528,9 +544,11 @@ def proxy_client(monkeypatch):
             )
 
     class ProxyClient:
+        request = fake_request
+
         def _handle__get__stacks__id(self, path):
-            revision_id = path.removeprefix("/stacks/")
-            json_response = legacy_api_stacks.get(revision_id)
+            revision_id = path.removeprefix("/stacks/D")
+            json_response = legacy_api_stacks.get(self.request, revision_id)
             if isinstance(json_response, HttpResponse):
                 # In some cases, an actual response object is returned.
                 return json_response
@@ -541,7 +559,7 @@ def proxy_client(monkeypatch):
         def _handle__get__transplants__id(self, path):
             stack_revision_id = path.removeprefix("/transplants?stack_revision_id=")
             result = legacy_api_transplants.get_list(
-                stack_revision_id=stack_revision_id
+                self.request, stack_revision_id=stack_revision_id
             )
             if isinstance(result, tuple):
                 # For these endpoints, some responses contain different status codes
@@ -555,28 +573,32 @@ def proxy_client(monkeypatch):
             return result
 
         def _handle__post__transplants__dryrun(self, **kwargs):
-            json_response = legacy_api_transplants.dryrun(kwargs["json"])
+            json_response = legacy_api_transplants.dryrun(self.request, kwargs["json"])
             return MockResponse(json=json.loads(json.dumps(json_response)))
 
         def _handle__post__transplants(self, path, **kwargs):
             try:
-                json_response, status_code = legacy_api_transplants.post(kwargs["json"])
+                json_response, status_code = legacy_api_transplants.post(
+                    self.request, kwargs["json"]
+                )
             except ProblemException as e:
                 # Handle exceptions and pass along the status code to the response object.
                 if e.json_detail:
                     return MockResponse(json=e.json_detail, status_code=e.status_code)
                 return MockResponse(json=e.args, status_code=e.status_code)
-            except Exception:
+            except Exception as e:
                 # TODO: double check that this is a thing in legacy?
                 # Added this due to a validation error (test_transplant_wrong_landing_path_format)
-                return MockResponse(json=["error"], status_code=400)
+                return MockResponse(json=[f"error ({e})"], status_code=400)
             return MockResponse(
                 json=json.loads(json.dumps(json_response)), status_code=status_code
             )
 
         def _handle__put__landing_jobs__id(self, path, **kwargs):
             job_id = int(path.removeprefix("/landing_jobs/"))
-            json_response = legacy_api_landing_jobs.put(job_id, kwargs["json"])
+            json_response = legacy_api_landing_jobs.put(
+                self.request, job_id, kwargs["json"]
+            )
             return MockResponse(json=json.loads(json.dumps(json_response)))
 
         def get(self, path, *args, **kwargs):
