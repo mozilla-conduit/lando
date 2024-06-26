@@ -214,10 +214,10 @@ class LandingJob(BaseModel):
         if repositories:
             q = q.filter(target_repo__in=repositories)
 
-        if grace_seconds:
-            now = datetime.datetime.now(datetime.timezone.utc)
-            grace_cutoff = now - datetime.timedelta(seconds=grace_seconds)
-            q = q.filter(created_at__lt=grace_cutoff)
+        # if grace_seconds:
+        #     now = datetime.datetime.now(datetime.timezone.utc)
+        #     grace_cutoff = now - datetime.timedelta(seconds=grace_seconds)
+        #     q = q.filter(created_at__lt=grace_cutoff)
 
         # Any `LandingJobStatus.IN_PROGRESS` job is first and there should
         # be a maximum of one (per repository). For

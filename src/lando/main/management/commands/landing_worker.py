@@ -54,7 +54,9 @@ class Command(BaseCommand, WorkerMixin):
                 repo.initialize()
 
         with transaction.atomic():
-            job = LandingJob.next_job(repositories=self._instance.enabled_repos).first()
+            job = LandingJob.next_job(
+                repositories=self._instance.enabled_repo_names
+            ).first()
 
             if job is None:
                 self.throttle(self._instance.sleep_seconds)

@@ -41,6 +41,22 @@ _HG_EXPORT_HEADER = """
 
 _HG_EXPORT_HEADER_LENGTH = len(_HG_EXPORT_HEADER.splitlines())
 
+_GIT_PATCH_HEADER = """
+From: {author_name} <{author_email}>
+Date: {patchdate}
+""".strip()
+
+_GIT_PATCH_TEMPLATE = """
+{header}
+Subject: {subject}
+
+{commit_message}
+---
+{diff}
+--
+2.20.1
+""".strip()
+
 
 def build_patch_for_revision(
     diff: str, author_name: str, author_email: str, commit_message: str, timestamp: str
@@ -68,6 +84,37 @@ def build_patch_for_revision(
 
     return _HG_EXPORT_PATCH_TEMPLATE.format(
         header=header, commit_message="\n".join(message_lines), diff=diff
+    )
+
+
+def build_git_patch_for_revision(
+    diff: str, author_name: str, author_email: str, commit_message: str, timestamp: str
+) -> str:
+    """Generate a 'hg export' patch using Phabricator Revision data.
+
+    Args:
+        diff: A string holding a Git-formatted patch.
+        author: A string with information about the patch's author.
+        commit_message: A string containing the full commit message.
+        timestamp: (str) String number of seconds since Unix Epoch representing the
+            date and time to be included in the Date header.
+
+    Returns:
+        A string containing a patch in 'hg export' format.
+    """
+
+    message_lines = commit_message.strip().splitlines()
+    header = _GIT_PATCH_HEADER.format(
+        author_name=_no_line_breaks(author_name),
+        author_email=_no_line_breaks(author_email),
+        patchdate=_no_line_breaks("%s +0000" % timestamp),
+    )
+
+    return _GIT_PATCH_TEMPLATE.format(
+        header=header,
+        subject=message_lines[0],
+        commit_message="\n".join(message_lines[1:]),
+        diff=diff,
     )
 
 
