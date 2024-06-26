@@ -1,3 +1,11 @@
+{% if request %}
+    {% set user_is_authenticated = request.user.is_authenticated %}
+    {% set user_has_phabricator_token = request.user.profile and request.user.profile.phabricator_api_key %}
+{% else %}
+    {% set user_is_authenticated = False %}
+    {% set user_has_phabricator_token = False %}
+    {% set request = None %}
+{% endif %}
 <!DOCTYPE html>
 <html>
 <head>
@@ -5,37 +13,37 @@
   <meta content="ie=edge" http-equiv="x-ua-compatible">
   <title>{% block page_title %}{% endblock %}</title>
   <meta content="width=device-width,initial-scale=1" name="viewport">
-  <link rel="shortcut icon" href="/static/assets/images/logo/bird_64.png">
+  <link rel="shortcut icon" href="{{ static_url }}assets/images/logo/bird_64.png">
   <link rel="stylesheet" href="https://code.cdn.mozilla.net/fonts/fira.css">
 
   {% compress css file vendor %}
-      <link type="text/css" href="/static/legacy/vendor/font-awesome.min.css" rel="stylesheet" media="screen">
+      <link type="text/css" href="{{ static_url }}legacy/vendor/font-awesome.min.css" rel="stylesheet" media="screen">
   {% endcompress %}
   {% compress css file main %}
-      <link type="text/x-scss" href="/static/legacy/css/lando.scss" rel="stylesheet" media="screen">
-      <link type="text/x-scss" href="/static/legacy/css/colors.scss" rel="stylesheet" media="screen">
+      <link type="text/x-scss" href="{{ static_url }}legacy/css/lando.scss" rel="stylesheet" media="screen">
+      <link type="text/x-scss" href="{{ static_url }}legacy/css/colors.scss" rel="stylesheet" media="screen">
 
-      <link type="text/x-scss" href="/static/legacy/css/components/Navbar.scss" rel="stylesheet" media="screen">
-      <link type="text/x-scss" href="/static/legacy/css/components/Badge.scss" rel="stylesheet" media="screen">
-      <link type="text/x-scss" href="/static/legacy/css/components/FlashMessages.scss" rel="stylesheet" media="screen">
-      <link type="text/x-scss" href="/static/legacy/css/components/Footer.scss" rel="stylesheet" media="screen">
+      <link type="text/x-scss" href="{{ static_url }}legacy/css/components/Navbar.scss" rel="stylesheet" media="screen">
+      <link type="text/x-scss" href="{{ static_url }}legacy/css/components/Badge.scss" rel="stylesheet" media="screen">
+      <link type="text/x-scss" href="{{ static_url }}legacy/css/components/FlashMessages.scss" rel="stylesheet" media="screen">
+      <link type="text/x-scss" href="{{ static_url }}legacy/css/components/Footer.scss" rel="stylesheet" media="screen">
 
-      <link type="text/x-scss" href="/static/legacy/css/pages/StackPage.scss" rel="stylesheet" media="screen">
-      <link type="text/x-scss" href="/static/legacy/css/pages/RevisionPage.scss" rel="stylesheet" media="screen">
+      <link type="text/x-scss" href="{{ static_url }}legacy/css/pages/StackPage.scss" rel="stylesheet" media="screen">
+      <link type="text/x-scss" href="{{ static_url }}legacy/css/pages/RevisionPage.scss" rel="stylesheet" media="screen">
   {% endcompress %}
 
   {% compress js file vendor %}
-      <script src="/static/legacy/vendor/jquery-3.2.1.min.js" type="text/javascript" charset="utf-8"></script>
+      <script src="{{ static_url }}legacy/vendor/jquery-3.2.1.min.js" type="text/javascript" charset="utf-8"></script>
   {% endcompress %}
   {% compress js file main %}
-      <script src="/static/legacy/js/main.js" type="text/javascript" charset="utf-8"></script>
-      <script src="/static/legacy/js/utils/formatTime.js" type="text/javascript" charset="utf-8"></script>
+      <script src="{{ static_url }}legacy/js/main.js" type="text/javascript" charset="utf-8"></script>
+      <script src="{{ static_url }}legacy/js/utils/formatTime.js" type="text/javascript" charset="utf-8"></script>
 
-      <script src="/static/legacy/js/components/LandingPreview.js" type="text/javascript" charset="utf-8"></script>
-      <script src="/static/legacy/js/components/Navbar.js" type="text/javascript" charset="utf-8"></script>
-      <script src="/static/legacy/js/components/Timeline.js" type="text/javascript" charset="utf-8"></script>
-      <script src="/static/legacy/js/components/FlashMessages.js" type="text/javascript" charset="utf-8"></script>
-      <script src="/static/legacy/js/components/RequestSubmitted.js" type="text/javascript" charset="utf-8"></script>
+      <script src="{{ static_url }}legacy/js/components/LandingPreview.js" type="text/javascript" charset="utf-8"></script>
+      <script src="{{ static_url }}legacy/js/components/Navbar.js" type="text/javascript" charset="utf-8"></script>
+      <script src="{{ static_url }}legacy/js/components/Timeline.js" type="text/javascript" charset="utf-8"></script>
+      <script src="{{ static_url }}legacy/js/components/FlashMessages.js" type="text/javascript" charset="utf-8"></script>
+      <script src="{{ static_url }}legacy/js/components/RequestSubmitted.js" type="text/javascript" charset="utf-8"></script>
   {% endcompress %}
 </head>
 <body>
@@ -49,9 +57,5 @@
 {% block main %}{% endblock %}
 {% include "partials/footer.html" %}
 
-{% assets "vendor_css" %}<link rel="stylesheet" type="text/css" href="{{ ASSET_URL }}">{% endassets %}
-{% assets "main_css" %}<link rel="stylesheet" type="text/css" href="{{ ASSET_URL }}">{% endassets %}
-{% assets "vendor_js" %}<script type="text/javascript" src="{{ ASSET_URL }}"></script>{% endassets %}
-{% assets "main_js" %}<script type="text/javascript" src="{{ ASSET_URL }}"></script>{% endassets %}
 </body>
 </html>

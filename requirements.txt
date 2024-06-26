@@ -16,3 +16,4 @@ rs-parsepatch
 ruff
 setuptools-scm
 uwsgi
+django-storages[google]
