@@ -5,9 +5,9 @@ import logging
 import urllib.parse
 
 from django.conf import settings
+from django.http import HttpRequest
 
 from lando.api.legacy.commit_message import format_commit_message
-from lando.api.legacy.decorators import require_phabricator_api_key
 from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.projects import (
     get_release_managers,
@@ -40,6 +40,7 @@ from lando.api.legacy.stacks import (
 from lando.api.legacy.transplants import get_blocker_checks
 from lando.api.legacy.users import user_search
 from lando.api.legacy.validation import revision_id_to_int
+from lando.main.auth import require_phabricator_api_key
 from lando.main.models.revision import Revision
 from lando.main.support import problem
 
@@ -54,12 +55,13 @@ not_found_problem = problem(
 
 
 @require_phabricator_api_key(optional=True)
-def get(phab: PhabricatorClient, revision_id: str):
+def get(phab: PhabricatorClient, request: HttpRequest, revision_id: str):
     """Get the stack a revision is part of.
 
     Args:
         revision_id: (string) ID of the revision in 'D{number}' format
     """
+    revision_id = f"D{revision_id}"
     revision_id_int = revision_id_to_int(revision_id)
 
     revision = phab.call_conduit(

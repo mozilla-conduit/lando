@@ -10,7 +10,6 @@ import logging
 
 from django.conf import settings
 
-from lando.api.legacy import auth
 from lando.api.legacy.hgexports import (
     GitPatchHelper,
     HgPatchHelper,
@@ -19,6 +18,7 @@ from lando.api.legacy.hgexports import (
 from lando.api.legacy.repos import (
     get_repos_for_env,
 )
+from lando.main.auth import require_authenticated_user, require_permission
 from lando.main.models.landing_job import (
     LandingJobStatus,
     add_job_with_revisions,
@@ -98,10 +98,8 @@ def parse_revisions_from_request(
         )
 
 
-@auth.require_auth0(scopes=("openid", "lando", "profile", "email"), userinfo=True)
-# Re-enable this check once our Auth0 instance returns group membership for access
-# tokens granted via the Device Authorization flow.
-# @auth.enforce_request_scm_level(SCM_LEVEL_1)
+@require_authenticated_user
+@require_permission("scm_level_1")
 def post_patches(data: dict):
     base_commit = data["base_commit"]
     patches = data["patches"]

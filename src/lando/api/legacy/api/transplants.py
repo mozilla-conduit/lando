@@ -8,10 +8,10 @@ from typing import Optional
 
 import kombu
 from django.conf import settings
+from django.contrib.auth.models import User
+from django.http import HttpRequest
 
-from lando.api.legacy import auth
 from lando.api.legacy.commit_message import format_commit_message
-from lando.api.legacy.decorators import require_phabricator_api_key
 from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.projects import (
     CHECKIN_PROJ_SLUG,
@@ -59,13 +59,14 @@ from lando.api.legacy.validation import (
     parse_landing_path,
     revision_id_to_int,
 )
+from lando.main.auth import require_authenticated_user, require_phabricator_api_key
 from lando.main.models.landing_job import (
     LandingJob,
     LandingJobStatus,
     add_revisions_to_job,
 )
 from lando.main.models.revision import Revision
-from lando.main.support import ProblemException, g, problem
+from lando.main.support import ProblemException, problem
 from lando.utils.tasks import admin_remove_phab_project
 
 logger = logging.getLogger(__name__)
@@ -133,7 +134,10 @@ def _find_stack_from_landing_path(
 
 
 def _assess_transplant_request(
-    phab: PhabricatorClient, landing_path: list[tuple[int, int]], relman_group_phid: str
+    phab: PhabricatorClient,
+    lando_user: User,
+    landing_path: list[tuple[int, int]],
+    relman_group_phid: str,
 ) -> tuple[
     TransplantAssessment,
     Optional[list[tuple[dict, dict]]],
@@ -158,7 +162,7 @@ def _assess_transplant_request(
     )
 
     assessment = check_landing_blockers(
-        g.auth0_user, landing_path_phid, stack_data, landable, landable_repos
+        lando_user, landing_path_phid, stack_data, landable, landable_repos
     )
     if assessment.blocker is not None:
         return (assessment, None, None, None)
@@ -195,7 +199,7 @@ def _assess_transplant_request(
 
     assessment = check_landing_warnings(
         phab,
-        g.auth0_user,
+        lando_user,
         to_land,
         repo,
         landing_repo,
@@ -209,10 +213,10 @@ def _assess_transplant_request(
     return (assessment, to_land, landing_repo, stack_data)
 
 
-# TODO: auth stuff
-@auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
+@require_authenticated_user
 @require_phabricator_api_key(optional=True)
-def dryrun(phab: PhabricatorClient, data: dict):
+def dryrun(phab: PhabricatorClient, request: HttpRequest, data: dict):
+    lando_user = request.user
     landing_path = _parse_transplant_request(data)["landing_path"]
 
     release_managers = get_release_managers(phab)
@@ -220,13 +224,16 @@ def dryrun(phab: PhabricatorClient, data: dict):
         raise Exception("Could not find `#release-managers` project on Phabricator.")
 
     relman_group_phid = phab.expect(release_managers, "phid")
-    assessment, *_ = _assess_transplant_request(phab, landing_path, relman_group_phid)
+    assessment, *_ = _assess_transplant_request(
+        phab, lando_user, landing_path, relman_group_phid
+    )
     return assessment.to_dict()
 
 
-@auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
+@require_authenticated_user
 @require_phabricator_api_key(optional=True)
-def post(phab: PhabricatorClient, data: dict):
+def post(phab: PhabricatorClient, request: HttpRequest, data: dict):
+    lando_user = request.user
     parsed_transplant_request = _parse_transplant_request(data)
     confirmation_token = parsed_transplant_request["confirmation_token"]
     flags = parsed_transplant_request["flags"]
@@ -248,7 +255,7 @@ def post(phab: PhabricatorClient, data: dict):
     relman_group_phid = phab.expect(release_managers, "phid")
 
     assessment, to_land, landing_repo, stack_data = _assess_transplant_request(
-        phab, landing_path, relman_group_phid
+        phab, lando_user, landing_path, relman_group_phid
     )
 
     assessment.raise_if_blocked_or_unacknowledged(confirmation_token)
@@ -373,7 +380,7 @@ def post(phab: PhabricatorClient, data: dict):
         lando_revision.save()
         lando_revisions.append(lando_revision)
 
-    ldap_username = g.auth0_user.email
+    ldap_username = lando_user.email
 
     submitted_assessment = TransplantAssessment(
         blocker=(
@@ -429,7 +436,7 @@ def post(phab: PhabricatorClient, data: dict):
 
 
 @require_phabricator_api_key(optional=True)
-def get_list(phab: PhabricatorClient, stack_revision_id: str):
+def get_list(phab: PhabricatorClient, request: HttpRequest, stack_revision_id: str):
     """Return a list of Transplant objects"""
     revision_id_int = revision_id_to_int(stack_revision_id)
 

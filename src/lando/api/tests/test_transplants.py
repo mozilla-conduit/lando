@@ -7,7 +7,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from lando.api.legacy.hg import HgRepo
-from lando.api.legacy.mocks.canned_responses.auth0 import CANNED_USERINFO
 from lando.api.legacy.phabricator import PhabricatorRevisionStatus, ReviewerStatus
 from lando.api.legacy.repos import DONTBUILD, SCM_CONDUIT, SCM_LEVEL_3, Repo
 from lando.api.legacy.reviews import get_collated_reviewers
@@ -96,7 +95,7 @@ def _create_landing_job_with_no_linked_revisions(
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_no_warnings_or_blockers(
-    proxy_client, phabdouble, auth0_mock, mocked_repo_config
+    proxy_client, phabdouble, mocked_repo_config, mock_permissions
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -110,7 +109,7 @@ def test_dryrun_no_warnings_or_blockers(
                 {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     assert 200 == response.status_code
@@ -120,7 +119,9 @@ def test_dryrun_no_warnings_or_blockers(
 
 
 @pytest.mark.django_db(transaction=True)
-def test_dryrun_invalid_path_blocks(proxy_client, phabdouble, auth0_mock):
+def test_dryrun_invalid_path_blocks(
+    proxy_client, phabdouble, auth0_mock, mock_permissions
+):
     d1 = phabdouble.diff()
     d2 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -138,7 +139,7 @@ def test_dryrun_invalid_path_blocks(proxy_client, phabdouble, auth0_mock):
                 {"revision_id": "D{}".format(r2["id"]), "diff_id": d2["id"]},
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     assert 200 == response.status_code
@@ -148,7 +149,7 @@ def test_dryrun_invalid_path_blocks(proxy_client, phabdouble, auth0_mock):
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_in_progress_transplant_blocks(
-    proxy_client, phabdouble, auth0_mock, mocked_repo_config
+    proxy_client, phabdouble, auth0_mock, mocked_repo_config, mock_permissions
 ):
     repo = phabdouble.repo()
 
@@ -183,7 +184,7 @@ def test_dryrun_in_progress_transplant_blocks(
                 {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     assert 200 == response.status_code
@@ -195,7 +196,7 @@ def test_dryrun_in_progress_transplant_blocks(
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_reviewers_warns(
-    proxy_client, phabdouble, auth0_mock, mocked_repo_config
+    proxy_client, phabdouble, auth0_mock, mocked_repo_config, mock_permissions
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -210,7 +211,7 @@ def test_dryrun_reviewers_warns(
                 {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     assert 200 == response.status_code
@@ -229,6 +230,7 @@ def test_dryrun_codefreeze_warn(
     monkeypatch,
     request_mocker,
     mocked_repo_config,
+    mock_permissions,
 ):
     product_details = "https://product-details.mozilla.org/1.0/firefox_versions.json"
     request_mocker.register_uri(
@@ -264,7 +266,7 @@ def test_dryrun_codefreeze_warn(
                 {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     assert response.status_code == 200
@@ -286,6 +288,7 @@ def test_dryrun_outside_codefreeze(
     codefreeze_datetime,
     monkeypatch,
     request_mocker,
+    mock_permissions,
 ):
     product_details = "https://product-details.mozilla.org/1.0/firefox_versions.json"
     request_mocker.register_uri(
@@ -321,7 +324,7 @@ def test_dryrun_outside_codefreeze(
                 {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     assert response.status_code == 200
@@ -332,19 +335,13 @@ def test_dryrun_outside_codefreeze(
 # auth related issue, blockers empty.
 @pytest.mark.xfail
 @pytest.mark.parametrize(
-    "userinfo,status,blocker",
+    "permissions,status,blocker",
     [
         (
-            CANNED_USERINFO["NO_CUSTOM_CLAIMS"],
+            (),  # No permissions
             200,
             "You have insufficient permissions to land. Level 3 "
             "Commit Access is required. See the FAQ for help.",
-        ),
-        (CANNED_USERINFO["EXPIRED_L3"], 200, "Your Level 3 Commit Access has expired."),
-        (
-            CANNED_USERINFO["UNVERIFIED_EMAIL"],
-            200,
-            "You do not have a Mozilla verified email address.",
         ),
     ],
 )
@@ -353,12 +350,11 @@ def test_integrated_dryrun_blocks_for_bad_userinfo(
     proxy_client,
     auth0_mock,
     phabdouble,
-    userinfo,
+    permissions,
     status,
     blocker,
     mocked_repo_config,
 ):
-    auth0_mock.userinfo = userinfo
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
 
@@ -369,7 +365,7 @@ def test_integrated_dryrun_blocks_for_bad_userinfo(
                 {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=permissions,
         content_type="application/json",
     )
 
@@ -667,6 +663,7 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     auth0_mock,
     register_codefreeze_uri,
     mocked_repo_config,
+    mock_permissions,
 ):
     phabrepo = phabdouble.repo(name="mozilla-central")
     user = phabdouble.user(username="reviewer")
@@ -692,7 +689,7 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
                 {"revision_id": "D{}".format(r3["id"]), "diff_id": d3["id"]},
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
     assert response.status_code == 202
     assert response.content_type == "application/json"
@@ -726,6 +723,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     normal_patch,
     phabdouble,
     checkin_project,
+    mock_permissions,
 ):
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
@@ -770,7 +768,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
                 {"revision_id": "D{}".format(r2["id"]), "diff_id": d2["id"]},
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
     assert response.status_code == 202
     assert response.content_type == "application/json"
@@ -807,6 +805,7 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     auth0_mock,
     register_codefreeze_uri,
     mocked_repo_config,
+    mock_permissions,
 ):
     """
     Perform a simple test but with two landing jobs for the same revision.
@@ -829,7 +828,7 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
                 {"revision_id": "D{}".format(r1["id"]), "diff_id": d1a["id"]},
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
     assert response.status_code == 202
     assert response.content_type == "application/json"
@@ -851,7 +850,7 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     response = proxy_client.put(
         f"/landing_jobs/{job.id}",
         json={"status": "CANCELLED"},
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     job = LandingJob.objects.get(pk=job_1_id)
@@ -866,7 +865,7 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
                 {"revision_id": "D{}".format(r1["id"]), "diff_id": d1b["id"]},
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     job_2_id = response.json["id"]
@@ -897,7 +896,12 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_with_flags(
-    proxy_client, phabdouble, auth0_mock, monkeypatch, mocked_repo_config
+    proxy_client,
+    phabdouble,
+    auth0_mock,
+    monkeypatch,
+    mocked_repo_config,
+    mock_permissions,
 ):
     repo = phabdouble.repo(name="mozilla-new")
     user = phabdouble.user(username="reviewer")
@@ -922,7 +926,7 @@ def test_integrated_transplant_with_flags(
                 {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
             ],
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
     assert response.status_code == 202
     assert response.content_type == "application/json"
@@ -932,7 +936,12 @@ def test_integrated_transplant_with_flags(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_with_invalid_flags(
-    proxy_client, phabdouble, auth0_mock, monkeypatch, mocked_repo_config
+    proxy_client,
+    phabdouble,
+    auth0_mock,
+    monkeypatch,
+    mocked_repo_config,
+    mock_permissions,
 ):
     repo = phabdouble.repo(name="mozilla-new")
     user = phabdouble.user(username="reviewer")
@@ -950,7 +959,7 @@ def test_integrated_transplant_with_invalid_flags(
                 {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
             ],
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
     assert response.status_code == 400
 
@@ -964,6 +973,7 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
     register_codefreeze_uri,
     mocked_repo_config,
     monkeypatch,
+    mock_permissions,
 ):
     repo = phabdouble.repo(name="mozilla-central")
     user = phabdouble.user(username="reviewer")
@@ -982,7 +992,7 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
         json={
             "landing_path": [{"revision_id": "D{}".format(r["id"]), "diff_id": d["id"]}]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
     assert response.status_code == 202
     assert mock_remove.apply_async.called
@@ -998,6 +1008,7 @@ def test_integrated_transplant_repo_checkin_project_removed(
     checkin_project,
     mocked_repo_config,
     monkeypatch,
+    mock_permissions,
 ):
     repo = phabdouble.repo(name="mozilla-new")
     user = phabdouble.user(username="reviewer")
@@ -1016,7 +1027,7 @@ def test_integrated_transplant_repo_checkin_project_removed(
         json={
             "landing_path": [{"revision_id": "D{}".format(r["id"]), "diff_id": d["id"]}]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
     assert response.status_code == 202
     assert mock_remove.apply_async.called
@@ -1028,8 +1039,6 @@ def test_integrated_transplant_repo_checkin_project_removed(
 def test_integrated_transplant_without_auth0_permissions(
     proxy_client, auth0_mock, phabdouble, mocked_repo_config
 ):
-    auth0_mock.userinfo = CANNED_USERINFO["NO_CUSTOM_CLAIMS"]
-
     repo = phabdouble.repo(name="mozilla-central")
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=repo)
@@ -1040,7 +1049,7 @@ def test_integrated_transplant_without_auth0_permissions(
                 {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=(),
     )
 
     assert response.status_code == 400
@@ -1051,25 +1060,27 @@ def test_integrated_transplant_without_auth0_permissions(
 
 
 @pytest.mark.django_db(transaction=True)
-def test_transplant_wrong_landing_path_format(proxy_client, auth0_mock):
+def test_transplant_wrong_landing_path_format(
+    proxy_client, auth0_mock, mock_permissions
+):
     response = proxy_client.post(
         "/transplants",
         json={"landing_path": [{"revision_id": 1, "diff_id": 1}]},
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
     assert response.status_code == 400
 
     response = proxy_client.post(
         "/transplants",
         json={"landing_path": [{"revision_id": "1", "diff_id": 1}]},
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
     assert response.status_code == 400
 
     response = proxy_client.post(
         "/transplants",
         json={"landing_path": [{"revision_id": "D1"}]},
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
     assert response.status_code == 400
 
@@ -1080,6 +1091,7 @@ def test_integrated_transplant_diff_not_in_revision(
     phabdouble,
     auth0_mock,
     mocked_repo_config,
+    mock_permissions,
 ):
     repo = phabdouble.repo()
     d1 = phabdouble.diff()
@@ -1094,7 +1106,7 @@ def test_integrated_transplant_diff_not_in_revision(
                 {"revision_id": "D{}".format(r1["id"]), "diff_id": d2["id"]}
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
     assert response.status_code == 400
     assert response.json["blocker"] == "A requested diff is not the latest."
@@ -1102,12 +1114,12 @@ def test_integrated_transplant_diff_not_in_revision(
 
 @pytest.mark.django_db(transaction=True)
 def test_transplant_nonexisting_revision_returns_404(
-    proxy_client, phabdouble, auth0_mock
+    proxy_client, phabdouble, auth0_mock, mock_permissions
 ):
     response = proxy_client.post(
         "/transplants",
         json={"landing_path": [{"revision_id": "D1", "diff_id": 1}]},
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
     assert response.status_code == 404
     assert response.content_type == "application/problem+json"
@@ -1116,7 +1128,7 @@ def test_transplant_nonexisting_revision_returns_404(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_revision_with_no_repo(
-    proxy_client, phabdouble, auth0_mock
+    proxy_client, phabdouble, auth0_mock, mock_permissions
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1)
@@ -1128,7 +1140,7 @@ def test_integrated_transplant_revision_with_no_repo(
                 {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
     assert response.status_code == 400
     assert response.json["title"] == "Landing is Blocked"
@@ -1139,7 +1151,7 @@ def test_integrated_transplant_revision_with_no_repo(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_revision_with_unmapped_repo(
-    proxy_client, phabdouble, auth0_mock
+    proxy_client, phabdouble, auth0_mock, mock_permissions
 ):
     repo = phabdouble.repo(name="notsupported")
     d1 = phabdouble.diff()
@@ -1152,7 +1164,7 @@ def test_integrated_transplant_revision_with_unmapped_repo(
                 {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
     assert response.status_code == 400
     assert response.json["title"] == "Landing is Blocked"
@@ -1170,6 +1182,7 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     sec_approval_project,
     register_codefreeze_uri,
     mocked_repo_config,
+    mock_permissions,
 ):
     repo = phabdouble.repo()
     user = phabdouble.user(username="normal_reviewer")
@@ -1186,7 +1199,7 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
                 {"revision_id": "D{}".format(revision["id"]), "diff_id": diff["id"]}
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
     assert response.status_code == 202
 
@@ -1220,6 +1233,7 @@ def test_unresolved_comment_warn(
     phabdouble,
     auth0_mock,
     mocked_repo_config,
+    mock_permissions,
 ):
     """Ensure a warning is generated when a revision has unresolved comments.
 
@@ -1249,7 +1263,7 @@ def test_unresolved_comment_warn(
                 {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     assert response.status_code == 200
@@ -1272,7 +1286,7 @@ def test_unresolved_comment_warn(
                 {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     assert response.status_code == 200
@@ -1291,6 +1305,7 @@ def test_unresolved_comment_stack(
     phabdouble,
     auth0_mock,
     mocked_repo_config,
+    mock_permissions,
 ):
     """
     Ensure a warning is generated when a revision in the stack has unresolved comments.
@@ -1344,7 +1359,7 @@ def test_unresolved_comment_stack(
                 {"revision_id": "D{}".format(r3["id"]), "diff_id": d3["id"]},
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     assert response.status_code == 200

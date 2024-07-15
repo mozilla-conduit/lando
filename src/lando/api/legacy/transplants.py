@@ -376,23 +376,23 @@ def warning_unresolved_comments(*, phab, revision, **kwargs):
         return "Revision has unresolved comments."
 
 
-def user_block_no_auth0_email(*, auth0_user, **kwargs):
+def user_block_no_auth0_email(*, lando_user, **kwargs):
     """Check the user has a proper auth0 email."""
     return (
         None
-        if auth0_user.email
+        if lando_user.email
         else ("You do not have a Mozilla verified email address.")
     )
 
 
-def user_block_scm_level(*, auth0_user, landing_repo, **kwargs):
+def user_block_scm_level(*, lando_user, landing_repo, **kwargs):
     """Check the user has the scm level required for this repository."""
-    if auth0_user.is_in_groups(landing_repo.access_group.active_group):
+    if lando_user.has_perm(
+        f"main.{landing_repo.access_group.membership_group.removeprefix('all_')}"
+    ):
         return None
 
-    if auth0_user.is_in_groups(landing_repo.access_group.membership_group):
-        return "Your {} has expired.".format(landing_repo.access_group.display_name)
-
+    # TODO: update copy to include possibility of expired access?
     return (
         "You have insufficient permissions to land. {} is required. "
         "See the FAQ for help.".format(landing_repo.access_group.display_name)
@@ -401,7 +401,7 @@ def user_block_scm_level(*, auth0_user, landing_repo, **kwargs):
 
 def check_landing_warnings(
     phab,
-    auth0_user,
+    lando_user,
     to_land,
     repo,
     landing_repo,
@@ -449,7 +449,7 @@ def check_landing_warnings(
 
 
 def check_landing_blockers(
-    auth0_user,
+    lando_user,
     requested_path,
     stack_data,
     landable_paths,
@@ -517,7 +517,7 @@ def check_landing_blockers(
     # Check anything that would block the current user from
     # landing this.
     for block in user_blocks:
-        result = block(auth0_user=auth0_user, landing_repo=repo)
+        result = block(lando_user=lando_user, landing_repo=repo)
         if result is not None:
             return TransplantAssessment(blocker=result)
 

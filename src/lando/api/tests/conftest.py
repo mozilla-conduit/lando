@@ -88,25 +88,6 @@ new file mode 100644
 """.strip()
 
 
-@pytest.fixture(autouse=True)
-def g(monkeypatch):
-    class G:
-        def __init__(self):
-            self.email = None
-            self.auth0_user = None
-            self.access_token = None
-            self.access_token_payload = None
-            self._request_start_timestamp = None
-
-    g = G()
-    monkeypatch.setattr("lando.main.support.g", g)
-    monkeypatch.setattr("lando.api.legacy.auth.g", g)
-    monkeypatch.setattr("lando.api.legacy.api.try_push.g", g)
-    monkeypatch.setattr("lando.api.legacy.api.transplants.g", g)
-    monkeypatch.setattr("lando.api.legacy.api.landing_jobs.g", g)
-    yield g
-
-
 @pytest.fixture
 def app():
     class _config:
@@ -503,7 +484,37 @@ def codefreeze_datetime(request_mocker):
 
 
 @pytest.fixture
-def proxy_client(monkeypatch):
+def fake_request():
+    class FakeUser:
+        def has_perm(self, permission, *args, **kwargs):
+            return permission in self.permissions
+
+        def __init__(self, is_authenticated=True, has_email=True, permissions=None):
+            self.is_authenticated = is_authenticated
+            self.permissions = permissions or ()
+            if has_email:
+                self.email = "email@example.org"
+            else:
+                self.email = ""
+
+    class FakeRequest:
+        def __init__(self, *args, **kwargs):
+            self.user = FakeUser(*args, **kwargs)
+
+    return FakeRequest
+
+
+@pytest.fixture
+def mock_permissions():
+    return (
+        "main.scm_level_1",
+        "main.scm_level_2",
+        "main.scm_level_3",
+    )
+
+
+@pytest.fixture
+def proxy_client(monkeypatch, fake_request):
     """A client that bridges tests designed to work with the API.
 
     Most tests that use the API no longer need to access those endpoints through
@@ -528,9 +539,11 @@ def proxy_client(monkeypatch):
             )
 
     class ProxyClient:
+        request = fake_request()
+
         def _handle__get__stacks__id(self, path):
-            revision_id = path.removeprefix("/stacks/")
-            json_response = legacy_api_stacks.get(revision_id)
+            revision_id = path.removeprefix("/stacks/D")
+            json_response = legacy_api_stacks.get(self.request, revision_id)
             if isinstance(json_response, HttpResponse):
                 # In some cases, an actual response object is returned.
                 return json_response
@@ -541,7 +554,7 @@ def proxy_client(monkeypatch):
         def _handle__get__transplants__id(self, path):
             stack_revision_id = path.removeprefix("/transplants?stack_revision_id=")
             result = legacy_api_transplants.get_list(
-                stack_revision_id=stack_revision_id
+                self.request, stack_revision_id=stack_revision_id
             )
             if isinstance(result, tuple):
                 # For these endpoints, some responses contain different status codes
@@ -555,28 +568,32 @@ def proxy_client(monkeypatch):
             return result
 
         def _handle__post__transplants__dryrun(self, **kwargs):
-            json_response = legacy_api_transplants.dryrun(kwargs["json"])
+            json_response = legacy_api_transplants.dryrun(self.request, kwargs["json"])
             return MockResponse(json=json.loads(json.dumps(json_response)))
 
         def _handle__post__transplants(self, path, **kwargs):
             try:
-                json_response, status_code = legacy_api_transplants.post(kwargs["json"])
+                json_response, status_code = legacy_api_transplants.post(
+                    self.request, kwargs["json"]
+                )
             except ProblemException as e:
                 # Handle exceptions and pass along the status code to the response object.
                 if e.json_detail:
                     return MockResponse(json=e.json_detail, status_code=e.status_code)
                 return MockResponse(json=e.args, status_code=e.status_code)
-            except Exception:
+            except Exception as e:
                 # TODO: double check that this is a thing in legacy?
                 # Added this due to a validation error (test_transplant_wrong_landing_path_format)
-                return MockResponse(json=["error"], status_code=400)
+                return MockResponse(json=[f"error ({e})"], status_code=400)
             return MockResponse(
                 json=json.loads(json.dumps(json_response)), status_code=status_code
             )
 
         def _handle__put__landing_jobs__id(self, path, **kwargs):
             job_id = int(path.removeprefix("/landing_jobs/"))
-            json_response = legacy_api_landing_jobs.put(job_id, kwargs["json"])
+            json_response = legacy_api_landing_jobs.put(
+                self.request, job_id, kwargs["json"]
+            )
             return MockResponse(json=json.loads(json.dumps(json_response)))
 
         def get(self, path, *args, **kwargs):
@@ -589,9 +606,8 @@ def proxy_client(monkeypatch):
 
         def post(self, path, **kwargs):
             """Handle various post endpoints."""
-            if "headers" in kwargs:
-                mock_request = {"headers": kwargs["headers"]}
-                monkeypatch.setattr("lando.api.legacy.auth.request", mock_request)
+            if "permissions" in kwargs:
+                self.request = fake_request(permissions=kwargs["permissions"])
 
             if path.startswith("/transplants/dryrun"):
                 return self._handle__post__transplants__dryrun(**kwargs)
@@ -601,9 +617,8 @@ def proxy_client(monkeypatch):
 
         def put(self, path, **kwargs):
             """Handle put endpoint."""
-            if "headers" in kwargs:
-                mock_request = {"headers": kwargs["headers"]}
-                monkeypatch.setattr("lando.api.legacy.auth.request", mock_request)
+            if "permissions" in kwargs:
+                self.request = fake_request(permissions=kwargs["permissions"])
 
             if path.startswith("/landing_jobs/"):
                 return self._handle__put__landing_jobs__id(path, **kwargs)
