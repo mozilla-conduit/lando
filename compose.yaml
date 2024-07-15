@@ -27,7 +27,7 @@ services:
     volumes:
       - ./:/code
       - ./staticfiles:/staticfiles
-      - media:files/
+      - media:/files/
     env_file:
       - .env
     depends_on:

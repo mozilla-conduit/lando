@@ -173,7 +173,7 @@ SITE_URL = os.getenv("SITE_URL", "https://lando.test")
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 OIDC_DOMAIN = os.getenv("OIDC_DOMAIN")
-OIDC_BASE_URL = f"https://{OIDC_DOMAIN}"
+OIDC_BASE_URL = OIDC_DOMAIN
 OIDC_OP_TOKEN_ENDPOINT = f"{OIDC_BASE_URL}/oauth/token"
 OIDC_OP_USER_ENDPOINT = f"{OIDC_BASE_URL}/userinfo"
 OIDC_OP_AUTHORIZATION_ENDPOINT = f"{OIDC_BASE_URL}/authorize"
