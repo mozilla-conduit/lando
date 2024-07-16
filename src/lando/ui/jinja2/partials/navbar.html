@@ -27,7 +27,7 @@
               <span>Phabricator</span>
             </a>
           </p>
-          {% if is_user_authenticated() %}
+          {% if user_is_authenticated %}
             <p class="control">
               <a class="Navbar-userSettingsBtn button">
                 <span class="icon">
@@ -39,7 +39,7 @@
             </p>
           {% endif %}
           <p class="control">
-            {% if is_user_authenticated() %}
+            {% if user_is_authenticated %}
               <a class="button" href="/logout">
                 <span class="icon">
                   <i class="fa fa-sign-out"></i>
@@ -68,7 +68,7 @@
     </div>
   </div>
 
-  {% if is_user_authenticated() %}
+  {% if user_is_authenticated %}
     <div class="Navbar-modal modal">
       <div class="modal-background"></div>
       <div class="modal-card">
