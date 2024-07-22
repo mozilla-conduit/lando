@@ -202,7 +202,9 @@ CELERY_TASK_SERIALIZER = "json"
 
 DEFAULT_FROM_EMAIL = "Lando <lando@lando.test>"
 
-if ENVIRONMENT == "dev":
+REMOTE_ENVIRONMENTS = ("dev",)
+
+if ENVIRONMENT in REMOTE_ENVIRONMENTS:
     STORAGES = {
         "staticfiles": {
             "BACKEND": "storages.backends.gcloud.GoogleCloudStorage",
