@@ -1,11 +1,3 @@
-{% if request %}
-    {% set user_is_authenticated = request.user.is_authenticated %}
-    {% set user_has_phabricator_token = request.user.profile and request.user.profile.phabricator_api_key %}
-{% else %}
-    {% set user_is_authenticated = False %}
-    {% set user_has_phabricator_token = False %}
-    {% set request = None %}
-{% endif %}
 <!DOCTYPE html>
 <html>
 <head>
