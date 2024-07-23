@@ -60,7 +60,7 @@ def get(phab: PhabricatorClient, revision_id: str):
     )
     revision = phab.single(revision, "data", none_when_empty=True)
     if revision is None:
-        raise Http404
+        raise Http404("Revision does not exist")
 
     nodes, edges = build_stack_graph(revision)
     try:
