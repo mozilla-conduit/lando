@@ -66,7 +66,7 @@ def get(phab: PhabricatorClient, revision_id: str):
     try:
         stack_data = request_extended_revision_data(phab, list(nodes))
     except ValueError:
-        raise Http404
+        raise Http404("Revision does not exist")
 
     supported_repos = get_repos_for_env(settings.ENVIRONMENT)
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
