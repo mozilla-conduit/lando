@@ -45,6 +45,8 @@ from lando.main.models.revision import Revision
 
 logger = logging.getLogger(__name__)
 
+HTTP_404_STRING = "Revision does not exist or you do not have permission to view it"
+
 
 @require_phabricator_api_key(optional=True)
 def get(phab: PhabricatorClient, revision_id: str):
@@ -60,13 +62,13 @@ def get(phab: PhabricatorClient, revision_id: str):
     )
     revision = phab.single(revision, "data", none_when_empty=True)
     if revision is None:
-        raise Http404("Revision does not exist")
+        raise Http404(HTTP_404_STRING)
 
     nodes, edges = build_stack_graph(revision)
     try:
         stack_data = request_extended_revision_data(phab, list(nodes))
     except ValueError:
-        raise Http404("Revision does not exist")
+        raise Http404(HTTP_404_STRING)
 
     supported_repos = get_repos_for_env(settings.ENVIRONMENT)
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
