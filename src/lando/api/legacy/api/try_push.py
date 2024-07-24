@@ -9,6 +9,7 @@ import io
 import logging
 
 from django.conf import settings
+from django.http import HttpRequest
 
 from lando.api.legacy.hgexports import (
     GitPatchHelper,
@@ -100,7 +101,9 @@ def parse_revisions_from_request(
 
 @require_authenticated_user
 @require_permission("scm_level_1")
-def post_patches(data: dict):
+def post_patches(request: HttpRequest, data: dict):
+    # NOTE: this endpoint is not currently functional as it will need to
+    # have support for token authentication. See bug 1909723.
     base_commit = data["base_commit"]
     patches = data["patches"]
     patch_format = PatchFormat(data["patch_format"])
