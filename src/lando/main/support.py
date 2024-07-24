@@ -1,4 +1,25 @@
+from django.core.files.storage import storages
 from django.http import HttpResponse
+from storages.backends.gcloud import GoogleCloudStorage
+
+
+class CachedGoogleCloudStorage(GoogleCloudStorage):
+    """
+    Extends GoogleCloudStorage to include support for django-compressor.
+
+    See https://django-compressor.readthedocs.io/en/stable/remote-storages.html.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.local_storage = storages.create_storage(
+            {"BACKEND": "compressor.storage.CompressorFileStorage"}
+        )
+
+    def save(self, name, content):
+        self.local_storage.save(name, content)
+        super().save(name, self.local_storage._open(name))
+        return name
 
 
 class ProblemException(Exception):

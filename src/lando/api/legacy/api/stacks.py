@@ -5,7 +5,7 @@ import logging
 import urllib.parse
 
 from django.conf import settings
-from django.http import HttpRequest
+from django.http import Http404, HttpRequest
 
 from lando.api.legacy.commit_message import format_commit_message
 from lando.api.legacy.phabricator import PhabricatorClient
@@ -42,16 +42,10 @@ from lando.api.legacy.users import user_search
 from lando.api.legacy.validation import revision_id_to_int
 from lando.main.auth import require_phabricator_api_key
 from lando.main.models.revision import Revision
-from lando.main.support import problem
 
 logger = logging.getLogger(__name__)
 
-not_found_problem = problem(
-    404,
-    "Revision not found",
-    "The requested revision does not exist",
-    type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
-)
+HTTP_404_STRING = "Revision does not exist or you do not have permission to view it"
 
 
 @require_phabricator_api_key(optional=True)
@@ -69,13 +63,13 @@ def get(phab: PhabricatorClient, request: HttpRequest, revision_id: str):
     )
     revision = phab.single(revision, "data", none_when_empty=True)
     if revision is None:
-        return not_found_problem
+        raise Http404(HTTP_404_STRING)
 
     nodes, edges = build_stack_graph(revision)
     try:
         stack_data = request_extended_revision_data(phab, list(nodes))
     except ValueError:
-        return not_found_problem
+        raise Http404(HTTP_404_STRING)
 
     supported_repos = get_repos_for_env(settings.ENVIRONMENT)
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
