@@ -301,6 +301,7 @@ def environment(**options):
             "config": settings,
             "get_messages": messages.get_messages,
             "new_settings_form": UserSettingsForm,
+            "static_url": settings.STATIC_URL,
             "url": reverse,
         }
     )
