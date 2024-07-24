@@ -542,7 +542,7 @@ def proxy_client(monkeypatch, fake_request):
         request = fake_request()
 
         def _handle__get__stacks__id(self, path):
-            revision_id = path.removeprefix("/stacks/D")
+            revision_id = int(path.removeprefix("/stacks/D"))
             json_response = legacy_api_stacks.get(self.request, revision_id)
             if isinstance(json_response, HttpResponse):
                 # In some cases, an actual response object is returned.
