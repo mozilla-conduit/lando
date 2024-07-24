@@ -59,7 +59,7 @@ def require_authenticated_user(f):
 
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
-            raise PermissionError
+            raise PermissionError("Authentication is required")
         return f(request, *args, **kwargs)
 
     return wrapper
@@ -81,13 +81,13 @@ class require_permission:
 
 
 class require_phabricator_api_key:
-    """Decorator which requires and verifies the phabricator API Key.
+    """Decorator which requires and verifies the Phabricator API Key.
 
     If a user's API key is not available and optional is False, then
     an HTTP 401 response will be returned.
 
     The user's API key will be verified to be valid, if it is not an
-    HTTP 403 response will be returned..
+    HTTP 403 response will be returned.
 
     If the optional parameter is True and no API key is provided, a default key
     will be used. If an API key is provided it will still be verified.
