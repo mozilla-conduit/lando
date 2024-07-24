@@ -39,7 +39,6 @@ from lando.api.legacy.stacks import (
 )
 from lando.api.legacy.transplants import get_blocker_checks
 from lando.api.legacy.users import user_search
-from lando.api.legacy.validation import revision_id_to_int
 from lando.main.auth import require_phabricator_api_key
 from lando.main.models.revision import Revision
 
@@ -49,17 +48,14 @@ HTTP_404_STRING = "Revision does not exist or you do not have permission to view
 
 
 @require_phabricator_api_key(optional=True)
-def get(phab: PhabricatorClient, request: HttpRequest, revision_id: str):
+def get(phab: PhabricatorClient, request: HttpRequest, revision_id: int):
     """Get the stack a revision is part of.
 
     Args:
-        revision_id: (string) ID of the revision in 'D{number}' format
+        revision_id: (int) ID of the revision in 'D{number}' format
     """
-    revision_id = f"D{revision_id}"
-    revision_id_int = revision_id_to_int(revision_id)
-
     revision = phab.call_conduit(
-        "differential.revision.search", constraints={"ids": [revision_id_int]}
+        "differential.revision.search", constraints={"ids": [revision_id]}
     )
     revision = phab.single(revision, "data", none_when_empty=True)
     if revision is None:
