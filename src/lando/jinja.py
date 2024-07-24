@@ -320,6 +320,7 @@ def environment(**options):
             "get_messages": messages.get_messages,
             "is_user_authenticated": is_user_authenticated(env),
             "new_settings_form": UserSettingsForm,
+            "static_url": settings.STATIC_URL,
             "url": reverse,
             "user_has_phabricator_token": user_has_phabricator_token(env),
         }

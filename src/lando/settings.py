@@ -201,3 +201,20 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 
 DEFAULT_FROM_EMAIL = "Lando <lando@lando.test>"
+
+REMOTE_ENVIRONMENTS = ("dev",)
+
+if ENVIRONMENT in REMOTE_ENVIRONMENTS:
+    STORAGES = {
+        "staticfiles": {
+            "BACKEND": "storages.backends.gcloud.GoogleCloudStorage",
+        },
+    }
+    STATIC_URL = os.getenv("STATIC_URL")
+    GS_BUCKET_NAME = os.getenv("GS_BUCKET_NAME")
+    GS_PROJECT_ID = os.getenv("GS_PROJECT_ID")
+    GS_QUERYSTRING_AUTH = False
+
+    COMPRESS_URL = STATIC_URL
+    COMPRESS_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
+    COMPRESS_OFFLINE_MANIFEST_STORAGE = COMPRESS_STORAGE
