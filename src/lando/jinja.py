@@ -22,24 +22,6 @@ SEC_BUG_DOCS = "https://firefox-source-docs.mozilla.org/bug-mgmt/processes/secur
 logger = logging.getLogger(__name__)
 
 
-def is_user_authenticated(env) -> callable:
-    # NOTE: this is just temporarily translated as-is from the legacy implementation.
-    # it will not actually work, and instead we should use the Django-specific auth
-    # functionality to determine this.
-    def _is_user_authenticated() -> bool:
-        request = env.globals.request
-        return "id_token" in request.session and "access_token" in request.session
-    return _is_user_authenticated
-
-
-def user_has_phabricator_token(env) -> callable:
-    def _user_has_phabricator_token() -> bool:
-        request = env.globals.request
-        if is_user_authenticated(env) and "phabricator-api-token" in request.cookies:
-            return request.cookies["phabricator-api-token"] is not None
-    return _user_has_phabricator_token
-
-
 # TODO: this should be ported once all forms are ported to Django forms.
 # def new_settings_form() -> UserSettingsForm:
 #     return UserSettingsForm()
@@ -318,11 +300,9 @@ def environment(**options):
         {
             "config": settings,
             "get_messages": messages.get_messages,
-            "is_user_authenticated": is_user_authenticated(env),
             "new_settings_form": UserSettingsForm,
             "static_url": settings.STATIC_URL,
             "url": reverse,
-            "user_has_phabricator_token": user_has_phabricator_token(env),
         }
     )
     env.filters.update(
