@@ -3,7 +3,15 @@ FROM python:3.12
 EXPOSE 80
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE 1
-RUN adduser --system --no-create-home app
+
+RUN addgroup --gid 10001 app \
+    && adduser \
+        --disabled-password \
+        --uid 10001 \
+        --gid 10001 \
+        --home /app \
+        --gecos "app,,," \
+        app
 
 RUN mkdir /code
 COPY ./ /code
