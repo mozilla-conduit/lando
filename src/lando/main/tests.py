@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock
+
 import pytest
 from django.contrib.auth.models import User
 from django.http import HttpResponse
@@ -46,8 +48,6 @@ def noop(phab, *args, **kwargs):
     ],
 )
 def test_require_phabricator_api_key(monkeypatch, optional, valid_key, status):
-    from unittest.mock import MagicMock
-
     fake_request = MagicMock()
     fake_request.user.profile.phabricator_api_key = None
     fake_request.user.is_authenticated = True
