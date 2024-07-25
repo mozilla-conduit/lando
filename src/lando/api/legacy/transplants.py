@@ -392,10 +392,11 @@ def user_block_scm_level(*, lando_user, landing_repo, **kwargs):
     ):
         return None
 
-    # TODO: update copy to include possibility of expired access?
     return (
-        "You have insufficient permissions to land. {} is required. "
-        "See the FAQ for help.".format(landing_repo.access_group.display_name)
+        "You have insufficient permissions to land or your access has expired. "
+        "{} is required. See the FAQ for help.".format(
+            landing_repo.access_group.display_name
+        )
     )
 
 

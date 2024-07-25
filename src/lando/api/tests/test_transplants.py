@@ -340,8 +340,8 @@ def test_dryrun_outside_codefreeze(
         (
             (),  # No permissions
             200,
-            "You have insufficient permissions to land. Level 3 "
-            "Commit Access is required. See the FAQ for help.",
+            "You have insufficient permissions to land or your access has expired. "
+            "Level 3 Commit Access is required. See the FAQ for help.",
         ),
     ],
 )
@@ -1054,7 +1054,7 @@ def test_integrated_transplant_without_auth0_permissions(
 
     assert response.status_code == 400
     assert response.json["blocker"] == (
-        "You have insufficient permissions to land. "
+        "You have insufficient permissions to land or your access has expired. "
         "Level 3 Commit Access is required. See the FAQ for help."
     )
 
