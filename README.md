@@ -20,15 +20,11 @@ Lando is an application that applies patches and pushes them to Git and Mercuria
 
 ### Running the development server
 
-    ```shell
     make start
-    ```
 
 The above command will run any database migrations and start the development server and its dependencies.
 
-    ```shell
     make stop
-    ```
 
 The above command will shut down the containers running lando.
 
@@ -36,18 +32,14 @@ The above command will shut down the containers running lando.
 
 To run the test suite, invoke the following command:
 
-    ```shell
     make test
-    ```
 
 If you need to run specific tests, or pass additional arguments, use the `lando tests`
 command from within the Lando container.
 
 #### Add a new migration
 
-    ```shell
     make migrations
-    ```
 
 ## Support
 
