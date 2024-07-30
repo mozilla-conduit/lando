@@ -6,7 +6,6 @@ import pytest
 from django.http import Http404
 
 from lando.api.legacy.phabricator import PhabricatorRevisionStatus
-from lando.api.legacy.repos import get_repos_for_env
 from lando.api.legacy.stacks import (
     RevisionStack,
     build_stack_graph,
@@ -14,6 +13,7 @@ from lando.api.legacy.stacks import (
     get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
+from lando.main.util import get_repos_for_env
 
 
 def test_build_stack_graph_single_node(phabdouble):
@@ -607,6 +607,7 @@ def test_calculate_landable_subgraphs_missing_repo(phabdouble):
     assert blocked[r1["phid"]] == repo_unset_warning
 
 
+@pytest.mark.django_db
 def test_get_landable_repos_for_revision_data(phabdouble, mocked_repo_config):
     phab = phabdouble.get_phabricator_client()
 
@@ -623,11 +624,11 @@ def test_get_landable_repos_for_revision_data(phabdouble, mocked_repo_config):
     )
     assert repo1["phid"] in landable_repos
     assert repo2["phid"] not in landable_repos
-    assert landable_repos[repo1["phid"]].tree == "mozilla-central"
+    assert landable_repos[repo1["phid"]].name == "mozilla-central"
 
 
+@pytest.mark.django_db
 def test_integrated_stack_endpoint_simple(
-    db,
     proxy_client,
     phabdouble,
     mocked_repo_config,
@@ -667,8 +668,8 @@ def test_integrated_stack_endpoint_simple(
     )
 
 
+@pytest.mark.django_db
 def test_integrated_stack_endpoint_repos(
-    db,
     proxy_client,
     phabdouble,
     mocked_repo_config,
@@ -698,11 +699,11 @@ def test_integrated_stack_endpoint_repos(
     )
 
 
+@pytest.mark.django_db
 def test_integrated_stack_has_revision_security_status(
-    db,
     proxy_client,
     phabdouble,
-    mock_repo_config,
+    mocked_repo_config,
     release_management_project,
     sec_approval_project,
     secure_project,
@@ -721,11 +722,11 @@ def test_integrated_stack_has_revision_security_status(
     assert revisions[secure_revision["phid"]]["is_secure"]
 
 
+@pytest.mark.django_db
 def test_integrated_stack_response_mismatch_returns_404(
-    db,
     proxy_client,
     phabdouble,
-    mock_repo_config,
+    mocked_repo_config,
     release_management_project,
     sec_approval_project,
     secure_project,

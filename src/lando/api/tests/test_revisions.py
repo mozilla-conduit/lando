@@ -5,7 +5,6 @@
 import pytest
 
 from lando.api.legacy.phabricator import PhabricatorRevisionStatus, ReviewerStatus
-from lando.api.legacy.repos import get_repos_for_env
 from lando.api.legacy.revisions import (
     check_author_planned_changes,
     check_diff_author_is_known,
@@ -16,6 +15,7 @@ from lando.api.legacy.revisions import (
 from lando.api.legacy.stacks import (
     request_extended_revision_data,
 )
+from lando.main.util import get_repos_for_env
 
 pytestmark = pytest.mark.usefixtures("docker_env_vars")
 
@@ -62,13 +62,14 @@ def test_check_author_planned_changes_changes_planned(phabdouble):
     assert check_author_planned_changes(revision=revision) is not None
 
 
+@pytest.mark.django_db
 def test_secure_api_flag_on_public_revision_is_false(
-    db,
     proxy_client,
     phabdouble,
     release_management_project,
     sec_approval_project,
     secure_project,
+    ensure_access_groups_and_workers,
 ):
     repo = phabdouble.repo(name="test-repo")
     public_project = phabdouble.project("public")
@@ -80,13 +81,14 @@ def test_secure_api_flag_on_public_revision_is_false(
     assert not response_revision["is_secure"]
 
 
+@pytest.mark.django_db
 def test_secure_api_flag_on_secure_revision_is_true(
-    db,
     proxy_client,
     phabdouble,
     release_management_project,
     sec_approval_project,
     secure_project,
+    ensure_access_groups_and_workers,
 ):
     repo = phabdouble.repo(name="test-repo")
     revision = phabdouble.revision(projects=[secure_project], repo=repo)
@@ -115,10 +117,16 @@ def test_secure_revision_is_secure(phabdouble, secure_project):
     assert revision_is_secure(revision, secure_project["phid"])
 
 
-def test_relman_approval_missing(phabdouble, release_management_project):
+@pytest.mark.django_db
+def test_relman_approval_missing(
+    phabdouble,
+    release_management_project,
+    mocked_repo_config,
+    ensure_access_groups_and_workers,
+):
     """A repo with an approval required needs relman as reviewer"""
     repo = phabdouble.repo(name="uplift-target")
-    repos = get_repos_for_env("localdev")
+    repos = get_repos_for_env("test")
     assert repos["uplift-target"].approval_required is True
 
     revision = phabdouble.revision(repo=repo)
@@ -138,11 +146,18 @@ def test_relman_approval_missing(phabdouble, release_management_project):
     )
 
 
+@pytest.mark.django_db
 @pytest.mark.parametrize("status", list(ReviewerStatus))
-def test_relman_approval_status(status, phabdouble, release_management_project):
+def test_relman_approval_status(
+    status,
+    phabdouble,
+    release_management_project,
+    mocked_repo_config,
+    ensure_access_groups_and_workers,
+):
     """Check only an approval from relman allows landing"""
     repo = phabdouble.repo(name="uplift-target")
-    repos = get_repos_for_env("localdev")
+    repos = get_repos_for_env("test")
     assert repos["uplift-target"].approval_required is True
 
     # Add relman as reviewer with specified status

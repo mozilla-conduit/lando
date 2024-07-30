@@ -6,14 +6,13 @@ import base64
 
 import pytest
 
-from lando.api.legacy.hg import HgRepo
-from lando.api.legacy.hgexports import (
+from lando.main.models.landing_job import LandingJob, LandingJobStatus
+from lando.main.models.repo import Repo
+from lando.main.workers.hg_landing_worker import HgLandingWorker
+from lando.utils import (
     get_timestamp_from_git_date_header,
     parse_git_author_information,
 )
-from lando.api.legacy.repos import SCM_LEVEL_1, Repo
-from lando.api.legacy.workers.landing_worker import LandingWorker
-from lando.main.models.landing_job import LandingJob, LandingJobStatus
 
 pytest.skip(allow_module_level=True)
 
@@ -75,7 +74,7 @@ def test_parse_git_author_information():
     ), "Name and email information should be parsed into separate strings."
 
 
-def test_try_api_requires_data(db, client, auth0_mock, mocked_repo_config):
+def test_try_api_requires_data(client, auth0_mock, mocked_repo_config):
     try_push_json = {
         "base_commit": "abc",
         "patch_format": "hgexport",
@@ -97,7 +96,6 @@ def test_try_api_requires_data(db, client, auth0_mock, mocked_repo_config):
 
 def test_try_api_patch_decode_error(
     app,
-    db,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -133,7 +131,6 @@ def test_try_api_patch_decode_error(
 )
 def test_try_api_patch_format_mismatch(
     app,
-    db,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -168,7 +165,6 @@ def test_try_api_patch_format_mismatch(
 
 def test_try_api_unknown_patch_format(
     app,
-    db,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -198,15 +194,15 @@ def test_try_api_unknown_patch_format(
 
 def test_try_api_success_hgexport(
     app,
-    db,
     hg_server,
     hg_clone,
     treestatusdouble,
     client,
     auth0_mock,
     mocked_repo_config,
+    SCM_LEVEL_1,
 ):
-    treestatus = treestatusdouble.get_treestatus_client()
+    # treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
 
     try_push_json = {
@@ -226,7 +222,7 @@ def test_try_api_success_hgexport(
     ), "Response should include the ID of the new landing job."
 
     queue_items = LandingJob.job_queue_query(
-        repositories=["try"], grace_seconds=0
+        repository_names=["try"], grace_seconds=0
     ).all()
     assert len(queue_items) == 1, "Try push should have created 1 landing job."
 
@@ -244,10 +240,9 @@ def test_try_api_success_hgexport(
         force_push=True,
     )
 
-    worker = LandingWorker(sleep_seconds=0.01)
-    hgrepo = HgRepo(hg_clone.strpath)
+    worker = HgLandingWorker()
 
-    assert worker.run_job(job, repo, hgrepo, treestatus)
+    assert worker.run_job(job, repo)  # , treestatus)
     assert job.status == LandingJobStatus.LANDED
     assert len(job.landed_commit_id) == 40
     assert (
@@ -287,15 +282,15 @@ def test_try_api_success_hgexport(
 
 def test_try_api_success_gitformatpatch(
     app,
-    db,
     hg_server,
     hg_clone,
     treestatusdouble,
     client,
     auth0_mock,
     mocked_repo_config,
+    SCM_LEVEL_1,
 ):
-    treestatus = treestatusdouble.get_treestatus_client()
+    # treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
 
     try_push_json = {
@@ -315,7 +310,7 @@ def test_try_api_success_gitformatpatch(
     ), "Response should include the ID of the new landing job."
 
     queue_items = LandingJob.job_queue_query(
-        repositories=["try"], grace_seconds=0
+        repository_names=["try"], grace_seconds=0
     ).all()
     assert len(queue_items) == 1, "Try push should have created 1 landing job."
 
@@ -331,13 +326,13 @@ def test_try_api_success_gitformatpatch(
         short_name="try",
         is_phabricator_repo=False,
         force_push=True,
+        system_path=hg_clone.strpath,
     )
 
-    worker = LandingWorker(sleep_seconds=0.01)
-    hgrepo = HgRepo(hg_clone.strpath)
+    worker = HgLandingWorker()
 
     # Assert the job landed against the expected commit hash.
-    assert worker.run_job(job, repo, hgrepo, treestatus)
+    assert worker.run_job(job, repo)  # , treestatus)
     assert job.status == LandingJobStatus.LANDED
     assert len(job.landed_commit_id) == 40
     assert (

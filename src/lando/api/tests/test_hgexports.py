@@ -5,7 +5,8 @@ import io
 
 import pytest
 
-from lando.api.legacy.hgexports import (
+from lando.main.config.repos import RepoTypeEnum
+from lando.utils import (
     GitPatchHelper,
     HgPatchHelper,
     build_patch_for_revision,
@@ -141,6 +142,7 @@ unavailable at the moment and is not broken.
 def test_build_patch():
     patch = build_patch_for_revision(
         GIT_DIFF_FROM_REVISION,
+        RepoTypeEnum.GIT,
         "Joe User",
         "joe@example.com",
         COMMIT_MESSAGE,

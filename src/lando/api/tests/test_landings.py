@@ -8,19 +8,22 @@ import unittest.mock as mock
 
 import pytest
 
-from lando.api.legacy.hg import AUTOFORMAT_COMMIT_MESSAGE, HgRepo
-from lando.api.legacy.repos import SCM_LEVEL_3, Repo
-from lando.api.legacy.workers.landing_worker import LandingWorker
+from lando.main.interfaces.hg_repo_interface import (
+    AUTOFORMAT_COMMIT_MESSAGE,
+    HgRepoInterface,
+)
 from lando.main.models.landing_job import (
     LandingJob,
     LandingJobStatus,
     add_job_with_revisions,
 )
+from lando.main.models.repo import Repo, RepoType
 from lando.main.models.revision import Revision
+from lando.main.workers.hg_landing_worker import HgLandingWorker
 
 
 @pytest.fixture
-def create_patch_revision(db, normal_patch):
+def create_patch_revision(normal_patch):
     """A fixture that fake uploads a patch"""
 
     normal_patch_0 = normal_patch(0)
@@ -223,7 +226,6 @@ aDd oNe mOrE LiNe
 @pytest.mark.django_db
 def test_integrated_execute_job(
     app,
-    db,
     mock_repo_config,
     hg_server,
     hg_clone,
@@ -232,17 +234,22 @@ def test_integrated_execute_job(
     create_patch_revision,
     normal_patch,
     revisions_params,
+    ensure_access_groups_and_workers,
+    SCM_LEVEL_3,
+    mocked_repo_config,
 ):
-    treestatus = treestatusdouble.get_treestatus_client()
+    # treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo(
-        tree="mozilla-central",
+        name="mozilla-central",
         url=hg_server,
         access_group=SCM_LEVEL_3,
         push_path=hg_server,
         pull_path=hg_server,
+        repo_type=RepoType.HG,
+        system_path=hg_clone.strpath,
     )
-    hgrepo = HgRepo(hg_clone.strpath)
+
     revisions = [
         create_patch_revision(number, **kwargs) for number, kwargs in revisions_params
     ]
@@ -254,16 +261,16 @@ def test_integrated_execute_job(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    worker = LandingWorker(sleep_seconds=0.01)
+    worker = HgLandingWorker()
 
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
+        "lando.main.workers.hg_landing_worker.HgLandingWorker.phab_trigger_repo_update",
         mock_trigger_update,
     )
 
-    assert worker.run_job(job, repo, hgrepo, treestatus)
+    assert worker.run_job(job, repo)  # , treestatus)
     assert job.status == LandingJobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40
     assert (
@@ -271,27 +278,31 @@ def test_integrated_execute_job(
     ), "Successful landing should trigger Phab repo update."
 
 
+@pytest.mark.django_db
 def test_integrated_execute_job_with_force_push(
     app,
-    db,
     mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    ensure_access_groups_and_workers,
+    SCM_LEVEL_3,
 ):
-    treestatus = treestatusdouble.get_treestatus_client()
+    # treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo(
-        tree="mozilla-central",
+        name="mozilla-central",
         url=hg_server,
         access_group=SCM_LEVEL_3,
         push_path=hg_server,
         pull_path=hg_server,
         force_push=True,
+        repo_type=RepoType.HG,
+        system_path=hg_clone.strpath,
     )
-    hgrepo = HgRepo(hg_clone.strpath)
+
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
@@ -300,45 +311,51 @@ def test_integrated_execute_job_with_force_push(
     }
     job = add_job_with_revisions([create_patch_revision(1)], **job_params)
 
-    worker = LandingWorker(sleep_seconds=0.01)
+    worker = HgLandingWorker()
 
-    # We don't care about repo update in this test, however if we don't mock
-    # this, the test will fail since there is no celery instance.
+    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
+    mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
-        mock.MagicMock(),
+        "lando.main.workers.hg_landing_worker.HgLandingWorker.phab_trigger_repo_update",
+        mock_trigger_update,
     )
 
-    hgrepo.push = mock.MagicMock()
-    assert worker.run_job(job, repo, hgrepo, treestatus)
-    assert hgrepo.push.call_count == 1
-    assert len(hgrepo.push.call_args) == 2
-    assert len(hgrepo.push.call_args[0]) == 1
-    assert hgrepo.push.call_args[0][0] == hg_server
-    assert hgrepo.push.call_args[1] == {"bookmark": None, "force_push": True}
+    hg_repo_interface = repo.interface
+
+    hg_repo_interface.push = mock.MagicMock()
+    assert worker.run_job(job, repo)  # , treestatus)
+    assert hg_repo_interface.push.call_count == 1
+    assert len(hg_repo_interface.push.call_args) == 2
+    assert len(hg_repo_interface.push.call_args[0]) == 1
+    assert hg_repo_interface.push.call_args[0][0] == hg_server
+    assert hg_repo_interface.push.call_args[1] == {"bookmark": None, "force_push": True}
 
 
+@pytest.mark.django_db
 def test_integrated_execute_job_with_bookmark(
     app,
-    db,
     mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    ensure_access_groups_and_workers,
+    SCM_LEVEL_3,
 ):
-    treestatus = treestatusdouble.get_treestatus_client()
+    # treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo(
-        tree="mozilla-central",
+        name="mozilla-central",
         url=hg_server,
         access_group=SCM_LEVEL_3,
         push_path=hg_server,
         pull_path=hg_server,
         push_bookmark="@",
+        repo_type=RepoType.HG,
+        system_path=hg_clone.strpath,
     )
-    hgrepo = HgRepo(hg_clone.strpath)
+
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
@@ -347,43 +364,49 @@ def test_integrated_execute_job_with_bookmark(
     }
     job = add_job_with_revisions([create_patch_revision(1)], **job_params)
 
-    worker = LandingWorker(sleep_seconds=0.01)
+    worker = HgLandingWorker()
 
     # We don't care about repo update in this test, however if we don't mock
     # this, the test will fail since there is no celery instance.
     monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
+        "lando.main.workers.hg_landing_worker.HgLandingWorker.phab_trigger_repo_update",
         mock.MagicMock(),
     )
 
-    hgrepo.push = mock.MagicMock()
-    assert worker.run_job(job, repo, hgrepo, treestatus)
-    assert hgrepo.push.call_count == 1
-    assert len(hgrepo.push.call_args) == 2
-    assert len(hgrepo.push.call_args[0]) == 1
-    assert hgrepo.push.call_args[0][0] == hg_server
-    assert hgrepo.push.call_args[1] == {"bookmark": "@", "force_push": False}
+    hg_repo_interface = repo.interface
+    hg_repo_interface.push = mock.MagicMock()
+    assert worker.run_job(job, repo)  # , treestatus)
+    assert hg_repo_interface.push.call_count == 1
+    assert len(hg_repo_interface.push.call_args) == 2
+    assert len(hg_repo_interface.push.call_args[0]) == 1
+    assert hg_repo_interface.push.call_args[0][0] == hg_server
+    assert hg_repo_interface.push.call_args[1] == {"bookmark": "@", "force_push": False}
 
 
+@pytest.mark.django_db
 def test_lose_push_race(
     app,
-    db,
     mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
     create_patch_revision,
+    ensure_access_groups_and_workers,
+    mocked_repo_config,
+    SCM_LEVEL_3,
 ):
-    treestatus = treestatusdouble.get_treestatus_client()
+    # treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo(
-        tree="mozilla-central",
+        name="mozilla-central",
         url=hg_server,
         access_group=SCM_LEVEL_3,
         push_path=hg_server,
         pull_path=hg_server,
+        repo_type=RepoType.HG,
+        system_path=hg_clone.strpath,
     )
-    hgrepo = HgRepo(hg_clone.strpath)
+
     job_params = {
         "id": 1234,
         "status": LandingJobStatus.IN_PROGRESS,
@@ -395,29 +418,40 @@ def test_lose_push_race(
         [create_patch_revision(1, patch=PATCH_PUSH_LOSER)], **job_params
     )
 
-    worker = LandingWorker(sleep_seconds=0)
+    worker = HgLandingWorker()
 
-    assert not worker.run_job(job, repo, hgrepo, treestatus)
+    assert not worker.run_job(job, repo)  # , treestatus)
     assert job.status == LandingJobStatus.DEFERRED
 
 
+@pytest.mark.django_db
 def test_failed_landing_job_notification(
     app,
-    db,
     mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    ensure_access_groups_and_workers,
+    SCM_LEVEL_3,
 ):
     """Ensure that a failed landings triggers a user notification."""
-    treestatus = treestatusdouble.get_treestatus_client()
+    # treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo(
-        "mozilla-central", SCM_LEVEL_3, "", hg_server, hg_server, True, hg_server, False
+        name="mozilla-central",
+        access_group=SCM_LEVEL_3,
+        push_bookmark="",
+        push_path=hg_server,
+        pull_path=hg_server,
+        approval_required=True,
+        url=hg_server,
+        is_phabricator_repo=False,
+        repo_type=RepoType.HG,
+        system_path=hg_clone.strpath,
     )
-    hgrepo = HgRepo(hg_clone.strpath)
+
     revisions = [
         create_patch_revision(1),
         create_patch_revision(2),
@@ -430,21 +464,23 @@ def test_failed_landing_job_notification(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    worker = LandingWorker(sleep_seconds=0.01)
+    worker = HgLandingWorker()
+
+    hg_repo_interface = repo.interface
 
     # Mock `hgrepo.update_repo` so we can force a failed landing.
     mock_update_repo = mock.MagicMock()
     mock_update_repo.side_effect = Exception("Forcing a failed landing")
-    monkeypatch.setattr(hgrepo, "update_repo", mock_update_repo)
+    monkeypatch.setattr(hg_repo_interface, "update_repo", mock_update_repo)
 
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.notify_user_of_landing_failure",
+        "lando.main.workers.hg_landing_worker.notify_user_of_landing_failure",
         mock_notify,
     )
 
-    assert worker.run_job(job, repo, hgrepo, treestatus)
+    assert worker.run_job(job, repo)  # , treestatus)
     assert job.status == LandingJobStatus.FAILED
     assert mock_notify.call_count == 1
 
@@ -500,14 +536,14 @@ def test_landing_worker__extract_error_data():
         "abc/def.rej",
     ]
 
-    failed_paths, rejects_paths = LandingWorker.extract_error_data(exception_message)
+    failed_paths, rejects_paths = HgLandingWorker.extract_error_data(exception_message)
     assert failed_paths == expected_failed_paths
     assert rejects_paths == expected_rejects_paths
 
 
+@pytest.mark.django_db
 def test_format_patch_success_unchanged(
     app,
-    db,
     mock_repo_config,
     hg_server,
     hg_clone,
@@ -515,21 +551,23 @@ def test_format_patch_success_unchanged(
     monkeypatch,
     create_patch_revision,
     normal_patch,
+    ensure_access_groups_and_workers,
+    SCM_LEVEL_3,
 ):
     """Tests automated formatting happy path where formatters made no changes."""
     tree = "mozilla-central"
-    treestatus = treestatusdouble.get_treestatus_client()
+    # treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree(tree)
     repo = Repo(
-        tree=tree,
+        name=tree,
         url=hg_server,
         push_path=hg_server,
         pull_path=hg_server,
         access_group=SCM_LEVEL_3,
         autoformat_enabled=True,
+        repo_type=RepoType.HG,
+        system_path=hg_clone.strpath,
     )
-
-    hgrepo = HgRepo(hg_clone.strpath)
 
     revisions = [
         create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_PASS),
@@ -543,16 +581,16 @@ def test_format_patch_success_unchanged(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    worker = LandingWorker(sleep_seconds=0.01)
+    worker = HgLandingWorker()
 
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
+        "lando.main.workers.hg_landing_worker.HgLandingWorker.phab_trigger_repo_update",
         mock_trigger_update,
     )
 
-    assert worker.run_job(job, repo, hgrepo, treestatus)
+    assert worker.run_job(job, repo)  # , treestatus)
     assert (
         job.status == LandingJobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
@@ -564,37 +602,41 @@ def test_format_patch_success_unchanged(
     ), "Autoformat making no changes should leave `formatted_replacements` empty."
 
 
+@pytest.mark.django_db
 def test_format_single_success_changed(
     app,
-    db,
     mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    ensure_access_groups_and_workers,
+    SCM_LEVEL_3,
 ):
     """Test formatting a single commit via amending."""
     tree = "mozilla-central"
-    treestatus = treestatusdouble.get_treestatus_client()
+    # treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree(tree)
     repo = Repo(
-        tree=tree,
+        name=tree,
         url=hg_server,
         push_path=hg_server,
         pull_path=hg_server,
         access_group=SCM_LEVEL_3,
         autoformat_enabled=True,
+        repo_type=RepoType.HG,
+        system_path=hg_clone.strpath,
     )
 
     # Push the `mach` formatting patch.
-    hgrepo = HgRepo(hg_clone.strpath)
-    with hgrepo.for_push("test@example.com"):
-        hgrepo.apply_patch(io.StringIO(PATCH_FORMATTING_PATTERN_PASS))
-        hgrepo.push(repo.push_path)
-        pre_landing_tip = hgrepo.run_hg(["log", "-r", "tip", "-T", "{node}"]).decode(
-            "utf-8"
-        )
+    hg_repo_interface = repo.interface
+    with hg_repo_interface.push_context("test@example.com"):
+        hg_repo_interface.apply_patch(io.StringIO(PATCH_FORMATTING_PATTERN_PASS))
+        hg_repo_interface.push(repo.push_path)
+        pre_landing_tip = hg_repo_interface.run(
+            ["log", "-r", "tip", "-T", "{node}"]
+        ).decode("utf-8")
 
     # Upload a patch for formatting.
     job_params = {
@@ -607,17 +649,18 @@ def test_format_single_success_changed(
         [create_patch_revision(2, patch=PATCH_FORMATTED_1)], **job_params
     )
 
-    worker = LandingWorker(sleep_seconds=0.01)
+    worker = HgLandingWorker()
 
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
+        "lando.main.workers.hg_landing_worker.HgLandingWorker.phab_trigger_repo_update",
         mock_trigger_update,
     )
 
     assert worker.run_job(
-        job, repo, hgrepo, treestatus
+        job,
+        repo,  # treestatus
     ), "`run_job` should return `True` on a successful run."
     assert (
         job.status == LandingJobStatus.LANDED
@@ -626,19 +669,21 @@ def test_format_single_success_changed(
         mock_trigger_update.call_count == 1
     ), "Successful landing should trigger Phab repo update."
 
-    with hgrepo.for_push(job.requester_email):
-        repo_root = hgrepo.run_hg(["root"]).decode("utf-8").strip()
+    with hg_repo_interface.push_context(job.requester_email):
+        repo_root = hg_repo_interface.run(["root"]).decode("utf-8").strip()
 
         # Get the commit message.
-        desc = hgrepo.run_hg(["log", "-r", "tip", "-T", "{desc}"]).decode("utf-8")
+        desc = hg_repo_interface.run(["log", "-r", "tip", "-T", "{desc}"]).decode(
+            "utf-8"
+        )
 
         # Get the content of the file after autoformatting.
-        tip_content = hgrepo.run_hg(
+        tip_content = hg_repo_interface.run(
             ["cat", "--cwd", repo_root, "-r", "tip", "test.txt"]
         )
 
         # Get the hash behind the tip commit.
-        hash_behind_current_tip = hgrepo.run_hg(
+        hash_behind_current_tip = hg_repo_interface.run(
             ["log", "-r", "tip^", "-T", "{node}"]
         ).decode("utf-8")
 
@@ -653,30 +698,34 @@ def test_format_single_success_changed(
     ), "Autoformat via amending should only land a single commit."
 
 
+@pytest.mark.django_db
 def test_format_stack_success_changed(
     app,
-    db,
     mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    ensure_access_groups_and_workers,
+    SCM_LEVEL_3,
 ):
     """Test formatting a stack via an autoformat tip commit."""
     tree = "mozilla-central"
-    treestatus = treestatusdouble.get_treestatus_client()
+    # treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree(tree)
     repo = Repo(
-        tree=tree,
+        name=tree,
         url=hg_server,
         push_path=hg_server,
         pull_path=hg_server,
         access_group=SCM_LEVEL_3,
         autoformat_enabled=True,
+        repo_type=RepoType.HG,
+        system_path=hg_clone.strpath,
     )
 
-    hgrepo = HgRepo(hg_clone.strpath)
+    hgrepo = HgRepoInterface(hg_clone.strpath)
 
     revisions = [
         create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_PASS),
@@ -691,17 +740,18 @@ def test_format_stack_success_changed(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    worker = LandingWorker(sleep_seconds=0.01)
+    worker = HgLandingWorker()
 
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
+        "lando.main.workers.hg_landing_worker.HgLandingWorker.phab_trigger_repo_update",
         mock_trigger_update,
     )
 
     assert worker.run_job(
-        job, repo, hgrepo, treestatus
+        job,
+        repo,  # treestatus
     ), "`run_job` should return `True` on a successful run."
     assert (
         job.status == LandingJobStatus.LANDED
@@ -710,16 +760,14 @@ def test_format_stack_success_changed(
         mock_trigger_update.call_count == 1
     ), "Successful landing should trigger Phab repo update."
 
-    with hgrepo.for_push(job.requester_email):
-        repo_root = hgrepo.run_hg(["root"]).decode("utf-8").strip()
+    with hgrepo.push_context(job.requester_email):
+        repo_root = hgrepo.run(["root"]).decode("utf-8").strip()
 
         # Get the commit message.
-        desc = hgrepo.run_hg(["log", "-r", "tip", "-T", "{desc}"]).decode("utf-8")
+        desc = hgrepo.run(["log", "-r", "tip", "-T", "{desc}"]).decode("utf-8")
 
         # Get the content of the file after autoformatting.
-        rev3_content = hgrepo.run_hg(
-            ["cat", "--cwd", repo_root, "-r", "tip", "test.txt"]
-        )
+        rev3_content = hgrepo.run(["cat", "--cwd", repo_root, "-r", "tip", "test.txt"])
 
     assert (
         rev3_content == TESTTXT_FORMATTED_2
@@ -734,30 +782,32 @@ def test_format_stack_success_changed(
     ), "Autoformat commit has incorrect commit message."
 
 
+@pytest.mark.django_db
 def test_format_patch_fail(
     app,
-    db,
     mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    ensure_access_groups_and_workers,
+    SCM_LEVEL_3,
 ):
     """Tests automated formatting failures before landing."""
     tree = "mozilla-central"
-    treestatus = treestatusdouble.get_treestatus_client()
+    # treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree(tree)
     repo = Repo(
-        tree=tree,
+        name=tree,
         access_group=SCM_LEVEL_3,
         url=hg_server,
         push_path=hg_server,
         pull_path=hg_server,
         autoformat_enabled=True,
+        repo_type=RepoType.HG,
+        system_path=hg_clone.strpath,
     )
-
-    hgrepo = HgRepo(hg_clone.strpath)
 
     revisions = [
         create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_FAIL),
@@ -772,17 +822,18 @@ def test_format_patch_fail(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    worker = LandingWorker(sleep_seconds=0.01)
+    worker = HgLandingWorker()
 
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.notify_user_of_landing_failure",
+        "lando.main.workers.hg_landing_worker.notify_user_of_landing_failure",
         mock_notify,
     )
 
     assert not worker.run_job(
-        job, repo, hgrepo, treestatus
+        job,
+        repo,  # treestatus
     ), "`run_job` should return `False` when autoformatting fails."
     assert (
         job.status == LandingJobStatus.FAILED
@@ -795,29 +846,31 @@ def test_format_patch_fail(
     ), "User should be notified their landing was unsuccessful due to autoformat."
 
 
+@pytest.mark.django_db
 def test_format_patch_no_landoini(
     app,
-    db,
     mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    ensure_access_groups_and_workers,
+    SCM_LEVEL_3,
 ):
     """Tests behaviour of Lando when the `.lando.ini` file is missing."""
-    treestatus = treestatusdouble.get_treestatus_client()
+    # treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo(
-        tree="mozilla-central",
+        name="mozilla-central",
         access_group=SCM_LEVEL_3,
         url=hg_server,
         push_path=hg_server,
         pull_path=hg_server,
         autoformat_enabled=True,
+        repo_type=RepoType.HG,
+        system_path=hg_clone.strpath,
     )
-
-    hgrepo = HgRepo(hg_clone.strpath)
 
     revisions = [
         create_patch_revision(1),
@@ -831,23 +884,23 @@ def test_format_patch_no_landoini(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    worker = LandingWorker(sleep_seconds=0.01)
+    worker = HgLandingWorker()
 
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
+        "lando.main.workers.hg_landing_worker.HgLandingWorker.phab_trigger_repo_update",
         mock_trigger_update,
     )
 
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.notify_user_of_landing_failure",
+        "lando.main.workers.hg_landing_worker.notify_user_of_landing_failure",
         mock_notify,
     )
 
-    assert worker.run_job(job, repo, hgrepo, treestatus)
+    assert worker.run_job(job, repo)  # , treestatus)
     assert (
         job.status == LandingJobStatus.LANDED
     ), "Missing `.lando.ini` should not inhibit landing."
@@ -863,7 +916,6 @@ def test_format_patch_no_landoini(
 @pytest.mark.xfail
 def test_landing_job_revisions_sorting(
     app,
-    db,
     create_patch_revision,
 ):
     revisions = [

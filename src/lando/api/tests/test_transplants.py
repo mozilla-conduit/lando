@@ -6,10 +6,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from lando.api.legacy.hg import HgRepo
 from lando.api.legacy.mocks.canned_responses.auth0 import CANNED_USERINFO
 from lando.api.legacy.phabricator import PhabricatorRevisionStatus, ReviewerStatus
-from lando.api.legacy.repos import DONTBUILD, SCM_CONDUIT, SCM_LEVEL_3, Repo
 from lando.api.legacy.reviews import get_collated_reviewers
 from lando.api.legacy.transplants import (
     RevisionWarning,
@@ -20,13 +18,16 @@ from lando.api.legacy.transplants import (
     warning_revision_secure,
     warning_wip_commit_message,
 )
-from lando.api.legacy.workers.landing_worker import LandingWorker
+from lando.main.config.repos import DONTBUILD
+from lando.main.models.access_group import AccessGroup
 from lando.main.models.landing_job import (
     LandingJob,
     LandingJobStatus,
     add_job_with_revisions,
 )
+from lando.main.models.repo import Repo, RepoType
 from lando.main.models.revision import Revision
+from lando.main.workers.hg_landing_worker import HgLandingWorker
 from lando.utils.tasks import admin_remove_phab_project
 
 
@@ -96,7 +97,11 @@ def _create_landing_job_with_no_linked_revisions(
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_no_warnings_or_blockers(
-    proxy_client, phabdouble, auth0_mock, mocked_repo_config
+    proxy_client,
+    phabdouble,
+    auth0_mock,
+    mocked_repo_config,
+    ensure_access_groups_and_workers,
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -120,7 +125,9 @@ def test_dryrun_no_warnings_or_blockers(
 
 
 @pytest.mark.django_db(transaction=True)
-def test_dryrun_invalid_path_blocks(proxy_client, phabdouble, auth0_mock):
+def test_dryrun_invalid_path_blocks(
+    proxy_client, phabdouble, auth0_mock, ensure_access_groups_and_workers
+):
     d1 = phabdouble.diff()
     d2 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -148,7 +155,11 @@ def test_dryrun_invalid_path_blocks(proxy_client, phabdouble, auth0_mock):
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_in_progress_transplant_blocks(
-    proxy_client, phabdouble, auth0_mock, mocked_repo_config
+    proxy_client,
+    phabdouble,
+    auth0_mock,
+    mocked_repo_config,
+    ensure_access_groups_and_workers,
 ):
     repo = phabdouble.repo()
 
@@ -195,7 +206,11 @@ def test_dryrun_in_progress_transplant_blocks(
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_reviewers_warns(
-    proxy_client, phabdouble, auth0_mock, mocked_repo_config
+    proxy_client,
+    phabdouble,
+    auth0_mock,
+    mocked_repo_config,
+    ensure_access_groups_and_workers,
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -229,6 +244,7 @@ def test_dryrun_codefreeze_warn(
     monkeypatch,
     request_mocker,
     mocked_repo_config,
+    ensure_access_groups_and_workers,
 ):
     product_details = "https://product-details.mozilla.org/1.0/firefox_versions.json"
     request_mocker.register_uri(
@@ -241,9 +257,9 @@ def test_dryrun_codefreeze_warn(
     )
     monkeypatch.setattr("lando.api.legacy.transplants.datetime", codefreeze_datetime())
     mc_repo = Repo(
-        tree="mozilla-conduit",
+        name="mozilla-conduit",
         url="https://hg.test/mozilla-conduit",
-        access_group=SCM_CONDUIT,
+        access_group=AccessGroup.objects.get(permission="scm_conduit"),
         commit_flags=[DONTBUILD],
         product_details_url=product_details,
     )
@@ -286,6 +302,7 @@ def test_dryrun_outside_codefreeze(
     codefreeze_datetime,
     monkeypatch,
     request_mocker,
+    ensure_access_groups_and_workers,
 ):
     product_details = "https://product-details.mozilla.org/1.0/firefox_versions.json"
     request_mocker.register_uri(
@@ -298,9 +315,9 @@ def test_dryrun_outside_codefreeze(
     )
     monkeypatch.setattr("lando.api.legacy.transplants.datetime", codefreeze_datetime())
     mc_repo = Repo(
-        tree="mozilla-conduit",
+        name="mozilla-conduit",
         url="https://hg.test/mozilla-conduit",
-        access_group=SCM_CONDUIT,
+        access_group=AccessGroup.objects.get(permission="scm_conduit"),
         commit_flags=[DONTBUILD],
         product_details_url=product_details,
     )
@@ -729,23 +746,24 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     phabdouble,
     checkin_project,
 ):
-    treestatus = treestatusdouble.get_treestatus_client()
+    # treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo(
-        tree="mozilla-central",
+        name="mozilla-central",
         url=hg_server,
-        access_group=SCM_LEVEL_3,
+        access_group=AccessGroup.objects.get(permission="scm_level_3"),
         push_path=hg_server,
         pull_path=hg_server,
+        repo_type=RepoType.HG,
+        system_path=hg_clone.strpath,
     )
     phabrepo = phabdouble.repo(name="mozilla-central")
-    hgrepo = HgRepo(hg_clone.strpath)
 
     # Mock a few mots-related things needed by the landing worker.
     # First, mock path existance.
     mock_path = MagicMock()
     monkeypatch.setattr("lando.api.legacy.workers.landing_worker.Path", mock_path)
-    (mock_path(hgrepo.path) / "mots.yaml").exists.return_value = True
+    (mock_path(repo.system_path) / "mots.yaml").exists.return_value = True
 
     # Then mock the directory/file config.
     mock_Directory = MagicMock()
@@ -793,8 +811,8 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     approved_by = [revision.data["approved_by"] for revision in job.revisions.all()]
     assert approved_by == [[101], [102]]
 
-    worker = LandingWorker(sleep_seconds=0.01)
-    assert worker.run_job(job, repo, hgrepo, treestatus)
+    worker = HgLandingWorker(sleep_seconds=0.01)
+    assert worker.run_job(job, repo)  # , treestatus)
     for revision in job.revisions.all():
         if revision.revision_id == 1:
             assert revision.data["peers_and_owners"] == [101]
@@ -1230,6 +1248,7 @@ def test_unresolved_comment_warn(
     phabdouble,
     auth0_mock,
     mocked_repo_config,
+    ensure_access_groups_and_workers,
 ):
     """Ensure a warning is generated when a revision has unresolved comments.
 
@@ -1301,6 +1320,7 @@ def test_unresolved_comment_stack(
     phabdouble,
     auth0_mock,
     mocked_repo_config,
+    ensure_access_groups_and_workers,
 ):
     """
     Ensure a warning is generated when a revision in the stack has unresolved comments.

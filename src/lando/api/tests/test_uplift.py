@@ -91,12 +91,11 @@ def test_strip_depends_on_from_commit_message():
 
 @pytest.mark.xfail
 def test_uplift_creation(
-    db,
     monkeypatch,
     phabdouble,
     client,
     auth0_mock,
-    mock_repo_config,
+    mocked_repo_config,
     release_management_project,
 ):
     def _call_conduit(client, method, **kwargs):

@@ -16,7 +16,6 @@ from lando.api.legacy.auth import (
 )
 from lando.api.legacy.mocks.auth import TEST_KEY_PRIV, create_access_token
 from lando.api.legacy.mocks.canned_responses.auth0 import CANNED_USERINFO
-from lando.api.legacy.repos import SCM_LEVEL_1
 from lando.main.support import ConnexionResponse, ProblemException, g
 
 pytest.skip(allow_module_level=True)
@@ -355,7 +354,7 @@ def test_require_access_scopes_valid(jwks, app, scopes, token_kwargs):
     assert resp.status_code == 200
 
 
-def test_scm_level_enforce():
+def test_scm_level_enforce(SCM_LEVEL_1):
     """Test scm_level_1 enforcement and error handling."""
     token = create_access_token()
 

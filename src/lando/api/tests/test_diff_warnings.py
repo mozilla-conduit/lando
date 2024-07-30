@@ -25,7 +25,7 @@ def diff_warning_data():
     return {"message": "this is a test warning"}
 
 
-def test_diff_warning_create_bad_request(db, client, auth0_mock):
+def test_diff_warning_create_bad_request(client, auth0_mock):
     """Ensure a request that is missing required data returns an error."""
     response = client.post(
         "/diff_warnings",
@@ -34,7 +34,7 @@ def test_diff_warning_create_bad_request(db, client, auth0_mock):
     assert response.status_code == 400
 
 
-def test_diff_warning_create_bad_request_no_message(db, client, phab_header):
+def test_diff_warning_create_bad_request_no_message(client, phab_header):
     """Ensure a request with incorrect data returns an error."""
     response = client.post(
         "/diff_warnings",
@@ -44,7 +44,7 @@ def test_diff_warning_create_bad_request_no_message(db, client, phab_header):
     assert response.status_code == 400
 
 
-def test_diff_warning_create(db, client, diff_warning_data, phab_header):
+def test_diff_warning_create(client, diff_warning_data, phab_header):
     """Ensure that a warning is created correctly according to provided parameters."""
     response = client.post(
         "/diff_warnings",
@@ -68,7 +68,7 @@ def test_diff_warning_create(db, client, diff_warning_data, phab_header):
     assert warning.data == diff_warning_data
 
 
-def test_diff_warning_delete(db, client, diff_warning_data, phab_header):
+def test_diff_warning_delete(client, diff_warning_data, phab_header):
     """Ensure that a DELETE request will archive a warning."""
     response = client.post(
         "/diff_warnings",
@@ -96,7 +96,7 @@ def test_diff_warning_delete(db, client, diff_warning_data, phab_header):
     assert warning.status == DiffWarningStatus.ARCHIVED
 
 
-def test_diff_warning_get(db, client, diff_warning_data, phab_header):
+def test_diff_warning_get(client, diff_warning_data, phab_header):
     """Ensure that the API returns a properly serialized list of warnings."""
     response = client.post(
         "/diff_warnings",

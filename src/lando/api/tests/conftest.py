@@ -15,6 +15,7 @@ import requests
 import requests_mock
 from django.conf import settings
 from django.core.cache import cache
+from django.core.management import call_command
 from django.http import HttpResponse
 from django.http import JsonResponse as JSONResponse
 from django.test import Client
@@ -22,6 +23,7 @@ from django.test import Client
 import lando.api.legacy.api.landing_jobs as legacy_api_landing_jobs
 import lando.api.legacy.api.stacks as legacy_api_stacks
 import lando.api.legacy.api.transplants as legacy_api_transplants
+import lando.main.util as util
 from lando.api.legacy.mocks.auth import TEST_JWKS, MockAuth0
 from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.projects import (
@@ -30,9 +32,11 @@ from lando.api.legacy.projects import (
     SEC_APPROVAL_PROJECT_SLUG,
     SEC_PROJ_SLUG,
 )
-from lando.api.legacy.repos import SCM_LEVEL_1, SCM_LEVEL_3, Repo
 from lando.api.legacy.transplants import CODE_FREEZE_OFFSET, tokens_are_equal
 from lando.api.tests.mocks import PhabricatorDouble, TreeStatusDouble
+from lando.main.config.access_groups import ACCESS_GROUPS_CONFIG
+from lando.main.config.repos import RepoTypeEnum
+from lando.main.models.access_group import AccessGroup
 from lando.main.support import ProblemException
 
 PATCH_NORMAL_1 = r"""
@@ -307,44 +311,60 @@ def auth0_mock(jwks, monkeypatch):
 @pytest.fixture
 def mock_repo_config(monkeypatch):
     def set_repo_config(config):
-        monkeypatch.setattr("lando.api.legacy.repos.REPO_CONFIG", config)
+        util.REPO_CONFIG = config
 
     return set_repo_config
 
 
 @pytest.fixture
-def mocked_repo_config(mock_repo_config):
+def mocked_repo_config(mock_repo_config, ensure_access_groups_and_workers):
     mock_repo_config(
         {
             "test": {
-                "mozilla-central": Repo(
-                    tree="mozilla-central",
-                    url="http://hg.test",
-                    access_group=SCM_LEVEL_3,
-                    approval_required=False,
-                ),
-                "mozilla-uplift": Repo(
-                    tree="mozilla-uplift",
-                    url="http://hg.test/uplift",
-                    access_group=SCM_LEVEL_3,
-                    approval_required=True,
-                ),
-                "mozilla-new": Repo(
-                    tree="mozilla-new",
-                    url="http://hg.test/new",
-                    access_group=SCM_LEVEL_3,
-                    commit_flags=[("VALIDFLAG1", "testing"), ("VALIDFLAG2", "testing")],
-                ),
-                "try": Repo(
-                    tree="try",
-                    url="http://hg.test/try",
-                    push_path="http://hg.test/try",
-                    pull_path="http://hg.test",
-                    access_group=SCM_LEVEL_1,
-                    short_name="try",
-                    is_phabricator_repo=False,
-                    force_push=True,
-                ),
+                # Approval is required for the uplift dev repo
+                "uplift-target": {
+                    "name": "uplift-target",
+                    "url": "http://hg.test",  # TODO: fix this? URL is probably incorrect.
+                    "access_group_permission": "scm_level_1",
+                    "approval_required": True,
+                    "milestone_tracking_flag_template": "cf_status_firefox{milestone}",
+                    "repo_type_enum": RepoTypeEnum.HG,
+                },
+                "mozilla-central": {
+                    "name": "mozilla-central",
+                    "url": "http://hg.test",
+                    "access_group_permission": "scm_level_3",
+                    "approval_required": False,
+                    "repo_type_enum": RepoTypeEnum.HG,
+                },
+                "mozilla-uplift": {
+                    "name": "mozilla-uplift",
+                    "url": "http://hg.test/uplift",
+                    "access_group_permission": "scm_level_3",
+                    "approval_required": True,
+                    "repo_type_enum": RepoTypeEnum.HG,
+                },
+                "mozilla-new": {
+                    "name": "mozilla-new",
+                    "url": "http://hg.test/new",
+                    "access_group_permission": "scm_level_3",
+                    "commit_flags": [
+                        ("VALIDFLAG1", "testing"),
+                        ("VALIDFLAG2", "testing"),
+                    ],
+                    "repo_type_enum": RepoTypeEnum.HG,
+                },
+                "try": {
+                    "name": "try",
+                    "url": "http://hg.test/try",
+                    "push_path": "http://hg.test/try",
+                    "pull_path": "http://hg.test",
+                    "access_group_permission": "scm_level_1",
+                    "short_name": "try",
+                    "is_phabricator_repo": False,
+                    "force_push": True,
+                    "repo_type_enum": RepoTypeEnum.HG,
+                },
             }
         }
     )
@@ -631,3 +651,27 @@ def proxy_client(monkeypatch, fake_request):
                 return self._handle__put__landing_jobs__id(path, **kwargs)
 
     return ProxyClient()
+
+
+@pytest.fixture
+def SCM_LEVEL_1():
+    return get_or_create_access_group_by_name("SCM_LEVEL_1")[0]
+
+
+@pytest.fixture
+def SCM_LEVEL_3():
+    return get_or_create_access_group_by_name("SCM_LEVEL_3")[0]
+
+
+def get_or_create_access_group_by_name(access_group_name: str):
+    group_data = ACCESS_GROUPS_CONFIG.get(access_group_name)
+    return AccessGroup.objects.get_or_create(
+        permission=group_data["permission"],
+        defaults=group_data,
+    )
+
+
+@pytest.fixture()
+def ensure_access_groups_and_workers():
+    call_command("ensure_access_groups")
+    call_command("ensure_workers")

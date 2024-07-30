@@ -39,7 +39,7 @@ def test_app_wide_headers_csp_report_uri(client, config):
     assert "report-uri /__cspreport__" in (response.headers["Content-Security-Policy"])
 
 
-def test_phabricator_api_exception_handled(db, app, client):
+def test_phabricator_api_exception_handled(app, client):
     # We need to tell Flask to handle exceptions as if it were in a production
     # environment.
     app.config["PROPAGATE_EXCEPTIONS"] = False
@@ -61,7 +61,7 @@ def test_phabricator_api_exception_handled(db, app, client):
     assert response.json["title"] == "Phabricator Error"
 
 
-def test_treestatus_exception_handled(db, app, client):
+def test_treestatus_exception_handled(app, client):
     # We need to tell Flask to handle exceptions as if it were in a production
     # environment.
     app.config["PROPAGATE_EXCEPTIONS"] = False

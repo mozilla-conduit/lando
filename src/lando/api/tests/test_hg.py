@@ -6,12 +6,12 @@ import os
 
 import pytest
 
-from lando.api.legacy.hg import (
+from lando.main.interfaces.hg_repo_interface import (
     REQUEST_USER_ENV_VAR,
     HgCommandError,
     HgException,
     HgmoInternalServerError,
-    HgRepo,
+    HgRepoInterface,
     LostPushRace,
     NoDiffStartLine,
     PatchConflict,
@@ -25,9 +25,9 @@ from lando.api.legacy.hg import (
 def test_integrated_hgrepo_clean_repo(hg_clone):
     # Test is long and checks various repo cleaning cases as the startup
     # time for anything using `hg_clone` fixture is very long.
-    repo = HgRepo(hg_clone.strpath)
+    repo = HgRepoInterface(hg_clone.strpath)
 
-    with repo.for_pull(), hg_clone.as_cwd():
+    with repo.pull_context(), hg_clone.as_cwd():
         # Create a draft commits to clean.
         new_file = hg_clone.join("new-file.txt")
         new_file.write("text", mode="w+")
@@ -66,7 +66,7 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
         assert repo.run_hg_cmds([["outgoing"]])
         assert repo.run_hg_cmds([["status"]])
 
-    with repo.for_pull(), hg_clone.as_cwd():
+    with repo.pull_context(), hg_clone.as_cwd():
         # New context should be clean.
         with pytest.raises(HgCommandError, match="no changes found"):
             repo.run_hg_cmds([["outgoing"]])
@@ -74,8 +74,8 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
 
 
 def test_integrated_hgrepo_can_log(hg_clone):
-    repo = HgRepo(hg_clone.strpath)
-    with repo.for_pull():
+    repo = HgRepoInterface(hg_clone.strpath)
+    with repo.pull_context():
         assert repo.run_hg_cmds([["log"]])
 
 
@@ -176,34 +176,34 @@ diff --git a/test.txt b/test.txt
 
 
 def test_integrated_hgrepo_apply_patch(hg_clone):
-    repo = HgRepo(hg_clone.strpath)
+    repo = HgRepoInterface(hg_clone.strpath)
 
     # We should refuse to apply patches that are missing a
     # Diff Start Line header.
-    with pytest.raises(NoDiffStartLine), repo.for_pull():
+    with pytest.raises(NoDiffStartLine), repo.pull_context():
         repo.apply_patch(io.StringIO(PATCH_WITHOUT_STARTLINE))
 
     # Patches with conflicts should raise a proper PatchConflict exception.
-    with pytest.raises(PatchConflict), repo.for_pull():
+    with pytest.raises(PatchConflict), repo.pull_context():
         repo.apply_patch(io.StringIO(PATCH_WITH_CONFLICT))
 
-    with repo.for_pull():
+    with repo.pull_context():
         repo.apply_patch(io.StringIO(PATCH_NORMAL))
         # Commit created.
-        assert repo.run_hg(["outgoing"])
+        assert repo.run(["outgoing"])
 
-    with repo.for_pull():
+    with repo.pull_context():
         repo.apply_patch(io.StringIO(PATCH_UNICODE))
         # Commit created.
 
-        log_output = repo.run_hg(["log"])
+        log_output = repo.run(["log"])
         assert "こんにちは" in log_output.decode("utf-8")
-        assert repo.run_hg(["outgoing"])
+        assert repo.run(["outgoing"])
 
-    with repo.for_pull():
+    with repo.pull_context():
         repo.apply_patch(io.StringIO(PATCH_FAIL_HEADER))
         # Commit created.
-        assert repo.run_hg(["outgoing"])
+        assert repo.run(["outgoing"])
 
 
 def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
@@ -211,9 +211,9 @@ def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
 
     See https://bugzilla.mozilla.org/show_bug.cgi?id=1541181 for context.
     """
-    repo = HgRepo(hg_clone.strpath)
+    repo = HgRepoInterface(hg_clone.strpath)
 
-    with repo.for_pull(), hg_clone.as_cwd():
+    with repo.pull_context(), hg_clone.as_cwd():
         # Create a file without a new line and with a trailing `\r`
         # Note that to reproduce this bug, this file needs to already exist
         # in the repo and not be imported in a patch.
@@ -224,7 +224,7 @@ def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
         )
         repo.apply_patch(io.StringIO(PATCH_DELETE_NO_NEWLINE_FILE))
         # Commit created.
-        assert "file removed" in str(repo.run_hg(["outgoing"]))
+        assert "file removed" in str(repo.run(["outgoing"]))
 
 
 def test_hg_exceptions():
@@ -246,11 +246,11 @@ def test_hg_exceptions():
 
 def test_hgrepo_request_user(hg_clone):
     """Test that the request user environment variable is set and unset correctly."""
-    repo = HgRepo(hg_clone.strpath)
+    repo = HgRepoInterface(hg_clone.strpath)
     request_user_email = "test@example.com"
 
     assert REQUEST_USER_ENV_VAR not in os.environ
-    with repo.for_push(request_user_email):
+    with repo.push_context(request_user_email):
         assert REQUEST_USER_ENV_VAR in os.environ
         assert os.environ[REQUEST_USER_ENV_VAR] == "test@example.com"
     assert REQUEST_USER_ENV_VAR not in os.environ
