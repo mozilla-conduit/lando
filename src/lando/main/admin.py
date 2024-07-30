@@ -1,8 +1,9 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy
 
-from lando.main.models.base import Repo, Worker
+from lando.main.models.access_group import AccessGroup
 from lando.main.models.landing_job import LandingJob
+from lando.main.models.repo import Repo, Worker
 from lando.main.models.revision import Revision, RevisionLandingJob
 
 admin.site.site_title = gettext_lazy("Lando Admin")
@@ -33,6 +34,18 @@ class LandingJobAdmin(admin.ModelAdmin):
     )
 
 
+class AccessGroupAdmin(admin.ModelAdmin):
+    list_display = (
+        "display_name",
+        "permission",
+        "active_group",
+        "expired_group",
+        "membership_group",
+    )
+    ordering = ("display_name",)
+
+
+admin.site.register(AccessGroup, AccessGroupAdmin)
 admin.site.register(LandingJob, LandingJobAdmin)
 admin.site.register(Revision, admin.ModelAdmin)
 admin.site.register(Repo, admin.ModelAdmin)
