@@ -35,6 +35,31 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+        
+  hg-landing-worker:
+    build:
+      context: .
+    stdin_open: true
+    tty: true
+    image: lando 
+    command: bash -c "
+      lando generate_version_file &&
+      lando migrate &&
+      lando collectstatic --clear --no-input &&
+      lando ensure_access_groups &&
+      lando ensure_workers &&
+      lando hg_landing_worker"
+    volumes:
+      - ./:/code
+      - ./staticfiles:/staticfiles
+      - media:/files/
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   proxy:
     build: ./nginx

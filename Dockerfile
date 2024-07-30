@@ -19,6 +19,9 @@ COPY ./ /code
 RUN mkdir -p /code/.ruff_cache
 RUN chown -R app /code/.ruff_cache
 
+RUN mkdir -p /files/repos
+RUN chown -R app /files/repos
+
 RUN pip install --upgrade pip
 
 
