@@ -19,16 +19,14 @@ from lando.api.legacy import bmo
 # from lando.api.legacy.cache import DEFAULT_CACHE_KEY_TIMEOUT_SECONDS, cache
 from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.phabricator_patch import patch_to_changes
-from lando.api.legacy.repos import (
-    Repo,
-    get_repos_for_env,
-)
 from lando.api.legacy.stacks import (
     RevisionData,
     RevisionStack,
     build_stack_graph,
     request_extended_revision_data,
 )
+from lando.main.models.repo import Repo
+from lando.main.util import get_repos_for_env
 
 logger = logging.getLogger(__name__)
 

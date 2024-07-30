@@ -16,7 +16,6 @@ from lando.api.legacy.projects import (
     get_secure_project_phid,
     project_search,
 )
-from lando.api.legacy.repos import get_repos_for_env
 from lando.api.legacy.reviews import (
     approvals_for_commit_message,
     get_collated_reviewers,
@@ -42,6 +41,7 @@ from lando.api.legacy.transplants import get_blocker_checks
 from lando.api.legacy.users import user_search
 from lando.api.legacy.validation import revision_id_to_int
 from lando.main.models.revision import Revision
+from lando.main.util import get_repos_for_env
 
 logger = logging.getLogger(__name__)
 

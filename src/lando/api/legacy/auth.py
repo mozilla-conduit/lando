@@ -20,8 +20,8 @@ from django.core.cache import cache
 from jose import jwt
 
 from lando.api.legacy.mocks.auth import MockAuth0
-from lando.api.legacy.repos import AccessGroup
 from lando.api.legacy.systems import Subsystem
+from lando.main.models.access_group import AccessGroup
 from lando.main.support import ProblemException, g, request
 
 logger = logging.getLogger(__name__)

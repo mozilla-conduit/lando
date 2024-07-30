@@ -9,7 +9,6 @@ from django.conf import settings
 from lando.api import auth
 from lando.api.legacy.decorators import require_phabricator_api_key
 from lando.api.legacy.phabricator import PhabricatorClient
-from lando.api.legacy.repos import get_repos_for_env
 from lando.api.legacy.uplift import (
     create_uplift_revision,
     get_local_uplift_repo,
@@ -18,6 +17,7 @@ from lando.api.legacy.uplift import (
 )
 from lando.api.legacy.validation import revision_id_to_int
 from lando.main.support import problem
+from lando.main.util import get_repos_for_env
 
 logger = logging.getLogger(__name__)
 

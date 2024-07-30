@@ -11,20 +11,19 @@ import logging
 from django.conf import settings
 
 from lando.api.legacy import auth
-from lando.api.legacy.hgexports import (
-    GitPatchHelper,
-    HgPatchHelper,
-    PatchHelper,
-)
-from lando.api.legacy.repos import (
-    get_repos_for_env,
-)
+from lando.main.config.repos import RepoTypeEnum
 from lando.main.models.landing_job import (
     LandingJobStatus,
     add_job_with_revisions,
 )
 from lando.main.models.revision import Revision
 from lando.main.support import ProblemException, g
+from lando.main.util import get_repos_for_env
+from lando.utils import (
+    GitPatchHelper,
+    HgPatchHelper,
+    PatchHelper,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +42,9 @@ PATCH_HELPER_MAPPING = {
 }
 
 
-def build_revision_from_patch_helper(helper: PatchHelper) -> Revision:
+def build_revision_from_patch_helper(
+    helper: PatchHelper, repo_type: RepoTypeEnum
+) -> Revision:
     author, email = helper.parse_author_information()
 
     timestamp = helper.get_timestamp()
@@ -54,6 +55,7 @@ def build_revision_from_patch_helper(helper: PatchHelper) -> Revision:
 
     return Revision.new_from_patch(
         raw_diff=helper.get_diff(),
+        repo_type=repo_type,
         patch_data={
             "author_name": author,
             "author_email": email,
@@ -77,7 +79,7 @@ def decode_json_patch_to_text(patch: str) -> str:
 
 
 def parse_revisions_from_request(
-    patches: list[str], patch_format: PatchFormat
+    patches: list[str], patch_format: PatchFormat, repo_type: RepoTypeEnum
 ) -> list[Revision]:
     """Convert a set of base64 encoded patches to `Revision` objects."""
     patches_io = (io.StringIO(decode_json_patch_to_text(patch)) for patch in patches)
@@ -86,7 +88,7 @@ def parse_revisions_from_request(
 
     try:
         return [
-            build_revision_from_patch_helper(patch_helper)
+            build_revision_from_patch_helper(patch_helper, repo_type=repo_type)
             for patch_helper in patch_helpers
         ]
     except ValueError as exc:
@@ -119,7 +121,9 @@ def post_patches(data: dict):
 
     # Add a landing job for this try push.
     ldap_username = g.auth0_user.email
-    revisions = parse_revisions_from_request(patches, patch_format)
+    revisions = parse_revisions_from_request(
+        patches, patch_format, RepoTypeEnum(try_repo.repo_type)
+    )
     job = add_job_with_revisions(
         revisions,
         repository_name=try_repo.short_name,

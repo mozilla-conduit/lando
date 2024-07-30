@@ -15,7 +15,6 @@ from lando.api.legacy.dockerflow import dockerflow
 from lando.api.legacy.hooks import initialize_hooks
 from lando.api.legacy.logging import logging_subsystem
 from lando.api.legacy.phabricator import phabricator_subsystem
-from lando.api.legacy.repos import repo_clone_subsystem
 from lando.api.legacy.sentry import sentry_subsystem
 from lando.api.legacy.smtp import smtp_subsystem
 from lando.api.legacy.systems import Subsystem
@@ -36,7 +35,6 @@ SUBSYSTEMS: list[Subsystem] = [
     phabricator_subsystem,
     smtp_subsystem,
     treestatus_subsystem,
-    repo_clone_subsystem,
 ]
 
 

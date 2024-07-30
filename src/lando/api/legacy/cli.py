@@ -48,20 +48,6 @@ def cli():
     """Lando API cli."""
 
 
-@cli.command(name="landing-worker")
-def landing_worker():
-    from lando.api.legacy.app import auth0_subsystem, lando_ui_subsystem
-
-    exclusions = [auth0_subsystem, lando_ui_subsystem]
-    for system in get_subsystems(exclude=exclusions):
-        system.ensure_ready()
-
-    from lando.api.legacy.workers.landing_worker import LandingWorker
-
-    worker = LandingWorker()
-    worker.start()
-
-
 @cli.command(name="run-pre-deploy-sequence")
 def run_pre_deploy_sequence():
     """Runs the sequence of commands required before a deployment."""

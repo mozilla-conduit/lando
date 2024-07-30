@@ -24,10 +24,6 @@ from lando.api.legacy.projects import (
     get_testing_tag_project_phids,
     project_search,
 )
-from lando.api.legacy.repos import (
-    Repo,
-    get_repos_for_env,
-)
 from lando.api.legacy.reviews import (
     approvals_for_commit_message,
     get_approved_by_ids,
@@ -60,13 +56,16 @@ from lando.api.legacy.validation import (
     parse_landing_path,
     revision_id_to_int,
 )
+from lando.main.config.repos import RepoTypeEnum
 from lando.main.models.landing_job import (
     LandingJob,
     LandingJobStatus,
     add_revisions_to_job,
 )
+from lando.main.models.repo import Repo
 from lando.main.models.revision import Revision
 from lando.main.support import ProblemException, problem
+from lando.main.util import get_repos_for_env
 from lando.utils.tasks import admin_remove_phab_project
 
 logger = logging.getLogger(__name__)
@@ -164,6 +163,7 @@ def _assess_transplant_request(
     assessment = check_landing_blockers(
         lando_user, landing_path_phid, stack_data, landable, landable_repos
     )
+
     if assessment.blocker is not None:
         return (assessment, None, None, None)
 
@@ -381,7 +381,9 @@ def post(phab: PhabricatorClient, request, data: dict):
         }
 
         raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff["id"])
-        lando_revision.set_patch(raw_diff, patch_data)
+        lando_revision.set_patch(
+            raw_diff, RepoTypeEnum(landing_repo.repo_type), patch_data
+        )
         lando_revision.save()
         lando_revisions.append(lando_revision)
 
@@ -409,6 +411,7 @@ def post(phab: PhabricatorClient, request, data: dict):
             requester_email=ldap_username,
             repository_name=landing_repo.short_name,
             repository_url=landing_repo.url,
+            target_repo=landing_repo,
         )
         job.save()
 
@@ -423,7 +426,7 @@ def post(phab: PhabricatorClient, request, data: dict):
     job.set_landed_revision_diffs()
     job.save()
 
-    logger.info(f"New landing job {job.id} created for {landing_repo.tree} repo.")
+    logger.info(f"New landing job {job.id} created for {landing_repo.name} repo.")
 
     # Asynchronously remove the checkin project from any of the landing
     # revisions that had it.

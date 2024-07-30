@@ -20,7 +20,7 @@ from lando.api.legacy.phabricator import (
     PhabricatorRevisionStatus,
     result_list_to_phid_dict,
 )
-from lando.api.legacy.repos import Repo
+from lando.main.models.repo import Repo
 
 logger = logging.getLogger(__name__)
 
