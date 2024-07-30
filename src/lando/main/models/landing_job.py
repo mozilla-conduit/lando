@@ -193,13 +193,13 @@ class LandingJob(BaseModel):
     @classmethod
     def job_queue_query(
         cls,
-        repositories: Optional[Iterable[str]] = None,
+        repository_names: Optional[Iterable[str]] = None,
         grace_seconds: int = DEFAULT_GRACE_SECONDS,
     ) -> QuerySet:
         """Return a query which selects the queued jobs.
 
         Args:
-            repositories (iterable): A list of repository names to use when filtering
+            repository_names (iterable): A list of repository names to use when filtering
                 the landing job search query.
             grace_seconds (int): Ignore landing jobs that were submitted after this
                 many seconds ago.
@@ -211,8 +211,8 @@ class LandingJob(BaseModel):
         )
         q = cls.objects.filter(status__in=applicable_statuses)
 
-        if repositories:
-            q = q.filter(repository_name__in=repositories)
+        if repository_names:
+            q = q.filter(repository_name__in=repository_names)
 
         # if grace_seconds:
         #     now = datetime.datetime.now(datetime.timezone.utc)
@@ -241,9 +241,9 @@ class LandingJob(BaseModel):
         return q
 
     @classmethod
-    def next_job(cls, repositories: Optional[Iterable[str]] = None) -> QuerySet:
+    def next_job(cls, repository_names: Optional[Iterable[str]] = None) -> QuerySet:
         """Return a query which selects the next job and locks the row."""
-        query = cls.job_queue_query(repositories=repositories)
+        query = cls.job_queue_query(repository_names=repository_names)
 
         # Returned rows should be locked for updating, this ensures the next
         # job can be claimed.

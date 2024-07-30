@@ -20,15 +20,16 @@ from typing import (
 
 import hglib
 from django.conf import settings
-
 from lando.api.legacy.commit_message import bug_list_to_commit_string
-from lando.api.legacy.hgexports import HgPatchHelper
+from lando.utils import HgPatchHelper
 
 logger = logging.getLogger(__name__)
 
 # Username and SSH port to use when connecting to remote HG server.
 landing_worker_username = os.environ.get("LANDING_WORKER_USERNAME", "app")
-landing_worker_target_ssh_port = os.environ.get("LANDING_WORKER_TARGET_SSH_PORT", "22")
+landing_worker_target_ssh_port = os.environ.get(
+    "LANDING_WORKER_TARGET_SSH_PORT", "8022"
+)
 REJECTS_PATH = Path("/tmp/patch_rejects")
 
 # Name of the environment variable that will store the push user's email address.
@@ -149,7 +150,7 @@ AUTOFORMAT_COMMIT_MESSAGE = """
 """.strip()
 
 
-class HgRepo:
+class HgRepoInterface:
     ENCODING = "utf-8"
     DEFAULT_CONFIGS = {
         "ui.username": "Otto Länd <bind-autoland@mozilla.com>",
@@ -190,21 +191,21 @@ class HgRepo:
     def _config_to_list(self):
         return ["{}={}".format(k, v) for k, v in self.config.items() if v is not None]
 
-    def _clean_and_close(self):
+    def _clean_and_close_client(self):
         """Perform closing activities when exiting any context managers."""
         try:
             self.clean_repo()
         except Exception as e:
             logger.exception(e)
-        self.hg_repo.close()
+        self.hg_cmdserver_client.close()
 
-    def _open(self):
-        self.hg_repo = hglib.open(
+    def _start_client(self):
+        self.hg_cmdserver_client = hglib.open(
             self.path, encoding=self.ENCODING, configs=self._config_to_list()
         )
 
     @contextmanager
-    def for_push(self, request_user_email):
+    def push_context(self, request_user_email):
         """Prepare the repo with the correct environment variables set for pushing.
 
         The request user's email address needs to be present before initializing a repo
@@ -212,25 +213,25 @@ class HgRepo:
         """
         os.environ[REQUEST_USER_ENV_VAR] = request_user_email
         logger.debug(f"{REQUEST_USER_ENV_VAR} set to {request_user_email}")
-        self._open()
+        self._start_client()
         try:
             yield self
         finally:
             del os.environ[REQUEST_USER_ENV_VAR]
-            self._clean_and_close()
+            self._clean_and_close_client()
 
     @contextmanager
-    def for_pull(self):
+    def pull_context(self):
         """Prepare the repo without setting any custom environment variables.
 
         The repo's `push` method will not function inside this context manager, as the
         request user's email address will be absent (and not needed).
         """
-        self._open()
+        self._start_client()
         try:
             yield self
         finally:
-            self._clean_and_close()
+            self._clean_and_close_client()
 
     def clone(self, source):
         # Use of robustcheckout here would work, but is probably not worth
@@ -244,7 +245,7 @@ class HgRepo:
             configs=self._config_to_list(),
         )
 
-    def run_hg(self, args: list[str]) -> bytes:
+    def run(self, args: list[str]) -> bytes:
         correlation_id = str(uuid.uuid4())
         logger.info(
             "running hg command",
@@ -252,14 +253,14 @@ class HgRepo:
                 "command": ["hg"] + [shlex.quote(str(arg)) for arg in args],
                 "command_id": correlation_id,
                 "path": self.path,
-                "hg_pid": self.hg_repo.server.pid,
+                "hg_pid": self.hg_cmdserver_client.server.pid,
             },
         )
 
         out = hglib.util.BytesIO()
         err = hglib.util.BytesIO()
         out_channels = {b"o": out.write, b"e": err.write}
-        ret = self.hg_repo.runcommand(
+        ret = self.hg_cmdserver_client.runcommand(
             [
                 arg.encode(self.ENCODING) if isinstance(arg, str) else arg
                 for arg in args
@@ -276,7 +277,7 @@ class HgRepo:
                 extra={
                     "command_id": correlation_id,
                     "path": self.path,
-                    "hg_pid": self.hg_repo.server.pid,
+                    "hg_pid": self.hg_cmdserver_client.server.pid,
                     "output": out.rstrip().decode(self.ENCODING, errors="replace"),
                 },
             )
@@ -290,7 +291,7 @@ class HgRepo:
         last_result = b""
         for cmd in cmds:
             try:
-                last_result = self.run_hg(cmd)
+                last_result = self.run(cmd)
             except hglib.error.CommandError as e:
                 raise HgException.from_hglib_error(e)
         return last_result
@@ -311,18 +312,18 @@ class HgRepo:
 
         # Clean working directory.
         try:
-            self.run_hg(["--quiet", "revert", "--no-backup", "--all"])
+            self.run(["--quiet", "revert", "--no-backup", "--all"])
         except hglib.error.CommandError:
             pass
         try:
-            self.run_hg(["purge"])
+            self.run(["purge"])
         except hglib.error.CommandError:
             pass
 
         # Strip any lingering draft changesets.
         if strip_non_public_commits:
             try:
-                self.run_hg(["strip", "--no-backup", "-r", "not public()"])
+                self.run(["strip", "--no-backup", "-r", "not public()"])
             except hglib.error.CommandError:
                 pass
 
@@ -364,7 +365,7 @@ class HgRepo:
                         b"",
                         b"forced fail: hunk FAILED -- saving rejects to file",
                     )
-                self.run_hg(import_cmd + [f_diff.name])
+                self.run(import_cmd + [f_diff.name])
             except hglib.error.CommandError as exc:
                 if isinstance(HgException.from_hglib_error(exc), PatchConflict):
                     # Try again using 'patch' instead of hg's internal patch utility.
@@ -377,8 +378,8 @@ class HgRepo:
                     try:
                         # When using an external patch util mercurial won't
                         # automatically handle add/remove/renames.
-                        self.run_hg(import_cmd + [f_diff.name])
-                        self.run_hg(["addremove"] + similarity_args)
+                        self.run(import_cmd + [f_diff.name])
+                        self.run(["addremove"] + similarity_args)
                     except hglib.error.CommandError:
                         # Use the original exception from import with the built-in
                         # patcher since both attempts failed.
@@ -395,7 +396,7 @@ class HgRepo:
             if not date:
                 raise ValueError("Missing `Date` header!")
 
-            self.run_hg(
+            self.run(
                 ["commit"]
                 + ["--date", date]
                 + ["--user", user]
@@ -481,7 +482,7 @@ class HgRepo:
         """Amend the top commit in the patch stack with changes from formatting."""
         try:
             # Amend the current commit, using `--no-edit` to keep the existing commit message.
-            self.run_hg(["commit", "--amend", "--no-edit", "--landing_system", "lando"])
+            self.run(["commit", "--amend", "--no-edit", "--landing_system", "lando"])
 
             return [self.get_current_node().decode("utf-8")]
         except hglib.error.CommandError as exc:
@@ -501,7 +502,7 @@ class HgRepo:
 
         try:
             # Create a new commit.
-            self.run_hg(
+            self.run(
                 ["commit"]
                 + [
                     "--message",
@@ -589,7 +590,7 @@ class HgRepo:
 
         try:
             if bookmark is None:
-                self.run_hg(["push", "-r", "tip", target] + extra_args)
+                self.run(["push", "-r", "tip", target] + extra_args)
             else:
                 self.run_hg_cmds(
                     [
@@ -600,21 +601,21 @@ class HgRepo:
         except hglib.error.CommandError as exc:
             raise HgException.from_hglib_error(exc) from exc
 
-    def update_repo(self, source, target_cset: Optional[bytes] = None):
+    def update_repo(self, pull_path: str, target_cset: Optional[bytes] = None):
         # Obtain remote tip if not provided. We assume there is only a single head.
         if not target_cset:
-            target_cset = self.get_remote_head(source)
+            target_cset = self.get_remote_head(pull_path)
 
         # Strip any lingering changes.
         self.clean_repo()
 
         # Pull from "upstream".
-        self.update_from_upstream(source, target_cset)
+        self.update_from_upstream(pull_path, target_cset)
 
         return target_cset
 
     def dirty_files(self):
-        return self.run_hg(
+        return self.run(
             [
                 "status",
                 "--modified",
@@ -628,26 +629,26 @@ class HgRepo:
 
     def get_remote_head(self, source: str) -> bytes:
         # Obtain remote head. We assume there is only a single head.
-        cset = self.run_hg(["identify", source, "-r", "default", "--id"]).strip()
+        cset = self.run(["identify", source, "-r", "default", "--id"]).strip()
 
         assert len(cset) == 12, cset
         return cset
 
     def get_current_node(self) -> bytes:
         """Return the currently checked out node."""
-        return self.run_hg(["identify", "-r", ".", "-i"])
+        return self.run(["identify", "-r", ".", "-i"])
 
-    def update_from_upstream(self, source, remote_rev):
+    def update_from_upstream(self, pull_path, remote_rev):
         # Pull and update to remote tip.
         cmds = [
-            ["pull", source],
+            ["pull", pull_path],
             ["rebase", "--abort"],
             ["update", "--clean", "-r", remote_rev],
         ]
 
         for cmd in cmds:
             try:
-                self.run_hg(cmd)
+                self.run(cmd)
             except hglib.error.CommandError as e:
                 if b"abort: no rebase in progress" in e.err:
                     # there was no rebase in progress, nothing to see here
@@ -668,7 +669,7 @@ class HgRepo:
             cmd.extend(["--tool", ":other"])
 
         try:
-            self.run_hg(cmd)
+            self.run(cmd)
         except hglib.error.CommandError as e:
             if b"nothing to rebase" not in e.out:
                 raise HgException.from_hglib_error(e)

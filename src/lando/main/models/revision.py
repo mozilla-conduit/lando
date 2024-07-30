@@ -13,6 +13,7 @@ from typing import Any
 from django.db import models
 from django.utils.translation import gettext_lazy
 
+from lando.main.config.repos import RepoTypeEnum
 from lando.main.models.base import BaseModel
 from lando.utils import build_patch_for_revision
 
@@ -81,17 +82,21 @@ class Revision(BaseModel):
             return cls.objects.get(revision_id=revision_id)
 
     @classmethod
-    def new_from_patch(cls, raw_diff: str, patch_data: dict[str, str]) -> Revision:
+    def new_from_patch(
+        cls, raw_diff: str, repo_type: RepoTypeEnum, patch_data: dict[str, str]
+    ) -> Revision:
         """Construct a new Revision from patch data."""
         rev = Revision()
-        rev.set_patch(raw_diff, patch_data)
+        rev.set_patch(raw_diff, repo_type, patch_data)
         rev.save()
         return rev
 
-    def set_patch(self, raw_diff: str, patch_data: dict[str, str]):
+    def set_patch(
+        self, raw_diff: str, repo_type: RepoTypeEnum, patch_data: dict[str, str]
+    ):
         """Given a raw_diff and patch data, build the patch and store it."""
         self.patch_data = patch_data
-        patch = build_patch_for_revision(raw_diff, **self.patch_data)
+        patch = build_patch_for_revision(raw_diff, repo_type, **self.patch_data)
         self.patch = patch
 
     def serialize(self) -> dict[str, Any]:
