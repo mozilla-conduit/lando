@@ -1,49 +1,28 @@
 from __future__ import annotations
 
 import logging
-from contextlib import contextmanager
-from datetime import datetime
 from io import StringIO
 
-from django.core.management.base import BaseCommand
 from django.db import transaction
-from lando.main.management.commands import WorkerMixin
 from lando.main.models.base import Repo
 from lando.main.models.landing_job import LandingJob, LandingJobStatus
+from lando.main.workers.base_worker import BaseWorker, job_processing
 
 logger = logging.getLogger(__name__)
 
 
-@contextmanager
-def job_processing(job: LandingJob):
-    """Mutex-like context manager that manages job processing miscellany.
-
-    This context manager facilitates graceful worker shutdown, tracks the duration of
-    the current job, and commits changes to the DB at the very end.
-
-    Args:
-        job: the job currently being processed
-        db: active database session
-    """
-    start_time = datetime.now()
-    try:
-        yield
-    finally:
-        job.duration_seconds = (datetime.now() - start_time).seconds
-
-
-class Command(BaseCommand, WorkerMixin):
-    help = "Start the landing worker."
-    name = "landing-worker"
+class GitLandingWorker(BaseWorker):
+    @property
+    def name(self):
+        return "git-landing-worker"
 
     def add_arguments(self, parser):
         pass
 
-    def handle(self, *args, **options):
-        self.last_job_finished = None
-        self.start()
+    def handle(self, *args, **kwargs):
+        self.start(*args, **kwargs)
 
-    def loop(self):
+    def loop(self, *args, **kwargs):
         if self.last_job_finished is False:
             logger.info("Last job did not complete, sleeping.")
             self.throttle(self._instance.sleep_seconds)
@@ -53,9 +32,8 @@ class Command(BaseCommand, WorkerMixin):
                 repo.initialize()
 
         with transaction.atomic():
-            job = LandingJob.next_job(
-                repositories=self._instance.enabled_repo_names
-            ).first()
+            repository_names = [repo.name for repo in self._instance.enabled_repos]
+            job = LandingJob.next_job(repository_names=repository_names).first()
 
             if job is None:
                 self.throttle(self._instance.sleep_seconds)
@@ -89,3 +67,5 @@ class Command(BaseCommand, WorkerMixin):
 
         job.status = LandingJobStatus.LANDED
         job.save()
+
+        return True

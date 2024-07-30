@@ -15,6 +15,8 @@ from typing import (
     Optional,
 )
 
+from lando.main.config.repos import RepoTypeEnum
+
 HG_HEADER_NAMES = (
     "User",
     "Date",
@@ -59,7 +61,12 @@ Subject: {subject}
 
 
 def build_patch_for_revision(
-    diff: str, author_name: str, author_email: str, commit_message: str, timestamp: str
+    diff: str,
+    repo_type: RepoTypeEnum,
+    author_name: str,
+    author_email: str,
+    commit_message: str,
+    timestamp: str,
 ) -> str:
     """Generate a 'hg export' patch using Phabricator Revision data.
 
@@ -73,20 +80,36 @@ def build_patch_for_revision(
     Returns:
         A string containing a patch in 'hg export' format.
     """
-
     message_lines = commit_message.strip().splitlines()
-    header = _GIT_PATCH_HEADER.format(
-        author_name=_no_line_breaks(author_name),
-        author_email=_no_line_breaks(author_email),
-        patchdate=_no_line_breaks("%s +0000" % timestamp),
-    )
 
-    return _GIT_PATCH_TEMPLATE.format(
-        header=header,
-        subject=message_lines[0],
-        commit_message="\n".join(message_lines[1:]),
-        diff=diff,
-    )
+    if repo_type == RepoTypeEnum.GIT:
+        header = _GIT_PATCH_HEADER.format(
+            author_name=_no_line_breaks(author_name),
+            author_email=_no_line_breaks(author_email),
+            patchdate=_no_line_breaks("%s +0000" % timestamp),
+        )
+
+        formatted_patch = _GIT_PATCH_TEMPLATE.format(
+            header=header,
+            subject=message_lines[0],
+            commit_message="\n".join(message_lines[1:]),
+            diff=diff,
+        )
+    elif repo_type == RepoTypeEnum.HG:
+        header = _HG_EXPORT_HEADER.format(
+            author_name=_no_line_breaks(author_name),
+            author_email=_no_line_breaks(author_email),
+            patchdate=_no_line_breaks("%s +0000" % timestamp),
+            diff_start_line=len(message_lines) + _HG_EXPORT_HEADER_LENGTH + 1,
+        )
+
+        formatted_patch = _HG_EXPORT_PATCH_TEMPLATE.format(
+            header=header, commit_message="\n".join(message_lines), diff=diff
+        )
+    else:
+        raise ValueError(f"Unsupported repo type: {RepoTypeEnum(repo_type)}")
+
+    return formatted_patch
 
 
 def _no_line_breaks(break_string: str) -> str:
