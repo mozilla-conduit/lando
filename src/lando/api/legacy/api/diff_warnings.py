@@ -7,7 +7,7 @@ get, create, or archive warnings.
 
 import logging
 
-from lando.api.legacy.decorators import require_phabricator_api_key
+from lando.main.auth import require_phabricator_api_key
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.main.support import problem
 

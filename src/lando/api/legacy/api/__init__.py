@@ -1,3 +1,3 @@
-def get():
-    """Return a redirect repsonse to the swagger specification."""
-    return None, 302, {"Location": "/swagger.json"}
+from lando.api.legacy.api import stacks, transplants
+
+__all__ = ["stacks", "transplants"]

@@ -2,8 +2,6 @@ import logging
 
 from django.conf import settings
 
-from lando.api import auth
-from lando.api.legacy.decorators import require_phabricator_api_key
 from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.repos import get_repos_for_env
 from lando.api.legacy.uplift import (
@@ -13,6 +11,7 @@ from lando.api.legacy.uplift import (
     get_uplift_repositories,
 )
 from lando.api.legacy.validation import revision_id_to_int
+from lando.main.auth import require_authenticated_user, require_phabricator_api_key
 from lando.main.support import problem
 
 logger = logging.getLogger(__name__)
@@ -30,7 +29,7 @@ def get(phab: PhabricatorClient):
 
 
 @require_phabricator_api_key(optional=False)
-@auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
+@require_authenticated_user
 def create(phab: PhabricatorClient, data: dict):
     """Create new uplift requests for requested repository & revision"""
     repo_name = data["repository"]

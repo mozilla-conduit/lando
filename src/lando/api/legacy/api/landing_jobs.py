@@ -1,14 +1,16 @@
 import logging
 
-from lando.api.legacy import auth
+from django.http import HttpRequest
+
+from lando.main.auth import require_authenticated_user
 from lando.main.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
-from lando.main.support import ProblemException, g
+from lando.main.support import ProblemException
 
 logger = logging.getLogger(__name__)
 
 
-@auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
-def put(landing_job_id: str, data: dict):
+@require_authenticated_user
+def put(request: HttpRequest, landing_job_id: str, data: dict):
     """Update a landing job.
 
     Checks whether the logged in user is allowed to modify the landing job that is
@@ -37,7 +39,7 @@ def put(landing_job_id: str, data: dict):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
-    ldap_username = g.auth0_user.email
+    ldap_username = request.user.email
     if landing_job.requester_email != ldap_username:
         raise ProblemException(
             403,
