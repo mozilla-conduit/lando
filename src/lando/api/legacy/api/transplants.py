@@ -8,6 +8,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.http import HttpRequest
 
+from lando.api.legacy.api.stacks import HTTP_404_STRING
 from lando.api.legacy.commit_message import format_commit_message
 from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.projects import (
@@ -63,7 +64,7 @@ from lando.main.models.landing_job import (
     add_revisions_to_job,
 )
 from lando.main.models.revision import Revision
-from lando.main.support import ProblemException, problem
+from lando.main.support import LegacyAPIException, problem
 from lando.utils.tasks import admin_remove_phab_project
 
 logger = logging.getLogger(__name__)
@@ -81,12 +82,8 @@ def _parse_transplant_request(data: dict) -> dict:
     landing_path = parse_landing_path(data["landing_path"])
 
     if not landing_path:
-        raise ProblemException(
-            400,
-            "Landing Path Required",
-            "A non empty landing_path is required.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
-        )
+        error_message = "A non empty landing_path is required."
+        raise LegacyAPIException(400, error_message)
 
     flags = data.get("flags", [])
 
@@ -121,12 +118,7 @@ def _find_stack_from_landing_path(
     )
     revision = phab.single(revision, "data", none_when_empty=True)
     if revision is None:
-        raise ProblemException(
-            404,
-            "Stack Not Found",
-            "The stack does not exist or you lack permission to see it.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
-        )
+        raise LegacyAPIException(404, "Stack Not Found")
     return build_stack_graph(revision)
 
 
@@ -266,13 +258,11 @@ def post(phab: PhabricatorClient, request: HttpRequest, data: dict):
     allowed_flags = [f[0] for f in landing_repo.commit_flags]
     invalid_flags = set(flags) - set(allowed_flags)
     if invalid_flags:
-        raise ProblemException(
-            400,
-            "Invalid flags specified",
+        error_message = (
             f"Flags must be one or more of {allowed_flags}; "
-            f"{invalid_flags} provided.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+            f"{invalid_flags} provided."
         )
+        raise LegacyAPIException(400, error_message)
 
     if assessment.warnings:
         # Log any warnings that were acknowledged, for auditing.
@@ -442,12 +432,7 @@ def get_list(phab: PhabricatorClient, request: HttpRequest, stack_revision_id: s
     )
     revision = phab.single(revision, "data", none_when_empty=True)
     if revision is None:
-        return problem(
-            404,
-            "Revision not found",
-            "The revision does not exist or you lack permission to see it.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
-        )
+        return problem(404, "Revision not found", HTTP_404_STRING)
     nodes, edges = build_stack_graph(revision)
     revision_phids = list(nodes)
     revs = phab.call_conduit(

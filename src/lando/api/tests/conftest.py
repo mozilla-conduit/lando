@@ -28,7 +28,7 @@ from lando.api.legacy.projects import (
 from lando.api.legacy.repos import SCM_LEVEL_1, SCM_LEVEL_3, Repo
 from lando.api.legacy.transplants import CODE_FREEZE_OFFSET, tokens_are_equal
 from lando.api.tests.mocks import PhabricatorDouble, TreeStatusDouble
-from lando.main.support import ProblemException
+from lando.main.support import LegacyAPIException
 
 PATCH_NORMAL_1 = r"""
 # HG changeset patch
@@ -551,11 +551,13 @@ def proxy_client(monkeypatch, fake_request):
                 json_response, status_code = legacy_api_transplants.post(
                     self.request, kwargs["json"]
                 )
-            except ProblemException as e:
+            except LegacyAPIException as e:
                 # Handle exceptions and pass along the status code to the response object.
+                if e.extra:
+                    return MockResponse(json=e.extra, status_code=e.status)
                 if e.json_detail:
-                    return MockResponse(json=e.json_detail, status_code=e.status_code)
-                return MockResponse(json=e.args, status_code=e.status_code)
+                    return MockResponse(json=e.json_detail, status_code=e.status)
+                return MockResponse(json=e.args, status_code=e.status)
             except Exception as e:
                 # TODO: double check that this is a thing in legacy?
                 # Added this due to a validation error (test_transplant_wrong_landing_path_format)

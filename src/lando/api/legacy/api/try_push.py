@@ -21,7 +21,7 @@ from lando.main.models.landing_job import (
     add_job_with_revisions,
 )
 from lando.main.models.revision import Revision
-from lando.main.support import ProblemException, g
+from lando.main.support import LegacyAPIException
 
 logger = logging.getLogger(__name__)
 
@@ -65,12 +65,7 @@ def decode_json_patch_to_text(patch: str) -> str:
     try:
         return base64.b64decode(patch.encode("ascii")).decode("utf-8")
     except binascii.Error:
-        raise ProblemException(
-            400,
-            "Patch decoding error.",
-            "A patch could not be decoded from base64.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
-        )
+        raise LegacyAPIException(400, "A patch could not be decoded from base64.")
 
 
 def parse_revisions_from_request(
@@ -87,11 +82,9 @@ def parse_revisions_from_request(
             for patch_helper in patch_helpers
         ]
     except ValueError as exc:
-        raise ProblemException(
+        raise LegacyAPIException(
             400,
-            "Improper patch format.",
             f"Patch does not match expected format `{patch_format.value}`: {str(exc)}",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
 
@@ -107,15 +100,13 @@ def post_patches(request: HttpRequest, data: dict):
     environment_repos = get_repos_for_env(settings.ENVIRONMENT)
     try_repo = environment_repos.get("try")
     if not try_repo:
-        raise ProblemException(
+        raise LegacyAPIException(
             500,
             "Could not find a `try` repo to submit to.",
-            "Could not find a `try` repo to submit to.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500",
         )
 
     # Add a landing job for this try push.
-    ldap_username = g.auth0_user.email
+    ldap_username = request.user.email
     revisions = parse_revisions_from_request(patches, patch_format)
     job = add_job_with_revisions(
         revisions,

@@ -28,7 +28,7 @@ from lando.api.legacy.stacks import (
 from lando.api.legacy.transactions import get_inline_comments
 from lando.main.models.landing_job import LandingJob, LandingJobStatus
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
-from lando.main.support import ProblemException
+from lando.main.support import LegacyAPIException
 
 logger = logging.getLogger(__name__)
 
@@ -108,34 +108,26 @@ class TransplantAssessment:
 
     def raise_if_blocked_or_unacknowledged(self, confirmation_token):
         if self.blocker is not None:
-            raise ProblemException(
+            error_message = "There are landing blockers present which prevent landing."
+            raise LegacyAPIException(
                 400,
-                "Landing is Blocked",
-                "There are landing blockers present which prevent landing.",
-                ext=self.to_dict(),
-                type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+                error_message,
+                self.to_dict(),
             )
 
         details = self.to_dict()
         if not tokens_are_equal(details["confirmation_token"], confirmation_token):
             if confirmation_token is None:
-                raise ProblemException(
-                    400,
-                    "Unacknowledged Warnings",
+                error_message = (
                     "There are landing warnings present which have not "
-                    "been acknowledged.",
-                    ext=details,
-                    type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+                    "been acknowledged."
                 )
-
-            raise ProblemException(
-                400,
-                "Acknowledged Warnings Have Changed",
+                raise LegacyAPIException(400, error_message, details)
+            error_message = (
                 "The warnings present when the request was constructed have "
-                "changed. Please acknowledge the new warnings and try again.",
-                ext=details,
-                type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+                "changed. Please acknowledge the new warnings and try again."
             )
+            raise LegacyAPIException(400, error_message, details)
 
 
 class RevisionWarningCheck:
@@ -547,11 +539,6 @@ def convert_path_id_to_phid(
             (mapping[revision_id], diff_id) for revision_id, diff_id in landing_path
         ]
     except IndexError:
-        raise ProblemException(
-            400,
-            "Stack data invalid",
-            "The provided stack_data is not valid.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
-        )
+        raise LegacyAPIException(400, "The provided stack_data is not valid.")
 
     return mapped

@@ -1,7 +1,7 @@
 import pytest
 
 from lando.api.legacy.validation import revision_id_to_int
-from lando.main.support import ProblemException
+from lando.main.support import LegacyAPIException
 
 
 def test_convertion_success():
@@ -10,7 +10,7 @@ def test_convertion_success():
 
 @pytest.mark.parametrize("id", ["123D", "123", "DAB", "A123"])
 def test_convertion_failure_string(id):
-    with pytest.raises(ProblemException):
+    with pytest.raises(LegacyAPIException):
         revision_id_to_int(id)
 
 
