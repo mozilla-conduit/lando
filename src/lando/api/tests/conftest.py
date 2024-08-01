@@ -4,7 +4,6 @@ import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 import redis
@@ -19,7 +18,6 @@ from django.test import Client
 import lando.api.legacy.api.landing_jobs as legacy_api_landing_jobs
 import lando.api.legacy.api.stacks as legacy_api_stacks
 import lando.api.legacy.api.transplants as legacy_api_transplants
-from lando.api.legacy.mocks.auth import TEST_JWKS, MockAuth0
 from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.projects import (
     CHECKIN_PROJ_SLUG,
@@ -260,26 +258,6 @@ def versionfile(tmpdir):
         )
     )
     return v
-
-
-@pytest.fixture
-def jwks(monkeypatch):
-    monkeypatch.setattr(
-        "lando.api.legacy.auth.get_jwks", lambda *args, **kwargs: TEST_JWKS
-    )
-
-
-@pytest.fixture
-def auth0_mock(jwks, monkeypatch):
-    mock_auth0 = MockAuth0()
-    mock_userinfo_response = SimpleNamespace(
-        status_code=200, json=lambda: mock_auth0.userinfo
-    )
-    monkeypatch.setattr(
-        "lando.api.legacy.auth.fetch_auth0_userinfo",
-        lambda token: mock_userinfo_response,
-    )
-    return mock_auth0
 
 
 @pytest.fixture

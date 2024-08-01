@@ -20,13 +20,15 @@ def landing_job(db):
 
 
 @pytest.mark.skip
-def test_cancel_landing_job_cancels_when_submitted(db, client, landing_job, auth0_mock):
+def test_cancel_landing_job_cancels_when_submitted(
+    db, client, landing_job, mock_permissions
+):
     """Test happy path; cancelling a job that has not started yet."""
     job = landing_job(LandingJobStatus.SUBMITTED)
     response = client.put(
         f"/landing_jobs/{job.id}",
         json={"status": LandingJobStatus.CANCELLED.value},
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     assert response.status_code == 200
@@ -35,13 +37,15 @@ def test_cancel_landing_job_cancels_when_submitted(db, client, landing_job, auth
 
 
 @pytest.mark.skip
-def test_cancel_landing_job_cancels_when_deferred(db, client, landing_job, auth0_mock):
+def test_cancel_landing_job_cancels_when_deferred(
+    db, client, landing_job, mock_permissions
+):
     """Test happy path; cancelling a job that has been deferred."""
     job = landing_job(LandingJobStatus.DEFERRED)
     response = client.put(
         f"/landing_jobs/{job.id}",
         json={"status": LandingJobStatus.CANCELLED.value},
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     assert response.status_code == 200
@@ -50,13 +54,15 @@ def test_cancel_landing_job_cancels_when_deferred(db, client, landing_job, auth0
 
 
 @pytest.mark.skip
-def test_cancel_landing_job_fails_in_progress(db, client, landing_job, auth0_mock):
+def test_cancel_landing_job_fails_in_progress(
+    db, client, landing_job, mock_permissions
+):
     """Test trying to cancel a job that is in progress fails."""
     job = landing_job(LandingJobStatus.IN_PROGRESS)
     response = client.put(
         f"/landing_jobs/{job.id}",
         json={"status": LandingJobStatus.CANCELLED.value},
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     assert response.status_code == 400
@@ -67,13 +73,13 @@ def test_cancel_landing_job_fails_in_progress(db, client, landing_job, auth0_moc
 
 
 @pytest.mark.skip
-def test_cancel_landing_job_fails_not_owner(db, client, landing_job, auth0_mock):
+def test_cancel_landing_job_fails_not_owner(db, client, landing_job, mock_permissions):
     """Test trying to cancel a job that is created by a different user."""
     job = landing_job(LandingJobStatus.SUBMITTED, "anotheruser@example.org")
     response = client.put(
         f"/landing_jobs/{job.id}",
         json={"status": LandingJobStatus.CANCELLED.value},
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     assert response.status_code == 403
@@ -82,12 +88,12 @@ def test_cancel_landing_job_fails_not_owner(db, client, landing_job, auth0_mock)
 
 
 @pytest.mark.skip
-def test_cancel_landing_job_fails_not_found(db, client, landing_job, auth0_mock):
+def test_cancel_landing_job_fails_not_found(db, client, landing_job, mock_permissions):
     """Test trying to cancel a job that does not exist."""
     response = client.put(
         "/landing_jobs/1",
         json={"status": LandingJobStatus.CANCELLED.value},
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     assert response.status_code == 404
@@ -95,13 +101,13 @@ def test_cancel_landing_job_fails_not_found(db, client, landing_job, auth0_mock)
 
 
 @pytest.mark.skip
-def test_cancel_landing_job_fails_bad_input(db, client, landing_job, auth0_mock):
+def test_cancel_landing_job_fails_bad_input(db, client, landing_job, mock_permissions):
     """Test trying to send an invalid status to the update endpoint."""
     job = landing_job(LandingJobStatus.SUBMITTED)
     response = client.put(
         f"/landing_jobs/{job.id}",
         json={"status": LandingJobStatus.IN_PROGRESS.value},
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     assert response.status_code == 400

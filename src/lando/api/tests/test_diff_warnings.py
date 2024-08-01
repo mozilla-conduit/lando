@@ -21,7 +21,7 @@ def diff_warning_data():
     return {"message": "this is a test warning"}
 
 
-def test_diff_warning_create_bad_request(db, client, auth0_mock):
+def test_diff_warning_create_bad_request(db, client):
     """Ensure a request that is missing required data returns an error."""
     response = client.post(
         "/diff_warnings",

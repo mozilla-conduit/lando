@@ -116,9 +116,7 @@ def test_dryrun_no_warnings_or_blockers(
 
 
 @pytest.mark.django_db(transaction=True)
-def test_dryrun_invalid_path_blocks(
-    proxy_client, phabdouble, auth0_mock, mock_permissions
-):
+def test_dryrun_invalid_path_blocks(proxy_client, phabdouble, mock_permissions):
     d1 = phabdouble.diff()
     d2 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -146,7 +144,7 @@ def test_dryrun_invalid_path_blocks(
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_in_progress_transplant_blocks(
-    proxy_client, phabdouble, auth0_mock, mocked_repo_config, mock_permissions
+    proxy_client, phabdouble, mocked_repo_config, mock_permissions
 ):
     repo = phabdouble.repo()
 
@@ -193,7 +191,7 @@ def test_dryrun_in_progress_transplant_blocks(
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_reviewers_warns(
-    proxy_client, phabdouble, auth0_mock, mocked_repo_config, mock_permissions
+    proxy_client, phabdouble, mocked_repo_config, mock_permissions
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -222,7 +220,6 @@ def test_dryrun_reviewers_warns(
 def test_dryrun_codefreeze_warn(
     proxy_client,
     phabdouble,
-    auth0_mock,
     codefreeze_datetime,
     monkeypatch,
     request_mocker,
@@ -281,7 +278,6 @@ def test_dryrun_codefreeze_warn(
 def test_dryrun_outside_codefreeze(
     proxy_client,
     phabdouble,
-    auth0_mock,
     codefreeze_datetime,
     monkeypatch,
     request_mocker,
@@ -345,7 +341,6 @@ def test_dryrun_outside_codefreeze(
 @pytest.mark.django_db(transaction=True)
 def test_integrated_dryrun_blocks_for_bad_userinfo(
     proxy_client,
-    auth0_mock,
     phabdouble,
     permissions,
     status,
@@ -657,7 +652,6 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     app,
     proxy_client,
     phabdouble,
-    auth0_mock,
     register_codefreeze_uri,
     mocked_repo_config,
     mock_permissions,
@@ -714,7 +708,6 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     hg_server,
     hg_clone,
     treestatusdouble,
-    auth0_mock,
     register_codefreeze_uri,
     monkeypatch,
     normal_patch,
@@ -799,7 +792,6 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
 def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     proxy_client,
     phabdouble,
-    auth0_mock,
     register_codefreeze_uri,
     mocked_repo_config,
     mock_permissions,
@@ -895,7 +887,6 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
 def test_integrated_transplant_with_flags(
     proxy_client,
     phabdouble,
-    auth0_mock,
     monkeypatch,
     mocked_repo_config,
     mock_permissions,
@@ -935,7 +926,6 @@ def test_integrated_transplant_with_flags(
 def test_integrated_transplant_with_invalid_flags(
     proxy_client,
     phabdouble,
-    auth0_mock,
     monkeypatch,
     mocked_repo_config,
     mock_permissions,
@@ -966,7 +956,6 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
     phabdouble,
     checkin_project,
     proxy_client,
-    auth0_mock,
     register_codefreeze_uri,
     mocked_repo_config,
     monkeypatch,
@@ -1001,7 +990,6 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
 def test_integrated_transplant_repo_checkin_project_removed(
     proxy_client,
     phabdouble,
-    auth0_mock,
     checkin_project,
     mocked_repo_config,
     monkeypatch,
@@ -1034,7 +1022,7 @@ def test_integrated_transplant_repo_checkin_project_removed(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_without_auth0_permissions(
-    proxy_client, auth0_mock, phabdouble, mocked_repo_config
+    proxy_client, phabdouble, mocked_repo_config
 ):
     repo = phabdouble.repo(name="mozilla-central")
     d1 = phabdouble.diff()
@@ -1057,9 +1045,7 @@ def test_integrated_transplant_without_auth0_permissions(
 
 
 @pytest.mark.django_db(transaction=True)
-def test_transplant_wrong_landing_path_format(
-    proxy_client, auth0_mock, mock_permissions
-):
+def test_transplant_wrong_landing_path_format(proxy_client, mock_permissions):
     response = proxy_client.post(
         "/transplants",
         json={"landing_path": [{"revision_id": 1, "diff_id": 1}]},
@@ -1086,7 +1072,6 @@ def test_transplant_wrong_landing_path_format(
 def test_integrated_transplant_diff_not_in_revision(
     proxy_client,
     phabdouble,
-    auth0_mock,
     mocked_repo_config,
     mock_permissions,
 ):
@@ -1111,7 +1096,7 @@ def test_integrated_transplant_diff_not_in_revision(
 
 @pytest.mark.django_db(transaction=True)
 def test_transplant_nonexisting_revision_returns_404(
-    proxy_client, phabdouble, auth0_mock, mock_permissions
+    proxy_client, phabdouble, mock_permissions
 ):
     response = proxy_client.post(
         "/transplants",
@@ -1125,7 +1110,7 @@ def test_transplant_nonexisting_revision_returns_404(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_revision_with_no_repo(
-    proxy_client, phabdouble, auth0_mock, mock_permissions
+    proxy_client, phabdouble, mock_permissions
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1)
@@ -1148,7 +1133,7 @@ def test_integrated_transplant_revision_with_no_repo(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_revision_with_unmapped_repo(
-    proxy_client, phabdouble, auth0_mock, mock_permissions
+    proxy_client, phabdouble, mock_permissions
 ):
     repo = phabdouble.repo(name="notsupported")
     d1 = phabdouble.diff()
@@ -1175,7 +1160,6 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     app,
     proxy_client,
     phabdouble,
-    auth0_mock,
     sec_approval_project,
     register_codefreeze_uri,
     mocked_repo_config,
@@ -1228,7 +1212,6 @@ def test_codefreeze_datetime_mock(codefreeze_datetime):
 def test_unresolved_comment_warn(
     proxy_client,
     phabdouble,
-    auth0_mock,
     mocked_repo_config,
     mock_permissions,
 ):
@@ -1300,7 +1283,6 @@ def test_unresolved_comment_warn(
 def test_unresolved_comment_stack(
     proxy_client,
     phabdouble,
-    auth0_mock,
     mocked_repo_config,
     mock_permissions,
 ):

@@ -71,14 +71,14 @@ def test_parse_git_author_information():
     ), "Name and email information should be parsed into separate strings."
 
 
-def test_try_api_requires_data(db, client, auth0_mock, mocked_repo_config):
+def test_try_api_requires_data(db, client, mock_permissions, mocked_repo_config):
     try_push_json = {
         "base_commit": "abc",
         "patch_format": "hgexport",
         "patches": [],
     }
     response = client.post(
-        "/try/patches", json=try_push_json, headers=auth0_mock.mock_headers
+        "/try/patches", json=try_push_json, permissions=mock_permissions
     )
     assert (
         response.status_code == 400
@@ -86,7 +86,7 @@ def test_try_api_requires_data(db, client, auth0_mock, mocked_repo_config):
 
     try_push_json["base_commit"] = "abcabcabcaabcabcabcaabcabcabcaabcabcabca"
     response = client.post(
-        "/try/patches", json=try_push_json, headers=auth0_mock.mock_headers
+        "/try/patches", json=try_push_json, permissions=mock_permissions
     )
     assert response.status_code == 400, "Try push without patches should return 400."
 
@@ -98,7 +98,7 @@ def test_try_api_patch_decode_error(
     hg_clone,
     treestatusdouble,
     client,
-    auth0_mock,
+    mock_permissions,
     mocked_repo_config,
 ):
     """Test when a patch can't be decoded."""
@@ -112,7 +112,7 @@ def test_try_api_patch_decode_error(
         "patches": ["x!!`"],
     }
     response = client.post(
-        "/try/patches", json=try_push_json, headers=auth0_mock.mock_headers
+        "/try/patches", json=try_push_json, permissions=mock_permissions
     )
     assert response.status_code == 400, "Improperly encoded patch should return 400."
     assert (
@@ -134,7 +134,7 @@ def test_try_api_patch_format_mismatch(
     hg_clone,
     treestatusdouble,
     client,
-    auth0_mock,
+    mock_permissions,
     mocked_repo_config,
     patch_format,
     patch_content,
@@ -152,7 +152,7 @@ def test_try_api_patch_format_mismatch(
         ],
     }
     response = client.post(
-        "/try/patches", json=try_push_json, headers=auth0_mock.mock_headers
+        "/try/patches", json=try_push_json, permissions=mock_permissions
     )
     assert (
         response.status_code == 400
@@ -169,7 +169,7 @@ def test_try_api_unknown_patch_format(
     hg_clone,
     treestatusdouble,
     client,
-    auth0_mock,
+    mock_permissions,
     mocked_repo_config,
 ):
     """Test when `patch_format` isn't one of the accepted values."""
@@ -185,7 +185,7 @@ def test_try_api_unknown_patch_format(
         ],
     }
     response = client.post(
-        "/try/patches", json=try_push_json, headers=auth0_mock.mock_headers
+        "/try/patches", json=try_push_json, permissions=mock_permissions
     )
     assert (
         response.status_code == 400
@@ -199,7 +199,7 @@ def test_try_api_success_hgexport(
     hg_clone,
     treestatusdouble,
     client,
-    auth0_mock,
+    mock_permissions,
     mocked_repo_config,
 ):
     treestatus = treestatusdouble.get_treestatus_client()
@@ -214,7 +214,7 @@ def test_try_api_success_hgexport(
         ],
     }
     response = client.post(
-        "/try/patches", json=try_push_json, headers=auth0_mock.mock_headers
+        "/try/patches", json=try_push_json, permissions=mock_permissions
     )
     assert response.status_code == 201, "Successful try push should return 201."
     assert (
@@ -288,7 +288,7 @@ def test_try_api_success_gitformatpatch(
     hg_clone,
     treestatusdouble,
     client,
-    auth0_mock,
+    mock_permissions,
     mocked_repo_config,
 ):
     treestatus = treestatusdouble.get_treestatus_client()
@@ -303,7 +303,7 @@ def test_try_api_success_gitformatpatch(
         ],
     }
     response = client.post(
-        "/try/patches", json=try_push_json, headers=auth0_mock.mock_headers
+        "/try/patches", json=try_push_json, permissions=mock_permissions
     )
     assert response.status_code == 201, "Successful try push should return 201."
     assert (

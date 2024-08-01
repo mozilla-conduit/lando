@@ -91,7 +91,7 @@ def test_uplift_creation(
     monkeypatch,
     phabdouble,
     client,
-    auth0_mock,
+    mock_permissions,
     mock_repo_config,
     release_management_project,
 ):
@@ -178,8 +178,9 @@ def test_uplift_creation(
     assert response.json["title"] == "Authorization Header Required"
 
     # Invalid repository (not uplift)
-    headers.update(auth0_mock.mock_headers)
-    response = client.post("/uplift", json=payload, headers=headers)
+    response = client.post(
+        "/uplift", json=payload, headers=headers, permissions=mock_permissions
+    )
     assert response.status_code == 400
     assert (
         response.json["title"]
