@@ -22,32 +22,16 @@ class CachedGoogleCloudStorage(GoogleCloudStorage):
         return name
 
 
-class ProblemException(Exception):
-    def __init__(
-        self,
-        status=500,
-        title=None,
-        detail=None,
-        type=None,
-        instance=None,
-        headers=None,
-        ext=None,
-    ):
-        # TODO: this should be reimplemented as either middleware or HttpResponse return values.
-        super().__init__(detail)
+class LegacyAPIException(Exception):
+    def __init__(self, status, detail, extra=None):
+        self.status = status
         self.detail = detail
-        self.ext = ext
-        self.headers = headers
-        self.instance = instance
-        self.status_code = status
-        self.title = title
-
+        self.extra = extra
         self.json_detail = {
-            "title": self.title,
             "detail": self.detail,
         }
-        if self.ext:
-            self.json_detail.update(self.ext)
+        if self.extra:
+            self.json_detail.update(self.extra)
 
 
 def problem(status, title, detail, type=None, instance=None, headers=None, ext=None):

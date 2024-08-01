@@ -1105,7 +1105,7 @@ def test_transplant_nonexisting_revision_returns_404(
     )
     assert response.status_code == 404
     assert response.content_type == "application/problem+json"
-    assert response.json["title"] == "Stack Not Found"
+    assert response.json["detail"] == "Stack Not Found"
 
 
 @pytest.mark.django_db(transaction=True)
@@ -1125,7 +1125,6 @@ def test_integrated_transplant_revision_with_no_repo(
         permissions=mock_permissions,
     )
     assert response.status_code == 400
-    assert response.json["title"] == "Landing is Blocked"
     assert response.json["blocker"] == (
         "The requested set of revisions are not landable."
     )
@@ -1149,7 +1148,6 @@ def test_integrated_transplant_revision_with_unmapped_repo(
         permissions=mock_permissions,
     )
     assert response.status_code == 400
-    assert response.json["title"] == "Landing is Blocked"
     assert response.json["blocker"] == (
         "The requested set of revisions are not landable."
     )
