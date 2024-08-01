@@ -289,7 +289,8 @@ def message_type_to_notification_class(flash_message_category: str) -> str:
     See https://bulma.io/documentation/elements/notification/ for the list of
     Bulma notification states.
     """
-    return {"info": "is-info", "success": "is-success", "warning": "is-warning"}.get(
+    levels = messages.DEFAULT_LEVELS
+    return {levels["INFO"]: "is-info", levels["SUCCESS"]: "is-success", levels["WARNING"]: "is-warning"}.get(
         flash_message_category, "is-info"
     )
 
