@@ -347,6 +347,7 @@ def post(phab: PhabricatorClient, request: HttpRequest, data: dict):
         lando_revision = Revision.get_from_revision_id(revision_id)
         if not lando_revision:
             lando_revision = Revision(revision_id=revision_id)
+
         lando_revision.diff_id = diff_id
         lando_revision.save()
 
@@ -393,6 +394,7 @@ def post(phab: PhabricatorClient, request: HttpRequest, data: dict):
             repository_url=landing_repo.url,
         )
         job.save()
+
     add_revisions_to_job(lando_revisions, job)
     logger.info(f"Setting {revision_reviewers} reviewer data on each revision.")
     for revision in lando_revisions:
@@ -445,4 +447,4 @@ def get_list(phab: PhabricatorClient, request: HttpRequest, stack_revision_id: s
 
     landing_jobs = LandingJob.revisions_query(rev_ids).all()
 
-    return [job.serialize() for job in landing_jobs], 200
+    return [job.serialize() for job in landing_jobs]
