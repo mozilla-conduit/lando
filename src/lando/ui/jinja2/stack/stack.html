@@ -130,7 +130,7 @@
       </section>
       <footer class="modal-card-foot">
         <form class="StackPage-form" action="" method="post">
-          {{form.csrf_token}}
+          {{csrf_input}}
           {{form.landing_path}}
           {{form.confirmation_token}}
           {{form.flags}}
@@ -143,10 +143,10 @@
           <button class="StackPage-landingPreview-close button">Cancel</button>
         </form>
         {% if user_has_phabricator_token %}
-            <form class="StackPage-landingPreview-uplift" action="{{ url_for('revisions.uplift') }}" method="post">
-              {{ uplift_request_form.csrf_token }}
+        <form class="StackPage-landingPreview-uplift" action="{# {{ url_for('revisions.uplift') }} #}" method="post">
+              {# {{ uplift_request_form.csrf_token }} #}
               <input type="hidden" name="revision_id" value="{{ revision_id }}" />
-              {{ uplift_request_form.repository }}
+              {# {{ uplift_request_form.repository }} #}
               <button
                 class="button"
                 title="Create Phabricator review requests for the selected patch stack to land in the specified uplift train." >

@@ -212,6 +212,13 @@ REPO_CONFIG = {
             milestone_tracking_flag_template="cf_status_firefox{milestone}",
         ),
     },
+    "dev": {
+        "git-test-repo": Repo(
+            tree="git-test-repo",
+            url="https://github.com/zzzeid/test-repo.git",
+            access_group=SCM_CONDUIT,
+        ),
+    },
     "devsvcdev": {
         "test-repo": Repo(
             tree="test-repo",
