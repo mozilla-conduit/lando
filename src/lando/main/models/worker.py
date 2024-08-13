@@ -20,6 +20,13 @@ class Worker(BaseModel):
     throttle_seconds = models.IntegerField(default=10)
     sleep_seconds = models.IntegerField(default=10)
 
+    def __str__(self):
+        return self.name
+
     @property
     def enabled_repos(self) -> list[Repo]:
         return self.applicable_repos.all()
+
+    @property
+    def enabled_repo_names(self) -> list[str]:
+        return self.enabled_repos.values_list("name", flat=True)

@@ -33,6 +33,9 @@ class Revision(BaseModel):
     Includes a reference to the related Phabricator revision and diff ID if one exists.
     """
 
+    def __str__(self):
+        return f"Revision {self.revision_id} Diff {self.diff_id}"
+
     # revision_id and diff_id map to Phabricator IDs (integers).
     revision_id = models.IntegerField(blank=True, null=True, unique=True)
 
@@ -96,7 +99,7 @@ class Revision(BaseModel):
             "id": self.id,
             "revision_id": self.revision_id,
             "diff_id": self.diff_id,
-            "landing_jobs": [job.id for job in self.landing_jobs],
+            "landing_jobs": [job.id for job in self.landing_jobs.all()],
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
