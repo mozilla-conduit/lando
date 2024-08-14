@@ -270,39 +270,41 @@ def mock_repo_config(monkeypatch):
 
 @pytest.fixture
 def mocked_repo_config(mock_repo_config):
-    mock_repo_config(
-        {
-            "test": {
-                "mozilla-central": Repo(
-                    tree="mozilla-central",
-                    url="http://hg.test",
-                    access_group=SCM_LEVEL_3,
-                    approval_required=False,
-                ),
-                "mozilla-uplift": Repo(
-                    tree="mozilla-uplift",
-                    url="http://hg.test/uplift",
-                    access_group=SCM_LEVEL_3,
-                    approval_required=True,
-                ),
-                "mozilla-new": Repo(
-                    tree="mozilla-new",
-                    url="http://hg.test/new",
-                    access_group=SCM_LEVEL_3,
-                    commit_flags=[("VALIDFLAG1", "testing"), ("VALIDFLAG2", "testing")],
-                ),
-                "try": Repo(
-                    tree="try",
-                    url="http://hg.test/try",
-                    push_path="http://hg.test/try",
-                    pull_path="http://hg.test",
-                    access_group=SCM_LEVEL_1,
-                    short_name="try",
-                    is_phabricator_repo=False,
-                    force_push=True,
-                ),
-            }
-        }
+    Repo.objects.create(
+        name="mozilla-central",
+        url="http://hg.test",
+        required_permission=SCM_LEVEL_3,
+        approval_required=False,
+    )
+    Repo.objects.create(
+        name="mozilla-uplift",
+        url="http://hg.test/uplift",
+        required_permission=SCM_LEVEL_3,
+        approval_required=True,
+    )
+    Repo.objects.create(
+        name="mozilla-new",
+        url="http://hg.test/new",
+        required_permission=SCM_LEVEL_3,
+        commit_flags=[("VALIDFLAG1", "testing"), ("VALIDFLAG2", "testing")],
+    )
+    Repo.objects.create(
+        name="try",
+        url="http://hg.test/try",
+        push_path="http://hg.test/try",
+        pull_path="http://hg.test",
+        required_permission=SCM_LEVEL_1,
+        short_name="try",
+        is_phabricator_repo=False,
+        force_push=True,
+    )
+    # Copied from legacy "local-dev". Should have been in mocked repos.
+    Repo.objects.create(
+        name="uplift-target",
+        url="http://hg.test",  # TODO: fix this? URL is probably incorrect.
+        required_permission=SCM_LEVEL_1,
+        approval_required=True,
+        milestone_tracking_flag_template="cf_status_firefox{milestone}",
     )
 
 

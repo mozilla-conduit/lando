@@ -229,10 +229,10 @@ def test_try_api_success_hgexport(
     # Run the landing job.
     job = queue_items[0]
 
-    repo = Repo(
-        tree="try",
+    repo = Repo.objects.create(
+        name="try",
         url=hg_server,
-        access_group=SCM_LEVEL_1,
+        required_permission=SCM_LEVEL_1,
         push_path=hg_server,
         pull_path=hg_server,
         short_name="try",
@@ -318,10 +318,10 @@ def test_try_api_success_gitformatpatch(
     # Run the landing job.
     job = queue_items[0]
 
-    repo = Repo(
-        tree="try",
+    repo = Repo.objects.create(
+        name="try",
         url=hg_server,
-        access_group=SCM_LEVEL_1,
+        required_permission=SCM_LEVEL_1,
         push_path=hg_server,
         pull_path=hg_server,
         short_name="try",

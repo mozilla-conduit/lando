@@ -4,7 +4,6 @@ import enum
 import io
 import logging
 
-from django.conf import settings
 from django.http import HttpRequest
 
 from lando.api.legacy.hgexports import (
@@ -13,7 +12,7 @@ from lando.api.legacy.hgexports import (
     PatchHelper,
 )
 from lando.api.legacy.repos import (
-    get_repos_for_env,
+    get_repo_mapping,
 )
 from lando.main.auth import require_authenticated_user, require_permission
 from lando.main.models.landing_job import (
@@ -97,7 +96,7 @@ def post_patches(request: HttpRequest, data: dict):
     patches = data["patches"]
     patch_format = PatchFormat(data["patch_format"])
 
-    environment_repos = get_repos_for_env(settings.ENVIRONMENT)
+    environment_repos = get_repo_mapping()
     try_repo = environment_repos.get("try")
     if not try_repo:
         raise LegacyAPIException(

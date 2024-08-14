@@ -8,7 +8,6 @@ from typing import (
 )
 
 import requests
-from django.conf import settings
 from packaging.version import (
     InvalidVersion,
     Version,
@@ -19,7 +18,7 @@ from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.phabricator_patch import patch_to_changes
 from lando.api.legacy.repos import (
     Repo,
-    get_repos_for_env,
+    get_repo_mapping,
 )
 from lando.api.legacy.stacks import (
     RevisionData,
@@ -149,7 +148,7 @@ def get_local_uplift_repo(phab: PhabricatorClient, target_repository: dict) -> R
     Raise if the repo is not an uplift repo.
     """
     # Check the target repository needs an approval.
-    repos = get_repos_for_env(settings.ENVIRONMENT)
+    repos = get_repo_mapping()
     repo_shortname = phab.expect(target_repository, "fields", "shortName")
     local_repo = repos.get(repo_shortname)
 

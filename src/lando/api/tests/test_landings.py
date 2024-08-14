@@ -231,10 +231,10 @@ def test_integrated_execute_job(
 ):
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
-    repo = Repo(
-        tree="mozilla-central",
+    repo = Repo.objects.create(
+        name="mozilla-central",
         url=hg_server,
-        access_group=SCM_LEVEL_3,
+        required_permission=SCM_LEVEL_3,
         push_path=hg_server,
         pull_path=hg_server,
     )
@@ -279,10 +279,10 @@ def test_integrated_execute_job_with_force_push(
 ):
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
-    repo = Repo(
-        tree="mozilla-central",
+    repo = Repo.objects.create(
+        name="mozilla-central",
         url=hg_server,
-        access_group=SCM_LEVEL_3,
+        required_permission=SCM_LEVEL_3,
         push_path=hg_server,
         pull_path=hg_server,
         force_push=True,
@@ -326,10 +326,10 @@ def test_integrated_execute_job_with_bookmark(
 ):
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
-    repo = Repo(
-        tree="mozilla-central",
+    repo = Repo.objects.create(
+        name="mozilla-central",
         url=hg_server,
-        access_group=SCM_LEVEL_3,
+        required_permission=SCM_LEVEL_3,
         push_path=hg_server,
         pull_path=hg_server,
         push_bookmark="@",
@@ -372,10 +372,10 @@ def test_lose_push_race(
 ):
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
-    repo = Repo(
-        tree="mozilla-central",
+    repo = Repo.objects.create(
+        name="mozilla-central",
         url=hg_server,
-        access_group=SCM_LEVEL_3,
+        required_permission=SCM_LEVEL_3,
         push_path=hg_server,
         pull_path=hg_server,
     )
@@ -400,7 +400,6 @@ def test_lose_push_race(
 def test_failed_landing_job_notification(
     app,
     db,
-    mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -410,9 +409,15 @@ def test_failed_landing_job_notification(
     """Ensure that a failed landings triggers a user notification."""
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
-    repo = Repo(
-        "mozilla-central", SCM_LEVEL_3, "", hg_server, hg_server, True, hg_server, False
+    repo = Repo.objects.create(
+        name="mozilla-central",
+        required_permission=SCM_LEVEL_3,
+        push_path=hg_server,
+        pull_path=hg_server,
+        approval_required=True,
+        autoformat_enabled=False,
     )
+
     hgrepo = HgRepo(hg_clone.strpath)
     revisions = [
         create_patch_revision(1),
@@ -516,12 +521,12 @@ def test_format_patch_success_unchanged(
     tree = "mozilla-central"
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree(tree)
-    repo = Repo(
-        tree=tree,
+    repo = Repo.objects.create(
+        name=tree,
         url=hg_server,
         push_path=hg_server,
         pull_path=hg_server,
-        access_group=SCM_LEVEL_3,
+        required_permission=SCM_LEVEL_3,
         autoformat_enabled=True,
     )
 
@@ -574,12 +579,12 @@ def test_format_single_success_changed(
     tree = "mozilla-central"
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree(tree)
-    repo = Repo(
-        tree=tree,
+    repo = Repo.objects.create(
+        name=tree,
         url=hg_server,
         push_path=hg_server,
         pull_path=hg_server,
-        access_group=SCM_LEVEL_3,
+        required_permission=SCM_LEVEL_3,
         autoformat_enabled=True,
     )
 
@@ -663,12 +668,12 @@ def test_format_stack_success_changed(
     tree = "mozilla-central"
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree(tree)
-    repo = Repo(
-        tree=tree,
+    repo = Repo.objects.create(
+        name=tree,
         url=hg_server,
         push_path=hg_server,
         pull_path=hg_server,
-        access_group=SCM_LEVEL_3,
+        required_permission=SCM_LEVEL_3,
         autoformat_enabled=True,
     )
 
@@ -744,9 +749,9 @@ def test_format_patch_fail(
     tree = "mozilla-central"
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree(tree)
-    repo = Repo(
-        tree=tree,
-        access_group=SCM_LEVEL_3,
+    repo = Repo.objects.create(
+        name=tree,
+        required_permission=SCM_LEVEL_3,
         url=hg_server,
         push_path=hg_server,
         pull_path=hg_server,
@@ -804,9 +809,9 @@ def test_format_patch_no_landoini(
     """Tests behaviour of Lando when the `.lando.ini` file is missing."""
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
-    repo = Repo(
-        tree="mozilla-central",
-        access_group=SCM_LEVEL_3,
+    repo = Repo.objects.create(
+        name="mozilla-central",
+        required_permission=SCM_LEVEL_3,
         url=hg_server,
         push_path=hg_server,
         pull_path=hg_server,
