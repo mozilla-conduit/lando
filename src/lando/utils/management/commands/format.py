@@ -1,6 +1,7 @@
 import subprocess
 
 from django.core.management.base import BaseCommand
+
 from lando.settings import LINT_PATHS
 
 
@@ -10,7 +11,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         for lint_path in LINT_PATHS:
             subprocess.call(
-                ("ruff", "check", "--fix", "--target-version", "py39", lint_path)
+                ("ruff", "check", "--fix", "--target-version", "py310", lint_path)
             )
 
         subprocess.call(("black",) + LINT_PATHS)
