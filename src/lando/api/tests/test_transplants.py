@@ -237,6 +237,7 @@ def test_dryrun_codefreeze_warn(
     )
     monkeypatch.setattr("lando.api.legacy.transplants.datetime", codefreeze_datetime())
     mc_repo = Repo.objects.create(
+        scm=Repo.HG,
         name="mozilla-conduit",
         url="https://hg.test/mozilla-conduit",
         required_permission=SCM_CONDUIT,
@@ -294,6 +295,7 @@ def test_dryrun_outside_codefreeze(
     )
     monkeypatch.setattr("lando.api.legacy.transplants.datetime", codefreeze_datetime())
     mc_repo = Repo.objects.create(
+        scm=Repo.HG,
         name="mozilla-conduit",
         url="https://hg.test/mozilla-conduit",
         required_permission=SCM_CONDUIT,
@@ -715,6 +717,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
+        scm=Repo.HG,
         name="mozilla-central",
         url=hg_server,
         required_permission=SCM_LEVEL_3,

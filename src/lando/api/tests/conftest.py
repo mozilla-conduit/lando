@@ -271,24 +271,28 @@ def mock_repo_config(monkeypatch):
 @pytest.fixture
 def mocked_repo_config(mock_repo_config):
     Repo.objects.create(
+        scm=Repo.HG,
         name="mozilla-central",
         url="http://hg.test",
         required_permission=SCM_LEVEL_3,
         approval_required=False,
     )
     Repo.objects.create(
+        scm=Repo.HG,
         name="mozilla-uplift",
         url="http://hg.test/uplift",
         required_permission=SCM_LEVEL_3,
         approval_required=True,
     )
     Repo.objects.create(
+        scm=Repo.HG,
         name="mozilla-new",
         url="http://hg.test/new",
         required_permission=SCM_LEVEL_3,
         commit_flags=[("VALIDFLAG1", "testing"), ("VALIDFLAG2", "testing")],
     )
     Repo.objects.create(
+        scm=Repo.HG,
         name="try",
         url="http://hg.test/try",
         push_path="http://hg.test/try",
@@ -300,6 +304,7 @@ def mocked_repo_config(mock_repo_config):
     )
     # Copied from legacy "local-dev". Should have been in mocked repos.
     Repo.objects.create(
+        scm=Repo.HG,
         name="uplift-target",
         url="http://hg.test",  # TODO: fix this? URL is probably incorrect.
         required_permission=SCM_LEVEL_1,

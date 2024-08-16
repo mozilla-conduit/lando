@@ -20,9 +20,24 @@ DEFAULT_GRACE_SECONDS = int(os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2))
 class Repo(BaseModel):
     """Represents the configuration of a particular repo."""
 
+    HG = "hg"
+    GIT = "git"
+
+    SCM_CHOICES = {
+        HG: "Mercurial",
+        GIT: "Git",
+    }
+
     # TODO: help text for fields below.
     name = models.CharField(max_length=255, unique=True)
     default_branch = models.CharField(max_length=255, default="main")
+    scm = models.CharField(
+        max_length=3,
+        choices=SCM_CHOICES,
+        null=True,
+        blank=True,
+        default=None,
+    )
     is_initialized = models.BooleanField(default=False)
 
     system_path = models.FilePathField(
@@ -61,7 +76,15 @@ class Repo(BaseModel):
         return f"{self.name} ({self.default_branch})"
 
     def save(self, *args, **kwargs):
-        """Determine default fields based on legacy logic then save the instance."""
+        """Determine values for various fields upon saving the instance."""
+        if self.scm is None:
+            if self._is_git_repo:
+                self.scm = self.GIT
+            elif self._is_hg_repo:
+                self.scm = self.HG
+            else:
+                raise ValueError("Could not determine repo type.")
+
         # NOTE: The code below was ported directly from the legacy implementation.
         if not self.push_path or not self.pull_path:
             url = urllib.parse.urlparse(self.url)
@@ -77,6 +100,34 @@ class Repo(BaseModel):
             self.commit_flags = []
 
         super().save(*args, **kwargs)
+
+    @property
+    def is_git_repo(self):
+        return self.scm is not None and self.scm == self.GIT
+
+    @property
+    def is_hg_repo(self):
+        return self.scm is not None and self.scm == self.HG
+
+    @property
+    def _is_git_repo(self):
+        command = ["git", "ls-remote", self.pull_path]
+        returncode = subprocess.call(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return not returncode
+
+    @property
+    def _is_hg_repo(self):
+        command = ["hg", "identify", self.pull_path]
+        returncode = subprocess.call(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return not returncode
 
     @property
     def tree(self):
