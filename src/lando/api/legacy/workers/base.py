@@ -8,8 +8,9 @@ import re
 import subprocess
 from time import sleep
 
-from lando.api.legacy.repos import repo_clone_subsystem
-from lando.api.legacy.treestatus import treestatus_subsystem
+from django.conf import settings
+
+from lando.api.legacy.treestatus import TreeStatus
 from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ class Worker:
         """Return the configuration key that pauses the worker."""
         raise NotImplementedError()
 
-    def __init__(self, sleep_seconds: float = 5, with_ssh: bool = True):
+    def __init__(self, repos, sleep_seconds: float = 5, with_ssh: bool = True):
         SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
 
         # `sleep_seconds` is how long to sleep for if the worker is paused,
@@ -41,15 +42,15 @@ class Worker:
         self.sleep_seconds = sleep_seconds
 
         # The list of all repos that are enabled for this worker
-        self.applicable_repos = (
-            list(repo_clone_subsystem.repos)
-            if hasattr(repo_clone_subsystem, "repos")
-            else []
-        )
+        self.applicable_repos = repos
 
         # The list of all repos that have open trees; refreshed when needed via
         # `self.refresh_enabled_repos`.
         self.enabled_repos = []
+
+        self.treestatus_client = TreeStatus(url=settings.TREESTATUS_URL)
+        if not self.treestatus_client.ping():
+            raise ConnectionError("Could not connect to Treestatus")
 
         if with_ssh:
             # Fetch ssh private key from the environment. Note that this key should be
@@ -146,9 +147,7 @@ class Worker:
     def refresh_enabled_repos(self):
         """Refresh the list of repositories based on treestatus."""
         self.enabled_repos = [
-            r
-            for r in self.applicable_repos
-            if treestatus_subsystem.client.is_open(repo_clone_subsystem.repos[r].tree)
+            r for r in self.applicable_repos if self.treestatus_client.is_open(r.tree)
         ]
         logger.info(f"{len(self.enabled_repos)} enabled repos: {self.enabled_repos}")
 

@@ -229,7 +229,6 @@ def test_integrated_execute_job(
     normal_patch,
     revisions_params,
 ):
-    treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
         scm=Repo.HG,
@@ -251,7 +250,7 @@ def test_integrated_execute_job(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    worker = LandingWorker(sleep_seconds=0.01)
+    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
 
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
@@ -260,7 +259,7 @@ def test_integrated_execute_job(
         mock_trigger_update,
     )
 
-    assert worker.run_job(job, repo, hgrepo, treestatus)
+    assert worker.run_job(job, repo, hgrepo)
     assert job.status == LandingJobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40
     assert (
@@ -278,7 +277,6 @@ def test_integrated_execute_job_with_force_push(
     monkeypatch,
     create_patch_revision,
 ):
-    treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
         scm=Repo.HG,
@@ -298,7 +296,7 @@ def test_integrated_execute_job_with_force_push(
     }
     job = add_job_with_revisions([create_patch_revision(1)], **job_params)
 
-    worker = LandingWorker(sleep_seconds=0.01)
+    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
 
     # We don't care about repo update in this test, however if we don't mock
     # this, the test will fail since there is no celery instance.
@@ -308,7 +306,7 @@ def test_integrated_execute_job_with_force_push(
     )
 
     hgrepo.push = mock.MagicMock()
-    assert worker.run_job(job, repo, hgrepo, treestatus)
+    assert worker.run_job(job, repo, hgrepo)
     assert hgrepo.push.call_count == 1
     assert len(hgrepo.push.call_args) == 2
     assert len(hgrepo.push.call_args[0]) == 1
@@ -326,7 +324,6 @@ def test_integrated_execute_job_with_bookmark(
     monkeypatch,
     create_patch_revision,
 ):
-    treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
         scm=Repo.HG,
@@ -346,7 +343,7 @@ def test_integrated_execute_job_with_bookmark(
     }
     job = add_job_with_revisions([create_patch_revision(1)], **job_params)
 
-    worker = LandingWorker(sleep_seconds=0.01)
+    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
 
     # We don't care about repo update in this test, however if we don't mock
     # this, the test will fail since there is no celery instance.
@@ -356,7 +353,7 @@ def test_integrated_execute_job_with_bookmark(
     )
 
     hgrepo.push = mock.MagicMock()
-    assert worker.run_job(job, repo, hgrepo, treestatus)
+    assert worker.run_job(job, repo, hgrepo)
     assert hgrepo.push.call_count == 1
     assert len(hgrepo.push.call_args) == 2
     assert len(hgrepo.push.call_args[0]) == 1
@@ -373,7 +370,6 @@ def test_lose_push_race(
     treestatusdouble,
     create_patch_revision,
 ):
-    treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
         scm=Repo.HG,
@@ -395,9 +391,9 @@ def test_lose_push_race(
         [create_patch_revision(1, patch=PATCH_PUSH_LOSER)], **job_params
     )
 
-    worker = LandingWorker(sleep_seconds=0)
+    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
 
-    assert not worker.run_job(job, repo, hgrepo, treestatus)
+    assert not worker.run_job(job, repo, hgrepo)
     assert job.status == LandingJobStatus.DEFERRED
 
 
@@ -411,7 +407,6 @@ def test_failed_landing_job_notification(
     create_patch_revision,
 ):
     """Ensure that a failed landings triggers a user notification."""
-    treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
         scm=Repo.HG,
@@ -436,7 +431,7 @@ def test_failed_landing_job_notification(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    worker = LandingWorker(sleep_seconds=0.01)
+    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
 
     # Mock `hgrepo.update_repo` so we can force a failed landing.
     mock_update_repo = mock.MagicMock()
@@ -450,7 +445,7 @@ def test_failed_landing_job_notification(
         mock_notify,
     )
 
-    assert worker.run_job(job, repo, hgrepo, treestatus)
+    assert worker.run_job(job, repo, hgrepo)
     assert job.status == LandingJobStatus.FAILED
     assert mock_notify.call_count == 1
 
@@ -524,7 +519,6 @@ def test_format_patch_success_unchanged(
 ):
     """Tests automated formatting happy path where formatters made no changes."""
     tree = "mozilla-central"
-    treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree(tree)
     repo = Repo.objects.create(
         scm=Repo.HG,
@@ -550,7 +544,7 @@ def test_format_patch_success_unchanged(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    worker = LandingWorker(sleep_seconds=0.01)
+    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
 
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
@@ -559,7 +553,7 @@ def test_format_patch_success_unchanged(
         mock_trigger_update,
     )
 
-    assert worker.run_job(job, repo, hgrepo, treestatus)
+    assert worker.run_job(job, repo, hgrepo)
     assert (
         job.status == LandingJobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
@@ -583,7 +577,6 @@ def test_format_single_success_changed(
 ):
     """Test formatting a single commit via amending."""
     tree = "mozilla-central"
-    treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree(tree)
     repo = Repo.objects.create(
         scm=Repo.HG,
@@ -615,7 +608,7 @@ def test_format_single_success_changed(
         [create_patch_revision(2, patch=PATCH_FORMATTED_1)], **job_params
     )
 
-    worker = LandingWorker(sleep_seconds=0.01)
+    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
 
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
@@ -625,7 +618,7 @@ def test_format_single_success_changed(
     )
 
     assert worker.run_job(
-        job, repo, hgrepo, treestatus
+        job, repo, hgrepo
     ), "`run_job` should return `True` on a successful run."
     assert (
         job.status == LandingJobStatus.LANDED
@@ -673,7 +666,6 @@ def test_format_stack_success_changed(
 ):
     """Test formatting a stack via an autoformat tip commit."""
     tree = "mozilla-central"
-    treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree(tree)
     repo = Repo.objects.create(
         scm=Repo.HG,
@@ -700,7 +692,7 @@ def test_format_stack_success_changed(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    worker = LandingWorker(sleep_seconds=0.01)
+    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
 
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
@@ -710,7 +702,7 @@ def test_format_stack_success_changed(
     )
 
     assert worker.run_job(
-        job, repo, hgrepo, treestatus
+        job, repo, hgrepo
     ), "`run_job` should return `True` on a successful run."
     assert (
         job.status == LandingJobStatus.LANDED
@@ -755,7 +747,6 @@ def test_format_patch_fail(
 ):
     """Tests automated formatting failures before landing."""
     tree = "mozilla-central"
-    treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree(tree)
     repo = Repo.objects.create(
         scm=Repo.HG,
@@ -782,7 +773,7 @@ def test_format_patch_fail(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    worker = LandingWorker(sleep_seconds=0.01)
+    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
 
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
@@ -792,7 +783,7 @@ def test_format_patch_fail(
     )
 
     assert not worker.run_job(
-        job, repo, hgrepo, treestatus
+        job, repo, hgrepo
     ), "`run_job` should return `False` when autoformatting fails."
     assert (
         job.status == LandingJobStatus.FAILED
@@ -816,7 +807,6 @@ def test_format_patch_no_landoini(
     create_patch_revision,
 ):
     """Tests behaviour of Lando when the `.lando.ini` file is missing."""
-    treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
         scm=Repo.HG,
@@ -842,7 +832,7 @@ def test_format_patch_no_landoini(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    worker = LandingWorker(sleep_seconds=0.01)
+    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
 
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
@@ -858,7 +848,7 @@ def test_format_patch_no_landoini(
         mock_notify,
     )
 
-    assert worker.run_job(job, repo, hgrepo, treestatus)
+    assert worker.run_job(job, repo, hgrepo)
     assert (
         job.status == LandingJobStatus.LANDED
     ), "Missing `.lando.ini` should not inhibit landing."

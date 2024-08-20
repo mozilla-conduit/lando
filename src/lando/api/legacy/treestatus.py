@@ -165,6 +165,3 @@ class TreeStatusSubsystem(Subsystem):
             return "Could not ping Tree Status"
 
         return True
-
-
-treestatus_subsystem = TreeStatusSubsystem()
