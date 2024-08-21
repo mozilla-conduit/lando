@@ -301,6 +301,7 @@ def environment(**options):
         {
             "config": settings,
             "get_messages": messages.get_messages,
+            "graph_height": graph_height,
             "new_settings_form": UserSettingsForm,
             "static_url": settings.STATIC_URL,
             "url": reverse,
@@ -315,7 +316,6 @@ def environment(**options):
             "graph_above_path": graph_above_path,
             "graph_below_path": graph_below_path,
             "graph_color": graph_color,
-            "graph_height": graph_height,
             "graph_width": graph_width,
             "graph_x_pos": graph_x_pos,
             "linkify_bug_numbers": linkify_bug_numbers,
