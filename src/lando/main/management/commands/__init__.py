@@ -1,6 +1,6 @@
 from time import sleep
 
-from lando.main.models import Worker
+from lando.main.models.worker import Worker
 
 
 class WorkerMixin:

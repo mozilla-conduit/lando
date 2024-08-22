@@ -32,6 +32,12 @@ class Profile(BaseModel):
     # User info fetched from SSO.
     userinfo = models.JSONField(default=dict, blank=True)
 
+    @property
+    def phabricator_api_key(self):
+        # Temporary placeholder for phabricator_api_key field.
+        # See https://bugzilla.mozilla.org/show_bug.cgi?id=1899397.
+        return ""
+
     def _has_scm_permission_groups(self, codename, groups):
         """Return whether the group membership provides the correct permission.
 

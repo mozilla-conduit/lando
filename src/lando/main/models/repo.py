@@ -31,6 +31,9 @@ class Repo(BaseModel):
         default="",
     )
 
+    def __str__(self):
+        return f"{self.name} ({self.default_branch})"
+
     def _run(self, *args, cwd=None):
         cwd = cwd or self.system_path
         command = ["git"] + list(args)

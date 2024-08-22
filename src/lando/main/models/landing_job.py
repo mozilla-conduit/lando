@@ -104,7 +104,9 @@ class LandingJob(BaseModel):
     # Identifier of the published commit which this job should land on top of.
     target_commit_hash = models.TextField(blank=True, default="")
 
-    unsorted_revisions = models.ManyToManyField(Revision, through="RevisionLandingJob")
+    unsorted_revisions = models.ManyToManyField(
+        Revision, through="RevisionLandingJob", related_name="landing_jobs"
+    )
 
     # These are automatically set, deprecated fields, but kept for compatibility.
     repository_name = models.TextField(default="", blank=True)
