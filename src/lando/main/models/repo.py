@@ -5,6 +5,7 @@ import tempfile
 import urllib
 from pathlib import Path
 
+import hglib
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
@@ -98,6 +99,28 @@ class Repo(BaseModel):
     def raise_if_not(self, repo_scm):
         if repo_scm != self.scm:
             raise self._method_not_supported_for_repo_error
+
+    @property
+    def hg_repo_is_initialized(self):
+        self.raise_if_not(self.HG)
+        try:
+            self.hg._open()
+        except hglib.error.ServerError:
+            logger.info(f"{self} appears to be not initialized.")
+            return False
+        else:
+            return True
+
+    def hg_repo_prepare(self):
+        self.raise_if_not(self.HG)
+        if not self.hg_repo_is_initialized:
+            Path(self.system_path).mkdir(parents=True, exist_ok=True)
+            logger.info(f"Cloning {self} from pull path.")
+            self.hg.clone(self.pull_path)
+        else:
+            with self.hg.for_pull():
+                logger.info(f"Updating {self} from pull path.")
+                self.hg.update_repo(self.pull_path)
 
     def save(self, *args, **kwargs):
         """Determine values for various fields upon saving the instance."""
