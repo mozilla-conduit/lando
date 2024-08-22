@@ -9,12 +9,17 @@ from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
+from lando.api.legacy.hg import HgRepo
 from lando.main.models import BaseModel
 from lando.utils import GitPatchHelper
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_GRACE_SECONDS = int(os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2))
+
+
+class RepoError(Exception):
+    pass
 
 
 class Repo(BaseModel):
@@ -72,20 +77,33 @@ class Repo(BaseModel):
     product_details_url = models.CharField(blank=True, default="")
     push_bookmark = models.CharField(blank=True, default="")
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.is_hg_repo:
+            self.hg = HgRepo(self.system_path or self._system_path)
+        else:
+            self.hg = None
+
     def __str__(self):
         return f"{self.name} ({self.default_branch})"
 
+    @property
+    def _system_path(self):
+        return str(Path(settings.REPO_ROOT) / self.name)
+
+    @property
+    def _method_not_supported_for_repo_error(self):
+        return RepoError(f"Method is not supported for {self}")
+
+    def raise_if_not(self, repo_scm):
+        if repo_scm != self.scm:
+            raise self._method_not_supported_for_repo_error
+
     def save(self, *args, **kwargs):
         """Determine values for various fields upon saving the instance."""
-        if self.scm is None:
-            if self._is_git_repo:
-                self.scm = self.GIT
-            elif self._is_hg_repo:
-                self.scm = self.HG
-            else:
-                raise ValueError("Could not determine repo type.")
+        if not self.system_path:
+            self.system_path = self._system_path
 
-        # NOTE: The code below was ported directly from the legacy implementation.
         if not self.push_path or not self.pull_path:
             url = urllib.parse.urlparse(self.url)
             if not self.push_path:
@@ -98,6 +116,14 @@ class Repo(BaseModel):
 
         if not self.commit_flags:
             self.commit_flags = []
+
+        if self.scm is None:
+            if self._is_git_repo:
+                self.scm = self.GIT
+            elif self._is_hg_repo:
+                self.scm = self.HG
+            else:
+                raise ValueError("Could not determine repo type.")
 
         super().save(*args, **kwargs)
 

@@ -3,7 +3,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from lando.api.legacy.hg import HgRepo
 from lando.api.legacy.phabricator import PhabricatorRevisionStatus, ReviewerStatus
 from lando.api.legacy.repos import DONTBUILD, SCM_CONDUIT, SCM_LEVEL_3, Repo
 from lando.api.legacy.reviews import get_collated_reviewers
@@ -722,15 +721,15 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
         required_permission=SCM_LEVEL_3,
         push_path=hg_server,
         pull_path=hg_server,
+        system_path=hg_clone.strpath,
     )
     phabrepo = phabdouble.repo(name="mozilla-central")
-    hgrepo = HgRepo(hg_clone.strpath)
 
     # Mock a few mots-related things needed by the landing worker.
     # First, mock path existance.
     mock_path = MagicMock()
     monkeypatch.setattr("lando.api.legacy.workers.landing_worker.Path", mock_path)
-    (mock_path(hgrepo.path) / "mots.yaml").exists.return_value = True
+    (mock_path(repo.hg.path) / "mots.yaml").exists.return_value = True
 
     # Then mock the directory/file config.
     mock_Directory = MagicMock()
@@ -779,7 +778,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     assert approved_by == [[101], [102]]
 
     worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
-    assert worker.run_job(job, repo, hgrepo)
+    assert worker.run_job(job)
     for revision in job.revisions.all():
         if revision.revision_id == 1:
             assert revision.data["peers_and_owners"] == [101]
