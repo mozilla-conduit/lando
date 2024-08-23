@@ -1,9 +1,7 @@
 import logging
 
-from django.conf import settings
-
 from lando.api.legacy.phabricator import PhabricatorClient
-from lando.api.legacy.repos import get_repos_for_env
+from lando.api.legacy.repos import get_repo_mapping
 from lando.api.legacy.uplift import (
     create_uplift_revision,
     get_local_uplift_repo,
@@ -36,7 +34,7 @@ def create(phab: PhabricatorClient, data: dict):
     revision_id = revision_id_to_int(data["revision_id"])
 
     # Validate repository.
-    all_repos = get_repos_for_env(settings.ENVIRONMENT)
+    all_repos = get_repo_mapping()
     repository = all_repos.get(repo_name)
     if repository is None:
         return problem(

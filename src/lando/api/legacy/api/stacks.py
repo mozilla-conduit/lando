@@ -12,7 +12,7 @@ from lando.api.legacy.projects import (
     get_secure_project_phid,
     project_search,
 )
-from lando.api.legacy.repos import get_repos_for_env
+from lando.api.legacy.repos import get_repo_mapping
 from lando.api.legacy.reviews import (
     approvals_for_commit_message,
     get_collated_reviewers,
@@ -64,7 +64,7 @@ def get(phab: PhabricatorClient, request: HttpRequest, revision_id: int):
     except ValueError:
         raise Http404(HTTP_404_STRING)
 
-    supported_repos = get_repos_for_env(settings.ENVIRONMENT)
+    supported_repos = get_repo_mapping()
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
 
     release_managers = get_release_managers(phab)

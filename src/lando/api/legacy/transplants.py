@@ -6,14 +6,13 @@ from collections import namedtuple
 from datetime import datetime, timezone
 
 import requests
-from django.conf import settings
 
 from lando.api.legacy.phabricator import (
     PhabricatorClient,
     PhabricatorRevisionStatus,
     ReviewerStatus,
 )
-from lando.api.legacy.repos import Repo, get_repos_for_env
+from lando.api.legacy.repos import get_repo_mapping
 from lando.api.legacy.reviews import calculate_review_extra_state, reviewer_identity
 from lando.api.legacy.revisions import (
     check_author_planned_changes,
@@ -310,7 +309,7 @@ def warning_wip_commit_message(*, revision, **kwargs):
 
 @RevisionWarningCheck(8, "Repository is under a soft code freeze.", True)
 def warning_code_freeze(*, repo, **kwargs):
-    supported_repos = get_repos_for_env(settings.ENVIRONMENT)
+    supported_repos = get_repo_mapping()
     try:
         repo_details = supported_repos[repo["fields"]["shortName"]]
     except KeyError:
@@ -376,16 +375,12 @@ def user_block_no_auth0_email(*, lando_user, **kwargs):
 
 def user_block_scm_level(*, lando_user, landing_repo, **kwargs):
     """Check the user has the scm level required for this repository."""
-    if lando_user.has_perm(
-        f"main.{landing_repo.access_group.membership_group.removeprefix('all_')}"
-    ):
+    if lando_user.has_perm(landing_repo.required_permission):
         return None
 
     return (
         "You have insufficient permissions to land or your access has expired. "
-        "{} is required. See the FAQ for help.".format(
-            landing_repo.access_group.display_name
-        )
+        "{} is required. See the FAQ for help.".format(landing_repo.required_permission)
     )
 
 
@@ -518,8 +513,6 @@ def get_blocker_checks(
     repositories: dict, relman_group_phid: str, stack_data: RevisionData
 ):
     """Build all transplant blocker checks that need extra Phabricator data"""
-    assert all((isinstance(r, Repo) for r in repositories.values()))
-
     return DEFAULT_OTHER_BLOCKER_CHECKS + [
         # Configure uplift check with extra data.
         check_uplift_approval(relman_group_phid, repositories, stack_data)

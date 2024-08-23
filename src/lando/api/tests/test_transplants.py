@@ -236,16 +236,16 @@ def test_dryrun_codefreeze_warn(
         },
     )
     monkeypatch.setattr("lando.api.legacy.transplants.datetime", codefreeze_datetime())
-    mc_repo = Repo(
-        tree="mozilla-conduit",
+    mc_repo = Repo.objects.create(
+        name="mozilla-conduit",
         url="https://hg.test/mozilla-conduit",
-        access_group=SCM_CONDUIT,
+        required_permission=SCM_CONDUIT,
         commit_flags=[DONTBUILD],
         product_details_url=product_details,
     )
     mc_mock = MagicMock()
     mc_mock.return_value = {"mozilla-central": mc_repo}
-    monkeypatch.setattr("lando.api.legacy.transplants.get_repos_for_env", mc_mock)
+    monkeypatch.setattr("lando.api.legacy.transplants.get_repo_mapping", mc_mock)
 
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -293,16 +293,16 @@ def test_dryrun_outside_codefreeze(
         },
     )
     monkeypatch.setattr("lando.api.legacy.transplants.datetime", codefreeze_datetime())
-    mc_repo = Repo(
-        tree="mozilla-conduit",
+    mc_repo = Repo.objects.create(
+        name="mozilla-conduit",
         url="https://hg.test/mozilla-conduit",
-        access_group=SCM_CONDUIT,
+        required_permission=SCM_CONDUIT,
         commit_flags=[DONTBUILD],
         product_details_url=product_details,
     )
     mc_mock = MagicMock()
     mc_mock.return_value = {"mozilla-central": mc_repo}
-    monkeypatch.setattr("lando.api.legacy.transplants.get_repos_for_env", mc_mock)
+    monkeypatch.setattr("lando.api.legacy.transplants.get_repo_mapping", mc_mock)
 
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -334,7 +334,7 @@ def test_dryrun_outside_codefreeze(
             (),  # No permissions
             200,
             "You have insufficient permissions to land or your access has expired. "
-            "Level 3 Commit Access is required. See the FAQ for help.",
+            "main.scm_level_3 is required. See the FAQ for help.",
         ),
     ],
 )
@@ -701,7 +701,6 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_records_approvers_peers_and_owners(
-    mocked_repo_config,
     proxy_client,
     hg_server,
     hg_clone,
@@ -715,10 +714,10 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
 ):
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
-    repo = Repo(
-        tree="mozilla-central",
+    repo = Repo.objects.create(
+        name="mozilla-central",
         url=hg_server,
-        access_group=SCM_LEVEL_3,
+        required_permission=SCM_LEVEL_3,
         push_path=hg_server,
         pull_path=hg_server,
     )
@@ -1038,7 +1037,7 @@ def test_integrated_transplant_without_auth0_permissions(
     assert response.status_code == 400
     assert response.json["blocker"] == (
         "You have insufficient permissions to land or your access has expired. "
-        "Level 3 Commit Access is required. See the FAQ for help."
+        "main.scm_level_3 is required. See the FAQ for help."
     )
 
 

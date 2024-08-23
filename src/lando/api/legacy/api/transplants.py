@@ -23,7 +23,7 @@ from lando.api.legacy.projects import (
 )
 from lando.api.legacy.repos import (
     Repo,
-    get_repos_for_env,
+    get_repo_mapping,
 )
 from lando.api.legacy.reviews import (
     approvals_for_commit_message,
@@ -137,7 +137,7 @@ def _assess_transplant_request(
     stack_data = request_extended_revision_data(phab, list(nodes))
     landing_path_phid = convert_path_id_to_phid(landing_path, stack_data)
 
-    supported_repos = get_repos_for_env(settings.ENVIRONMENT)
+    supported_repos = get_repo_mapping()
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
 
     other_checks = get_blocker_checks(

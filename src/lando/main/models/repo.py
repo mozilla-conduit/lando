@@ -2,9 +2,11 @@ import logging
 import os
 import subprocess
 import tempfile
+import urllib
 from pathlib import Path
 
 from django.conf import settings
+from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
 from lando.main.models import BaseModel
@@ -16,11 +18,11 @@ DEFAULT_GRACE_SECONDS = int(os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2))
 
 
 class Repo(BaseModel):
+    """Represents the configuration of a particular repo."""
+
+    # TODO: help text for fields below.
     name = models.CharField(max_length=255, unique=True)
     default_branch = models.CharField(max_length=255, default="main")
-    url = models.CharField(max_length=255)
-    push_path = models.CharField(max_length=255)
-    pull_path = models.CharField(max_length=255)
     is_initialized = models.BooleanField(default=False)
 
     system_path = models.FilePathField(
@@ -31,8 +33,70 @@ class Repo(BaseModel):
         default="",
     )
 
+    # Legacy fields. These fields were adapted from the legacy implementation of Lando.
+    pull_path = models.CharField(blank=True)
+    push_path = models.CharField(blank=True)
+    required_permission = models.CharField(default="")
+    short_name = models.CharField(blank=True)
+    url = models.CharField()
+
+    approval_required = models.BooleanField(default=False)
+    autoformat_enabled = models.BooleanField(default=False)
+    commit_flags = ArrayField(
+        ArrayField(
+            models.CharField(max_length=32, blank=True),
+        ),
+        size=2,
+        blank=True,
+        null=True,
+        default=None,
+    )
+    force_push = models.BooleanField(default=False)
+    is_phabricator_repo = models.BooleanField(default=True)
+    milestone_tracking_flag_template = models.CharField(blank=True, default="")
+    product_details_url = models.CharField(blank=True, default="")
+    push_bookmark = models.CharField(blank=True, default="")
+
     def __str__(self):
         return f"{self.name} ({self.default_branch})"
+
+    def save(self, *args, **kwargs):
+        """Determine default fields based on legacy logic then save the instance."""
+        # NOTE: The code below was ported directly from the legacy implementation.
+        if not self.push_path or not self.pull_path:
+            url = urllib.parse.urlparse(self.url)
+            if not self.push_path:
+                self.push_path = f"ssh://{url.netloc}{url.path}"
+            if not self.pull_path:
+                self.pull_path = self.url
+
+        if not self.short_name:
+            self.short_name = self.tree
+
+        if not self.commit_flags:
+            self.commit_flags = []
+
+        super().save(*args, **kwargs)
+
+    @property
+    def tree(self):
+        """Backwards-compatibility alias for tree name."""
+        return self.name
+
+    @property
+    def access_group(self):
+        """Temporary property until all usages are ported."""
+        raise NotImplementedError(
+            "This field has been replaced by `required_permission`"
+        )
+
+    @property
+    def phab_identifier(self) -> str | None:
+        """Return a valid Phabricator identifier as a `str`. Legacy field."""
+        if not self.is_phabricator_repo:
+            return None
+
+        return self.short_name if self.short_name else self.tree
 
     def _run(self, *args, cwd=None):
         cwd = cwd or self.system_path

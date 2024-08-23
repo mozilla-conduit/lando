@@ -2,7 +2,7 @@ import pytest
 from django.http import Http404
 
 from lando.api.legacy.phabricator import PhabricatorRevisionStatus
-from lando.api.legacy.repos import get_repos_for_env
+from lando.api.legacy.repos import get_repo_mapping
 from lando.api.legacy.stacks import (
     RevisionStack,
     build_stack_graph,
@@ -603,7 +603,7 @@ def test_calculate_landable_subgraphs_missing_repo(phabdouble):
     assert blocked[r1["phid"]] == repo_unset_warning
 
 
-def test_get_landable_repos_for_revision_data(phabdouble, mocked_repo_config):
+def test_get_landable_repos_for_revision_data(db, phabdouble, mocked_repo_config):
     phab = phabdouble.get_phabricator_client()
 
     repo1 = phabdouble.repo(name="mozilla-central")
@@ -611,7 +611,7 @@ def test_get_landable_repos_for_revision_data(phabdouble, mocked_repo_config):
     r1 = phabdouble.revision(repo=repo1)
     r2 = phabdouble.revision(repo=repo2, depends_on=[r1])
 
-    supported_repos = get_repos_for_env("test")
+    supported_repos = get_repo_mapping()
     revision_data = request_extended_revision_data(phab, [r1["phid"], r2["phid"]])
 
     landable_repos = get_landable_repos_for_revision_data(
