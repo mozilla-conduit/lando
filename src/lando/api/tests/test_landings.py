@@ -232,6 +232,7 @@ def test_integrated_execute_job(
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
+        scm=Repo.HG,
         name="mozilla-central",
         url=hg_server,
         required_permission=SCM_LEVEL_3,
@@ -280,6 +281,7 @@ def test_integrated_execute_job_with_force_push(
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
+        scm=Repo.HG,
         name="mozilla-central",
         url=hg_server,
         required_permission=SCM_LEVEL_3,
@@ -327,6 +329,7 @@ def test_integrated_execute_job_with_bookmark(
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
+        scm=Repo.HG,
         name="mozilla-central",
         url=hg_server,
         required_permission=SCM_LEVEL_3,
@@ -373,6 +376,7 @@ def test_lose_push_race(
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
+        scm=Repo.HG,
         name="mozilla-central",
         url=hg_server,
         required_permission=SCM_LEVEL_3,
@@ -410,6 +414,7 @@ def test_failed_landing_job_notification(
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
+        scm=Repo.HG,
         name="mozilla-central",
         required_permission=SCM_LEVEL_3,
         push_path=hg_server,
@@ -522,6 +527,7 @@ def test_format_patch_success_unchanged(
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree(tree)
     repo = Repo.objects.create(
+        scm=Repo.HG,
         name=tree,
         url=hg_server,
         push_path=hg_server,
@@ -580,6 +586,7 @@ def test_format_single_success_changed(
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree(tree)
     repo = Repo.objects.create(
+        scm=Repo.HG,
         name=tree,
         url=hg_server,
         push_path=hg_server,
@@ -669,6 +676,7 @@ def test_format_stack_success_changed(
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree(tree)
     repo = Repo.objects.create(
+        scm=Repo.HG,
         name=tree,
         url=hg_server,
         push_path=hg_server,
@@ -750,6 +758,7 @@ def test_format_patch_fail(
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree(tree)
     repo = Repo.objects.create(
+        scm=Repo.HG,
         name=tree,
         required_permission=SCM_LEVEL_3,
         url=hg_server,
@@ -810,6 +819,7 @@ def test_format_patch_no_landoini(
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
+        scm=Repo.HG,
         name="mozilla-central",
         required_permission=SCM_LEVEL_3,
         url=hg_server,
