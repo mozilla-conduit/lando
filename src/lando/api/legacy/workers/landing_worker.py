@@ -98,7 +98,7 @@ class LandingWorker(Worker):
             self.throttle(self.sleep_seconds)
             return
 
-        with job_processing(self, job):
+        with job_processing(job):
             job.status = LandingJobStatus.IN_PROGRESS
             job.attempts += 1
             job.save()
