@@ -11,7 +11,7 @@ from time import sleep
 from django.conf import settings
 
 from lando.api.legacy.treestatus import TreeStatus
-from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
+from lando.main.models import ConfigurationKey, ConfigurationVariable, Repo
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,9 @@ class Worker:
         """Return the configuration key that pauses the worker."""
         raise NotImplementedError()
 
-    def __init__(self, repos, sleep_seconds: float = 5, with_ssh: bool = True):
+    def __init__(
+        self, repos: list[Repo], sleep_seconds: float = 5, with_ssh: bool = True
+    ):
         SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
 
         # `sleep_seconds` is how long to sleep for if the worker is paused,
