@@ -62,7 +62,6 @@ ROOT_URLCONF = "lando.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.jinja2.Jinja2",
-        "DIRS": [],
         "APP_DIRS": True,
         "OPTIONS": {"environment": "lando.jinja.environment"},
     },
@@ -93,7 +92,7 @@ DATABASES = {
         "NAME": os.getenv("DEFAULT_DB_NAME", "postgres"),
         "USER": os.getenv("DEFAULT_DB_USER", "postgres"),
         "PASSWORD": os.getenv("DEFAULT_DB_PASSWORD", "postgres"),
-        "HOST": os.getenv("DEFAULT_DB_HOST", "db"),
+        "HOST": os.getenv("DEFAULT_DB_HOST", "lando.db"),
         "PORT": os.getenv("DEFAULT_DB_PORT", "5432"),
     }
 }
@@ -164,7 +163,7 @@ COMPRESS_FILTERS = {
 COMPRESS_ENABLED = True
 
 MEDIA_URL = "media/"
-MEDIA_ROOT = "/mediafiles"
+MEDIA_ROOT = os.getenv("MEDIA_ROOT", "/files")
 
 REPO_ROOT = f"{MEDIA_ROOT}/repos"
 
@@ -173,14 +172,19 @@ SITE_URL = os.getenv("SITE_URL", "https://lando.test")
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 OIDC_DOMAIN = os.getenv("OIDC_DOMAIN")
-OIDC_OP_TOKEN_ENDPOINT = f"{OIDC_DOMAIN}/oauth/token"
-OIDC_OP_USER_ENDPOINT = f"{OIDC_DOMAIN}/userinfo"
-OIDC_OP_AUTHORIZATION_ENDPOINT = f"{OIDC_DOMAIN}/authorize"
+OIDC_BASE_URL = f"https://{OIDC_DOMAIN}"
+OIDC_OP_TOKEN_ENDPOINT = f"{OIDC_BASE_URL}/oauth/token"
+OIDC_OP_USER_ENDPOINT = f"{OIDC_BASE_URL}/userinfo"
+OIDC_OP_AUTHORIZATION_ENDPOINT = f"{OIDC_BASE_URL}/authorize"
 OIDC_REDIRECT_REQUIRE_HTTPS = True
+LOGOUT_REDIRECT_URL = "/"
+LOGIN_REDIRECT_URL = "/"
 
 OIDC_RP_CLIENT_ID = os.getenv("OIDC_RP_CLIENT_ID")
 OIDC_RP_CLIENT_SECRET = os.getenv("OIDC_RP_CLIENT_SECRET")
 OIDC_RP_SCOPES = "openid lando profile email"
+
+BUGZILLA_URL = os.getenv("BUGZILLA_URL", "http://bmo.test")
 
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
