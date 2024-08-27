@@ -4,7 +4,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from lando.api.legacy.phabricator import PhabricatorRevisionStatus, ReviewerStatus
-from lando.api.legacy.repos import DONTBUILD, SCM_CONDUIT, SCM_LEVEL_3, Repo
 from lando.api.legacy.reviews import get_collated_reviewers
 from lando.api.legacy.transplants import (
     RevisionWarning,
@@ -16,6 +15,7 @@ from lando.api.legacy.transplants import (
     warning_wip_commit_message,
 )
 from lando.api.legacy.workers.landing_worker import LandingWorker
+from lando.main.models import DONTBUILD, SCM_CONDUIT, SCM_LEVEL_3, Repo
 from lando.main.models.landing_job import (
     LandingJob,
     LandingJobStatus,
@@ -245,7 +245,7 @@ def test_dryrun_codefreeze_warn(
     )
     mc_mock = MagicMock()
     mc_mock.return_value = {"mozilla-central": mc_repo}
-    monkeypatch.setattr("lando.api.legacy.transplants.get_repo_mapping", mc_mock)
+    monkeypatch.setattr("lando.main.models.Repo.get_mapping", mc_mock)
 
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -303,7 +303,7 @@ def test_dryrun_outside_codefreeze(
     )
     mc_mock = MagicMock()
     mc_mock.return_value = {"mozilla-central": mc_repo}
-    monkeypatch.setattr("lando.api.legacy.transplants.get_repo_mapping", mc_mock)
+    monkeypatch.setattr("lando.main.models.Repo.get_mapping", mc_mock)
 
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())

@@ -1,7 +1,6 @@
 import pytest
 
 from lando.api.legacy.phabricator import PhabricatorRevisionStatus, ReviewerStatus
-from lando.api.legacy.repos import get_repo_mapping
 from lando.api.legacy.revisions import (
     check_author_planned_changes,
     check_diff_author_is_known,
@@ -12,6 +11,7 @@ from lando.api.legacy.revisions import (
 from lando.api.legacy.stacks import (
     request_extended_revision_data,
 )
+from lando.main.models import Repo
 
 pytestmark = pytest.mark.usefixtures("docker_env_vars")
 
@@ -116,7 +116,7 @@ def test_relman_approval_missing(
 ):
     """A repo with an approval required needs relman as reviewer"""
     repo = phabdouble.repo(name="uplift-target")
-    repos = get_repo_mapping()
+    repos = Repo.get_mapping()
     assert repos["uplift-target"].approval_required is True
 
     revision = phabdouble.revision(repo=repo)
@@ -142,7 +142,7 @@ def test_relman_approval_status(
 ):
     """Check only an approval from relman allows landing"""
     repo = phabdouble.repo(name="uplift-target")
-    repos = get_repo_mapping()
+    repos = Repo.get_mapping()
     assert repos["uplift-target"].approval_required is True
 
     # Add relman as reviewer with specified status

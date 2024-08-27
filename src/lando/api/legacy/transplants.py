@@ -12,7 +12,6 @@ from lando.api.legacy.phabricator import (
     PhabricatorRevisionStatus,
     ReviewerStatus,
 )
-from lando.api.legacy.repos import get_repo_mapping
 from lando.api.legacy.reviews import calculate_review_extra_state, reviewer_identity
 from lando.api.legacy.revisions import (
     check_author_planned_changes,
@@ -25,6 +24,7 @@ from lando.api.legacy.stacks import (
     RevisionData,
 )
 from lando.api.legacy.transactions import get_inline_comments
+from lando.main.models import Repo
 from lando.main.models.landing_job import LandingJob, LandingJobStatus
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.main.support import LegacyAPIException
@@ -309,7 +309,7 @@ def warning_wip_commit_message(*, revision, **kwargs):
 
 @RevisionWarningCheck(8, "Repository is under a soft code freeze.", True)
 def warning_code_freeze(*, repo, **kwargs):
-    supported_repos = get_repo_mapping()
+    supported_repos = Repo.get_mapping()
     try:
         repo_details = supported_repos[repo["fields"]["shortName"]]
     except KeyError:

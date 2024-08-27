@@ -7,9 +7,8 @@ from lando.api.legacy.hgexports import (
     get_timestamp_from_git_date_header,
     parse_git_author_information,
 )
-from lando.api.legacy.repos import SCM_LEVEL_1, Repo
 from lando.api.legacy.workers.landing_worker import LandingWorker
-from lando.main.models.landing_job import LandingJob, LandingJobStatus
+from lando.main.models import SCM_LEVEL_1, LandingJob, LandingJobStatus, Repo
 
 pytest.skip(allow_module_level=True)
 

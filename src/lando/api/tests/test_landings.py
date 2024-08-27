@@ -5,8 +5,8 @@ import unittest.mock as mock
 import pytest
 
 from lando.api.legacy.hg import AUTOFORMAT_COMMIT_MESSAGE, HgRepo
-from lando.api.legacy.repos import SCM_LEVEL_3, Repo
 from lando.api.legacy.workers.landing_worker import LandingWorker
+from lando.main.models import SCM_LEVEL_3, Repo
 from lando.main.models.landing_job import (
     LandingJob,
     LandingJobStatus,

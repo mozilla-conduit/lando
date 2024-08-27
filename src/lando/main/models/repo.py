@@ -18,6 +18,16 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_GRACE_SECONDS = int(os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2))
 
+# DONTBUILD flag and help text.
+DONTBUILD = (
+    "DONTBUILD",
+    (
+        "Should be used only for trivial changes (typo, comment changes,"
+        " documentation changes, etc.) where the risk of introducing a"
+        " new bug is close to none."
+    ),
+)
+
 
 class RepoError(Exception):
     pass
@@ -77,6 +87,10 @@ class Repo(BaseModel):
     milestone_tracking_flag_template = models.CharField(blank=True, default="")
     product_details_url = models.CharField(blank=True, default="")
     push_bookmark = models.CharField(blank=True, default="")
+
+    @classmethod
+    def get_mapping(cls) -> dict[str, "Repo"]:
+        return {repo.tree: repo for repo in cls.objects.all()}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

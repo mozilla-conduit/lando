@@ -2,7 +2,6 @@ import pytest
 from django.http import Http404
 
 from lando.api.legacy.phabricator import PhabricatorRevisionStatus
-from lando.api.legacy.repos import get_repo_mapping
 from lando.api.legacy.stacks import (
     RevisionStack,
     build_stack_graph,
@@ -10,6 +9,7 @@ from lando.api.legacy.stacks import (
     get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
+from lando.main.models import Repo
 
 
 def test_build_stack_graph_single_node(phabdouble):
@@ -611,7 +611,7 @@ def test_get_landable_repos_for_revision_data(db, phabdouble, mocked_repo_config
     r1 = phabdouble.revision(repo=repo1)
     r2 = phabdouble.revision(repo=repo2, depends_on=[r1])
 
-    supported_repos = get_repo_mapping()
+    supported_repos = Repo.get_mapping()
     revision_data = request_extended_revision_data(phab, [r1["phid"], r2["phid"]])
 
     landable_repos = get_landable_repos_for_revision_data(

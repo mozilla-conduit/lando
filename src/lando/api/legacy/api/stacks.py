@@ -12,7 +12,6 @@ from lando.api.legacy.projects import (
     get_secure_project_phid,
     project_search,
 )
-from lando.api.legacy.repos import get_repo_mapping
 from lando.api.legacy.reviews import (
     approvals_for_commit_message,
     get_collated_reviewers,
@@ -37,6 +36,7 @@ from lando.api.legacy.stacks import (
 from lando.api.legacy.transplants import get_blocker_checks
 from lando.api.legacy.users import user_search
 from lando.main.auth import require_phabricator_api_key
+from lando.main.models import Repo
 from lando.main.models.revision import Revision
 
 logger = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ def get(phab: PhabricatorClient, request: HttpRequest, revision_id: int):
     except ValueError:
         raise Http404(HTTP_404_STRING)
 
-    supported_repos = get_repo_mapping()
+    supported_repos = Repo.get_mapping()
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
 
     release_managers = get_release_managers(phab)

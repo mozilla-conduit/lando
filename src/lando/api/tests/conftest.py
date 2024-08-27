@@ -25,9 +25,9 @@ from lando.api.legacy.projects import (
     SEC_APPROVAL_PROJECT_SLUG,
     SEC_PROJ_SLUG,
 )
-from lando.api.legacy.repos import SCM_LEVEL_1, SCM_LEVEL_3, Repo
 from lando.api.legacy.transplants import CODE_FREEZE_OFFSET, tokens_are_equal
 from lando.api.tests.mocks import PhabricatorDouble, TreeStatusDouble
+from lando.main.models import SCM_LEVEL_1, SCM_LEVEL_3, Repo
 from lando.main.support import LegacyAPIException
 
 PATCH_NORMAL_1 = r"""
@@ -492,6 +492,7 @@ def mock_permissions():
         "main.scm_level_1",
         "main.scm_level_2",
         "main.scm_level_3",
+        "main.scm_conduit",
     )
 
 
