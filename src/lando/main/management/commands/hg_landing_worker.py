@@ -15,6 +15,13 @@ class Command(BaseCommand, WorkerMixin):
     name = "hg-landing-worker"
 
     def handle(self, *args, **options):
+        # Clone or update repos upon worker startup.
+        for repo in self._instance.enabled_repos:
+            # Check if any associated repos are unsupported, raise exception if so.
+            repo.raise_for_unsupported_repo_scm(repo.HG)
+            repo.hg_repo_prepare()
+
+        # Continue with starting the worker.
         try:
             worker = LandingWorker(self._instance.enabled_repos)
         except ConnectionError as e:
