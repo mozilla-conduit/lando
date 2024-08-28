@@ -18,7 +18,7 @@ class Command(BaseCommand, WorkerMixin):
         # Clone or update repos upon worker startup.
         for repo in self._instance.enabled_repos:
             # Check if any associated repos are unsupported, raise exception if so.
-            repo.raise_if_not(repo.HG)
+            repo.raise_for_unsupported_repo_scm(repo.HG)
             repo.hg_repo_prepare()
 
         # Continue with starting the worker.
