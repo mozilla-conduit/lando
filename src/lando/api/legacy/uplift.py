@@ -16,16 +16,13 @@ from packaging.version import (
 from lando.api.legacy import bmo
 from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.phabricator_patch import patch_to_changes
-from lando.api.legacy.repos import (
-    Repo,
-    get_repo_mapping,
-)
 from lando.api.legacy.stacks import (
     RevisionData,
     RevisionStack,
     build_stack_graph,
     request_extended_revision_data,
 )
+from lando.main.models import Repo
 
 logger = logging.getLogger(__name__)
 
@@ -148,7 +145,7 @@ def get_local_uplift_repo(phab: PhabricatorClient, target_repository: dict) -> R
     Raise if the repo is not an uplift repo.
     """
     # Check the target repository needs an approval.
-    repos = get_repo_mapping()
+    repos = Repo.get_mapping()
     repo_shortname = phab.expect(target_repository, "fields", "shortName")
     local_repo = repos.get(repo_shortname)
 

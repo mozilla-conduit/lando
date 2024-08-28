@@ -21,10 +21,6 @@ from lando.api.legacy.projects import (
     get_testing_tag_project_phids,
     project_search,
 )
-from lando.api.legacy.repos import (
-    Repo,
-    get_repo_mapping,
-)
 from lando.api.legacy.reviews import (
     approvals_for_commit_message,
     get_approved_by_ids,
@@ -58,12 +54,12 @@ from lando.api.legacy.validation import (
     revision_id_to_int,
 )
 from lando.main.auth import require_authenticated_user, require_phabricator_api_key
+from lando.main.models import Repo, Revision
 from lando.main.models.landing_job import (
     LandingJob,
     LandingJobStatus,
     add_revisions_to_job,
 )
-from lando.main.models.revision import Revision
 from lando.main.support import LegacyAPIException, problem
 from lando.utils.tasks import admin_remove_phab_project
 
@@ -137,7 +133,7 @@ def _assess_transplant_request(
     stack_data = request_extended_revision_data(phab, list(nodes))
     landing_path_phid = convert_path_id_to_phid(landing_path, stack_data)
 
-    supported_repos = get_repo_mapping()
+    supported_repos = Repo.get_mapping()
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
 
     other_checks = get_blocker_checks(

@@ -11,10 +11,8 @@ from lando.api.legacy.hgexports import (
     HgPatchHelper,
     PatchHelper,
 )
-from lando.api.legacy.repos import (
-    get_repo_mapping,
-)
 from lando.main.auth import require_authenticated_user, require_permission
+from lando.main.models import Repo
 from lando.main.models.landing_job import (
     LandingJobStatus,
     add_job_with_revisions,
@@ -96,7 +94,7 @@ def post_patches(request: HttpRequest, data: dict):
     patches = data["patches"]
     patch_format = PatchFormat(data["patch_format"])
 
-    environment_repos = get_repo_mapping()
+    environment_repos = Repo.get_mapping()
     try_repo = environment_repos.get("try")
     if not try_repo:
         raise LegacyAPIException(

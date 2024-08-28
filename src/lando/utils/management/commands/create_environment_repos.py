@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.db.utils import IntegrityError
 
-from lando.api.legacy.repos import (
+from lando.main.models import (
     DONTBUILD,
     SCM_ALLOW_DIRECT_PUSH,
     SCM_CONDUIT,
@@ -11,11 +11,10 @@ from lando.api.legacy.repos import (
     SCM_LEVEL_3,
     SCM_NSS,
     SCM_VERSIONCONTROL,
+    Repo,
 )
-from lando.main.models import Repo
 
 ENVIRONMENTS = ("local", "dev", "stage", "prod")
-
 
 # These repos are copied from the legacy repo "subsystem".
 REPOS = {
