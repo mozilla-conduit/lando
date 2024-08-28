@@ -714,7 +714,6 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     checkin_project,
     mock_permissions,
 ):
-    treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
         scm=Repo.HG,
@@ -779,8 +778,8 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     approved_by = [revision.data["approved_by"] for revision in job.revisions.all()]
     assert approved_by == [[101], [102]]
 
-    worker = LandingWorker(sleep_seconds=0.01)
-    assert worker.run_job(job, repo, hgrepo, treestatus)
+    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
+    assert worker.run_job(job, repo, hgrepo)
     for revision in job.revisions.all():
         if revision.revision_id == 1:
             assert revision.data["peers_and_owners"] == [101]

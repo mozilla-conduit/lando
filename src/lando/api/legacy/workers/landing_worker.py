@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import kombu
+from django.db import transaction
 
 from lando.api.legacy.commit_message import parse_bugs
 from lando.api.legacy.hg import (
@@ -31,10 +32,6 @@ from lando.api.legacy.repos import (
     Repo,
     repo_clone_subsystem,
 )
-from lando.api.legacy.treestatus import (
-    TreeStatus,
-    treestatus_subsystem,
-)
 from lando.api.legacy.uplift import (
     update_bugs_for_uplift,
 )
@@ -47,14 +44,13 @@ logger = logging.getLogger(__name__)
 
 
 @contextmanager
-def job_processing(worker: LandingWorker, job: LandingJob):
+def job_processing(job: LandingJob):
     """Mutex-like context manager that manages job processing miscellany.
 
     This context manager facilitates graceful worker shutdown, tracks the duration of
     the current job, and commits changes to the DB at the very end.
 
     Args:
-        worker: the landing worker that is processing jobs
         job: the job currently being processed
     """
     start_time = datetime.now()
@@ -95,15 +91,14 @@ class LandingWorker(Worker):
             self.throttle(self.sleep_seconds)
             self.refresh_enabled_repos()
 
-        job = LandingJob.next_job_for_update_query(
-            repositories=self.enabled_repos
-        ).first()
+        with transaction.atomic():
+            job = LandingJob.next_job(repositories=self.enabled_repos).first()
 
         if job is None:
             self.throttle(self.sleep_seconds)
             return
 
-        with job_processing(self, job):
+        with job_processing(job):
             job.status = LandingJobStatus.IN_PROGRESS
             job.attempts += 1
             job.save()
@@ -119,7 +114,6 @@ class LandingWorker(Worker):
                 job,
                 repo,
                 hgrepo,
-                treestatus_subsystem.client,
             )
             logger.info("Finished processing landing job", extra={"id": job.id})
 
@@ -247,7 +241,6 @@ class LandingWorker(Worker):
         job: LandingJob,
         repo: Repo,
         hgrepo: HgRepo,
-        treestatus: TreeStatus,
     ) -> bool:
         """Run a given LandingJob and return appropriate boolean state.
 
@@ -262,7 +255,7 @@ class LandingWorker(Worker):
             True: The job finished processing and is in a permanent state.
             False: The job encountered a temporary failure and should be tried again.
         """
-        if not treestatus.is_open(repo.tree):
+        if not self.treestatus_client.is_open(repo.tree):
             job.transition_status(
                 LandingJobAction.DEFER,
                 message=f"Tree {repo.tree} is closed - retrying later.",

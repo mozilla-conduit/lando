@@ -392,6 +392,7 @@ def post(phab: PhabricatorClient, request: HttpRequest, data: dict):
             requester_email=ldap_username,
             repository_name=landing_repo.short_name,
             repository_url=landing_repo.url,
+            target_repo=landing_repo,
         )
         job.save()
 
