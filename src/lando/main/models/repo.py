@@ -89,7 +89,7 @@ class Repo(BaseModel):
     def __str__(self):
         return f"{self.name} ({self.default_branch})"
 
-    def get_system_path(self):
+    def get_system_path(self) -> str:
         """Calculate system path based on REPO_ROOT and repository name."""
         return str(Path(settings.REPO_ROOT) / self.name)
 
