@@ -19,6 +19,8 @@ DEFAULT_GRACE_SECONDS = int(os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2))
 
 
 class RepoError(Exception):
+    """An exception that is raised when there is a fatal repository related issue."""
+
     pass
 
 
@@ -80,29 +82,29 @@ class Repo(BaseModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.is_hg_repo:
-            self.hg = HgRepo(self.system_path or self._system_path)
+            self.hg = HgRepo(self.system_path or self.get_system_path())
         else:
             self.hg = None
 
     def __str__(self):
         return f"{self.name} ({self.default_branch})"
 
-    @property
-    def _system_path(self):
+    def get_system_path(self):
+        """Calculate system path based on REPO_ROOT and repository name."""
         return str(Path(settings.REPO_ROOT) / self.name)
 
     @property
-    def _method_not_supported_for_repo_error(self):
+    def _method_not_supported_for_repo_error(self) -> RepoError:
         return RepoError(f"Method is not supported for {self}")
 
-    def raise_if_not(self, repo_scm):
+    def raise_for_unsupported_repo_scm(self, repo_scm):
         if repo_scm != self.scm:
             raise self._method_not_supported_for_repo_error
 
     def save(self, *args, **kwargs):
         """Determine values for various fields upon saving the instance."""
         if not self.system_path:
-            self.system_path = self._system_path
+            self.system_path = self.get_system_path()
 
         if not self.push_path or not self.pull_path:
             url = urllib.parse.urlparse(self.url)
