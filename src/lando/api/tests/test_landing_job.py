@@ -1,6 +1,6 @@
 import pytest
 
-from lando.main.models.landing_job import LandingJob, LandingJobStatus
+from lando.main.models import LandingJob, LandingJobStatus, Repo
 
 
 @pytest.fixture
@@ -117,27 +117,27 @@ def test_cancel_landing_job_fails_bad_input(db, client, landing_job, mock_permis
     assert job.status == LandingJobStatus.SUBMITTED
 
 
-def test_landing_job_acquire_job_job_queue_query(db):
-    REPO_NAME = "test-repo"
+def test_landing_job_acquire_job_job_queue_query(db, mocked_repo_config):
+    REPO = Repo.objects.create(name="test-repo", scm=Repo.HG)
     jobs = [
         LandingJob(
             status=LandingJobStatus.SUBMITTED,
             requester_email="test@example.com",
-            repository_name=REPO_NAME,
+            target_repo=REPO,
             revision_to_diff_id={"1": 1},
             revision_order=["1"],
         ),
         LandingJob(
             status=LandingJobStatus.SUBMITTED,
             requester_email="test@example.com",
-            repository_name=REPO_NAME,
+            target_repo=REPO,
             revision_to_diff_id={"2": 2},
             revision_order=["2"],
         ),
         LandingJob(
             status=LandingJobStatus.SUBMITTED,
             requester_email="test@example.com",
-            repository_name=REPO_NAME,
+            target_repo=REPO,
             revision_to_diff_id={"3": 3},
             revision_order=["3"],
         ),
@@ -147,7 +147,7 @@ def test_landing_job_acquire_job_job_queue_query(db):
     # Queue order should match the order the jobs were created in.
 
     for qjob, job in zip(
-        LandingJob.job_queue_query(repositories=[REPO_NAME]), jobs, strict=False
+        LandingJob.job_queue_query(repositories=[REPO]), jobs, strict=False
     ):
         assert qjob.id == job.id
 
@@ -160,9 +160,7 @@ def test_landing_job_acquire_job_job_queue_query(db):
         job.save()
     # The now IN_PROGRESS job should be first, and the cancelled job should
     # not appear in the queue.
-    queue_items = LandingJob.job_queue_query(
-        repositories=[REPO_NAME], grace_seconds=0
-    ).all()
+    queue_items = LandingJob.job_queue_query(repositories=[REPO], grace_seconds=0).all()
     assert len(queue_items) == 2
     assert queue_items[0].id == jobs[2].id
     assert queue_items[1].id == jobs[0].id

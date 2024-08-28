@@ -16,7 +16,6 @@ from lando.api.legacy.hg import (
     REJECTS_PATH,
     AutoformattingException,
     HgmoInternalServerError,
-    HgRepo,
     LostPushRace,
     NoDiffStartLine,
     PatchConflict,
@@ -28,16 +27,13 @@ from lando.api.legacy.notifications import (
     notify_user_of_bug_update_failure,
     notify_user_of_landing_failure,
 )
-from lando.api.legacy.repos import (
-    Repo,
-    repo_clone_subsystem,
-)
 from lando.api.legacy.uplift import (
     update_bugs_for_uplift,
 )
 from lando.api.legacy.workers.base import Worker
 from lando.main.models.configuration import ConfigurationKey
 from lando.main.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
+from lando.main.models.repo import Repo
 from lando.utils.tasks import phab_trigger_repo_update
 
 logger = logging.getLogger(__name__)
@@ -104,17 +100,8 @@ class LandingWorker(Worker):
             job.save()
 
             # Make sure the status and attempt count are updated in the database
-            repo = repo_clone_subsystem.repos[job.repository_name]
-            hgrepo = HgRepo(
-                str(repo_clone_subsystem.repo_paths[job.repository_name]),
-            )
-
             logger.info("Starting landing job", extra={"id": job.id})
-            self.last_job_finished = self.run_job(
-                job,
-                repo,
-                hgrepo,
-            )
+            self.last_job_finished = self.run_job(job)
             logger.info("Finished processing landing job", extra={"id": job.id})
 
     @staticmethod
@@ -133,7 +120,6 @@ class LandingWorker(Worker):
         self,
         exception: PatchConflict,
         repo: Repo,
-        hgrepo: HgRepo,
         revision_id: int,
     ) -> dict[str, Any]:
         """Extract and parse merge conflict data from exception into a usable format."""
@@ -143,11 +129,11 @@ class LandingWorker(Worker):
         failed_path_changesets = [
             (
                 path,
-                hgrepo.run_hg(
+                repo.hg.run_hg(
                     [
                         "log",
                         "--cwd",
-                        hgrepo.path,
+                        repo.hg.path,
                         "--template",
                         "{node}",
                         "-l",
@@ -177,7 +163,7 @@ class LandingWorker(Worker):
         for path in reject_paths:
             reject = {"path": path}
             try:
-                with open(REJECTS_PATH / hgrepo.path[1:] / path, "r") as f:
+                with open(REJECTS_PATH / repo.hg.path[1:] / path, "r") as f:
                     reject["content"] = f.read()
             except Exception as e:
                 logger.exception(e)
@@ -236,12 +222,7 @@ class LandingWorker(Worker):
 
         return failed_paths, reject_paths
 
-    def run_job(
-        self,
-        job: LandingJob,
-        repo: Repo,
-        hgrepo: HgRepo,
-    ) -> bool:
+    def run_job(self, job: LandingJob) -> bool:
         """Run a given LandingJob and return appropriate boolean state.
 
         Running a landing job goes through the following steps:
@@ -255,6 +236,7 @@ class LandingWorker(Worker):
             True: The job finished processing and is in a permanent state.
             False: The job encountered a temporary failure and should be tried again.
         """
+        repo = job.target_repo
         if not self.treestatus_client.is_open(repo.tree):
             job.transition_status(
                 LandingJobAction.DEFER,
@@ -262,11 +244,11 @@ class LandingWorker(Worker):
             )
             return False
 
-        with hgrepo.for_push(job.requester_email):
+        with repo.hg.for_push(job.requester_email):
             # Update local repo.
             repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
             try:
-                hgrepo.update_repo(repo.pull_path, target_cset=job.target_commit_hash)
+                repo.hg.update_repo(repo.pull_path, target_cset=job.target_commit_hash)
             except HgmoInternalServerError as e:
                 message = (
                     f"`Temporary error ({e.__class__}) "
@@ -292,10 +274,10 @@ class LandingWorker(Worker):
                 patch_buf = StringIO(revision.patch_string)
 
                 try:
-                    hgrepo.apply_patch(patch_buf)
+                    repo.hg.apply_patch(patch_buf)
                 except PatchConflict as exc:
                     breakdown = self.process_merge_conflict(
-                        exc, repo, hgrepo, revision.revision_id
+                        exc, repo, repo.hg, revision.revision_id
                     )
                     job.error_breakdown = breakdown
 
@@ -335,7 +317,7 @@ class LandingWorker(Worker):
 
             # Get the changeset titles for the stack.
             changeset_titles = (
-                hgrepo.run_hg(["log", "-r", "stack()", "-T", "{desc|firstline}\n"])
+                repo.hg.run_hg(["log", "-r", "stack()", "-T", "{desc|firstline}\n"])
                 .decode("utf-8")
                 .splitlines()
             )
@@ -348,7 +330,7 @@ class LandingWorker(Worker):
             # Run automated code formatters if enabled.
             if repo.autoformat_enabled:
                 try:
-                    replacements = hgrepo.format_stack(len(changeset_titles), bug_ids)
+                    replacements = repo.hg.format_stack(len(changeset_titles), bug_ids)
 
                     # If autoformatting added any changesets, note those in the job.
                     if replacements:
@@ -368,13 +350,13 @@ class LandingWorker(Worker):
                     return False
 
             # Get the changeset hash of the first node.
-            commit_id = hgrepo.run_hg(["log", "-r", ".", "-T", "{node}"]).decode(
+            commit_id = repo.hg.run_hg(["log", "-r", ".", "-T", "{node}"]).decode(
                 "utf-8"
             )
 
             repo_push_info = f"tree: {repo.tree}, push path: {repo.push_path}"
             try:
-                hgrepo.push(
+                repo.hg.push(
                     repo.push_path,
                     bookmark=repo.push_bookmark or None,
                     force_push=repo.force_push,
@@ -405,7 +387,7 @@ class LandingWorker(Worker):
 
         job.transition_status(LandingJobAction.LAND, commit_id=commit_id)
 
-        mots_path = Path(hgrepo.path) / "mots.yaml"
+        mots_path = Path(repo.hg.path) / "mots.yaml"
         if mots_path.exists():
             logger.info(f"{mots_path} found, setting reviewer data.")
             job.set_landed_reviewers(mots_path)
@@ -419,7 +401,7 @@ class LandingWorker(Worker):
                 # If we just landed an uplift, update the relevant bugs as appropriate.
                 update_bugs_for_uplift(
                     repo.short_name,
-                    hgrepo.read_checkout_file("config/milestone.txt"),
+                    repo.hg.read_checkout_file("config/milestone.txt"),
                     repo.milestone_tracking_flag_template,
                     bug_ids,
                 )

@@ -237,15 +237,15 @@ def test_integrated_execute_job(
         required_permission=SCM_LEVEL_3,
         push_path=hg_server,
         pull_path=hg_server,
+        system_path=hg_clone.strpath,
     )
-    hgrepo = HgRepo(hg_clone.strpath)
     revisions = [
         create_patch_revision(number, **kwargs) for number, kwargs in revisions_params
     ]
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
-        "repository_name": "mozilla-central",
+        "target_repo": repo,
         "attempts": 1,
     }
     job = add_job_with_revisions(revisions, **job_params)
@@ -259,7 +259,7 @@ def test_integrated_execute_job(
         mock_trigger_update,
     )
 
-    assert worker.run_job(job, repo, hgrepo)
+    assert worker.run_job(job)
     assert job.status == LandingJobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40
     assert (
@@ -286,12 +286,12 @@ def test_integrated_execute_job_with_force_push(
         push_path=hg_server,
         pull_path=hg_server,
         force_push=True,
+        system_path=hg_clone.strpath,
     )
-    hgrepo = HgRepo(hg_clone.strpath)
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
-        "repository_name": "mozilla-central",
+        "target_repo": repo,
         "attempts": 1,
     }
     job = add_job_with_revisions([create_patch_revision(1)], **job_params)
@@ -305,13 +305,13 @@ def test_integrated_execute_job_with_force_push(
         mock.MagicMock(),
     )
 
-    hgrepo.push = mock.MagicMock()
-    assert worker.run_job(job, repo, hgrepo)
-    assert hgrepo.push.call_count == 1
-    assert len(hgrepo.push.call_args) == 2
-    assert len(hgrepo.push.call_args[0]) == 1
-    assert hgrepo.push.call_args[0][0] == hg_server
-    assert hgrepo.push.call_args[1] == {"bookmark": None, "force_push": True}
+    repo.hg.push = mock.MagicMock()
+    assert worker.run_job(job)
+    assert repo.hg.push.call_count == 1
+    assert len(repo.hg.push.call_args) == 2
+    assert len(repo.hg.push.call_args[0]) == 1
+    assert repo.hg.push.call_args[0][0] == hg_server
+    assert repo.hg.push.call_args[1] == {"bookmark": None, "force_push": True}
 
 
 def test_integrated_execute_job_with_bookmark(
@@ -333,12 +333,12 @@ def test_integrated_execute_job_with_bookmark(
         push_path=hg_server,
         pull_path=hg_server,
         push_bookmark="@",
+        system_path=hg_clone.strpath,
     )
-    hgrepo = HgRepo(hg_clone.strpath)
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
-        "repository_name": "mozilla-central",
+        "target_repo": repo,
         "attempts": 1,
     }
     job = add_job_with_revisions([create_patch_revision(1)], **job_params)
@@ -352,13 +352,13 @@ def test_integrated_execute_job_with_bookmark(
         mock.MagicMock(),
     )
 
-    hgrepo.push = mock.MagicMock()
-    assert worker.run_job(job, repo, hgrepo)
-    assert hgrepo.push.call_count == 1
-    assert len(hgrepo.push.call_args) == 2
-    assert len(hgrepo.push.call_args[0]) == 1
-    assert hgrepo.push.call_args[0][0] == hg_server
-    assert hgrepo.push.call_args[1] == {"bookmark": "@", "force_push": False}
+    repo.hg.push = mock.MagicMock()
+    assert worker.run_job(job)
+    assert repo.hg.push.call_count == 1
+    assert len(repo.hg.push.call_args) == 2
+    assert len(repo.hg.push.call_args[0]) == 1
+    assert repo.hg.push.call_args[0][0] == hg_server
+    assert repo.hg.push.call_args[1] == {"bookmark": "@", "force_push": False}
 
 
 def test_lose_push_race(
@@ -378,13 +378,13 @@ def test_lose_push_race(
         required_permission=SCM_LEVEL_3,
         push_path=hg_server,
         pull_path=hg_server,
+        system_path=hg_clone.strpath,
     )
-    hgrepo = HgRepo(hg_clone.strpath)
     job_params = {
         "id": 1234,
         "status": LandingJobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
-        "repository_name": "mozilla-central",
+        "target_repo": repo,
         "attempts": 1,
     }
     job = add_job_with_revisions(
@@ -393,7 +393,7 @@ def test_lose_push_race(
 
     worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
 
-    assert not worker.run_job(job, repo, hgrepo)
+    assert not worker.run_job(job)
     assert job.status == LandingJobStatus.DEFERRED
 
 
@@ -416,9 +416,9 @@ def test_failed_landing_job_notification(
         pull_path=hg_server,
         approval_required=True,
         autoformat_enabled=False,
+        system_path=hg_clone.strpath,
     )
 
-    hgrepo = HgRepo(hg_clone.strpath)
     revisions = [
         create_patch_revision(1),
         create_patch_revision(2),
@@ -426,17 +426,17 @@ def test_failed_landing_job_notification(
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
-        "repository_name": "mozilla-central",
+        "target_repo": repo,
         "attempts": 1,
     }
     job = add_job_with_revisions(revisions, **job_params)
 
     worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
 
-    # Mock `hgrepo.update_repo` so we can force a failed landing.
+    # Mock `repo.hg.update_repo` so we can force a failed landing.
     mock_update_repo = mock.MagicMock()
     mock_update_repo.side_effect = Exception("Forcing a failed landing")
-    monkeypatch.setattr(hgrepo, "update_repo", mock_update_repo)
+    monkeypatch.setattr(repo.hg, "update_repo", mock_update_repo)
 
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
@@ -445,7 +445,7 @@ def test_failed_landing_job_notification(
         mock_notify,
     )
 
-    assert worker.run_job(job, repo, hgrepo)
+    assert worker.run_job(job)
     assert job.status == LandingJobStatus.FAILED
     assert mock_notify.call_count == 1
 
@@ -528,9 +528,8 @@ def test_format_patch_success_unchanged(
         pull_path=hg_server,
         required_permission=SCM_LEVEL_3,
         autoformat_enabled=True,
+        system_path=hg_clone.strpath,
     )
-
-    hgrepo = HgRepo(hg_clone.strpath)
 
     revisions = [
         create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_PASS),
@@ -539,7 +538,7 @@ def test_format_patch_success_unchanged(
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
-        "repository_name": tree,
+        "target_repo": repo,
         "attempts": 1,
     }
     job = add_job_with_revisions(revisions, **job_params)
@@ -553,7 +552,7 @@ def test_format_patch_success_unchanged(
         mock_trigger_update,
     )
 
-    assert worker.run_job(job, repo, hgrepo)
+    assert worker.run_job(job)
     assert (
         job.status == LandingJobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
@@ -586,6 +585,7 @@ def test_format_single_success_changed(
         pull_path=hg_server,
         required_permission=SCM_LEVEL_3,
         autoformat_enabled=True,
+        system_path=hg_clone.strpath,
     )
 
     # Push the `mach` formatting patch.
@@ -601,7 +601,7 @@ def test_format_single_success_changed(
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
-        "repository_name": tree,
+        "target_repo": repo,
         "attempts": 1,
     }
     job = add_job_with_revisions(
@@ -617,9 +617,7 @@ def test_format_single_success_changed(
         mock_trigger_update,
     )
 
-    assert worker.run_job(
-        job, repo, hgrepo
-    ), "`run_job` should return `True` on a successful run."
+    assert worker.run_job(job), "`run_job` should return `True` on a successful run."
     assert (
         job.status == LandingJobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
@@ -675,6 +673,7 @@ def test_format_stack_success_changed(
         pull_path=hg_server,
         required_permission=SCM_LEVEL_3,
         autoformat_enabled=True,
+        system_path=hg_clone.strpath,
     )
 
     hgrepo = HgRepo(hg_clone.strpath)
@@ -687,7 +686,7 @@ def test_format_stack_success_changed(
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
-        "repository_name": tree,
+        "target_repo": repo,
         "attempts": 1,
     }
     job = add_job_with_revisions(revisions, **job_params)
@@ -701,9 +700,7 @@ def test_format_stack_success_changed(
         mock_trigger_update,
     )
 
-    assert worker.run_job(
-        job, repo, hgrepo
-    ), "`run_job` should return `True` on a successful run."
+    assert worker.run_job(job), "`run_job` should return `True` on a successful run."
     assert (
         job.status == LandingJobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
@@ -756,9 +753,8 @@ def test_format_patch_fail(
         push_path=hg_server,
         pull_path=hg_server,
         autoformat_enabled=True,
+        system_path=hg_clone.strpath,
     )
-
-    hgrepo = HgRepo(hg_clone.strpath)
 
     revisions = [
         create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_FAIL),
@@ -768,7 +764,7 @@ def test_format_patch_fail(
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
-        "repository_name": tree,
+        "target_repo": repo,
         "attempts": 1,
     }
     job = add_job_with_revisions(revisions, **job_params)
@@ -783,7 +779,7 @@ def test_format_patch_fail(
     )
 
     assert not worker.run_job(
-        job, repo, hgrepo
+        job
     ), "`run_job` should return `False` when autoformatting fails."
     assert (
         job.status == LandingJobStatus.FAILED
@@ -816,9 +812,8 @@ def test_format_patch_no_landoini(
         push_path=hg_server,
         pull_path=hg_server,
         autoformat_enabled=True,
+        system_path=hg_clone.strpath,
     )
-
-    hgrepo = HgRepo(hg_clone.strpath)
 
     revisions = [
         create_patch_revision(1),
@@ -827,7 +822,7 @@ def test_format_patch_no_landoini(
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
-        "repository_name": "mozilla-central",
+        "target_repo": repo,
         "attempts": 1,
     }
     job = add_job_with_revisions(revisions, **job_params)
@@ -848,7 +843,7 @@ def test_format_patch_no_landoini(
         mock_notify,
     )
 
-    assert worker.run_job(job, repo, hgrepo)
+    assert worker.run_job(job)
     assert (
         job.status == LandingJobStatus.LANDED
     ), "Missing `.lando.ini` should not inhibit landing."

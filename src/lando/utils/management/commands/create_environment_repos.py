@@ -47,14 +47,14 @@ REPOS = {
             "approval_required": True,
             "milestone_tracking_flag_template": "cf_status_firefox{milestone}",
         },
-        # Approval is required for the uplift dev repo
-        {
-            "name": "uplift-target",
-            "url": "http://hg.test",  # TODO: fix this? URL is probably incorrect.
-            "required_permission": SCM_LEVEL_1,
-            "approval_required": True,
-            "milestone_tracking_flag_template": "cf_status_firefox{milestone}",
-        },
+        # # Approval is required for the uplift dev repo
+        # {
+        #     "name": "uplift-target",
+        #     "url": "http://hg.test",  # TODO: fix this? URL is probably incorrect.
+        #     "required_permission": SCM_LEVEL_1,
+        #     "approval_required": True,
+        #     "milestone_tracking_flag_template": "cf_status_firefox{milestone}",
+        # },
     ],
     "dev": [
         {

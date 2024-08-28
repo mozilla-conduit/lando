@@ -9,12 +9,19 @@ from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
+from lando.api.legacy.hg import HgRepo
 from lando.main.models import BaseModel
 from lando.utils import GitPatchHelper
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_GRACE_SECONDS = int(os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2))
+
+
+class RepoError(Exception):
+    """An exception that is raised when there is a fatal repository related issue."""
+
+    pass
 
 
 class Repo(BaseModel):
@@ -72,20 +79,34 @@ class Repo(BaseModel):
     product_details_url = models.CharField(blank=True, default="")
     push_bookmark = models.CharField(blank=True, default="")
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.is_hg_repo:
+            self.hg = HgRepo(self.system_path or self.get_system_path())
+        else:
+            self.hg = None
+
     def __str__(self):
         return f"{self.name} ({self.default_branch})"
 
+    def get_system_path(self) -> str:
+        """Calculate system path based on REPO_ROOT and repository name."""
+        return str(Path(settings.REPO_ROOT) / self.name)
+
+    @property
+    def _method_not_supported_for_repo_error(self) -> RepoError:
+        return RepoError(f"Method is not supported for {self}")
+
+    def raise_for_unsupported_repo_scm(self, supported_scm: str):
+        """Raise a RepoError if the repo SCM does not match the supported SCM."""
+        if supported_scm != self.scm:
+            raise self._method_not_supported_for_repo_error
+
     def save(self, *args, **kwargs):
         """Determine values for various fields upon saving the instance."""
-        if self.scm is None:
-            if self._is_git_repo:
-                self.scm = self.GIT
-            elif self._is_hg_repo:
-                self.scm = self.HG
-            else:
-                raise ValueError("Could not determine repo type.")
+        if not self.system_path:
+            self.system_path = self.get_system_path()
 
-        # NOTE: The code below was ported directly from the legacy implementation.
         if not self.push_path or not self.pull_path:
             url = urllib.parse.urlparse(self.url)
             if not self.push_path:
@@ -98,6 +119,14 @@ class Repo(BaseModel):
 
         if not self.commit_flags:
             self.commit_flags = []
+
+        if self.scm is None:
+            if self._is_git_repo:
+                self.scm = self.GIT
+            elif self._is_hg_repo:
+                self.scm = self.HG
+            else:
+                raise ValueError("Could not determine repo type.")
 
         super().save(*args, **kwargs)
 

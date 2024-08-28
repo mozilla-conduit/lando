@@ -212,7 +212,7 @@ class LandingJob(BaseModel):
         q = cls.objects.filter(status__in=applicable_statuses)
 
         if repositories:
-            q = q.filter(repository_name__in=repositories)
+            q = q.filter(target_repo__in=repositories)
 
         if grace_seconds:
             now = datetime.datetime.now(datetime.timezone.utc)
