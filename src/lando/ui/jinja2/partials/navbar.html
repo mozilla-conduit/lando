@@ -31,9 +31,9 @@
             <p class="control">
               <a class="Navbar-userSettingsBtn button">
                 <span class="icon">
-                  <img src="{{request.user.profile.userinfo['picture']|avatar_url }}" />
+                  <img src="{{ request.user.profile.userinfo['picture']|avatar_url }}" />
                 </span>
-                <span>&nbsp;{{request.user.profile.userinfo['name']}}&nbsp;</span>
+                <span>&nbsp;{{ request.user.profile.userinfo['name'] }}&nbsp;</span>
                 <i class="fa fa-cogs"></i>
               </a>
             </p>
