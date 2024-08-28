@@ -106,7 +106,7 @@ class Repo(BaseModel):
     @property
     def hg_repo_is_initialized(self) -> bool:
         """Returns True if hglib is able to open the repo, otherwise returns False."""
-        self.raise_if_not(self.HG)
+        self.raise_for_unsupported_repo_scm(self.HG)
         try:
             self.hg._open()
         except hglib.error.ServerError:
@@ -117,7 +117,7 @@ class Repo(BaseModel):
 
     def hg_repo_prepare(self):
         """Either clone or update the repo, if it is a Mercurial one."""
-        self.raise_if_not(self.HG)
+        self.raise_for_unsupported_repo_scm(self.HG)
         if not self.hg_repo_is_initialized:
             Path(self.system_path).mkdir(parents=True, exist_ok=True)
             logger.info(f"Cloning {self} from pull path.")
