@@ -97,7 +97,7 @@ class Repo(BaseModel):
     def _method_not_supported_for_repo_error(self) -> RepoError:
         return RepoError(f"Method is not supported for {self}")
 
-    def raise_for_unsupported_repo_scm(self, supported_scm):
+    def raise_for_unsupported_repo_scm(self, supported_scm: str):
         """Raise a RepoError if the repo SCM does not match the supported SCM."""
         if supported_scm != self.scm:
             raise self._method_not_supported_for_repo_error
