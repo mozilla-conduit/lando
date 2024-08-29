@@ -1,7 +1,6 @@
 import pytest
 from django.http import Http404
 
-from lando.api.legacy.phabricator import PhabricatorRevisionStatus
 from lando.api.legacy.stacks import (
     RevisionStack,
     build_stack_graph,
@@ -10,6 +9,7 @@ from lando.api.legacy.stacks import (
     request_extended_revision_data,
 )
 from lando.main.models import Repo
+from lando.utils.phabricator import PhabricatorRevisionStatus
 
 
 def test_build_stack_graph_single_node(phabdouble):

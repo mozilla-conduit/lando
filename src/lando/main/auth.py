@@ -8,8 +8,8 @@ from django.contrib.auth.models import User
 from django.http import HttpResponse
 from mozilla_django_oidc.auth import OIDCAuthenticationBackend
 
-from lando.api.legacy.phabricator import PhabricatorClient
 from lando.main.models.profile import Profile
+from lando.utils.phabricator import PhabricatorClient
 
 
 class LandoOIDCAuthenticationBackend(OIDCAuthenticationBackend):

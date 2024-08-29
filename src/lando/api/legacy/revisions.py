@@ -7,14 +7,14 @@ from typing import (
     Optional,
 )
 
-from lando.api.legacy.phabricator import (
-    PhabricatorClient,
-    PhabricatorRevisionStatus,
-    ReviewerStatus,
-)
 from lando.api.legacy.reviews import get_collated_reviewers
 from lando.api.legacy.uplift import (
     stack_uplift_form_submitted,
+)
+from lando.utils.phabricator import (
+    PhabricatorClient,
+    PhabricatorRevisionStatus,
+    ReviewerStatus,
 )
 
 logger = logging.getLogger(__name__)

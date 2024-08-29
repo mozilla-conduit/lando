@@ -1,13 +1,13 @@
 import logging
 from collections import namedtuple
 
-from lando.api.legacy.phabricator import (
+from lando.api.legacy.projects import (
+    RELMAN_PROJECT_SLUG,
+)
+from lando.utils.phabricator import (
     PhabricatorClient,
     PhabricatorCommunicationException,
     ReviewerStatus,
-)
-from lando.api.legacy.projects import (
-    RELMAN_PROJECT_SLUG,
 )
 
 logger = logging.getLogger(__name__)

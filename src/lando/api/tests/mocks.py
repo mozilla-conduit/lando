@@ -3,16 +3,16 @@ import json
 from collections import defaultdict
 from copy import deepcopy
 
-from lando.api.legacy.phabricator import (
-    PhabricatorAPIException,
-    PhabricatorClient,
-    PhabricatorRevisionStatus,
-    ReviewerStatus,
-)
 from lando.api.legacy.treestatus import TreeStatus, TreeStatusError
 from lando.api.tests.canned_responses.phabricator.diffs import (
     CANNED_DEFAULT_DIFF_CHANGES,
     CANNED_RAW_DEFAULT_DIFF,
+)
+from lando.utils.phabricator import (
+    PhabricatorAPIException,
+    PhabricatorClient,
+    PhabricatorRevisionStatus,
+    ReviewerStatus,
 )
 
 

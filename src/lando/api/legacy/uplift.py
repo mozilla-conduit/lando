@@ -14,7 +14,6 @@ from packaging.version import (
 )
 
 from lando.api.legacy import bmo
-from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.phabricator_patch import patch_to_changes
 from lando.api.legacy.stacks import (
     RevisionData,
@@ -23,6 +22,7 @@ from lando.api.legacy.stacks import (
     request_extended_revision_data,
 )
 from lando.main.models import Repo
+from lando.utils.phabricator import PhabricatorClient
 
 logger = logging.getLogger(__name__)
 

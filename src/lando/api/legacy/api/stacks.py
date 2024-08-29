@@ -5,7 +5,6 @@ from django.conf import settings
 from django.http import Http404, HttpRequest
 
 from lando.api.legacy.commit_message import format_commit_message
-from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.projects import (
     get_release_managers,
     get_sec_approval_project_phid,
@@ -38,6 +37,7 @@ from lando.api.legacy.users import user_search
 from lando.main.auth import require_phabricator_api_key
 from lando.main.models import Repo
 from lando.main.models.revision import Revision
+from lando.utils.phabricator import PhabricatorClient
 
 logger = logging.getLogger(__name__)
 

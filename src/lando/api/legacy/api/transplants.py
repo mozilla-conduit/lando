@@ -10,7 +10,6 @@ from django.http import HttpRequest
 
 from lando.api.legacy.api.stacks import HTTP_404_STRING
 from lando.api.legacy.commit_message import format_commit_message
-from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.projects import (
     CHECKIN_PROJ_SLUG,
     get_checkin_project_phid,
@@ -61,6 +60,7 @@ from lando.main.models.landing_job import (
     add_revisions_to_job,
 )
 from lando.main.support import LegacyAPIException, problem
+from lando.utils.phabricator import PhabricatorClient
 from lando.utils.tasks import admin_remove_phab_project
 
 logger = logging.getLogger(__name__)

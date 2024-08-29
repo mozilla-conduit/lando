@@ -7,11 +7,6 @@ from datetime import datetime, timezone
 
 import requests
 
-from lando.api.legacy.phabricator import (
-    PhabricatorClient,
-    PhabricatorRevisionStatus,
-    ReviewerStatus,
-)
 from lando.api.legacy.reviews import calculate_review_extra_state, reviewer_identity
 from lando.api.legacy.revisions import (
     check_author_planned_changes,
@@ -28,6 +23,11 @@ from lando.main.models import Repo
 from lando.main.models.landing_job import LandingJob, LandingJobStatus
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.main.support import LegacyAPIException
+from lando.utils.phabricator import (
+    PhabricatorClient,
+    PhabricatorRevisionStatus,
+    ReviewerStatus,
+)
 
 logger = logging.getLogger(__name__)
 

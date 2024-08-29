@@ -6,8 +6,8 @@ import pytest
 import requests
 import requests_mock
 
-from lando.api.legacy.phabricator import PhabricatorAPIException
 from lando.api.tests.utils import phab_url
+from lando.utils.phabricator import PhabricatorAPIException
 
 pytestmark = pytest.mark.usefixtures("docker_env_vars")
 

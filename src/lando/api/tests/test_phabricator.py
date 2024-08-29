@@ -1,6 +1,6 @@
 import pytest
 
-from lando.api.legacy.phabricator import (
+from lando.utils.phabricator import (
     PhabricatorCommunicationException,
     PhabricatorRevisionStatus,
     result_list_to_phid_dict,

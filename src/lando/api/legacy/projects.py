@@ -3,7 +3,7 @@ from typing import Optional
 
 from django.core.cache import cache
 
-from lando.api.legacy.phabricator import PhabricatorClient, result_list_to_phid_dict
+from lando.utils.phabricator import PhabricatorClient, result_list_to_phid_dict
 
 logger = logging.getLogger(__name__)
 

@@ -4,9 +4,9 @@ import pytest
 from django.contrib.auth.models import User
 from django.http import HttpResponse
 
-from lando.api.legacy.phabricator import PhabricatorClient
 from lando.main.auth import LandoOIDCAuthenticationBackend, require_phabricator_api_key
 from lando.main.models.profile import CLAIM_GROUPS_KEY
+from lando.utils.phabricator import PhabricatorClient
 
 
 @pytest.mark.parametrize(

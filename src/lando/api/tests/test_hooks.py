@@ -1,12 +1,12 @@
 import pytest
 
-from lando.api.legacy.phabricator import (
-    PhabricatorAPIException,
-    PhabricatorCommunicationException,
-)
 from lando.api.legacy.treestatus import (
     TreeStatusCommunicationException,
     TreeStatusError,
+)
+from lando.utils.phabricator import (
+    PhabricatorAPIException,
+    PhabricatorCommunicationException,
 )
 
 pytest.skip(allow_module_level=True)

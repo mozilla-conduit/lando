@@ -1,6 +1,5 @@
 import pytest
 
-from lando.api.legacy.phabricator import PhabricatorCommunicationException
 from lando.api.legacy.projects import project_search
 from lando.api.legacy.reviews import (
     approvals_for_commit_message,
@@ -9,6 +8,7 @@ from lando.api.legacy.reviews import (
     reviewers_for_commit_message,
 )
 from lando.api.legacy.users import user_search
+from lando.utils.phabricator import PhabricatorCommunicationException
 
 
 def test_collate_reviewer_attachments_malformed_raises():
