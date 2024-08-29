@@ -1,4 +1,4 @@
-from lando.api.legacy.phabricator import result_list_to_phid_dict
+from lando.utils.phabricator import result_list_to_phid_dict
 
 
 def user_search(phabricator, user_phids):

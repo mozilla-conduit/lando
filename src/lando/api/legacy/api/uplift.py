@@ -1,6 +1,5 @@
 import logging
 
-from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.uplift import (
     create_uplift_revision,
     get_local_uplift_repo,
@@ -11,6 +10,7 @@ from lando.api.legacy.validation import revision_id_to_int
 from lando.main.auth import require_authenticated_user, require_phabricator_api_key
 from lando.main.models import Repo
 from lando.main.support import problem
+from lando.utils.phabricator import PhabricatorClient
 
 logger = logging.getLogger(__name__)
 

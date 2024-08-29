@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from datetime import (
     datetime,
     timezone,
@@ -21,11 +20,7 @@ from typing import (
 import requests
 from django.conf import settings
 
-from lando.api.legacy.systems import Subsystem
-
 logger = logging.getLogger(__name__)
-
-PHAB_API_KEY_RE = re.compile(r"^api-.{28}$")
 
 
 @unique
@@ -355,37 +350,17 @@ def result_list_to_phid_dict(
     return result
 
 
-class PhabricatorSubsystem(Subsystem):
-    name = "phabricator"
-
-    def ready(self) -> bool | str:
-        unpriv_key = settings.PHABRICATOR_UNPRIVILEGED_API_KEY
-        priv_key = settings.PHABRICATOR_ADMIN_API_KEY
-
-        if unpriv_key and PHAB_API_KEY_RE.search(unpriv_key) is None:
-            return (
-                "PHABRICATOR_UNPRIVILEGED_API_KEY has the wrong format, "
-                'it must begin with "api-" and be 32 characters long.'
-            )
-
-        if priv_key and PHAB_API_KEY_RE.search(priv_key) is None:
-            return (
-                "PHABRICATOR_ADMIN_API_KEY has the wrong format, "
-                'it must begin with "api-" and be 32 characters long.'
-            )
-
-        return True
-
-    def healthy(self) -> bool | str:
-        try:
-            PhabricatorClient(
-                settings.PHABRICATOR_URL,
-                settings.PHABRICATOR_UNPRIVILEGED_API_KEY,
-            ).call_conduit("conduit.ping")
-        except PhabricatorAPIException as exc:
-            return "PhabricatorAPIException: {!s}".format(exc)
-
-        return True
-
-
-phabricator_subsystem = PhabricatorSubsystem()
+def get_phabricator_client(
+    privileged: Optional[bool] = False, api_key: Optional[str] = None
+) -> PhabricatorClient:
+    """Return an initialized PhabricatorClient object with relevant API key."""
+    api_key = (
+        api_key or settings.PHABRICATOR_ADMIN_API_KEY
+        if privileged
+        else settings.PHABRICATOR_UNPRIVILEGED_API_KEY
+    )
+    phab = PhabricatorClient(
+        settings.PHABRICATOR_URL,
+        api_key,
+    )
+    return phab

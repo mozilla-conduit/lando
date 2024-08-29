@@ -3,9 +3,6 @@ from packaging.version import (
     Version,
 )
 
-from lando.api.legacy.phabricator import (
-    PhabricatorClient,
-)
 from lando.api.legacy.stacks import (
     build_stack_graph,
 )
@@ -15,6 +12,9 @@ from lando.api.legacy.uplift import (
     get_revisions_without_bugs,
     parse_milestone_version,
     strip_depends_on_from_commit_message,
+)
+from lando.utils.phabricator import (
+    PhabricatorClient,
 )
 
 MILESTONE_TEST_CONTENTS_1 = """

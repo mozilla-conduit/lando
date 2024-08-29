@@ -1,6 +1,5 @@
 import pytest
 
-from lando.api.legacy.phabricator import PhabricatorRevisionStatus, ReviewerStatus
 from lando.api.legacy.revisions import (
     check_author_planned_changes,
     check_diff_author_is_known,
@@ -12,6 +11,7 @@ from lando.api.legacy.stacks import (
     request_extended_revision_data,
 )
 from lando.main.models import Repo
+from lando.utils.phabricator import PhabricatorRevisionStatus, ReviewerStatus
 
 pytestmark = pytest.mark.usefixtures("docker_env_vars")
 

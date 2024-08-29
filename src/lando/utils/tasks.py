@@ -7,11 +7,11 @@ from django.conf import settings
 from django.core import mail
 
 from lando.api.legacy.email import make_failure_email
-from lando.api.legacy.phabricator import (
+from lando.utils.celery import app as celery_app
+from lando.utils.phabricator import (
     PhabricatorClient,
     PhabricatorCommunicationException,
 )
-from lando.utils.celery import app as celery_app
 
 logger = logging.getLogger(__name__)
 

@@ -12,12 +12,12 @@ from typing import (
 
 import networkx as nx
 
-from lando.api.legacy.phabricator import (
+from lando.main.models import Repo
+from lando.utils.phabricator import (
     PhabricatorClient,
     PhabricatorRevisionStatus,
     result_list_to_phid_dict,
 )
-from lando.main.models import Repo
 
 logger = logging.getLogger(__name__)
 

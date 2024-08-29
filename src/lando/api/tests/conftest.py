@@ -18,7 +18,6 @@ from django.test import Client
 import lando.api.legacy.api.landing_jobs as legacy_api_landing_jobs
 import lando.api.legacy.api.stacks as legacy_api_stacks
 import lando.api.legacy.api.transplants as legacy_api_transplants
-from lando.api.legacy.phabricator import PhabricatorClient
 from lando.api.legacy.projects import (
     CHECKIN_PROJ_SLUG,
     RELMAN_PROJECT_SLUG,
@@ -29,6 +28,7 @@ from lando.api.legacy.transplants import CODE_FREEZE_OFFSET, tokens_are_equal
 from lando.api.tests.mocks import PhabricatorDouble, TreeStatusDouble
 from lando.main.models import SCM_LEVEL_1, SCM_LEVEL_3, Repo
 from lando.main.support import LegacyAPIException
+from lando.utils.phabricator import PhabricatorClient
 
 PATCH_NORMAL_1 = r"""
 # HG changeset patch
