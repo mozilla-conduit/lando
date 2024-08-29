@@ -15,7 +15,7 @@ class UtilsConfig(AppConfig):
 
 
 @register()
-def phabricator_check(**kwargs):
+def phabricator_check(**kwargs) -> list[Error]:
     """Check validity of Phabricator settings and check connectivity."""
     errors = []
 
@@ -34,13 +34,23 @@ def phabricator_check(**kwargs):
             'it must begin with "api-" and be 32 characters long.'
         )
 
-    if (priv_key or unpriv_key) and not errors:
-        try:
-            PhabricatorClient(
-                settings.PHABRICATOR_URL,
-                settings.PHABRICATOR_UNPRIVILEGED_API_KEY,
-            ).call_conduit("conduit.ping")
-        except PhabricatorAPIException as e:
-            errors.append(f"PhabricatorAPIException: {e!s}")
+    if (unpriv_key or priv_key) and not errors:
+        if unpriv_key:
+            try:
+                PhabricatorClient(
+                    settings.PHABRICATOR_URL,
+                    settings.PHABRICATOR_UNPRIVILEGED_API_KEY,
+                ).call_conduit("conduit.ping")
+            except PhabricatorAPIException as e:
+                errors.append(f"PhabricatorAPIException: {e!s} (using unpriviledged key)")
+
+        if priv_key:
+            try:
+                PhabricatorClient(
+                    settings.PHABRICATOR_URL,
+                    settings.PHABRICATOR_ADMIN_API_KEY,
+                ).call_conduit("conduit.ping")
+            except PhabricatorAPIException as e:
+                errors.append(f"PhabricatorAPIException: {e!s} (using admin key)")
 
     return [Error(message) for message in errors]
