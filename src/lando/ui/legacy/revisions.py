@@ -3,13 +3,19 @@ import logging
 
 from lando.ui.legacy.forms import (
     TransplantRequestForm,
-    UpliftRequestForm,
+    # UpliftRequestForm,
 )
 from lando.ui.legacy.stacks import draw_stack_graph, Edge, sort_stack_topological
 from lando.ui.views import LandoView
 
+from lando.api.legacy import api as legacy_api
+
+from django.contrib import messages
 from django.template.response import TemplateResponse
-from django.http import JsonResponse, HttpResponseNotFound
+from django.shortcuts import redirect
+from django.http import HttpResponseRedirect, HttpRequest
+
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -18,20 +24,26 @@ logger = logging.getLogger(__name__)
 
 
 class Revision(LandoView):
-    # TODO: auth is optional for this view.
+    def get(self, request: HttpRequest, revision_id: int, *args, **kwargs) -> TemplateResponse:
+        lando_user = request.user
 
-    def get(self, request, revision_id, *args, **kwargs):
-        # Request the entire stack.
-        try:
-            stack = api.request("GET", "stacks/D{}".format(revision_id))
-        except LandoAPIError as e:
-            if e.status_code == 404:
-                raise RevisionNotFound(revision_id)
-            else:
-                raise
+        # This is added for backwards compatibility.
+        stack = legacy_api.stacks.get(request, revision_id)
+
+        form = TransplantRequestForm()
+        errors = []
+
+        # TODO - see bug 1915695.
+        # uplift_request_form = UpliftRequestForm()
+
+        # # Get the list of available uplift repos and populate the form with it.
+        # uplift_request_form.repository.choices = get_uplift_repos(api)
+        # uplift_request_form.revision_id.data = revision_id
+        # END TODO.
 
         # Build a mapping from phid to revision and identify
         # the data for the revision used to load this page.
+
         revision = None
         revisions = {}
         for r in stack["revisions"]:
@@ -45,9 +57,7 @@ class Revision(LandoView):
             repositories[r["phid"]] = r
 
         # Request all previous transplants for the stack.
-        transplants = api.request(
-            "GET", "transplants", params={"stack_revision_id": "D{}".format(revision_id)}
-        )
+        transplants = legacy_api.transplants.get_list(request, f"D{revision_id}")
 
         # The revision may appear in many `landable_paths`` if it has
         # multiple children, or any of its landable descendents have
@@ -71,7 +81,7 @@ class Revision(LandoView):
 
         dryrun = None
         target_repo = None
-        if series and is_user_authenticated():
+        if series and lando_user.is_authenticated:
             landing_path = [
                 {
                     "revision_id": revisions[phid]["id"],
@@ -80,16 +90,10 @@ class Revision(LandoView):
                 for phid in series
             ]
             landing_path_json = json.dumps(landing_path)
-            form.landing_path.data = landing_path_json
+            form.fields["landing_path"].initial = landing_path_json
 
-            dryrun = api.request(
-                "POST",
-                "transplants/dryrun",
-                require_auth0=True,
-                json={"landing_path": landing_path},
-            )
-            form.confirmation_token.data = dryrun.get("confirmation_token")
-
+            dryrun = legacy_api.transplants.dryrun(request, data={"landing_path": landing_path})
+            form.fields["confirmation_token"].initial = dryrun["confirmation_token"]
             series = list(reversed(series))
             target_repo = repositories.get(revisions[series[0]]["repo_phid"])
 
@@ -99,18 +103,6 @@ class Revision(LandoView):
             phids, edges, key=lambda x: int(revisions[x]["id"][1:])
         )
         drawing_width, drawing_rows = draw_stack_graph(phids, edges, order)
-
-        annotate_sec_approval_workflow_info(revisions)
-
-        # Are we showing the "sec-approval request submitted" dialog?
-        # If we are then fill in its values.
-        submitted_revision = request.args.get("show_approval_success")
-        submitted_rev_url = None
-        if submitted_revision:
-            for rev in revisions.values():
-                if rev["id"] == submitted_revision:
-                    submitted_rev_url = rev["url"]
-                    break
 
         # Current implementation requires that all commits have the flags appended.
         # This may change in the future. What we do here is:
@@ -126,64 +118,58 @@ class Revision(LandoView):
         else:
             existing_flags = {}
 
-        return render_template(
-            "stack/stack.html",
-            revision_id="D{}".format(revision_id),
-            series=series,
-            landable=landable,
-            dryrun=dryrun,
-            stack=stack,
-            rows=list(zip(reversed(order), reversed(drawing_rows))),
-            drawing_width=drawing_width,
-            transplants=transplants,
-            revisions=revisions,
-            revision_phid=revision,
-            sec_approval_form=sec_approval_form,
-            submitted_rev_url=submitted_rev_url,
-            target_repo=target_repo,
-            errors=errors,
-            form=form,
-            flags=target_repo["commit_flags"] if target_repo else [],
-            existing_flags=existing_flags,
-            uplift_request_form=uplift_request_form,
+        context = {
+            "revision_id": "D{}".format(revision_id),
+            "series": series,
+            "landable": landable,
+            "dryrun": dryrun,
+            "stack": stack,
+            "rows": list(zip(reversed(order), reversed(drawing_rows))),
+            "drawing_width": drawing_width,
+            "transplants": transplants,
+            "revisions": revisions,
+            "revision_phid": revision,
+            "target_repo": target_repo,
+            "errors": errors,
+            "form": form,
+            "flags": target_repo["commit_flags"] if target_repo else [],
+            "existing_flags": existing_flags,
+            # "uplift_request_form": uplift_request_form,
+        }
+
+        return TemplateResponse(
+            request=request,
+            template="stack/stack.html",
+            context=context,
         )
 
-    def post(*args, request, **kwargs):
-        form = TransplantRequestForm()
-        sec_approval_form = SecApprovalRequestForm()
-        uplift_request_form = UpliftRequestForm()
-
-        # Get the list of available uplift repos and populate the form with it.
-        uplift_request_form.repository.choices = get_uplift_repos(api)
-        uplift_request_form.revision_id.data = revision_id
-
+    def post(self, request: HttpRequest, revision_id: int, *args, **kwargs) -> HttpResponseRedirect:
+        form = TransplantRequestForm(request.POST)
         errors = []
-        if form.is_submitted():
-            if not is_user_authenticated():
-                errors.append("You must be logged in to request a landing")
 
-            elif not form.validate():
-                for _, field_errors in form.errors.items():
-                    errors.extend(field_errors)
+        # TODO - see bug 1915695.
+        # uplift_request_form = UpliftRequestForm()
 
-            else:
-                try:
-                    api.request(
-                        "POST",
-                        "transplants",
-                        require_auth0=True,
-                        json={
-                            "landing_path": json.loads(form.landing_path.data),
-                            "confirmation_token": form.confirmation_token.data,
-                            "flags": json.loads(form.flags.data),
-                        },
-                    )
-                    # We don't actually need any of the data from the
-                    # the submission. As long as an exception wasn't
-                    # raised we're successful.
-                    return redirect(url_for("revisions.revision", revision_id=revision_id))
-                except LandoAPIError as e:
-                    if not e.detail:
-                        raise
+        # # Get the list of available uplift repos and populate the form with it.
+        # uplift_request_form.repository.choices = get_uplift_repos(api)
+        # uplift_request_form.revision_id.data = revision_id
+        # END TODO.
 
-                    errors.append(e.detail)
+        if not request.user.is_authenticated:
+            errors.append("You must be logged in to request a landing")
+
+        if form.is_valid() and not errors:
+            form.cleaned_data["landing_path"] = json.loads(form.cleaned_data["landing_path"])
+            form.cleaned_data["flags"] = json.loads(form.cleaned_data["flags"]) if form.cleaned_data["flags"] else []
+            legacy_api.transplants.post(request, data=form.cleaned_data)
+            # We don't actually need any of the data from the
+            # the submission. As long as an exception wasn't
+            # raised we're successful.
+            return redirect("revisions-page", revision_id=revision_id)
+
+        if form.errors:
+            errors += [f"{field}: {', '.join(field_errors)}" for field, field_errors in form.errors.items()]
+
+        for error in errors:
+            messages.add_message(request, messages.ERROR, error)
+        return redirect("revisions-page", revision_id=revision_id)
