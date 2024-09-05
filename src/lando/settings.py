@@ -163,7 +163,7 @@ COMPRESS_FILTERS = {
 COMPRESS_ENABLED = True
 
 MEDIA_URL = "media/"
-MEDIA_ROOT = os.getenv("MEDIA_ROOT", "/files")
+MEDIA_ROOT = "/files"
 
 REPO_ROOT = f"{MEDIA_ROOT}/repos"
 
