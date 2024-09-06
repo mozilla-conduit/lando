@@ -2,6 +2,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
 
+from lando.environments import Environment
 from lando.main.models import Repo, Worker
 
 
@@ -38,7 +39,7 @@ class Command(BaseCommand):
         # In case someone is trying to run this manually for whatever reason on a
         # different environment, raise an exception so an admin user with a weak
         # password is not accidentally created.
-        if settings.ENVIRONMENT != "local":
+        if settings.ENVIRONMENT != Environment.local:
             raise CommandError("This method can not be triggered on this environment.")
 
         try:
@@ -52,7 +53,7 @@ class Command(BaseCommand):
         user.save()
 
     def handle(self, *args, **options):
-        if settings.ENVIRONMENT != "local":
+        if settings.ENVIRONMENT != Environment.local:
             raise CommandError("This script can only be run on a local environment.")
         self.setup_workers()
         self.setup_users()

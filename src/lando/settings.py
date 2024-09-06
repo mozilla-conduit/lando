@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/dev/ref/settings/
 
 import os
 from pathlib import Path
+from lando.environments import Environment
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent
@@ -200,7 +202,7 @@ PHABRICATOR_UNPRIVILEGED_API_KEY = os.getenv("PHABRICATOR_UNPRIVILEGED_API_KEY",
 
 TREESTATUS_URL = os.getenv("TREESTATUS_URL")
 
-ENVIRONMENT = os.getenv("ENVIRONMENT", "test")
+ENVIRONMENT = Environment(os.getenv("ENVIRONMENT", "test"))
 
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://lando.redis:6379")
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
@@ -209,9 +211,7 @@ CELERY_TASK_SERIALIZER = "json"
 
 DEFAULT_FROM_EMAIL = "Lando <lando@lando.test>"
 
-REMOTE_ENVIRONMENTS = ("dev",)
-
-if ENVIRONMENT in REMOTE_ENVIRONMENTS:
+if ENVIRONMENT.is_remote:
     STORAGES = {
         "staticfiles": {
             "BACKEND": "storages.backends.gcloud.GoogleCloudStorage",
