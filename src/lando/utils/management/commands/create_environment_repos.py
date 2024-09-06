@@ -1,6 +1,8 @@
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db.utils import IntegrityError
 
+from lando.environments import Environment
 from lando.main.models import (
     DONTBUILD,
     SCM_ALLOW_DIRECT_PUSH,
@@ -14,11 +16,16 @@ from lando.main.models import (
     Repo,
 )
 
-ENVIRONMENTS = ("local", "dev", "stage", "prod")
+ENVIRONMENTS = [e for e in Environment if not e.is_test]
 
 # These repos are copied from the legacy repo "subsystem".
 REPOS = {
-    "local": [
+    Environment.local: [
+        {
+            "name": "git-repo",
+            "url": "https://github.com/zzzeid/test-repo.git",
+            "required_permission": SCM_LEVEL_1,
+        },
         {
             "name": "git-repo",
             "url": "https://github.com/zzzeid/test-repo.git",
@@ -60,7 +67,7 @@ REPOS = {
         #     "milestone_tracking_flag_template": "cf_status_firefox{milestone}",
         # },
     ],
-    "dev": [
+    Environment.development: [
         {
             "name": "test-repo",
             "url": "https://hg.mozilla.org/conduit-testing/test-repo",
@@ -94,7 +101,7 @@ REPOS = {
             "force_push": True,
         },
     ],
-    "stage": [
+    Environment.staging: [
         {
             "name": "test-repo-clone",
             "url": "https://hg.mozilla.org/conduit-testing/test-repo-clone",
@@ -112,7 +119,7 @@ REPOS = {
             "force_push": True,
         },
     ],
-    "prod": [
+    Environment.production: [
         {
             "name": "phabricator-qa-stage",
             "url": "https://hg.mozilla.org/automation/phabricator-qa-stage",
@@ -253,6 +260,14 @@ class Command(BaseCommand):
             help=f"Enter one of {', '.join(ENVIRONMENTS)}",
         )
 
+        parser.add_argument(
+            "-f",
+            "--force",
+            action="store_true",
+            default=False,
+            help="Force creation of repos even if request does not match current environment",
+        )
+
     def handle(self, *args, **options):
         environment = options["environment"]
         if environment not in ENVIRONMENTS:
@@ -261,9 +276,17 @@ class Command(BaseCommand):
                 f'"{environment}" was provided.'
             )
 
-        if environment not in ("local", "dev"):
-            raise NotImplementedError(
-                "Only local and dev repos are currently supported."
+        environment = Environment(environment)
+
+        if environment != settings.ENVIRONMENT and not options["force"]:
+            raise CommandError(
+                f"Current environment {settings.ENVIRONMENT} does not match requested "
+                f"environment ({environment}). Pass --force to do this anyway."
+            )
+
+        if environment not in (Environment.local, Environment.development):
+            raise CommandError(
+                "Only local and development repos are currently supported."
             )
 
         repo_definitions = REPOS[environment]

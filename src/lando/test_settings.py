@@ -1,4 +1,5 @@
 from lando.settings import *
+from lando.environments import Environment
 
 
 OIDC_DOMAIN = "lando-api.auth0.test"
@@ -15,7 +16,7 @@ PHABRICATOR_URL = "http://phabricator.test"
 PHABRICATOR_ADMIN_API_KEY = "api-thiskeymustbe32characterslen"
 PHABRICATOR_UNPRIVILEGED_API_KEY = "api-thiskeymustbe32characterslen"
 CELERY_TASK_ALWAYS_EAGER = True
-ENVIRONMENT = "test"
+ENVIRONMENT = Environment.test
 
 CACHES = {
     "default": {
