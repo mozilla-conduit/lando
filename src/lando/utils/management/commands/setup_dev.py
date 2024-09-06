@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 
 from lando.environments import Environment
@@ -33,6 +34,12 @@ class Command(BaseCommand):
             # Associate all repos with applicable worker.
             self.stdout.write(f"Adding {repo} ({repo.scm}) to {workers[repo.scm]}.")
             workers[repo.scm].applicable_repos.add(repo)
+        self.stdout.write(
+            self.style.SUCCESS(
+                'Workers initialized ("hg" and "git"). '
+                "To start one, run `lando start_landing_worker <name>`.",
+            )
+        )
 
     def setup_users(self):
         """Ensure there is an administrator account on the local system."""
@@ -51,10 +58,20 @@ class Command(BaseCommand):
         user.is_superuser = True
         user.is_staff = True
         user.save()
+        self.stdout.write(
+            self.style.SUCCESS(
+                "Superuser created with the following username and password: "
+                '"admin", "password".'
+            )
+        )
 
     def handle(self, *args, **options):
         if settings.ENVIRONMENT != Environment.local:
             raise CommandError("This script can only be run on a local environment.")
+        call_command("migrate")
+        call_command("create_environment_repos", Environment.local.value)
         self.setup_workers()
         self.setup_users()
-        self.stdout.write("Finished.")
+        self.stdout.write(
+            self.style.SUCCESS("Finished setting up local Lando environment.")
+        )

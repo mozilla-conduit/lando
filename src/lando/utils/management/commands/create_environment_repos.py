@@ -294,8 +294,12 @@ class Command(BaseCommand):
             try:
                 repo = Repo.objects.create(**definition)
             except IntegrityError:
-                self.stderr.write(
-                    f"Repo {definition['name']} already exists, skipping."
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"Repo {definition['name']} already exists, skipping."
+                    )
                 )
             else:
-                self.stdout.write(f"Created repo {repo.tree} ({repo.id}).")
+                self.stdout.write(
+                    self.style.SUCCESS(f"Created repo {repo.tree} ({repo.id}).")
+                )
