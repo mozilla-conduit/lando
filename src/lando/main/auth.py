@@ -22,7 +22,14 @@ class LandoOIDCAuthenticationBackend(OIDCAuthenticationBackend):
         user_profile.userinfo = claims
         user_profile.save()
 
-        if settings.ENVIRONMENT != Environment.local:
+        if settings.ENVIRONMENT == Environment.local:
+            # Add all SCM permissions to this user.
+            # NOTE: This is here mainly because when using Lando locally, userinfo
+            # does not actually contain any group membership information.
+            scm_permissions = user_profile.get_all_scm_permissions()
+            for permission in scm_permissions.values():
+                user_profile.user.user_permissions.add(permission)
+        else:
             # Update user permissions.
             user_profile.update_permissions()
 

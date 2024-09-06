@@ -44,6 +44,20 @@ class Profile(BaseModel):
     # User info fetched from SSO.
     userinfo = models.JSONField(default=dict, blank=True)
 
+    @classmethod
+    def get_all_scm_permissions(cls) -> dict[str:Permission]:
+        """Return all SCM permission objects in the system."""
+        content_type = ContentType.objects.get_for_model(cls)
+
+        permissions = {
+            codename: Permission.objects.get(
+                codename=codename, content_type=content_type
+            )
+            for codename, name in SCM_PERMISSIONS
+        }
+
+        return permissions
+
     @property
     def phabricator_api_key(self):
         # Temporary placeholder for phabricator_api_key field.
@@ -62,19 +76,9 @@ class Profile(BaseModel):
 
     def update_permissions(self):
         """Remove SCM permissions and re-add them based on userinfo."""
-        content_type = ContentType.objects.get_for_model(self.__class__)
-
-        permissions = {
-            codename: Permission.objects.get(
-                codename=codename, content_type=content_type
-            )
-            for codename, name in SCM_PERMISSIONS
-        }
-
+        permissions = self.get_all_scm_permissions()
         self.user.user_permissions.remove(*permissions.values())
-
         groups = self.userinfo.get(CLAIM_GROUPS_KEY, [])
-
         for codename in permissions:
             if self._has_scm_permission_groups(codename, groups):
                 self.user.user_permissions.add(permissions[codename])
