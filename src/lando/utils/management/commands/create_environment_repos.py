@@ -20,6 +20,11 @@ ENVIRONMENTS = ("local", "dev", "stage", "prod")
 REPOS = {
     "local": [
         {
+            "name": "git-repo",
+            "url": "https://github.com/zzzeid/test-repo.git",
+            "required_permission": SCM_LEVEL_1,
+        },
+        {
             "name": "test-repo",
             "url": "http://hg.test/test-repo",
             "required_permission": SCM_LEVEL_1,

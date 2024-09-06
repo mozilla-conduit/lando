@@ -7,27 +7,27 @@ class Command(BaseCommand):
     help = "Generate required database records used in dev."
 
     def handle(self, *args, **options):
-        # Get or create repo.
-        try:
-            repo = Repo.objects.get(name="git-test-repo")
-        except Repo.DoesNotExist:
-            repo_url = "https://github.com/zzzeid/test-repo.git"
-            repo = Repo(
-                name="git-test-repo",
-                url=repo_url,
-                push_path=repo_url,
-                pull_path=repo_url,
-            )
-            repo.save()
+        # Set up two workers, one for each SCM.
+        workers = {
+            Repo.HG: None,
+            Repo.GIT: None,
+        }
 
-        # Get or create landing worker.
-        try:
-            worker = Worker.objects.get(name="landing-worker")
-        except Worker.DoesNotExist:
-            worker = Worker(
-                name="landing-worker",
-            )
-            worker.save()
+        for worker_scm in workers:
+            try:
+                worker = Worker.objects.get(name=worker_scm)
+                self.stdout.write(f"Found {worker} worker.")
+            except Worker.DoesNotExist:
+                # Set the name of the worker to match the SCM.
+                worker = Worker(name=worker_scm)
+                worker.save()
+                self.stdout.write(f"Created {worker} worker.")
+            finally:
+                workers[worker_scm] = worker
 
-        # Add repo to worker.
-        worker.applicable_repos.add(repo)
+        for repo in Repo.objects.all():
+            # Associate all repos with applicable worker.
+            self.stdout.write(f"Adding {repo} ({repo.scm}) to {workers[repo.scm]}.")
+            workers[repo.scm].applicable_repos.add(repo)
+
+        self.stdout.write("Finished.")
