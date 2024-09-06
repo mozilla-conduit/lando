@@ -9,9 +9,9 @@ services:
       - 5432:5432
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres", "-d", "postgres"]
-      interval: 10s
-      timeout: 20s
-      retries: 5
+      interval: 1s
+      timeout: 10s
+      retries: 10
 
   lando:
     build:
@@ -36,6 +36,25 @@ services:
       redis:
         condition: service_healthy
 
+  hg-landing-worker:
+    image: lando
+    command: lando start_landing_worker hg
+    environment:
+      DEFAULT_GRACE_SECONDS: 10
+      LANDING_WORKER_USERNAME: app
+      LANDING_WORKER_TARGET_SSH_PORT: 8022
+      SSH_PRIVATE_KEY: |
+        -----BEGIN EC PRIVATE KEY-----
+        MHcCAQEEIMiMNKEkf0vr4HrhUIrq0e9NjGNPArN7L1uy/HQZ1dA8oAoGCCqGSM49
+        AwEHoUQDQgAEdakNgjerNLFXy1uMfwLjPd5/pBTbIEoZMdMV/o6s+uoMg776LF+v
+        gtbfIaZbhDcJElzHwpnqGfHYU+cM4KyurA==
+        -----END EC PRIVATE KEY-----
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+
   proxy:
     build: ./nginx
     ports:
@@ -51,7 +70,7 @@ services:
       test: ["CMD", "redis-cli", "ping"]
 
   celery:
-    image: suite_lando
+    image: lando
     command: lando start_celery_worker
     depends_on:
       redis:

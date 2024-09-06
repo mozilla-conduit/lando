@@ -20,6 +20,12 @@ class Worker(BaseModel):
     throttle_seconds = models.IntegerField(default=10)
     sleep_seconds = models.IntegerField(default=10)
 
+    scm = models.CharField(
+        max_length=3,
+        choices=Repo.SCM_CHOICES,
+        default=Repo.HG,
+    )
+
     def __str__(self):
         return self.name
 
