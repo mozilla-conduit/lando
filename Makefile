@@ -2,6 +2,11 @@ SHELL := /bin/bash
 DOCKER := $(shell which docker)
 DOCKER_COMPOSE := $(shell which docker-compose)
 
+ifeq ($(STANDALONE), 1)
+	BASE_COMMAND := docker-compose run lando
+else
+	BASE_COMMAND := docker exec -ti suite-lando-1
+endif
 
 .PHONY: help
 help:
@@ -11,38 +16,27 @@ help:
 	@echo
 	@echo "target is one of:"
 	@echo "    help        show this message and exit"
-	@echo "    build       build the docker image for lando"
 	@echo "    format      run ruff and black on source code"
 	@echo "    test        run the test suite"
 	@echo "    migrations  generates migration files to reflect model changes in the database"
-	@echo "    start       run the application"
-	@echo "    stop        stop the application"
 	@echo "    attach      attach for debugging (ctrl-p ctrl-q to detach)"
 
 .PHONY: test
 test:
-	docker-compose run lando lando tests
+	$(BASE_COMMAND) lando tests
 
 .PHONY: format 
 format:
-	docker-compose run lando lando format
-
-.PHONY: build 
-build:
-	docker-compose build
+	$(BASE_COMMAND) lando format
 
 .PHONY: migrations
 migrations:
-	docker-compose run lando lando makemigrations
-
-.PHONY: start
-start:
-	docker-compose up -d
-
-.PHONY: stop
-stop:
-	docker-compose down
+	$(BASE_COMMAND) lando makemigrations
 
 .PHONY: attach
 attach:
+ifeq ($(INSUITE), 1)
+	-@docker attach suite-lando-1 ||:
+else
 	-@docker-compose attach lando ||:
+endif
