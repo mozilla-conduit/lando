@@ -12,10 +12,8 @@ logger = logging.getLogger(__name__)
 def init_sentry():
     """Initialize Sentry integration for remote environments."""
     if not settings.ENVIRONMENT.is_remote:
-        raise ValueError(
-            "Attempting to initialize Sentry in non-remote environment "
-            f"({settings.ENVIRONMENT})"
-        )
+        return
+
     sentry_sdk.init(
         dsn=settings.SENTRY_DSN,
         environment=settings.ENVIRONMENT,
