@@ -2,6 +2,7 @@ black
 celery
 datadog
 django-libsass
+django-storages[google]
 django_compressor
 jinja2
 kombu
@@ -14,6 +15,6 @@ redis
 requests-mock
 rs-parsepatch
 ruff
+sentry-sdk
 setuptools-scm
 uwsgi
-django-storages[google]
