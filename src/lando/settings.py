@@ -225,3 +225,4 @@ if ENVIRONMENT.is_remote:
     COMPRESS_URL = STATIC_URL
     COMPRESS_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
     COMPRESS_OFFLINE_MANIFEST_STORAGE = COMPRESS_STORAGE
+    SENTRY_DSN = os.getenv("SENTRY_DSN")
