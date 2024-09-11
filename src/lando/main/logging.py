@@ -3,8 +3,6 @@ import logging
 import socket
 import traceback
 
-from lando.api.legacy.systems import Subsystem
-
 logger = logging.getLogger(__name__)
 
 
@@ -68,6 +66,9 @@ class MozLogFormatter(logging.Formatter):
     def format(self, record):
         """Formats a log record and serializes to mozlog json"""
 
+        # NOTE: Django passes some fields that are not JSON serializable in the record
+        # (for example, the WSGIRequest object representing the request). Therefore
+        # those values are converted to a string to avoid any issues when serializing.
         mozlog_record = {
             "EnvVersion": self.MOZLOG_ENVVERSION,
             "Hostname": self.hostname,
@@ -77,7 +78,7 @@ class MozLogFormatter(logging.Formatter):
             "Severity": self.PRIORITY.get(record.levelname, self.SL_WARNING),
             "Pid": record.process,
             "Fields": {
-                k: v
+                k: str(v)
                 for k, v in record.__dict__.items()
                 if k not in self.BUILTIN_LOGRECORD_ATTRIBUTES
             },
@@ -106,40 +107,3 @@ class PrettyMozLogFormatter(MozLogFormatter):
     def serialize(self, mozlog_record):
         """Serialize a mozlog record."""
         return json.dumps(mozlog_record, sort_keys=True, indent=2)
-
-
-class LoggingSubsystem(Subsystem):
-    name = "logging"
-
-    def init_app(self, app):
-        self.flask_app = app
-        level = self.flask_app.config.get("LOG_LEVEL", "INFO")
-
-        logging.config.dictConfig(
-            {
-                "version": 1,
-                "formatters": {
-                    "mozlog": {"()": MozLogFormatter, "mozlog_logger": "lando-api"}
-                },
-                "handlers": {
-                    "console": {
-                        "class": "logging.StreamHandler",
-                        "formatter": "mozlog",
-                    },
-                    "null": {"class": "logging.NullHandler"},
-                },
-                "loggers": {
-                    "landoapi": {"level": level, "handlers": ["console"]},
-                    "request.summary": {"level": level, "handlers": ["console"]},
-                    "flask": {"handlers": ["null"]},
-                    "werkzeug": {"level": "ERROR", "handlers": ["console"]},
-                    "celery": {"level": "INFO", "handlers": ["console"]},
-                },
-                "root": {"handlers": ["null"]},
-                "disable_existing_loggers": True,
-            }
-        )
-        logger.info("logging configured", extra={"LOG_LEVEL": level})
-
-
-logging_subsystem = LoggingSubsystem()

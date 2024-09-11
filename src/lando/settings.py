@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/dev/ref/settings/
 import os
 from pathlib import Path
 from lando.environments import Environment
+from lando.main.logging import MozLogFormatter
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -226,3 +227,27 @@ if ENVIRONMENT.is_remote:
     COMPRESS_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
     COMPRESS_OFFLINE_MANIFEST_STORAGE = COMPRESS_STORAGE
     SENTRY_DSN = os.getenv("SENTRY_DSN")
+
+    LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+    LOGGING = {
+        "version": 1,
+        "formatters": {
+            "mozlog": {"()": MozLogFormatter, "mozlog_logger": "lando"}
+        },
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "formatter": "mozlog",
+            },
+            "null": {"class": "logging.NullHandler"},
+        },
+        "loggers": {
+            "celery": {"level": LOG_LEVEL, "handlers": ["console"]},
+            "django": {"level": LOG_LEVEL, "handlers": ["console"]},
+            "lando": {"level": LOG_LEVEL, "handlers": ["console"]},
+            # TODO: for below, see bug 1887030.
+            "request.summary": {"level": LOG_LEVEL, "handlers": ["console"]},
+        },
+        "root": {"handlers": ["null"]},
+        "disable_existing_loggers": True,
+    }
