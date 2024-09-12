@@ -2,9 +2,6 @@ import logging
 from json.decoder import JSONDecodeError
 
 import requests
-from django.conf import settings
-
-from lando.api.legacy.systems import Subsystem
 
 logger = logging.getLogger(__name__)
 
@@ -146,22 +143,3 @@ class TreeStatusError(TreeStatusException):
             return
 
         raise cls(response_obj.status_code, data)
-
-
-class TreeStatusSubsystem(Subsystem):
-    name = "treestatus"
-
-    def init_app(self, app):
-        super().init_app(app)
-
-        self.client = TreeStatus(url=settings.TREESTATUS_URL)
-        version_sha = settings.VERSION.get("version", "dev")
-        self.client.session.headers.update(
-            {"User-Agent": f"landoapi.treestatus.TreeStatus/{version_sha}"}
-        )
-
-    def healthy(self):
-        if not self.client.ping():
-            return "Could not ping Tree Status"
-
-        return True
