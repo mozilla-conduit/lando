@@ -1,5 +1,6 @@
 black
 celery
+cryptography
 datadog
 django-libsass
 django-storages[google]

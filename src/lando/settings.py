@@ -24,6 +24,10 @@ SECRET_KEY = os.getenv(
     "django-insecure-26k#ouat@%d6w5gmuhvo_vc=_@on^6=eh9*g!p-k9ynjvyc#(_",
 )
 
+ENCRYPTION_KEY = os.getenv(
+    "ENCRYPTION_KEY", "O-DH0Sq2Ok9CgZHu-r2cYcv_CJfBwfYK4PZAMozswu8="
+).encode("utf-8")
+
 DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1")
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,lando.local,lando.test").split(
     ","
