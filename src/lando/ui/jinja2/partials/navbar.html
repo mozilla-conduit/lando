@@ -81,21 +81,19 @@
         <section class="modal-card-body">
           <form
             class="userSettingsForm"
-            {# Below code is not currently in use. It will be implemented in bug 1908145. #}
-            {% if request.user.profile.phabricator_api_token %}
-              data-phabricator_api_token=1
+            {% if request.user.profile.phabricator_api_key %}
+              data-phabricator_api_key=1
             {% endif %}>
             {% set settings_form = new_settings_form() %}
-            {{ settings_form.phab_api_token.label }} |
-            {{ settings_form.reset_phab_api_token.label }}:
-            {{ settings_form.reset_phab_api_token }}
-            {{ settings_form.phab_api_token }}
-            {{ settings_form.csrf_token }}
+            {{ settings_form.phabricator_api_key.label }} |
+            {{ settings_form.reset_key.label }}:
+            {{ settings_form.reset_key }}
+            {{ settings_form.phabricator_api_key }}
+            {{ csrf_input }}
             <ul id="phab_api_token_errors" class="userSettingsForm-Errors"></ul>
             <ul id="form_errors" class="userSettingsForm-Errors"></ul>
           </form>
           <p>
-            Your API token will be removed on log out.<br/>
             The API token allows anybody with access to it to perform actions on your behalf.
             It is important not to store your API token anywhere but here or on the Phabricator site.
           </p>

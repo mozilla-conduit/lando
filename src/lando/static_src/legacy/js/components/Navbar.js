@@ -26,9 +26,9 @@ $.fn.landoNavbar = function() {
 
     // Phabricator API Token settings
     // The token's value is stored in the httponly cookie
-    let $phabAPITokenInput = $modal.find('#phab_api_token').first();
-    let $phabAPITokenReset = $modal.find('#reset_phab_api_token').first();
-    let isSetPhabAPIToken = $settingsForm.data('phabricator_api_token');
+    let $phabricatorAPIKeyInput = $modal.find('#id_phabricator_api_key').first();
+    let $phabricatorAPIKeyReset = $modal.find('#id_reset_key').first();
+    let isSetPhabricatorAPIKey = $settingsForm.data('phabricator_api_key');
 
     modalSubmitBtnOn();
     setAPITokenPlaceholder();
@@ -48,22 +48,23 @@ $.fn.landoNavbar = function() {
       e.preventDefault();
       e.stopImmediatePropagation();
       // We don't have any other setting than the API Token
-      if (!$phabAPITokenInput.val() && !$phabAPITokenReset.prop('checked')) {
+      if (!$phabricatorAPIKeyInput.val() && !$phabricatorAPIKeyReset.prop('checked')) {
         displaySettingsError('phab_api_token_errors', 'Invalid Token Value');
         return;
       }
       modalSubmitBtnOff();
       $.ajax({
-        url: '/settings',
+        url: '/manage_token/',
         type: 'post',
         data: $(this).serialize(),
         dataType: 'json',
         success: data => {
           modalSubmitBtnOn();
+            console.log(data);
           if (!data.success) {
             return handlePhabAPITokenErrors(data.errors);
           }
-          isSetPhabAPIToken = data.phab_api_token_set;
+          isSetPhabricatorAPIKey = data.phab_api_token_set;
           restartPhabAPIToken();
           $modal.removeClass('is-active');
           console.log('Your settings have been saved.');
@@ -85,7 +86,7 @@ $.fn.landoNavbar = function() {
       });
     });
 
-    $phabAPITokenReset.on('click', () => {
+    $phabricatorAPIKeyReset.on('click', () => {
       setAPITokenPlaceholder();
     });
 
@@ -101,31 +102,31 @@ $.fn.landoNavbar = function() {
     }
 
     function setAPITokenPlaceholder() {
-      if ($phabAPITokenReset.prop('checked')) {
-        $phabAPITokenInput.prop('placeholder', 'Save changes to delete the API token');
-        $phabAPITokenInput.val('');
-        $phabAPITokenInput.prop('disabled', true);
+      if ($phabricatorAPIKeyReset.prop('checked')) {
+        $phabricatorAPIKeyInput.prop('placeholder', 'Save changes to delete the API token');
+        $phabricatorAPIKeyInput.val('');
+        $phabricatorAPIKeyInput.prop('disabled', true);
         return;
       }
-      $phabAPITokenInput.prop('disabled', false);
-      if (!isSetPhabAPIToken) {
-        $phabAPITokenInput.prop('placeholder', 'not set');
+      $phabricatorAPIKeyInput.prop('disabled', false);
+      if (!isSetPhabricatorAPIKey) {
+        $phabricatorAPIKeyInput.prop('placeholder', 'not set');
       } else {
-        $phabAPITokenInput.prop('placeholder', 'api-############################');
+        $phabricatorAPIKeyInput.prop('placeholder', 'phabricator api key is set'); 
       }
     }
 
     function restartPhabAPIToken() {
-      $phabAPITokenInput.val('');
-      $phabAPITokenReset.prop('checked', false);
-      $phabAPITokenInput.prop('disabled', false);
+      $phabricatorAPIKeyInput.val('');
+      $phabricatorAPIKeyReset.prop('checked', false);
+      $phabricatorAPIKeyInput.prop('disabled', false);
       setAPITokenPlaceholder();
     }
 
     function handlePhabAPITokenErrors(errors) {
       resetSettingsFormErrors();
       Object.keys(errors).forEach(error => {
-        if (error in ['phab_api_token', 'reset_phab_api_token']) {
+        if (error in ['phabricator_api_key', 'reset_key']) {
           errors[error].each(message => {
             displaySettingsError('phab_api_token_errors', message);
           });

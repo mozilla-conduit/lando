@@ -1,37 +1,27 @@
-from flask import (
-    current_app,
-    jsonify,
-    Response,
-)
-
 from lando.ui.legacy.forms import UserSettingsForm
+from lando.main.auth import require_authenticated_user
+from django.http import HttpResponseNotAllowed, JsonResponse
+from django.core.handlers.wsgi import WSGIRequest
 
 
-def manage_phab_api_token_cookie(form: UserSettingsForm, payload: dict) -> Response:
+@require_authenticated_user
+def manage_token(request: WSGIRequest) -> JsonResponse:
     """Sets `phabricator-api-token` cookie from the UserSettingsForm.
 
-    Sets the cookie to the value provided in `phab_api_token` field.
-    If `reset_phab_api_token` is `True` cookie is set to an empty string.
-
-    Args:
-        form: validated `landoui.forms.UserSettingsForm`
-
-    Returns:
-        `flask.Response` with a `Set-Cookie` header
+    Sets the cookie to the value provided in `phabricator_api_key` field.
+    If `reset_key` is `True` cookie is set to an empty string.
     """
-    payload["phab_api_token_set"] = (
-        form.phab_api_token.data and not form.reset_phab_api_token.data
-    )
-    response = jsonify(payload)
+    if not request.method == "POST":
+        return HttpResponseNotAllowed()
 
-    if form.reset_phab_api_token.data:
-        response.delete_cookie("phabricator-api-token")
-    elif form.phab_api_token.data:
-        response.set_cookie(
-            "phabricator-api-token",
-            value=form.phab_api_token.data,
-            secure=current_app.config["USE_HTTPS"],
-            httponly=True,
-        )
-
-    return response
+    form = UserSettingsForm(request.POST)
+    if form.is_valid():
+        profile = request.user.profile
+        if form.cleaned_data["reset_key"]:
+            profile.encrypted_phabricator_api_key = b""
+            profile.save()
+        else:
+            profile.save_phabricator_api_key(form.cleaned_data["phabricator_api_key"])
+        return JsonResponse({"success": True}, status=200)
+    else:
+        return JsonResponse({"errors": form.errors}, status=400)
