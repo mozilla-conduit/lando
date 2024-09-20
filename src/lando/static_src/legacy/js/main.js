@@ -1,17 +1,18 @@
 'use strict';
 
 $(document).ready(function() {
-  let $timeline = $('.StackPage-timeline');
-  let $landingPreview = $('.StackPage-landingPreview');
-  let $stack = $('.StackPage-stack');
-  let $secRequestSubmitted = $('.StackPage-secRequestSubmitted');
   let $flashMessages = $('.FlashMessages');
+  let $landingPreview = $('.StackPage-landingPreview');
+  let $navBar = $('.Navbar');
+  let $secRequestSubmitted = $('.StackPage-secRequestSubmitted');
+  let $stack = $('.StackPage-stack');
+  let $timeline = $('.StackPage-timeline');
 
   // Initialize components
-  $('.Navbar').landoNavbar();
-  $timeline.timeline();
-  $landingPreview.landingPreview();
-  $stack.stack();
-  $secRequestSubmitted.secRequestSubmitted();
   $flashMessages.flashMessages();
+  $landingPreview.landingPreview();
+  $navBar.landoNavbar();
+  $secRequestSubmitted.secRequestSubmitted();
+  $stack.stack();
+  $timeline.timeline();
 });
