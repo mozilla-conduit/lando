@@ -9,6 +9,7 @@ from lando.ui.legacy.stacks import draw_stack_graph, Edge, sort_stack_topologica
 from lando.ui.views import LandoView
 
 from lando.api.legacy import api as legacy_api
+from lando.main.auth import force_auth_refresh
 
 from django.contrib import messages
 from django.template.response import TemplateResponse
@@ -143,6 +144,7 @@ class Revision(LandoView):
             context=context,
         )
 
+    @force_auth_refresh
     def post(self, request: HttpRequest, revision_id: int, *args, **kwargs) -> HttpResponseRedirect:
         form = TransplantRequestForm(request.POST)
         errors = []
