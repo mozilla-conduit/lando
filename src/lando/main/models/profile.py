@@ -71,7 +71,7 @@ class Profile(BaseModel):
         ) and f"expired_{codename}" not in groups
 
     @classmethod
-    def get_all_scm_permissions(cls) -> dict[str:Permission]:
+    def get_all_scm_permissions(cls) -> dict[str, Permission]:
         """Return all SCM permission objects in the system."""
         content_type = ContentType.objects.get_for_model(cls)
 
