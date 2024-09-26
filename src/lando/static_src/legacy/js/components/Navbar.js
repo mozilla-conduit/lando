@@ -22,16 +22,15 @@ $.fn.landoNavbar = function() {
     let $modalCancelBtn = $navbar.find('.Navbar-modalCancel');
     let $settingsForm = $modal.find('.userSettingsForm').first();
     let $settingsFormErrors = $modal.find('.userSettingsForm-Errors');
-    let $errorPageShowModal = $('.ErrorPage-showAPIToken');
+    let $errorPageShowModal = $('.ErrorPage-showAPIKey');
 
-    // Phabricator API Token settings
-    // The token's value is stored in the httponly cookie
+    // Phabricator API key settings
     let $phabricatorAPIKeyInput = $modal.find('#id_phabricator_api_key').first();
     let $phabricatorAPIKeyReset = $modal.find('#id_reset_key').first();
     let isSetPhabricatorAPIKey = $settingsForm.data('phabricator_api_key');
 
     modalSubmitBtnOn();
-    setAPITokenPlaceholder();
+    setAPIKeyPlaceholder();
 
     $modalToggleBtn.on('click', () => {
       $modal.toggleClass('is-active');
@@ -47,9 +46,9 @@ $.fn.landoNavbar = function() {
     $settingsForm.on('submit', function(e) {
       e.preventDefault();
       e.stopImmediatePropagation();
-      // We don't have any other setting than the API Token
+      // We don't have any other setting than the API key
       if (!$phabricatorAPIKeyInput.val() && !$phabricatorAPIKeyReset.prop('checked')) {
-        displaySettingsError('phabricator_api_key_errors', 'Invalid Token Value');
+        displaySettingsError('phabricator_api_key_errors', 'Invalid API Key Value');
         return;
       }
       modalSubmitBtnOff();
@@ -62,9 +61,9 @@ $.fn.landoNavbar = function() {
           modalSubmitBtnOn();
             console.log(data);
           if (!data.success) {
-            return handlePhabAPITokenErrors(data.errors);
+            return handlePhabricatorAPIKeyErrors(data.errors);
           }
-          restartPhabAPIToken();
+          restartPhabricatorAPIKey();
           $modal.removeClass('is-active');
           console.log('Your settings have been saved.');
           window.location.reload(true);
@@ -79,14 +78,14 @@ $.fn.landoNavbar = function() {
 
     $modalCancelBtn.each(function() {
       $(this).on('click', () => {
-        restartPhabAPIToken();
+        restartPhabricatorAPIKey();
         resetSettingsFormErrors();
         $modal.removeClass('is-active');
       });
     });
 
     $phabricatorAPIKeyReset.on('click', () => {
-      setAPITokenPlaceholder();
+      setAPIKeyPlaceholder();
     });
 
     function resetSettingsFormErrors() {
@@ -100,7 +99,7 @@ $.fn.landoNavbar = function() {
         .append('<li class="help is-danger">' + message + '</li>');
     }
 
-    function setAPITokenPlaceholder() {
+    function setAPIKeyPlaceholder() {
       if ($phabricatorAPIKeyReset.prop('checked')) {
         $phabricatorAPIKeyInput.val('');
         $phabricatorAPIKeyInput.prop('disabled', true);
@@ -114,14 +113,14 @@ $.fn.landoNavbar = function() {
       }
     }
 
-    function restartPhabAPIToken() {
+    function restartPhabricatorAPIKey() {
       $phabricatorAPIKeyInput.val('');
       $phabricatorAPIKeyReset.prop('checked', false);
       $phabricatorAPIKeyInput.prop('disabled', false);
-      setAPITokenPlaceholder();
+      setAPIKeyPlaceholder();
     }
 
-    function handlePhabAPITokenErrors(errors) {
+    function handlePhabricatorAPIKeyErrors(errors) {
       resetSettingsFormErrors();
       Object.keys(errors).forEach(error => {
         if (error in ['phabricator_api_key', 'reset_key']) {

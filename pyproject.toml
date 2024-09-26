@@ -44,4 +44,5 @@ testpaths = [
     "src/lando/dockerflow",
     "src/lando/main/tests.py",
     "src/lando/tests",
+    "src/lando/ui/tests/test_forms.py",
 ]
