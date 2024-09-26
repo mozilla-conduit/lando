@@ -15,13 +15,15 @@ def manage_api_key(request: WSGIRequest) -> JsonResponse:
         return HttpResponseNotAllowed()
 
     form = UserSettingsForm(request.POST)
-    if form.is_valid():
-        profile = request.user.profile
-        if form.cleaned_data["reset_key"]:
-            profile.encrypted_phabricator_api_key = b""
-            profile.save()
-        else:
-            profile.save_phabricator_api_key(form.cleaned_data["phabricator_api_key"])
-        return JsonResponse({"success": True}, status=200)
-    else:
+
+    if not form.is_valid():
         return JsonResponse({"errors": form.errors}, status=400)
+
+    profile = request.user.profile
+    if form.cleaned_data["reset_key"]:
+        profile.encrypted_phabricator_api_key = b""
+        profile.save()
+    else:
+        profile.save_phabricator_api_key(form.cleaned_data["phabricator_api_key"])
+
+    return JsonResponse({"success": True}, status=200)
