@@ -41,6 +41,9 @@ class Profile(BaseModel):
     class Meta:
         permissions = SCM_PERMISSIONS
 
+    # Provide encryption/decryption functionality.
+    cryptography = Fernet(settings.ENCRYPTION_KEY)
+
     user = models.OneToOneField(User, null=True, on_delete=models.SET_NULL)
 
     # User info fetched from SSO.
@@ -49,20 +52,15 @@ class Profile(BaseModel):
     # Encrypted Phabricator API token.
     encrypted_phabricator_api_key = models.BinaryField(default=b"", blank=True)
 
-    @property
-    def _fernet(self):
-        """A class providing encryption and decryption based on the key in settings."""
-        return Fernet(settings.ENCRYPTION_KEY)
-
     def _encrypt_value(self, value: str) -> bytes:
         """Encrypt a given string value."""
-        return self._fernet.encrypt(value.encode("utf-8"))
+        return self.cryptography.encrypt(value.encode("utf-8"))
 
     def _decrypt_value(self, value: bytes) -> str:
         """Decrypt a given bytes value."""
-        return self._fernet.decrypt(value).decode("utf-8")
+        return self.cryptography.decrypt(value).decode("utf-8")
 
-    def _has_scm_permission_groups(self, codename, groups):
+    def _has_scm_permission_groups(self, codename: str, groups: list[str]) -> bool:
         """Return whether the group membership provides the correct permission.
 
         In order to have a particular SCM permission, both the "active" and "all" groups
@@ -95,9 +93,13 @@ class Profile(BaseModel):
         else:
             return ""
 
-    def save_phabricator_api_key(self, value: str):
-        """Given a value, encrypt it and store it in the relevant field."""
-        self.encrypted_phabricator_api_key = self._encrypt_value(value)
+    def clear_phabricator_api_key(self):
+        """Set the phabricator API key to an empty string and save."""
+        self.save_phabricator_api_key("")
+
+    def save_phabricator_api_key(self, key: str):
+        """Given a raw API key, encrypt it and store it in the relevant field."""
+        self.encrypted_phabricator_api_key = self._encrypt_value(key)
         self.save()
 
     def update_permissions(self):
