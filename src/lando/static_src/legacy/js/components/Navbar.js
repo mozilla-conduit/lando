@@ -54,7 +54,7 @@ $.fn.landoNavbar = function() {
       }
       modalSubmitBtnOff();
       $.ajax({
-        url: '/manage_token/',
+        url: '/manage_api_key/',
         type: 'post',
         data: $(this).serialize(),
         dataType: 'json',
@@ -64,7 +64,6 @@ $.fn.landoNavbar = function() {
           if (!data.success) {
             return handlePhabAPITokenErrors(data.errors);
           }
-          isSetPhabricatorAPIKey = data.phab_api_token_set;
           restartPhabAPIToken();
           $modal.removeClass('is-active');
           console.log('Your settings have been saved.');
@@ -103,16 +102,15 @@ $.fn.landoNavbar = function() {
 
     function setAPITokenPlaceholder() {
       if ($phabricatorAPIKeyReset.prop('checked')) {
-        $phabricatorAPIKeyInput.prop('placeholder', 'Save changes to delete the API token');
         $phabricatorAPIKeyInput.val('');
         $phabricatorAPIKeyInput.prop('disabled', true);
         return;
       }
       $phabricatorAPIKeyInput.prop('disabled', false);
       if (!isSetPhabricatorAPIKey) {
-        $phabricatorAPIKeyInput.prop('placeholder', 'not set');
+        $phabricatorAPIKeyInput.prop('placeholder', 'Enter new key.');
       } else {
-        $phabricatorAPIKeyInput.prop('placeholder', 'phabricator api key is set'); 
+        $phabricatorAPIKeyInput.prop('placeholder', '************************');
       }
     }
 

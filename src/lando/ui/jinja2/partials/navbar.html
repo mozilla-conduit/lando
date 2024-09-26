@@ -79,15 +79,21 @@
           <button class="Navbar-modalCancel delete"></button>
         </header>
         <section class="modal-card-body">
+          {% set api_key_is_set = false if request.user.profile.phabricator_api_key == "" else true %}
           <form
             class="userSettingsForm"
-            {% if request.user.profile.phabricator_api_key %}
-              data-phabricator_api_key=1
-            {% endif %}>
+            {% if api_key_is_set %} data-phabricator_api_key=1 {% endif %}>
             {% set settings_form = new_settings_form() %}
-            {{ settings_form.phabricator_api_key.label }} |
-            {{ settings_form.reset_key.label }}:
-            {{ settings_form.reset_key }}
+            {{ settings_form.phabricator_api_key.label }}
+            {% if api_key_is_set %}
+                (set)
+                <label class="checkbox is-pulled-right">
+                {{ settings_form.reset_key.label }}
+                {{ settings_form.reset_key }}
+                </label>
+            {% else %}
+                (unset)
+            {% endif %}
             {{ settings_form.phabricator_api_key }}
             {{ csrf_input }}
             <ul id="phab_api_token_errors" class="userSettingsForm-Errors"></ul>

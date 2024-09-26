@@ -5,7 +5,7 @@ from django.core.handlers.wsgi import WSGIRequest
 
 
 @require_authenticated_user
-def manage_token(request: WSGIRequest) -> JsonResponse:
+def manage_api_key(request: WSGIRequest) -> JsonResponse:
     """Sets `phabricator-api-token` cookie from the UserSettingsForm.
 
     Sets the cookie to the value provided in `phabricator_api_key` field.

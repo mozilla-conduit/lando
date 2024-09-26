@@ -18,7 +18,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
-from lando.ui.legacy import revisions, pages, usersettings
+from lando.ui.legacy import revisions, pages, user_settings
 from lando.dockerflow import views as DockerflowViews
 
 urlpatterns = [
@@ -40,5 +40,5 @@ urlpatterns += [
 urlpatterns += [
     path("", pages.Index.as_view()),
     path("D<int:revision_id>/", revisions.Revision.as_view(), name="revisions-page"),
-    path("manage_token/", usersettings.manage_token, name="user_settings"),
+    path("manage_api_key/", user_settings.manage_api_key, name="user_settings"),
 ]
