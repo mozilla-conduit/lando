@@ -21,8 +21,7 @@ def manage_api_key(request: WSGIRequest) -> JsonResponse:
 
     profile = request.user.profile
     if form.cleaned_data["reset_key"]:
-        profile.encrypted_phabricator_api_key = b""
-        profile.save()
+        profile.clear_phabricator_api_key()
     else:
         profile.save_phabricator_api_key(form.cleaned_data["phabricator_api_key"])
 
