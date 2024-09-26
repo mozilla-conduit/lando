@@ -96,12 +96,12 @@
             {% endif %}
             {{ settings_form.phabricator_api_key }}
             {{ csrf_input }}
-            <ul id="phab_api_token_errors" class="userSettingsForm-Errors"></ul>
+            <ul id="phabricator_api_key_errors" class="userSettingsForm-Errors"></ul>
             <ul id="form_errors" class="userSettingsForm-Errors"></ul>
           </form>
           <p>
-            The API token allows anybody with access to it to perform actions on your behalf.
-            It is important not to store your API token anywhere but here or on the Phabricator site.
+            The API key allows anybody with access to it to perform actions on your behalf.
+            It is important not to store your API key anywhere but here or on the Phabricator site.
           </p>
         </section>
         <footer class="modal-card-foot">

@@ -49,7 +49,7 @@ $.fn.landoNavbar = function() {
       e.stopImmediatePropagation();
       // We don't have any other setting than the API Token
       if (!$phabricatorAPIKeyInput.val() && !$phabricatorAPIKeyReset.prop('checked')) {
-        displaySettingsError('phab_api_token_errors', 'Invalid Token Value');
+        displaySettingsError('phabricator_api_key_errors', 'Invalid Token Value');
         return;
       }
       modalSubmitBtnOff();
@@ -126,7 +126,7 @@ $.fn.landoNavbar = function() {
       Object.keys(errors).forEach(error => {
         if (error in ['phabricator_api_key', 'reset_key']) {
           errors[error].each(message => {
-            displaySettingsError('phab_api_token_errors', message);
+            displaySettingsError('phabricator_api_key_errors', message);
           });
           return;
         }
