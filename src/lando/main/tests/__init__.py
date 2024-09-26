@@ -78,10 +78,9 @@ def test_phabricator_api_key_encryption():
     # Set an arbitrary key.
     key = "test-key"
     profile.save_phabricator_api_key(key)
-    assert profile.encrypted_phabricator_api_key
+    assert key.encode("utf-8") not in profile.encrypted_phabricator_api_key
     assert profile.phabricator_api_key == key
 
     # Clear the key
-    profile.encrypted_phabricator_api_key = b""
-    profile.save()
+    profile.clear_phabricator_api_key()
     assert profile.phabricator_api_key == ""
