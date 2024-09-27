@@ -1,7 +1,8 @@
-from lando.ui.legacy.forms import UserSettingsForm
-from lando.main.auth import require_authenticated_user
-from django.http import HttpResponseNotAllowed, JsonResponse
 from django.core.handlers.wsgi import WSGIRequest
+from django.http import HttpResponseNotAllowed, JsonResponse
+
+from lando.main.auth import require_authenticated_user
+from lando.ui.legacy.forms import UserSettingsForm
 
 
 @require_authenticated_user

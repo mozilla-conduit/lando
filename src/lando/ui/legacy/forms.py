@@ -24,5 +24,5 @@ class UserSettingsForm(forms.Form):
         regex="^api-[a-z0-9]{28}$",
         label="Phabricator API Key",
     )
-    phabricator_api_key.widget.attrs.update({'class': 'input'})
+    phabricator_api_key.widget.attrs.update({"class": "input"})
     reset_key = forms.BooleanField(required=False, label="Delete")
