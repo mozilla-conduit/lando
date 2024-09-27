@@ -1,6 +1,7 @@
 """
 Code Style Tests.
 """
+
 import subprocess
 
 

@@ -1,7 +1,8 @@
 import logging
 
-from lando.ui.views import LandoView
 from django.template.response import TemplateResponse
+
+from lando.ui.views import LandoView
 
 logger = logging.getLogger(__name__)
 
