@@ -196,11 +196,7 @@ AUTHENTICATION_BACKENDS = [
     "lando.main.auth.LandoOIDCAuthenticationBackend",
 ]
 
-LINT_PATHS = tuple(
-    f"{BASE_DIR}/{path}"
-    for path in (".", "ui", "api", "dockerflow", "main", "utils", "tests")
-)
-
+LINT_PATHS = (BASE_DIR,)
 GITHUB_ACCESS_TOKEN = os.getenv("LANDO_GITHUB_ACCESS_TOKEN")
 PHABRICATOR_URL = os.getenv("PHABRICATOR_URL", "http://phabricator.test")
 PHABRICATOR_ADMIN_API_KEY = os.getenv("PHABRICATOR_ADMIN_API_KEY", "")
