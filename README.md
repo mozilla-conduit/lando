@@ -29,6 +29,10 @@ The above command will run any database migrations and start the development ser
 
 The above command will shut down the containers running lando.
 
+To setup the instance, including a dev admin user, run
+
+    docker-compose run lando lando setup_dev
+
 ## Specifying Suite or Stand-alone
 By default, make commands will assume you are running them in suite. This will run the commands in the lando container in the suite. If you want to explicitly run commands on a standalone Lando container (i.e., if you started the container via `docker-compose up` above), then set STANDALONE=1. For example:
 
