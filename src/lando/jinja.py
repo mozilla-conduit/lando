@@ -1,20 +1,18 @@
-from django.templatetags.static import static
-from django.urls import reverse
-from django.utils.html import escape
-from compressor.contrib.jinja2ext import CompressorExtension
-
-from jinja2 import Environment
-from django.conf import settings
-from lando.ui.legacy.forms import UserSettingsForm
-
 import datetime
 import logging
 import re
 import urllib.parse
-
 from typing import Optional
 
+from compressor.contrib.jinja2ext import CompressorExtension
+from django.conf import settings
 from django.contrib import messages
+from django.templatetags.static import static
+from django.urls import reverse
+from django.utils.html import escape
+from jinja2 import Environment
+
+from lando.ui.legacy.forms import UserSettingsForm
 
 FAQ_URL = "https://wiki.mozilla.org/Phabricator/FAQ#Lando"
 SEC_BUG_DOCS = "https://firefox-source-docs.mozilla.org/bug-mgmt/processes/security-approval.html"  # noqa: E501
@@ -146,9 +144,7 @@ def linkify_bug_numbers(text: str) -> str:
 
 
 def linkify_revision_urls(text: str) -> str:
-    search = (
-        r"(?=\b)(" + re.escape(settings.PHABRICATOR_URL) + r"/D\d+)(?=\b)"
-    )
+    search = r"(?=\b)(" + re.escape(settings.PHABRICATOR_URL) + r"/D\d+)(?=\b)"
     replace = r'<a href="\g<1>">\g<1></a>'
     return re.sub(search, replace, str(text), flags=re.IGNORECASE)
 
@@ -157,8 +153,7 @@ def linkify_revision_ids(text: str) -> str:
     """Linkify revision IDs to proper Phabricator URLs."""
     search = r"\b(D\d+)\b"
     replace = (
-        rf'<a href="{settings.PHABRICATOR_URL}/\g<1>" '
-        r'target="_blank">\g<1></a>'
+        rf'<a href="{settings.PHABRICATOR_URL}/\g<1>" ' r'target="_blank">\g<1></a>'
     )
     return re.sub(search, replace, str(text), flags=re.IGNORECASE)
 
@@ -203,9 +198,7 @@ def revision_url(revision_id: int | str, diff_id: Optional[str] = None) -> str:
     else:
         path = revision_id
 
-    url = "{phab_url}/{path}".format(
-        phab_url=settings.PHABRICATOR_URL, path=path
-    )
+    url = "{phab_url}/{path}".format(phab_url=settings.PHABRICATOR_URL, path=path)
     if diff_id is not None and diff_id != "":
         url = "{revision_url}?id={diff_id}".format(revision_url=url, diff_id=diff_id)
 
@@ -290,9 +283,11 @@ def message_type_to_notification_class(flash_message_category: str) -> str:
     Bulma notification states.
     """
     levels = messages.DEFAULT_LEVELS
-    return {levels["INFO"]: "is-info", levels["SUCCESS"]: "is-success", levels["WARNING"]: "is-warning"}.get(
-        flash_message_category, "is-info"
-    )
+    return {
+        levels["INFO"]: "is-info",
+        levels["SUCCESS"]: "is-success",
+        levels["WARNING"]: "is-warning",
+    }.get(flash_message_category, "is-info")
 
 
 def environment(**options):

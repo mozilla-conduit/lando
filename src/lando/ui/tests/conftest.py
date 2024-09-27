@@ -1,9 +1,9 @@
-import os
 import binascii
 import json
+import os
+import socket
 
 import pytest
-import socket
 
 from lando.ui.legacy.app import create_app
 

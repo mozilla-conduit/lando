@@ -1,9 +1,9 @@
 from collections import namedtuple
+from types import SimpleNamespace
 from typing import (
     Any,
     Callable,
 )
-from types import SimpleNamespace
 
 Edge = namedtuple("Edge", ("child", "parent"))
 Node = namedtuple("Node", ("id", "children", "parents"))

@@ -1,7 +1,7 @@
 from flask import (
+    Response,
     current_app,
     jsonify,
-    Response,
 )
 
 from lando.ui.legacy.forms import UserSettingsForm
