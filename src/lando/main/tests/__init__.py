@@ -1,3 +1,4 @@
+import base64
 from unittest.mock import MagicMock
 
 import pytest
@@ -79,6 +80,7 @@ def test_phabricator_api_key_encryption():
     key = "test-key"
     profile.save_phabricator_api_key(key)
     assert key.encode("utf-8") not in profile.encrypted_phabricator_api_key
+    assert base64.b64decode(profile.encrypted_phabricator_api_key)
     assert profile.phabricator_api_key == key
 
     # Clear the key
