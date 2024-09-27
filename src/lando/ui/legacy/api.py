@@ -1,19 +1,18 @@
 import logging
-
 from itertools import (
     chain,
 )
+
+from django.http import JsonResponse
+from django.shortcuts import redirect
+
 from lando.ui.legacy.forms import (
     UpliftRequestForm,
 )
 from lando.ui.legacy.helpers import (
     is_user_authenticated,
 )
-
 from lando.ui.views import LandoView
-
-from django.http import JsonResponse
-from django.shortcuts import redirect
 
 logger = logging.getLogger(__name__)
 
@@ -40,15 +39,16 @@ class Uplift(LandoView):
 
         if not is_user_authenticated():
             return JsonResponse(
-                {"errors":
-                    ["You must be logged in to request an uplift"]}, status_code=401)
+                {"errors": ["You must be logged in to request an uplift"]},
+                status_code=401,
+            )
 
         if not uplift_request_form.validate():
             errors = list(chain(*uplift_request_form.errors.values()))
             return JsonResponse({"errors": errors}, status_code=400)
 
-        revision_id = uplift_request_form.revision_id.data
-        repository = uplift_request_form.repository.data
+        # revision_id = uplift_request_form.revision_id.data
+        # repository = uplift_request_form.repository.data
 
         try:
             response = {}

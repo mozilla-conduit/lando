@@ -14,11 +14,12 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.contrib import admin
 from django.urls import include, path
 
-from lando.ui.legacy import revisions, pages
 from lando.dockerflow import views as DockerflowViews
+from lando.ui.legacy import pages, revisions
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -28,7 +29,11 @@ urlpatterns = [
 urlpatterns += [
     path("__version__", DockerflowViews.VersionView.as_view(), name="version"),
     path("__heartbeat__", DockerflowViews.HeartbeatView.as_view(), name="heartbeat"),
-    path("__lbheartbeat__", DockerflowViews.LoadBalancerHeartbeatView.as_view(), name="lbheartbeat"),
+    path(
+        "__lbheartbeat__",
+        DockerflowViews.LoadBalancerHeartbeatView.as_view(),
+        name="lbheartbeat",
+    ),
 ]
 
 # "UI" pages ported from legacy UI app.
