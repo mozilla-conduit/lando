@@ -3,7 +3,9 @@ from django import forms
 
 class TransplantRequestForm(forms.Form):
     landing_path = forms.JSONField(widget=forms.widgets.HiddenInput)
-    confirmation_token = forms.CharField(widget=forms.widgets.HiddenInput, required=False)
+    confirmation_token = forms.CharField(
+        widget=forms.widgets.HiddenInput, required=False
+    )
     flags = forms.JSONField(widget=forms.widgets.HiddenInput, required=False)
 
 

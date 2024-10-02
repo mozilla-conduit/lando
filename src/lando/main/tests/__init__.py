@@ -1,3 +1,4 @@
+import base64
 from unittest.mock import MagicMock
 
 import pytest
@@ -5,7 +6,7 @@ from django.contrib.auth.models import User
 from django.http import HttpResponse
 
 from lando.main.auth import LandoOIDCAuthenticationBackend, require_phabricator_api_key
-from lando.main.models.profile import CLAIM_GROUPS_KEY
+from lando.main.models.profile import CLAIM_GROUPS_KEY, Profile
 from lando.utils.phabricator import PhabricatorClient
 
 
@@ -66,3 +67,22 @@ def test_require_phabricator_api_key(monkeypatch, optional, valid_key, status):
         assert resp.body.api_token == "custom-key"
 
     assert resp.status_code == status
+
+
+@pytest.mark.django_db(transaction=True)
+def test_phabricator_api_key_encryption():
+    user = User.objects.create_user(username="test_user", password="test_password")
+    profile = Profile.objects.create(user=user)
+
+    assert profile.phabricator_api_key == ""
+
+    # Set an arbitrary key.
+    key = "test-key"
+    profile.save_phabricator_api_key(key)
+    assert key.encode("utf-8") not in profile.encrypted_phabricator_api_key
+    assert base64.b64decode(profile.encrypted_phabricator_api_key)
+    assert profile.phabricator_api_key == key
+
+    # Clear the key
+    profile.clear_phabricator_api_key()
+    assert profile.phabricator_api_key == ""

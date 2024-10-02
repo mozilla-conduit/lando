@@ -1,5 +1,4 @@
 import pytest
-
 from werkzeug.datastructures import MultiDict
 
 from lando.ui.legacy.forms import UserSettingsForm

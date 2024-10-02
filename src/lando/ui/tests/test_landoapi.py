@@ -4,8 +4,8 @@ import requests_mock
 
 from lando.ui.legacy.landoapi import (
     LandoAPI,
-    LandoAPIError,
     LandoAPICommunicationException,
+    LandoAPIError,
 )
 
 

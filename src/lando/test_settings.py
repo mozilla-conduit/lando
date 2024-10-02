@@ -1,6 +1,5 @@
-from lando.settings import *
 from lando.environments import Environment
-
+from lando.settings import *  # noqa: F403
 
 OIDC_DOMAIN = "lando-api.auth0.test"
 OIDC_OP_TOKEN_ENDPOINT = f"{OIDC_DOMAIN}/oauth/token"
@@ -25,4 +24,4 @@ CACHES = {
 }
 
 DEFAULT_FROM_EMAIL = "Lando <lando@lando.test>"
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

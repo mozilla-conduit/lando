@@ -1,22 +1,19 @@
+import json
 import logging
 
+from django.contrib import messages
+from django.http import HttpRequest, HttpResponseRedirect
+from django.shortcuts import redirect
+from django.template.response import TemplateResponse
 
+from lando.api.legacy import api as legacy_api
+from lando.main.auth import force_auth_refresh
 from lando.ui.legacy.forms import (
     TransplantRequestForm,
     # UpliftRequestForm,
 )
-from lando.ui.legacy.stacks import draw_stack_graph, Edge, sort_stack_topological
+from lando.ui.legacy.stacks import Edge, draw_stack_graph, sort_stack_topological
 from lando.ui.views import LandoView
-
-from lando.api.legacy import api as legacy_api
-from lando.main.auth import force_auth_refresh
-
-from django.contrib import messages
-from django.template.response import TemplateResponse
-from django.shortcuts import redirect
-from django.http import HttpResponseRedirect, HttpRequest
-
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +22,9 @@ logger = logging.getLogger(__name__)
 
 
 class Revision(LandoView):
-    def get(self, request: HttpRequest, revision_id: int, *args, **kwargs) -> TemplateResponse:
+    def get(
+        self, request: HttpRequest, revision_id: int, *args, **kwargs
+    ) -> TemplateResponse:
         lando_user = request.user
 
         # This is added for backwards compatibility.
@@ -93,13 +92,15 @@ class Revision(LandoView):
             landing_path_json = json.dumps(landing_path)
             form.fields["landing_path"].initial = landing_path_json
 
-            dryrun = legacy_api.transplants.dryrun(request, data={"landing_path": landing_path})
+            dryrun = legacy_api.transplants.dryrun(
+                request, data={"landing_path": landing_path}
+            )
             form.fields["confirmation_token"].initial = dryrun["confirmation_token"]
             series = list(reversed(series))
             target_repo = repositories.get(revisions[series[0]]["repo_phid"])
 
         phids = set(revisions.keys())
-        edges = set(Edge(child=e[0], parent=e[1]) for e in stack["edges"])
+        edges = {Edge(child=e[0], parent=e[1]) for e in stack["edges"]}
         order = sort_stack_topological(
             phids, edges, key=lambda x: int(revisions[x]["id"][1:])
         )
@@ -125,7 +126,7 @@ class Revision(LandoView):
             "landable": landable,
             "dryrun": dryrun,
             "stack": stack,
-            "rows": list(zip(reversed(order), reversed(drawing_rows))),
+            "rows": list(zip(reversed(order), reversed(drawing_rows), strict=False)),
             "drawing_width": drawing_width,
             "transplants": transplants,
             "revisions": revisions,
@@ -145,7 +146,9 @@ class Revision(LandoView):
         )
 
     @force_auth_refresh
-    def post(self, request: HttpRequest, revision_id: int, *args, **kwargs) -> HttpResponseRedirect:
+    def post(
+        self, request: HttpRequest, revision_id: int, *args, **kwargs
+    ) -> HttpResponseRedirect:
         form = TransplantRequestForm(request.POST)
         errors = []
 
@@ -161,8 +164,14 @@ class Revision(LandoView):
             errors.append("You must be logged in to request a landing")
 
         if form.is_valid() and not errors:
-            form.cleaned_data["landing_path"] = json.loads(form.cleaned_data["landing_path"])
-            form.cleaned_data["flags"] = json.loads(form.cleaned_data["flags"]) if form.cleaned_data["flags"] else []
+            form.cleaned_data["landing_path"] = json.loads(
+                form.cleaned_data["landing_path"]
+            )
+            form.cleaned_data["flags"] = (
+                json.loads(form.cleaned_data["flags"])
+                if form.cleaned_data["flags"]
+                else []
+            )
             legacy_api.transplants.post(request, data=form.cleaned_data)
             # We don't actually need any of the data from the
             # the submission. As long as an exception wasn't
@@ -170,7 +179,10 @@ class Revision(LandoView):
             return redirect("revisions-page", revision_id=revision_id)
 
         if form.errors:
-            errors += [f"{field}: {', '.join(field_errors)}" for field, field_errors in form.errors.items()]
+            errors += [
+                f"{field}: {', '.join(field_errors)}"
+                for field, field_errors in form.errors.items()
+            ]
 
         for error in errors:
             messages.add_message(request, messages.ERROR, error)

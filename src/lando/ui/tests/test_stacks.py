@@ -1,8 +1,8 @@
 import pytest
 
 from lando.ui.legacy.stacks import (
-    draw_stack_graph,
     Edge,
+    draw_stack_graph,
     sort_stack_topological,
 )
 
@@ -15,7 +15,7 @@ def test_sort_stack_topological_single_node():
 
 def test_sort_stack_topological_linear():
     revs = ["PHID-DREV-{}".format(i) for i in range(10)]
-    nodes = {phid for phid in revs}
+    nodes = set(revs)
     edges = {Edge(child=revs[i], parent=revs[i - 1]) for i in range(1, 10)}
 
     order = sort_stack_topological(nodes, edges)
@@ -44,7 +44,7 @@ def test_sort_stack_topological_cycle():
 
 
 def test_sort_stack_topological_complex():
-    nodes = set("PHID-DREV-{}".format(i) for i in range(10))
+    nodes = {"PHID-DREV-{}".format(i) for i in range(10)}
     edges = {
         Edge(child="PHID-DREV-1", parent="PHID-DREV-0"),
         Edge(child="PHID-DREV-2", parent="PHID-DREV-0"),
@@ -74,7 +74,7 @@ def test_sort_stack_topological_complex():
 
 
 def test_draw_stack_graph_complex():
-    nodes = set("PHID-DREV-{}".format(i) for i in range(10))
+    nodes = {"PHID-DREV-{}".format(i) for i in range(10)}
     edges = {
         Edge(child="PHID-DREV-1", parent="PHID-DREV-0"),
         Edge(child="PHID-DREV-2", parent="PHID-DREV-0"),

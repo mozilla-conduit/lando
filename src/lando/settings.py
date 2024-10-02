@@ -12,9 +12,9 @@ https://docs.djangoproject.com/en/dev/ref/settings/
 
 import os
 from pathlib import Path
+
 from lando.environments import Environment
 from lando.main.logging import MozLogFormatter
-
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent
@@ -23,6 +23,10 @@ SECRET_KEY = os.getenv(
     "SECRET_KEY",
     "django-insecure-26k#ouat@%d6w5gmuhvo_vc=_@on^6=eh9*g!p-k9ynjvyc#(_",
 )
+
+ENCRYPTION_KEY = os.getenv(
+    "ENCRYPTION_KEY", "O-DH0Sq2Ok9CgZHu-r2cYcv_CJfBwfYK4PZAMozswu8="
+).encode("utf-8")
 
 DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1")
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,lando.local,lando.test").split(
@@ -150,18 +154,16 @@ STATICFILES_FINDERS = [
     "compressor.finders.CompressorFinder",
 ]
 
-COMPRESS_PRECOMPILERS = (
-    ("text/x-scss", "django_libsass.SassCompiler"),
-)
+COMPRESS_PRECOMPILERS = (("text/x-scss", "django_libsass.SassCompiler"),)
 
 COMPRESS_FILTERS = {
-    'css':[
-        'compressor.filters.css_default.CssAbsoluteFilter',
-        'compressor.filters.cssmin.rCSSMinFilter',
+    "css": [
+        "compressor.filters.css_default.CssAbsoluteFilter",
+        "compressor.filters.cssmin.rCSSMinFilter",
     ],
-    'js':[
-        'compressor.filters.jsmin.JSMinFilter',
-    ]
+    "js": [
+        "compressor.filters.jsmin.JSMinFilter",
+    ],
 }
 
 COMPRESS_ENABLED = True
@@ -195,8 +197,7 @@ AUTHENTICATION_BACKENDS = [
     "lando.main.auth.LandoOIDCAuthenticationBackend",
 ]
 
-LINT_PATHS = tuple(f"{BASE_DIR}/{path}" for path in ("api", "dockerflow", "main", "utils", "tests"))
-
+LINT_PATHS = (BASE_DIR,)
 GITHUB_ACCESS_TOKEN = os.getenv("LANDO_GITHUB_ACCESS_TOKEN")
 PHABRICATOR_URL = os.getenv("PHABRICATOR_URL", "http://phabricator.test")
 PHABRICATOR_ADMIN_API_KEY = os.getenv("PHABRICATOR_ADMIN_API_KEY", "")
@@ -232,9 +233,7 @@ if ENVIRONMENT.is_remote:
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
     LOGGING = {
         "version": 1,
-        "formatters": {
-            "mozlog": {"()": MozLogFormatter, "mozlog_logger": "lando"}
-        },
+        "formatters": {"mozlog": {"()": MozLogFormatter, "mozlog_logger": "lando"}},
         "handlers": {
             "console": {
                 "class": "logging.StreamHandler",

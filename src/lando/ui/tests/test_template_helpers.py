@@ -4,13 +4,13 @@ import pytest
 
 from lando.ui.legacy.template_helpers import (
     avatar_url,
+    calculate_duration,
     linkify_bug_numbers,
+    linkify_faq,
     linkify_revision_ids,
     linkify_revision_urls,
-    linkify_faq,
     linkify_sec_bug_docs,
     repo_path,
-    calculate_duration,
     revision_url,
 )
 
