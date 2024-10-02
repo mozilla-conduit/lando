@@ -19,7 +19,7 @@ from django.contrib import admin
 from django.urls import include, path
 
 from lando.dockerflow import views as DockerflowViews
-from lando.ui.legacy import pages, revisions
+from lando.ui.legacy import pages, revisions, user_settings
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -40,4 +40,5 @@ urlpatterns += [
 urlpatterns += [
     path("", pages.Index.as_view()),
     path("D<int:revision_id>/", revisions.Revision.as_view(), name="revisions-page"),
+    path("manage_api_key/", user_settings.manage_api_key, name="user-settings"),
 ]

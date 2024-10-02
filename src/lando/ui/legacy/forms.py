@@ -19,5 +19,10 @@ class UpliftRequestForm(forms.Form):
 class UserSettingsForm(forms.Form):
     """Form used to provide the Phabricator API Token."""
 
-    phab_api_token = forms.RegexField(required=False, regex="^api-[a-z0-9]{28}$")
-    reset_phab_api_token = forms.BooleanField(required=False)
+    phabricator_api_key = forms.RegexField(
+        required=False,
+        regex="^api-[a-z0-9]{28}$",
+        label="Phabricator API Key",
+    )
+    phabricator_api_key.widget.attrs.update({"class": "input"})
+    reset_key = forms.BooleanField(required=False, label="Delete")

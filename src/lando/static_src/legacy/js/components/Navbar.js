@@ -22,16 +22,15 @@ $.fn.landoNavbar = function() {
     let $modalCancelBtn = $navbar.find('.Navbar-modalCancel');
     let $settingsForm = $modal.find('.userSettingsForm').first();
     let $settingsFormErrors = $modal.find('.userSettingsForm-Errors');
-    let $errorPageShowModal = $('.ErrorPage-showAPIToken');
+    let $errorPageShowModal = $('.ErrorPage-showAPIKey');
 
-    // Phabricator API Token settings
-    // The token's value is stored in the httponly cookie
-    let $phabAPITokenInput = $modal.find('#phab_api_token').first();
-    let $phabAPITokenReset = $modal.find('#reset_phab_api_token').first();
-    let isSetPhabAPIToken = $settingsForm.data('phabricator_api_token');
+    // Phabricator API key settings
+    let $phabricatorAPIKeyInput = $modal.find('#id_phabricator_api_key').first();
+    let $phabricatorAPIKeyReset = $modal.find('#id_reset_key').first();
+    let isSetPhabricatorAPIKey = $settingsForm.data('phabricator_api_key');
 
     modalSubmitBtnOn();
-    setAPITokenPlaceholder();
+    setAPIKeyPlaceholder();
 
     $modalToggleBtn.on('click', () => {
       $modal.toggleClass('is-active');
@@ -47,24 +46,24 @@ $.fn.landoNavbar = function() {
     $settingsForm.on('submit', function(e) {
       e.preventDefault();
       e.stopImmediatePropagation();
-      // We don't have any other setting than the API Token
-      if (!$phabAPITokenInput.val() && !$phabAPITokenReset.prop('checked')) {
-        displaySettingsError('phab_api_token_errors', 'Invalid Token Value');
+      // We don't have any other setting than the API key
+      if (!$phabricatorAPIKeyInput.val() && !$phabricatorAPIKeyReset.prop('checked')) {
+        displaySettingsError('phabricator_api_key_errors', 'Invalid API Key Value');
         return;
       }
       modalSubmitBtnOff();
       $.ajax({
-        url: '/settings',
+        url: '/manage_api_key/',
         type: 'post',
         data: $(this).serialize(),
         dataType: 'json',
         success: data => {
           modalSubmitBtnOn();
+            console.log(data);
           if (!data.success) {
-            return handlePhabAPITokenErrors(data.errors);
+            return handlePhabricatorAPIKeyErrors(data.errors);
           }
-          isSetPhabAPIToken = data.phab_api_token_set;
-          restartPhabAPIToken();
+          restartPhabricatorAPIKey();
           $modal.removeClass('is-active');
           console.log('Your settings have been saved.');
           window.location.reload(true);
@@ -79,14 +78,14 @@ $.fn.landoNavbar = function() {
 
     $modalCancelBtn.each(function() {
       $(this).on('click', () => {
-        restartPhabAPIToken();
+        restartPhabricatorAPIKey();
         resetSettingsFormErrors();
         $modal.removeClass('is-active');
       });
     });
 
-    $phabAPITokenReset.on('click', () => {
-      setAPITokenPlaceholder();
+    $phabricatorAPIKeyReset.on('click', () => {
+      setAPIKeyPlaceholder();
     });
 
     function resetSettingsFormErrors() {
@@ -100,34 +99,33 @@ $.fn.landoNavbar = function() {
         .append('<li class="help is-danger">' + message + '</li>');
     }
 
-    function setAPITokenPlaceholder() {
-      if ($phabAPITokenReset.prop('checked')) {
-        $phabAPITokenInput.prop('placeholder', 'Save changes to delete the API token');
-        $phabAPITokenInput.val('');
-        $phabAPITokenInput.prop('disabled', true);
+    function setAPIKeyPlaceholder() {
+      if ($phabricatorAPIKeyReset.prop('checked')) {
+        $phabricatorAPIKeyInput.val('');
+        $phabricatorAPIKeyInput.prop('disabled', true);
         return;
       }
-      $phabAPITokenInput.prop('disabled', false);
-      if (!isSetPhabAPIToken) {
-        $phabAPITokenInput.prop('placeholder', 'not set');
+      $phabricatorAPIKeyInput.prop('disabled', false);
+      if (!isSetPhabricatorAPIKey) {
+        $phabricatorAPIKeyInput.prop('placeholder', 'Enter new key.');
       } else {
-        $phabAPITokenInput.prop('placeholder', 'api-############################');
+        $phabricatorAPIKeyInput.prop('placeholder', '************************');
       }
     }
 
-    function restartPhabAPIToken() {
-      $phabAPITokenInput.val('');
-      $phabAPITokenReset.prop('checked', false);
-      $phabAPITokenInput.prop('disabled', false);
-      setAPITokenPlaceholder();
+    function restartPhabricatorAPIKey() {
+      $phabricatorAPIKeyInput.val('');
+      $phabricatorAPIKeyReset.prop('checked', false);
+      $phabricatorAPIKeyInput.prop('disabled', false);
+      setAPIKeyPlaceholder();
     }
 
-    function handlePhabAPITokenErrors(errors) {
+    function handlePhabricatorAPIKeyErrors(errors) {
       resetSettingsFormErrors();
       Object.keys(errors).forEach(error => {
-        if (error in ['phab_api_token', 'reset_phab_api_token']) {
+        if (error in ['phabricator_api_key', 'reset_key']) {
           errors[error].each(message => {
-            displaySettingsError('phab_api_token_errors', message);
+            displaySettingsError('phabricator_api_key_errors', message);
           });
           return;
         }
