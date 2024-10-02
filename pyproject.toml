@@ -39,6 +39,8 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "lando.test_settings"
+
+# testpaths currently excludes some UI tests, see bug 1922318 for examples.
 testpaths = [
     "src/lando/api",
     "src/lando/dockerflow",
