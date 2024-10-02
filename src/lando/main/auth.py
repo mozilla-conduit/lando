@@ -1,16 +1,20 @@
 import functools
+import logging
 from typing import (
     Callable,
 )
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse
 from mozilla_django_oidc.auth import OIDCAuthenticationBackend
 
 from lando.environments import Environment
 from lando.main.models.profile import Profile
 from lando.utils.phabricator import PhabricatorClient
+
+logger = logging.getLogger(__name__)
 
 
 class LandoOIDCAuthenticationBackend(OIDCAuthenticationBackend):
@@ -69,6 +73,30 @@ def require_authenticated_user(f):
         if not request.user.is_authenticated:
             raise PermissionError("Authentication is required")
         return f(request, *args, **kwargs)
+
+    return wrapper
+
+
+def force_auth_refresh(f: Callable) -> Callable:
+    """
+    Decorator which forces authenticated session to be refreshed.
+    """
+
+    def wrapper(*args, **kwargs):
+        """Set oidc_id_token_expiration to 0, forcing session refresh."""
+        # First check that SessionRefresh is indeed enabled.
+        if "mozilla_django_oidc.middleware.SessionRefresh" not in settings.MIDDLEWARE:
+            raise RuntimeError("SessionRefresh middleware required but is not enabled.")
+
+        # Find the request in the arguments. This is needed in case this decorator
+        # is used in class-based views. The request would be the first argument that
+        # is a WSGIRequest instance.
+        request = [arg for arg in args if isinstance(arg, WSGIRequest)][0]
+        logger.debug(
+            f"Prior OIDC expiration {request.session.get('oidc_id_token_expiration')}"
+        )
+        request.session["oidc_id_token_expiration"] = 0
+        return f(*args, **kwargs)
 
     return wrapper
 

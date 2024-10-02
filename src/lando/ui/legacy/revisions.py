@@ -7,6 +7,7 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 
 from lando.api.legacy import api as legacy_api
+from lando.main.auth import force_auth_refresh
 from lando.ui.legacy.forms import (
     TransplantRequestForm,
     # UpliftRequestForm,
@@ -144,6 +145,7 @@ class Revision(LandoView):
             context=context,
         )
 
+    @force_auth_refresh
     def post(
         self, request: HttpRequest, revision_id: int, *args, **kwargs
     ) -> HttpResponseRedirect:
