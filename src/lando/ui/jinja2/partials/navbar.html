@@ -41,6 +41,7 @@
           <p class="control">
             {% if user_is_authenticated %}
               <form action="/oidc/logout/" method="post">
+              {{ csrf_input }}
               <button class="button">
                 <span class="icon">
                   <i class="fa fa-sign-out"></i>
