@@ -2,7 +2,7 @@ import urllib.parse
 
 import pytest
 
-from lando.ui.legacy.template_helpers import (
+from lando.jinja import (
     avatar_url,
     calculate_duration,
     linkify_bug_numbers,
@@ -80,7 +80,7 @@ def test_avatar_url(input_url, output_url):
         ("A message with no bug number", "A message with no bug number"),
     ],
 )
-def test_linkify_bug_numbers(app, input_text, output_text):
+def test_linkify_bug_numbers(input_text, output_text):
     assert output_text == linkify_bug_numbers(input_text)
 
 
@@ -119,7 +119,7 @@ def test_linkify_bug_numbers(app, input_text, output_text):
         ),
     ],
 )
-def test_linkify_revision_urls(app, input_text, output_text):
+def test_linkify_revision_urls(input_text, output_text):
     assert output_text == linkify_revision_urls(input_text)
 
 
@@ -147,7 +147,7 @@ def test_linkify_revision_urls(app, input_text, output_text):
         ),
     ],
 )
-def test_linkify_revision_ids(app, input_text, output_text):
+def test_linkify_revision_ids(input_text, output_text):
     assert output_text == linkify_revision_ids(input_text)
 
 
@@ -162,7 +162,7 @@ def test_linkify_revision_ids(app, input_text, output_text):
         ),
     ],
 )
-def test_linkify_faq(app, input_text, output_text):
+def test_linkify_faq(input_text, output_text):
     assert output_text == linkify_faq(input_text)
 
 
@@ -183,7 +183,7 @@ def test_linkify_faq(app, input_text, output_text):
         ),
     ],
 )
-def test_linkify_sec_bug_docs(app, input_text, output_text):
+def test_linkify_sec_bug_docs(input_text, output_text):
     assert output_text == linkify_sec_bug_docs(input_text)
 
 
@@ -199,7 +199,7 @@ def test_linkify_sec_bug_docs(app, input_text, output_text):
         (None, ""),
     ],
 )
-def test_repo_path(app, repo_url, path):
+def test_repo_path(repo_url, path):
     assert path == repo_path(repo_url)
 
 
@@ -218,32 +218,32 @@ def test_repo_path(app, repo_url, path):
         ),
     ],
 )
-def test_calculate_duration(app, start, end, duration):
+def test_calculate_duration(start, end, duration):
     assert duration == calculate_duration(start, end)
 
 
-def test_revision_url__integer(app):
+def test_revision_url__integer():
     revision_id = 1234
     expected_result = "http://phabricator.test/D1234"
     actual_result = revision_url(revision_id)
     assert expected_result == actual_result
 
 
-def test_revision_url__prepended_string(app):
+def test_revision_url__prepended_string():
     revision_id = "D1234"
     expected_result = "http://phabricator.test/D1234"
     actual_result = revision_url(revision_id)
     assert expected_result == actual_result
 
 
-def test_revision_url__string(app):
+def test_revision_url__string():
     revision_id = "1234"
     expected_result = "http://phabricator.test/D1234"
     actual_result = revision_url(revision_id)
     assert expected_result == actual_result
 
 
-def test_revision_url__general_case_with_diff(app):
+def test_revision_url__general_case_with_diff():
     revision_id = 123
     diff_id = 456
     expected_result = "http://phabricator.test/D123?id=456"
