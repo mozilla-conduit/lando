@@ -11,7 +11,7 @@ from django.http import HttpResponse
 from mozilla_django_oidc.auth import OIDCAuthenticationBackend
 
 from lando.environments import Environment
-from lando.main.models.profile import Profile
+from lando.main.models.profile import Profile, filter_claims
 from lando.utils.phabricator import PhabricatorClient
 
 logger = logging.getLogger(__name__)
@@ -22,8 +22,8 @@ class LandoOIDCAuthenticationBackend(OIDCAuthenticationBackend):
 
     @staticmethod
     def _update_user_profile_permissions(user_profile: Profile, claims: dict):
-        # Store user info in the user profile.
-        user_profile.userinfo = claims
+        # Store useful user info in the user profile.
+        user_profile.userinfo = filter_claims(claims)
         user_profile.save()
 
         if settings.ENVIRONMENT == Environment.local:
