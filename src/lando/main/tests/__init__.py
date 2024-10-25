@@ -31,6 +31,22 @@ def test_LandoOIDCAuthenticationBackend__update_user_scm_access(
     assert user.has_perm("main.scm_conduit") is has_scm_conduit_perm
 
 
+@pytest.mark.django_db(transaction=True)
+def test_LandoOIDCAuthenticationBackend__update_user_filter_claims():
+    backend = LandoOIDCAuthenticationBackend()
+    user = User.objects.create_user(username="test_user", password="test_password")
+    backend.update_user(
+        user,
+        {
+            "picture": "test picture",
+            "some_other_field": "test",
+            CLAIM_GROUPS_KEY: ["scm_level_1", "something_else"],
+        },
+    )
+    assert "some_other_fields" not in user.profile.userinfo
+    assert "something_else" not in user.profile.userinfo[CLAIM_GROUPS_KEY]
+
+
 def noop(phab, *args, **kwargs):
     response = HttpResponse(status=200)
     response.body = phab
