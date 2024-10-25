@@ -37,7 +37,7 @@ SCM_VERSIONCONTROL = SCM_PERMISSIONS_MAP["SCM_VERSIONCONTROL"]
 
 def filter_claims(claims: dict) -> dict:
     """Return only necessary info in the provided dict."""
-    keep_keys = ("email", "picture", "email_verified", CLAIM_GROUPS_KEY)
+    keep_keys = ("email", "picture", "email_verified", "name", CLAIM_GROUPS_KEY)
 
     # Remove keys that are not present in keep_keys.
     claims = {key: value for key, value in claims.items() if key in keep_keys}
@@ -46,9 +46,11 @@ def filter_claims(claims: dict) -> dict:
     # NOTE: currently these are SCM group, however in the future other
     # groups will need to be added here, for example "treestatus users",
     # and other lando permissions.
-    claims[CLAIM_GROUPS_KEY] = [
-        group for group in claims[CLAIM_GROUPS_KEY] if "scm" in group.lower()
-    ]
+    # This filter is not applicable to local development.
+    if CLAIM_GROUPS_KEY in claims:
+        claims[CLAIM_GROUPS_KEY] = [
+            group for group in claims[CLAIM_GROUPS_KEY] if "scm" in group.lower()
+        ]
     return claims
 
 
