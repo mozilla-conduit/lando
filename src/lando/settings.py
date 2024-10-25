@@ -63,6 +63,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "mozilla_django_oidc.middleware.SessionRefresh",
+    "lando.middleware.ResponseHeadersMiddleware",
 ]
 
 ROOT_URLCONF = "lando.urls"
@@ -213,6 +214,8 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 
 DEFAULT_FROM_EMAIL = "Lando <lando@lando.test>"
+
+CSP_REPORTING_URL = os.getenv("CSP_REPORTING_URL", "")
 
 if ENVIRONMENT.is_remote:
     STORAGES = {
