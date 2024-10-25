@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 
@@ -5,7 +7,7 @@ from django.http import HttpRequest, HttpResponse
 class ResponseHeadersMiddleware:
     """Add custom response headers for each request."""
 
-    def __init__(self, get_response: callable):
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]):
         self.get_response = get_response
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
