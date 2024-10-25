@@ -9,8 +9,6 @@ from lando.utils.phabricator import (
     PhabricatorCommunicationException,
 )
 
-pytest.skip(allow_module_level=True)
-
 
 def test_app_wide_headers_set(client):
     response = client.get("/__version__")
@@ -21,21 +19,29 @@ def test_app_wide_headers_set(client):
 
     assert response.headers["X-Frame-Options"] == "DENY"
     assert response.headers["X-Content-Type-Options"] == "nosniff"
+
+
+# See bug 1927163.
+@pytest.mark.xfail
+def test_app_wide_headers_set_for_api_endpoints(client):
+    response = client.get("/__version__")
+    assert response.status_code == 200
     assert response.headers["Content-Security-Policy"] == "default-src 'none'"
 
 
-def test_app_wide_headers_csp_report_uri(client, config):
-    config["CSP_REPORTING_URL"] = None
+def test_app_wide_headers_csp_report_uri(client, app):
+    app.config["CSP_REPORTING_URL"] = None
     response = client.get("/__version__")
     assert response.status_code == 200
     assert "report-uri" not in response.headers["Content-Security-Policy"]
 
-    config["CSP_REPORTING_URL"] = "/__cspreport__"
+    app.config["CSP_REPORTING_URL"] = "/__cspreport__"
     response = client.get("/__version__")
     assert response.status_code == 200
     assert "report-uri /__cspreport__" in (response.headers["Content-Security-Policy"])
 
 
+@pytest.mark.skip
 def test_phabricator_api_exception_handled(db, app, client):
     # We need to tell Flask to handle exceptions as if it were in a production
     # environment.
@@ -58,6 +64,7 @@ def test_phabricator_api_exception_handled(db, app, client):
     assert response.json["title"] == "Phabricator Error"
 
 
+@pytest.mark.skip
 def test_treestatus_exception_handled(db, app, client):
     # We need to tell Flask to handle exceptions as if it were in a production
     # environment.
