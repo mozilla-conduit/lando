@@ -21,16 +21,16 @@ class ResponseHeadersMiddleware:
 
         csp = [
             "default-src 'self'",
-            "font-src 'self' https://code.cdn.mozilla.net",
-            "style-src 'self' https://code.cdn.mozilla.net",
-            "img-src 'self' *.cloudfront.net *.gravatar.com *.googleusercontent.com",
-            "object-src 'none'",
-            "frame-ancestors 'none'",
-            "manifest-src 'none'",
-            "worker-src 'none'",
-            "media-src 'none'",
-            "frame-src 'none'",
             "base-uri 'none'",
+            "font-src 'self' https://code.cdn.mozilla.net",
+            "frame-ancestors 'none'",
+            "frame-src 'none'",
+            "img-src 'self' *.cloudfront.net *.gravatar.com *.googleusercontent.com",
+            "manifest-src 'none'",
+            "media-src 'none'",
+            "object-src 'none'",
+            "style-src 'self' https://code.cdn.mozilla.net",
+            "worker-src 'none'",
         ]
 
         report_uri = settings.CSP_REPORTING_URL
