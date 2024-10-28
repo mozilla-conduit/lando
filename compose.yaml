@@ -22,7 +22,7 @@ services:
       lando generate_version_file &&
       lando migrate &&
       lando collectstatic --clear --no-input &&
-      uwsgi --ini /code/uwsgi.ini"
+      uwsgi --ini /code/uwsgi.ini:local"
     volumes:
       - ./:/code
       - ./staticfiles:/staticfiles
