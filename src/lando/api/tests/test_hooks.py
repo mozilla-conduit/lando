@@ -10,7 +10,7 @@ from lando.utils.phabricator import (
 )
 
 
-def test_app_wide_headers_set(client):
+def test_app_wide_headers_set(db, client):
     response = client.get("/__version__")
     assert response.status_code == 200
     assert "X-Frame-Options" in response.headers
@@ -23,13 +23,13 @@ def test_app_wide_headers_set(client):
 
 # See bug 1927163.
 @pytest.mark.xfail
-def test_app_wide_headers_set_for_api_endpoints(client):
+def test_app_wide_headers_set_for_api_endpoints(db, client):
     response = client.get("/__version__")
     assert response.status_code == 200
     assert response.headers["Content-Security-Policy"] == "default-src 'none'"
 
 
-def test_app_wide_headers_csp_report_uri(client, app):
+def test_app_wide_headers_csp_report_uri(db, app, client):
     app.config["CSP_REPORTING_URL"] = None
     response = client.get("/__version__")
     assert response.status_code == 200

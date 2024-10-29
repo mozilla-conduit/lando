@@ -1,7 +1,14 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy
 
-from lando.main.models import LandingJob, Repo, Revision, RevisionLandingJob, Worker
+from lando.main.models import (
+    ConfigurationVariable,
+    LandingJob,
+    Repo,
+    Revision,
+    RevisionLandingJob,
+    Worker,
+)
 
 admin.site.site_title = gettext_lazy("Lando Admin")
 admin.site.site_header = gettext_lazy("Lando Administration")
@@ -35,3 +42,4 @@ admin.site.register(LandingJob, LandingJobAdmin)
 admin.site.register(Revision, admin.ModelAdmin)
 admin.site.register(Repo, admin.ModelAdmin)
 admin.site.register(Worker, admin.ModelAdmin)
+admin.site.register(ConfigurationVariable, admin.ModelAdmin)

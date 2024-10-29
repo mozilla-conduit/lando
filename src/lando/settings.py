@@ -64,6 +64,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "mozilla_django_oidc.middleware.SessionRefresh",
     "lando.middleware.ResponseHeadersMiddleware",
+    "lando.middleware.MaintenanceModeMiddleware",
 ]
 
 ROOT_URLCONF = "lando.urls"

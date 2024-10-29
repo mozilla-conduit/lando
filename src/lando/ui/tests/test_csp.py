@@ -1,4 +1,4 @@
-def test_csp_headers_set(client):
+def test_csp_headers_set(db, client):
     response = client.get("/__version__")
     assert "Content-Security-Policy" in response.headers
     # Ensure we're using the most secure source by default

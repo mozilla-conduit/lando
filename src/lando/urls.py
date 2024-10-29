@@ -18,25 +18,14 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
-from lando.dockerflow import views as DockerflowViews
 from lando.ui.legacy import pages, revisions, user_settings
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    path("", include("lando.dockerflow.urls", "dockerflow")),
     path("oidc/", include("mozilla_django_oidc.urls")),
+    path("admin/", admin.site.urls),
 ]
 
-urlpatterns += [
-    path("__version__", DockerflowViews.VersionView.as_view(), name="version"),
-    path("__heartbeat__", DockerflowViews.HeartbeatView.as_view(), name="heartbeat"),
-    path(
-        "__lbheartbeat__",
-        DockerflowViews.LoadBalancerHeartbeatView.as_view(),
-        name="lbheartbeat",
-    ),
-]
-
-# "UI" pages ported from legacy UI app.
 urlpatterns += [
     path("", pages.Index.as_view()),
     path("D<int:revision_id>/", revisions.Revision.as_view(), name="revisions-page"),

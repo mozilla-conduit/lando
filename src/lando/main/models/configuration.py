@@ -84,7 +84,7 @@ class ConfigurationVariable(BaseModel):
             or `bool`.
         """
         try:
-            return cls.objects.get(key=key.value)
+            return cls.objects.get(key=key.value).value
         except cls.DoesNotExist:
             return default
 
@@ -105,7 +105,7 @@ class ConfigurationVariable(BaseModel):
         not exist.
         """
         try:
-            record = cls.objects.get(cls.key == key.value)
+            record = cls.objects.get(key=key.value)
         except cls.DoesNotExist:
             record = None
         if (

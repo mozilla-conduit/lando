@@ -1,6 +1,5 @@
 import logging
 import time
-from typing import Optional
 
 from flask import (
     Flask,
@@ -12,36 +11,11 @@ from flask import (
 
 from lando.api.legacy.sentry import sentry_sdk
 from lando.api.legacy.treestatus import TreeStatusException
-from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 from lando.main.support import FlaskApi, problem
 from lando.utils.phabricator import PhabricatorAPIException
 
 logger = logging.getLogger(__name__)
 request_logger = logging.getLogger("request.summary")
-
-
-def check_maintenance() -> Optional[Response]:
-    """Returns a 503 error if the API maintenance flag is on."""
-    excepted_endpoints = (
-        "dockerflow.heartbeat",
-        "dockerflow.version",
-        "dockerflow.lbheartbeat",
-    )
-    if request.endpoint in excepted_endpoints:
-        return
-
-    in_maintenance = ConfigurationVariable.get(
-        ConfigurationKey.API_IN_MAINTENANCE, False
-    )
-    if in_maintenance:
-        return FlaskApi.get_response(
-            problem(
-                503,
-                "API IN MAINTENANCE",
-                f"The API is in maintenance, please try again later. {request.endpoint}",
-                type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503",
-            )
-        )
 
 
 def request_logging_before_request():
@@ -110,7 +84,6 @@ def handle_treestatus_exception(exc: TreeStatusException) -> Response:
 
 
 def initialize_hooks(flask_app: Flask):
-    flask_app.before_request(check_maintenance)
     flask_app.before_request(request_logging_before_request)
     flask_app.after_request(request_logging_after_request)
 
