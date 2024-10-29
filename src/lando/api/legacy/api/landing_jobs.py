@@ -21,7 +21,7 @@ class LandingJobForm(forms.Form):
 
 
 @require_authenticated_user
-def put(request: HttpRequest, landing_job_id: str):
+def put(request: HttpRequest, landing_job_id: int) -> JsonResponse:
     """Update a landing job.
 
     Checks whether the logged in user is allowed to modify the landing job that is
@@ -29,7 +29,7 @@ def put(request: HttpRequest, landing_job_id: str):
     instance accordingly.
 
     Args:
-        landing_job_id (str): The unique ID of the LandingJob object.
+        landing_job_id (int): The unique ID of the LandingJob object.
         data (dict): A dictionary containing the cleaned data payload from the request.
 
     Raises:

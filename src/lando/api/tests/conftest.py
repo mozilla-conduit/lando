@@ -580,10 +580,8 @@ def proxy_client(monkeypatch, fake_request):
 
         def _handle__put__landing_jobs__id(self, path, **kwargs):
             job_id = int(path.removeprefix("/landing_jobs/"))
-            json_response = legacy_api_landing_jobs.put(
-                self.request, job_id, kwargs["json"]
-            )
-            return MockResponse(json=json.loads(json.dumps(json_response)))
+            response = legacy_api_landing_jobs.put(self.request, job_id)
+            return MockResponse(json=json.loads(response.content))
 
         def get(self, path, *args, **kwargs):
             """Handle various get endpoints."""
@@ -606,8 +604,14 @@ def proxy_client(monkeypatch, fake_request):
 
         def put(self, path, **kwargs):
             """Handle put endpoint."""
+            request_dict = {}
             if "permissions" in kwargs:
-                self.request = fake_request(permissions=kwargs["permissions"])
+                request_dict["permissions"] = kwargs["permissions"]
+
+            if "json" in kwargs:
+                request_dict["body"] = json.dumps(kwargs["json"])
+
+            self.request = fake_request(**request_dict)
 
             if path.startswith("/landing_jobs/"):
                 return self._handle__put__landing_jobs__id(path, **kwargs)
