@@ -481,6 +481,10 @@ def fake_request():
 
     class FakeRequest:
         def __init__(self, *args, **kwargs):
+            self.body = "{}"
+            if "body" in kwargs:
+                self.body = kwargs["body"]
+                del kwargs["body"]
             self.user = FakeUser(*args, **kwargs)
 
     return FakeRequest
