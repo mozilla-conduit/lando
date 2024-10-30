@@ -11,6 +11,8 @@ services:
       interval: 1s
       timeout: 10s
       retries: 10
+    volumes:
+      - postgres-db:/var/lib/postgresql/data
 
   lando:
     build:
@@ -26,7 +28,9 @@ services:
     volumes:
       - ./:/code
       - ./staticfiles:/staticfiles
-      - media:/files/
+      - files:/files/
+    healthcheck:
+      test: [ "CMD", "curl", "-sfko/dev/null", "http://localhost/__heartbeat__" ]
     env_file:
       - .env
     depends_on:
@@ -76,4 +80,5 @@ services:
         condition: service_healthy
 
 volumes:
-  media:
+  files:
+  postgres-db:
