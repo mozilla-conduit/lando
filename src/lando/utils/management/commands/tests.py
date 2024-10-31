@@ -22,8 +22,16 @@ class Command(BaseCommand):
             "paths", nargs="*", type=str, help="Files or directories to pass to pytest"
         )
 
+        parser.add_argument(
+            "-k", type=str, help="Only run tests which match the given substring."
+        )
+
     def handle(self, *args, **options):
         command = ["pytest"]
+
+        if options["k"]:
+            command.append("-k")
+            command.append(options["k"])
 
         if options["exitfirst"]:
             command.append("-x")

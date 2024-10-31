@@ -11,14 +11,35 @@ classifiers = [
 ]
 description =  "Unified Lando Project"
 dependencies = [
+    "celery",
+    "datadog",  # statsd metrics in celery.py
     "django ~= 5.0",
+    "django_compressor",
+    "django-storages[google]",
+    "python-hglib ~= 2.6",
+    "mots",
     "mozilla_django_oidc",
+    "networkx",
     "psycopg2-binary",
-    "mots"
+    "redis",
+    "rs_parsepatch",
+    "sentry-sdk",
 ]
 name = "lando"
 requires-python = ">=3.10"
 dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = [
+  "black",
+  "ruff",
+]
+tests = [
+  "pytest",
+  "pytest-django",
+  "requests-mock",
+]
+
 
 [project.scripts]
 lando = "lando.manage:main"
