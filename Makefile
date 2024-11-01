@@ -15,11 +15,13 @@ help:
 	@echo "usage: make <target>"
 	@echo
 	@echo "target is one of:"
-	@echo "    help        show this message and exit"
-	@echo "    format      run ruff and black on source code"
-	@echo "    test        run the test suite"
-	@echo "    migrations  generates migration files to reflect model changes in the database"
-	@echo "    attach      attach for debugging (ctrl-p ctrl-q to detach)"
+	@echo "    help                 show this message and exit"
+	@echo "    format               run ruff and black on source code"
+	@echo "    test                 run the test suite"
+	@echo "    migrations           generates migration files to reflect model changes in the database"
+	@echo "    upgrade-requirements upgrade packages in requirements.txt"
+	@echo "    add-requirements     update requirements.txt with new requirements"
+	@echo "    attach               attach for debugging (ctrl-p ctrl-q to detach)"
 
 .PHONY: test
 test:
@@ -32,6 +34,14 @@ format:
 .PHONY: migrations
 migrations:
 	$(BASE_COMMAND) lando makemigrations
+
+.PHONY: upgrade-requirements
+upgrade-requirements:
+	$(BASE_COMMAND) lando generate_requirements --upgrade
+
+.PHONY: add-requirements
+add-requirements:
+	$(BASE_COMMAND) lando generate_requirements
 
 .PHONY: attach
 attach:

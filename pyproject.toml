@@ -11,14 +11,33 @@ classifiers = [
 ]
 description =  "Unified Lando Project"
 dependencies = [
+    "celery",
+    "cryptography",
+    "datadog",
     "django ~= 5.0",
+    "django-libsass",
+    "django-storages[google]",
+    "django_compressor",
+    "jinja2",
+    "kombu",
+    "mots",
     "mozilla_django_oidc",
+    "networkx",
     "psycopg2-binary",
-    "mots"
+    "python-hglib==2.6.2",
+    "python-jose",
+    "redis",
+    "rs-parsepatch",
+    "setuptools-scm",
 ]
 name = "lando"
 requires-python = ">=3.10"
 dynamic = ["version"]
+
+[project.optional-dependencies]
+code-quality = ["black", "ruff"]
+testing = ["pytest", "pytest-django", "requests-mock"]
+remote-environment = ["uwsgi", "sentry-sdk"]
 
 [project.scripts]
 lando = "lando.manage:main"
@@ -27,6 +46,7 @@ lando = "lando.manage:main"
 requires = [
     "setuptools>=64",
     "setuptools_scm>=8",
+    "pip-tools",
     "wheel",
 ]
 build-backend = "setuptools.build_meta"
