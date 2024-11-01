@@ -23,9 +23,6 @@ from lando.api.legacy.hgexports import HgPatchHelper
 
 logger = logging.getLogger(__name__)
 
-# Username and SSH port to use when connecting to remote HG server.
-landing_worker_username = os.environ.get("LANDING_WORKER_USERNAME", "app")
-landing_worker_target_ssh_port = os.environ.get("LANDING_WORKER_TARGET_SSH_PORT", "22")
 REJECTS_PATH = Path("/tmp/patch_rejects")
 
 # Name of the environment variable that will store the push user's email address.
@@ -157,8 +154,8 @@ class HgRepo:
             f'-o "SendEnv {REQUEST_USER_ENV_VAR}" '
             '-o "StrictHostKeyChecking no" '
             '-o "PasswordAuthentication no" '
-            f'-o "User {landing_worker_username}" '
-            f'-o "Port {landing_worker_target_ssh_port}"'
+            f'-o "User {settings.LANDING_WORKER_USERNAME}" '
+            f'-o "Port {settings.LANDING_WORKER_TARGET_SSH_PORT}"'
         ),
         "extensions.purge": "",
         "extensions.strip": "",
