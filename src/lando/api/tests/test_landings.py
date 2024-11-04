@@ -305,13 +305,13 @@ def test_integrated_execute_job_with_force_push(
         mock.MagicMock(),
     )
 
-    repo.hg.push = mock.MagicMock()
+    repo.push = mock.MagicMock()
     assert worker.run_job(job)
-    assert repo.hg.push.call_count == 1
-    assert len(repo.hg.push.call_args) == 2
-    assert len(repo.hg.push.call_args[0]) == 1
-    assert repo.hg.push.call_args[0][0] == hg_server
-    assert repo.hg.push.call_args[1] == {"bookmark": None, "force_push": True}
+    assert repo.push.call_count == 1
+    assert len(repo.push.call_args) == 2
+    assert len(repo.push.call_args[0]) == 1
+    assert repo.push.call_args[0][0] == hg_server
+    assert repo.push.call_args[1] == {"target": None, "force_push": True}
 
 
 def test_integrated_execute_job_with_bookmark(
@@ -352,13 +352,13 @@ def test_integrated_execute_job_with_bookmark(
         mock.MagicMock(),
     )
 
-    repo.hg.push = mock.MagicMock()
+    repo.push = mock.MagicMock()
     assert worker.run_job(job)
-    assert repo.hg.push.call_count == 1
-    assert len(repo.hg.push.call_args) == 2
-    assert len(repo.hg.push.call_args[0]) == 1
-    assert repo.hg.push.call_args[0][0] == hg_server
-    assert repo.hg.push.call_args[1] == {"bookmark": "@", "force_push": False}
+    assert repo.push.call_count == 1
+    assert len(repo.push.call_args) == 2
+    assert len(repo.push.call_args[0]) == 1
+    assert repo.push.call_args[0][0] == hg_server
+    assert repo.push.call_args[1] == {"target": "@", "force_push": False}
 
 
 def test_lose_push_race(

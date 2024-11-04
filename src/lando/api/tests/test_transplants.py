@@ -729,7 +729,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     # First, mock path existance.
     mock_path = MagicMock()
     monkeypatch.setattr("lando.api.legacy.workers.landing_worker.Path", mock_path)
-    (mock_path(repo.hg.path) / "mots.yaml").exists.return_value = True
+    (mock_path(repo.path) / "mots.yaml").exists.return_value = True
 
     # Then mock the directory/file config.
     mock_Directory = MagicMock()
