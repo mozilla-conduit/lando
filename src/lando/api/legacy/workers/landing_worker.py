@@ -277,7 +277,7 @@ class LandingWorker(Worker):
                     repo.hg.apply_patch(patch_buf)
                 except PatchConflict as exc:
                     breakdown = self.process_merge_conflict(
-                        exc, repo, repo.hg, revision.revision_id
+                        exc, repo, revision.revision_id
                     )
                     job.error_breakdown = breakdown
 
