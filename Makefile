@@ -1,6 +1,7 @@
 SHELL := /bin/bash
 DOCKER := $(shell which docker)
 DOCKER_COMPOSE := $(shell which docker-compose)
+ARGS_TEST ?=
 
 ifeq ($(STANDALONE), 1)
 	BASE_COMMAND := docker-compose run lando
@@ -23,7 +24,7 @@ help:
 
 .PHONY: test
 test:
-	$(BASE_COMMAND) lando tests
+	$(BASE_COMMAND) lando tests $(ARGS_TESTS)
 
 .PHONY: format 
 format:
