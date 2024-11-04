@@ -3,7 +3,9 @@ import os
 import subprocess
 import tempfile
 import urllib
+from io import StringIO
 from pathlib import Path
+from typing import Optional
 
 import hglib
 from django.conf import settings
@@ -46,6 +48,66 @@ class RepoError(Exception):
 
 class Repo(BaseModel):
     """Represents the configuration of a particular repo."""
+
+    hg: HgRepo
+
+    def push(
+        self, push_path: str, target: Optional[str] = None, force_push: bool = False
+    ) -> str:
+        self.hg.push(push_path, bookmark=target, force_push=force_push)
+
+    @property
+    def push_target(self):
+        return self.push_bookmark or None
+
+    def failed_path(self, repo_path: str, path: str) -> bytes:
+        return self.hg.run_hg(
+            [
+                "log",
+                "--cwd",
+                repo_path,
+                "--template",
+                "{node}",
+                "-l",
+                "1",
+                path,
+            ]
+        )
+
+    @property
+    def path(self):
+        return self.hg.path
+
+    def apply_patch(self, patch_buf: StringIO):
+        return self.hg.apply_patch(patch_buf)
+
+    def for_push(self, requester_email: str):
+        return self.hg.for_push(requester_email)
+
+    @property
+    def revision_id(self):
+        return self.hg.revision.revision_id
+
+    def read_checkout_file(self, checkout_file):
+        return self.hg.read_checkout_file(checkout_file)
+
+    # def path[1:] / path, "r") as f:
+
+    def head_ref(self) -> str:
+        return self.hg.run_hg(["log", "-r", ".", "-T", "{node}"]).decode("utf-8")
+
+    def changeset_descriptions(self) -> list[str]:
+        return (
+            self.hg.run_hg(["log", "-r", "stack()", "-T", "{desc|firstline}\n"])
+            .decode("utf-8")
+            .splitlines()
+        )
+
+    def update_repo(self, pull_path, target_cset):
+        return self.hg.update_repo(pull_path, target_cset)
+
+    def format_stack(self, stack_size: int, bug_ids: list[str]):
+        return self.hg.format_stack(stack_size, bug_ids)
 
     HG = "hg"
     GIT = "git"
@@ -252,7 +314,7 @@ class Repo(BaseModel):
         self._run("reset", "--hard", branch or self.default_branch)
         self._run("clean", "--force")
 
-    def apply_patch(self, patch_buffer: str):
+    def _native_apply_patch(self, patch_buffer: str):
         patch_helper = GitPatchHelper(patch_buffer)
         self.patch_header = patch_helper.get_header
 
@@ -279,5 +341,5 @@ class Repo(BaseModel):
     def last_commit_id(self) -> str:
         return self._run("rev-parse", "HEAD").stdout.strip()
 
-    def push(self):
+    def _native_push(self):
         self._run("push")
