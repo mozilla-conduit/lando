@@ -23,7 +23,7 @@ class Command(BaseCommand):
             "compile",
             "--generate-hashes",
             "--allow-unsafe",
-            "--extra=code-quality,testing,remote-environment",
+            "--extra=code-quality,testing",
             "--all-build-deps",
             "--output-file=requirements.txt",
         ]
