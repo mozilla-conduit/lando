@@ -26,6 +26,12 @@ class Command(BaseCommand):
             "-k", type=str, help="Only run tests which match the given substring."
         )
 
+        parser.add_argument(
+            "--pdb",
+            action="store_true",
+            help="Start the interactive Python debugger on errors",
+        )
+
     def handle(self, *args, **options):
         command = ["pytest"]
 
@@ -38,6 +44,9 @@ class Command(BaseCommand):
 
         if options["paths"]:
             command += options["paths"]
+
+        if options["pdb"]:
+            command.append("--pdb")
 
         env = os.environ.copy()
         env["DJANGO_SETTINGS_MODULE"] = "lando.test_settings"
