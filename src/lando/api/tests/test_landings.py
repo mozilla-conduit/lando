@@ -433,10 +433,10 @@ def test_failed_landing_job_notification(
 
     worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
 
-    # Mock `repo.hg.update_repo` so we can force a failed landing.
+    # Mock `repo.vcs.update_repo` so we can force a failed landing.
     mock_update_repo = mock.MagicMock()
     mock_update_repo.side_effect = Exception("Forcing a failed landing")
-    monkeypatch.setattr(repo.hg, "update_repo", mock_update_repo)
+    monkeypatch.setattr(repo.vcs, "update_repo", mock_update_repo)
 
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()

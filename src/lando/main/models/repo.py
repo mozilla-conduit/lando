@@ -7,13 +7,12 @@ from io import StringIO
 from pathlib import Path
 from typing import Optional
 
-import hglib
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
-from lando.api.legacy.hg import HgRepo
 from lando.main.models import BaseModel
+from lando.main.vcs import AbstractVcs, HgVcs
 from lando.utils import GitPatchHelper
 
 logger = logging.getLogger(__name__)
@@ -40,65 +39,46 @@ class RepoError(Exception):
 class Repo(BaseModel):
     """Represents the configuration of a particular repo."""
 
-    hg: HgRepo
+    path: str  # The path to the repository.
+    vcs: AbstractVcs
 
     def push(
         self, push_path: str, target: Optional[str] = None, force_push: bool = False
-    ) -> str:
-        self.hg.push(push_path, bookmark=target, force_push=force_push)
+    ):
+        return self.vcs.push(push_path, target, force_push)
+
+    def last_commit_for_path(self, repo_path: str, path: str) -> bytes:
+        return self.last_commit_for_path(repo_path, path)
 
     @property
     def push_target(self):
+        """The target branch or bookmark to push to."""
         return self.push_bookmark or None
 
-    def failed_path(self, repo_path: str, path: str) -> bytes:
-        return self.hg.run_hg(
-            [
-                "log",
-                "--cwd",
-                repo_path,
-                "--template",
-                "{node}",
-                "-l",
-                "1",
-                path,
-            ]
-        )
-
-    @property
-    def path(self):
-        return self.hg.path
-
     def apply_patch(self, patch_buf: StringIO):
-        return self.hg.apply_patch(patch_buf)
+        return self.vcs.apply_patch(patch_buf)
 
     def for_push(self, requester_email: str):
-        return self.hg.for_push(requester_email)
+        return self.vcs.for_push(requester_email)
 
     @property
     def revision_id(self):
-        return self.hg.revision.revision_id
+        return self.vcs.revision_id
 
     def read_checkout_file(self, checkout_file):
-        return self.hg.read_checkout_file(checkout_file)
-
-    # def path[1:] / path, "r") as f:
+        return self.vcs.read_checkout_file(checkout_file)
 
     def head_ref(self) -> str:
-        return self.hg.run_hg(["log", "-r", ".", "-T", "{node}"]).decode("utf-8")
+        return self.vcs.head_ref()
 
     def changeset_descriptions(self) -> list[str]:
-        return (
-            self.hg.run_hg(["log", "-r", "stack()", "-T", "{desc|firstline}\n"])
-            .decode("utf-8")
-            .splitlines()
-        )
+        return self.vcs.changeset_descriptions()
 
     def update_repo(self, pull_path, target_cset):
-        return self.hg.update_repo(pull_path, target_cset)
+        return self.vcs.update_repo(pull_path, target_cset)
 
     def format_stack(self, stack_size: int, bug_ids: list[str]):
-        return self.hg.format_stack(stack_size, bug_ids)
+        return self.vcs.format_stack(stack_size, bug_ids)
 
     HG = "hg"
     GIT = "git"
@@ -158,10 +138,12 @@ class Repo(BaseModel):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.path = self.system_path or self.get_system_path()
+
         if self.is_hg_repo:
-            self.hg = HgRepo(self.system_path or self.get_system_path())
+            self.vcs = HgVcs(self.path)
         else:
-            self.hg = None
+            self.vgs = None
 
     def __str__(self):
         return f"{self.name} ({self.default_branch})"
@@ -183,25 +165,12 @@ class Repo(BaseModel):
     def hg_repo_is_initialized(self) -> bool:
         """Returns True if hglib is able to open the repo, otherwise returns False."""
         self.raise_for_unsupported_repo_scm(self.HG)
-        try:
-            self.hg._open()
-        except hglib.error.ServerError:
-            logger.info(f"{self} appears to be not initialized.")
-            return False
-        else:
-            return True
+        return self.vcs.repo_is_initialized()
 
     def hg_repo_prepare(self):
         """Either clone or update the repo, if it is a Mercurial one."""
         self.raise_for_unsupported_repo_scm(self.HG)
-        if not self.hg_repo_is_initialized:
-            Path(self.system_path).mkdir(parents=True, exist_ok=True)
-            logger.info(f"Cloning {self} from pull path.")
-            self.hg.clone(self.pull_path)
-        else:
-            with self.hg.for_pull():
-                logger.info(f"Updating {self} from pull path.")
-                self.hg.update_repo(self.pull_path)
+        return self.vcs.prepare_repo(self.pull_path)
 
     def save(self, *args, **kwargs):
         """Determine values for various fields upon saving the instance."""
@@ -334,4 +303,5 @@ class Repo(BaseModel):
         return self._run("rev-parse", "HEAD").stdout.strip()
 
     def _native_push(self):
+        """XXX: unused?"""
         self._run("push")
