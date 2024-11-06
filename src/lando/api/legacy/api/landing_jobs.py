@@ -2,6 +2,7 @@ import json
 import logging
 
 from django import forms
+from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpRequest, JsonResponse
 
 from lando.main.auth import require_authenticated_user
@@ -63,7 +64,7 @@ def put(request: HttpRequest, landing_job_id: int) -> JsonResponse:
 
     ldap_username = request.user.email
     if landing_job.requester_email != ldap_username:
-        raise PermissionError(
+        raise PermissionDenied(
             f"User not authorized to update landing job {landing_job_id}"
         )
 
