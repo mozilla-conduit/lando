@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from lando.main.models import LandingJob, LandingJobStatus, Repo
@@ -19,75 +21,76 @@ def landing_job(db):
     return _landing_job
 
 
-@pytest.mark.skip
 def test_cancel_landing_job_cancels_when_submitted(
-    db, client, landing_job, mock_permissions
+    db, authenticated_client, user, landing_job, mock_permissions
 ):
     """Test happy path; cancelling a job that has not started yet."""
-    job = landing_job(LandingJobStatus.SUBMITTED)
-    response = client.put(
-        f"/landing_jobs/{job.id}",
-        json={"status": LandingJobStatus.CANCELLED.value},
-        permissions=mock_permissions,
+    job = landing_job(LandingJobStatus.SUBMITTED, requester_email=user.email)
+    response = authenticated_client.put(
+        f"/landing_jobs/{job.id}/",
+        json.dumps({"status": LandingJobStatus.CANCELLED.value}),
     )
 
     assert response.status_code == 200
-    assert response.json["id"] == job.id
+    assert response.json()["id"] == job.id
+    job.refresh_from_db()
     assert job.status == LandingJobStatus.CANCELLED
 
 
-@pytest.mark.skip
 def test_cancel_landing_job_cancels_when_deferred(
-    db, client, landing_job, mock_permissions
+    db, authenticated_client, user, landing_job, mock_permissions
 ):
     """Test happy path; cancelling a job that has been deferred."""
-    job = landing_job(LandingJobStatus.DEFERRED)
-    response = client.put(
-        f"/landing_jobs/{job.id}",
-        json={"status": LandingJobStatus.CANCELLED.value},
+    job = landing_job(LandingJobStatus.DEFERRED, requester_email=user.email)
+    response = authenticated_client.put(
+        f"/landing_jobs/{job.id}/",
+        json.dumps({"status": LandingJobStatus.CANCELLED.value}),
         permissions=mock_permissions,
     )
 
     assert response.status_code == 200
-    assert response.json["id"] == job.id
+    assert response.json()["id"] == job.id
+    job.refresh_from_db()
     assert job.status == LandingJobStatus.CANCELLED
 
 
-@pytest.mark.skip
 def test_cancel_landing_job_fails_in_progress(
-    db, client, landing_job, mock_permissions
+    db, authenticated_client, user, landing_job, mock_permissions
 ):
     """Test trying to cancel a job that is in progress fails."""
-    job = landing_job(LandingJobStatus.IN_PROGRESS)
-    response = client.put(
-        f"/landing_jobs/{job.id}",
-        json={"status": LandingJobStatus.CANCELLED.value},
+    job = landing_job(LandingJobStatus.IN_PROGRESS, requester_email=user.email)
+    response = authenticated_client.put(
+        f"/landing_jobs/{job.id}/",
+        json.dumps({"status": LandingJobStatus.CANCELLED.value}),
         permissions=mock_permissions,
     )
 
     assert response.status_code == 400
-    assert response.json["detail"] == (
-        "Landing job status (LandingJobStatus.IN_PROGRESS) does not allow cancelling."
+    assert (
+        "Landing job status (IN_PROGRESS) does not allow cancelling."
+        in response.json()["errors"]
     )
+    job.refresh_from_db()
     assert job.status == LandingJobStatus.IN_PROGRESS
 
 
-@pytest.mark.skip
-def test_cancel_landing_job_fails_not_owner(db, client, landing_job, mock_permissions):
+def test_cancel_landing_job_fails_not_owner(
+    db, authenticated_client, landing_job, mock_permissions
+):
     """Test trying to cancel a job that is created by a different user."""
     job = landing_job(LandingJobStatus.SUBMITTED, "anotheruser@example.org")
-    response = client.put(
-        f"/landing_jobs/{job.id}",
+    response = authenticated_client.put(
+        f"/landing_jobs/{job.id}/",
         json={"status": LandingJobStatus.CANCELLED.value},
         permissions=mock_permissions,
     )
 
     assert response.status_code == 403
-    assert response.json["detail"] == ("User not authorized to update landing job 1")
+    assert "User not authorized to update landing job 1" in response.json()["errors"]
+    job.refresh_from_db()
     assert job.status == LandingJobStatus.SUBMITTED
 
 
-@pytest.mark.skip
 def test_cancel_landing_job_fails_not_found(db, client, landing_job, mock_permissions):
     """Test trying to cancel a job that does not exist."""
     response = client.put(
@@ -100,20 +103,22 @@ def test_cancel_landing_job_fails_not_found(db, client, landing_job, mock_permis
     assert response.json()["detail"] == ("A landing job with ID 1 was not found.")
 
 
-@pytest.mark.skip
-def test_cancel_landing_job_fails_bad_input(db, client, landing_job, mock_permissions):
+def test_cancel_landing_job_fails_bad_input(
+    db, authenticated_client, user, landing_job, mock_permissions
+):
     """Test trying to send an invalid status to the update endpoint."""
-    job = landing_job(LandingJobStatus.SUBMITTED)
-    response = client.put(
-        f"/landing_jobs/{job.id}",
-        json={"status": LandingJobStatus.IN_PROGRESS.value},
+    job = landing_job(LandingJobStatus.SUBMITTED, requester_email=user.email)
+    response = authenticated_client.put(
+        f"/landing_jobs/{job.id}/",
+        json.dumps({"status": LandingJobStatus.IN_PROGRESS.value}),
         permissions=mock_permissions,
     )
 
     assert response.status_code == 400
-    assert response.json["detail"] == (
-        "'IN_PROGRESS' is not one of ['CANCELLED'] - 'status'"
+    assert (
+        "The provided status IN_PROGRESS is not allowed." in response.json()["errors"]
     )
+    job.refresh_from_db()
     assert job.status == LandingJobStatus.SUBMITTED
 
 

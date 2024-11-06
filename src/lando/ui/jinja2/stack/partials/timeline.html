@@ -50,7 +50,7 @@
                     </div>
                 {% endif %}
                 {% if transplant['status'] in ("SUBMITTED", "DEFERRED") %}
-                <button data-landing_job_id="{{ transplant['id'] }}" class="cancel-landing-job button is-small is-danger">Cancel landing request</button>
+                <button data-landing_job_id="{{ transplant['id'] }}" class="cancel-landing-job button is-small is-danger" data-csrf-token="{{ csrf_token }}">Cancel landing request</button>
                 {% endif %}
             </div>
         </div>
