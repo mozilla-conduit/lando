@@ -74,22 +74,23 @@ def test_cancel_landing_job_fails_in_progress(
     assert job.status == LandingJobStatus.IN_PROGRESS
 
 
-@pytest.mark.skip
-def test_cancel_landing_job_fails_not_owner(db, client, landing_job, mock_permissions):
+def test_cancel_landing_job_fails_not_owner(
+    db, authenticated_client, landing_job, mock_permissions
+):
     """Test trying to cancel a job that is created by a different user."""
     job = landing_job(LandingJobStatus.SUBMITTED, "anotheruser@example.org")
-    response = client.put(
-        f"/landing_jobs/{job.id}",
+    response = authenticated_client.put(
+        f"/landing_jobs/{job.id}/",
         json={"status": LandingJobStatus.CANCELLED.value},
         permissions=mock_permissions,
     )
 
     assert response.status_code == 403
-    assert response.json["detail"] == ("User not authorized to update landing job 1")
+    assert "User not authorized to update landing job 1" in response.json()["errors"]
+    job.refresh_from_db()
     assert job.status == LandingJobStatus.SUBMITTED
 
 
-@pytest.mark.skip
 def test_cancel_landing_job_fails_not_found(db, client, landing_job, mock_permissions):
     """Test trying to cancel a job that does not exist."""
     response = client.put(
