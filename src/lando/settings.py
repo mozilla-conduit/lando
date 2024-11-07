@@ -218,6 +218,9 @@ DEFAULT_FROM_EMAIL = "Lando <lando@lando.test>"
 
 CSP_REPORTING_URL = os.getenv("CSP_REPORTING_URL", "")
 
+LANDING_WORKER_USERNAME = os.getenv("LANDING_WORKER_USERNAME", "app")
+LANDING_WORKER_TARGET_SSH_PORT = os.getenv("LANDING_WORKER_TARGET_SSH_PORT", "22")
+
 if ENVIRONMENT.is_remote:
     STORAGES = {
         "staticfiles": {

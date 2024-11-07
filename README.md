@@ -43,9 +43,20 @@ To run the test suite, invoke the following command:
 If you need to run specific tests, or pass additional arguments, use the `lando tests`
 command from within the Lando container.
 
-#### Add a new migration
+## General Tips
+
+### Add a new migration
 
     make migrations
+
+
+### Upgrade requirements
+
+    make upgrade-requirements
+
+### Add requirements
+
+    make add-requirements
 
 ## Support
 
