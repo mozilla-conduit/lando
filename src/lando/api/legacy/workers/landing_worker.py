@@ -221,7 +221,7 @@ class LandingWorker(Worker):
             True: The job finished processing and is in a permanent state.
             False: The job encountered a temporary failure and should be tried again.
         """
-        repo = job.target_repo
+        repo: Repo = job.target_repo
         if not self.treestatus_client.is_open(repo.tree):
             job.transition_status(
                 LandingJobAction.DEFER,

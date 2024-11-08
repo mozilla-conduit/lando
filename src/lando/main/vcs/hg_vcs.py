@@ -25,7 +25,7 @@ class HgVcs(AbstractVcs):
     ) -> None:
         self.hg.push(push_path, bookmark=target, force_push=force_push)
 
-    def last_commit_for_path(self, repo_path: str, path: str) -> bytes:
+    def last_commit_for_path(self, repo_path: str, path: str) -> str:
         return self.hg.run_hg(
             [
                 "log",
@@ -37,7 +37,7 @@ class HgVcs(AbstractVcs):
                 "1",
                 path,
             ]
-        )
+        ).decode()
 
     def apply_patch(self, patch_buf: StringIO):
         return self.hg.apply_patch(patch_buf)
@@ -67,8 +67,10 @@ class HgVcs(AbstractVcs):
             .splitlines()
         )
 
-    def update_repo(self, pull_path, target_cset):
-        return self.hg.update_repo(pull_path, target_cset)
+    def update_repo(self, pull_path: str, target_cset: Optional[str] = None) -> str:
+        return self.hg.update_repo(
+            pull_path, target_cset.encode() if target_cset else None
+        ).decode()
 
     def format_stack(self, stack_size: int, bug_ids: list[str]) -> Optional[list[str]]:
         return self.hg.format_stack(stack_size, bug_ids)

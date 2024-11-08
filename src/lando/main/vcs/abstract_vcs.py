@@ -27,16 +27,15 @@ class AbstractVcs:
         pass
 
     @abstractmethod
-    def last_commit_for_path(self, repo_path: str, path: str) -> bytes:
-        """
-        Find last commit to touch a path.
+    def last_commit_for_path(self, repo_path: str, path: str) -> str:
+        """Find last commit to touch a path.
 
         Args:
             repo_path (str): The path to the repository.
             path (str): The specific path within the repository.
 
         Returns:
-            bytes: The commit id
+            str: The commit id
         """
         pass
 
