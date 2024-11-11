@@ -206,6 +206,28 @@ aDd oNe mOrE LiNe
 """.lstrip()
 
 
+@pytest.mark.django_db
+def test_hg_repo_prepare_new(mock_repo_config, hg_server, tmpdir):
+    fresh_clone = tmpdir.join("fresh_hg_clone")
+    assert not fresh_clone.exists(), "New repo `{{fresh_clone}}` already exists"
+
+    repo = Repo.objects.create(
+        scm=Repo.HG,
+        name="mozilla-central",
+        url=hg_server,
+        required_permission=SCM_LEVEL_3,
+        push_path=hg_server,
+        pull_path=hg_server,
+        system_path=fresh_clone.strpath,
+    )
+    repo.hg_repo_prepare()
+
+    assert fresh_clone.isdir()
+    assert "test.txt" in [
+        f.strpath.split("/")[-1] for f in fresh_clone.listdir()
+    ], "Missing `test.txt` in repo freshly cloned from {{hg_server}}"
+
+
 @pytest.mark.parametrize(
     "revisions_params",
     [
