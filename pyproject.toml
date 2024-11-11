@@ -38,7 +38,12 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 code-quality = ["black", "ruff"]
-testing = ["pytest", "pytest-django", "requests-mock"]
+testing = [
+  "pytest",
+  "pytest-cov",
+  "pytest-django",
+  "requests-mock"
+]
 
 [project.scripts]
 lando = "lando.manage:main"
@@ -60,6 +65,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "lando.test_settings"
+addopts = "--cov --cov-report html"
 
 testpaths = [
     "src/lando/api",
