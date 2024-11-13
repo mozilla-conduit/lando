@@ -32,7 +32,11 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 
 RUN pip install -r /code/requirements.txt
 RUN pip install -e /code
+
+RUN mkdir -p /files/repos && chown -R app /files
+
 USER app
+
 
 WORKDIR /code
 
