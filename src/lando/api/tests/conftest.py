@@ -164,7 +164,7 @@ class JSONClient(Client):
         return super(JSONClient, self).open(*args, **kwargs)
 
 
-# Are we running tests under local docker-compose or under CI?
+# Are we running tests under local docker compose or under CI?
 # Assume that if we are running in an environment with the external services we
 # need then the appropriate variables will be present in the environment.
 #
