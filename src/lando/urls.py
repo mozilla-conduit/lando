@@ -18,6 +18,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
+from lando.api.legacy.api import landing_jobs
 from lando.ui.legacy import pages, revisions, user_settings
 
 urlpatterns = [
@@ -30,4 +31,9 @@ urlpatterns += [
     path("", pages.Index.as_view()),
     path("D<int:revision_id>/", revisions.Revision.as_view(), name="revisions-page"),
     path("manage_api_key/", user_settings.manage_api_key, name="user-settings"),
+]
+
+# "API" endpoints ported from legacy API app.
+urlpatterns += [
+    path("landing_jobs/<int:landing_job_id>/", landing_jobs.put, name="landing-jobs"),
 ]

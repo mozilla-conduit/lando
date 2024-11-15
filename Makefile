@@ -1,18 +1,18 @@
 SHELL := /bin/bash
 DOCKER := $(shell which docker)
-DOCKER_COMPOSE := $(shell which docker-compose)
+DOCKER_COMPOSE := ${DOCKER} compose
 ARGS_TEST ?=
 
 ifeq ($(STANDALONE), 1)
-	BASE_COMMAND := docker-compose run lando
+	BASE_COMMAND := ${DOCKER_COMPOSE} run lando
 else
 	BASE_COMMAND := docker exec -ti suite-lando-1
 endif
 
 .PHONY: help
 help:
-	@"$(DOCKER)" --version
-	@"$(DOCKER_COMPOSE)" --version
+	@$(DOCKER) --version
+	@$(DOCKER_COMPOSE) version
 	@echo "usage: make <target>"
 	@echo
 	@echo "target is one of:"
@@ -28,7 +28,7 @@ help:
 test:
 	$(BASE_COMMAND) lando tests $(ARGS_TESTS)
 
-.PHONY: format 
+.PHONY: format
 format:
 	$(BASE_COMMAND) lando format
 
@@ -49,5 +49,5 @@ attach:
 ifeq ($(INSUITE), 1)
 	-@docker attach suite-lando-1 ||:
 else
-	-@docker-compose attach lando ||:
+	-@${DOCKER_COMPOSE} attach lando ||:
 endif
