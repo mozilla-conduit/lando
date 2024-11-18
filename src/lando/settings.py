@@ -221,6 +221,9 @@ CSP_REPORTING_URL = os.getenv("CSP_REPORTING_URL", "")
 LANDING_WORKER_USERNAME = os.getenv("LANDING_WORKER_USERNAME", "app")
 LANDING_WORKER_TARGET_SSH_PORT = os.getenv("LANDING_WORKER_TARGET_SSH_PORT", "22")
 
+COMMITTER_NAME = os.getenv("COMMITTER_NAME", "Lando")
+COMMITTER_EMAIL = os.getenv("COMMITTER_EMAIL", "lando@mozilla.com")
+
 if ENVIRONMENT.is_remote:
     STORAGES = {
         "staticfiles": {

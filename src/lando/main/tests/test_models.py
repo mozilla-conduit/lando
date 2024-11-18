@@ -15,16 +15,18 @@ from lando.main.scm import (
     "git_returncode,hg_returncode,scm",
     ((255, 0, SCM_HG), (0, 255, SCM_GIT)),
 )
-@patch("lando.main.models.repo.HgSCM")
-@patch("lando.main.models.repo.subprocess")
+@patch("lando.main.scm.GitSCM")
+@patch("lando.main.scm.HgSCM")
+@patch("lando.main.scm.git.subprocess")
+@pytest.mark.django_db(transaction=True)
 def test__models__Repo__scm(
     subprocess,
     HgSCM,
+    GitSCM,
     monkeypatch,
     git_returncode,
     hg_returncode,
     scm,
-    db,
 ):
     repo_path = "some_repo"
 
@@ -37,23 +39,31 @@ def test__models__Repo__scm(
     HgSCM.repo_is_supported = MagicMock(name="repo_is_supported")
     HgSCM.repo_is_supported.return_value = not hg_returncode
 
+    GitSCM.repo_is_supported = MagicMock(name="repo_is_supported")
+    GitSCM.repo_is_supported.return_value = not git_returncode
+
+    monkeypatch.setattr(
+        "lando.main.models.repo.SCM_IMPLEMENTATIONS",
+        {
+            SCM_GIT: GitSCM,
+            SCM_HG: HgSCM,
+        },
+    )
+
     repo = Repo(pull_path=repo_path)
-
-    # Skip the GitSCM stub implementation
-    monkeypatch.setattr("lando.main.models.repo.SCM_IMPLEMENTATIONS", {SCM_HG: HgSCM})
-
     repo.save()
 
     assert repo.scm == scm
 
 
-@pytest.mark.parametrize("scm,call_count", ((SCM_HG, 0), (SCM_GIT, 0)))
-@patch("lando.main.models.repo.subprocess")
-def test__models__Repo__scm_not_calculated_when_preset(subprocess, scm, call_count, db):
-    repo_path = "some_hg_repo"
-    repo = Repo(pull_path=repo_path, scm=scm)
+# Only GitSCM uses subprocess to test the repo.
+@patch("lando.main.scm.git.subprocess")
+@pytest.mark.django_db(transaction=True)
+def test__models__Repo__scm_not_calculated_when_preset(subprocess):
+    repo_path = "some_git_repo"
+    repo = Repo(pull_path=repo_path, scm=SCM_GIT)
     repo.save()
-    assert subprocess.call.call_count == call_count
+    assert subprocess.call.call_count == 0
 
 
 @pytest.mark.parametrize(
