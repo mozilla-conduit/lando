@@ -23,8 +23,8 @@ from lando.ui.legacy import pages, revisions, user_settings
 
 urlpatterns = [
     path("", include("lando.dockerflow.urls", "dockerflow")),
-    path("oidc/", include("mozilla_django_oidc.urls")),
     path("admin/", admin.site.urls),
+    path("oidc/", include("mozilla_django_oidc.urls")),
 ]
 
 urlpatterns += [
