@@ -10,6 +10,7 @@ from lando.utils.phabricator import (
 )
 
 
+@pytest.mark.django_db
 def test_app_wide_headers_set(client):
     response = client.get("/__version__")
     assert response.status_code == 200
@@ -23,13 +24,15 @@ def test_app_wide_headers_set(client):
 
 # See bug 1927163.
 @pytest.mark.xfail
+@pytest.mark.django_db
 def test_app_wide_headers_set_for_api_endpoints(client):
     response = client.get("/__version__")
     assert response.status_code == 200
     assert response.headers["Content-Security-Policy"] == "default-src 'none'"
 
 
-def test_app_wide_headers_csp_report_uri(client, app):
+@pytest.mark.django_db
+def test_app_wide_headers_csp_report_uri(app, client):
     app.config["CSP_REPORTING_URL"] = None
     response = client.get("/__version__")
     assert response.status_code == 200
