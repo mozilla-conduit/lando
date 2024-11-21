@@ -4,7 +4,10 @@ import unittest.mock as mock
 
 import pytest
 
-from lando.api.legacy.workers.landing_worker import LandingWorker
+from lando.api.legacy.workers.landing_worker import (
+    AUTOFORMAT_COMMIT_MESSAGE,
+    LandingWorker,
+)
 from lando.main.models import SCM_LEVEL_3, Repo
 from lando.main.models.landing_job import (
     LandingJob,
@@ -12,7 +15,7 @@ from lando.main.models.landing_job import (
     add_job_with_revisions,
 )
 from lando.main.models.revision import Revision
-from lando.main.scm import AUTOFORMAT_COMMIT_MESSAGE, SCM_HG, HgScm
+from lando.main.scm import SCM_HG, HgScm
 
 
 @pytest.fixture

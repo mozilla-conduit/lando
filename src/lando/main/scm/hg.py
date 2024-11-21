@@ -1,4 +1,3 @@
-import configparser
 import copy
 import io
 import logging
@@ -12,19 +11,17 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import (
     ContextManager,
-    Iterable,
     Optional,
 )
 
 import hglib
 from django.conf import settings
 
-from lando.api.legacy.commit_message import bug_list_to_commit_string
 from lando.api.legacy.hgexports import HgPatchHelper
 from lando.main.scm.exceptions import (
-    AutoformattingException,
     NoDiffStartLine,
     PatchConflict,
+    ScmException,
     ScmInternalServerError,
     ScmLostPushRace,
     ScmPushTimeoutException,
@@ -39,7 +36,7 @@ logger = logging.getLogger(__name__)
 REQUEST_USER_ENV_VAR = "AUTOLAND_REQUEST_USER"
 
 
-class HgException(Exception):
+class HgException(ScmException):
     """
     A base exception allowing more precise exceptions to be thrown based on
     matching output or error text in another exception.
@@ -47,11 +44,13 @@ class HgException(Exception):
 
     SNIPPETS: list[str] = []
 
-    def __init__(self, hg_args, out, err, msg):
+    hg_args: list
+    out: str
+    err: str
+
+    def __init__(self, hg_args: list, out: str, err: str, msg: str):
         self.hg_args = hg_args
-        self.out = out
-        self.err = err
-        super().__init__(msg)
+        super().__init__(msg, out, err)
 
     @classmethod
     def from_hglib_error(cls, exc: hglib.error.CommandError):
@@ -125,13 +124,6 @@ class HgPatchConflict(PatchConflict, HgException):
         "hunk FAILED -- saving rejects to file",
         "hunks FAILED -- saving rejects to file",
     ]
-
-
-AUTOFORMAT_COMMIT_MESSAGE = """
-{bugs}: apply code formatting via Lando
-
-# ignore-this-changeset
-""".strip()
 
 
 class HgScm(AbstractScm):
@@ -375,136 +367,6 @@ class HgScm(AbstractScm):
         assert len(cset) == 12, cset
         return cset
 
-    def format_stack(self, stack_size: int, bug_ids: list[str]) -> Optional[list[str]]:
-        """Format the patch stack for landing.
-
-        Return a list of `str` commit hashes where autoformatting was applied,
-        or `None` if autoformatting was skipped. Raise `AutoformattingException`
-        if autoformatting failed for the current job.
-        """
-        # Disable autoformatting if `.lando.ini` is missing or not enabled.
-        landoini_config = self.read_lando_config()
-        if (
-            not landoini_config
-            or not landoini_config.has_section("autoformat")
-            or not landoini_config.getboolean("autoformat", "enabled")
-        ):
-            return None
-
-        # If `mach` is not at the root of the repo, we can't autoformat.
-        if not self.mach_path:
-            logger.info("No `./mach` in the repo - skipping autoformat.")
-            return None
-
-        try:
-            self.run_code_formatters()
-        except subprocess.CalledProcessError as exc:
-            logger.warning("Failed to run automated code formatters.")
-            logger.exception(exc)
-
-            raise AutoformattingException(
-                "Failed to run automated code formatters.",
-                details=exc.stdout,
-            )
-
-        try:
-            # When the stack is just a single commit, amend changes into it.
-            if stack_size == 1:
-                return self.format_stack_amend()
-
-            # If the stack is more than a single commit, create an autoformat commit.
-            return self.format_stack_tip(bug_ids)
-
-        except HgException as exc:
-            logger.warning("Failed to create an autoformat commit.")
-            logger.exception(exc)
-
-            raise AutoformattingException(
-                "Failed to apply code formatting changes to the repo.",
-                details=exc.out,
-            )
-
-    def read_lando_config(self) -> Optional[configparser.ConfigParser]:
-        """Attempt to read the `.lando.ini` file."""
-        try:
-            lando_ini_contents = self.read_checkout_file(".lando.ini")
-        except ValueError:
-            return None
-
-        # ConfigParser will use `:` as a delimeter unless told otherwise.
-        # We set our keys as `formatter:pattern` so specify `=` as the delimiters.
-        parser = configparser.ConfigParser(delimiters="=")
-        parser.read_string(lando_ini_contents)
-
-        return parser
-
-    def run_code_formatters(self) -> str:
-        """Run automated code formatters, returning the output of the process.
-
-        Changes made by code formatters are applied to the working directory and
-        are not committed into version control.
-        """
-        return self.run_mach_command(["lint", "--fix", "--outgoing"])
-
-    def run_mach_bootstrap(self) -> str:
-        """Run `mach bootstrap` to configure the system for code formatting."""
-        return self.run_mach_command(
-            [
-                "bootstrap",
-                "--no-system-changes",
-                "--application-choice",
-                "browser",
-            ]
-        )
-
-    def run_mach_command(self, args: list[str]) -> str:
-        """Run a command using the local `mach`, raising if it is missing."""
-        if not self.mach_path:
-            raise Exception("No `mach` found in local repo!")
-
-        # Convert to `str` here so we can log the mach path.
-        command_args = [str(self.mach_path)] + args
-
-        try:
-            logger.info("running mach command", extra={"command": command_args})
-
-            output = subprocess.run(
-                command_args,
-                capture_output=True,
-                check=True,
-                cwd=self.path,
-                encoding="utf-8",
-                universal_newlines=True,
-            )
-
-            logger.info(
-                "output from mach command",
-                extra={
-                    "output": output.stdout,
-                },
-            )
-
-            return output.stdout
-
-        except subprocess.CalledProcessError as exc:
-            logger.exception(
-                "Failed to run mach command",
-                extra={
-                    "command": command_args,
-                    "err": exc.stderr,
-                    "output": exc.stdout,
-                },
-            )
-
-            raise exc
-
-    @property
-    def mach_path(self) -> Optional[Path]:
-        """Return the `Path` to `mach`, if it exists."""
-        mach_path = Path(self.path) / "mach"
-        if mach_path.exists():
-            return mach_path
-
     def format_stack_amend(self) -> Optional[list[str]]:
         """Amend the top commit in the patch stack with changes from formatting."""
         try:
@@ -519,13 +381,12 @@ class HgScm(AbstractScm):
 
             raise exc
 
-    def format_stack_tip(self, bug_ids: Iterable[str]) -> Optional[list[str]]:
+    def format_stack_tip(self, commit_message: str) -> Optional[list[str]]:
         """Add an autoformat commit to the top of the patch stack.
 
         Return the commit hash of the autoformat commit as a `str`,
         or return `None` if autoformatting made no changes.
         """
-        bug_string = bug_list_to_commit_string(bug_ids)
 
         try:
             # Create a new commit.
@@ -533,7 +394,7 @@ class HgScm(AbstractScm):
                 ["commit"]
                 + [
                     "--message",
-                    AUTOFORMAT_COMMIT_MESSAGE.format(bugs=bug_string),
+                    commit_message,
                 ]
                 + ["--landing_system", "lando"]
             )
