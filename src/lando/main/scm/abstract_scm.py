@@ -119,21 +119,6 @@ class AbstractScm:
         """
 
     @abstractmethod
-    def format_stack(self, stack_size: int, bug_ids: list[str]) -> Optional[list[str]]:
-        """Format the stack of changesets with the given size and bug IDs.
-
-        This method uses the Mercurial command to format the stack of changesets
-        based on the specified stack size and list of bug IDs.
-
-        Args:
-            stack_size (int): The size of the stack to format.
-            bug_ids (list[str]): A list of bug IDs to include in the stack.
-
-        Returns:
-            list[str]: The result of the Mercurial format stack command, or None in case of error
-        """
-
-    @abstractmethod
     def prepare_repo(self, pull_path: str):
         """Either clone or update the repo."""
         if not self.repo_is_initialized:
@@ -154,3 +139,17 @@ class AbstractScm:
     @abstractmethod
     def repo_is_supported(cls, path: str) -> bool:
         """Determine wether the target repository is supported by this concrete implementation."""
+
+    @abstractmethod
+    def format_stack_amend(self) -> Optional[list[str]]:
+        """Amend the top commit in the patch stack with changes from formatting.
+
+        Returns a list containing a single string representing the ID of the amended commit.
+        """
+
+    @abstractmethod
+    def format_stack_tip(self, commit_message: str) -> Optional[list[str]]:
+        """Add an autoformat commit to the top of the patch stack.
+
+        Returns a list containing a single string representing the ID of the newly created commit.
+        """
