@@ -8,6 +8,7 @@ from typing import (
 )
 
 import requests
+from django.core.cache import cache
 from packaging.version import (
     InvalidVersion,
     Version,
@@ -22,7 +23,11 @@ from lando.api.legacy.stacks import (
     request_extended_revision_data,
 )
 from lando.main.models import Repo
-from lando.utils.phabricator import PhabricatorClient
+from lando.utils.phabricator import (
+    PhabricatorAPIException,
+    PhabricatorClient,
+    get_phabricator_client,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,17 +64,24 @@ def get_uplift_request_form(revision: dict) -> Optional[str]:
     return bug
 
 
-# @cache.cached(
-#    key_prefix="uplift-repositories"
-# )
-def get_uplift_repositories(phab: PhabricatorClient) -> list:
-    repos = phab.call_conduit(
-        "diffusion.repository.search",
-        constraints={"projects": ["uplift"]},
-    )
+def get_uplift_repositories() -> list:
+    CACHE_KEY = "uplift-repos"
 
-    repos = phab.expect(repos, "data")
-
+    repos = cache.get(CACHE_KEY)
+    if not repos:
+        phab = get_phabricator_client()
+        try:
+            repos = phab.call_conduit(
+                "diffusion.repository.search",
+                constraints={"projects": ["uplift"]},
+            )
+        except PhabricatorAPIException as e:
+            logger.exception(e)
+            repos = []
+        else:
+            repos = phab.expect(repos, "data")
+            repos = [phab.expect(repo, "fields", "shortName") for repo in repos]
+            cache.set(CACHE_KEY, repos)
     return repos
 
 

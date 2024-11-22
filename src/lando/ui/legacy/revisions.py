@@ -2,7 +2,7 @@ import json
 import logging
 
 from django.contrib import messages
-from django.http import HttpRequest, HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 
@@ -10,7 +10,7 @@ from lando.api.legacy import api as legacy_api
 from lando.main.auth import force_auth_refresh
 from lando.ui.legacy.forms import (
     TransplantRequestForm,
-    # UpliftRequestForm,
+    UpliftRequestForm,
 )
 from lando.ui.legacy.stacks import Edge, draw_stack_graph, sort_stack_topological
 from lando.ui.views import LandoView
@@ -19,6 +19,49 @@ logger = logging.getLogger(__name__)
 
 # TODO: port this hook once lando-api is merged and hooks are implemented.
 # revisions.before_request(set_last_local_referrer)
+
+
+class Uplift(LandoView):
+    @force_auth_refresh
+    def post(self, request: HttpRequest) -> HttpResponse:
+        """Process the uplift request submission."""
+        uplift_request_form = UpliftRequestForm(request.POST)
+        errors = []
+
+        if not request.user.is_authenticated:
+            raise PermissionError()
+
+        if uplift_request_form.is_valid() and not errors:
+            revision_id = uplift_request_form.cleaned_data["revision_id"]
+            repository = uplift_request_form.cleaned_data["repository"]
+
+            response = legacy_api.uplift.create(
+                request,
+                data={
+                    "revision_id": revision_id,
+                    "repository": repository,
+                },
+            )
+
+            # Redirect to the tip revision's URL.
+            # TODO add js for auto-opening the uplift request Phabricator form.
+            # See https://bugzilla.mozilla.org/show_bug.cgi?id=1810257.
+            revision_id = response["tip_differential"]["revision_id"]
+            return redirect("revisions-page", revision_id=revision_id)
+
+        if uplift_request_form.errors:
+            errors += [
+                f"{field}: {', '.join(field_errors)}"
+                for field, field_errors in uplift_request_form.errors.items()
+            ]
+
+        for error in errors:
+            messages.add_message(request, messages.ERROR, error)
+
+        # Not ideal, but because we do not have access to the revision ID
+        # we will just redirect the user back to the referring page and
+        # they will see the flash messages.
+        return redirect(request.META.get("HTTP_REFERER"))
 
 
 class Revision(LandoView):
@@ -33,13 +76,8 @@ class Revision(LandoView):
         form = TransplantRequestForm()
         errors = []
 
-        # TODO - see bug 1915695.
-        # uplift_request_form = UpliftRequestForm()
-
-        # # Get the list of available uplift repos and populate the form with it.
-        # uplift_request_form.repository.choices = get_uplift_repos(api)
-        # uplift_request_form.revision_id.data = revision_id
-        # END TODO.
+        uplift_request_form = UpliftRequestForm()
+        uplift_request_form.fields["revision_id"].initial = f"D{revision_id}"
 
         # Build a mapping from phid to revision and identify
         # the data for the revision used to load this page.
@@ -136,7 +174,7 @@ class Revision(LandoView):
             "form": form,
             "flags": target_repo["commit_flags"] if target_repo else [],
             "existing_flags": existing_flags,
-            # "uplift_request_form": uplift_request_form,
+            "uplift_request_form": uplift_request_form,
         }
 
         return TemplateResponse(
@@ -151,14 +189,6 @@ class Revision(LandoView):
     ) -> HttpResponseRedirect:
         form = TransplantRequestForm(request.POST)
         errors = []
-
-        # TODO - see bug 1915695.
-        # uplift_request_form = UpliftRequestForm()
-
-        # # Get the list of available uplift repos and populate the form with it.
-        # uplift_request_form.repository.choices = get_uplift_repos(api)
-        # uplift_request_form.revision_id.data = revision_id
-        # END TODO.
 
         if not request.user.is_authenticated:
             errors.append("You must be logged in to request a landing")
