@@ -129,7 +129,7 @@
         {% include "stack/partials/landing-preview.html" %}
       </section>
       <footer class="modal-card-foot">
-        <form class="StackPage-form" action="" method="post">
+          <form class="StackPage-form" action="" method="post">
           {{ csrf_input }}
           {{ form.landing_path }}
           {{ form.confirmation_token }}
@@ -142,11 +142,10 @@
           </button>
           <button class="StackPage-landingPreview-close button">Cancel</button>
         </form>
-        {# TODO - see bug 1915695 #} 
-        {# {% if user_has_phabricator_token %}
-            <form class="StackPage-landingPreview-uplift" action="{{ url_for('revisions.uplift') }}" method="post">
-              {{ uplift_request_form.csrf_token }}
-              <input type="hidden" name="revision_id" value="{{ revision_id }}" />
+        {% if user_has_phabricator_token %}
+        <form class="StackPage-landingPreview-uplift" action="{{ url("uplift-page") }}" method="post">
+              {{ csrf_input }}
+              {{ uplift_request_form.revision_id }}
               {{ uplift_request_form.repository }}
               <button
                 class="button"
@@ -159,7 +158,7 @@
                 <i class="fa fa-question-circle"></i>
               </span>
             </a>
-        {% endif %} #}
+        {% endif %}
       </footer>
     </div>
   </div>
