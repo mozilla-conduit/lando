@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - develop
+      - staging
+  release:
+    types:
+      - published
 
 env:
   IMAGE_NAME: lando
