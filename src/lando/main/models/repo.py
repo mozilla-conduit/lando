@@ -58,10 +58,8 @@ class Repo(BaseModel):
     )
     is_initialized = models.BooleanField(default=False)
 
-    system_path = models.FilePathField(
-        path=settings.REPO_ROOT,
+    system_path = models.CharField(
         max_length=255,
-        allow_folders=True,
         blank=True,
         default="",
     )
