@@ -168,9 +168,7 @@ class Revision(LandoView):
                 form.cleaned_data["landing_path"]
             )
             form.cleaned_data["flags"] = (
-                json.loads(form.cleaned_data["flags"])
-                if form.cleaned_data["flags"]
-                else []
+                form.cleaned_data["flags"] if form.cleaned_data["flags"] else []
             )
             legacy_api.transplants.post(request, data=form.cleaned_data)
             # We don't actually need any of the data from the
