@@ -50,6 +50,8 @@ def test__models__Repo__scm_not_calculated_when_preset(subprocess, scm, call_cou
     "path, expected_exception",
     [
         (settings.REPO_ROOT + "/valid_path", None),
+        (settings.REPO_ROOT + "invalid_path", ValidationError),
+        (settings.REPO_ROOT + "/invalid/path", ValidationError),
         ("/invalid_path", ValidationError),
     ],
 )

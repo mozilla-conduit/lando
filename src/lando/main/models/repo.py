@@ -30,9 +30,12 @@ DONTBUILD = (
 )
 
 
-def validate_path_in_repo_root(value):
-    if not value.startswith(settings.REPO_ROOT):
-        raise ValidationError(f"Path must be in {settings.REPO_ROOT}.")
+def validate_path_in_repo_root(value: str):
+    path = Path(value)
+    if path.parent != Path(settings.REPO_ROOT):
+        raise ValidationError(
+            f"Path {path} must be a direct child of {settings.REPO_ROOT}."
+        )
 
 
 class RepoError(Exception):
