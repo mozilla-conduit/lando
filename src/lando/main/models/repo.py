@@ -8,6 +8,7 @@ from pathlib import Path
 import hglib
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from lando.api.legacy.hg import HgRepo
@@ -27,6 +28,11 @@ DONTBUILD = (
         " new bug is close to none."
     ),
 )
+
+
+def validate_path_in_repo_root(value):
+    if not value.startswith(settings.REPO_ROOT):
+        raise ValidationError(f"Path must be in {settings.REPO_ROOT}.")
 
 
 class RepoError(Exception):
@@ -62,6 +68,7 @@ class Repo(BaseModel):
         max_length=255,
         blank=True,
         default="",
+        validators=[validate_path_in_repo_root],
     )
 
     # Legacy fields. These fields were adapted from the legacy implementation of Lando.
