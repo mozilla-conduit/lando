@@ -1,5 +1,4 @@
 import copy
-import io
 import logging
 import os
 import shlex
@@ -12,14 +11,13 @@ from pathlib import Path
 from typing import (
     ContextManager,
     Optional,
+    Self,
 )
 
 import hglib
 from django.conf import settings
 
-from lando.api.legacy.hgexports import HgPatchHelper
 from lando.main.scm.exceptions import (
-    NoDiffStartLine,
     PatchConflict,
     ScmException,
     ScmInternalServerError,
@@ -38,22 +36,24 @@ REQUEST_USER_ENV_VAR = "AUTOLAND_REQUEST_USER"
 
 class HgException(ScmException):
     """
-    A base exception allowing more precise exceptions to be thrown based on
+    A base exception for Mercurial error.
+
+    It contains logic allowing more precise exceptions to be thrown based on
     matching output or error text in another exception.
     """
 
     SNIPPETS: list[str] = []
 
-    hg_args: list
+    hg_args: list[str]
     out: str
     err: str
 
-    def __init__(self, hg_args: list, out: str, err: str, msg: str):
+    def __init__(self, hg_args: list[str], out: str, err: str, msg: str):
         self.hg_args = hg_args
         super().__init__(msg, out, err)
 
     @classmethod
-    def from_hglib_error(cls, exc: hglib.error.CommandError):
+    def from_hglib_error(cls, exc: hglib.error.CommandError) -> Self:
         out, err, args = (
             exc.out.decode(errors="replace"),
             exc.err.decode(errors="replace"),
@@ -164,26 +164,17 @@ class HgScm(AbstractScm):
 
     @property
     def REJECTS_PATH(self) -> Path:
+        """A Path where this SCM stores reject from a failed patch application."""
         return Path("/tmp/patch_rejects")
 
     def push(
         self, push_path: str, target: Optional[str] = None, force_push: bool = False
     ) -> None:
+        """Push local code to the remote repository."""
         bookmark = target
         target = push_path
         if not os.getenv(REQUEST_USER_ENV_VAR):
             raise ValueError(f"{REQUEST_USER_ENV_VAR} not set while attempting to push")
-
-        # For testing, force a LostPushRace exception if this header is
-        # defined.
-        # TODO: mock this in tests
-        if (
-            self.patch_header
-            and self.patch_header("Fail HG Import") == "LOSE_PUSH_RACE"
-        ):
-            raise LostPushRace(
-                ["testing_args"], "testing_out", "testing_err", "testing_msg"
-            )
 
         extra_args = []
 
@@ -200,12 +191,13 @@ class HgScm(AbstractScm):
                 ]
             )
 
-    def last_commit_for_path(self, repo_path: str, path: str) -> str:
+    def last_commit_for_path(self, path: str) -> str:
+        """Find last commit to touch a path."""
         return self.run_hg(
             [
                 "log",
                 "--cwd",
-                repo_path,
+                self.path,
                 "--template",
                 "{node}",
                 "-l",
@@ -214,21 +206,18 @@ class HgScm(AbstractScm):
             ]
         ).decode()
 
-    def apply_patch(self, patch_buf: io.StringIO):
-        patch_helper = HgPatchHelper(patch_buf)
-        if not patch_helper.diff_start_line:
-            raise NoDiffStartLine()
-
-        self.patch_header = patch_helper.get_header
-
+    def apply_patch(
+        self, diff: str, commit_description: str, commit_author: str, commit_date: str
+    ):
+        """Apply the given patch to the current repository."""
         # Import the diff to apply the changes then commit separately to
         # ensure correct parsing of the commit message.
         f_msg = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
         f_diff = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
         with f_msg, f_diff:
-            patch_helper.write_commit_description(f_msg)
+            f_msg.write(commit_description)
             f_msg.flush()
-            patch_helper.write_diff(f_diff)
+            f_diff.write(diff)
             f_diff.flush()
 
             similarity_args = ["-s", "95"]
@@ -243,16 +232,6 @@ class HgScm(AbstractScm):
             import_cmd = ["import", "--no-commit"] + similarity_args
 
             try:
-                if patch_helper.get_header("Fail HG Import") == b"FAIL":
-                    # For testing, force a HgPatchConflict exception if this header is
-                    # defined.
-                    # TODO: mock this in tests
-                    raise HgPatchConflict(
-                        (),
-                        1,
-                        "",
-                        "forced fail: hunk FAILED -- saving rejects to file",
-                    )
                 self.run_hg(import_cmd + [f_diff.name])
             except HgPatchConflict as exc:
                 # Try again using 'patch' instead of hg's internal patch utility.
@@ -272,21 +251,10 @@ class HgScm(AbstractScm):
                     # patcher since both attempts failed.
                     raise exc
 
-            # Commit using the extracted date, user, and commit desc.
-            # --landing_system is provided by the set_landing_system hgext.
-            date = patch_helper.get_header("Date")
-            user = patch_helper.get_header("User")
-
-            if not user:
-                raise ValueError("Missing `User` header!")
-
-            if not date:
-                raise ValueError("Missing `Date` header!")
-
             self.run_hg(
                 ["commit"]
-                + ["--date", date]
-                + ["--user", user]
+                + ["--date", commit_date]
+                + ["--user", commit_author]
                 + ["--landing_system", "lando"]
                 + ["--logfile", f_msg.name]
             )
@@ -321,6 +289,7 @@ class HgScm(AbstractScm):
             self._clean_and_close()
 
     def head_ref(self) -> str:
+        """Get the current revision_id."""
         return self.run_hg(["log", "-r", ".", "-T", "{node}"]).decode("utf-8")
 
     def changeset_descriptions(self) -> list[str]:
@@ -332,18 +301,20 @@ class HgScm(AbstractScm):
         )
 
     def update_repo(self, pull_path: str, target_cset: Optional[str] = None) -> str:
+        """Update the repository to the specified changeset."""
         source = pull_path
         # Obtain remote tip if not provided. We assume there is only a single head.
         if not target_cset:
-            target_cset = self.get_remote_head(source)
+            target_cset = self._get_remote_head(source)
 
         # Strip any lingering changes.
         self.clean_repo()
 
         # Pull from "upstream".
-        self.update_from_upstream(source, target_cset)
+        self._update_from_upstream(source, target_cset)
 
-    def update_from_upstream(self, source, remote_rev):
+    def _update_from_upstream(self, source, remote_rev):
+        """Update the repository to the specified changeset (not optional)."""
         # Pull and update to remote tip.
         cmds = [
             ["pull", source],
@@ -360,8 +331,8 @@ class HgScm(AbstractScm):
                     continue
                 raise e
 
-    def get_remote_head(self, source: str) -> bytes:
-        # Obtain remote head. We assume there is only a single head.
+    def _get_remote_head(self, source: str) -> bytes:
+        """Obtain remote head. We assume there is only a single head."""
         cset = self.run_hg(["identify", source, "-r", "default", "--id"]).strip()
 
         assert len(cset) == 12, cset
@@ -385,12 +356,7 @@ class HgScm(AbstractScm):
             raise exc
 
     def format_stack_tip(self, commit_message: str) -> Optional[list[str]]:
-        """Add an autoformat commit to the top of the patch stack.
-
-        Return the commit hash of the autoformat commit as a `str`,
-        or return `None` if autoformatting made no changes.
-        """
-
+        """Add an autoformat commit to the top of the patch stack."""
         try:
             # Create a new commit.
             self.run_hg(
@@ -415,7 +381,8 @@ class HgScm(AbstractScm):
         """Return the currently checked out node."""
         return self.run_hg(["identify", "-r", ".", "-i"])
 
-    def clone(self, source):
+    def clone(self, source: str):
+        """Clone a repository from a source."""
         # Use of robustcheckout here would work, but is probably not worth
         # the hassle as most of the benefits come from repeated working
         # directory creation. Since this is a one-time clone and is unlikely
@@ -451,18 +418,23 @@ class HgScm(AbstractScm):
         return not returncode
 
     def run_hg_cmds(self, cmds: list[list[str]]) -> bytes:
+        """Run a list of Mercurial commands, and return the last result's output."""
         last_result = b""
         for cmd in cmds:
             last_result = self.run_hg(cmd)
         return last_result
 
     def run_hg(self, args: list[str]) -> bytes:
+        """Run a single Mercurial command, and return its output.
+
+        A specific HgException will be raised on error."""
         try:
             return self._run_hg(args)
         except hglib.error.CommandError as exc:
             raise HgException.from_hglib_error(exc) from exc
 
     def _run_hg(self, args: list[str]) -> bytes:
+        """Use hglib to run a Mercurial command, and return its output."""
         correlation_id = str(uuid.uuid4())
         logger.info(
             "running hg command",
@@ -505,11 +477,13 @@ class HgScm(AbstractScm):
         return out
 
     def _open(self):
+        """Initialiase hglib to run Mercurial commands."""
         self.hg_repo = hglib.open(
             self.path, encoding=self.ENCODING, configs=self._config_to_list()
         )
 
     def _config_to_list(self):
+        """Reformat the object's config, to a list of strings suitable for hglib"""
         return ["{}={}".format(k, v) for k, v in self.config.items() if v is not None]
 
     def _clean_and_close(self):
@@ -520,7 +494,8 @@ class HgScm(AbstractScm):
             logger.exception(e)
         self.hg_repo.close()
 
-    def clean_repo(self, *, strip_non_public_commits=True):
+    def clean_repo(self, *, strip_non_public_commits: bool = True):
+        """Clean the local working copy from all extraneous files."""
         # Reset rejects directory
         if self.REJECTS_PATH.is_dir():
             shutil.rmtree(self.REJECTS_PATH)

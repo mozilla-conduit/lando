@@ -1,14 +1,15 @@
 import io
 import os
+from unittest import mock
 
 import pytest
 
+from lando.api.legacy.hgexports import HgPatchHelper
 from lando.main.scm import (
     REQUEST_USER_ENV_VAR,
     HgCommandError,
     HgException,
     HgScm,
-    NoDiffStartLine,
     PatchConflict,
     ScmInternalServerError,
     ScmLostPushRace,
@@ -17,7 +18,6 @@ from lando.main.scm import (
     TreeClosed,
     hglib,
 )
-from lando.main.scm.abstract_scm import AbstractScm
 
 
 def test_integrated_hgrepo_clean_repo(hg_clone):
@@ -75,21 +75,6 @@ def test_integrated_hgrepo_can_log(hg_clone):
     repo = HgScm(hg_clone.strpath)
     with repo.for_pull():
         assert repo.run_hg_cmds([["log"]])
-
-
-PATCH_WITHOUT_STARTLINE = r"""
-# HG changeset patch
-# User Test User <test@example.com>
-# Date 0 0
-#      Thu Jan 01 00:00:00 1970 +0000
-add another file.
-diff --git a/test.txt b/test.txt
---- a/test.txt
-+++ b/test.txt
-@@ -1,1 +1,2 @@
- TEST
-+adding another line
-""".strip()
 
 
 PATCH_WITH_CONFLICT = r"""
@@ -156,52 +141,80 @@ diff --git a/test.txt b/test.txt
 """.strip()
 
 
-PATCH_FAIL_HEADER = """
-# HG changeset patch
-# User Test User <test@example.com>
-# Date 0 0
-#      Thu Jan 01 00:00:00 1970 +0000
-# Fail HG Import FAIL
-# Diff Start Line 8
-add another file.
-diff --git a/test.txt b/test.txt
---- a/test.txt
-+++ b/test.txt
-@@ -1,1 +1,2 @@
- TEST
-+adding another line
-""".strip()
-
-
-def test_integrated_hgrepo_apply_patch(hg_clone):
+def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
     repo = HgScm(hg_clone.strpath)
-
-    # We should refuse to apply patches that are missing a
-    # Diff Start Line header.
-    with pytest.raises(NoDiffStartLine), repo.for_pull():
-        repo.apply_patch(io.StringIO(PATCH_WITHOUT_STARTLINE))
 
     # Patches with conflicts should raise a proper PatchConflict exception.
     with pytest.raises(PatchConflict), repo.for_pull():
-        repo.apply_patch(io.StringIO(PATCH_WITH_CONFLICT))
+        ph = HgPatchHelper(io.StringIO(PATCH_WITH_CONFLICT))
+        repo.apply_patch(
+            ph.get_diff(),
+            ph.get_commit_description(),
+            ph.get_header("User"),
+            ph.get_header("Date"),
+        )
+
+
+@pytest.mark.parametrize(
+    "name, patch, expected_log",
+    (
+        ("normal", PATCH_NORMAL, ""),
+        ("unicode", PATCH_UNICODE, "こんにちは"),
+    ),
+)
+def test_integrated_hgrepo_patch_success(
+    name: str, patch: str, expected_log: str, hg_clone
+):
+    repo = HgSCM(hg_clone.strpath)
 
     with repo.for_pull():
-        repo.apply_patch(io.StringIO(PATCH_NORMAL))
-        # Commit created.
-        assert repo.run_hg(["outgoing"])
-
-    with repo.for_pull():
-        repo.apply_patch(io.StringIO(PATCH_UNICODE))
+        ph = HgPatchHelper(io.StringIO(patch))
+        repo.apply_patch(
+            ph.get_diff(),
+            ph.get_commit_description(),
+            ph.get_header("User"),
+            ph.get_header("Date"),
+        )
         # Commit created.
 
         log_output = repo.run_hg(["log"])
-        assert "こんにちは" in log_output.decode("utf-8")
-        assert repo.run_hg(["outgoing"])
+        assert expected_log in log_output.decode("utf-8")
+        assert repo.run_hg(
+            ["outgoing"]
+        ), f"No outgoing commit after {name} patch has been applied"
+
+
+def test_integrated_hgrepo_patch_hgimport_fail_success(monkeypatch, hg_clone):
+    repo = HgScm(hg_clone.strpath)
+
+    original_run_hg = repo.run_hg
+
+    def run_hg_conflict_on_import(*args):
+        if args[0] == "import":
+            raise hglib.error.CommandError(
+                (),
+                1,
+                b"",
+                b"forced fail: hunk FAILED -- saving rejects to file",
+            )
+        return original_run_hg(*args)
+
+    run_hg = mock.MagicMock()
+    run_hg.side_effect = run_hg_conflict_on_import
+    monkeypatch.setattr(repo, "run_hg", run_hg_conflict_on_import)
 
     with repo.for_pull():
-        repo.apply_patch(io.StringIO(PATCH_FAIL_HEADER))
+        ph = HgPatchHelper(io.StringIO(PATCH_NORMAL))
+        repo.apply_patch(
+            ph.get_diff(),
+            ph.get_commit_description(),
+            ph.get_header("User"),
+            ph.get_header("Date"),
+        )
         # Commit created.
-        assert repo.run_hg(["outgoing"])
+        assert repo.run_hg(
+            ["outgoing"]
+        ), "No outgoing commit after non-hg importable patch has been applied"
 
 
 def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
@@ -220,7 +233,13 @@ def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
         repo.run_hg_cmds(
             [["add", new_file.strpath], ["commit", "-m", "adding file"], ["push"]]
         )
-        repo.apply_patch(io.StringIO(PATCH_DELETE_NO_NEWLINE_FILE))
+        ph = HgPatchHelper(io.StringIO(PATCH_DELETE_NO_NEWLINE_FILE))
+        repo.apply_patch(
+            ph.get_diff(),
+            ph.get_commit_description(),
+            ph.get_header("User"),
+            ph.get_header("Date"),
+        )
         # Commit created.
         assert "file removed" in str(repo.run_hg(["outgoing"]))
 
@@ -255,16 +274,16 @@ def test_hgrepo_request_user(hg_clone):
 
 
 @pytest.mark.parametrize(
-    "scm,repo_fixture_name,expected",
+    "repo_path,expected",
     (
-        (HgScm, "hg_clone", True),
-        (HgScm, "tmpdir", False),
+        ("", True),
+        ("/", False),
     ),
 )
-def test_repo_is_supported(
-    scm: AbstractScm, repo_fixture_name: str, expected: bool, request
-):
-    repo = request.getfixturevalue(repo_fixture_name)
+def test_repo_is_supported(repo_path: str, expected: bool, hg_clone):
+    scm = HgSCM
+    if not repo_path:
+        repo_path = hg_clone.strpath
     assert (
-        scm.repo_is_supported(repo) == expected
-    ), f"{scm} did not correctly report support for {repo.str.path}"
+        scm.repo_is_supported(repo_path) == expected
+    ), f"{scm} did not correctly report support for {repo_path}"

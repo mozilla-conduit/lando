@@ -16,6 +16,8 @@ from lando.main.models.landing_job import (
 )
 from lando.main.models.revision import Revision
 from lando.main.scm import SCM_HG, HgScm
+from lando.main.scm.hg import LostPushRace
+from lando.utils import HgPatchHelper
 
 
 @pytest.fixture
@@ -51,6 +53,20 @@ diff --git a/test.txt b/test.txt
 @@ -1,1 +1,2 @@
  TEST
 +{LARGE_UTF8_THING}
+""".strip()
+
+PATCH_WITHOUT_STARTLINE = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+add another file.
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,2 @@
+ TEST
++adding another line
 """.strip()
 
 
@@ -366,14 +382,13 @@ def test_integrated_execute_job_with_bookmark(
     assert scm.push.call_args[1] == {"target": "@", "force_push": False}
 
 
-def test_lose_push_race(
-    app,
-    db,
-    mock_repo_config,
+@pytest.mark.django_db
+def test_no_diff_start_line(
     hg_server,
     hg_clone,
     treestatusdouble,
     create_patch_revision,
+    caplog,
 ):
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
@@ -393,9 +408,57 @@ def test_lose_push_race(
         "attempts": 1,
     }
     job = add_job_with_revisions(
+        [create_patch_revision(1, patch=PATCH_WITHOUT_STARTLINE)], **job_params
+    )
+
+    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
+
+    assert worker.run_job(job)
+    assert job.status == LandingJobStatus.FAILED
+    assert "Patch without a diff start line." in caplog.text
+
+
+def test_lose_push_race(
+    monkeypatch,
+    app,
+    db,
+    mock_repo_config,
+    hg_server,
+    hg_clone,
+    treestatusdouble,
+    create_patch_revision,
+):
+    treestatusdouble.open_tree("mozilla-central")
+    repo = Repo.objects.create(
+        scm=SCM_HG,
+        name="mozilla-central",
+        url=hg_server,
+        required_permission=SCM_LEVEL_3,
+        push_path=hg_server,
+        pull_path=hg_server,
+        system_path=hg_clone.strpath,
+    )
+    scm = repo.get_scm()
+    job_params = {
+        "id": 1234,
+        "status": LandingJobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "target_repo": repo,
+        "attempts": 1,
+    }
+    job = add_job_with_revisions(
         [create_patch_revision(1, patch=PATCH_PUSH_LOSER)], **job_params
     )
 
+    mock_push = mock.MagicMock()
+    mock_push.side_effect = (
+        LostPushRace(["testing_args"], "testing_out", "testing_err", "testing_msg"),
+    )
+    monkeypatch.setattr(
+        scm,
+        "push",
+        mock_push,
+    )
     worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
 
     assert not worker.run_job(job)
@@ -598,7 +661,13 @@ def test_format_single_success_changed(
     # Push the `mach` formatting patch.
     hgrepo = HgScm(hg_clone.strpath)
     with hgrepo.for_push("test@example.com"):
-        hgrepo.apply_patch(io.StringIO(PATCH_FORMATTING_PATTERN_PASS))
+        ph = HgPatchHelper(io.StringIO(PATCH_FORMATTING_PATTERN_PASS))
+        hgrepo.apply_patch(
+            ph.get_diff(),
+            ph.get_commit_description(),
+            ph.get_header("User"),
+            ph.get_header("Date"),
+        )
         hgrepo.push(repo.push_path)
         pre_landing_tip = hgrepo.run_hg(["log", "-r", "tip", "-T", "{node}"]).decode(
             "utf-8"

@@ -1,6 +1,5 @@
 import logging
 from abc import abstractmethod
-from io import StringIO
 from pathlib import Path
 from typing import ContextManager, Optional
 
@@ -59,11 +58,16 @@ class AbstractScm:
         """
 
     @abstractmethod
-    def apply_patch(self, patch_buf: StringIO):
-        """Apply the given patch to the current repository
+    def apply_patch(
+        self, diff: str, commit_description: str, commit_author: str, commit_date: str
+    ):
+        """Apply the given patch to the current repository.
 
         Args:
-            patch_buf (StringIO): The patch to apply
+            diff (str): A unified diff representation of the patch.
+            commit_description (str): The commit message.
+            commit_author (str): The commit author.
+            commit_date (str): The commit date.
 
         Returns:
             None
