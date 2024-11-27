@@ -1,5 +1,4 @@
 import copy
-import io
 import logging
 import os
 import shlex
@@ -17,9 +16,7 @@ from typing import (
 import hglib
 from django.conf import settings
 
-from lando.api.legacy.hgexports import HgPatchHelper
 from lando.main.scm.exceptions import (
-    NoDiffStartLine,
     PatchConflict,
     ScmException,
     ScmInternalServerError,
@@ -174,17 +171,6 @@ class HgScm(AbstractScm):
         if not os.getenv(REQUEST_USER_ENV_VAR):
             raise ValueError(f"{REQUEST_USER_ENV_VAR} not set while attempting to push")
 
-        # For testing, force a LostPushRace exception if this header is
-        # defined.
-        # TODO: mock this in tests
-        if (
-            self.patch_header
-            and self.patch_header("Fail HG Import") == "LOSE_PUSH_RACE"
-        ):
-            raise LostPushRace(
-                ["testing_args"], "testing_out", "testing_err", "testing_msg"
-            )
-
         extra_args = []
 
         if force_push:
@@ -214,21 +200,17 @@ class HgScm(AbstractScm):
             ]
         ).decode()
 
-    def apply_patch(self, patch_buf: io.StringIO):
-        patch_helper = HgPatchHelper(patch_buf)
-        if not patch_helper.diff_start_line:
-            raise NoDiffStartLine()
-
-        self.patch_header = patch_helper.get_header
-
+    def apply_patch(
+        self, diff: str, commit_description: str, commit_author: str, commit_date: str
+    ):
         # Import the diff to apply the changes then commit separately to
         # ensure correct parsing of the commit message.
         f_msg = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
         f_diff = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
         with f_msg, f_diff:
-            patch_helper.write_commit_description(f_msg)
+            f_msg.write(commit_description)
             f_msg.flush()
-            patch_helper.write_diff(f_diff)
+            f_diff.write(diff)
             f_diff.flush()
 
             similarity_args = ["-s", "95"]
@@ -243,16 +225,6 @@ class HgScm(AbstractScm):
             import_cmd = ["import", "--no-commit"] + similarity_args
 
             try:
-                if patch_helper.get_header("Fail HG Import") == b"FAIL":
-                    # For testing, force a HgPatchConflict exception if this header is
-                    # defined.
-                    # TODO: mock this in tests
-                    raise HgPatchConflict(
-                        (),
-                        1,
-                        "",
-                        "forced fail: hunk FAILED -- saving rejects to file",
-                    )
                 self.run_hg(import_cmd + [f_diff.name])
             except HgPatchConflict as exc:
                 # Try again using 'patch' instead of hg's internal patch utility.
@@ -272,21 +244,10 @@ class HgScm(AbstractScm):
                     # patcher since both attempts failed.
                     raise exc
 
-            # Commit using the extracted date, user, and commit desc.
-            # --landing_system is provided by the set_landing_system hgext.
-            date = patch_helper.get_header("Date")
-            user = patch_helper.get_header("User")
-
-            if not user:
-                raise ValueError("Missing `User` header!")
-
-            if not date:
-                raise ValueError("Missing `Date` header!")
-
             self.run_hg(
                 ["commit"]
-                + ["--date", date]
-                + ["--user", user]
+                + ["--date", commit_date]
+                + ["--user", commit_author]
                 + ["--landing_system", "lando"]
                 + ["--logfile", f_msg.name]
             )

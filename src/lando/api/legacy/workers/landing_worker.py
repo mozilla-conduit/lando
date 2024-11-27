@@ -17,6 +17,7 @@ import kombu
 from django.db import transaction
 
 from lando.api.legacy.commit_message import bug_list_to_commit_string, parse_bugs
+from lando.api.legacy.hgexports import HgPatchHelper
 from lando.api.legacy.notifications import (
     notify_user_of_bug_update_failure,
     notify_user_of_landing_failure,
@@ -271,10 +272,24 @@ class LandingWorker(Worker):
 
             # Run through the patches one by one and try to apply them.
             for revision in job.revisions.all():
-                patch_buf = StringIO(revision.patch_string)
 
                 try:
-                    scm.apply_patch(patch_buf)
+                    # TODO: Rather than parsing the patch details from the full HG patch
+                    # stored in the job, we should read the revision's metadata (and
+                    # move to only store the diff in the patch_string, rather than an
+                    # export).
+                    patch_helper = HgPatchHelper(StringIO(revision.patch_string))
+                    if not patch_helper.diff_start_line:
+                        raise NoDiffStartLine()
+                    date = patch_helper.get_header("Date")
+                    user = patch_helper.get_header("User")
+
+                    scm.apply_patch(
+                        patch_helper.get_diff(),
+                        patch_helper.get_commit_description(),
+                        user,
+                        date,
+                    )
                 except PatchConflict as exc:
                     breakdown = self.process_merge_conflict(
                         exc, repo, scm, revision.revision_id
