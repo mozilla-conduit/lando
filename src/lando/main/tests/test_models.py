@@ -1,6 +1,8 @@
 from unittest.mock import patch
 
 import pytest
+from django.conf import settings
+from django.core.exceptions import ValidationError
 
 from lando.main.models import Repo
 
@@ -42,3 +44,26 @@ def test__models__Repo__scm_not_calculated_when_preset(subprocess, scm, call_cou
     repo = Repo(pull_path=repo_path, scm=scm)
     repo.save()
     assert subprocess.call.call_count == call_count
+
+
+@pytest.mark.parametrize(
+    "path, expected_exception",
+    [
+        (settings.REPO_ROOT + "/valid_path", None),
+        (settings.REPO_ROOT + "invalid_path", ValidationError),
+        (settings.REPO_ROOT + "/invalid/path", ValidationError),
+        ("/invalid_path", ValidationError),
+    ],
+)
+def test__models__Repo__system_path_validator(path, expected_exception):
+    repo = Repo(
+        name="name",
+        url="http://example.com",
+        required_permission="required_permission",
+        system_path=path,
+    )
+    if expected_exception:
+        with pytest.raises(expected_exception):
+            repo.clean_fields()
+    else:
+        repo.clean_fields()  # Should not raise any exception

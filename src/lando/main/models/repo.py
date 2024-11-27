@@ -8,6 +8,7 @@ from pathlib import Path
 import hglib
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from lando.api.legacy.hg import HgRepo
@@ -27,6 +28,14 @@ DONTBUILD = (
         " new bug is close to none."
     ),
 )
+
+
+def validate_path_in_repo_root(value: str):
+    path = Path(value)
+    if path.parent != Path(settings.REPO_ROOT):
+        raise ValidationError(
+            f"Path {path} must be a direct child of {settings.REPO_ROOT}."
+        )
 
 
 class RepoError(Exception):
@@ -58,12 +67,11 @@ class Repo(BaseModel):
     )
     is_initialized = models.BooleanField(default=False)
 
-    system_path = models.FilePathField(
-        path=settings.REPO_ROOT,
+    system_path = models.CharField(
         max_length=255,
-        allow_folders=True,
         blank=True,
         default="",
+        validators=[validate_path_in_repo_root],
     )
 
     # Legacy fields. These fields were adapted from the legacy implementation of Lando.
