@@ -41,7 +41,7 @@ class ResponseHeadersMiddleware:
         ]
 
         if settings.DEBUG and response.status_code >= 400:
-            # This is needed for debug pages which have inline CSS.
+            # `unsafe-inline` is needed for debug pages which have inline CSS.
             csp.append("style-src 'self' 'unsafe-inline' *.googleapis.com")
         else:
             csp.append("style-src 'self' *.googleapis.com")
