@@ -238,14 +238,11 @@ aDd oNe mOrE LiNe
 )
 @pytest.mark.django_db
 def test_integrated_execute_job(
-    app,
-    mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
-    normal_patch,
     revisions_params,
 ):
     treestatusdouble.open_tree("mozilla-central")
@@ -288,8 +285,6 @@ def test_integrated_execute_job(
 
 @pytest.mark.django_db
 def test_integrated_execute_job_with_force_push(
-    app,
-    mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -336,8 +331,6 @@ def test_integrated_execute_job_with_force_push(
 
 @pytest.mark.django_db
 def test_integrated_execute_job_with_bookmark(
-    app,
-    mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -421,8 +414,6 @@ def test_no_diff_start_line(
 @pytest.mark.django_db
 def test_lose_push_race(
     monkeypatch,
-    app,
-    mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -467,7 +458,6 @@ def test_lose_push_race(
 
 @pytest.mark.django_db
 def test_failed_landing_job_notification(
-    app,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -578,8 +568,6 @@ def test_landing_worker__extract_error_data():
 
 @pytest.mark.django_db
 def test_format_patch_success_unchanged(
-    app,
-    mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -636,8 +624,6 @@ def test_format_patch_success_unchanged(
 
 @pytest.mark.django_db
 def test_format_single_success_changed(
-    app,
-    mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -730,8 +716,6 @@ def test_format_single_success_changed(
 
 @pytest.mark.django_db
 def test_format_stack_success_changed(
-    app,
-    mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -810,8 +794,6 @@ def test_format_stack_success_changed(
 
 @pytest.mark.django_db
 def test_format_patch_fail(
-    app,
-    mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -870,8 +852,6 @@ def test_format_patch_fail(
 
 @pytest.mark.django_db
 def test_format_patch_no_landoini(
-    app,
-    mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -935,7 +915,6 @@ def test_format_patch_no_landoini(
 @pytest.mark.xfail
 @pytest.mark.django_db
 def test_landing_job_revisions_sorting(
-    app,
     create_patch_revision,
 ):
     revisions = [
