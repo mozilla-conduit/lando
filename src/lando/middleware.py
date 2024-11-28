@@ -32,11 +32,11 @@ class ResponseHeadersMiddleware:
             "font-src 'self' https://code.cdn.mozilla.net",
             "frame-ancestors 'none'",
             "frame-src 'none'",
-            "script-src 'self' *.googleapis.com",
             "img-src 'self' *.gravatar.com *.googleapis.com",
             "manifest-src 'none'",
             "media-src 'none'",
             "object-src 'none'",
+            "script-src 'self' *.googleapis.com",
             "worker-src 'none'",
         ]
 
