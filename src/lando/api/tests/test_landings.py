@@ -21,7 +21,8 @@ from lando.utils import HgPatchHelper
 
 
 @pytest.fixture
-def create_patch_revision(db, normal_patch):
+@pytest.mark.django_db
+def create_patch_revision(normal_patch):
     """A fixture that fake uploads a patch"""
 
     normal_patch_0 = normal_patch(0)
@@ -238,7 +239,6 @@ aDd oNe mOrE LiNe
 @pytest.mark.django_db
 def test_integrated_execute_job(
     app,
-    db,
     mock_repo_config,
     hg_server,
     hg_clone,
@@ -286,9 +286,9 @@ def test_integrated_execute_job(
     ), "Successful landing should trigger Phab repo update."
 
 
+@pytest.mark.django_db
 def test_integrated_execute_job_with_force_push(
     app,
-    db,
     mock_repo_config,
     hg_server,
     hg_clone,
@@ -334,9 +334,9 @@ def test_integrated_execute_job_with_force_push(
     assert scm.push.call_args[1] == {"target": None, "force_push": True}
 
 
+@pytest.mark.django_db
 def test_integrated_execute_job_with_bookmark(
     app,
-    db,
     mock_repo_config,
     hg_server,
     hg_clone,
@@ -418,10 +418,10 @@ def test_no_diff_start_line(
     assert "Patch without a diff start line." in caplog.text
 
 
+@pytest.mark.django_db
 def test_lose_push_race(
     monkeypatch,
     app,
-    db,
     mock_repo_config,
     hg_server,
     hg_clone,
@@ -465,9 +465,9 @@ def test_lose_push_race(
     assert job.status == LandingJobStatus.DEFERRED
 
 
+@pytest.mark.django_db
 def test_failed_landing_job_notification(
     app,
-    db,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -576,9 +576,9 @@ def test_landing_worker__extract_error_data():
     assert rejects_paths == expected_rejects_paths
 
 
+@pytest.mark.django_db
 def test_format_patch_success_unchanged(
     app,
-    db,
     mock_repo_config,
     hg_server,
     hg_clone,
@@ -634,9 +634,9 @@ def test_format_patch_success_unchanged(
     ), "Autoformat making no changes should leave `formatted_replacements` empty."
 
 
+@pytest.mark.django_db
 def test_format_single_success_changed(
     app,
-    db,
     mock_repo_config,
     hg_server,
     hg_clone,
@@ -728,9 +728,9 @@ def test_format_single_success_changed(
     ), "Autoformat via amending should only land a single commit."
 
 
+@pytest.mark.django_db
 def test_format_stack_success_changed(
     app,
-    db,
     mock_repo_config,
     hg_server,
     hg_clone,
@@ -808,9 +808,9 @@ def test_format_stack_success_changed(
     ), "Autoformat commit has incorrect commit message."
 
 
+@pytest.mark.django_db
 def test_format_patch_fail(
     app,
-    db,
     mock_repo_config,
     hg_server,
     hg_clone,
@@ -868,9 +868,9 @@ def test_format_patch_fail(
     ), "User should be notified their landing was unsuccessful due to autoformat."
 
 
+@pytest.mark.django_db
 def test_format_patch_no_landoini(
     app,
-    db,
     mock_repo_config,
     hg_server,
     hg_clone,
@@ -933,9 +933,9 @@ def test_format_patch_no_landoini(
 
 # bug 1893453
 @pytest.mark.xfail
+@pytest.mark.django_db
 def test_landing_job_revisions_sorting(
     app,
-    db,
     create_patch_revision,
 ):
     revisions = [
