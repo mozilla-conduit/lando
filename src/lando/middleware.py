@@ -32,13 +32,19 @@ class ResponseHeadersMiddleware:
             "font-src 'self' https://code.cdn.mozilla.net",
             "frame-ancestors 'none'",
             "frame-src 'none'",
-            "img-src 'self' *.cloudfront.net *.gravatar.com *.googleusercontent.com",
+            "img-src 'self' *.gravatar.com *.googleapis.com",
             "manifest-src 'none'",
             "media-src 'none'",
             "object-src 'none'",
-            "style-src 'self' https://code.cdn.mozilla.net",
+            "script-src 'self' *.googleapis.com",
             "worker-src 'none'",
         ]
+
+        if settings.DEBUG and response.status_code >= 400:
+            # `unsafe-inline` is needed for debug pages which have inline CSS.
+            csp.append("style-src 'self' 'unsafe-inline' *.googleapis.com")
+        else:
+            csp.append("style-src 'self' *.googleapis.com")
 
         report_uri = settings.CSP_REPORTING_URL
 
