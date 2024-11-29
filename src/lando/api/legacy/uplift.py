@@ -22,7 +22,7 @@ from lando.api.legacy.stacks import (
     request_extended_revision_data,
 )
 from lando.main.models import Repo
-from lando.utils.phabricator import PhabricatorClient
+from lando.utils.phabricator import PhabricatorClient, get_phabricator_client
 
 logger = logging.getLogger(__name__)
 
@@ -59,18 +59,16 @@ def get_uplift_request_form(revision: dict) -> Optional[str]:
     return bug
 
 
-# @cache.cached(
-#    key_prefix="uplift-repositories"
-# )
-def get_uplift_repositories(phab: PhabricatorClient) -> list:
+def get_uplift_repositories() -> list:
+    # TODO: cache
+    phab = get_phabricator_client()
     repos = phab.call_conduit(
         "diffusion.repository.search",
         constraints={"projects": ["uplift"]},
     )
 
     repos = phab.expect(repos, "data")
-
-    return repos
+    return [phab.expect(repo, "fields", "shortName") for repo in repos]
 
 
 def get_revisions_without_bugs(phab: PhabricatorClient, revisions: dict) -> set[str]:
