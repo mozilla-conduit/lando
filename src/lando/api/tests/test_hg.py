@@ -3,16 +3,16 @@ import os
 
 import pytest
 
-from lando.api.legacy.hg import (
+from lando.main.scm import (
     REQUEST_USER_ENV_VAR,
     HgCommandError,
     HgException,
-    HgmoInternalServerError,
-    HgRepo,
-    LostPushRace,
+    HgScm,
     NoDiffStartLine,
     PatchConflict,
-    PushTimeoutException,
+    ScmInternalServerError,
+    ScmLostPushRace,
+    ScmPushTimeoutException,
     TreeApprovalRequired,
     TreeClosed,
     hglib,
@@ -22,7 +22,7 @@ from lando.api.legacy.hg import (
 def test_integrated_hgrepo_clean_repo(hg_clone):
     # Test is long and checks various repo cleaning cases as the startup
     # time for anything using `hg_clone` fixture is very long.
-    repo = HgRepo(hg_clone.strpath)
+    repo = HgScm(hg_clone.strpath)
 
     with repo.for_pull(), hg_clone.as_cwd():
         # Create a draft commits to clean.
@@ -71,7 +71,7 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
 
 
 def test_integrated_hgrepo_can_log(hg_clone):
-    repo = HgRepo(hg_clone.strpath)
+    repo = HgScm(hg_clone.strpath)
     with repo.for_pull():
         assert repo.run_hg_cmds([["log"]])
 
@@ -173,7 +173,7 @@ diff --git a/test.txt b/test.txt
 
 
 def test_integrated_hgrepo_apply_patch(hg_clone):
-    repo = HgRepo(hg_clone.strpath)
+    repo = HgScm(hg_clone.strpath)
 
     # We should refuse to apply patches that are missing a
     # Diff Start Line header.
@@ -208,7 +208,7 @@ def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
 
     See https://bugzilla.mozilla.org/show_bug.cgi?id=1541181 for context.
     """
-    repo = HgRepo(hg_clone.strpath)
+    repo = HgScm(hg_clone.strpath)
 
     with repo.for_pull(), hg_clone.as_cwd():
         # Create a file without a new line and with a trailing `\r`
@@ -227,12 +227,12 @@ def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
 def test_hg_exceptions():
     """Ensure the correct exception is raised if a particular snippet is present."""
     snippet_exception_mapping = {
-        b"abort: push creates new remote head": LostPushRace,
+        b"abort: push creates new remote head": ScmLostPushRace,
         b"APPROVAL REQUIRED!": TreeApprovalRequired,
         b"is CLOSED!": TreeClosed,
         b"unresolved conflicts (see hg resolve": PatchConflict,
-        b"timed out waiting for lock held by": PushTimeoutException,
-        b"abort: HTTP Error 500: Internal Server Error": HgmoInternalServerError,
+        b"timed out waiting for lock held by": ScmPushTimeoutException,
+        b"abort: HTTP Error 500: Internal Server Error": ScmInternalServerError,
     }
 
     for snippet, exception in snippet_exception_mapping.items():
@@ -243,7 +243,7 @@ def test_hg_exceptions():
 
 def test_hgrepo_request_user(hg_clone):
     """Test that the request user environment variable is set and unset correctly."""
-    repo = HgRepo(hg_clone.strpath)
+    repo = HgScm(hg_clone.strpath)
     request_user_email = "test@example.com"
 
     assert REQUEST_USER_ENV_VAR not in os.environ
@@ -251,3 +251,15 @@ def test_hgrepo_request_user(hg_clone):
         assert REQUEST_USER_ENV_VAR in os.environ
         assert os.environ[REQUEST_USER_ENV_VAR] == "test@example.com"
     assert REQUEST_USER_ENV_VAR not in os.environ
+
+
+# @pytest.mark.parametrize(
+#     "git_returncode,hg_returncode,scm",
+#     ((255, 0, SCM_HG), (0, 255, SCM_GIT)),
+# )
+# @patch("lando.main.scm.GitScm")
+# @patch("lando.main.scm.HgScm")
+# @patch("lando.main.scm.git.subprocess")
+@pytest.mark.skip("implement me")
+def test_repo_is_supported(hg_clone):
+    pass
