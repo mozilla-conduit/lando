@@ -3,18 +3,23 @@ import os
 import subprocess
 import tempfile
 import urllib
-from io import StringIO
 from pathlib import Path
 from typing import Optional
 
-import hglib
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from lando.api.legacy.hg import HgRepo
 from lando.main.models import BaseModel
+from lando.main.scm import (
+    SCM_CHOICES,
+    SCM_GIT,
+    SCM_HG,
+    SCM_IMPLEMENTATIONS,
+    AbstractScm,
+    HgScm,
+)
 from lando.utils import GitPatchHelper
 
 logger = logging.getLogger(__name__)
@@ -49,73 +54,16 @@ class RepoError(Exception):
 class Repo(BaseModel):
     """Represents the configuration of a particular repo."""
 
-    hg: HgRepo
+    _scm: Optional[AbstractScm] = None
 
-    def push(
-        self, push_path: str, target: Optional[str] = None, force_push: bool = False
-    ) -> str:
-        self.hg.push(push_path, bookmark=target, force_push=force_push)
+    @property
+    def path(self) -> str:
+        return str(self.system_path) or self.get_system_path()
 
     @property
     def push_target(self):
+        """The target branch or bookmark to push to."""
         return self.push_bookmark or None
-
-    def failed_path(self, repo_path: str, path: str) -> bytes:
-        return self.hg.run_hg(
-            [
-                "log",
-                "--cwd",
-                repo_path,
-                "--template",
-                "{node}",
-                "-l",
-                "1",
-                path,
-            ]
-        )
-
-    @property
-    def path(self):
-        return self.hg.path
-
-    def apply_patch(self, patch_buf: StringIO):
-        return self.hg.apply_patch(patch_buf)
-
-    def for_push(self, requester_email: str):
-        return self.hg.for_push(requester_email)
-
-    @property
-    def revision_id(self):
-        return self.hg.revision.revision_id
-
-    def read_checkout_file(self, checkout_file):
-        return self.hg.read_checkout_file(checkout_file)
-
-    # def path[1:] / path, "r") as f:
-
-    def head_ref(self) -> str:
-        return self.hg.run_hg(["log", "-r", ".", "-T", "{node}"]).decode("utf-8")
-
-    def changeset_descriptions(self) -> list[str]:
-        return (
-            self.hg.run_hg(["log", "-r", "stack()", "-T", "{desc|firstline}\n"])
-            .decode("utf-8")
-            .splitlines()
-        )
-
-    def update_repo(self, pull_path, target_cset):
-        return self.hg.update_repo(pull_path, target_cset)
-
-    def format_stack(self, stack_size: int, bug_ids: list[str]):
-        return self.hg.format_stack(stack_size, bug_ids)
-
-    HG = "hg"
-    GIT = "git"
-
-    SCM_CHOICES = {
-        HG: "Mercurial",
-        GIT: "Git",
-    }
 
     # TODO: help text for fields below.
     name = models.CharField(max_length=255, unique=True)
@@ -166,10 +114,15 @@ class Repo(BaseModel):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.is_hg_repo:
-            self.hg = HgRepo(self.system_path or self.get_system_path())
-        else:
-            self.hg = None
+
+    def get_scm(self) -> AbstractScm:
+        """Return the SCM implementation associated with this Repository"""
+        if not self._scm:
+            if self.scm == SCM_HG:
+                self._scm = HgScm(self.path)
+            else:
+                raise Exception(f"Repository type not supported: {self.scm}")
+        return self._scm
 
     def __str__(self):
         return f"{self.name} ({self.default_branch})"
@@ -186,30 +139,6 @@ class Repo(BaseModel):
         """Raise a RepoError if the repo SCM does not match the supported SCM."""
         if supported_scm != self.scm:
             raise self._method_not_supported_for_repo_error
-
-    @property
-    def hg_repo_is_initialized(self) -> bool:
-        """Returns True if hglib is able to open the repo, otherwise returns False."""
-        self.raise_for_unsupported_repo_scm(self.HG)
-        try:
-            self.hg._open()
-        except hglib.error.ServerError:
-            logger.info(f"{self} appears to be not initialized.")
-            return False
-        else:
-            return True
-
-    def hg_repo_prepare(self):
-        """Either clone or update the repo, if it is a Mercurial one."""
-        self.raise_for_unsupported_repo_scm(self.HG)
-        if not self.hg_repo_is_initialized:
-            Path(self.system_path).mkdir(parents=True, exist_ok=True)
-            logger.info(f"Cloning {self} from pull path.")
-            self.hg.clone(self.pull_path)
-        else:
-            with self.hg.for_pull():
-                logger.info(f"Updating {self} from pull path.")
-                self.hg.update_repo(self.pull_path)
 
     def save(self, *args, **kwargs):
         """Determine values for various fields upon saving the instance."""
@@ -229,37 +158,26 @@ class Repo(BaseModel):
         if not self.commit_flags:
             self.commit_flags = []
 
-        if self.scm is None:
-            if self._is_git_repo:
-                self.scm = self.GIT
-            elif self._is_hg_repo:
-                self.scm = self.HG
-            else:
-                raise ValueError("Could not determine repo type.")
+        if not self.scm:
+            for scm, impl in SCM_IMPLEMENTATIONS.items():
+                if impl.repo_is_supported(self.pull_path):
+                    self.scm = scm
+                    break
+            if not self.scm and self._is_git_repo:
+                self.scm = SCM_GIT
+
+        if not self.scm:
+            raise ValueError(f"Could not determine repo type for {self.pull_path}")
 
         super().save(*args, **kwargs)
 
     @property
     def is_git_repo(self):
-        return self.scm is not None and self.scm == self.GIT
-
-    @property
-    def is_hg_repo(self):
-        return self.scm is not None and self.scm == self.HG
+        return self.scm is not None and self.scm == SCM_GIT
 
     @property
     def _is_git_repo(self):
         command = ["git", "ls-remote", self.pull_path]
-        returncode = subprocess.call(
-            command,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        return not returncode
-
-    @property
-    def _is_hg_repo(self):
-        command = ["hg", "identify", self.pull_path]
         returncode = subprocess.call(
             command,
             stdout=subprocess.DEVNULL,
@@ -287,34 +205,36 @@ class Repo(BaseModel):
 
         return self.short_name if self.short_name else self.tree
 
-    def _run(self, *args, cwd=None):
+    def _git_run(self, *args, cwd=None):
         cwd = cwd or self.system_path
         command = ["git"] + list(args)
         result = subprocess.run(command, cwd=cwd, capture_output=True, text=True)
         return result
 
-    def initialize(self):
+    def _git_initialize(self):
         self.refresh_from_db()
 
         if self.is_initialized:
             raise
 
         self.system_path = str(Path(settings.REPO_ROOT) / self.name)
-        result = self._run("clone", self.pull_path, self.name, cwd=settings.REPO_ROOT)
+        result = self._git_run(
+            "clone", self.pull_path, self.name, cwd=settings.REPO_ROOT
+        )
         if result.returncode == 0:
             self.is_initialized = True
             self.save()
         else:
             raise Exception(f"{result.returncode}: {result.stderr}")
 
-    def pull(self):
-        self._run("pull", "--all", "--prune")
+    def _git_pull(self):
+        self._git_run("pull", "--all", "--prune")
 
-    def reset(self, branch=None):
-        self._run("reset", "--hard", branch or self.default_branch)
-        self._run("clean", "--force")
+    def _git_reset(self, branch=None):
+        self._git_run("reset", "--hard", branch or self.default_branch)
+        self._git_run("clean", "--force")
 
-    def _native_apply_patch(self, patch_buffer: str):
+    def _git_apply_patch(self, patch_buffer: str):
         patch_helper = GitPatchHelper(patch_buffer)
         self.patch_header = patch_helper.get_header
 
@@ -328,18 +248,20 @@ class Repo(BaseModel):
             patch_helper.write_diff(f_diff)
             f_diff.flush()
 
-            self._run("apply", f_diff.name)
+            self._git_run("apply", f_diff.name)
 
             # Commit using the extracted date, user, and commit desc.
             # --landing_system is provided by the set_landing_system hgext.
             date = patch_helper.get_header("Date")
             user = patch_helper.get_header("From")
 
-            self._run("add", "-A")
-            self._run("commit", "--date", date, "--author", user, "--file", f_msg.name)
+            self._git_run("add", "-A")
+            self._git_run(
+                "commit", "--date", date, "--author", user, "--file", f_msg.name
+            )
 
-    def last_commit_id(self) -> str:
-        return self._run("rev-parse", "HEAD").stdout.strip()
+    def _git_last_commit_id(self) -> str:
+        return self._git_run("rev-parse", "HEAD").stdout.strip()
 
-    def _native_push(self):
-        self._run("push")
+    def _git_push(self):
+        self._git_run("push")
