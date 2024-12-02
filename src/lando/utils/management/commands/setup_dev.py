@@ -5,6 +5,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 from lando.environments import Environment
 from lando.main.models import Repo, Worker
+from lando.main.scm import SCM_GIT, SCM_HG
 
 
 class Command(BaseCommand):
@@ -14,8 +15,8 @@ class Command(BaseCommand):
         """Ensure a git and an hg worker exist on the local environment."""
         # Set up two workers, one for each SCM.
         workers = {
-            Repo.HG: None,
-            Repo.GIT: None,
+            SCM_HG: None,
+            SCM_GIT: None,
         }
 
         for worker_scm in workers:
