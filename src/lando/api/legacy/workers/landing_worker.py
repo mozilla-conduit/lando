@@ -12,17 +12,6 @@ import kombu
 from django.db import transaction
 
 from lando.api.legacy.commit_message import parse_bugs
-from lando.api.legacy.hg import (
-    REJECTS_PATH,
-    AutoformattingException,
-    HgmoInternalServerError,
-    LostPushRace,
-    NoDiffStartLine,
-    PatchConflict,
-    PushTimeoutException,
-    TreeApprovalRequired,
-    TreeClosed,
-)
 from lando.api.legacy.notifications import (
     notify_user_of_bug_update_failure,
     notify_user_of_landing_failure,
@@ -34,6 +23,17 @@ from lando.api.legacy.workers.base import Worker
 from lando.main.models.configuration import ConfigurationKey
 from lando.main.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
 from lando.main.models.repo import Repo
+from lando.main.scm.abstract_scm import AbstractScm
+from lando.main.scm.exceptions import (
+    AutoformattingException,
+    NoDiffStartLine,
+    PatchConflict,
+    ScmInternalServerError,
+    ScmLostPushRace,
+    ScmPushTimeoutException,
+    TreeApprovalRequired,
+    TreeClosed,
+)
 from lando.utils.tasks import phab_trigger_repo_update
 
 logger = logging.getLogger(__name__)
@@ -58,6 +58,7 @@ def job_processing(job: LandingJob):
 
 
 class LandingWorker(Worker):
+
     @property
     def STOP_KEY(self) -> ConfigurationKey:
         """Return the configuration key that prevents the worker from starting."""
@@ -120,6 +121,7 @@ class LandingWorker(Worker):
         self,
         exception: PatchConflict,
         repo: Repo,
+        scm: AbstractScm,
         revision_id: int,
     ) -> dict[str, Any]:
         """Extract and parse merge conflict data from exception into a usable format."""
@@ -127,7 +129,7 @@ class LandingWorker(Worker):
 
         # Find last commits to touch each failed path.
         failed_path_changesets = [
-            (path, repo.failed_path(repo.path, path)) for path in failed_paths
+            (path, scm.last_commit_for_path(repo.path, path)) for path in failed_paths
         ]
 
         breakdown = {
@@ -148,7 +150,7 @@ class LandingWorker(Worker):
         for path in reject_paths:
             reject = {"path": path}
             try:
-                with open(REJECTS_PATH / repo.path[1:] / path, "r") as f:
+                with open(scm.REJECT_PATHS / repo.path[1:] / path, "r") as f:
                     reject["content"] = f.read()
             except Exception as e:
                 logger.exception(e)
@@ -221,7 +223,9 @@ class LandingWorker(Worker):
             True: The job finished processing and is in a permanent state.
             False: The job encountered a temporary failure and should be tried again.
         """
-        repo = job.target_repo
+        repo: Repo = job.target_repo
+        scm = repo.get_scm()
+
         if not self.treestatus_client.is_open(repo.tree):
             job.transition_status(
                 LandingJobAction.DEFER,
@@ -229,12 +233,12 @@ class LandingWorker(Worker):
             )
             return False
 
-        with repo.for_push(job.requester_email):
+        with scm.for_push(job.requester_email):
             # Update local repo.
             repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
             try:
-                repo.update_repo(repo.pull_path, target_cset=job.target_commit_hash)
-            except HgmoInternalServerError as e:
+                scm.update_repo(repo.pull_path, target_cset=job.target_commit_hash)
+            except ScmInternalServerError as e:
                 message = (
                     f"`Temporary error ({e.__class__}) "
                     f"encountered while pulling from {repo_pull_info}"
@@ -259,10 +263,10 @@ class LandingWorker(Worker):
                 patch_buf = StringIO(revision.patch_string)
 
                 try:
-                    repo.apply_patch(patch_buf)
+                    scm.apply_patch(patch_buf)
                 except PatchConflict as exc:
                     breakdown = self.process_merge_conflict(
-                        exc, repo, revision.revision_id
+                        exc, repo, scm, revision.revision_id
                     )
                     job.error_breakdown = breakdown
 
@@ -301,7 +305,7 @@ class LandingWorker(Worker):
                     return True
 
             # Get the changeset titles for the stack.
-            changeset_titles = repo.changeset_descriptions()
+            changeset_titles = scm.changeset_descriptions()
 
             # Parse bug numbers from commits in the stack.
             bug_ids = [
@@ -311,7 +315,7 @@ class LandingWorker(Worker):
             # Run automated code formatters if enabled.
             if repo.autoformat_enabled:
                 try:
-                    replacements = repo.format_stack(len(changeset_titles), bug_ids)
+                    replacements = scm.format_stack(len(changeset_titles), bug_ids)
 
                     # If autoformatting added any changesets, note those in the job.
                     if replacements:
@@ -331,11 +335,11 @@ class LandingWorker(Worker):
                     return False
 
             # Get the changeset hash of the first node.
-            commit_id = repo.head_ref()
+            commit_id = scm.head_ref()
 
             repo_push_info = f"tree: {repo.tree}, push path: {repo.push_path}"
             try:
-                repo.push(
+                scm.push(
                     repo.push_path,
                     target=repo.push_target,
                     force_push=repo.force_push,
@@ -343,9 +347,9 @@ class LandingWorker(Worker):
             except (
                 TreeClosed,
                 TreeApprovalRequired,
-                LostPushRace,
-                PushTimeoutException,
-                HgmoInternalServerError,
+                ScmLostPushRace,
+                ScmPushTimeoutException,
+                ScmInternalServerError,
             ) as e:
                 message = (
                     f"`Temporary error ({e.__class__}) "
@@ -380,7 +384,7 @@ class LandingWorker(Worker):
                 # If we just landed an uplift, update the relevant bugs as appropriate.
                 update_bugs_for_uplift(
                     repo.short_name,
-                    repo.read_checkout_file("config/milestone.txt"),
+                    scm.read_checkout_file("config/milestone.txt"),
                     repo.milestone_tracking_flag_template,
                     bug_ids,
                 )
