@@ -337,7 +337,6 @@ class LandingWorker(Worker):
             ]
 
             # Run automated code formatters if enabled.
-            replacements = []
             if repo.autoformat_enabled:
                 # Load repo-specific configuration
                 lando_ini_contents = None
@@ -347,32 +346,20 @@ class LandingWorker(Worker):
                     pass
                 landoini_config = read_lando_config(lando_ini_contents)
 
-                base_error_message = (
-                    "Lando failed to format your patch for conformity with our "
-                    "formatting policy. Please see the details below."
-                )
-
                 try:
-                    replacements = self.format_stack(landoini_config, repo.path)
-                except AutoformattingException as exc:
-                    logger.warning("Failed to create an autoformat commit.")
-                    logger.exception(exc)
-                    message = f"{base_error_message}\n\n{exc.details()}"
-
-                    logger.exception(message)
-
-                    job.transition_status(LandingJobAction.FAIL, message=message)
-                    self.notify_user_of_landing_failure(job)
-                    return False
-
-                try:
-                    self.commit_autoformatting_changes(
-                        scm, len(changeset_titles), bug_ids
+                    replacements = self.apply_autoformatting(
+                        job,
+                        scm,
+                        landoini_config,
+                        bug_ids,
+                        changeset_titles,
                     )
-                except ScmException as exc:
-                    logger.warning("Failed to create an autoformat commit.")
-                    logger.exception(exc)
-                    message = f"{base_error_message}\n\n{exc.out}"
+                except AutoformattingException as exc:
+                    message = (
+                        "Lando failed to format your patch for conformity with our "
+                        "formatting policy. Please see the details below.\n\n"
+                        f"{exc.details()}"
+                    )
 
                     logger.exception(message)
 
@@ -450,9 +437,36 @@ class LandingWorker(Worker):
 
         return True
 
+    def apply_autoformatting(
+        self,
+        job: LandingJob,
+        scm,
+        landoini_config,
+        bug_ids,
+        changeset_titles,
+    ) -> Optional[list[str]]:
+        try:
+            self.format_stack(landoini_config, scm.path)
+        except AutoformattingException as exc:
+            logger.warning("Failed to format the stack.")
+            logger.exception(exc)
+            raise exc
+
+        try:
+            replacements = self.commit_autoformatting_changes(
+                scm, len(changeset_titles), bug_ids
+            )
+        except ScmException as exc:
+            msg = "Failed to create an autoformat commit."
+            logger.warning(msg)
+            logger.exception(exc)
+            raise AutoformattingException(msg, exc.out, exc.err) from exc
+
+        return replacements
+
     def format_stack(
         self, landoini_config: Optional[configparser.ConfigParser], repo_path: str
-    ):
+    ) -> None:
         """Format the patch stack for landing.
 
         Return a list of `str` commit hashes where autoformatting was applied,
@@ -548,7 +562,7 @@ class LandingWorker(Worker):
 
     def commit_autoformatting_changes(
         self, scm: AbstractSCM, stack_size: int, bug_ids: list[str]
-    ) -> None:
+    ) -> Optional[list[str]]:
         """Call the SCM implementation to commit pending autoformatting changes.
 
         If the `stack_size` is 1, the tip commit will get amended. Otherwise, a new
