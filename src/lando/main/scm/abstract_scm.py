@@ -102,7 +102,7 @@ class AbstractScm:
 
     @abstractmethod
     def head_ref(self) -> str:
-        """Get the current revision_id"""
+        """Get the current revision_id."""
 
     @abstractmethod
     def changeset_descriptions(self) -> list[str]:
@@ -129,7 +129,7 @@ class AbstractScm:
 
     @abstractmethod
     def prepare_repo(self, pull_path: str):
-        """Either clone or update the repo"""
+        """Either clone or update the repo."""
         if not self.repo_is_initialized:
             Path(self.path).mkdir(parents=True, exist_ok=True)
             logger.info(f"Cloning {self} from pull path.")
