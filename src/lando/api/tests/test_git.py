@@ -3,7 +3,7 @@ import subprocess
 import pytest
 
 from lando.api.tests.conftest import git_setup_user
-from lando.main.scm.git import GitScm
+from lando.main.scm.git import GitSCM
 
 
 # We can't use fixtures directly in parametrize [0],
@@ -20,13 +20,13 @@ from lando.main.scm.git import GitScm
 def test_is_initialised(path, repo_fixture_name, expected, request):
     if not path:
         path = request.getfixturevalue(repo_fixture_name).strpath
-    scm = GitScm(path)
+    scm = GitSCM(path)
     assert scm.repo_is_initialized == expected
 
 
 def test_clone(tmpdir, git_repo):
     clone_path = tmpdir.mkdir("repo_test_clone")
-    scm = GitScm(clone_path.strpath)
+    scm = GitSCM(clone_path.strpath)
     scm.clone(git_repo.strpath)
     assert clone_path.exists(), "New git clone wasn't created"
     assert clone_path.join(
@@ -40,7 +40,7 @@ def test_clone(tmpdir, git_repo):
 )
 def test_clean_repo(tmpdir, git_repo, strip_non_public_commits):
     clone_path = tmpdir.mkdir("repo_test_clean_repo")
-    scm = GitScm(clone_path.strpath)
+    scm = GitSCM(clone_path.strpath)
     scm.clone(git_repo.strpath)
 
     git_setup_user(clone_path.strpath)
