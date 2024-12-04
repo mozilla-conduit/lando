@@ -478,7 +478,7 @@ class HgScm(AbstractScm):
             logger.exception(e)
         self.hg_repo.close()
 
-    def clean_repo(self, *, strip_non_public_commits=True):
+    def clean_repo(self, *, strip_non_public_commits: bool = True):
         # Reset rejects directory
         if self.REJECTS_PATH.is_dir():
             shutil.rmtree(self.REJECTS_PATH)
