@@ -90,7 +90,7 @@ class AbstractScm:
             requester_email (str)
         """
 
-    def read_checkout_file(self, checkout_file) -> str:
+    def read_checkout_file(self, checkout_file: str) -> str:
         """Return the contents of the file at `path` in the checkout as a `str`."""
         checkout_file_path = Path(self.path) / checkout_file
 
