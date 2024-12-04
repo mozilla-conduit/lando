@@ -350,11 +350,13 @@ class LandingWorker(Worker):
                     if replacements:
                         job.formatted_replacements = replacements
 
-                except AutoformattingException as exc:
+                except ScmException as exc:
+                    logger.warning("Failed to create an autoformat commit.")
+                    logger.exception(exc)
                     message = (
                         "Lando failed to format your patch for conformity with our "
                         "formatting policy. Please see the details below.\n\n"
-                        f"{exc.details()}"
+                        f"{exc.out}"
                     )
 
                     logger.exception(message)
@@ -550,23 +552,13 @@ class LandingWorker(Worker):
         commit will be created on top of the stack (referencing all bugs involved in the
         stack).
         """
-        try:
-            # When the stack is just a single commit, amend changes into it.
-            if stack_size == 1:
-                return scm.format_stack_amend()
+        # When the stack is just a single commit, amend changes into it.
+        if stack_size == 1:
+            return scm.format_stack_amend()
 
-            else:
-                # If the stack is more than a single commit, create an autoformat commit.
-                bug_string = bug_list_to_commit_string(bug_ids)
-                return scm.format_stack_tip(
-                    AUTOFORMAT_COMMIT_MESSAGE.format(bugs=bug_string)
-                )
-
-        except ScmException as exc:
-            logger.warning("Failed to create an autoformat commit.")
-            logger.exception(exc)
-
-            raise AutoformattingException(
-                "Failed to apply code formatting changes to the repo.",
-                details=exc.out,
-            ) from exc
+        else:
+            # If the stack is more than a single commit, create an autoformat commit.
+            bug_string = bug_list_to_commit_string(bug_ids)
+            return scm.format_stack_tip(
+                AUTOFORMAT_COMMIT_MESSAGE.format(bugs=bug_string)
+            )
