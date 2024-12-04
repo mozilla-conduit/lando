@@ -162,4 +162,3 @@ class AbstractSCM:
 
         Returns a list containing a single string representing the ID of the newly created commit.
         """
-        """

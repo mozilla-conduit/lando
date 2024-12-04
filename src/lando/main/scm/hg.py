@@ -338,7 +338,10 @@ class HgSCM(AbstractSCM):
         return cset
 
     def format_stack_amend(self) -> Optional[list[str]]:
-        """Amend the top commit in the patch stack with changes from formatting."""
+        """Amend the top commit in the patch stack with changes from formatting.
+
+        Returns a list containing a single string representing the ID of the amended commit.
+        """
         try:
             # Amend the current commit, using `--no-edit` to keep the existing commit message.
             self.run_hg(["commit", "--amend", "--no-edit", "--landing_system", "lando"])
@@ -354,8 +357,7 @@ class HgSCM(AbstractSCM):
     def format_stack_tip(self, commit_message: str) -> Optional[list[str]]:
         """Add an autoformat commit to the top of the patch stack.
 
-        Return the commit hash of the autoformat commit as a `str`,
-        or return `None` if autoformatting made no changes.
+        Returns a list containing a single string representing the ID of the newly created commit.
         """
 
         try:
