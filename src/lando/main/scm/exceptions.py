@@ -30,36 +30,30 @@ class AutoformattingException(Exception):
 class PatchApplicationFailure(Exception):
     """Exception when there is a failure applying a patch."""
 
-    pass
-
 
 class NoDiffStartLine(PatchApplicationFailure):
     """Exception when patch is missing a Diff Start Line header."""
-
-    pass
 
 
 class PatchConflict(PatchApplicationFailure):
     """Exception when patch fails to apply due to a conflict."""
 
-    pass
-
 
 class ScmInternalServerError(ScmException):
-    pass
+    """Exception when pulling changes from the upstream repo fails."""
 
 
 class ScmLostPushRace(ScmException):
-    pass
+    """Exception when pushing failed due to another push happening."""
 
 
 class ScmPushTimeoutException(ScmException):
-    pass
+    """Exception when pushing failed due to a timeout on the repo."""
 
 
 class TreeApprovalRequired(ScmException):
-    pass
+    """Exception when pushing failed due to approval being required."""
 
 
 class TreeClosed(ScmException):
-    pass
+    """Exception when pushing failed due to a closed tree."""
