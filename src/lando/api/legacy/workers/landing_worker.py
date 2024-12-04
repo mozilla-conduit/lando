@@ -32,7 +32,6 @@ from lando.main.models.repo import Repo
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.exceptions import (
     AutoformattingException,
-    NoDiffStartLine,
     PatchConflict,
     ScmException,
     ScmInternalServerError,
@@ -272,17 +271,29 @@ class LandingWorker(Worker):
 
             # Run through the patches one by one and try to apply them.
             for revision in job.revisions.all():
-                try:
-                    # TODO: Rather than parsing the patch details from the full HG patch
-                    # stored in the job, we should read the revision's metadata (and
-                    # move to only store the diff in the patch_string, rather than an
-                    # export).
-                    patch_helper = HgPatchHelper(StringIO(revision.patch_string))
-                    if not patch_helper.diff_start_line:
-                        raise NoDiffStartLine()
-                    date = patch_helper.get_header("Date")
-                    user = patch_helper.get_header("User")
+                # TODO: Rather than parsing the patch details from the full HG patch
+                # stored in the job, we should read the revision's metadata (and
+                # move to only store the diff in the patch_string, rather than an
+                # export).
+                patch_helper = HgPatchHelper(StringIO(revision.patch_string))
+                if not patch_helper.diff_start_line:
+                    message = (
+                        "Lando encountered a malformed patch, please try again. "
+                        "If this error persists please file a bug: "
+                        "Patch without a diff start line."
+                    )
+                    logger.error(message)
+                    job.transition_status(
+                        LandingJobAction.FAIL,
+                        message=message,
+                    )
+                    self.notify_user_of_landing_failure(job)
+                    return True
 
+                date = patch_helper.get_header("Date")
+                user = patch_helper.get_header("User")
+
+                try:
                     scm.apply_patch(
                         patch_helper.get_diff(),
                         patch_helper.get_commit_description(),
@@ -301,19 +312,6 @@ class LandingWorker(Worker):
                     )
                     logger.exception(message)
                     job.transition_status(LandingJobAction.FAIL, message=message)
-                    self.notify_user_of_landing_failure(job)
-                    return True
-                except NoDiffStartLine:
-                    message = (
-                        "Lando encountered a malformed patch, please try again. "
-                        "If this error persists please file a bug: "
-                        "Patch without a diff start line."
-                    )
-                    logger.error(message)
-                    job.transition_status(
-                        LandingJobAction.FAIL,
-                        message=message,
-                    )
                     self.notify_user_of_landing_failure(job)
                     return True
                 except Exception as e:
