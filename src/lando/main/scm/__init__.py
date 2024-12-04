@@ -1,8 +1,8 @@
 # flake8: noqa
-from .abstract_scm import *
-from .consts import *
-from .exceptions import *
-from .hg import *
+from lando.main.scm.abstract_scm import *
+from lando.main.scm.consts import *
+from lando.main.scm.exceptions import *
+from lando.main.scm.hg import *
 
 SCM_IMPLEMENTATIONS = {
     # SCM_GIT: GitScm,
