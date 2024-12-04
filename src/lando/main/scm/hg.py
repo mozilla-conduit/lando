@@ -41,11 +41,11 @@ class HgException(ScmException):
 
     SNIPPETS: list[str] = []
 
-    hg_args: list
+    hg_args: list[str]
     out: str
     err: str
 
-    def __init__(self, hg_args: list, out: str, err: str, msg: str):
+    def __init__(self, hg_args: list[str], out: str, err: str, msg: str):
         self.hg_args = hg_args
         super().__init__(msg, out, err)
 
