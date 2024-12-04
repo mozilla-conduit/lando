@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import (
     ContextManager,
     Optional,
+    Self,
 )
 
 import hglib
@@ -50,7 +51,7 @@ class HgException(ScmException):
         super().__init__(msg, out, err)
 
     @classmethod
-    def from_hglib_error(cls, exc: hglib.error.CommandError):
+    def from_hglib_error(cls, exc: hglib.error.CommandError) -> Self:
         out, err, args = (
             exc.out.decode(errors="replace"),
             exc.err.decode(errors="replace"),
