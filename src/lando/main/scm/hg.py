@@ -51,6 +51,15 @@ class HgException(ScmException):
 
     @classmethod
     def from_hglib_error(cls, exc: hglib.error.CommandError) -> Self:
+        """
+        Convert a CommandError from hglib into a more specificy HgException.
+
+        The conversion is done based on the `SNIPPETS` list that each of the subclasses
+        of the HgExecption implement. If one of those snippets is found in either the
+        `stdout` or `stderr` strings of the CommandError, the matching HgException
+        subclass is returned instead.
+
+        """
         out, err, args = (
             exc.out.decode(errors="replace"),
             exc.err.decode(errors="replace"),
