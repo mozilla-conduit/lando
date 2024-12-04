@@ -338,32 +338,44 @@ class LandingWorker(Worker):
             ]
 
             # Run automated code formatters if enabled.
+            replacements = []
             if repo.autoformat_enabled:
+                base_error_message = (
+                    "Lando failed to format your patch for conformity with our "
+                    "formatting policy. Please see the details below."
+                )
+                landoini_config = self.read_lando_config(scm)
                 try:
-                    landoini_config = self.read_lando_config(scm)
                     replacements = self.format_stack(landoini_config, repo.path)
-                    self.commit_autoformatting_changes(
-                        scm, len(changeset_titles), bug_ids
-                    )
-
-                    # If autoformatting added any changesets, note those in the job.
-                    if replacements:
-                        job.formatted_replacements = replacements
-
-                except ScmException as exc:
+                except AutoformattingException as exc:
                     logger.warning("Failed to create an autoformat commit.")
                     logger.exception(exc)
-                    message = (
-                        "Lando failed to format your patch for conformity with our "
-                        "formatting policy. Please see the details below.\n\n"
-                        f"{exc.out}"
-                    )
+                    message = f"{base_error_message}\n\n{exc.details()}"
 
                     logger.exception(message)
 
                     job.transition_status(LandingJobAction.FAIL, message=message)
                     self.notify_user_of_landing_failure(job)
                     return False
+
+                try:
+                    self.commit_autoformatting_changes(
+                        scm, len(changeset_titles), bug_ids
+                    )
+                except ScmException as exc:
+                    logger.warning("Failed to create an autoformat commit.")
+                    logger.exception(exc)
+                    message = f"{base_error_message}\n\n{exc.out}"
+
+                    logger.exception(message)
+
+                    job.transition_status(LandingJobAction.FAIL, message=message)
+                    self.notify_user_of_landing_failure(job)
+                    return False
+
+                # If autoformatting added any changesets, note those in the job.
+                if replacements:
+                    job.formatted_replacements = replacements
 
             # Get the changeset hash of the first node.
             commit_id = scm.head_ref()
