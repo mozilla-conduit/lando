@@ -557,7 +557,7 @@ class LandingWorker(Worker):
 
     def commit_autoformatting_changes(
         self, scm: AbstractScm, stack_size: int, bug_ids: list[str]
-    ):
+    ) -> None:
         """Call the SCM implementation to commit pending autoformatting changes.
 
         If the `stack_size` is 1, the tip commit will get amended. Otherwise, a new
