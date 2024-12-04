@@ -6,7 +6,7 @@ from typing import ContextManager, Optional
 logger = logging.getLogger(__name__)
 
 
-class AbstractScm:
+class AbstractSCM:
     """An abstract class defining the interface a VCS needs to expose use by the Repo and LandingWorkers."""
 
     path: str

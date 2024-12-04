@@ -29,7 +29,7 @@ from lando.api.legacy.workers.base import Worker
 from lando.main.models.configuration import ConfigurationKey
 from lando.main.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
 from lando.main.models.repo import Repo
-from lando.main.scm.abstract_scm import AbstractScm
+from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.exceptions import (
     AutoformattingException,
     NoDiffStartLine,
@@ -133,7 +133,7 @@ class LandingWorker(Worker):
         self,
         exception: PatchConflict,
         repo: Repo,
-        scm: AbstractScm,
+        scm: AbstractSCM,
         revision_id: int,
     ) -> dict[str, Any]:
         """Extract and parse merge conflict data from exception into a usable format."""
@@ -444,7 +444,7 @@ class LandingWorker(Worker):
         return True
 
     def read_lando_config(
-        self, scm: AbstractScm
+        self, scm: AbstractSCM
     ) -> Optional[configparser.ConfigParser]:
         """Attempt to read the `.lando.ini` file."""
         try:
@@ -556,7 +556,7 @@ class LandingWorker(Worker):
             return mach_path
 
     def commit_autoformatting_changes(
-        self, scm: AbstractScm, stack_size: int, bug_ids: list[str]
+        self, scm: AbstractSCM, stack_size: int, bug_ids: list[str]
     ) -> None:
         """Call the SCM implementation to commit pending autoformatting changes.
 

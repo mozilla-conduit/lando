@@ -27,7 +27,7 @@ from lando.main.scm.exceptions import (
     TreeClosed,
 )
 
-from .abstract_scm import AbstractScm
+from .abstract_scm import AbstractSCM
 
 logger = logging.getLogger(__name__)
 
@@ -63,10 +63,10 @@ class HgException(ScmException):
             err,
         ).rstrip()
 
-        for c in cls.__subclasses__():
-            for s in c.SNIPPETS:
-                if s in err or s in out:
-                    return c(args, out, err, msg)
+        for subclass in cls.__subclasses__():
+            for snippet in subclass.SNIPPETS:
+                if snippet in err or snippet in out:
+                    return subclass(args, out, err, msg)
 
         return HgCommandError(args, out, err, msg)
 
@@ -124,7 +124,7 @@ class HgPatchConflict(PatchConflict, HgException):
     ]
 
 
-class HgScm(AbstractScm):
+class HgSCM(AbstractSCM):
     ENCODING = "utf-8"
     DEFAULT_CONFIGS = {
         "ui.username": "Otto Länd <bind-autoland@mozilla.com>",

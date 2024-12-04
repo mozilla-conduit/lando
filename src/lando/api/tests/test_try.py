@@ -8,7 +8,7 @@ from lando.api.legacy.hgexports import (
 )
 from lando.api.legacy.workers.landing_worker import LandingWorker
 from lando.main.models import SCM_LEVEL_1, LandingJob, LandingJobStatus, Repo
-from lando.main.scm import HgScm
+from lando.main.scm import HgSCM
 
 pytest.skip(allow_module_level=True)
 
@@ -240,7 +240,7 @@ def test_try_api_success_hgexport(
     )
 
     worker = LandingWorker(sleep_seconds=0.01)
-    hgrepo = HgScm(hg_clone.strpath)
+    hgrepo = HgSCM(hg_clone.strpath)
 
     assert worker.run_job(job, repo, hgrepo, treestatus)
     assert job.status == LandingJobStatus.LANDED
@@ -329,7 +329,7 @@ def test_try_api_success_gitformatpatch(
     )
 
     worker = LandingWorker(sleep_seconds=0.01)
-    hgrepo = HgScm(hg_clone.strpath)
+    hgrepo = HgSCM(hg_clone.strpath)
 
     # Assert the job landed against the expected commit hash.
     assert worker.run_job(job, repo, hgrepo, treestatus)

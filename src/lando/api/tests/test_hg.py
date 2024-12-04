@@ -9,7 +9,7 @@ from lando.main.scm import (
     REQUEST_USER_ENV_VAR,
     HgCommandError,
     HgException,
-    HgScm,
+    HgSCM,
     PatchConflict,
     ScmInternalServerError,
     ScmLostPushRace,
@@ -18,13 +18,13 @@ from lando.main.scm import (
     TreeClosed,
     hglib,
 )
-from lando.main.scm.abstract_scm import AbstractScm
+from lando.main.scm.abstract_scm import AbstractSCM
 
 
 def test_integrated_hgrepo_clean_repo(hg_clone):
     # Test is long and checks various repo cleaning cases as the startup
     # time for anything using `hg_clone` fixture is very long.
-    repo = HgScm(hg_clone.strpath)
+    repo = HgSCM(hg_clone.strpath)
 
     with repo.for_pull(), hg_clone.as_cwd():
         # Create a draft commits to clean.
@@ -73,7 +73,7 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
 
 
 def test_integrated_hgrepo_can_log(hg_clone):
-    repo = HgScm(hg_clone.strpath)
+    repo = HgSCM(hg_clone.strpath)
     with repo.for_pull():
         assert repo.run_hg_cmds([["log"]])
 
@@ -143,7 +143,7 @@ diff --git a/test.txt b/test.txt
 
 
 def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
-    repo = HgScm(hg_clone.strpath)
+    repo = HgSCM(hg_clone.strpath)
 
     # Patches with conflicts should raise a proper PatchConflict exception.
     with pytest.raises(PatchConflict), repo.for_pull():
@@ -164,7 +164,7 @@ def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
     ),
 )
 def test_integrated_hgrepo_patch_success(name, patch, hg_clone):
-    repo = HgScm(hg_clone.strpath)
+    repo = HgSCM(hg_clone.strpath)
 
     with repo.for_pull():
         ph = HgPatchHelper(io.StringIO(patch))
@@ -181,7 +181,7 @@ def test_integrated_hgrepo_patch_success(name, patch, hg_clone):
 
 
 def test_integrated_hgrepo_patch_hgimport_fail_success(monkeypatch, hg_clone):
-    repo = HgScm(hg_clone.strpath)
+    repo = HgSCM(hg_clone.strpath)
 
     original_run_hg = repo.run_hg
 
@@ -218,7 +218,7 @@ def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
 
     See https://bugzilla.mozilla.org/show_bug.cgi?id=1541181 for context.
     """
-    repo = HgScm(hg_clone.strpath)
+    repo = HgSCM(hg_clone.strpath)
 
     with repo.for_pull(), hg_clone.as_cwd():
         # Create a file without a new line and with a trailing `\r`
@@ -259,7 +259,7 @@ def test_hg_exceptions():
 
 def test_hgrepo_request_user(hg_clone):
     """Test that the request user environment variable is set and unset correctly."""
-    repo = HgScm(hg_clone.strpath)
+    repo = HgSCM(hg_clone.strpath)
     request_user_email = "test@example.com"
 
     assert REQUEST_USER_ENV_VAR not in os.environ
@@ -272,12 +272,12 @@ def test_hgrepo_request_user(hg_clone):
 @pytest.mark.parametrize(
     "scm,repo_fixture_name,expected",
     (
-        (HgScm, "hg_clone", True),
-        (HgScm, "tmpdir", False),
+        (HgSCM, "hg_clone", True),
+        (HgSCM, "tmpdir", False),
     ),
 )
 def test_repo_is_supported(
-    scm: AbstractScm, repo_fixture_name: str, expected: bool, request
+    scm: AbstractSCM, repo_fixture_name: str, expected: bool, request
 ):
     repo = request.getfixturevalue(repo_fixture_name)
     assert (

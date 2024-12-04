@@ -6,5 +6,5 @@ from .hg import *
 
 SCM_IMPLEMENTATIONS = {
     # SCM_GIT: GitScm,
-    SCM_HG: HgScm,
+    SCM_HG: HgSCM,
 }
