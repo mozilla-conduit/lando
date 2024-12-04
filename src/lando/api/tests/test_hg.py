@@ -18,6 +18,7 @@ from lando.main.scm import (
     TreeClosed,
     hglib,
 )
+from lando.main.scm.abstract_scm import AbstractScm
 
 
 def test_integrated_hgrepo_clean_repo(hg_clone):
@@ -268,13 +269,17 @@ def test_hgrepo_request_user(hg_clone):
     assert REQUEST_USER_ENV_VAR not in os.environ
 
 
-# @pytest.mark.parametrize(
-#     "git_returncode,hg_returncode,scm",
-#     ((255, 0, SCM_HG), (0, 255, SCM_GIT)),
-# )
-# @patch("lando.main.scm.GitScm")
-# @patch("lando.main.scm.HgScm")
-# @patch("lando.main.scm.git.subprocess")
-@pytest.mark.skip("implement me")
-def test_repo_is_supported(hg_clone):
-    pass
+@pytest.mark.parametrize(
+    "scm,repo_fixture_name,expected",
+    (
+        (HgScm, "hg_clone", True),
+        (HgScm, "tmpdir", False),
+    ),
+)
+def test_repo_is_supported(
+    scm: AbstractScm, repo_fixture_name: str, expected: bool, request
+):
+    repo = request.getfixturevalue(repo_fixture_name)
+    assert (
+        scm.repo_is_supported(repo) == expected
+    ), f"{scm} did not correctly report support for {repo.str.path}"
