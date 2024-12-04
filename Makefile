@@ -3,10 +3,10 @@ DOCKER := $(shell which docker)
 DOCKER_COMPOSE := ${DOCKER} compose
 ARGS_TEST ?=
 
-ifeq ($(STANDALONE), 1)
-	BASE_COMMAND := ${DOCKER_COMPOSE} run lando
-else
+ifeq ($(INSUITE), 1)
 	BASE_COMMAND := docker exec -ti suite-lando-1
+else
+	BASE_COMMAND := ${DOCKER_COMPOSE} run --rm lando
 endif
 
 .PHONY: help
@@ -23,6 +23,8 @@ help:
 	@echo "    upgrade-requirements upgrade packages in requirements.txt"
 	@echo "    add-requirements     update requirements.txt with new requirements"
 	@echo "    attach               attach for debugging (ctrl-p ctrl-q to detach)"
+	@echo
+	@echo "Set INSUITE=1 to run commands inside the suite stack"
 
 .PHONY: test
 test:
