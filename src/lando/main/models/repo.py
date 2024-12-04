@@ -17,8 +17,8 @@ from lando.main.scm import (
     SCM_GIT,
     SCM_HG,
     SCM_IMPLEMENTATIONS,
-    AbstractScm,
-    HgScm,
+    AbstractSCM,
+    HgSCM,
 )
 from lando.utils import GitPatchHelper
 
@@ -54,7 +54,7 @@ class RepoError(Exception):
 class Repo(BaseModel):
     """Represents the configuration of a particular repo."""
 
-    _scm: Optional[AbstractScm] = None
+    _scm: Optional[AbstractSCM] = None
 
     @property
     def path(self) -> str:
@@ -115,11 +115,11 @@ class Repo(BaseModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def get_scm(self) -> AbstractScm:
+    def get_scm(self) -> AbstractSCM:
         """Return the SCM implementation associated with this Repository"""
         if not self._scm:
             if self.scm == SCM_HG:
-                self._scm = HgScm(self.path)
+                self._scm = HgSCM(self.path)
             else:
                 raise Exception(f"Repository type not supported: {self.scm}")
         return self._scm

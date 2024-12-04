@@ -15,7 +15,7 @@ from lando.main.models.landing_job import (
     add_job_with_revisions,
 )
 from lando.main.models.revision import Revision
-from lando.main.scm import SCM_HG, HgScm
+from lando.main.scm import SCM_HG, HgSCM
 from lando.main.scm.hg import LostPushRace
 from lando.utils import HgPatchHelper
 
@@ -645,7 +645,7 @@ def test_format_single_success_changed(
     )
 
     # Push the `mach` formatting patch.
-    hgrepo = HgScm(hg_clone.strpath)
+    hgrepo = HgSCM(hg_clone.strpath)
     with hgrepo.for_push("test@example.com"):
         ph = HgPatchHelper(io.StringIO(PATCH_FORMATTING_PATTERN_PASS))
         hgrepo.apply_patch(
@@ -736,7 +736,7 @@ def test_format_stack_success_changed(
         system_path=hg_clone.strpath,
     )
 
-    hgrepo = HgScm(hg_clone.strpath)
+    hgrepo = HgSCM(hg_clone.strpath)
 
     revisions = [
         create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_PASS),

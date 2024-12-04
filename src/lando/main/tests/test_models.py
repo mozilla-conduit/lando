@@ -15,11 +15,11 @@ from lando.main.scm import (
     "git_returncode,hg_returncode,scm",
     ((255, 0, SCM_HG), (0, 255, SCM_GIT)),
 )
-@patch("lando.main.models.repo.HgScm")
+@patch("lando.main.models.repo.HgSCM")
 @patch("lando.main.models.repo.subprocess")
 def test__models__Repo__scm(
     subprocess,
-    HgScm,
+    HgSCM,
     monkeypatch,
     git_returncode,
     hg_returncode,
@@ -34,13 +34,13 @@ def test__models__Repo__scm(
 
     subprocess.call.side_effect = call
 
-    HgScm.repo_is_supported = MagicMock(name="repo_is_supported")
-    HgScm.repo_is_supported.return_value = not hg_returncode
+    HgSCM.repo_is_supported = MagicMock(name="repo_is_supported")
+    HgSCM.repo_is_supported.return_value = not hg_returncode
 
     repo = Repo(pull_path=repo_path)
 
-    # Skip the GitScm stub implementation
-    monkeypatch.setattr("lando.main.models.repo.SCM_IMPLEMENTATIONS", {SCM_HG: HgScm})
+    # Skip the GitSCM stub implementation
+    monkeypatch.setattr("lando.main.models.repo.SCM_IMPLEMENTATIONS", {SCM_HG: HgSCM})
 
     repo.save()
 

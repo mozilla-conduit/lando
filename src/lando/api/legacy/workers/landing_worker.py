@@ -29,14 +29,14 @@ from lando.api.legacy.workers.base import Worker
 from lando.main.models.configuration import ConfigurationKey
 from lando.main.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
 from lando.main.models.repo import Repo
-from lando.main.scm.abstract_scm import AbstractScm
+from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.exceptions import (
     AutoformattingException,
     PatchConflict,
-    ScmException,
-    ScmInternalServerError,
-    ScmLostPushRace,
-    ScmPushTimeoutException,
+    SCMException,
+    SCMInternalServerError,
+    SCMLostPushRace,
+    SCMPushTimeoutException,
     TreeApprovalRequired,
     TreeClosed,
 )
@@ -133,7 +133,7 @@ class LandingWorker(Worker):
         self,
         exception: PatchConflict,
         repo: Repo,
-        scm: AbstractScm,
+        scm: AbstractSCM,
         revision_id: int,
     ) -> dict[str, Any]:
         """Extract and parse merge conflict data from exception into a usable format."""
@@ -304,7 +304,7 @@ class LandingWorker(Worker):
             repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
             try:
                 scm.update_repo(repo.pull_path, target_cset=job.target_commit_hash)
-            except ScmInternalServerError as e:
+            except SCMInternalServerError as e:
                 message = (
                     f"`Temporary error ({e.__class__}) "
                     f"encountered while pulling from {repo_pull_info}"
@@ -410,9 +410,9 @@ class LandingWorker(Worker):
             except (
                 TreeClosed,
                 TreeApprovalRequired,
-                ScmLostPushRace,
-                ScmPushTimeoutException,
-                ScmInternalServerError,
+                SCMLostPushRace,
+                SCMPushTimeoutException,
+                SCMInternalServerError,
             ) as e:
                 message = (
                     f"`Temporary error ({e.__class__}) "

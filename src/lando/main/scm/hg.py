@@ -17,24 +17,23 @@ from typing import (
 import hglib
 from django.conf import settings
 
+from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.exceptions import (
     PatchConflict,
-    ScmException,
-    ScmInternalServerError,
-    ScmLostPushRace,
-    ScmPushTimeoutException,
+    SCMException,
+    SCMInternalServerError,
+    SCMLostPushRace,
+    SCMPushTimeoutException,
     TreeApprovalRequired,
     TreeClosed,
 )
-
-from .abstract_scm import AbstractScm
 
 logger = logging.getLogger(__name__)
 
 REQUEST_USER_ENV_VAR = "AUTOLAND_REQUEST_USER"
 
 
-class HgException(ScmException):
+class HgException(SCMException):
     """
     A base exception for Mercurial error.
 
@@ -54,6 +53,15 @@ class HgException(ScmException):
 
     @classmethod
     def from_hglib_error(cls, exc: hglib.error.CommandError) -> Self:
+        """
+        Convert a CommandError from hglib into a more specificy HgException.
+
+        The conversion is done based on the `SNIPPETS` list that each of the subclasses
+        of the HgExecption implement. If one of those snippets is found in either the
+        `stdout` or `stderr` strings of the CommandError, the matching HgException
+        subclass is returned instead.
+
+        """
         out, err, args = (
             exc.out.decode(errors="replace"),
             exc.err.decode(errors="replace"),
@@ -65,10 +73,10 @@ class HgException(ScmException):
             err,
         ).rstrip()
 
-        for c in cls.__subclasses__():
-            for s in c.SNIPPETS:
-                if s in err or s in out:
-                    return c(args, out, err, msg)
+        for subclass in cls.__subclasses__():
+            for snippet in subclass.SNIPPETS:
+                if snippet in err or snippet in out:
+                    return subclass(args, out, err, msg)
 
         return HgCommandError(args, out, err, msg)
 
@@ -89,7 +97,7 @@ class HgTreeApprovalRequired(TreeApprovalRequired, HgException):
     SNIPPETS = ["APPROVAL REQUIRED!"]
 
 
-class LostPushRace(ScmLostPushRace, HgException):
+class LostPushRace(SCMLostPushRace, HgException):
     """Exception when pushing failed due to another push happening."""
 
     SNIPPETS = [
@@ -98,13 +106,13 @@ class LostPushRace(ScmLostPushRace, HgException):
     ]
 
 
-class PushTimeoutException(ScmPushTimeoutException, HgException):
+class PushTimeoutException(SCMPushTimeoutException, HgException):
     """Exception when pushing failed due to a timeout on the repo."""
 
     SNIPPETS = ["timed out waiting for lock held by"]
 
 
-class HgmoInternalServerError(ScmInternalServerError, HgException):
+class HgmoInternalServerError(SCMInternalServerError, HgException):
     """Exception when pulling changes from the upstream repo fails."""
 
     SNIPPETS = [
@@ -126,7 +134,7 @@ class HgPatchConflict(PatchConflict, HgException):
     ]
 
 
-class HgScm(AbstractScm):
+class HgSCM(AbstractSCM):
     ENCODING = "utf-8"
     DEFAULT_CONFIGS = {
         "ui.username": "Otto Länd <bind-autoland@mozilla.com>",

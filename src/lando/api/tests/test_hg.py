@@ -9,11 +9,11 @@ from lando.main.scm import (
     REQUEST_USER_ENV_VAR,
     HgCommandError,
     HgException,
-    HgScm,
+    HgSCM,
     PatchConflict,
-    ScmInternalServerError,
-    ScmLostPushRace,
-    ScmPushTimeoutException,
+    SCMInternalServerError,
+    SCMLostPushRace,
+    SCMPushTimeoutException,
     TreeApprovalRequired,
     TreeClosed,
     hglib,
@@ -23,7 +23,7 @@ from lando.main.scm import (
 def test_integrated_hgrepo_clean_repo(hg_clone):
     # Test is long and checks various repo cleaning cases as the startup
     # time for anything using `hg_clone` fixture is very long.
-    repo = HgScm(hg_clone.strpath)
+    repo = HgSCM(hg_clone.strpath)
 
     with repo.for_pull(), hg_clone.as_cwd():
         # Create a draft commits to clean.
@@ -72,7 +72,7 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
 
 
 def test_integrated_hgrepo_can_log(hg_clone):
-    repo = HgScm(hg_clone.strpath)
+    repo = HgSCM(hg_clone.strpath)
     with repo.for_pull():
         assert repo.run_hg_cmds([["log"]])
 
@@ -142,7 +142,7 @@ diff --git a/test.txt b/test.txt
 
 
 def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
-    repo = HgScm(hg_clone.strpath)
+    repo = HgSCM(hg_clone.strpath)
 
     # Patches with conflicts should raise a proper PatchConflict exception.
     with pytest.raises(PatchConflict), repo.for_pull():
@@ -185,7 +185,7 @@ def test_integrated_hgrepo_patch_success(
 
 
 def test_integrated_hgrepo_patch_hgimport_fail_success(monkeypatch, hg_clone):
-    repo = HgScm(hg_clone.strpath)
+    repo = HgSCM(hg_clone.strpath)
 
     original_run_hg = repo.run_hg
 
@@ -222,7 +222,7 @@ def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
 
     See https://bugzilla.mozilla.org/show_bug.cgi?id=1541181 for context.
     """
-    repo = HgScm(hg_clone.strpath)
+    repo = HgSCM(hg_clone.strpath)
 
     with repo.for_pull(), hg_clone.as_cwd():
         # Create a file without a new line and with a trailing `\r`
@@ -247,12 +247,12 @@ def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
 def test_hg_exceptions():
     """Ensure the correct exception is raised if a particular snippet is present."""
     snippet_exception_mapping = {
-        b"abort: push creates new remote head": ScmLostPushRace,
+        b"abort: push creates new remote head": SCMLostPushRace,
         b"APPROVAL REQUIRED!": TreeApprovalRequired,
         b"is CLOSED!": TreeClosed,
         b"unresolved conflicts (see hg resolve": PatchConflict,
-        b"timed out waiting for lock held by": ScmPushTimeoutException,
-        b"abort: HTTP Error 500: Internal Server Error": ScmInternalServerError,
+        b"timed out waiting for lock held by": SCMPushTimeoutException,
+        b"abort: HTTP Error 500: Internal Server Error": SCMInternalServerError,
     }
 
     for snippet, exception in snippet_exception_mapping.items():
@@ -263,7 +263,7 @@ def test_hg_exceptions():
 
 def test_hgrepo_request_user(hg_clone):
     """Test that the request user environment variable is set and unset correctly."""
-    repo = HgScm(hg_clone.strpath)
+    repo = HgSCM(hg_clone.strpath)
     request_user_email = "test@example.com"
 
     assert REQUEST_USER_ENV_VAR not in os.environ
