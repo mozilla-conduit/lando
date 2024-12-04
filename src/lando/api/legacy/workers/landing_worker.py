@@ -272,7 +272,6 @@ class LandingWorker(Worker):
 
             # Run through the patches one by one and try to apply them.
             for revision in job.revisions.all():
-
                 try:
                     # TODO: Rather than parsing the patch details from the full HG patch
                     # stored in the job, we should read the revision's metadata (and
@@ -545,6 +544,12 @@ class LandingWorker(Worker):
     def commit_autoformatting_changes(
         self, scm: AbstractScm, stack_size: int, bug_ids: list[str]
     ):
+        """Call the SCM implementation to commit pending autoformatting changes.
+
+        If the `stack_size` is 1, the tip commit will get amended. Otherwise, a new
+        commit will be created on top of the stack (referencing all bugs involved in the
+        stack).
+        """
         try:
             # When the stack is just a single commit, amend changes into it.
             if stack_size == 1:
