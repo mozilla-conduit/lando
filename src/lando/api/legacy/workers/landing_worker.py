@@ -40,6 +40,7 @@ from lando.main.scm.exceptions import (
     TreeApprovalRequired,
     TreeClosed,
 )
+from lando.utils.config import read_lando_config
 from lando.utils.tasks import phab_trigger_repo_update
 
 logger = logging.getLogger(__name__)
@@ -338,11 +339,19 @@ class LandingWorker(Worker):
             # Run automated code formatters if enabled.
             replacements = []
             if repo.autoformat_enabled:
+                # Load repo-specific configuration
+                lando_ini_contents = None
+                try:
+                    lando_ini_contents = scm.read_checkout_file(".lando.ini")
+                except ValueError:
+                    pass
+                landoini_config = read_lando_config(lando_ini_contents)
+
                 base_error_message = (
                     "Lando failed to format your patch for conformity with our "
                     "formatting policy. Please see the details below."
                 )
-                landoini_config = self.read_lando_config(scm)
+
                 try:
                     replacements = self.format_stack(landoini_config, repo.path)
                 except AutoformattingException as exc:
@@ -440,22 +449,6 @@ class LandingWorker(Worker):
             self.phab_trigger_repo_update(repo.phab_identifier)
 
         return True
-
-    def read_lando_config(
-        self, scm: AbstractSCM
-    ) -> Optional[configparser.ConfigParser]:
-        """Attempt to read the `.lando.ini` file."""
-        try:
-            lando_ini_contents = scm.read_checkout_file(".lando.ini")
-        except ValueError:
-            return None
-
-        # ConfigParser will use `:` as a delimeter unless told otherwise.
-        # We set our keys as `formatter:pattern` so specify `=` as the delimiters.
-        parser = configparser.ConfigParser(delimiters="=")
-        parser.read_string(lando_ini_contents)
-
-        return parser
 
     def format_stack(
         self, landoini_config: Optional[configparser.ConfigParser], repo_path: str
