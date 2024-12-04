@@ -39,8 +39,11 @@ class AbstractScm:
         """
 
     @abstractmethod
-    def clean_repo(self, *, strip_non_public_commits=True):
-        """Clean the local working copy from all extraneous files. If strip_non_public_commits is set, also rewind any commit not present on the origin."""
+    def clean_repo(self, *, strip_non_public_commits: bool = True):
+        """Clean the local working copy from all extraneous files.
+
+        If `strip_non_public_commits` is set, also rewind any commit not present on the
+        origin."""
 
     @property
     @abstractmethod
