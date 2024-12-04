@@ -39,7 +39,7 @@ def test__models__Repo__scm(
 
     repo = Repo(pull_path=repo_path)
 
-    # Skip the GitScm stub implementation
+    # Skip the GitSCM stub implementation
     monkeypatch.setattr("lando.main.models.repo.SCM_IMPLEMENTATIONS", {SCM_HG: HgSCM})
 
     repo.save()

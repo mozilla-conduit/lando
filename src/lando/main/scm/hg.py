@@ -20,10 +20,10 @@ from django.conf import settings
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.exceptions import (
     PatchConflict,
-    ScmException,
-    ScmInternalServerError,
-    ScmLostPushRace,
-    ScmPushTimeoutException,
+    SCMException,
+    SCMInternalServerError,
+    SCMLostPushRace,
+    SCMPushTimeoutException,
     TreeApprovalRequired,
     TreeClosed,
 )
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 REQUEST_USER_ENV_VAR = "AUTOLAND_REQUEST_USER"
 
 
-class HgException(ScmException):
+class HgException(SCMException):
     """
     A base exception allowing more precise exceptions to be thrown based on
     matching output or error text in another exception.
@@ -95,7 +95,7 @@ class HgTreeApprovalRequired(TreeApprovalRequired, HgException):
     SNIPPETS = ["APPROVAL REQUIRED!"]
 
 
-class LostPushRace(ScmLostPushRace, HgException):
+class LostPushRace(SCMLostPushRace, HgException):
     """Exception when pushing failed due to another push happening."""
 
     SNIPPETS = [
@@ -104,13 +104,13 @@ class LostPushRace(ScmLostPushRace, HgException):
     ]
 
 
-class PushTimeoutException(ScmPushTimeoutException, HgException):
+class PushTimeoutException(SCMPushTimeoutException, HgException):
     """Exception when pushing failed due to a timeout on the repo."""
 
     SNIPPETS = ["timed out waiting for lock held by"]
 
 
-class HgmoInternalServerError(ScmInternalServerError, HgException):
+class HgmoInternalServerError(SCMInternalServerError, HgException):
     """Exception when pulling changes from the upstream repo fails."""
 
     SNIPPETS = [

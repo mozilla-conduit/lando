@@ -5,6 +5,6 @@ from lando.main.scm.exceptions import *
 from lando.main.scm.hg import *
 
 SCM_IMPLEMENTATIONS = {
-    # SCM_GIT: GitScm,
+    # SCM_GIT: GitSCM,
     SCM_HG: HgSCM,
 }

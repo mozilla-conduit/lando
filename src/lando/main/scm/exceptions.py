@@ -1,7 +1,7 @@
 from typing import Optional
 
 
-class ScmException(Exception):
+class SCMException(Exception):
     """A base exception class for errors coming from interactions with an SCM."""
 
     out: str
@@ -39,21 +39,21 @@ class PatchConflict(PatchApplicationFailure):
     """Exception when patch fails to apply due to a conflict."""
 
 
-class ScmInternalServerError(ScmException):
+class SCMInternalServerError(SCMException):
     """Exception when pulling changes from the upstream repo fails."""
 
 
-class ScmLostPushRace(ScmException):
+class SCMLostPushRace(SCMException):
     """Exception when pushing failed due to another push happening."""
 
 
-class ScmPushTimeoutException(ScmException):
+class SCMPushTimeoutException(SCMException):
     """Exception when pushing failed due to a timeout on the repo."""
 
 
-class TreeApprovalRequired(ScmException):
+class TreeApprovalRequired(SCMException):
     """Exception when pushing failed due to approval being required."""
 
 
-class TreeClosed(ScmException):
+class TreeClosed(SCMException):
     """Exception when pushing failed due to a closed tree."""

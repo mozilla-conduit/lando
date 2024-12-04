@@ -33,10 +33,10 @@ from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.exceptions import (
     AutoformattingException,
     PatchConflict,
-    ScmException,
-    ScmInternalServerError,
-    ScmLostPushRace,
-    ScmPushTimeoutException,
+    SCMException,
+    SCMInternalServerError,
+    SCMLostPushRace,
+    SCMPushTimeoutException,
     TreeApprovalRequired,
     TreeClosed,
 )
@@ -250,7 +250,7 @@ class LandingWorker(Worker):
             repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
             try:
                 scm.update_repo(repo.pull_path, target_cset=job.target_commit_hash)
-            except ScmInternalServerError as e:
+            except SCMInternalServerError as e:
                 message = (
                     f"`Temporary error ({e.__class__}) "
                     f"encountered while pulling from {repo_pull_info}"
@@ -384,9 +384,9 @@ class LandingWorker(Worker):
             except (
                 TreeClosed,
                 TreeApprovalRequired,
-                ScmLostPushRace,
-                ScmPushTimeoutException,
-                ScmInternalServerError,
+                SCMLostPushRace,
+                SCMPushTimeoutException,
+                SCMInternalServerError,
             ) as e:
                 message = (
                     f"`Temporary error ({e.__class__}) "
@@ -456,7 +456,7 @@ class LandingWorker(Worker):
             replacements = self.commit_autoformatting_changes(
                 scm, len(changeset_titles), bug_ids
             )
-        except ScmException as exc:
+        except SCMException as exc:
             msg = "Failed to create an autoformat commit."
             logger.warning(msg)
             logger.exception(exc)

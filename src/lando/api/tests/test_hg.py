@@ -11,9 +11,9 @@ from lando.main.scm import (
     HgException,
     HgSCM,
     PatchConflict,
-    ScmInternalServerError,
-    ScmLostPushRace,
-    ScmPushTimeoutException,
+    SCMInternalServerError,
+    SCMLostPushRace,
+    SCMPushTimeoutException,
     TreeApprovalRequired,
     TreeClosed,
     hglib,
@@ -243,12 +243,12 @@ def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
 def test_hg_exceptions():
     """Ensure the correct exception is raised if a particular snippet is present."""
     snippet_exception_mapping = {
-        b"abort: push creates new remote head": ScmLostPushRace,
+        b"abort: push creates new remote head": SCMLostPushRace,
         b"APPROVAL REQUIRED!": TreeApprovalRequired,
         b"is CLOSED!": TreeClosed,
         b"unresolved conflicts (see hg resolve": PatchConflict,
-        b"timed out waiting for lock held by": ScmPushTimeoutException,
-        b"abort: HTTP Error 500: Internal Server Error": ScmInternalServerError,
+        b"timed out waiting for lock held by": SCMPushTimeoutException,
+        b"abort: HTTP Error 500: Internal Server Error": SCMInternalServerError,
     }
 
     for snippet, exception in snippet_exception_mapping.items():
