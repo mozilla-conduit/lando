@@ -17,6 +17,7 @@ from typing import (
 import hglib
 from django.conf import settings
 
+from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.exceptions import (
     PatchConflict,
     ScmException,
@@ -26,8 +27,6 @@ from lando.main.scm.exceptions import (
     TreeApprovalRequired,
     TreeClosed,
 )
-
-from .abstract_scm import AbstractSCM
 
 logger = logging.getLogger(__name__)
 
