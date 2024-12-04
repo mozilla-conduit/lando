@@ -373,7 +373,7 @@ class HgScm(AbstractScm):
         """Return the currently checked out node."""
         return self.run_hg(["identify", "-r", ".", "-i"])
 
-    def clone(self, source):
+    def clone(self, source: str):
         # Use of robustcheckout here would work, but is probably not worth
         # the hassle as most of the benefits come from repeated working
         # directory creation. Since this is a one-time clone and is unlikely
