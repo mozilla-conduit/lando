@@ -15,7 +15,7 @@ class AbstractScm:
         self.path = path
 
     @abstractmethod
-    def clone(self, source):
+    def clone(self, source: str):
         """Clone a repository from a source.
         Args:
             source: The source to clone the repository from.
