@@ -20,6 +20,7 @@ from lando.main.scm import (
     AbstractScm,
     HgScm,
 )
+from lando.main.scm.exceptions import ScmException
 from lando.utils import GitPatchHelper
 
 logger = logging.getLogger(__name__)
@@ -159,17 +160,24 @@ class Repo(BaseModel):
             self.commit_flags = []
 
         if not self.scm:
-            for scm, impl in SCM_IMPLEMENTATIONS.items():
-                if impl.repo_is_supported(self.pull_path):
-                    self.scm = scm
-                    break
-            if not self.scm and self._is_git_repo:
-                self.scm = SCM_GIT
+            self.scm = self._find_supporting_scm(self.pull_path)
 
         if not self.scm:
             raise ValueError(f"Could not determine repo type for {self.pull_path}")
 
         super().save(*args, **kwargs)
+
+    def _find_supporting_scm(self, pull_path) -> str:
+        """Loop through the supported SCM_IMPLEMENTATIONS and return a key representing
+        the first SCM claiming to support the given pull_path.
+
+        A fallback is in place for SCM_GIT, which is not yet part of the SCM_IMPLEMENTATIONS."""
+        for scm, impl in SCM_IMPLEMENTATIONS.items():
+            if impl.repo_is_supported(pull_path):
+                return scm
+        if self._is_git_repo:
+            return SCM_GIT
+        raise ScmException(f"No SCM implementation found for {pull_path}", "")
 
     @property
     def is_git_repo(self):
