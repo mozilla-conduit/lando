@@ -111,7 +111,10 @@ class GitSCM(AbstractSCM):
         Args:
             requester_email (str)
         """
-        # We set the committer name to the requester's _email_ as this is the only piece of information about the user that we are comfortable making public. Names in the User objects are coming from LDAP, and may not be accepblate to use publicly.
+        # We set the committer name to the requester's _email_ as this is the only piece
+        # of information about the user that we are comfortable making public. Names in
+        # the User objects are coming from LDAP, and may not be acceptable to use
+        # publicly.
         os.environ[ENV_COMMITTER_NAME] = requester_email
         os.environ[ENV_COMMITTER_EMAIL] = requester_email
         logger.debug(
