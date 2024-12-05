@@ -170,6 +170,7 @@ class HgSCM(AbstractSCM):
 
     @property
     def REJECTS_PATH(self) -> Path:
+        """A Path where this SCM stores reject from a failed patch application."""
         return Path("/tmp/patch_rejects")
 
     def push(
