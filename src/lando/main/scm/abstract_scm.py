@@ -45,11 +45,6 @@ class AbstractSCM:
         If `strip_non_public_commits` is set, also rewind any commit not present on the
         origin."""
 
-    @property
-    @abstractmethod
-    def REJECTS_PATH(self) -> Path:
-        """A Path where this SCM stores reject from a failed patch application."""
-
     @abstractmethod
     def last_commit_for_path(self, repo_path: str, path: str) -> str:
         """Find last commit to touch a path.
