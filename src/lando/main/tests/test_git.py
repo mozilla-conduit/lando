@@ -8,7 +8,7 @@ from lando.main.scm.git import GitSCM
 
 
 # We can't use fixtures directly in parametrize [0],
-# so we jumps through some hoops.
+# so we jump through some hoops.
 # [0] https://github.com/pytest-dev/pytest/issues/349
 @pytest.mark.parametrize(
     "path,repo_fixture_name,expected",
