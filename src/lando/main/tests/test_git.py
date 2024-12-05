@@ -1,9 +1,9 @@
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
-from lando.api.tests.conftest import git_setup_user
 from lando.main.scm.git import GitSCM
 
 
@@ -41,7 +41,10 @@ def test_GitSCM_clone(tmp_path: Path, git_repo: Path):
     (True, False),
 )
 def test_GitSCM_clean_repo(
-    tmp_path: Path, git_repo: Path, strip_non_public_commits: bool
+    tmp_path: Path,
+    git_repo: Path,
+    git_setup_user: Callable,
+    strip_non_public_commits: bool,
 ):
     clone_path = tmp_path / "repo_test_GitSCM_clean_repo"
     clone_path.mkdir()

@@ -19,13 +19,18 @@ def git_repo(tmp_path: pathlib.Path):
     subprocess.run(["git", "init", repo_dir], check=True)
     file = repo_dir / "first"
     file.write_text("first file!")
-    git_setup_user(repo_dir)
+    _git_setup_user(repo_dir)
     subprocess.run(["git", "add", file.name], check=True, cwd=repo_dir)
     subprocess.run(["git", "commit", "-m", "first commit"], check=True, cwd=repo_dir)
     return repo_dir
 
 
-def git_setup_user(repo_dir):
+@pytest.fixture
+def git_setup_user():
+    return _git_setup_user
+
+
+def _git_setup_user(repo_dir):
     """Configure the git user locally to repo_dir so as not to mess with the real user's configuration."""
     subprocess.run(["git", "config", "user.name", "Py Test"], check=True, cwd=repo_dir)
     subprocess.run(
