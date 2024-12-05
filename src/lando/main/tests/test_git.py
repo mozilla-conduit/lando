@@ -1,4 +1,5 @@
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -17,20 +18,21 @@ from lando.main.scm.git import GitSCM
         (None, "git_repo", True),
     ),
 )
-def test_is_initialised(path, repo_fixture_name, expected, request):
+def test_GitSCM_is_initialised(path, repo_fixture_name, expected, request):
     if not path:
-        path = request.getfixturevalue(repo_fixture_name).strpath
-    scm = GitSCM(path)
+        path = request.getfixturevalue(repo_fixture_name)
+    scm = GitSCM(str(path))
     assert scm.repo_is_initialized == expected
 
 
-def test_clone(tmpdir, git_repo):
-    clone_path = tmpdir.mkdir("repo_test_clone")
-    scm = GitSCM(clone_path.strpath)
-    scm.clone(git_repo.strpath)
+def test_GitSCM_clone(tmp_path: Path, git_repo: Path):
+    clone_path = tmp_path / "repo_test_GitSCM_clone"
+    clone_path.mkdir()
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
     assert clone_path.exists(), "New git clone wasn't created"
-    assert clone_path.join(
-        ".git"
+    assert (
+        clone_path / ".git"
     ).exists(), "New git clone doesn't contain a .git directory"
 
 
@@ -38,19 +40,20 @@ def test_clone(tmpdir, git_repo):
     "strip_non_public_commits",
     (True, False),
 )
-def test_clean_repo(tmpdir, git_repo, strip_non_public_commits):
-    clone_path = tmpdir.mkdir("repo_test_clean_repo")
-    scm = GitSCM(clone_path.strpath)
-    scm.clone(git_repo.strpath)
+def test_GitSCM_clean_repo(
+    tmp_path: Path, git_repo: Path, strip_non_public_commits: bool
+):
+    clone_path = tmp_path / "repo_test_GitSCM_clean_repo"
+    clone_path.mkdir()
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
 
-    git_setup_user(clone_path.strpath)
+    git_setup_user(str(clone_path))
 
     new_file = clone_path / "new_file"
     new_file.write_text("test", encoding="utf-8")
 
-    assert 0 == subprocess.call(
-        ["git", "add", new_file.basename], cwd=clone_path.strpath
-    )
+    assert 0 == subprocess.call(["git", "add", new_file.name], cwd=str(clone_path))
     assert 0 == subprocess.call(
         [
             "git",
@@ -60,7 +63,7 @@ def test_clean_repo(tmpdir, git_repo, strip_non_public_commits):
             "--author",
             "Lando <Lando@example.com>",
         ],
-        cwd=clone_path.strpath,
+        cwd=str(clone_path),
     )
 
     new_untracked_file = clone_path / "new_untracked_file"
@@ -69,13 +72,13 @@ def test_clean_repo(tmpdir, git_repo, strip_non_public_commits):
     scm.clean_repo(strip_non_public_commits=strip_non_public_commits)
 
     assert (
-        not new_untracked_file.check()
-    ), f"{new_untracked_file.basename} still present after clean"
+        not new_untracked_file.exists()
+    ), f"{new_untracked_file.name} still present after clean"
     if strip_non_public_commits:
         assert (
-            not new_file.check()
-        ), f"Locally commited {new_file.basename} still present after stripping clean"
+            not new_file.exists()
+        ), f"Locally commited {new_file.name} still present after stripping clean"
     else:
         assert (
-            new_file.check()
-        ), f"Locally commited {new_file.basename} missing after non-stripping clean"
+            new_file.exists()
+        ), f"Locally commited {new_file.name} missing after non-stripping clean"

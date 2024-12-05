@@ -433,28 +433,6 @@ def hg_clone(hg_server, tmpdir):
 
 
 @pytest.fixture
-def git_repo(tmpdir):
-    repo_dir = tmpdir.join("git_repo")
-    subprocess.run(["git", "init", repo_dir.strpath], check=True)
-    file = repo_dir.join("first")
-    file.write("first file!")
-    git_setup_user(repo_dir)
-    subprocess.run(["git", "add", file.basename], check=True, cwd=repo_dir)
-    subprocess.run(["git", "commit", "-m", "first commit"], check=True, cwd=repo_dir)
-    return repo_dir
-
-
-def git_setup_user(repo_dir):
-    """Configure the git user locally to repo_dir so as not to mess with the real user's configuration."""
-    subprocess.run(["git", "config", "user.name", "Py Test"], check=True, cwd=repo_dir)
-    subprocess.run(
-        ["git", "config", "user.email", "pytest@lando.example.net"],
-        check=True,
-        cwd=repo_dir,
-    )
-
-
-@pytest.fixture
 def register_codefreeze_uri(request_mocker):
     request_mocker.register_uri(
         "GET",
