@@ -62,10 +62,6 @@ class GitSCM(AbstractSCM):
             command += [f"HEAD:{target}"]
         self._git_run(*command)
 
-    @property
-    def REJECTS_PATH(self) -> Path:
-        return Path(self.path)
-
     def last_commit_for_path(self, repo_path: str, path: str) -> str:
         """Find last commit to touch a path.
 
