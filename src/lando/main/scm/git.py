@@ -38,7 +38,8 @@ class GitSCM(AbstractSCM):
         Returns:
             None
         """
-        self._git_run("clone", source, self.path)
+        # When cloning, self.path doesn't exist yet, so we need to use another CWD.
+        self._git_run("clone", source, self.path, cwd="/")
 
     def push(
         self, push_path: str, target: Optional[str] = None, force_push: bool = False
