@@ -173,7 +173,9 @@ class GitSCM(AbstractSCM):
     def clean_repo(self, *, strip_non_public_commits: bool = True):
         """Reset the local repository to the origin"""
         if strip_non_public_commits:
-            self._git_run("reset", "--hard", "origin/HEAD", cwd=self.path)
+            self._git_run(
+                "reset", "--hard", f"origin/{self.default_branch}", cwd=self.path
+            )
         self._git_run("clean", "-fdx", cwd=self.path)
 
     def format_stack_amend(self) -> Optional[list[str]]:

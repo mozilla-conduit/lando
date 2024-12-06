@@ -84,7 +84,7 @@ def test_GitSCM_clean_repo(
     mock_git_run.assert_called_with("clean", "-fdx", cwd=str(clone_path))
     if strip_non_public_commits:
         mock_git_run.assert_any_call(
-            "reset", "--hard", "origin/HEAD", cwd=str(clone_path)
+            "reset", "--hard", f"origin/{scm.default_branch}", cwd=str(clone_path)
         )
 
     assert (

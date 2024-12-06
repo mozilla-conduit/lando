@@ -17,6 +17,7 @@ def git_repo(tmp_path: pathlib.Path):
     """
     repo_dir = tmp_path / "git_repo"
     subprocess.run(["git", "init", repo_dir], check=True)
+    subprocess.run(["git", "branch", "-m", "main"], check=True, cwd=repo_dir)
     file = repo_dir / "first"
     file.write_text("first file!")
     _git_setup_user(repo_dir)
