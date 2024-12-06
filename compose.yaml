@@ -4,8 +4,6 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-    ports:
-      - 5432:5432
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres", "-d", "postgres"]
       interval: 1s
@@ -13,11 +11,12 @@ services:
       retries: 10
 
   lando:
+    user: ${UID}:${GID}
     build:
       context: .
     stdin_open: true
     tty: true
-    image: lando 
+    image: lando
     command: bash -c "
       lando generate_version_file &&
       lando migrate &&
