@@ -60,7 +60,7 @@ class GitSCM(AbstractSCM):
         command += [push_path]
         if target:
             command += [f"HEAD:{target}"]
-        self._git_run(*command)
+        self._git_run(*command, cwd=self.path)
 
     def last_commit_for_path(self, repo_path: str, path: str) -> str:
         """Find last commit to touch a path.
@@ -73,14 +73,7 @@ class GitSCM(AbstractSCM):
             str: The commit id
         """
         command = ["log", "--max-count=1", "--format=%H", "--", path]
-        result = self._git_run(*command, cwd=repo_path)
-        if not result:
-            raise SCMException(
-                "Empty data when determining the last commit touching a find; {repo_path=}",
-                result.stdout,
-                result.stderr,
-            )
-        return result
+        return self._git_run(*command, cwd=repo_path)
 
     def apply_patch(
         self, diff: str, commit_description: str, commit_author: str, commit_date: str
@@ -101,18 +94,22 @@ class GitSCM(AbstractSCM):
             f_diff.write(diff)
             f_diff.flush()
 
-            self._git_run("apply", f_diff.name)
+            cmds = [
+                ["apply", f_diff.name],
+                ["add", "-A"],
+                [
+                    "commit",
+                    "--date",
+                    commit_date,
+                    "--author",
+                    commit_author,
+                    "--file",
+                    f_msg.name,
+                ],
+            ]
 
-            self._git_run("add", "-A")
-            self._git_run(
-                "commit",
-                "--date",
-                commit_date,
-                "--author",
-                commit_author,
-                "--file",
-                f_msg.name,
-            )
+            for c in cmds:
+                self._git_run(c, cwd=self.path)
 
     @contextmanager
     def for_pull(self) -> ContextManager:
@@ -171,6 +168,7 @@ class GitSCM(AbstractSCM):
         self.clean_repo()
         self._git_run("pull", "--prune", pull_path)
         self._git_run("checkout", "--force", "-B", branch)
+        return self.head_ref()
 
     def clean_repo(self, *, strip_non_public_commits=True):
         """Reset the local repository to the origin"""
@@ -210,11 +208,10 @@ class GitSCM(AbstractSCM):
         return True
 
     @classmethod
-    def repo_is_supported(self, path: str) -> bool:
+    def repo_is_supported(cls, path: str) -> bool:
         """Determine wether the target repository is supported by this concrete implementation"""
-        # This only tests a remote target without any local filesystem interaction, the CWD doesn't matter.
         try:
-            self._git_run("ls-remote", path, cwd="/tmp")
+            cls._git_run("ls-remote", path)
         except SCMException:
             return False
 
