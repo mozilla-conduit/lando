@@ -17,13 +17,13 @@ ENV_COMMITTER_EMAIL = "GIT_COMMITTER_EMAIL"
 
 
 class GitSCM(AbstractSCM):
+    """An implementation of the AbstractVCS for Git, for use by the Repo and LandingWorkers."""
+
     DEFAULT_ENV = {
         "GIT_SSH_COMMAND": (
             'ssh -o "StrictHostKeyChecking no" -o "PasswordAuthentication no"'
         ),
     }
-
-    """An implementation of the AbstractVCS for Git, for use by the Repo and LandingWorkers."""
 
     default_branch: str
 
