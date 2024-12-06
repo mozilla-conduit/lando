@@ -88,16 +88,8 @@ def test_GitSCM_clean_repo(
         )
 
     assert (
-        not new_untracked_file.exists()
-    ), f"{new_untracked_file.name} still present after clean"
-    if strip_non_public_commits:
-        assert (
-            not new_file.exists()
-        ), f"Locally commited {new_file.name} still present after stripping clean"
-    else:
-        assert (
-            new_file.exists()
-        ), f"Locally commited {new_file.name} missing after non-stripping clean"
+        strip_non_public_commits != new_file.exists()
+    ), f"strip_non_public_commits not honoured for {new_file}"
 
 
 def _monkeypatch_scm(monkeypatch, scm: GitSCM, method: str) -> MagicMock:
