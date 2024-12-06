@@ -221,7 +221,9 @@ class GitSCM(AbstractSCM):
         return True
 
     @classmethod
-    def _git_run(cls, *args, cwd: Optional[str] = None, must_succeed: bool = True) -> str:
+    def _git_run(
+        cls, *args, cwd: Optional[str] = None, must_succeed: bool = True
+    ) -> str:
         """Run a git command and return full output.
 
         Parameters:
