@@ -59,8 +59,9 @@ def test_GitSCM_clean_repo(
     new_file = clone_path / "new_file"
     new_file.write_text("test", encoding="utf-8")
 
-    assert 0 == subprocess.call(["git", "add", new_file.name], cwd=str(clone_path))
-    assert 0 == subprocess.call(
+    # Those two command should not raise exceptions
+    subprocess.run(["git", "add", new_file.name], cwd=str(clone_path), check=True)
+    subprocess.run(
         [
             "git",
             "commit",
@@ -70,6 +71,7 @@ def test_GitSCM_clean_repo(
             "Lando <Lando@example.com>",
         ],
         cwd=str(clone_path),
+        check=True,
     )
 
     new_untracked_file = clone_path / "new_untracked_file"
