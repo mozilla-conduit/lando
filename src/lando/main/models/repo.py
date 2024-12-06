@@ -1,7 +1,5 @@
 import logging
 import os
-import subprocess
-import tempfile
 import urllib
 from pathlib import Path
 from typing import Optional
@@ -18,9 +16,9 @@ from lando.main.scm import (
     SCM_HG,
     SCM_IMPLEMENTATIONS,
     AbstractSCM,
+    GitSCM,
     HgSCM,
 )
-from lando.utils import GitPatchHelper
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +118,8 @@ class Repo(BaseModel):
         if not self._scm:
             if self.scm == SCM_HG:
                 self._scm = HgSCM(self.path)
+            elif self.scm == SCM_GIT:
+                self._scm = GitSCM(self.path, self.default_branch)
             else:
                 raise Exception(f"Repository type not supported: {self.scm}")
         return self._scm
@@ -172,23 +172,7 @@ class Repo(BaseModel):
         for scm, impl in SCM_IMPLEMENTATIONS.items():
             if impl.repo_is_supported(pull_path):
                 return scm
-        if self._is_git_repo:
-            return SCM_GIT
         raise ValueError(f"Could not determine repo type for {pull_path}")
-
-    @property
-    def is_git_repo(self):
-        return self.scm is not None and self.scm == SCM_GIT
-
-    @property
-    def _is_git_repo(self):
-        command = ["git", "ls-remote", self.pull_path]
-        returncode = subprocess.call(
-            command,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        return not returncode
 
     @property
     def tree(self):
@@ -209,64 +193,3 @@ class Repo(BaseModel):
             return None
 
         return self.short_name if self.short_name else self.tree
-
-    def _git_run(self, *args, cwd=None):
-        cwd = cwd or self.system_path
-        command = ["git"] + list(args)
-        result = subprocess.run(command, cwd=cwd, capture_output=True, text=True)
-        return result
-
-    def _git_initialize(self):
-        self.refresh_from_db()
-
-        if self.is_initialized:
-            raise
-
-        self.system_path = str(Path(settings.REPO_ROOT) / self.name)
-        result = self._git_run(
-            "clone", self.pull_path, self.name, cwd=settings.REPO_ROOT
-        )
-        if result.returncode == 0:
-            self.is_initialized = True
-            self.save()
-        else:
-            raise Exception(f"{result.returncode}: {result.stderr}")
-
-    def _git_pull(self):
-        self._git_run("pull", "--all", "--prune")
-
-    def _git_reset(self, branch=None):
-        self._git_run("reset", "--hard", branch or self.default_branch)
-        self._git_run("clean", "--force")
-
-    def _git_apply_patch(self, patch_buffer: str):
-        patch_helper = GitPatchHelper(patch_buffer)
-        self.patch_header = patch_helper.get_header
-
-        # Import the diff to apply the changes then commit separately to
-        # ensure correct parsing of the commit message.
-        f_msg = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
-        f_diff = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
-        with f_msg, f_diff:
-            patch_helper.write_commit_description(f_msg)
-            f_msg.flush()
-            patch_helper.write_diff(f_diff)
-            f_diff.flush()
-
-            self._git_run("apply", f_diff.name)
-
-            # Commit using the extracted date, user, and commit desc.
-            # --landing_system is provided by the set_landing_system hgext.
-            date = patch_helper.get_header("Date")
-            user = patch_helper.get_header("From")
-
-            self._git_run("add", "-A")
-            self._git_run(
-                "commit", "--date", date, "--author", user, "--file", f_msg.name
-            )
-
-    def _git_last_commit_id(self) -> str:
-        return self._git_run("rev-parse", "HEAD").stdout.strip()
-
-    def _git_push(self):
-        self._git_run("push")
