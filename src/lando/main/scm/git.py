@@ -170,7 +170,7 @@ class GitSCM(AbstractSCM):
         self._git_run("checkout", "--force", "-B", branch)
         return self.head_ref()
 
-    def clean_repo(self, *, strip_non_public_commits=True):
+    def clean_repo(self, *, strip_non_public_commits: bool = True):
         """Reset the local repository to the origin"""
         if strip_non_public_commits:
             self._git_run("reset", "--hard", "origin/HEAD", cwd=self.path)
