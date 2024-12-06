@@ -79,9 +79,11 @@ def test_GitSCM_clean_repo(
 
     scm.clean_repo(strip_non_public_commits=strip_non_public_commits)
 
-    mock_git_run.assert_called_with("clean", "-fdx")
+    mock_git_run.assert_called_with("clean", "-fdx", cwd=str(clone_path))
     if strip_non_public_commits:
-        mock_git_run.assert_any_call("reset", "--hard", "origin/HEAD")
+        mock_git_run.assert_any_call(
+            "reset", "--hard", "origin/HEAD", cwd=str(clone_path)
+        )
 
     assert (
         not new_untracked_file.exists()

@@ -93,7 +93,26 @@ class GitSCM(AbstractSCM):
         Returns:
             None
         """
-        self._git_apply_patch(diff, commit_description, commit_author, commit_date)
+        f_msg = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
+        f_diff = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
+        with f_msg, f_diff:
+            f_msg.write(commit_description)
+            f_msg.flush()
+            f_diff.write(diff)
+            f_diff.flush()
+
+            self._git_run("apply", f_diff.name)
+
+            self._git_run("add", "-A")
+            self._git_run(
+                "commit",
+                "--date",
+                commit_date,
+                "--author",
+                commit_author,
+                "--file",
+                f_msg.name,
+            )
 
     @contextmanager
     def for_pull(self) -> ContextManager:
@@ -124,7 +143,7 @@ class GitSCM(AbstractSCM):
 
     def head_ref(self) -> str:
         """Get the current revision_id"""
-        return self._git_last_commit_id()
+        return self._git_run("rev-parse", "HEAD", cwd=self.path)
 
     def changeset_descriptions(self) -> list[str]:
         """Retrieve the descriptions of commits in the repository.
@@ -156,8 +175,8 @@ class GitSCM(AbstractSCM):
     def clean_repo(self, *, strip_non_public_commits=True):
         """Reset the local repository to the origin"""
         if strip_non_public_commits:
-            self._git_run("reset", "--hard", "origin/HEAD")
-        self._git_run("clean", "-fdx")
+            self._git_run("reset", "--hard", "origin/HEAD", cwd=self.path)
+        self._git_run("clean", "-fdx", cwd=self.path)
 
     def format_stack_amend(self) -> Optional[list[str]]:
         """Amend the top commit in the patch stack with changes from formatting."""
@@ -173,65 +192,36 @@ class GitSCM(AbstractSCM):
         self._git_run("commit", "--all", "--message", commit_message)
         return [self.get_current_node()]
 
-    def get_current_node(self):
+    def get_current_node(self) -> str:
         """Return the commit_id of the tip of the current branch"""
-        return self._git_run("rev-parse", "HEAD").stdout.strip()
+        return self._git_run("rev-parse", "HEAD")
 
     @property
     def repo_is_initialized(self) -> bool:
         """Determine whether the target repository is initialised"""
-        return Path(self.path).exists() and self._git_call("status", cwd=self.path)
+        if not Path(self.path).exists():
+            return False
+
+        try:
+            self._git_run("status", cwd=self.path)
+        except SCMException:
+            return False
+
+        return True
 
     @classmethod
     def repo_is_supported(self, path: str) -> bool:
         """Determine wether the target repository is supported by this concrete implementation"""
         # This only tests a remote target without any local filesystem interaction, the CWD doesn't matter.
-        return self._git_call("ls-remote", path, cwd="/tmp")
+        try:
+            self._git_run("ls-remote", path, cwd="/tmp")
+        except SCMException:
+            return False
 
-    def _git_initialize(self):
-        self.refresh_from_db()
+        return True
 
-        if self.is_initialized:
-            raise
-
-        result = self._git_run("clone", self.pull_path, self.name)
-        if result.returncode == 0:
-            self.is_initialized = True
-            self.save()
-        else:
-            raise Exception(f"{result.returncode}: {result.stderr}")
-
-    def _git_pull(self):
-        self._git_run("pull", "--all", "--prune")
-
-    def _git_apply_patch(
-        self, diff: str, commit_description: str, commit_author: str, commit_date: str
-    ):
-        f_msg = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
-        f_diff = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
-        with f_msg, f_diff:
-            f_msg.write(commit_description)
-            f_msg.flush()
-            f_diff.write(diff)
-            f_diff.flush()
-
-            self._git_run("apply", f_diff.name)
-
-            self._git_run("add", "-A")
-            self._git_run(
-                "commit",
-                "--date",
-                commit_date,
-                "--author",
-                commit_author,
-                "--file",
-                f_msg.name,
-            )
-
-    def _git_last_commit_id(self) -> str:
-        return self._git_run("rev-parse", "HEAD", cwd=self.path)
-
-    def _git_run(self, *args, cwd: Optional[str] = None, must_succeed: bool = True):
+    @classmethod
+    def _git_run(cls, *args, cwd: Optional[str] = None, must_succeed: bool = True) -> str:
         """Run a git command and return full output.
 
         Parameters:
@@ -240,17 +230,16 @@ class GitSCM(AbstractSCM):
             Arguments to git
 
         cwd: str
-            Optional path to work in, default to self.path
+            Optional path to work in, default to '/'
 
-        Returns: CompletedProcess[str]
-
-            An object with (at least) the following attributes: args, returncode, stdout and stderr
+        Returns:
+            str: the standard output of the command
         """
-        path = cwd or self.path
+        path = cwd or "/"
         command = ["git"] + list(args)
         logger.debug("Running " + " ".join(command) + " in " + path)
         result = subprocess.run(
-            command, cwd=path, capture_output=True, text=True, env=self._git_env()
+            command, cwd=path, capture_output=True, text=True, env=cls._git_env()
         )
 
         if must_succeed and result.returncode:
@@ -260,36 +249,6 @@ class GitSCM(AbstractSCM):
                 result.stderr,
             )
         return result.stdout.strip()
-
-    @staticmethod
-    def _git_call(*args, cwd: str) -> bool:
-        """Run a git command and return a boolean indicating success or failure.
-
-        Parameters:
-
-        args: list[str]
-            Arguments to git
-
-        cwd: str
-            NON OPTIONAL path to work in, default to self.path
-
-        WARNING
-
-        Returns: boolean
-
-            A success indicator
-
-        """
-        command = ["git"] + list(args)
-        logger.debug("Calling " + " ".join(command) + " in " + cwd)
-        returncode = subprocess.call(
-            command,
-            cwd=cwd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            env=GitSCM._git_env(),
-        )
-        return not returncode
 
     @classmethod
     def _git_env(cls):
