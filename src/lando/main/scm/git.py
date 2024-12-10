@@ -220,9 +220,7 @@ class GitSCM(AbstractSCM):
         return True
 
     @classmethod
-    def _git_run(
-        cls, *args, cwd: Optional[str] = None, must_succeed: bool = True
-    ) -> str:
+    def _git_run(cls, *args, cwd: Optional[str] = None) -> str:
         """Run a git command and return full output.
 
         Parameters:
@@ -243,7 +241,7 @@ class GitSCM(AbstractSCM):
             command, cwd=path, capture_output=True, text=True, env=cls._git_env()
         )
 
-        if must_succeed and result.returncode:
+        if result.returncode:
             raise SCMException(
                 f"Error running git command; {command=}, {path=}, {result.stderr}",
                 result.stdout,
