@@ -492,7 +492,7 @@ class LandingWorker(Worker):
                 details=exc.stdout,
             )
 
-    def run_code_formatters(self, path) -> str:
+    def run_code_formatters(self, path: str) -> str:
         """Run automated code formatters, returning the output of the process.
 
         Changes made by code formatters are applied to the working directory and
@@ -572,9 +572,6 @@ class LandingWorker(Worker):
         if stack_size == 1:
             return scm.format_stack_amend()
 
-        else:
-            # If the stack is more than a single commit, create an autoformat commit.
-            bug_string = bug_list_to_commit_string(bug_ids)
-            return scm.format_stack_tip(
-                AUTOFORMAT_COMMIT_MESSAGE.format(bugs=bug_string)
-            )
+        # If the stack is more than a single commit, create an autoformat commit.
+        bug_string = bug_list_to_commit_string(bug_ids)
+        return scm.format_stack_tip(AUTOFORMAT_COMMIT_MESSAGE.format(bugs=bug_string))
