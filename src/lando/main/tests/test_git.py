@@ -59,6 +59,22 @@ def test_GitSCM_clean_repo(
     new_file = clone_path / "new_file"
     new_file.write_text("test", encoding="utf-8")
 
+    original_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=str(clone_path), capture_output=True
+    ).stdout
+
+    # Create an empty commit that we expect to see rewound, too
+    subprocess.run(
+        [
+            "git",
+            "commit",
+            "--fixup",
+            "reword:HEAD",
+            "--no-edit",
+        ],
+        cwd=str(clone_path),
+        check=True,
+    )
     # Those two command should not raise exceptions
     subprocess.run(["git", "add", new_file.name], cwd=str(clone_path), check=True)
     subprocess.run(
@@ -86,6 +102,12 @@ def test_GitSCM_clean_repo(
         mock_git_run.assert_any_call(
             "reset", "--hard", f"origin/{scm.default_branch}", cwd=str(clone_path)
         )
+        current_commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=str(clone_path), capture_output=True
+        ).stdout
+        assert (
+            current_commit == original_commit
+        ), f"Not on original_commit {original_commit} after using strip_non_public_commits: {current_commit}"
 
     assert (
         strip_non_public_commits != new_file.exists()
