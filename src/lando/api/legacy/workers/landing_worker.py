@@ -349,7 +349,6 @@ class LandingWorker(Worker):
 
                 try:
                     replacements = self.apply_autoformatting(
-                        job,
                         scm,
                         landoini_config,
                         bug_ids,
@@ -440,11 +439,10 @@ class LandingWorker(Worker):
 
     def apply_autoformatting(
         self,
-        job: LandingJob,
-        scm,
-        landoini_config,
-        bug_ids,
-        changeset_titles,
+        scm: AbstractSCM,
+        landoini_config: Optional[configparser.ConfigParser],
+        bug_ids: list[str],
+        changeset_titles: list[str],
     ) -> Optional[list[str]]:
         try:
             self.format_stack(landoini_config, scm.path)
