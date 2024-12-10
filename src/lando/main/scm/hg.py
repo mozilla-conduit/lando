@@ -18,6 +18,7 @@ import hglib
 from django.conf import settings
 
 from lando.main.scm.abstract_scm import AbstractSCM
+from lando.main.scm.consts import SCM_HG
 from lando.main.scm.exceptions import (
     PatchConflict,
     SCMException,
@@ -167,6 +168,16 @@ class HgSCM(AbstractSCM):
             self.config.update(config)
 
         super().__init__(path)
+
+    @classmethod
+    def scm_type(cls):
+        """Return a string identifying the supported SCM."""
+        return SCM_HG
+
+    @classmethod
+    def scm_name(cls):
+        """Return a _human-friendly_ string identifying the supported SCM."""
+        return "Mercurial"
 
     @property
     def REJECTS_PATH(self) -> Path:

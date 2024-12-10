@@ -15,6 +15,18 @@ class AbstractSCM:
     def __init__(self, path: str):
         self.path = path
 
+    @classmethod
+    @abstractmethod
+    def scm_type(cls) -> str:
+        """Return a string identifying the supported SCM (e.g., `hg`; see the `SCM_*`
+        constants)."""
+
+    @classmethod
+    @abstractmethod
+    def scm_name(cls) -> str:
+        """Return a _human-friendly_ string identifying the supported SCM (e.g.,
+        `Mercurial`)."""
+
     @abstractmethod
     def clone(self, source: str):
         """Clone a repository from a source.
@@ -157,3 +169,6 @@ class AbstractSCM:
 
         Returns a list containing a single string representing the ID of the newly created commit.
         """
+
+
+SCM_CHOICES = {klass.scm_type: klass for klass in AbstractSCM.__subclasses__()}

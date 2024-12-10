@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import ContextManager, Optional
 
+from lando.main.scm.consts import SCM_GIT
 from lando.main.scm.exceptions import SCMException
 
 from .abstract_scm import AbstractSCM
@@ -31,6 +32,16 @@ class GitSCM(AbstractSCM):
     def __init__(self, path: str, default_branch: str = "main"):
         self.default_branch = default_branch
         super().__init__(path)
+
+    @classmethod
+    def scm_type(cls):
+        """Return a string identifying the supported SCM."""
+        return SCM_GIT
+
+    @classmethod
+    def scm_name(cls):
+        """Return a _human-friendly_ string identifying the supported SCM."""
+        return "Git"
 
     def clone(self, source: str):
         """Clone a repository from a source.
