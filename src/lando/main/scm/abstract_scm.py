@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 class AbstractSCM:
     """An abstract class defining the interface a VCS needs to expose use by the Repo and LandingWorkers."""
 
+    # The path to the repository.
     path: str
 
     def __init__(self, path: str):
@@ -46,11 +47,10 @@ class AbstractSCM:
         origin."""
 
     @abstractmethod
-    def last_commit_for_path(self, repo_path: str, path: str) -> str:
+    def last_commit_for_path(self, path: str) -> str:
         """Find last commit to touch a path.
 
         Args:
-            repo_path (str): The path to the repository.
             path (str): The specific path within the repository.
 
         Returns:
