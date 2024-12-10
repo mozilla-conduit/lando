@@ -276,6 +276,7 @@ class LandingWorker(Worker):
                 # stored in the job, we should read the revision's metadata (and
                 # move to only store the diff in the patch_string, rather than an
                 # export).
+                # https://bugzilla.mozilla.org/show_bug.cgi?id=1936171
                 patch_helper = HgPatchHelper(StringIO(revision.patch_string))
                 if not patch_helper.diff_start_line:
                     message = (
