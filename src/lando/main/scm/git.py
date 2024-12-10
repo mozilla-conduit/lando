@@ -160,7 +160,7 @@ class GitSCM(AbstractSCM):
             list[str]: A list of first lines of changeset descriptions.
         """
         command = ["log", "--format=%s", "@{u}.."]
-        return self._git_run(*command).splitlines()
+        return self._git_run(*command, cwd=self.path).splitlines()
 
     def update_repo(self, pull_path: str, target_cset: Optional[str] = None) -> str:
         """Update the repository to the specified changeset.
@@ -177,8 +177,8 @@ class GitSCM(AbstractSCM):
         """
         branch = target_cset or self.default_branch
         self.clean_repo()
-        self._git_run("pull", "--prune", pull_path)
-        self._git_run("checkout", "--force", "-B", branch)
+        self._git_run("pull", "--prune", pull_path, cwd=self.path)
+        self._git_run("checkout", "--force", "-B", branch, cwd=self.path)
         return self.head_ref()
 
     def clean_repo(self, *, strip_non_public_commits: bool = True):
@@ -191,7 +191,7 @@ class GitSCM(AbstractSCM):
 
     def format_stack_amend(self) -> Optional[list[str]]:
         """Amend the top commit in the patch stack with changes from formatting."""
-        self._git_run("commit", "--all", "--amend", "--no-edit")
+        self._git_run("commit", "--all", "--amend", "--no-edit", cwd=self.path)
         return [self.get_current_node()]
 
     def format_stack_tip(self, commit_message: str) -> Optional[list[str]]:
@@ -200,12 +200,12 @@ class GitSCM(AbstractSCM):
         Return the commit hash of the autoformat commit as a `str`,
         or return `None` if autoformatting made no changes.
         """
-        self._git_run("commit", "--all", "--message", commit_message)
+        self._git_run("commit", "--all", "--message", commit_message, cwd=self.path)
         return [self.get_current_node()]
 
     def get_current_node(self) -> str:
         """Return the commit_id of the tip of the current branch"""
-        return self._git_run("rev-parse", "HEAD")
+        return self._git_run("rev-parse", "HEAD", cwd=self.path)
 
     @property
     def repo_is_initialized(self) -> bool:
