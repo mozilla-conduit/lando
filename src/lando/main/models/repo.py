@@ -163,7 +163,7 @@ class Repo(BaseModel):
 
         super().save(*args, **kwargs)
 
-    def _find_supporting_scm(self, pull_path) -> str:
+    def _find_supporting_scm(self, pull_path: str) -> str:
         """Loop through the supported SCM_IMPLEMENTATIONS and return a key representing
         the first SCM claiming to support the given pull_path.
 
