@@ -141,7 +141,7 @@ class LandingWorker(Worker):
 
         # Find last commits to touch each failed path.
         failed_path_changesets = [
-            (path, scm.last_commit_for_path(repo.path, path)) for path in failed_paths
+            (path, scm.last_commit_for_path(path)) for path in failed_paths
         ]
 
         breakdown = {
