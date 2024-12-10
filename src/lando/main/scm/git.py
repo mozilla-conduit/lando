@@ -2,6 +2,7 @@ import logging
 import os
 import subprocess
 import tempfile
+import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from typing import ContextManager, Optional
@@ -234,9 +235,18 @@ class GitSCM(AbstractSCM):
         Returns:
             str: the standard output of the command
         """
+        correlation_id = str(uuid.uuid4())
         path = cwd or "/"
         command = ["git"] + list(args)
-        logger.debug("Running " + " ".join(command) + " in " + path)
+        logger.info(
+            "running git command",
+            extra={
+                "command": command,
+                "command_id": correlation_id,
+                "path": cwd,
+            },
+        )
+
         result = subprocess.run(
             command, cwd=path, capture_output=True, text=True, env=cls._git_env()
         )
@@ -247,7 +257,20 @@ class GitSCM(AbstractSCM):
                 result.stdout,
                 result.stderr,
             )
-        return result.stdout.strip()
+
+        out = result.stdout.strip()
+
+        if out:
+            logger.info(
+                "output from git command",
+                extra={
+                    "command_id": correlation_id,
+                    "output": out,
+                    "path": cwd,
+                },
+            )
+
+        return out
 
     @classmethod
     def _git_env(cls):
