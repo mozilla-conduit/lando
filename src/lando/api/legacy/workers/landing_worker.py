@@ -221,6 +221,60 @@ class LandingWorker(Worker):
 
         return failed_paths, reject_paths
 
+    def autoformat(
+        self,
+        job: LandingJob,
+        scm: AbstractSCM,
+        bug_ids: list[str],
+        changeset_titles: list[str],
+    ) -> bool:
+        """
+        Determine and apply the repo's autoformatting rules.
+
+        If no `.lando.ini` configuration can be found in the repo, autoformatting is skipped with a warning, but returns a success status.
+
+        Returns: bool
+            False if autoformatting was attempted and failed
+            True otherwise (including if autoformatting wasn't attempted due to missing configuration)
+        """
+        # Load repo-specific configuration
+        try:
+            lando_ini_contents = scm.read_checkout_file(".lando.ini")
+        except ValueError:
+            logger.warning(
+                "No .lando.ini configuration found in repo, skipping autoformatting"
+            )
+            # Not a failure per se
+            return True
+
+        landoini_config = read_lando_config(lando_ini_contents)
+
+        try:
+            replacements = self.apply_autoformatting(
+                scm,
+                landoini_config,
+                bug_ids,
+                changeset_titles,
+            )
+        except AutoformattingException as exc:
+            message = (
+                "Lando failed to format your patch for conformity with our "
+                "formatting policy. Please see the details below.\n\n"
+                f"{exc.details()}"
+            )
+
+            logger.exception(message)
+
+            job.transition_status(LandingJobAction.FAIL, message=message)
+            self.notify_user_of_landing_failure(job)
+            return False
+
+        # If autoformatting added any changesets, note those in the job.
+        if replacements:
+            job.formatted_replacements = replacements
+
+        return True
+
     def run_job(self, job: LandingJob) -> bool:
         """Run a given LandingJob and return appropriate boolean state.
 
@@ -339,37 +393,8 @@ class LandingWorker(Worker):
 
             # Run automated code formatters if enabled.
             if repo.autoformat_enabled:
-                # Load repo-specific configuration
-                lando_ini_contents = None
-                try:
-                    lando_ini_contents = scm.read_checkout_file(".lando.ini")
-                except ValueError:
-                    pass
-                landoini_config = read_lando_config(lando_ini_contents)
-
-                try:
-                    replacements = self.apply_autoformatting(
-                        scm,
-                        landoini_config,
-                        bug_ids,
-                        changeset_titles,
-                    )
-                except AutoformattingException as exc:
-                    message = (
-                        "Lando failed to format your patch for conformity with our "
-                        "formatting policy. Please see the details below.\n\n"
-                        f"{exc.details()}"
-                    )
-
-                    logger.exception(message)
-
-                    job.transition_status(LandingJobAction.FAIL, message=message)
-                    self.notify_user_of_landing_failure(job)
+                if not self.autoformat(job, scm, bug_ids, changeset_titles):
                     return False
-
-                # If autoformatting added any changesets, note those in the job.
-                if replacements:
-                    job.formatted_replacements = replacements
 
             # Get the changeset hash of the first node.
             commit_id = scm.head_ref()
@@ -464,7 +489,7 @@ class LandingWorker(Worker):
         return replacements
 
     def format_stack(
-        self, landoini_config: Optional[configparser.ConfigParser], repo_path: str
+        self, landoini_config: configparser.ConfigParser, repo_path: str
     ) -> None:
         """Format the patch stack for landing.
 
@@ -472,10 +497,6 @@ class LandingWorker(Worker):
         or `None` if autoformatting was skipped. Raise `AutoformattingException`
         if autoformatting failed for the current job.
         """
-        # Disable autoformatting if `.lando.ini` is missing or not enabled.
-        if not landoini_config:
-            return None
-
         # If `mach` is not at the root of the repo, we can't autoformat.
         if not self.mach_path(repo_path):
             logger.info("No `./mach` in the repo - skipping autoformat.")
