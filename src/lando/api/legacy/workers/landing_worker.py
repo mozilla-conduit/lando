@@ -129,6 +129,7 @@ class LandingWorker(Worker):
             job.requester_email, job.landing_job_identifier, job.error, job.id
         )
 
+    # XXX Not covered by tests
     def process_merge_conflict(
         self,
         exception: PatchConflict,

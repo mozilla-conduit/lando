@@ -313,6 +313,7 @@ class HgSCM(AbstractSCM):
 
         # Pull from "upstream".
         self.update_from_upstream(source, target_cset)
+        return self.head_ref()
 
     def update_from_upstream(self, source, remote_rev):
         # Pull and update to remote tip.
