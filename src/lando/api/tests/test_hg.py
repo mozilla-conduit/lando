@@ -18,7 +18,6 @@ from lando.main.scm import (
     TreeClosed,
     hglib,
 )
-from lando.main.scm.abstract_scm import AbstractSCM
 
 
 def test_integrated_hgrepo_clean_repo(hg_clone):
@@ -270,16 +269,16 @@ def test_hgrepo_request_user(hg_clone):
 
 
 @pytest.mark.parametrize(
-    "scm,repo_fixture_name,expected",
+    "repo_path,expected",
     (
-        (HgSCM, "hg_clone", True),
-        (HgSCM, "tmpdir", False),
+        ("", True),
+        ("/", False),
     ),
 )
-def test_repo_is_supported(
-    scm: AbstractSCM, repo_fixture_name: str, expected: bool, request
-):
-    repo = request.getfixturevalue(repo_fixture_name)
+def test_repo_is_supported(repo_path: str, expected: bool, hg_clone):
+    scm = HgSCM
+    if not repo_path:
+        repo_path = hg_clone.strpath
     assert (
-        scm.repo_is_supported(repo) == expected
-    ), f"{scm} did not correctly report support for {repo.str.path}"
+        scm.repo_is_supported(repo_path) == expected
+    ), f"{scm} did not correctly report support for {repo_path}"
