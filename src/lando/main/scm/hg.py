@@ -196,12 +196,12 @@ class HgSCM(AbstractSCM):
                 ]
             )
 
-    def last_commit_for_path(self, repo_path: str, path: str) -> str:
+    def last_commit_for_path(self, path: str) -> str:
         return self.run_hg(
             [
                 "log",
                 "--cwd",
-                repo_path,
+                self.path,
                 "--template",
                 "{node}",
                 "-l",
