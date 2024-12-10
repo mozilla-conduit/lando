@@ -63,18 +63,17 @@ class GitSCM(AbstractSCM):
             command += [f"HEAD:{target}"]
         self._git_run(*command, cwd=self.path)
 
-    def last_commit_for_path(self, repo_path: str, path: str) -> str:
+    def last_commit_for_path(self, path: str) -> str:
         """Find last commit to touch a path.
 
         Args:
-            repo_path (str): The path to the repository.
             path (str): The specific path within the repository.
 
         Returns:
             str: The commit id
         """
         command = ["log", "--max-count=1", "--format=%H", "--", path]
-        return self._git_run(*command, cwd=repo_path)
+        return self._git_run(*command, cwd=self.path)
 
     def apply_patch(
         self, diff: str, commit_description: str, commit_author: str, commit_date: str
