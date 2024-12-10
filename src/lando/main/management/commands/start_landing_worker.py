@@ -46,11 +46,23 @@ class Command(BaseCommand):
             # Check if any associated repos are unsupported, raise exception if so.
             repo.raise_for_unsupported_repo_scm(repo_type)
             scm = repo.get_scm()
-            scm.prepare_repo(repo.pull_path)
+            repos_to_handle = []
+            try:
+                scm.prepare_repo(repo.pull_path)
+                repos_to_handle.append(repo)
+            except Exception as e:
+                logger.warning(
+                    "Fail to prepare repo, skipping...",
+                    extra={
+                        "exception": e,
+                        "origin": repo.pull_path,
+                        "scm": scm.scm_type,
+                    },
+                )
 
         # Continue with starting the worker.
         try:
-            landing_worker = LandingWorker(worker.enabled_repos)
+            landing_worker = LandingWorker(repos_to_handle)
         except ConnectionError as e:
             raise CommandError(e)
 
