@@ -299,6 +299,13 @@ class Command(BaseCommand):
                         f"Repo {definition['name']} already exists, skipping."
                     )
                 )
+            except ValueError as e:
+                # A repository URL is incorrect or otherwise unreachable.
+                self.stdout.write(
+                    self.style.ERROR(
+                        f"Failed creating repo {definition['name']} ({e}), skipping."
+                    )
+                )
             else:
                 self.stdout.write(
                     self.style.SUCCESS(f"Created repo {repo.tree} ({repo.id}).")
