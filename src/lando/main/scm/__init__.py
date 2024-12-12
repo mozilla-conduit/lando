@@ -33,6 +33,8 @@ SCM_IMPLEMENTATIONS = {
 }
 
 __all__ = [
+    # abstract_scm
+    "AbstractSCM",
     # consts
     "SCM_HG",
     "SCM_GIT",
