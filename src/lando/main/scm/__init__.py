@@ -20,13 +20,7 @@ from lando.main.scm.hg import (
     REQUEST_USER_ENV_VAR,
     HgCommandError,
     HgException,
-    HgmoInternalServerError,
-    HgPatchConflict,
     HgSCM,
-    HgTreeApprovalRequired,
-    HgTreeClosed,
-    LostPushRace,
-    PushTimeoutException,
     hglib,
 )
 
@@ -64,12 +58,6 @@ __all__ = [
     hglib,
     HgException,
     HgCommandError,
-    HgTreeClosed,
-    HgTreeApprovalRequired,
-    LostPushRace,
-    PushTimeoutException,
-    HgmoInternalServerError,
-    HgPatchConflict,
     HgSCM,
     REQUEST_USER_ENV_VAR,
 ]
