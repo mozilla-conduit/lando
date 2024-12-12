@@ -57,6 +57,16 @@ class Command(BaseCommand):
 
     def handle(self, name: str, **options):
         """Select a landing worker based on provided argument and start it up."""
+
+        if v := options.get("verbosity"):
+            verbosity_map = {
+                0: logging.ERROR,
+                1: logging.WARNING,
+                2: logging.INFO,
+                3: logging.DEBUG,
+            }
+            logging.basicConfig(level=verbosity_map[v])
+
         handlers = {
             Repo.HG: self.handle_hg,
             Repo.GIT: self.handle_git,
