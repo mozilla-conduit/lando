@@ -33,31 +33,29 @@ SCM_IMPLEMENTATIONS = {
 }
 
 __all__ = [
-    # abstract_scm
-    AbstractSCM,
     # consts
-    SCM_HG,
-    SCM_GIT,
+    "SCM_HG",
+    "SCM_GIT",
     # consts (built up)
-    SCM_CHOICES,
-    SCM_IMPLEMENTATIONS,
+    "SCM_CHOICES",
+    "SCM_IMPLEMENTATIONS",
     # exceptions
-    SCMException,
-    AutoformattingException,
-    PatchApplicationFailure,
-    NoDiffStartLine,
-    PatchConflict,
-    SCMInternalServerError,
-    SCMLostPushRace,
-    SCMPushTimeoutException,
-    TreeApprovalRequired,
-    TreeClosed,
+    "SCMException",
+    "AutoformattingException",
+    "PatchApplicationFailure",
+    "NoDiffStartLine",
+    "PatchConflict",
+    "SCMInternalServerError",
+    "SCMLostPushRace",
+    "SCMPushTimeoutException",
+    "TreeApprovalRequired",
+    "TreeClosed",
     # git
-    GitSCM,
+    "GitSCM",
     # hg
-    hglib,
-    HgException,
-    HgCommandError,
-    HgSCM,
-    REQUEST_USER_ENV_VAR,
+    "hglib",
+    "HgException",
+    "HgCommandError",
+    "HgSCM",
+    "REQUEST_USER_ENV_VAR",
 ]
