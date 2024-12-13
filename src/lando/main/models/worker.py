@@ -4,7 +4,7 @@ import os
 from django.db import models
 
 from lando.main.models import BaseModel, Repo
-from lando.main.scm import SCM_CHOICES, SCM_HG
+from lando.main.scm import SCM_TYPE_CHOICES, SCM_TYPE_HG
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +23,8 @@ class Worker(BaseModel):
 
     scm = models.CharField(
         max_length=3,
-        choices=SCM_CHOICES,
-        default=SCM_HG,
+        choices=SCM_TYPE_CHOICES,
+        default=SCM_TYPE_HG,
     )
 
     def __str__(self):

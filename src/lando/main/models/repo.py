@@ -13,10 +13,10 @@ from django.db import models
 
 from lando.main.models import BaseModel
 from lando.main.scm import (
-    SCM_CHOICES,
-    SCM_GIT,
-    SCM_HG,
     SCM_IMPLEMENTATIONS,
+    SCM_TYPE_CHOICES,
+    SCM_TYPE_GIT,
+    SCM_TYPE_HG,
     AbstractSCM,
     HgSCM,
 )
@@ -68,9 +68,9 @@ class Repo(BaseModel):
     # TODO: help text for fields below.
     name = models.CharField(max_length=255, unique=True)
     default_branch = models.CharField(max_length=255, default="main")
-    scm = models.CharField(
+    scm_type = models.CharField(
         max_length=3,
-        choices=SCM_CHOICES,
+        choices=SCM_TYPE_CHOICES,
         null=True,
         blank=True,
         default=None,
@@ -115,13 +115,14 @@ class Repo(BaseModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def get_scm(self) -> AbstractSCM:
+    @property
+    def scm(self) -> AbstractSCM:
         """Return the SCM implementation associated with this Repository"""
         if not self._scm:
-            if self.scm == SCM_HG:
+            if self.scm_type == SCM_TYPE_HG:
                 self._scm = HgSCM(self.path)
             else:
-                raise Exception(f"Repository type not supported: {self.scm}")
+                raise Exception(f"Repository type not supported: {self.scm_type}")
         return self._scm
 
     def __str__(self):
@@ -137,7 +138,7 @@ class Repo(BaseModel):
 
     def raise_for_unsupported_repo_scm(self, supported_scm: str):
         """Raise a RepoError if the repo SCM does not match the supported SCM."""
-        if supported_scm != self.scm:
+        if supported_scm != self.scm_type:
             raise self._method_not_supported_for_repo_error
 
     def save(self, *args, **kwargs):
@@ -158,8 +159,8 @@ class Repo(BaseModel):
         if not self.commit_flags:
             self.commit_flags = []
 
-        if not self.scm:
-            self.scm = self._find_supporting_scm(self.pull_path)
+        if not self.scm_type:
+            self.scm_type = self._find_supporting_scm(self.pull_path)
 
         super().save(*args, **kwargs)
 
@@ -167,18 +168,18 @@ class Repo(BaseModel):
         """Loop through the supported SCM_IMPLEMENTATIONS and return a key representing
         the first SCM claiming to support the given pull_path.
 
-        A fallback is in place for SCM_GIT, which is not yet part of the SCM_IMPLEMENTATIONS.
+        A fallback is in place for SCM_TYPE_GIT, which is not yet part of the SCM_IMPLEMENTATIONS.
         """
         for scm, impl in SCM_IMPLEMENTATIONS.items():
             if impl.repo_is_supported(pull_path):
                 return scm
         if self._is_git_repo:
-            return SCM_GIT
+            return SCM_TYPE_GIT
         raise ValueError(f"Could not determine repo type for {pull_path}")
 
     @property
     def is_git_repo(self):
-        return self.scm is not None and self.scm == SCM_GIT
+        return self.scm_type is not None and self.scm_type == SCM_TYPE_GIT
 
     @property
     def _is_git_repo(self):

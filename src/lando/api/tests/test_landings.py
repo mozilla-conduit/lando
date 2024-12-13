@@ -15,7 +15,7 @@ from lando.main.models.landing_job import (
     add_job_with_revisions,
 )
 from lando.main.models.revision import Revision
-from lando.main.scm import SCM_HG, HgSCM
+from lando.main.scm import SCM_TYPE_HG, HgSCM
 from lando.main.scm.hg import LostPushRace
 from lando.utils import HgPatchHelper
 
@@ -247,7 +247,7 @@ def test_integrated_execute_job(
 ):
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
-        scm=SCM_HG,
+        scm_type=SCM_TYPE_HG,
         name="mozilla-central",
         url=hg_server,
         required_permission=SCM_LEVEL_3,
@@ -293,7 +293,7 @@ def test_integrated_execute_job_with_force_push(
 ):
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
-        scm=SCM_HG,
+        scm_type=SCM_TYPE_HG,
         name="mozilla-central",
         url=hg_server,
         required_permission=SCM_LEVEL_3,
@@ -302,7 +302,7 @@ def test_integrated_execute_job_with_force_push(
         force_push=True,
         system_path=hg_clone.strpath,
     )
-    scm = repo.get_scm()
+    scm = repo.scm
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
@@ -339,7 +339,7 @@ def test_integrated_execute_job_with_bookmark(
 ):
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
-        scm=SCM_HG,
+        scm_type=SCM_TYPE_HG,
         name="mozilla-central",
         url=hg_server,
         required_permission=SCM_LEVEL_3,
@@ -348,7 +348,7 @@ def test_integrated_execute_job_with_bookmark(
         push_bookmark="@",
         system_path=hg_clone.strpath,
     )
-    scm = repo.get_scm()
+    scm = repo.scm
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
@@ -385,7 +385,7 @@ def test_no_diff_start_line(
 ):
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
-        scm=SCM_HG,
+        scm_type=SCM_TYPE_HG,
         name="mozilla-central",
         url=hg_server,
         required_permission=SCM_LEVEL_3,
@@ -421,7 +421,7 @@ def test_lose_push_race(
 ):
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
-        scm=SCM_HG,
+        scm_type=SCM_TYPE_HG,
         name="mozilla-central",
         url=hg_server,
         required_permission=SCM_LEVEL_3,
@@ -429,7 +429,7 @@ def test_lose_push_race(
         pull_path=hg_server,
         system_path=hg_clone.strpath,
     )
-    scm = repo.get_scm()
+    scm = repo.scm
     job_params = {
         "id": 1234,
         "status": LandingJobStatus.IN_PROGRESS,
@@ -467,7 +467,7 @@ def test_failed_landing_job_notification(
     """Ensure that a failed landings triggers a user notification."""
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
-        scm=SCM_HG,
+        scm_type=SCM_TYPE_HG,
         name="mozilla-central",
         required_permission=SCM_LEVEL_3,
         push_path=hg_server,
@@ -477,7 +477,7 @@ def test_failed_landing_job_notification(
         system_path=hg_clone.strpath,
     )
 
-    scm = repo.get_scm()
+    scm = repo.scm
 
     # Mock `scm.update_repo` so we can force a failed landing.
     mock_update_repo = mock.MagicMock()
@@ -579,7 +579,7 @@ def test_format_patch_success_unchanged(
     tree = "mozilla-central"
     treestatusdouble.open_tree(tree)
     repo = Repo.objects.create(
-        scm=SCM_HG,
+        scm_type=SCM_TYPE_HG,
         name=tree,
         url=hg_server,
         push_path=hg_server,
@@ -634,7 +634,7 @@ def test_format_single_success_changed(
     tree = "mozilla-central"
     treestatusdouble.open_tree(tree)
     repo = Repo.objects.create(
-        scm=SCM_HG,
+        scm_type=SCM_TYPE_HG,
         name=tree,
         url=hg_server,
         push_path=hg_server,
@@ -726,7 +726,7 @@ def test_format_stack_success_changed(
     tree = "mozilla-central"
     treestatusdouble.open_tree(tree)
     repo = Repo.objects.create(
-        scm=SCM_HG,
+        scm_type=SCM_TYPE_HG,
         name=tree,
         url=hg_server,
         push_path=hg_server,
@@ -804,7 +804,7 @@ def test_format_patch_fail(
     tree = "mozilla-central"
     treestatusdouble.open_tree(tree)
     repo = Repo.objects.create(
-        scm=SCM_HG,
+        scm_type=SCM_TYPE_HG,
         name=tree,
         required_permission=SCM_LEVEL_3,
         url=hg_server,
@@ -861,7 +861,7 @@ def test_format_patch_no_landoini(
     """Tests behaviour of Lando when the `.lando.ini` file is missing."""
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
-        scm=SCM_HG,
+        scm_type=SCM_TYPE_HG,
         name="mozilla-central",
         required_permission=SCM_LEVEL_3,
         url=hg_server,

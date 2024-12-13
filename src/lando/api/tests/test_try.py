@@ -239,7 +239,7 @@ def test_try_api_success_hgexport(
     )
 
     worker = LandingWorker(sleep_seconds=0.01)
-    hgrepo = repo.get_scm()
+    hgrepo = repo.scm
 
     assert worker.run_job(job, repo, hgrepo, treestatus)
     assert job.status == LandingJobStatus.LANDED
@@ -328,7 +328,7 @@ def test_try_api_success_gitformatpatch(
     )
 
     worker = LandingWorker(sleep_seconds=0.01)
-    hgrepo = repo.get_scm()
+    hgrepo = repo.scm
 
     # Assert the job landed against the expected commit hash.
     assert worker.run_job(job, repo, hgrepo, treestatus)

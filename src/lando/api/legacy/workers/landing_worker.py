@@ -290,7 +290,7 @@ class LandingWorker(Worker):
             False: The job encountered a temporary failure and should be tried again.
         """
         repo: Repo = job.target_repo
-        scm = repo.get_scm()
+        scm = repo.scm
 
         if not self.treestatus_client.is_open(repo.tree):
             job.transition_status(

@@ -6,14 +6,14 @@ from django.core.exceptions import ValidationError
 
 from lando.main.models import Repo
 from lando.main.scm import (
-    SCM_GIT,
-    SCM_HG,
+    SCM_TYPE_GIT,
+    SCM_TYPE_HG,
 )
 
 
 @pytest.mark.parametrize(
-    "git_returncode,hg_returncode,scm",
-    ((255, 0, SCM_HG), (0, 255, SCM_GIT)),
+    "git_returncode,hg_returncode,scm_type",
+    ((255, 0, SCM_TYPE_HG), (0, 255, SCM_TYPE_GIT)),
 )
 @patch("lando.main.models.repo.HgSCM")
 @patch("lando.main.models.repo.subprocess")
@@ -23,7 +23,7 @@ def test__models__Repo__scm(
     monkeypatch,
     git_returncode,
     hg_returncode,
-    scm,
+    scm_type,
     db,
 ):
     repo_path = "some_repo"
@@ -40,18 +40,22 @@ def test__models__Repo__scm(
     repo = Repo(pull_path=repo_path)
 
     # Skip the GitSCM stub implementation
-    monkeypatch.setattr("lando.main.models.repo.SCM_IMPLEMENTATIONS", {SCM_HG: HgSCM})
+    monkeypatch.setattr(
+        "lando.main.models.repo.SCM_IMPLEMENTATIONS", {SCM_TYPE_HG: HgSCM}
+    )
 
     repo.save()
 
-    assert repo.scm == scm
+    assert repo.scm_type == scm_type
 
 
-@pytest.mark.parametrize("scm,call_count", ((SCM_HG, 0), (SCM_GIT, 0)))
+@pytest.mark.parametrize("scm_type,call_count", ((SCM_TYPE_HG, 0), (SCM_TYPE_GIT, 0)))
 @patch("lando.main.models.repo.subprocess")
-def test__models__Repo__scm_not_calculated_when_preset(subprocess, scm, call_count, db):
+def test__models__Repo__scm_not_calculated_when_preset(
+    subprocess, scm_type, call_count, db
+):
     repo_path = "some_hg_repo"
-    repo = Repo(pull_path=repo_path, scm=scm)
+    repo = Repo(pull_path=repo_path, scm_type=scm_type)
     repo.save()
     assert subprocess.call.call_count == call_count
 
