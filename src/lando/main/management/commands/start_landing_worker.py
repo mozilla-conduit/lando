@@ -42,14 +42,13 @@ class Command(BaseCommand):
 
     def _handle(self, worker: Worker, repo_type: str):
         # Clone or update repos upon worker startup.
+        repos_to_handle = []
         for repo in worker.enabled_repos:
             # Check if any associated repos are unsupported, raise exception if so.
             repo.raise_for_unsupported_repo_scm(repo_type)
             scm = repo.get_scm()
-            repos_to_handle = []
             try:
                 scm.prepare_repo(repo.pull_path)
-                repos_to_handle.append(repo)
             except Exception as e:
                 logger.warning(
                     "Fail to prepare repo, skipping...",
@@ -59,6 +58,8 @@ class Command(BaseCommand):
                         "scm": scm.scm_type,
                     },
                 )
+            else:
+                repos_to_handle.append(repo)
 
         # Continue with starting the worker.
         try:
