@@ -31,7 +31,8 @@ class AbstractSCM:
         """Push local code to the remote repository.
 
         Parameters:
-            push_path (str): The path to the repository where changes will be pushed.
+            push_path (str): The path to the repository where changes will be pushed. It
+            will remain unspecified if None or empty string.
             target (Optional[str]): The target branch or reference to push to. Defaults to None.
             force_push (bool): If True, force the push even if it results in a non-fast-forward update. Defaults to False.
 

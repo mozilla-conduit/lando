@@ -179,8 +179,6 @@ class HgSCM(AbstractSCM):
         self, push_path: str, target: Optional[str] = None, force_push: bool = False
     ) -> None:
         """Push local code to the remote repository."""
-        bookmark = target
-        target = push_path
         if not os.getenv(REQUEST_USER_ENV_VAR):
             raise ValueError(f"{REQUEST_USER_ENV_VAR} not set while attempting to push")
 
@@ -189,13 +187,13 @@ class HgSCM(AbstractSCM):
         if force_push:
             extra_args.append("-f")
 
-        if bookmark is None:
-            self.run_hg(["push", "-r", "tip", target] + extra_args)
+        if not target:
+            self.run_hg(["push", "-r", "tip", push_path] + extra_args)
         else:
             self.run_hg_cmds(
                 [
-                    ["bookmark", bookmark],
-                    ["push", "-B", bookmark, target] + extra_args,
+                    ["bookmark", target],
+                    ["push", "-B", target, push_path] + extra_args,
                 ]
             )
 

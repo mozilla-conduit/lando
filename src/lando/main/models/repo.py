@@ -60,11 +60,6 @@ class Repo(BaseModel):
     def path(self) -> str:
         return str(self.system_path) or self.get_system_path()
 
-    @property
-    def push_target(self):
-        """The target branch or bookmark to push to."""
-        return self.push_bookmark or None
-
     # TODO: help text for fields below.
     name = models.CharField(max_length=255, unique=True)
     default_branch = models.CharField(max_length=255, default="main")
@@ -106,7 +101,12 @@ class Repo(BaseModel):
     is_phabricator_repo = models.BooleanField(default=True)
     milestone_tracking_flag_template = models.CharField(blank=True, default="")
     product_details_url = models.CharField(blank=True, default="")
-    push_bookmark = models.CharField(blank=True, default="")
+
+    # Ideally, we'd like the push_target to be nullable, but Django forms will not
+    # honour this, and instead put an empty string when blankable fields are left empty.
+    # We handle the case later in the code (namely in HgSCM.push), by treating the empty
+    # string as falsey.
+    push_target = models.CharField(blank=True, default="")
 
     @classmethod
     def get_mapping(cls) -> dict[str, "Repo"]:

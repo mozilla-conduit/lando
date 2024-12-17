@@ -326,7 +326,7 @@ def test_integrated_execute_job_with_force_push(
     assert len(scm.push.call_args) == 2
     assert len(scm.push.call_args[0]) == 1
     assert scm.push.call_args[0][0] == hg_server
-    assert scm.push.call_args[1] == {"target": None, "force_push": True}
+    assert scm.push.call_args[1] == {"target": "", "force_push": True}
 
 
 @pytest.mark.django_db
@@ -345,7 +345,7 @@ def test_integrated_execute_job_with_bookmark(
         required_permission=SCM_LEVEL_3,
         push_path=hg_server,
         pull_path=hg_server,
-        push_bookmark="@",
+        push_target="@",
         system_path=hg_clone.strpath,
     )
     scm = repo.scm
