@@ -227,15 +227,15 @@ class LandingWorker(Worker):
         scm: AbstractSCM,
         bug_ids: list[str],
         changeset_titles: list[str],
-    ) -> bool:
+    ) -> Optional[str]:
         """
         Determine and apply the repo's autoformatting rules.
 
         If no `.lando.ini` configuration can be found in the repo, autoformatting is skipped with a warning, but returns a success status.
 
-        Returns: bool
-            False if autoformatting was attempted and failed
-            True otherwise (including if autoformatting wasn't attempted due to missing configuration)
+        Returns: Optional[str]
+            None: no error
+            str: error message
         """
         # Load repo-specific configuration.
         try:
@@ -245,7 +245,7 @@ class LandingWorker(Worker):
                 "No .lando.ini configuration found in repo, skipping autoformatting"
             )
             # Not a failure per se.
-            return True
+            return
 
         landoini_config = read_lando_config(lando_ini_contents)
 
@@ -265,15 +265,13 @@ class LandingWorker(Worker):
 
             logger.exception(message)
 
-            job.transition_status(LandingJobAction.FAIL, message=message)
-            self.notify_user_of_landing_failure(job)
-            return False
+            return message
 
         # If autoformatting added any changesets, note those in the job.
         if replacements:
             job.formatted_replacements = replacements
 
-        return True
+        return
 
     def run_job(self, job: LandingJob) -> bool:
         """Run a given LandingJob and return appropriate boolean state.
@@ -392,10 +390,11 @@ class LandingWorker(Worker):
             ]
 
             # Run automated code formatters if enabled.
-            if repo.autoformat_enabled and not self.autoformat(
-                job, scm, bug_ids, changeset_titles
-            ):
-                return False
+            if repo.autoformat_enabled:
+                if message := self.autoformat(job, scm, bug_ids, changeset_titles):
+                    job.transition_status(LandingJobAction.FAIL, message=message)
+                    self.notify_user_of_landing_failure(job)
+                    return False
 
             # Get the changeset hash of the first node.
             commit_id = scm.head_ref()
