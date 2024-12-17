@@ -326,7 +326,7 @@ def test_integrated_execute_job_with_force_push(
     assert len(scm.push.call_args) == 2
     assert len(scm.push.call_args[0]) == 1
     assert scm.push.call_args[0][0] == hg_server
-    assert scm.push.call_args[1] == {"target": "", "force_push": True}
+    assert scm.push.call_args[1] == {"push_target": "", "force_push": True}
 
 
 @pytest.mark.django_db
@@ -372,7 +372,7 @@ def test_integrated_execute_job_with_bookmark(
     assert len(scm.push.call_args) == 2
     assert len(scm.push.call_args[0]) == 1
     assert scm.push.call_args[0][0] == hg_server
-    assert scm.push.call_args[1] == {"target": "@", "force_push": False}
+    assert scm.push.call_args[1] == {"push_target": "@", "force_push": False}
 
 
 @pytest.mark.django_db

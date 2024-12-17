@@ -176,7 +176,10 @@ class HgSCM(AbstractSCM):
         return Path("/tmp/patch_rejects")
 
     def push(
-        self, push_path: str, target: Optional[str] = None, force_push: bool = False
+        self,
+        push_path: str,
+        push_target: Optional[str] = None,
+        force_push: bool = False,
     ) -> None:
         """Push local code to the remote repository."""
         if not os.getenv(REQUEST_USER_ENV_VAR):
@@ -187,13 +190,13 @@ class HgSCM(AbstractSCM):
         if force_push:
             extra_args.append("-f")
 
-        if not target:
+        if not push_target:
             self.run_hg(["push", "-r", "tip", push_path] + extra_args)
         else:
             self.run_hg_cmds(
                 [
-                    ["bookmark", target],
-                    ["push", "-B", target, push_path] + extra_args,
+                    ["bookmark", push_target],
+                    ["push", "-B", push_target, push_path] + extra_args,
                 ]
             )
 

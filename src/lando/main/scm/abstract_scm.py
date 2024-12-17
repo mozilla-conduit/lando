@@ -26,7 +26,10 @@ class AbstractSCM:
 
     @abstractmethod
     def push(
-        self, push_path: str, target: Optional[str] = None, force_push: bool = False
+        self,
+        push_path: str,
+        push_target: Optional[str] = None,
+        force_push: bool = False,
     ):
         """Push local code to the remote repository.
 
