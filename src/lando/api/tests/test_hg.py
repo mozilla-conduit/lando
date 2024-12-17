@@ -1,18 +1,19 @@
 import io
 import os
+from unittest import mock
 
 import pytest
 
-from lando.api.legacy.hg import (
+from lando.api.legacy.hgexports import HgPatchHelper
+from lando.main.scm import (
     REQUEST_USER_ENV_VAR,
     HgCommandError,
     HgException,
-    HgmoInternalServerError,
-    HgRepo,
-    LostPushRace,
-    NoDiffStartLine,
+    HgSCM,
     PatchConflict,
-    PushTimeoutException,
+    SCMInternalServerError,
+    SCMLostPushRace,
+    SCMPushTimeoutException,
     TreeApprovalRequired,
     TreeClosed,
     hglib,
@@ -22,7 +23,7 @@ from lando.api.legacy.hg import (
 def test_integrated_hgrepo_clean_repo(hg_clone):
     # Test is long and checks various repo cleaning cases as the startup
     # time for anything using `hg_clone` fixture is very long.
-    repo = HgRepo(hg_clone.strpath)
+    repo = HgSCM(hg_clone.strpath)
 
     with repo.for_pull(), hg_clone.as_cwd():
         # Create a draft commits to clean.
@@ -71,24 +72,9 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
 
 
 def test_integrated_hgrepo_can_log(hg_clone):
-    repo = HgRepo(hg_clone.strpath)
+    repo = HgSCM(hg_clone.strpath)
     with repo.for_pull():
         assert repo.run_hg_cmds([["log"]])
-
-
-PATCH_WITHOUT_STARTLINE = r"""
-# HG changeset patch
-# User Test User <test@example.com>
-# Date 0 0
-#      Thu Jan 01 00:00:00 1970 +0000
-add another file.
-diff --git a/test.txt b/test.txt
---- a/test.txt
-+++ b/test.txt
-@@ -1,1 +1,2 @@
- TEST
-+adding another line
-""".strip()
 
 
 PATCH_WITH_CONFLICT = r"""
@@ -155,52 +141,80 @@ diff --git a/test.txt b/test.txt
 """.strip()
 
 
-PATCH_FAIL_HEADER = """
-# HG changeset patch
-# User Test User <test@example.com>
-# Date 0 0
-#      Thu Jan 01 00:00:00 1970 +0000
-# Fail HG Import FAIL
-# Diff Start Line 8
-add another file.
-diff --git a/test.txt b/test.txt
---- a/test.txt
-+++ b/test.txt
-@@ -1,1 +1,2 @@
- TEST
-+adding another line
-""".strip()
-
-
-def test_integrated_hgrepo_apply_patch(hg_clone):
-    repo = HgRepo(hg_clone.strpath)
-
-    # We should refuse to apply patches that are missing a
-    # Diff Start Line header.
-    with pytest.raises(NoDiffStartLine), repo.for_pull():
-        repo.apply_patch(io.StringIO(PATCH_WITHOUT_STARTLINE))
+def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
+    repo = HgSCM(hg_clone.strpath)
 
     # Patches with conflicts should raise a proper PatchConflict exception.
     with pytest.raises(PatchConflict), repo.for_pull():
-        repo.apply_patch(io.StringIO(PATCH_WITH_CONFLICT))
+        ph = HgPatchHelper(io.StringIO(PATCH_WITH_CONFLICT))
+        repo.apply_patch(
+            ph.get_diff(),
+            ph.get_commit_description(),
+            ph.get_header("User"),
+            ph.get_header("Date"),
+        )
+
+
+@pytest.mark.parametrize(
+    "name, patch, expected_log",
+    (
+        ("normal", PATCH_NORMAL, ""),
+        ("unicode", PATCH_UNICODE, "こんにちは"),
+    ),
+)
+def test_integrated_hgrepo_patch_success(
+    name: str, patch: str, expected_log: str, hg_clone
+):
+    repo = HgSCM(hg_clone.strpath)
 
     with repo.for_pull():
-        repo.apply_patch(io.StringIO(PATCH_NORMAL))
-        # Commit created.
-        assert repo.run_hg(["outgoing"])
-
-    with repo.for_pull():
-        repo.apply_patch(io.StringIO(PATCH_UNICODE))
+        ph = HgPatchHelper(io.StringIO(patch))
+        repo.apply_patch(
+            ph.get_diff(),
+            ph.get_commit_description(),
+            ph.get_header("User"),
+            ph.get_header("Date"),
+        )
         # Commit created.
 
         log_output = repo.run_hg(["log"])
-        assert "こんにちは" in log_output.decode("utf-8")
-        assert repo.run_hg(["outgoing"])
+        assert expected_log in log_output.decode("utf-8")
+        assert repo.run_hg(
+            ["outgoing"]
+        ), f"No outgoing commit after {name} patch has been applied"
+
+
+def test_integrated_hgrepo_patch_hgimport_fail_success(monkeypatch, hg_clone):
+    repo = HgSCM(hg_clone.strpath)
+
+    original_run_hg = repo.run_hg
+
+    def run_hg_conflict_on_import(*args):
+        if args[0] == "import":
+            raise hglib.error.CommandError(
+                (),
+                1,
+                b"",
+                b"forced fail: hunk FAILED -- saving rejects to file",
+            )
+        return original_run_hg(*args)
+
+    run_hg = mock.MagicMock()
+    run_hg.side_effect = run_hg_conflict_on_import
+    monkeypatch.setattr(repo, "run_hg", run_hg_conflict_on_import)
 
     with repo.for_pull():
-        repo.apply_patch(io.StringIO(PATCH_FAIL_HEADER))
+        ph = HgPatchHelper(io.StringIO(PATCH_NORMAL))
+        repo.apply_patch(
+            ph.get_diff(),
+            ph.get_commit_description(),
+            ph.get_header("User"),
+            ph.get_header("Date"),
+        )
         # Commit created.
-        assert repo.run_hg(["outgoing"])
+        assert repo.run_hg(
+            ["outgoing"]
+        ), "No outgoing commit after non-hg importable patch has been applied"
 
 
 def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
@@ -208,7 +222,7 @@ def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
 
     See https://bugzilla.mozilla.org/show_bug.cgi?id=1541181 for context.
     """
-    repo = HgRepo(hg_clone.strpath)
+    repo = HgSCM(hg_clone.strpath)
 
     with repo.for_pull(), hg_clone.as_cwd():
         # Create a file without a new line and with a trailing `\r`
@@ -219,7 +233,13 @@ def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
         repo.run_hg_cmds(
             [["add", new_file.strpath], ["commit", "-m", "adding file"], ["push"]]
         )
-        repo.apply_patch(io.StringIO(PATCH_DELETE_NO_NEWLINE_FILE))
+        ph = HgPatchHelper(io.StringIO(PATCH_DELETE_NO_NEWLINE_FILE))
+        repo.apply_patch(
+            ph.get_diff(),
+            ph.get_commit_description(),
+            ph.get_header("User"),
+            ph.get_header("Date"),
+        )
         # Commit created.
         assert "file removed" in str(repo.run_hg(["outgoing"]))
 
@@ -227,12 +247,12 @@ def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
 def test_hg_exceptions():
     """Ensure the correct exception is raised if a particular snippet is present."""
     snippet_exception_mapping = {
-        b"abort: push creates new remote head": LostPushRace,
+        b"abort: push creates new remote head": SCMLostPushRace,
         b"APPROVAL REQUIRED!": TreeApprovalRequired,
         b"is CLOSED!": TreeClosed,
         b"unresolved conflicts (see hg resolve": PatchConflict,
-        b"timed out waiting for lock held by": PushTimeoutException,
-        b"abort: HTTP Error 500: Internal Server Error": HgmoInternalServerError,
+        b"timed out waiting for lock held by": SCMPushTimeoutException,
+        b"abort: HTTP Error 500: Internal Server Error": SCMInternalServerError,
     }
 
     for snippet, exception in snippet_exception_mapping.items():
@@ -243,7 +263,7 @@ def test_hg_exceptions():
 
 def test_hgrepo_request_user(hg_clone):
     """Test that the request user environment variable is set and unset correctly."""
-    repo = HgRepo(hg_clone.strpath)
+    repo = HgSCM(hg_clone.strpath)
     request_user_email = "test@example.com"
 
     assert REQUEST_USER_ENV_VAR not in os.environ
@@ -251,3 +271,19 @@ def test_hgrepo_request_user(hg_clone):
         assert REQUEST_USER_ENV_VAR in os.environ
         assert os.environ[REQUEST_USER_ENV_VAR] == "test@example.com"
     assert REQUEST_USER_ENV_VAR not in os.environ
+
+
+@pytest.mark.parametrize(
+    "repo_path,expected",
+    (
+        ("", True),
+        ("/", False),
+    ),
+)
+def test_repo_is_supported(repo_path: str, expected: bool, hg_clone):
+    scm = HgSCM
+    if not repo_path:
+        repo_path = hg_clone.strpath
+    assert (
+        scm.repo_is_supported(repo_path) == expected
+    ), f"{scm} did not correctly report support for {repo_path}"

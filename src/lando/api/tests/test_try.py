@@ -2,7 +2,6 @@ import base64
 
 import pytest
 
-from lando.api.legacy.hg import HgRepo
 from lando.api.legacy.hgexports import (
     get_timestamp_from_git_date_header,
     parse_git_author_information,
@@ -240,7 +239,7 @@ def test_try_api_success_hgexport(
     )
 
     worker = LandingWorker(sleep_seconds=0.01)
-    hgrepo = HgRepo(hg_clone.strpath)
+    hgrepo = repo.scm
 
     assert worker.run_job(job, repo, hgrepo, treestatus)
     assert job.status == LandingJobStatus.LANDED
@@ -329,7 +328,7 @@ def test_try_api_success_gitformatpatch(
     )
 
     worker = LandingWorker(sleep_seconds=0.01)
-    hgrepo = HgRepo(hg_clone.strpath)
+    hgrepo = repo.scm
 
     # Assert the job landed against the expected commit hash.
     assert worker.run_job(job, repo, hgrepo, treestatus)

@@ -4,15 +4,22 @@ import subprocess
 import tempfile
 import urllib
 from pathlib import Path
+from typing import Optional
 
-import hglib
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from lando.api.legacy.hg import HgRepo
 from lando.main.models import BaseModel
+from lando.main.scm import (
+    SCM_IMPLEMENTATIONS,
+    SCM_TYPE_CHOICES,
+    SCM_TYPE_GIT,
+    SCM_TYPE_HG,
+    AbstractSCM,
+    HgSCM,
+)
 from lando.utils import GitPatchHelper
 
 logger = logging.getLogger(__name__)
@@ -47,20 +54,18 @@ class RepoError(Exception):
 class Repo(BaseModel):
     """Represents the configuration of a particular repo."""
 
-    HG = "hg"
-    GIT = "git"
+    _scm: Optional[AbstractSCM] = None
 
-    SCM_CHOICES = {
-        HG: "Mercurial",
-        GIT: "Git",
-    }
+    @property
+    def path(self) -> str:
+        return str(self.system_path) or self.get_system_path()
 
     # TODO: help text for fields below.
     name = models.CharField(max_length=255, unique=True)
     default_branch = models.CharField(max_length=255, default="main")
-    scm = models.CharField(
+    scm_type = models.CharField(
         max_length=3,
-        choices=SCM_CHOICES,
+        choices=SCM_TYPE_CHOICES,
         null=True,
         blank=True,
         default=None,
@@ -96,7 +101,12 @@ class Repo(BaseModel):
     is_phabricator_repo = models.BooleanField(default=True)
     milestone_tracking_flag_template = models.CharField(blank=True, default="")
     product_details_url = models.CharField(blank=True, default="")
-    push_bookmark = models.CharField(blank=True, default="")
+
+    # Ideally, we'd like the push_target to be nullable, but Django forms will not
+    # honour this, and instead put an empty string when blankable fields are left empty.
+    # We handle the case later in the code (namely in HgSCM.push), by treating the empty
+    # string as falsey.
+    push_target = models.CharField(blank=True, default="")
 
     @classmethod
     def get_mapping(cls) -> dict[str, "Repo"]:
@@ -104,10 +114,16 @@ class Repo(BaseModel):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.is_hg_repo:
-            self.hg = HgRepo(self.system_path or self.get_system_path())
-        else:
-            self.hg = None
+
+    @property
+    def scm(self) -> AbstractSCM:
+        """Return the SCM implementation associated with this Repository"""
+        if not self._scm:
+            if self.scm_type == SCM_TYPE_HG:
+                self._scm = HgSCM(self.path)
+            else:
+                raise Exception(f"Repository type not supported: {self.scm_type}")
+        return self._scm
 
     def __str__(self):
         return f"{self.name} ({self.default_branch})"
@@ -122,32 +138,8 @@ class Repo(BaseModel):
 
     def raise_for_unsupported_repo_scm(self, supported_scm: str):
         """Raise a RepoError if the repo SCM does not match the supported SCM."""
-        if supported_scm != self.scm:
+        if supported_scm != self.scm_type:
             raise self._method_not_supported_for_repo_error
-
-    @property
-    def hg_repo_is_initialized(self) -> bool:
-        """Returns True if hglib is able to open the repo, otherwise returns False."""
-        self.raise_for_unsupported_repo_scm(self.HG)
-        try:
-            self.hg._open()
-        except hglib.error.ServerError:
-            logger.info(f"{self} appears to be not initialized.")
-            return False
-        else:
-            return True
-
-    def hg_repo_prepare(self):
-        """Either clone or update the repo, if it is a Mercurial one."""
-        self.raise_for_unsupported_repo_scm(self.HG)
-        if not self.hg_repo_is_initialized:
-            Path(self.system_path).mkdir(parents=True, exist_ok=True)
-            logger.info(f"Cloning {self} from pull path.")
-            self.hg.clone(self.pull_path)
-        else:
-            with self.hg.for_pull():
-                logger.info(f"Updating {self} from pull path.")
-                self.hg.update_repo(self.pull_path)
 
     def save(self, *args, **kwargs):
         """Determine values for various fields upon saving the instance."""
@@ -167,37 +159,31 @@ class Repo(BaseModel):
         if not self.commit_flags:
             self.commit_flags = []
 
-        if self.scm is None:
-            if self._is_git_repo:
-                self.scm = self.GIT
-            elif self._is_hg_repo:
-                self.scm = self.HG
-            else:
-                raise ValueError("Could not determine repo type.")
+        if not self.scm_type:
+            self.scm_type = self._find_supporting_scm(self.pull_path)
 
         super().save(*args, **kwargs)
 
-    @property
-    def is_git_repo(self):
-        return self.scm is not None and self.scm == self.GIT
+    def _find_supporting_scm(self, pull_path: str) -> str:
+        """Loop through the supported SCM_IMPLEMENTATIONS and return a key representing
+        the first SCM claiming to support the given pull_path.
+
+        A fallback is in place for SCM_TYPE_GIT, which is not yet part of the SCM_IMPLEMENTATIONS.
+        """
+        for scm, impl in SCM_IMPLEMENTATIONS.items():
+            if impl.repo_is_supported(pull_path):
+                return scm
+        if self._is_git_repo:
+            return SCM_TYPE_GIT
+        raise ValueError(f"Could not determine repo type for {pull_path}")
 
     @property
-    def is_hg_repo(self):
-        return self.scm is not None and self.scm == self.HG
+    def is_git_repo(self):
+        return self.scm_type is not None and self.scm_type == SCM_TYPE_GIT
 
     @property
     def _is_git_repo(self):
         command = ["git", "ls-remote", self.pull_path]
-        returncode = subprocess.call(
-            command,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        return not returncode
-
-    @property
-    def _is_hg_repo(self):
-        command = ["hg", "identify", self.pull_path]
         returncode = subprocess.call(
             command,
             stdout=subprocess.DEVNULL,
@@ -225,34 +211,36 @@ class Repo(BaseModel):
 
         return self.short_name if self.short_name else self.tree
 
-    def _run(self, *args, cwd=None):
+    def _git_run(self, *args, cwd=None):
         cwd = cwd or self.system_path
         command = ["git"] + list(args)
         result = subprocess.run(command, cwd=cwd, capture_output=True, text=True)
         return result
 
-    def initialize(self):
+    def _git_initialize(self):
         self.refresh_from_db()
 
         if self.is_initialized:
             raise
 
         self.system_path = str(Path(settings.REPO_ROOT) / self.name)
-        result = self._run("clone", self.pull_path, self.name, cwd=settings.REPO_ROOT)
+        result = self._git_run(
+            "clone", self.pull_path, self.name, cwd=settings.REPO_ROOT
+        )
         if result.returncode == 0:
             self.is_initialized = True
             self.save()
         else:
             raise Exception(f"{result.returncode}: {result.stderr}")
 
-    def pull(self):
-        self._run("pull", "--all", "--prune")
+    def _git_pull(self):
+        self._git_run("pull", "--all", "--prune")
 
-    def reset(self, branch=None):
-        self._run("reset", "--hard", branch or self.default_branch)
-        self._run("clean", "--force")
+    def _git_reset(self, branch=None):
+        self._git_run("reset", "--hard", branch or self.default_branch)
+        self._git_run("clean", "--force")
 
-    def apply_patch(self, patch_buffer: str):
+    def _git_apply_patch(self, patch_buffer: str):
         patch_helper = GitPatchHelper(patch_buffer)
         self.patch_header = patch_helper.get_header
 
@@ -266,18 +254,20 @@ class Repo(BaseModel):
             patch_helper.write_diff(f_diff)
             f_diff.flush()
 
-            self._run("apply", f_diff.name)
+            self._git_run("apply", f_diff.name)
 
             # Commit using the extracted date, user, and commit desc.
             # --landing_system is provided by the set_landing_system hgext.
             date = patch_helper.get_header("Date")
             user = patch_helper.get_header("From")
 
-            self._run("add", "-A")
-            self._run("commit", "--date", date, "--author", user, "--file", f_msg.name)
+            self._git_run("add", "-A")
+            self._git_run(
+                "commit", "--date", date, "--author", user, "--file", f_msg.name
+            )
 
-    def last_commit_id(self) -> str:
-        return self._run("rev-parse", "HEAD").stdout.strip()
+    def _git_last_commit_id(self) -> str:
+        return self._git_run("rev-parse", "HEAD").stdout.strip()
 
-    def push(self):
-        self._run("push")
+    def _git_push(self):
+        self._git_run("push")

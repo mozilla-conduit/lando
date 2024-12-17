@@ -4,8 +4,10 @@ import unittest.mock as mock
 
 import pytest
 
-from lando.api.legacy.hg import AUTOFORMAT_COMMIT_MESSAGE, HgRepo
-from lando.api.legacy.workers.landing_worker import LandingWorker
+from lando.api.legacy.workers.landing_worker import (
+    AUTOFORMAT_COMMIT_MESSAGE,
+    LandingWorker,
+)
 from lando.main.models import SCM_LEVEL_3, Repo
 from lando.main.models.landing_job import (
     LandingJob,
@@ -13,10 +15,14 @@ from lando.main.models.landing_job import (
     add_job_with_revisions,
 )
 from lando.main.models.revision import Revision
+from lando.main.scm import SCM_TYPE_HG, HgSCM
+from lando.main.scm.hg import LostPushRace
+from lando.utils import HgPatchHelper
 
 
 @pytest.fixture
-def create_patch_revision(db, normal_patch):
+@pytest.mark.django_db
+def create_patch_revision(normal_patch):
     """A fixture that fake uploads a patch"""
 
     normal_patch_0 = normal_patch(0)
@@ -48,6 +54,20 @@ diff --git a/test.txt b/test.txt
 @@ -1,1 +1,2 @@
  TEST
 +{LARGE_UTF8_THING}
+""".strip()
+
+PATCH_WITHOUT_STARTLINE = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+add another file.
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,2 @@
+ TEST
++adding another line
 """.strip()
 
 
@@ -218,20 +238,16 @@ aDd oNe mOrE LiNe
 )
 @pytest.mark.django_db
 def test_integrated_execute_job(
-    app,
-    db,
-    mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
-    normal_patch,
     revisions_params,
 ):
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
-        scm=Repo.HG,
+        scm_type=SCM_TYPE_HG,
         name="mozilla-central",
         url=hg_server,
         required_permission=SCM_LEVEL_3,
@@ -267,10 +283,8 @@ def test_integrated_execute_job(
     ), "Successful landing should trigger Phab repo update."
 
 
+@pytest.mark.django_db
 def test_integrated_execute_job_with_force_push(
-    app,
-    db,
-    mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -279,7 +293,7 @@ def test_integrated_execute_job_with_force_push(
 ):
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
-        scm=Repo.HG,
+        scm_type=SCM_TYPE_HG,
         name="mozilla-central",
         url=hg_server,
         required_permission=SCM_LEVEL_3,
@@ -288,6 +302,7 @@ def test_integrated_execute_job_with_force_push(
         force_push=True,
         system_path=hg_clone.strpath,
     )
+    scm = repo.scm
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
@@ -305,19 +320,17 @@ def test_integrated_execute_job_with_force_push(
         mock.MagicMock(),
     )
 
-    repo.hg.push = mock.MagicMock()
+    scm.push = mock.MagicMock()
     assert worker.run_job(job)
-    assert repo.hg.push.call_count == 1
-    assert len(repo.hg.push.call_args) == 2
-    assert len(repo.hg.push.call_args[0]) == 1
-    assert repo.hg.push.call_args[0][0] == hg_server
-    assert repo.hg.push.call_args[1] == {"bookmark": None, "force_push": True}
+    assert scm.push.call_count == 1
+    assert len(scm.push.call_args) == 2
+    assert len(scm.push.call_args[0]) == 1
+    assert scm.push.call_args[0][0] == hg_server
+    assert scm.push.call_args[1] == {"push_target": "", "force_push": True}
 
 
+@pytest.mark.django_db
 def test_integrated_execute_job_with_bookmark(
-    app,
-    db,
-    mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -326,15 +339,16 @@ def test_integrated_execute_job_with_bookmark(
 ):
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
-        scm=Repo.HG,
+        scm_type=SCM_TYPE_HG,
         name="mozilla-central",
         url=hg_server,
         required_permission=SCM_LEVEL_3,
         push_path=hg_server,
         pull_path=hg_server,
-        push_bookmark="@",
+        push_target="@",
         system_path=hg_clone.strpath,
     )
+    scm = repo.scm
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
@@ -352,27 +366,26 @@ def test_integrated_execute_job_with_bookmark(
         mock.MagicMock(),
     )
 
-    repo.hg.push = mock.MagicMock()
+    scm.push = mock.MagicMock()
     assert worker.run_job(job)
-    assert repo.hg.push.call_count == 1
-    assert len(repo.hg.push.call_args) == 2
-    assert len(repo.hg.push.call_args[0]) == 1
-    assert repo.hg.push.call_args[0][0] == hg_server
-    assert repo.hg.push.call_args[1] == {"bookmark": "@", "force_push": False}
+    assert scm.push.call_count == 1
+    assert len(scm.push.call_args) == 2
+    assert len(scm.push.call_args[0]) == 1
+    assert scm.push.call_args[0][0] == hg_server
+    assert scm.push.call_args[1] == {"push_target": "@", "force_push": False}
 
 
-def test_lose_push_race(
-    app,
-    db,
-    mock_repo_config,
+@pytest.mark.django_db
+def test_no_diff_start_line(
     hg_server,
     hg_clone,
     treestatusdouble,
     create_patch_revision,
+    caplog,
 ):
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
-        scm=Repo.HG,
+        scm_type=SCM_TYPE_HG,
         name="mozilla-central",
         url=hg_server,
         required_permission=SCM_LEVEL_3,
@@ -388,18 +401,63 @@ def test_lose_push_race(
         "attempts": 1,
     }
     job = add_job_with_revisions(
+        [create_patch_revision(1, patch=PATCH_WITHOUT_STARTLINE)], **job_params
+    )
+
+    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
+
+    assert worker.run_job(job)
+    assert job.status == LandingJobStatus.FAILED
+    assert "Patch without a diff start line." in caplog.text
+
+
+@pytest.mark.django_db
+def test_lose_push_race(
+    monkeypatch,
+    hg_server,
+    hg_clone,
+    treestatusdouble,
+    create_patch_revision,
+):
+    treestatusdouble.open_tree("mozilla-central")
+    repo = Repo.objects.create(
+        scm_type=SCM_TYPE_HG,
+        name="mozilla-central",
+        url=hg_server,
+        required_permission=SCM_LEVEL_3,
+        push_path=hg_server,
+        pull_path=hg_server,
+        system_path=hg_clone.strpath,
+    )
+    scm = repo.scm
+    job_params = {
+        "id": 1234,
+        "status": LandingJobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "target_repo": repo,
+        "attempts": 1,
+    }
+    job = add_job_with_revisions(
         [create_patch_revision(1, patch=PATCH_PUSH_LOSER)], **job_params
     )
 
+    mock_push = mock.MagicMock()
+    mock_push.side_effect = (
+        LostPushRace(["testing_args"], "testing_out", "testing_err", "testing_msg"),
+    )
+    monkeypatch.setattr(
+        scm,
+        "push",
+        mock_push,
+    )
     worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
 
     assert not worker.run_job(job)
     assert job.status == LandingJobStatus.DEFERRED
 
 
+@pytest.mark.django_db
 def test_failed_landing_job_notification(
-    app,
-    db,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -409,7 +467,7 @@ def test_failed_landing_job_notification(
     """Ensure that a failed landings triggers a user notification."""
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
-        scm=Repo.HG,
+        scm_type=SCM_TYPE_HG,
         name="mozilla-central",
         required_permission=SCM_LEVEL_3,
         push_path=hg_server,
@@ -418,6 +476,13 @@ def test_failed_landing_job_notification(
         autoformat_enabled=False,
         system_path=hg_clone.strpath,
     )
+
+    scm = repo.scm
+
+    # Mock `scm.update_repo` so we can force a failed landing.
+    mock_update_repo = mock.MagicMock()
+    mock_update_repo.side_effect = Exception("Forcing a failed landing")
+    monkeypatch.setattr(scm, "update_repo", mock_update_repo)
 
     revisions = [
         create_patch_revision(1),
@@ -432,11 +497,6 @@ def test_failed_landing_job_notification(
     job = add_job_with_revisions(revisions, **job_params)
 
     worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
-
-    # Mock `repo.hg.update_repo` so we can force a failed landing.
-    mock_update_repo = mock.MagicMock()
-    mock_update_repo.side_effect = Exception("Forcing a failed landing")
-    monkeypatch.setattr(repo.hg, "update_repo", mock_update_repo)
 
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
@@ -506,10 +566,8 @@ def test_landing_worker__extract_error_data():
     assert rejects_paths == expected_rejects_paths
 
 
+@pytest.mark.django_db
 def test_format_patch_success_unchanged(
-    app,
-    db,
-    mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -521,7 +579,7 @@ def test_format_patch_success_unchanged(
     tree = "mozilla-central"
     treestatusdouble.open_tree(tree)
     repo = Repo.objects.create(
-        scm=Repo.HG,
+        scm_type=SCM_TYPE_HG,
         name=tree,
         url=hg_server,
         push_path=hg_server,
@@ -564,10 +622,8 @@ def test_format_patch_success_unchanged(
     ), "Autoformat making no changes should leave `formatted_replacements` empty."
 
 
+@pytest.mark.django_db
 def test_format_single_success_changed(
-    app,
-    db,
-    mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -578,7 +634,7 @@ def test_format_single_success_changed(
     tree = "mozilla-central"
     treestatusdouble.open_tree(tree)
     repo = Repo.objects.create(
-        scm=Repo.HG,
+        scm_type=SCM_TYPE_HG,
         name=tree,
         url=hg_server,
         push_path=hg_server,
@@ -589,9 +645,15 @@ def test_format_single_success_changed(
     )
 
     # Push the `mach` formatting patch.
-    hgrepo = HgRepo(hg_clone.strpath)
+    hgrepo = HgSCM(hg_clone.strpath)
     with hgrepo.for_push("test@example.com"):
-        hgrepo.apply_patch(io.StringIO(PATCH_FORMATTING_PATTERN_PASS))
+        ph = HgPatchHelper(io.StringIO(PATCH_FORMATTING_PATTERN_PASS))
+        hgrepo.apply_patch(
+            ph.get_diff(),
+            ph.get_commit_description(),
+            ph.get_header("User"),
+            ph.get_header("Date"),
+        )
         hgrepo.push(repo.push_path)
         pre_landing_tip = hgrepo.run_hg(["log", "-r", "tip", "-T", "{node}"]).decode(
             "utf-8"
@@ -652,10 +714,8 @@ def test_format_single_success_changed(
     ), "Autoformat via amending should only land a single commit."
 
 
+@pytest.mark.django_db
 def test_format_stack_success_changed(
-    app,
-    db,
-    mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -666,7 +726,7 @@ def test_format_stack_success_changed(
     tree = "mozilla-central"
     treestatusdouble.open_tree(tree)
     repo = Repo.objects.create(
-        scm=Repo.HG,
+        scm_type=SCM_TYPE_HG,
         name=tree,
         url=hg_server,
         push_path=hg_server,
@@ -676,7 +736,7 @@ def test_format_stack_success_changed(
         system_path=hg_clone.strpath,
     )
 
-    hgrepo = HgRepo(hg_clone.strpath)
+    hgrepo = HgSCM(hg_clone.strpath)
 
     revisions = [
         create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_PASS),
@@ -732,10 +792,8 @@ def test_format_stack_success_changed(
     ), "Autoformat commit has incorrect commit message."
 
 
+@pytest.mark.django_db
 def test_format_patch_fail(
-    app,
-    db,
-    mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -746,7 +804,7 @@ def test_format_patch_fail(
     tree = "mozilla-central"
     treestatusdouble.open_tree(tree)
     repo = Repo.objects.create(
-        scm=Repo.HG,
+        scm_type=SCM_TYPE_HG,
         name=tree,
         required_permission=SCM_LEVEL_3,
         url=hg_server,
@@ -792,10 +850,8 @@ def test_format_patch_fail(
     ), "User should be notified their landing was unsuccessful due to autoformat."
 
 
+@pytest.mark.django_db
 def test_format_patch_no_landoini(
-    app,
-    db,
-    mock_repo_config,
     hg_server,
     hg_clone,
     treestatusdouble,
@@ -805,7 +861,7 @@ def test_format_patch_no_landoini(
     """Tests behaviour of Lando when the `.lando.ini` file is missing."""
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
-        scm=Repo.HG,
+        scm_type=SCM_TYPE_HG,
         name="mozilla-central",
         required_permission=SCM_LEVEL_3,
         url=hg_server,
@@ -857,9 +913,8 @@ def test_format_patch_no_landoini(
 
 # bug 1893453
 @pytest.mark.xfail
+@pytest.mark.django_db
 def test_landing_job_revisions_sorting(
-    app,
-    db,
     create_patch_revision,
 ):
     revisions = [

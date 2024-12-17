@@ -1,28 +1,23 @@
 from __future__ import annotations
 
+import configparser
 import logging
 import re
+import subprocess
 from contextlib import contextmanager
 from datetime import datetime
 from io import StringIO
 from pathlib import Path
-from typing import Any
+from typing import (
+    Any,
+    Optional,
+)
 
 import kombu
 from django.db import transaction
 
-from lando.api.legacy.commit_message import parse_bugs
-from lando.api.legacy.hg import (
-    REJECTS_PATH,
-    AutoformattingException,
-    HgmoInternalServerError,
-    LostPushRace,
-    NoDiffStartLine,
-    PatchConflict,
-    PushTimeoutException,
-    TreeApprovalRequired,
-    TreeClosed,
-)
+from lando.api.legacy.commit_message import bug_list_to_commit_string, parse_bugs
+from lando.api.legacy.hgexports import HgPatchHelper
 from lando.api.legacy.notifications import (
     notify_user_of_bug_update_failure,
     notify_user_of_landing_failure,
@@ -34,9 +29,27 @@ from lando.api.legacy.workers.base import Worker
 from lando.main.models.configuration import ConfigurationKey
 from lando.main.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
 from lando.main.models.repo import Repo
+from lando.main.scm.abstract_scm import AbstractSCM
+from lando.main.scm.exceptions import (
+    AutoformattingException,
+    PatchConflict,
+    SCMException,
+    SCMInternalServerError,
+    SCMLostPushRace,
+    SCMPushTimeoutException,
+    TreeApprovalRequired,
+    TreeClosed,
+)
+from lando.utils.config import read_lando_config
 from lando.utils.tasks import phab_trigger_repo_update
 
 logger = logging.getLogger(__name__)
+
+AUTOFORMAT_COMMIT_MESSAGE = """
+{bugs}: apply code formatting via Lando
+
+# ignore-this-changeset
+""".strip()
 
 
 @contextmanager
@@ -120,6 +133,7 @@ class LandingWorker(Worker):
         self,
         exception: PatchConflict,
         repo: Repo,
+        scm: AbstractSCM,
         revision_id: int,
     ) -> dict[str, Any]:
         """Extract and parse merge conflict data from exception into a usable format."""
@@ -127,22 +141,7 @@ class LandingWorker(Worker):
 
         # Find last commits to touch each failed path.
         failed_path_changesets = [
-            (
-                path,
-                repo.hg.run_hg(
-                    [
-                        "log",
-                        "--cwd",
-                        repo.hg.path,
-                        "--template",
-                        "{node}",
-                        "-l",
-                        "1",
-                        path,
-                    ]
-                ),
-            )
-            for path in failed_paths
+            (path, scm.last_commit_for_path(path)) for path in failed_paths
         ]
 
         breakdown = {
@@ -163,7 +162,7 @@ class LandingWorker(Worker):
         for path in reject_paths:
             reject = {"path": path}
             try:
-                with open(REJECTS_PATH / repo.hg.path[1:] / path, "r") as f:
+                with open(scm.REJECT_PATHS / repo.path[1:] / path, "r") as f:
                     reject["content"] = f.read()
             except Exception as e:
                 logger.exception(e)
@@ -222,6 +221,58 @@ class LandingWorker(Worker):
 
         return failed_paths, reject_paths
 
+    def autoformat(
+        self,
+        job: LandingJob,
+        scm: AbstractSCM,
+        bug_ids: list[str],
+        changeset_titles: list[str],
+    ) -> Optional[str]:
+        """
+        Determine and apply the repo's autoformatting rules.
+
+        If no `.lando.ini` configuration can be found in the repo, autoformatting is skipped with a warning, but returns a success status.
+
+        Returns: Optional[str]
+            None: no error
+            str: error message
+        """
+        # Load repo-specific configuration.
+        try:
+            lando_ini_contents = scm.read_checkout_file(".lando.ini")
+        except ValueError:
+            logger.warning(
+                "No .lando.ini configuration found in repo, skipping autoformatting"
+            )
+            # Not a failure per se.
+            return
+
+        landoini_config = read_lando_config(lando_ini_contents)
+
+        try:
+            replacements = self.apply_autoformatting(
+                scm,
+                landoini_config,
+                bug_ids,
+                changeset_titles,
+            )
+        except AutoformattingException as exc:
+            message = (
+                "Lando failed to format your patch for conformity with our "
+                "formatting policy. Please see the details below.\n\n"
+                f"{exc.details()}"
+            )
+
+            logger.exception(message)
+
+            return message
+
+        # If autoformatting added any changesets, note those in the job.
+        if replacements:
+            job.formatted_replacements = replacements
+
+        return
+
     def run_job(self, job: LandingJob) -> bool:
         """Run a given LandingJob and return appropriate boolean state.
 
@@ -236,7 +287,9 @@ class LandingWorker(Worker):
             True: The job finished processing and is in a permanent state.
             False: The job encountered a temporary failure and should be tried again.
         """
-        repo = job.target_repo
+        repo: Repo = job.target_repo
+        scm = repo.scm
+
         if not self.treestatus_client.is_open(repo.tree):
             job.transition_status(
                 LandingJobAction.DEFER,
@@ -244,12 +297,12 @@ class LandingWorker(Worker):
             )
             return False
 
-        with repo.hg.for_push(job.requester_email):
+        with scm.for_push(job.requester_email):
             # Update local repo.
             repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
             try:
-                repo.hg.update_repo(repo.pull_path, target_cset=job.target_commit_hash)
-            except HgmoInternalServerError as e:
+                scm.update_repo(repo.pull_path, target_cset=job.target_commit_hash)
+            except SCMInternalServerError as e:
                 message = (
                     f"`Temporary error ({e.__class__}) "
                     f"encountered while pulling from {repo_pull_info}"
@@ -271,25 +324,13 @@ class LandingWorker(Worker):
 
             # Run through the patches one by one and try to apply them.
             for revision in job.revisions.all():
-                patch_buf = StringIO(revision.patch_string)
-
-                try:
-                    repo.hg.apply_patch(patch_buf)
-                except PatchConflict as exc:
-                    breakdown = self.process_merge_conflict(
-                        exc, repo, revision.revision_id
-                    )
-                    job.error_breakdown = breakdown
-
-                    message = (
-                        f"Problem while applying patch in revision {revision.revision_id}:\n\n"
-                        f"{str(exc)}"
-                    )
-                    logger.exception(message)
-                    job.transition_status(LandingJobAction.FAIL, message=message)
-                    self.notify_user_of_landing_failure(job)
-                    return True
-                except NoDiffStartLine:
+                # TODO: Rather than parsing the patch details from the full HG patch
+                # stored in the job, we should read the revision's metadata (and
+                # move to only store the diff in the patch_string, rather than an
+                # export).
+                # https://bugzilla.mozilla.org/show_bug.cgi?id=1936171
+                patch_helper = HgPatchHelper(StringIO(revision.patch_string))
+                if not patch_helper.diff_start_line:
                     message = (
                         "Lando encountered a malformed patch, please try again. "
                         "If this error persists please file a bug: "
@@ -300,6 +341,31 @@ class LandingWorker(Worker):
                         LandingJobAction.FAIL,
                         message=message,
                     )
+                    self.notify_user_of_landing_failure(job)
+                    return True
+
+                date = patch_helper.get_header("Date")
+                user = patch_helper.get_header("User")
+
+                try:
+                    scm.apply_patch(
+                        patch_helper.get_diff(),
+                        patch_helper.get_commit_description(),
+                        user,
+                        date,
+                    )
+                except PatchConflict as exc:
+                    breakdown = self.process_merge_conflict(
+                        exc, repo, scm, revision.revision_id
+                    )
+                    job.error_breakdown = breakdown
+
+                    message = (
+                        f"Problem while applying patch in revision {revision.revision_id}:\n\n"
+                        f"{str(exc)}"
+                    )
+                    logger.exception(message)
+                    job.transition_status(LandingJobAction.FAIL, message=message)
                     self.notify_user_of_landing_failure(job)
                     return True
                 except Exception as e:
@@ -316,11 +382,7 @@ class LandingWorker(Worker):
                     return True
 
             # Get the changeset titles for the stack.
-            changeset_titles = (
-                repo.hg.run_hg(["log", "-r", "stack()", "-T", "{desc|firstline}\n"])
-                .decode("utf-8")
-                .splitlines()
-            )
+            changeset_titles = scm.changeset_descriptions()
 
             # Parse bug numbers from commits in the stack.
             bug_ids = [
@@ -328,45 +390,29 @@ class LandingWorker(Worker):
             ]
 
             # Run automated code formatters if enabled.
-            if repo.autoformat_enabled:
-                try:
-                    replacements = repo.hg.format_stack(len(changeset_titles), bug_ids)
-
-                    # If autoformatting added any changesets, note those in the job.
-                    if replacements:
-                        job.formatted_replacements = replacements
-
-                except AutoformattingException as exc:
-                    message = (
-                        "Lando failed to format your patch for conformity with our "
-                        "formatting policy. Please see the details below.\n\n"
-                        f"{exc.details()}"
-                    )
-
-                    logger.exception(message)
-
-                    job.transition_status(LandingJobAction.FAIL, message=message)
-                    self.notify_user_of_landing_failure(job)
-                    return False
+            if repo.autoformat_enabled and (
+                message := self.autoformat(job, scm, bug_ids, changeset_titles)
+            ):
+                job.transition_status(LandingJobAction.FAIL, message=message)
+                self.notify_user_of_landing_failure(job)
+                return False
 
             # Get the changeset hash of the first node.
-            commit_id = repo.hg.run_hg(["log", "-r", ".", "-T", "{node}"]).decode(
-                "utf-8"
-            )
+            commit_id = scm.head_ref()
 
             repo_push_info = f"tree: {repo.tree}, push path: {repo.push_path}"
             try:
-                repo.hg.push(
+                scm.push(
                     repo.push_path,
-                    bookmark=repo.push_bookmark or None,
+                    push_target=repo.push_target,
                     force_push=repo.force_push,
                 )
             except (
                 TreeClosed,
                 TreeApprovalRequired,
-                LostPushRace,
-                PushTimeoutException,
-                HgmoInternalServerError,
+                SCMLostPushRace,
+                SCMPushTimeoutException,
+                SCMInternalServerError,
             ) as e:
                 message = (
                     f"`Temporary error ({e.__class__}) "
@@ -387,7 +433,7 @@ class LandingWorker(Worker):
 
         job.transition_status(LandingJobAction.LAND, commit_id=commit_id)
 
-        mots_path = Path(repo.hg.path) / "mots.yaml"
+        mots_path = Path(repo.path) / "mots.yaml"
         if mots_path.exists():
             logger.info(f"{mots_path} found, setting reviewer data.")
             job.set_landed_reviewers(mots_path)
@@ -401,7 +447,7 @@ class LandingWorker(Worker):
                 # If we just landed an uplift, update the relevant bugs as appropriate.
                 update_bugs_for_uplift(
                     repo.short_name,
-                    repo.hg.read_checkout_file("config/milestone.txt"),
+                    scm.read_checkout_file("config/milestone.txt"),
                     repo.milestone_tracking_flag_template,
                     bug_ids,
                 )
@@ -416,3 +462,138 @@ class LandingWorker(Worker):
             self.phab_trigger_repo_update(repo.phab_identifier)
 
         return True
+
+    def apply_autoformatting(
+        self,
+        scm: AbstractSCM,
+        landoini_config: Optional[configparser.ConfigParser],
+        bug_ids: list[str],
+        changeset_titles: list[str],
+    ) -> Optional[list[str]]:
+        try:
+            self.format_stack(landoini_config, scm.path)
+        except AutoformattingException as exc:
+            logger.warning("Failed to format the stack.")
+            logger.exception(exc)
+            raise exc
+
+        try:
+            replacements = self.commit_autoformatting_changes(
+                scm, len(changeset_titles), bug_ids
+            )
+        except SCMException as exc:
+            msg = "Failed to create an autoformat commit."
+            logger.warning(msg)
+            logger.exception(exc)
+            raise AutoformattingException(msg, exc.out, exc.err) from exc
+
+        return replacements
+
+    def format_stack(
+        self, landoini_config: configparser.ConfigParser, repo_path: str
+    ) -> None:
+        """Format the patch stack for landing.
+
+        Return a list of `str` commit hashes where autoformatting was applied,
+        or `None` if autoformatting was skipped. Raise `AutoformattingException`
+        if autoformatting failed for the current job.
+        """
+        # If `mach` is not at the root of the repo, we can't autoformat.
+        if not self.mach_path(repo_path):
+            logger.info("No `./mach` in the repo - skipping autoformat.")
+            return None
+
+        try:
+            self.run_code_formatters(repo_path)
+        except subprocess.CalledProcessError as exc:
+            logger.warning("Failed to run automated code formatters.")
+            logger.exception(exc)
+
+            raise AutoformattingException(
+                "Failed to run automated code formatters.",
+                details=exc.stdout,
+            )
+
+    def run_code_formatters(self, path: str) -> str:
+        """Run automated code formatters, returning the output of the process.
+
+        Changes made by code formatters are applied to the working directory and
+        are not committed into version control.
+        """
+        return self.run_mach_command(path, ["lint", "--fix", "--outgoing"])
+
+    def run_mach_bootstrap(self, path: str) -> str:
+        """Run `mach bootstrap` to configure the system for code formatting."""
+        return self.run_mach_command(
+            path,
+            [
+                "bootstrap",
+                "--no-system-changes",
+                "--application-choice",
+                "browser",
+            ],
+        )
+
+    def run_mach_command(self, path: str, args: list[str]) -> str:
+        """Run a command using the local `mach`, raising if it is missing."""
+        if not self.mach_path(path):
+            raise Exception("No `mach` found in local repo!")
+
+        # Convert to `str` here so we can log the mach path.
+        command_args = [str(self.mach_path(path))] + args
+
+        try:
+            logger.info("running mach command", extra={"command": command_args})
+
+            output = subprocess.run(
+                command_args,
+                capture_output=True,
+                check=True,
+                cwd=path,
+                encoding="utf-8",
+                universal_newlines=True,
+            )
+
+            logger.info(
+                "output from mach command",
+                extra={
+                    "output": output.stdout,
+                },
+            )
+
+            return output.stdout
+
+        except subprocess.CalledProcessError as exc:
+            logger.exception(
+                "Failed to run mach command",
+                extra={
+                    "command": command_args,
+                    "err": exc.stderr,
+                    "output": exc.stdout,
+                },
+            )
+
+            raise exc
+
+    def mach_path(self, path: str) -> Optional[Path]:
+        """Return the `Path` to `mach`, if it exists."""
+        mach_path = Path(path) / "mach"
+        if mach_path.exists():
+            return mach_path
+
+    def commit_autoformatting_changes(
+        self, scm: AbstractSCM, stack_size: int, bug_ids: list[str]
+    ) -> Optional[list[str]]:
+        """Call the SCM implementation to commit pending autoformatting changes.
+
+        If the `stack_size` is 1, the tip commit will get amended. Otherwise, a new
+        commit will be created on top of the stack (referencing all bugs involved in the
+        stack).
+        """
+        # When the stack is just a single commit, amend changes into it.
+        if stack_size == 1:
+            return scm.format_stack_amend()
+
+        # If the stack is more than a single commit, create an autoformat commit.
+        bug_string = bug_list_to_commit_string(bug_ids)
+        return scm.format_stack_tip(AUTOFORMAT_COMMIT_MESSAGE.format(bugs=bug_string))

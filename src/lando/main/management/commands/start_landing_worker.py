@@ -6,7 +6,8 @@ from argparse import ArgumentParser
 from django.core.management.base import BaseCommand, CommandError
 
 from lando.api.legacy.workers.landing_worker import LandingWorker
-from lando.main.models import Repo, Worker
+from lando.main.models import Worker
+from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 
 logger = logging.getLogger(__name__)
 
@@ -33,33 +34,36 @@ class Command(BaseCommand):
 
     def handle_hg(self, worker: Worker):
         """Handle the starting of the Mercurial landing worker ("hg-landing-worker")."""
+        self._handle(worker, SCM_TYPE_HG)
+
+    def handle_git(self, worker: Worker):
+        """Handle the starting of the Git landing worker ("git-landing-worker")."""
+        self._handle(worker, SCM_TYPE_GIT)
+
+    def _handle(self, worker: Worker, repo_type: str):
         # Clone or update repos upon worker startup.
         for repo in worker.enabled_repos:
             # Check if any associated repos are unsupported, raise exception if so.
-            repo.raise_for_unsupported_repo_scm(repo.HG)
-            repo.hg_repo_prepare()
+            repo.raise_for_unsupported_repo_scm(repo_type)
+            repo.scm.prepare_repo(repo.pull_path)
 
         # Continue with starting the worker.
         try:
-            worker = LandingWorker(worker.enabled_repos)
+            landing_worker = LandingWorker(worker.enabled_repos)
         except ConnectionError as e:
             raise CommandError(e)
 
         logger.info(f"Starting {worker}...")
         try:
-            worker.start()
+            landing_worker.start()
         finally:
             logger.info(f"{worker} shut down.")
-
-    def handle_git(self, worker: Worker):
-        """Handle the starting of the Git landing worker ("git-landing-worker")."""
-        raise CommandError("Git landing worker is Not yet implemented")
 
     def handle(self, name: str, **options):
         """Select a landing worker based on provided argument and start it up."""
         handlers = {
-            Repo.HG: self.handle_hg,
-            Repo.GIT: self.handle_git,
+            SCM_TYPE_HG: self.handle_hg,
+            SCM_TYPE_GIT: self.handle_git,
         }
 
         worker = self.get_worker(name)

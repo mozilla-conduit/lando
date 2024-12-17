@@ -21,6 +21,7 @@ from lando.main.models.landing_job import (
     add_job_with_revisions,
 )
 from lando.main.models.revision import Revision
+from lando.main.scm import SCM_TYPE_HG
 from lando.utils.phabricator import PhabricatorRevisionStatus, ReviewerStatus
 from lando.utils.tasks import admin_remove_phab_project
 
@@ -236,7 +237,7 @@ def test_dryrun_codefreeze_warn(
     )
     monkeypatch.setattr("lando.api.legacy.transplants.datetime", codefreeze_datetime())
     mc_repo = Repo.objects.create(
-        scm=Repo.HG,
+        scm_type=SCM_TYPE_HG,
         name="mozilla-conduit",
         url="https://hg.test/mozilla-conduit",
         required_permission=SCM_CONDUIT,
@@ -294,7 +295,7 @@ def test_dryrun_outside_codefreeze(
     )
     monkeypatch.setattr("lando.api.legacy.transplants.datetime", codefreeze_datetime())
     mc_repo = Repo.objects.create(
-        scm=Repo.HG,
+        scm_type=SCM_TYPE_HG,
         name="mozilla-conduit",
         url="https://hg.test/mozilla-conduit",
         required_permission=SCM_CONDUIT,
@@ -715,7 +716,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
 ):
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo.objects.create(
-        scm=Repo.HG,
+        scm_type=SCM_TYPE_HG,
         name="mozilla-central",
         url=hg_server,
         required_permission=SCM_LEVEL_3,
@@ -729,7 +730,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     # First, mock path existance.
     mock_path = MagicMock()
     monkeypatch.setattr("lando.api.legacy.workers.landing_worker.Path", mock_path)
-    (mock_path(repo.hg.path) / "mots.yaml").exists.return_value = True
+    (mock_path(repo.path) / "mots.yaml").exists.return_value = True
 
     # Then mock the directory/file config.
     mock_Directory = MagicMock()

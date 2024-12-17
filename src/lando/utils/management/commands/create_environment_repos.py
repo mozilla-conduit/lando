@@ -87,7 +87,7 @@ REPOS = {
             "name": "vct",
             "url": "https://hg.mozilla.org/conduit-testing/vct",
             "required_permission": SCM_CONDUIT,
-            "push_bookmark": "@",
+            "push_target": "@",
         },
         # Use real `try` for testing since `try` is a testing environment anyway.
         {
@@ -129,7 +129,7 @@ REPOS = {
             "name": "version-control-tools",
             "url": "https://hg.mozilla.org/hgcustom/version-control-tools",
             "required_permission": SCM_VERSIONCONTROL,
-            "push_bookmark": "@",
+            "push_target": "@",
         },
         {
             "name": "build-tools",

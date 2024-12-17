@@ -3,6 +3,7 @@ import json
 import pytest
 
 from lando.main.models import LandingJob, LandingJobStatus, Repo
+from lando.main.scm import SCM_TYPE_HG
 
 
 @pytest.fixture
@@ -122,7 +123,7 @@ def test_cancel_landing_job_fails_bad_input(
 
 
 def test_landing_job_acquire_job_job_queue_query(db, mocked_repo_config):
-    REPO = Repo.objects.create(name="test-repo", scm=Repo.HG)
+    REPO = Repo.objects.create(name="test-repo", scm_type=SCM_TYPE_HG)
     jobs = [
         LandingJob(
             status=LandingJobStatus.SUBMITTED,
