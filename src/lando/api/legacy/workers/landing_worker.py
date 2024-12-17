@@ -390,11 +390,12 @@ class LandingWorker(Worker):
             ]
 
             # Run automated code formatters if enabled.
-            if repo.autoformat_enabled:
-                if message := self.autoformat(job, scm, bug_ids, changeset_titles):
-                    job.transition_status(LandingJobAction.FAIL, message=message)
-                    self.notify_user_of_landing_failure(job)
-                    return False
+            if repo.autoformat_enabled and (
+                message := self.autoformat(job, scm, bug_ids, changeset_titles)
+            ):
+                job.transition_status(LandingJobAction.FAIL, message=message)
+                self.notify_user_of_landing_failure(job)
+                return False
 
             # Get the changeset hash of the first node.
             commit_id = scm.head_ref()
