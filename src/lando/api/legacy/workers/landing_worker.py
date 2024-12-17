@@ -404,7 +404,7 @@ class LandingWorker(Worker):
             try:
                 scm.push(
                     repo.push_path,
-                    target=repo.push_target,
+                    push_target=repo.push_target,
                     force_push=repo.force_push,
                 )
             except (
