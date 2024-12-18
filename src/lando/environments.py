@@ -28,11 +28,6 @@ class Environment(StrEnum):
         return self != self.production
 
     @property
-    def is_production(self) -> bool:
-        """Returns True if this is a production environment."""
-        return self == self.production
-
-    @property
     def is_remote(self) -> bool:
         """Returns True if this is a remote environment."""
         return self in (self.development, self.staging, self.production)
