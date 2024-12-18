@@ -27,7 +27,6 @@ help:
 	@echo "    upgrade-requirements upgrade packages in requirements.txt"
 	@echo "    add-requirements     update requirements.txt with new requirements"
 	@echo "    attach               attach for debugging (ctrl-p ctrl-q to detach)"
-	@echo
 	@echo "    test-use-suite       run the testsuite using the conduit-suite environment"
 	@echo "    test-use-local       run the testsuite using the local environment"
 
