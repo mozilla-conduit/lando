@@ -18,7 +18,6 @@ from lando.main.scm import (
     TreeClosed,
     hglib,
 )
-from lando.main.scm.abstract_scm import AbstractSCM
 
 
 def test_integrated_hgrepo_clean_repo(hg_clone):
@@ -157,13 +156,15 @@ def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
 
 
 @pytest.mark.parametrize(
-    "name, patch",
+    "name, patch, expected_log",
     (
-        ("normal", PATCH_NORMAL),
-        ("unicode", PATCH_UNICODE),
+        ("normal", PATCH_NORMAL, ""),
+        ("unicode", PATCH_UNICODE, "こんにちは"),
     ),
 )
-def test_integrated_hgrepo_patch_success(name, patch, hg_clone):
+def test_integrated_hgrepo_patch_success(
+    name: str, patch: str, expected_log: str, hg_clone
+):
     repo = HgSCM(hg_clone.strpath)
 
     with repo.for_pull():
@@ -174,10 +175,14 @@ def test_integrated_hgrepo_patch_success(name, patch, hg_clone):
             ph.get_header("User"),
             ph.get_header("Date"),
         )
+
         # Commit created.
         assert repo.run_hg(
             ["outgoing"]
         ), f"No outgoing commit after {name} patch has been applied"
+
+        log_output = repo.run_hg(["log"])
+        assert expected_log in log_output.decode("utf-8")
 
 
 def test_integrated_hgrepo_patch_hgimport_fail_success(monkeypatch, hg_clone):
@@ -270,16 +275,16 @@ def test_hgrepo_request_user(hg_clone):
 
 
 @pytest.mark.parametrize(
-    "scm,repo_fixture_name,expected",
+    "repo_path,expected",
     (
-        (HgSCM, "hg_clone", True),
-        (HgSCM, "tmpdir", False),
+        ("", True),
+        ("/", False),
     ),
 )
-def test_repo_is_supported(
-    scm: AbstractSCM, repo_fixture_name: str, expected: bool, request
-):
-    repo = request.getfixturevalue(repo_fixture_name)
+def test_repo_is_supported(repo_path: str, expected: bool, hg_clone):
+    scm = HgSCM
+    if not repo_path:
+        repo_path = hg_clone.strpath
     assert (
-        scm.repo_is_supported(repo) == expected
-    ), f"{scm} did not correctly report support for {repo.str.path}"
+        scm.repo_is_supported(repo_path) == expected
+    ), f"{scm} did not correctly report support for {repo_path}"

@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 from lando.environments import Environment
 from lando.main.models import Repo, Worker
-from lando.main.scm import SCM_GIT, SCM_HG
+from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 
 
 class Command(BaseCommand):
@@ -15,8 +15,8 @@ class Command(BaseCommand):
         """Ensure a git and an hg worker exist on the local environment."""
         # Set up two workers, one for each SCM.
         workers = {
-            SCM_HG: None,
-            SCM_GIT: None,
+            SCM_TYPE_HG: None,
+            SCM_TYPE_GIT: None,
         }
 
         for worker_scm in workers:
@@ -33,8 +33,10 @@ class Command(BaseCommand):
 
         for repo in Repo.objects.all():
             # Associate all repos with applicable worker.
-            self.stdout.write(f"Adding {repo} ({repo.scm}) to {workers[repo.scm]}.")
-            workers[repo.scm].applicable_repos.add(repo)
+            self.stdout.write(
+                f"Adding {repo} ({repo.scm_type}) to {workers[repo.scm_type]}."
+            )
+            workers[repo.scm_type].applicable_repos.add(repo)
         self.stdout.write(
             self.style.SUCCESS(
                 'Workers initialized ("hg" and "git"). '

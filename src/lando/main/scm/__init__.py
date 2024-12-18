@@ -1,7 +1,7 @@
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.consts import (
-    SCM_GIT,
-    SCM_HG,
+    SCM_TYPE_GIT,
+    SCM_TYPE_HG,
 )
 from lando.main.scm.exceptions import (
     AutoformattingException,
@@ -25,7 +25,7 @@ from lando.main.scm.hg import (
 )
 
 # These can only be determined when all the subclasses of the AbstractSCM have been defined.
-SCM_CHOICES = {
+SCM_TYPE_CHOICES = {
     klass.scm_type(): klass.scm_name() for klass in AbstractSCM.__subclasses__()
 }
 SCM_IMPLEMENTATIONS = {
@@ -36,10 +36,10 @@ __all__ = [
     # abstract_scm
     "AbstractSCM",
     # consts
-    "SCM_HG",
-    "SCM_GIT",
+    "SCM_TYPE_HG",
+    "SCM_TYPE_GIT",
     # consts (built up)
-    "SCM_CHOICES",
+    "SCM_TYPE_CHOICES",
     "SCM_IMPLEMENTATIONS",
     # exceptions
     "SCMException",

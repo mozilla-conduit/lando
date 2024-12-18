@@ -1,2 +1,2 @@
-SCM_GIT = "git"
-SCM_HG = "hg"
+SCM_TYPE_GIT = "git"
+SCM_TYPE_HG = "hg"

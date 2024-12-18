@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 class AbstractSCM:
-    """An abstract class defining the interface a VCS needs to expose use by the Repo and LandingWorkers."""
+    """An abstract class defining the interface an SCM needs to expose use by the Repo and LandingWorkers."""
 
     # The path to the repository.
     path: str
@@ -38,12 +38,16 @@ class AbstractSCM:
 
     @abstractmethod
     def push(
-        self, push_path: str, target: Optional[str] = None, force_push: bool = False
+        self,
+        push_path: str,
+        push_target: Optional[str] = None,
+        force_push: bool = False,
     ):
         """Push local code to the remote repository.
 
         Parameters:
-            push_path (str): The path to the repository where changes will be pushed.
+            push_path (str): The path to the repository where changes will be pushed. It
+            will remain unspecified if None or empty string.
             target (Optional[str]): The target branch or reference to push to. Defaults to None.
             force_push (bool): If True, force the push even if it results in a non-fast-forward update. Defaults to False.
 
@@ -73,13 +77,13 @@ class AbstractSCM:
     def apply_patch(
         self, diff: str, commit_description: str, commit_author: str, commit_date: str
     ):
-        """Apply the given patch to the current repository
+        """Apply the given patch to the current repository.
 
         Args:
-            diff (str): A unified diff representation of the patch
-            commit_description (str): The commit message
-            commit_author (str): The commit author
-            commit_date (str): The commit date
+            diff (str): A unified diff representation of the patch.
+            commit_description (str): The commit message.
+            commit_author (str): The commit author.
+            commit_date (str): The commit date.
 
         Returns:
             None
@@ -149,12 +153,12 @@ class AbstractSCM:
     @property
     @abstractmethod
     def repo_is_initialized(self) -> bool:
-        """Determine whether the target repository is initialised"""
+        """Determine whether the target repository is initialised."""
 
     @classmethod
     @abstractmethod
     def repo_is_supported(cls, path: str) -> bool:
-        """Determine wether the target repository is supported by this concrete implementation"""
+        """Determine wether the target repository is supported by this concrete implementation."""
 
     @abstractmethod
     def format_stack_amend(self) -> Optional[list[str]]:
@@ -169,6 +173,3 @@ class AbstractSCM:
 
         Returns a list containing a single string representing the ID of the newly created commit.
         """
-
-
-SCM_CHOICES = {klass.scm_type: klass for klass in AbstractSCM.__subclasses__()}

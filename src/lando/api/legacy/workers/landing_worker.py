@@ -222,6 +222,58 @@ class LandingWorker(Worker):
 
         return failed_paths, reject_paths
 
+    def autoformat(
+        self,
+        job: LandingJob,
+        scm: AbstractSCM,
+        bug_ids: list[str],
+        changeset_titles: list[str],
+    ) -> Optional[str]:
+        """
+        Determine and apply the repo's autoformatting rules.
+
+        If no `.lando.ini` configuration can be found in the repo, autoformatting is skipped with a warning, but returns a success status.
+
+        Returns: Optional[str]
+            None: no error
+            str: error message
+        """
+        # Load repo-specific configuration.
+        try:
+            lando_ini_contents = scm.read_checkout_file(".lando.ini")
+        except ValueError:
+            logger.warning(
+                "No .lando.ini configuration found in repo, skipping autoformatting"
+            )
+            # Not a failure per se.
+            return
+
+        landoini_config = read_lando_config(lando_ini_contents)
+
+        try:
+            replacements = self.apply_autoformatting(
+                scm,
+                landoini_config,
+                bug_ids,
+                changeset_titles,
+            )
+        except AutoformattingException as exc:
+            message = (
+                "Lando failed to format your patch for conformity with our "
+                "formatting policy. Please see the details below.\n\n"
+                f"{exc.details()}"
+            )
+
+            logger.exception(message)
+
+            return message
+
+        # If autoformatting added any changesets, note those in the job.
+        if replacements:
+            job.formatted_replacements = replacements
+
+        return
+
     def run_job(self, job: LandingJob) -> bool:
         """Run a given LandingJob and return appropriate boolean state.
 
@@ -237,7 +289,7 @@ class LandingWorker(Worker):
             False: The job encountered a temporary failure and should be tried again.
         """
         repo: Repo = job.target_repo
-        scm = repo.get_scm()
+        scm = repo.scm
 
         if not self.treestatus_client.is_open(repo.tree):
             job.transition_status(
@@ -277,6 +329,7 @@ class LandingWorker(Worker):
                 # stored in the job, we should read the revision's metadata (and
                 # move to only store the diff in the patch_string, rather than an
                 # export).
+                # https://bugzilla.mozilla.org/show_bug.cgi?id=1936171
                 patch_helper = HgPatchHelper(StringIO(revision.patch_string))
                 if not patch_helper.diff_start_line:
                     message = (
@@ -338,39 +391,12 @@ class LandingWorker(Worker):
             ]
 
             # Run automated code formatters if enabled.
-            if repo.autoformat_enabled:
-                # Load repo-specific configuration
-                lando_ini_contents = None
-                try:
-                    lando_ini_contents = scm.read_checkout_file(".lando.ini")
-                except ValueError:
-                    pass
-                landoini_config = read_lando_config(lando_ini_contents)
-
-                try:
-                    replacements = self.apply_autoformatting(
-                        job,
-                        scm,
-                        landoini_config,
-                        bug_ids,
-                        changeset_titles,
-                    )
-                except AutoformattingException as exc:
-                    message = (
-                        "Lando failed to format your patch for conformity with our "
-                        "formatting policy. Please see the details below.\n\n"
-                        f"{exc.details()}"
-                    )
-
-                    logger.exception(message)
-
-                    job.transition_status(LandingJobAction.FAIL, message=message)
-                    self.notify_user_of_landing_failure(job)
-                    return False
-
-                # If autoformatting added any changesets, note those in the job.
-                if replacements:
-                    job.formatted_replacements = replacements
+            if repo.autoformat_enabled and (
+                message := self.autoformat(job, scm, bug_ids, changeset_titles)
+            ):
+                job.transition_status(LandingJobAction.FAIL, message=message)
+                self.notify_user_of_landing_failure(job)
+                return False
 
             # Get the changeset hash of the first node.
             commit_id = scm.head_ref()
@@ -379,7 +405,7 @@ class LandingWorker(Worker):
             try:
                 scm.push(
                     repo.push_path,
-                    target=repo.push_target,
+                    push_target=repo.push_target,
                     force_push=repo.force_push,
                 )
             except (
@@ -440,11 +466,10 @@ class LandingWorker(Worker):
 
     def apply_autoformatting(
         self,
-        job: LandingJob,
-        scm,
-        landoini_config,
-        bug_ids,
-        changeset_titles,
+        scm: AbstractSCM,
+        landoini_config: Optional[configparser.ConfigParser],
+        bug_ids: list[str],
+        changeset_titles: list[str],
     ) -> Optional[list[str]]:
         try:
             self.format_stack(landoini_config, scm.path)
@@ -466,7 +491,7 @@ class LandingWorker(Worker):
         return replacements
 
     def format_stack(
-        self, landoini_config: Optional[configparser.ConfigParser], repo_path: str
+        self, landoini_config: configparser.ConfigParser, repo_path: str
     ) -> None:
         """Format the patch stack for landing.
 
@@ -474,10 +499,6 @@ class LandingWorker(Worker):
         or `None` if autoformatting was skipped. Raise `AutoformattingException`
         if autoformatting failed for the current job.
         """
-        # Disable autoformatting if `.lando.ini` is missing or not enabled.
-        if not landoini_config:
-            return None
-
         # If `mach` is not at the root of the repo, we can't autoformat.
         if not self.mach_path(repo_path):
             logger.info("No `./mach` in the repo - skipping autoformat.")
@@ -494,7 +515,7 @@ class LandingWorker(Worker):
                 details=exc.stdout,
             )
 
-    def run_code_formatters(self, path) -> str:
+    def run_code_formatters(self, path: str) -> str:
         """Run automated code formatters, returning the output of the process.
 
         Changes made by code formatters are applied to the working directory and
@@ -574,9 +595,6 @@ class LandingWorker(Worker):
         if stack_size == 1:
             return scm.format_stack_amend()
 
-        else:
-            # If the stack is more than a single commit, create an autoformat commit.
-            bug_string = bug_list_to_commit_string(bug_ids)
-            return scm.format_stack_tip(
-                AUTOFORMAT_COMMIT_MESSAGE.format(bugs=bug_string)
-            )
+        # If the stack is more than a single commit, create an autoformat commit.
+        bug_string = bug_list_to_commit_string(bug_ids)
+        return scm.format_stack_tip(AUTOFORMAT_COMMIT_MESSAGE.format(bugs=bug_string))

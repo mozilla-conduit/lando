@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import ContextManager, Optional
 
-from lando.main.scm.consts import SCM_GIT
+from lando.main.scm.consts import SCM_TYPE_GIT
 from lando.main.scm.exceptions import SCMException
 
 from .abstract_scm import AbstractSCM
@@ -36,7 +36,7 @@ class GitSCM(AbstractSCM):
     @classmethod
     def scm_type(cls):
         """Return a string identifying the supported SCM."""
-        return SCM_GIT
+        return SCM_TYPE_GIT
 
     @classmethod
     def scm_name(cls):
@@ -44,59 +44,34 @@ class GitSCM(AbstractSCM):
         return "Git"
 
     def clone(self, source: str):
-        """Clone a repository from a source.
-        Args:
-            source: The source to clone the repository from.
-        Returns:
-            None
-        """
+        """Clone a repository from a source."""
         # When cloning, self.path doesn't exist yet, so we need to use another CWD.
         self._git_run("clone", source, self.path, cwd="/")
 
     def push(
-        self, push_path: str, target: Optional[str] = None, force_push: bool = False
+        self,
+        push_path: str,
+        push_target: Optional[str] = None,
+        force_push: bool = False,
     ):
-        """Push local code to the remote repository.
-
-        Parameters:
-            push_path (str): The path to the repository where changes will be pushed.
-            target (Optional[str]): The target branch or reference to push to. Defaults to None.
-            force_push (bool): If True, force the push even if it results in a non-fast-forward update. Defaults to False.
-
-        Returns:
-            None
-        """
+        """Push local code to the remote repository."""
         command = ["push"]
         if force_push:
             command += ["--force"]
         command += [push_path]
-        if target:
-            command += [f"HEAD:{target}"]
+        if push_target:
+            command += [f"HEAD:{push_target}"]
         self._git_run(*command, cwd=self.path)
 
     def last_commit_for_path(self, path: str) -> str:
-        """Find last commit to touch a path.
-
-        Args:
-            path (str): The specific path within the repository.
-
-        Returns:
-            str: The commit id
-        """
+        """Find last commit to touch a path."""
         command = ["log", "--max-count=1", "--format=%H", "--", path]
         return self._git_run(*command, cwd=self.path)
 
     def apply_patch(
         self, diff: str, commit_description: str, commit_author: str, commit_date: str
     ):
-        """Apply the given patch to the current repository
-
-        Args:
-            patch_buf (StringIO): The patch to apply
-
-        Returns:
-            None
-        """
+        """Apply the given patch to the current repository."""
         f_msg = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
         f_diff = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
         with f_msg, f_diff:
@@ -129,11 +104,7 @@ class GitSCM(AbstractSCM):
 
     @contextmanager
     def for_push(self, requester_email: str) -> ContextManager:
-        """Context manager to prepare the repo with the correct environment variables set for pushing.
-
-        Args:
-            requester_email (str)
-        """
+        """Context manager to prepare the repo with the correct environment variables set for pushing."""
         # We set the committer name to the requester's _email_ as this is the only piece
         # of information about the user that we are comfortable making public. Names in
         # the User objects are coming from LDAP, and may not be acceptable to use
@@ -154,11 +125,7 @@ class GitSCM(AbstractSCM):
         return self._git_run("rev-parse", "HEAD", cwd=self.path)
 
     def changeset_descriptions(self) -> list[str]:
-        """Retrieve the descriptions of commits in the repository.
-
-        Returns:
-            list[str]: A list of first lines of changeset descriptions.
-        """
+        """Retrieve the descriptions of commits in the repository."""
         command = ["log", "--format=%s", "@{u}.."]
         return self._git_run(*command, cwd=self.path).splitlines()
 
@@ -167,13 +134,6 @@ class GitSCM(AbstractSCM):
 
         This method uses the Git commands to update the repository
         located at the given pull path to the specified target changeset.
-
-        Args:
-            pull_path (str): The path to pull from.
-            target_cset (str): The target changeset to update the repository to.
-
-        Returns:
-            str: The target changeset
         """
         branch = target_cset or self.default_branch
         self.clean_repo()
@@ -195,21 +155,17 @@ class GitSCM(AbstractSCM):
         return [self.get_current_node()]
 
     def format_stack_tip(self, commit_message: str) -> Optional[list[str]]:
-        """Add an autoformat commit to the top of the patch stack.
-
-        Return the commit hash of the autoformat commit as a `str`,
-        or return `None` if autoformatting made no changes.
-        """
+        """Add an autoformat commit to the top of the patch stack."""
         self._git_run("commit", "--all", "--message", commit_message, cwd=self.path)
         return [self.get_current_node()]
 
     def get_current_node(self) -> str:
-        """Return the commit_id of the tip of the current branch"""
+        """Return the commit_id of the tip of the current branch."""
         return self._git_run("rev-parse", "HEAD", cwd=self.path)
 
     @property
     def repo_is_initialized(self) -> bool:
-        """Determine whether the target repository is initialised"""
+        """Determine whether the target repository is initialised."""
         if not Path(self.path).exists():
             return False
 
@@ -222,7 +178,7 @@ class GitSCM(AbstractSCM):
 
     @classmethod
     def repo_is_supported(cls, path: str) -> bool:
-        """Determine wether the target repository is supported by this concrete implementation"""
+        """Determine wether the target repository is supported by this concrete implementation."""
         try:
             cls._git_run("ls-remote", path)
         except SCMException:

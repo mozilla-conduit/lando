@@ -3,10 +3,14 @@ DOCKER := $(shell which docker)
 DOCKER_COMPOSE := ${DOCKER} compose
 ARGS_TEST ?=
 
-ifeq ($(INSUITE), 1)
+SUITE_STAMP=.test-use-suite
+
+INSUITE=$(shell cat ${SUITE_STAMP} 2>/dev/null)
+
+ifeq (${INSUITE}, 1)
 	BASE_COMMAND := docker exec -ti suite-lando-1
 else
-	BASE_COMMAND := ${DOCKER_COMPOSE} run --remove-orphans --rm lando
+	BASE_COMMAND := ${DOCKER_COMPOSE} run --rm lando
 endif
 
 .PHONY: help
@@ -24,11 +28,20 @@ help:
 	@echo "    add-requirements     update requirements.txt with new requirements"
 	@echo "    attach               attach for debugging (ctrl-p ctrl-q to detach)"
 	@echo
-	@echo "Set INSUITE=1 to run commands inside the suite stack"
+	@echo "    test-use-suite       run the testsuite using the conduit-suite environment"
+	@echo "    test-use-local       run the testsuite using the local environment"
 
 .PHONY: test
 test:
 	$(BASE_COMMAND) lando tests $(ARGS_TESTS)
+
+.PHONY: test-use-suite
+test-use-suite:
+	echo 1 > ${SUITE_STAMP}
+
+.PHONY: test-use-local
+test-use-local:
+	rm -f ${SUITE_STAMP}
 
 .PHONY: format
 format:

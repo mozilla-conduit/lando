@@ -5,13 +5,13 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("main", "0010_alter_repo_system_path"),
+        ("main", "0012_rename_push_bookmark_repo_push_target"),
     ]
 
     operations = [
         migrations.AlterField(
             model_name="repo",
-            name="scm",
+            name="scm_type",
             field=models.CharField(
                 blank=True,
                 choices=[("git", "Git"), ("hg", "Mercurial")],

@@ -23,6 +23,22 @@ def test_GitSCM_is_initialised(git_repo: Path, path: str, expected: bool):
     assert scm.repo_is_initialized == expected
 
 
+@pytest.mark.parametrize(
+    "repo_path,expected",
+    (
+        ("", True),
+        ("/", False),
+    ),
+)
+def test_GitSCM_repo_is_supported(repo_path: str, expected: bool, git_repo: Path):
+    scm = GitSCM
+    if not repo_path:
+        repo_path = str(git_repo)
+    assert (
+        scm.repo_is_supported(repo_path) == expected
+    ), f"{scm} did not correctly report support for {repo_path}"
+
+
 def test_GitSCM_clone(git_repo: Path, tmp_path: Path, monkeypatch):
     clone_path = tmp_path / "repo_test_GitSCM_clone"
     scm = GitSCM(str(clone_path))

@@ -18,7 +18,7 @@ import hglib
 from django.conf import settings
 
 from lando.main.scm.abstract_scm import AbstractSCM
-from lando.main.scm.consts import SCM_HG
+from lando.main.scm.consts import SCM_TYPE_HG
 from lando.main.scm.exceptions import (
     PatchConflict,
     SCMException,
@@ -36,7 +36,9 @@ REQUEST_USER_ENV_VAR = "AUTOLAND_REQUEST_USER"
 
 class HgException(SCMException):
     """
-    A base exception allowing more precise exceptions to be thrown based on
+    A base exception for Mercurial error.
+
+    It contains logic allowing more precise exceptions to be thrown based on
     matching output or error text in another exception.
     """
 
@@ -172,7 +174,7 @@ class HgSCM(AbstractSCM):
     @classmethod
     def scm_type(cls):
         """Return a string identifying the supported SCM."""
-        return SCM_HG
+        return SCM_TYPE_HG
 
     @classmethod
     def scm_name(cls):
@@ -185,10 +187,12 @@ class HgSCM(AbstractSCM):
         return Path("/tmp/patch_rejects")
 
     def push(
-        self, push_path: str, target: Optional[str] = None, force_push: bool = False
+        self,
+        push_path: str,
+        push_target: Optional[str] = None,
+        force_push: bool = False,
     ) -> None:
-        bookmark = target
-        target = push_path
+        """Push local code to the remote repository."""
         if not os.getenv(REQUEST_USER_ENV_VAR):
             raise ValueError(f"{REQUEST_USER_ENV_VAR} not set while attempting to push")
 
@@ -197,17 +201,18 @@ class HgSCM(AbstractSCM):
         if force_push:
             extra_args.append("-f")
 
-        if bookmark is None:
-            self.run_hg(["push", "-r", "tip", target] + extra_args)
+        if not push_target:
+            self.run_hg(["push", "-r", "tip", push_path] + extra_args)
         else:
             self.run_hg_cmds(
                 [
-                    ["bookmark", bookmark],
-                    ["push", "-B", bookmark, target] + extra_args,
+                    ["bookmark", push_target],
+                    ["push", "-B", push_target, push_path] + extra_args,
                 ]
             )
 
     def last_commit_for_path(self, path: str) -> str:
+        """Find last commit to touch a path."""
         return self.run_hg(
             [
                 "log",
@@ -224,6 +229,7 @@ class HgSCM(AbstractSCM):
     def apply_patch(
         self, diff: str, commit_description: str, commit_author: str, commit_date: str
     ):
+        """Apply the given patch to the current repository."""
         # Import the diff to apply the changes then commit separately to
         # ensure correct parsing of the commit message.
         f_msg = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
@@ -303,6 +309,7 @@ class HgSCM(AbstractSCM):
             self._clean_and_close()
 
     def head_ref(self) -> str:
+        """Get the current revision_id."""
         return self.run_hg(["log", "-r", ".", "-T", "{node}"]).decode("utf-8")
 
     def changeset_descriptions(self) -> list[str]:
@@ -314,19 +321,21 @@ class HgSCM(AbstractSCM):
         )
 
     def update_repo(self, pull_path: str, target_cset: Optional[str] = None) -> str:
+        """Update the repository to the specified changeset."""
         source = pull_path
         # Obtain remote tip if not provided. We assume there is only a single head.
         if not target_cset:
-            target_cset = self.get_remote_head(source)
+            target_cset = self._get_remote_head(source)
 
         # Strip any lingering changes.
         self.clean_repo()
 
         # Pull from "upstream".
-        self.update_from_upstream(source, target_cset)
+        self._update_from_upstream(source, target_cset)
         return self.head_ref()
 
-    def update_from_upstream(self, source, remote_rev):
+    def _update_from_upstream(self, source, remote_rev):
+        """Update the repository to the specified changeset (not optional)."""
         # Pull and update to remote tip.
         cmds = [
             ["pull", source],
@@ -343,8 +352,8 @@ class HgSCM(AbstractSCM):
                     continue
                 raise e
 
-    def get_remote_head(self, source: str) -> bytes:
-        # Obtain remote head. We assume there is only a single head.
+    def _get_remote_head(self, source: str) -> bytes:
+        """Obtain remote head. We assume there is only a single head."""
         cset = self.run_hg(["identify", source, "-r", "default", "--id"]).strip()
 
         assert len(cset) == 12, cset
@@ -368,11 +377,7 @@ class HgSCM(AbstractSCM):
             raise exc
 
     def format_stack_tip(self, commit_message: str) -> Optional[list[str]]:
-        """Add an autoformat commit to the top of the patch stack.
-
-        Returns a list containing a single string representing the ID of the newly created commit.
-        """
-
+        """Add an autoformat commit to the top of the patch stack."""
         try:
             # Create a new commit.
             self.run_hg(
@@ -398,6 +403,7 @@ class HgSCM(AbstractSCM):
         return self.run_hg(["identify", "-r", ".", "-i"])
 
     def clone(self, source: str):
+        """Clone a repository from a source."""
         # Use of robustcheckout here would work, but is probably not worth
         # the hassle as most of the benefits come from repeated working
         # directory creation. Since this is a one-time clone and is unlikely
@@ -433,18 +439,23 @@ class HgSCM(AbstractSCM):
         return not returncode
 
     def run_hg_cmds(self, cmds: list[list[str]]) -> bytes:
+        """Run a list of Mercurial commands, and return the last result's output."""
         last_result = b""
         for cmd in cmds:
             last_result = self.run_hg(cmd)
         return last_result
 
     def run_hg(self, args: list[str]) -> bytes:
+        """Run a single Mercurial command, and return its output.
+
+        A specific HgException will be raised on error."""
         try:
             return self._run_hg(args)
         except hglib.error.CommandError as exc:
             raise HgException.from_hglib_error(exc) from exc
 
     def _run_hg(self, args: list[str]) -> bytes:
+        """Use hglib to run a Mercurial command, and return its output."""
         correlation_id = str(uuid.uuid4())
         logger.info(
             "running hg command",
@@ -487,11 +498,13 @@ class HgSCM(AbstractSCM):
         return out
 
     def _open(self):
+        """Initialiase hglib to run Mercurial commands."""
         self.hg_repo = hglib.open(
             self.path, encoding=self.ENCODING, configs=self._config_to_list()
         )
 
     def _config_to_list(self):
+        """Reformat the object's config, to a list of strings suitable for hglib"""
         return ["{}={}".format(k, v) for k, v in self.config.items() if v is not None]
 
     def _clean_and_close(self):
@@ -503,6 +516,7 @@ class HgSCM(AbstractSCM):
         self.hg_repo.close()
 
     def clean_repo(self, *, strip_non_public_commits: bool = True):
+        """Clean the local working copy from all extraneous files."""
         # Reset rejects directory
         if self.REJECTS_PATH.is_dir():
             shutil.rmtree(self.REJECTS_PATH)

@@ -11,13 +11,9 @@ from django.db import models
 
 from lando.main.models import BaseModel
 from lando.main.scm import (
-    SCM_CHOICES,
-    SCM_GIT,
-    SCM_HG,
     SCM_IMPLEMENTATIONS,
+    SCM_TYPE_CHOICES,
     AbstractSCM,
-    GitSCM,
-    HgSCM,
 )
 
 logger = logging.getLogger(__name__)
@@ -58,17 +54,12 @@ class Repo(BaseModel):
     def path(self) -> str:
         return str(self.system_path) or self.get_system_path()
 
-    @property
-    def push_target(self):
-        """The target branch or bookmark to push to."""
-        return self.push_bookmark or None
-
     # TODO: help text for fields below.
     name = models.CharField(max_length=255, unique=True)
     default_branch = models.CharField(max_length=255, default="main")
-    scm = models.CharField(
+    scm_type = models.CharField(
         max_length=3,
-        choices=SCM_CHOICES,
+        choices=SCM_TYPE_CHOICES,
         null=True,
         blank=True,
         default=None,
@@ -104,7 +95,12 @@ class Repo(BaseModel):
     is_phabricator_repo = models.BooleanField(default=True)
     milestone_tracking_flag_template = models.CharField(blank=True, default="")
     product_details_url = models.CharField(blank=True, default="")
-    push_bookmark = models.CharField(blank=True, default="")
+
+    # Ideally, we'd like the push_target to be nullable, but Django forms will not
+    # honour this, and instead put an empty string when blankable fields are left empty.
+    # We handle the case later in the code (namely in HgSCM.push), by treating the empty
+    # string as falsey.
+    push_target = models.CharField(blank=True, default="")
 
     @classmethod
     def get_mapping(cls) -> dict[str, "Repo"]:
@@ -113,15 +109,14 @@ class Repo(BaseModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def get_scm(self) -> AbstractSCM:
+    @property
+    def scm(self) -> AbstractSCM:
         """Return the SCM implementation associated with this Repository"""
         if not self._scm:
-            if self.scm == SCM_HG:
-                self._scm = HgSCM(self.path)
-            elif self.scm == SCM_GIT:
-                self._scm = GitSCM(self.path, self.default_branch)
+            if impl := SCM_IMPLEMENTATIONS.get(self.scm_type):
+                self._scm = impl(self.path)
             else:
-                raise Exception(f"Repository type not supported: {self.scm}")
+                raise Exception(f"Repository type not supported: {self.scm_type}")
         return self._scm
 
     def __str__(self):
@@ -137,7 +132,7 @@ class Repo(BaseModel):
 
     def raise_for_unsupported_repo_scm(self, supported_scm: str):
         """Raise a RepoError if the repo SCM does not match the supported SCM."""
-        if supported_scm != self.scm:
+        if supported_scm != self.scm_type:
             raise self._method_not_supported_for_repo_error
 
     def save(self, *args, **kwargs):
@@ -158,16 +153,14 @@ class Repo(BaseModel):
         if not self.commit_flags:
             self.commit_flags = []
 
-        if not self.scm:
-            self.scm = self._find_supporting_scm(self.pull_path)
+        if not self.scm_type:
+            self.scm_type = self._find_supporting_scm(self.pull_path)
 
         super().save(*args, **kwargs)
 
-    def _find_supporting_scm(self, pull_path) -> str:
+    def _find_supporting_scm(self, pull_path: str) -> str:
         """Loop through the supported SCM_IMPLEMENTATIONS and return a key representing
         the first SCM claiming to support the given pull_path.
-
-        A fallback is in place for SCM_GIT, which is not yet part of the SCM_IMPLEMENTATIONS.
         """
         for scm, impl in SCM_IMPLEMENTATIONS.items():
             if impl.repo_is_supported(pull_path):
