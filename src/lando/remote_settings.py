@@ -49,3 +49,4 @@ if Environment.is_production:
     EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
     EMAIL_USE_TLS = True
     EMAIL_USE_SSL = False
+    EMAIL_TIMEOUT = 60
