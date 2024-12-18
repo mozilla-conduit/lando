@@ -95,7 +95,7 @@ class GitSCM(AbstractSCM):
             ]
 
             for c in cmds:
-                self._git_run(c, cwd=self.path)
+                self._git_run(*c, cwd=self.path)
 
     @contextmanager
     def for_pull(self) -> ContextManager:
