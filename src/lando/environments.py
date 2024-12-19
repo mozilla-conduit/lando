@@ -31,3 +31,15 @@ class Environment(StrEnum):
     def is_remote(self) -> bool:
         """Returns True if this is a remote environment."""
         return self in (self.development, self.staging, self.production)
+
+    @property
+    def abbr(self) -> str:
+        """Returns the common abbreviation of the environment."""
+        mapping = {
+            self.test: "test",
+            self.local: "local",
+            self.development: "dev",
+            self.staging: "stage",
+            self.production: "prod",
+        }
+        return mapping[self]

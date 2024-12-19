@@ -2,6 +2,7 @@ import os
 
 from lando.main.logging import MozLogFormatter
 from lando.settings import *  # noqa: F403
+from lando.settings import ENVIRONMENT
 
 STORAGES = {
     "staticfiles": {
@@ -39,6 +40,8 @@ LOGGING = {
     "root": {"handlers": ["null"]},
     "disable_existing_loggers": True,
 }
+
+DEFAULT_FROM_EMAIL = f"mozphab-{ENVIRONMENT.abbr}@devsvc{ENVIRONMENT.abbr}.mozaws.net"
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = os.getenv("EMAIL_HOST")
