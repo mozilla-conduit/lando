@@ -15,6 +15,7 @@ from lando.main.models import (
     SCM_VERSIONCONTROL,
     Repo,
 )
+from lando.main.scm import GitSCM
 
 ENVIRONMENTS = [e for e in Environment if not e.is_test]
 
@@ -25,11 +26,15 @@ REPOS = {
             "name": "git-repo",
             "url": "https://github.com/zzzeid/test-repo.git",
             "required_permission": SCM_LEVEL_1,
+            "scm_type": GitSCM.scm_type(),
         },
         {
-            "name": "git-repo",
-            "url": "https://github.com/zzzeid/test-repo.git",
+            "name": "test-repo-git",
+            "url": "http://git.test/lando/test-repo-git",
+            "pull_path": "http://git.test/lando/test-repo-git",
+            "push_path": "ssh://git@git.test:/lando/test-repo-git.git",
             "required_permission": SCM_LEVEL_1,
+            "scm_type": GitSCM.scm_type(),
         },
         {
             "name": "test-repo",

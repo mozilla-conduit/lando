@@ -175,13 +175,14 @@ def test_integrated_hgrepo_patch_success(
             ph.get_header("User"),
             ph.get_header("Date"),
         )
-        # Commit created.
 
-        log_output = repo.run_hg(["log"])
-        assert expected_log in log_output.decode("utf-8")
+        # Commit created.
         assert repo.run_hg(
             ["outgoing"]
         ), f"No outgoing commit after {name} patch has been applied"
+
+        log_output = repo.run_hg(["log"])
+        assert expected_log in log_output.decode("utf-8")
 
 
 def test_integrated_hgrepo_patch_hgimport_fail_success(monkeypatch, hg_clone):
