@@ -129,7 +129,6 @@ class LandingWorker(Worker):
             job.requester_email, job.landing_job_identifier, job.error, job.id
         )
 
-    # XXX Not covered by tests
     def process_merge_conflict(
         self,
         exception: PatchConflict,
@@ -147,15 +146,14 @@ class LandingWorker(Worker):
 
         breakdown = {
             "revision_id": revision_id,
-            "content": None,
             "reject_paths": None,
         }
 
         breakdown["failed_paths"] = [
             {
                 "path": path[0],
-                "url": f"{repo.pull_path}/file/{path[1].decode('utf-8')}/{path[0]}",
-                "changeset_id": path[1].decode("utf-8"),
+                "url": f"{repo.pull_path}/file/{path[1]}/{path[0]}",
+                "changeset_id": path[1],
             }
             for path in failed_path_changesets
         ]
@@ -163,7 +161,7 @@ class LandingWorker(Worker):
         for path in reject_paths:
             reject = {"path": path}
             try:
-                with open(scm.REJECT_PATHS / repo.path[1:] / path, "r") as f:
+                with open(scm.reject_path() / repo.path[1:] / path, "r") as f:
                     reject["content"] = f.read()
             except Exception as e:
                 logger.exception(e)
