@@ -151,11 +151,11 @@ class LandingWorker(Worker):
 
         breakdown["failed_paths"] = [
             {
-                "path": path[0],
-                "url": f"{repo.pull_path}/file/{path[1]}/{path[0]}",
-                "changeset_id": path[1],
+                "path": path,
+                "url": f"{repo.pull_path}/file/{revision}/{path}",
+                "changeset_id": revision,
             }
-            for path in failed_path_changesets
+            for (path, revision) in failed_path_changesets
         ]
         breakdown["rejects_paths"] = {}
         for path in rejects_paths:
