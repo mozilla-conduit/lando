@@ -25,6 +25,7 @@ REPOS = {
             "name": "git-repo",
             "url": "https://github.com/zzzeid/test-repo.git",
             "required_permission": SCM_LEVEL_1,
+            "scm_type": "git",
         },
         {
             "name": "test-repo-git",
@@ -32,6 +33,7 @@ REPOS = {
             "pull_path": "http://git.test/lando/test-repo-git",
             "push_path": "ssh://git@git.test:/lando/test-repo-git.git",
             "required_permission": SCM_LEVEL_1,
+            "scm_type": "git",
         },
         {
             "name": "test-repo",
