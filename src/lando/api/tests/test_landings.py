@@ -457,6 +457,69 @@ def test_lose_push_race(
 
 
 @pytest.mark.django_db
+def test_merge_conflict(
+    hg_server,
+    hg_clone,
+    treestatusdouble,
+    monkeypatch,
+    create_patch_revision,
+    normal_patch,
+    caplog,
+):
+    treestatusdouble.open_tree("mozilla-central")
+    repo = Repo.objects.create(
+        scm_type=SCM_TYPE_HG,
+        name="mozilla-central",
+        url=hg_server,
+        required_permission=SCM_LEVEL_3,
+        push_path=hg_server,
+        pull_path=hg_server,
+        system_path=hg_clone.strpath,
+    )
+    job_params = {
+        "id": 1234,
+        "status": LandingJobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "target_repo": repo,
+        "attempts": 1,
+    }
+    job = add_job_with_revisions(
+        [
+            create_patch_revision(1, patch=PATCH_FORMATTED_2),
+        ],
+        **job_params,
+    )
+
+    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
+
+    # We don't care about repo update in this test, however if we don't mock
+    # this, the test will fail since there is no celery instance.
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
+        mock.MagicMock(),
+    )
+
+    assert worker.run_job(job)
+    assert job.status == LandingJobStatus.FAILED
+    assert "hunks FAILED" in caplog.text
+    assert job.error_breakdown, "No error breakdown added to job"
+    assert job.error_breakdown.get(
+        "reject_paths"
+    ), "Empty or missing reject information in error breakdown"
+    failed_paths = [p["path"] for p in job.error_breakdown["failed_paths"]]
+    assert set(failed_paths) == set(
+        job.error_breakdown["reject_paths"].keys()
+    ), "Mismatch between failed_paths and reject_paths"
+    for fp in failed_paths:
+        assert job.error_breakdown["reject_paths"][fp].get(
+            "path"
+        ), f"Empty or missing reject path for failed path {fp}"
+        assert job.error_breakdown["reject_paths"][fp].get(
+            "content"
+        ), f"Empty or missing reject content for failed path {fp}"
+
+
+@pytest.mark.django_db
 def test_failed_landing_job_notification(
     hg_server,
     hg_clone,
