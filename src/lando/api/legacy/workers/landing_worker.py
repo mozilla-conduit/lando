@@ -146,7 +146,6 @@ class LandingWorker(Worker):
 
         breakdown = {
             "revision_id": revision_id,
-            "content": None,
             "reject_paths": None,
         }
 
