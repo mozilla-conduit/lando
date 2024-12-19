@@ -62,8 +62,8 @@ class Command(BaseCommand):
     def handle(self, name: str, **options):
         """Select a landing worker based on provided argument and start it up."""
         handlers = {
-            SCM_TYPE_HG: self.handle_hg,
             SCM_TYPE_GIT: self.handle_git,
+            SCM_TYPE_HG: self.handle_hg,
         }
 
         worker = self.get_worker(name)

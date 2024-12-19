@@ -15,49 +15,52 @@ from lando.main.scm import (
     "git_returncode,hg_returncode,scm_type",
     ((255, 0, SCM_TYPE_HG), (0, 255, SCM_TYPE_GIT)),
 )
-@patch("lando.main.models.repo.HgSCM")
-@patch("lando.main.models.repo.subprocess")
+@patch("lando.main.scm.GitSCM")
+@patch("lando.main.scm.HgSCM")
+@pytest.mark.django_db(transaction=True)
 def test__models__Repo__scm(
-    subprocess,
     HgSCM,
+    GitSCM,
     monkeypatch,
     git_returncode,
     hg_returncode,
     scm_type,
-    db,
 ):
     repo_path = "some_repo"
-
-    def call(*args, **kwargs):
-        if args[0] == ["git", "ls-remote", repo_path]:
-            return git_returncode
-
-    subprocess.call.side_effect = call
 
     HgSCM.repo_is_supported = MagicMock(name="repo_is_supported")
     HgSCM.repo_is_supported.return_value = not hg_returncode
 
-    repo = Repo(pull_path=repo_path)
+    GitSCM.repo_is_supported = MagicMock(name="repo_is_supported")
+    GitSCM.repo_is_supported.return_value = not git_returncode
 
-    # Skip the GitSCM stub implementation
     monkeypatch.setattr(
-        "lando.main.models.repo.SCM_IMPLEMENTATIONS", {SCM_TYPE_HG: HgSCM}
+        "lando.main.models.repo.SCM_IMPLEMENTATIONS",
+        {
+            SCM_TYPE_GIT: GitSCM,
+            SCM_TYPE_HG: HgSCM,
+        },
     )
 
+    repo = Repo(pull_path=repo_path)
     repo.save()
 
     assert repo.scm_type == scm_type
 
 
 @pytest.mark.parametrize("scm_type,call_count", ((SCM_TYPE_HG, 0), (SCM_TYPE_GIT, 0)))
-@patch("lando.main.models.repo.subprocess")
+@patch("lando.main.scm.git.subprocess")
+@patch("lando.main.scm.hg.subprocess")
+@pytest.mark.django_db(transaction=True)
 def test__models__Repo__scm_not_calculated_when_preset(
-    subprocess, scm_type, call_count, db
+    hg_subprocess, git_subprocess, scm_type, call_count
 ):
+    subprocess_map = {SCM_TYPE_GIT: git_subprocess, SCM_TYPE_HG: hg_subprocess}
+    subprocess = subprocess_map[scm_type]
     repo_path = "some_hg_repo"
     repo = Repo(pull_path=repo_path, scm_type=scm_type)
     repo.save()
-    assert subprocess.call.call_count == call_count
+    assert subprocess.call.call_count == 0
 
 
 @pytest.mark.parametrize(

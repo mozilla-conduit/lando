@@ -1,6 +1,5 @@
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.consts import (
-    SCM_TYPE_CHOICES,
     SCM_TYPE_GIT,
     SCM_TYPE_HG,
 )
@@ -16,6 +15,7 @@ from lando.main.scm.exceptions import (
     TreeApprovalRequired,
     TreeClosed,
 )
+from lando.main.scm.git import GitSCM
 from lando.main.scm.hg import (
     REQUEST_USER_ENV_VAR,
     HgCommandError,
@@ -24,9 +24,12 @@ from lando.main.scm.hg import (
     hglib,
 )
 
+# These can only be determined when all the subclasses of the AbstractSCM have been defined.
+SCM_TYPE_CHOICES = {
+    klass.scm_type(): klass.scm_name() for klass in AbstractSCM.__subclasses__()
+}
 SCM_IMPLEMENTATIONS = {
-    # SCM_TYPE_GIT: GitSCM,
-    SCM_TYPE_HG: HgSCM,
+    klass.scm_type(): klass for klass in AbstractSCM.__subclasses__()
 }
 
 __all__ = [
@@ -49,6 +52,8 @@ __all__ = [
     "SCMPushTimeoutException",
     "TreeApprovalRequired",
     "TreeClosed",
+    # git
+    "GitSCM",
     # hg
     "hglib",
     "HgException",
