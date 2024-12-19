@@ -162,7 +162,7 @@ class LandingWorker(Worker):
         for path in reject_paths:
             reject = {"path": path}
             try:
-                with open(scm.REJECT_PATHS / repo.path[1:] / path, "r") as f:
+                with open(scm.reject_path() / repo.path[1:] / path, "r") as f:
                     reject["content"] = f.read()
             except Exception as e:
                 logger.exception(e)

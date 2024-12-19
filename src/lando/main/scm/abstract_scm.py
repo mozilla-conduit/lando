@@ -27,6 +27,11 @@ class AbstractSCM:
         """Return a _human-friendly_ string identifying the supported SCM (e.g.,
         `Mercurial`)."""
 
+    @classmethod
+    def reject_path(cls) -> Path:
+        """Return the path where the SCM stores reject files."""
+        return Path(".")
+
     @abstractmethod
     def clone(self, source: str):
         """Clone a repository from a source.
