@@ -182,7 +182,7 @@ class HgSCM(AbstractSCM):
         return "Mercurial"
 
     @classmethod
-    def reject_path(cls) -> Path:
+    def get_rejects_path(cls) -> Path:
         """A Path where this SCM stores reject from a failed patch application."""
         return Path("/tmp/patch_rejects")
 
@@ -518,18 +518,18 @@ class HgSCM(AbstractSCM):
     def clean_repo(self, *, strip_non_public_commits: bool = True):
         """Clean the local working copy from all extraneous files."""
         # Reset rejects directory
-        if self.reject_path().is_dir():
-            shutil.rmtree(self.reject_path())
-        self.reject_path().mkdir()
+        if self.get_rejects_path().is_dir():
+            shutil.rmtree(self.get_rejects_path())
+        self.get_rejects_path().mkdir()
 
         # Copy .rej files to a temporary folder.
         rejects = Path(f"{self.path}/").rglob("*.rej")
         for reject in rejects:
             os.makedirs(
-                self.reject_path().joinpath(reject.parents[0].as_posix()[1:]),
+                self.get_rejects_path().joinpath(reject.parents[0].as_posix()[1:]),
                 exist_ok=True,
             )
-            shutil.copy(reject, self.reject_path().joinpath(reject.as_posix()[1:]))
+            shutil.copy(reject, self.get_rejects_path().joinpath(reject.as_posix()[1:]))
 
         # Clean working directory.
         try:

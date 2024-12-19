@@ -28,7 +28,7 @@ class AbstractSCM:
         `Mercurial`)."""
 
     @classmethod
-    def reject_path(cls) -> Path:
+    def get_rejects_path(cls) -> Path:
         """Return the path where the SCM stores reject files."""
         return Path(".")
 

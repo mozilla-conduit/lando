@@ -76,7 +76,7 @@ class LandingJob(BaseModel):
     # Error details in a dictionary format, listing failed merges, etc...
     # E.g. {
     #    "failed_paths": [{"path": "...", "url": "..."}],
-    #    "reject_paths": [{"path": "...", "content": "..."}]
+    #    "rejects_paths": [{"path": "...", "content": "..."}]
     # }
     error_breakdown = models.JSONField(null=True, blank=True, default=dict)
 

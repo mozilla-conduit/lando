@@ -137,7 +137,7 @@ class LandingWorker(Worker):
         revision_id: int,
     ) -> dict[str, Any]:
         """Extract and parse merge conflict data from exception into a usable format."""
-        failed_paths, reject_paths = self.extract_error_data(str(exception))
+        failed_paths, rejects_paths = self.extract_error_data(str(exception))
 
         # Find last commits to touch each failed path.
         failed_path_changesets = [
@@ -146,7 +146,7 @@ class LandingWorker(Worker):
 
         breakdown = {
             "revision_id": revision_id,
-            "reject_paths": None,
+            "rejects_paths": None,
         }
 
         breakdown["failed_paths"] = [
@@ -157,17 +157,17 @@ class LandingWorker(Worker):
             }
             for path in failed_path_changesets
         ]
-        breakdown["reject_paths"] = {}
-        for path in reject_paths:
+        breakdown["rejects_paths"] = {}
+        for path in rejects_paths:
             reject = {"path": path}
             try:
-                with open(scm.reject_path() / repo.path[1:] / path, "r") as f:
+                with open(scm.get_rejects_path() / repo.path[1:] / path, "r") as f:
                     reject["content"] = f.read()
             except Exception as e:
                 logger.exception(e)
             # Use actual path of file to store reject data, by removing
             # `.rej` extension.
-            breakdown["reject_paths"][path[:-4]] = reject
+            breakdown["rejects_paths"][path[:-4]] = reject
         return breakdown
 
     @staticmethod
@@ -213,12 +213,12 @@ class LandingWorker(Worker):
 
         # TODO: capture reason for patch failure, e.g. deleting non-existing file, or
         # adding a pre-existing file, etc...
-        reject_paths = rejs_re.findall(exception)
+        rejects_paths = rejs_re.findall(exception)
 
         # Collect all failed paths by removing `.rej` extension.
-        failed_paths = [path[:-4] for path in reject_paths]
+        failed_paths = [path[:-4] for path in rejects_paths]
 
-        return failed_paths, reject_paths
+        return failed_paths, rejects_paths
 
     def autoformat(
         self,

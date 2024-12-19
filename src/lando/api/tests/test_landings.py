@@ -504,17 +504,17 @@ def test_merge_conflict(
     assert "hunks FAILED" in caplog.text
     assert job.error_breakdown, "No error breakdown added to job"
     assert job.error_breakdown.get(
-        "reject_paths"
+        "rejects_paths"
     ), "Empty or missing reject information in error breakdown"
     failed_paths = [p["path"] for p in job.error_breakdown["failed_paths"]]
     assert set(failed_paths) == set(
-        job.error_breakdown["reject_paths"].keys()
-    ), "Mismatch between failed_paths and reject_paths"
+        job.error_breakdown["rejects_paths"].keys()
+    ), "Mismatch between failed_paths and rejects_paths"
     for fp in failed_paths:
-        assert job.error_breakdown["reject_paths"][fp].get(
+        assert job.error_breakdown["rejects_paths"][fp].get(
             "path"
         ), f"Empty or missing reject path for failed path {fp}"
-        assert job.error_breakdown["reject_paths"][fp].get(
+        assert job.error_breakdown["rejects_paths"][fp].get(
             "content"
         ), f"Empty or missing reject content for failed path {fp}"
 
