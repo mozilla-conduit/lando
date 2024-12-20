@@ -15,8 +15,8 @@ class Command(BaseCommand):
         """Ensure a git and an hg worker exist on the local environment."""
         # Set up two workers, one for each SCM.
         workers = {
-            SCM_TYPE_HG: None,
             SCM_TYPE_GIT: None,
+            SCM_TYPE_HG: None,
         }
 
         for worker_scm in workers:
@@ -25,7 +25,7 @@ class Command(BaseCommand):
                 self.stdout.write(f"Found {worker} worker.")
             except Worker.DoesNotExist:
                 # Set the name of the worker to match the SCM.
-                worker = Worker(name=worker_scm)
+                worker = Worker(name=worker_scm, scm=worker_scm)
                 worker.save()
                 self.stdout.write(f"Created {worker} worker.")
             finally:
