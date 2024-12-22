@@ -145,10 +145,6 @@ class AbstractSCM:
             Path(self.path).mkdir(parents=True, exist_ok=True)
             logger.info(f"Cloning {self} from pull path.")
             self.clone(pull_path)
-        else:
-            with self.for_pull():
-                logger.info(f"Updating {self} from pull path.")
-                self.update_repo(pull_path)
 
     @property
     @abstractmethod
