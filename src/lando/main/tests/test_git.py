@@ -23,6 +23,14 @@ def test_GitSCM_is_initialised(git_repo: Path, path: str, expected: bool):
     assert scm.repo_is_initialized == expected
 
 
+def test_GitSCM_str(git_repo: Path):
+    path = str(git_repo)
+    scm = GitSCM(path)
+    scm_str = str(scm)
+    assert "Git" in scm_str
+    assert path in scm_str
+
+
 @pytest.mark.parametrize(
     "repo_path,expected",
     (
