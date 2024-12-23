@@ -26,7 +26,6 @@ def test_GitSCM_is_initialised(git_repo: Path, path: str, expected: bool):
 def test_GitSCM_str(git_repo: Path):
     path = str(git_repo)
     scm = GitSCM(path)
-    print(scm)
     scm_str = str(scm)
     assert "Git" in scm_str
     assert path in scm_str
