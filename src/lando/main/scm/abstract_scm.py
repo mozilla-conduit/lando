@@ -150,7 +150,7 @@ class AbstractSCM:
             self.clone(pull_path)
         else:
             with self.for_pull():
-                logger.info(f"Updating {self.path} from pull path.")
+                logger.info(f"Updating {self} from pull path.")
                 self.update_repo(pull_path)
 
     @property
