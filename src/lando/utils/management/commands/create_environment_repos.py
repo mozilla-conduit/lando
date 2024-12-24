@@ -24,7 +24,7 @@ REPOS = {
     Environment.local: [
         {
             "name": "git-repo",
-            "url": "https://github.com/zzzeid/test-repo.git",
+            "url": "https://github.com/mozilla-conduit/test-repo.git",
             "required_permission": SCM_LEVEL_1,
             "scm_type": GitSCM.scm_type(),
         },
