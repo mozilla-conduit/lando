@@ -24,15 +24,15 @@ REPOS = {
     Environment.local: [
         {
             "name": "git-repo",
-            "url": "https://github.com/zzzeid/test-repo.git",
+            "url": "https://github.com/mozilla-conduit/test-repo.git",
             "required_permission": SCM_LEVEL_1,
             "scm_type": GitSCM.scm_type(),
         },
         {
             "name": "test-repo-git",
-            "url": "http://git.test/lando/test-repo-git",
-            "pull_path": "http://git.test/lando/test-repo-git",
-            "push_path": "ssh://git@git.test:/lando/test-repo-git.git",
+            "url": "http://git.test/test-repo",
+            "pull_path": "http://git.test/test-repo",
+            "push_path": "http://lando:password@git.test/test-repo",
             "required_permission": SCM_LEVEL_1,
             "scm_type": GitSCM.scm_type(),
         },
