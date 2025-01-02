@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from lando.main.scm.exceptions import SCMException
 from lando.main.scm.git import GitSCM
 
 
@@ -136,6 +137,21 @@ def test_GitSCM_clean_repo(
     assert (
         strip_non_public_commits != new_file.exists()
     ), f"strip_non_public_commits not honoured for {new_file}"
+
+
+def test_GitSCM_git_run_redact_url_userinfo(git_repo: Path):
+    scm = GitSCM(str(git_repo))
+    userinfo = "user:password"
+    with pytest.raises(SCMException) as exc:
+        scm.push(
+            f"http://{userinfo}@this-shouldn-t-resolve-otherwise-this-will-timeout-and-this-test-will-take-longer/some/repo"
+        )
+
+    assert userinfo not in exc.value.out
+    assert userinfo not in exc.value.err
+    assert userinfo not in str(exc.value)
+    assert userinfo not in repr(exc.value)
+    assert "[REDACTED]" in exc.value.err
 
 
 def _monkeypatch_scm(monkeypatch, scm: GitSCM, method: str) -> MagicMock:

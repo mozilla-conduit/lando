@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import subprocess
 import tempfile
 import uuid
@@ -16,6 +17,20 @@ logger = logging.getLogger(__name__)
 
 ENV_COMMITTER_NAME = "GIT_COMMITTER_NAME"
 ENV_COMMITTER_EMAIL = "GIT_COMMITTER_EMAIL"
+
+# From RFC-3986 [0]:
+#
+#     userinfo    = *( unreserved / pct-encoded / sub-delims / ":" )
+#
+#     unreserved  = ALPHA / DIGIT / "-" / "." / "_" / "~"
+#     pct-encoded   = "%" HEXDIG HEXDIG
+#     sub-delims  = "!" / "$" / "&" / "'" / "(" / ")"
+#                 / "*" / "+" / "," / ";" / "=
+#
+# [0] https://www.rfc-editor.org/rfc/rfc3986
+URL_USERINFO_RE = re.compile(
+    "(?P<userinfo>[-A-Za-z0-9:._~%!$&'*()*+;=]*@)", flags=re.MULTILINE
+)
 
 
 class GitSCM(AbstractSCM):
@@ -204,10 +219,11 @@ class GitSCM(AbstractSCM):
         correlation_id = str(uuid.uuid4())
         path = cwd or "/"
         command = ["git"] + list(args)
+        sanitised_command = [cls._redact_url_userinfo(a) for a in command]
         logger.info(
             "running git command",
             extra={
-                "command": command,
+                "command": sanitised_command,
                 "command_id": correlation_id,
                 "path": cwd,
             },
@@ -218,10 +234,11 @@ class GitSCM(AbstractSCM):
         )
 
         if result.returncode:
+            redacted_stderr = cls._redact_url_userinfo(result.stderr)
             raise SCMException(
-                f"Error running git command; {command=}, {path=}, {result.stderr}",
-                result.stdout,
-                result.stderr,
+                f"Error running git command; {sanitised_command=}, {path=}, {redacted_stderr}",
+                cls._redact_url_userinfo(result.stdout),
+                redacted_stderr,
             )
 
         out = result.stdout.strip()
@@ -237,6 +254,10 @@ class GitSCM(AbstractSCM):
             )
 
         return out
+
+    @staticmethod
+    def _redact_url_userinfo(s: str) -> str:
+        return re.sub(URL_USERINFO_RE, "[REDACTED]@", s)
 
     @classmethod
     def _git_env(cls):
