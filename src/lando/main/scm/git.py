@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import re
@@ -7,6 +8,9 @@ import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from typing import ContextManager, Optional
+
+from django.conf import settings
+from simple_github import AppAuth, AppInstallationAuth
 
 from lando.main.scm.consts import SCM_TYPE_GIT
 from lando.main.scm.exceptions import SCMException
@@ -30,6 +34,9 @@ ENV_COMMITTER_EMAIL = "GIT_COMMITTER_EMAIL"
 # [0] https://www.rfc-editor.org/rfc/rfc3986
 URL_USERINFO_RE = re.compile(
     "(?P<userinfo>[-A-Za-z0-9:._~%!$&'*()*+;=]*@)", flags=re.MULTILINE
+)
+GITHUB_URL_RE = re.compile(
+    f"https://{URL_USERINFO_RE.pattern}?github.com/(?P<owner>[-A-Za-z0-9]+)/(?P<repo>[^/]+)"
 )
 
 
@@ -71,12 +78,63 @@ class GitSCM(AbstractSCM):
     ):
         """Push local code to the remote repository."""
         command = ["push"]
+
         if force_push:
             command += ["--force"]
+
+        if match := re.match(GITHUB_URL_RE, push_path):
+            # We only fetch a token if no authentication is explicitely specified in
+            # the push_url
+            if not match["userinfo"]:
+                logger.info(
+                    "Obtaining fresh GitHub token repo",
+                    extra={
+                        "push_path": push_path,
+                        "repo_name": match["repo"],
+                        "repo_owner": match["owner"],
+                    },
+                )
+
+                token = self._get_github_token(match["owner"], match["repo"])
+                if token:
+                    push_path = f"https://git:{token}@github.com/{match['owner']}/{match['repo']}"
+
         command += [push_path]
+
         if push_target:
             command += [f"HEAD:{push_target}"]
+
         self._git_run(*command, cwd=self.path)
+
+    @staticmethod
+    def _get_github_token(repo_owner: str, repo_name: str) -> Optional[str]:
+        """Obtain a fresh GitHub token to psuh to the specified repo.
+
+        This relies on GITHUB_APP_ID and GITHUB_APP_PRIVKEY to be set in the
+        environment. Returns None if those are missing.
+
+        The app with ID GITHUB_APP_ID needs to be enabled for the target repo.
+
+        """
+        app_id = settings.GITHUB_APP_ID
+        app_privkey = settings.GITHUB_APP_PRIVKEY
+
+        if not app_id or not app_privkey:
+            logger.warning(
+                "Missing GITHUB_APP_ID or GITHUB_APP_PRIVKEY to authenticate against GitHub",
+                extra={
+                    "repo_name": repo_name,
+                    "repo_owner": repo_owner,
+                },
+            )
+            return None
+
+        app_auth = AppAuth(
+            app_id,
+            app_privkey,
+        )
+        session = AppInstallationAuth(app_auth, repo_owner, repositories=[repo_name])
+        return asyncio.run(session.get_token())
 
     def last_commit_for_path(self, path: str) -> str:
         """Find last commit to touch a path."""

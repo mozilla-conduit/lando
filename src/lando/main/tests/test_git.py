@@ -139,6 +139,19 @@ def test_GitSCM_clean_repo(
     ), f"strip_non_public_commits not honoured for {new_file}"
 
 
+def test_GitSCM_push_get_github_token(git_repo: Path):
+    scm = GitSCM(str(git_repo))
+    scm._git_run = MagicMock()
+    scm._get_github_token = MagicMock()
+    scm._get_github_token.side_effect = ["ghs_yolo"]
+
+    scm.push("https://github.com/some/repo")
+
+    assert scm._git_run.call_count == 1
+    assert scm._get_github_token.call_count == 1
+    assert "git:ghs_yolo@github.com" in scm._git_run.call_args[0][1]
+
+
 def test_GitSCM_git_run_redact_url_userinfo(git_repo: Path):
     scm = GitSCM(str(git_repo))
     userinfo = "user:password"
