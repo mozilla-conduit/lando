@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 DOCKER := $(shell which docker)
 DOCKER_COMPOSE := ${DOCKER} compose
-ARGS_TEST ?=
+ARGS_TESTS ?=
 
 SUITE_STAMP=.test-use-suite
 

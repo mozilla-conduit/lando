@@ -30,6 +30,7 @@ dependencies = [
     "rs-parsepatch",
     "sentry-sdk",
     "setuptools-scm",
+    "simple-github",
     "uwsgi",
 ]
 name = "lando"

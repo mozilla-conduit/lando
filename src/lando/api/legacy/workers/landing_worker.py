@@ -314,7 +314,7 @@ class LandingWorker(Worker):
                 # Try again, this is a temporary failure.
                 return False
             except Exception as e:
-                message = f"Unexpected error while fetching repo from {repo.pull_path}."
+                message = f"Unexpected error while fetching repo from {repo.name}."
                 logger.exception(message)
                 job.transition_status(
                     LandingJobAction.FAIL,
@@ -423,7 +423,7 @@ class LandingWorker(Worker):
                 job.transition_status(LandingJobAction.DEFER, message=message)
                 return False  # Try again, this is a temporary failure.
             except Exception as e:
-                message = f"Unexpected error while pushing to {repo.push_path}.\n{e}"
+                message = f"Unexpected error while pushing to {repo.name}.\n{e}"
                 logger.exception(message)
                 job.transition_status(
                     LandingJobAction.FAIL,
