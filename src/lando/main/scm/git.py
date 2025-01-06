@@ -83,8 +83,8 @@ class GitSCM(AbstractSCM):
             command += ["--force"]
 
         if match := re.match(GITHUB_URL_RE, push_path):
-            # We only fetch a token if no authentication is explicitely specified in
-            # the push_url
+            # We only fetch a token if no authentication is explicitly specified in
+            # the push_url.
             if not match["userinfo"]:
                 logger.info(
                     "Obtaining fresh GitHub token repo",
