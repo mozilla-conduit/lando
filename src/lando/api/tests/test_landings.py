@@ -15,7 +15,7 @@ from lando.main.models.landing_job import (
     add_job_with_revisions,
 )
 from lando.main.models.revision import Revision
-from lando.main.scm import SCM_TYPE_HG, HgSCM
+from lando.main.scm import SCM_TYPE_HG
 from lando.main.scm.hg import LostPushRace
 from lando.utils import HgPatchHelper
 
@@ -226,6 +226,20 @@ aDd oNe mOrE LiNe
 """.lstrip()
 
 
+@pytest.fixture()
+def hg_repo_mc(hg_server, hg_clone) -> Repo:
+    repo = Repo.objects.create(
+        scm_type=SCM_TYPE_HG,
+        name="mozilla-central",
+        required_permission=SCM_LEVEL_3,
+        url=hg_server,
+        push_path=hg_server,
+        pull_path=hg_server,
+        system_path=hg_clone.strpath,
+    )
+    return repo
+
+
 @pytest.mark.parametrize(
     "revisions_params",
     [
@@ -238,23 +252,15 @@ aDd oNe mOrE LiNe
 )
 @pytest.mark.django_db
 def test_integrated_execute_job(
-    hg_server,
-    hg_clone,
+    hg_repo_mc,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
     revisions_params,
 ):
-    treestatusdouble.open_tree("mozilla-central")
-    repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="mozilla-central",
-        url=hg_server,
-        required_permission=SCM_LEVEL_3,
-        push_path=hg_server,
-        pull_path=hg_server,
-        system_path=hg_clone.strpath,
-    )
+    repo = hg_repo_mc
+    treestatusdouble.open_tree(repo.name)
+
     revisions = [
         create_patch_revision(number, **kwargs) for number, kwargs in revisions_params
     ]
@@ -285,23 +291,14 @@ def test_integrated_execute_job(
 
 @pytest.mark.django_db
 def test_integrated_execute_job_with_force_push(
-    hg_server,
-    hg_clone,
+    hg_repo_mc,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
 ):
-    treestatusdouble.open_tree("mozilla-central")
-    repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="mozilla-central",
-        url=hg_server,
-        required_permission=SCM_LEVEL_3,
-        push_path=hg_server,
-        pull_path=hg_server,
-        force_push=True,
-        system_path=hg_clone.strpath,
-    )
+    repo = hg_repo_mc
+    repo.force_push = True
+    treestatusdouble.open_tree(repo.name)
     scm = repo.scm
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
@@ -325,29 +322,21 @@ def test_integrated_execute_job_with_force_push(
     assert scm.push.call_count == 1
     assert len(scm.push.call_args) == 2
     assert len(scm.push.call_args[0]) == 1
-    assert scm.push.call_args[0][0] == hg_server
+    assert scm.push.call_args[0][0] == repo.url
     assert scm.push.call_args[1] == {"push_target": "", "force_push": True}
 
 
 @pytest.mark.django_db
 def test_integrated_execute_job_with_bookmark(
-    hg_server,
-    hg_clone,
+    hg_repo_mc,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
 ):
-    treestatusdouble.open_tree("mozilla-central")
-    repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="mozilla-central",
-        url=hg_server,
-        required_permission=SCM_LEVEL_3,
-        push_path=hg_server,
-        pull_path=hg_server,
-        push_target="@",
-        system_path=hg_clone.strpath,
-    )
+    repo = hg_repo_mc
+    repo.push_target = "@"
+    treestatusdouble.open_tree(repo.name)
+
     scm = repo.scm
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
@@ -371,28 +360,20 @@ def test_integrated_execute_job_with_bookmark(
     assert scm.push.call_count == 1
     assert len(scm.push.call_args) == 2
     assert len(scm.push.call_args[0]) == 1
-    assert scm.push.call_args[0][0] == hg_server
+    assert scm.push.call_args[0][0] == repo.url
     assert scm.push.call_args[1] == {"push_target": "@", "force_push": False}
 
 
 @pytest.mark.django_db
 def test_no_diff_start_line(
-    hg_server,
-    hg_clone,
+    hg_repo_mc,
     treestatusdouble,
     create_patch_revision,
     caplog,
 ):
-    treestatusdouble.open_tree("mozilla-central")
-    repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="mozilla-central",
-        url=hg_server,
-        required_permission=SCM_LEVEL_3,
-        push_path=hg_server,
-        pull_path=hg_server,
-        system_path=hg_clone.strpath,
-    )
+    repo = hg_repo_mc
+    treestatusdouble.open_tree(repo.name)
+
     job_params = {
         "id": 1234,
         "status": LandingJobStatus.IN_PROGRESS,
@@ -414,21 +395,13 @@ def test_no_diff_start_line(
 @pytest.mark.django_db
 def test_lose_push_race(
     monkeypatch,
-    hg_server,
-    hg_clone,
+    hg_repo_mc,
     treestatusdouble,
     create_patch_revision,
 ):
-    treestatusdouble.open_tree("mozilla-central")
-    repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="mozilla-central",
-        url=hg_server,
-        required_permission=SCM_LEVEL_3,
-        push_path=hg_server,
-        pull_path=hg_server,
-        system_path=hg_clone.strpath,
-    )
+    repo = hg_repo_mc
+    treestatusdouble.open_tree(repo.name)
+
     scm = repo.scm
     job_params = {
         "id": 1234,
@@ -521,24 +494,16 @@ def test_merge_conflict(
 
 @pytest.mark.django_db
 def test_failed_landing_job_notification(
-    hg_server,
-    hg_clone,
+    hg_repo_mc,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
 ):
     """Ensure that a failed landings triggers a user notification."""
-    treestatusdouble.open_tree("mozilla-central")
-    repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="mozilla-central",
-        required_permission=SCM_LEVEL_3,
-        push_path=hg_server,
-        pull_path=hg_server,
-        approval_required=True,
-        autoformat_enabled=False,
-        system_path=hg_clone.strpath,
-    )
+    repo = hg_repo_mc
+    repo.approval_required = True
+    repo.autoformat_enabled = False
+    treestatusdouble.open_tree(repo.name)
 
     scm = repo.scm
 
@@ -631,26 +596,16 @@ def test_landing_worker__extract_error_data():
 
 @pytest.mark.django_db
 def test_format_patch_success_unchanged(
-    hg_server,
-    hg_clone,
+    hg_repo_mc,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
     normal_patch,
 ):
     """Tests automated formatting happy path where formatters made no changes."""
-    tree = "mozilla-central"
-    treestatusdouble.open_tree(tree)
-    repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name=tree,
-        url=hg_server,
-        push_path=hg_server,
-        pull_path=hg_server,
-        required_permission=SCM_LEVEL_3,
-        autoformat_enabled=True,
-        system_path=hg_clone.strpath,
-    )
+    repo = hg_repo_mc
+    treestatusdouble.open_tree(repo.name)
+    repo.autoformat_enabled = True
 
     revisions = [
         create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_PASS),
@@ -687,38 +642,27 @@ def test_format_patch_success_unchanged(
 
 @pytest.mark.django_db
 def test_format_single_success_changed(
-    hg_server,
-    hg_clone,
+    hg_repo_mc,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
 ):
     """Test formatting a single commit via amending."""
-    tree = "mozilla-central"
-    treestatusdouble.open_tree(tree)
-    repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name=tree,
-        url=hg_server,
-        push_path=hg_server,
-        pull_path=hg_server,
-        required_permission=SCM_LEVEL_3,
-        autoformat_enabled=True,
-        system_path=hg_clone.strpath,
-    )
+    repo = hg_repo_mc
+    repo.autoformat_enabled = True
+    treestatusdouble.open_tree(repo.name)
 
     # Push the `mach` formatting patch.
-    hgrepo = HgSCM(hg_clone.strpath)
-    with hgrepo.for_push("test@example.com"):
+    with repo.scm.for_push("test@example.com"):
         ph = HgPatchHelper(io.StringIO(PATCH_FORMATTING_PATTERN_PASS))
-        hgrepo.apply_patch(
+        repo.scm.apply_patch(
             ph.get_diff(),
             ph.get_commit_description(),
             ph.get_header("User"),
             ph.get_header("Date"),
         )
-        hgrepo.push(repo.push_path)
-        pre_landing_tip = hgrepo.run_hg(["log", "-r", "tip", "-T", "{node}"]).decode(
+        repo.scm.push(repo.push_path)
+        pre_landing_tip = repo.scm.run_hg(["log", "-r", "tip", "-T", "{node}"]).decode(
             "utf-8"
         )
 
@@ -750,19 +694,19 @@ def test_format_single_success_changed(
         mock_trigger_update.call_count == 1
     ), "Successful landing should trigger Phab repo update."
 
-    with hgrepo.for_push(job.requester_email):
-        repo_root = hgrepo.run_hg(["root"]).decode("utf-8").strip()
+    with repo.scm.for_push(job.requester_email):
+        repo_root = repo.scm.run_hg(["root"]).decode("utf-8").strip()
 
         # Get the commit message.
-        desc = hgrepo.run_hg(["log", "-r", "tip", "-T", "{desc}"]).decode("utf-8")
+        desc = repo.scm.run_hg(["log", "-r", "tip", "-T", "{desc}"]).decode("utf-8")
 
         # Get the content of the file after autoformatting.
-        tip_content = hgrepo.run_hg(
+        tip_content = repo.scm.run_hg(
             ["cat", "--cwd", repo_root, "-r", "tip", "test.txt"]
         )
 
         # Get the hash behind the tip commit.
-        hash_behind_current_tip = hgrepo.run_hg(
+        hash_behind_current_tip = repo.scm.run_hg(
             ["log", "-r", "tip^", "-T", "{node}"]
         ).decode("utf-8")
 
@@ -779,27 +723,15 @@ def test_format_single_success_changed(
 
 @pytest.mark.django_db
 def test_format_stack_success_changed(
-    hg_server,
-    hg_clone,
+    hg_repo_mc,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
 ):
     """Test formatting a stack via an autoformat tip commit."""
-    tree = "mozilla-central"
-    treestatusdouble.open_tree(tree)
-    repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name=tree,
-        url=hg_server,
-        push_path=hg_server,
-        pull_path=hg_server,
-        required_permission=SCM_LEVEL_3,
-        autoformat_enabled=True,
-        system_path=hg_clone.strpath,
-    )
-
-    hgrepo = HgSCM(hg_clone.strpath)
+    repo = hg_repo_mc
+    repo.autoformat_enabled = (True,)
+    treestatusdouble.open_tree(repo.name)
 
     revisions = [
         create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_PASS),
@@ -831,14 +763,14 @@ def test_format_stack_success_changed(
         mock_trigger_update.call_count == 1
     ), "Successful landing should trigger Phab repo update."
 
-    with hgrepo.for_push(job.requester_email):
-        repo_root = hgrepo.run_hg(["root"]).decode("utf-8").strip()
+    with repo.scm.for_push(job.requester_email):
+        repo_root = repo.scm.run_hg(["root"]).decode("utf-8").strip()
 
         # Get the commit message.
-        desc = hgrepo.run_hg(["log", "-r", "tip", "-T", "{desc}"]).decode("utf-8")
+        desc = repo.scm.run_hg(["log", "-r", "tip", "-T", "{desc}"]).decode("utf-8")
 
         # Get the content of the file after autoformatting.
-        rev3_content = hgrepo.run_hg(
+        rev3_content = repo.scm.run_hg(
             ["cat", "--cwd", repo_root, "-r", "tip", "test.txt"]
         )
 
@@ -857,25 +789,15 @@ def test_format_stack_success_changed(
 
 @pytest.mark.django_db
 def test_format_patch_fail(
-    hg_server,
-    hg_clone,
+    hg_repo_mc,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
 ):
     """Tests automated formatting failures before landing."""
-    tree = "mozilla-central"
-    treestatusdouble.open_tree(tree)
-    repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name=tree,
-        required_permission=SCM_LEVEL_3,
-        url=hg_server,
-        push_path=hg_server,
-        pull_path=hg_server,
-        autoformat_enabled=True,
-        system_path=hg_clone.strpath,
-    )
+    repo = hg_repo_mc
+    repo.autoformat_enabled = True
+    treestatusdouble.open_tree(repo.name)
 
     revisions = [
         create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_FAIL),
@@ -915,24 +837,15 @@ def test_format_patch_fail(
 
 @pytest.mark.django_db
 def test_format_patch_no_landoini(
-    hg_server,
-    hg_clone,
+    hg_repo_mc,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
 ):
     """Tests behaviour of Lando when the `.lando.ini` file is missing."""
-    treestatusdouble.open_tree("mozilla-central")
-    repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="mozilla-central",
-        required_permission=SCM_LEVEL_3,
-        url=hg_server,
-        push_path=hg_server,
-        pull_path=hg_server,
-        autoformat_enabled=True,
-        system_path=hg_clone.strpath,
-    )
+    repo = hg_repo_mc
+    repo.autoformat_enabled = True
+    treestatusdouble.open_tree(repo.name)
 
     revisions = [
         create_patch_revision(1),
