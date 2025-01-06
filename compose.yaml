@@ -59,13 +59,6 @@ services:
     environment:
       DEFAULT_GRACE_SECONDS: 10
       LANDING_WORKER_USERNAME: app
-      # See [0] and [1] to setup up and install a GitHub app
-      # [0] https://docs.github.com/en/enterprise-cloud@latest/apps/creating-github-apps/registering-a-github-app/registering-a-github-app
-      # [1] https://docs.github.com/en/enterprise-cloud@latest/apps/using-github-apps/installing-your-own-github-app
-      # GITHUB_APP_ID: 123456789
-      # GITHUB_APP_PRIVKEY: |
-      #  -----BEGIN RSA PRIVATE KEY-----
-      #  ...
     env_file:
       - .env
     depends_on:

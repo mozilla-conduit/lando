@@ -41,9 +41,12 @@ Parameters of interest are the following.
   - `DEFAULT_DB_PASSWORD`
   - `DEFAULT_DB_PORT`
   - `DEFAULT_DB_USER`
-- GitHub Application authentication (needs to be installed on all target repos)
+- [GitHub application][github-app] authentication (needs to be
+  [installed][github-app-install] on all target repos)
+
   - `GITHUB_APP_ID`
   - `GITHUB_APP_PRIVKEY` (PEM)
+
 - HgMO authentication
   - `SSH_PRIVATE_KEY` (PEM)
 - Mozilla services
@@ -124,3 +127,5 @@ and restore the default with
 To chat with Lando users and developers, join them on [Matrix](https://chat.mozilla.org/#/room/#conduit:mozilla.org).
 
 [Conduit suite]: https://github.com/mozilla-conduit/suite
+[github-app]: https://docs.github.com/en/enterprise-cloud@latest/apps/creating-github-apps/registering-a-github-app/registering-a-github-app
+[github-app-install]: https://docs.github.com/en/enterprise-cloud@latest/apps/using-github-apps/installing-your-own-github-app
