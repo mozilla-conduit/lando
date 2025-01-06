@@ -148,8 +148,12 @@ def test_GitSCM_push_get_github_token(git_repo: Path):
     scm.push("https://github.com/some/repo")
 
     assert scm._git_run.call_count == 1, "_git_run wasn't called when pushing"
-    assert scm._get_github_token.call_count == 1, "_get_github_token wasn't called when pushing to a github-like URL"
-    assert "git:ghs_yolo@github.com" in scm._git_run.call_args[0][1], "github token not found in rewritten push_path"
+    assert (
+        scm._get_github_token.call_count == 1
+    ), "_get_github_token wasn't called when pushing to a github-like URL"
+    assert (
+        "git:ghs_yolo@github.com" in scm._git_run.call_args[0][1]
+    ), "github token not found in rewritten push_path"
 
 
 def test_GitSCM_git_run_redact_url_userinfo(git_repo: Path):
