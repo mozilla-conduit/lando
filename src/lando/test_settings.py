@@ -10,7 +10,6 @@ OIDC_REDIRECT_REQUIRE_HTTPS = True
 OIDC_IDENTIFIER = (
     "lando-api"  # Added for compatibility with tests, should not be needed.
 )
-GITHUB_ACCESS_TOKEN = ""
 PHABRICATOR_URL = "http://phabricator.test"
 PHABRICATOR_ADMIN_API_KEY = "api-thiskeymustbe32characterslen"
 PHABRICATOR_UNPRIVILEGED_API_KEY = "api-thiskeymustbe32characterslen"
