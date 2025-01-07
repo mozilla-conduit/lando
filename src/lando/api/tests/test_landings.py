@@ -19,7 +19,10 @@ from lando.main.models.landing_job import (
 )
 from lando.main.models.revision import Revision
 from lando.main.scm import SCM_TYPE_HG
-from lando.main.scm.hg import LostPushRace
+from lando.main.scm.abstract_scm import AbstractSCM
+from lando.main.scm.consts import SCM_TYPE_GIT
+from lando.main.scm.git import GitSCM
+from lando.main.scm.hg import HgSCM, LostPushRace
 from lando.utils import HgPatchHelper
 
 
@@ -233,7 +236,7 @@ aDd oNe mOrE LiNe
 def hg_repo_mc(hg_server: str, hg_clone: py.path) -> Repo:
     repo = Repo.objects.create(
         scm_type=SCM_TYPE_HG,
-        name="mozilla-central",
+        name="mozilla-central-hg",
         required_permission=SCM_LEVEL_3,
         url=hg_server,
         push_path=hg_server,
@@ -244,10 +247,28 @@ def hg_repo_mc(hg_server: str, hg_clone: py.path) -> Repo:
 
 
 @pytest.fixture()
-def repo_mc(hg_repo_mc: Repo) -> Callable:
+@pytest.mark.django_db
+def git_repo_mc(git_repo: pathlib.Path, tmp_path: pathlib.Path) -> Repo:
+    repos_dir = tmp_path / "repos"
+    repos_dir.mkdir()
+    repo = Repo.objects.create(
+        scm_type=SCM_TYPE_GIT,
+        name="mozilla-central-git",
+        required_permission=SCM_LEVEL_3,
+        url=str(git_repo),
+        push_path=str(git_repo),
+        system_path=repos_dir / "git_repo",
+    )
+    repo.save()
+    repo.scm.prepare_repo(repo.pull_path)
+    return repo
+
+
+@pytest.fixture()
+def repo_mc(git_repo_mc: Repo, hg_repo_mc: Repo) -> Callable:
     def factory(scm_type: str) -> Repo:
-        # if scm_type == SCM_TYPE_GIT:
-        #     return git_repo_mc
+        if scm_type == SCM_TYPE_GIT:
+            return git_repo_mc
         if scm_type == SCM_TYPE_HG:
             return hg_repo_mc
         raise Exception(f"Unknown SCM Type {scm_type=}")
@@ -258,6 +279,16 @@ def repo_mc(hg_repo_mc: Repo) -> Callable:
 @pytest.mark.parametrize(
     "repo_type,revisions_params",
     [
+        # Git
+        (
+            SCM_TYPE_GIT,
+            [
+                (1, {}),
+                (2, {}),
+            ],
+        ),
+        (SCM_TYPE_GIT, [(1, {"patch": LARGE_PATCH})]),
+        # Hg
         (
             SCM_TYPE_HG,
             [
@@ -270,7 +301,7 @@ def repo_mc(hg_repo_mc: Repo) -> Callable:
 )
 @pytest.mark.django_db
 def test_integrated_execute_job(
-    repo_mc: Repo,
+    repo_mc,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
@@ -308,14 +339,22 @@ def test_integrated_execute_job(
     ), "Successful landing should trigger Phab repo update."
 
 
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        SCM_TYPE_GIT,
+        SCM_TYPE_HG,
+    ],
+)
 @pytest.mark.django_db
 def test_integrated_execute_job_with_force_push(
-    hg_repo_mc,
+    repo_mc,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    repo_type: str,
 ):
-    repo = hg_repo_mc
+    repo = repo_mc(repo_type)
     repo.force_push = True
     treestatusdouble.open_tree(repo.name)
     scm = repo.scm
@@ -346,14 +385,22 @@ def test_integrated_execute_job_with_force_push(
     assert scm.push.call_args[1] == {"push_target": "", "force_push": True}
 
 
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        SCM_TYPE_GIT,
+        SCM_TYPE_HG,
+    ],
+)
 @pytest.mark.django_db
 def test_integrated_execute_job_with_bookmark(
-    hg_repo_mc,
+    repo_mc,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    repo_type: str,
 ):
-    repo = hg_repo_mc
+    repo = repo_mc(repo_type)
     repo.push_target = "@"
     treestatusdouble.open_tree(repo.name)
     scm = repo.scm
@@ -384,14 +431,22 @@ def test_integrated_execute_job_with_bookmark(
     assert scm.push.call_args[1] == {"push_target": "@", "force_push": False}
 
 
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        SCM_TYPE_GIT,
+        SCM_TYPE_HG,
+    ],
+)
 @pytest.mark.django_db
 def test_no_diff_start_line(
-    hg_repo_mc,
+    repo_mc,
     treestatusdouble,
     create_patch_revision,
     caplog,
+    repo_type: str,
 ):
-    repo = hg_repo_mc
+    repo = repo_mc(repo_type)
     treestatusdouble.open_tree(repo.name)
 
     job_params = {
@@ -412,14 +467,22 @@ def test_no_diff_start_line(
     assert "Patch without a diff start line." in caplog.text
 
 
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        SCM_TYPE_GIT,
+        SCM_TYPE_HG,
+    ],
+)
 @pytest.mark.django_db
 def test_lose_push_race(
     monkeypatch,
-    hg_repo_mc,
+    repo_mc,
     treestatusdouble,
     create_patch_revision,
+    repo_type: str,
 ):
-    repo = hg_repo_mc
+    repo = repo_mc(repo_type)
     treestatusdouble.open_tree(repo.name)
     scm = repo.scm
 
@@ -449,26 +512,26 @@ def test_lose_push_race(
     assert job.status == LandingJobStatus.DEFERRED
 
 
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        # Bug 1940876
+        # SCM_TYPE_GIT,
+        SCM_TYPE_HG,
+    ],
+)
 @pytest.mark.django_db
 def test_merge_conflict(
-    hg_server,
-    hg_clone,
+    repo_mc,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
-    normal_patch,
     caplog,
+    repo_type: str,
 ):
-    treestatusdouble.open_tree("mozilla-central")
-    repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="mozilla-central",
-        url=hg_server,
-        required_permission=SCM_LEVEL_3,
-        push_path=hg_server,
-        pull_path=hg_server,
-        system_path=hg_clone.strpath,
-    )
+    repo = repo_mc(repo_type)
+    treestatusdouble.open_tree(repo.name)
+
     job_params = {
         "id": 1234,
         "status": LandingJobStatus.IN_PROGRESS,
@@ -512,15 +575,24 @@ def test_merge_conflict(
         ), f"Empty or missing reject content for failed path {fp}"
 
 
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        # Bug 1940876
+        # SCM_TYPE_GIT,
+        SCM_TYPE_HG,
+    ],
+)
 @pytest.mark.django_db
 def test_failed_landing_job_notification(
-    hg_repo_mc,
+    repo_mc,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    repo_type: str,
 ):
     """Ensure that a failed landings triggers a user notification."""
-    repo = hg_repo_mc
+    repo = repo_mc(repo_type)
     repo.approval_required = True
     repo.autoformat_enabled = False
     treestatusdouble.open_tree(repo.name)
@@ -613,16 +685,24 @@ def test_landing_worker__extract_error_data():
     assert rejects_paths == expected_rejects_paths
 
 
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        SCM_TYPE_GIT,
+        SCM_TYPE_HG,
+    ],
+)
 @pytest.mark.django_db
 def test_format_patch_success_unchanged(
-    hg_repo_mc,
+    repo_mc,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
     normal_patch,
+    repo_type: str,
 ):
     """Tests automated formatting happy path where formatters made no changes."""
-    repo = hg_repo_mc
+    repo = repo_mc(repo_type)
     treestatusdouble.open_tree(repo.name)
     repo.autoformat_enabled = True
 
@@ -659,15 +739,23 @@ def test_format_patch_success_unchanged(
     ), "Autoformat making no changes should leave `formatted_replacements` empty."
 
 
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        SCM_TYPE_GIT,
+        SCM_TYPE_HG,
+    ],
+)
 @pytest.mark.django_db
 def test_format_single_success_changed(
-    hg_repo_mc,
+    repo_mc,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    repo_type: str,
 ):
     """Test formatting a single commit via amending."""
-    repo = hg_repo_mc
+    repo = repo_mc(repo_type)
     repo.autoformat_enabled = True
     treestatusdouble.open_tree(repo.name)
     scm = repo.scm
@@ -682,9 +770,7 @@ def test_format_single_success_changed(
             ph.get_header("Date"),
         )
         scm.push(repo.push_path)
-        pre_landing_tip = scm.run_hg(["log", "-r", "tip", "-T", "{node}"]).decode(
-            "utf-8"
-        )
+        pre_landing_tip = scm.head_ref()
 
     # Upload a patch for formatting.
     job_params = {
@@ -715,18 +801,14 @@ def test_format_single_success_changed(
     ), "Successful landing should trigger Phab repo update."
 
     with scm.for_push(job.requester_email):
-        repo_root = scm.run_hg(["root"]).decode("utf-8").strip()
-
         # Get the commit message.
-        desc = scm.run_hg(["log", "-r", "tip", "-T", "{desc}"]).decode("utf-8")
+        desc = _scm_get_last_commit_message(scm)
 
         # Get the content of the file after autoformatting.
-        tip_content = scm.run_hg(["cat", "--cwd", repo_root, "-r", "tip", "test.txt"])
+        tip_content = scm.read_checkout_file("test.txt").encode("utf-8")
 
         # Get the hash behind the tip commit.
-        hash_behind_current_tip = scm.run_hg(
-            ["log", "-r", "tip^", "-T", "{node}"]
-        ).decode("utf-8")
+        hash_behind_current_tip = _scm_get_previous_hash(scm)
 
     assert tip_content == TESTTXT_FORMATTED_1, "`test.txt` is incorrect in base commit."
 
@@ -739,15 +821,29 @@ def test_format_single_success_changed(
     ), "Autoformat via amending should only land a single commit."
 
 
+def _scm_get_previous_hash(scm: AbstractSCM) -> str:
+    if scm.scm_type() == SCM_TYPE_HG:
+        return HgSCM.run_hg(scm, ["log", "-r", "tip^", "-T", "{node}"]).decode("utf-8")
+    return GitSCM._git_run("rev-parse", "HEAD^", cwd=scm.path)
+
+
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        SCM_TYPE_GIT,
+        SCM_TYPE_HG,
+    ],
+)
 @pytest.mark.django_db
 def test_format_stack_success_changed(
-    hg_repo_mc,
+    repo_mc,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    repo_type: str,
 ):
     """Test formatting a stack via an autoformat tip commit."""
-    repo = hg_repo_mc
+    repo = repo_mc(repo_type)
     repo.autoformat_enabled = (True,)
     treestatusdouble.open_tree(repo.name)
     scm = repo.scm
@@ -783,13 +879,11 @@ def test_format_stack_success_changed(
     ), "Successful landing should trigger Phab repo update."
 
     with scm.for_push(job.requester_email):
-        repo_root = scm.run_hg(["root"]).decode("utf-8").strip()
-
         # Get the commit message.
-        desc = scm.run_hg(["log", "-r", "tip", "-T", "{desc}"]).decode("utf-8")
+        desc = _scm_get_last_commit_message(scm)
 
         # Get the content of the file after autoformatting.
-        rev3_content = scm.run_hg(["cat", "--cwd", repo_root, "-r", "tip", "test.txt"])
+        rev3_content = scm.read_checkout_file("test.txt").encode("utf-8")
 
     assert (
         rev3_content == TESTTXT_FORMATTED_2
@@ -804,15 +898,30 @@ def test_format_stack_success_changed(
     ), "Autoformat commit has incorrect commit message."
 
 
+def _scm_get_last_commit_message(scm: AbstractSCM) -> str:
+    if scm.scm_type() == SCM_TYPE_HG:
+        return HgSCM.run_hg(scm, ["log", "-r", "tip", "-T", "{desc}"]).decode("utf-8")
+    return GitSCM._git_run("log", "--pretty=%B", "HEAD^..", cwd=scm.path)
+
+
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        # Bug 1940876
+        # SCM_TYPE_GIT,
+        SCM_TYPE_HG,
+    ],
+)
 @pytest.mark.django_db
 def test_format_patch_fail(
-    hg_repo_mc,
+    repo_mc,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    repo_type: str,
 ):
     """Tests automated formatting failures before landing."""
-    repo = hg_repo_mc
+    repo = repo_mc(repo_type)
     repo.autoformat_enabled = True
     treestatusdouble.open_tree(repo.name)
 
@@ -852,15 +961,24 @@ def test_format_patch_fail(
     ), "User should be notified their landing was unsuccessful due to autoformat."
 
 
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        # Bug 1940876
+        # SCM_TYPE_GIT,
+        SCM_TYPE_HG,
+    ],
+)
 @pytest.mark.django_db
 def test_format_patch_no_landoini(
-    hg_repo_mc,
+    repo_mc,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    repo_type: str,
 ):
     """Tests behaviour of Lando when the `.lando.ini` file is missing."""
-    repo = hg_repo_mc
+    repo = repo_mc(repo_type)
     repo.autoformat_enabled = True
     treestatusdouble.open_tree(repo.name)
 
