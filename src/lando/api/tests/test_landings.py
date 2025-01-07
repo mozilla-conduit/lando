@@ -1,7 +1,10 @@
 import io
+import pathlib
 import textwrap
 import unittest.mock as mock
+from collections.abc import Callable
 
+import py
 import pytest
 
 from lando.api.legacy.workers.landing_worker import (
@@ -227,7 +230,7 @@ aDd oNe mOrE LiNe
 
 
 @pytest.fixture()
-def hg_repo_mc(hg_server, hg_clone) -> Repo:
+def hg_repo_mc(hg_server: str, hg_clone: py.path) -> Repo:
     repo = Repo.objects.create(
         scm_type=SCM_TYPE_HG,
         name="mozilla-central",
@@ -240,25 +243,41 @@ def hg_repo_mc(hg_server, hg_clone) -> Repo:
     return repo
 
 
+@pytest.fixture()
+def repo_mc(hg_repo_mc: Repo) -> Callable:
+    def factory(scm_type: str) -> Repo:
+        # if scm_type == SCM_TYPE_GIT:
+        #     return git_repo_mc
+        if scm_type == SCM_TYPE_HG:
+            return hg_repo_mc
+        raise Exception(f"Unknown SCM Type {scm_type=}")
+
+    return factory
+
+
 @pytest.mark.parametrize(
-    "revisions_params",
+    "repo_type,revisions_params",
     [
-        [
-            (1, {}),
-            (2, {}),
-        ],
-        [(1, {"patch": LARGE_PATCH})],
+        (
+            SCM_TYPE_HG,
+            [
+                (1, {}),
+                (2, {}),
+            ],
+        ),
+        (SCM_TYPE_HG, [(1, {"patch": LARGE_PATCH})]),
     ],
 )
 @pytest.mark.django_db
 def test_integrated_execute_job(
-    hg_repo_mc,
+    repo_mc: Repo,
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    repo_type: str,
     revisions_params,
 ):
-    repo = hg_repo_mc
+    repo = repo_mc(repo_type)
     treestatusdouble.open_tree(repo.name)
 
     revisions = [
@@ -300,6 +319,7 @@ def test_integrated_execute_job_with_force_push(
     repo.force_push = True
     treestatusdouble.open_tree(repo.name)
     scm = repo.scm
+
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
@@ -336,8 +356,8 @@ def test_integrated_execute_job_with_bookmark(
     repo = hg_repo_mc
     repo.push_target = "@"
     treestatusdouble.open_tree(repo.name)
-
     scm = repo.scm
+
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
@@ -401,8 +421,8 @@ def test_lose_push_race(
 ):
     repo = hg_repo_mc
     treestatusdouble.open_tree(repo.name)
-
     scm = repo.scm
+
     job_params = {
         "id": 1234,
         "status": LandingJobStatus.IN_PROGRESS,
@@ -504,7 +524,6 @@ def test_failed_landing_job_notification(
     repo.approval_required = True
     repo.autoformat_enabled = False
     treestatusdouble.open_tree(repo.name)
-
     scm = repo.scm
 
     # Mock `scm.update_repo` so we can force a failed landing.
@@ -651,18 +670,19 @@ def test_format_single_success_changed(
     repo = hg_repo_mc
     repo.autoformat_enabled = True
     treestatusdouble.open_tree(repo.name)
+    scm = repo.scm
 
     # Push the `mach` formatting patch.
-    with repo.scm.for_push("test@example.com"):
+    with scm.for_push("test@example.com"):
         ph = HgPatchHelper(io.StringIO(PATCH_FORMATTING_PATTERN_PASS))
-        repo.scm.apply_patch(
+        scm.apply_patch(
             ph.get_diff(),
             ph.get_commit_description(),
             ph.get_header("User"),
             ph.get_header("Date"),
         )
-        repo.scm.push(repo.push_path)
-        pre_landing_tip = repo.scm.run_hg(["log", "-r", "tip", "-T", "{node}"]).decode(
+        scm.push(repo.push_path)
+        pre_landing_tip = scm.run_hg(["log", "-r", "tip", "-T", "{node}"]).decode(
             "utf-8"
         )
 
@@ -694,19 +714,17 @@ def test_format_single_success_changed(
         mock_trigger_update.call_count == 1
     ), "Successful landing should trigger Phab repo update."
 
-    with repo.scm.for_push(job.requester_email):
-        repo_root = repo.scm.run_hg(["root"]).decode("utf-8").strip()
+    with scm.for_push(job.requester_email):
+        repo_root = scm.run_hg(["root"]).decode("utf-8").strip()
 
         # Get the commit message.
-        desc = repo.scm.run_hg(["log", "-r", "tip", "-T", "{desc}"]).decode("utf-8")
+        desc = scm.run_hg(["log", "-r", "tip", "-T", "{desc}"]).decode("utf-8")
 
         # Get the content of the file after autoformatting.
-        tip_content = repo.scm.run_hg(
-            ["cat", "--cwd", repo_root, "-r", "tip", "test.txt"]
-        )
+        tip_content = scm.run_hg(["cat", "--cwd", repo_root, "-r", "tip", "test.txt"])
 
         # Get the hash behind the tip commit.
-        hash_behind_current_tip = repo.scm.run_hg(
+        hash_behind_current_tip = scm.run_hg(
             ["log", "-r", "tip^", "-T", "{node}"]
         ).decode("utf-8")
 
@@ -732,6 +750,7 @@ def test_format_stack_success_changed(
     repo = hg_repo_mc
     repo.autoformat_enabled = (True,)
     treestatusdouble.open_tree(repo.name)
+    scm = repo.scm
 
     revisions = [
         create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_PASS),
@@ -763,16 +782,14 @@ def test_format_stack_success_changed(
         mock_trigger_update.call_count == 1
     ), "Successful landing should trigger Phab repo update."
 
-    with repo.scm.for_push(job.requester_email):
-        repo_root = repo.scm.run_hg(["root"]).decode("utf-8").strip()
+    with scm.for_push(job.requester_email):
+        repo_root = scm.run_hg(["root"]).decode("utf-8").strip()
 
         # Get the commit message.
-        desc = repo.scm.run_hg(["log", "-r", "tip", "-T", "{desc}"]).decode("utf-8")
+        desc = scm.run_hg(["log", "-r", "tip", "-T", "{desc}"]).decode("utf-8")
 
         # Get the content of the file after autoformatting.
-        rev3_content = repo.scm.run_hg(
-            ["cat", "--cwd", repo_root, "-r", "tip", "test.txt"]
-        )
+        rev3_content = scm.run_hg(["cat", "--cwd", repo_root, "-r", "tip", "test.txt"])
 
     assert (
         rev3_content == TESTTXT_FORMATTED_2
