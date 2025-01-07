@@ -314,8 +314,8 @@ class GitSCM(AbstractSCM):
         return out
 
     @staticmethod
-    def _redact_url_userinfo(s: str) -> str:
-        return re.sub(URL_USERINFO_RE, "[REDACTED]@", s)
+    def _redact_url_userinfo(url: str) -> str:
+        return re.sub(URL_USERINFO_RE, "[REDACTED]@", url)
 
     @classmethod
     def _git_env(cls):
