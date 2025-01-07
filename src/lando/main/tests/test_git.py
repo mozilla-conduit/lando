@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from lando.main.scm.exceptions import SCMException
 from lando.main.scm.git import GitSCM
 
 
@@ -136,6 +137,38 @@ def test_GitSCM_clean_repo(
     assert (
         strip_non_public_commits != new_file.exists()
     ), f"strip_non_public_commits not honoured for {new_file}"
+
+
+def test_GitSCM_push_get_github_token(git_repo: Path):
+    scm = GitSCM(str(git_repo))
+    scm._git_run = MagicMock()
+    scm._get_github_token = MagicMock()
+    scm._get_github_token.side_effect = ["ghs_yolo"]
+
+    scm.push("https://github.com/some/repo")
+
+    assert scm._git_run.call_count == 1, "_git_run wasn't called when pushing"
+    assert (
+        scm._get_github_token.call_count == 1
+    ), "_get_github_token wasn't called when pushing to a github-like URL"
+    assert (
+        "git:ghs_yolo@github.com" in scm._git_run.call_args[0][1]
+    ), "github token not found in rewritten push_path"
+
+
+def test_GitSCM_git_run_redact_url_userinfo(git_repo: Path):
+    scm = GitSCM(str(git_repo))
+    userinfo = "user:password"
+    with pytest.raises(SCMException) as exc:
+        scm.push(
+            f"http://{userinfo}@this-shouldn-t-resolve-otherwise-this-will-timeout-and-this-test-will-take-longer/some/repo"
+        )
+
+    assert userinfo not in exc.value.out
+    assert userinfo not in exc.value.err
+    assert userinfo not in str(exc.value)
+    assert userinfo not in repr(exc.value)
+    assert "[REDACTED]" in exc.value.err
 
 
 def _monkeypatch_scm(monkeypatch, scm: GitSCM, method: str) -> MagicMock:

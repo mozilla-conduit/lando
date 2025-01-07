@@ -53,6 +53,18 @@ services:
       db:
         condition: service_healthy
 
+  git-landing-worker:
+    image: lando
+    command: lando start_landing_worker git
+    environment:
+      DEFAULT_GRACE_SECONDS: 10
+      LANDING_WORKER_USERNAME: app
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+
   proxy:
     build: ./nginx
     ports:

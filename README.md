@@ -29,6 +29,46 @@ The above command will run any database migrations and start the development ser
 
 The above command will shut down the containers running lando.
 
+## Configuring the server
+
+Lando relies on environment variables to configure its behaviour.
+
+Parameters of interest are the following.
+
+- Database parameters
+  - `DEFAULT_DB_HOST`
+  - `DEFAULT_DB_NAME`
+  - `DEFAULT_DB_PASSWORD`
+  - `DEFAULT_DB_PORT`
+  - `DEFAULT_DB_USER`
+- [GitHub application][github-app] authentication (needs to be
+  [installed][github-app-install] on all target repos)
+
+  - `GITHUB_APP_ID`
+  - `GITHUB_APP_PRIVKEY` (PEM)
+
+- HgMO authentication
+  - `SSH_PRIVATE_KEY` (PEM)
+- Mozilla services
+  - `PHABRICATOR_ADMIN_API_KEY`
+  - `PHABRICATOR_UNPRIVILEGED_API_KEY`
+  - `PHABRICATOR_URL` (URL)
+  - `TREESTATUS_URL` (URL)
+- OIDC parameters:
+  - `OIDC_DOMAIN` (domain name, no scheme)
+  - `OIDC_RP_CLIENT_ID`
+  - `OIDC_RP_CLIENT_SECRET`
+
+Have a look at all variables set via `os.getenv` in
+[`src/lando/settings.py`](src/lando/settings.py) for a more authoritative list.
+
+The `compose.yaml` file relies on a `.env` file for additional configuration.
+This is particularly useful for secrets and other transient parameters which
+cannot be included in the repo. That file is listed in the `.gitignore` list.
+
+Note that, currently, this environment file is also used by the [Conduit suite]
+when running a lando stack from the local working copy.
+
 ## Testing
 
 To run the test suite, invoke the following command:
@@ -56,8 +96,7 @@ Alternatively, you can run the `lando tests` command directly from n the Lando c
     docker compose run --rm lando lando tests -x -- failed-first --verbose
 
 It is also possible to run the tests in an existing stack from the
-[Conduit suite](https://github.com/mozilla-conduit/suite), by specifying the
-`INSUITE=1` parameter.
+[Conduit suite], by specifying the `INSUITE=1` parameter.
 
     make test INSUITE=1
 
@@ -86,3 +125,7 @@ and restore the default with
 ## Support
 
 To chat with Lando users and developers, join them on [Matrix](https://chat.mozilla.org/#/room/#conduit:mozilla.org).
+
+[Conduit suite]: https://github.com/mozilla-conduit/suite
+[github-app]: https://docs.github.com/en/enterprise-cloud@latest/apps/creating-github-apps/registering-a-github-app/registering-a-github-app
+[github-app-install]: https://docs.github.com/en/enterprise-cloud@latest/apps/using-github-apps/installing-your-own-github-app
