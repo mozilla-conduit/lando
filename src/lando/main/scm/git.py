@@ -108,7 +108,7 @@ class GitSCM(AbstractSCM):
 
     @staticmethod
     def _get_github_token(repo_owner: str, repo_name: str) -> Optional[str]:
-        """Obtain a fresh GitHub token to psuh to the specified repo.
+        """Obtain a fresh GitHub token to push to the specified repo.
 
         This relies on GITHUB_APP_ID and GITHUB_APP_PRIVKEY to be set in the
         environment. Returns None if those are missing.
