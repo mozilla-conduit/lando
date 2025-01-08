@@ -29,7 +29,12 @@ class AbstractSCM:
 
     @classmethod
     def get_rejects_path(cls) -> Path:
-        """Return the path where the SCM stores reject files."""
+        """Return the path where the SCM stores reject files.
+
+        We assume most SCMs just use the local directory, and provide a default
+        implementation. This however allows SCMs whose behaviour differs, such as
+        Mercurial, to provide a path to where the rejects are stored.
+        """
         return Path(".")
 
     @abstractmethod
