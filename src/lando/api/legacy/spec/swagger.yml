@@ -416,7 +416,7 @@ definitions:
         description: List of paths that failed to merge.
         items:
           type: string
-      reject_paths:
+      rejects_paths:
         type: array
         description: List of names of .rej files.
         items:

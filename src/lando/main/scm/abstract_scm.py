@@ -30,6 +30,16 @@ class AbstractSCM:
         """Return a _human-friendly_ string identifying the supported SCM (e.g.,
         `Mercurial`)."""
 
+    @classmethod
+    def get_rejects_path(cls) -> Path:
+        """Return the path where the SCM stores reject files.
+
+        We assume most SCMs just use the local directory, and provide a default
+        implementation. This however allows SCMs whose behaviour differs, such as
+        Mercurial, to provide a path to where the rejects are stored.
+        """
+        return Path(".")
+
     @abstractmethod
     def clone(self, source: str):
         """Clone a repository from a source.
