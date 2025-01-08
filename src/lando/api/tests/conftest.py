@@ -30,10 +30,12 @@ from lando.api.tests.mocks import PhabricatorDouble, TreeStatusDouble
 from lando.main.models import SCM_LEVEL_1, SCM_LEVEL_3, Profile, Repo
 from lando.main.scm import SCM_TYPE_HG
 from lando.main.support import LegacyAPIException
-from lando.main.tests.conftest import git_repo
+from lando.main.tests.conftest import git_repo, git_repo_seed
 from lando.utils.phabricator import PhabricatorClient
 
-__all__ = ["git_repo"]
+# We need some local usage of those imported fixtures to satisfy the linters.
+# This is it.
+__all__ = ["git_repo", "git_repo_seed"]
 
 PATCH_NORMAL_1 = r"""
 # HG changeset patch
