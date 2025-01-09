@@ -34,6 +34,13 @@ def create_patch_revision(normal_patch):
     normal_patch_0 = normal_patch(0)
 
     def _create_patch_revision(number, patch=normal_patch_0):
+        """Create revision number `number`, with patch text `patch`.
+
+        `patch` will default to the first normal patch fixture if unspecified. However,
+        if it explicitely set to None, the `normal_patch` fixture will be used to get
+        normal patch number `number-1`."""
+        if not patch:
+            patch = normal_patch(number - 1)
         revision = Revision()
         revision.revision_id = number
         revision.diff_id = number
@@ -283,8 +290,8 @@ def repo_mc(git_repo_mc: Repo, hg_repo_mc: Repo) -> Callable:
         (
             SCM_TYPE_GIT,
             [
-                (1, {}),
-                (2, {}),
+                (1, {"patch": None}),
+                (2, {"patch": None}),
             ],
         ),
         (SCM_TYPE_GIT, [(1, {"patch": LARGE_PATCH})]),
@@ -292,8 +299,8 @@ def repo_mc(git_repo_mc: Repo, hg_repo_mc: Repo) -> Callable:
         (
             SCM_TYPE_HG,
             [
-                (1, {}),
-                (2, {}),
+                (1, {"patch": None}),
+                (2, {"patch": None}),
             ],
         ),
         (SCM_TYPE_HG, [(1, {"patch": LARGE_PATCH})]),
