@@ -321,6 +321,7 @@ def test_integrated_execute_job(
     revisions = [
         create_patch_revision(number, **kwargs) for number, kwargs in revisions_params
     ]
+
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
