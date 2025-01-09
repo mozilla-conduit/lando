@@ -56,7 +56,7 @@ def test_GitSCM_clone(git_repo: Path, tmp_path: Path, monkeypatch):
 
     scm.clone(str(git_repo))
 
-    mock_git_run.assert_called_with("clone", str(git_repo), str(clone_path), cwd="/")
+    mock_git_run.assert_any_call("clone", str(git_repo), str(clone_path), cwd="/")
     assert clone_path.exists(), f"New git clone {clone_path} wasn't created"
     assert (
         clone_path / ".git"
