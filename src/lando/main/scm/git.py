@@ -145,8 +145,10 @@ class GitSCM(AbstractSCM):
         self, diff: str, commit_description: str, commit_author: str, commit_date: str
     ):
         """Apply the given patch to the current repository."""
-        f_msg = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
-        f_diff = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
+        f_msg = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+", suffix=".msg")
+        f_diff = tempfile.NamedTemporaryFile(
+            encoding="utf-8", mode="w+", suffix=".diff"
+        )
         with f_msg, f_diff:
             f_msg.write(commit_description)
             f_msg.flush()
