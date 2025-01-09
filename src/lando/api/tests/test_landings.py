@@ -60,7 +60,7 @@ diff --git a/test.txt b/test.txt
 @@ -1,1 +1,2 @@
  TEST
 +{LARGE_UTF8_THING}
-""".strip()
+""".lstrip()
 
 PATCH_WITHOUT_STARTLINE = r"""
 # HG changeset patch
@@ -74,7 +74,7 @@ diff --git a/test.txt b/test.txt
 @@ -1,1 +1,2 @@
  TEST
 +adding another line
-""".strip()
+""".lstrip()
 
 
 PATCH_PUSH_LOSER = r"""
@@ -91,7 +91,7 @@ diff --git a/test.txt b/test.txt
 @@ -1,1 +1,2 @@
  TEST
 +adding one more line again
-""".strip()
+""".lstrip()
 
 PATCH_FORMATTING_PATTERN_PASS = r"""
 # HG changeset patch
@@ -145,7 +145,7 @@ new file mode 100755
 +        f.write("".join(stdout_content))
 +    sys.exit(0)
 
-""".strip()
+""".lstrip()
 
 PATCH_FORMATTING_PATTERN_FAIL = r"""
 # HG changeset patch
@@ -178,7 +178,7 @@ new file mode 100755
 +sys.exit("MACH FAILED")
 +
 
-""".strip()
+""".lstrip()
 
 PATCH_FORMATTED_1 = r"""
 # HG changeset patch
@@ -196,7 +196,7 @@ diff --git a/test.txt b/test.txt
 +
 +
 +adding another line
-""".strip()
+""".lstrip()
 
 PATCH_FORMATTED_2 = r"""
 # HG changeset patch
@@ -214,7 +214,7 @@ diff --git a/test.txt b/test.txt
  
  adding another line
 +add one more line
-""".strip()  # noqa: W293
+""".lstrip()  # noqa: W293
 
 TESTTXT_FORMATTED_1 = b"""
 TeSt

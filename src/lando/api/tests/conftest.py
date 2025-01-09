@@ -50,7 +50,7 @@ diff --git a/test.txt b/test.txt
 @@ -1,1 +1,2 @@
  TEST
 +adding another line
-""".strip()
+""".lstrip()
 
 PATCH_NORMAL_2 = r"""
 # HG changeset patch
@@ -66,7 +66,7 @@ diff --git a/test.txt b/test.txt
  TEST
  adding another line
 +adding one more line
-""".strip()
+""".lstrip()
 
 PATCH_NORMAL_3 = r"""
 # HG changeset patch
@@ -87,7 +87,7 @@ new file mode 100644
 +++ b/blah.txt
 @@ -0,0 +1,1 @@
 +TEST
-""".strip()
+""".lstrip()
 
 
 @pytest.fixture
