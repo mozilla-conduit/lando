@@ -13,7 +13,10 @@ from django.conf import settings
 from simple_github import AppAuth, AppInstallationAuth
 
 from lando.main.scm.consts import SCM_TYPE_GIT
-from lando.main.scm.exceptions import SCMException
+from lando.main.scm.exceptions import (
+    PatchConflict,
+    SCMException,
+)
 from lando.settings import LANDO_USER_EMAIL, LANDO_USER_NAME
 
 from .abstract_scm import AbstractSCM
@@ -177,7 +180,11 @@ class GitSCM(AbstractSCM):
             ]
 
             for c in cmds:
-                self._git_run(*c, cwd=self.path)
+                try:
+                    self._git_run(*c, cwd=self.path)
+                except SCMException as exc:
+                    if "patch does not apply" in exc.err:
+                        raise PatchConflict(exc.err) from exc
 
     @contextmanager
     def for_pull(self) -> ContextManager:
