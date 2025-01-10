@@ -219,8 +219,17 @@ class GitSCM(AbstractSCM):
         """
         branch = target_cset or self.default_branch
         self.clean_repo()
-        self._git_run("pull", "--prune", pull_path, cwd=self.path)
-        self._git_run("checkout", "--force", "-B", branch, cwd=self.path)
+        # Fetch all refs at the given pull_path, and overwrite the `origin` references.
+        self._git_run(
+            "fetch",
+            "--prune",
+            pull_path,
+            "+refs/heads/*:refs/remotes/origin/*",
+            cwd=self.path,
+        )
+        self._git_run(
+            "checkout", "--force", "-B", branch, f"origin/{branch}", cwd=self.path
+        )
         return self.head_ref()
 
     def clean_repo(self, *, strip_non_public_commits: bool = True):
