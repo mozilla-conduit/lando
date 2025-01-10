@@ -20,6 +20,7 @@ dependencies = [
     "django_compressor",
     "jinja2",
     "kombu",
+    "mercurial==6.9",
     "mots",
     "mozilla_django_oidc",
     "networkx",
