@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import configparser
 import logging
-import re
 import subprocess
 from contextlib import contextmanager
 from datetime import datetime
 from io import StringIO
 from pathlib import Path
 from typing import (
-    Any,
     Optional,
 )
 
@@ -129,47 +127,6 @@ class LandingWorker(Worker):
             job.requester_email, job.landing_job_identifier, job.error, job.id
         )
 
-    def process_merge_conflict(
-        self,
-        exception: PatchConflict,
-        repo: Repo,
-        scm: AbstractSCM,
-        revision_id: int,
-    ) -> dict[str, Any]:
-        """Extract and parse merge conflict data from exception into a usable format."""
-        failed_paths, rejects_paths = self.extract_error_data(str(exception))
-
-        # Find last commits to touch each failed path.
-        failed_path_changesets = [
-            (path, scm.last_commit_for_path(path)) for path in failed_paths
-        ]
-
-        breakdown = {
-            "revision_id": revision_id,
-            "rejects_paths": None,
-        }
-
-        breakdown["failed_paths"] = [
-            {
-                "path": path,
-                "url": f"{repo.pull_path}/file/{revision}/{path}",
-                "changeset_id": revision,
-            }
-            for (path, revision) in failed_path_changesets
-        ]
-        breakdown["rejects_paths"] = {}
-        for path in rejects_paths:
-            reject = {"path": path}
-            try:
-                with open(scm.get_rejects_path() / repo.path[1:] / path, "r") as f:
-                    reject["content"] = f.read()
-            except Exception as e:
-                logger.exception(e)
-            # Use actual path of file to store reject data, by removing
-            # `.rej` extension.
-            breakdown["rejects_paths"][path[:-4]] = reject
-        return breakdown
-
     @staticmethod
     def notify_user_of_bug_update_failure(job: LandingJob, exception: Exception):
         """Wrapper around notify_user_of_bug_update_failure for convenience.
@@ -201,24 +158,6 @@ class LandingWorker(Worker):
             # The repo will eventually update.
             logger.exception("Failed sending repo update task to Celery.")
             logger.exception(e)
-
-    @staticmethod
-    def extract_error_data(exception: str) -> tuple[list[str], list[str]]:
-        """Extract rejected hunks and file paths from exception message."""
-        # RE to capture .rej file paths.
-        rejs_re = re.compile(
-            r"^\d+ out of \d+ hunks FAILED -- saving rejects to file (.+)$",
-            re.MULTILINE,
-        )
-
-        # TODO: capture reason for patch failure, e.g. deleting non-existing file, or
-        # adding a pre-existing file, etc...
-        rejects_paths = rejs_re.findall(exception)
-
-        # Collect all failed paths by removing `.rej` extension.
-        failed_paths = [path[:-4] for path in rejects_paths]
-
-        return failed_paths, rejects_paths
 
     def autoformat(
         self,
@@ -354,8 +293,8 @@ class LandingWorker(Worker):
                         date,
                     )
                 except PatchConflict as exc:
-                    breakdown = self.process_merge_conflict(
-                        exc, repo, scm, revision.revision_id
+                    breakdown = scm.process_merge_conflict(
+                        exc, repo.pull_path, revision.revision_id
                     )
                     job.error_breakdown = breakdown
 

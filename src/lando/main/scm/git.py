@@ -7,7 +7,7 @@ import tempfile
 import uuid
 from contextlib import contextmanager
 from pathlib import Path
-from typing import ContextManager, Optional
+from typing import Any, ContextManager, Optional
 
 from django.conf import settings
 from simple_github import AppAuth, AppInstallationAuth
@@ -185,6 +185,14 @@ class GitSCM(AbstractSCM):
                 except SCMException as exc:
                     if "patch does not apply" in exc.err:
                         raise PatchConflict(exc.err) from exc
+
+    def process_merge_conflict(
+        self,
+        exception: PatchConflict,
+        pull_path: str,
+        revision_id: int,
+    ) -> dict[str, Any]:
+        raise NotImplementedError("GitSCM.process_merge_conflict")
 
     @contextmanager
     def for_pull(self) -> ContextManager:

@@ -1,6 +1,5 @@
 import io
 import pathlib
-import textwrap
 import unittest.mock as mock
 from collections.abc import Callable
 
@@ -635,62 +634,6 @@ def test_failed_landing_job_notification(
     assert worker.run_job(job)
     assert job.status == LandingJobStatus.FAILED
     assert mock_notify.call_count == 1
-
-
-def test_landing_worker__extract_error_data():
-    exception_message = textwrap.dedent(
-        """\
-    patching file toolkit/moz.configure
-    Hunk #1 FAILED at 2075
-    Hunk #2 FAILED at 2325
-    Hunk #3 FAILED at 2340
-    3 out of 3 hunks FAILED -- saving rejects to file toolkit/moz.configure.rej
-    patching file moz.configure
-    Hunk #1 FAILED at 239
-    Hunk #2 FAILED at 250
-    2 out of 2 hunks FAILED -- saving rejects to file moz.configure.rej
-    patching file a/b/c.d
-    Hunk #1 FAILED at 656
-    1 out of 1 hunks FAILED -- saving rejects to file a/b/c.d.rej
-    patching file d/e/f.g
-    Hunk #1 FAILED at 6
-    1 out of 1 hunks FAILED -- saving rejects to file d/e/f.g.rej
-    patching file h/i/j.k
-    Hunk #1 FAILED at 4
-    1 out of 1 hunks FAILED -- saving rejects to file h/i/j.k.rej
-    file G0fvb1RuMQxXNjs already exists
-    1 out of 1 hunks FAILED -- saving rejects to file G0fvb1RuMQxXNjs.rej
-    unable to find 'abc/def' for patching
-    (use '--prefix' to apply patch relative to the current directory)
-    1 out of 1 hunks FAILED -- saving rejects to file abc/def.rej
-    patching file browser/locales/en-US/browser/browserContext.ftl
-    Hunk #1 succeeded at 300 with fuzz 2 (offset -4 lines).
-    abort: patch failed to apply"""
-    )
-
-    expected_failed_paths = [
-        "toolkit/moz.configure",
-        "moz.configure",
-        "a/b/c.d",
-        "d/e/f.g",
-        "h/i/j.k",
-        "G0fvb1RuMQxXNjs",
-        "abc/def",
-    ]
-
-    expected_rejects_paths = [
-        "toolkit/moz.configure.rej",
-        "moz.configure.rej",
-        "a/b/c.d.rej",
-        "d/e/f.g.rej",
-        "h/i/j.k.rej",
-        "G0fvb1RuMQxXNjs.rej",
-        "abc/def.rej",
-    ]
-
-    failed_paths, rejects_paths = LandingWorker.extract_error_data(exception_message)
-    assert failed_paths == expected_failed_paths
-    assert rejects_paths == expected_rejects_paths
 
 
 @pytest.mark.parametrize(

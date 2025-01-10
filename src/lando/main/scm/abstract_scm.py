@@ -1,7 +1,9 @@
 import logging
 from abc import abstractmethod
 from pathlib import Path
-from typing import ContextManager, Optional
+from typing import Any, ContextManager, Optional
+
+from lando.main.scm.exceptions import PatchConflict
 
 logger = logging.getLogger(__name__)
 
@@ -29,16 +31,6 @@ class AbstractSCM:
     def scm_name(cls) -> str:
         """Return a _human-friendly_ string identifying the supported SCM (e.g.,
         `Mercurial`)."""
-
-    @classmethod
-    def get_rejects_path(cls) -> Path:
-        """Return the path where the SCM stores reject files.
-
-        We assume most SCMs just use the local directory, and provide a default
-        implementation. This however allows SCMs whose behaviour differs, such as
-        Mercurial, to provide a path to where the rejects are stored.
-        """
-        return Path(".")
 
     @abstractmethod
     def clone(self, source: str):
@@ -100,6 +92,29 @@ class AbstractSCM:
 
         Returns:
             None
+        """
+
+    @abstractmethod
+    def process_merge_conflict(
+        self,
+        exception: PatchConflict,
+        pull_path: str,
+        revision_id: int,
+    ) -> dict[str, Any]:
+        """Process merge conflict information captured in a PatchConflict, and return a
+        parsed structure.
+
+        The structure is a nested dict as follows:
+
+            revision_id: revision_id
+            failed paths: list[dict]
+                path: str
+                url: str
+                changeset_id: str
+            rejects_paths: dict[str, dict]
+                <str>: dict[str, str] (conflicted file path)
+                    path: str (reject file path)
+                    content: str
         """
 
     @abstractmethod
