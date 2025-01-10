@@ -166,7 +166,7 @@ class GitSCM(AbstractSCM):
             f_diff.flush()
 
             cmds = [
-                ["apply", f_diff.name],
+                ["apply", "--reject", f_diff.name],
                 ["add", "-A"],
                 [
                     "commit",
@@ -183,7 +183,7 @@ class GitSCM(AbstractSCM):
                 try:
                     self._git_run(*c, cwd=self.path)
                 except SCMException as exc:
-                    if "patch does not apply" in exc.err:
+                    if "error: patch" in exc.err:
                         raise PatchConflict(exc.err) from exc
 
     def process_merge_conflict(
@@ -192,7 +192,43 @@ class GitSCM(AbstractSCM):
         pull_path: str,
         revision_id: int,
     ) -> dict[str, Any]:
-        raise NotImplementedError("GitSCM.process_merge_conflict")
+        """Process merge conflict information captured in a PatchConflict, and return a
+        parsed structure."""
+
+        failed_re = re.compile(r"patch failed: (.*):\d+", re.MULTILINE)
+
+        breakdown = {
+            "failed_paths": [],
+            "rejects_paths": {},
+            "revision_id": revision_id,
+        }
+
+        failed_paths = failed_re.findall(str(exception))
+
+        failed_path_commits = [
+            (path, self.last_commit_for_path(path)) for path in failed_paths
+        ]
+
+        breakdown["failed_paths"] = [
+            {
+                "path": path,
+                "url": f"{pull_path}/file/{revision}/{path}",
+                "changeset_id": revision,
+            }
+            for (path, revision) in failed_path_commits
+        ]
+
+        for path in failed_paths:
+            reject = {"path": f"{path}.rej"}
+
+            try:
+                with open(Path(self.path) / reject["path"], "r") as r:
+                    reject["content"] = r.read()
+            except Exception as e:
+                logger.exception(e)
+            breakdown["rejects_paths"][path] = reject
+
+        return breakdown
 
     @contextmanager
     def for_pull(self) -> ContextManager:
