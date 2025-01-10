@@ -522,8 +522,7 @@ def test_lose_push_race(
 @pytest.mark.parametrize(
     "repo_type",
     [
-        # Bug 1940876
-        # SCM_TYPE_GIT,
+        SCM_TYPE_GIT,
         SCM_TYPE_HG,
     ],
 )
@@ -564,7 +563,17 @@ def test_merge_conflict(
 
     assert worker.run_job(job)
     assert job.status == LandingJobStatus.FAILED
-    assert "hunks FAILED" in caplog.text
+
+    # Make sure a conflict actually happened.
+    assert repo_type in [
+        SCM_TYPE_GIT,
+        SCM_TYPE_HG,
+    ], f"Unsupported repository type: {repo_type=}"
+    if repo_type == SCM_TYPE_GIT:
+        assert "Rejected hunk" in caplog.text
+    elif repo_type == SCM_TYPE_HG:
+        assert "hunks FAILED" in caplog.text
+
     assert job.error_breakdown, "No error breakdown added to job"
     assert job.error_breakdown.get(
         "rejects_paths"
@@ -585,8 +594,7 @@ def test_merge_conflict(
 @pytest.mark.parametrize(
     "repo_type",
     [
-        # Bug 1940876
-        # SCM_TYPE_GIT,
+        SCM_TYPE_GIT,
         SCM_TYPE_HG,
     ],
 )
@@ -858,8 +866,7 @@ def _scm_get_last_commit_message(scm: AbstractSCM) -> str:
 @pytest.mark.parametrize(
     "repo_type",
     [
-        # Bug 1940876
-        # SCM_TYPE_GIT,
+        SCM_TYPE_GIT,
         SCM_TYPE_HG,
     ],
 )
@@ -869,6 +876,7 @@ def test_format_patch_fail(
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    normal_patch,
     repo_type: str,
 ):
     """Tests automated formatting failures before landing."""
@@ -878,8 +886,8 @@ def test_format_patch_fail(
 
     revisions = [
         create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_FAIL),
-        create_patch_revision(2),
-        create_patch_revision(3),
+        create_patch_revision(2, patch=normal_patch(0)),
+        create_patch_revision(3, patch=normal_patch(1)),
     ]
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
@@ -915,8 +923,7 @@ def test_format_patch_fail(
 @pytest.mark.parametrize(
     "repo_type",
     [
-        # Bug 1940876
-        # SCM_TYPE_GIT,
+        SCM_TYPE_GIT,
         SCM_TYPE_HG,
     ],
 )
@@ -934,8 +941,8 @@ def test_format_patch_no_landoini(
     treestatusdouble.open_tree(repo.name)
 
     revisions = [
-        create_patch_revision(1),
-        create_patch_revision(2),
+        create_patch_revision(1, patch=None),
+        create_patch_revision(2, patch=None),
     ]
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
