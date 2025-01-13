@@ -14,6 +14,7 @@ from simple_github import AppAuth, AppInstallationAuth
 
 from lando.main.scm.consts import SCM_TYPE_GIT
 from lando.main.scm.exceptions import SCMException
+from lando.settings import LANDO_USER_EMAIL, LANDO_USER_NAME
 
 from .abstract_scm import AbstractSCM
 
@@ -69,6 +70,12 @@ class GitSCM(AbstractSCM):
         """Clone a repository from a source."""
         # When cloning, self.path doesn't exist yet, so we need to use another CWD.
         self._git_run("clone", source, self.path, cwd="/")
+        self._git_setup_user()
+
+    def _git_setup_user(self):
+        """Configure the git user locally to repo_dir so as not to mess with the real user's configuration."""
+        self._git_run("config", "user.name", LANDO_USER_NAME, cwd=self.path)
+        self._git_run("config", "user.email", LANDO_USER_EMAIL, cwd=self.path)
 
     def push(
         self,
@@ -145,8 +152,10 @@ class GitSCM(AbstractSCM):
         self, diff: str, commit_description: str, commit_author: str, commit_date: str
     ):
         """Apply the given patch to the current repository."""
-        f_msg = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
-        f_diff = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
+        f_msg = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+", suffix=".msg")
+        f_diff = tempfile.NamedTemporaryFile(
+            encoding="utf-8", mode="w+", suffix=".diff"
+        )
         with f_msg, f_diff:
             f_msg.write(commit_description)
             f_msg.flush()
@@ -210,8 +219,17 @@ class GitSCM(AbstractSCM):
         """
         branch = target_cset or self.default_branch
         self.clean_repo()
-        self._git_run("pull", "--prune", pull_path, cwd=self.path)
-        self._git_run("checkout", "--force", "-B", branch, cwd=self.path)
+        # Fetch all refs at the given pull_path, and overwrite the `origin` references.
+        self._git_run(
+            "fetch",
+            "--prune",
+            pull_path,
+            "+refs/heads/*:refs/remotes/origin/*",
+            cwd=self.path,
+        )
+        self._git_run(
+            "checkout", "--force", "-B", branch, f"origin/{branch}", cwd=self.path
+        )
         return self.head_ref()
 
     def clean_repo(self, *, strip_non_public_commits: bool = True):
@@ -229,7 +247,13 @@ class GitSCM(AbstractSCM):
 
     def format_stack_tip(self, commit_message: str) -> Optional[list[str]]:
         """Add an autoformat commit to the top of the patch stack."""
-        self._git_run("commit", "--all", "--message", commit_message, cwd=self.path)
+        try:
+            self._git_run("commit", "--all", "--message", commit_message, cwd=self.path)
+        except SCMException as exc:
+            if "nothing to commit, working tree clean" in exc.out:
+                return []
+            else:
+                raise exc
         return [self.get_current_node()]
 
     def get_current_node(self) -> str:
