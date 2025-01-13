@@ -51,7 +51,8 @@ def _git_ignore_denyCurrentBranch(repo_dir: Path):
 
     This is a sane protection in general, but it gets in the way of the tests here,
     where we just want a target, and don't care much about the final state of this
-    target after everything is done."""
+    target after everything is done.
+    """
     subprocess.run(
         ["git", "config", "receive.denyCurrentBranch", "ignore"],
         check=True,
