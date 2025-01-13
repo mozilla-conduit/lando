@@ -1,6 +1,7 @@
 import copy
 import logging
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -9,6 +10,7 @@ import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from typing import (
+    Any,
     ContextManager,
     Optional,
     Self,
@@ -181,11 +183,6 @@ class HgSCM(AbstractSCM):
         """Return a _human-friendly_ string identifying the supported SCM."""
         return "Mercurial"
 
-    @classmethod
-    def get_rejects_path(cls) -> Path:
-        """A Path where this SCM stores reject from a failed patch application."""
-        return Path("/tmp/patch_rejects")
-
     def push(
         self,
         push_path: str,
@@ -278,6 +275,70 @@ class HgSCM(AbstractSCM):
                 + ["--landing_system", "lando"]
                 + ["--logfile", f_msg.name]
             )
+
+    def process_merge_conflict(
+        self,
+        pull_path: str,
+        revision_id: int,
+        error_message: str,
+    ) -> dict[str, Any]:
+        """Process merge conflict information captured in a PatchConflict, and return a
+        parsed structure."""
+        failed_paths, rejects_paths = self._extract_error_data(error_message)
+
+        # Find last commits to touch each failed path.
+        failed_path_changesets = [
+            (path, self.last_commit_for_path(path)) for path in failed_paths
+        ]
+
+        breakdown = {
+            "revision_id": revision_id,
+            "rejects_paths": None,
+        }
+
+        breakdown["failed_paths"] = [
+            {
+                "path": path,
+                "url": f"{pull_path}/file/{revision}/{path}",
+                "changeset_id": revision,
+            }
+            for (path, revision) in failed_path_changesets
+        ]
+        breakdown["rejects_paths"] = {}
+        for path in rejects_paths:
+            reject = {"path": path}
+            try:
+                with open(self._get_rejects_path() / self.path[1:] / path, "r") as f:
+                    reject["content"] = f.read()
+            except Exception as e:
+                logger.exception(e)
+            # Use actual path of file to store reject data, by removing
+            # `.rej` extension.
+            breakdown["rejects_paths"][path[:-4]] = reject
+        return breakdown
+
+    @classmethod
+    def _get_rejects_path(cls) -> Path:
+        """A Path where this SCM stores rejects from a failed patch application."""
+        return Path("/tmp/patch_rejects")
+
+    @staticmethod
+    def _extract_error_data(exception: str) -> tuple[list[str], list[str]]:
+        """Extract rejected hunks and file paths from exception message."""
+        # RE to capture .rej file paths.
+        rejs_re = re.compile(
+            r"^\d+ out of \d+ hunks FAILED -- saving rejects to file (.+)$",
+            re.MULTILINE,
+        )
+
+        # TODO: capture reason for patch failure, e.g. deleting non-existing file, or
+        # adding a pre-existing file, etc...
+        rejects_paths = rejs_re.findall(exception)
+
+        # Collect all failed paths by removing `.rej` extension.
+        failed_paths = [path[:-4] for path in rejects_paths]
+
+        return failed_paths, rejects_paths
 
     @contextmanager
     def for_push(self, requester_email: str):
@@ -518,18 +579,20 @@ class HgSCM(AbstractSCM):
     def clean_repo(self, *, strip_non_public_commits: bool = True):
         """Clean the local working copy from all extraneous files."""
         # Reset rejects directory
-        if self.get_rejects_path().is_dir():
-            shutil.rmtree(self.get_rejects_path())
-        self.get_rejects_path().mkdir()
+        if self._get_rejects_path().is_dir():
+            shutil.rmtree(self._get_rejects_path())
+        self._get_rejects_path().mkdir()
 
         # Copy .rej files to a temporary folder.
         rejects = Path(f"{self.path}/").rglob("*.rej")
         for reject in rejects:
             os.makedirs(
-                self.get_rejects_path().joinpath(reject.parents[0].as_posix()[1:]),
+                self._get_rejects_path().joinpath(reject.parents[0].as_posix()[1:]),
                 exist_ok=True,
             )
-            shutil.copy(reject, self.get_rejects_path().joinpath(reject.as_posix()[1:]))
+            shutil.copy(
+                reject, self._get_rejects_path().joinpath(reject.as_posix()[1:])
+            )
 
         # Clean working directory.
         try:
