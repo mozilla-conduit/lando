@@ -981,6 +981,8 @@ def test_format_patch_no_landoini(
     treestatusdouble.open_tree(repo.name)
 
     revisions = [
+        # Patch=None let create_patch_revision determin the patch to use based on the
+        # revision number.
         create_patch_revision(1, patch=None),
         create_patch_revision(2, patch=None),
     ]
