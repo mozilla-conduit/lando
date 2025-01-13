@@ -37,7 +37,7 @@ def create_patch_revision(normal_patch):
         """Create revision number `number`, with patch text `patch`.
 
         `patch` will default to the first normal patch fixture if unspecified. However,
-        if it explicitely set to None, the `normal_patch` fixture will be used to get
+        if explicitly set to None, the `normal_patch` fixture will be used to get
         normal patch number `number-1`."""
         if not patch:
             patch = normal_patch(number - 1)
