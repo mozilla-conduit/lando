@@ -574,10 +574,10 @@ def test_lose_push_race(
 
 
 @pytest.mark.parametrize(
-    "repo_type",
+    "repo_type, expected_error_log",
     [
-        SCM_TYPE_GIT,
-        SCM_TYPE_HG,
+        (SCM_TYPE_GIT, "Rejected hunk"),
+        (SCM_TYPE_HG, "hunks FAILED"),
     ],
 )
 @pytest.mark.django_db
@@ -588,6 +588,7 @@ def test_merge_conflict(
     create_patch_revision,
     caplog,
     repo_type: str,
+    expected_error_log: str,
 ):
     repo = repo_mc(repo_type)
     treestatusdouble.open_tree(repo.name)
@@ -618,15 +619,7 @@ def test_merge_conflict(
     assert worker.run_job(job)
     assert job.status == LandingJobStatus.FAILED
 
-    # Make sure a conflict actually happened.
-    assert repo_type in [
-        SCM_TYPE_GIT,
-        SCM_TYPE_HG,
-    ], f"Unsupported repository type: {repo_type=}"
-    if repo_type == SCM_TYPE_GIT:
-        assert "Rejected hunk" in caplog.text
-    elif repo_type == SCM_TYPE_HG:
-        assert "hunks FAILED" in caplog.text
+    assert expected_error_log in caplog.text
 
     assert job.error_breakdown, "No error breakdown added to job"
     assert job.error_breakdown.get(
