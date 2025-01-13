@@ -278,13 +278,13 @@ class HgSCM(AbstractSCM):
 
     def process_merge_conflict(
         self,
-        exception: PatchConflict,
         pull_path: str,
         revision_id: int,
+        error_message: str,
     ) -> dict[str, Any]:
         """Process merge conflict information captured in a PatchConflict, and return a
         parsed structure."""
-        failed_paths, rejects_paths = self._extract_error_data(str(exception))
+        failed_paths, rejects_paths = self._extract_error_data(error_message)
 
         # Find last commits to touch each failed path.
         failed_path_changesets = [

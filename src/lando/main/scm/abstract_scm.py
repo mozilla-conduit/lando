@@ -3,8 +3,6 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Any, ContextManager, Optional
 
-from lando.main.scm.exceptions import PatchConflict
-
 logger = logging.getLogger(__name__)
 
 
@@ -96,10 +94,7 @@ class AbstractSCM:
 
     @abstractmethod
     def process_merge_conflict(
-        self,
-        exception: PatchConflict,
-        pull_path: str,
-        revision_id: int,
+        self, pull_path: str, revision_id: int, error_message: str
     ) -> dict[str, Any]:
         """Process merge conflict information captured in a PatchConflict, and return a
         parsed structure.

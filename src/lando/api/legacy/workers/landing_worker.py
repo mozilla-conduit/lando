@@ -294,7 +294,7 @@ class LandingWorker(Worker):
                     )
                 except PatchConflict as exc:
                     breakdown = scm.process_merge_conflict(
-                        exc, repo.pull_path, revision.revision_id
+                        repo.pull_path, revision.revision_id, str(exc)
                     )
                     job.error_breakdown = breakdown
 

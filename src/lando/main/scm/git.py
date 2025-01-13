@@ -188,9 +188,9 @@ class GitSCM(AbstractSCM):
 
     def process_merge_conflict(
         self,
-        exception: PatchConflict,
         pull_path: str,
         revision_id: int,
+        error_message: str,
     ) -> dict[str, Any]:
         """Process merge conflict information captured in a PatchConflict, and return a
         parsed structure."""
@@ -203,7 +203,7 @@ class GitSCM(AbstractSCM):
             "revision_id": revision_id,
         }
 
-        failed_paths = failed_re.findall(str(exception))
+        failed_paths = failed_re.findall(error_message)
 
         failed_path_commits = [
             (path, self.last_commit_for_path(path)) for path in failed_paths
