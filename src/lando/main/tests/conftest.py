@@ -5,7 +5,11 @@ import pytest
 
 
 @pytest.fixture
-def git_repo_seed(request) -> Path:
+def git_repo_seed() -> Path:
+    """
+    Return the path to a diff file to apply on an empty repo to create a known base for
+    application of other patches as part of the tests.
+    """
     return Path(__file__).parent / "data" / "test-repo.patch"
 
 
@@ -51,7 +55,8 @@ def _git_ignore_denyCurrentBranch(repo_dir: Path):
 
     This is a sane protection in general, but it gets in the way of the tests here,
     where we just want a target, and don't care much about the final state of this
-    target after everything is done."""
+    target after everything is done.
+    """
     subprocess.run(
         ["git", "config", "receive.denyCurrentBranch", "ignore"],
         check=True,
