@@ -239,32 +239,67 @@ aDd oNe mOrE LiNe
 """.lstrip()
 
 
-@pytest.fixture()
-def hg_repo_mc(hg_server: str, hg_clone: py.path) -> Repo:
+@pytest.mark.django_db
+def hg_repo_mc(
+    hg_server: str,
+    hg_clone: py.path,
+    *,
+    approval_required: bool = False,
+    autoformat_enabled: bool = False,
+    force_push: bool = False,
+    push_target: str = "",
+) -> Repo:
+    params = {
+        "required_permission": SCM_LEVEL_3,
+        "url": hg_server,
+        "push_path": hg_server,
+        "pull_path": hg_server,
+        "system_path": hg_clone.strpath,
+        # The option below can be overriden in the parameters
+        "approval_required": approval_required,
+        "autoformat_enabled": autoformat_enabled,
+        "force_push": force_push,
+        "push_target": push_target,
+    }
     repo = Repo.objects.create(
         scm_type=SCM_TYPE_HG,
         name="mozilla-central-hg",
-        required_permission=SCM_LEVEL_3,
-        url=hg_server,
-        push_path=hg_server,
-        pull_path=hg_server,
-        system_path=hg_clone.strpath,
+        **params,
     )
+    repo.save()
     return repo
 
 
-@pytest.fixture()
 @pytest.mark.django_db
-def git_repo_mc(git_repo: pathlib.Path, tmp_path: pathlib.Path) -> Repo:
+def git_repo_mc(
+    git_repo: pathlib.Path,
+    tmp_path: pathlib.Path,
+    *,
+    approval_required: bool = False,
+    autoformat_enabled: bool = False,
+    force_push: bool = False,
+    push_target: str = "",
+) -> Repo:
     repos_dir = tmp_path / "repos"
     repos_dir.mkdir()
+
+    params = {
+        "required_permission": SCM_LEVEL_3,
+        "url": str(git_repo),
+        "push_path": str(git_repo),
+        "pull_path": str(git_repo),
+        "system_path": repos_dir / "git_repo",
+        # The option below can be overriden in the parameters
+        "approval_required": approval_required,
+        "autoformat_enabled": autoformat_enabled,
+        "force_push": force_push,
+        "push_target": push_target,
+    }
+
     repo = Repo.objects.create(
         scm_type=SCM_TYPE_GIT,
         name="mozilla-central-git",
-        required_permission=SCM_LEVEL_3,
-        url=str(git_repo),
-        push_path=str(git_repo),
-        system_path=repos_dir / "git_repo",
+        **params,
     )
     repo.save()
     repo.scm.prepare_repo(repo.pull_path)
@@ -272,12 +307,33 @@ def git_repo_mc(git_repo: pathlib.Path, tmp_path: pathlib.Path) -> Repo:
 
 
 @pytest.fixture()
-def repo_mc(git_repo_mc: Repo, hg_repo_mc: Repo) -> Callable:
-    def factory(scm_type: str) -> Repo:
+def repo_mc(
+    # Git
+    git_repo: pathlib.Path,
+    tmp_path: pathlib.Path,
+    # Hg
+    hg_server: str,
+    hg_clone: py.path,
+) -> Callable:
+    def factory(
+        scm_type: str,
+        *,
+        approval_required: bool = False,
+        autoformat_enabled: bool = False,
+        force_push: bool = False,
+        push_target: str = "",
+    ) -> Repo:
+        params = {
+            "approval_required": approval_required,
+            "autoformat_enabled": autoformat_enabled,
+            "force_push": force_push,
+            "push_target": push_target,
+        }
+
         if scm_type == SCM_TYPE_GIT:
-            return git_repo_mc
-        if scm_type == SCM_TYPE_HG:
-            return hg_repo_mc
+            return git_repo_mc(git_repo, tmp_path, **params)
+        elif scm_type == SCM_TYPE_HG:
+            return hg_repo_mc(hg_server, hg_clone, **params)
         raise Exception(f"Unknown SCM Type {scm_type=}")
 
     return factory
@@ -362,8 +418,7 @@ def test_integrated_execute_job_with_force_push(
     create_patch_revision,
     repo_type: str,
 ):
-    repo = repo_mc(repo_type)
-    repo.force_push = True
+    repo = repo_mc(repo_type, force_push=True)
     treestatusdouble.open_tree(repo.name)
     scm = repo.scm
 
@@ -408,8 +463,7 @@ def test_integrated_execute_job_with_bookmark(
     create_patch_revision,
     repo_type: str,
 ):
-    repo = repo_mc(repo_type)
-    repo.push_target = "@"
+    repo = repo_mc(repo_type, push_target="@")
     treestatusdouble.open_tree(repo.name)
     scm = repo.scm
 
@@ -600,9 +654,7 @@ def test_failed_landing_job_notification(
     repo_type: str,
 ):
     """Ensure that a failed landings triggers a user notification."""
-    repo = repo_mc(repo_type)
-    repo.approval_required = True
-    repo.autoformat_enabled = False
+    repo = repo_mc(repo_type, approval_required=True, autoformat_enabled=False)
     treestatusdouble.open_tree(repo.name)
     scm = repo.scm
 
@@ -710,9 +762,8 @@ def test_format_patch_success_unchanged(
     repo_type: str,
 ):
     """Tests automated formatting happy path where formatters made no changes."""
-    repo = repo_mc(repo_type)
+    repo = repo_mc(repo_type, autoformat_enabled=True)
     treestatusdouble.open_tree(repo.name)
-    repo.autoformat_enabled = True
 
     revisions = [
         create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_PASS),
@@ -763,8 +814,7 @@ def test_format_single_success_changed(
     repo_type: str,
 ):
     """Test formatting a single commit via amending."""
-    repo = repo_mc(repo_type)
-    repo.autoformat_enabled = True
+    repo = repo_mc(repo_type, autoformat_enabled=True)
     treestatusdouble.open_tree(repo.name)
     scm = repo.scm
 
@@ -851,8 +901,7 @@ def test_format_stack_success_changed(
     repo_type: str,
 ):
     """Test formatting a stack via an autoformat tip commit."""
-    repo = repo_mc(repo_type)
-    repo.autoformat_enabled = (True,)
+    repo = repo_mc(repo_type, autoformat_enabled=True)
     treestatusdouble.open_tree(repo.name)
     scm = repo.scm
 
@@ -929,8 +978,7 @@ def test_format_patch_fail(
     repo_type: str,
 ):
     """Tests automated formatting failures before landing."""
-    repo = repo_mc(repo_type)
-    repo.autoformat_enabled = True
+    repo = repo_mc(repo_type, autoformat_enabled=True)
     treestatusdouble.open_tree(repo.name)
 
     revisions = [
@@ -986,8 +1034,7 @@ def test_format_patch_no_landoini(
     repo_type: str,
 ):
     """Tests behaviour of Lando when the `.lando.ini` file is missing."""
-    repo = repo_mc(repo_type)
-    repo.autoformat_enabled = True
+    repo = repo_mc(repo_type, autoformat_enabled=True)
     treestatusdouble.open_tree(repo.name)
 
     revisions = [
