@@ -5,7 +5,11 @@ import pytest
 
 
 @pytest.fixture
-def git_repo_seed(request) -> Path:
+def git_repo_seed() -> Path:
+    """
+    Return the path to a diff file to apply on an empty repo to create a known base for
+    application of other patches as part of the tests.
+    """
     return Path(__file__).parent / "data" / "test-repo.patch"
 
 
