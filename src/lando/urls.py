@@ -19,6 +19,9 @@ from django.contrib import admin
 from django.urls import include, path
 
 from lando.api.legacy.api import landing_jobs
+from lando.main.api import (
+    api as automation_api,
+)
 from lando.ui.legacy import pages, revisions, user_settings
 
 urlpatterns = [
@@ -36,4 +39,8 @@ urlpatterns += [
 # "API" endpoints ported from legacy API app.
 urlpatterns += [
     path("landing_jobs/<int:landing_job_id>/", landing_jobs.put, name="landing-jobs"),
+]
+
+urlpatterns += [
+    path("api/", automation_api.urls, name="automation-api"),
 ]

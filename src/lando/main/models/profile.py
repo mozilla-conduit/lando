@@ -77,6 +77,9 @@ class Profile(BaseModel):
     # Encrypted Phabricator API token.
     encrypted_phabricator_api_key = models.BinaryField(default=b"", blank=True)
 
+    # Encrypted API key.
+    encrypted_lando_api_key = models.BinaryField(default=b"", blank=True)
+
     def _encrypt_value(self, value: str) -> bytes:
         """Encrypt a given string value."""
         return self.cryptography.encrypt(value.encode("utf-8"))
@@ -125,6 +128,24 @@ class Profile(BaseModel):
     def save_phabricator_api_key(self, key: str):
         """Given a raw API key, encrypt it and store it in the relevant field."""
         self.encrypted_phabricator_api_key = self._encrypt_value(key)
+        self.save()
+
+    @property
+    def lando_api_key(self) -> str:
+        """Decrypt and return the value of the Lando API key."""
+        encrypted_key = bytes(self.encrypted_lando_api_key)
+        if encrypted_key:
+            return self._decrypt_value(encrypted_key)
+
+        return ""
+
+    def clear_lando_api_key(self):
+        """Set the Lando API key to an empty string and save."""
+        self.save_lando_api_key("")
+
+    def save_lando_api_key(self, key: str):
+        """Given a raw Lando API key, encrypt it and store it in the relevant field."""
+        self.encrypted_lando_api_key = self._encrypt_value(key)
         self.save()
 
     def update_permissions(self):
