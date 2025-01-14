@@ -106,7 +106,7 @@ deleted file mode 100644
 --- a/test-file
 +++ /dev/null
 @@ -1,1 +0,0 @@
--hello\r
+-hello
 \\ No newline at end of file
 """.strip()
 
@@ -230,7 +230,7 @@ def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
         # Note that to reproduce this bug, this file needs to already exist
         # in the repo and not be imported in a patch.
         new_file = hg_clone.join("test-file")
-        new_file.write(b"hello\r", mode="wb")
+        new_file.write(b"hello", mode="wb")
         repo.run_hg_cmds(
             [["add", new_file.strpath], ["commit", "-m", "adding file"], ["push"]]
         )
