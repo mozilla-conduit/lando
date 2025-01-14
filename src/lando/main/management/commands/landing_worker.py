@@ -33,6 +33,7 @@ def job_processing(job: LandingJob):
         job.duration_seconds = (datetime.now() - start_time).seconds
 
 
+# TODO what is this? should it be removed?
 class Command(BaseCommand, WorkerMixin):
     help = "Start the landing worker."
     name = "landing-worker"

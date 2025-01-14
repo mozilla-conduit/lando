@@ -16,6 +16,7 @@ dependencies = [
     "datadog",
     "django ~= 5.0",
     "django-libsass",
+    "django-ninja",
     "django-storages[google]",
     "django_compressor",
     "jinja2",
