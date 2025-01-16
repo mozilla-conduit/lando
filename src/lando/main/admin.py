@@ -9,6 +9,12 @@ from lando.main.models import (
     RevisionLandingJob,
     Worker,
 )
+from lando.pushlog.models import (
+    Commit,
+    File,
+    Push,
+    Tag,
+)
 
 admin.site.site_title = gettext_lazy("Lando Admin")
 admin.site.site_header = gettext_lazy("Lando Administration")
@@ -43,3 +49,8 @@ admin.site.register(Revision, admin.ModelAdmin)
 admin.site.register(Repo, admin.ModelAdmin)
 admin.site.register(Worker, admin.ModelAdmin)
 admin.site.register(ConfigurationVariable, admin.ModelAdmin)
+
+admin.site.register(Push, admin.ModelAdmin)
+admin.site.register(Commit, admin.ModelAdmin)
+admin.site.register(File, admin.ModelAdmin)
+admin.site.register(Tag, admin.ModelAdmin)
