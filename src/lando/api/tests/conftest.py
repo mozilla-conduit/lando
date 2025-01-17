@@ -30,7 +30,12 @@ from lando.api.tests.mocks import PhabricatorDouble, TreeStatusDouble
 from lando.main.models import SCM_LEVEL_1, SCM_LEVEL_3, Profile, Repo
 from lando.main.scm import SCM_TYPE_HG
 from lando.main.support import LegacyAPIException
+from lando.main.tests.conftest import git_repo, git_repo_seed
 from lando.utils.phabricator import PhabricatorClient
+
+# We need some local usage of those imported fixtures to satisfy the linters.
+# This is it.
+__all__ = ["git_repo", "git_repo_seed"]
 
 PATCH_NORMAL_1 = r"""
 # HG changeset patch
@@ -45,7 +50,7 @@ diff --git a/test.txt b/test.txt
 @@ -1,1 +1,2 @@
  TEST
 +adding another line
-""".strip()
+""".lstrip()
 
 PATCH_NORMAL_2 = r"""
 # HG changeset patch
@@ -61,7 +66,7 @@ diff --git a/test.txt b/test.txt
  TEST
  adding another line
 +adding one more line
-""".strip()
+""".lstrip()
 
 PATCH_NORMAL_3 = r"""
 # HG changeset patch
@@ -82,7 +87,7 @@ new file mode 100644
 +++ b/blah.txt
 @@ -0,0 +1,1 @@
 +TEST
-""".strip()
+""".lstrip()
 
 
 @pytest.fixture
