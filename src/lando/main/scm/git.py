@@ -7,13 +7,16 @@ import tempfile
 import uuid
 from contextlib import contextmanager
 from pathlib import Path
-from typing import ContextManager, Optional
+from typing import Any, ContextManager, Optional
 
 from django.conf import settings
 from simple_github import AppAuth, AppInstallationAuth
 
 from lando.main.scm.consts import SCM_TYPE_GIT
-from lando.main.scm.exceptions import SCMException
+from lando.main.scm.exceptions import (
+    PatchConflict,
+    SCMException,
+)
 from lando.settings import LANDO_USER_EMAIL, LANDO_USER_NAME
 
 from .abstract_scm import AbstractSCM
@@ -163,7 +166,7 @@ class GitSCM(AbstractSCM):
             f_diff.flush()
 
             cmds = [
-                ["apply", f_diff.name],
+                ["apply", "--reject", f_diff.name],
                 ["add", "-A"],
                 [
                     "commit",
@@ -177,7 +180,55 @@ class GitSCM(AbstractSCM):
             ]
 
             for c in cmds:
-                self._git_run(*c, cwd=self.path)
+                try:
+                    self._git_run(*c, cwd=self.path)
+                except SCMException as exc:
+                    if "error: patch" in exc.err:
+                        raise PatchConflict(exc.err) from exc
+
+    def process_merge_conflict(
+        self,
+        pull_path: str,
+        revision_id: int,
+        error_message: str,
+    ) -> dict[str, Any]:
+        """Process merge conflict information captured in a PatchConflict, and return a
+        parsed structure."""
+
+        failed_re = re.compile(r"patch failed: (.*):\d+", re.MULTILINE)
+
+        breakdown = {
+            "failed_paths": [],
+            "rejects_paths": {},
+            "revision_id": revision_id,
+        }
+
+        failed_paths = failed_re.findall(error_message)
+
+        failed_path_commits = [
+            (path, self.last_commit_for_path(path)) for path in failed_paths
+        ]
+
+        breakdown["failed_paths"] = [
+            {
+                "path": path,
+                "url": f"{pull_path}/file/{revision}/{path}",
+                "changeset_id": revision,
+            }
+            for (path, revision) in failed_path_commits
+        ]
+
+        for path in failed_paths:
+            reject = {"path": f"{path}.rej"}
+
+            try:
+                with open(Path(self.path) / reject["path"], "r") as r:
+                    reject["content"] = r.read()
+            except Exception as e:
+                logger.exception(e)
+            breakdown["rejects_paths"][path] = reject
+
+        return breakdown
 
     @contextmanager
     def for_pull(self) -> ContextManager:

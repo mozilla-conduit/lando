@@ -1,6 +1,5 @@
 import io
 import pathlib
-import textwrap
 import unittest.mock as mock
 from collections.abc import Callable
 
@@ -575,11 +574,10 @@ def test_lose_push_race(
 
 
 @pytest.mark.parametrize(
-    "repo_type",
+    "repo_type, expected_error_log",
     [
-        # Bug 1940876
-        # SCM_TYPE_GIT,
-        SCM_TYPE_HG,
+        (SCM_TYPE_GIT, "Rejected hunk"),
+        (SCM_TYPE_HG, "hunks FAILED"),
     ],
 )
 @pytest.mark.django_db
@@ -590,6 +588,7 @@ def test_merge_conflict(
     create_patch_revision,
     caplog,
     repo_type: str,
+    expected_error_log: str,
 ):
     repo = repo_mc(repo_type)
     treestatusdouble.open_tree(repo.name)
@@ -619,7 +618,9 @@ def test_merge_conflict(
 
     assert worker.run_job(job)
     assert job.status == LandingJobStatus.FAILED
-    assert "hunks FAILED" in caplog.text
+
+    assert expected_error_log in caplog.text
+
     assert job.error_breakdown, "No error breakdown added to job"
     assert job.error_breakdown.get(
         "rejects_paths"
@@ -640,8 +641,7 @@ def test_merge_conflict(
 @pytest.mark.parametrize(
     "repo_type",
     [
-        # Bug 1940876
-        # SCM_TYPE_GIT,
+        SCM_TYPE_GIT,
         SCM_TYPE_HG,
     ],
 )
@@ -687,62 +687,6 @@ def test_failed_landing_job_notification(
     assert worker.run_job(job)
     assert job.status == LandingJobStatus.FAILED
     assert mock_notify.call_count == 1
-
-
-def test_landing_worker__extract_error_data():
-    exception_message = textwrap.dedent(
-        """\
-    patching file toolkit/moz.configure
-    Hunk #1 FAILED at 2075
-    Hunk #2 FAILED at 2325
-    Hunk #3 FAILED at 2340
-    3 out of 3 hunks FAILED -- saving rejects to file toolkit/moz.configure.rej
-    patching file moz.configure
-    Hunk #1 FAILED at 239
-    Hunk #2 FAILED at 250
-    2 out of 2 hunks FAILED -- saving rejects to file moz.configure.rej
-    patching file a/b/c.d
-    Hunk #1 FAILED at 656
-    1 out of 1 hunks FAILED -- saving rejects to file a/b/c.d.rej
-    patching file d/e/f.g
-    Hunk #1 FAILED at 6
-    1 out of 1 hunks FAILED -- saving rejects to file d/e/f.g.rej
-    patching file h/i/j.k
-    Hunk #1 FAILED at 4
-    1 out of 1 hunks FAILED -- saving rejects to file h/i/j.k.rej
-    file G0fvb1RuMQxXNjs already exists
-    1 out of 1 hunks FAILED -- saving rejects to file G0fvb1RuMQxXNjs.rej
-    unable to find 'abc/def' for patching
-    (use '--prefix' to apply patch relative to the current directory)
-    1 out of 1 hunks FAILED -- saving rejects to file abc/def.rej
-    patching file browser/locales/en-US/browser/browserContext.ftl
-    Hunk #1 succeeded at 300 with fuzz 2 (offset -4 lines).
-    abort: patch failed to apply"""
-    )
-
-    expected_failed_paths = [
-        "toolkit/moz.configure",
-        "moz.configure",
-        "a/b/c.d",
-        "d/e/f.g",
-        "h/i/j.k",
-        "G0fvb1RuMQxXNjs",
-        "abc/def",
-    ]
-
-    expected_rejects_paths = [
-        "toolkit/moz.configure.rej",
-        "moz.configure.rej",
-        "a/b/c.d.rej",
-        "d/e/f.g.rej",
-        "h/i/j.k.rej",
-        "G0fvb1RuMQxXNjs.rej",
-        "abc/def.rej",
-    ]
-
-    failed_paths, rejects_paths = LandingWorker.extract_error_data(exception_message)
-    assert failed_paths == expected_failed_paths
-    assert rejects_paths == expected_rejects_paths
 
 
 @pytest.mark.parametrize(
@@ -974,8 +918,7 @@ def _scm_get_last_commit_message(scm: AbstractSCM) -> str:
 @pytest.mark.parametrize(
     "repo_type",
     [
-        # Bug 1940876
-        # SCM_TYPE_GIT,
+        SCM_TYPE_GIT,
         SCM_TYPE_HG,
     ],
 )
@@ -985,6 +928,7 @@ def test_format_patch_fail(
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    normal_patch,
     repo_type: str,
 ):
     """Tests automated formatting failures before landing."""
@@ -993,8 +937,8 @@ def test_format_patch_fail(
 
     revisions = [
         create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_FAIL),
-        create_patch_revision(2),
-        create_patch_revision(3),
+        create_patch_revision(2, patch=normal_patch(0)),
+        create_patch_revision(3, patch=normal_patch(1)),
     ]
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
@@ -1030,8 +974,7 @@ def test_format_patch_fail(
 @pytest.mark.parametrize(
     "repo_type",
     [
-        # Bug 1940876
-        # SCM_TYPE_GIT,
+        SCM_TYPE_GIT,
         SCM_TYPE_HG,
     ],
 )
@@ -1048,8 +991,10 @@ def test_format_patch_no_landoini(
     treestatusdouble.open_tree(repo.name)
 
     revisions = [
-        create_patch_revision(1),
-        create_patch_revision(2),
+        # Patch=None lets create_patch_revision determine the patch to use based on the
+        # revision number.
+        create_patch_revision(1, patch=None),
+        create_patch_revision(2, patch=None),
     ]
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
