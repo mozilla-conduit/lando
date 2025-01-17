@@ -824,7 +824,12 @@ def test_format_single_success_changed(
 
 
 def _scm_get_previous_hash(scm: AbstractSCM) -> str:
-    if scm.scm_type() == SCM_TYPE_HG:
+    """Get the second last commit hash.
+
+    This is implementation-specific code, but is only used in the tests. Rather than
+    extending the AbstractSCM for the sole purpose of support test assertions, we keep
+    this in the test code instead."""
+    if isinstance(scm, HgSCM):
         return HgSCM.run_hg(scm, ["log", "-r", "tip^", "-T", "{node}"]).decode("utf-8")
     return GitSCM._git_run("rev-parse", "HEAD^", cwd=scm.path)
 
@@ -900,7 +905,12 @@ def test_format_stack_success_changed(
 
 
 def _scm_get_last_commit_message(scm: AbstractSCM) -> str:
-    if scm.scm_type() == SCM_TYPE_HG:
+    """Get the last commit message.
+
+    This is implementation-specific code, but is only used in the tests. Rather than
+    extending the AbstractSCM for the sole purpose of support test assertions, we keep
+    this in the test code instead."""
+    if isinstance(scm, HgSCM):
         return HgSCM.run_hg(scm, ["log", "-r", "tip", "-T", "{desc}"]).decode("utf-8")
     return GitSCM._git_run("log", "--pretty=%B", "HEAD^..", cwd=scm.path)
 
