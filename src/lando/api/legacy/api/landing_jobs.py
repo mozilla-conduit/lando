@@ -2,7 +2,7 @@ import json
 import logging
 
 from django import forms
-from django.http import Http404, HttpRequest, JsonResponse
+from django.http import HttpRequest, JsonResponse
 
 from lando.main.auth import require_authenticated_user
 from lando.main.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
@@ -59,12 +59,16 @@ def put(request: HttpRequest, landing_job_id: int) -> JsonResponse:
         try:
             landing_job = LandingJob.objects.get(pk=landing_job_id)
         except LandingJob.DoesNotExist:
-            raise Http404(f"A landing job with ID {landing_job_id} was not found.")
+            return JsonResponse(
+                {"detail": f"A landing job with ID {landing_job_id} was not found."},
+                status=404,
+            )
 
     ldap_username = request.user.email
     if landing_job.requester_email != ldap_username:
-        raise PermissionError(
-            f"User not authorized to update landing job {landing_job_id}"
+        return JsonResponse(
+            {"detail": f"User not authorized to update landing job {landing_job_id}"},
+            status=403,
         )
 
     if status != "CANCELLED":
