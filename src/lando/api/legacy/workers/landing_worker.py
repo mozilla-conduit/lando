@@ -264,10 +264,10 @@ class LandingWorker(Worker):
             for revision in job.revisions.all():
                 # TODO: Rather than parsing the patch details from the full HG patch
                 # stored in the job, we should read the revision's metadata (and
-                # move to only store the diff in the patch_string, rather than an
+                # move to only store the diff in the patch, rather than an
                 # export).
                 # https://bugzilla.mozilla.org/show_bug.cgi?id=1936171
-                patch_helper = HgPatchHelper(StringIO(revision.patch_string))
+                patch_helper = HgPatchHelper(StringIO(revision.patch))
                 if not patch_helper.diff_start_line:
                     message = (
                         "Lando encountered a malformed patch, please try again. "
