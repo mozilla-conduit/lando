@@ -67,13 +67,6 @@ class Revision(BaseModel):
     def patch_bytes(self) -> bytes:
         return self.patch.encode("utf-8")
 
-    @property
-    def patch_string(self) -> str:
-        """Return the patch as a UTF-8 encoded string."""
-        # Here for compatiblity, as an alias.
-        # TODO: remove this in the near future.
-        return self.patch
-
     @classmethod
     def get_from_revision_id(cls, revision_id: int) -> "Revision" | None:
         """Return a Revision object from a given ID."""
