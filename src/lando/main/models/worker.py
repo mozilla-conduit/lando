@@ -27,7 +27,16 @@ class Worker(BaseModel):
     )
 
     def __str__(self):
-        return self.name
+        if self.is_paused:
+            state = "PAUSED"
+        elif self.is_stopped:
+            state = "STOPPED"
+        else:
+            state = "RUNNING"
+
+        repo_count = self.enabled_repos.count()
+        name = self.name
+        return f"{name} [{state}] [{repo_count} repos]"
 
     @property
     def enabled_repos(self) -> list[Repo]:

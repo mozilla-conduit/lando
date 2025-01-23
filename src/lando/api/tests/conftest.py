@@ -22,9 +22,10 @@ from lando.api.legacy.projects import (
     SEC_PROJ_SLUG,
 )
 from lando.api.legacy.transplants import CODE_FREEZE_OFFSET, tokens_are_equal
+from lando.api.legacy.workers.landing_worker import LandingWorker
 from lando.api.tests.mocks import PhabricatorDouble, TreeStatusDouble
-from lando.main.models import SCM_LEVEL_1, SCM_LEVEL_3, Repo
-from lando.main.scm import SCM_TYPE_HG
+from lando.main.models import SCM_LEVEL_1, SCM_LEVEL_3, Repo, Worker
+from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.support import LegacyAPIException
 from lando.main.tests.conftest import git_repo, git_repo_seed
 from lando.utils.phabricator import PhabricatorClient
@@ -314,6 +315,47 @@ def mocked_repo_config(mock_repo_config):
         approval_required=True,
         milestone_tracking_flag_template="cf_status_firefox{milestone}",
     )
+
+
+@pytest.fixture
+def landing_worker_instance(mocked_repo_config):
+    def _instance(scm, **kwargs):
+        worker = Worker.objects.create(sleep_seconds=0.1, scm=scm, **kwargs)
+        worker.applicable_repos.set(Repo.objects.filter(scm_type=scm))
+        return worker
+
+    return _instance
+
+
+@pytest.fixture
+def hg_landing_worker(landing_worker_instance):
+    worker = landing_worker_instance(
+        name="test-hg-worker",
+        scm=SCM_TYPE_HG,
+    )
+    return LandingWorker(worker)
+
+
+@pytest.fixture
+def git_landing_worker(landing_worker_instance):
+    worker = landing_worker_instance(
+        name="test-git-worker",
+        scm=SCM_TYPE_GIT,
+    )
+    return LandingWorker(worker)
+
+
+@pytest.fixture
+def get_landing_worker(hg_landing_worker, git_landing_worker):
+    workers = {
+        SCM_TYPE_GIT: git_landing_worker,
+        SCM_TYPE_HG: hg_landing_worker,
+    }
+
+    def _get_landing_worker(scm_type):
+        return workers[scm_type]
+
+    return _get_landing_worker
 
 
 @pytest.fixture
