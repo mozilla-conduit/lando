@@ -26,42 +26,40 @@ class Uplift(LandoView):
     def post(self, request: HttpRequest) -> HttpResponse:
         """Process the uplift request submission."""
         uplift_request_form = UpliftRequestForm(request.POST)
-        errors = []
 
         if not request.user.is_authenticated:
             raise PermissionError()
 
-        if uplift_request_form.is_valid() and not errors:
-            revision_id = uplift_request_form.cleaned_data["revision_id"]
-            repository = uplift_request_form.cleaned_data["repository"]
-
-            response = legacy_api.uplift.create(
-                request,
-                data={
-                    "revision_id": revision_id,
-                    "repository": repository,
-                },
-            )
-
-            # Redirect to the tip revision's URL.
-            # TODO add js for auto-opening the uplift request Phabricator form.
-            # See https://bugzilla.mozilla.org/show_bug.cgi?id=1810257.
-            revision_id = response["tip_differential"]["revision_id"]
-            return redirect("revisions-page", revision_id=revision_id)
-
-        if uplift_request_form.errors:
-            errors += [
+        if not uplift_request_form.is_valid():
+            errors = [
                 f"{field}: {', '.join(field_errors)}"
                 for field, field_errors in uplift_request_form.errors.items()
             ]
 
-        for error in errors:
-            messages.add_message(request, messages.ERROR, error)
+            for error in errors:
+                messages.add_message(request, messages.ERROR, error)
 
-        # Not ideal, but because we do not have access to the revision ID
-        # we will just redirect the user back to the referring page and
-        # they will see the flash messages.
-        return redirect(request.META.get("HTTP_REFERER"))
+            # Not ideal, but because we do not have access to the revision ID
+            # we will just redirect the user back to the referring page and
+            # they will see the flash messages.
+            return redirect(request.META.get("HTTP_REFERER"))
+
+        revision_id = uplift_request_form.cleaned_data["revision_id"]
+        repository = uplift_request_form.cleaned_data["repository"]
+
+        response = legacy_api.uplift.create(
+            request,
+            data={
+                "revision_id": revision_id,
+                "repository": repository,
+            },
+        )
+
+        # Redirect to the tip revision's URL.
+        # TODO add js for auto-opening the uplift request Phabricator form.
+        # See https://bugzilla.mozilla.org/show_bug.cgi?id=1810257.
+        revision_id = response["tip_differential"]["revision_id"]
+        return redirect("revisions-page", revision_id=revision_id)
 
 
 class Revision(LandoView):

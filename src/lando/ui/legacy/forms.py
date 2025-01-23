@@ -16,7 +16,7 @@ class UpliftRequestForm(forms.Form):
     """Form used to request uplift of a stack."""
 
     revision_id = forms.RegexField(
-        regex="D[0-9]+$",
+        regex="^D[0-9]+$",
         widget=forms.widgets.HiddenInput,
         required=False,
     )
@@ -27,9 +27,9 @@ class UpliftRequestForm(forms.Form):
 
     def clean_repository(self) -> str:
         repo_name = self.cleaned_data["repository"]
-        all_repos = Repo.get_mapping()
-        repository = all_repos.get(repo_name)
-        if repository is None:
+        try:
+            repository = Repo.objects.get(name=repo_name)
+        except Repo.DoesNotExist:
             raise forms.ValidationError(
                 f"Repository {repo_name} is not a repository known to Lando. "
                 "Please select an uplift repository to create the uplift request."

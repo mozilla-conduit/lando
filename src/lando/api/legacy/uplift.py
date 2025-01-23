@@ -64,7 +64,8 @@ def get_uplift_request_form(revision: dict) -> Optional[str]:
     return bug
 
 
-def get_uplift_repositories() -> list:
+def get_uplift_repositories() -> list[str]:
+    """Returns repo "shortnames" tagged with "uplift" from Phabricator."""
     CACHE_KEY = "uplift-repos"
 
     repos = cache.get(CACHE_KEY)
