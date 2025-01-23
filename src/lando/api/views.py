@@ -102,5 +102,5 @@ class LegacyDiffWarningView(View):
             return JsonResponse(
                 [warning.serialize() for warning in warnings], status=200, safe=False
             )
-        else:
-            return JsonResponse({"errors": dict(form.errors)}, status=400)
+
+        return JsonResponse({"errors": dict(form.errors)}, status=400)
