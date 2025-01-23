@@ -776,6 +776,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
 
     worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
     assert worker.run_job(job)
+    assert job.status == LandingJobStatus.LANDED
     for revision in job.revisions.all():
         if revision.revision_id == 1:
             assert revision.data["peers_and_owners"] == [101]
