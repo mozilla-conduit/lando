@@ -25,7 +25,8 @@ def test_diff_warning_create_bad_request(client):
     """Ensure a request that is missing required data returns an error."""
     response = client.post(
         "/api/diff_warnings/",
-        json={},
+        data={},
+        content_type="application/json",
     )
     assert response.status_code == 400
 
@@ -35,7 +36,8 @@ def test_diff_warning_create_bad_request_no_message(client, phab_header):
     """Ensure a request with incorrect data returns an error."""
     response = client.post(
         "/api/diff_warnings/",
-        json={"revision_id": 1, "diff_id": 1, "group": "LINT", "data": {}},
+        data={"revision_id": 1, "diff_id": 1, "group": "LINT", "data": {}},
+        content_type="application/json",
         **phab_header,
     )
     assert response.status_code == 400
@@ -46,12 +48,13 @@ def test_diff_warning_create(client, diff_warning_data, phab_header):
     """Ensure that a warning is created correctly according to provided parameters."""
     response = client.post(
         "/api/diff_warnings/",
-        {
+        data={
             "revision_id": 1,
             "diff_id": 1,
             "group": "LINT",
             "data": diff_warning_data,
         },
+        content_type="application/json",
         **phab_header,
     )
 
@@ -74,12 +77,13 @@ def test_diff_warning_delete(client, diff_warning_data, phab_header):
     """Ensure that a DELETE request will archive a warning."""
     response = client.post(
         "/api/diff_warnings/",
-        {
+        data={
             "revision_id": 1,
             "diff_id": 1,
             "group": "LINT",
             "data": diff_warning_data,
         },
+        content_type="application/json",
         **phab_header,
     )
     assert response.status_code == 201
@@ -89,6 +93,7 @@ def test_diff_warning_delete(client, diff_warning_data, phab_header):
 
     response = client.delete(
         f"/api/diff_warnings/{pk}/",
+        content_type="application/json",
         **phab_header,
     )
 
@@ -103,24 +108,26 @@ def test_diff_warning_get(client, diff_warning_data, phab_header):
     """Ensure that the API returns a properly serialized list of warnings."""
     response = client.post(
         "/api/diff_warnings/",
-        {
+        data={
             "revision_id": 1,
             "diff_id": 1,
             "group": "LINT",
             "data": diff_warning_data,
         },
+        content_type="application/json",
         **phab_header,
     )
     assert response.status_code == 201
 
     response = client.post(
         "/api/diff_warnings/",
-        {
+        data={
             "revision_id": 1,
             "diff_id": 1,
             "group": "LINT",
             "data": diff_warning_data,
         },
+        content_type="application/json",
         **phab_header,
     )
     assert response.status_code == 201
@@ -128,12 +135,13 @@ def test_diff_warning_get(client, diff_warning_data, phab_header):
     # Create another diff warning in a different group.
     response = client.post(
         "/api/diff_warnings/",
-        {
+        data={
             "revision_id": 1,
             "diff_id": 1,
             "group": "GENERAL",
             "data": diff_warning_data,
         },
+        content_type="application/json",
         **phab_header,
     )
     assert response.status_code == 201

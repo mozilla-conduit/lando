@@ -1,9 +1,12 @@
+import json
 from functools import wraps
 from typing import Callable
 
 from django import forms
 from django.http import JsonResponse
+from django.utils.decorators import method_decorator
 from django.views import View
+from django.views.decorators.csrf import csrf_exempt
 
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.utils.phabricator import get_phabricator_client
@@ -14,7 +17,7 @@ def phabricator_api_key_required(func: callable) -> Callable:
 
     @wraps(func)
     def _wrapper(self, request, *args, **kwargs):
-        HEADER = "X-Phabricator-Api-Key"
+        HEADER = "X-Phabricator-API-Key"
         if HEADER not in request.headers:
             return JsonResponse({"error": f"{HEADER} missing."}, status=400)
 
@@ -30,6 +33,7 @@ def phabricator_api_key_required(func: callable) -> Callable:
     return _wrapper
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class LegacyDiffWarningView(View):
     """
     This class provides the API controllers for the legacy `DiffWarning` model.
@@ -37,33 +41,6 @@ class LegacyDiffWarningView(View):
     These API endpoints can be used by clients (such as Code Review bot) to
     get, create, or archive warnings.
     """
-
-    @classmethod
-    def _get_form(cls, method: str, data: dict):
-        """Helper method to return validate data."""
-
-        def data_validator(data):
-            if not data or "message" not in data:
-                raise forms.ValidationError(
-                    "Provided data is missing the message value"
-                )
-
-        _forms = {
-            # Used to filter DiffWarning objects.
-            "GET": {
-                "revision_id": forms.IntegerField(),
-                "diff_id": forms.IntegerField(),
-                "group": forms.CharField(),
-            },
-            # Used to create new DiffWarning objects.
-            "POST": {
-                "revision_id": forms.IntegerField(),
-                "diff_id": forms.IntegerField(),
-                "group": forms.CharField(),
-                "data": forms.JSONField(validators=[data_validator]),
-            },
-        }
-        return type(f"{cls.__name__}_{method}", (forms.Form,), _forms[method])(data)
 
     @phabricator_api_key_required
     def post(self, request):
@@ -77,15 +54,27 @@ class LegacyDiffWarningView(View):
         Returns:
             dict: a dictionary representation of the object that was created.
         """
+
+        class Form(forms.Form):
+            def data_validator(data):
+                if not data or "message" not in data:
+                    raise forms.ValidationError(
+                        "Provided data is missing the message value"
+                    )
+
+            revision_id = forms.IntegerField()
+            diff_id = forms.IntegerField()
+            group = forms.CharField()
+            data = forms.JSONField(validators=[data_validator])
+
         # TODO: validate whether revision/diff exist or not.
-        form = self._get_form(request.method, request.POST)
+        form = Form(json.loads(request.body))
         if form.is_valid():
             data = form.cleaned_data
-            warning = DiffWarning(**data)
-            warning.save()
+            warning = DiffWarning.objects.create(**data)
             return JsonResponse(warning.serialize(), status=201)
-        else:
-            return JsonResponse({"errors": dict(form.errors)}, status=400)
+
+        return JsonResponse({"errors": dict(form.errors)}, status=400)
 
     @phabricator_api_key_required
     def delete(self, request, diff_warning_id):
@@ -101,7 +90,13 @@ class LegacyDiffWarningView(View):
     @phabricator_api_key_required
     def get(self, request, **kwargs):
         """Return a list of active revision diff warnings, if any."""
-        form = self._get_form(request.method, request.GET)
+
+        class Form(forms.Form):
+            revision_id = forms.IntegerField()
+            diff_id = forms.IntegerField()
+            group = forms.CharField()
+
+        form = Form(request.GET)
         if form.is_valid():
             warnings = DiffWarning.objects.filter(**form.cleaned_data).all()
             return JsonResponse(

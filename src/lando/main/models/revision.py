@@ -146,10 +146,10 @@ class DiffWarning(BaseModel):
     def serialize(self):
         """Return a JSON serializable dictionary."""
         return {
+            "data": self.data,
             "diff_id": self.diff_id,
             "group": self.group,
             "id": self.id,
             "revision_id": self.revision_id,
             "status": self.status,
-            "data": self.data,
         }
