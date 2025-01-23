@@ -268,6 +268,10 @@ class HgSCM(AbstractSCM):
                     # patcher since both attempts failed.
                     raise exc
 
+            if re.match("^[0-9]+$", commit_date):
+                # If the commit_date is a unix timestamp, convert to Hg internal format.
+                commit_date = f"{commit_date} 0"
+
             self.run_hg(
                 ["commit"]
                 + ["--date", commit_date]
