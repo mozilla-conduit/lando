@@ -12,7 +12,7 @@ $.fn.timeline = function() {
       var landing_job_id = this.dataset.landing_job_id;
 
       button.addClass("is-loading");
-      fetch(`/landing_jobs/${landing_job_id}`, {
+      fetch(`/landing_jobs/${landing_job_id}/`, {
         method: 'PUT',
         body: JSON.stringify({"status": "CANCELLED"}),
         headers: {
