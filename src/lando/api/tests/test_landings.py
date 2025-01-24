@@ -18,9 +18,7 @@ from lando.main.models.landing_job import (
 )
 from lando.main.models.revision import Revision
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
-from lando.main.scm.abstract_scm import AbstractSCM
-from lando.main.scm.git import GitSCM
-from lando.main.scm.hg import HgSCM, LostPushRace
+from lando.main.scm.hg import LostPushRace
 from lando.utils import HgPatchHelper
 
 
@@ -771,7 +769,7 @@ def test_format_single_success_changed(
             ph.get_header("Date"),
         )
         scm.push(repo.push_path)
-        pre_landing_tip = scm.head_ref()
+        pre_landing_tip = scm.describe_commit().hash
 
     # Upload a patch for formatting.
     job_params = {
@@ -803,13 +801,14 @@ def test_format_single_success_changed(
 
     with scm.for_push(job.requester_email):
         # Get the commit message.
-        desc = _scm_get_last_commit_message(scm)
+        desc = scm.describe_commit().desc.strip()
 
         # Get the content of the file after autoformatting.
         tip_content = scm.read_checkout_file("test.txt").encode("utf-8")
 
         # Get the hash behind the tip commit.
-        hash_behind_current_tip = _scm_get_previous_hash(scm)
+        parent_rev = scm.describe_commit().parents[0]
+        hash_behind_current_tip = scm.describe_commit(parent_rev).hash
 
     assert tip_content == TESTTXT_FORMATTED_1, "`test.txt` is incorrect in base commit."
 
@@ -820,17 +819,6 @@ def test_format_single_success_changed(
     assert (
         hash_behind_current_tip == pre_landing_tip
     ), "Autoformat via amending should only land a single commit."
-
-
-def _scm_get_previous_hash(scm: AbstractSCM) -> str:
-    """Get the second last commit hash.
-
-    This is implementation-specific code, but is only used in the tests. Rather than
-    extending the AbstractSCM for the sole purpose of support test assertions, we keep
-    this in the test code instead."""
-    if isinstance(scm, HgSCM):
-        return HgSCM.run_hg(scm, ["log", "-r", "tip^", "-T", "{node}"]).decode("utf-8")
-    return GitSCM._git_run("rev-parse", "HEAD^", cwd=scm.path)
 
 
 @pytest.mark.parametrize(
@@ -885,7 +873,7 @@ def test_format_stack_success_changed(
 
     with scm.for_push(job.requester_email):
         # Get the commit message.
-        desc = _scm_get_last_commit_message(scm)
+        desc = scm.describe_commit().desc.strip()
 
         # Get the content of the file after autoformatting.
         rev3_content = scm.read_checkout_file("test.txt").encode("utf-8")
@@ -901,17 +889,6 @@ def test_format_stack_success_changed(
     assert desc == AUTOFORMAT_COMMIT_MESSAGE.format(
         bugs="Bug 123"
     ), "Autoformat commit has incorrect commit message."
-
-
-def _scm_get_last_commit_message(scm: AbstractSCM) -> str:
-    """Get the last commit message.
-
-    This is implementation-specific code, but is only used in the tests. Rather than
-    extending the AbstractSCM for the sole purpose of support test assertions, we keep
-    this in the test code instead."""
-    if isinstance(scm, HgSCM):
-        return HgSCM.run_hg(scm, ["log", "-r", "tip", "-T", "{desc}"]).decode("utf-8")
-    return GitSCM._git_run("log", "--pretty=%B", "HEAD^..", cwd=scm.path)
 
 
 @pytest.mark.parametrize(
