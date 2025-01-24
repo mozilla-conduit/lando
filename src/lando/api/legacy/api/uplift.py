@@ -1,56 +1,27 @@
 import logging
 
+from django.http import Http404
+
+from lando.api.legacy.api.stacks import HTTP_404_STRING
 from lando.api.legacy.uplift import (
     create_uplift_revision,
     get_local_uplift_repo,
     get_uplift_conduit_state,
-    get_uplift_repositories,
 )
 from lando.api.legacy.validation import revision_id_to_int
 from lando.main.auth import require_authenticated_user, require_phabricator_api_key
-from lando.main.models import Repo
-from lando.main.support import problem
 from lando.utils.phabricator import PhabricatorClient
 
 logger = logging.getLogger(__name__)
 
 
-@require_phabricator_api_key(optional=True)
-def get(phab: PhabricatorClient):
-    """Return the list of valid uplift repositories."""
-    repos = [
-        phab.expect(repo, "fields", "shortName")
-        for repo in get_uplift_repositories(phab)
-    ]
-
-    return {"repos": repos}, 201
-
-
-@require_phabricator_api_key(optional=False)
 @require_authenticated_user
-def create(phab: PhabricatorClient, data: dict):
+@require_phabricator_api_key(optional=False)
+def create(phab: PhabricatorClient, request, data: dict) -> dict:
     """Create new uplift requests for requested repository & revision"""
-    repo_name = data["repository"]
+    repository = data["repository"]
+    repo_name = repository.name
     revision_id = revision_id_to_int(data["revision_id"])
-
-    # Validate repository.
-    all_repos = Repo.get_mapping()
-    repository = all_repos.get(repo_name)
-    if repository is None:
-        return problem(
-            400,
-            f"Repository {repo_name} is not a repository known to Lando.",
-            "Please select an uplift repository to create the uplift request.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
-        )
-
-    if not repository.approval_required:
-        return problem(
-            400,
-            f"Repository {repo_name} is not an uplift repository.",
-            "Please select an uplift repository to create the uplift request.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
-        )
 
     try:
         logger.info(
@@ -72,12 +43,7 @@ def create(phab: PhabricatorClient, data: dict):
             "Hit an error retreiving uplift state from conduit.",
             extra={"error": str(err)},
         )
-        return problem(
-            404,
-            "Revision not found",
-            err.args[0],
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
-        )
+        raise Http404(HTTP_404_STRING)
 
     revision_phid = next(
         rev["phid"]
@@ -138,4 +104,4 @@ def create(phab: PhabricatorClient, data: dict):
     output = {rev["revision_phid"]: rev for rev in commit_stack}
     output["tip_differential"] = commit_stack[-1]
 
-    return output, 201
+    return output
