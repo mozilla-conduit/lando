@@ -1,3 +1,4 @@
+import datetime
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
@@ -137,6 +138,40 @@ def test_GitSCM_clean_repo(
     assert (
         strip_non_public_commits != new_file.exists()
     ), f"strip_non_public_commits not honoured for {new_file}"
+
+
+def test_GitSCM_describe_commit(git_repo: Path):
+    scm = GitSCM(str(git_repo))
+
+    commit = scm.describe_commit()
+    prev_commit = scm.describe_commit("HEAD^")
+
+    assert commit.hash, "Hash missing"
+    assert len(commit.hash) == 40, "Incorrect hash length"
+    assert commit.parents, "Non-initial commit should have parents"
+    assert commit.author == "Test User <test@example.com>"
+    assert commit.datetime == datetime.datetime.fromtimestamp(0, datetime.timezone.utc)
+    assert (
+        commit.desc
+        == """add another file
+"""
+    )
+    assert len(commit.files) == 1
+    assert "test.txt" in commit.files
+
+    assert prev_commit.hash, "Hash missing"
+    assert not prev_commit.parents, "Initial commit should not have parents"
+    assert prev_commit.author == "Test User <test@example.com>"
+    assert prev_commit.datetime == datetime.datetime.fromtimestamp(
+        0, datetime.timezone.utc
+    )
+    assert (
+        prev_commit.desc
+        == """initial commit
+"""
+    )
+    assert len(prev_commit.files) == 1
+    assert "README" in prev_commit.files
 
 
 def test_GitSCM_push_get_github_token(git_repo: Path):

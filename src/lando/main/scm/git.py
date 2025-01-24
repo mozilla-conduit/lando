@@ -1,17 +1,20 @@
 import asyncio
 import logging
 import os
+import random
 import re
 import subprocess
 import tempfile
 import uuid
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Any, ContextManager, Optional
 
 from django.conf import settings
 from simple_github import AppAuth, AppInstallationAuth
 
+from lando.main.scm.commit import Commit
 from lando.main.scm.consts import SCM_TYPE_GIT
 from lando.main.scm.exceptions import (
     PatchConflict,
@@ -229,6 +232,41 @@ class GitSCM(AbstractSCM):
             breakdown["rejects_paths"][path] = reject
 
         return breakdown
+
+    def describe_commit(self, revision_id: str = "HEAD") -> Commit:
+        """Return Commit metadata."""
+        separator = "".join(
+            [chr(c) for c in random.choices(range(ord("A"), ord("Z")), k=16)]
+        )
+        format = separator.join(
+            [
+                "hash:%H",
+                "parents:%P",
+                "author:%an <%ae>",
+                "datetime:%ad",
+                "desc:%B",
+                "files:",
+            ]
+        )
+        date_format = "%Y-%m-%d %H:%M:%S %z"
+
+        output = self._git_run(
+            "show",
+            "--stat",
+            f"--pretty=format:{format}",
+            f"--date=format:{date_format}",
+            revision_id,
+            cwd=self.path,
+        )
+        parts = re.split(f"{separator}", output)
+        metadata: dict[str, Any] = dict(p.split(":", 1) for p in parts)
+
+        metadata["parents"] = metadata["parents"].split()
+        metadata["datetime"] = datetime.strptime(metadata["datetime"], date_format)
+        # Parse the --stat output, removing the last summary line.
+        metadata["files"] = re.split(r"\s+\|.*\n\s+", metadata["files"].strip())[:-1]
+
+        return Commit(**metadata)
 
     @contextmanager
     def for_pull(self) -> ContextManager:

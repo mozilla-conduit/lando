@@ -3,6 +3,8 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Any, ContextManager, Optional
 
+from .commit import Commit
+
 logger = logging.getLogger(__name__)
 
 
@@ -111,6 +113,10 @@ class AbstractSCM:
                     path: str (reject file path)
                     content: str
         """
+
+    @abstractmethod
+    def describe_commit(revision_id: str) -> Commit:
+        """Return Commit metadata."""
 
     @abstractmethod
     def for_pull(self) -> ContextManager:

@@ -1,6 +1,7 @@
 import copy
 import logging
 import os
+import random
 import re
 import shlex
 import shutil
@@ -8,6 +9,7 @@ import subprocess
 import tempfile
 import uuid
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import (
     Any,
@@ -20,6 +22,7 @@ import hglib
 from django.conf import settings
 
 from lando.main.scm.abstract_scm import AbstractSCM
+from lando.main.scm.commit import Commit
 from lando.main.scm.consts import SCM_TYPE_HG
 from lando.main.scm.exceptions import (
     PatchConflict,
@@ -320,6 +323,41 @@ class HgSCM(AbstractSCM):
             # `.rej` extension.
             breakdown["rejects_paths"][path[:-4]] = reject
         return breakdown
+
+    def describe_commit(self, revision_id: str = ".") -> Commit:
+        """Return Commit metadata."""
+        separator = "".join(
+            [chr(c) for c in random.choices(range(ord("A"), ord("Z")), k=16)]
+        )
+        format = separator.join(
+            [
+                "hash:{node}",
+                "parent:{p1.node}",
+                "parents:{parents % '{node}'}",
+                "author:{author}",
+                "datetime:{date}",
+                "desc:{desc}",
+                "files:{files}",
+            ]
+        )
+
+        output = self.run_hg(["log", "-r", revision_id, "-T", format]).decode("utf-8")
+        parts = re.split(f"{separator}", output)
+        metadata: dict[str, Any] = dict(p.split(":", 1) for p in parts)
+
+        metadata["parents"] = metadata["parents"].split()
+        # {parents} in Mercurial is empty if the commit has a single parent.
+        # We re-add it manually, but only if it is a non-null parent.
+        if not metadata["parents"] and not metadata["parent"] == 40 * "0":
+            metadata["parents"] = metadata["parent"]
+        del metadata["parent"]
+
+        metadata["datetime"] = datetime.fromtimestamp(
+            int(metadata["datetime"].split(".")[0])
+        )
+        metadata["files"] = metadata["files"].split()
+
+        return Commit(**metadata)
 
     @classmethod
     def _get_rejects_path(cls) -> Path:
