@@ -124,7 +124,7 @@ class DiffWarning(BaseModel):
 
     # An arbitary dictionary of data that will be determined by the client.
     # It is up to the UI to interpret this data and show it to the user.
-    error_breakdown = models.JSONField(null=False, blank=True, default=dict)
+    data = models.JSONField(null=False, blank=True, default=dict)
 
     # Whether the warning is active or archived. This is used in filters.
     status = models.CharField(
@@ -146,10 +146,10 @@ class DiffWarning(BaseModel):
     def serialize(self):
         """Return a JSON serializable dictionary."""
         return {
-            "id": self.id,
-            "diff_id": self.diff_id,
-            "revision_id": self.revision_id,
-            "status": self.status.value,
-            "group": self.group.value,
             "data": self.data,
+            "diff_id": self.diff_id,
+            "group": self.group,
+            "id": self.id,
+            "revision_id": self.revision_id,
+            "status": self.status,
         }

@@ -19,6 +19,7 @@ from django.contrib import admin
 from django.urls import include, path
 
 from lando.api.legacy.api import landing_jobs
+from lando.api.views import LegacyDiffWarningView
 from lando.ui.legacy import pages, revisions, user_settings
 
 urlpatterns = [
@@ -32,6 +33,15 @@ urlpatterns += [
     path("D<int:revision_id>/", revisions.Revision.as_view(), name="revisions-page"),
     path("manage_api_key/", user_settings.manage_api_key, name="user-settings"),
     path("uplift/", revisions.Uplift.as_view(), name="uplift-page"),
+]
+
+urlpatterns += [
+    path("api/diff_warnings/", LegacyDiffWarningView.as_view(), name="diff-warnings"),
+    path(
+        "api/diff_warnings/<int:diff_warning_id>/",
+        LegacyDiffWarningView.as_view(),
+        name="diff-warnings",
+    ),
 ]
 
 # "API" endpoints ported from legacy API app.
