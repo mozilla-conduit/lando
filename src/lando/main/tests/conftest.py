@@ -12,7 +12,7 @@ def git_repo_seed() -> Path:
     The diff can  apply on an empty repo to create a known base for application
     of other patches as part of the tests.
     """
-    return Path(__file__).parent / "data" / "test-repo.patch"
+    return Path(__file__).parent / "data"
 
 
 @pytest.fixture
@@ -31,7 +31,8 @@ def git_repo(tmp_path: Path, git_repo_seed: Path) -> Path:
     subprocess.run(["git", "branch", "-m", "main"], check=True, cwd=repo_dir)
     _git_setup_user(repo_dir)
     _git_ignore_denyCurrentBranch(repo_dir)
-    subprocess.run(["git", "am", str(git_repo_seed)], check=True, cwd=repo_dir)
+    for patch in sorted(git_repo_seed.glob("*")):
+        subprocess.run(["git", "am", str(patch)], check=True, cwd=repo_dir)
     subprocess.run(["git", "show"], check=True, cwd=repo_dir)
     subprocess.run(["git", "branch"], check=True, cwd=repo_dir)
     return repo_dir
