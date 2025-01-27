@@ -252,6 +252,15 @@ REPOS = {
             "milestone_tracking_flag_template": "cf_status_firefox_esr{milestone}",
             "commit_flags": [DONTBUILD],
         },
+        {
+            "name": "mozilla-esr128",
+            "short_name": "esr128",
+            "url": "https://hg.mozilla.org/releases/mozilla-esr128",
+            "required_permission": SCM_ALLOW_DIRECT_PUSH,
+            "approval_required": True,
+            "milestone_tracking_flag_template": "cf_status_firefox_esr{milestone}",
+            "commit_flags": [DONTBUILD],
+        },
     ],
 }
 
@@ -289,19 +298,15 @@ class Command(BaseCommand):
                 f"environment ({environment}). Pass --force to do this anyway."
             )
 
-        if environment not in (Environment.local, Environment.development):
-            raise CommandError(
-                "Only local and development repos are currently supported."
-            )
-
         repo_definitions = REPOS[environment]
         for definition in repo_definitions:
             try:
                 repo = Repo.objects.create(**definition)
-            except IntegrityError:
+            except IntegrityError as e:
+                self.stderr.write(e)
                 self.stdout.write(
                     self.style.WARNING(
-                        f"Repo {definition['name']} already exists, skipping."
+                        f"Repo {definition['name']} already exists or could not be added, skipping."
                     )
                 )
             else:
