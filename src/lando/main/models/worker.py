@@ -15,7 +15,6 @@ class Worker(BaseModel):
     name = models.CharField(max_length=255, unique=True)
     is_paused = models.BooleanField(default=False)
     is_stopped = models.BooleanField(default=False)
-    ssh_private_key = models.TextField(null=True, blank=True)
     applicable_repos = models.ManyToManyField(Repo)
 
     throttle_seconds = models.IntegerField(default=10)
