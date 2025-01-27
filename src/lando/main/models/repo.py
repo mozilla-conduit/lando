@@ -64,8 +64,6 @@ class Repo(BaseModel):
         blank=True,
         default=None,
     )
-    is_initialized = models.BooleanField(default=False)
-
     system_path = models.CharField(
         max_length=255,
         blank=True,
