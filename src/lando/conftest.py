@@ -1,9 +1,9 @@
 import subprocess
 import time
-from pathlib import Path
 
 import pytest
 import requests
+from django.conf import settings
 from django.contrib.auth.models import User
 
 from lando.main.models import Profile
@@ -17,10 +17,8 @@ def hg_clone(hg_server, tmpdir):
 
 
 @pytest.fixture
-def hg_test_bundle(request):
-    return Path(request.path.parent.parent.parent).joinpath(
-        "api", "tests", "data", "test-repo.bundle"
-    )
+def hg_test_bundle():
+    return settings.BASE_DIR / "api" / "tests" / "data" / "test-repo.bundle"
 
 
 @pytest.fixture
