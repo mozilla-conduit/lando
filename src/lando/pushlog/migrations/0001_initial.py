@@ -137,7 +137,8 @@ class Migration(migrations.Migration):
                 ("date", models.DateField(auto_now_add=True, db_index=True)),
                 ("user", models.EmailField(max_length=320)),
                 ("commits", models.ManyToManyField(to="pushlog.commit")),
-                ("branch", models.CharField(max_length=255)),
+                ("branch", models.CharField(db_index=True, max_length=4096)),
+                ("repo_url", models.CharField(db_index=True, max_length=2048)),
             ],
             options={
                 "unique_together": {("push_id", "repo")},

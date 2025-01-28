@@ -10,7 +10,12 @@ from lando.pushlog.models import Commit, File, Push, Tag
 def make_repo():
     def repo_factory(seqno: int) -> Repo:
         "Create a non-descript repository with a sequence number in the test DB."
-        return Repo.objects.create(name=f"repo-{seqno}", scm_type="git")
+        return Repo.objects.create(
+            name=f"repo-{seqno}",
+            scm_type="git",
+            url=f"https://repo-{seqno}",
+            default_branch=f"main-{seqno}",
+        )
 
     return repo_factory
 

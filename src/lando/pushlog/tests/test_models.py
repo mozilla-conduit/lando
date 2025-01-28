@@ -115,7 +115,7 @@ def test__pushlog__models__Tag_unique(make_repo, make_commit, make_tag):
 
 
 @pytest.mark.django_db()
-def test__pushlog__models__Pushlog(make_repo, make_commit, make_push):
+def test__pushlog__models__Push(make_repo, make_commit, make_push):
     repo1 = make_repo(1)
     repo2 = make_repo(2)
 
@@ -134,6 +134,12 @@ def test__pushlog__models__Pushlog(make_repo, make_commit, make_push):
     push11_repr = repr(push11)
     assert f"({push11.push_id}" in push11_repr
     assert str(repo1) in push11_repr
+
+    assert push11.repo_url == repo1.url
+    assert push11.branch == repo1.default_branch
+
+    assert push21.repo_url == repo2.url
+    assert push21.branch == repo2.default_branch
 
     # Ensure that the push_id are scoped by repo.
     assert push11.push_id == 1

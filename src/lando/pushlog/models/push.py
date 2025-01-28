@@ -3,7 +3,7 @@ from django.db import models
 from lando.main.models import Repo
 
 from .commit import Commit
-from .consts import MAX_FILENAME_LENGTH
+from .consts import MAX_BRANCH_LENGTH, MAX_URL_LENGTH
 
 PUSH_SCM_TYPE_GIT = "git"
 PUSH_SCM_TYPES = [PUSH_SCM_TYPE_GIT]
@@ -19,6 +19,13 @@ class Push(models.Model):
         on_delete=models.DO_NOTHING,
     )
 
+    # Full URL to the upstream repository, to allow re-linking the data if anything goes
+    # wrong in the DB.
+    repo_url = models.CharField(max_length=MAX_URL_LENGTH, db_index=True)
+
+    # Branch names are limited by how long a filename the filesystem support.
+    branch = models.CharField(max_length=MAX_BRANCH_LENGTH, db_index=True)
+
     date = models.DateField(
         auto_now=False,
         auto_now_add=True,
@@ -32,21 +39,23 @@ class Push(models.Model):
 
     commits = models.ManyToManyField(Commit)
 
-    # Branch names are limited by how long a filename the filesystem support. This is
-    # generally 255 bytes.
-    branch = models.CharField(max_length=MAX_FILENAME_LENGTH)
-
     class Meta:
         unique_together = ("push_id", "repo")
 
     def __repr__(self):
-        return f"<{self.__class__.__name__}({self.push_id } on {self.repo})>"
+        return f"<{self.__class__.__name__}({self.push_id} on {self.repo})>"
 
     def save(self, *args, **kwargs):
         if not self.id:
             # Determine the next push_id on first save
             next_push_id = self._next_push_id(self.repo)
             self.push_id = next_push_id
+
+        if not self.repo_url:
+            self.repo_url = self.repo.url
+        if not self.branch:
+            self.branch = self.repo.default_branch
+
         super(Push, self).save(*args, **kwargs)
 
     @classmethod
