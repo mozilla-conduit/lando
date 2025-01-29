@@ -303,7 +303,7 @@ class Command(BaseCommand):
             try:
                 repo = Repo.objects.create(**definition)
             except IntegrityError as e:
-                self.stderr.write(e)
+                self.stderr.write(str(e))
                 self.stdout.write(
                     self.style.WARNING(
                         f"Repo {definition['name']} already exists or could not be added, skipping."
