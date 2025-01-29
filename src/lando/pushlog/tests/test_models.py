@@ -5,23 +5,74 @@ from lando.pushlog.models import Commit, File, Tag
 
 
 @pytest.mark.django_db()
-def test__pushlog__models__Commit(make_repo, make_commit, make_file):
+def test__pushlog__models__Commit(make_repo, make_commit):
     # Model.objects.create() creates _and saves_ the object
     repo = make_repo(1)
     commit = make_commit(repo, 1)
 
-    file1 = make_file(repo, 1)
-    file2 = make_file(repo, 2)
+    commit.add_files(["file-1"])
+    commit.add_files(["file-2"])
 
-    commit.files.add(file1)
-    commit.files.add(file2)
     commit.save()
 
-    retrieved_commit = Commit.objects.get(hash=commit.hash)
+    retrieved_commit = Commit.objects.get(repo=repo, hash=commit.hash)
 
     assert commit.hash in repr(commit)
+    commit_str = str(commit)
+    assert commit.repo.url in commit_str
+    assert commit.hash in commit_str
+    assert commit.author in commit_str
     assert retrieved_commit.id == commit.id
-    assert retrieved_commit.files.count() == 2
+    assert len(retrieved_commit.files) == 2
+
+
+@pytest.mark.django_db()
+def test__pushlog__models__Commit__from_scm_commit(
+    make_repo, make_scm_commit, assert_same_commit_data
+):
+    repo = make_repo(1)
+    scm_commit1 = make_scm_commit(1)
+    scm_commit2 = make_scm_commit(2)
+    commit1 = Commit.from_scm_commit(repo, scm_commit1)
+    commit2 = Commit.from_scm_commit(repo, scm_commit2)
+
+    commits_count = Commit.objects.filter(repo=repo).count()
+    files_count = File.objects.filter(repo=repo).count()
+
+    for commit, scm_commit in [(commit1, scm_commit1), (commit2, scm_commit2)]:
+        assert not commit.id, "New commit {commit} was prematurely saved to the DB"
+        assert_same_commit_data(commit, scm_commit)
+
+    assert commit1.hash in commit2.parents
+
+    # Nothing written to the DB yet.
+    assert Commit.objects.filter(repo=repo).count() == commits_count
+    assert File.objects.filter(repo=repo).count() == files_count
+
+    commit1.save()
+    commit2.save()
+
+    # Now they have been written!
+    assert Commit.objects.filter(repo=repo).count() == commits_count + 2
+    assert File.objects.filter(repo=repo).count() == files_count + len(
+        set(scm_commit1.files + scm_commit2.files)
+    )
+
+    for commit, scm_commit in [(commit1, scm_commit1), (commit2, scm_commit2)]:
+        assert (
+            commit.id
+        ), "New commit {commit} doesn't have an ID after being saved to the DB"
+        assert_same_commit_data(commit, scm_commit)
+
+
+@pytest.mark.django_db()
+def test__pushlog__models__Commit__missing_parent(make_repo, make_scm_commit):
+    repo = make_repo(1)
+    scm_commit2 = make_scm_commit(2)  # expect parent to be commit1
+    commit2 = Commit.from_scm_commit(repo, scm_commit2)
+
+    with pytest.raises(Commit.DoesNotExist):
+        commit2.save()
 
 
 @pytest.mark.django_db()
@@ -41,6 +92,11 @@ def test__pushlog__models__Commit__add_files(make_repo, make_commit):
     files = File.objects.filter(repo=repo)
 
     assert files.count() == 3
+
+    file1_str = str(files[0])
+    assert "file-1" in file1_str
+    assert repo.url in file1_str
+
     # We use repr to also test File.__repr__ here.
     assert "file-1" in repr(files)
     assert "file-2" in repr(files)
@@ -94,6 +150,11 @@ def test__pushlog__models__Tag(make_repo, make_commit, make_tag):
     retrieved_tags = Tag.objects.filter(commit=commit)
     rtag1 = retrieved_tags.get(name=tag1.name)
 
+    tag_str = str(tag1)
+    assert tag1.name in tag_str
+    assert tag1.repo.url in tag_str
+    assert tag1.commit in tag_str
+
     assert tag1.name in repr(tag1)
 
     assert retrieved_tags.count() == 2
@@ -131,8 +192,14 @@ def test__pushlog__models__Push(make_repo, make_commit, make_push):
     commit14 = make_commit(repo1, 4)
     push12 = make_push(repo1, [commit13, commit14])
 
+    push11_str = str(push11)
+    assert f"Push {push11.push_id}" in push11_str
+    assert push11.user in push11_str
+    assert push11.repo_url in push11_str
+    assert str(push11.date) in push11_str
+
     push11_repr = repr(push11)
-    assert f"({push11.push_id}" in push11_repr
+    assert f"(push_id={push11.push_id}" in push11_repr
     assert str(repo1) in push11_repr
 
     assert push11.repo_url == repo1.url

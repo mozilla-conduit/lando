@@ -7,6 +7,9 @@ from django.db import models
 
 from lando.main.models import Repo
 
+# We need to import from the specific file to avoid dependency loops.
+from lando.main.scm.commit import Commit as SCMCommit
+
 from .consts import COMMIT_ID_HEX_LENGTH, MAX_FILENAME_LENGTH, MAX_PATH_LENGTH
 
 
@@ -24,7 +27,10 @@ class File(models.Model):
         unique_together = ("repo", "name")
 
     def __repr__(self):
-        return f"<{self.__class__.__name__}({self.repo}, {self.name}) [{self.id}]>"
+        return f"{self.__class__.__name__}(repo={self.repo!r}, name={self.name})"
+
+    def __str__(self):
+        return f"File {self.name} in {self.repo.url}"
 
 
 class Commit(models.Model):
@@ -53,7 +59,7 @@ class Commit(models.Model):
         db_index=True,
     )
 
-    date = models.DateField(
+    datetime = models.DateField(
         auto_now=False,
         auto_now_add=False,
         db_index=True,
@@ -61,34 +67,130 @@ class Commit(models.Model):
 
     desc = models.TextField()
 
-    files = models.ManyToManyField(File)
+    _files = models.ManyToManyField(File, db_column="files")
+    _unsaved_files: set[str]
 
-    parents = models.ManyToManyField("self", blank=True)
+    _parents = models.ManyToManyField(
+        "self",
+        blank=True,
+        symmetrical=False,
+        related_name="descendants",
+        db_column="parent",
+    )
+    _unsaved_parents: set[str]
 
     class Meta:
         unique_together = ("repo", "hash")
 
+    def __init__(self, *args, **kwargs):
+        self._unsaved_parents = set()
+        if "parents" in kwargs:
+            self.add_parents(kwargs["parents"])
+            del kwargs["parents"]
+
+        self._unsaved_files = set()
+        if "files" in kwargs:
+            self.add_files(kwargs["files"])
+            del kwargs["files"]
+
+        super(Commit, self).__init__(*args, **kwargs)
+
     def __repr__(self):
-        return f"<{self.__class__.__name__}({self.repo}, {self.hash}) [{self.id}]>"
+        return f"{self.__class__.__name__}(repo={self.repo!r}, hash={self.hash})"
+
+    def __str__(self):
+        nfiles = len(self.files)
+        plural = "s" if nfiles > 0 else ""
+        return f"Commit {self.hash} to {self.repo.url} by {self.author} on {self.datetime} with {nfiles} file{plural} changed"
+
+    @staticmethod
+    def from_scm_commit(repo: Repo, scm_commit: SCMCommit):
+        """Create a Commit ORM object from an Commit dataclass."""
+        commit = Commit(
+            repo=repo,
+            hash=scm_commit.hash,
+            author=scm_commit.author,
+            datetime=scm_commit.datetime,
+            desc=scm_commit.desc,
+            parents=scm_commit.parents,
+            files=scm_commit.files,
+        )
+        return commit
+
+    def save(self, *args, **kwargs):
+        """Save the Commit data to the DB.
+
+        If any parent commits or files have been added, this method will find or create
+        them as needed, and maintain the DB relations.
+        """
+        if not self.id and any([self._unsaved_files, self._unsaved_parents]):
+            # We need the Commit to exist in the DB before being able to associate
+            # parents or files to it.
+            super(Commit, self).save(*args, **kwargs)
+
+        if self._unsaved_parents:
+            while self._unsaved_parents:
+                # XXX: Should we do a single query, then set comparison to see if elements are
+                # missing?
+                parent_hash = self._unsaved_parents.pop()
+
+                try:
+                    parent_commit = Commit.objects.get(repo=self.repo, hash=parent_hash)
+                except Commit.DoesNotExist as e:
+                    raise Commit.DoesNotExist(
+                        f"Parent commit not found for repo. parent_commit={parent_hash} repo={self.repo}"
+                    ) from e
+                self._parents.add(parent_commit)
+
+        if self._unsaved_files:
+            while self._unsaved_files:
+                # XXX: Should we do a single query, then set comparison to see if elements are
+                # missing?
+                file = File.objects.get_or_create(
+                    repo=self.repo, name=self._unsaved_files.pop()
+                )[0]
+                self._files.add(file)
+
+        super(Commit, self).save(*args, **kwargs)
+
+    @property
+    def parents(self) -> list[str]:
+        """Return a deduplicated Python list of parent hashes as strings."""
+        if self.id:
+            # Only query the DB if the object is not new.
+            saved_parents = {c.hash for c in self._parents.all()}
+            return list(self._unsaved_parents.union(saved_parents))
+
+        return list(self._unsaved_parents)
+
+    def add_parents(self, parents: list[str]):
+        """Add parents to this commit.
+
+        We unconditionally add parent hashes, even if they already exist in the DB, but
+        the attribute is deduplicated on get.
+
+        There is currently no way to remove a parent.
+        """
+        self._unsaved_parents.update(parents)
+
+    @property
+    def files(self) -> list[str]:
+        """Return a deduplicated Python list of file names as strings."""
+        if self.id:
+            # Only query the DB if the object is not new.
+            saved_files = {c.name for c in self._files.all()}
+            return list(self._unsaved_files.union(saved_files))
+
+        return list(self._unsaved_files)
 
     def add_files(self, files: list[str]):
         """Record a list of files as being touched by this commit.
 
         Existing File objects (by `name`) will be reused, or created otherwise.
+
+        There is currently no way to remove a file.
         """
-        files_set = set(files)
-        files_from_db = File.objects.filter(repo=self.repo, name__in=files)
-
-        # Associate existing file entries.
-        for file in files_from_db:
-            self.files.add(file)
-            files_set.remove(file.name)
-
-        # Create new ones.
-        for filename in files_set:
-            # Create and save the object in one action.
-            file = File.objects.create(repo=self.repo, name=filename)
-            self.files.add(file)
+        self._unsaved_files.update(files)
 
 
 class Tag(models.Model):
@@ -107,4 +209,9 @@ class Tag(models.Model):
         unique_together = ("repo", "name")
 
     def __repr__(self):
-        return f"<{self.__class__.__name__}({self.repo}, {self.name}, {self.commit}) [{self.id}]>"
+        return f"{self.__class__.__name__}(repo={self.repo!r}, name={self.name}, commit={self.commit})"
+
+    def __str__(self):
+        return (
+            f"Tag {self.name} in {self.repo.url} pointing to Commit {self.commit.hash}"
+        )

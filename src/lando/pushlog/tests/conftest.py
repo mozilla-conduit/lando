@@ -3,6 +3,7 @@ from datetime import datetime
 import pytest
 
 from lando.main.models import Repo
+from lando.main.scm.commit import Commit as SCMCommit
 from lando.pushlog.models import Commit, File, Push, Tag
 
 
@@ -42,7 +43,7 @@ def make_commit(make_hash):
             repo=repo,
             author=f"author-{seqno}",
             desc=message,
-            date=datetime.now(),
+            datetime=datetime.now(),
         )
 
     return commit_factory
@@ -77,7 +78,7 @@ def make_tag():
 def make_push():
     def push_factory(repo: Repo, commits: list[Commit]):
         "Create a non-descript push containing the associated commits in the test DB."
-        push = Push.objects.create(repo=repo)
+        push = Push.objects.create(repo=repo, user='Push-User')
         for c in commits:
             push.commits.add(c)
         push.save()
@@ -85,3 +86,39 @@ def make_push():
         return push
 
     return push_factory
+
+
+@pytest.fixture
+def make_scm_commit(make_hash):
+    def scm_commit_factory(seqno: int):
+        return SCMCommit(
+            hash=make_hash(seqno),
+            author=f"author-{seqno}",
+            desc=f"""SCM Commit {seqno}
+
+Another line""",
+            datetime=datetime.now(),
+            # The first commit doesn't have a parent.
+            parents=[make_hash(seqno - 1)] if seqno > 1 else [],
+            files=[f"/file-{s}" for s in range(seqno)],
+        )
+
+    return scm_commit_factory
+
+
+@pytest.fixture
+def assert_same_commit_data():
+    def assertion(commit: Commit, scm_commit: SCMCommit):
+        assert commit.hash == scm_commit.hash
+
+        assert len(commit.parents) == len(scm_commit.parents)
+        assert set(commit.parents) == set(scm_commit.parents)
+
+        assert commit.author == scm_commit.author
+        assert commit.datetime == scm_commit.date
+        assert commit.desc == scm_commit.desc
+
+        assert len(commit.files) == len(scm_commit.files)
+        assert set(commit.files) == set(scm_commit.files)
+
+    return assertion

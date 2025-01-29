@@ -26,7 +26,7 @@ class Push(models.Model):
     # Branch names are limited by how long a filename the filesystem support.
     branch = models.CharField(max_length=MAX_BRANCH_LENGTH, db_index=True)
 
-    date = models.DateField(
+    date = models.DateTimeField(
         auto_now=False,
         auto_now_add=True,
         db_index=True,
@@ -43,7 +43,12 @@ class Push(models.Model):
         unique_together = ("push_id", "repo")
 
     def __repr__(self):
-        return f"<{self.__class__.__name__}({self.push_id} on {self.repo})>"
+        return f"{self.__class__.__name__}(push_id={self.push_id}, repo={self.repo})"
+
+    def __str__(self):
+        ncommits = self.commits.count()
+        plural = "s" if ncommits > 1 else ""
+        return f"Push {self.push_id} to {self.repo_url} by {self.user} on {self.date} with {ncommits} commit{plural}"
 
     def save(self, *args, **kwargs):
         if not self.id:
