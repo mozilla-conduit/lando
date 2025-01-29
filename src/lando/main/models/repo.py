@@ -100,6 +100,33 @@ class Repo(BaseModel):
     # string as falsey.
     push_target = models.CharField(blank=True, default="")
 
+    # If this repo was migrated from another repo, link to it here.
+    # If this value is set, then revisions targeting legacy_source will
+    # have their target repo switched to `self` upon triggering a landing.
+
+    # For example, if `self` is `NewGitRepo` and `self.legacy_source` is `OldHgRepo`
+    # then:
+    # - `NewGitRepo.is_legacy` is False
+    # - `OldHgRepo.is_legacy` is True
+    # - `NewGitRepo.target_repo` is not defined
+    # - `OldHgRepo.target_repo` is set to `NewGitRepo`
+    # A revision that was created against `OldHgRepo` will land in `NewGitRepo`.
+    legacy_source = models.OneToOneField(
+        "Repo",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="legacy_target",
+    )
+
+    @property
+    def is_legacy(self):
+        """Return True if this repo is listed as a legacy source."""
+        try:
+            return self.legacy_target is not None
+        except self.DoesNotExist:
+            return False
+
     @classmethod
     def get_mapping(cls) -> dict[str, "Repo"]:
         return {repo.tree: repo for repo in cls.objects.all()}

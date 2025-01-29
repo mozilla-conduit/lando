@@ -14,6 +14,13 @@
     <a class="StackPage-landingPreview-landingTo" href="{{ target_repo['url'] }}">
       {{ target_repo['url']|repo_path }}
     </a>
+  {% if target_repo.legacy_source %}
+  <br>
+    Legacy Source Repo: &nbsp;
+    <a class="StackPage-landingPreview-landingTo" href="{{ target_repo.legacy_source['url'] }}">
+      {{ target_repo.legacy_source['url'] }}
+    </a>
+  {% endif %}
   </h3>
 
   <div class="StackPage-landingPreview-sectionHeader">

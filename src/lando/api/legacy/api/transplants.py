@@ -169,7 +169,11 @@ def _assess_transplant_request(
     # To be a landable path the entire path must have the same
     # repository, so we can get away with checking only one.
     repo = stack_data.repositories[to_land[0][0]["fields"]["repositoryPHID"]]
-    landing_repo = landable_repos[repo["phid"]]
+    set_repo = landable_repos[repo["phid"]]
+
+    # If the landing repo on the current revision is set as a legacy repo
+    # of another repo, then change the landing repo to match the target.
+    landing_repo = set_repo if not set_repo.is_legacy else set_repo.legacy_target
 
     involved_phids = set()
     for revision, _ in to_land:
