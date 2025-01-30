@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 class Worker:
     """A base class for repository workers."""
 
+    SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
+
     @property
     def THROTTLE_KEY(self) -> int:
         """Return the configuration key that specifies throttle delay."""
@@ -38,8 +40,6 @@ class Worker:
     def __init__(
         self, repos: list[Repo], sleep_seconds: float = 5, with_ssh: bool = True
     ):
-        SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
-
         # `sleep_seconds` is how long to sleep for if the worker is paused,
         # before checking if the worker is still paused.
         self.sleep_seconds = sleep_seconds
@@ -62,9 +62,11 @@ class Worker:
             # Fetch ssh private key from the environment. Note that this key should be
             # stored in standard format including all new lines and new line at the end
             # of the file.
-            self.ssh_private_key = os.environ.get(SSH_PRIVATE_KEY_ENV_KEY)
+            self.ssh_private_key = os.environ.get(self.SSH_PRIVATE_KEY_ENV_KEY)
             if not self.ssh_private_key:
-                logger.warning(f"No {SSH_PRIVATE_KEY_ENV_KEY} present in environment.")
+                logger.warning(
+                    f"No {self.SSH_PRIVATE_KEY_ENV_KEY} present in environment."
+                )
 
     @staticmethod
     def _setup_ssh(ssh_private_key: str):
