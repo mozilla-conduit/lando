@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 from time import sleep
+from typing import Optional
 
 from django.conf import settings
 
@@ -21,6 +22,8 @@ class Worker:
     """A base class for repository workers."""
 
     SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
+
+    ssh_private_key: Optional[str]
 
     @property
     def THROTTLE_KEY(self) -> int:
@@ -124,7 +127,7 @@ class Worker:
 
     def _setup(self):
         """Perform various setup actions."""
-        if hasattr(self, "ssh_private_key"):
+        if self.ssh_private_key:
             self._setup_ssh(self.ssh_private_key)
 
     def _start(self, max_loops: int | None = None, *args, **kwargs):
