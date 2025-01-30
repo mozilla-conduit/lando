@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 from time import sleep
+from typing import Optional
 
 from django.conf import settings
 
@@ -19,6 +20,10 @@ logger = logging.getLogger(__name__)
 
 class Worker:
     """A base class for repository workers."""
+
+    SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
+
+    ssh_private_key: Optional[str]
 
     @property
     def THROTTLE_KEY(self) -> int:
@@ -38,8 +43,6 @@ class Worker:
     def __init__(
         self, repos: list[Repo], sleep_seconds: float = 5, with_ssh: bool = True
     ):
-        SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
-
         # `sleep_seconds` is how long to sleep for if the worker is paused,
         # before checking if the worker is still paused.
         self.sleep_seconds = sleep_seconds
@@ -62,9 +65,11 @@ class Worker:
             # Fetch ssh private key from the environment. Note that this key should be
             # stored in standard format including all new lines and new line at the end
             # of the file.
-            self.ssh_private_key = os.environ.get(SSH_PRIVATE_KEY_ENV_KEY)
+            self.ssh_private_key = os.environ.get(self.SSH_PRIVATE_KEY_ENV_KEY)
             if not self.ssh_private_key:
-                logger.warning(f"No {SSH_PRIVATE_KEY_ENV_KEY} present in environment.")
+                logger.warning(
+                    f"No {self.SSH_PRIVATE_KEY_ENV_KEY} present in environment."
+                )
 
     @staticmethod
     def _setup_ssh(ssh_private_key: str):
@@ -122,7 +127,7 @@ class Worker:
 
     def _setup(self):
         """Perform various setup actions."""
-        if hasattr(self, "ssh_private_key"):
+        if self.ssh_private_key:
             self._setup_ssh(self.ssh_private_key)
 
     def _start(self, max_loops: int | None = None, *args, **kwargs):
