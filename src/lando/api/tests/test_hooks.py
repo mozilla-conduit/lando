@@ -19,7 +19,7 @@ def test_app_wide_headers_set(client):
 
 
 # See bug 1927163.
-@pytest.mark.xfail
+@pytest.mark.xfail(strict=True)
 @pytest.mark.django_db
 def test_app_wide_headers_set_for_api_endpoints(client):
     response = client.get("/__version__")
