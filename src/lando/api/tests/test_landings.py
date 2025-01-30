@@ -1032,8 +1032,6 @@ def test_format_patch_no_landoini(
     ), "Successful landing should trigger Phab repo update."
 
 
-# bug 1893453
-@pytest.mark.xfail
 @pytest.mark.django_db
 def test_landing_job_revisions_sorting(
     create_patch_revision,

@@ -327,8 +327,6 @@ def test_dryrun_outside_codefreeze(
     assert not response.json["warnings"]
 
 
-# auth related issue, blockers empty.
-@pytest.mark.xfail
 @pytest.mark.parametrize(
     "permissions,status,blocker",
     [
@@ -645,8 +643,6 @@ def test_confirmation_token_warning_order():
     )
 
 
-# bug 1893453.
-@pytest.mark.xfail
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_simple_stack_saves_data_in_db(
     app,
