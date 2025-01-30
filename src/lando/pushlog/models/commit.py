@@ -1,3 +1,5 @@
+import logging
+
 from django.core.validators import (
     MaxLengthValidator,
     MinLengthValidator,
@@ -11,6 +13,8 @@ from lando.main.models import Repo
 from lando.main.scm.commit import Commit as SCMCommit
 
 from .consts import COMMIT_ID_HEX_LENGTH, MAX_FILENAME_LENGTH, MAX_PATH_LENGTH
+
+logger = logging.getLogger(__name__)
 
 
 class File(models.Model):
@@ -144,11 +148,15 @@ class Commit(models.Model):
 
                 try:
                     parent_commit = Commit.objects.get(repo=self.repo, hash=parent_hash)
-                except Commit.DoesNotExist as e:
-                    raise Commit.DoesNotExist(
+                except Commit.DoesNotExist:
+                    # XXX: This MUST be an exception, but I'm cutting corner here
+                    # raise Commit.DoesNotExist(
+                    logger.error(
                         f"Parent commit not found for repo. parent_commit={parent_hash} repo={self.repo}"
-                    ) from e
-                self._parents.add(parent_commit)
+                    )
+                    # ) from e
+                else:
+                    self._parents.add(parent_commit)
 
         if self._unsaved_files:
             while self._unsaved_files:

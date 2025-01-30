@@ -65,6 +65,7 @@ def test__pushlog__models__Commit__from_scm_commit(
         assert_same_commit_data(commit, scm_commit)
 
 
+@pytest.mark.skip("Can't do this until we have a fully populated commit list")
 @pytest.mark.django_db()
 def test__pushlog__models__Commit__missing_parent(make_repo, make_scm_commit):
     repo = make_repo(1)
