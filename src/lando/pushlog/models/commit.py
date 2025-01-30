@@ -123,6 +123,14 @@ class Commit(models.Model):
         If any parent commits or files have been added, this method will find or create
         them as needed, and maintain the DB relations.
         """
+        # First make sure we don't deal with stale data.
+        try:
+            self.refresh_from_db()
+        except Commit.DoesNotExist:
+            # We're OK if this commit doesn't exist in the DB yet; we're just about to
+            # write it.
+            pass
+
         if not self.id and any([self._unsaved_files, self._unsaved_parents]):
             # We need the Commit to exist in the DB before being able to associate
             # parents or files to it.

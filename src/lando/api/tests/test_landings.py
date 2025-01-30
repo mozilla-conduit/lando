@@ -19,6 +19,8 @@ from lando.main.models.landing_job import (
 from lando.main.models.revision import Revision
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.scm.hg import LostPushRace
+from lando.pushlog.models.commit import Commit
+from lando.pushlog.models.push import Push
 from lando.utils import HgPatchHelper
 
 
@@ -391,7 +393,20 @@ def test_integrated_execute_job(
         mock_trigger_update,
     )
 
+    commit_count = Commit.objects.filter(repo=repo).count()
+    push_count = Push.objects.filter(repo=repo).count()
+
     assert worker.run_job(job)
+
+    new_commit_count = Commit.objects.filter(repo=repo).count()
+    new_push_count = Push.objects.filter(repo=repo).count()
+    assert new_commit_count - commit_count == len(
+        revisions
+    ), "Incorrect number of additional commits in the PushLog"
+    assert (
+        new_push_count - push_count == 1
+    ), "Incorrect number of additional pushes in the PushLog"
+
     assert job.status == LandingJobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40
     assert (
@@ -436,7 +451,16 @@ def test_integrated_execute_job_with_force_push(
     )
 
     scm.push = mock.MagicMock()
+
+    push_count = Push.objects.filter(repo=repo).count()
+
     assert worker.run_job(job)
+
+    new_push_count = Push.objects.filter(repo=repo).count()
+    assert (
+        new_push_count - push_count == 1
+    ), "Incorrect number of additional pushes in the PushLog"
+
     assert scm.push.call_count == 1
     assert len(scm.push.call_args) == 2
     assert len(scm.push.call_args[0]) == 1
@@ -727,7 +751,20 @@ def test_format_patch_success_unchanged(
         mock_trigger_update,
     )
 
+    commit_count = Commit.objects.filter(repo=repo).count()
+    push_count = Push.objects.filter(repo=repo).count()
+
     assert worker.run_job(job)
+
+    new_commit_count = Commit.objects.filter(repo=repo).count()
+    new_push_count = Push.objects.filter(repo=repo).count()
+    assert new_commit_count - commit_count == len(
+        revisions
+    ), "Incorrect number of additional commits in the PushLog"
+    assert (
+        new_push_count - push_count == 1
+    ), "Incorrect number of additional pushes in the PushLog"
+
     assert (
         job.status == LandingJobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
@@ -791,7 +828,20 @@ def test_format_single_success_changed(
         mock_trigger_update,
     )
 
+    commit_count = Commit.objects.filter(repo=repo).count()
+    push_count = Push.objects.filter(repo=repo).count()
+
     assert worker.run_job(job), "`run_job` should return `True` on a successful run."
+
+    new_commit_count = Commit.objects.filter(repo=repo).count()
+    new_push_count = Push.objects.filter(repo=repo).count()
+    assert (
+        new_commit_count == commit_count + 1
+    ), "Incorrect number of additional commits in the PushLog"
+    assert (
+        new_push_count - push_count == 1
+    ), "Incorrect number of additional pushes in the PushLog"
+
     assert (
         job.status == LandingJobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
@@ -863,7 +913,20 @@ def test_format_stack_success_changed(
         mock_trigger_update,
     )
 
+    commit_count = Commit.objects.filter(repo=repo).count()
+    push_count = Push.objects.filter(repo=repo).count()
+
     assert worker.run_job(job), "`run_job` should return `True` on a successful run."
+
+    new_commit_count = Commit.objects.filter(repo=repo).count()
+    new_push_count = Push.objects.filter(repo=repo).count()
+    assert (
+        new_commit_count == commit_count + len(revisions) + 1
+    ), "Incorrect number of additional commits in the PushLog (should be one more than the number of revisions)"
+    assert (
+        new_push_count - push_count == 1
+    ), "Incorrect number of additional pushes in the PushLog"
+
     assert (
         job.status == LandingJobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
@@ -933,9 +996,15 @@ def test_format_patch_fail(
         mock_notify,
     )
 
+    push_count = Push.objects.filter(repo=repo).count()
+
     assert not worker.run_job(
         job
     ), "`run_job` should return `False` when autoformatting fails."
+
+    new_push_count = Push.objects.filter(repo=repo).count()
+    assert new_push_count == push_count, "The number of pushes shouldn't have changed"
+
     assert (
         job.status == LandingJobStatus.FAILED
     ), "Failed autoformatting should set `FAILED` job status."

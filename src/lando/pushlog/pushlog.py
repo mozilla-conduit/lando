@@ -86,6 +86,7 @@ class PushLog:
     def add_commit(self, scm_commit: SCMCommit) -> Commit:
         # We create a commit object in memory, but will only write it into the DB when
         # the whole push is done, and we have a transaction open.
+        logger.warning(f"Adding commit {scm_commit} to current push ...")
         commit = Commit.from_scm_commit(self.repo, scm_commit)
         self.commits.append(commit)
 
@@ -95,6 +96,12 @@ class PushLog:
         self.files[scm_commit.hash] = scm_commit.files
 
         return commit
+
+    def remove_tip_commit(self) -> Commit:
+        """Remove the tip commit from the PushLog, returning it."""
+        tip_commit = self.commits[-1]
+        self.commits.remove(tip_commit)
+        return tip_commit
 
     @transaction.atomic
     def record_push(self) -> Push:

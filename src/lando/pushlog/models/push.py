@@ -37,6 +37,9 @@ class Push(models.Model):
     # [0] https://datatracker.ietf.org/doc/html/rfc5321#section-4.5.3.1.1
     user = models.EmailField(max_length=64 + 1 + 255)
 
+    # XXX: We may need to keep a better ordering (rather than relying on DB ordering)
+    # via a Through relationship model [0]
+    # [0] https://docs.djangoproject.com/en/dev/topics/db/models/#intermediary-manytomany
     commits = models.ManyToManyField(Commit)
 
     class Meta:
