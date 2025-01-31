@@ -122,7 +122,7 @@ def test_dryrun_no_warnings_or_blockers(
 
 
 @pytest.mark.django_db(transaction=True)
-def test_dryrun_invalid_path_blocks(proxy_client, phabdouble, mock_permissions, release_management_project, needs_data_classification_project):
+def test_dryrun_invalid_path_blocks(proxy_client, phabdouble, mock_permissions, release_management_project, needs_data_classification_project, mocked_repo_config):
     d1 = phabdouble.diff()
     d2 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -158,6 +158,7 @@ def test_dryrun_published_parent(
     phabdouble,
     release_management_project,
     needs_data_classification_project,
+    mocked_repo_config,
 ):
     d1 = phabdouble.diff()
     d2 = phabdouble.diff()
