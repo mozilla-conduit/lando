@@ -56,7 +56,7 @@ class Repo(BaseModel):
 
     # TODO: help text for fields below.
     name = models.CharField(max_length=255, unique=True)
-    default_branch = models.CharField(max_length=255, default="main")
+    default_branch = models.CharField(max_length=255, default="", blank=True)
     scm_type = models.CharField(
         max_length=3,
         choices=SCM_TYPE_CHOICES,
@@ -118,7 +118,7 @@ class Repo(BaseModel):
         return self._scm
 
     def __str__(self):
-        return f"{self.name} ({self.default_branch})"
+        return f"{self.name} ({self.scm_type})"
 
     def get_system_path(self) -> str:
         """Calculate system path based on REPO_ROOT and repository name."""
