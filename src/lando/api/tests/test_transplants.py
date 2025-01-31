@@ -597,6 +597,7 @@ def test_warning_previously_landed_landed_landing(phabdouble, create_landing_job
     assert warning_previously_landed(revision, diff, stack_state) is not None
 
 
+@pytest.mark.django_db
 def test_warning_revision_secure_project_none(phabdouble, create_state):
     revision = phabdouble.api_object_for(
         phabdouble.revision(),
@@ -608,6 +609,7 @@ def test_warning_revision_secure_project_none(phabdouble, create_state):
     assert warning_revision_secure(revision, {}, stack_state) is None
 
 
+@pytest.mark.django_db
 def test_warning_revision_secure_is_secure(phabdouble, secure_project, create_state):
     revision = phabdouble.api_object_for(
         phabdouble.revision(projects=[secure_project]),
@@ -619,6 +621,7 @@ def test_warning_revision_secure_is_secure(phabdouble, secure_project, create_st
     assert warning_revision_secure(revision, {}, stack_state) is not None
 
 
+@pytest.mark.django_db
 def test_warning_revision_secure_is_not_secure(
     phabdouble, secure_project, create_state
 ):
@@ -633,6 +636,7 @@ def test_warning_revision_secure_is_not_secure(
     assert warning_revision_secure(revision, {}, stack_state) is None
 
 
+@pytest.mark.django_db
 @pytest.mark.parametrize(
     "status",
     [
@@ -652,6 +656,7 @@ def test_warning_not_accepted_warns_on_other_status(phabdouble, status, create_s
     assert warning_not_accepted(revision, {}, stack_state) is not None
 
 
+@pytest.mark.django_db
 def test_warning_not_accepted_no_warning_when_accepted(phabdouble, create_state):
     revision = phabdouble.api_object_for(
         phabdouble.revision(status=PhabricatorRevisionStatus.ACCEPTED),
@@ -663,6 +668,7 @@ def test_warning_not_accepted_no_warning_when_accepted(phabdouble, create_state)
     assert warning_not_accepted(revision, {}, stack_state) is None
 
 
+@pytest.mark.django_db
 def test_warning_reviews_not_current_warns_on_unreviewed_diff(phabdouble, create_state):
     d_reviewed = phabdouble.diff()
     r = phabdouble.revision(diff=d_reviewed)
@@ -683,6 +689,7 @@ def test_warning_reviews_not_current_warns_on_unreviewed_diff(phabdouble, create
     assert warning_reviews_not_current(revision, diff, stack_state) is not None
 
 
+@pytest.mark.django_db
 def test_warning_reviews_not_current_warns_on_unreviewed_revision(
     phabdouble, create_state
 ):
@@ -700,6 +707,7 @@ def test_warning_reviews_not_current_warns_on_unreviewed_revision(
     assert warning_reviews_not_current(revision, diff, stack_state) is not None
 
 
+@pytest.mark.django_db
 def test_warning_reviews_not_current_no_warning_on_accepted_diff(
     phabdouble, create_state
 ):
@@ -859,6 +867,7 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
     assert job.landed_revisions == {1: 1, 2: 2}
 
 
+@pytest.mark.django_db
 def test_integrated_transplant_records_approvers_peers_and_owners(
     proxy_client,
     hg_server,
@@ -1369,6 +1378,7 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     assert sec_approval_project["name"] not in transplanted_patch.patch_string
 
 
+@pytest.mark.django_db
 def test_warning_wip_commit_message(phabdouble, create_state):
     revision = phabdouble.api_object_for(
         phabdouble.revision(
@@ -1537,6 +1547,7 @@ def test_unresolved_comment_stack(
     ), "the warning ID should match the ID for warning_unresolved_comments"
 
 
+@pytest.mark.django_db
 @pytest.mark.parametrize(
     "status",
     [
@@ -1561,6 +1572,7 @@ def test_check_author_planned_changes_changes_not_planned(
     )
 
 
+@pytest.mark.django_db
 def test_check_author_planned_changes_changes_planned(phabdouble, create_state):
     revision = phabdouble.api_object_for(
         phabdouble.revision(status=PhabricatorRevisionStatus.CHANGES_PLANNED),
@@ -1649,6 +1661,7 @@ def test_relman_approval_missing(
     )
 
 
+@pytest.mark.django_db
 def test_revision_has_data_classification_tag(
     phabdouble, create_state, needs_data_classification_project
 ):
@@ -1702,6 +1715,7 @@ index 0000000..55faaf5
 """.lstrip()
 
 
+@pytest.mark.django_db
 def test_blocker_prevent_symlinks(phabdouble, create_state):
     repo = phabdouble.repo()
 
