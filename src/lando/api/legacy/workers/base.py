@@ -125,7 +125,6 @@ class Worker:
         # NOTE: The worker will exit when max_loops is reached, or when the stop
         # variable is changed to True.
         loops = 0
-        sleep_seconds = self.worker_instance.sleep_seconds
 
         while self._running:
             if not bool(loops % 20):
@@ -136,8 +135,10 @@ class Worker:
                 break
             while self._paused:
                 # Wait a set number of seconds before checking paused variable again.
-                logger.info(f"Paused, waiting {sleep_seconds} seconds...")
-                self.throttle(sleep_seconds)
+                logger.info(
+                    f"Paused, waiting {self.worker_instance.sleep_seconds} seconds..."
+                )
+                self.throttle(self.worker_instance.sleep_seconds)
             self.loop(*args, **kwargs)
             loops += 1
 
