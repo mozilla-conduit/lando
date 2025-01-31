@@ -18,7 +18,6 @@ from typing import (
 import sqlalchemy as sa
 from connexion import ProblemException
 from flask import g
-
 from landoapi import auth
 from landoapi.cache import cache
 from landoapi.models.treestatus import (

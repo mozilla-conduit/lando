@@ -7,9 +7,12 @@ from lando.api.legacy.stacks import (
     get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
+from lando.api.legacy.transplants import (
+    build_stack_assessment_state,
+    run_landing_checks,
+)
 from lando.main.models import Repo
 from lando.utils.phabricator import PhabricatorRevisionStatus
-from lando.api.legacy.transplants import build_stack_assessment_state, run_landing_checks
 
 
 def test_build_stack_graph_single_node(phabdouble):

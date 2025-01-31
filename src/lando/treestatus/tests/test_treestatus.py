@@ -7,8 +7,6 @@ from typing import Optional
 
 import pytest
 from connexion import ProblemException
-from pydantic import BaseModel
-
 from landoapi.api.treestatus import (
     CombinedTree,
     get_combined_tree,
@@ -21,6 +19,7 @@ from landoapi.models.treestatus import (
 from landoapi.treestatus import (
     is_open,
 )
+from pydantic import BaseModel
 
 
 class IncreasingDatetime:
@@ -320,7 +319,7 @@ def test_api_get_logs(db, client, auth0_mock):
         },
     ]
 
-    for tree, expected in zip(result, expected_keys):
+    for tree, expected in zip(result, expected_keys, strict=False):
         tree_data = LogEntry(**tree)
         assert tree_data.id == expected["id"], "ID should match expected."
         assert tree_data.reason == expected["reason"], "Reason should match expected."
@@ -393,7 +392,7 @@ def test_api_get_logs(db, client, auth0_mock):
             "tags": [],
         },
     ]
-    for tree, expected in zip(result, expected_keys):
+    for tree, expected in zip(result, expected_keys, strict=False):
         tree_data = LogEntry(**tree)
         assert tree_data.id == expected["id"], "ID should match expected."
         assert tree_data.reason == expected["reason"], "Reason should match expected."

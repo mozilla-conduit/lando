@@ -31,17 +31,17 @@ from lando.api.legacy.stacks import (
     RevisionStack,
     build_stack_graph,
     get_diffs_for_revision,
-    get_landable_repos_for_revision_data,
     request_extended_revision_data,
+)
+from lando.api.legacy.transplants import (
+    build_stack_assessment_state,
+    run_landing_checks,
 )
 from lando.api.legacy.users import user_search
 from lando.main.auth import require_phabricator_api_key
 from lando.main.models import Repo
 from lando.main.models.revision import Revision
 from lando.utils.phabricator import PhabricatorClient
-from lando.api.legacy.transplants import build_stack_assessment_state, run_landing_checks
-from lando.api.legacy.users import user_search
-from lando.api.legacy.validation import revision_id_to_int
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,6 @@ def get(phab: PhabricatorClient, request: HttpRequest, revision_id: int):
         raise Http404(HTTP_404_STRING)
 
     supported_repos = Repo.get_mapping()
-    landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
 
     release_managers = get_release_managers(phab)
     if not release_managers:

@@ -39,6 +39,7 @@ def test_app_wide_headers_csp_report_uri(app, client):
     assert response.status_code == 200
     assert "report-uri /__cspreport__" in (response.headers["Content-Security-Policy"])
 
+
 @pytest.mark.skip
 def test_treestatus_exception_handled(db, app, client):
     # We need to tell Flask to handle exceptions as if it were in a production

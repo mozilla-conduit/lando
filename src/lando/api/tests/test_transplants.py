@@ -3,7 +3,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from lando.api.legacy.reviews import get_collated_reviewers
 from lando.api.legacy.transplants import (
     RevisionWarning,
     StackAssessment,
@@ -98,7 +97,12 @@ def _create_landing_job_with_no_linked_revisions(
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_no_warnings_or_blockers(
-    proxy_client, phabdouble, mocked_repo_config, mock_permissions, release_management_project, needs_data_classification_project
+    proxy_client,
+    phabdouble,
+    mocked_repo_config,
+    mock_permissions,
+    release_management_project,
+    needs_data_classification_project,
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -122,7 +126,14 @@ def test_dryrun_no_warnings_or_blockers(
 
 
 @pytest.mark.django_db(transaction=True)
-def test_dryrun_invalid_path_blocks(proxy_client, phabdouble, mock_permissions, release_management_project, needs_data_classification_project, mocked_repo_config):
+def test_dryrun_invalid_path_blocks(
+    proxy_client,
+    phabdouble,
+    mock_permissions,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
+):
     d1 = phabdouble.diff()
     d2 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -234,7 +245,12 @@ def test_dryrun_open_parent(
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_in_progress_transplant_blocks(
-    proxy_client, phabdouble, mocked_repo_config, mock_permissions, release_management_project, needs_data_classification_project
+    proxy_client,
+    phabdouble,
+    mocked_repo_config,
+    mock_permissions,
+    release_management_project,
+    needs_data_classification_project,
 ):
     repo = phabdouble.repo()
 
@@ -281,7 +297,12 @@ def test_dryrun_in_progress_transplant_blocks(
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_reviewers_warns(
-    proxy_client, phabdouble, mocked_repo_config, mock_permissions, release_management_project, needs_data_classification_project
+    proxy_client,
+    phabdouble,
+    mocked_repo_config,
+    mock_permissions,
+    release_management_project,
+    needs_data_classification_project,
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -555,7 +576,9 @@ def test_warning_previously_landed_no_landings(phabdouble, create_state):
     (_create_landing_job, _create_landing_job_with_no_linked_revisions),
 )
 @pytest.mark.django_db(transaction=True)
-def test_warning_previously_landed_failed_landing(phabdouble, create_landing_job, create_state):
+def test_warning_previously_landed_failed_landing(
+    phabdouble, create_landing_job, create_state
+):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
 
@@ -579,7 +602,9 @@ def test_warning_previously_landed_failed_landing(phabdouble, create_landing_job
     (_create_landing_job, _create_landing_job_with_no_linked_revisions),
 )
 @pytest.mark.django_db(transaction=True)
-def test_warning_previously_landed_landed_landing(phabdouble, create_landing_job, create_state):
+def test_warning_previously_landed_landed_landing(
+    phabdouble, create_landing_job, create_state
+):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
 
@@ -1197,7 +1222,9 @@ def test_integrated_transplant_repo_checkin_project_removed(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_without_auth0_permissions(
-    proxy_client, phabdouble, mocked_repo_config,
+    proxy_client,
+    phabdouble,
+    mocked_repo_config,
     release_management_project,
     needs_data_classification_project,
 ):
@@ -1275,7 +1302,9 @@ def test_integrated_transplant_diff_not_in_revision(
 
 @pytest.mark.django_db(transaction=True)
 def test_transplant_nonexisting_revision_returns_404(
-    proxy_client, phabdouble, mock_permissions,
+    proxy_client,
+    phabdouble,
+    mock_permissions,
     release_management_project,
     needs_data_classification_project,
 ):
@@ -1291,7 +1320,9 @@ def test_transplant_nonexisting_revision_returns_404(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_revision_with_no_repo(
-    proxy_client, phabdouble, mock_permissions,
+    proxy_client,
+    phabdouble,
+    mock_permissions,
     release_management_project,
     needs_data_classification_project,
 ):
@@ -1314,7 +1345,9 @@ def test_integrated_transplant_revision_with_no_repo(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_revision_with_unmapped_repo(
-    proxy_client, phabdouble, mock_permissions,
+    proxy_client,
+    phabdouble,
+    mock_permissions,
     release_management_project,
     needs_data_classification_project,
 ):

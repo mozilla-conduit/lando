@@ -68,12 +68,12 @@ def test_parse_git_author_information_well_formed():
         "user@example.com",
     ), "Name and email information should be parsed into separate strings."
 
+
 def test_parse_git_author_information_no_email():
     assert parse_git_author_information("ffxbld") == (
         "ffxbld",
         "",
     ), "Name without email address should return the username and empty email."
-
 
 
 def test_try_api_requires_data(db, client, mock_permissions, mocked_repo_config):

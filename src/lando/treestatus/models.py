@@ -12,14 +12,13 @@ from typing import (
     Any,
 )
 
-from sqlalchemy.dialects.postgresql.json import JSONB
-from sqlalchemy.orm import (
-    relationship,
-)
-
 from landoapi.models.base import (
     Base,
     db,
+)
+from sqlalchemy.dialects.postgresql.json import JSONB
+from sqlalchemy.orm import (
+    relationship,
 )
 
 

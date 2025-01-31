@@ -15,6 +15,7 @@ from lando.utils.phabricator import (
     ReviewerStatus,
 )
 
+
 def conduit_method(method):
     """Decorator to mark methods as a conduit method handler."""
 
@@ -1814,6 +1815,7 @@ class PhabricatorDouble:
             if hasattr(getattr(self, a), "_conduit_method")
         ]
         return {handler._conduit_method: handler for handler in handlers}
+
 
 class TreeStatusDouble:
     """TreeStatus test double.

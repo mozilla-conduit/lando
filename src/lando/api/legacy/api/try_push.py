@@ -15,14 +15,12 @@ from lando.api.legacy.hgexports import (
     PreventSymlinksCheck,
 )
 from lando.main.auth import require_authenticated_user, require_permission
-from lando.main.models import Repo
+from lando.main.models import Repo, Revision
 from lando.main.models.landing_job import (
     LandingJobStatus,
     add_job_with_revisions,
 )
-from lando.main.models.revision import Revision
 from lando.main.support import LegacyAPIException
-from lando.main.models import Revision
 
 logger = logging.getLogger(__name__)
 

@@ -18,7 +18,6 @@ from lando.main.models import Profile, Repo
 NEEDS_DATA_CLASSIFICATION_SLUG = "needs-data-classification"
 
 
-
 @pytest.fixture
 def hg_clone(hg_server, tmpdir):
     clone_dir = tmpdir.join("hg_clone")
@@ -103,6 +102,7 @@ def user(user_plaintext_password, conduit_permissions):
     user.profile.save()
 
     return user
+
 
 @pytest.fixture
 def needs_data_classification_project(phabdouble):
