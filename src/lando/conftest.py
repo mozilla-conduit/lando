@@ -111,7 +111,6 @@ def needs_data_classification_project(phabdouble):
 
 @pytest.fixture
 def create_state(
-    app,
     phabdouble,
     mocked_repo_config,
     release_management_project,
