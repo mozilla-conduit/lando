@@ -151,11 +151,11 @@ def test_dryrun_invalid_path_blocks(proxy_client, phabdouble, mock_permissions, 
     )
 
 
+@pytest.mark.django_db
 def test_dryrun_published_parent(
-    client,
-    db,
+    proxy_client,
+    mock_permissions,
     phabdouble,
-    auth0_mock,
     release_management_project,
     needs_data_classification_project,
 ):
@@ -174,14 +174,14 @@ def test_dryrun_published_parent(
     phabdouble.reviewer(r1, reviewer)
     phabdouble.reviewer(r2, reviewer)
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants/dryrun",
         json={
             "landing_path": [
                 {"revision_id": "D{}".format(r2["id"]), "diff_id": d2["id"]},
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     assert 200 == response.status_code
@@ -189,11 +189,11 @@ def test_dryrun_published_parent(
     assert response.json["blocker"] is None
 
 
+@pytest.mark.django_db
 def test_dryrun_open_parent(
-    client,
-    db,
+    proxy_client,
+    mock_permissions,
     phabdouble,
-    auth0_mock,
     release_management_project,
     needs_data_classification_project,
 ):
@@ -212,7 +212,7 @@ def test_dryrun_open_parent(
     phabdouble.reviewer(r1, reviewer)
     phabdouble.reviewer(r2, reviewer)
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants/dryrun",
         json={
             "landing_path": [
@@ -221,7 +221,7 @@ def test_dryrun_open_parent(
                 {"revision_id": "D{}".format(r2["id"]), "diff_id": d2["id"]},
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     assert 200 == response.status_code
