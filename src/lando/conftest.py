@@ -6,7 +6,17 @@ import requests
 from django.conf import settings
 from django.contrib.auth.models import User
 
-from lando.main.models import Profile
+from lando.api.legacy.stacks import (
+    RevisionStack,
+    build_stack_graph,
+    request_extended_revision_data,
+)
+from lando.api.legacy.transplants import build_stack_assessment_state
+from lando.main.models import Profile, Repo
+
+# The name of the Phabricator project used to tag revisions requiring data classification.
+NEEDS_DATA_CLASSIFICATION_SLUG = "needs-data-classification"
+
 
 
 @pytest.fixture
@@ -93,3 +103,39 @@ def user(user_plaintext_password, conduit_permissions):
     user.profile.save()
 
     return user
+
+@pytest.fixture
+def needs_data_classification_project(phabdouble):
+    return phabdouble.project(NEEDS_DATA_CLASSIFICATION_SLUG)
+
+
+@pytest.fixture
+def create_state(
+    app,
+    phabdouble,
+    mocked_repo_config,
+    release_management_project,
+    needs_data_classification_project,
+):
+    """Create a `StackAssessmentState`."""
+
+    def create_state_handler(revision, landing_assessment=None):
+        phab = phabdouble.get_phabricator_client()
+        supported_repos = Repo.get_mapping()
+        nodes, edges = build_stack_graph(revision)
+        stack_data = request_extended_revision_data(phab, list(nodes))
+        stack = RevisionStack(set(stack_data.revisions.keys()), edges)
+        relman_group_phid = release_management_project["phid"]
+        data_policy_review_phid = needs_data_classification_project["phid"]
+
+        return build_stack_assessment_state(
+            phab,
+            supported_repos,
+            stack_data,
+            stack,
+            relman_group_phid,
+            data_policy_review_phid,
+            landing_assessment=landing_assessment,
+        )
+
+    return create_state_handler
