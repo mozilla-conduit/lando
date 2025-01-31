@@ -24,6 +24,8 @@ def test__pushlog__PushLog(make_repo, make_scm_commit, assert_same_commit_data):
         commit2 = pushlog.add_commit(scm_commit2)
         commit3 = pushlog.add_commit(scm_commit3)
 
+        pushlog.confirm()
+
     pushlog_string = repr(pushlog)
     assert repr(repo) in pushlog_string
     assert user in pushlog_string
@@ -69,6 +71,8 @@ def test__pushlog__PushLog_no_commit_on_exception(make_repo, make_scm_commit):
             pushlog.add_commit(scm_commit2)
             pushlog.add_commit(scm_commit3)
 
+            pushlog.confirm()
+
             raise Exception()
 
     except Exception:
@@ -76,6 +80,33 @@ def test__pushlog__PushLog_no_commit_on_exception(make_repo, make_scm_commit):
 
     assert Push.objects.count() == push_count_before
     assert Commit.objects.count() == commit_count_before
+
+
+@pytest.mark.django_db()
+def test__pushlog__PushLog_no_commit_on_unconfirmed(make_repo, make_scm_commit, caplog):
+    repo = make_repo(1)
+
+    push_count_before = Push.objects.count()
+    commit_count_before = Commit.objects.count()
+
+    with PushLogForRepo(repo, "user@moz.test") as pushlog:
+        scm_commit1 = make_scm_commit(1)
+        scm_commit2 = make_scm_commit(2)
+        scm_commit3 = make_scm_commit(3)
+
+        pushlog.add_commit(scm_commit1)
+        pushlog.add_commit(scm_commit2)
+        pushlog.add_commit(scm_commit3)
+
+        # No call to pushlog.confirm()
+
+    assert Push.objects.count() == push_count_before
+    assert Commit.objects.count() == commit_count_before
+
+    assert "wasn't confirmed" in caplog.text
+    assert scm_commit1.hash in caplog.text
+    assert scm_commit2.hash in caplog.text
+    assert scm_commit3.hash in caplog.text
 
 
 @pytest.mark.django_db()
@@ -96,6 +127,8 @@ def test__pushlog__PushLog_useful_log_on_error(
 
             pushlog.add_commit(scm_commit1)
             pushlog.add_commit(scm_commit2)
+
+            pushlog.confirm()
 
     assert message in caplog.text
     assert scm_commit1.hash in caplog.text
@@ -119,6 +152,10 @@ def test__pushlog__PushLog__no_deadlock(make_repo, make_scm_commit):
 
             scm_commit21 = make_scm_commit(1)
             pushlog2.add_commit(scm_commit21)
+
+            # Purposefully not in reverse order.
+            pushlog1.confirm()
+            pushlog2.confirm()
 
     assert Push.objects.filter(repo=repo1).count() == push_count_before1 + 1
     assert Commit.objects.filter(repo=repo1).count() == commit_count_before1 + 1

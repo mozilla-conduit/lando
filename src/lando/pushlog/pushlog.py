@@ -1,5 +1,6 @@
 import logging
 from contextlib import contextmanager
+from typing import Optional
 
 from django.db import transaction
 
@@ -45,19 +46,15 @@ class PushLog:
     push: Push
     user: str
 
+    confirmed: bool = False
+
     commits: list
-    # ManyToMany relationships that needs to be stored separately until Commits are
-    # save(), and the association can be made.
-    files: dict[str, list[str]]
-    parents: dict[str, list[str]]
 
     def __init__(
         self,
         repo: Repo,
         user: str,
         commits: list = [],
-        files: dict[str, list[str]] = {},
-        parents: dict[str, list[str]] = {},
     ):
         self.repo = repo
         self.user = user
@@ -68,16 +65,6 @@ class PushLog:
             commits = []
         self.commits = commits
 
-        if not files:
-            # Same a commits above.
-            files = {}
-        self.files = files
-
-        if not parents:
-            # Same a commits above.
-            parents = {}
-        self.parents = parents
-
     def __repr__(self):
         return (
             f"{self.__class__.__name__}({self.repo!r}, {self.user}, {self.commits!r})"
@@ -86,14 +73,9 @@ class PushLog:
     def add_commit(self, scm_commit: SCMCommit) -> Commit:
         # We create a commit object in memory, but will only write it into the DB when
         # the whole push is done, and we have a transaction open.
-        logger.warning(f"Adding commit {scm_commit} to current push ...")
+        logger.debug(f"Adding commit {scm_commit} to current push ...")
         commit = Commit.from_scm_commit(self.repo, scm_commit)
         self.commits.append(commit)
-
-        # We can only attach parents and files to the Commit when it exists in the DB,
-        # so we hold them here in the meantime.
-        self.parents[scm_commit.hash] = scm_commit.parents
-        self.files[scm_commit.hash] = scm_commit.files
 
         return commit
 
@@ -103,21 +85,39 @@ class PushLog:
         self.commits.remove(tip_commit)
         return tip_commit
 
+    def confirm(self, value: bool = True):
+        self.confirmed = value
+
     @transaction.atomic
-    def record_push(self) -> Push:
+    def record_push(self) -> Optional[Push]:
         """Flush all push data to the database.
 
-        Don't use directly if using a PushLogForRepo.
+        This will only happen if the push has been confirm()ed first.
+
+        Don't use directly if using a PushLogForRepo ContextManager.
         """
+        if not self.confirmed:
+            logger.warning(
+                f"Push for {self.repo.url} wasn't confirmed; aborting ...\n{self}",
+                extra={"pushlog": self},
+            )
+            return None
+
         push = Push.objects.create(repo=self.repo, user=self.user)
+        logger.debug(f"Creating push {push.push_id} to {push.repo_url} ...")
+        logger.debug(
+            f"Commits in push {push.push_id} to {push.repo_url}: {self.commits}"
+        )
+
         for commit in self.commits:
             # We need to save the commit before we can associate files to it.
+            logger.debug(
+                f"Saving commit {commit.hash} for push {push.push_id} to {push.repo_url} ..."
+            )
             commit.save()
-
-            commit.add_parents(self.parents[commit.hash])
-            commit.add_files(self.files[commit.hash])
             push.commits.add(commit)
 
         push.save()
+        logger.info(f"Successfully saved {push}")
 
         return push
