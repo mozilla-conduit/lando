@@ -6,7 +6,6 @@ from lando.pushlog.models import Commit, File, Tag
 
 @pytest.mark.django_db()
 def test__pushlog__models__Commit(make_repo, make_commit):
-    # Model.objects.create() creates _and saves_ the object
     repo = make_repo(1)
     commit = make_commit(repo, 1)
 
@@ -22,6 +21,7 @@ def test__pushlog__models__Commit(make_repo, make_commit):
     assert commit.repo.url in commit_str
     assert commit.hash in commit_str
     assert commit.author in commit_str
+    assert commit.desc in commit_str
     assert retrieved_commit.id == commit.id
     assert len(retrieved_commit.files) == 2
 
@@ -94,14 +94,11 @@ def test__pushlog__models__Commit__add_files(make_repo, make_commit):
 
     assert files.count() == 3
 
-    file1_str = str(files[0])
-    assert "file-1" in file1_str
-    assert repo.url in file1_str
-
-    # We use repr to also test File.__repr__ here.
-    assert "file-1" in repr(files)
-    assert "file-2" in repr(files)
-    assert "file-3" in repr(files)
+    for file in files:
+        file_str = str(file)
+        assert file.name in repr(files)
+        assert file.name in file_str
+        assert repo.url in file_str
 
     files = File.objects.filter(commit=commit1)
     assert files.count() == 2
@@ -116,7 +113,6 @@ def test__pushlog__models__Commit__add_files(make_repo, make_commit):
 
 @pytest.mark.django_db()
 def test__pushlog__models__Commit_unique(make_repo, make_commit):
-    # Model.objects.create() creates _and saves_ the object
     repo = make_repo(1)
     make_commit(repo, 1)
 
@@ -129,7 +125,6 @@ def test__pushlog__models__Commit_unique(make_repo, make_commit):
 
 @pytest.mark.django_db()
 def test__pushlog__models__File_unique(make_repo, make_file):
-    # Model.objects.create() creates _and saves_ the object
     repo = make_repo(1)
     make_file(repo, 1)
 
@@ -154,7 +149,7 @@ def test__pushlog__models__Tag(make_repo, make_commit, make_tag):
     tag_str = str(tag1)
     assert tag1.name in tag_str
     assert tag1.repo.url in tag_str
-    assert tag1.commit in tag_str
+    assert tag1.commit.hash in tag_str
 
     assert tag1.name in repr(tag1)
 
@@ -164,7 +159,6 @@ def test__pushlog__models__Tag(make_repo, make_commit, make_tag):
 
 @pytest.mark.django_db()
 def test__pushlog__models__Tag_unique(make_repo, make_commit, make_tag):
-    # Model.objects.create() creates _and saves_ the object
     repo = make_repo(1)
     commit = make_commit(repo, 1)
     make_tag(repo, 1, commit)
@@ -197,7 +191,7 @@ def test__pushlog__models__Push(make_repo, make_commit, make_push):
     assert f"Push {push11.push_id}" in push11_str
     assert push11.user in push11_str
     assert push11.repo_url in push11_str
-    assert str(push11.date) in push11_str
+    assert str(push11.datetime) in push11_str
 
     push11_repr = repr(push11)
     assert f"(push_id={push11.push_id}" in push11_repr

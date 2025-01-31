@@ -63,7 +63,7 @@ class Commit(models.Model):
         db_index=True,
     )
 
-    datetime = models.DateField(
+    datetime = models.DateTimeField(
         auto_now=False,
         auto_now_add=False,
         db_index=True,
@@ -105,12 +105,19 @@ class Commit(models.Model):
     def __str__(self):
         nfiles = len(self.files)
         plural = "s" if nfiles > 0 else ""
-        return f"Commit {self.hash} to {self.repo.url} by {self.author} on {self.datetime} with {nfiles} file{plural} changed"
+        subject = self.desc.split("\n")[0]
+        return f"Commit {self.hash} to {self.repo.url} by {self.author} on {self.datetime} with {nfiles} file{plural} changed: {subject}"
 
     @staticmethod
     def from_scm_commit(repo: Repo, scm_commit: SCMCommit):
         """Create a Commit ORM object from an Commit dataclass."""
-        commit = Commit(
+        try:
+            # If a commit already exists in the DB, don't create a new one.
+            return Commit.objects.get(repo=repo, hash=scm_commit.hash)
+        except Commit.DoesNotExist:
+            pass
+
+        return Commit(
             repo=repo,
             hash=scm_commit.hash,
             author=scm_commit.author,
@@ -119,7 +126,6 @@ class Commit(models.Model):
             parents=scm_commit.parents,
             files=scm_commit.files,
         )
-        return commit
 
     def save(self, *args, **kwargs):
         """Save the Commit data to the DB.
@@ -152,7 +158,7 @@ class Commit(models.Model):
                     # XXX: This MUST be an exception, but I'm cutting corner here
                     # raise Commit.DoesNotExist(
                     logger.error(
-                        f"Parent commit not found for repo. parent_commit={parent_hash} repo={self.repo}"
+                        f"Parent commit not found for repo. commit={self.hash} parent_commit={parent_hash} repo={self.repo}"
                     )
                     # ) from e
                 else:

@@ -11,6 +11,7 @@ from lando.pushlog.models import Commit, File, Push, Tag
 def make_repo():
     def repo_factory(seqno: int) -> Repo:
         "Create a non-descript repository with a sequence number in the test DB."
+        # Model.objects.create() creates _and saves_ the object
         return Repo.objects.create(
             name=f"repo-{seqno}",
             scm_type="git",
@@ -23,6 +24,9 @@ def make_repo():
 
 @pytest.fixture
 def make_hash():
+    """Create a 40-character string, of which the first 8 bytes represent the seqno
+    in decimal representation."""
+
     def hash_factory(seqno: int):
         return str(seqno).zfill(8) + "f" + 31 * "0"
 
@@ -37,8 +41,6 @@ def make_commit(make_hash):
             message = f"Commit {seqno}"
 
         return Commit.objects.create(
-            # Create a 40-character string, of which the first 8 bytes represent the seqno
-            # in decimal representation.
             hash=make_hash(seqno),
             repo=repo,
             author=f"author-{seqno}",
@@ -78,7 +80,7 @@ def make_tag():
 def make_push():
     def push_factory(repo: Repo, commits: list[Commit]):
         "Create a non-descript push containing the associated commits in the test DB."
-        push = Push.objects.create(repo=repo, user='Push-User')
+        push = Push.objects.create(repo=repo, user="Push-User")
         for c in commits:
             push.commits.add(c)
         push.save()
@@ -115,7 +117,7 @@ def assert_same_commit_data():
         assert set(commit.parents) == set(scm_commit.parents)
 
         assert commit.author == scm_commit.author
-        assert commit.datetime == scm_commit.date
+        assert commit.datetime == scm_commit.datetime
         assert commit.desc == scm_commit.desc
 
         assert len(commit.files) == len(scm_commit.files)

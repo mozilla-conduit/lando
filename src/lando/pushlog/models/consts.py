@@ -1,4 +1,4 @@
-COMMIT_ID_HEX_LENGTH = 160
+COMMIT_ID_HEX_LENGTH = 40
 
 # Those are fairly common values under Unix.
 MAX_FILENAME_LENGTH = 255
