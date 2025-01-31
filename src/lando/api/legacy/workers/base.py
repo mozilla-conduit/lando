@@ -13,7 +13,6 @@ from django.conf import settings
 from lando.api.legacy.treestatus import TreeStatus
 from lando.main.models import ConfigurationKey, ConfigurationVariable, Repo
 from lando.version import version
-from landoapi.models.configuration import ConfigurationKey, ConfigurationVariable
 
 logger = logging.getLogger(__name__)
 
