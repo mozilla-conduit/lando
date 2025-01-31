@@ -6,6 +6,7 @@ from django.http import Http404, HttpRequest
 
 from lando.api.legacy.commit_message import format_commit_message
 from lando.api.legacy.projects import (
+    get_data_policy_review_phid,
     get_release_managers,
     get_sec_approval_project_phid,
     get_secure_project_phid,
@@ -30,6 +31,7 @@ from lando.api.legacy.stacks import (
     RevisionStack,
     build_stack_graph,
     get_diffs_for_revision,
+    get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
 from lando.api.legacy.users import user_search
