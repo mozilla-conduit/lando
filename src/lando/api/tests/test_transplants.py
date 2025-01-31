@@ -870,7 +870,6 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     hg_server,
     hg_clone,
     treestatusdouble,
-    auth0_mock,
     release_management_project,
     needs_data_classification_project,
     register_codefreeze_uri,
@@ -1277,7 +1276,6 @@ def test_integrated_transplant_diff_not_in_revision(
 @pytest.mark.django_db(transaction=True)
 def test_transplant_nonexisting_revision_returns_404(
     proxy_client, phabdouble, mock_permissions,
-    auth0_mock,
     release_management_project,
     needs_data_classification_project,
 ):
