@@ -1575,6 +1575,7 @@ def test_check_author_planned_changes_changes_planned(phabdouble, create_state):
     )
 
 
+@pytest.mark.django_db
 @pytest.mark.parametrize("status", list(ReviewerStatus))
 def test_relman_approval_status(
     status,
@@ -1619,6 +1620,7 @@ def test_relman_approval_status(
         )
 
 
+@pytest.mark.django_db
 def test_relman_approval_missing(
     phabdouble,
     mocked_repo_config,
@@ -1754,6 +1756,7 @@ index 0000000..e44d36d
 """.lstrip()
 
 
+@pytest.mark.django_db
 def test_blocker_try_task_config_no_landing_state(
     phabdouble, mocked_repo_config, create_state
 ):
@@ -1776,6 +1779,7 @@ def test_blocker_try_task_config_no_landing_state(
     ), "`try_task_config.json` should be rejected."
 
 
+@pytest.mark.django_db
 def test_blocker_try_task_config_landing_state_non_try(
     phabdouble, mocked_repo_config, create_state
 ):
@@ -1798,6 +1802,7 @@ def test_blocker_try_task_config_landing_state_non_try(
     ), "`try_task_config.json` should be rejected."
 
 
+@pytest.mark.django_db
 def test_warning_multiple_authors(phabdouble, mocked_repo_config, create_state):
     repo = phabdouble.repo()
 
