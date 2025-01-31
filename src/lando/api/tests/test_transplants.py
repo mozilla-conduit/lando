@@ -813,10 +813,10 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
-    db,
-    client,
+    proxy_client,
+    mock_permissions,
+    mocked_repo_config,
     phabdouble,
-    auth0_mock,
     release_management_project,
     needs_data_classification_project,
     register_codefreeze_uri,
@@ -838,7 +838,7 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
     phabdouble.reviewer(r3, user)
 
     # Request a transplant, but only for 2/3 revisions in the stack.
-    response = client.post(
+    response = proxy_client.post(
         "/transplants",
         json={
             "landing_path": [
@@ -846,18 +846,15 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
                 {"revision_id": "D{}".format(r2["id"]), "diff_id": d2["id"]},
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
     assert response.status_code == 202
     assert response.content_type == "application/json"
     assert "id" in response.json
     job_id = response.json["id"]
 
-    # Ensure DB access isn't using uncommitted data.
-    db.session.close()
-
     # Get LandingJob object by its id
-    job = LandingJob.query.get(job_id)
+    job = LandingJob.objects.get(pk=job_id)
     assert job.id == job_id
     assert [(revision.revision_id, revision.diff_id) for revision in job.revisions] == [
         (r1["id"], d1["id"]),
