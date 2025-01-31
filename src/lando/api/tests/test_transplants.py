@@ -956,7 +956,6 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
 def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     proxy_client,
     phabdouble,
-    auth0_mock,
     release_management_project,
     needs_data_classification_project,
     register_codefreeze_uri,
@@ -1473,7 +1472,6 @@ def test_unresolved_comment_stack(
     phabdouble,
     mocked_repo_config,
     mock_permissions,
-    auth0_mock,
     release_management_project,
     needs_data_classification_project,
 ):
