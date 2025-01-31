@@ -939,8 +939,8 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
     patch_helpers = [patch_helper]
 
     # Simulate contacting BMO returning a public bug state.
-    with patch("landoapi.hgexports.get_status_code_for_bug") as mock_status_code, patch(
-        "landoapi.hgexports.search_bugs"
+    with patch("lando.api.legacy.hgexports.get_status_code_for_bug") as mock_status_code, patch(
+        "lando.api.legacy.hgexports.search_bugs"
     ) as mock_bug_search:
         mock_bug_search.side_effect = lambda bug_ids: bug_ids
 
@@ -975,8 +975,8 @@ Bug 999999: Fix issue with feature X
     patch_helpers = [patch_helper]
 
     # Simulate Bugzilla (BMO) responding that the bug is private.
-    with patch("landoapi.hgexports.get_status_code_for_bug") as mock_status_code, patch(
-        "landoapi.hgexports.search_bugs"
+    with patch("lando.api.legacy.hgexports.get_status_code_for_bug") as mock_status_code, patch(
+        "lando.api.legacy.hgexports.search_bugs"
     ) as mock_bug_search:
         # Mock out bug search to simulate our bug not being found.
         mock_bug_search.return_value = set()
@@ -1014,8 +1014,8 @@ SKIP_BMO_CHECK
     patch_helpers = [patch_helper]
 
     # Simulate Bugzilla (BMO) responding that the bug is private.
-    with patch("landoapi.hgexports.get_status_code_for_bug") as mock_status_code, patch(
-        "landoapi.hgexports.search_bugs"
+    with patch("lando.api.legacy.hgexports.get_status_code_for_bug") as mock_status_code, patch(
+        "lando.api.legacy.hgexports.search_bugs"
     ) as mock_bug_search:
         # Mock out bug search to simulate our bug not being found.
         mock_bug_search.return_value = set()
@@ -1051,8 +1051,8 @@ Bug 123456: Fix issue with feature Y
     patch_helpers = [patch_helper]
 
     # Simulate an error occurring when trying to contact BMO.
-    with patch("landoapi.hgexports.get_status_code_for_bug") as mock_status_code, patch(
-        "landoapi.hgexports.search_bugs"
+    with patch("lando.api.legacy.hgexports.get_status_code_for_bug") as mock_status_code, patch(
+        "lando.api.legacy.hgexports.search_bugs"
     ) as mock_bug_search:
         mock_bug_search.return_value = set()
 
