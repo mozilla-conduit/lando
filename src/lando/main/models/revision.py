@@ -128,29 +128,26 @@ class Revision(BaseModel):
 
     @property
     def author_name(self) -> Optional[str]:
-        metadata = self._parse_metadata_from_patch()
-        return metadata.get("author_name")
+        return self.metadata.get("author_name")
 
     @property
     def author_email(self) -> Optional[str]:
-        metadata = self._parse_metadata_from_patch()
-        return metadata.get("author_email")
+        return self.metadata.get("author_email")
 
     @property
     def commit_message(self) -> Optional[str]:
-        metadata = self._parse_metadata_from_patch()
-        return metadata.get("commit_message")
+        return self.metadata.get("commit_message")
 
     @property
     def timestamp(self) -> Optional[str]:
-        metadata = self._parse_metadata_from_patch()
-        if ts := metadata.get("timestamp"):
+        if ts := self.metadata.get("timestamp"):
             # Some codepaths (via Phabricator) have the timestamp set as an int.
             # We make sure it's always a string.
             return str(ts)
         return None
 
-    def _parse_metadata_from_patch(self) -> dict[str, str]:
+    @property
+    def metadata(self) -> dict[str, str]:
         """Parse Hg metadata out of the raw patch, and update the patch_data if empty."""
         if not self.patch_data:
             commit_message = self.patch_helper.get_commit_description()
