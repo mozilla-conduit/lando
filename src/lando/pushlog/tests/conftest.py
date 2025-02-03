@@ -16,7 +16,15 @@ def make_repo():
 
 
 @pytest.fixture
-def make_commit():
+def make_hash():
+    def hash_factory(seqno: int):
+        return str(seqno).zfill(8) + "f" + 31 * "0"
+
+    return hash_factory
+
+
+@pytest.fixture
+def make_commit(make_hash):
     def commit_factory(repo: Repo, seqno: int, message=None) -> Commit:
         "Create a non-descript commit with a sequence number in the test DB."
         if not message:
@@ -25,7 +33,7 @@ def make_commit():
         return Commit.objects.create(
             # Create a 40-character string, of which the first 8 bytes represent the seqno
             # in decimal representation.
-            hash=(str(seqno).zfill(8) + "f" + 31 * "0"),
+            hash=make_hash(seqno),
             repo=repo,
             author=f"author-{seqno}",
             desc=message,
