@@ -776,6 +776,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
 
     worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
     assert worker.run_job(job)
+    assert job.status == LandingJobStatus.LANDED
     for revision in job.revisions.all():
         if revision.revision_id == 1:
             assert revision.data["peers_and_owners"] == [101]
@@ -1180,7 +1181,7 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     # Check the transplanted patch for our alternate commit message.
     transplanted_patch = Revision.get_from_revision_id(revision["id"])
     assert transplanted_patch is not None, "Transplanted patch should be retrievable."
-    assert sec_approval_project["name"] not in transplanted_patch.patch_string
+    assert sec_approval_project["name"] not in transplanted_patch.patch
 
 
 def test_warning_wip_commit_message(phabdouble):
