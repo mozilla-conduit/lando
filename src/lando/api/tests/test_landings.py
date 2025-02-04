@@ -14,9 +14,8 @@ from lando.main.models.landing_job import (
     add_job_with_revisions,
 )
 from lando.main.models.revision import Revision
-from lando.main.scm import SCM_TYPE_HG
+from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.scm.abstract_scm import AbstractSCM
-from lando.main.scm.consts import SCM_TYPE_GIT
 from lando.main.scm.git import GitSCM
 from lando.main.scm.hg import HgSCM, LostPushRace
 from lando.utils import HgPatchHelper
