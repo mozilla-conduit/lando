@@ -281,7 +281,10 @@ def test_request_extended_revision_data_raises_value_error(phabdouble):
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_no_edges_open(
-    phabdouble, release_management_project, needs_data_classification_project
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -311,7 +314,10 @@ def test_calculate_landable_subgraphs_no_edges_open(
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_no_edges_closed(
-    phabdouble, release_management_project, needs_data_classification_project
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -342,7 +348,10 @@ def test_calculate_landable_subgraphs_no_edges_closed(
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_closed_root(
-    phabdouble, release_management_project, needs_data_classification_project
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -372,7 +381,10 @@ def test_calculate_landable_subgraphs_closed_root(
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_closed_root_child_merges(
-    phabdouble, release_management_project, needs_data_classification_project
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -409,7 +421,10 @@ def test_calculate_landable_subgraphs_closed_root_child_merges(
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_stops_multiple_repo_paths(
-    phabdouble, release_management_project, needs_data_classification_project
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -443,7 +458,10 @@ def test_calculate_landable_subgraphs_stops_multiple_repo_paths(
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_allows_distinct_repo_paths(
-    phabdouble, release_management_project, needs_data_classification_project
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -481,7 +499,10 @@ def test_calculate_landable_subgraphs_allows_distinct_repo_paths(
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_different_repo_parents(
-    phabdouble, release_management_project, needs_data_classification_project
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -518,7 +539,10 @@ def test_calculate_landable_subgraphs_different_repo_parents(
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_different_repo_closed_parent(
-    phabdouble, release_management_project, needs_data_classification_project
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -554,7 +578,10 @@ def test_calculate_landable_subgraphs_different_repo_closed_parent(
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_diverging_paths_merge(
-    phabdouble, release_management_project, needs_data_classification_project
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -606,7 +633,10 @@ def test_calculate_landable_subgraphs_diverging_paths_merge(
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_complex_graph(
-    phabdouble, release_management_project, needs_data_classification_project
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
 ):
     phab = phabdouble.get_phabricator_client()
 
