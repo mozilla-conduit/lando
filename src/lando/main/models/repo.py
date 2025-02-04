@@ -13,6 +13,8 @@ from lando.main.models import BaseModel
 from lando.main.scm import (
     SCM_IMPLEMENTATIONS,
     SCM_TYPE_CHOICES,
+    SCM_TYPE_GIT,
+    SCM_TYPE_HG,
     AbstractSCM,
 )
 
@@ -56,7 +58,7 @@ class Repo(BaseModel):
 
     # TODO: help text for fields below.
     name = models.CharField(max_length=255, unique=True)
-    default_branch = models.CharField(max_length=255, default="main")
+    default_branch = models.CharField(max_length=255, default="", blank=True)
     scm_type = models.CharField(
         max_length=3,
         choices=SCM_TYPE_CHOICES,
@@ -100,6 +102,19 @@ class Repo(BaseModel):
     # string as falsey.
     push_target = models.CharField(blank=True, default="")
 
+    @property
+    def is_git(self):
+        return self.scm_type == SCM_TYPE_GIT
+
+    @property
+    def is_hg(self):
+        return self.scm_type == SCM_TYPE_HG
+
+    def __str__(self):
+        if self.is_git:
+            return f"{self.name}@{self.default_branch} ({self.scm_type})"
+        return f"{self.name} ({self.scm_type})"
+
     @classmethod
     def get_mapping(cls) -> dict[str, "Repo"]:
         return {repo.tree: repo for repo in cls.objects.all()}
@@ -116,9 +131,6 @@ class Repo(BaseModel):
             else:
                 raise Exception(f"Repository type not supported: {self.scm_type}")
         return self._scm
-
-    def __str__(self):
-        return f"{self.name} ({self.default_branch})"
 
     def get_system_path(self) -> str:
         """Calculate system path based on REPO_ROOT and repository name."""
