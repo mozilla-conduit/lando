@@ -13,7 +13,7 @@ from lando.api.legacy.transplants import (
     warning_revision_secure,
     warning_wip_commit_message,
 )
-from lando.main.models import DONTBUILD, SCM_CONDUIT, SCM_LEVEL_3, Repo
+from lando.main.models import DONTBUILD, SCM_CONDUIT, Repo
 from lando.main.models.landing_job import (
     LandingJob,
     LandingJobStatus,
@@ -699,8 +699,6 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_records_approvers_peers_and_owners(
     proxy_client,
-    hg_server,
-    hg_clone,
     treestatusdouble,
     register_codefreeze_uri,
     monkeypatch,
@@ -709,19 +707,13 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     checkin_project,
     mock_permissions,
     hg_landing_worker,
+    repo_mc,
 ):
-    treestatusdouble.open_tree("mozilla-central")
-    repo = Repo.objects.get(name="mozilla-central")
+    repo = repo_mc(SCM_TYPE_HG)
+    treestatusdouble.open_tree(repo.name)
+    hg_landing_worker.worker_instance.applicable_repos.add(repo)
 
-    repo.url = hg_server
-    repo.required_permission = SCM_LEVEL_3
-    repo.push_path = hg_server
-    repo.pull_path = hg_server
-    repo.system_path = hg_clone.strpath
-
-    repo.save()
-
-    phabrepo = phabdouble.repo(name="mozilla-central")
+    phabrepo = phabdouble.repo(name=repo.name)
 
     # Mock a few mots-related things needed by the landing worker.
     # First, mock path existance.

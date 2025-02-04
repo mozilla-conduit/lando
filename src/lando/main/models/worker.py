@@ -27,10 +27,10 @@ class Worker(BaseModel):
     )
 
     def __str__(self):
-        if self.is_paused:
-            state = "PAUSED"
-        elif self.is_stopped:
+        if self.is_stopped:
             state = "STOPPED"
+        elif self.is_paused:
+            state = "PAUSED"
         else:
             state = "RUNNING"
 
