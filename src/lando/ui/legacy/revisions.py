@@ -140,7 +140,7 @@ class Revision(LandoView):
             target_repo = (
                 revision_repo
                 if not revision_repo.is_legacy
-                else revision_repo.legacy_target
+                else revision_repo.new_target
             )
 
         phids = set(revisions.keys())

@@ -118,14 +118,14 @@ class Repo(BaseModel):
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name="legacy_target",
+        related_name="new_target",
     )
 
     @property
     def is_legacy(self):
         """Return True if this repo is listed as a legacy source."""
         try:
-            return self.legacy_target is not None
+            return self.new_target is not None
         except self.DoesNotExist:
             return False
 

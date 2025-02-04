@@ -173,7 +173,7 @@ def _assess_transplant_request(
 
     # If the landing repo on the current revision is set as a legacy repo
     # of another repo, then change the landing repo to match the target.
-    landing_repo = set_repo if not set_repo.is_legacy else set_repo.legacy_target
+    landing_repo = set_repo if not set_repo.is_legacy else set_repo.new_target
 
     involved_phids = set()
     for revision, _ in to_land:
