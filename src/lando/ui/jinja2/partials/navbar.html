@@ -38,10 +38,19 @@
               </a>
             </p>
           {% endif %}
+          {% if user_is_authenticated and request.user.is_superuser %}
           <p class="control">
+          <a class="button" href="{{ url('admin:index') }}">
+              <span class="icon">
+                <i class="fa fa-dashboard"></i>
+              </span>
+              <span>Admin</span>
+            </a>
+          </p>
+          {% endif %}
           {% if not in_maintenance %}
             {% if user_is_authenticated %}
-              <form action="/oidc/logout/" method="post">
+              <form class="control" action="/oidc/logout/" method="post">
               {{ csrf_input }}
               <button class="button">
                 <span class="icon">
@@ -51,15 +60,16 @@
               </button>
               </form>
             {% else %}
-              <a class="Navbar-login button" href="/oidc/authenticate?next={{ request.path }}">
-                <span class="icon">
-                  <i class="fa fa-sign-in"></i>
-                </span>
-                <span>Login with Auth0</span>
-              </a>
+              <p class="control">
+                <a class="Navbar-login button" href="/oidc/authenticate?next={{ request.path }}">
+                  <span class="icon">
+                    <i class="fa fa-sign-in"></i>
+                  </span>
+                  <span>Login with Auth0</span>
+                </a>
+              </p>
             {% endif %}
           {% endif %}
-          </p>
           <p class="control">
             <a class="button" href="http://moz-conduit.readthedocs.io/en/latest/lando-user.html">
               <span class="icon">
