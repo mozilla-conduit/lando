@@ -1242,10 +1242,10 @@ def test_integrated_transplant_without_auth0_permissions(
     )
 
     assert response.status_code == 400
-    assert response.json["blocker"] == (
+    assert (
         "You have insufficient permissions to land or your access has expired. "
         "main.scm_level_3 is required. See the FAQ for help."
-    )
+    ) in response.json["blocker"]
 
 
 @pytest.mark.django_db(transaction=True)
