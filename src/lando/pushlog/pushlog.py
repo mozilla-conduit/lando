@@ -133,6 +133,8 @@ class PushLog:
             push.commits.add(commit)
 
         push.save()
+        self.push = push
+
         logger.info(f"Successfully saved {push}")
 
         self.is_recorded = True
