@@ -1,16 +1,9 @@
 import io
-import pathlib
 import unittest.mock as mock
-from collections.abc import Callable
 
-import py
 import pytest
 
-from lando.api.legacy.workers.landing_worker import (
-    AUTOFORMAT_COMMIT_MESSAGE,
-    LandingWorker,
-)
-from lando.main.models import SCM_LEVEL_3, Repo
+from lando.api.legacy.workers.landing_worker import AUTOFORMAT_COMMIT_MESSAGE
 from lando.main.models.landing_job import (
     LandingJob,
     LandingJobStatus,
@@ -237,106 +230,6 @@ aDd oNe mOrE LiNe
 """.lstrip()
 
 
-@pytest.mark.django_db
-def hg_repo_mc(
-    hg_server: str,
-    hg_clone: py.path,
-    *,
-    approval_required: bool = False,
-    autoformat_enabled: bool = False,
-    force_push: bool = False,
-    push_target: str = "",
-) -> Repo:
-    params = {
-        "required_permission": SCM_LEVEL_3,
-        "url": hg_server,
-        "push_path": hg_server,
-        "pull_path": hg_server,
-        "system_path": hg_clone.strpath,
-        # The option below can be overriden in the parameters
-        "approval_required": approval_required,
-        "autoformat_enabled": autoformat_enabled,
-        "force_push": force_push,
-        "push_target": push_target,
-    }
-    repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="mozilla-central-hg",
-        **params,
-    )
-    repo.save()
-    return repo
-
-
-@pytest.mark.django_db
-def git_repo_mc(
-    git_repo: pathlib.Path,
-    tmp_path: pathlib.Path,
-    *,
-    approval_required: bool = False,
-    autoformat_enabled: bool = False,
-    force_push: bool = False,
-    push_target: str = "",
-) -> Repo:
-    repos_dir = tmp_path / "repos"
-    repos_dir.mkdir()
-
-    params = {
-        "required_permission": SCM_LEVEL_3,
-        "url": str(git_repo),
-        "push_path": str(git_repo),
-        "pull_path": str(git_repo),
-        "system_path": repos_dir / "git_repo",
-        # The option below can be overriden in the parameters
-        "approval_required": approval_required,
-        "autoformat_enabled": autoformat_enabled,
-        "force_push": force_push,
-        "push_target": push_target,
-    }
-
-    repo = Repo.objects.create(
-        scm_type=SCM_TYPE_GIT,
-        name="mozilla-central-git",
-        **params,
-    )
-    repo.save()
-    repo.scm.prepare_repo(repo.pull_path)
-    return repo
-
-
-@pytest.fixture()
-def repo_mc(
-    # Git
-    git_repo: pathlib.Path,
-    tmp_path: pathlib.Path,
-    # Hg
-    hg_server: str,
-    hg_clone: py.path,
-) -> Callable:
-    def factory(
-        scm_type: str,
-        *,
-        approval_required: bool = False,
-        autoformat_enabled: bool = False,
-        force_push: bool = False,
-        push_target: str = "",
-    ) -> Repo:
-        params = {
-            "approval_required": approval_required,
-            "autoformat_enabled": autoformat_enabled,
-            "force_push": force_push,
-            "push_target": push_target,
-        }
-
-        if scm_type == SCM_TYPE_GIT:
-            return git_repo_mc(git_repo, tmp_path, **params)
-        elif scm_type == SCM_TYPE_HG:
-            return hg_repo_mc(hg_server, hg_clone, **params)
-        raise Exception(f"Unknown SCM Type {scm_type=}")
-
-    return factory
-
-
 @pytest.mark.parametrize(
     "repo_type,revisions_params",
     [
@@ -368,6 +261,7 @@ def test_integrated_execute_job(
     create_patch_revision,
     repo_type: str,
     revisions_params,
+    get_landing_worker,
 ):
     repo = repo_mc(repo_type)
     treestatusdouble.open_tree(repo.name)
@@ -384,8 +278,6 @@ def test_integrated_execute_job(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
-
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
@@ -393,6 +285,7 @@ def test_integrated_execute_job(
         mock_trigger_update,
     )
 
+    worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
     assert job.status == LandingJobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40
@@ -414,6 +307,7 @@ def test_integrated_execute_job_with_force_push(
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    get_landing_worker,
     repo_type: str,
 ):
     repo = repo_mc(repo_type, force_push=True)
@@ -428,8 +322,6 @@ def test_integrated_execute_job_with_force_push(
     }
     job = add_job_with_revisions([create_patch_revision(1)], **job_params)
 
-    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
-
     # We don't care about repo update in this test, however if we don't mock
     # this, the test will fail since there is no celery instance.
     monkeypatch.setattr(
@@ -438,6 +330,7 @@ def test_integrated_execute_job_with_force_push(
     )
 
     scm.push = mock.MagicMock()
+    worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
     assert scm.push.call_count == 1
     assert len(scm.push.call_args) == 2
@@ -459,6 +352,7 @@ def test_integrated_execute_job_with_bookmark(
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    get_landing_worker,
     repo_type: str,
 ):
     repo = repo_mc(repo_type, push_target="@")
@@ -473,8 +367,6 @@ def test_integrated_execute_job_with_bookmark(
     }
     job = add_job_with_revisions([create_patch_revision(1)], **job_params)
 
-    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
-
     # We don't care about repo update in this test, however if we don't mock
     # this, the test will fail since there is no celery instance.
     monkeypatch.setattr(
@@ -483,6 +375,7 @@ def test_integrated_execute_job_with_bookmark(
     )
 
     scm.push = mock.MagicMock()
+    worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
     assert scm.push.call_count == 1
     assert len(scm.push.call_args) == 2
@@ -504,6 +397,7 @@ def test_no_diff_start_line(
     treestatusdouble,
     create_patch_revision,
     caplog,
+    get_landing_worker,
     repo_type: str,
 ):
     repo = repo_mc(repo_type)
@@ -520,8 +414,7 @@ def test_no_diff_start_line(
         [create_patch_revision(1, patch=PATCH_WITHOUT_STARTLINE)], **job_params
     )
 
-    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
-
+    worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
     assert job.status == LandingJobStatus.FAILED
     assert "Patch without a diff start line." in caplog.text
@@ -540,6 +433,7 @@ def test_lose_push_race(
     repo_mc,
     treestatusdouble,
     create_patch_revision,
+    get_landing_worker,
     repo_type: str,
 ):
     repo = repo_mc(repo_type)
@@ -566,8 +460,8 @@ def test_lose_push_race(
         "push",
         mock_push,
     )
-    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
 
+    worker = get_landing_worker(repo_type)
     assert not worker.run_job(job)
     assert job.status == LandingJobStatus.DEFERRED
 
@@ -586,6 +480,7 @@ def test_merge_conflict(
     monkeypatch,
     create_patch_revision,
     caplog,
+    get_landing_worker,
     repo_type: str,
     expected_error_log: str,
 ):
@@ -606,8 +501,6 @@ def test_merge_conflict(
         **job_params,
     )
 
-    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
-
     # We don't care about repo update in this test, however if we don't mock
     # this, the test will fail since there is no celery instance.
     monkeypatch.setattr(
@@ -615,6 +508,7 @@ def test_merge_conflict(
         mock.MagicMock(),
     )
 
+    worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
     assert job.status == LandingJobStatus.FAILED
 
@@ -650,6 +544,7 @@ def test_failed_landing_job_notification(
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    get_landing_worker,
     repo_type: str,
 ):
     """Ensure that a failed landings triggers a user notification."""
@@ -674,8 +569,6 @@ def test_failed_landing_job_notification(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
-
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
     monkeypatch.setattr(
@@ -683,6 +576,7 @@ def test_failed_landing_job_notification(
         mock_notify,
     )
 
+    worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
     assert job.status == LandingJobStatus.FAILED
     assert mock_notify.call_count == 1
@@ -702,6 +596,7 @@ def test_format_patch_success_unchanged(
     monkeypatch,
     create_patch_revision,
     normal_patch,
+    get_landing_worker,
     repo_type: str,
 ):
     """Tests automated formatting happy path where formatters made no changes."""
@@ -720,8 +615,6 @@ def test_format_patch_success_unchanged(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
-
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
@@ -729,6 +622,7 @@ def test_format_patch_success_unchanged(
         mock_trigger_update,
     )
 
+    worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
     assert (
         job.status == LandingJobStatus.LANDED
@@ -754,6 +648,7 @@ def test_format_single_success_changed(
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    get_landing_worker,
     repo_type: str,
 ):
     """Test formatting a single commit via amending."""
@@ -784,8 +679,6 @@ def test_format_single_success_changed(
         [create_patch_revision(2, patch=PATCH_FORMATTED_1)], **job_params
     )
 
-    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
-
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
@@ -793,6 +686,7 @@ def test_format_single_success_changed(
         mock_trigger_update,
     )
 
+    worker = get_landing_worker(repo_type)
     assert worker.run_job(job), "`run_job` should return `True` on a successful run."
     assert (
         job.status == LandingJobStatus.LANDED
@@ -846,6 +740,7 @@ def test_format_stack_success_changed(
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    get_landing_worker,
     repo_type: str,
 ):
     """Test formatting a stack via an autoformat tip commit."""
@@ -866,8 +761,6 @@ def test_format_stack_success_changed(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
-
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
@@ -875,6 +768,7 @@ def test_format_stack_success_changed(
         mock_trigger_update,
     )
 
+    worker = get_landing_worker(repo_type)
     assert worker.run_job(job), "`run_job` should return `True` on a successful run."
     assert (
         job.status == LandingJobStatus.LANDED
@@ -928,6 +822,7 @@ def test_format_patch_fail(
     monkeypatch,
     create_patch_revision,
     normal_patch,
+    get_landing_worker,
     repo_type: str,
 ):
     """Tests automated formatting failures before landing."""
@@ -947,8 +842,6 @@ def test_format_patch_fail(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
-
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
     monkeypatch.setattr(
@@ -956,6 +849,7 @@ def test_format_patch_fail(
         mock_notify,
     )
 
+    worker = get_landing_worker(repo_type)
     assert not worker.run_job(
         job
     ), "`run_job` should return `False` when autoformatting fails."
@@ -983,6 +877,7 @@ def test_format_patch_no_landoini(
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    get_landing_worker,
     repo_type: str,
 ):
     """Tests behaviour of Lando when the `.lando.ini` file is missing."""
@@ -1003,8 +898,6 @@ def test_format_patch_no_landoini(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
-
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
@@ -1019,6 +912,7 @@ def test_format_patch_no_landoini(
         mock_notify,
     )
 
+    worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
     assert (
         job.status == LandingJobStatus.LANDED
