@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 import uuid
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Any, ContextManager, Optional
 
@@ -22,6 +23,9 @@ from lando.settings import LANDO_USER_EMAIL, LANDO_USER_NAME
 from .abstract_scm import AbstractSCM
 
 logger = logging.getLogger(__name__)
+
+
+ISO8601_TIMESTAMP_BASIC = "%Y-%m-%dT%H%M%S%Z"
 
 ENV_COMMITTER_NAME = "GIT_COMMITTER_NAME"
 ENV_COMMITTER_EMAIL = "GIT_COMMITTER_EMAIL"
@@ -267,8 +271,17 @@ class GitSCM(AbstractSCM):
 
         This method uses the Git commands to update the repository
         located at the given pull path to the specified target changeset.
+
+        A new work branch will be created, using the current data in its name.
         """
-        branch = target_cset or self.default_branch
+        if not target_cset:
+            target_cset = self.default_branch
+
+        remote_branch = f"origin/{target_cset}"
+        if self._git_run("branch", "--list", "--remote", remote_branch, cwd=self.path):
+            # If the branch exists remotely, make sure we get the up-to-date version.
+            target_cset = remote_branch
+
         self.clean_repo()
         # Fetch all refs at the given pull_path, and overwrite the `origin` references.
         self._git_run(
@@ -278,8 +291,13 @@ class GitSCM(AbstractSCM):
             "+refs/heads/*:refs/remotes/origin/*",
             cwd=self.path,
         )
+
+        # Create a new work branch, named after the current time, to work in.
+        # Ideally, we'd use the revision number, too, but it's not available to the SCM.
+        # A date is good enough for now, if we need to dig into issues.
+        work_branch = f"lando-{datetime.now().strftime(ISO8601_TIMESTAMP_BASIC)}"
         self._git_run(
-            "checkout", "--force", "-B", branch, f"origin/{branch}", cwd=self.path
+            "checkout", "--force", "-B", work_branch, target_cset, cwd=self.path
         )
         return self.head_ref()
 
