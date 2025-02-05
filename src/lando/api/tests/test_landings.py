@@ -3,7 +3,9 @@ import unittest.mock as mock
 
 import pytest
 
-from lando.api.legacy.workers.landing_worker import AUTOFORMAT_COMMIT_MESSAGE
+from lando.api.legacy.workers.landing_worker import (
+    AUTOFORMAT_COMMIT_MESSAGE,
+)
 from lando.main.models.landing_job import (
     LandingJob,
     LandingJobStatus,

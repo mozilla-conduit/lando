@@ -20,7 +20,7 @@ from lando.main.models.landing_job import (
     add_job_with_revisions,
 )
 from lando.main.models.revision import Revision
-from lando.main.scm import SCM_TYPE_HG
+from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.utils.phabricator import PhabricatorRevisionStatus, ReviewerStatus
 from lando.utils.tasks import admin_remove_phab_project
 
@@ -1335,3 +1335,63 @@ def test_unresolved_comment_stack(
     assert (
         response.json["warnings"][0]["id"] == 9
     ), "the warning ID should match the ID for warning_unresolved_comments"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_transplant_on_linked_legacy_repo(
+    app,
+    proxy_client,
+    phabdouble,
+    treestatusdouble,
+    register_codefreeze_uri,
+    mocked_repo_config,
+    mock_permissions,
+    repo_mc,
+):
+    new_repo = repo_mc(SCM_TYPE_GIT)
+    new_repo.legacy_source = Repo.objects.get(name="mozilla-central")
+    new_repo.save()
+    phabrepo = phabdouble.repo(name="mozilla-central")
+    user = phabdouble.user(username="reviewer")
+
+    d1 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=phabrepo)
+    phabdouble.reviewer(r1, user)
+
+    d2 = phabdouble.diff()
+    r2 = phabdouble.revision(diff=d2, repo=phabrepo, depends_on=[r1])
+    phabdouble.reviewer(r2, user)
+
+    d3 = phabdouble.diff()
+    r3 = phabdouble.revision(diff=d3, repo=phabrepo, depends_on=[r2])
+
+    phabdouble.reviewer(r3, user)
+    response = proxy_client.post(
+        "/transplants",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]},
+                {"revision_id": "D{}".format(r2["id"]), "diff_id": d2["id"]},
+                {"revision_id": "D{}".format(r3["id"]), "diff_id": d3["id"]},
+            ]
+        },
+        permissions=mock_permissions,
+    )
+    assert response.status_code == 202
+    assert response.content_type == "application/json"
+    assert "id" in response.json
+    job_id = response.json["id"]
+
+    # Get LandingJob object by its id
+    job = LandingJob.objects.get(pk=job_id)
+    assert job.id == job_id
+    assert [
+        (revision.revision_id, revision.diff_id) for revision in job.revisions.all()
+    ] == [
+        (r1["id"], d1["id"]),
+        (r2["id"], d2["id"]),
+        (r3["id"], d3["id"]),
+    ]
+    assert job.status == LandingJobStatus.SUBMITTED
+    assert job.target_repo == new_repo
+    assert job.landed_revisions == {1: 1, 2: 2, 3: 3}
