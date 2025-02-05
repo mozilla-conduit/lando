@@ -65,7 +65,7 @@ def test_GitSCM_clone(git_repo: Path, tmp_path: Path, monkeypatch):
 
 @pytest.mark.parametrize(
     "strip_non_public_commits",
-    (True, False),
+    [True, False],
 )
 def test_GitSCM_clean_repo(
     git_repo: Path,
@@ -137,6 +137,78 @@ def test_GitSCM_clean_repo(
     assert (
         strip_non_public_commits != new_file.exists()
     ), f"strip_non_public_commits not honoured for {new_file}"
+
+
+@pytest.mark.parametrize("target_cs", [None, "main", "dev", "git-ref"])
+def test_GitSCM_update_repo(
+    git_repo: Path, tmp_path: Path, git_setup_user: Callable, target_cs: str
+):
+    clone_path = tmp_path / "repo_test_GitSCM_clean_repo"
+    clone_path.mkdir()
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+
+    git_setup_user(str(clone_path))
+
+    new_file = clone_path / "new_file"
+    new_file.write_text("test", encoding="utf-8")
+
+    original_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=str(clone_path),
+        capture_output=True,
+    ).stdout
+
+    if target_cs == "git-ref":
+        # Special case for a naked git reference
+        target_cs = original_commit.decode("utf-8").strip()
+    elif target_cs:
+        original_commit = subprocess.run(
+            ["git", "rev-parse", f"origin/{target_cs}"],
+            cwd=str(clone_path),
+            capture_output=True,
+        ).stdout
+
+    # Create an empty commit that we expect to see rewound, too
+    subprocess.run(
+        [
+            "git",
+            "commit",
+            "--fixup",
+            "reword:HEAD",
+            "--no-edit",
+        ],
+        cwd=str(clone_path),
+        check=True,
+    )
+    # Those two command should not raise exceptions
+    subprocess.run(["git", "add", new_file.name], cwd=str(clone_path), check=True)
+    subprocess.run(
+        [
+            "git",
+            "commit",
+            "-m",
+            "adding new_file",
+            "--author",
+            "Lando <Lando@example.com>",
+        ],
+        cwd=str(clone_path),
+        check=True,
+    )
+
+    scm.update_repo(str(git_repo), target_cs)
+
+    current_commit = subprocess.run(
+        ["git", "rev-parse", "--branch", "HEAD"],
+        cwd=str(clone_path),
+        capture_output=True,
+    ).stdout
+    current_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=str(clone_path), capture_output=True
+    ).stdout
+    assert (
+        current_commit == original_commit
+    ), f"Not on original_commit {original_commit} updating repo: {current_commit}"
 
 
 def test_GitSCM_push_get_github_token(git_repo: Path):
