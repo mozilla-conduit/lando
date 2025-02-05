@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     "compressor",
     "mozilla_django_oidc",
     "lando.main",
+    "lando.pulse",
     "lando.pushlog",
     "lando.utils",
     "lando.api",
@@ -221,6 +222,16 @@ CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://lando.redis:6379")
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
+
+
+PULSE_USER = os.getenv("PULSE_USER", "")
+PULSE_PASSWORD = os.getenv("PULSE_PASSWORD", "")
+PULSE_HOST = os.getenv("PULSE_HOST", "pulse.test")
+PULSE_PORT = os.getenv("PULSE_PORT", "5672")
+PULSE_EXCHANGE = os.getenv("PULSE_EXCHANGE", "exchange/suite/git-hg-sync")
+PULSE_QUEUE = os.getenv("PULSE_QUEUE", "queue/suite/git-hg-sync")
+PULSE_ROUTING_KEY = os.getenv("PULSE_ROUTING_KEY", "git-hg-sync")
+PULSE_SSL = os.getenv("PULSE_SSL", True)
 
 LANDO_USER_NAME = os.getenv("LANDO_USER_NAME", "Lando")
 LANDO_USER_EMAIL = os.getenv("LANDO_USER_EMAIL", "lando@lando.test")
