@@ -3,10 +3,11 @@ import sys
 
 from django.core.management.base import BaseCommand, CommandError
 
-from lando.main.models.configuration import (
+from lando.main.models import (
     ConfigurationKey,
     ConfigurationVariable,
     VariableTypeChoices,
+    Worker,
 )
 
 
@@ -31,17 +32,19 @@ class Command(BaseCommand):
         ConfigurationVariable.set(
             ConfigurationKey.API_IN_MAINTENANCE, VariableTypeChoices.BOOL, "1"
         )
-        ConfigurationVariable.set(
-            ConfigurationKey.LANDING_WORKER_PAUSED, VariableTypeChoices.BOOL, "1"
-        )
+        workers = Worker.objects.all()
+        for worker in workers:
+            worker.is_paused = True
+            worker.save()
 
     def _turn_off_maintenance_mode(self):
         ConfigurationVariable.set(
             ConfigurationKey.API_IN_MAINTENANCE, VariableTypeChoices.BOOL, "0"
         )
-        ConfigurationVariable.set(
-            ConfigurationKey.LANDING_WORKER_PAUSED, VariableTypeChoices.BOOL, "0"
-        )
+        workers = Worker.objects.all()
+        for worker in workers:
+            worker.is_paused = False
+            worker.save()
 
     def handle(self, *args, **options):
         action_mapping = {

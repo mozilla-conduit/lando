@@ -13,8 +13,7 @@ from lando.api.legacy.transplants import (
     warning_revision_secure,
     warning_wip_commit_message,
 )
-from lando.api.legacy.workers.landing_worker import LandingWorker
-from lando.main.models import DONTBUILD, SCM_CONDUIT, SCM_LEVEL_3, Repo
+from lando.main.models import DONTBUILD, SCM_CONDUIT, Repo
 from lando.main.models.landing_job import (
     LandingJob,
     LandingJobStatus,
@@ -700,8 +699,6 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_records_approvers_peers_and_owners(
     proxy_client,
-    hg_server,
-    hg_clone,
     treestatusdouble,
     register_codefreeze_uri,
     monkeypatch,
@@ -709,18 +706,14 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     phabdouble,
     checkin_project,
     mock_permissions,
+    hg_landing_worker,
+    repo_mc,
 ):
-    treestatusdouble.open_tree("mozilla-central")
-    repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="mozilla-central",
-        url=hg_server,
-        required_permission=SCM_LEVEL_3,
-        push_path=hg_server,
-        pull_path=hg_server,
-        system_path=hg_clone.strpath,
-    )
-    phabrepo = phabdouble.repo(name="mozilla-central")
+    repo = repo_mc(SCM_TYPE_HG)
+    treestatusdouble.open_tree(repo.name)
+    hg_landing_worker.worker_instance.applicable_repos.add(repo)
+
+    phabrepo = phabdouble.repo(name=repo.name)
 
     # Mock a few mots-related things needed by the landing worker.
     # First, mock path existance.
@@ -774,8 +767,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     approved_by = [revision.data["approved_by"] for revision in job.revisions.all()]
     assert approved_by == [[101], [102]]
 
-    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
-    assert worker.run_job(job)
+    assert hg_landing_worker.run_job(job)
     assert job.status == LandingJobStatus.LANDED
     for revision in job.revisions.all():
         if revision.revision_id == 1:
