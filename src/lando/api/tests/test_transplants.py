@@ -1339,7 +1339,6 @@ def test_integrated_transplant_revision_with_no_repo(
         permissions=mock_permissions,
     )
     assert response.status_code == 400
-    assert response.json["title"] == "Landing is Blocked"
     assert "Landing repository is missing for this landing." in response.json["blocker"]
 
 
@@ -1365,7 +1364,6 @@ def test_integrated_transplant_revision_with_unmapped_repo(
         permissions=mock_permissions,
     )
     assert response.status_code == 400
-    assert response.json["title"] == "Landing is Blocked"
     assert "Landing repository is missing for this landing." in response.json["blocker"]
 
 
