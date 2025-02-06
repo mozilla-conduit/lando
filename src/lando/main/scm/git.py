@@ -116,8 +116,10 @@ class GitSCM(AbstractSCM):
 
         command += [push_path]
 
-        if push_target:
-            command += [f"HEAD:{push_target}"]
+        if not push_target:
+            push_target = self.default_branch
+
+        command += [f"HEAD:{push_target}"]
 
         self._git_run(*command, cwd=self.path)
 
