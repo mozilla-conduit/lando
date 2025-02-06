@@ -1,4 +1,5 @@
 import logging
+import random
 from abc import abstractmethod
 from pathlib import Path
 from typing import Any, ContextManager, Optional
@@ -201,3 +202,11 @@ class AbstractSCM:
 
         Returns a list containing a single string representing the ID of the newly created commit.
         """
+
+    @staticmethod
+    def _separator():
+        """Generate a long random string usable as a separator when parsing
+        semi-structured multiline text output"""
+        return "".join(
+            [chr(c) for c in random.choices(range(ord("A"), ord("Z")), k=16)]
+        )

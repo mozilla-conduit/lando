@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-import random
 import re
 import subprocess
 import tempfile
@@ -241,9 +240,7 @@ class GitSCM(AbstractSCM):
 
     def describe_commit(self, revision_id: str = "HEAD") -> Commit:
         """Return Commit metadata."""
-        separator = "".join(
-            [chr(c) for c in random.choices(range(ord("A"), ord("Z")), k=16)]
-        )
+        separator = self._separator()
         format = separator.join(
             [
                 "hash:%H",
