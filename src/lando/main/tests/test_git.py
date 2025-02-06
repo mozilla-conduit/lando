@@ -255,7 +255,7 @@ def test_GitSCM_git_run_redact_url_userinfo(git_repo: Path):
     assert userinfo not in exc.value.err
     assert userinfo not in str(exc.value)
     assert userinfo not in repr(exc.value)
-    assert "[REDACTED]" in exc.value.err
+    assert "[REDACTED]" in str(exc.value)
 
 
 def _create_git_commit(request: pytest.FixtureRequest, clone_path: Path):
