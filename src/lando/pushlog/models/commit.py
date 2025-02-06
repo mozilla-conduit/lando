@@ -18,12 +18,15 @@ logger = logging.getLogger(__name__)
 
 
 class File(models.Model):
+    """A file in a repository.
+
+    Files get associated to the Commits that modify them.
+    """
+
     name = models.CharField(max_length=MAX_PATH_LENGTH)
 
     repo = models.ForeignKey(
         Repo,
-        # We don't want to delete the PushLog, even if we were to delete the repo
-        # object.
         on_delete=models.DO_NOTHING,
     )
 
@@ -38,6 +41,12 @@ class File(models.Model):
 
 
 class Commit(models.Model):
+    """An SCM commit.
+
+    They hold all the commit metadata, as well as DAG relationship to other commits, and
+    lists of modified files. They get aggregated in Pushes.
+    """
+
     hash = models.CharField(
         max_length=COMMIT_ID_HEX_LENGTH,
         db_index=True,
@@ -51,8 +60,6 @@ class Commit(models.Model):
 
     repo = models.ForeignKey(
         Repo,
-        # We don't want to delete the PushLog, even if we were to delete the repo
-        # object.
         on_delete=models.DO_NOTHING,
     )
 
@@ -216,14 +223,14 @@ class Commit(models.Model):
 
 
 class Tag(models.Model):
+    """A human-readable tag pointing to a Commit."""
+
     # Tag names are limited by how long a filename the filesystem support.
     name = models.CharField(max_length=MAX_FILENAME_LENGTH)
     commit = models.ForeignKey(Commit, on_delete=models.CASCADE)
 
     repo = models.ForeignKey(
         Repo,
-        # We don't want to delete the PushLog, even if we were to delete the repo
-        # object.
         on_delete=models.DO_NOTHING,
     )
 

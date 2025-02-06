@@ -4,7 +4,7 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Any, ContextManager, Optional
 
-from .commit import Commit
+from lando.main.scm.commit import Commit
 
 logger = logging.getLogger(__name__)
 

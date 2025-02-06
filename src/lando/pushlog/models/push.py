@@ -10,12 +10,12 @@ PUSH_SCM_TYPES = [PUSH_SCM_TYPE_GIT]
 
 
 class Push(models.Model):
+    """A Push object records the list of Commits pushed at once."""
+
     push_id = models.PositiveIntegerField()
 
     repo = models.ForeignKey(
         Repo,
-        # We don't want to delete the PushLog, even if we were to delete the repo
-        # object.
         on_delete=models.DO_NOTHING,
     )
 

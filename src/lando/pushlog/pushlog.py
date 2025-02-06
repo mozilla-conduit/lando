@@ -46,7 +46,7 @@ class PushLog:
     push: Push
     user: str
 
-    confirmed: bool = False
+    is_confirmed: bool = False
 
     commits: list
 
@@ -54,13 +54,13 @@ class PushLog:
         self,
         repo: Repo,
         user: str,
-        commits: list = [],
+        commits: list = None,
     ):
         self.repo = repo
         self.user = user
 
         if not commits:
-            # We cannot us the default value of the argument as a mutable type, and will
+            # We cannot use the default value of the argument as a mutable type, and will
             # get reused on every initialisation.
             commits = []
         self.commits = commits
@@ -71,8 +71,11 @@ class PushLog:
         )
 
     def add_commit(self, scm_commit: SCMCommit) -> Commit:
-        # We create a commit object in memory, but will only write it into the DB when
-        # the whole push is done, and we have a transaction open.
+        """Add a new commit to the Pushlog, for later recording in the DB
+
+        We create a commit object in memory, but will only write it into the DB when
+        the whole push is done, and we have a transaction open.
+        """
         logger.debug(f"Adding commit {scm_commit} to current push ...")
         commit = Commit.from_scm_commit(self.repo, scm_commit)
         self.commits.append(commit)
@@ -86,7 +89,14 @@ class PushLog:
         return tip_commit
 
     def confirm(self, value: bool = True):
-        self.confirmed = value
+        """Mark the push as confirmed and ready to record.
+
+        While the PushLogForRepo ContextManager is used to capture unhandled exceptions
+        and make sure the Push is otherwise recorded, we also need a way for the code to
+        signal that a Push is read, rather than other (handled) failure
+        cases that should not lead to the record being written.
+        """
+        self.is_confirmed = value
 
     @transaction.atomic
     def record_push(self) -> Optional[Push]:
@@ -96,7 +106,7 @@ class PushLog:
 
         Don't use directly if using a PushLogForRepo ContextManager.
         """
-        if not self.confirmed:
+        if not self.is_confirmed:
             logger.warning(
                 f"Push for {self.repo.url} wasn't confirmed; aborting ...\n{self}",
                 extra={"pushlog": self},

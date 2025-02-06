@@ -37,6 +37,8 @@ logger = logging.getLogger(__name__)
 
 REQUEST_USER_ENV_VAR = "AUTOLAND_REQUEST_USER"
 
+NULL_PARENT_HASH = 40 * "0"
+
 
 class HgException(SCMException):
     """
@@ -345,7 +347,7 @@ class HgSCM(AbstractSCM):
         metadata["parents"] = metadata["parents"].split()
         # {parents} in Mercurial is empty if the commit has a single parent.
         # We re-add it manually, but only if it is a non-null parent.
-        if not metadata["parents"] and not metadata["parent"] == 40 * "0":
+        if not metadata["parents"] and not metadata["parent"] == NULL_PARENT_HASH:
             metadata["parents"] = metadata["parent"]
         del metadata["parent"]
 

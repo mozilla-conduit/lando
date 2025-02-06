@@ -10,8 +10,7 @@ from lando.pushlog.models import Commit, File, Push, Tag
 @pytest.fixture
 def make_repo():
     def repo_factory(seqno: int) -> Repo:
-        "Create a non-descript repository with a sequence number in the test DB."
-        # Model.objects.create() creates _and saves_ the object
+        """Create a non-descript repository with a sequence number in the test DB."""
         return Repo.objects.create(
             name=f"repo-{seqno}",
             scm_type="git",
@@ -24,10 +23,8 @@ def make_repo():
 
 @pytest.fixture
 def make_hash():
-    """Create a 40-character string, of which the first 8 bytes represent the seqno
-    in decimal representation."""
-
     def hash_factory(seqno: int):
+        """Create a hash-like hex string, including the seqno in decimal representation."""
         return str(seqno).zfill(8) + "f" + 31 * "0"
 
     return hash_factory
@@ -36,7 +33,7 @@ def make_hash():
 @pytest.fixture
 def make_commit(make_hash):
     def commit_factory(repo: Repo, seqno: int, message=None) -> Commit:
-        "Create a non-descript commit with a sequence number in the test DB."
+        """Create a non-descript commit with a sequence number in the test DB."""
         if not message:
             message = f"Commit {seqno}"
 
@@ -54,7 +51,7 @@ def make_commit(make_hash):
 @pytest.fixture
 def make_file():
     def file_factory(repo: Repo, seqno: int) -> File:
-        "Create a non-descript file with a sequence number in the test DB."
+        """Create a non-descript file with a sequence number in the test DB."""
         return File.objects.create(
             repo=repo,
             name=f"file-{seqno}",
@@ -66,7 +63,7 @@ def make_file():
 @pytest.fixture
 def make_tag():
     def tag_factory(repo: Repo, seqno: int, commit: Commit) -> Tag:
-        "Create a non-descript tag with a sequence number in the test DB."
+        """Create a non-descript tag with a sequence number in the test DB."""
         return Tag.objects.create(
             repo=repo,
             name=f"tag-{seqno}",
@@ -79,7 +76,7 @@ def make_tag():
 @pytest.fixture
 def make_push():
     def push_factory(repo: Repo, commits: list[Commit]):
-        "Create a non-descript push containing the associated commits in the test DB."
+        """Create a non-descript push containing the associated commits in the test DB."""
         push = Push.objects.create(repo=repo, user="Push-User")
         for c in commits:
             push.commits.add(c)
