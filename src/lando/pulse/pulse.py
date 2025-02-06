@@ -6,6 +6,7 @@ from lando.pushlog.models import Push
 
 logger = logging.getLogger(__name__)
 
+
 class PulseNotifier:
     producer: Producer
 

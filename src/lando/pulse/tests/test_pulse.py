@@ -1,7 +1,7 @@
 from collections.abc import Callable
 
 import pytest
-from kombu import Connection, Consumer, Exchange, Producer, Queue, log as kombu_log
+from kombu import Connection, Consumer, Exchange, Producer, Queue
 
 from lando.pulse.pulse import PulseNotifier
 
@@ -14,27 +14,45 @@ from lando.pushlog.tests.conftest import make_commit, make_hash, make_push, make
 __all__ = ["make_commit", "make_hash", "make_push", "make_repo"]
 
 
+@pytest.fixture()
+def kombu_connection():
+    return Connection("memory://")
+
+
+@pytest.fixture()
+def kombu_exchange():
+    return Exchange("test_exchange", type="direct")
+
+
+@pytest.fixture()
+def make_kombu_queue(kombu_connection, kombu_exchange):
+    def queue_factory(routing_key="routing_key"):
+        queue = Queue("test-queue", kombu_exchange, routing_key=routing_key)
+        queue.maybe_bind(kombu_connection)
+        queue.declare()
+        return queue
+
+    return queue_factory
+
+
 @pytest.mark.django_db
 def test__PulseNotifier(
+    kombu_connection,
+    kombu_exchange,
+    make_kombu_queue,
     make_repo: Callable,
     make_commit: Callable,
     make_push: Callable,
 ):
-    kombu_log.setup_logging(loglevel="DEBUG")
-
-    connection = Connection("memory://")
-    exchange = Exchange("test_exchange", type="direct")
-    routing_key = "test_key"
-    queue = Queue("test_queue", exchange, routing_key=routing_key)
-    queue.maybe_bind(connection)
-    queue.declare()
+    routing_key = "routing_key"
 
     # Producer.
     producer = Producer(
-        channel=connection.channel(), exchange=exchange, routing_key=routing_key
+        channel=kombu_connection.channel(),
+        exchange=kombu_exchange,
+        routing_key=routing_key,
     )
-    print(producer)
-
+    queue = make_kombu_queue(routing_key="routing_key")
     notifier = PulseNotifier(producer)
 
     # Test push.
@@ -51,12 +69,14 @@ def test__PulseNotifier(
         messages.append((body, message))
         message.ack()
 
-    with Consumer(connection, queues=queue, callbacks=[consumer_callback]) as consumer:
-        breakpoint()
+    with Consumer(
+        kombu_connection,
+        queues=queue,
+        callbacks=[consumer_callback],
+    ):
         try:
-            connection.drain_events(timeout=2)
+            kombu_connection.drain_events(timeout=2)
         except TimeoutError:
             pass
 
-    print(messages)
     assert messages
