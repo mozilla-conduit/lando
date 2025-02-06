@@ -74,7 +74,7 @@ class Command(BaseCommand):
 
         # Continue with starting the worker.
         try:
-            landing_worker = LandingWorker(worker.enabled_repos)
+            landing_worker = LandingWorker(worker)
         except ConnectionError as e:
             raise CommandError(e)
 

@@ -22,7 +22,6 @@ from lando.api.legacy.uplift import (
     update_bugs_for_uplift,
 )
 from lando.api.legacy.workers.base import Worker
-from lando.main.models.configuration import ConfigurationKey
 from lando.main.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
 from lando.main.models.repo import Repo
 from lando.main.scm.abstract_scm import AbstractSCM
@@ -69,40 +68,31 @@ def job_processing(job: LandingJob):
 
 
 class LandingWorker(Worker):
-    @property
-    def STOP_KEY(self) -> ConfigurationKey:
-        """Return the configuration key that prevents the worker from starting."""
-        return ConfigurationKey.LANDING_WORKER_STOPPED
-
-    @property
-    def PAUSE_KEY(self) -> ConfigurationKey:
-        """Return the configuration key that pauses the worker."""
-        return ConfigurationKey.LANDING_WORKER_PAUSED
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.last_job_finished = None
-        self.refresh_enabled_repos()
+        self.refresh_active_repos()
 
     def loop(self):
         logger.debug(
-            f"{len(self.applicable_repos)} applicable repos: {self.applicable_repos}"
+            f"{len(self.worker_instance.enabled_repos)} "
+            "enabled repos: {self.worker_instance.enabled_repos}"
         )
 
-        # Check if any closed trees reopened since the beginning of this iteration
-        if len(self.enabled_repos) != len(self.applicable_repos):
-            self.refresh_enabled_repos()
+        # Refresh repos if there is a mismatch in active vs. enabled repos.
+        if len(self.active_repos) != len(self.enabled_repos):
+            self.refresh_active_repos()
 
         if self.last_job_finished is False:
             logger.info("Last job did not complete, sleeping.")
-            self.throttle(self.sleep_seconds)
-            self.refresh_enabled_repos()
+            self.throttle(self.worker_instance.sleep_seconds)
+            self.refresh_active_repos()
 
         with transaction.atomic():
             job = LandingJob.next_job(repositories=self.enabled_repos).first()
 
         if job is None:
-            self.throttle(self.sleep_seconds)
+            self.throttle(self.worker_instance.sleep_seconds)
             return
 
         with job_processing(job):
@@ -264,19 +254,18 @@ class LandingWorker(Worker):
                     return True
 
                 # Run through the patches one by one and try to apply them.
-                logger.warning(
+                logger.debug(
                     f"About to land {job.revisions.count()} revisions: {job.revisions.all()} ..."
                 )
                 for revision in job.revisions.all():
                     try:
-                        logger.warning(f"Landing {revision} ...")
+                        logger.debug(f"Landing {revision} ...")
                         scm.apply_patch(
                             revision.diff,
                             revision.commit_message,
                             revision.author,
                             revision.timestamp,
                         )
-                        new_commit = scm.describe_commit()
                     except NoDiffStartLine:
                         message = (
                             "Lando encountered a malformed patch, please try again. "
@@ -319,7 +308,7 @@ class LandingWorker(Worker):
                         return True
                     else:
                         new_commit = scm.describe_commit()
-                        logger.warning(f"Created new commit {new_commit}")
+                        logger.debug(f"Created new commit {new_commit}")
                         pushlog.add_commit(new_commit)
 
                 # Get the changeset titles for the stack.
@@ -350,7 +339,6 @@ class LandingWorker(Worker):
                         push_target=repo.push_target,
                         force_push=repo.force_push,
                     )
-                    pushlog.confirm()
                 except (
                     TreeClosed,
                     TreeApprovalRequired,
@@ -374,6 +362,8 @@ class LandingWorker(Worker):
                     )
                     self.notify_user_of_landing_failure(job)
                     return True  # Do not try again, this is a permanent failure.
+                else:
+                    pushlog.confirm()
 
         job.transition_status(LandingJobAction.LAND, commit_id=commit_id)
 

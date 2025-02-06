@@ -33,8 +33,14 @@ def git_repo(tmp_path: Path, git_repo_seed: Path) -> Path:
     _git_ignore_denyCurrentBranch(repo_dir)
     for patch in sorted(git_repo_seed.glob("*")):
         subprocess.run(["git", "am", str(patch)], check=True, cwd=repo_dir)
-    subprocess.run(["git", "show"], check=True, cwd=repo_dir)
-    subprocess.run(["git", "branch"], check=True, cwd=repo_dir)
+
+    # Create a separate base branch for branch tests.
+    subprocess.run(["git", "checkout", "-b", "dev"], check=True, cwd=repo_dir)
+    subprocess.run(
+        ["git", "commit", "--allow-empty", "-m", "dev"], check=True, cwd=repo_dir
+    )
+
+    subprocess.run(["git", "checkout", "main"], check=True, cwd=repo_dir)
     return repo_dir
 
 

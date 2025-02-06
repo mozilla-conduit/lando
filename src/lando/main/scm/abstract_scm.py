@@ -159,6 +159,9 @@ class AbstractSCM:
         This method uses the Mercurial command to update the repository
         located at the given pull path to the specified target changeset.
 
+        The target changeset will be used as the base onto which the next commits will
+        be applied.
+
         Args:
             pull_path (str): The path to pull from.
             target_cset (str): The target changeset to update the repository to.
