@@ -48,8 +48,13 @@ def test_GitSCM_repo_is_supported(repo_path: str, expected: bool, git_repo: Path
     ), f"{scm} did not correctly report support for {repo_path}"
 
 
-def test_GitSCM_clone(git_repo: Path, tmp_path: Path, monkeypatch):
-    clone_path = tmp_path / "repo_test_GitSCM_clone"
+def test_GitSCM_clone(
+    git_repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    clone_path = tmp_path / request.node.name
     scm = GitSCM(str(clone_path))
 
     mock_git_run = _monkeypatch_scm(monkeypatch, scm, "_git_run")
@@ -69,12 +74,13 @@ def test_GitSCM_clone(git_repo: Path, tmp_path: Path, monkeypatch):
 )
 def test_GitSCM_clean_repo(
     git_repo: Path,
-    tmp_path: Path,
     git_setup_user: Callable,
+    monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
     strip_non_public_commits: bool,
-    monkeypatch,
+    tmp_path: Path,
 ):
-    clone_path = tmp_path / "repo_test_GitSCM_clean_repo"
+    clone_path = tmp_path / request.node.name
     clone_path.mkdir()
     scm = GitSCM(str(clone_path))
     scm.clone(str(git_repo))
@@ -141,9 +147,13 @@ def test_GitSCM_clean_repo(
 
 @pytest.mark.parametrize("target_cs", [None, "main", "dev", "git-ref"])
 def test_GitSCM_update_repo(
-    git_repo: Path, tmp_path: Path, git_setup_user: Callable, target_cs: str
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    target_cs: str,
+    tmp_path: Path,
 ):
-    clone_path = tmp_path / "repo_test_GitSCM_clean_repo"
+    clone_path = tmp_path / request.node.name
     clone_path.mkdir()
     scm = GitSCM(str(clone_path))
     scm.clone(str(git_repo))
