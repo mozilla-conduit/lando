@@ -275,7 +275,7 @@ class GitSCM(AbstractSCM):
         This method uses the Git commands to update the repository
         located at the given pull path to the specified target changeset.
 
-        A new work branch will be created, using the current data in its name.
+        A new work branch will be created, using the current date in its name.
         """
         if not target_cset:
             target_cset = self.default_branch
