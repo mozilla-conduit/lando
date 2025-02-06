@@ -1,6 +1,7 @@
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
+from typing import Optional
 from unittest.mock import MagicMock
 
 import pytest
@@ -188,6 +189,41 @@ def test_GitSCM_update_repo(
     assert (
         current_commit == original_commit
     ), f"Not on original_commit {original_commit} updating repo: {current_commit}"
+
+
+@pytest.mark.parametrize("push_target", [None, "main", "dev"])
+def test_GitSCM_push(
+    git_repo: Path,
+    git_setup_user: Callable,
+    monkeypatch: pytest.MonkeyPatch,
+    push_target: Optional[str],
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+
+    default_branch = "dev"
+    scm = GitSCM(str(clone_path), default_branch=default_branch)
+    scm.clone(str(git_repo))
+
+    git_setup_user(str(clone_path))
+
+    _create_git_commit(request, clone_path)
+
+    new_untracked_file = clone_path / "new_untracked_file"
+    new_untracked_file.write_text("test", encoding="utf-8")
+
+    mock_git_run = _monkeypatch_scm(monkeypatch, scm, "_git_run")
+
+    # breakpoint()
+    scm.push(str(git_repo), push_target)
+
+    if not push_target:
+        push_target = default_branch
+    mock_git_run.assert_called_with(
+        "push", str(git_repo), f"HEAD:{push_target}", cwd=str(clone_path)
+    )
 
 
 def test_GitSCM_push_get_github_token(git_repo: Path):
