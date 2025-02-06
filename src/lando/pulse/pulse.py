@@ -1,34 +1,31 @@
-import kombu
+import logging
+
+from kombu import Producer
 
 from lando.pushlog.models import Push
 
+logger = logging.getLogger(__name__)
 
 class PulseNotifier:
-    connection: kombu.Connection
+    producer: Producer
 
-    def __init__(self, connection: kombu.Connection) -> None:
-        self.connection = connection
+    def __init__(self, producer: Producer) -> None:
+        self.producer = producer
 
     def notify_push(self, push: Push):
-        with self.connection.channel() as channel:
-            producer = kombu.Producer(channel)
+        message = {
+            "type": "push",
+            "payload": {
+                "pushid": push.push_id,
+            },
+        }
 
-            message = {
-                "type": "push",
-                "payload": {
-                    "pushid": push.pushid,
-                },
-            }
+        # XXX: make a separate notification worker that loops around un-notified
+        # Push entries.
+        logger.warning(f"Sending {message} ...")
+        self.producer.publish(
+            message,
+            retry=True,
+        )
 
-            # XXX: make a separate notification worker that loops around un-notified
-            # Push entries
-            producer.publish(
-                message,
-                retry=True,
-                retry_policy={
-                    "interval_start": 0,  # First retry immediately,
-                    "interval_step": 2,  # then increase by 2s for every retry.
-                    "interval_max": 30,  # but don't exceed 30s between retries.
-                    "max_retries": 30,  # give up after 30 tries.
-                },
-            )
+        # push.notified = True:with expression as target:
