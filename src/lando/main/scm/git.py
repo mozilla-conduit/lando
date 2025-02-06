@@ -77,6 +77,7 @@ class GitSCM(AbstractSCM):
         """Clone a repository from a source."""
         # When cloning, self.path doesn't exist yet, so we need to use another CWD.
         self._git_run("clone", source, self.path, cwd="/")
+        self._git_run("checkout", self.default_branch, cwd=self.path)
         self._git_setup_user()
 
     def _git_setup_user(self):
