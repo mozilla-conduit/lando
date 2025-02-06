@@ -87,9 +87,6 @@ def test_GitSCM_clean_repo(
 
     git_setup_user(str(clone_path))
 
-    new_file = clone_path / "new_file"
-    new_file.write_text("test", encoding="utf-8")
-
     original_commit = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=str(clone_path), capture_output=True
     ).stdout
@@ -107,19 +104,7 @@ def test_GitSCM_clean_repo(
         check=True,
     )
     # Those two command should not raise exceptions
-    subprocess.run(["git", "add", new_file.name], cwd=str(clone_path), check=True)
-    subprocess.run(
-        [
-            "git",
-            "commit",
-            "-m",
-            "adding new_file",
-            "--author",
-            "Lando <Lando@example.com>",
-        ],
-        cwd=str(clone_path),
-        check=True,
-    )
+    new_file = _create_git_commit(request, clone_path)
 
     new_untracked_file = clone_path / "new_untracked_file"
     new_untracked_file.write_text("test", encoding="utf-8")
@@ -160,9 +145,6 @@ def test_GitSCM_update_repo(
 
     git_setup_user(str(clone_path))
 
-    new_file = clone_path / "new_file"
-    new_file.write_text("test", encoding="utf-8")
-
     original_commit = subprocess.run(
         ["git", "rev-parse", "HEAD"],
         cwd=str(clone_path),
@@ -191,20 +173,7 @@ def test_GitSCM_update_repo(
         cwd=str(clone_path),
         check=True,
     )
-    # Those two command should not raise exceptions
-    subprocess.run(["git", "add", new_file.name], cwd=str(clone_path), check=True)
-    subprocess.run(
-        [
-            "git",
-            "commit",
-            "-m",
-            "adding new_file",
-            "--author",
-            "Lando <Lando@example.com>",
-        ],
-        cwd=str(clone_path),
-        check=True,
-    )
+    _create_git_commit(request, clone_path)
 
     scm.update_repo(str(git_repo), target_cs)
 
@@ -251,6 +220,27 @@ def test_GitSCM_git_run_redact_url_userinfo(git_repo: Path):
     assert userinfo not in str(exc.value)
     assert userinfo not in repr(exc.value)
     assert "[REDACTED]" in exc.value.err
+
+
+def _create_git_commit(request: pytest.FixtureRequest, clone_path: Path):
+    new_file = clone_path / "new_file"
+    new_file.write_text(request.node.name, encoding="utf-8")
+
+    subprocess.run(["git", "add", new_file.name], cwd=str(clone_path), check=True)
+    subprocess.run(
+        [
+            "git",
+            "commit",
+            "-m",
+            "adding new_file",
+            "--author",
+            f"{request.node.name} <pytest@lando>",
+        ],
+        cwd=str(clone_path),
+        check=True,
+    )
+
+    return new_file
 
 
 def _monkeypatch_scm(monkeypatch, scm: GitSCM, method: str) -> MagicMock:
