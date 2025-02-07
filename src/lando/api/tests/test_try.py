@@ -62,11 +62,18 @@ def test_get_timestamp_from_date():
     ), "Timestamp from `git format-patch` should properly convert to `str`."
 
 
-def test_parse_git_author_information():
+def test_parse_git_author_information_well_formed():
     assert parse_git_author_information("User Name <user@example.com>") == (
         "User Name",
         "user@example.com",
     ), "Name and email information should be parsed into separate strings."
+
+
+def test_parse_git_author_information_no_email():
+    assert parse_git_author_information("ffxbld") == (
+        "ffxbld",
+        "",
+    ), "Name without email address should return the username and empty email."
 
 
 def test_try_api_requires_data(db, client, mock_permissions, mocked_repo_config):
@@ -94,14 +101,13 @@ def test_try_api_patch_decode_error(
     db,
     hg_server,
     hg_clone,
-    treestatusdouble,
+    new_treestatus_tree,
     client,
     mock_permissions,
     mocked_repo_config,
 ):
     """Test when a patch can't be decoded."""
-    treestatusdouble.get_treestatus_client()
-    treestatusdouble.open_tree("mozilla-central")
+    new_treestatus_tree(tree="mozilla-central", status="open")
 
     try_push_json = {
         # The only node in the test repo.
@@ -130,7 +136,7 @@ def test_try_api_patch_format_mismatch(
     db,
     hg_server,
     hg_clone,
-    treestatusdouble,
+    new_treestatus_tree,
     client,
     mock_permissions,
     mocked_repo_config,
@@ -138,8 +144,7 @@ def test_try_api_patch_format_mismatch(
     patch_content,
 ):
     """Test what happens when a patch does not match the passed format."""
-    treestatusdouble.get_treestatus_client()
-    treestatusdouble.open_tree("mozilla-central")
+    new_treestatus_tree(tree="mozilla-central", status="open")
 
     try_push_json = {
         # The only node in the test repo.
@@ -160,19 +165,144 @@ def test_try_api_patch_format_mismatch(
     ), "Response should indicate the patch could not be decoded."
 
 
+SYMLINK_PATCH = rb"""
+From 751ad4b6ba7299815974d200e34832a007a4b4c0 Mon Sep 17 00:00:00 2001
+From: Connor Sheehan <cosheehan@mozilla.com>
+Date: Wed, 8 May 2024 13:32:11 -0400
+Subject: [PATCH] add regular file and symlink file
+
+---
+ blahfile_real    | 1 +
+ blahfile_symlink | 1 +
+ 2 files changed, 2 insertions(+)
+ create mode 100644 blahfile_real
+ create mode 120000 blahfile_symlink
+
+diff --git a/blahfile_real b/blahfile_real
+new file mode 100644
+index 0000000..907b308
+--- /dev/null
++++ b/blahfile_real
+@@ -0,0 +1 @@
++blah
+diff --git a/blahfile_symlink b/blahfile_symlink
+new file mode 120000
+index 0000000..55faaf5
+--- /dev/null
++++ b/blahfile_symlink
+@@ -0,0 +1 @@
++/home/sheehan/blahfile
+\ No newline at end of file
+--
+2.45.1
+
+""".lstrip()
+
+TRY_TASK_CONFIG_PATCH = rb"""
+From 888efb4b038a85a8788f25dbb69ff03f0fd58dce Mon Sep 17 00:00:00 2001
+From: Connor Sheehan <cosheehan@mozilla.com>
+Date: Wed, 8 May 2024 14:47:10 -0400
+Subject: [PATCH] add try task config
+
+---
+ blah.json            | 1 +
+ try_task_config.json | 1 +
+ 2 files changed, 2 insertions(+)
+ create mode 100644 blah.json
+ create mode 100644 try_task_config.json
+
+diff --git a/blah.json b/blah.json
+new file mode 100644
+index 0000000..663cbc2
+--- /dev/null
++++ b/blah.json
+@@ -0,0 +1 @@
++{"123":"456"}
+diff --git a/try_task_config.json b/try_task_config.json
+new file mode 100644
+index 0000000..e44d36d
+--- /dev/null
++++ b/try_task_config.json
+@@ -0,0 +1 @@
++{"env": {"TRY_SELECTOR": "fuzzy"}, "version": 1, "tasks": ["source-test-cram-tryselect"]}
+--
+2.45.1
+
+""".lstrip()
+
+
+def test_symlink_diff_inspect(
+    app,
+    db,
+    hg_server,
+    hg_clone,
+    new_treestatus_tree,
+    client,
+    auth0_mock,
+    mocked_repo_config,
+):
+    try_push_json = {
+        # The only node in the test repo.
+        "base_commit": "0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4",
+        "patch_format": "git-format-patch",
+        "patches": [
+            base64.b64encode(SYMLINK_PATCH).decode("ascii"),
+        ],
+    }
+
+    response = client.post(
+        "/try/patches", json=try_push_json, headers=auth0_mock.mock_headers
+    )
+    assert (
+        response.status_code == 400
+    ), "Try push which fails diff checks should return 400."
+
+    assert response.json["title"] == "Errors found in pre-submission patch checks."
+    assert response.json["detail"] == (
+        "Patch failed checks:\n\n"
+        "  - Revision introduces symlinks in the files `blahfile_symlink`."
+    ), "Details message should indicate an introduced symlink."
+
+
+def test_try_task_config_diff_inspect(
+    app,
+    db,
+    hg_server,
+    hg_clone,
+    new_treestatus_tree,
+    client,
+    auth0_mock,
+    mocked_repo_config,
+):
+    try_push_json = {
+        # The only node in the test repo.
+        "base_commit": "0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4",
+        "patch_format": "git-format-patch",
+        "patches": [
+            base64.b64encode(TRY_TASK_CONFIG_PATCH).decode("ascii"),
+        ],
+    }
+
+    response = client.post(
+        "/try/patches", json=try_push_json, headers=auth0_mock.mock_headers
+    )
+    assert (
+        response.status_code == 201
+    ), "Try push with a `try_task_config.json` should be accepted."
+
+
 def test_try_api_unknown_patch_format(
     app,
     db,
     hg_server,
     hg_clone,
-    treestatusdouble,
+    new_treestatus_tree,
     client,
     mock_permissions,
     mocked_repo_config,
 ):
     """Test when `patch_format` isn't one of the accepted values."""
-    treestatusdouble.get_treestatus_client()
-    treestatusdouble.open_tree("mozilla-central")
+    new_treestatus_tree(tree="mozilla-central", status="open")
 
     try_push_json = {
         # The only node in the test repo.
@@ -195,13 +325,12 @@ def test_try_api_success_hgexport(
     db,
     hg_server,
     hg_clone,
-    treestatusdouble,
+    new_treestatus_tree,
     client,
     mock_permissions,
     mocked_repo_config,
 ):
-    treestatus = treestatusdouble.get_treestatus_client()
-    treestatusdouble.open_tree("mozilla-central")
+    new_treestatus_tree(tree="mozilla-central", status="open")
 
     try_push_json = {
         # The only node in the test repo.
@@ -238,10 +367,9 @@ def test_try_api_success_hgexport(
         force_push=True,
     )
 
-    worker = LandingWorker(sleep_seconds=0.01)
-    hgrepo = repo.scm
+    worker = LandingWorker(sleep_seconds=0.01, repos=[repo])
 
-    assert worker.run_job(job, repo, hgrepo, treestatus)
+    assert worker.run_job(job)
     assert job.status == LandingJobStatus.LANDED
     assert len(job.landed_commit_id) == 40
     assert (
@@ -284,13 +412,12 @@ def test_try_api_success_gitformatpatch(
     db,
     hg_server,
     hg_clone,
-    treestatusdouble,
+    new_treestatus_tree,
     client,
     mock_permissions,
     mocked_repo_config,
 ):
-    treestatus = treestatusdouble.get_treestatus_client()
-    treestatusdouble.open_tree("mozilla-central")
+    new_treestatus_tree(tree="mozilla-central", status="open")
 
     try_push_json = {
         # The only node in the test repo.
@@ -327,11 +454,10 @@ def test_try_api_success_gitformatpatch(
         force_push=True,
     )
 
-    worker = LandingWorker(sleep_seconds=0.01)
-    hgrepo = repo.scm
+    worker = LandingWorker(sleep_seconds=0.01, repos=[repo])
 
     # Assert the job landed against the expected commit hash.
-    assert worker.run_job(job, repo, hgrepo, treestatus)
+    assert worker.run_job(job)
     assert job.status == LandingJobStatus.LANDED
     assert len(job.landed_commit_id) == 40
     assert (

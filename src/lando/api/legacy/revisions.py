@@ -2,19 +2,13 @@ import logging
 from collections import Counter
 from typing import (
     Any,
-    Callable,
     NamedTuple,
     Optional,
 )
 
-from lando.api.legacy.reviews import get_collated_reviewers
-from lando.api.legacy.uplift import (
-    stack_uplift_form_submitted,
-)
 from lando.utils.phabricator import (
     PhabricatorClient,
     PhabricatorRevisionStatus,
-    ReviewerStatus,
 )
 
 logger = logging.getLogger(__name__)
@@ -28,15 +22,25 @@ class CommitDescription(NamedTuple):
     sanitized: bool
 
 
-def gather_involved_phids(revision: dict) -> set[str]:
+def gather_involved_phids(revision: dict, revision_diffs: list[dict]) -> set[str]:
     """Return the set of Phobject phids involved in a revision.
 
-    At the time of writing Users and Projects are the type of Phobjects
-    which may author or review a revision.
+    Receives a dict representing the revision, and a list of dicts representing every
+    diff that is associated with that revision.
+
+    Gathers the PHID of the author of the revision, the set of all reviewers on the
+    revision, and any user who has pushed a diff to a revision.
     """
     attachments = PhabricatorClient.expect(revision, "attachments")
 
     entities = {PhabricatorClient.expect(revision, "fields", "authorPHID")}
+    entities.update(
+        {
+            PhabricatorClient.expect(diff, "fields", "authorPHID")
+            for diff in revision_diffs
+        }
+    )
+
     entities.update(
         {
             PhabricatorClient.expect(r, "reviewerPHID")
@@ -118,7 +122,7 @@ def get_bugzilla_bug(revision: dict) -> Optional[int]:
     return int(bug) if bug else None
 
 
-def check_diff_author_is_known(*, diff: dict, **kwargs) -> Optional[str]:
+def blocker_diff_author_is_known(*, diff: dict, **kwargs) -> Optional[str]:
     author_name, author_email = select_diff_author(diff)
     if author_name and author_email:
         return None
@@ -129,47 +133,13 @@ def check_diff_author_is_known(*, diff: dict, **kwargs) -> Optional[str]:
     )
 
 
-def check_author_planned_changes(*, revision, **kwargs):
-    status = PhabricatorRevisionStatus.from_status(
-        PhabricatorClient.expect(revision, "fields", "status", "value")
+def revision_has_needs_data_classification_tag(
+    revision: dict, data_policy_review_phid: str
+) -> bool:
+    """Return `True` if the `needs-data-classification` tag is not present on a revision."""
+    return (
+        data_policy_review_phid in revision["attachments"]["projects"]["projectPHIDs"]
     )
-    if status is not PhabricatorRevisionStatus.CHANGES_PLANNED:
-        return None
-
-    return "The author has indicated they are planning changes to this revision."
-
-
-def check_uplift_approval(relman_phid, supported_repos, stack_data) -> Callable:
-    """Check that Release Managers group approved a revision"""
-
-    def _check(*, revision, repo, **kwargs) -> Optional[str]:
-        # Check if this repository needs an approval from relman
-        local_repo = supported_repos.get(repo["fields"]["shortName"])
-        assert local_repo is not None, "Unsupported repository"
-        if local_repo.approval_required is False:
-            return None
-
-        # Check that relman approval was requested and that the
-        # approval was granted.
-        reviewers = get_collated_reviewers(revision)
-        relman_review = reviewers.get(relman_phid)
-        if relman_review is None or relman_review["status"] != ReviewerStatus.ACCEPTED:
-            return (
-                "The release-managers group did not accept the stack: "
-                "you need to wait for a group approval from release-managers, "
-                "or request a new review."
-            )
-
-        # Check that the uplift request form is filled out for the revision.
-        if not stack_uplift_form_submitted(stack_data):
-            return (
-                "The uplift request form has not been submitted for this stack; "
-                "Please submit an uplift request on the head of the stack."
-            )
-
-        return None
-
-    return _check
 
 
 def revision_is_secure(revision: dict, secure_project_phid: str) -> bool:
