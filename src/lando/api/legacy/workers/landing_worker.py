@@ -192,6 +192,9 @@ class LandingWorker(Worker):
                 except TemporaryFailureException:
                     return False
 
+                for commit in scm.describe_local_changes():
+                    pushlog.add_commit(commit)
+
         job.transition_status(LandingJobAction.LAND, commit_id=commit_id)
 
         mots_path = Path(repo.path) / "mots.yaml"
@@ -225,7 +228,11 @@ class LandingWorker(Worker):
         return True
 
     def apply_and_push(
-        self, job: LandingJob, repo: Repo, scm: AbstractSCM, pushlog: PushLog
+        self,
+        job: LandingJob,
+        repo: Repo,
+        scm: AbstractSCM,
+        pushlog: PushLog,
     ) -> tuple[list[str], str]:
         """Apply patches in the job, and pushes them.
 
@@ -311,7 +318,6 @@ class LandingWorker(Worker):
             else:
                 new_commit = scm.describe_commit()
                 logger.debug(f"Created new commit {new_commit}")
-                pushlog.add_commit(new_commit)
 
         # Get the changeset titles for the stack.
         changeset_titles = scm.changeset_descriptions()
@@ -321,7 +327,7 @@ class LandingWorker(Worker):
 
         # Run automated code formatters if enabled.
         if repo.autoformat_enabled and (
-            message := self.autoformat(job, scm, pushlog, bug_ids, changeset_titles)
+            message := self.autoformat(job, scm, bug_ids, changeset_titles)
         ):
             job.transition_status(LandingJobAction.FAIL, message=message)
             self.notify_user_of_landing_failure(job)
@@ -369,7 +375,6 @@ class LandingWorker(Worker):
         self,
         job: LandingJob,
         scm: AbstractSCM,
-        pushlog: PushLog,
         bug_ids: list[str],
         changeset_titles: list[str],
     ) -> Optional[str]:
@@ -397,7 +402,6 @@ class LandingWorker(Worker):
         try:
             replacements = self.apply_autoformatting(
                 scm,
-                pushlog,
                 landoini_config,
                 bug_ids,
                 changeset_titles,
@@ -422,7 +426,6 @@ class LandingWorker(Worker):
     def apply_autoformatting(
         self,
         scm: AbstractSCM,
-        pushlog: PushLog,
         landoini_config: Optional[configparser.ConfigParser],
         bug_ids: list[str],
         changeset_titles: list[str],
@@ -436,7 +439,7 @@ class LandingWorker(Worker):
 
         try:
             replacements = self.commit_autoformatting_changes(
-                scm, pushlog, len(changeset_titles), bug_ids
+                scm, len(changeset_titles), bug_ids
             )
         except SCMException as exc:
             msg = "Failed to create an autoformat commit."
@@ -527,7 +530,7 @@ class LandingWorker(Worker):
             return mach_path
 
     def commit_autoformatting_changes(
-        self, scm: AbstractSCM, pushlog: PushLog, stack_size: int, bug_ids: list[str]
+        self, scm: AbstractSCM, stack_size: int, bug_ids: list[str]
     ) -> Optional[list[str]]:
         """Call the SCM implementation to commit pending autoformatting changes.
 
@@ -537,19 +540,8 @@ class LandingWorker(Worker):
         """
         # When the stack is just a single commit, amend changes into it.
         if stack_size == 1:
-            success = scm.format_stack_amend()
-            if success:
-                new_commit = scm.describe_commit()
-                pushlog.remove_tip_commit()
-                pushlog.add_commit(new_commit)
-            return success
+            return scm.format_stack_amend()
 
         # If the stack is more than a single commit, create an autoformat commit.
         bug_string = bug_list_to_commit_string(bug_ids)
-        success = scm.format_stack_tip(
-            AUTOFORMAT_COMMIT_MESSAGE.format(bugs=bug_string)
-        )
-        if success:
-            new_commit = scm.describe_commit()
-            pushlog.add_commit(new_commit)
-        return success
+        return scm.format_stack_tip(AUTOFORMAT_COMMIT_MESSAGE.format(bugs=bug_string))

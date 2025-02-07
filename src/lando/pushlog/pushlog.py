@@ -82,12 +82,6 @@ class PushLog:
 
         return commit
 
-    def remove_tip_commit(self) -> Commit:
-        """Remove the tip commit from the PushLog, returning it."""
-        tip_commit = self.commits[-1]
-        self.commits.remove(tip_commit)
-        return tip_commit
-
     def confirm(self, value: bool = True):
         """Mark the push as confirmed and ready to record.
 
