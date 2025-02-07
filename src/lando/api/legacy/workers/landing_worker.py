@@ -184,12 +184,13 @@ class LandingWorker(Worker):
             return False
 
         with PushLogForRepo(repo, job.requester_email) as pushlog:
-            try:
-                bug_ids, commit_id = self.apply_and_push(job, repo, scm, pushlog)
-            except PermanentFailureException:
-                return True
-            except TemporaryFailureException:
-                return False
+            with scm.for_push(job.requester_email):
+                try:
+                    bug_ids, commit_id = self.apply_and_push(job, repo, scm, pushlog)
+                except PermanentFailureException:
+                    return True
+                except TemporaryFailureException:
+                    return False
 
         job.transition_status(LandingJobAction.LAND, commit_id=commit_id)
 
@@ -230,131 +231,76 @@ class LandingWorker(Worker):
 
         Returns a tuple of bug_ids and tip commit_id.
         """
-        with scm.for_push(job.requester_email):
-            # Update local repo.
-            repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
-            try:
-                scm.update_repo(repo.pull_path, target_cset=job.target_commit_hash)
-            except SCMInternalServerError as e:
-                message = (
-                    f"`Temporary error ({e.__class__}) "
-                    f"encountered while pulling from {repo_pull_info}"
-                )
-                logger.exception(message)
-                job.transition_status(LandingJobAction.DEFER, message=message)
+        # Update local repo.
+        repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
+        try:
+            scm.update_repo(repo.pull_path, target_cset=job.target_commit_hash)
+        except SCMInternalServerError as e:
+            message = (
+                f"`Temporary error ({e.__class__}) "
+                f"encountered while pulling from {repo_pull_info}"
+            )
+            logger.exception(message)
+            job.transition_status(LandingJobAction.DEFER, message=message)
 
-                # Try again, this is a temporary failure.
-                return False
-            except Exception as e:
-                message = f"Unexpected error while fetching repo from {repo.name}."
-                logger.exception(message)
+            # Try again, this is a temporary failure.
+            return False
+        except Exception as e:
+            message = f"Unexpected error while fetching repo from {repo.name}."
+            logger.exception(message)
+            job.transition_status(
+                LandingJobAction.FAIL,
+                message=message + f"\n{e}",
+            )
+            self.notify_user_of_landing_failure(job)
+            raise PermanentFailureException(message) from e
+
+        # Run through the patches one by one and try to apply them.
+        logger.debug(
+            f"About to land {job.revisions.count()} revisions: {job.revisions.all()} ..."
+        )
+        for revision in job.revisions.all():
+            try:
+                logger.debug(f"Landing {revision} ...")
+                scm.apply_patch(
+                    revision.diff,
+                    revision.commit_message,
+                    revision.author,
+                    revision.timestamp,
+                )
+            except NoDiffStartLine as exc:
+                message = (
+                    "Lando encountered a malformed patch, please try again. "
+                    "If this error persists please file a bug: "
+                    "Patch without a diff start line."
+                )
+                logger.error(message)
                 job.transition_status(
                     LandingJobAction.FAIL,
-                    message=message + f"\n{e}",
+                    message=message,
                 )
                 self.notify_user_of_landing_failure(job)
-                raise PermanentFailureException(message) from e
+                raise PermanentFailureException(message) from exc
 
-            # Run through the patches one by one and try to apply them.
-            logger.debug(
-                f"About to land {job.revisions.count()} revisions: {job.revisions.all()} ..."
-            )
-            for revision in job.revisions.all():
-                try:
-                    logger.debug(f"Landing {revision} ...")
-                    scm.apply_patch(
-                        revision.diff,
-                        revision.commit_message,
-                        revision.author,
-                        revision.timestamp,
-                    )
-                except NoDiffStartLine as exc:
-                    message = (
-                        "Lando encountered a malformed patch, please try again. "
-                        "If this error persists please file a bug: "
-                        "Patch without a diff start line."
-                    )
-                    logger.error(message)
-                    job.transition_status(
-                        LandingJobAction.FAIL,
-                        message=message,
-                    )
-                    self.notify_user_of_landing_failure(job)
-                    raise PermanentFailureException(message) from exc
-
-                except PatchConflict as exc:
-                    breakdown = scm.process_merge_conflict(
-                        repo.pull_path, revision.revision_id, str(exc)
-                    )
-                    job.error_breakdown = breakdown
-
-                    message = (
-                        f"Problem while applying patch in revision {revision.revision_id}:\n\n"
-                        f"{str(exc)}"
-                    )
-                    logger.exception(message)
-                    job.transition_status(LandingJobAction.FAIL, message=message)
-                    self.notify_user_of_landing_failure(job)
-                    raise PermanentFailureException(message) from exc
-                except Exception as exc:
-                    message = (
-                        f"Aborting, could not apply patch buffer for {revision.revision_id}."
-                        f"\n{exc}"
-                    )
-                    logger.exception(message)
-                    job.transition_status(
-                        LandingJobAction.FAIL,
-                        message=message,
-                    )
-                    self.notify_user_of_landing_failure(job)
-                    raise PermanentFailureException(message) from exc
-                else:
-                    new_commit = scm.describe_commit()
-                    logger.debug(f"Created new commit {new_commit}")
-                    pushlog.add_commit(new_commit)
-
-            # Get the changeset titles for the stack.
-            changeset_titles = scm.changeset_descriptions()
-
-            # Parse bug numbers from commits in the stack.
-            bug_ids = [
-                str(bug) for title in changeset_titles for bug in parse_bugs(title)
-            ]
-
-            # Run automated code formatters if enabled.
-            if repo.autoformat_enabled and (
-                message := self.autoformat(job, scm, pushlog, bug_ids, changeset_titles)
-            ):
-                job.transition_status(LandingJobAction.FAIL, message=message)
-                self.notify_user_of_landing_failure(job)
-                raise TemporaryFailureException(message)
-
-            # Get the changeset hash of the first node.
-            commit_id = scm.head_ref()
-
-            repo_push_info = f"tree: {repo.tree}, push path: {repo.push_path}"
-            try:
-                scm.push(
-                    repo.push_path,
-                    push_target=repo.push_target,
-                    force_push=repo.force_push,
+            except PatchConflict as exc:
+                breakdown = scm.process_merge_conflict(
+                    repo.pull_path, revision.revision_id, str(exc)
                 )
-            except (
-                TreeClosed,
-                TreeApprovalRequired,
-                SCMLostPushRace,
-                SCMPushTimeoutException,
-                SCMInternalServerError,
-            ) as e:
+                job.error_breakdown = breakdown
+
                 message = (
-                    f"`Temporary error ({e.__class__}) "
-                    f"encountered while pushing to {repo_push_info}"
+                    f"Problem while applying patch in revision {revision.revision_id}:\n\n"
+                    f"{str(exc)}"
                 )
                 logger.exception(message)
-                job.transition_status(LandingJobAction.DEFER, message=message)
-                raise TemporaryFailureException(message)
+                job.transition_status(LandingJobAction.FAIL, message=message)
+                self.notify_user_of_landing_failure(job)
+                raise PermanentFailureException(message) from exc
             except Exception as exc:
-                message = f"Unexpected error while pushing to {repo.name}.\n{exc}"
+                message = (
+                    f"Aborting, could not apply patch buffer for {revision.revision_id}."
+                    f"\n{exc}"
+                )
                 logger.exception(message)
                 job.transition_status(
                     LandingJobAction.FAIL,
@@ -363,7 +309,59 @@ class LandingWorker(Worker):
                 self.notify_user_of_landing_failure(job)
                 raise PermanentFailureException(message) from exc
             else:
-                pushlog.confirm()
+                new_commit = scm.describe_commit()
+                logger.debug(f"Created new commit {new_commit}")
+                pushlog.add_commit(new_commit)
+
+        # Get the changeset titles for the stack.
+        changeset_titles = scm.changeset_descriptions()
+
+        # Parse bug numbers from commits in the stack.
+        bug_ids = [str(bug) for title in changeset_titles for bug in parse_bugs(title)]
+
+        # Run automated code formatters if enabled.
+        if repo.autoformat_enabled and (
+            message := self.autoformat(job, scm, pushlog, bug_ids, changeset_titles)
+        ):
+            job.transition_status(LandingJobAction.FAIL, message=message)
+            self.notify_user_of_landing_failure(job)
+            raise TemporaryFailureException(message)
+
+        # Get the changeset hash of the first node.
+        commit_id = scm.head_ref()
+
+        repo_push_info = f"tree: {repo.tree}, push path: {repo.push_path}"
+        try:
+            scm.push(
+                repo.push_path,
+                push_target=repo.push_target,
+                force_push=repo.force_push,
+            )
+        except (
+            TreeClosed,
+            TreeApprovalRequired,
+            SCMLostPushRace,
+            SCMPushTimeoutException,
+            SCMInternalServerError,
+        ) as e:
+            message = (
+                f"`Temporary error ({e.__class__}) "
+                f"encountered while pushing to {repo_push_info}"
+            )
+            logger.exception(message)
+            job.transition_status(LandingJobAction.DEFER, message=message)
+            raise TemporaryFailureException(message)
+        except Exception as exc:
+            message = f"Unexpected error while pushing to {repo.name}.\n{exc}"
+            logger.exception(message)
+            job.transition_status(
+                LandingJobAction.FAIL,
+                message=message,
+            )
+            self.notify_user_of_landing_failure(job)
+            raise PermanentFailureException(message) from exc
+        else:
+            pushlog.confirm()
 
         return bug_ids, commit_id
 
