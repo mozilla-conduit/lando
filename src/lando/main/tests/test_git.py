@@ -1,5 +1,6 @@
 import datetime
 import subprocess
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import Optional
@@ -164,6 +165,25 @@ def test_GitSCM_describe_commit(git_repo: Path):
     )
     assert len(prev_commit.files) == 1
     assert "README" in prev_commit.files
+
+
+def test_GitSCM_describe_local_changes(
+    git_repo: Path,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+
+    file1 = _create_git_commit(request, clone_path)
+    file2 = _create_git_commit(request, clone_path)
+
+    changes = scm.describe_local_changes()
+
+    assert file1.name in changes[0].files
+    assert file2.name in changes[1].files
 
 
 @pytest.mark.parametrize("target_cs", [None, "main", "dev", "git-ref"])
@@ -336,7 +356,7 @@ def test_GitSCM_git_run_redact_url_userinfo(git_repo: Path):
 
 
 def _create_git_commit(request: pytest.FixtureRequest, clone_path: Path):
-    new_file = clone_path / "new_file"
+    new_file = clone_path / str(uuid.uuid4())
     new_file.write_text(request.node.name, encoding="utf-8")
 
     subprocess.run(["git", "add", new_file.name], cwd=str(clone_path), check=True)

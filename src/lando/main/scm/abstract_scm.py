@@ -120,6 +120,11 @@ class AbstractSCM:
         """Return Commit metadata."""
 
     @abstractmethod
+    def describe_local_changes(self) -> list[Commit]:
+        """Return a list of the Commits only present on this branch, in ascending
+        topological order."""
+
+    @abstractmethod
     def for_pull(self) -> ContextManager:
         """Context manager to prepare the repo with the correct environment variables set for pulling."""
 

@@ -239,10 +239,17 @@ class GitSCM(AbstractSCM):
         return breakdown
 
     def describe_commit(self, revision_id: str = "HEAD") -> Commit:
-        """Return Commit metadata."""
-        separator = self._separator()
-        format = separator.join(
+        return self._describe_commits(revision_id)[0]
+
+    def describe_local_changes(self) -> list[Commit]:
+        return list(reversed(self._describe_commits("@{u}..")))
+
+    def _describe_commits(self, ref_spec="HEAD") -> list[Commit]:
+        commit_separator = self._separator()
+        attribute_separator = self._separator()
+        format = attribute_separator.join(
             [
+                commit_separator,
                 "hash:%H",
                 "parents:%P",
                 "author:%an <%ae>",
@@ -258,18 +265,28 @@ class GitSCM(AbstractSCM):
             "--stat",
             f"--pretty=format:{format}",
             f"--date=format:{date_format}",
-            revision_id,
+            ref_spec,
             cwd=self.path,
         )
-        parts = re.split(f"{separator}", output)
-        metadata: dict[str, Any] = dict(p.split(":", 1) for p in parts)
 
-        metadata["parents"] = metadata["parents"].split()
-        metadata["datetime"] = datetime.strptime(metadata["datetime"], date_format)
-        # Parse the --stat output, removing the last summary line.
-        metadata["files"] = re.split(r"\s+\|.*\n\s+", metadata["files"].strip())[:-1]
+        commits = []
 
-        return Commit(**metadata)
+        # As we add the separator at the beginning of the format string, the first entry
+        # is always empty, so we skip it.
+        for commit_output in output.split(commit_separator)[1:]:
+            parts = re.split(attribute_separator, commit_output)[1:]
+            metadata: dict[str, Any] = dict(p.split(":", 1) for p in parts)
+
+            metadata["parents"] = metadata["parents"].split()
+            metadata["datetime"] = datetime.strptime(metadata["datetime"], date_format)
+            # Parse the --stat output, removing the last summary line.
+            metadata["files"] = re.split(r"\s+\|.*\n\s+", metadata["files"].strip())[
+                :-1
+            ]
+
+            commits.append(Commit(**metadata))
+
+        return commits
 
     @contextmanager
     def for_pull(self) -> ContextManager:
