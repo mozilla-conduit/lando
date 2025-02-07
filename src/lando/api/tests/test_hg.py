@@ -1,6 +1,7 @@
 import io
 import os
 import textwrap
+from datetime import datetime
 from unittest import mock
 
 import pytest
@@ -345,3 +346,28 @@ def test_HgSCM__extract_error_data():
     failed_paths, rejects_paths = HgSCM._extract_error_data(exception_message)
     assert failed_paths == expected_failed_paths
     assert rejects_paths == expected_rejects_paths
+
+
+def test_HgSCM_describe_commit(hg_clone):
+    scm = HgSCM(str(hg_clone))
+
+    with scm.for_push("committer@moz.test"):
+        commit = scm.describe_commit()
+        prev_commit = scm.describe_commit("-2")
+
+    assert commit.hash, "Hash missing"
+    assert len(commit.hash) == 40, "Incorrect hash length"
+    assert commit.parents, "Non-initial commit should have parents"
+    assert commit.author == "Test User <test@example.com>"
+    assert commit.datetime == datetime.fromtimestamp(0)
+    assert commit.desc == """add another file"""
+    assert len(commit.files) == 1
+    assert "test.txt" in commit.files
+
+    assert prev_commit.hash, "Hash missing"
+    assert not prev_commit.parents, "Initial commit should not have parents"
+    assert prev_commit.author == "Test User <test@example.com>"
+    assert prev_commit.datetime == datetime.fromtimestamp(0)
+    assert prev_commit.desc == """initial commit"""
+    assert len(prev_commit.files) == 1
+    assert "README" in prev_commit.files
