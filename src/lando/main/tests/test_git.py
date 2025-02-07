@@ -214,16 +214,58 @@ def test_GitSCM_update_repo(
     scm.update_repo(str(git_repo), target_cs)
 
     current_commit = subprocess.run(
-        ["git", "rev-parse", "--branch", "HEAD"],
-        cwd=str(clone_path),
-        capture_output=True,
-    ).stdout
-    current_commit = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=str(clone_path), capture_output=True
     ).stdout
     assert (
         current_commit == original_commit
     ), f"Not on original_commit {original_commit} updating repo: {current_commit}"
+
+    current_branch = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=str(clone_path),
+        capture_output=True,
+    ).stdout
+    assert current_branch.startswith(
+        b"lando-"
+    ), f"Not on a work branch after update_repo: {current_branch}"
+
+
+@pytest.mark.parametrize(
+    "on_parent",
+    [
+        False,
+        # XXX: changeset_descriptions doesn't work when update_repo has been used with a commit rev
+        # as the target_cs. This is generally used when grafting a revision for Try, which
+        # doesn't use changeset_descriptions, so we tolerate this for now.
+        #
+        # True,
+    ],
+)
+def test_GitSCM_changeset_descriptions_on_workbranch(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    on_parent: str,
+    tmp_path: Path,
+):
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+
+    git_setup_user(str(clone_path))
+
+    target_cs = ""
+    if on_parent:
+        target_cs = scm.describe_commit().parents[0]
+
+    scm.update_repo(str(git_repo), target_cs)
+
+    _create_git_commit(request, clone_path)
+
+    assert (
+        len(scm.changeset_descriptions()) == 1
+    ), "Incorrect number of commit from the local changeset"
 
 
 @pytest.mark.parametrize("push_target", [None, "main", "dev"])
