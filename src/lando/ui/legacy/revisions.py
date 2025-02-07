@@ -8,6 +8,7 @@ from django.template.response import TemplateResponse
 
 from lando.api.legacy import api as legacy_api
 from lando.main.auth import force_auth_refresh
+from lando.main.models import Repo
 from lando.ui.legacy.forms import (
     TransplantRequestForm,
     UpliftRequestForm,
@@ -89,8 +90,10 @@ class Revision(LandoView):
 
         # Build a mapping from phid to repository.
         repositories = {}
-        for r in stack["repositories"]:
-            repositories[r["phid"]] = r
+        for phab_repo in stack["repositories"]:
+            repositories[phab_repo["phid"]] = Repo.objects.get(
+                short_name=phab_repo["short_name"]
+            )
 
         # Request all previous transplants for the stack.
         transplants = legacy_api.transplants.get_list(request, f"D{revision_id}")
@@ -133,7 +136,12 @@ class Revision(LandoView):
             )
             form.fields["confirmation_token"].initial = dryrun["confirmation_token"]
             series = list(reversed(series))
-            target_repo = repositories.get(revisions[series[0]]["repo_phid"])
+            revision_repo = repositories.get(revisions[series[0]]["repo_phid"])
+            target_repo = (
+                revision_repo
+                if not revision_repo.is_legacy
+                else revision_repo.new_target
+            )
 
         phids = set(revisions.keys())
         edges = {Edge(child=e[0], parent=e[1]) for e in stack["edges"]}
@@ -148,7 +156,7 @@ class Revision(LandoView):
         # - if any commits do not have the flag, then enable the checkbox
 
         if target_repo:
-            existing_flags = {f[0]: False for f in target_repo["commit_flags"]}
+            existing_flags = {f[0]: False for f in target_repo.commit_flags}
             for flag in existing_flags:
                 existing_flags[flag] = all(
                     flag in r["commit_message"] for r in revisions.values()
@@ -170,7 +178,7 @@ class Revision(LandoView):
             "target_repo": target_repo,
             "errors": errors,
             "form": form,
-            "flags": target_repo["commit_flags"] if target_repo else [],
+            "flags": target_repo.commit_flags if target_repo else [],
             "existing_flags": existing_flags,
             "uplift_request_form": uplift_request_form,
         }

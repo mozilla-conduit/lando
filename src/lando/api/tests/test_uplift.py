@@ -86,7 +86,7 @@ def test_strip_depends_on_from_commit_message():
     ), "`Depends on` line should be stripped from commit message."
 
 
-@pytest.mark.xfail
+@pytest.mark.xfail(strict=True)
 def test_uplift_creation(
     db,
     monkeypatch,

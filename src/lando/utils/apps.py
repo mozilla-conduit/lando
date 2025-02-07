@@ -18,7 +18,7 @@ class UtilsConfig(AppConfig):
     name = "lando.utils"
 
 
-@register()
+@register(deploy=True)
 def phabricator_check(**kwargs) -> list[Error]:
     """Check validity of Phabricator settings and check connectivity."""
     errors = []

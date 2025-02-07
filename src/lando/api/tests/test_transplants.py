@@ -18,15 +18,14 @@ from lando.api.legacy.transplants import (
     warning_revision_secure,
     warning_wip_commit_message,
 )
-from lando.api.legacy.workers.landing_worker import LandingWorker
-from lando.main.models import DONTBUILD, SCM_CONDUIT, SCM_LEVEL_3, Repo
+from lando.main.models import DONTBUILD, SCM_CONDUIT, Repo
 from lando.main.models.landing_job import (
     LandingJob,
     LandingJobStatus,
     add_job_with_revisions,
 )
 from lando.main.models.revision import Revision
-from lando.main.scm import SCM_TYPE_HG
+from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.utils.phabricator import PhabricatorRevisionStatus, ReviewerStatus
 from lando.utils.tasks import admin_remove_phab_project
 
@@ -442,8 +441,6 @@ def test_dryrun_outside_codefreeze(
     assert not response.json["warnings"]
 
 
-# auth related issue, blockers empty.
-@pytest.mark.xfail
 @pytest.mark.parametrize(
     "permissions,status,blocker",
     [
@@ -779,8 +776,6 @@ def test_confirmation_token_warning_order():
     )
 
 
-# bug 1893453.
-@pytest.mark.xfail
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_simple_stack_saves_data_in_db(
     app,
@@ -893,8 +888,6 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
 @pytest.mark.django_db
 def test_integrated_transplant_records_approvers_peers_and_owners(
     proxy_client,
-    hg_server,
-    hg_clone,
     treestatusdouble,
     release_management_project,
     needs_data_classification_project,
@@ -904,18 +897,14 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     phabdouble,
     checkin_project,
     mock_permissions,
+    hg_landing_worker,
+    repo_mc,
 ):
-    treestatusdouble.open_tree("mozilla-central")
-    repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="mozilla-central",
-        url=hg_server,
-        required_permission=SCM_LEVEL_3,
-        push_path=hg_server,
-        pull_path=hg_server,
-        system_path=hg_clone.strpath,
-    )
-    phabrepo = phabdouble.repo(name="mozilla-central")
+    repo = repo_mc(SCM_TYPE_HG)
+    treestatusdouble.open_tree(repo.name)
+    hg_landing_worker.worker_instance.applicable_repos.add(repo)
+
+    phabrepo = phabdouble.repo(name=repo.name)
 
     # Mock a few mots-related things needed by the landing worker.
     # First, mock path existance.
@@ -969,8 +958,8 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     approved_by = [revision.data["approved_by"] for revision in job.revisions.all()]
     assert approved_by == [[101], [102]]
 
-    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
-    assert worker.run_job(job)
+    assert hg_landing_worker.run_job(job)
+    assert job.status == LandingJobStatus.LANDED
     for revision in job.revisions.all():
         if revision.revision_id == 1:
             assert revision.data["peers_and_owners"] == [101]
@@ -1401,7 +1390,7 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     # Check the transplanted patch for our alternate commit message.
     transplanted_patch = Revision.get_from_revision_id(revision["id"])
     assert transplanted_patch is not None, "Transplanted patch should be retrievable."
-    assert sec_approval_project["name"] not in transplanted_patch.patch_string
+    assert sec_approval_project["name"] not in transplanted_patch.patch
 
 
 @pytest.mark.django_db
@@ -1868,3 +1857,64 @@ def test_warning_multiple_authors(phabdouble, mocked_repo_config, create_state):
     assert (
         warning.details == "Revision has multiple authors: alice, bob."
     ), "Multiple authors on a revision should return a warning."
+
+
+@pytest.mark.django_db(transaction=True)
+def test_transplant_on_linked_legacy_repo(
+    app,
+    proxy_client,
+    phabdouble,
+    treestatusdouble,
+    register_codefreeze_uri,
+    mocked_repo_config,
+    mock_permissions,
+    repo_mc,
+    needs_data_classification_project,
+):
+    new_repo = repo_mc(SCM_TYPE_GIT)
+    new_repo.legacy_source = Repo.objects.get(name="mozilla-central")
+    new_repo.save()
+    phabrepo = phabdouble.repo(name="mozilla-central")
+    user = phabdouble.user(username="reviewer")
+
+    d1 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=phabrepo)
+    phabdouble.reviewer(r1, user)
+
+    d2 = phabdouble.diff()
+    r2 = phabdouble.revision(diff=d2, repo=phabrepo, depends_on=[r1])
+    phabdouble.reviewer(r2, user)
+
+    d3 = phabdouble.diff()
+    r3 = phabdouble.revision(diff=d3, repo=phabrepo, depends_on=[r2])
+
+    phabdouble.reviewer(r3, user)
+    response = proxy_client.post(
+        "/transplants",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]},
+                {"revision_id": "D{}".format(r2["id"]), "diff_id": d2["id"]},
+                {"revision_id": "D{}".format(r3["id"]), "diff_id": d3["id"]},
+            ]
+        },
+        permissions=mock_permissions,
+    )
+    assert response.status_code == 202
+    assert response.content_type == "application/json"
+    assert "id" in response.json
+    job_id = response.json["id"]
+
+    # Get LandingJob object by its id
+    job = LandingJob.objects.get(pk=job_id)
+    assert job.id == job_id
+    assert [
+        (revision.revision_id, revision.diff_id) for revision in job.revisions.all()
+    ] == [
+        (r1["id"], d1["id"]),
+        (r2["id"], d2["id"]),
+        (r3["id"], d3["id"]),
+    ]
+    assert job.status == LandingJobStatus.SUBMITTED
+    assert job.target_repo == new_repo
+    assert job.landed_revisions == {1: 1, 2: 2, 3: 3}
