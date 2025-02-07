@@ -326,10 +326,17 @@ class HgSCM(AbstractSCM):
         return breakdown
 
     def describe_commit(self, revision_id: str = ".") -> Commit:
-        """Return Commit metadata."""
-        separator = self._separator()
-        format = separator.join(
+        return self._describe_revisions(revision_id)[0]
+
+    def describe_local_changes(self) -> list[Commit]:
+        return list(reversed(self._describe_revisions("stack()")))
+
+    def _describe_revisions(self, changeset=".") -> list[Commit]:
+        commit_separator = self._separator()
+        attribute_separator = self._separator()
+        format = attribute_separator.join(
             [
+                commit_separator,
                 "hash:{node}",
                 "parent:{p1.node}",
                 "parents:{parents % '{node}'}",
@@ -340,23 +347,28 @@ class HgSCM(AbstractSCM):
             ]
         )
 
-        output = self.run_hg(["log", "-r", revision_id, "-T", format]).decode("utf-8")
-        parts = re.split(f"{separator}", output)
-        metadata: dict[str, Any] = dict(p.split(":", 1) for p in parts)
+        commits = []
 
-        metadata["parents"] = metadata["parents"].split()
-        # {parents} in Mercurial is empty if the commit has a single parent.
-        # We re-add it manually, but only if it is a non-null parent.
-        if not metadata["parents"] and not metadata["parent"] == NULL_PARENT_HASH:
-            metadata["parents"] = metadata["parent"]
-        del metadata["parent"]
+        output = self.run_hg(["log", "-r", changeset, "-T", format]).decode("utf-8")
+        for commit_output in output.split(commit_separator)[1:]:
+            parts = re.split(f"{attribute_separator}", commit_output)[1:]
+            metadata: dict[str, Any] = dict(p.split(":", 1) for p in parts)
 
-        metadata["datetime"] = datetime.fromtimestamp(
-            int(metadata["datetime"].split(".")[0])
-        )
-        metadata["files"] = metadata["files"].split()
+            metadata["parents"] = metadata["parents"].split()
+            # {parents} in Mercurial is empty if the commit has a single parent.
+            # We re-add it manually, but only if it is a non-null parent.
+            if not metadata["parents"] and not metadata["parent"] == NULL_PARENT_HASH:
+                metadata["parents"] = metadata["parent"]
+            del metadata["parent"]
 
-        return Commit(**metadata)
+            metadata["datetime"] = datetime.fromtimestamp(
+                int(metadata["datetime"].split(".")[0])
+            )
+            metadata["files"] = metadata["files"].split()
+
+            commits.append(Commit(**metadata))
+
+        return commits
 
     @classmethod
     def _get_rejects_path(cls) -> Path:
