@@ -6,8 +6,7 @@ from django.db import transaction
 
 from lando.main.models.repo import Repo
 from lando.main.scm.commit import Commit as SCMCommit
-from lando.pushlog.models.commit import Commit
-from lando.pushlog.models.push import Push
+from lando.pushlog.models import Commit, Push
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +127,8 @@ class PushLog:
             push.commits.add(commit)
 
         push.save()
+        self.push = push
+
         logger.info(f"Successfully saved {push}")
 
         return push
