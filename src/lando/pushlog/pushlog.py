@@ -21,24 +21,27 @@ def PushLogForRepo(repo: Repo, user: str):
     WARNING: Do not use record_push() on the returned PushLog, as the context manager
     will take care of it automatically. Calling it separately may lead to duplicates.
     """
-    pushlog = PushLog(repo, user)
-    try:
-        yield pushlog
-    except Exception as e:
-        logger.error(f"Push aborted for {user}: {e}")
-        raise (e)
+    if repo.pushlog_disabled:
+        yield NoOpPushlog(repo, user)
     else:
-        # Only record the whole push on success.
+        pushlog = PushLog(repo, user)
         try:
-            pushlog.record_push()
+            yield pushlog
         except Exception as e:
-            # We keep a record of the Pushlog in the extra, in addition to printing
-            # details in the log.
-            logger.error(
-                f"Failed to record push log due to: {e}\n{pushlog}",
-                extra={"pushlog": pushlog},
-            )
-            raise e
+            logger.error(f"Push aborted for {user}: {e}")
+            raise (e)
+        else:
+            # Only record the whole push on success.
+            try:
+                pushlog.record_push()
+            except Exception as e:
+                # We keep a record of the Pushlog in the extra, in addition to printing
+                # details in the log.
+                logger.error(
+                    f"Failed to record push log due to: {e}\n{pushlog}",
+                    extra={"pushlog": pushlog},
+                )
+                raise e
 
 
 class PushLog:
@@ -125,3 +128,17 @@ class PushLog:
         logger.info(f"Successfully saved {push}")
 
         return push
+
+
+class NoOpPushlog(PushLog):
+    """A noop PushLog object to use when disabled without having to resort to ifs."""
+
+    def add_commit(self, scm_commit: SCMCommit) -> Commit:
+        # Satisfy the return value from the interface, but do nothing else.
+        return Commit.from_scm_commit(self.repo, scm_commit)
+
+    def confirm(self, value: bool = True):
+        pass
+
+    def record_push(self) -> Optional[Push]:
+        pass
