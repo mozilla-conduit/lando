@@ -49,6 +49,16 @@ AUTOFORMAT_COMMIT_MESSAGE = """
 """.strip()
 
 
+# XXX: those should be handled in the job_processing context and moved to the job as
+# part of bug 1946594
+class TemporaryFailureException(Exception):
+    """Signal an error that should be retried"""
+
+
+class PermanentFailureException(Exception):
+    """Signal an error that should not be retried"""
+
+
 @contextmanager
 def job_processing(job: LandingJob):
     """Mutex-like context manager that manages job processing miscellany.
@@ -174,7 +184,12 @@ class LandingWorker(Worker):
             return False
 
         with PushLogForRepo(repo, job.requester_email) as pushlog:
-            bug_ids, commit_id = self.apply_and_push(job, repo, scm, pushlog)
+            try:
+                bug_ids, commit_id = self.apply_and_push(job, repo, scm, pushlog)
+            except PermanentFailureException:
+                return True
+            except TemporaryFailureException:
+                return False
 
         job.transition_status(LandingJobAction.LAND, commit_id=commit_id)
 
@@ -210,7 +225,7 @@ class LandingWorker(Worker):
 
     def apply_and_push(
         self, job: LandingJob, repo: Repo, scm: AbstractSCM, pushlog: PushLog
-    ) -> (str, str)
+    ) -> tuple[list[str], str]:
         """Apply patches in the job, and pushes them.
 
         Returns a tuple of bug_ids and tip commit_id.
@@ -238,7 +253,7 @@ class LandingWorker(Worker):
                     message=message + f"\n{e}",
                 )
                 self.notify_user_of_landing_failure(job)
-                return True
+                raise PermanentFailureException(message) from e
 
             # Run through the patches one by one and try to apply them.
             logger.debug(
@@ -253,7 +268,7 @@ class LandingWorker(Worker):
                         revision.author,
                         revision.timestamp,
                     )
-                except NoDiffStartLine:
+                except NoDiffStartLine as exc:
                     message = (
                         "Lando encountered a malformed patch, please try again. "
                         "If this error persists please file a bug: "
@@ -265,7 +280,7 @@ class LandingWorker(Worker):
                         message=message,
                     )
                     self.notify_user_of_landing_failure(job)
-                    return True
+                    raise PermanentFailureException(message) from exc
 
                 except PatchConflict as exc:
                     breakdown = scm.process_merge_conflict(
@@ -280,11 +295,11 @@ class LandingWorker(Worker):
                     logger.exception(message)
                     job.transition_status(LandingJobAction.FAIL, message=message)
                     self.notify_user_of_landing_failure(job)
-                    return True
-                except Exception as e:
+                    raise PermanentFailureException(message) from exc
+                except Exception as exc:
                     message = (
                         f"Aborting, could not apply patch buffer for {revision.revision_id}."
-                        f"\n{e}"
+                        f"\n{exc}"
                     )
                     logger.exception(message)
                     job.transition_status(
@@ -292,7 +307,7 @@ class LandingWorker(Worker):
                         message=message,
                     )
                     self.notify_user_of_landing_failure(job)
-                    return True
+                    raise PermanentFailureException(message) from exc
                 else:
                     new_commit = scm.describe_commit()
                     logger.debug(f"Created new commit {new_commit}")
@@ -312,7 +327,7 @@ class LandingWorker(Worker):
             ):
                 job.transition_status(LandingJobAction.FAIL, message=message)
                 self.notify_user_of_landing_failure(job)
-                return False
+                raise TemporaryFailureException(message)
 
             # Get the changeset hash of the first node.
             commit_id = scm.head_ref()
@@ -337,16 +352,16 @@ class LandingWorker(Worker):
                 )
                 logger.exception(message)
                 job.transition_status(LandingJobAction.DEFER, message=message)
-                return False  # Try again, this is a temporary failure.
-            except Exception as e:
-                message = f"Unexpected error while pushing to {repo.name}.\n{e}"
+                raise TemporaryFailureException(message)
+            except Exception as exc:
+                message = f"Unexpected error while pushing to {repo.name}.\n{exc}"
                 logger.exception(message)
                 job.transition_status(
                     LandingJobAction.FAIL,
                     message=message,
                 )
                 self.notify_user_of_landing_failure(job)
-                return True  # Do not try again, this is a permanent failure.
+                raise PermanentFailureException(message) from exc
             else:
                 pushlog.confirm()
 
