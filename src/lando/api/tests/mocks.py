@@ -14,6 +14,10 @@ from lando.utils.phabricator import (
     PhabricatorRevisionStatus,
     ReviewerStatus,
 )
+from tests.canned_responses.phabricator.diffs import (
+    CANNED_DEFAULT_DIFF_CHANGES,
+    CANNED_RAW_DEFAULT_DIFF,
+)
 
 
 def conduit_method(method):
@@ -402,6 +406,7 @@ class PhabricatorDouble:
         rawdiff=CANNED_RAW_DEFAULT_DIFF,
         changes=None,
         repo=None,
+        author=None,
         commits=[
             {
                 "identifier": "b15b8fbc79c2c3977aff9e17f0dfcc34c66ec29f",
@@ -425,7 +430,12 @@ class PhabricatorDouble:
         uri = "http://phabricator.test/differential/diff/{}/".format(diff_id)
         revision_id = revision["id"] if revision is not None else None
         revision_phid = revision["phid"] if revision is not None else None
-        author_phid = revision["authorPHID"] if revision is not None else None
+
+        if author:
+            author_phid = author["phid"]
+        else:
+            author_phid = revision["authorPHID"] if revision is not None else None
+
         repo_phid = (
             repo["phid"]
             if repo is not None
@@ -834,6 +844,9 @@ class PhabricatorDouble:
 
             items = [i for i in items if i["slug"] in constraints["slugs"]]
 
+        if limit:
+            items = items[:limit]
+
         return {
             "data": [to_response(i) for i in items],
             "maps": {"slugMap": {}},
@@ -895,6 +908,9 @@ class PhabricatorDouble:
             items = [
                 i for i in items if i["revisionPHID"] in constraints["revisionPHIDs"]
             ]
+
+        if limit:
+            items = items[:limit]
 
         return {
             "data": [to_response(i) for i in items],
@@ -970,6 +986,9 @@ class PhabricatorDouble:
 
         if destinationPHIDs:
             items = [i for i in items if i["destinationPHID"] in destinationPHIDs]
+
+        if limit:
+            items = items[:limit]
 
         return {
             "data": [to_response(i) for i in items],
@@ -1092,6 +1111,9 @@ class PhabricatorDouble:
                 )
 
             items = [i for i in items if i["status"].value in status_set]
+
+        if limit:
+            items = items[:limit]
 
         return {
             "data": [to_response(i) for i in items],
@@ -1334,6 +1356,9 @@ class PhabricatorDouble:
         if phids:
             items = [i for i in items if i["phid"] in phids]
 
+        if limit:
+            items = items[:limit]
+
         return [to_response(i) for i in items]
 
     @conduit_method("diffusion.repository.search")
@@ -1388,6 +1413,9 @@ class PhabricatorDouble:
 
         if "shortNames" in constraints:
             items = [i for i in items if i["shortName"] in constraints["shortNames"]]
+
+        if limit:
+            items = items[:limit]
 
         return {
             "data": [to_response(i) for i in items],
@@ -1665,6 +1693,9 @@ class PhabricatorDouble:
         if "nameLike" in constraints:
             items = [i for i in items if constraints["nameLike"] in i["userName"]]
 
+        if limit:
+            items = items[:limit]
+
         return {
             "data": [to_response(i) for i in items],
             "maps": {},
@@ -1717,6 +1748,9 @@ class PhabricatorDouble:
 
         if ids:
             items = [i for i in items if i["id"] in ids]
+
+        if limit:
+            items = items[:limit]
 
         return [to_response(i) for i in items]
 
@@ -1785,86 +1819,3 @@ class PhabricatorDouble:
             if hasattr(getattr(self, a), "_conduit_method")
         ]
         return {handler._conduit_method: handler for handler in handlers}
-
-
-class TreeStatusDouble:
-    """TreeStatus test double.
-
-    Can generate / return data of the same form calls to Tree Status
-    through TreeStatus would. The TreeStatus class is
-    monkeypatched to allow use in integration testing as well.
-
-    Not all api endpoints are implemented, many being ignored entirely,
-    by design. As Lando API needs to make use of more endpionts / arguments
-    support should be added.
-    """
-
-    def __init__(self, monkeypatch, url):
-        self.url = url
-        self._trees = {}
-        self._ping = True
-
-        monkeypatch.setattr(TreeStatus, "request", self._unsupported)
-        monkeypatch.setattr(TreeStatus, "get_trees", self.get_trees)
-        monkeypatch.setattr(TreeStatus, "ping", self.ping)
-
-    def set_tree(self, tree, *, status="open", reason="", message_of_the_day=""):
-        assert tree
-        self._trees[tree] = {
-            "message_of_the_day": message_of_the_day,
-            "reason": reason,
-            "status": status,
-            "tree": tree,
-        }
-
-    def open_tree(self, tree):
-        self.set_tree(tree, status="open", reason="", message_of_the_day="")
-
-    def close_tree(self, tree):
-        self.set_tree(tree, status="closed", reason="testing closed")
-
-    def del_tree(self, tree):
-        assert tree
-        self._trees.pop(tree, None)
-
-    def ping(self):
-        return self._ping
-
-    def toggle_ping(self):
-        self._ping = not self._ping
-
-    def get_trees(self, tree=""):
-        def to_response(i):
-            return {
-                "message_of_the_day": i["message_of_the_day"],
-                "reason": i["reason"],
-                "status": i["status"],
-                "tree": i["tree"],
-            }
-
-        if not tree:
-            return {
-                "result": {
-                    tree: to_response(data) for tree, data in self._trees.items()
-                }
-            }
-
-        if tree not in self._trees:
-            raise TreeStatusError(
-                404,
-                {
-                    "detail": "No such tree",
-                    "instance": "about:blank",
-                    "status": 404,
-                    "title": "404 Not Found: No such tree",
-                    "type": "about:blank",
-                },
-            )
-
-        return {"result": to_response(self._trees[tree])}
-
-    def _unsupported(self, *args, **kwargs):
-        raise ValueError("TestStatusDouble does not support mocking this use.")
-
-    def get_treestatus_client(self):
-        return TreeStatus(url=self.url)
