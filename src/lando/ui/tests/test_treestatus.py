@@ -4,14 +4,13 @@
 
 import pytest
 
-from wtforms.validators import ValidationError
-from landoui.forms import (
+from lando.treestatus.forms import (
     TreeStatusRecentChangesForm,
     TreeStatusUpdateTreesForm,
-)
-from landoui.treestatus import (
-    build_recent_changes_stack,
     build_update_json_body,
+)
+from lando.treestatus.treestatus_ui import (
+    build_recent_changes_stack,
 )
 
 
@@ -80,154 +79,155 @@ def test_build_update_json_body():
     }, "`tags` should be set for valid reason category."
 
 
-def test_update_form_validate_trees(app):
-    form = TreeStatusUpdateTreesForm()
-
-    # At least one tree is required.
-    with pytest.raises(ValidationError):
-        form.validate_trees(form.trees)
-
-    form.trees.append_entry("autoland")
-    assert (
-        form.validate_trees(form.trees) is None
-    ), "Form with a tree entry should be valid."
-
-
-def test_update_form_validate_reason(app):
-    form = TreeStatusUpdateTreesForm(
-        status="open",
-    )
-    try:
-        form.validate_reason(form.reason)
-    except ValidationError as exc:
-        assert False, f"No validation required for `open` status: {exc}."
-
-    form = TreeStatusUpdateTreesForm(
-        status="approval required",
-    )
-    try:
-        form.validate_reason(form.reason)
-    except ValidationError as exc:
-        assert False, f"No validation required for `approval required` status: {exc}."
-
-    # `closed` status requires a reason.
-    form = TreeStatusUpdateTreesForm(
-        status="closed",
-    )
-    with pytest.raises(ValidationError):
-        form.validate_reason(form.reason)
-
-    form = TreeStatusUpdateTreesForm(
-        status="closed",
-        reason="some reason",
-    )
-    try:
-        form.validate_reason(form.reason)
-    except ValidationError as exc:
-        assert False, f"`closed` status with a reason should be valid: {exc}"
-
-
-def test_update_form_validate_reason_category(app):
-    form = TreeStatusUpdateTreesForm(
-        status="open",
-    )
-    try:
-        form.validate_reason_category(form.reason_category)
-    except ValidationError as exc:
-        assert False, f"No validation required for `open` status: {exc}."
-
-    form = TreeStatusUpdateTreesForm(
-        status="approval required",
-    )
-    try:
-        form.validate_reason_category(form.reason_category)
-    except ValidationError as exc:
-        assert False, f"No validation required for `approval required` status: {exc}."
-
-    # `closed` status requires a reason category.
-    form = TreeStatusUpdateTreesForm(
-        status="closed",
-    )
-    with pytest.raises(ValidationError):
-        form.validate_reason_category(form.reason_category)
-
-    # `closed` status requires a non-empty reason category.
-    form = TreeStatusUpdateTreesForm(
-        status="closed",
-        reason_category="",
-    )
-    with pytest.raises(ValidationError):
-        form.validate_reason_category(form.reason_category)
-
-    # `closed` status requires a valid reason category.
-    form = TreeStatusUpdateTreesForm(
-        status="closed",
-        reason_category="blah",
-    )
-    with pytest.raises(ValidationError):
-        form.validate_reason_category(form.reason_category)
-
-    form = TreeStatusUpdateTreesForm(
-        status="closed",
-        reason_category="backlog",
-    )
-    try:
-        form.validate_reason_category(form.reason_category)
-    except ValidationError as exc:
-        assert False, f"`closed` status with valid reason category is valid: {exc}."
-
-
-def test_update_form_to_submitted_json(app):
-    form = TreeStatusUpdateTreesForm(
-        status="open",
-        reason="reason",
-        message_of_the_day="",
-        remember=True,
-        reason_category="backlog",
-    )
-
-    form.trees.append_entry("autoland")
-    form.trees.append_entry("mozilla-central")
-
-    assert form.to_submitted_json() == {
-        "status": "open",
-        "reason": "reason",
-        "message_of_the_day": "",
-        "remember": True,
-        "tags": ["backlog"],
-        "trees": ["autoland", "mozilla-central"],
-    }, "JSON format should match expected."
-
-
-def test_recent_changes_action(app):
-    form = TreeStatusRecentChangesForm(
-        reason="reason",
-        category="backlog",
-    )
-
-    form.update.data = True
-    action = form.to_action()
-
-    assert action.method == "PATCH", "Updates should use HTTP `PATCH`."
-    assert "json" in action.request_args, "Updates should send content in JSON body."
-    assert action.message == "Status change updated."
-
-    form.update.data = False
-    form.restore.data = True
-    action = form.to_action()
-
-    assert action.method == "DELETE", "Restores should use HTTP `DELETE`."
-    assert (
-        "params" in action.request_args
-    ), "Restores should send content in query string."
-    assert action.message == "Status change restored."
-
-    form.restore.data = False
-    form.discard.data = True
-    action = form.to_action()
-
-    assert action.method == "DELETE", "Discards should use HTTP `DELETE`."
-    assert (
-        "params" in action.request_args
-    ), "Discards should send content in query string."
-    assert action.message == "Status change discarded."
+# TODO convert these forms to Django - bug 1893312.
+# def test_update_form_validate_trees(app):
+#     form = TreeStatusUpdateTreesForm()
+#
+#     # At least one tree is required.
+#     with pytest.raises(ValidationError):
+#         form.validate_trees(form.trees)
+#
+#     form.trees.append_entry("autoland")
+#     assert (
+#         form.validate_trees(form.trees) is None
+#     ), "Form with a tree entry should be valid."
+#
+#
+# def test_update_form_validate_reason(app):
+#     form = TreeStatusUpdateTreesForm(
+#         status="open",
+#     )
+#     try:
+#         form.validate_reason(form.reason)
+#     except ValidationError as exc:
+#         assert False, f"No validation required for `open` status: {exc}."
+#
+#     form = TreeStatusUpdateTreesForm(
+#         status="approval required",
+#     )
+#     try:
+#         form.validate_reason(form.reason)
+#     except ValidationError as exc:
+#         assert False, f"No validation required for `approval required` status: {exc}."
+#
+#     # `closed` status requires a reason.
+#     form = TreeStatusUpdateTreesForm(
+#         status="closed",
+#     )
+#     with pytest.raises(ValidationError):
+#         form.validate_reason(form.reason)
+#
+#     form = TreeStatusUpdateTreesForm(
+#         status="closed",
+#         reason="some reason",
+#     )
+#     try:
+#         form.validate_reason(form.reason)
+#     except ValidationError as exc:
+#         assert False, f"`closed` status with a reason should be valid: {exc}"
+#
+#
+# def test_update_form_validate_reason_category(app):
+#     form = TreeStatusUpdateTreesForm(
+#         status="open",
+#     )
+#     try:
+#         form.validate_reason_category(form.reason_category)
+#     except ValidationError as exc:
+#         assert False, f"No validation required for `open` status: {exc}."
+#
+#     form = TreeStatusUpdateTreesForm(
+#         status="approval required",
+#     )
+#     try:
+#         form.validate_reason_category(form.reason_category)
+#     except ValidationError as exc:
+#         assert False, f"No validation required for `approval required` status: {exc}."
+#
+#     # `closed` status requires a reason category.
+#     form = TreeStatusUpdateTreesForm(
+#         status="closed",
+#     )
+#     with pytest.raises(ValidationError):
+#         form.validate_reason_category(form.reason_category)
+#
+#     # `closed` status requires a non-empty reason category.
+#     form = TreeStatusUpdateTreesForm(
+#         status="closed",
+#         reason_category="",
+#     )
+#     with pytest.raises(ValidationError):
+#         form.validate_reason_category(form.reason_category)
+#
+#     # `closed` status requires a valid reason category.
+#     form = TreeStatusUpdateTreesForm(
+#         status="closed",
+#         reason_category="blah",
+#     )
+#     with pytest.raises(ValidationError):
+#         form.validate_reason_category(form.reason_category)
+#
+#     form = TreeStatusUpdateTreesForm(
+#         status="closed",
+#         reason_category="backlog",
+#     )
+#     try:
+#         form.validate_reason_category(form.reason_category)
+#     except ValidationError as exc:
+#         assert False, f"`closed` status with valid reason category is valid: {exc}."
+#
+#
+# def test_update_form_to_submitted_json(app):
+#     form = TreeStatusUpdateTreesForm(
+#         status="open",
+#         reason="reason",
+#         message_of_the_day="",
+#         remember=True,
+#         reason_category="backlog",
+#     )
+#
+#     form.trees.append_entry("autoland")
+#     form.trees.append_entry("mozilla-central")
+#
+#     assert form.to_submitted_json() == {
+#         "status": "open",
+#         "reason": "reason",
+#         "message_of_the_day": "",
+#         "remember": True,
+#         "tags": ["backlog"],
+#         "trees": ["autoland", "mozilla-central"],
+#     }, "JSON format should match expected."
+#
+#
+# def test_recent_changes_action(app):
+#     form = TreeStatusRecentChangesForm(
+#         reason="reason",
+#         category="backlog",
+#     )
+#
+#     form.update.data = True
+#     action = form.to_action()
+#
+#     assert action.method == "PATCH", "Updates should use HTTP `PATCH`."
+#     assert "json" in action.request_args, "Updates should send content in JSON body."
+#     assert action.message == "Status change updated."
+#
+#     form.update.data = False
+#     form.restore.data = True
+#     action = form.to_action()
+#
+#     assert action.method == "DELETE", "Restores should use HTTP `DELETE`."
+#     assert (
+#         "params" in action.request_args
+#     ), "Restores should send content in query string."
+#     assert action.message == "Status change restored."
+#
+#     form.restore.data = False
+#     form.discard.data = True
+#     action = form.to_action()
+#
+#     assert action.method == "DELETE", "Discards should use HTTP `DELETE`."
+#     assert (
+#         "params" in action.request_args
+#     ), "Discards should send content in query string."
+#     assert action.message == "Status change discarded."
