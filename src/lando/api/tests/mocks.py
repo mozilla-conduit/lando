@@ -14,6 +14,10 @@ from lando.utils.phabricator import (
     PhabricatorRevisionStatus,
     ReviewerStatus,
 )
+from tests.canned_responses.phabricator.diffs import (
+    CANNED_DEFAULT_DIFF_CHANGES,
+    CANNED_RAW_DEFAULT_DIFF,
+)
 
 
 def conduit_method(method):
@@ -402,6 +406,7 @@ class PhabricatorDouble:
         rawdiff=CANNED_RAW_DEFAULT_DIFF,
         changes=None,
         repo=None,
+        author=None,
         commits=[
             {
                 "identifier": "b15b8fbc79c2c3977aff9e17f0dfcc34c66ec29f",
@@ -425,7 +430,12 @@ class PhabricatorDouble:
         uri = "http://phabricator.test/differential/diff/{}/".format(diff_id)
         revision_id = revision["id"] if revision is not None else None
         revision_phid = revision["phid"] if revision is not None else None
-        author_phid = revision["authorPHID"] if revision is not None else None
+
+        if author:
+            author_phid = author["phid"]
+        else:
+            author_phid = revision["authorPHID"] if revision is not None else None
+
         repo_phid = (
             repo["phid"]
             if repo is not None
@@ -834,6 +844,9 @@ class PhabricatorDouble:
 
             items = [i for i in items if i["slug"] in constraints["slugs"]]
 
+        if limit:
+            items = items[:limit]
+
         return {
             "data": [to_response(i) for i in items],
             "maps": {"slugMap": {}},
@@ -895,6 +908,9 @@ class PhabricatorDouble:
             items = [
                 i for i in items if i["revisionPHID"] in constraints["revisionPHIDs"]
             ]
+
+        if limit:
+            items = items[:limit]
 
         return {
             "data": [to_response(i) for i in items],
@@ -970,6 +986,9 @@ class PhabricatorDouble:
 
         if destinationPHIDs:
             items = [i for i in items if i["destinationPHID"] in destinationPHIDs]
+
+        if limit:
+            items = items[:limit]
 
         return {
             "data": [to_response(i) for i in items],
@@ -1092,6 +1111,9 @@ class PhabricatorDouble:
                 )
 
             items = [i for i in items if i["status"].value in status_set]
+
+        if limit:
+            items = items[:limit]
 
         return {
             "data": [to_response(i) for i in items],
@@ -1334,6 +1356,9 @@ class PhabricatorDouble:
         if phids:
             items = [i for i in items if i["phid"] in phids]
 
+        if limit:
+            items = items[:limit]
+
         return [to_response(i) for i in items]
 
     @conduit_method("diffusion.repository.search")
@@ -1388,6 +1413,9 @@ class PhabricatorDouble:
 
         if "shortNames" in constraints:
             items = [i for i in items if i["shortName"] in constraints["shortNames"]]
+
+        if limit:
+            items = items[:limit]
 
         return {
             "data": [to_response(i) for i in items],
@@ -1665,6 +1693,9 @@ class PhabricatorDouble:
         if "nameLike" in constraints:
             items = [i for i in items if constraints["nameLike"] in i["userName"]]
 
+        if limit:
+            items = items[:limit]
+
         return {
             "data": [to_response(i) for i in items],
             "maps": {},
@@ -1717,6 +1748,9 @@ class PhabricatorDouble:
 
         if ids:
             items = [i for i in items if i["id"] in ids]
+
+        if limit:
+            items = items[:limit]
 
         return [to_response(i) for i in items]
 
