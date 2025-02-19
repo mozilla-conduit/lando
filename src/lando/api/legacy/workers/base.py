@@ -7,13 +7,13 @@ import os
 import re
 import subprocess
 from time import sleep
-from typing import Optional
 
 from django.conf import settings
 
 from lando.api.legacy.treestatus import TreeStatus
-from lando.main.models import Worker as WorkerModel
+from lando.main.models import ConfigurationKey, ConfigurationVariable, Repo
 from lando.version import version
+from landoapi.models.configuration import ConfigurationKey, ConfigurationVariable
 
 logger = logging.getLogger(__name__)
 
@@ -21,26 +21,36 @@ logger = logging.getLogger(__name__)
 class Worker:
     """A base class for repository workers."""
 
-    SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
+    @property
+    def THROTTLE_KEY(self) -> int:
+        """Return the configuration key that specifies throttle delay."""
+        return ConfigurationKey.WORKER_THROTTLE_SECONDS
 
-    ssh_private_key: Optional[str]
+    @property
+    def STOP_KEY(self) -> ConfigurationKey:
+        """Return the configuration key that prevents the worker from starting."""
+        raise NotImplementedError()
 
-    def __str__(self):
-        return f"Worker {self.worker_instance}"
+    @property
+    def PAUSE_KEY(self) -> ConfigurationKey:
+        """Return the configuration key that pauses the worker."""
+        raise NotImplementedError()
 
     def __init__(
-        self,
-        worker_instance: WorkerModel,
-        with_ssh: bool = True,
+        self, repos: list[Repo], sleep_seconds: float = 5, with_ssh: bool = True
     ):
-        self.worker_instance = worker_instance
+        SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
+
+        # `sleep_seconds` is how long to sleep for if the worker is paused,
+        # before checking if the worker is still paused.
+        self.sleep_seconds = sleep_seconds
 
         # The list of all repos that are enabled for this worker
-        self.enabled_repos = self.worker_instance.enabled_repos
+        self.applicable_repos = repos
 
         # The list of all repos that have open trees; refreshed when needed via
-        # `self.refresh_active_repos`.
-        self.active_repos = []
+        # `self.refresh_enabled_repos`.
+        self.enabled_repos = []
 
         self.treestatus_client = TreeStatus(url=settings.TREESTATUS_URL)
         self.treestatus_client.session.headers.update(
@@ -53,11 +63,9 @@ class Worker:
             # Fetch ssh private key from the environment. Note that this key should be
             # stored in standard format including all new lines and new line at the end
             # of the file.
-            self.ssh_private_key = os.environ.get(self.SSH_PRIVATE_KEY_ENV_KEY)
+            self.ssh_private_key = os.environ.get(SSH_PRIVATE_KEY_ENV_KEY)
             if not self.ssh_private_key:
-                logger.warning(
-                    f"No {self.SSH_PRIVATE_KEY_ENV_KEY} present in environment."
-                )
+                logger.warning(f"No {SSH_PRIVATE_KEY_ENV_KEY} present in environment.")
 
     @staticmethod
     def _setup_ssh(ssh_private_key: str):
@@ -104,20 +112,18 @@ class Worker:
         """Return the value of the pause configuration variable."""
         # When the pause variable is True, the worker is temporarily paused. The worker
         # resumes when the key is reset to False.
-        self.worker_instance.refresh_from_db()
-        return self.worker_instance.is_paused
+        return ConfigurationVariable.get(self.PAUSE_KEY, False)
 
     @property
     def _running(self) -> bool:
         """Return the value of the stop configuration variable."""
         # When the stop variable is True, the worker will exit and will not restart,
         # until the value is changed to False.
-        self.worker_instance.refresh_from_db()
-        return not self.worker_instance.is_stopped
+        return not ConfigurationVariable.get(self.STOP_KEY, False)
 
     def _setup(self):
         """Perform various setup actions."""
-        if self.ssh_private_key:
+        if hasattr(self, "ssh_private_key"):
             self._setup_ssh(self.ssh_private_key)
 
     def _start(self, max_loops: int | None = None, *args, **kwargs):
@@ -125,20 +131,12 @@ class Worker:
         # NOTE: The worker will exit when max_loops is reached, or when the stop
         # variable is changed to True.
         loops = 0
-
         while self._running:
-            if not bool(loops % 20):
-                # Put an info update in the logs every 20 loops.
-                logger.info(self)
-
             if max_loops is not None and loops >= max_loops:
                 break
             while self._paused:
                 # Wait a set number of seconds before checking paused variable again.
-                logger.info(
-                    f"Paused, waiting {self.worker_instance.sleep_seconds} seconds..."
-                )
-                self.throttle(self.worker_instance.sleep_seconds)
+                self.throttle(self.sleep_seconds)
             self.loop(*args, **kwargs)
             loops += 1
 
@@ -147,23 +145,23 @@ class Worker:
     @property
     def throttle_seconds(self) -> int:
         """The duration to pause for when the worker is being throttled."""
-        return self.worker_instance.throttle_seconds
+        return ConfigurationVariable.get(self.THROTTLE_KEY, 3)
 
     def throttle(self, seconds: int | None = None):
         """Sleep for a given number of seconds."""
         sleep(seconds if seconds is not None else self.throttle_seconds)
 
-    def refresh_active_repos(self):
+    def refresh_enabled_repos(self):
         """Refresh the list of repositories based on treestatus."""
-        self.active_repos = [
-            r for r in self.enabled_repos if self.treestatus_client.is_open(r.tree)
+        self.enabled_repos = [
+            r for r in self.applicable_repos if self.treestatus_client.is_open(r.tree)
         ]
-        logger.info(f"{len(self.active_repos)} enabled repos: {self.active_repos}")
+        logger.info(f"{len(self.enabled_repos)} enabled repos: {self.enabled_repos}")
 
     def start(self, max_loops: int | None = None):
         """Run setup sequence and start the event loop."""
-        if self.worker_instance.is_stopped:
-            logger.warning(f"Will not start worker {self}.")
+        if ConfigurationVariable.get(self.STOP_KEY, False):
+            logger.warning(f"{self.STOP_KEY} set to True, will not start worker.")
             return
         self._setup()
         self._start(max_loops=max_loops)
