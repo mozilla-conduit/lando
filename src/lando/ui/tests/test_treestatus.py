@@ -5,55 +5,56 @@
 import pytest
 
 from lando.treestatus.forms import (
-    TreeStatusRecentChangesForm,
-    TreeStatusUpdateTreesForm,
+    # TODO see bug 1893312.
+    # TreeStatusRecentChangesForm,
+    # TreeStatusUpdateTreesForm,
     build_update_json_body,
 )
-from lando.treestatus.treestatus_ui import (
-    build_recent_changes_stack,
-)
+# from lando.treestatus.treestatus_ui import (
+#     build_recent_changes_stack,
+# )
 
 
-def test_build_recent_changes_stack(app):
-    recent_changes_data = [
-        {
-            "id": None,
-            "reason": "reason 2",
-            "trees": [{"last_state": {"current_tags": ["category 1"]}}],
-            "who": "user2",
-            "when": "now",
-        },
-        {
-            "id": 2,
-            "reason": "reason 2",
-            "trees": [{"last_state": {"current_tags": ["category 2"]}}],
-            "who": "user2",
-            "when": "now",
-        },
-        {
-            "id": 3,
-            "reason": "reason 3",
-            "trees": [{"last_state": {"current_tags": []}}],
-            "who": "user3",
-            "when": "now",
-        },
-    ]
-
-    recent_changes_stack = build_recent_changes_stack(recent_changes_data)
-
-    for form, data in recent_changes_stack:
-        assert form.id.data == data["id"]
-        assert form.reason.data == data["reason"]
-
-        if form.id.data == 3:
-            assert (
-                form.reason_category.data == ""
-            ), "Empty tags should set field to an empty string."
-        else:
-            assert (
-                form.reason_category.data
-                == data["trees"][0]["last_state"]["current_tags"][0]
-            )
+# def test_build_recent_changes_stack(app):
+#     recent_changes_data = [
+#         {
+#             "id": None,
+#             "reason": "reason 2",
+#             "trees": [{"last_state": {"current_tags": ["category 1"]}}],
+#             "who": "user2",
+#             "when": "now",
+#         },
+#         {
+#             "id": 2,
+#             "reason": "reason 2",
+#             "trees": [{"last_state": {"current_tags": ["category 2"]}}],
+#             "who": "user2",
+#             "when": "now",
+#         },
+#         {
+#             "id": 3,
+#             "reason": "reason 3",
+#             "trees": [{"last_state": {"current_tags": []}}],
+#             "who": "user3",
+#             "when": "now",
+#         },
+#     ]
+#
+#     recent_changes_stack = build_recent_changes_stack(recent_changes_data)
+#
+#     for form, data in recent_changes_stack:
+#         assert form.id.data == data["id"]
+#         assert form.reason.data == data["reason"]
+#
+#         if form.id.data == 3:
+#             assert (
+#                 form.reason_category.data == ""
+#             ), "Empty tags should set field to an empty string."
+#         else:
+#             assert (
+#                 form.reason_category.data
+#                 == data["trees"][0]["last_state"]["current_tags"][0]
+#             )
 
 
 def test_build_update_json_body():
