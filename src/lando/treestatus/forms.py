@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from typing import Optional
 
 from django import forms
+from django.core.exceptions import ValidationError
+
 
 class Status(enum.Enum):
     """Allowable statuses of a tree."""
@@ -81,85 +83,82 @@ def build_update_json_body(
     return json_body
 
 
-class TreeStatusUpdateTreesForm(forms.Form):
-    """Form used to update the state of a selection of trees."""
-
-    trees = FieldList(
-        StringField(
-            "Trees",
-            validators=[
-                InputRequired("A selection of trees is required to update statuses.")
-            ],
-        )
-    )
-
-    status = SelectField(
-        "Status",
-        choices=Status.to_choices(),
-        validators=[InputRequired("A status is required.")],
-    )
-
-    reason = StringField("Reason")
-
-    reason_category = SelectField(
-        "Reason Category",
-        choices=ReasonCategory.to_choices(),
-        default=ReasonCategory.NO_CATEGORY.value,
-    )
-
-    remember = BooleanField(
-        "Remember this change",
-        default=True,
-    )
-
-    message_of_the_day = StringField("Message of the day")
-
-    def validate_trees(self, field):
-        """Validate that at least 1 tree was selected."""
-        if not field.entries:
-            raise ValidationError(
-                "A selection of trees is required to update statuses."
-            )
-
-    def validate_reason(self, field):
-        """Validate that the reason field is required for non-open statuses."""
-        reason_is_empty = not field.data
-
-        if Status(self.status.data) == Status.CLOSED and reason_is_empty:
-            raise ValidationError("Reason description is required to close trees.")
-
-    def validate_reason_category(self, field):
-        """Validate that the reason category field is required for non-open statuses."""
-        try:
-            category_is_empty = (
-                not field.data
-                or ReasonCategory(field.data) == ReasonCategory.NO_CATEGORY
-            )
-        except ValueError:
-            raise ValidationError("Reason category is an invalid value.")
-
-        if Status(self.status.data) == Status.CLOSED and category_is_empty:
-            raise ValidationError("Reason category is required to close trees.")
-
-    def to_submitted_json(self) -> dict:
-        """Convert a validated form to JSON for submission to LandoAPI."""
-        # Avoid setting tags for invalid values.
-        tags = (
-            [self.reason_category.data]
-            if ReasonCategory.is_valid_for_backend(self.reason_category.data)
-            else []
-        )
-
-        return {
-            "trees": self.trees.data,
-            "status": self.status.data,
-            "reason": self.reason.data,
-            "message_of_the_day": self.message_of_the_day.data,
-            "tags": tags,
-            "remember": self.remember.data,
-        }
-
-
+# TODO see bug 1893312.
+# class TreeStatusUpdateTreesForm(forms.Form):
+#     """Form used to update the state of a selection of trees."""
+#
+#     trees = forms.MultipleChoiceField(
+#         "Trees",
+#         required=True,
+#     )
+#
+#     status = forms.ChoiceField(
+#         "Status",
+#         choices=Status.to_choices(),
+#         required=True,
+#     )
+#
+#     reason = forms.CharField("Reason")
+#
+#     reason_category = forms.ChoiceField(
+#         "Reason Category",
+#         choices=ReasonCategory.to_choices(),
+#         default=ReasonCategory.NO_CATEGORY.value,
+#     )
+#
+#     remember = forms.BooleanField(
+#         "Remember this change",
+#         default=True,
+#     )
+#
+#     message_of_the_day = forms.CharField("Message of the day")
+#
+#     def validate_trees(self, field):
+#         """Validate that at least 1 tree was selected."""
+#         if not field.entries:
+#             raise ValidationError(
+#                 "A selection of trees is required to update statuses."
+#             )
+#
+#     def validate_reason(self, field):
+#         """Validate that the reason field is required for non-open statuses."""
+#         reason_is_empty = not field.data
+#
+#         if Status(self.status.data) == Status.CLOSED and reason_is_empty:
+#             raise ValidationError("Reason description is required to close trees.")
+#
+#     def validate_reason_category(self, field):
+#         """Validate that the reason category field is required for non-open statuses."""
+#         try:
+#             category_is_empty = (
+#                 not field.data
+#                 or ReasonCategory(field.data) == ReasonCategory.NO_CATEGORY
+#             )
+#         except ValueError:
+#             raise ValidationError("Reason category is an invalid value.")
+#
+#         if Status(self.status.data) == Status.CLOSED and category_is_empty:
+#             raise ValidationError("Reason category is required to close trees.")
+#
+#     def to_submitted_json(self) -> dict:
+#         """Convert a validated form to JSON for submission to LandoAPI."""
+#         # Avoid setting tags for invalid values.
+#         tags = (
+#             [self.reason_category.data]
+#             if ReasonCategory.is_valid_for_backend(self.reason_category.data)
+#             else []
+#         )
+#
+#         return {
+#             "trees": self.trees.data,
+#             "status": self.status.data,
+#             "reason": self.reason.data,
+#             "message_of_the_day": self.message_of_the_day.data,
+#             "tags": tags,
+#             "remember": self.remember.data,
+#         }
+#
+#
 class TreeCategory(enum.Enum):
     """Categories of the various trees.
 
@@ -188,19 +187,20 @@ class TreeCategory(enum.Enum):
         return " ".join(word.capitalize() for word in self.value.split("_"))
 
 
-class TreeStatusNewTreeForm(forms.Form):
-    """Add a new tree to Treestatus."""
-
-    tree = StringField(
-        "Tree",
-        validators=[InputRequired("A tree name is required.")],
-    )
-
-    category = SelectField(
-        "Tree category",
-        choices=TreeCategory.to_choices(),
-        default=TreeCategory.OTHER.value,
-    )
+# TODO see bug 1893312.
+# class TreeStatusNewTreeForm(forms.Form):
+#     """Add a new tree to Treestatus."""
+#
+#     tree = forms.CharField(
+#         "Tree",
+#         required=True,
+#     )
+#
+#     category = forms.ChoiceField(
+#         "Tree category",
+#         choices=TreeCategory.to_choices(),
+#         default=TreeCategory.OTHER.value,
+#     )
 
 
 @dataclass
@@ -210,56 +210,58 @@ class RecentChangesAction:
     message: str
 
 
-class TreeStatusRecentChangesForm(forms.Form):
-    """Modify a recent status change."""
-
-    id = HiddenField("Id")
-
-    reason = StringField("Reason")
-
-    reason_category = SelectField(
-        "Reason Category",
-        choices=ReasonCategory.to_choices(),
-    )
-
-    restore = SubmitField("Restore")
-
-    update = SubmitField("Update")
-
-    discard = SubmitField("Discard")
-
-    def to_action(self) -> RecentChangesAction:
-        """Return a `RecentChangesAction` describing interaction with Lando-API."""
-        if self.update.data:
-            # Update is a PATCH with any changed attributes passed in the body.
-            return RecentChangesAction(
-                method="PATCH",
-                request_args={
-                    "json": build_update_json_body(
-                        self.reason.data, self.reason_category.data
-                    )
-                },
-                message="Status change updated.",
-            )
-
-        revert = 1 if self.restore.data else 0
-        message = f"Status change {'restored' if self.restore.data else 'discarded'}."
-
-        return RecentChangesAction(
-            method="DELETE",
-            request_args={"params": {"revert": revert}},
-            message=message,
-        )
-
-
-class TreeStatusLogUpdateForm(forms.Form):
-    """Modify a log entry."""
-
-    id = HiddenField("Id")
-
-    reason = StringField("Reason")
-
-    reason_category = SelectField(
-        "Reason Category",
-        choices=ReasonCategory.to_choices(),
-    )
+# TODO see bug 1893312.
+# class TreeStatusRecentChangesForm(forms.Form):
+#     """Modify a recent status change."""
+#
+#     id = forms.CharField(widget=forms.HiddenInput(), required=True)
+#
+#     reason = forms.CharField(label="Reason", required=False)
+#
+#     reason_category = forms.ChoiceField(
+#         label="Reason Category",
+#         choices=ReasonCategory.to_choices(),
+#         required=False,
+#     )
+#
+#     restore = SubmitField("Restore")
+#
+#     update = SubmitField("Update")
+#
+#     discard = SubmitField("Discard")
+#
+#     def to_action(self) -> RecentChangesAction:
+#         """Return a `RecentChangesAction` describing interaction with Lando-API."""
+#         if self.update.data:
+#             # Update is a PATCH with any changed attributes passed in the body.
+#             return RecentChangesAction(
+#                 method="PATCH",
+#                 request_args={
+#                     "json": build_update_json_body(
+#                         self.reason.data, self.reason_category.data
+#                     )
+#                 },
+#                 message="Status change updated.",
+#             )
+#
+#         revert = 1 if self.restore.data else 0
+#         message = f"Status change {'restored' if self.restore.data else 'discarded'}."
+#
+#         return RecentChangesAction(
+#             method="DELETE",
+#             request_args={"params": {"revert": revert}},
+#             message=message,
+#         )
+#
+#
+# class TreeStatusLogUpdateForm(forms.Form):
+#     """Modify a log entry."""
+#
+#     id = HiddenField("Id")
+#
+#     reason = StringField("Reason")
+#
+#     reason_category = SelectField(
+#         "Reason Category",
+#         choices=ReasonCategory.to_choices(),
+#     )
