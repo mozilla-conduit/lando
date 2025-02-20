@@ -12,10 +12,9 @@ from django.urls import reverse
 from django.utils.html import escape
 from jinja2 import Environment
 
-from landoui.forms import (
+from lando.treestatus.forms import (
     ReasonCategory,
     TreeCategory,
-    UserSettingsForm,
 )
 
 from lando.ui.legacy.forms import UserSettingsForm
