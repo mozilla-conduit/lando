@@ -16,7 +16,6 @@ from lando.treestatus.forms import (
     ReasonCategory,
     TreeCategory,
 )
-
 from lando.ui.legacy.forms import UserSettingsForm
 
 FAQ_URL = "https://wiki.mozilla.org/Phabricator/FAQ#Lando"

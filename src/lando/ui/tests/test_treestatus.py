@@ -2,7 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import pytest
 
 from lando.treestatus.forms import (
     # TODO see bug 1893312.
@@ -10,6 +9,7 @@ from lando.treestatus.forms import (
     # TreeStatusUpdateTreesForm,
     build_update_json_body,
 )
+
 # from lando.treestatus.treestatus_ui import (
 #     build_recent_changes_stack,
 # )
