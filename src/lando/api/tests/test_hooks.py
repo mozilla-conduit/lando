@@ -19,7 +19,7 @@ def test_app_wide_headers_set(client):
 
 
 # See bug 1927163.
-@pytest.mark.xfail
+@pytest.mark.xfail(strict=True)
 @pytest.mark.django_db
 def test_app_wide_headers_set_for_api_endpoints(client):
     response = client.get("/__version__")
@@ -38,6 +38,7 @@ def test_app_wide_headers_csp_report_uri(app, client):
     response = client.get("/__version__")
     assert response.status_code == 200
     assert "report-uri /__cspreport__" in (response.headers["Content-Security-Policy"])
+
 
 @pytest.mark.skip
 def test_treestatus_exception_handled(db, app, client):
