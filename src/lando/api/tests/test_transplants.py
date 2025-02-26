@@ -892,8 +892,6 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
 @pytest.mark.django_db
 def test_integrated_transplant_records_approvers_peers_and_owners(
     proxy_client,
-    hg_server,
-    hg_clone,
     treestatusdouble,
     release_management_project,
     needs_data_classification_project,

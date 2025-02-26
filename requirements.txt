@@ -1725,9 +1725,9 @@ pip==25.0.1 \
     --hash=sha256:88f96547ea48b940a3a385494e181e29fb8637898f88d88737c5049780f196ea \
     --hash=sha256:c46efd13b6aa8279f33f2864459c8ce587ea6a1a59ee20de055868d8f7688f7f
     # via pip-tools
-setuptools==75.8.1 \
-    --hash=sha256:3bc32c0b84c643299ca94e77f834730f126efd621de0cc1de64119e0e17dab1f \
-    --hash=sha256:65fb779a8f28895242923582eadca2337285f0891c2c9e160754df917c3d2530
+setuptools==75.8.2 \
+    --hash=sha256:4880473a969e5f23f2a2be3646b2dfd84af9028716d398e46192f84bc36900d2 \
+    --hash=sha256:558e47c15f1811c1fa7adbd0096669bf76c1d3f433f58324df69f3f5ecac4e8f
     # via
     #   lando (pyproject.toml::build-system.requires)
     #   pip-tools
