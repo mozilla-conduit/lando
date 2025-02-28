@@ -22,11 +22,11 @@ from typing import (
 import requests
 import rs_parsepatch
 
-from landoapi.bmo import (
+from lando.api.legacy.bmo import (
     get_status_code_for_bug,
     search_bugs,
 )
-from landoapi.commit_message import (
+from lando.api.legacy.commit_message import (
     ACCEPTABLE_MESSAGE_FORMAT_RES,
     INVALID_REVIEW_FLAG_RE,
     is_backout,

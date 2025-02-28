@@ -4,7 +4,6 @@ from datetime import datetime
 
 import kombu
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.http import HttpRequest
 
 from lando.api.legacy.api.stacks import HTTP_404_STRING
@@ -32,7 +31,6 @@ from lando.api.legacy.revisions import (
     select_diff_author,
 )
 from lando.api.legacy.stacks import (
-    RevisionData,
     RevisionStack,
     build_stack_graph,
     get_diffs_for_revision,

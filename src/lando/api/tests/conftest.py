@@ -24,7 +24,7 @@ from lando.api.legacy.projects import (
     SEC_APPROVAL_PROJECT_SLUG,
     SEC_PROJ_SLUG,
 )
-from lando.api.legacy.transplants import CODE_FREEZE_OFFSET, tokens_are_equal
+from lando.api.legacy.transplants import CODE_FREEZE_OFFSET
 from lando.api.legacy.workers.landing_worker import LandingWorker
 from lando.api.tests.mocks import PhabricatorDouble, TreeStatusDouble
 from lando.main.models import SCM_LEVEL_1, SCM_LEVEL_3, Repo, Worker
@@ -359,21 +359,6 @@ def get_landing_worker(hg_landing_worker, git_landing_worker):
         return workers[scm_type]
 
     return _get_landing_worker
-
-
-@pytest.fixture
-def set_confirmation_token_comparison(monkeypatch):
-    mem = {"set": False, "val": None}
-
-    def set_value(val):
-        mem["set"] = True
-        mem["val"] = val
-
-    monkeypatch.setattr(
-        "lando.api.legacy.transplants.tokens_are_equal",
-        lambda t1, t2: mem["val"] if mem["set"] else tokens_are_equal(t1, t2),
-    )
-    return set_value
 
 
 @pytest.fixture

@@ -3,7 +3,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from lando.api.legacy.reviews import get_collated_reviewers
 from lando.api.legacy.transplants import (
     RevisionWarning,
     StackAssessment,
@@ -19,15 +18,14 @@ from lando.api.legacy.transplants import (
     warning_revision_secure,
     warning_wip_commit_message,
 )
-from lando.api.legacy.workers.landing_worker import LandingWorker
-from lando.main.models import DONTBUILD, SCM_CONDUIT, SCM_LEVEL_3, Repo
+from lando.main.models import DONTBUILD, SCM_CONDUIT, Repo
 from lando.main.models.landing_job import (
     LandingJob,
     LandingJobStatus,
     add_job_with_revisions,
 )
 from lando.main.models.revision import Revision
-from lando.main.scm import SCM_TYPE_HG
+from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.utils.phabricator import PhabricatorRevisionStatus, ReviewerStatus
 from lando.utils.tasks import admin_remove_phab_project
 
@@ -98,7 +96,12 @@ def _create_landing_job_with_no_linked_revisions(
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_no_warnings_or_blockers(
-    proxy_client, phabdouble, mocked_repo_config, mock_permissions, release_management_project, needs_data_classification_project
+    proxy_client,
+    phabdouble,
+    mocked_repo_config,
+    mock_permissions,
+    release_management_project,
+    needs_data_classification_project,
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -122,7 +125,14 @@ def test_dryrun_no_warnings_or_blockers(
 
 
 @pytest.mark.django_db(transaction=True)
-def test_dryrun_invalid_path_blocks(proxy_client, phabdouble, mock_permissions, release_management_project, needs_data_classification_project):
+def test_dryrun_invalid_path_blocks(
+    proxy_client,
+    phabdouble,
+    mock_permissions,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
+):
     d1 = phabdouble.diff()
     d2 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -151,13 +161,14 @@ def test_dryrun_invalid_path_blocks(proxy_client, phabdouble, mock_permissions, 
     )
 
 
+@pytest.mark.django_db
 def test_dryrun_published_parent(
-    client,
-    db,
+    proxy_client,
+    mock_permissions,
     phabdouble,
-    auth0_mock,
     release_management_project,
     needs_data_classification_project,
+    mocked_repo_config,
 ):
     d1 = phabdouble.diff()
     d2 = phabdouble.diff()
@@ -174,14 +185,14 @@ def test_dryrun_published_parent(
     phabdouble.reviewer(r1, reviewer)
     phabdouble.reviewer(r2, reviewer)
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants/dryrun",
         json={
             "landing_path": [
                 {"revision_id": "D{}".format(r2["id"]), "diff_id": d2["id"]},
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     assert 200 == response.status_code
@@ -189,11 +200,11 @@ def test_dryrun_published_parent(
     assert response.json["blocker"] is None
 
 
+@pytest.mark.django_db
 def test_dryrun_open_parent(
-    client,
-    db,
+    proxy_client,
+    mock_permissions,
     phabdouble,
-    auth0_mock,
     release_management_project,
     needs_data_classification_project,
 ):
@@ -212,7 +223,7 @@ def test_dryrun_open_parent(
     phabdouble.reviewer(r1, reviewer)
     phabdouble.reviewer(r2, reviewer)
 
-    response = client.post(
+    response = proxy_client.post(
         "/transplants/dryrun",
         json={
             "landing_path": [
@@ -221,7 +232,7 @@ def test_dryrun_open_parent(
                 {"revision_id": "D{}".format(r2["id"]), "diff_id": d2["id"]},
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
 
     assert 200 == response.status_code
@@ -233,7 +244,12 @@ def test_dryrun_open_parent(
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_in_progress_transplant_blocks(
-    proxy_client, phabdouble, mocked_repo_config, mock_permissions, release_management_project, needs_data_classification_project
+    proxy_client,
+    phabdouble,
+    mocked_repo_config,
+    mock_permissions,
+    release_management_project,
+    needs_data_classification_project,
 ):
     repo = phabdouble.repo()
 
@@ -280,7 +296,12 @@ def test_dryrun_in_progress_transplant_blocks(
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_reviewers_warns(
-    proxy_client, phabdouble, mocked_repo_config, mock_permissions, release_management_project, needs_data_classification_project
+    proxy_client,
+    phabdouble,
+    mocked_repo_config,
+    mock_permissions,
+    release_management_project,
+    needs_data_classification_project,
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -554,7 +575,9 @@ def test_warning_previously_landed_no_landings(phabdouble, create_state):
     (_create_landing_job, _create_landing_job_with_no_linked_revisions),
 )
 @pytest.mark.django_db(transaction=True)
-def test_warning_previously_landed_failed_landing(phabdouble, create_landing_job, create_state):
+def test_warning_previously_landed_failed_landing(
+    phabdouble, create_landing_job, create_state
+):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
 
@@ -578,7 +601,9 @@ def test_warning_previously_landed_failed_landing(phabdouble, create_landing_job
     (_create_landing_job, _create_landing_job_with_no_linked_revisions),
 )
 @pytest.mark.django_db(transaction=True)
-def test_warning_previously_landed_landed_landing(phabdouble, create_landing_job, create_state):
+def test_warning_previously_landed_landed_landing(
+    phabdouble, create_landing_job, create_state
+):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
 
@@ -597,6 +622,7 @@ def test_warning_previously_landed_landed_landing(phabdouble, create_landing_job
     assert warning_previously_landed(revision, diff, stack_state) is not None
 
 
+@pytest.mark.django_db
 def test_warning_revision_secure_project_none(phabdouble, create_state):
     revision = phabdouble.api_object_for(
         phabdouble.revision(),
@@ -608,6 +634,7 @@ def test_warning_revision_secure_project_none(phabdouble, create_state):
     assert warning_revision_secure(revision, {}, stack_state) is None
 
 
+@pytest.mark.django_db
 def test_warning_revision_secure_is_secure(phabdouble, secure_project, create_state):
     revision = phabdouble.api_object_for(
         phabdouble.revision(projects=[secure_project]),
@@ -619,6 +646,7 @@ def test_warning_revision_secure_is_secure(phabdouble, secure_project, create_st
     assert warning_revision_secure(revision, {}, stack_state) is not None
 
 
+@pytest.mark.django_db
 def test_warning_revision_secure_is_not_secure(
     phabdouble, secure_project, create_state
 ):
@@ -633,6 +661,7 @@ def test_warning_revision_secure_is_not_secure(
     assert warning_revision_secure(revision, {}, stack_state) is None
 
 
+@pytest.mark.django_db
 @pytest.mark.parametrize(
     "status",
     [
@@ -652,6 +681,7 @@ def test_warning_not_accepted_warns_on_other_status(phabdouble, status, create_s
     assert warning_not_accepted(revision, {}, stack_state) is not None
 
 
+@pytest.mark.django_db
 def test_warning_not_accepted_no_warning_when_accepted(phabdouble, create_state):
     revision = phabdouble.api_object_for(
         phabdouble.revision(status=PhabricatorRevisionStatus.ACCEPTED),
@@ -663,6 +693,7 @@ def test_warning_not_accepted_no_warning_when_accepted(phabdouble, create_state)
     assert warning_not_accepted(revision, {}, stack_state) is None
 
 
+@pytest.mark.django_db
 def test_warning_reviews_not_current_warns_on_unreviewed_diff(phabdouble, create_state):
     d_reviewed = phabdouble.diff()
     r = phabdouble.revision(diff=d_reviewed)
@@ -683,6 +714,7 @@ def test_warning_reviews_not_current_warns_on_unreviewed_diff(phabdouble, create
     assert warning_reviews_not_current(revision, diff, stack_state) is not None
 
 
+@pytest.mark.django_db
 def test_warning_reviews_not_current_warns_on_unreviewed_revision(
     phabdouble, create_state
 ):
@@ -700,6 +732,7 @@ def test_warning_reviews_not_current_warns_on_unreviewed_revision(
     assert warning_reviews_not_current(revision, diff, stack_state) is not None
 
 
+@pytest.mark.django_db
 def test_warning_reviews_not_current_no_warning_on_accepted_diff(
     phabdouble, create_state
 ):
@@ -805,10 +838,10 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
-    db,
-    client,
+    proxy_client,
+    mock_permissions,
+    mocked_repo_config,
     phabdouble,
-    auth0_mock,
     release_management_project,
     needs_data_classification_project,
     register_codefreeze_uri,
@@ -830,7 +863,7 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
     phabdouble.reviewer(r3, user)
 
     # Request a transplant, but only for 2/3 revisions in the stack.
-    response = client.post(
+    response = proxy_client.post(
         "/transplants",
         json={
             "landing_path": [
@@ -838,18 +871,15 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
                 {"revision_id": "D{}".format(r2["id"]), "diff_id": d2["id"]},
             ]
         },
-        headers=auth0_mock.mock_headers,
+        permissions=mock_permissions,
     )
     assert response.status_code == 202
     assert response.content_type == "application/json"
     assert "id" in response.json
     job_id = response.json["id"]
 
-    # Ensure DB access isn't using uncommitted data.
-    db.session.close()
-
     # Get LandingJob object by its id
-    job = LandingJob.query.get(job_id)
+    job = LandingJob.objects.get(pk=job_id)
     assert job.id == job_id
     assert [(revision.revision_id, revision.diff_id) for revision in job.revisions] == [
         (r1["id"], d1["id"]),
@@ -859,12 +889,12 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
     assert job.landed_revisions == {1: 1, 2: 2}
 
 
+@pytest.mark.django_db
 def test_integrated_transplant_records_approvers_peers_and_owners(
     proxy_client,
+    treestatusdouble,
     hg_server,
     hg_clone,
-    treestatusdouble,
-    auth0_mock,
     release_management_project,
     needs_data_classification_project,
     register_codefreeze_uri,
@@ -873,19 +903,14 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     phabdouble,
     checkin_project,
     mock_permissions,
+    hg_landing_worker,
+    repo_mc,
 ):
-    treestatusdouble.open_tree("mozilla-central")
-    repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="mozilla-central",
-        url=hg_server,
-        required_permission=SCM_LEVEL_3,
-        push_path=hg_server,
-        pull_path=hg_server,
-        system_path=hg_clone.strpath,
-    )
-    phabrepo = phabdouble.repo(name="mozilla-central")
+    repo = repo_mc(SCM_TYPE_HG)
+    treestatusdouble.open_tree(repo.name)
+    hg_landing_worker.worker_instance.applicable_repos.add(repo)
 
+    phabrepo = phabdouble.repo(name=repo.name)
     # Mock a few mots-related things needed by the landing worker.
     # First, mock path existance.
     mock_path = MagicMock()
@@ -938,8 +963,8 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     approved_by = [revision.data["approved_by"] for revision in job.revisions.all()]
     assert approved_by == [[101], [102]]
 
-    worker = LandingWorker(repos=Repo.objects.all(), sleep_seconds=0.01)
-    assert worker.run_job(job)
+    assert hg_landing_worker.run_job(job)
+    assert job.status == LandingJobStatus.LANDED
     for revision in job.revisions.all():
         if revision.revision_id == 1:
             assert revision.data["peers_and_owners"] == [101]
@@ -951,7 +976,6 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
 def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     proxy_client,
     phabdouble,
-    auth0_mock,
     release_management_project,
     needs_data_classification_project,
     register_codefreeze_uri,
@@ -1192,7 +1216,9 @@ def test_integrated_transplant_repo_checkin_project_removed(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_without_auth0_permissions(
-    proxy_client, phabdouble, mocked_repo_config,
+    proxy_client,
+    phabdouble,
+    mocked_repo_config,
     release_management_project,
     needs_data_classification_project,
 ):
@@ -1210,10 +1236,10 @@ def test_integrated_transplant_without_auth0_permissions(
     )
 
     assert response.status_code == 400
-    assert response.json["blocker"] == (
+    assert (
         "You have insufficient permissions to land or your access has expired. "
         "main.scm_level_3 is required. See the FAQ for help."
-    )
+    ) in response.json["blocker"]
 
 
 @pytest.mark.django_db(transaction=True)
@@ -1270,8 +1296,9 @@ def test_integrated_transplant_diff_not_in_revision(
 
 @pytest.mark.django_db(transaction=True)
 def test_transplant_nonexisting_revision_returns_404(
-    proxy_client, phabdouble, mock_permissions,
-    auth0_mock,
+    proxy_client,
+    phabdouble,
+    mock_permissions,
     release_management_project,
     needs_data_classification_project,
 ):
@@ -1287,7 +1314,9 @@ def test_transplant_nonexisting_revision_returns_404(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_revision_with_no_repo(
-    proxy_client, phabdouble, mock_permissions,
+    proxy_client,
+    phabdouble,
+    mock_permissions,
     release_management_project,
     needs_data_classification_project,
 ):
@@ -1304,13 +1333,14 @@ def test_integrated_transplant_revision_with_no_repo(
         permissions=mock_permissions,
     )
     assert response.status_code == 400
-    assert response.json["title"] == "Landing is Blocked"
     assert "Landing repository is missing for this landing." in response.json["blocker"]
 
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_revision_with_unmapped_repo(
-    proxy_client, phabdouble, mock_permissions,
+    proxy_client,
+    phabdouble,
+    mock_permissions,
     release_management_project,
     needs_data_classification_project,
 ):
@@ -1328,7 +1358,6 @@ def test_integrated_transplant_revision_with_unmapped_repo(
         permissions=mock_permissions,
     )
     assert response.status_code == 400
-    assert response.json["title"] == "Landing is Blocked"
     assert "Landing repository is missing for this landing." in response.json["blocker"]
 
 
@@ -1366,9 +1395,10 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     # Check the transplanted patch for our alternate commit message.
     transplanted_patch = Revision.get_from_revision_id(revision["id"])
     assert transplanted_patch is not None, "Transplanted patch should be retrievable."
-    assert sec_approval_project["name"] not in transplanted_patch.patch_string
+    assert sec_approval_project["name"] not in transplanted_patch.patch
 
 
+@pytest.mark.django_db
 def test_warning_wip_commit_message(phabdouble, create_state):
     revision = phabdouble.api_object_for(
         phabdouble.revision(
@@ -1468,7 +1498,6 @@ def test_unresolved_comment_stack(
     phabdouble,
     mocked_repo_config,
     mock_permissions,
-    auth0_mock,
     release_management_project,
     needs_data_classification_project,
 ):
@@ -1537,6 +1566,7 @@ def test_unresolved_comment_stack(
     ), "the warning ID should match the ID for warning_unresolved_comments"
 
 
+@pytest.mark.django_db
 @pytest.mark.parametrize(
     "status",
     [
@@ -1561,6 +1591,7 @@ def test_check_author_planned_changes_changes_not_planned(
     )
 
 
+@pytest.mark.django_db
 def test_check_author_planned_changes_changes_planned(phabdouble, create_state):
     revision = phabdouble.api_object_for(
         phabdouble.revision(status=PhabricatorRevisionStatus.CHANGES_PLANNED),
@@ -1575,6 +1606,7 @@ def test_check_author_planned_changes_changes_planned(phabdouble, create_state):
     )
 
 
+@pytest.mark.django_db
 @pytest.mark.parametrize("status", list(ReviewerStatus))
 def test_relman_approval_status(
     status,
@@ -1619,6 +1651,7 @@ def test_relman_approval_status(
         )
 
 
+@pytest.mark.django_db
 def test_relman_approval_missing(
     phabdouble,
     mocked_repo_config,
@@ -1647,6 +1680,7 @@ def test_relman_approval_missing(
     )
 
 
+@pytest.mark.django_db
 def test_revision_has_data_classification_tag(
     phabdouble, create_state, needs_data_classification_project
 ):
@@ -1700,6 +1734,7 @@ index 0000000..55faaf5
 """.lstrip()
 
 
+@pytest.mark.django_db
 def test_blocker_prevent_symlinks(phabdouble, create_state):
     repo = phabdouble.repo()
 
@@ -1754,6 +1789,7 @@ index 0000000..e44d36d
 """.lstrip()
 
 
+@pytest.mark.django_db
 def test_blocker_try_task_config_no_landing_state(
     phabdouble, mocked_repo_config, create_state
 ):
@@ -1776,6 +1812,7 @@ def test_blocker_try_task_config_no_landing_state(
     ), "`try_task_config.json` should be rejected."
 
 
+@pytest.mark.django_db
 def test_blocker_try_task_config_landing_state_non_try(
     phabdouble, mocked_repo_config, create_state
 ):
@@ -1798,6 +1835,7 @@ def test_blocker_try_task_config_landing_state_non_try(
     ), "`try_task_config.json` should be rejected."
 
 
+@pytest.mark.django_db
 def test_warning_multiple_authors(phabdouble, mocked_repo_config, create_state):
     repo = phabdouble.repo()
 
