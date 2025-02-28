@@ -893,6 +893,8 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
 def test_integrated_transplant_records_approvers_peers_and_owners(
     proxy_client,
     treestatusdouble,
+    hg_server,
+    hg_clone,
     release_management_project,
     needs_data_classification_project,
     register_codefreeze_uri,
@@ -909,7 +911,6 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     hg_landing_worker.worker_instance.applicable_repos.add(repo)
 
     phabrepo = phabdouble.repo(name=repo.name)
-
     # Mock a few mots-related things needed by the landing worker.
     # First, mock path existance.
     mock_path = MagicMock()
