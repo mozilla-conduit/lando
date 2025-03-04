@@ -365,7 +365,7 @@ def _create_git_commit(request: pytest.FixtureRequest, clone_path: Path):
             "git",
             "commit",
             "-m",
-            "adding new_file",
+            f"adding {new_file}",
             "--author",
             f"{request.node.name} <pytest@lando>",
         ],

@@ -1,7 +1,10 @@
 import io
 import os
+import subprocess
 import textwrap
+import uuid
 from datetime import datetime
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -371,3 +374,42 @@ def test_HgSCM_describe_commit(hg_clone):
     assert prev_commit.desc == """initial commit"""
     assert len(prev_commit.files) == 1
     assert "README" in prev_commit.files
+
+
+def test_HgSCM_describe_local_changes(
+    # XXX: this is a py.path, but we want to use pathlib.Path moving forwards
+    hg_clone,
+    request: pytest.FixtureRequest,
+):
+    scm = HgSCM(str(hg_clone))
+
+    #     f"{request.node.name} <pytest@lando>",
+    with scm.for_push(
+        f"pytest+{request.node.name}@lando",
+    ):
+        file1 = _create_hg_commit(request, Path(hg_clone))
+        file2 = _create_hg_commit(request, Path(hg_clone))
+
+        changes = scm.describe_local_changes()
+
+    assert file1.name in changes[0].files
+    assert file2.name in changes[1].files
+
+
+def _create_hg_commit(request: pytest.FixtureRequest, clone_path: Path):
+    new_file = clone_path / str(uuid.uuid4())
+    new_file.write_text(request.node.name, encoding="utf-8")
+
+    subprocess.run(["hg", "addremove"], cwd=str(clone_path), check=True)
+    subprocess.run(
+        [
+            "hg",
+            "commit",
+            "-m",
+            f"adding {new_file}",
+        ],
+        cwd=str(clone_path),
+        check=True,
+    )
+
+    return new_file

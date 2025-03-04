@@ -329,7 +329,7 @@ class HgSCM(AbstractSCM):
         return self._describe_revisions(revision_id)[0]
 
     def describe_local_changes(self) -> list[Commit]:
-        return list(reversed(self._describe_revisions("stack()")))
+        return list(self._describe_revisions("stack()"))
 
     def _describe_revisions(self, changeset=".") -> list[Commit]:
         commit_separator = self._separator()
