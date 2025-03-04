@@ -52,7 +52,7 @@ LARGE_PATCH = rf"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add another file.
+add another line with utf-8
 
 diff --git a/test.txt b/test.txt
 --- a/test.txt
@@ -67,7 +67,7 @@ PATCH_WITHOUT_STARTLINE = r"""
 # User Test User <test@example.com>
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
-add another file.
+add another line without startline.
 diff --git a/test.txt b/test.txt
 --- a/test.txt
 +++ b/test.txt
@@ -84,7 +84,7 @@ PATCH_PUSH_LOSER = r"""
 #      Thu Jan 01 00:00:00 1970 +0000
 # Fail HG Import LOSE_PUSH_RACE
 # Diff Start Line 8
-add another file.
+add one more line.
 diff --git a/test.txt b/test.txt
 --- a/test.txt
 +++ b/test.txt
