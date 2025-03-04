@@ -767,16 +767,6 @@ def blocker_unsupported_repo(
     if repo not in stack_state.landable_repos:
         return "Repository is not supported by Lando."
 
-    if not stack_state.landing_assessment:
-        return
-
-    # If the landing repo on the current revision is set as a legacy repo
-    # of another repo, then change the landing repo to match the target.
-    set_repo = stack_state.landable_repos[repo]
-    stack_state.landing_assessment.landing_repo = (
-        set_repo if not set_repo.is_legacy else set_repo.new_target
-    )
-
 
 def blocker_closed_revisions(
     revision: dict, diff: dict, stack_state: StackAssessmentState
@@ -864,10 +854,15 @@ def blocker_single_landing_repo(
     if not repo_phid:
         return "Landing path has no repository specified."
 
-    # Set the landing repo field on the `LandingAssessmentState`.
-    landing_repo = stack_state.landable_repos.get(repo_phid)
+    if repo_phid not in stack_state.landable_repos:
+        return "Landing repository is not supported by Lando."
 
-    stack_state.landing_assessment.landing_repo = landing_repo
+    # If the landing repo on the current revision is set as a legacy repo
+    # of another repo, then change the landing repo to match the target.
+    set_repo = stack_state.landable_repos[repo_phid]
+    stack_state.landing_assessment.landing_repo = (
+        set_repo if not set_repo.is_legacy else set_repo.new_target
+    )
 
 
 def blocker_prevent_symlinks(
