@@ -12,7 +12,7 @@ class AbstractSCM:
     # The path to the repository.
     path: str
 
-    def __init__(self, path: str):
+    def __init__(self, path: str, **kwargs):
         self.path = path
 
     def __str__(self):
