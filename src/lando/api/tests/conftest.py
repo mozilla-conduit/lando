@@ -43,7 +43,7 @@ PATCH_NORMAL_1 = r"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add another file.
+add another line.
 diff --git a/test.txt b/test.txt
 --- a/test.txt
 +++ b/test.txt
@@ -58,7 +58,7 @@ PATCH_NORMAL_2 = r"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add another file.
+add one more line
 diff --git a/test.txt b/test.txt
 --- a/test.txt
 +++ b/test.txt
@@ -74,7 +74,7 @@ PATCH_NORMAL_3 = r"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add another file.
+rename file
 diff --git a/test.txt b/test.txt
 deleted file mode 100644
 --- a/test.txt

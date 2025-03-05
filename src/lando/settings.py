@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "compressor",
     "mozilla_django_oidc",
     "lando.main",
+    "lando.pushlog",
     "lando.utils",
     "lando.api",
     "lando.dockerflow",

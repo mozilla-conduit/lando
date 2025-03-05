@@ -121,6 +121,10 @@ class Repo(BaseModel):
         related_name="new_target",
     )
 
+    pushlog_disabled = models.BooleanField(
+        default=False,
+    )
+
     @property
     def is_legacy(self):
         """Return True if this repo is listed as a legacy source."""
