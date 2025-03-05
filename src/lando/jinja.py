@@ -36,7 +36,7 @@ TREESTATUS_USER_GROUPS = {
 
 
 def is_treestatus_user(userinfo: dict) -> bool:
-    # TODO determine if this is correct.
+    # TODO determine if this is correct - bug 1893312.
     try:
         groups = userinfo["https://sso.mozilla.com/claim/groups"]
     except KeyError:
