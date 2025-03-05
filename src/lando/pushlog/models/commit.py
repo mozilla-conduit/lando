@@ -91,6 +91,9 @@ class Commit(models.Model):
     _unsaved_parents: set[str]
 
     class Meta:
+        # We want to order commits by ascending IDs. This assumes that commits are added
+        # to the PushLog following the dag from earliest to latest.
+        ordering = ["id"]
         unique_together = ("repo", "hash")
 
     def __init__(self, *args, **kwargs):
