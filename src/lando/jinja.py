@@ -12,6 +12,10 @@ from django.urls import reverse
 from django.utils.html import escape
 from jinja2 import Environment
 
+from lando.treestatus.forms import (
+    ReasonCategory,
+    TreeCategory,
+)
 from lando.ui.legacy.forms import UserSettingsForm
 
 FAQ_URL = "https://wiki.mozilla.org/Phabricator/FAQ#Lando"
@@ -23,6 +27,22 @@ logger = logging.getLogger(__name__)
 # TODO: this should be ported once all forms are ported to Django forms.
 # def new_settings_form() -> UserSettingsForm:
 #     return UserSettingsForm()
+
+
+TREESTATUS_USER_GROUPS = {
+    "mozilliansorg_treestatus_admins",
+    "mozilliansorg_treestatus_users",
+}
+
+
+def is_treestatus_user(userinfo: dict) -> bool:
+    # TODO determine if this is correct - bug 1893312.
+    try:
+        groups = userinfo["https://sso.mozilla.com/claim/groups"]
+    except KeyError:
+        return False
+
+    return not TREESTATUS_USER_GROUPS.isdisjoint(groups)
 
 
 def escape_html(text: str) -> str:
@@ -75,6 +95,15 @@ def reviewer_to_status_badge_class(reviewer: dict) -> str:
     ]
 
 
+def treestatus_to_status_badge_class(tree_status: str) -> str:
+    """Convert Tree statuses into status badges."""
+    return {
+        "open": "Badge Badge--positive",
+        "closed": "Badge Badge--negative",
+        "approval required": "Badge Badge--warning",
+    }.get(tree_status, "Badge Badge--warning")
+
+
 def reviewer_to_action_text(reviewer: dict) -> str:
     options = {
         # status: (current_diff, for_other_diff),
@@ -108,6 +137,21 @@ def tostatusbadgename(status: dict) -> str:
         "failed": "Failed to land",
     }
     return mapping.get(status["status"].lower(), status["status"].capitalize())
+
+
+def reason_category_to_display(reason_category_str: str) -> str:
+    try:
+        return ReasonCategory(reason_category_str).to_display()
+    except ValueError:
+        # Return the bare string, in case of older data.
+        return reason_category_str
+
+
+def tree_category_to_display(tree_category_str: str) -> str:
+    try:
+        return TreeCategory(tree_category_str).to_display()
+    except ValueError:
+        return tree_category_str
 
 
 def avatar_url(url: str) -> str:
@@ -297,6 +341,7 @@ def environment(**options):
             "config": settings,
             "get_messages": messages.get_messages,
             "graph_height": graph_height,
+            "is_treestatus_user": is_treestatus_user,
             "new_settings_form": UserSettingsForm,
             "static_url": settings.STATIC_URL,
             "url": reverse,
@@ -321,6 +366,7 @@ def environment(**options):
             "linkify_transplant_details": linkify_transplant_details,
             "message_type_to_notification_class": message_type_to_notification_class,
             "repo_path": repo_path,
+            "reason_category_to_display": reason_category_to_display,
             "reviewer_to_action_text": reviewer_to_action_text,
             "reviewer_to_status_badge_class": reviewer_to_status_badge_class,
             "revision_status_to_badge_class": revision_status_to_badge_class,
@@ -328,6 +374,8 @@ def environment(**options):
             "static": static,
             "tostatusbadgeclass": tostatusbadgeclass,
             "tostatusbadgename": tostatusbadgename,
+            "tree_category_to_display": tree_category_to_display,
+            "treestatus_to_status_badge_class": treestatus_to_status_badge_class,
         }
     )
     return env
