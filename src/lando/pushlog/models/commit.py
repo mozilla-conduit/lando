@@ -165,7 +165,8 @@ class Commit(models.Model):
                 try:
                     parent_commit = Commit.objects.get(repo=self.repo, hash=parent_hash)
                 except Commit.DoesNotExist:
-                    # XXX: This MUST be an exception, but I'm cutting corner here
+                    # XXX: This MUST be an exception, but it's problematic for
+                    # pre-existing repos with un-imported history.
                     # raise Commit.DoesNotExist(
                     logger.error(
                         f"Parent commit not found for repo. commit={self.hash} parent_commit={parent_hash} repo={self.repo}"
