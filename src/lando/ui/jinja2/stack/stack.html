@@ -101,7 +101,7 @@
   {% set can_uplift_revision = user_is_authenticated and user_has_phabricator_token %}
 
   <div class="StackPage-actions">
-      {% if not is_user_authenticated %}
+      {% if not user_is_authenticated %}
         <button disabled>
           <div class="StackPage-actions-headline">Preview Landing</div>
           <div class="StackPage-actions-subtitle">You must log in first</div>
