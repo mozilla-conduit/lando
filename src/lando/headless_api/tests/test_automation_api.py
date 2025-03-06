@@ -348,22 +348,6 @@ def test_get_job_status(status, message, client, headless_user):
     # TODO test a few more things? formatting?
 
 
-PATCH_NORMAL_1 = r"""
-# HG changeset patch
-# User Test User <test@example.com>
-# Date 0 0
-#      Thu Jan 01 00:00:00 1970 +0000
-# Diff Start Line 7
-add another file.
-diff --git a/test.txt b/test.txt
---- a/test.txt
-+++ b/test.txt
-@@ -1,1 +1,2 @@
- TEST
-+adding another line
-""".strip()
-
-
 @pytest.fixture
 def hg_automation_worker(landing_worker_instance):
     worker = landing_worker_instance(
@@ -375,7 +359,7 @@ def hg_automation_worker(landing_worker_instance):
 
 @pytest.mark.django_db
 def test_automation_job_add_commit_success(
-    hg_server, hg_clone, hg_automation_worker, repo_mc, monkeypatch
+    hg_server, hg_clone, hg_automation_worker, repo_mc, monkeypatch, normal_patch
 ):
     repo = repo_mc(SCM_TYPE_HG)
     scm = repo.scm
@@ -389,7 +373,7 @@ def test_automation_job_add_commit_success(
     AutomationAction.objects.create(
         job_id=job,
         action_type="add-commit",
-        data={"action": "add-commit", "content": PATCH_NORMAL_1},
+        data={"action": "add-commit", "content": normal_patch(1)},
         order=0,
     )
 
