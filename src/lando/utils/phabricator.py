@@ -214,7 +214,10 @@ class PhabricatorClient:
 
     @staticmethod
     def create_session() -> requests.Session:
-        return requests.Session()
+        session = requests.Session()
+        headers = {"User-Agent": settings.HTTP_USER_AGENT}
+        session.headers.update(headers)
+        return session
 
     @classmethod
     def single(
