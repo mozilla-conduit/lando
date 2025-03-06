@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 
 from lando.environments import Environment
+from lando.version import version
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent
@@ -231,3 +232,5 @@ COMMITTER_EMAIL = os.getenv("LANDO_COMMITTER_EMAIL", LANDO_USER_EMAIL)
 
 GITHUB_APP_ID = os.getenv("GITHUB_APP_ID")
 GITHUB_APP_PRIVKEY = os.getenv("GITHUB_APP_PRIVKEY")
+
+HTTP_USER_AGENT = f"Lando/{version} ({ENVIRONMENT})"
