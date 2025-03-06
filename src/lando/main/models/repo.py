@@ -121,6 +121,9 @@ class Repo(BaseModel):
         related_name="new_target",
     )
 
+    # Use this field to enable/disable access to this repo via the automation API.
+    automation_enabled = models.BooleanField(default=False)
+
     @property
     def is_legacy(self):
         """Return True if this repo is listed as a legacy source."""
