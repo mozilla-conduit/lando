@@ -42,6 +42,9 @@ class HeadlessAPIAuthentication(HttpBearer):
         if not user_agent:
             raise APIPermissionDenied("`User-Agent` header is required.")
 
+        if not user_agent.startswith("Lando-User/"):
+            raise APIPermissionDenied(f"Incorrect `User-Agent` format.")
+
         try:
             user = ApiToken.verify_token(token)
         except ValueError as exc:

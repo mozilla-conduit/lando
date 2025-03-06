@@ -34,6 +34,29 @@ def test_auth_missing_user_agent(client, headless_user):
 
 
 @pytest.mark.django_db
+def test_auth_user_agent_bad_format(client, headless_user):
+    user, token = headless_user
+
+    # Create a job and actions
+    job = AutomationJob.objects.create(status=LandingJobStatus.SUBMITTED)
+    AutomationAction.objects.create(
+        job_id=job, action_type="add-commit", data={"content": "test"}, order=0
+    )
+
+    # Fetch job status.
+    response = client.get(
+        f"/api/job/{job.id}",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "User-Agent": "testuser@example.org",
+        },
+    )
+
+    assert response.status_code == 401, "Missing `User-Agent` should result in 401."
+    assert response.json() == {"details": "Incorrect `User-Agent` format."}
+
+
+@pytest.mark.django_db
 def test_auth_missing_authorization_header(client, headless_user):
     # Create a job and actions
     job = AutomationJob.objects.create(status=LandingJobStatus.SUBMITTED)
@@ -45,7 +68,7 @@ def test_auth_missing_authorization_header(client, headless_user):
     response = client.get(
         f"/api/job/{job.id}",
         headers={
-            "User-Agent": "testuser@example.org",
+            "User-Agent": "Lando-User/testuser@example.org",
         },
     )
 
@@ -66,7 +89,7 @@ def test_auth_invalid_token(client, headless_user):
         f"/api/job/{job.id}",
         headers={
             "Authorization": "Bearer api-bad-key",
-            "User-Agent": "testuser@example.org",
+            "User-Agent": "Lando-User/testuser@example.org",
         },
     )
 
@@ -90,7 +113,7 @@ def test_automation_job_create_bad_repo(client, headless_user):
         data=json.dumps(body),
         content_type="application/json",
         headers={
-            "User-Agent": "testuser@example.org",
+            "User-Agent": "Lando-User/testuser@example.org",
             "Authorization": f"Bearer {token}",
         },
     )
@@ -111,7 +134,7 @@ def test_automation_job_empty_actions(client, headless_user):
         data=json.dumps(body),
         content_type="application/json",
         headers={
-            "User-Agent": "testuser@example.org",
+            "User-Agent": "Lando-User/testuser@example.org",
             "Authorization": f"Bearer {token}",
         },
     )
@@ -150,7 +173,7 @@ def test_automation_job_create_bad_action(bad_action, reason, client, headless_u
         data=json.dumps(body),
         content_type="application/json",
         headers={
-            "User-Agent": "testuser@example.org",
+            "User-Agent": "Lando-User/testuser@example.org",
             "Authorization": f"Bearer {token}",
         },
     )
@@ -189,7 +212,7 @@ def test_automation_job_create_automation_disabled(
         data=json.dumps(body),
         content_type="application/json",
         headers={
-            "User-Agent": "testuser@example.org",
+            "User-Agent": "Lando-User/testuser@example.org",
             "Authorization": f"Bearer {token}",
         },
     )
@@ -239,7 +262,7 @@ def test_automation_job_create(client, hg_server, hg_clone, headless_user):
         data=json.dumps(body),
         content_type="application/json",
         headers={
-            "User-Agent": "testuser@example.org",
+            "User-Agent": "Lando-User/testuser@example.org",
             "Authorization": f"Bearer {token}",
         },
     )
@@ -273,7 +296,7 @@ def test_get_job_status_not_found(client, headless_user):
     response = client.get(
         "/api/job/12345",
         headers={
-            "User-Agent": "testuser@example.org",
+            "User-Agent": "Lando-User/testuser@example.org",
             "Authorization": f"Bearer {token}",
         },
     )
@@ -307,7 +330,7 @@ def test_get_job_status(status, message, client, headless_user):
     response = client.get(
         f"/api/job/{job.id}",
         headers={
-            "User-Agent": "testuser@example.org",
+            "User-Agent": "Lando-User/testuser@example.org",
             "Authorization": f"Bearer {token}",
         },
     )
