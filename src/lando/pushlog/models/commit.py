@@ -27,6 +27,7 @@ class File(models.Model):
 
     repo = models.ForeignKey(
         Repo,
+        null=True,
         on_delete=models.SET_NULL,
     )
 
@@ -60,6 +61,7 @@ class Commit(models.Model):
 
     repo = models.ForeignKey(
         Repo,
+        null=True,
         on_delete=models.SET_NULL,
     )
 
@@ -232,6 +234,7 @@ class Tag(models.Model):
 
     repo = models.ForeignKey(
         Repo,
+        null=True,
         on_delete=models.SET_NULL,
     )
 

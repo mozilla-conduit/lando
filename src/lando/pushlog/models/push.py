@@ -5,9 +5,6 @@ from lando.main.models import Repo
 from .commit import Commit
 from .consts import MAX_BRANCH_LENGTH, MAX_URL_LENGTH
 
-PUSH_SCM_TYPE_GIT = "git"
-PUSH_SCM_TYPES = [PUSH_SCM_TYPE_GIT]
-
 
 class Push(models.Model):
     """A Push object records the list of Commits pushed at once."""
@@ -16,6 +13,7 @@ class Push(models.Model):
 
     repo = models.ForeignKey(
         Repo,
+        null=True,
         on_delete=models.SET_NULL,
     )
 
