@@ -246,7 +246,7 @@ class GitSCM(AbstractSCM):
         """Return a list of the Commits only present on this branch."""
         return list(reversed(self._describe_commits("@{u}..")))
 
-    def _describe_commits(self, ref_spec="HEAD") -> list[Commit]:
+    def _describe_commits(self, ref_spec: str = "HEAD") -> list[Commit]:
         """Return Commit metadata for a given ref_spec (including ranges)."""
         commit_separator = self._separator()
         attribute_separator = self._separator()
