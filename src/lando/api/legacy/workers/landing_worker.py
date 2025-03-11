@@ -333,13 +333,13 @@ class LandingWorker(Worker):
         # Get the changeset hash of the first node.
         commit_id = scm.head_ref()
 
+        # We need to add the commits to the pushlog _before_ pushing, so we can
+        # compare the current stack to the last upstream.
+        # We'll only confirm them if the push succeeds.
+        for commit in scm.describe_local_changes():
+            pushlog.add_commit(commit)
         repo_push_info = f"tree: {repo.tree}, push path: {repo.push_path}"
         try:
-            # We need to add the commits to the pushlog _before_ pushing, so we can
-            # compare the current stack to the last upstream.
-            # We'll only confirm them if all succeeds.
-            for commit in scm.describe_local_changes():
-                pushlog.add_commit(commit)
             scm.push(
                 repo.push_path,
                 push_target=repo.push_target,
