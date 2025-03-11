@@ -44,14 +44,13 @@ class Push(models.Model):
 
     class Meta:
         unique_together = ("push_id", "repo")
+        verbose_name_plural = "Pushes"
 
     def __repr__(self):
         return f"{self.__class__.__name__}(push_id={self.push_id}, repo={self.repo})"
 
     def __str__(self):
-        ncommits = self.commits.count()
-        plural = "s" if ncommits > 1 else ""
-        return f"Push {self.push_id} to {self.repo_url} by {self.user} on {self.datetime} with {ncommits} commit{plural}"
+        return f"Push {self.push_id} in {self.repo}"
 
     def save(self, *args, **kwargs):
         if not self.id:

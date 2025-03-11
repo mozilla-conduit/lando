@@ -37,7 +37,7 @@ class File(models.Model):
         return f"{self.__class__.__name__}(repo={self.repo!r}, name={self.name})"
 
     def __str__(self):
-        return f"File {self.name} in {self.repo.url}"
+        return f"File {self.name} in {self.repo}"
 
 
 class Commit(models.Model):
@@ -113,10 +113,7 @@ class Commit(models.Model):
         return f"{self.__class__.__name__}(repo={self.repo!r}, hash={self.hash})"
 
     def __str__(self):
-        nfiles = len(self.files)
-        plural = "s" if nfiles > 0 else ""
-        subject = self.desc.split("\n")[0]
-        return f"Commit {self.hash} to {self.repo.url} by {self.author} on {self.datetime} with {nfiles} file{plural} changed: {subject}"
+        return f"Commit {self.hash} in {self.repo}"
 
     @staticmethod
     def from_scm_commit(repo: Repo, scm_commit: SCMCommit):

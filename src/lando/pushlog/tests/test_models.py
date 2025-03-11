@@ -18,10 +18,8 @@ def test__pushlog__models__Commit(make_repo, make_commit):
 
     assert commit.hash in repr(commit)
     commit_str = str(commit)
-    assert commit.repo.url in commit_str
+    assert commit.repo.name in commit_str
     assert commit.hash in commit_str
-    assert commit.author in commit_str
-    assert commit.desc in commit_str
     assert retrieved_commit.id == commit.id
     assert len(retrieved_commit.files) == 2
 
@@ -98,7 +96,7 @@ def test__pushlog__models__Commit__add_files(make_repo, make_commit):
         file_str = str(file)
         assert file.name in repr(files)
         assert file.name in file_str
-        assert repo.url in file_str
+        assert repo.name in file_str
 
     files = File.objects.filter(commit=commit1)
     assert files.count() == 2
@@ -148,7 +146,7 @@ def test__pushlog__models__Tag(make_repo, make_commit, make_tag):
 
     tag_str = str(tag1)
     assert tag1.name in tag_str
-    assert tag1.repo.url in tag_str
+    assert tag1.repo.name in tag_str
     assert tag1.commit.hash in tag_str
 
     assert tag1.name in repr(tag1)
@@ -189,9 +187,7 @@ def test__pushlog__models__Push(make_repo, make_commit, make_push):
 
     push11_str = str(push11)
     assert f"Push {push11.push_id}" in push11_str
-    assert push11.user in push11_str
-    assert push11.repo_url in push11_str
-    assert str(push11.datetime) in push11_str
+    assert push11.repo.name in push11_str
 
     push11_repr = repr(push11)
     assert f"(push_id={push11.push_id}" in push11_repr

@@ -30,6 +30,8 @@ class PushAdmin(PushLogAdmin):
         "user",
         "commits",
     )
+    list_display = ["push_id", "repo__name", "branch", "datetime", "user"]
+    list_filter = ["repo", "branch", "user", "datetime"]
 
 
 class CommitAdmin(PushLogAdmin):
@@ -43,6 +45,8 @@ class CommitAdmin(PushLogAdmin):
         "_files",
         "_parents",
     )
+    list_display = ["hash", "repo__name", "datetime", "author"]
+    list_filter = ["repo", "author", "datetime"]
 
 
 class FileAdmin(PushLogAdmin):
@@ -50,6 +54,8 @@ class FileAdmin(PushLogAdmin):
         "repo",
         "name",
     )
+    list_display = ["name", "repo__name"]
+    list_filter = ["repo"]
 
 
 class TagAdmin(PushLogAdmin):
@@ -58,6 +64,8 @@ class TagAdmin(PushLogAdmin):
         "name",
         "commit",
     )
+    list_display = ["name", "commit", "repo__name"]
+    list_filter = ["repo"]
 
 
 admin.site.register(Push, PushAdmin)
