@@ -1,5 +1,6 @@
 import logging
 import random
+import string
 from abc import abstractmethod
 from pathlib import Path
 from typing import Any, ContextManager, Optional
@@ -210,10 +211,8 @@ class AbstractSCM:
         """
 
     @staticmethod
-    def _separator():
+    def _separator() -> str:
         """Generate a long random string usable as a separator.
 
         This is useful when parsing semi-structured multiline text output."""
-        return "".join(
-            [chr(c) for c in random.choices(range(ord("A"), ord("Z")), k=16)]
-        )
+        return "".join(random.choices(string.ascii_uppercase, k=16))
