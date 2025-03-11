@@ -12,11 +12,11 @@ class PushLogAdmin(admin.ModelAdmin):
     """A base ModelAdmin class for PushLog-related admin parameters."""
 
     def has_add_permission(self, request, obj=None):
-        """Fordib addition of any pushlog object from the admin interface."""
+        """Forbid addition of any pushlog object from the admin interface."""
         return False
 
     def has_delete_permission(self, request, obj=None):
-        """Fordib deletion of any pushlog object from the admin interface."""
+        """Forbid deletion of any pushlog object from the admin interface."""
         return False
 
 
