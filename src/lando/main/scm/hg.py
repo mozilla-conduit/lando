@@ -333,7 +333,7 @@ class HgSCM(AbstractSCM):
         """Return a list of the Commits only present on this branch."""
         return list(self._describe_revisions("::. and draft()"))
 
-    def _describe_revisions(self, changeset=".") -> list[Commit]:
+    def _describe_revisions(self, changeset: str = ".") -> list[Commit]:
         """Return revision metadata for a given changeset."""
         commit_separator = self._separator()
         attribute_separator = self._separator()
