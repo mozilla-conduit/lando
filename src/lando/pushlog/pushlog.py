@@ -57,7 +57,7 @@ class PushLog:
         self,
         repo: Repo,
         user: str,
-        commits: list = None,
+        commits: list = [],
     ):
         self.repo = repo
         self.user = user
@@ -74,7 +74,7 @@ class PushLog:
         )
 
     def add_commit(self, scm_commit: SCMCommit) -> Commit:
-        """Add a new commit to the Pushlog, for later recording in the DB
+        """Add a new commit to the Pushlog, for later recording in the DB.
 
         We create a commit object in memory, but will only write it into the DB when
         the whole push is done, and we have a transaction open.
