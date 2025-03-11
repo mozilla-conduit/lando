@@ -211,8 +211,9 @@ class AbstractSCM:
 
     @staticmethod
     def _separator():
-        """Generate a long random string usable as a separator when parsing
-        semi-structured multiline text output"""
+        """Generate a long random string usable as a separator.
+
+        This is useful when parsing semi-structured multiline text output."""
         return "".join(
             [chr(c) for c in random.choices(range(ord("A"), ord("Z")), k=16)]
         )
