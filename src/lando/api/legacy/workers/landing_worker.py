@@ -183,14 +183,16 @@ class LandingWorker(Worker):
             )
             return False
 
-        with PushLogForRepo(repo, job.requester_email) as pushlog:
-            with scm.for_push(job.requester_email):
-                try:
-                    bug_ids, commit_id = self.apply_and_push(job, repo, scm, pushlog)
-                except PermanentFailureException:
-                    return True
-                except TemporaryFailureException:
-                    return False
+        with (
+            scm.for_push(job.requester_email),
+            PushLogForRepo(repo, job.requester_email) as pushlog,
+        ):
+            try:
+                bug_ids, commit_id = self.apply_and_push(job, repo, scm, pushlog)
+            except PermanentFailureException:
+                return True
+            except TemporaryFailureException:
+                return False
 
         job.transition_status(LandingJobAction.LAND, commit_id=commit_id)
 
