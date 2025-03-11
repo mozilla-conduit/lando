@@ -4,7 +4,7 @@ import pytest
 from django.db.utils import IntegrityError
 
 from lando.pushlog.models import Commit, Push
-from lando.pushlog.pushlog import PushLogForRepo
+from lando.pushlog.pushlog import PushLog, PushLogForRepo
 
 
 @pytest.mark.django_db()
@@ -133,6 +133,22 @@ def test__pushlog__PushLog_useful_log_on_error(
     assert message in caplog.text
     assert scm_commit1.hash in caplog.text
     assert scm_commit2.hash in caplog.text
+
+
+@pytest.mark.django_db()
+def test__pushlog__PushLog_no_double_record(make_repo, make_scm_commit):
+    repo = make_repo(1)
+
+    scm_commit = make_scm_commit(1)
+
+    pushlog = PushLog(repo, "user@moz.test")
+    pushlog.add_commit(scm_commit)
+    pushlog.confirm()
+
+    pushlog.record_push()
+
+    with pytest.raises(RuntimeError):
+        pushlog.record_push()
 
 
 @pytest.mark.django_db()

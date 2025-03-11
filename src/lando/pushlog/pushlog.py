@@ -19,7 +19,7 @@ def PushLogForRepo(repo: Repo, user: str):
     when complete.
 
     WARNING: Do not use record_push() on the returned PushLog, as the context manager
-    will take care of it automatically. Calling it separately may lead to duplicates.
+    will take care of it automatically. Calling it multiple times will raise a RuntimeError.
     """
     if repo.pushlog_disabled:
         return NoOpPushLog(repo, user)
@@ -50,6 +50,7 @@ class PushLog:
     user: str
 
     is_confirmed: bool = False
+    is_recorded: bool = False
 
     commits: list
 
@@ -103,6 +104,9 @@ class PushLog:
 
         Don't use directly if using a PushLogForRepo ContextManager.
         """
+        if self.is_recorded:
+            raise RuntimeError("Trying to record already recorded push.")
+
         if not self.is_confirmed:
             logger.warning(
                 f"Push for {self.repo.url} wasn't confirmed; aborting ...\n{self}",
@@ -126,6 +130,8 @@ class PushLog:
 
         push.save()
         logger.info(f"Successfully saved {push}")
+
+        self.is_recorded = True
 
         return push
 
