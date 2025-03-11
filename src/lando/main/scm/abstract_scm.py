@@ -121,8 +121,9 @@ class AbstractSCM:
 
     @abstractmethod
     def describe_local_changes(self) -> list[Commit]:
-        """Return a list of the Commits only present on this branch, in ascending
-        topological order."""
+        """Return a list of the Commits only present on this branch.
+
+        Commits are sorted in ascending topological order."""
 
     @abstractmethod
     def for_pull(self) -> ContextManager:

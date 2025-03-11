@@ -326,12 +326,15 @@ class HgSCM(AbstractSCM):
         return breakdown
 
     def describe_commit(self, revision_id: str = ".") -> Commit:
+        """Return Commit metadata."""
         return self._describe_revisions(revision_id)[0]
 
     def describe_local_changes(self) -> list[Commit]:
-        return list(self._describe_revisions("stack()"))
+        """Return a list of the Commits only present on this branch."""
+        return list(self._describe_revisions("::. and draft()"))
 
     def _describe_revisions(self, changeset=".") -> list[Commit]:
+        """Return revision metadata for a given changeset."""
         commit_separator = self._separator()
         attribute_separator = self._separator()
         format = attribute_separator.join(
