@@ -27,7 +27,7 @@ class File(models.Model):
 
     repo = models.ForeignKey(
         Repo,
-        on_delete=models.DO_NOTHING,
+        on_delete=models.SET_NULL,
     )
 
     class Meta:
@@ -60,7 +60,7 @@ class Commit(models.Model):
 
     repo = models.ForeignKey(
         Repo,
-        on_delete=models.DO_NOTHING,
+        on_delete=models.SET_NULL,
     )
 
     # Assuming a max email address length (see Push model), and then some space for a long name.
@@ -232,7 +232,7 @@ class Tag(models.Model):
 
     repo = models.ForeignKey(
         Repo,
-        on_delete=models.DO_NOTHING,
+        on_delete=models.SET_NULL,
     )
 
     class Meta:

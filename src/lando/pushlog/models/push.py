@@ -16,7 +16,7 @@ class Push(models.Model):
 
     repo = models.ForeignKey(
         Repo,
-        on_delete=models.DO_NOTHING,
+        on_delete=models.SET_NULL,
     )
 
     # Full URL to the upstream repository, to allow re-linking the data if anything goes
