@@ -22,26 +22,26 @@ def PushLogForRepo(repo: Repo, user: str):
     will take care of it automatically. Calling it separately may lead to duplicates.
     """
     if repo.pushlog_disabled:
-        yield NoOpPushlog(repo, user)
-    else:
-        pushlog = PushLog(repo, user)
-        try:
-            yield pushlog
-        except Exception as e:
-            logger.error(f"Push aborted for {user}: {e}")
-            raise (e)
-        else:
-            # Only record the whole push on success.
-            try:
-                pushlog.record_push()
-            except Exception as e:
-                # We keep a record of the Pushlog in the extra, in addition to printing
-                # details in the log.
-                logger.error(
-                    f"Failed to record push log due to: {e}\n{pushlog}",
-                    extra={"pushlog": pushlog},
-                )
-                raise e
+        return NoOpPushLog(repo, user)
+
+    pushlog = PushLog(repo, user)
+    try:
+        yield pushlog
+    except Exception as e:
+        logger.error(f"Push aborted for {user}: {e}")
+        raise (e)
+
+    # Only record the whole push on success.
+    try:
+        pushlog.record_push()
+    except Exception as e:
+        # We keep a record of the Pushlog in the extra, in addition to printing
+        # details in the log.
+        logger.error(
+            f"Failed to record push log due to: {e}\n{pushlog}",
+            extra={"pushlog": pushlog},
+        )
+        raise e
 
 
 class PushLog:
@@ -130,7 +130,7 @@ class PushLog:
         return push
 
 
-class NoOpPushlog(PushLog):
+class NoOpPushLog(PushLog):
     """A noop PushLog object to use when disabled without having to resort to ifs."""
 
     def add_commit(self, scm_commit: SCMCommit) -> Commit:
