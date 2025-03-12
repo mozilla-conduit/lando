@@ -89,6 +89,15 @@ REPOS = {
             "/suite/main/docker/product-details/1.0/firefox_versions.json",
         },
         {
+            "name": "large-repo",
+            "url": "https://hg.mozilla.org/conduit-testing/m-c",
+            "required_permission": SCM_CONDUIT,
+            "commit_flags": [DONTBUILD],
+            "milestone_tracking_flag_template": "cf_status_firefox{milestone}",
+            "product_details_url": "https://raw.githubusercontent.com/mozilla-conduit"
+            "/suite/main/docker/product-details/1.0/firefox_versions.json",
+        },
+        {
             "name": "vct",
             "url": "https://hg.mozilla.org/conduit-testing/vct",
             "required_permission": SCM_CONDUIT,

@@ -6,6 +6,7 @@ from django.http import Http404, HttpRequest
 
 from lando.api.legacy.commit_message import format_commit_message
 from lando.api.legacy.projects import (
+    get_data_policy_review_phid,
     get_release_managers,
     get_sec_approval_project_phid,
     get_secure_project_phid,
@@ -27,12 +28,15 @@ from lando.api.legacy.revisions import (
     serialize_status,
 )
 from lando.api.legacy.stacks import (
+    RevisionStack,
     build_stack_graph,
-    calculate_landable_subgraphs,
-    get_landable_repos_for_revision_data,
+    get_diffs_for_revision,
     request_extended_revision_data,
 )
-from lando.api.legacy.transplants import get_blocker_checks
+from lando.api.legacy.transplants import (
+    build_stack_assessment_state,
+    run_landing_checks,
+)
 from lando.api.legacy.users import user_search
 from lando.main.auth import require_phabricator_api_key
 from lando.main.models import Repo
@@ -65,30 +69,39 @@ def get(phab: PhabricatorClient, request: HttpRequest, revision_id: int):
         raise Http404(HTTP_404_STRING)
 
     supported_repos = Repo.get_mapping()
-    landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
 
     release_managers = get_release_managers(phab)
     if not release_managers:
         raise Exception("Could not find `#release-managers` project on Phabricator.")
 
+    data_policy_review_phid = get_data_policy_review_phid(phab)
+    if not data_policy_review_phid:
+        raise Exception(
+            "Could not find `#needs-data-classification` project on Phabricator."
+        )
+
     relman_group_phid = str(phab.expect(release_managers, "phid"))
 
-    other_checks = get_blocker_checks(
-        relman_group_phid=relman_group_phid,
-        repositories=supported_repos,
-        stack_data=stack_data,
+    stack = RevisionStack(set(stack_data.revisions.keys()), edges)
+    stack_state = build_stack_assessment_state(
+        phab,
+        supported_repos,
+        stack_data,
+        stack,
+        relman_group_phid,
+        data_policy_review_phid,
     )
-
-    landable, blocked = calculate_landable_subgraphs(
-        stack_data, edges, landable_repos, other_checks=other_checks
-    )
+    # Run landing checks and update the stack state.
+    run_landing_checks(stack_state)
+    landable = stack_state.landable_stack.landable_paths()
     uplift_repos = [
         name for name, repo in supported_repos.items() if repo.approval_required
     ]
 
     involved_phids = set()
     for revision in stack_data.revisions.values():
-        involved_phids.update(gather_involved_phids(revision))
+        revision_diffs = get_diffs_for_revision(revision, stack_data.diffs)
+        involved_phids.update(gather_involved_phids(revision, revision_diffs))
 
     involved_phids = list(involved_phids)
 
@@ -154,12 +167,14 @@ def get(phab: PhabricatorClient, request: HttpRequest, revision_id: int):
         )
         author_response = serialize_author(phab.expect(fields, "authorPHID"), users)
 
+        blocked_reasons = stack_state.stack.nodes[revision_phid].get("blocked")
+
         revisions_response.append(
             {
                 "id": human_revision_id,
                 "phid": revision_phid,
                 "status": serialize_status(phab_revision),
-                "blocked_reason": blocked.get(revision_phid, ""),
+                "blocked_reasons": blocked_reasons,
                 "bug_id": bug_id,
                 "title": commit_description.title,
                 "url": revision_url,

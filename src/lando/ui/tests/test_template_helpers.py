@@ -10,9 +10,11 @@ from lando.jinja import (
     linkify_revision_ids,
     linkify_revision_urls,
     linkify_sec_bug_docs,
+    repo_branch_url,
     repo_path,
     revision_url,
 )
+from lando.main.models import SCM_TYPE_GIT, SCM_TYPE_HG, Repo
 
 
 @pytest.mark.parametrize(
@@ -201,6 +203,39 @@ def test_linkify_sec_bug_docs(input_text, output_text):
 )
 def test_repo_path(repo_url, path):
     assert path == repo_path(repo_url)
+
+
+@pytest.mark.parametrize(
+    "repo,path",
+    [
+        (
+            Repo(
+                scm_type=SCM_TYPE_GIT,
+                url="http://git.test/test-repo",
+                default_branch="testing",
+            ),
+            "http://git.test/test-repo/log/?h=testing",
+        ),
+        (
+            Repo(
+                scm_type=SCM_TYPE_GIT,
+                url="https://github.com/mozilla-conduit/test-repo",
+                default_branch="testing",
+            ),
+            "https://github.com/mozilla-conduit/test-repo/tree/testing",
+        ),
+        (
+            Repo(
+                scm_type=SCM_TYPE_HG,
+                url="https://example.com/test",
+                default_branch="testing",
+            ),
+            "https://example.com/test",
+        ),
+    ],
+)
+def test_repo_branch_url(repo, path):
+    assert path == repo_branch_url(repo)
 
 
 @pytest.mark.parametrize(

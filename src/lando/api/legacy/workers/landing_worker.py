@@ -86,7 +86,7 @@ class LandingWorker(Worker):
     def loop(self):
         logger.debug(
             f"{len(self.worker_instance.enabled_repos)} "
-            "enabled repos: {self.worker_instance.enabled_repos}"
+            f"enabled repos: {self.worker_instance.enabled_repos}"
         )
 
         # Refresh repos if there is a mismatch in active vs. enabled repos.
