@@ -72,6 +72,7 @@ new file mode 100644
 +TEST
 """.lstrip()
 
+
 @pytest.fixture
 def normal_patch():
     """Return one of several "normal" patches."""
