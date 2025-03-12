@@ -1,11 +1,14 @@
 import datetime
 import json
+import secrets
 import unittest.mock as mock
 
 import pytest
+from django.contrib.auth.hashers import check_password
 
 from lando.api.legacy.workers.automation_worker import AutomationWorker
 from lando.headless_api.api import AutomationAction, AutomationJob
+from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import SCM_LEVEL_3, Repo
 from lando.main.models.landing_job import LandingJobStatus
 from lando.main.scm import SCM_TYPE_HG
@@ -432,3 +435,84 @@ def test_automation_job_add_commit_fail(
     assert not hg_automation_worker.run_automation_job(job)
     assert job.status == LandingJobStatus.FAILED, "Automation job should fail."
     assert scm.push.call_count == 0
+
+
+@pytest.mark.django_db
+def test_token_generation_security(headless_user):
+    user, token = headless_user
+
+    # Retrieve the stored token object.
+    token_obj = ApiToken.objects.get(user=user)
+
+    # Verify that the stored token prefix equals the first 8 characters of the token.
+    assert token_obj.token_prefix == token[:8]
+
+    # Ensure that the stored hash is not simply the raw token.
+    assert token_obj.token_hash != token
+
+    # Use Django's check_password to verify that the hash matches the raw token.
+    assert check_password(token, token_obj.token_hash)
+
+
+@pytest.mark.django_db
+def test_valid_token_verification(headless_user):
+    user, token = headless_user
+
+    assert (
+        ApiToken.verify_token(token) == user
+    ), "verify_token should return the user for a valid token."
+
+
+@pytest.mark.django_db
+def test_invalid_token_prefix_invalid(headless_user):
+    user, token = headless_user
+
+    # Modify the token prefix so it is invalid.
+    invalid_token = "f" + token[1:]
+
+    # verify_token should raise a `ValueError` for bad token.
+    with pytest.raises(ValueError):
+        ApiToken.verify_token(invalid_token)
+
+
+@pytest.mark.django_db
+def test_invalid_token_prefix_valid(headless_user):
+    user, token = headless_user
+
+    # Modify the end of the token to confirm a found prefix must still
+    # match the hash/salt.
+    invalid_token = token[:-1] + "f"
+
+    # verify_token should raise a `ValueError` for bad token.
+    with pytest.raises(ValueError):
+        ApiToken.verify_token(invalid_token)
+
+
+@pytest.mark.django_db
+def test_token_prefix_collision(monkeypatch, headless_user):
+    """Force a scenario where two tokens share the same prefix.
+
+    Although extremely unlikely in production, this ensures our filtering plus
+    hash-check strategy works.
+    """
+    user, token = headless_user
+
+    original_token_hex = secrets.token_hex
+
+    def fake_token_hex(nbytes=20):
+        # Force a constant prefix ("deadbeef")
+        # while keeping the rest of the token random.
+        return "deadbeef" + original_token_hex(nbytes=nbytes)[8:]
+
+    monkeypatch.setattr(secrets, "token_hex", fake_token_hex)
+
+    token1 = ApiToken.create_token(user)
+    token2 = ApiToken.create_token(user)
+
+    # Even if both tokens share the same prefix, each should verify correctly.
+    assert (
+        ApiToken.verify_token(token1) == user
+    ), "First token with common prefix should return headless user."
+    assert (
+        ApiToken.verify_token(token2) == user
+    ), "Second token with common prefix should return headless user."
