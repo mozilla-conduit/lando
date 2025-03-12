@@ -79,7 +79,7 @@ class LandingAssessmentState:
     requested path can land at the current time, etc.
     """
 
-    auth0_user: User
+    lando_user: User
     landing_path_by_phid: list[tuple[str, int]]
     to_land: list[tuple[dict, dict]]
 
@@ -91,7 +91,7 @@ class LandingAssessmentState:
         cls,
         landing_path: list[tuple[int, int]],
         stack_data: RevisionData,
-        auth0_user: User,
+        lando_user: User,
     ) -> LandingAssessmentState:
         landing_path_by_phid = convert_path_id_to_phid(landing_path, stack_data)
 
@@ -107,7 +107,7 @@ class LandingAssessmentState:
         ]
 
         return LandingAssessmentState(
-            auth0_user=auth0_user,
+            lando_user=lando_user,
             landing_path_by_phid=landing_path_by_phid,
             to_land=to_land,
         )
@@ -608,7 +608,7 @@ def blocker_user_no_auth0_email(
 
     return (
         None
-        if stack_state.landing_assessment.auth0_user.email
+        if stack_state.landing_assessment.lando_user.email
         else ("You do not have a Mozilla verified email address.")
     )
 
@@ -627,9 +627,9 @@ def blocker_user_scm_level(
     if not landing_repo:
         return "Landing repository is missing for this landing."
 
-    auth0_user = stack_state.landing_assessment.auth0_user
+    lando_user = stack_state.landing_assessment.lando_user
 
-    if auth0_user.has_perm(landing_repo.required_permission):
+    if lando_user.has_perm(landing_repo.required_permission):
         return None
 
     return (
