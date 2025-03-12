@@ -1,7 +1,9 @@
+import collections
 import json
 import logging
 import re
 import time
+from operator import itemgetter
 from typing import (
     Any,
     Optional,
@@ -15,7 +17,6 @@ from packaging.version import (
 )
 
 from lando.api.legacy import bmo
-from lando.api.legacy.phabricator_patch import patch_to_changes
 from lando.api.legacy.stacks import (
     RevisionData,
     RevisionStack,
@@ -58,16 +59,9 @@ def parse_milestone_version(milestone_contents: str) -> Version:
         ) from e
 
 
-def get_uplift_request_form(revision: dict) -> Optional[str]:
-    """Return the content of the uplift request form or `None` if missing."""
-    bug = PhabricatorClient.expect(revision, "fields").get("uplift.request")
-    return bug
-
-
 def get_uplift_repositories() -> list[str]:
     """Returns repo "shortnames" tagged with "uplift" from Phabricator."""
     CACHE_KEY = "uplift-repos"
-
     repos = cache.get(CACHE_KEY)
     if not repos:
         phab = get_phabricator_client()
@@ -99,9 +93,29 @@ def get_revisions_without_bugs(phab: PhabricatorClient, revisions: dict) -> set[
     return missing_bugs
 
 
+def get_rev_ids_to_diffs(
+    phab: PhabricatorClient, rev_ids: list[int]
+) -> dict[int, list[dict]]:
+    """Given the list of revision ids, return a mapping of IDs to all associated diffs."""
+    # Query all diffs for the revisions with `differential.querydiffs`.
+    querydiffs_response = phab.call_conduit(
+        "differential.querydiffs", revisionIDs=rev_ids
+    )
+
+    if not querydiffs_response:
+        raise Exception(f"Could not find any diffs for revisions {rev_ids}.")
+
+    rev_ids_to_all_diffs = collections.defaultdict(list)
+    for diff in querydiffs_response.values():
+        rev_id = phab.expect(diff, "revisionID")
+        rev_ids_to_all_diffs[int(rev_id)].append(diff)
+
+    return rev_ids_to_all_diffs
+
+
 def get_uplift_conduit_state(
     phab: PhabricatorClient, revision_id: int, target_repository_name: str
-) -> tuple[RevisionData, RevisionStack, dict]:
+) -> tuple[RevisionData, RevisionStack, dict, dict]:
     """Queries Conduit for repository and stack information about the requested uplift.
 
     Gathers information about:
@@ -147,9 +161,47 @@ def get_uplift_conduit_state(
             f"Every uplifted patch must have an associated bug ID: {missing} do not."
         )
 
+    rev_ids = [int(revision["id"]) for revision in stack_data.revisions.values()]
+    rev_ids_to_all_diffs = get_rev_ids_to_diffs(phab, rev_ids)
+
     stack = RevisionStack(set(stack_data.revisions.keys()), edges)
 
-    return stack_data, stack, target_repo
+    return stack_data, stack, target_repo, rev_ids_to_all_diffs
+
+
+def get_latest_non_commit_diff(diffs: list[dict]) -> dict:
+    """Given a list of diff dicts, return the latest diff with a non-commit creation method.
+
+    Commits with a `creationMethod` of `commit` will have empty binary files, if any
+    are included in the commit. Avoid using them for creating uplift requests and instead
+    use the latest non-commit diff associated with the patch. See bug 1865760 for more.
+    """
+    # Iterate through the diffs in order of the latest IDs.
+    for diff in sorted(diffs, key=itemgetter("id"), reverse=True):
+        # Diffs with a `creationMethod` of `commit` may have bad binary data.
+        if diff["creationMethod"] == "commit":
+            continue
+
+        return diff
+
+    raise Exception(f"Could not find an appropriate diff to return from {diffs}.")
+
+
+def get_diff_info_if_missing(
+    phab: PhabricatorClient, diff_id: int, existing_diffs: list[dict]
+) -> dict:
+    """Check `existing_diffs` for a diff with `diff_id`, or query Conduit for the data."""
+    existing_diff = [diff for diff in existing_diffs if diff["id"] == diff_id]
+    if existing_diff:
+        return existing_diff[0]
+
+    diffs = phab.call_conduit(
+        "differential.diff.search",
+        constraints={"ids": [diff_id]},
+        attachments={"commits": True},
+    )
+
+    return phab.single(diffs, "data")
 
 
 def get_local_uplift_repo(phab: PhabricatorClient, target_repository: dict) -> Repo:
@@ -189,11 +241,40 @@ def strip_depends_on_from_commit_message(commit_message: str) -> str:
     )
 
 
+def filter_diff_changes(changes: list[dict]) -> list[dict]:
+    """Remove unnecessary fields from `differential.querydiffs` response.
+
+    Removes field from the existing response that are created server-side, such as
+    `dateCreated`, leaving only the required components for creating a new diff.
+    """
+    return [
+        {
+            key: val
+            for key, val in change.items()
+            if key
+            in {
+                "awayPaths",
+                "commitHash",
+                "currentPath",
+                "fileType",
+                "hunks",
+                "metadata",
+                "newProperties",
+                "oldPath",
+                "oldProperties",
+                "type",
+            }
+        }
+        for change in changes
+    ]
+
+
 def create_uplift_revision(
     phab: PhabricatorClient,
     local_repo: Repo,
     source_revision: dict,
     source_diff: dict,
+    querydiffs_diff: dict,
     parent_phid: Optional[str],
     base_revision: str,
     target_repository: dict,
@@ -214,12 +295,10 @@ def create_uplift_revision(
     if not commits or "identifier" not in commits[0]:
         raise ValueError("Source diff does not have commit information attached.")
 
-    head = commits[0]["identifier"]
-
     # Upload it on target repo.
     new_diff = phab.call_conduit(
         "differential.creatediff",
-        changes=patch_to_changes(raw_diff, head),
+        changes=filter_diff_changes(querydiffs_diff["changes"]),
         sourceMachine=local_repo.url,
         sourceControlSystem=phab.expect(target_repository, "fields", "vcs"),
         sourceControlPath="/",
@@ -315,15 +394,6 @@ def create_uplift_revision(
     }
 
 
-def stack_uplift_form_submitted(stack_data: RevisionData) -> bool:
-    """Return `True` if the stack has a valid uplift request form submitted."""
-    # NOTE: this just checks that any of the revisions in the stack have the uplift form
-    # submitted.
-    return any(
-        get_uplift_request_form(revision) for revision in stack_data.revisions.values()
-    )
-
-
 def create_uplift_bug_update_payload(
     bug: dict, repo_name: str, milestone: int, milestone_tracking_flag_template: str
 ) -> dict[str, Any]:
@@ -369,15 +439,12 @@ def update_bugs_for_uplift(
     bug_ids: list[str],
 ):
     """Update Bugzilla bugs for uplift."""
-    if not bug_ids:
-        raise ValueError("No bugs found in uplift landing.")
-
     params = {
         "id": ",".join(bug_ids),
     }
 
     # Get information about the parsed bugs.
-    bugs = bmo.get_bug(params).json()["bugs"]
+    bugs = bmo.uplift_get_bug(params)["bugs"]
 
     # Get the major release number from `config/milestone.txt`.
     milestone = parse_milestone_version(milestone_file_contents)
@@ -394,7 +461,7 @@ def update_bugs_for_uplift(
         for i in range(1, UPLIFT_BUG_UPDATE_RETRIES + 1):
             # Update bug and account for potential errors.
             try:
-                bmo.update_bug(payload)
+                bmo.uplift_update_bug(payload)
 
                 break
             except requests.RequestException as e:
