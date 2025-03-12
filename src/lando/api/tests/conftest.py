@@ -95,7 +95,7 @@ def app():
     class _config:
         """Bridge legacy testing config with new config."""
 
-        def __init__(self, overrides: dict = None):
+        def __init__(self, overrides: dict | None = None):
             self.overrides = overrides or {}
 
         def __getitem__(self, key):
