@@ -263,13 +263,15 @@ def repo_path(repo_url: str) -> str:
 
 def repo_branch_url(repo: Repo) -> str:
     """Generate a url for a given repo accounting for branches."""
-    if repo.is_git:
-        if "git.test" in repo.url:
-            template = "{repo.url}/log/?h={repo.default_branch}"
-        else:
-            template = "{repo.url}/tree/{repo.default_branch}"
-        return template.format(repo=repo)
-    return repo.url
+    if not repo.is_git:
+        return repo.url
+
+    if "git.test" in repo.url:
+        # For some local testing repos, there is a different URL pattern.
+        template = "{repo.url}/log/?h={repo.default_branch}"
+    else:
+        template = "{repo.url}/tree/{repo.default_branch}"
+    return template.format(repo=repo)
 
 
 GRAPH_DRAWING_COL_WIDTH = 14
