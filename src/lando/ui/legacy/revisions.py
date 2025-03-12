@@ -59,8 +59,8 @@ class Uplift(LandoView):
         # Redirect to the tip revision's URL.
         # TODO add js for auto-opening the uplift request Phabricator form.
         # See https://bugzilla.mozilla.org/show_bug.cgi?id=1810257.
-        revision_id = response["tip_differential"]["revision_id"]
-        return redirect("revisions-page", revision_id=revision_id)
+        tip_differential = response["tip_differential"]["url"]
+        return redirect(tip_differential)
 
 
 class Revision(LandoView):

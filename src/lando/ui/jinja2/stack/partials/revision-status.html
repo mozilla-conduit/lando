@@ -1,4 +1,5 @@
-{% if revision['blocked_reason'] %}
+{% if revision['blocked_reasons'] or revision['blocked_reason'] %}
+{% set blocked_reason = revision['blocked_reasons'][0] if 'blocked_reasons' in revision else revision['blocked_reason']%}
 <div class="StackPage-blockerReason">
   <div class="Badge Badge--negative">
     Blocked
@@ -7,7 +8,7 @@
     </span>
   </div>
   <div class="StackPage-blockerReason-tooltip">
-    {{revision['blocked_reason']|escape_html|linkify_faq|safe}}
+    {{blocked_reason|escape_html|linkify_faq|safe}}
   </div>
 </div>
 {% endif %}
