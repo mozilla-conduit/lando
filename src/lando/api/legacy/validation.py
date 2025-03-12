@@ -23,7 +23,7 @@ def parse_landing_path(landing_path: list[dict]) -> list[tuple[int, int]]:
             (revision_id_to_int(item["revision_id"]), int(item["diff_id"]))
             for item in landing_path
         ]
-    except (ValueError, TypeError) as e:
+    except (ValueError, TypeError, KeyError) as e:
         raise LegacyAPIException(
             400,
             f"The provided landing_path was malformed.\n{str(e)}",

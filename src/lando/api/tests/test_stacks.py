@@ -7,9 +7,12 @@ from lando.api.legacy.stacks import (
     get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
+from lando.api.legacy.transplants import (
+    build_stack_assessment_state,
+    run_landing_checks,
+)
 from lando.main.models import Repo
 from lando.utils.phabricator import PhabricatorRevisionStatus
-from lando.api.legacy.transplants import build_stack_assessment_state, run_landing_checks
 
 
 def test_build_stack_graph_single_node(phabdouble):
@@ -276,8 +279,12 @@ def test_request_extended_revision_data_raises_value_error(phabdouble):
     assert e.value.args[0] == "Mismatch in size of returned data."
 
 
+@pytest.mark.django_db
 def test_calculate_landable_subgraphs_no_edges_open(
-    phabdouble, app, db, release_management_project, needs_data_classification_project
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -305,8 +312,12 @@ def test_calculate_landable_subgraphs_no_edges_open(
     assert landable[0] == [revision["phid"]]
 
 
+@pytest.mark.django_db
 def test_calculate_landable_subgraphs_no_edges_closed(
-    phabdouble, app, db, release_management_project, needs_data_classification_project
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -335,8 +346,12 @@ def test_calculate_landable_subgraphs_no_edges_closed(
     assert not landable
 
 
+@pytest.mark.django_db
 def test_calculate_landable_subgraphs_closed_root(
-    phabdouble, app, db, release_management_project, needs_data_classification_project
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -364,8 +379,12 @@ def test_calculate_landable_subgraphs_closed_root(
     assert landable == [[r2["phid"]]]
 
 
+@pytest.mark.django_db
 def test_calculate_landable_subgraphs_closed_root_child_merges(
-    phabdouble, app, db, release_management_project, needs_data_classification_project
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -400,8 +419,12 @@ def test_calculate_landable_subgraphs_closed_root_child_merges(
     assert landable == [[r1["phid"], r2["phid"], r4["phid"]]]
 
 
+@pytest.mark.django_db
 def test_calculate_landable_subgraphs_stops_multiple_repo_paths(
-    phabdouble, app, db, release_management_project, needs_data_classification_project
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -433,8 +456,12 @@ def test_calculate_landable_subgraphs_stops_multiple_repo_paths(
     assert landable == [[r1["phid"], r2["phid"]]]
 
 
+@pytest.mark.django_db
 def test_calculate_landable_subgraphs_allows_distinct_repo_paths(
-    phabdouble, app, db, release_management_project, needs_data_classification_project
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -470,8 +497,12 @@ def test_calculate_landable_subgraphs_allows_distinct_repo_paths(
     assert [r3["phid"], r4["phid"]] in landable
 
 
+@pytest.mark.django_db
 def test_calculate_landable_subgraphs_different_repo_parents(
-    phabdouble, app, db, release_management_project, needs_data_classification_project
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -506,8 +537,12 @@ def test_calculate_landable_subgraphs_different_repo_parents(
     assert [r2["phid"]] in landable
 
 
+@pytest.mark.django_db
 def test_calculate_landable_subgraphs_different_repo_closed_parent(
-    phabdouble, app, db, release_management_project, needs_data_classification_project
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -541,8 +576,12 @@ def test_calculate_landable_subgraphs_different_repo_closed_parent(
     assert [r2["phid"], r3["phid"]] in landable
 
 
+@pytest.mark.django_db
 def test_calculate_landable_subgraphs_diverging_paths_merge(
-    phabdouble, app, db, release_management_project, needs_data_classification_project
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -592,8 +631,12 @@ def test_calculate_landable_subgraphs_diverging_paths_merge(
     assert [r1["phid"], r6["phid"]] in landable
 
 
+@pytest.mark.django_db
 def test_calculate_landable_subgraphs_complex_graph(
-    phabdouble, app, db, release_management_project, needs_data_classification_project
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -688,8 +731,9 @@ def test_calculate_landable_subgraphs_complex_graph(
     assert [rB1["phid"]] in landable
 
 
+@pytest.mark.django_db
 def test_calculate_landable_subgraphs_missing_repo(
-    phabdouble, app, db, release_management_project, needs_data_classification_project
+    phabdouble, release_management_project, needs_data_classification_project
 ):
     """Test to assert a missing repository for a revision is
     blocked with an appropriate error
@@ -724,7 +768,8 @@ def test_calculate_landable_subgraphs_missing_repo(
     assert repo_unset_warning in stack_state.stack.nodes[r1["phid"]]["blocked"]
 
 
-def test_get_landable_repos_for_revision_data(db, phabdouble, mocked_repo_config):
+@pytest.mark.django_db
+def test_get_landable_repos_for_revision_data(phabdouble, mocked_repo_config):
     phab = phabdouble.get_phabricator_client()
 
     repo1 = phabdouble.repo(name="mozilla-central")
@@ -743,8 +788,8 @@ def test_get_landable_repos_for_revision_data(db, phabdouble, mocked_repo_config
     assert landable_repos[repo1["phid"]].tree == "mozilla-central"
 
 
+@pytest.mark.django_db
 def test_integrated_stack_endpoint_simple(
-    db,
     proxy_client,
     phabdouble,
     mocked_repo_config,
@@ -785,8 +830,8 @@ def test_integrated_stack_endpoint_simple(
     ]
 
 
+@pytest.mark.django_db
 def test_integrated_stack_endpoint_repos(
-    db,
     proxy_client,
     phabdouble,
     mocked_repo_config,
@@ -817,8 +862,8 @@ def test_integrated_stack_endpoint_repos(
     )
 
 
+@pytest.mark.django_db
 def test_integrated_stack_has_revision_security_status(
-    db,
     proxy_client,
     phabdouble,
     mock_repo_config,
@@ -841,8 +886,8 @@ def test_integrated_stack_has_revision_security_status(
     assert revisions[secure_revision["phid"]]["is_secure"]
 
 
+@pytest.mark.django_db
 def test_integrated_stack_response_mismatch_returns_404(
-    db,
     proxy_client,
     phabdouble,
     mock_repo_config,

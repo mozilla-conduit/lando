@@ -14,10 +14,6 @@ from lando.utils.phabricator import (
     PhabricatorRevisionStatus,
     ReviewerStatus,
 )
-from tests.canned_responses.phabricator.diffs import (
-    CANNED_DEFAULT_DIFF_CHANGES,
-    CANNED_RAW_DEFAULT_DIFF,
-)
 
 
 def conduit_method(method):

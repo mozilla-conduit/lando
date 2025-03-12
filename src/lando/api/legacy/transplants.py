@@ -10,13 +10,11 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
-from django.core.cache import cache
-from django.contrib.auth.models import User
 import networkx as nx
 import requests
-
-from lando.api.legacy.reviews import calculate_review_extra_state, reviewer_identity
 import rs_parsepatch
+from django.contrib.auth.models import User
+from django.core.cache import cache
 
 from lando.api.legacy.hgexports import (
     DiffAssessor,
@@ -48,6 +46,7 @@ from lando.api.legacy.stacks import (
     get_landable_repos_for_revision_data,
 )
 from lando.api.legacy.transactions import get_inline_comments
+from lando.api.legacy.users import user_search
 from lando.main.models import Repo
 from lando.main.models.landing_job import LandingJob, LandingJobStatus
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
@@ -57,8 +56,6 @@ from lando.utils.phabricator import (
     PhabricatorRevisionStatus,
     ReviewerStatus,
 )
-from lando.api.legacy.transactions import get_inline_comments
-from lando.api.legacy.users import user_search
 
 logger = logging.getLogger(__name__)
 
@@ -857,9 +854,15 @@ def blocker_single_landing_repo(
     if not repo_phid:
         return "Landing path has no repository specified."
 
-    # Set the landing repo field on the `LandingAssessmentState`.
-    landing_repo = stack_state.landable_repos.get(repo_phid)
-    stack_state.landing_assessment.landing_repo = landing_repo
+    if repo_phid not in stack_state.landable_repos:
+        return "Landing repository is not supported by Lando."
+
+    # If the landing repo on the current revision is set as a legacy repo
+    # of another repo, then change the landing repo to match the target.
+    set_repo = stack_state.landable_repos[repo_phid]
+    stack_state.landing_assessment.landing_repo = (
+        set_repo if not set_repo.is_legacy else set_repo.new_target
+    )
 
 
 def blocker_prevent_symlinks(
