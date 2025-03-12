@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.utils.html import escape
 from jinja2 import Environment
 
+from lando.main.models import Repo
 from lando.treestatus.forms import (
     ReasonCategory,
     TreeCategory,
@@ -260,6 +261,19 @@ def repo_path(repo_url: str) -> str:
     return repo if repo else repo_url
 
 
+def repo_branch_url(repo: Repo) -> str:
+    """Generate a url for a given repo accounting for branches."""
+    if not repo.is_git:
+        return repo.url
+
+    if "git.test" in repo.url:
+        # For some local testing repos, there is a different URL pattern.
+        template = "{repo.url}/log/?h={repo.default_branch}"
+    else:
+        template = "{repo.url}/tree/{repo.default_branch}"
+    return template.format(repo=repo)
+
+
 GRAPH_DRAWING_COL_WIDTH = 14
 GRAPH_DRAWING_HEIGHT = 44
 GRAPH_DRAWING_COLORS = [
@@ -365,6 +379,7 @@ def environment(**options):
             "linkify_sec_bug_docs": linkify_sec_bug_docs,
             "linkify_transplant_details": linkify_transplant_details,
             "message_type_to_notification_class": message_type_to_notification_class,
+            "repo_branch_url": repo_branch_url,
             "repo_path": repo_path,
             "reason_category_to_display": reason_category_to_display,
             "reviewer_to_action_text": reviewer_to_action_text,

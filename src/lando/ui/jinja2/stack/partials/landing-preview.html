@@ -12,8 +12,9 @@
 {% elif series %}
   <h3 class="StackPage-landingPreview-sectionLabel">
     Landing To: &nbsp;
-    <a class="StackPage-landingPreview-landingTo" href="{{ target_repo['url'] }}">
-      {{ target_repo['url']|repo_path }}
+    <a class="StackPage-landingPreview-landingTo" href="{{ target_repo|repo_branch_url }}">
+        {{target_repo.name}}
+        {% if target_repo.default_branch %}({{ target_repo.default_branch }}){% endif %}
     </a>
   {% if target_repo.legacy_source %}
   <br>
