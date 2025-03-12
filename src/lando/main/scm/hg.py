@@ -164,7 +164,7 @@ class HgSCM(AbstractSCM):
 
     hg_repo: hglib.client.hgclient
 
-    def __init__(self, path: str, config: Optional[dict] = None, **kwargs):
+    def __init__(self, path: str, config: Optional[dict] = None):
         self.config = copy.copy(self.DEFAULT_CONFIGS)
 
         # Somewhere to store patch headers for testing.
