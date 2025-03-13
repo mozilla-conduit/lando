@@ -1,24 +1,52 @@
+from __future__ import annotations
+
+import copy
 import functools
 import hashlib
 import json
 import logging
 from collections import namedtuple
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Optional
 
+import networkx as nx
 import requests
+import rs_parsepatch
+from django.contrib.auth.models import User
+from django.core.cache import cache
 
-from lando.api.legacy.reviews import calculate_review_extra_state, reviewer_identity
+from lando.api.legacy.hgexports import (
+    DiffAssessor,
+    PreventSymlinksCheck,
+    TryTaskConfigCheck,
+)
+from lando.api.legacy.projects import (
+    get_secure_project_phid,
+    get_testing_policy_phid,
+    get_testing_tag_project_phids,
+    project_search,
+)
+from lando.api.legacy.reviews import (
+    calculate_review_extra_state,
+    get_collated_reviewers,
+    reviewer_identity,
+)
 from lando.api.legacy.revisions import (
-    check_author_planned_changes,
-    check_diff_author_is_known,
-    check_uplift_approval,
+    blocker_diff_author_is_known,
+    gather_involved_phids,
+    revision_has_needs_data_classification_tag,
     revision_is_secure,
     revision_needs_testing_tag,
 )
 from lando.api.legacy.stacks import (
     RevisionData,
+    RevisionStack,
+    get_diffs_for_revision,
+    get_landable_repos_for_revision_data,
 )
 from lando.api.legacy.transactions import get_inline_comments
+from lando.api.legacy.users import user_search
 from lando.main.models import Repo
 from lando.main.models.landing_job import LandingJob, LandingJobStatus
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
@@ -31,11 +59,6 @@ from lando.utils.phabricator import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_OTHER_BLOCKER_CHECKS = [
-    check_author_planned_changes,
-    check_diff_author_is_known,
-]
-
 RevisionWarning = namedtuple(
     "RevisionWarning",
     ("i", "display", "revision_id", "details", "articulated"),
@@ -46,25 +69,185 @@ RevisionWarning = namedtuple(
 CODE_FREEZE_OFFSET = "-0800"
 
 
-def tokens_are_equal(t1, t2):
-    """Return whether t1 and t2 are equal.
+@dataclass
+class LandingAssessmentState:
+    """Encapsulates the state of a landing assessment.
 
-    This function exists to make mocking or ignoring confirmation token
-    checks very simple.
+    Holds fields that are necessary to assess if a landing will be blocked,
+    but are not necessary to run checks on the entire stack. This includes
+    checks for permissions on a user to initiate a landing, whether the
+    requested path can land at the current time, etc.
     """
-    return t1 == t2
+
+    lando_user: User
+    landing_path_by_phid: list[tuple[str, int]]
+    to_land: list[tuple[dict, dict]]
+
+    # `landing_repo` is set in the single landing repo check.
+    landing_repo: Optional[Repo] = None
+
+    @classmethod
+    def from_landing_path(
+        cls,
+        landing_path: list[tuple[int, int]],
+        stack_data: RevisionData,
+        lando_user: User,
+    ) -> LandingAssessmentState:
+        landing_path_by_phid = convert_path_id_to_phid(landing_path, stack_data)
+
+        to_land = [stack_data.revisions[r_phid] for r_phid, _ in landing_path_by_phid]
+        to_land = [
+            (
+                revision,
+                stack_data.diffs[
+                    PhabricatorClient.expect(revision, "fields", "diffPHID")
+                ],
+            )
+            for revision in to_land
+        ]
+
+        return LandingAssessmentState(
+            lando_user=lando_user,
+            landing_path_by_phid=landing_path_by_phid,
+            to_land=to_land,
+        )
 
 
-class TransplantAssessment:
-    """Represents an assessment of issues that may block a revision landing.
+@dataclass
+class StackAssessmentState:
+    """Handles the state of a stack for assessment.
+
+    Holds all data relevant to a stack such that the stack blocker/warning checks
+    can be run against them. This includes the optional `LandingAssessmentState`
+    which includes extra fields related to the ability to create a landing job
+    for patches in the stack.
+    """
+
+    phab: PhabricatorClient
+    stack_data: RevisionData
+    stack: RevisionStack
+    parsed_diffs: dict[int, list[dict]]
+    landable_stack: RevisionStack
+    statuses: dict[str, PhabricatorRevisionStatus]
+    landable_repos: dict[str, Repo]
+    supported_repos: dict[str, Repo]
+    reviewers: dict
+    users: dict
+    projects: dict
+    data_policy_review_phid: str
+    relman_group_phid: str
+    secure_project_phid: str
+    testing_tag_project_phids: list[str]
+    testing_policy_phid: str
+
+    # State required for assessing landing requests.
+    landing_assessment: Optional[LandingAssessmentState] = None
+
+    @classmethod
+    def from_assessment(
+        cls,
+        phab: PhabricatorClient,
+        stack_data: RevisionData,
+        stack: RevisionStack,
+        parsed_diffs: dict[int, dict],
+        landable_repos: dict[str, Repo],
+        supported_repos: dict[str, Repo],
+        reviewers: dict,
+        users: dict,
+        projects: dict,
+        data_policy_review_phid: str,
+        relman_group_phid: str,
+        secure_project_phid: str,
+        testing_tag_project_phids: list[str],
+        testing_policy_phid: str,
+        landing_assessment: Optional[LandingAssessmentState] = None,
+    ) -> StackAssessmentState:
+        """Build a `StackAssessmentState` from passed arguments.
+
+        Build any fields that are shared between checks but are derived from
+        existing fields.
+        """
+        # Create a copy of the stack so that revisions that are blocked from landing
+        # can be removed from it when running landing checks. After all checks have run
+        # the landing paths between nodes in this stack should all be landable.
+        landable_stack = copy.deepcopy(stack)
+
+        # Map each revision to its existing status so we can check for closed revisions.
+        statuses = {
+            phid: PhabricatorRevisionStatus.from_status(
+                PhabricatorClient.expect(revision, "fields", "status", "value")
+            )
+            for phid, revision in stack_data.revisions.items()
+        }
+
+        return StackAssessmentState(
+            phab=phab,
+            stack_data=stack_data,
+            stack=stack,
+            statuses=statuses,
+            parsed_diffs=parsed_diffs,
+            landable_stack=landable_stack,
+            landable_repos=landable_repos,
+            supported_repos=supported_repos,
+            reviewers=reviewers,
+            users=users,
+            projects=projects,
+            data_policy_review_phid=data_policy_review_phid,
+            relman_group_phid=relman_group_phid,
+            secure_project_phid=secure_project_phid,
+            testing_tag_project_phids=testing_tag_project_phids,
+            testing_policy_phid=testing_policy_phid,
+            landing_assessment=landing_assessment,
+        )
+
+    def assessment_blocking_pairs(self) -> set[str]:
+        """Return the set of revisions which should be considered as blockers."""
+        if self.landing_assessment:
+            return {
+                revision_phid["phid"]
+                for revision_phid, diff_id in self.landing_assessment.to_land
+            }
+
+        return set(self.stack_data.revisions.keys())
+
+    def revision_check_pairs(self) -> list[tuple[dict, dict]]:
+        """Return the appropriate list of `revision, diff` pairs for assessing.
+
+        If this state has an associated `LandingAssessmentState`, return the pairs
+        for the landing path being assessed. Otherwise, return the pairs for every
+        revision in the stack.
+        """
+        return [
+            (
+                revision,
+                self.stack_data.diffs[
+                    PhabricatorClient.expect(revision, "fields", "diffPHID")
+                ],
+            )
+            for revision in self.stack_data.revisions.values()
+        ]
+
+    def get_repo_for_revision(self, revision: dict) -> Optional[Repo]:
+        """Given a revision object, return the associated `Repo` in Lando."""
+        repo_phid = PhabricatorClient.expect(revision, "fields", "repositoryPHID")
+
+        repo = self.stack_data.repositories.get(repo_phid)
+        if not repo or not self.supported_repos:
+            return None
+
+        return self.supported_repos.get(repo["fields"]["shortName"])
+
+
+class StackAssessment:
+    """Represents an assessment of issues that may block a landing.
 
     Attributes:
-        blocker: String reason landing is blocked.
+        blocker: List of strings outlining why a revision is blocked from landing.
         warnings: List with each item being a RevisionWarning.
     """
 
-    def __init__(self, *, blocker=None, warnings=None):
-        self.blocker = blocker
+    def __init__(self, *, blockers: list | None = None, warnings: list | None = None):
+        self.blockers = blockers if blockers is not None else []
         self.warnings = warnings if warnings is not None else []
 
     def to_dict(self):
@@ -87,7 +270,7 @@ class TransplantAssessment:
             )
 
         return {
-            "blocker": self.blocker,
+            "blocker": "\n".join(self.blockers) if self.blockers else None,
             "warnings": list(bucketed_warnings.values()),
             "confirmation_token": self.confirmation_token(self.warnings),
         }
@@ -106,7 +289,7 @@ class TransplantAssessment:
         return hashlib.sha256(json.dumps(warnings).encode("utf-8")).hexdigest()
 
     def raise_if_blocked_or_unacknowledged(self, confirmation_token):
-        if self.blocker is not None:
+        if self.blockers:
             error_message = "There are landing blockers present which prevent landing."
             raise LegacyAPIException(
                 400,
@@ -115,7 +298,7 @@ class TransplantAssessment:
             )
 
         details = self.to_dict()
-        if not tokens_are_equal(details["confirmation_token"], confirmation_token):
+        if not details["confirmation_token"] == confirmation_token:
             if confirmation_token is None:
                 error_message = (
                     "There are landing warnings present which have not "
@@ -150,9 +333,8 @@ class RevisionWarningCheck:
 
     def __call__(self, f):
         @functools.wraps(f)
-        def wrapped(*, revision, **kwargs):
-            kwargs["revision"] = revision
-            result = f(**kwargs)
+        def wrapped(revision: dict, diff: dict, stack_state: StackAssessmentState):
+            result = f(revision, diff, stack_state)
             return (
                 None
                 if result is None
@@ -165,10 +347,12 @@ class RevisionWarningCheck:
 
 
 @RevisionWarningCheck(0, "Has a review intended to block landing.")
-def warning_blocking_reviews(*, revision, diff, reviewers, users, projects, **kwargs):
+def warning_blocking_reviews(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+):
     reviewer_extra_state = {
         phid: calculate_review_extra_state(diff["phid"], r["status"], r["diffPHID"])
-        for phid, r in reviewers.items()
+        for phid, r in stack_state.reviewers[revision["phid"]].items()
     }
     blocking_phids = [
         phid
@@ -179,7 +363,9 @@ def warning_blocking_reviews(*, revision, diff, reviewers, users, projects, **kw
         return None
 
     blocking_reviewers = [
-        "@{}".format(reviewer_identity(phid, users, projects).identifier)
+        "@{}".format(
+            reviewer_identity(phid, stack_state.users, stack_state.projects).identifier
+        )
         for phid in blocking_phids
     ]
     if len(blocking_reviewers) > 1:
@@ -198,7 +384,9 @@ def warning_blocking_reviews(*, revision, diff, reviewers, users, projects, **kw
 
 
 @RevisionWarningCheck(1, "Has previously landed.")
-def warning_previously_landed(*, revision, diff, **kwargs):
+def warning_previously_landed(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+):
     revision_id = PhabricatorClient.expect(revision, "id")
     diff_id = PhabricatorClient.expect(diff, "id")
 
@@ -235,7 +423,7 @@ def warning_previously_landed(*, revision, diff, **kwargs):
 
 
 @RevisionWarningCheck(2, "Is not Accepted.")
-def warning_not_accepted(*, revision, **kwargs):
+def warning_not_accepted(revision: dict, diff: dict, stack_state: StackAssessmentState):
     status = PhabricatorRevisionStatus.from_status(
         PhabricatorClient.expect(revision, "fields", "status", "value")
     )
@@ -246,11 +434,18 @@ def warning_not_accepted(*, revision, **kwargs):
 
 
 @RevisionWarningCheck(3, "No reviewer has accepted the current diff.")
-def warning_reviews_not_current(*, diff, reviewers, **kwargs):
-    for _, r in reviewers.items():
-        extra = calculate_review_extra_state(diff["phid"], r["status"], r["diffPHID"])
+def warning_reviews_not_current(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+):
+    for reviewer in stack_state.reviewers[revision["phid"]].values():
+        extra = calculate_review_extra_state(
+            diff["phid"], reviewer["status"], reviewer["diffPHID"]
+        )
 
-        if r["status"] == ReviewerStatus.ACCEPTED and not extra["for_other_diff"]:
+        if (
+            reviewer["status"] == ReviewerStatus.ACCEPTED
+            and not extra["for_other_diff"]
+        ):
             return None
 
     return "Has no accepted review on the current diff."
@@ -259,11 +454,13 @@ def warning_reviews_not_current(*, diff, reviewers, **kwargs):
 @RevisionWarningCheck(
     4, "Is a secure revision and should follow the Security Bug Approval Process."
 )
-def warning_revision_secure(*, revision, secure_project_phid, **kwargs):
-    if secure_project_phid is None:
+def warning_revision_secure(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+):
+    if stack_state.secure_project_phid is None:
         return None
 
-    if not revision_is_secure(revision, secure_project_phid):
+    if not revision_is_secure(revision, stack_state.secure_project_phid):
         return None
 
     return (
@@ -274,13 +471,18 @@ def warning_revision_secure(*, revision, secure_project_phid, **kwargs):
 
 @RevisionWarningCheck(5, "Revision is missing a Testing Policy Project Tag.")
 def warning_revision_missing_testing_tag(
-    *, revision, repo, testing_tag_project_phids, testing_policy_phid, **kwargs
+    revision: dict, diff: dict, stack_state: StackAssessmentState
 ):
-    if not testing_tag_project_phids:
+    if not stack_state.testing_tag_project_phids:
         return None
 
+    repo_phid = PhabricatorClient.expect(revision, "fields", "repositoryPHID")
+    repo = stack_state.stack_data.repositories[repo_phid]
     if not revision_needs_testing_tag(
-        revision, repo, testing_tag_project_phids, testing_policy_phid
+        revision,
+        repo,
+        stack_state.testing_tag_project_phids,
+        stack_state.testing_policy_phid,
     ):
         return None
 
@@ -290,7 +492,7 @@ def warning_revision_missing_testing_tag(
 
 
 @RevisionWarningCheck(6, "Revision has a diff warning.", True)
-def warning_diff_warning(*, revision, diff, **kwargs):
+def warning_diff_warning(revision: dict, diff: dict, stack_state: StackAssessmentState):
     warnings = DiffWarning.objects.filter(
         revision_id=revision["id"],
         diff_id=diff["id"],
@@ -301,14 +503,21 @@ def warning_diff_warning(*, revision, diff, **kwargs):
 
 
 @RevisionWarningCheck(7, "Revision is marked as WIP.")
-def warning_wip_commit_message(*, revision, **kwargs):
+def warning_wip_commit_message(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+):
     title = PhabricatorClient.expect(revision, "fields", "title")
     if title.lower().startswith("wip:"):
         return "This revision is marked as a WIP. Please remove `WIP:` before landing."
 
 
 @RevisionWarningCheck(8, "Repository is under a soft code freeze.", True)
-def warning_code_freeze(*, repo, **kwargs):
+def warning_code_freeze(revision: dict, diff: dict, stack_state: StackAssessmentState):
+    repo_phid = PhabricatorClient.expect(revision, "fields", "repositoryPHID")
+    repo = stack_state.stack_data.repositories.get(repo_phid)
+    if not repo:
+        return
+
     supported_repos = Repo.get_mapping()
     try:
         repo_details = supported_repos[repo["fields"]["shortName"]]
@@ -356,25 +565,70 @@ def warning_code_freeze(*, repo, **kwargs):
 
 
 @RevisionWarningCheck(9, "Revision has unresolved comments.")
-def warning_unresolved_comments(*, phab, revision, **kwargs):
+def warning_unresolved_comments(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+):
     if not all(
-        phab.expect(inline, "fields", "isDone")
-        for inline in get_inline_comments(phab, f"D{revision['id']}")
+        stack_state.phab.expect(inline, "fields", "isDone")
+        for inline in get_inline_comments(stack_state.phab, f"D{revision['id']}")
     ):
         return "Revision has unresolved comments."
 
 
-def user_block_no_auth0_email(*, lando_user, **kwargs):
+@RevisionWarningCheck(10, "Revision has multiple authors.")
+def warning_multiple_authors(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+):
+    """Warn the landing user when a revision has updates from multiple authors."""
+    revision_phid = PhabricatorClient.expect(revision, "phid")
+
+    # Get the author PHID for each diff associated with this revision.
+    author_phids = {
+        PhabricatorClient.expect(diff, "fields", "authorPHID")
+        for diff in stack_state.stack_data.diffs.values()
+        if PhabricatorClient.expect(diff, "fields", "revisionPHID") == revision_phid
+    }
+
+    if len(author_phids) > 1:
+        author_usernames = sorted(
+            reviewer_identity(
+                author_phid, stack_state.users, stack_state.projects
+            ).identifier
+            for author_phid in author_phids
+        )
+        return f"Revision has multiple authors: {', '.join(author_usernames)}."
+
+
+def blocker_user_no_auth0_email(
+    stack_state: StackAssessmentState,
+) -> Optional[str]:
     """Check the user has a proper auth0 email."""
+    if not stack_state.landing_assessment:
+        return None
+
     return (
         None
-        if lando_user.email
+        if stack_state.landing_assessment.lando_user.email
         else ("You do not have a Mozilla verified email address.")
     )
 
 
-def user_block_scm_level(*, lando_user, landing_repo, **kwargs):
+def blocker_user_scm_level(
+    revision: dict,
+    diff: dict,
+    stack_state: StackAssessmentState,
+) -> Optional[str]:
     """Check the user has the scm level required for this repository."""
+    if not stack_state.landing_assessment:
+        return None
+
+    repo_phid = PhabricatorClient.expect(revision, "fields", "repositoryPHID")
+    landing_repo = stack_state.landable_repos.get(repo_phid)
+    if not landing_repo:
+        return "Landing repository is missing for this landing."
+
+    lando_user = stack_state.landing_assessment.lando_user
+
     if lando_user.has_perm(landing_repo.required_permission):
         return None
 
@@ -384,97 +638,38 @@ def user_block_scm_level(*, lando_user, landing_repo, **kwargs):
     )
 
 
-def check_landing_warnings(
-    phab,
-    lando_user,
-    to_land,
-    repo,
-    landing_repo,
-    reviewers,
-    users,
-    projects,
-    secure_project_phid,
-    testing_tag_project_phids,
-    testing_policy_phid,
-    *,
-    revision_warnings=[
-        warning_blocking_reviews,
-        warning_previously_landed,
-        warning_not_accepted,
-        warning_reviews_not_current,
-        warning_revision_secure,
-        warning_revision_missing_testing_tag,
-        warning_diff_warning,
-        warning_wip_commit_message,
-        warning_code_freeze,
-        warning_unresolved_comments,
-    ],
-):
-    assessment = TransplantAssessment()
-    for revision, diff in to_land:
-        for check in revision_warnings:
-            result = check(
-                phab=phab,
-                revision=revision,
-                diff=diff,
-                repo=repo,
-                landing_repo=landing_repo,
-                reviewers=reviewers[revision["phid"]],
-                users=users,
-                projects=projects,
-                secure_project_phid=secure_project_phid,
-                testing_tag_project_phids=testing_tag_project_phids,
-                testing_policy_phid=testing_policy_phid,
-            )
+def blocker_latest_diffs(
+    revision: dict,
+    diff: dict,
+    stack_state: StackAssessmentState,
+) -> Optional[str]:
+    if not stack_state.landing_assessment:
+        # If no revision/diff mapping is specified, we don't need to check for the
+        # latest diff in the landing request.
+        return None
 
-            if result is not None:
-                assessment.warnings.append(result)
+    revision_phid = revision["phid"]
+    latest_diff_phid = PhabricatorClient.expect(revision, "fields", "diffPHID")
+    latest_diff_id = PhabricatorClient.expect(
+        stack_state.stack_data.diffs[latest_diff_phid], "id"
+    )
 
-    return assessment
+    revision_to_diff_id = dict(stack_state.landing_assessment.landing_path_by_phid)
+
+    if latest_diff_id != revision_to_diff_id.get(revision_phid):
+        return "A requested diff is not the latest."
 
 
-def check_landing_blockers(
-    lando_user,
-    requested_path,
-    stack_data,
-    landable_paths,
-    landable_repos,
-    *,
-    user_blocks=None,
-):
-    user_blocks = user_blocks or [user_block_no_auth0_email, user_block_scm_level]
-    revision_path = []
-    revision_to_diff_id = {}
-    for revision_phid, diff_id in requested_path:
-        revision_path.append(revision_phid)
-        revision_to_diff_id[revision_phid] = diff_id
-
-    # Check that the provided path is a prefix to, or equal to,
-    # a landable path.
-    for path in landable_paths:
-        if revision_path == path[: len(revision_path)]:
-            break
-    else:
-        return TransplantAssessment(
-            blocker="The requested set of revisions are not landable."
-        )
-
-    # Check the requested diffs are the latest.
-    for revision_phid in revision_path:
-        latest_diff_phid = PhabricatorClient.expect(
-            stack_data.revisions[revision_phid], "fields", "diffPHID"
-        )
-        latest_diff_id = PhabricatorClient.expect(
-            stack_data.diffs[latest_diff_phid], "id"
-        )
-
-        if latest_diff_id != revision_to_diff_id[revision_phid]:
-            return TransplantAssessment(blocker="A requested diff is not the latest.")
-
+def blocker_landing_already_requested(
+    stack_state: StackAssessmentState,
+) -> Optional[str]:
     # Check if there is already a landing for something in the stack.
-    if (
+    existing_jobs = (
         LandingJob.revisions_query(
-            [PhabricatorClient.expect(r, "id") for r in stack_data.revisions.values()]
+            [
+                PhabricatorClient.expect(revision, "id")
+                for revision in stack_state.stack_data.revisions.values()
+            ]
         )
         .filter(
             status__in=(
@@ -487,36 +682,418 @@ def check_landing_blockers(
             )
         )
         .first()
-        is not None
+    )
+    if existing_jobs is not None:
+        return "A landing for revisions in this stack is already in progress."
+
+
+def blocker_stack_landing_path_valid(
+    stack_state: StackAssessmentState,
+) -> Optional[str]:
+    """Assert the landing path is an actual path in the stack.
+
+    Enforce the provided landing path is an actual path within the stack.
+    """
+    if not stack_state.landing_assessment:
+        # If no revision path is specified, we don't need to check if the path is landable.
+        return None
+
+    # Check that the provided path is a valid path in the landable stack.
+    revision_path = [
+        revision_phid
+        for revision_phid, diff_id in stack_state.landing_assessment.landing_path_by_phid
+    ]
+    if not nx.is_simple_path(stack_state.landable_stack, revision_path):
+        return "The requested set of revisions is not a valid stack."
+
+
+def blocker_stack_landing_path_landable(
+    stack_state: StackAssessmentState,
+) -> Optional[str]:
+    """Assert the landing path is landable."""
+    if not stack_state.landing_assessment:
+        return None
+
+    # Check that the provided path is a valid path in the landable stack.
+    revision_path = [
+        revision_phid
+        for revision_phid, diff_id in stack_state.landing_assessment.landing_path_by_phid
+    ]
+    landable_paths = stack_state.landable_stack.landable_paths()
+    if not landable_paths or not any(
+        revision_path == path[: len(revision_path)] for path in landable_paths
     ):
-        return TransplantAssessment(
-            blocker=("A landing for revisions in this stack is already in progress.")
+        return "The requested set of revisions are not landable."
+
+
+def blocker_open_parents(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> Optional[str]:
+    phid = revision["phid"]
+    parents = stack_state.stack.predecessors(phid)
+    open_parents = {p for p in parents if not stack_state.statuses[p].closed}
+    if not open_parents:
+        return None
+
+    if len(open_parents) > 1:
+        return "Depends on multiple open parents."
+
+    for parent in open_parents:
+        if parent not in stack_state.landable_stack:
+            return "Depends on D{} which is open and blocked.".format(
+                PhabricatorClient.expect(stack_state.stack_data.revisions[parent], "id")
+            )
+
+    parent = open_parents.pop()
+    if (
+        stack_state.stack_data.revisions[phid]["fields"]["repositoryPHID"]
+        != stack_state.stack_data.revisions[parent]["fields"]["repositoryPHID"]
+    ):
+        return "Depends on D{} which is open and has a different repository.".format(
+            stack_state.stack_data.revisions[parent]["id"]
         )
 
-    # To be a landable path the entire path must have the same
-    # repository, so we can get away with checking only one.
-    repo = landable_repos[
-        stack_data.revisions[revision_path[0]]["fields"]["repositoryPHID"]
+
+def blocker_unsupported_repo(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> Optional[str]:
+    repo = PhabricatorClient.expect(revision, "fields", "repositoryPHID")
+    if not repo:
+        return (
+            "Revision's repository unset. Specify a target using"
+            '"Edit revision" in Phabricator'
+        )
+
+    if repo not in stack_state.landable_repos:
+        return "Repository is not supported by Lando."
+
+
+def blocker_closed_revisions(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> Optional[str]:
+    phid = revision["phid"]
+    if stack_state.statuses[phid].closed:
+        return "Revision is closed."
+
+
+def blocker_open_ancestor(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> Optional[str]:
+    if revision["phid"] not in stack_state.landable_stack:
+        return "Has an open ancestor revision that is blocked."
+
+
+def blocker_author_planned_changes(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> Optional[str]:
+    status = PhabricatorRevisionStatus.from_status(
+        PhabricatorClient.expect(revision, "fields", "status", "value")
+    )
+    if status is not PhabricatorRevisionStatus.CHANGES_PLANNED:
+        return None
+
+    return "The author has indicated they are planning changes to this revision."
+
+
+def blocker_uplift_approval(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> Optional[str]:
+    """Check that Release Managers group approved a revision"""
+    local_repo = stack_state.get_repo_for_revision(revision)
+
+    # Check if this repository needs an approval from relman.
+    if not local_repo or not local_repo.approval_required:
+        return None
+
+    # Check that relman approval was requested and that the
+    # approval was granted.
+    reviewers = get_collated_reviewers(revision)
+    relman_review = reviewers.get(stack_state.relman_group_phid)
+    if relman_review is None or relman_review["status"] != ReviewerStatus.ACCEPTED:
+        return (
+            "The release-managers group did not accept the stack: "
+            "you need to wait for a group approval from release-managers, "
+            "or request a new review."
+        )
+
+    return None
+
+
+def blocker_revision_data_classification(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> Optional[str]:
+    """Check that the `needs-data-classification` tag is not present on a revision."""
+    if revision_has_needs_data_classification_tag(
+        revision, stack_state.data_policy_review_phid
+    ):
+        return (
+            "Revision makes changes to data collection and "
+            "should have its data classification assessed before landing."
+        )
+
+
+def blocker_single_landing_repo(
+    stack_state: StackAssessmentState,
+) -> Optional[str]:
+    """Assert that a landing request has a single landing repository."""
+    if not stack_state.landing_assessment:
+        return None
+
+    repo_phid = None
+    for revision, _diff in stack_state.landing_assessment.to_land:
+        revision_repo_phid = PhabricatorClient.expect(
+            revision, "fields", "repositoryPHID"
+        )
+        if not repo_phid:
+            repo_phid = revision_repo_phid
+            continue
+
+        if revision_repo_phid != repo_phid:
+            return "Landing path contains multiple repositories."
+
+    if not repo_phid:
+        return "Landing path has no repository specified."
+
+    if repo_phid not in stack_state.landable_repos:
+        return "Landing repository is not supported by Lando."
+
+    # If the landing repo on the current revision is set as a legacy repo
+    # of another repo, then change the landing repo to match the target.
+    set_repo = stack_state.landable_repos[repo_phid]
+    stack_state.landing_assessment.landing_repo = (
+        set_repo if not set_repo.is_legacy else set_repo.new_target
+    )
+
+
+def blocker_prevent_symlinks(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> Optional[str]:
+    """Assert a revision does not add a symlink to the repo."""
+    diff_id = PhabricatorClient.expect(diff, "id")
+    parsed_diff = stack_state.parsed_diffs[diff_id]
+
+    diff_assessor = DiffAssessor(parsed_diff=parsed_diff)
+
+    if issues := diff_assessor.run_diff_checks([PreventSymlinksCheck]):
+        return issues[0]
+
+
+def blocker_try_task_config(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> Optional[str]:
+    """Block revisions which contain the `try_task_config.json` file."""
+    diff_id = PhabricatorClient.expect(diff, "id")
+    parsed_diff = stack_state.parsed_diffs[diff_id]
+
+    # `TryTaskConfigCheck` only requires inspecting the diff.
+    diff_assessor = DiffAssessor(parsed_diff=parsed_diff)
+
+    if issues := diff_assessor.run_diff_checks([TryTaskConfigCheck]):
+        return issues[0]
+
+
+STACK_BLOCKER_CHECKS = [
+    # This check needs to be first.
+    blocker_stack_landing_path_valid,
+    blocker_landing_already_requested,
+    blocker_user_no_auth0_email,
+    blocker_single_landing_repo,
+]
+
+REVISION_BLOCKER_CHECKS = [
+    blocker_user_scm_level,
+    blocker_unsupported_repo,
+    blocker_open_parents,
+    blocker_closed_revisions,
+    blocker_latest_diffs,
+    blocker_author_planned_changes,
+    blocker_diff_author_is_known,
+    blocker_uplift_approval,
+    blocker_revision_data_classification,
+    blocker_prevent_symlinks,
+    blocker_try_task_config,
+    # This check needs to be last.
+    blocker_open_ancestor,
+]
+
+WARNING_CHECKS = [
+    warning_blocking_reviews,
+    warning_previously_landed,
+    warning_not_accepted,
+    warning_reviews_not_current,
+    warning_revision_secure,
+    warning_revision_missing_testing_tag,
+    warning_diff_warning,
+    warning_wip_commit_message,
+    warning_code_freeze,
+    warning_unresolved_comments,
+    warning_multiple_authors,
+]
+
+
+def run_landing_checks(stack_state: StackAssessmentState) -> StackAssessment:
+    """Build a `StackAssessment` by running landing checks.
+
+    Run each landing check and append the result to the `StackAssessment`.
+    There are three categories of checks:
+        - `stack_blockers` are checks that inspect the entire state of the stack, and
+          will block landing the stack if the check does not pass.
+        - `revision_blockers` are checks that inspect each individual revision and diff
+          pair, and will block landing the revision if the check does not pass.
+        - `revision_warnings` are checks that inspect each individual revision and diff
+          pair, and will present a warning that must be acknowledged to land if the
+          check does not pass.
+
+    Each type of check takes the `StackAssessmentState` object, and the revision-level
+    blockers and warnings also take each `(revision, diff)` pair as arguments. Checks return
+    `None` on success, and a string reason explaining what went wrong in the check on error.
+    """
+    assessment = StackAssessment()
+
+    # Run stack-level blocker checks.
+    for block in STACK_BLOCKER_CHECKS:
+        if reason := block(stack_state=stack_state):
+            assessment.blockers.append(reason)
+
+    # Get the appropriate list of pairs to run checks against.
+    revision_check_pairs = stack_state.revision_check_pairs()
+    assessment_blocking_phids = stack_state.assessment_blocking_pairs()
+
+    # Run revision-level blockers checks.
+    for revision, diff in revision_check_pairs:
+        phid = revision["phid"]
+        for block in REVISION_BLOCKER_CHECKS:
+            reason = block(
+                revision=revision,
+                diff=diff,
+                stack_state=stack_state,
+            )
+
+            # Without a reason for blocking, move to the next check.
+            if not reason:
+                continue
+
+            # If the checked revision should block a landing, add the reason
+            # to the assessment.
+            if phid in assessment_blocking_phids:
+                assessment.blockers.append(reason)
+
+            # Remove the node from the landable stack.
+            if phid is not None and phid in stack_state.landable_stack:
+                stack_state.landable_stack.remove_node(phid)
+                stack_state.stack.nodes[phid]["blocked"].append(reason)
+
+    # Run revision-level warning checks.
+    for revision, diff in revision_check_pairs:
+        phid = revision["phid"]
+        for check in WARNING_CHECKS:
+            reason = check(revision=revision, diff=diff, stack_state=stack_state)
+
+            # Without a reason for warning, move to the next check.
+            if not reason:
+                continue
+
+            # Add the warning to the assessment warnings if the PHID
+            # should block landings.
+            if phid in assessment_blocking_phids:
+                assessment.warnings.append(reason)
+
+    # Run check to assert landing path is valid.
+    if reason := blocker_stack_landing_path_landable(stack_state=stack_state):
+        assessment.blockers.append(reason)
+
+    return assessment
+
+
+def get_raw_diff_by_id(phab: PhabricatorClient, diff_id: int) -> str:
+    """Get a `differential.rawdiff` response for the given diff ID.
+
+    Handles retrieving and setting responses from Phabricator in the cache.
+    """
+    # Check for data in the cache.
+    cache_key = f"raw_diff_{diff_id}"
+    if cache.has_key(cache_key):
+        return cache.get(cache_key)
+
+    # Request data from Phabricator and set in the cache.
+    raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff_id)
+
+    cache.set(cache_key, raw_diff)
+    return raw_diff
+
+
+def get_parsed_diffs(
+    phab: PhabricatorClient, stack_data: RevisionData
+) -> dict[int, dict]:
+    """Return a mapping of diff PHID to `rs-parsepatch` parsed `diff --git` content."""
+    raw_diffs = {}
+
+    # Get the latest diffs for each revision.
+    latest_diffs = [
+        stack_data.diffs[phab.expect(revision, "fields", "diffPHID")]
+        for revision in stack_data.revisions.values()
     ]
 
-    # Check anything that would block the current user from
-    # landing this.
-    for block in user_blocks:
-        result = block(lando_user=lando_user, landing_repo=repo)
-        if result is not None:
-            return TransplantAssessment(blocker=result)
+    for diff in latest_diffs:
+        diff_id = phab.expect(diff, "id")
 
-    return TransplantAssessment()
+        raw_diffs[diff_id] = get_raw_diff_by_id(phab, diff_id)
+
+    return {
+        diff_id: rs_parsepatch.get_diffs(diff) for diff_id, diff in raw_diffs.items()
+    }
 
 
-def get_blocker_checks(
-    repositories: dict, relman_group_phid: str, stack_data: RevisionData
-):
-    """Build all transplant blocker checks that need extra Phabricator data"""
-    return DEFAULT_OTHER_BLOCKER_CHECKS + [
-        # Configure uplift check with extra data.
-        check_uplift_approval(relman_group_phid, repositories, stack_data)
-    ]
+def build_stack_assessment_state(
+    phab: PhabricatorClient,
+    supported_repos: dict[str, Repo],
+    stack_data: RevisionData,
+    stack: RevisionStack,
+    relman_group_phid: str,
+    data_policy_review_phid: str,
+    landing_assessment: Optional[LandingAssessmentState] = None,
+) -> StackAssessmentState:
+    """Given the required state information for a stack, build a `StackAssessmentState`"""
+    landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
+
+    # Retrieve and parse diffs from Phabricator.
+    parsed_diffs = get_parsed_diffs(phab, stack_data)
+
+    involved_phids = set()
+    reviewers = {}
+    for revision in stack_data.revisions.values():
+        revision_diffs = get_diffs_for_revision(revision, stack_data.diffs)
+        involved_phids.update(gather_involved_phids(revision, revision_diffs))
+        reviewers[revision["phid"]] = get_collated_reviewers(revision)
+
+    # Get more Phabricator data.
+    involved_phids = list(involved_phids)
+
+    users = user_search(phab, involved_phids)
+    projects = project_search(phab, involved_phids)
+
+    secure_project_phid = get_secure_project_phid(phab)
+    testing_tag_project_phids = get_testing_tag_project_phids(phab)
+    testing_policy_phid = get_testing_policy_phid(phab)
+
+    stack_state = StackAssessmentState.from_assessment(
+        phab=phab,
+        stack_data=stack_data,
+        stack=stack,
+        parsed_diffs=parsed_diffs,
+        landable_repos=landable_repos,
+        supported_repos=supported_repos,
+        reviewers=reviewers,
+        users=users,
+        projects=projects,
+        data_policy_review_phid=data_policy_review_phid,
+        relman_group_phid=relman_group_phid,
+        secure_project_phid=secure_project_phid,
+        testing_tag_project_phids=testing_tag_project_phids,
+        testing_policy_phid=testing_policy_phid,
+        landing_assessment=landing_assessment,
+    )
+    return stack_state
 
 
 def convert_path_id_to_phid(

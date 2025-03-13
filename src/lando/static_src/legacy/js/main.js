@@ -7,6 +7,7 @@ $(document).ready(function() {
   let $secRequestSubmitted = $('.StackPage-secRequestSubmitted');
   let $stack = $('.StackPage-stack');
   let $timeline = $('.StackPage-timeline');
+  let $treestatus = $('.Treestatus');
 
   // Initialize components
   $flashMessages.flashMessages();
@@ -15,4 +16,5 @@ $(document).ready(function() {
   $secRequestSubmitted.secRequestSubmitted();
   $stack.stack();
   $timeline.timeline();
+  $treestatus.treestatus();
 });

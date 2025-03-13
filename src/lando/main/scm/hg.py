@@ -91,7 +91,7 @@ class HgCommandError(HgException):
 class HgTreeClosed(TreeClosed, HgException):
     """Exception when pushing failed due to a closed tree."""
 
-    SNIPPETS = ["is CLOSED!"]
+    SNIPPETS = ["is CLOSED!", "treating as if CLOSED."]
 
 
 class HgTreeApprovalRequired(TreeApprovalRequired, HgException):
@@ -120,7 +120,9 @@ class HgmoInternalServerError(SCMInternalServerError, HgException):
 
     SNIPPETS = [
         "abort: HTTP Error 500:",
-        "abort: push failed on remote",
+        "abort: error: Connection timed out",
+        "remote: Connection to hg.mozilla.org closed by remote host",
+        "remote: could not complete push due to pushlog operational errors",
     ]
 
 
@@ -162,7 +164,7 @@ class HgSCM(AbstractSCM):
 
     hg_repo: hglib.client.hgclient
 
-    def __init__(self, path: str, config: Optional[dict] = None, **kwargs):
+    def __init__(self, path: str, config: Optional[dict] = None):
         self.config = copy.copy(self.DEFAULT_CONFIGS)
 
         # Somewhere to store patch headers for testing.
