@@ -129,7 +129,7 @@ class AutomationWorker(Worker):
                 except AutomationActionException as exc:
                     logger.exception(exc.message)
                     job.transition_status(exc.job_status, message=exc.message)
-                    return exc.is_fatal
+                    return not exc.is_fatal
 
             repo_push_info = f"tree: {repo.tree}, push path: {repo.push_path}"
             try:

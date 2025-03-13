@@ -88,10 +88,45 @@ class AddCommitAction(Schema):
         self, job: AutomationJob, repo: Repo, scm: AbstractSCM, index: int
     ) -> bool:
         """Add a commit to the repo."""
-        patch_helper = HgPatchHelper(StringIO(self.content))
+        try:
+            patch_helper = HgPatchHelper(StringIO(self.content))
+        except ValueError as exc:
+            message = (
+                "Could not parse patch in `add-commit`, "
+                f"action #{index}.: {str(exc)}"
+            )
+            raise AutomationActionException(
+                message=message,
+                job_action=LandingJobAction.FAIL,
+                is_fatal=True,
+            )
 
-        date = patch_helper.get_header("Date")
-        user = patch_helper.get_header("User")
+
+        try:
+            date = patch_helper.get_header("Date")
+        except ValueError as exc:
+            message = (
+                "Could not parse `Date` header from patch in `add-commit`, "
+                f"action #{index}."
+            )
+            raise AutomationActionException(
+                message=message,
+                job_action=LandingJobAction.FAIL,
+                is_fatal=True,
+            )
+
+        try:
+            user = patch_helper.get_header("User")
+        except ValueError as exc:
+            message = (
+                "Could not parse `User` header from patch in `add-commit`, "
+                f"action #{index}."
+            )
+            raise AutomationActionException(
+                message=message,
+                job_action=LandingJobAction.FAIL,
+                is_fatal=True,
+            )
 
         try:
             scm.apply_patch(
