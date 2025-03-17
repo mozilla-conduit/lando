@@ -422,6 +422,10 @@ def user(user_plaintext_password, conduit_permissions):
 
 @pytest.fixture
 def headless_user(user):
+    user.profile.is_automation_user = True
+    user.save()
+    user.profile.save()
+
     token = ApiToken.create_token(user)
     return user, token
 

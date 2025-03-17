@@ -187,7 +187,7 @@ def test_automation_job_create_bad_action(bad_action, reason, client, headless_u
 
 
 @pytest.mark.django_db
-def test_automation_job_create_automation_disabled(
+def test_automation_job_create_repo_automation_disabled(
     client, headless_user, hg_server, hg_clone
 ):
     user, token = headless_user
@@ -227,6 +227,55 @@ def test_automation_job_create_automation_disabled(
         response.json()["details"]
         == "Repo mozilla-central is not enabled for automation."
     ), "Details should indicate automation API is disabled for repo."
+
+
+@pytest.mark.django_db
+def test_automation_job_create_user_automation_disabled(
+    client, headless_user, hg_server, hg_clone
+):
+    user, token = headless_user
+
+    # Disable automation enabled for user.
+    user.profile.is_automation_user = False
+    user.save()
+    user.profile.save()
+
+    Repo.objects.create(
+        scm_type=SCM_TYPE_HG,
+        name="mozilla-central",
+        url=hg_server,
+        required_permission=SCM_LEVEL_3,
+        push_path=hg_server,
+        pull_path=hg_server,
+        system_path=hg_clone.strpath,
+        automation_enabled=True,
+    )
+
+    # Send a valid request.
+    body = {
+        "actions": [
+            {"action": "add-commit", "content": "0"},
+            {"action": "add-commit", "content": "1"},
+        ],
+    }
+    response = client.post(
+        "/api/repo/mozilla-central",
+        data=json.dumps(body),
+        content_type="application/json",
+        headers={
+            "User-Agent": "Lando-User/testuser@example.org",
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert (
+        response.status_code == 401
+    ), "User disabled for automation should return 401 status code."
+    response_json = response.json()
+    assert (
+        response_json["details"]
+        == "User testuser@example.org is not permitted to make automation changes."
+    )
 
 
 def is_isoformat_timestamp(date_string: str) -> bool:

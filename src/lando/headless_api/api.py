@@ -50,6 +50,11 @@ class HeadlessAPIAuthentication(HttpBearer):
         except ValueError as exc:
             raise APIPermissionDenied(str(exc))
 
+        if not user.profile.is_automation_user:
+            raise APIPermissionDenied(
+                f"User {user.email} is not permitted to make automation changes."
+            )
+
         # Django-Ninja sets `request.auth` to the verified token, since
         # some APIs may have authentication without user management. Our
         # API tokens always correspond to a specific user, so set that on
@@ -101,10 +106,9 @@ class AddCommitAction(Schema):
                 is_fatal=True,
             )
 
-
         try:
             date = patch_helper.get_header("Date")
-        except ValueError as exc:
+        except ValueError:
             message = (
                 "Could not parse `Date` header from patch in `add-commit`, "
                 f"action #{index}."
@@ -117,7 +121,7 @@ class AddCommitAction(Schema):
 
         try:
             user = patch_helper.get_header("User")
-        except ValueError as exc:
+        except ValueError:
             message = (
                 "Could not parse `User` header from patch in `add-commit`, "
                 f"action #{index}."
