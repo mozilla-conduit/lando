@@ -1,3 +1,4 @@
+import re
 import urllib.parse
 
 import pytest
@@ -9,6 +10,7 @@ from lando.jinja import (
     linkify_faq,
     linkify_revision_ids,
     linkify_revision_urls,
+    linkify_transplant_details,
     linkify_sec_bug_docs,
     repo_branch_url,
     repo_path,
@@ -91,10 +93,7 @@ def test_linkify_bug_numbers(input_text, output_text):
     [
         (
             "http://phabricator.test/D123",
-            (
-                '<a href="http://phabricator.test/D123">'
-                "http://phabricator.test/D123</a>"
-            ),
+            ('<a href="http://phabricator.test/D123">http://phabricator.test/D123</a>'),
         ),
         (
             "word http://phabricator.test/D201525 boundaries",
@@ -151,6 +150,26 @@ def test_linkify_revision_urls(input_text, output_text):
 )
 def test_linkify_revision_ids(input_text, output_text):
     assert output_text == linkify_revision_ids(input_text)
+
+
+@pytest.mark.parametrize(
+    "repo_url, match",
+    [
+        ("https://github.com/bad/coffee", r"/commit/"),
+        ("https://hg.mozilla.org/bad/coffee", r"/rev/"),
+    ],
+)
+def test_linkify_transplant_details(repo_url: str, match: str):
+    commit_id = "badc0ffe"
+    transplant = {
+        "details": commit_id,
+        "repository_url": repo_url,
+        "status": "landed",
+    }
+
+    out = linkify_transplant_details(f"{commit_id} is here", transplant)
+    match_re = match + commit_id
+    assert re.search(match_re, out)
 
 
 @pytest.mark.parametrize(
