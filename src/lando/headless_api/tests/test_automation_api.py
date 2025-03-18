@@ -11,7 +11,7 @@ from lando.headless_api.api import AutomationAction, AutomationJob
 from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import SCM_LEVEL_3, Repo
 from lando.main.models.landing_job import LandingJobStatus
-from lando.main.scm import SCM_TYPE_HG
+from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 
 
 @pytest.mark.django_db
@@ -108,7 +108,11 @@ def test_automation_job_create_bad_repo(client, headless_user):
 
     body = {
         "actions": [
-            {"action": "add-commit", "content": "TESTIN123"},
+            {
+                "action": "add-commit",
+                "content": "TESTIN123",
+                "patch_format": "hgexport",
+            },
         ],
     }
     response = client.post(
@@ -151,15 +155,27 @@ def test_automation_job_empty_actions(client, headless_user):
     "bad_action,reason",
     (
         (
-            {"action": "bad-action", "content": "TESTIN123"},
+            {
+                "action": "bad-action",
+                "content": "TESTIN123",
+                "patch_format": "hgexport",
+            },
             "`bad-action` is an invalid action name.",
         ),
         (
-            {"action": "add-commit", "content": {"test": 123}},
+            {
+                "action": "add-commit",
+                "content": {"test": 123},
+                "patch_format": "hgexport",
+            },
             "`content` should be a `str`.",
         ),
         (
-            {"action": "add-commit", "content": 1},
+            {
+                "action": "add-commit",
+                "content": 1,
+                "patch_format": "hgexport",
+            },
             "`content` should be a `str`.",
         ),
     ),
@@ -206,8 +222,8 @@ def test_automation_job_create_repo_automation_disabled(
     body = {
         "actions": [
             # Set `content` to a string integer to test order is preserved.
-            {"action": "add-commit", "content": "0"},
-            {"action": "add-commit", "content": "1"},
+            {"action": "add-commit", "content": "0", "patch_format": "hgexport"},
+            {"action": "add-commit", "content": "1", "patch_format": "hgexport"},
         ],
     }
     response = client.post(
@@ -254,8 +270,8 @@ def test_automation_job_create_user_automation_disabled(
     # Send a valid request.
     body = {
         "actions": [
-            {"action": "add-commit", "content": "0"},
-            {"action": "add-commit", "content": "1"},
+            {"action": "add-commit", "content": "0", "patch_format": "hgexport"},
+            {"action": "add-commit", "content": "1", "patch_format": "hgexport"},
         ],
     }
     response = client.post(
@@ -288,7 +304,7 @@ def is_isoformat_timestamp(date_string: str) -> bool:
 
 
 @pytest.mark.django_db
-def test_automation_job_create(client, hg_server, hg_clone, headless_user):
+def test_automation_job_create_api(client, hg_server, hg_clone, headless_user):
     user, token = headless_user
 
     Repo.objects.create(
@@ -305,8 +321,8 @@ def test_automation_job_create(client, hg_server, hg_clone, headless_user):
     body = {
         "actions": [
             # Set `content` to a string integer to test order is preserved.
-            {"action": "add-commit", "content": "0"},
-            {"action": "add-commit", "content": "1"},
+            {"action": "add-commit", "content": "0", "patch_format": "hgexport"},
+            {"action": "add-commit", "content": "1", "patch_format": "hgexport"},
         ],
     }
     response = client.post(
@@ -409,8 +425,17 @@ def hg_automation_worker(landing_worker_instance):
     return AutomationWorker(worker)
 
 
+@pytest.fixture
+def git_automation_worker(landing_worker_instance):
+    worker = landing_worker_instance(
+        name="automation-worker",
+        scm=SCM_TYPE_GIT,
+    )
+    return AutomationWorker(worker)
+
+
 @pytest.mark.django_db
-def test_automation_job_add_commit_success(
+def test_automation_job_add_commit_success_hg(
     hg_server, hg_clone, hg_automation_worker, repo_mc, monkeypatch, normal_patch
 ):
     repo = repo_mc(SCM_TYPE_HG)
@@ -425,7 +450,11 @@ def test_automation_job_add_commit_success(
     AutomationAction.objects.create(
         job_id=job,
         action_type="add-commit",
-        data={"action": "add-commit", "content": normal_patch(1)},
+        data={
+            "action": "add-commit",
+            "content": normal_patch(1),
+            "patch_format": "hgexport",
+        },
         order=0,
     )
 
@@ -450,6 +479,71 @@ def test_automation_job_add_commit_success(
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
 
 
+PATCH_GIT_1 = r"""
+From 0f5a3c99e12c1e9b0e81bed245fe537961f89e57 Mon Sep 17 00:00:00 2001
+From: Connor Sheehan <sheehan@mozilla.com>
+Date: Wed, 6 Jul 2022 16:36:09 -0400
+Subject: [PATCH] add another file.
+
+--
+ test.txt | 8 +
+ 1 file changed, 1 insertions(+), 0 deletion(-)
+
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,2 @@
+ TEST
++adding another line
+--
+2.31.1
+""".lstrip()
+
+
+@pytest.mark.django_db
+def test_automation_job_add_commit_success_git(
+    git_automation_worker, repo_mc, monkeypatch, normal_patch
+):
+    repo = repo_mc(SCM_TYPE_GIT)
+    scm = repo.scm
+
+    # Create a job and actions
+    job = AutomationJob.objects.create(
+        status=LandingJobStatus.SUBMITTED,
+        requester_email="example@example.com",
+        target_repo=repo,
+    )
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="add-commit",
+        data={
+            "action": "add-commit",
+            "content": PATCH_GIT_1,
+            "patch_format": "git-format-patch",
+        },
+        order=0,
+    )
+
+    git_automation_worker.worker_instance.applicable_repos.add(repo)
+
+    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
+    mock_trigger_update = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.automation_worker.AutomationWorker.phab_trigger_repo_update",
+        mock_trigger_update,
+    )
+
+    scm.push = mock.MagicMock()
+
+    assert git_automation_worker.run_automation_job(job)
+    assert scm.push.call_count == 1
+    assert len(scm.push.call_args) == 2
+    assert len(scm.push.call_args[0]) == 1
+    assert scm.push.call_args[1] == {"push_target": "", "force_push": False}
+    assert job.status == LandingJobStatus.LANDED, job.error
+    assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
+
+
 @pytest.mark.django_db
 def test_automation_job_add_commit_fail(
     hg_server, hg_clone, repo_mc, hg_automation_worker, monkeypatch
@@ -466,7 +560,7 @@ def test_automation_job_add_commit_fail(
     AutomationAction.objects.create(
         job_id=job,
         action_type="add-commit",
-        data={"action": "add-commit", "content": "FAIL"},
+        data={"action": "add-commit", "content": "FAIL", "patch_format": "hgexport"},
         order=0,
     )
 

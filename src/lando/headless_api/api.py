@@ -12,7 +12,10 @@ from ninja.responses import codes_4xx
 from ninja.security import HttpBearer
 from pydantic import Field
 
-from lando.api.legacy.hgexports import HgPatchHelper
+from lando.api.legacy.hgexports import (
+    PATCH_HELPER_MAPPING,
+    PatchFormat,
+)
 from lando.headless_api.models.automation_job import (
     AutomationAction,
     AutomationJob,
@@ -88,13 +91,26 @@ class AddCommitAction(Schema):
 
     action: Literal["add-commit"]
     content: str
+    patch_format: PatchFormat
 
     def process(
         self, job: AutomationJob, repo: Repo, scm: AbstractSCM, index: int
     ) -> bool:
         """Add a commit to the repo."""
         try:
-            patch_helper = HgPatchHelper(StringIO(self.content))
+            helper_class = PATCH_HELPER_MAPPING[self.patch_format]
+        except KeyError:
+            raise AutomationActionException(
+                message=(
+                    f"Could not find patch helper for {self.patch_format} "
+                    f"in `add-commit`, action #{index}"
+                ),
+                job_action=LandingJobAction.FAIL,
+                is_fatal=True,
+            )
+
+        try:
+            patch_helper = helper_class(StringIO(self.content))
         except ValueError as exc:
             message = (
                 "Could not parse patch in `add-commit`, "
@@ -120,10 +136,10 @@ class AddCommitAction(Schema):
             )
 
         try:
-            user = patch_helper.get_header("User")
+            name, email = patch_helper.parse_author_information()
         except ValueError:
             message = (
-                "Could not parse `User` header from patch in `add-commit`, "
+                "Could not parse authorship information from patch in `add-commit`, "
                 f"action #{index}."
             )
             raise AutomationActionException(
@@ -136,7 +152,7 @@ class AddCommitAction(Schema):
             scm.apply_patch(
                 patch_helper.get_diff(),
                 patch_helper.get_commit_description(),
-                user,
+                f"{name} <{email}>",
                 date,
             )
         except PatchConflict as exc:
