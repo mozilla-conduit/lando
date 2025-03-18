@@ -144,7 +144,7 @@ class Repo(BaseModel):
 
     @classmethod
     def get_mapping(cls) -> dict[str, "Repo"]:
-        return {repo.tree: repo for repo in cls.objects.all()}
+        return {repo.short_name: repo for repo in cls.objects.all()}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
