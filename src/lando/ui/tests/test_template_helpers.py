@@ -10,6 +10,7 @@ from lando.jinja import (
     linkify_revision_ids,
     linkify_revision_urls,
     linkify_sec_bug_docs,
+    linkify_transplant_details,
     repo_branch_url,
     repo_path,
     revision_url,
