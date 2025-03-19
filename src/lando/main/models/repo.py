@@ -77,7 +77,7 @@ class Repo(BaseModel):
     pull_path = models.CharField(blank=True)
     push_path = models.CharField(blank=True)
     required_permission = models.CharField(default="")
-    short_name = models.CharField(blank=True)
+    short_name = models.CharField(blank=True, unique=True)
     url = models.CharField()
 
     approval_required = models.BooleanField(default=False)
