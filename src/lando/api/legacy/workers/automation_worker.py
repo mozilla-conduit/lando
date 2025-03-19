@@ -1,8 +1,8 @@
 import logging
-from typing import Any
 
 import kombu
 from django.db import transaction
+from pydantic import TypeAdapter
 
 from lando.api.legacy.notifications import (
     notify_user_of_landing_failure,
@@ -10,11 +10,7 @@ from lando.api.legacy.notifications import (
 from lando.api.legacy.workers.base import Worker
 from lando.headless_api.api import (
     Action,
-    AddBranchAction,
-    AddCommitAction,
     AutomationActionException,
-    MergeOntoAction,
-    TagAction,
 )
 from lando.headless_api.models.automation_job import (
     AutomationJob,
@@ -30,16 +26,6 @@ from lando.main.scm.exceptions import (
 from lando.utils.tasks import phab_trigger_repo_update
 
 logger = logging.getLogger(__name__)
-
-
-def map_to_pydantic_action(action_type: str, action_data: dict[str, Any]) -> Action:
-    """Convert a dict to an `Action` object."""
-    return {
-        "add-commit": AddCommitAction,
-        "merge-onto": MergeOntoAction,
-        "tag": TagAction,
-        "add-branch": AddBranchAction,
-    }[action_type](**action_data)
 
 
 class AutomationWorker(Worker):
@@ -121,7 +107,7 @@ class AutomationWorker(Worker):
             actions = job.actions.all()
             for action_row in actions:
                 # Turn the row action into a Pydantic action.
-                action = map_to_pydantic_action(action_row.action_type, action_row.data)
+                action = TypeAdapter(Action).validate_python(action_row.data)
 
                 # Execute the action locally.
                 try:
