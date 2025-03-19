@@ -134,9 +134,9 @@ class GitSCM(AbstractSCM):
 
         """
         app_id = settings.GITHUB_APP_ID
-        app_privkey = settings.GITHUB_APP_PRIVKEY
+        private_key = settings.GITHUB_APP_PRIVKEY
 
-        if not app_id or not app_privkey:
+        if not app_id or not private_key:
             logger.warning(
                 "Missing GITHUB_APP_ID or GITHUB_APP_PRIVKEY to authenticate against GitHub",
                 extra={
@@ -148,7 +148,7 @@ class GitSCM(AbstractSCM):
 
         app_auth = AppAuth(
             app_id,
-            app_privkey,
+            private_key,
         )
         session = AppInstallationAuth(app_auth, repo_owner, repositories=[repo_name])
         return asyncio.run(session.get_token())
