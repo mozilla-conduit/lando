@@ -439,16 +439,8 @@ class LandingWorker(Worker):
         Changes made by code formatters are applied to the working directory and
         are not committed into version control.
         """
-        supported_formatters = [
-            "black",
-            "clang-format",
-            "rustfmt",
-        ]
-
-        linter_args = [f"--linter={formatter}" for formatter in supported_formatters]
-
         return self.run_mach_command(
-            path, ["lint", *linter_args, "--fix", "--outgoing", "--verbose"]
+            path, ["format", "--fix", "--outgoing", "--verbose"]
         )
 
     def run_mach_bootstrap(self, path: str) -> str:
