@@ -65,6 +65,41 @@ REPOS = {
         #     "approval_required": True,
         #     "milestone_tracking_flag_template": "cf_status_firefox{milestone}",
         # },
+        #
+        # Repos used to test git-hg-sync.
+        #
+        {
+            "name": "unified-first-git",
+            "short_name": "unified-first",
+            "url": "http://git.test/unified-cinnabar",
+            "push_path": "http://lando:password@git.test/unified-cinnabar",
+            "default_branch": "first-repo",
+            "required_permission": SCM_LEVEL_1,
+        },
+        {
+            "name": "unified-second-git",
+            "short_name": "unified-second",
+            "url": "http://git.test/unified-cinnabar",
+            "push_path": "http://lando:password@git.test/unified-cinnabar",
+            "default_branch": "second-repo",
+            "required_permission": SCM_LEVEL_1,
+        },
+        {
+            "name": "unified-third-git",
+            "short_name": "unified-third",
+            "url": "http://git.test/unified-cinnabar",
+            "push_path": "http://lando:password@git.test/unified-cinnabar",
+            "default_branch": "third-repo",
+            "required_permission": SCM_LEVEL_1,
+        },
+        {
+            "name": "unified-test-git",
+            "short_name": "unified-test",
+            "url": "http://git.test/unified-cinnabar",
+            "push_path": "http://lando:password@git.test/unified-cinnabar",
+            "default_branch": "test-repo",
+            "required_permission": SCM_LEVEL_1,
+        },
     ],
     Environment.development: [
         {
