@@ -2,15 +2,14 @@ import logging
 
 import kombu
 from django.db import transaction
-from pydantic import TypeAdapter
 
 from lando.api.legacy.notifications import (
     notify_user_of_landing_failure,
 )
 from lando.api.legacy.workers.base import Worker
 from lando.headless_api.api import (
-    Action,
     AutomationActionException,
+    resolve_action,
 )
 from lando.headless_api.models.automation_job import (
     AutomationJob,
@@ -107,7 +106,7 @@ class AutomationWorker(Worker):
             actions = job.actions.all()
             for action_row in actions:
                 # Turn the row action into a Pydantic action.
-                action = TypeAdapter(Action).validate_python(action_row.data)
+                action = resolve_action(action_row.data)
 
                 # Execute the action locally.
                 try:

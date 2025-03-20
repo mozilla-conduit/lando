@@ -10,7 +10,7 @@ from ninja import (
 )
 from ninja.responses import codes_4xx
 from ninja.security import HttpBearer
-from pydantic import Field
+from pydantic import Field, TypeAdapter
 
 from lando.api.legacy.hgexports import (
     PATCH_HELPER_MAPPING,
@@ -201,6 +201,11 @@ class AddBranchAction(Schema):
 
 
 Action = Union[AddCommitAction, MergeOntoAction, AddBranchAction, TagAction]
+
+
+def resolve_action(action_data: dict) -> Action:
+    """Convert a raw `dict` into an `Action` object."""
+    return TypeAdapter(Action).validate_python(action_data)
 
 
 class AutomationOperation(Schema):
