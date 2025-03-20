@@ -347,6 +347,15 @@ class LandingJob(BaseModel):
 
         self.save()
 
+    @property
+    def legacy_details(self) -> str:
+        """Return a string of the landed commit id or the error details."""
+        return (
+            self.error or self.landed_commit_id
+            if self.status in (LandingJobStatus.FAILED, LandingJobStatus.CANCELLED)
+            else self.landed_commit_id or self.error
+        )
+
     def serialize(self) -> dict[str, Any]:
         """Return a JSON compatible dictionary."""
         return {
