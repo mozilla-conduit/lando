@@ -523,7 +523,7 @@ def test_get_transplants_for_entire_stack(proxy_client, phabdouble):
     response = proxy_client.get("/transplants?stack_revision_id=D{}".format(r2["id"]))
     assert len(response) == 4
 
-    tmap = {i["id"]: i for i in response}
+    tmap = {i.id: i for i in response}
     assert t_not_in_stack.id not in tmap
     assert all(t.id in tmap for t in (t1, t2, t3, t4))
 
@@ -546,7 +546,7 @@ def test_get_transplant_from_middle_revision(proxy_client, phabdouble):
 
     response = proxy_client.get("/transplants?stack_revision_id=D{}".format(r2["id"]))
     assert len(response) == 1
-    assert response[0]["id"] == t.id
+    assert response[0].id == t.id
 
 
 @pytest.mark.django_db(transaction=True)
