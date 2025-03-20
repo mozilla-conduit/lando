@@ -201,6 +201,7 @@ OIDC_RP_CLIENT_SECRET = os.getenv("OIDC_RP_CLIENT_SECRET")
 OIDC_RP_SCOPES = "openid lando profile email"
 
 BUGZILLA_URL = os.getenv("BUGZILLA_URL", "http://bmo.test")
+BUGZILLA_API_KEY = os.getenv("BUGZILLA_API_KEY", "")
 
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",

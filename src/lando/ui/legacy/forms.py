@@ -26,18 +26,18 @@ class UpliftRequestForm(forms.Form):
     )
 
     def clean_repository(self) -> str:
-        repo_name = self.cleaned_data["repository"]
+        repo_short_name = self.cleaned_data["repository"]
         try:
-            repository = Repo.objects.get(name=repo_name)
+            repository = Repo.objects.get(short_name=repo_short_name)
         except Repo.DoesNotExist:
             raise forms.ValidationError(
-                f"Repository {repo_name} is not a repository known to Lando. "
+                f"Repository {repo_short_name} is not a repository known to Lando. "
                 "Please select an uplift repository to create the uplift request."
             )
 
         if not repository.approval_required:
             raise forms.ValidationError(
-                f"Repository {repo_name} is not an uplift repository. "
+                f"Repository {repo_short_name} is not an uplift repository. "
                 "Please select an uplift repository to create the uplift request."
             )
         return repository
