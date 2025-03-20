@@ -163,6 +163,14 @@ class Command(BaseCommand):
                         f"Repo {definition['name']} already exists or could not be added, skipping."
                     )
                 )
+            except Exception as e:
+                if environment == Environment.local:
+                    self.style.WARNING(
+                        f"Failed setting up Repo {definition['name']}: {e}, skipping (local only)..."
+                    )
+                    # Don't fail on error locally
+                    continue
+                raise e
             else:
                 self.stdout.write(
                     self.style.SUCCESS(f"Created repo {repo.tree} ({repo.id}).")
