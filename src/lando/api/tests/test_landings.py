@@ -956,7 +956,6 @@ def test_landing_job_revisions_sorting(
 def test_worker_active_repos_updated_when_tree_closed(
     treestatusdouble,
     monkeypatch,
-    create_patch_revision,
     get_landing_worker,
 ):
     repo = Repo.objects.get(name="mozilla-central")
@@ -965,7 +964,9 @@ def test_worker_active_repos_updated_when_tree_closed(
     worker = get_landing_worker(SCM_TYPE_HG)
     worker.refresh_active_repos()
     assert repo in worker.active_repos
+    assert repo in worker.enabled_repos
 
     treestatusdouble.close_tree(repo.name)
     worker.refresh_active_repos()
     assert repo not in worker.active_repos
+    assert repo in worker.enabled_repos
