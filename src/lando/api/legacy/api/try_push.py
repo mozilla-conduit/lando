@@ -16,7 +16,7 @@ from lando.api.legacy.hgexports import (
 from lando.main.auth import require_authenticated_user, require_permission
 from lando.main.models import Repo, Revision
 from lando.main.models.landing_job import (
-    LandingJobStatus,
+    JobStatus,
     add_job_with_revisions,
 )
 from lando.main.support import LegacyAPIException
@@ -131,7 +131,7 @@ def post_patches(request: HttpRequest, data: dict):
         repository_name=try_repo.short_name,
         repository_url=try_repo.url,
         requester_email=ldap_username,
-        status=LandingJobStatus.SUBMITTED,
+        status=JobStatus.SUBMITTED,
         target_commit_hash=base_commit,
     )
     logger.info(

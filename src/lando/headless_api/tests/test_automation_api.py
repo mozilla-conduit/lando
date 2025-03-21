@@ -10,7 +10,7 @@ from lando.api.legacy.workers.automation_worker import AutomationWorker
 from lando.headless_api.api import AutomationAction, AutomationJob
 from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import SCM_LEVEL_3, Repo
-from lando.main.models.landing_job import LandingJobStatus
+from lando.main.models.landing_job import JobStatus
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 
 
@@ -19,7 +19,7 @@ def test_auth_missing_user_agent(client, headless_user):
     user, token = headless_user
 
     # Create a job and actions
-    job = AutomationJob.objects.create(status=LandingJobStatus.SUBMITTED)
+    job = AutomationJob.objects.create(status=JobStatus.SUBMITTED)
     AutomationAction.objects.create(
         job_id=job, action_type="add-commit", data={"content": "test"}, order=0
     )
@@ -41,7 +41,7 @@ def test_auth_user_agent_bad_format(client, headless_user):
     user, token = headless_user
 
     # Create a job and actions
-    job = AutomationJob.objects.create(status=LandingJobStatus.SUBMITTED)
+    job = AutomationJob.objects.create(status=JobStatus.SUBMITTED)
     AutomationAction.objects.create(
         job_id=job, action_type="add-commit", data={"content": "test"}, order=0
     )
@@ -62,7 +62,7 @@ def test_auth_user_agent_bad_format(client, headless_user):
 @pytest.mark.django_db
 def test_auth_missing_authorization_header(client, headless_user):
     # Create a job and actions
-    job = AutomationJob.objects.create(status=LandingJobStatus.SUBMITTED)
+    job = AutomationJob.objects.create(status=JobStatus.SUBMITTED)
     AutomationAction.objects.create(
         job_id=job, action_type="add-commit", data={"content": "test"}, order=0
     )
@@ -82,7 +82,7 @@ def test_auth_missing_authorization_header(client, headless_user):
 @pytest.mark.django_db
 def test_auth_invalid_token(client, headless_user):
     # Create a job and actions
-    job = AutomationJob.objects.create(status=LandingJobStatus.SUBMITTED)
+    job = AutomationJob.objects.create(status=JobStatus.SUBMITTED)
     AutomationAction.objects.create(
         job_id=job, action_type="add-commit", data={"content": "test"}, order=0
     )
@@ -377,12 +377,12 @@ def test_get_job_status_not_found(client, headless_user):
 @pytest.mark.parametrize(
     "status,message",
     (
-        (LandingJobStatus.SUBMITTED, "Job is in the SUBMITTED state."),
-        (LandingJobStatus.IN_PROGRESS, "Job is in the IN_PROGRESS state."),
-        (LandingJobStatus.DEFERRED, "Job is in the DEFERRED state."),
-        (LandingJobStatus.FAILED, "Job is in the FAILED state."),
-        (LandingJobStatus.LANDED, "Job is in the LANDED state."),
-        (LandingJobStatus.CANCELLED, "Job is in the CANCELLED state."),
+        (JobStatus.SUBMITTED, "Job is in the SUBMITTED state."),
+        (JobStatus.IN_PROGRESS, "Job is in the IN_PROGRESS state."),
+        (JobStatus.DEFERRED, "Job is in the DEFERRED state."),
+        (JobStatus.FAILED, "Job is in the FAILED state."),
+        (JobStatus.LANDED, "Job is in the LANDED state."),
+        (JobStatus.CANCELLED, "Job is in the CANCELLED state."),
     ),
 )
 @pytest.mark.django_db
@@ -444,7 +444,7 @@ def test_automation_job_add_commit_success_hg(
 
     # Create a job and actions
     job = AutomationJob.objects.create(
-        status=LandingJobStatus.SUBMITTED,
+        status=JobStatus.SUBMITTED,
         requester_email="example@example.com",
         target_repo=repo,
     )
@@ -476,7 +476,7 @@ def test_automation_job_add_commit_success_hg(
     assert len(scm.push.call_args[0]) == 1
     assert scm.push.call_args[0][0] == hg_server
     assert scm.push.call_args[1] == {"push_target": "", "force_push": False}
-    assert job.status == LandingJobStatus.LANDED, job.error
+    assert job.status == JobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
 
 
@@ -510,7 +510,7 @@ def test_automation_job_add_commit_success_git(
 
     # Create a job and actions
     job = AutomationJob.objects.create(
-        status=LandingJobStatus.SUBMITTED,
+        status=JobStatus.SUBMITTED,
         requester_email="example@example.com",
         target_repo=repo,
     )
@@ -541,7 +541,7 @@ def test_automation_job_add_commit_success_git(
     assert len(scm.push.call_args) == 2
     assert len(scm.push.call_args[0]) == 1
     assert scm.push.call_args[1] == {"push_target": "", "force_push": False}
-    assert job.status == LandingJobStatus.LANDED, job.error
+    assert job.status == JobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
 
 
@@ -554,7 +554,7 @@ def test_automation_job_add_commit_fail(
 
     # Create a job and actions
     job = AutomationJob.objects.create(
-        status=LandingJobStatus.SUBMITTED,
+        status=JobStatus.SUBMITTED,
         requester_email="example@example.com",
         target_repo=repo,
     )
@@ -577,7 +577,7 @@ def test_automation_job_add_commit_fail(
     scm.push = mock.MagicMock()
 
     assert not hg_automation_worker.run_automation_job(job)
-    assert job.status == LandingJobStatus.FAILED, "Automation job should fail."
+    assert job.status == JobStatus.FAILED, "Automation job should fail."
     assert scm.push.call_count == 0
 
 

@@ -7,7 +7,7 @@ from lando.api.legacy.hgexports import (
     parse_git_author_information,
 )
 from lando.api.legacy.workers.landing_worker import LandingWorker
-from lando.main.models import SCM_LEVEL_1, LandingJob, LandingJobStatus, Repo
+from lando.main.models import SCM_LEVEL_1, JobStatus, LandingJob, Repo
 
 pytest.skip(allow_module_level=True)
 
@@ -370,7 +370,7 @@ def test_try_api_success_hgexport(
     worker = LandingWorker(sleep_seconds=0.01, repos=[repo])
 
     assert worker.run_job(job)
-    assert job.status == LandingJobStatus.LANDED
+    assert job.status == JobStatus.LANDED
     assert len(job.landed_commit_id) == 40
     assert (
         job.target_commit_hash == "0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4"
@@ -458,7 +458,7 @@ def test_try_api_success_gitformatpatch(
 
     # Assert the job landed against the expected commit hash.
     assert worker.run_job(job)
-    assert job.status == LandingJobStatus.LANDED
+    assert job.status == JobStatus.LANDED
     assert len(job.landed_commit_id) == 40
     assert (
         job.target_commit_hash == "0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4"

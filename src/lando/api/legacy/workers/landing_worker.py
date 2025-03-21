@@ -22,7 +22,7 @@ from lando.api.legacy.uplift import (
     update_bugs_for_uplift,
 )
 from lando.api.legacy.workers.base import Worker
-from lando.main.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
+from lando.main.models.landing_job import JobStatus, LandingJob, LandingJobAction
 from lando.main.models.repo import Repo
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.exceptions import (
@@ -95,7 +95,7 @@ class LandingWorker(Worker):
             return
 
         with job_processing(job):
-            job.status = LandingJobStatus.IN_PROGRESS
+            job.status = JobStatus.IN_PROGRESS
             job.attempts += 1
             job.save()
 

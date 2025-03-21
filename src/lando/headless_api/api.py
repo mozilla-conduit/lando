@@ -21,7 +21,7 @@ from lando.headless_api.models.automation_job import (
     AutomationJob,
 )
 from lando.headless_api.models.tokens import ApiToken
-from lando.main.models.landing_job import LandingJobAction, LandingJobStatus
+from lando.main.models.landing_job import JobStatus, LandingJobAction
 from lando.main.models.repo import Repo
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.exceptions import (
@@ -255,7 +255,7 @@ def post_repo_actions(request, repo_name: str, operation: AutomationOperation):
 
     with transaction.atomic():
         automation_job = AutomationJob.objects.create(
-            status=LandingJobStatus.SUBMITTED,
+            status=JobStatus.SUBMITTED,
             requester_email=request.user.email,
             target_repo=repo,
         )

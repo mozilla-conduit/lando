@@ -7,8 +7,8 @@ from django.db import models
 
 from lando.main.models.base import BaseModel
 from lando.main.models.landing_job import (
+    JobStatus,
     LandingJobAction,
-    LandingJobStatus,
 )
 from lando.main.models.repo import Repo
 
@@ -24,7 +24,7 @@ class AutomationJob(BaseModel):
     # Current status of the job.
     status = models.CharField(
         max_length=32,
-        choices=LandingJobStatus,
+        choices=JobStatus,
         default=None,
     )
 
@@ -85,19 +85,19 @@ class AutomationJob(BaseModel):
         actions = {
             LandingJobAction.LAND: {
                 "required_params": ["commit_id"],
-                "status": LandingJobStatus.LANDED,
+                "status": JobStatus.LANDED,
             },
             LandingJobAction.FAIL: {
                 "required_params": ["message"],
-                "status": LandingJobStatus.FAILED,
+                "status": JobStatus.FAILED,
             },
             LandingJobAction.DEFER: {
                 "required_params": ["message"],
-                "status": LandingJobStatus.DEFERRED,
+                "status": JobStatus.DEFERRED,
             },
             LandingJobAction.CANCEL: {
                 "required_params": [],
-                "status": LandingJobStatus.CANCELLED,
+                "status": JobStatus.CANCELLED,
             },
         }
 
@@ -123,9 +123,7 @@ class AutomationJob(BaseModel):
     def next_job(cls, repositories: Optional[Iterable[str]] = None) -> Self:
         """Return the next automation job."""
         return (
-            cls.objects.filter(
-                status__in=(LandingJobStatus.SUBMITTED, LandingJobStatus.DEFERRED)
-            )
+            cls.objects.filter(status__in=(JobStatus.SUBMITTED, JobStatus.DEFERRED))
             .filter(target_repo__in=repositories)
             .order_by("-priority", "created_at")
             .select_for_update()

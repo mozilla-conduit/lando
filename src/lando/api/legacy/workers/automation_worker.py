@@ -14,7 +14,7 @@ from lando.headless_api.api import (
 from lando.headless_api.models.automation_job import (
     AutomationJob,
 )
-from lando.main.models.landing_job import LandingJobAction, LandingJobStatus
+from lando.main.models.landing_job import JobStatus, LandingJobAction
 from lando.main.scm.exceptions import (
     SCMInternalServerError,
     SCMLostPushRace,
@@ -63,7 +63,7 @@ class AutomationWorker(Worker):
             return
 
         with job.processing():
-            job.status = LandingJobStatus.IN_PROGRESS
+            job.status = JobStatus.IN_PROGRESS
             job.attempts += 1
             job.save()
 

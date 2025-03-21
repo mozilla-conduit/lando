@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_GRACE_SECONDS = int(os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2))
 
 
-class LandingJobStatus(models.TextChoices):
+class JobStatus(models.TextChoices):
     SUBMITTED = "SUBMITTED", gettext_lazy("Submitted")
     IN_PROGRESS = "IN_PROGRESS", gettext_lazy("In progress")
     DEFERRED = "DEFERRED", gettext_lazy("Deferred")
@@ -60,7 +60,7 @@ class LandingJob(BaseModel):
 
     status = models.CharField(
         max_length=32,
-        choices=LandingJobStatus,
+        choices=JobStatus,
         default=None,
         null=True,  # TODO: should change this to not-nullable
         blank=True,
@@ -205,9 +205,9 @@ class LandingJob(BaseModel):
                 many seconds ago.
         """
         applicable_statuses = (
-            LandingJobStatus.SUBMITTED,
-            LandingJobStatus.IN_PROGRESS,
-            LandingJobStatus.DEFERRED,
+            JobStatus.SUBMITTED,
+            JobStatus.IN_PROGRESS,
+            JobStatus.DEFERRED,
         )
         q = cls.objects.filter(status__in=applicable_statuses)
 
@@ -224,12 +224,12 @@ class LandingJob(BaseModel):
         # `LandingJobStatus.SUBMITTED` jobs, higher priority items come first
         # and then we order by creation time (older first).
         ordering = Case(
-            When(status=LandingJobStatus.SUBMITTED, then=1),
-            When(status=LandingJobStatus.IN_PROGRESS, then=2),
-            When(status=LandingJobStatus.DEFERRED, then=3),
-            When(status=LandingJobStatus.FAILED, then=4),
-            When(status=LandingJobStatus.LANDED, then=5),
-            When(status=LandingJobStatus.CANCELLED, then=6),
+            When(status=JobStatus.SUBMITTED, then=1),
+            When(status=JobStatus.IN_PROGRESS, then=2),
+            When(status=JobStatus.DEFERRED, then=3),
+            When(status=JobStatus.FAILED, then=4),
+            When(status=JobStatus.LANDED, then=5),
+            When(status=JobStatus.CANCELLED, then=6),
             default=0,
             output_field=IntegerField(),
         )
@@ -313,19 +313,19 @@ class LandingJob(BaseModel):
         actions = {
             LandingJobAction.LAND: {
                 "required_params": ["commit_id"],
-                "status": LandingJobStatus.LANDED,
+                "status": JobStatus.LANDED,
             },
             LandingJobAction.FAIL: {
                 "required_params": ["message"],
-                "status": LandingJobStatus.FAILED,
+                "status": JobStatus.FAILED,
             },
             LandingJobAction.DEFER: {
                 "required_params": ["message"],
-                "status": LandingJobStatus.DEFERRED,
+                "status": JobStatus.DEFERRED,
             },
             LandingJobAction.CANCEL: {
                 "required_params": [],
-                "status": LandingJobStatus.CANCELLED,
+                "status": JobStatus.CANCELLED,
             },
         }
 
@@ -356,7 +356,7 @@ class LandingJob(BaseModel):
             "error_breakdown": self.error_breakdown,
             "details": (
                 self.error or self.landed_commit_id
-                if self.status in (LandingJobStatus.FAILED, LandingJobStatus.CANCELLED)
+                if self.status in (JobStatus.FAILED, JobStatus.CANCELLED)
                 else self.landed_commit_id or self.error
             ),
             "requester_email": self.requester_email,

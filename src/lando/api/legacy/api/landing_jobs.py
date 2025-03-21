@@ -5,7 +5,7 @@ from django import forms
 from django.http import HttpRequest, JsonResponse
 
 from lando.main.auth import require_authenticated_user
-from lando.main.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
+from lando.main.models.landing_job import JobStatus, LandingJob, LandingJobAction
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ def put(request: HttpRequest, landing_job_id: int) -> JsonResponse:
         data = {"errors": [f"The provided status {status} is not allowed."]}
         return JsonResponse(data, status=400)
 
-    if landing_job.status in (LandingJobStatus.SUBMITTED, LandingJobStatus.DEFERRED):
+    if landing_job.status in (JobStatus.SUBMITTED, JobStatus.DEFERRED):
         landing_job.transition_status(LandingJobAction.CANCEL)
         landing_job.save()
         return JsonResponse({"id": landing_job.id})

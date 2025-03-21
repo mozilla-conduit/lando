@@ -20,8 +20,8 @@ from lando.api.legacy.transplants import (
 )
 from lando.main.models import DONTBUILD, SCM_CONDUIT, Repo
 from lando.main.models.landing_job import (
+    JobStatus,
     LandingJob,
-    LandingJobStatus,
     add_job_with_revisions,
 )
 from lando.main.models.revision import Revision
@@ -271,7 +271,7 @@ def test_dryrun_in_progress_transplant_blocks(
     # block attempts to land r1.
     _create_landing_job(
         landing_path=[(r1["id"], d1["id"])],
-        status=LandingJobStatus.SUBMITTED,
+        status=JobStatus.SUBMITTED,
     )
 
     phabdouble.reviewer(r1, phabdouble.user(username="reviewer"))
@@ -500,24 +500,24 @@ def test_get_transplants_for_entire_stack(proxy_client, phabdouble):
 
     t1 = _create_landing_job(
         landing_path=[(r1["id"], d1a["id"])],
-        status=LandingJobStatus.FAILED,
+        status=JobStatus.FAILED,
     )
     t2 = _create_landing_job(
         landing_path=[(r1["id"], d1b["id"])],
-        status=LandingJobStatus.LANDED,
+        status=JobStatus.LANDED,
     )
     t3 = _create_landing_job(
         landing_path=[(r2["id"], d2["id"])],
-        status=LandingJobStatus.SUBMITTED,
+        status=JobStatus.SUBMITTED,
     )
     t4 = _create_landing_job(
         landing_path=[(r3["id"], d3["id"])],
-        status=LandingJobStatus.LANDED,
+        status=JobStatus.LANDED,
     )
 
     t_not_in_stack = _create_landing_job(
         landing_path=[(r_not_in_stack["id"], d_not_in_stack["id"])],
-        status=LandingJobStatus.LANDED,
+        status=JobStatus.LANDED,
     )
 
     response = proxy_client.get("/transplants?stack_revision_id=D{}".format(r2["id"]))
@@ -541,7 +541,7 @@ def test_get_transplant_from_middle_revision(proxy_client, phabdouble):
 
     t = _create_landing_job(
         landing_path=[(r1["id"], d1["id"]), (r2["id"], d2["id"]), (r3["id"], d3["id"])],
-        status=LandingJobStatus.FAILED,
+        status=JobStatus.FAILED,
     )
 
     response = proxy_client.get("/transplants?stack_revision_id=D{}".format(r2["id"]))
@@ -553,7 +553,7 @@ def test_get_transplant_from_middle_revision(proxy_client, phabdouble):
 def test_get_transplant_not_authorized_to_view_revision(proxy_client, phabdouble):
     # Create a transplant pointing at a revision that will not
     # be returned by phabricator.
-    _create_landing_job(landing_path=[(1, 1)], status=LandingJobStatus.SUBMITTED)
+    _create_landing_job(landing_path=[(1, 1)], status=JobStatus.SUBMITTED)
     response = proxy_client.get("/transplants?stack_revision_id=D1")
     assert response.status_code == 404
 
@@ -583,7 +583,7 @@ def test_warning_previously_landed_failed_landing(
 
     create_landing_job(
         landing_path=[(r["id"], d["id"])],
-        status=LandingJobStatus.FAILED,
+        status=JobStatus.FAILED,
     )
 
     revision = phabdouble.api_object_for(
@@ -609,7 +609,7 @@ def test_warning_previously_landed_landed_landing(
 
     create_landing_job(
         landing_path=[(r["id"], d["id"])],
-        status=LandingJobStatus.LANDED,
+        status=JobStatus.LANDED,
     )
 
     revision = phabdouble.api_object_for(
@@ -832,7 +832,7 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
         (r2["id"], d2["id"]),
         (r3["id"], d3["id"]),
     ]
-    assert job.status == LandingJobStatus.SUBMITTED
+    assert job.status == JobStatus.SUBMITTED
     assert job.landed_revisions == {1: 1, 2: 2, 3: 3}
 
 
@@ -885,7 +885,7 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
         (r1["id"], d1["id"]),
         (r2["id"], d2["id"]),
     ]
-    assert job.status == LandingJobStatus.SUBMITTED
+    assert job.status == JobStatus.SUBMITTED
     assert job.landed_revisions == {1: 1, 2: 2}
 
 
@@ -958,13 +958,13 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
         (r1["id"], d1["id"]),
         (r2["id"], d2["id"]),
     ]
-    assert job.status == LandingJobStatus.SUBMITTED
+    assert job.status == JobStatus.SUBMITTED
     assert job.landed_revisions == {1: 1, 2: 2}
     approved_by = [revision.data["approved_by"] for revision in job.revisions.all()]
     assert approved_by == [[101], [102]]
 
     assert hg_landing_worker.run_job(job)
-    assert job.status == LandingJobStatus.LANDED
+    assert job.status == JobStatus.LANDED
     for revision in job.revisions.all():
         if revision.revision_id == 1:
             assert revision.data["peers_and_owners"] == [101]
@@ -1018,7 +1018,7 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     ] == [
         (r1["id"], d1a["id"]),
     ]
-    assert job.status == LandingJobStatus.SUBMITTED
+    assert job.status == JobStatus.SUBMITTED
     assert job.landed_revisions == {r1["id"]: d1a["id"]}
 
     # Cancel job.
@@ -1029,7 +1029,7 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     )
 
     job = LandingJob.objects.get(pk=job_1_id)
-    assert job.status == LandingJobStatus.CANCELLED
+    assert job.status == JobStatus.CANCELLED
 
     d1b = phabdouble.diff(revision=r1)
     phabdouble.reviewer(r1, user)
@@ -1062,8 +1062,8 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
         (r1["id"], d1b["id"]),
     ]
 
-    assert job_1.status == LandingJobStatus.CANCELLED
-    assert job_2.status == LandingJobStatus.SUBMITTED
+    assert job_1.status == JobStatus.CANCELLED
+    assert job_2.status == JobStatus.SUBMITTED
 
     assert job_1.landed_revisions == {r1["id"]: d1a["id"]}
     assert job_2.landed_revisions == {r1["id"]: d1b["id"]}
@@ -1920,6 +1920,6 @@ def test_transplant_on_linked_legacy_repo(
         (r2["id"], d2["id"]),
         (r3["id"], d3["id"]),
     ]
-    assert job.status == LandingJobStatus.SUBMITTED
+    assert job.status == JobStatus.SUBMITTED
     assert job.target_repo == new_repo
     assert job.landed_revisions == {1: 1, 2: 2, 3: 3}
