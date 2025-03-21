@@ -238,12 +238,18 @@ def post_repo_actions(request, repo_name: str, operation: AutomationOperation):
         repo = Repo.objects.get(name=repo_name)
     except Repo.DoesNotExist:
         error = f"Repo {repo_name} does not exist."
-        logger.info(error)
+        logger.info(
+            error,
+            extra={"user": request.user.email, "token": request.auth.token_prefix},
+        )
         return 404, {"details": error}
 
     if not repo.automation_enabled:
         error = f"Repo {repo_name} is not enabled for automation."
-        logger.info(error)
+        logger.info(
+            error,
+            extra={"user": request.user.email, "token": request.auth.token_prefix},
+        )
         return 403, {"details": error}
 
     with transaction.atomic():
@@ -263,7 +269,8 @@ def post_repo_actions(request, repo_name: str, operation: AutomationOperation):
 
     logger.info(
         f"Created automation job {automation_job.id} with "
-        f"{len(operation.actions)} actions."
+        f"{len(operation.actions)} actions.",
+        extra={"user": request.user.email},
     )
 
     return 202, automation_job.to_api_status()
@@ -276,9 +283,15 @@ def get_job_status(request, job_id: int):
         automation_job = AutomationJob.objects.get(id=job_id)
     except AutomationJob.DoesNotExist:
         error = f"Automation job {job_id} does not exist."
-        logger.info(error)
+        logger.info(
+            error,
+            extra={"user": request.user.email, "token": request.auth.token_prefix},
+        )
         return 404, {"details": error}
 
-    logger.debug(f"Retrieved status for job {automation_job.id}.")
+    logger.debug(
+        f"Retrieved status for job {automation_job.id}.",
+        extra={"user": request.user.email, "token": request.auth.token_prefix},
+    )
 
     return 200, automation_job.to_api_status()
