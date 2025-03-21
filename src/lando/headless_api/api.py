@@ -184,12 +184,24 @@ class MergeOntoAction(Schema):
     target: str
     message: str
 
+    def process(
+        self, job: AutomationJob, repo: Repo, scm: AbstractSCM, index: int
+    ) -> bool:
+        """Perform a merge on the repo."""
+        raise NotImplementedError()
+
 
 class TagAction(Schema):
     """Create a new tag with the given name."""
 
     action: Literal["tag"]
     name: str
+
+    def process(
+        self, job: AutomationJob, repo: Repo, scm: AbstractSCM, index: int
+    ) -> bool:
+        """Add a new tag to the repo."""
+        raise NotImplementedError()
 
 
 class AddBranchAction(Schema):
@@ -198,6 +210,12 @@ class AddBranchAction(Schema):
     action: Literal["add-branch"]
     name: str
     commit: str
+
+    def process(
+        self, job: AutomationJob, repo: Repo, scm: AbstractSCM, index: int
+    ) -> bool:
+        """Add a new branch to the repo."""
+        raise NotImplementedError()
 
 
 Action = Union[AddCommitAction, MergeOntoAction, AddBranchAction, TagAction]
