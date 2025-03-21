@@ -21,7 +21,7 @@ from lando.headless_api.models.automation_job import (
     AutomationJob,
 )
 from lando.headless_api.models.tokens import ApiToken
-from lando.main.models.landing_job import JobStatus, LandingJobAction
+from lando.main.models.landing_job import JobAction, JobStatus
 from lando.main.models.repo import Repo
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.exceptions import (
@@ -79,7 +79,7 @@ def on_invalid_token(request, exc):
 class AutomationActionException(Exception):
     """Exception thrown by automation actions."""
 
-    def __init__(self, message: str, job_action: LandingJobAction, is_fatal: bool):
+    def __init__(self, message: str, job_action: JobAction, is_fatal: bool):
         super().__init__()
         self.message = message
         self.job_status = job_action
@@ -105,7 +105,7 @@ class AddCommitAction(Schema):
                     f"Could not find patch helper for {self.patch_format} "
                     f"in `add-commit`, action #{index}"
                 ),
-                job_action=LandingJobAction.FAIL,
+                job_action=JobAction.FAIL,
                 is_fatal=True,
             )
 
@@ -118,7 +118,7 @@ class AddCommitAction(Schema):
             )
             raise AutomationActionException(
                 message=message,
-                job_action=LandingJobAction.FAIL,
+                job_action=JobAction.FAIL,
                 is_fatal=True,
             )
 
@@ -131,7 +131,7 @@ class AddCommitAction(Schema):
             )
             raise AutomationActionException(
                 message=message,
-                job_action=LandingJobAction.FAIL,
+                job_action=JobAction.FAIL,
                 is_fatal=True,
             )
 
@@ -144,7 +144,7 @@ class AddCommitAction(Schema):
             )
             raise AutomationActionException(
                 message=message,
-                job_action=LandingJobAction.FAIL,
+                job_action=JobAction.FAIL,
                 is_fatal=True,
             )
 
@@ -162,7 +162,7 @@ class AddCommitAction(Schema):
                 f"{str(exc)}"
             )
             raise AutomationActionException(
-                message=message, job_action=LandingJobAction.FAIL, is_fatal=False
+                message=message, job_action=JobAction.FAIL, is_fatal=False
             )
         except Exception as e:
             message = (
@@ -171,7 +171,7 @@ class AddCommitAction(Schema):
                 f"\n{e}"
             )
             raise AutomationActionException(
-                message=message, job_action=LandingJobAction.FAIL, is_fatal=False
+                message=message, job_action=JobAction.FAIL, is_fatal=False
             )
 
         return True

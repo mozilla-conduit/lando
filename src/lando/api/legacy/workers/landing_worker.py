@@ -22,7 +22,7 @@ from lando.api.legacy.uplift import (
     update_bugs_for_uplift,
 )
 from lando.api.legacy.workers.base import Worker
-from lando.main.models.landing_job import JobStatus, LandingJob, LandingJobAction
+from lando.main.models.landing_job import JobAction, JobStatus, LandingJob
 from lando.main.models.repo import Repo
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.exceptions import (
@@ -219,7 +219,7 @@ class LandingWorker(Worker):
 
         if not self.treestatus_client.is_open(repo.tree):
             job.transition_status(
-                LandingJobAction.DEFER,
+                JobAction.DEFER,
                 message=f"Tree {repo.tree} is closed - retrying later.",
             )
             return False
@@ -235,7 +235,7 @@ class LandingWorker(Worker):
                     f"encountered while pulling from {repo_pull_info}"
                 )
                 logger.exception(message)
-                job.transition_status(LandingJobAction.DEFER, message=message)
+                job.transition_status(JobAction.DEFER, message=message)
 
                 # Try again, this is a temporary failure.
                 return False
@@ -243,7 +243,7 @@ class LandingWorker(Worker):
                 message = f"Unexpected error while fetching repo from {repo.name}."
                 logger.exception(message)
                 job.transition_status(
-                    LandingJobAction.FAIL,
+                    JobAction.FAIL,
                     message=message + f"\n{e}",
                 )
                 self.notify_user_of_landing_failure(job)
@@ -267,7 +267,7 @@ class LandingWorker(Worker):
                     )
                     logger.error(message)
                     job.transition_status(
-                        LandingJobAction.FAIL,
+                        JobAction.FAIL,
                         message=message,
                     )
                     self.notify_user_of_landing_failure(job)
@@ -284,7 +284,7 @@ class LandingWorker(Worker):
                         f"{str(exc)}"
                     )
                     logger.exception(message)
-                    job.transition_status(LandingJobAction.FAIL, message=message)
+                    job.transition_status(JobAction.FAIL, message=message)
                     self.notify_user_of_landing_failure(job)
                     return True
                 except Exception as e:
@@ -294,7 +294,7 @@ class LandingWorker(Worker):
                     )
                     logger.exception(message)
                     job.transition_status(
-                        LandingJobAction.FAIL,
+                        JobAction.FAIL,
                         message=message,
                     )
                     self.notify_user_of_landing_failure(job)
@@ -312,7 +312,7 @@ class LandingWorker(Worker):
             if repo.autoformat_enabled and (
                 message := self.autoformat(job, scm, bug_ids, changeset_titles)
             ):
-                job.transition_status(LandingJobAction.FAIL, message=message)
+                job.transition_status(JobAction.FAIL, message=message)
                 self.notify_user_of_landing_failure(job)
                 return False
 
@@ -338,19 +338,19 @@ class LandingWorker(Worker):
                     f"encountered while pushing to {repo_push_info}"
                 )
                 logger.exception(message)
-                job.transition_status(LandingJobAction.DEFER, message=message)
+                job.transition_status(JobAction.DEFER, message=message)
                 return False  # Try again, this is a temporary failure.
             except Exception as e:
                 message = f"Unexpected error while pushing to {repo.name}.\n{e}"
                 logger.exception(message)
                 job.transition_status(
-                    LandingJobAction.FAIL,
+                    JobAction.FAIL,
                     message=message,
                 )
                 self.notify_user_of_landing_failure(job)
                 return True  # Do not try again, this is a permanent failure.
 
-        job.transition_status(LandingJobAction.LAND, commit_id=commit_id)
+        job.transition_status(JobAction.LAND, commit_id=commit_id)
 
         mots_path = Path(repo.path) / "mots.yaml"
         if mots_path.exists():

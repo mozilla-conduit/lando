@@ -35,7 +35,7 @@ class JobStatus(models.TextChoices):
 
 
 @enum.unique
-class LandingJobAction(enum.Enum):
+class JobAction(enum.Enum):
     """Various actions that can be applied to a LandingJob.
 
     Actions affect the status and other fields on the LandingJob object.
@@ -299,7 +299,7 @@ class LandingJob(BaseModel):
 
     def transition_status(
         self,
-        action: LandingJobAction,
+        action: JobAction,
         **kwargs,
     ):
         """Change the status and other applicable fields according to actions.
@@ -311,19 +311,19 @@ class LandingJob(BaseModel):
                 `commit_id`.
         """
         actions = {
-            LandingJobAction.LAND: {
+            JobAction.LAND: {
                 "required_params": ["commit_id"],
                 "status": JobStatus.LANDED,
             },
-            LandingJobAction.FAIL: {
+            JobAction.FAIL: {
                 "required_params": ["message"],
                 "status": JobStatus.FAILED,
             },
-            LandingJobAction.DEFER: {
+            JobAction.DEFER: {
                 "required_params": ["message"],
                 "status": JobStatus.DEFERRED,
             },
-            LandingJobAction.CANCEL: {
+            JobAction.CANCEL: {
                 "required_params": [],
                 "status": JobStatus.CANCELLED,
             },
@@ -339,10 +339,10 @@ class LandingJob(BaseModel):
 
         self.status = actions[action]["status"]
 
-        if action in (LandingJobAction.FAIL, LandingJobAction.DEFER):
+        if action in (JobAction.FAIL, JobAction.DEFER):
             self.error = kwargs["message"]
 
-        if action == LandingJobAction.LAND:
+        if action == JobAction.LAND:
             self.landed_commit_id = kwargs["commit_id"]
 
         self.save()

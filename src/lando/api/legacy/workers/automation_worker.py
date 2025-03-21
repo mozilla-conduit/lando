@@ -14,7 +14,7 @@ from lando.headless_api.api import (
 from lando.headless_api.models.automation_job import (
     AutomationJob,
 )
-from lando.main.models.landing_job import JobStatus, LandingJobAction
+from lando.main.models.landing_job import JobAction, JobStatus
 from lando.main.scm.exceptions import (
     SCMInternalServerError,
     SCMLostPushRace,
@@ -89,7 +89,7 @@ class AutomationWorker(Worker):
                     f"encountered while pulling from {repo_pull_info}"
                 )
                 logger.exception(message)
-                job.transition_status(LandingJobAction.DEFER, message=message)
+                job.transition_status(JobAction.DEFER, message=message)
 
                 # Try again, this is a temporary failure.
                 return False
@@ -97,7 +97,7 @@ class AutomationWorker(Worker):
                 message = f"Unexpected error while fetching repo from {repo.pull_path}."
                 logger.exception(message)
                 job.transition_status(
-                    LandingJobAction.FAIL,
+                    JobAction.FAIL,
                     message=message + f"\n{e}",
                 )
                 return True
@@ -135,13 +135,13 @@ class AutomationWorker(Worker):
                     f"encountered while pushing to {repo_push_info}"
                 )
                 logger.exception(message)
-                job.transition_status(LandingJobAction.DEFER, message=message)
+                job.transition_status(JobAction.DEFER, message=message)
                 return False  # Try again, this is a temporary failure.
             except Exception as e:
                 message = f"Unexpected error while pushing to {repo.push_path}.\n{e}"
                 logger.exception(message)
                 job.transition_status(
-                    LandingJobAction.FAIL,
+                    JobAction.FAIL,
                     message=message,
                 )
                 return True  # Do not try again, this is a permanent failure.
@@ -149,7 +149,7 @@ class AutomationWorker(Worker):
             # Get the changeset hash of the first node.
             commit_id = scm.head_ref()
 
-        job.transition_status(LandingJobAction.LAND, commit_id=commit_id)
+        job.transition_status(JobAction.LAND, commit_id=commit_id)
 
         # Trigger update of repo in Phabricator so patches are closed quicker.
         # Especially useful on low-traffic repositories.
