@@ -602,7 +602,7 @@ def test_valid_token_verification(headless_user):
     user, token = headless_user
 
     assert (
-        ApiToken.verify_token(token) == user
+        ApiToken.verify_token(token).user == user
     ), "verify_token should return the user for a valid token."
 
 
@@ -654,8 +654,8 @@ def test_token_prefix_collision(monkeypatch, headless_user):
 
     # Even if both tokens share the same prefix, each should verify correctly.
     assert (
-        ApiToken.verify_token(token1) == user
+        ApiToken.verify_token(token1).user == user
     ), "First token with common prefix should return headless user."
     assert (
-        ApiToken.verify_token(token2) == user
+        ApiToken.verify_token(token2).user == user
     ), "Second token with common prefix should return headless user."

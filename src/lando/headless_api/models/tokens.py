@@ -1,4 +1,5 @@
 import secrets
+from typing import Self
 
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import User
@@ -43,7 +44,7 @@ class ApiToken(BaseModel):
         return token
 
     @classmethod
-    def verify_token(cls, token: str) -> User:
+    def verify_token(cls, token: str) -> Self:
         """Verify a token and return the associated `User` if valid.
 
         Use the prefix of the given token to look up matching entries in the
@@ -61,6 +62,6 @@ class ApiToken(BaseModel):
             if not api_token_obj.is_valid:
                 raise ValueError(f"Token {token} has been revoked.")
 
-            return api_token_obj.user
+            return api_token_obj
 
         raise ValueError(f"Token {token} was not found.")
