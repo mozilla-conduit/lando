@@ -7,6 +7,8 @@ from django.db import models
 
 from lando.main.models.base import BaseModel
 
+API_TOKEN_PREFIX_LENGTH = 8
+
 
 class ApiToken(BaseModel):
     """API tokens for use with headless API."""
@@ -15,7 +17,7 @@ class ApiToken(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     # 8-character prefix of the unsalted token for lookups.
-    token_prefix = models.CharField(max_length=8, db_index=True)
+    token_prefix = models.CharField(max_length=API_TOKEN_PREFIX_LENGTH, db_index=True)
 
     # Full hashed/salted token.
     token_hash = models.CharField(max_length=128, unique=True)
@@ -34,7 +36,7 @@ class ApiToken(BaseModel):
         token = secrets.token_hex(nbytes=20)
 
         # Note the prefix for the index.
-        token_prefix = token[:8]
+        token_prefix = token[:API_TOKEN_PREFIX_LENGTH]
 
         # Create the hashed/salted token.
         token_hash = make_password(token)
@@ -50,7 +52,7 @@ class ApiToken(BaseModel):
         Use the prefix of the given token to look up matching entries in the
         `ApiToken` table. Verify the full token against the stored hash
         """
-        token_prefix = token[:8]
+        token_prefix = token[:API_TOKEN_PREFIX_LENGTH]
         token_prefix_matches = cls.objects.filter(token_prefix=token_prefix)
 
         for api_token_obj in token_prefix_matches:
