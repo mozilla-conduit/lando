@@ -163,7 +163,7 @@ class AutomationWorker(Worker):
         """Wrapper around notify_user_of_landing_failure for convenience.
 
         Args:
-            job (LandingJob): A LandingJob instance to use when fetching the
+            job (AutomationJob): An AutomationJob instance to use when fetching the
                 notification parameters.
         """
         notify_user_of_landing_failure(
