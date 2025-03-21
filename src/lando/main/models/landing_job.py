@@ -219,9 +219,9 @@ class LandingJob(BaseModel):
             grace_cutoff = now - datetime.timedelta(seconds=grace_seconds)
             q = q.filter(created_at__lt=grace_cutoff)
 
-        # Any `LandingJobStatus.IN_PROGRESS` job is first and there should
+        # Any `JobStatus.IN_PROGRESS` job is first and there should
         # be a maximum of one (per repository). For
-        # `LandingJobStatus.SUBMITTED` jobs, higher priority items come first
+        # `JobStatus.SUBMITTED` jobs, higher priority items come first
         # and then we order by creation time (older first).
         ordering = Case(
             When(status=JobStatus.SUBMITTED, then=1),
@@ -305,7 +305,7 @@ class LandingJob(BaseModel):
         """Change the status and other applicable fields according to actions.
 
         Args:
-            action (LandingJobAction): the action to take, e.g. "land" or "fail"
+            action (JobAction): the action to take, e.g. "land" or "fail"
             **kwargs:
                 Additional arguments required by each action, e.g. `message` or
                 `commit_id`.

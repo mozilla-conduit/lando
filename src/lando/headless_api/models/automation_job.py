@@ -77,7 +77,7 @@ class AutomationJob(BaseModel):
         """Change the status and other applicable fields according to actions.
 
         Args:
-            action (LandingJobAction): the action to take, e.g. "land" or "fail"
+            action (JobAction): the action to take, e.g. "land" or "fail"
             **kwargs:
                 Additional arguments required by each action, e.g. `message` or
                 `commit_id`.
