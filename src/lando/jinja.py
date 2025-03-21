@@ -211,9 +211,15 @@ def linkify_transplant_details(text: str, transplant: dict) -> str:
 
     commit_id = transplant["details"]
     search = r"(?=\b)(" + re.escape(commit_id) + r")(?=\b)"
-    replace = r'<a href="{repo_url}/rev/\g<1>">{repo_url}/rev/\g<1></a>'.format(
-        repo_url=transplant["repository_url"]
-    )
+
+    parsed_repo_url = urllib.parse.urlsplit(transplant["repository_url"])
+    # We assume HG by default (legacy path), but use a Github-like path if 'git' is
+    # present in the netloc.
+    link_template = r'<a href="{repo_url}/rev/\g<1>">{repo_url}/rev/\g<1></a>'
+    if "git" in parsed_repo_url.netloc:
+        link_template = r'<a href="{repo_url}/commit/\g<1>">{repo_url}/commit/\g<1></a>'
+
+    replace = link_template.format(repo_url=transplant["repository_url"])
     return re.sub(search, replace, str(text))  # This is case sensitive
 
 
