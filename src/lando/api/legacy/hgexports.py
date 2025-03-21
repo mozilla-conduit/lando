@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import email
+import enum
 import io
 import math
 import re
@@ -842,3 +843,20 @@ class PatchCollectionAssessor:
                 issues.append(issue)
 
         return issues
+
+
+@enum.unique
+class PatchFormat(str, enum.Enum):
+    """Enumeration of the acceptable types of patches.
+
+    This class is a subclass of `str` to enable serialization in Pydantic.
+    """
+
+    GitFormatPatch = "git-format-patch"
+    HgExport = "hgexport"
+
+
+PATCH_HELPER_MAPPING = {
+    PatchFormat.GitFormatPatch: GitPatchHelper,
+    PatchFormat.HgExport: HgPatchHelper,
+}
