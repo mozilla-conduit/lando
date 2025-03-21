@@ -221,7 +221,7 @@ class ApiError(Schema):
     details: str
 
 
-class JobStatus(Schema):
+class JobStatusResponse(Schema):
     """Response format of a job status report."""
 
     job_id: int
@@ -231,7 +231,7 @@ class JobStatus(Schema):
     status: str
 
 
-@api.post("/repo/{repo_name}", response={202: JobStatus, codes_4xx: ApiError})
+@api.post("/repo/{repo_name}", response={202: JobStatusResponse, codes_4xx: ApiError})
 def post_repo_actions(request, repo_name: str, operation: AutomationOperation):
     """API endpoint to handle submission of pushes."""
     # Get the repo object.
@@ -277,7 +277,7 @@ def post_repo_actions(request, repo_name: str, operation: AutomationOperation):
     return 202, automation_job.to_api_status()
 
 
-@api.get("/job/{int:job_id}", response={200: JobStatus, codes_4xx: ApiError})
+@api.get("/job/{int:job_id}", response={200: JobStatusResponse, codes_4xx: ApiError})
 def get_job_status(request, job_id: int):
     """Retrieve the status of a job by ID."""
     try:
