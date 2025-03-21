@@ -33,11 +33,11 @@ class Command(BaseCommand):
         )
 
     def handle_hg(self, worker: Worker):
-        """Handle the starting of the Mercurial landing worker ("hg-landing-worker")."""
+        """Handle the starting of the Mercurial automation worker ("hg-automation-worker")."""
         self._handle(worker, SCM_TYPE_HG)
 
     def handle_git(self, worker: Worker):
-        """Handle the starting of the Git landing worker ("git-landing-worker")."""
+        """Handle the starting of the Git automation worker ("git-automation-worker")."""
         self._handle(worker, SCM_TYPE_GIT)
 
     def _handle(self, worker: Worker, repo_type: str):
@@ -60,7 +60,7 @@ class Command(BaseCommand):
             logger.info(f"{worker} shut down.")
 
     def handle(self, name: str, **options):
-        """Select a landing worker based on provided argument and start it up."""
+        """Select an automation worker based on provided argument and start it up."""
         handlers = {
             SCM_TYPE_GIT: self.handle_git,
             SCM_TYPE_HG: self.handle_hg,
