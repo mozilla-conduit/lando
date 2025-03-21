@@ -346,6 +346,7 @@ def test_automation_job_create_api(client, hg_server, hg_clone, headless_user):
 
     assert response_json["status_url"] == f"https://lando.test/api/job/{job_id}"
     assert response_json["message"] == "Job is in the SUBMITTED state."
+    assert response_json["status"] == "SUBMITTED"
     assert is_isoformat_timestamp(
         response_json["created_at"]
     ), "Response should include an ISO formatted creation timestamp."

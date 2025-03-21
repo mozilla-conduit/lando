@@ -66,6 +66,7 @@ class AutomationJob(BaseModel):
             "status_url": f"{settings.SITE_URL}/api/job/{self.id}",
             "message": f"Job is in the {self.status} state.",
             "created_at": self.created_at,
+            "status": self.status,
         }
 
     def transition_status(
