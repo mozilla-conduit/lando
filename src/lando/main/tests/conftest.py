@@ -41,7 +41,7 @@ def git_repo(tmp_path: Path, git_repo_seed: Path) -> Path:
             ["git", "commit", "--allow-empty", "-m", "dev"],
             ["git", "checkout", "main"],
         ],
-        str(repo_dir),
+        repo_dir,
     )
     return repo_dir
 
@@ -58,11 +58,11 @@ def _git_setup_user(repo_dir: Path):
             ["git", "config", "user.name", "Py Test"],
             ["git", "config", "user.email", "pytest@lando.example.net"],
         ],
-        str(repo_dir),
+        repo_dir,
     )
 
 
-def _run_commands(commands: list[list[str]], cwd: str):
+def _run_commands(commands: list[list[str]], cwd: Path):
     for c in commands:
         subprocess.run(c, check=True, cwd=cwd)
 
