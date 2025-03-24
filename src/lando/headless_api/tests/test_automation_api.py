@@ -238,7 +238,7 @@ def test_automation_job_create_repo_automation_disabled(
 
     assert (
         response.status_code == 403
-    ), "Automation disabled for repo should `403 Forbidden` status."
+    ), "Automation disabled for repo should return `403 Forbidden` status."
     assert (
         response.json()["details"]
         == "Repo mozilla-central is not enabled for automation."
