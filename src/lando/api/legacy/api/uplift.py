@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 def create(phab: PhabricatorClient, request, data: dict) -> dict:
     """Create new uplift requests for requested repository & revision"""
     repository = data["repository"]
-    repo_name = repository.name
+    repo_name = repository.short_name
     revision_id = revision_id_to_int(data["revision_id"])
 
     try:

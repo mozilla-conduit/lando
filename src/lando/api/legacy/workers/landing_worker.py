@@ -88,7 +88,7 @@ class LandingWorker(Worker):
             self.refresh_active_repos()
 
         with transaction.atomic():
-            job = LandingJob.next_job(repositories=self.enabled_repos).first()
+            job = LandingJob.next_job(repositories=self.active_repos).first()
 
         if job is None:
             self.throttle(self.worker_instance.sleep_seconds)
@@ -361,7 +361,7 @@ class LandingWorker(Worker):
             logger.info(f"{mots_path} not found, skipping setting reviewer data.")
 
         # Extra steps for post-uplift landings.
-        if repo.approval_required:
+        if repo.approval_required and bug_ids:
             try:
                 # If we just landed an uplift, update the relevant bugs as appropriate.
                 update_bugs_for_uplift(
@@ -439,7 +439,9 @@ class LandingWorker(Worker):
         Changes made by code formatters are applied to the working directory and
         are not committed into version control.
         """
-        return self.run_mach_command(path, ["lint", "--fix", "--outgoing"])
+        return self.run_mach_command(
+            path, ["format", "--fix", "--outgoing", "--verbose"]
+        )
 
     def run_mach_bootstrap(self, path: str) -> str:
         """Run `mach bootstrap` to configure the system for code formatting."""
