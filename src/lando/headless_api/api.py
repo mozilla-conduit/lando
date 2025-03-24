@@ -269,7 +269,7 @@ def post_repo_actions(request, repo_name: str, operation: AutomationOperation):
             error,
             extra={"user": request.user.email, "token": request.auth.token_prefix},
         )
-        return 403, {"details": error}
+        return 400, {"details": error}
 
     with transaction.atomic():
         automation_job = AutomationJob.objects.create(
