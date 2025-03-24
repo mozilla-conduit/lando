@@ -14,7 +14,7 @@ def disable_pushlog_for_hg_repos(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("main", "0018_repo_legacy_source"),
+        ("main", "0019_alter_repo_short_name"),
     ]
 
     operations = [

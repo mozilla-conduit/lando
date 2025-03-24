@@ -6,12 +6,12 @@ import pytest
 from lando.api.legacy.workers.landing_worker import (
     AUTOFORMAT_COMMIT_MESSAGE,
 )
+from lando.main.models import Repo, Revision
 from lando.main.models.landing_job import (
     LandingJob,
     LandingJobStatus,
     add_job_with_revisions,
 )
-from lando.main.models.revision import Revision
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.scm.hg import LostPushRace
 from lando.pushlog.models.commit import Commit
@@ -970,3 +970,23 @@ def test_landing_job_revisions_sorting(
     job.save()
     job = LandingJob.objects.get(id=job.id)
     assert list(job.revisions.all()) == new_ordering
+
+
+@pytest.mark.django_db
+def test_worker_active_repos_updated_when_tree_closed(
+    treestatusdouble,
+    monkeypatch,
+    get_landing_worker,
+):
+    repo = Repo.objects.get(name="mozilla-central")
+    treestatusdouble.open_tree(repo.name)
+
+    worker = get_landing_worker(SCM_TYPE_HG)
+    worker.refresh_active_repos()
+    assert repo in worker.active_repos
+    assert repo in worker.enabled_repos
+
+    treestatusdouble.close_tree(repo.name)
+    worker.refresh_active_repos()
+    assert repo not in worker.active_repos
+    assert repo in worker.enabled_repos

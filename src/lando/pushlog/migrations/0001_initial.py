@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
         ("main", "0013_alter_repo_scm_type_alter_worker_scm"),
         ("main", "0013_alter_repo_scm_type_alter_worker_scm"),
         ("main", "0013_alter_repo_scm_type_alter_worker_scm"),
-        ("main", "0019_repo_pushlog_disabled"),
+        ("main", "0020_repo_pushlog_disabled"),
     ]
 
     operations = [
