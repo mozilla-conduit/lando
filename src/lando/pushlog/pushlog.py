@@ -58,7 +58,7 @@ class PushLog:
         self,
         repo: Repo,
         user: str,
-        commits: list = [],
+        commits: list | None = None,
     ):
         self.repo = repo
         self.user = user
