@@ -1,6 +1,18 @@
 line-length = 88
-lint.select = ["C", "E", "F", "W", "B", "B9", "I"]
-lint.ignore = ["B006", "B904", "C901", "E203", "E501"]
+lint.select = ["C", "E", "F", "W", "B", "B9", "I", "ANN"]
+lint.ignore = [
+    "B006",
+    "B904",
+    "C901",
+    "E203",
+    "E501",
+    "ANN002",  # Missing type annotation for *args
+    "ANN003",  # Missing type annotation for **kwargs
+    "ANN101",  # Missing type annotation for self in method
+    "ANN102",  # Missing type annotation for cls in classmethod
+    "ANN202",  # Missing return type annotation for protected function
+
+]
 exclude = [
     ".git",
     "__pycache__",
@@ -11,3 +23,6 @@ exclude = [
 
 [lint.isort]
 split-on-trailing-comma = true
+
+[lint.flake8-annotations]
+suppress-none-returning = true
