@@ -220,7 +220,10 @@ class GitSCM(AbstractSCM):
         breakdown["failed_paths"] = [
             {
                 "path": path,
-                "url": f"{pull_path}/file/{revision}/{path}",
+                # GitHub's /tree/ redirects to (HTML) /blob/ as needed.
+                # XXX: This doesn't work for CGit in our test environment,
+                # which would need f"{pull_path}/tree/{path}?id={revision}".
+                "url": f"{pull_path}/tree/{revision}/{path}",
                 "changeset_id": revision,
             }
             for (path, revision) in failed_path_commits
