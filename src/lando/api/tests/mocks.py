@@ -26,7 +26,7 @@ def conduit_method(method):
     return decorate
 
 
-def validate_hunk(hunk):
+def validate_hunk(hunk) -> bool:
     """Validate a Phabricator Diff change hunk payload
 
     Inspired by https://github.com/phacility/arcanist/blob/conduit-6/src/parser/diff/ArcanistDiffHunk.php#L34  # noqa
@@ -61,7 +61,7 @@ def validate_hunk(hunk):
     return True
 
 
-def validate_change(change):
+def validate_change(change) -> bool:
     """Validate a Phabricator Diff change payload
 
     Inspired by https://github.com/phacility/arcanist/blob/conduit-6/src/parser/diff/ArcanistDiffChange.php#L68  # noqa
@@ -733,7 +733,7 @@ class PhabricatorDouble:
         return comment
 
     @conduit_method("conduit.ping")
-    def conduit_ping(self):
+    def conduit_ping(self) -> str:
         return "ip-123-123-123-123.us-west-2.compute.internal"
 
     @conduit_method("bugzilla.account.search")

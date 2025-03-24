@@ -15,7 +15,7 @@ class AbstractSCM:
     def __init__(self, path: str):
         self.path = path
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.scm_name()} repo at {self.path}"
 
     @classmethod

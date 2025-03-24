@@ -55,7 +55,7 @@ class LandingJobAction(enum.Enum):
 
 
 class LandingJob(BaseModel):
-    def __str__(self):
+    def __str__(self) -> str:
         return f"LandingJob {self.id} [{self.status}]"
 
     status = models.CharField(

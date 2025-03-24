@@ -137,7 +137,7 @@ class Repo(BaseModel):
     def is_hg(self):
         return self.scm_type == SCM_TYPE_HG
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.is_git:
             return f"{self.name}@{self.default_branch} ({self.scm_type})"
         return f"{self.name} ({self.scm_type})"
