@@ -16,7 +16,9 @@ def test_collate_reviewer_attachments_malformed_raises():
         collate_reviewer_attachments([{"bogus": 1}], [{"bogus": 2}])
 
 
-def test_collate_reviewer_attachments_mismatched_length_raises(phabdouble):
+def test_collate_reviewer_attachments_mismatched_length_raises(
+    phabdouble,  # noqa: ANN001
+):
     revision = phabdouble.revision()
     user = phabdouble.user(username="reviewer")
     phabdouble.reviewer(revision, user)
@@ -37,7 +39,9 @@ def test_collate_reviewer_attachments_mismatched_length_raises(phabdouble):
 
 
 @pytest.mark.parametrize("n_reviewers", [0, 1, 2, 10, 100])
-def test_collate_reviewer_attachments_n_reviewers(phabdouble, n_reviewers):
+def test_collate_reviewer_attachments_n_reviewers(
+    phabdouble, n_reviewers  # noqa: ANN001
+):
     revision = phabdouble.revision()
     users = [
         phabdouble.user(username="reviewer{}".format(i)) for i in range(n_reviewers)
@@ -66,7 +70,7 @@ def test_collate_reviewer_attachments_n_reviewers(phabdouble, n_reviewers):
 
 
 def test_sec_approval_is_filtered_from_commit_message_reviewer_list(
-    app, phabdouble, secure_project, sec_approval_project
+    app, phabdouble, secure_project, sec_approval_project  # noqa: ANN001
 ):
     revision = phabdouble.revision(projects=[secure_project])
     user = phabdouble.user(username="normal_reviewer")
@@ -91,10 +95,10 @@ def test_sec_approval_is_filtered_from_commit_message_reviewer_list(
 
 
 def test_approvals_for_commit_message(
-    app,
-    phabdouble,
-    sec_approval_project,
-    release_management_project,
+    app,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    sec_approval_project,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
 ):
     revision = phabdouble.revision()
     user = phabdouble.user(username="normal_reviewer")

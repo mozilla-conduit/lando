@@ -15,7 +15,7 @@ from lando.main.models import Repo
 from lando.utils.phabricator import PhabricatorRevisionStatus
 
 
-def test_build_stack_graph_single_node(phabdouble):
+def test_build_stack_graph_single_node(phabdouble):  # noqa: ANN001
     revision = phabdouble.revision()
 
     nodes, edges = build_stack_graph(phabdouble.api_object_for(revision))
@@ -24,7 +24,7 @@ def test_build_stack_graph_single_node(phabdouble):
     assert not edges
 
 
-def test_build_stack_graph_two_nodes(phabdouble):
+def test_build_stack_graph_two_nodes(phabdouble):  # noqa: ANN001
     r1 = phabdouble.revision()
     r2 = phabdouble.revision(depends_on=[r1])
 
@@ -39,7 +39,7 @@ def test_build_stack_graph_two_nodes(phabdouble):
     assert edges2 == edges
 
 
-def _build_revision_graph(phabdouble, dep_list):
+def _build_revision_graph(phabdouble, dep_list):  # noqa: ANN001
     revisions = []
 
     for deps in dep_list:
@@ -50,7 +50,7 @@ def _build_revision_graph(phabdouble, dep_list):
     return revisions
 
 
-def test_build_stack_graph_multi_root_multi_head_multi_path(phabdouble):
+def test_build_stack_graph_multi_root_multi_head_multi_path(phabdouble):  # noqa: ANN001
     # Revision stack to construct:
     # *     revisions[10]
     # | *   revisions[9]
@@ -108,7 +108,9 @@ def test_build_stack_graph_multi_root_multi_head_multi_path(phabdouble):
         assert edges2 == edges
 
 
-def test_build_stack_graph_disconnected_revisions_not_included(phabdouble):
+def test_build_stack_graph_disconnected_revisions_not_included(
+    phabdouble,  # noqa: ANN001
+):
     revisions = _build_revision_graph(
         phabdouble,
         [
@@ -136,7 +138,9 @@ def test_build_stack_graph_disconnected_revisions_not_included(phabdouble):
     assert edges == {(revisions[4]["phid"], revisions[3]["phid"])}
 
 
-def test_request_extended_revision_data_single_revision_no_repo(phabdouble):
+def test_request_extended_revision_data_single_revision_no_repo(
+    phabdouble,  # noqa: ANN001
+):
     phab = phabdouble.get_phabricator_client()
 
     diff = phabdouble.diff()
@@ -148,7 +152,9 @@ def test_request_extended_revision_data_single_revision_no_repo(phabdouble):
     assert not data.repositories
 
 
-def test_request_extended_revision_data_single_revision_with_repo(phabdouble):
+def test_request_extended_revision_data_single_revision_with_repo(
+    phabdouble,  # noqa: ANN001
+):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
@@ -161,7 +167,7 @@ def test_request_extended_revision_data_single_revision_with_repo(phabdouble):
     assert repo["phid"] in data.repositories
 
 
-def test_request_extended_revision_data_no_revisions(phabdouble):
+def test_request_extended_revision_data_no_revisions(phabdouble):  # noqa: ANN001
     phab = phabdouble.get_phabricator_client()
     data = request_extended_revision_data(phab, [])
 
@@ -170,7 +176,7 @@ def test_request_extended_revision_data_no_revisions(phabdouble):
     assert not data.repositories
 
 
-def test_request_extended_revision_data_gets_all_diffs(phabdouble):
+def test_request_extended_revision_data_gets_all_diffs(phabdouble):  # noqa: ANN001
     phab = phabdouble.get_phabricator_client()
 
     first_diff = phabdouble.diff()
@@ -183,7 +189,9 @@ def test_request_extended_revision_data_gets_all_diffs(phabdouble):
     assert latest_diff["phid"] in data.diffs
 
 
-def test_request_extended_revision_data_diff_and_revision_repo(phabdouble):
+def test_request_extended_revision_data_diff_and_revision_repo(
+    phabdouble,  # noqa: ANN001
+):
     phab = phabdouble.get_phabricator_client()
 
     repo1 = phabdouble.repo(name="repo1")
@@ -198,7 +206,7 @@ def test_request_extended_revision_data_diff_and_revision_repo(phabdouble):
     assert repo2["phid"] in data.repositories
 
 
-def test_request_extended_revision_data_unrelated_revisions(phabdouble):
+def test_request_extended_revision_data_unrelated_revisions(phabdouble):  # noqa: ANN001
     phab = phabdouble.get_phabricator_client()
 
     repo1 = phabdouble.repo(name="repo1")
@@ -219,7 +227,7 @@ def test_request_extended_revision_data_unrelated_revisions(phabdouble):
     assert repo2["phid"] in data.repositories
 
 
-def test_request_extended_revision_data_stacked_revisions(phabdouble):
+def test_request_extended_revision_data_stacked_revisions(phabdouble):  # noqa: ANN001
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
@@ -247,7 +255,9 @@ def test_request_extended_revision_data_stacked_revisions(phabdouble):
     assert repo["phid"] in data.repositories
 
 
-def test_request_extended_revision_data_repo_has_projects(phabdouble, secure_project):
+def test_request_extended_revision_data_repo_has_projects(
+    phabdouble, secure_project  # noqa: ANN001
+):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo(projects=[secure_project])
@@ -262,7 +272,7 @@ def test_request_extended_revision_data_repo_has_projects(phabdouble, secure_pro
     ), "`request_extended_revision_data` should return repos with `projects` attachment."
 
 
-def test_request_extended_revision_data_raises_value_error(phabdouble):
+def test_request_extended_revision_data_raises_value_error(phabdouble):  # noqa: ANN001
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
@@ -281,10 +291,10 @@ def test_request_extended_revision_data_raises_value_error(phabdouble):
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_no_edges_open(
-    phabdouble,
-    release_management_project,
-    needs_data_classification_project,
-    mocked_repo_config,
+    phabdouble,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -314,10 +324,10 @@ def test_calculate_landable_subgraphs_no_edges_open(
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_no_edges_closed(
-    phabdouble,
-    release_management_project,
-    needs_data_classification_project,
-    mocked_repo_config,
+    phabdouble,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -348,10 +358,10 @@ def test_calculate_landable_subgraphs_no_edges_closed(
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_closed_root(
-    phabdouble,
-    release_management_project,
-    needs_data_classification_project,
-    mocked_repo_config,
+    phabdouble,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -381,10 +391,10 @@ def test_calculate_landable_subgraphs_closed_root(
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_closed_root_child_merges(
-    phabdouble,
-    release_management_project,
-    needs_data_classification_project,
-    mocked_repo_config,
+    phabdouble,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -421,10 +431,10 @@ def test_calculate_landable_subgraphs_closed_root_child_merges(
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_stops_multiple_repo_paths(
-    phabdouble,
-    release_management_project,
-    needs_data_classification_project,
-    mocked_repo_config,
+    phabdouble,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -458,10 +468,10 @@ def test_calculate_landable_subgraphs_stops_multiple_repo_paths(
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_allows_distinct_repo_paths(
-    phabdouble,
-    release_management_project,
-    needs_data_classification_project,
-    mocked_repo_config,
+    phabdouble,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -499,10 +509,10 @@ def test_calculate_landable_subgraphs_allows_distinct_repo_paths(
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_different_repo_parents(
-    phabdouble,
-    release_management_project,
-    needs_data_classification_project,
-    mocked_repo_config,
+    phabdouble,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -539,10 +549,10 @@ def test_calculate_landable_subgraphs_different_repo_parents(
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_different_repo_closed_parent(
-    phabdouble,
-    release_management_project,
-    needs_data_classification_project,
-    mocked_repo_config,
+    phabdouble,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -578,10 +588,10 @@ def test_calculate_landable_subgraphs_different_repo_closed_parent(
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_diverging_paths_merge(
-    phabdouble,
-    release_management_project,
-    needs_data_classification_project,
-    mocked_repo_config,
+    phabdouble,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -633,10 +643,10 @@ def test_calculate_landable_subgraphs_diverging_paths_merge(
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_complex_graph(
-    phabdouble,
-    release_management_project,
-    needs_data_classification_project,
-    mocked_repo_config,
+    phabdouble,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
 ):
     phab = phabdouble.get_phabricator_client()
 
@@ -733,7 +743,9 @@ def test_calculate_landable_subgraphs_complex_graph(
 
 @pytest.mark.django_db
 def test_calculate_landable_subgraphs_missing_repo(
-    phabdouble, release_management_project, needs_data_classification_project
+    phabdouble,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     """Test to assert a missing repository for a revision is
     blocked with an appropriate error
@@ -769,7 +781,9 @@ def test_calculate_landable_subgraphs_missing_repo(
 
 
 @pytest.mark.django_db
-def test_get_landable_repos_for_revision_data(phabdouble, mocked_repo_config):
+def test_get_landable_repos_for_revision_data(
+    phabdouble, mocked_repo_config  # noqa: ANN001
+):
     phab = phabdouble.get_phabricator_client()
 
     repo1 = phabdouble.repo(name="mozilla-central")
@@ -790,13 +804,13 @@ def test_get_landable_repos_for_revision_data(phabdouble, mocked_repo_config):
 
 @pytest.mark.django_db
 def test_integrated_stack_endpoint_simple(
-    proxy_client,
-    phabdouble,
-    mocked_repo_config,
-    release_management_project,
-    needs_data_classification_project,
-    sec_approval_project,
-    secure_project,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    sec_approval_project,  # noqa: ANN001
+    secure_project,  # noqa: ANN001
 ):
     repo = phabdouble.repo()
     unsupported_repo = phabdouble.repo(name="not-mozilla-central")
@@ -832,12 +846,12 @@ def test_integrated_stack_endpoint_simple(
 
 @pytest.mark.django_db
 def test_integrated_stack_endpoint_repos(
-    proxy_client,
-    phabdouble,
-    mocked_repo_config,
-    release_management_project,
-    needs_data_classification_project,
-    sec_approval_project,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    sec_approval_project,  # noqa: ANN001
 ):
     repo = phabdouble.repo()
     unsupported_repo = phabdouble.repo(name="not-mozilla-central")
@@ -864,13 +878,13 @@ def test_integrated_stack_endpoint_repos(
 
 @pytest.mark.django_db
 def test_integrated_stack_has_revision_security_status(
-    proxy_client,
-    phabdouble,
-    mock_repo_config,
-    release_management_project,
-    needs_data_classification_project,
-    sec_approval_project,
-    secure_project,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    mock_repo_config,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    sec_approval_project,  # noqa: ANN001
+    secure_project,  # noqa: ANN001
 ):
     repo = phabdouble.repo()
     public_revision = phabdouble.revision(repo=repo)
@@ -888,13 +902,13 @@ def test_integrated_stack_has_revision_security_status(
 
 @pytest.mark.django_db
 def test_integrated_stack_response_mismatch_returns_404(
-    proxy_client,
-    phabdouble,
-    mock_repo_config,
-    release_management_project,
-    needs_data_classification_project,
-    sec_approval_project,
-    secure_project,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    mock_repo_config,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    sec_approval_project,  # noqa: ANN001
+    secure_project,  # noqa: ANN001
 ):
     # If the API response contains a different number of revisions than the
     # expected number based on the stack graph, a 404 error is expected.

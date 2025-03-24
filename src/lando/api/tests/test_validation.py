@@ -9,7 +9,7 @@ def test_convertion_success():
 
 
 @pytest.mark.parametrize("id", ["123D", "123", "DAB", "A123"])
-def test_convertion_failure_string(id):
+def test_convertion_failure_string(id):  # noqa: ANN001
     with pytest.raises(LegacyAPIException):
         revision_id_to_int(id)
 

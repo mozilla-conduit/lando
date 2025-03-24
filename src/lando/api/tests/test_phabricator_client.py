@@ -12,7 +12,7 @@ from lando.utils.phabricator import PhabricatorAPIException
 pytestmark = pytest.mark.usefixtures("docker_env_vars")
 
 
-def test_ping_success(get_phab_client):
+def test_ping_success(get_phab_client):  # noqa: ANN001
     phab = get_phab_client(api_key="api-key")
     with requests_mock.mock() as m:
         m.post(
@@ -24,7 +24,9 @@ def test_ping_success(get_phab_client):
         assert m.called
 
 
-def test_raise_exception_if_ping_encounters_connection_error(get_phab_client):
+def test_raise_exception_if_ping_encounters_connection_error(
+    get_phab_client,  # noqa: ANN001
+):
     phab = get_phab_client(api_key="api-key")
     with requests_mock.mock() as m:
         # Test with the generic ConnectionError, which is a superclass for
@@ -36,7 +38,7 @@ def test_raise_exception_if_ping_encounters_connection_error(get_phab_client):
         assert m.called
 
 
-def test_raise_exception_if_api_ping_times_out(get_phab_client):
+def test_raise_exception_if_api_ping_times_out(get_phab_client):  # noqa: ANN001
     phab = get_phab_client(api_key="api-key")
     with requests_mock.mock() as m:
         # Test with the generic Timeout exception, which all other timeout
@@ -48,7 +50,9 @@ def test_raise_exception_if_api_ping_times_out(get_phab_client):
         assert m.called
 
 
-def test_raise_exception_if_api_returns_error_json_response(get_phab_client):
+def test_raise_exception_if_api_returns_error_json_response(
+    get_phab_client,  # noqa: ANN001
+):
     phab = get_phab_client(api_key="api-key")
     error_json = {
         "result": None,
@@ -66,7 +70,7 @@ def test_raise_exception_if_api_returns_error_json_response(get_phab_client):
         assert m.called
 
 
-def test_phabricator_exception(get_phab_client):
+def test_phabricator_exception(get_phab_client):  # noqa: ANN001
     """Ensures that the PhabricatorClient converts JSON errors from Phabricator
     into proper exceptions with the error_code and error_message in tact.
     """

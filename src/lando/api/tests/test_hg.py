@@ -21,7 +21,7 @@ from lando.main.scm import (
 )
 
 
-def test_integrated_hgrepo_clean_repo(hg_clone):
+def test_integrated_hgrepo_clean_repo(hg_clone):  # noqa: ANN001
     # Test is long and checks various repo cleaning cases as the startup
     # time for anything using `hg_clone` fixture is very long.
     repo = HgSCM(hg_clone.strpath)
@@ -72,7 +72,7 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
         assert not repo.run_hg_cmds([["status"]])
 
 
-def test_integrated_hgrepo_can_log(hg_clone):
+def test_integrated_hgrepo_can_log(hg_clone):  # noqa: ANN001
     repo = HgSCM(hg_clone.strpath)
     with repo.for_pull():
         assert repo.run_hg_cmds([["log"]])
@@ -142,7 +142,7 @@ diff --git a/test.txt b/test.txt
 """.strip()
 
 
-def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
+def test_integrated_hgrepo_patch_conflict_failure(hg_clone):  # noqa: ANN001
     repo = HgSCM(hg_clone.strpath)
 
     # Patches with conflicts should raise a proper PatchConflict exception.
@@ -164,7 +164,7 @@ def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
     ),
 )
 def test_integrated_hgrepo_patch_success(
-    name: str, patch: str, expected_log: str, hg_clone
+    name: str, patch: str, expected_log: str, hg_clone  # noqa: ANN001
 ):
     repo = HgSCM(hg_clone.strpath)
 
@@ -186,7 +186,9 @@ def test_integrated_hgrepo_patch_success(
         assert expected_log in log_output.decode("utf-8")
 
 
-def test_integrated_hgrepo_patch_hgimport_fail_success(monkeypatch, hg_clone):
+def test_integrated_hgrepo_patch_hgimport_fail_success(
+    monkeypatch, hg_clone  # noqa: ANN001
+):
     repo = HgSCM(hg_clone.strpath)
 
     original_run_hg = repo.run_hg
@@ -219,7 +221,7 @@ def test_integrated_hgrepo_patch_hgimport_fail_success(monkeypatch, hg_clone):
         ), "No outgoing commit after non-hg importable patch has been applied"
 
 
-def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
+def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):  # noqa: ANN001
     """Test newline bug in Mercurial
 
     See https://bugzilla.mozilla.org/show_bug.cgi?id=1541181 for context.
@@ -267,7 +269,7 @@ def test_hg_exceptions():
             raise HgException.from_hglib_error(exc)
 
 
-def test_hgrepo_request_user(hg_clone):
+def test_hgrepo_request_user(hg_clone):  # noqa: ANN001
     """Test that the request user environment variable is set and unset correctly."""
     repo = HgSCM(hg_clone.strpath)
     request_user_email = "test@example.com"
@@ -286,7 +288,7 @@ def test_hgrepo_request_user(hg_clone):
         ("/", False),
     ),
 )
-def test_repo_is_supported(repo_path: str, expected: bool, hg_clone):
+def test_repo_is_supported(repo_path: str, expected: bool, hg_clone):  # noqa: ANN001
     scm = HgSCM
     if not repo_path:
         repo_path = hg_clone.strpath

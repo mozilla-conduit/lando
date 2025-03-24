@@ -23,7 +23,7 @@ from lando.utils.phabricator import PhabricatorClient
 )
 @pytest.mark.django_db(transaction=True)
 def test_LandoOIDCAuthenticationBackend__update_user_scm_access(
-    monkeypatch, groups, has_scm_conduit_perm
+    monkeypatch, groups, has_scm_conduit_perm  # noqa: ANN001
 ):
     backend = LandoOIDCAuthenticationBackend()
     user = User.objects.create_user(username="test_user", password="test_password")
@@ -47,7 +47,7 @@ def test_LandoOIDCAuthenticationBackend__update_user_filter_claims():
     assert "something_else" not in user.profile.userinfo[CLAIM_GROUPS_KEY]
 
 
-def noop(phab, *args, **kwargs):
+def noop(phab, *args, **kwargs):  # noqa: ANN001, ANN201
     response = HttpResponse(status=200)
     response.body = phab
     return response
@@ -64,7 +64,9 @@ def noop(phab, *args, **kwargs):
         (True, True, 200),
     ],
 )
-def test_require_phabricator_api_key(monkeypatch, optional, valid_key, status):
+def test_require_phabricator_api_key(
+    monkeypatch, optional, valid_key, status  # noqa: ANN001
+):
     fake_request = MagicMock()
     fake_request.user.profile.phabricator_api_key = None
     fake_request.user.is_authenticated = True

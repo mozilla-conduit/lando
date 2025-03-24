@@ -7,8 +7,8 @@ from lando.main.scm import SCM_TYPE_HG
 
 
 @pytest.fixture
-def landing_job(db):
-    def _landing_job(status, requester_email="tuser@example.com"):
+def landing_job(db):  # noqa: ANN001, ANN201
+    def _landing_job(status, requester_email="tuser@example.com"):  # noqa: ANN001
         job = LandingJob(
             status=status,
             revision_to_diff_id={},
@@ -23,7 +23,7 @@ def landing_job(db):
 
 
 def test_cancel_landing_job_cancels_when_submitted(
-    db, authenticated_client, user, landing_job, mock_permissions
+    db, authenticated_client, user, landing_job, mock_permissions  # noqa: ANN001
 ):
     """Test happy path; cancelling a job that has not started yet."""
     job = landing_job(LandingJobStatus.SUBMITTED, requester_email=user.email)
@@ -39,7 +39,7 @@ def test_cancel_landing_job_cancels_when_submitted(
 
 
 def test_cancel_landing_job_cancels_when_deferred(
-    db, authenticated_client, user, landing_job, mock_permissions
+    db, authenticated_client, user, landing_job, mock_permissions  # noqa: ANN001
 ):
     """Test happy path; cancelling a job that has been deferred."""
     job = landing_job(LandingJobStatus.DEFERRED, requester_email=user.email)
@@ -56,7 +56,7 @@ def test_cancel_landing_job_cancels_when_deferred(
 
 
 def test_cancel_landing_job_fails_in_progress(
-    db, authenticated_client, user, landing_job, mock_permissions
+    db, authenticated_client, user, landing_job, mock_permissions  # noqa: ANN001
 ):
     """Test trying to cancel a job that is in progress fails."""
     job = landing_job(LandingJobStatus.IN_PROGRESS, requester_email=user.email)
@@ -76,7 +76,7 @@ def test_cancel_landing_job_fails_in_progress(
 
 
 def test_cancel_landing_job_fails_not_owner(
-    db, authenticated_client, landing_job, mock_permissions
+    db, authenticated_client, landing_job, mock_permissions  # noqa: ANN001
 ):
     """Test trying to cancel a job that is created by a different user."""
     job = landing_job(LandingJobStatus.SUBMITTED, "anotheruser@example.org")
@@ -96,7 +96,7 @@ def test_cancel_landing_job_fails_not_owner(
 
 
 def test_cancel_landing_job_fails_not_found(
-    db, authenticated_client, landing_job, mock_permissions
+    db, authenticated_client, landing_job, mock_permissions  # noqa: ANN001
 ):
     """Test trying to cancel a job that does not exist."""
     response = authenticated_client.put(
@@ -110,7 +110,7 @@ def test_cancel_landing_job_fails_not_found(
 
 
 def test_cancel_landing_job_fails_bad_input(
-    db, authenticated_client, user, landing_job, mock_permissions
+    db, authenticated_client, user, landing_job, mock_permissions  # noqa: ANN001
 ):
     """Test trying to send an invalid status to the update endpoint."""
     job = landing_job(LandingJobStatus.SUBMITTED, requester_email=user.email)
@@ -128,7 +128,9 @@ def test_cancel_landing_job_fails_bad_input(
     assert job.status == LandingJobStatus.SUBMITTED
 
 
-def test_landing_job_acquire_job_job_queue_query(db, mocked_repo_config):
+def test_landing_job_acquire_job_job_queue_query(
+    db, mocked_repo_config  # noqa: ANN001
+):
     REPO = Repo.objects.create(name="test-repo", scm_type=SCM_TYPE_HG)
     jobs = [
         LandingJob(

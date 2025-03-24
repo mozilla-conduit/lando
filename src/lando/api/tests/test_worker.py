@@ -16,7 +16,9 @@ from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 )
 @mock.patch.dict(os.environ, {LandingWorker.SSH_PRIVATE_KEY_ENV_KEY: ""})
 @pytest.mark.django_db
-def test_Worker__no_SSH_PRIVATE_KEY(caplog, landing_worker_instance, scm_type):
+def test_Worker__no_SSH_PRIVATE_KEY(
+    caplog, landing_worker_instance, scm_type  # noqa: ANN001
+):
     # The worker will read the environment and try to handle the SSH_PRIVATE_KEY if
     # present.
     w = LandingWorker(landing_worker_instance(scm=scm_type), with_ssh=True)

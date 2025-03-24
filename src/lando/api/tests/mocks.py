@@ -16,17 +16,17 @@ from lando.utils.phabricator import (
 )
 
 
-def conduit_method(method):
+def conduit_method(method):  # noqa: ANN001, ANN201
     """Decorator to mark methods as a conduit method handler."""
 
-    def decorate(f):
+    def decorate(f):  # noqa: ANN001
         f._conduit_method = method
         return f
 
     return decorate
 
 
-def validate_hunk(hunk) -> bool:
+def validate_hunk(hunk) -> bool:  # noqa: ANN001
     """Validate a Phabricator Diff change hunk payload
 
     Inspired by https://github.com/phacility/arcanist/blob/conduit-6/src/parser/diff/ArcanistDiffHunk.php#L34  # noqa
@@ -61,7 +61,7 @@ def validate_hunk(hunk) -> bool:
     return True
 
 
-def validate_change(change) -> bool:
+def validate_change(change) -> bool:  # noqa: ANN001
     """Validate a Phabricator Diff change payload
 
     Inspired by https://github.com/phacility/arcanist/blob/conduit-6/src/parser/diff/ArcanistDiffChange.php#L68  # noqa
@@ -93,7 +93,7 @@ def validate_change(change) -> bool:
     return True
 
 
-def get_stack(phid, phabdouble):
+def get_stack(phid, phabdouble):  # noqa: ANN001, ANN201
     phids = set()
     new_phids = {phid}
     edges = []
@@ -150,7 +150,7 @@ class PhabricatorDouble:
     use of more methods / arguments support should be added.
     """
 
-    def __init__(self, monkeypatch):
+    def __init__(self, monkeypatch):  # noqa: ANN001
         self._transactions = []
         self._users = []
         self._projects = []
@@ -167,7 +167,7 @@ class PhabricatorDouble:
 
         monkeypatch.setattr(PhabricatorClient, "call_conduit", self.call_conduit)
 
-    def call_conduit(self, method, **kwargs):
+    def call_conduit(self, method, **kwargs):  # noqa: ANN001, ANN201
         handler = self._handlers.get(method)
 
         if handler is None:
@@ -229,14 +229,14 @@ class PhabricatorDouble:
         return PhabricatorClient.single(result, "data")
 
     @staticmethod
-    def get_phabricator_client():
+    def get_phabricator_client():  # noqa: ANN205
         return PhabricatorClient("https://localhost", "DOESNT-MATTER")
 
     def update_revision_dependencies(self, phid: str, depends_on: list[str]):
         """Updates edges of `phid` so they match `depends_on`."""
 
         # Remove all previous edges related to this revision.
-        def philter(edge):
+        def philter(edge):  # noqa: ANN001
             return phid not in (edge["sourcePHID"], edge["destinationPHID"])
 
         self._edges = list(filter(philter, self._edges))
@@ -257,20 +257,20 @@ class PhabricatorDouble:
                 }
             )
 
-    def revision(
+    def revision(  # noqa: ANN201
         self,
         *,
-        diff=None,
-        author=None,
-        repo=None,
-        status=PhabricatorRevisionStatus.ACCEPTED,
-        depends_on=[],
-        bug_id=None,
-        projects=[],
-        comments=[],
-        title="",
-        summary="",
-        uplift=None,
+        diff=None,  # noqa: ANN001
+        author=None,  # noqa: ANN001
+        repo=None,  # noqa: ANN001
+        status=PhabricatorRevisionStatus.ACCEPTED,  # noqa: ANN001
+        depends_on=[],  # noqa: ANN001
+        bug_id=None,  # noqa: ANN001
+        projects=[],  # noqa: ANN001
+        comments=[],  # noqa: ANN001
+        title="",  # noqa: ANN001
+        summary="",  # noqa: ANN001
+        uplift=None,  # noqa: ANN001
     ):
         revision_id = self._new_id(self._revisions)
         phid = self._new_phid("DREV-")
@@ -352,7 +352,7 @@ class PhabricatorDouble:
 
         return revision
 
-    def user(self, *, username="imadueme_admin"):
+    def user(self, *, username="imadueme_admin"):  # noqa: ANN001, ANN201
         """Return a Phabricator User."""
         users = [u for u in self._users if u["userName"] == username]
         if users:
@@ -395,15 +395,15 @@ class PhabricatorDouble:
 
         return user
 
-    def diff(
+    def diff(  # noqa: ANN201
         self,
         *,
-        revision=None,
-        rawdiff=CANNED_RAW_DEFAULT_DIFF,
-        changes=None,
-        repo=None,
-        author=None,
-        commits=[
+        revision=None,  # noqa: ANN001
+        rawdiff=CANNED_RAW_DEFAULT_DIFF,  # noqa: ANN001
+        changes=None,  # noqa: ANN001
+        repo=None,  # noqa: ANN001
+        author=None,  # noqa: ANN001
+        commits=[  # noqa: ANN001
             {
                 "identifier": "b15b8fbc79c2c3977aff9e17f0dfcc34c66ec29f",
                 "tree": None,
@@ -417,7 +417,7 @@ class PhabricatorDouble:
                 "message": "This is the commit message.",
             }
         ],
-        refs=[
+        refs=[  # noqa: ANN001
             {"type": "base", "identifier": "cff9ba1622714e0dd82c39f912f405210489fce8"}
         ],
     ):
@@ -501,7 +501,7 @@ class PhabricatorDouble:
 
         return diff
 
-    def repo(self, *, name="mozilla-central", projects=None):
+    def repo(self, *, name="mozilla-central", projects=None):  # noqa: ANN001, ANN201
         projects = projects or []
         repos = [r for r in self._repos if r["name"] == name]
         if repos:
@@ -546,16 +546,16 @@ class PhabricatorDouble:
 
         return repo
 
-    def reviewer(
+    def reviewer(  # noqa: ANN201
         self,
-        revision,
-        user_or_project,
+        revision,  # noqa: ANN001
+        user_or_project,  # noqa: ANN001
         *,
-        status=ReviewerStatus.ACCEPTED,
-        isBlocking=False,
-        actor=None,
-        on_diff=None,
-        voided_by_phid=None,
+        status=ReviewerStatus.ACCEPTED,  # noqa: ANN001
+        isBlocking=False,  # noqa: ANN001
+        actor=None,  # noqa: ANN001
+        on_diff=None,  # noqa: ANN001
+        voided_by_phid=None,  # noqa: ANN001
     ):
         if on_diff is None:
             # Default to the latest.
@@ -593,7 +593,7 @@ class PhabricatorDouble:
 
         return reviewer
 
-    def project(self, name, *, attachments=None, no_slug=False):
+    def project(self, name, *, attachments=None, no_slug=False):  # noqa: ANN001, ANN201
         """Return a Phabricator Project."""
         projects = [p for p in self._projects if p["name"] == name]
         if projects:
@@ -639,13 +639,13 @@ class PhabricatorDouble:
 
         return project
 
-    def transaction(
+    def transaction(  # noqa: ANN201
         self,
         transaction_type: str,
         object: dict,
-        operations=None,
-        comments=None,
-        fields=None,
+        operations=None,  # noqa: ANN001
+        comments=None,  # noqa: ANN001
+        fields=None,  # noqa: ANN001
     ):
         """Return a Phabricator Transaction object.
 
@@ -707,7 +707,7 @@ class PhabricatorDouble:
         )
         return transaction
 
-    def comment(self, content, author=None):
+    def comment(self, content, author=None):  # noqa: ANN001, ANN201
         """Return a Phabricator Comment object.
 
         Args:
@@ -737,7 +737,7 @@ class PhabricatorDouble:
         return "ip-123-123-123-123.us-west-2.compute.internal"
 
     @conduit_method("bugzilla.account.search")
-    def bugzilla_account_search(self, phids=None, ids=None):
+    def bugzilla_account_search(self, phids=None, ids=None):  # noqa: ANN001, ANN201
         """Return a list of Bugzilla IDs and Phabricator phids, given phids or ids."""
         if ids:
             raise NotImplementedError(
@@ -760,18 +760,18 @@ class PhabricatorDouble:
         return result
 
     @conduit_method("project.search")
-    def project_search(
+    def project_search(  # noqa: ANN201
         self,
         *,
-        queryKey=None,
-        constraints={},
-        attachments={},
-        order=None,
-        before=None,
-        after=None,
-        limit=100,
+        queryKey=None,  # noqa: ANN001
+        constraints={},  # noqa: ANN001
+        attachments={},  # noqa: ANN001
+        order=None,  # noqa: ANN001
+        before=None,  # noqa: ANN001
+        after=None,  # noqa: ANN001
+        limit=100,  # noqa: ANN001
     ):
-        def to_response(i):
+        def to_response(i):  # noqa: ANN001
             return deepcopy(
                 {
                     "id": i["id"],
@@ -856,18 +856,18 @@ class PhabricatorDouble:
         }
 
     @conduit_method("differential.diff.search")
-    def differential_diff_search(
+    def differential_diff_search(  # noqa: ANN201
         self,
         *,
-        queryKey=None,
-        constraints=None,
-        attachments=None,
-        order=None,
-        before=None,
-        after=None,
-        limit=100,
+        queryKey=None,  # noqa: ANN001
+        constraints=None,  # noqa: ANN001
+        attachments=None,  # noqa: ANN001
+        order=None,  # noqa: ANN001
+        before=None,  # noqa: ANN001
+        after=None,  # noqa: ANN001
+        limit=100,  # noqa: ANN001
     ):
-        def to_response(i):
+        def to_response(i):  # noqa: ANN001
             refs = [r for r in self._diff_refs if r["diff_id"] == i["id"]]
             resp = {
                 "id": i["id"],
@@ -921,17 +921,17 @@ class PhabricatorDouble:
         }
 
     @conduit_method("edge.search")
-    def edge_search(
+    def edge_search(  # noqa: ANN201
         self,
         *,
-        sourcePHIDs=None,
-        types=None,
-        destinationPHIDs=None,
-        before=None,
-        after=None,
-        limit=100,
+        sourcePHIDs=None,  # noqa: ANN001
+        types=None,  # noqa: ANN001
+        destinationPHIDs=None,  # noqa: ANN001
+        before=None,  # noqa: ANN001
+        after=None,  # noqa: ANN001
+        limit=100,  # noqa: ANN001
     ):
-        def to_response(i):
+        def to_response(i):  # noqa: ANN001
             return deepcopy(
                 {
                     "edgeType": i["edgeType"],
@@ -992,18 +992,18 @@ class PhabricatorDouble:
         }
 
     @conduit_method("differential.revision.search")
-    def differential_revision_search(
+    def differential_revision_search(  # noqa: ANN201
         self,
         *,
-        queryKey=None,
-        constraints=None,
-        attachments=None,
-        order=None,
-        before=None,
-        after=None,
-        limit=100,
+        queryKey=None,  # noqa: ANN001
+        constraints=None,  # noqa: ANN001
+        attachments=None,  # noqa: ANN001
+        order=None,  # noqa: ANN001
+        before=None,  # noqa: ANN001
+        after=None,  # noqa: ANN001
+        limit=100,  # noqa: ANN001
     ):
-        def to_response(i):
+        def to_response(i):  # noqa: ANN001
             diffs = sorted(
                 (d for d in self._diffs if d["revisionID"] == i["id"]),
                 key=lambda d: d["id"],
@@ -1124,7 +1124,9 @@ class PhabricatorDouble:
         }
 
     @conduit_method("differential.revision.edit")
-    def differential_revision_edit(self, *, transactions=None, objectIdentifier=None):
+    def differential_revision_edit(  # noqa: ANN201
+        self, *, transactions=None, objectIdentifier=None  # noqa: ANN001
+    ):
         # WARNING: This mock does not apply the real result of these
         # transactions, it only validates that the phabricator method
         # was called (mostly) correctly and performs a NOOP. Any testing
@@ -1239,7 +1241,7 @@ class PhabricatorDouble:
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
 
-        def identifier_to_revision(i):
+        def identifier_to_revision(i):  # noqa: ANN001
             for r in self._revisions:
                 if r["phid"] == i or r["id"] == i or "D{}".format(r["id"]) == i:
                     return r
@@ -1267,25 +1269,25 @@ class PhabricatorDouble:
         }
 
     @conduit_method("differential.query")
-    def differential_query(
+    def differential_query(  # noqa: ANN201
         self,
         *,
-        authors=None,
-        ccs=None,
-        reviewers=None,
-        paths=None,
-        commitHashes=None,
-        status=None,
-        order=None,
-        limit=None,
-        offset=None,
-        ids=None,
-        phids=None,
-        subscribers=None,
-        responsibleUsers=None,
-        branches=None,
+        authors=None,  # noqa: ANN001
+        ccs=None,  # noqa: ANN001
+        reviewers=None,  # noqa: ANN001
+        paths=None,  # noqa: ANN001
+        commitHashes=None,  # noqa: ANN001
+        status=None,  # noqa: ANN001
+        order=None,  # noqa: ANN001
+        limit=None,  # noqa: ANN001
+        offset=None,  # noqa: ANN001
+        ids=None,  # noqa: ANN001
+        phids=None,  # noqa: ANN001
+        subscribers=None,  # noqa: ANN001
+        responsibleUsers=None,  # noqa: ANN001
+        branches=None,  # noqa: ANN001
     ):
-        def to_response(i):
+        def to_response(i):  # noqa: ANN001
             diffs = sorted(
                 (d for d in self._diffs if d["revisionID"] == i["id"]),
                 key=lambda d: d["id"],
@@ -1358,18 +1360,18 @@ class PhabricatorDouble:
         return [to_response(i) for i in items]
 
     @conduit_method("diffusion.repository.search")
-    def diffusion_repository_search(
+    def diffusion_repository_search(  # noqa: ANN201
         self,
         *,
-        queryKey=None,
-        constraints={},
-        attachments={},
-        order=None,
-        before=None,
-        after=None,
-        limit=100,
+        queryKey=None,  # noqa: ANN001
+        constraints={},  # noqa: ANN001
+        attachments={},  # noqa: ANN001
+        order=None,  # noqa: ANN001
+        before=None,  # noqa: ANN001
+        after=None,  # noqa: ANN001
+        limit=100,  # noqa: ANN001
     ):
-        def to_response(i):
+        def to_response(i):  # noqa: ANN001
             return deepcopy(
                 {
                     "id": i["id"],
@@ -1426,8 +1428,8 @@ class PhabricatorDouble:
         }
 
     @conduit_method("differential.getrawdiff")
-    def differential_getrawdiff(self, *, diffID=None):
-        def to_response(i):
+    def differential_getrawdiff(self, *, diffID=None):  # noqa: ANN001, ANN201
+        def to_response(i):  # noqa: ANN001
             return i["rawdiff"]
 
         diffs = [d for d in self._diffs if d["id"] == diffID]
@@ -1441,8 +1443,8 @@ class PhabricatorDouble:
         return to_response(diffs[0])
 
     @conduit_method("differential.creatediff")
-    def differential_creatediff(
-        self, *, changes, creationMethod, repositoryPHID, **kwargs
+    def differential_creatediff(  # noqa: ANN201
+        self, *, changes, creationMethod, repositoryPHID, **kwargs  # noqa: ANN001
     ):
         assert creationMethod.startswith("lando-")
 
@@ -1457,7 +1459,7 @@ class PhabricatorDouble:
         )
         assert repository is not None, "Unknown repository"
 
-        def to_response(i):
+        def to_response(i):  # noqa: ANN001
             return {"diffid": i["id"], "phid": i["phid"]}
 
         new_diff = self.diff(changes=changes, repo=repository, commits=[])
@@ -1465,8 +1467,10 @@ class PhabricatorDouble:
         return to_response(new_diff)
 
     @conduit_method("differential.setdiffproperty")
-    def differential_setdiffproperty(self, *, diff_id=None, data=None, name="default"):
-        def to_response(i):
+    def differential_setdiffproperty(  # noqa: ANN201
+        self, *, diff_id=None, data=None, name="default"  # noqa: ANN001
+    ):
+        def to_response(i):  # noqa: ANN001
             return {"id": i["id"], "phid": i["phid"]}
 
         diffs = [(i, d) for i, d in enumerate(self._diffs) if d["id"] == diff_id]
@@ -1491,17 +1495,17 @@ class PhabricatorDouble:
         return to_response(diff)
 
     @conduit_method("transaction.search")
-    def transaction_search(
+    def transaction_search(  # noqa: ANN201
         self,
         *,
-        objectIdentifier=None,
-        constraints={},
-        order=None,
-        before=None,
-        after=None,
-        limit=100,
+        objectIdentifier=None,  # noqa: ANN001
+        constraints={},  # noqa: ANN001
+        order=None,  # noqa: ANN001
+        before=None,  # noqa: ANN001
+        after=None,  # noqa: ANN001
+        limit=100,  # noqa: ANN001
     ):
-        def to_response(i):
+        def to_response(i):  # noqa: ANN001
             # Explicitly tell the developer using the mock that they need to check the
             # type of transaction they are using and make sure it is serialized
             # correctly by this function.
@@ -1619,18 +1623,18 @@ class PhabricatorDouble:
         }
 
     @conduit_method("user.search")
-    def user_search(
+    def user_search(  # noqa: ANN201
         self,
         *,
-        queryKey=None,
-        constraints={},
-        attachments={},
-        order=None,
-        before=None,
-        after=None,
-        limit=100,
+        queryKey=None,  # noqa: ANN001
+        constraints={},  # noqa: ANN001
+        attachments={},  # noqa: ANN001
+        order=None,  # noqa: ANN001
+        before=None,  # noqa: ANN001
+        after=None,  # noqa: ANN001
+        limit=100,  # noqa: ANN001
     ):
-        def to_response(u):
+        def to_response(u):  # noqa: ANN001
             return deepcopy(
                 {
                     "id": u["id"],
@@ -1705,18 +1709,18 @@ class PhabricatorDouble:
         }
 
     @conduit_method("user.query")
-    def user_query(
+    def user_query(  # noqa: ANN201
         self,
         *,
-        usernames=None,
-        emails=None,
-        realnames=None,
-        phids=None,
-        ids=None,
-        offset=None,
-        limit=None,
+        usernames=None,  # noqa: ANN001
+        emails=None,  # noqa: ANN001
+        realnames=None,  # noqa: ANN001
+        phids=None,  # noqa: ANN001
+        ids=None,  # noqa: ANN001
+        offset=None,  # noqa: ANN001
+        limit=None,  # noqa: ANN001
     ):
-        def to_response(i):
+        def to_response(i):  # noqa: ANN001
             return deepcopy(
                 {
                     "phid": i["phid"],
@@ -1751,8 +1755,8 @@ class PhabricatorDouble:
         return [to_response(i) for i in items]
 
     @conduit_method("user.whoami")
-    def user_whoami(self):
-        def to_response(i):
+    def user_whoami(self):  # noqa: ANN201
+        def to_response(i):  # noqa: ANN001
             return {
                 "phid": i["phid"],
                 "userName": i["userName"],
@@ -1772,7 +1776,7 @@ class PhabricatorDouble:
         return to_response(self._users[0])
 
     @conduit_method("phid.query")
-    def phid_query(self, *, phids=None):
+    def phid_query(self, *, phids=None):  # noqa: ANN001, ANN201
         if phids is None:
             error_info = (
                 "Argument 1 passed to PhabricatorHandleQuery::withPHIDs() must be "
@@ -1786,7 +1790,7 @@ class PhabricatorDouble:
 
         return {i["phid"]: deepcopy(i) for i in self._phids if i["phid"] in phids}
 
-    def _new_phid(self, prefix):
+    def _new_phid(self, prefix):  # noqa: ANN001
         """Generate a unique PHID of the given type, e.g. 'PHID-DREV-123'.
 
         For example, given the prefix 'DREV-', the function will generate a
@@ -1805,7 +1809,7 @@ class PhabricatorDouble:
         return "PHID-{}{}".format(prefix, suffix)
 
     @staticmethod
-    def _new_id(items, *, field="id"):
+    def _new_id(items, *, field="id"):  # noqa: ANN001, ANN205
         return max([i[field] for i in items] + [0]) + 1
 
     def _build_handlers(self):
@@ -1829,7 +1833,7 @@ class TreeStatusDouble:
     support should be added.
     """
 
-    def __init__(self, monkeypatch, url):
+    def __init__(self, monkeypatch, url):  # noqa: ANN001
         self.url = url
         self._trees = {}
         self._ping = True
@@ -1838,7 +1842,9 @@ class TreeStatusDouble:
         monkeypatch.setattr(TreeStatus, "get_trees", self.get_trees)
         monkeypatch.setattr(TreeStatus, "ping", self.ping)
 
-    def set_tree(self, tree, *, status="open", reason="", message_of_the_day=""):
+    def set_tree(
+        self, tree, *, status="open", reason="", message_of_the_day=""  # noqa: ANN001
+    ):
         assert tree
         self._trees[tree] = {
             "message_of_the_day": message_of_the_day,
@@ -1847,24 +1853,24 @@ class TreeStatusDouble:
             "tree": tree,
         }
 
-    def open_tree(self, tree):
+    def open_tree(self, tree):  # noqa: ANN001
         self.set_tree(tree, status="open", reason="", message_of_the_day="")
 
-    def close_tree(self, tree):
+    def close_tree(self, tree):  # noqa: ANN001
         self.set_tree(tree, status="closed", reason="testing closed")
 
-    def del_tree(self, tree):
+    def del_tree(self, tree):  # noqa: ANN001
         assert tree
         self._trees.pop(tree, None)
 
-    def ping(self):
+    def ping(self):  # noqa: ANN201
         return self._ping
 
     def toggle_ping(self):
         self._ping = not self._ping
 
-    def get_trees(self, tree=""):
-        def to_response(i):
+    def get_trees(self, tree=""):  # noqa: ANN001, ANN201
+        def to_response(i):  # noqa: ANN001
             return {
                 "message_of_the_day": i["message_of_the_day"],
                 "reason": i["reason"],
@@ -1896,5 +1902,5 @@ class TreeStatusDouble:
     def _unsupported(self, *args, **kwargs):
         raise ValueError("TestStatusDouble does not support mocking this use.")
 
-    def get_treestatus_client(self):
+    def get_treestatus_client(self):  # noqa: ANN201
         return TreeStatus(url=self.url)

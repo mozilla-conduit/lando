@@ -44,7 +44,7 @@ def git_repo(tmp_path: Path, git_repo_seed: Path) -> Path:
 
 
 @pytest.fixture
-def git_setup_user():
+def git_setup_user():  # noqa: ANN201
     return _git_setup_user
 
 

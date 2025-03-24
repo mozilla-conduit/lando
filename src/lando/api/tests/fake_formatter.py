@@ -3,7 +3,7 @@
 import sys
 
 
-def split_chars(string) -> list:
+def split_chars(string) -> list:  # noqa: ANN001
     return list(string)
 
 

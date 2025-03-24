@@ -122,7 +122,7 @@ class Repo(BaseModel):
     )
 
     @property
-    def is_legacy(self):
+    def is_legacy(self):  # noqa: ANN201
         """Return True if this repo is listed as a legacy source."""
         try:
             return self.new_target is not None
@@ -130,11 +130,11 @@ class Repo(BaseModel):
             return False
 
     @property
-    def is_git(self):
+    def is_git(self):  # noqa: ANN201
         return self.scm_type == SCM_TYPE_GIT
 
     @property
-    def is_hg(self):
+    def is_hg(self):  # noqa: ANN201
         return self.scm_type == SCM_TYPE_HG
 
     def __str__(self) -> str:
@@ -205,7 +205,7 @@ class Repo(BaseModel):
         raise ValueError(f"Could not determine repo type for {pull_path}")
 
     @property
-    def tree(self):
+    def tree(self):  # noqa: ANN201
         """Backwards-compatibility alias for tree name."""
         return self.name
 

@@ -19,19 +19,19 @@ NEEDS_DATA_CLASSIFICATION_SLUG = "needs-data-classification"
 
 
 @pytest.fixture
-def hg_clone(hg_server, tmpdir):
+def hg_clone(hg_server, tmpdir):  # noqa: ANN001, ANN201
     clone_dir = tmpdir.join("hg_clone")
     subprocess.run(["hg", "clone", hg_server, clone_dir.strpath], check=True)
     return clone_dir
 
 
 @pytest.fixture
-def hg_test_bundle():
+def hg_test_bundle():  # noqa: ANN201
     return settings.BASE_DIR / "api" / "tests" / "data" / "test-repo.bundle"
 
 
 @pytest.fixture
-def hg_server(hg_test_bundle, tmpdir):
+def hg_server(hg_test_bundle, tmpdir):  # noqa: ANN001
     # TODO: Select open port.
     port = "8000"
     hg_url = "http://localhost:" + port
@@ -68,7 +68,7 @@ def hg_server(hg_test_bundle, tmpdir):
 
 
 @pytest.fixture
-def conduit_permissions():
+def conduit_permissions():  # noqa: ANN201
     permissions = (
         "scm_level_1",
         "scm_level_2",
@@ -86,7 +86,7 @@ def user_plaintext_password() -> str:
 
 
 @pytest.fixture
-def user(user_plaintext_password, conduit_permissions):
+def user(user_plaintext_password, conduit_permissions):  # noqa: ANN001, ANN201
     user = User.objects.create_user(
         username="test_user",
         password=user_plaintext_password,
@@ -105,20 +105,20 @@ def user(user_plaintext_password, conduit_permissions):
 
 
 @pytest.fixture
-def needs_data_classification_project(phabdouble):
+def needs_data_classification_project(phabdouble):  # noqa: ANN001, ANN201
     return phabdouble.project(NEEDS_DATA_CLASSIFICATION_SLUG)
 
 
 @pytest.fixture
-def create_state(
-    phabdouble,
-    mocked_repo_config,
-    release_management_project,
-    needs_data_classification_project,
+def create_state(  # noqa: ANN201
+    phabdouble,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     """Create a `StackAssessmentState`."""
 
-    def create_state_handler(revision, landing_assessment=None):
+    def create_state_handler(revision, landing_assessment=None):  # noqa: ANN001
         phab = phabdouble.get_phabricator_client()
         supported_repos = Repo.get_mapping()
         nodes, edges = build_stack_graph(revision)

@@ -19,7 +19,7 @@ from lando.utils.phabricator import (
         "closed",
     ],
 )
-def test_revision_status_unknown_values(v):
+def test_revision_status_unknown_values(v):  # noqa: ANN001
     assert (
         PhabricatorRevisionStatus.from_status(v)
         is PhabricatorRevisionStatus.UNEXPECTED_STATUS
@@ -36,7 +36,7 @@ def test_revision_status_unknown_values(v):
         ([{"phid": 1}, {"phid": 2}], "otherphid"),
     ],
 )
-def test_result_list_to_phid_dict_missing_key_raises(result_list, key):
+def test_result_list_to_phid_dict_missing_key_raises(result_list, key):  # noqa: ANN001
     with pytest.raises(PhabricatorCommunicationException):
         result_list_to_phid_dict(result_list, phid_key=key)
 
@@ -50,7 +50,7 @@ def test_result_list_to_phid_dict_missing_key_raises(result_list, key):
         ([{"phid": 1, "data": "stuff"}], "phid"),
     ],
 )
-def test_result_list_to_phid_dict(result_list, key):
+def test_result_list_to_phid_dict(result_list, key):  # noqa: ANN001
     result = result_list_to_phid_dict(result_list, phid_key=key)
 
     for i in result_list:

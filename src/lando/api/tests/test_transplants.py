@@ -32,12 +32,12 @@ from lando.utils.tasks import admin_remove_phab_project
 
 def _create_landing_job(
     *,
-    landing_path=((1, 1),),
-    revisions=None,
-    requester_email="tuser@example.com",
-    repository_name="mozilla-central",
-    repository_url="http://hg.test",
-    status=None,
+    landing_path=((1, 1),),  # noqa: ANN001
+    revisions=None,  # noqa: ANN001
+    requester_email="tuser@example.com",  # noqa: ANN001
+    repository_name="mozilla-central",  # noqa: ANN001
+    repository_url="http://hg.test",  # noqa: ANN001
+    status=None,  # noqa: ANN001
 ):
     job_params = {
         "requester_email": requester_email,
@@ -60,12 +60,12 @@ def _create_landing_job(
 
 def _create_landing_job_with_no_linked_revisions(
     *,
-    landing_path=((1, 1),),
-    revisions=None,
-    requester_email="tuser@example.com",
-    repository_name="mozilla-central",
-    repository_url="http://hg.test",
-    status=None,
+    landing_path=((1, 1),),  # noqa: ANN001
+    revisions=None,  # noqa: ANN001
+    requester_email="tuser@example.com",  # noqa: ANN001
+    repository_name="mozilla-central",  # noqa: ANN001
+    repository_url="http://hg.test",  # noqa: ANN001
+    status=None,  # noqa: ANN001
 ):
     # Create a landing job without a direct link to revisions, but by referencing
     # revisions in revision_to_diff_id and revision_order
@@ -96,12 +96,12 @@ def _create_landing_job_with_no_linked_revisions(
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_no_warnings_or_blockers(
-    proxy_client,
-    phabdouble,
-    mocked_repo_config,
-    mock_permissions,
-    release_management_project,
-    needs_data_classification_project,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -126,12 +126,12 @@ def test_dryrun_no_warnings_or_blockers(
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_invalid_path_blocks(
-    proxy_client,
-    phabdouble,
-    mock_permissions,
-    release_management_project,
-    needs_data_classification_project,
-    mocked_repo_config,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
 ):
     d1 = phabdouble.diff()
     d2 = phabdouble.diff()
@@ -163,12 +163,12 @@ def test_dryrun_invalid_path_blocks(
 
 @pytest.mark.django_db
 def test_dryrun_published_parent(
-    proxy_client,
-    mock_permissions,
-    phabdouble,
-    release_management_project,
-    needs_data_classification_project,
-    mocked_repo_config,
+    proxy_client,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
 ):
     d1 = phabdouble.diff()
     d2 = phabdouble.diff()
@@ -202,11 +202,11 @@ def test_dryrun_published_parent(
 
 @pytest.mark.django_db
 def test_dryrun_open_parent(
-    proxy_client,
-    mock_permissions,
-    phabdouble,
-    release_management_project,
-    needs_data_classification_project,
+    proxy_client,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     d1 = phabdouble.diff()
     d2 = phabdouble.diff()
@@ -244,12 +244,12 @@ def test_dryrun_open_parent(
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_in_progress_transplant_blocks(
-    proxy_client,
-    phabdouble,
-    mocked_repo_config,
-    mock_permissions,
-    release_management_project,
-    needs_data_classification_project,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     repo = phabdouble.repo()
 
@@ -296,12 +296,12 @@ def test_dryrun_in_progress_transplant_blocks(
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_reviewers_warns(
-    proxy_client,
-    phabdouble,
-    mocked_repo_config,
-    mock_permissions,
-    release_management_project,
-    needs_data_classification_project,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -328,15 +328,15 @@ def test_dryrun_reviewers_warns(
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_codefreeze_warn(
-    proxy_client,
-    phabdouble,
-    codefreeze_datetime,
-    monkeypatch,
-    request_mocker,
-    mocked_repo_config,
-    mock_permissions,
-    release_management_project,
-    needs_data_classification_project,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    codefreeze_datetime,  # noqa: ANN001
+    monkeypatch,  # noqa: ANN001
+    request_mocker,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     product_details = "https://product-details.mozilla.org/1.0/firefox_versions.json"
     request_mocker.register_uri(
@@ -389,14 +389,14 @@ def test_dryrun_codefreeze_warn(
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_outside_codefreeze(
-    proxy_client,
-    phabdouble,
-    codefreeze_datetime,
-    monkeypatch,
-    request_mocker,
-    mock_permissions,
-    release_management_project,
-    needs_data_classification_project,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    codefreeze_datetime,  # noqa: ANN001
+    monkeypatch,  # noqa: ANN001
+    request_mocker,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     product_details = "https://product-details.mozilla.org/1.0/firefox_versions.json"
     request_mocker.register_uri(
@@ -456,14 +456,14 @@ def test_dryrun_outside_codefreeze(
 )
 @pytest.mark.django_db(transaction=True)
 def test_integrated_dryrun_blocks_for_bad_userinfo(
-    proxy_client,
-    phabdouble,
-    permissions,
-    status,
-    blocker,
-    mocked_repo_config,
-    release_management_project,
-    needs_data_classification_project,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    permissions,  # noqa: ANN001
+    status,  # noqa: ANN001
+    blocker,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -484,7 +484,7 @@ def test_integrated_dryrun_blocks_for_bad_userinfo(
 
 
 @pytest.mark.django_db(transaction=True)
-def test_get_transplants_for_entire_stack(proxy_client, phabdouble):
+def test_get_transplants_for_entire_stack(proxy_client, phabdouble):  # noqa: ANN001
     d1a = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1a, repo=phabdouble.repo())
     d1b = phabdouble.diff(revision=r1)
@@ -529,7 +529,7 @@ def test_get_transplants_for_entire_stack(proxy_client, phabdouble):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_get_transplant_from_middle_revision(proxy_client, phabdouble):
+def test_get_transplant_from_middle_revision(proxy_client, phabdouble):  # noqa: ANN001
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
 
@@ -550,7 +550,9 @@ def test_get_transplant_from_middle_revision(proxy_client, phabdouble):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_get_transplant_not_authorized_to_view_revision(proxy_client, phabdouble):
+def test_get_transplant_not_authorized_to_view_revision(
+    proxy_client, phabdouble  # noqa: ANN001
+):
     # Create a transplant pointing at a revision that will not
     # be returned by phabricator.
     _create_landing_job(landing_path=[(1, 1)], status=LandingJobStatus.SUBMITTED)
@@ -559,7 +561,9 @@ def test_get_transplant_not_authorized_to_view_revision(proxy_client, phabdouble
 
 
 @pytest.mark.django_db(transaction=True)
-def test_warning_previously_landed_no_landings(phabdouble, create_state):
+def test_warning_previously_landed_no_landings(
+    phabdouble, create_state  # noqa: ANN001
+):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
     revision = phabdouble.api_object_for(
@@ -576,7 +580,7 @@ def test_warning_previously_landed_no_landings(phabdouble, create_state):
 )
 @pytest.mark.django_db(transaction=True)
 def test_warning_previously_landed_failed_landing(
-    phabdouble, create_landing_job, create_state
+    phabdouble, create_landing_job, create_state  # noqa: ANN001
 ):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
@@ -602,7 +606,7 @@ def test_warning_previously_landed_failed_landing(
 )
 @pytest.mark.django_db(transaction=True)
 def test_warning_previously_landed_landed_landing(
-    phabdouble, create_landing_job, create_state
+    phabdouble, create_landing_job, create_state  # noqa: ANN001
 ):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
@@ -623,7 +627,7 @@ def test_warning_previously_landed_landed_landing(
 
 
 @pytest.mark.django_db
-def test_warning_revision_secure_project_none(phabdouble, create_state):
+def test_warning_revision_secure_project_none(phabdouble, create_state):  # noqa: ANN001
     revision = phabdouble.api_object_for(
         phabdouble.revision(),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
@@ -635,7 +639,9 @@ def test_warning_revision_secure_project_none(phabdouble, create_state):
 
 
 @pytest.mark.django_db
-def test_warning_revision_secure_is_secure(phabdouble, secure_project, create_state):
+def test_warning_revision_secure_is_secure(
+    phabdouble, secure_project, create_state  # noqa: ANN001
+):
     revision = phabdouble.api_object_for(
         phabdouble.revision(projects=[secure_project]),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
@@ -648,7 +654,7 @@ def test_warning_revision_secure_is_secure(phabdouble, secure_project, create_st
 
 @pytest.mark.django_db
 def test_warning_revision_secure_is_not_secure(
-    phabdouble, secure_project, create_state
+    phabdouble, secure_project, create_state  # noqa: ANN001
 ):
     not_secure_project = phabdouble.project("not_secure_project")
     revision = phabdouble.api_object_for(
@@ -670,7 +676,9 @@ def test_warning_revision_secure_is_not_secure(
         if s is not PhabricatorRevisionStatus.ACCEPTED
     ],
 )
-def test_warning_not_accepted_warns_on_other_status(phabdouble, status, create_state):
+def test_warning_not_accepted_warns_on_other_status(
+    phabdouble, status, create_state  # noqa: ANN001
+):
     revision = phabdouble.api_object_for(
         phabdouble.revision(status=status),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
@@ -682,7 +690,9 @@ def test_warning_not_accepted_warns_on_other_status(phabdouble, status, create_s
 
 
 @pytest.mark.django_db
-def test_warning_not_accepted_no_warning_when_accepted(phabdouble, create_state):
+def test_warning_not_accepted_no_warning_when_accepted(
+    phabdouble, create_state  # noqa: ANN001
+):
     revision = phabdouble.api_object_for(
         phabdouble.revision(status=PhabricatorRevisionStatus.ACCEPTED),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
@@ -694,7 +704,9 @@ def test_warning_not_accepted_no_warning_when_accepted(phabdouble, create_state)
 
 
 @pytest.mark.django_db
-def test_warning_reviews_not_current_warns_on_unreviewed_diff(phabdouble, create_state):
+def test_warning_reviews_not_current_warns_on_unreviewed_diff(
+    phabdouble, create_state  # noqa: ANN001
+):
     d_reviewed = phabdouble.diff()
     r = phabdouble.revision(diff=d_reviewed)
     phabdouble.reviewer(
@@ -716,7 +728,7 @@ def test_warning_reviews_not_current_warns_on_unreviewed_diff(phabdouble, create
 
 @pytest.mark.django_db
 def test_warning_reviews_not_current_warns_on_unreviewed_revision(
-    phabdouble, create_state
+    phabdouble, create_state  # noqa: ANN001
 ):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
@@ -734,7 +746,7 @@ def test_warning_reviews_not_current_warns_on_unreviewed_revision(
 
 @pytest.mark.django_db
 def test_warning_reviews_not_current_no_warning_on_accepted_diff(
-    phabdouble, create_state
+    phabdouble, create_state  # noqa: ANN001
 ):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
@@ -782,14 +794,14 @@ def test_confirmation_token_warning_order():
 @pytest.mark.xfail
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_simple_stack_saves_data_in_db(
-    app,
-    proxy_client,
-    phabdouble,
-    release_management_project,
-    needs_data_classification_project,
-    register_codefreeze_uri,
-    mocked_repo_config,
-    mock_permissions,
+    app,  # noqa: ANN001
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    register_codefreeze_uri,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
 ):
     phabrepo = phabdouble.repo(name="mozilla-central")
     user = phabdouble.user(username="reviewer")
@@ -838,13 +850,13 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
-    proxy_client,
-    mock_permissions,
-    mocked_repo_config,
-    phabdouble,
-    release_management_project,
-    needs_data_classification_project,
-    register_codefreeze_uri,
+    proxy_client,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    register_codefreeze_uri,  # noqa: ANN001
 ):
     phabrepo = phabdouble.repo(name="mozilla-central")
     user = phabdouble.user(username="reviewer")
@@ -891,20 +903,20 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
 
 @pytest.mark.django_db
 def test_integrated_transplant_records_approvers_peers_and_owners(
-    proxy_client,
-    treestatusdouble,
-    hg_server,
-    hg_clone,
-    release_management_project,
-    needs_data_classification_project,
-    register_codefreeze_uri,
-    monkeypatch,
-    normal_patch,
-    phabdouble,
-    checkin_project,
-    mock_permissions,
-    hg_landing_worker,
-    repo_mc,
+    proxy_client,  # noqa: ANN001
+    treestatusdouble,  # noqa: ANN001
+    hg_server,  # noqa: ANN001
+    hg_clone,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    register_codefreeze_uri,  # noqa: ANN001
+    monkeypatch,  # noqa: ANN001
+    normal_patch,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    checkin_project,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    hg_landing_worker,  # noqa: ANN001
+    repo_mc,  # noqa: ANN001
 ):
     repo = repo_mc(SCM_TYPE_HG)
     treestatusdouble.open_tree(repo.name)
@@ -974,13 +986,13 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
-    proxy_client,
-    phabdouble,
-    release_management_project,
-    needs_data_classification_project,
-    register_codefreeze_uri,
-    mocked_repo_config,
-    mock_permissions,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    register_codefreeze_uri,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
 ):
     """
     Perform a simple test but with two landing jobs for the same revision.
@@ -1071,13 +1083,13 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_with_flags(
-    proxy_client,
-    phabdouble,
-    monkeypatch,
-    mocked_repo_config,
-    mock_permissions,
-    release_management_project,
-    needs_data_classification_project,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    monkeypatch,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     repo = phabdouble.repo(name="mozilla-new")
     user = phabdouble.user(username="reviewer")
@@ -1112,13 +1124,13 @@ def test_integrated_transplant_with_flags(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_with_invalid_flags(
-    proxy_client,
-    phabdouble,
-    monkeypatch,
-    mocked_repo_config,
-    mock_permissions,
-    release_management_project,
-    needs_data_classification_project,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    monkeypatch,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     repo = phabdouble.repo(name="mozilla-new")
     user = phabdouble.user(username="reviewer")
@@ -1143,15 +1155,15 @@ def test_integrated_transplant_with_invalid_flags(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_legacy_repo_checkin_project_removed(
-    phabdouble,
-    checkin_project,
-    proxy_client,
-    monkeypatch,
-    release_management_project,
-    needs_data_classification_project,
-    register_codefreeze_uri,
-    mocked_repo_config,
-    mock_permissions,
+    phabdouble,  # noqa: ANN001
+    checkin_project,  # noqa: ANN001
+    proxy_client,  # noqa: ANN001
+    monkeypatch,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    register_codefreeze_uri,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
 ):
     repo = phabdouble.repo(name="mozilla-central")
     user = phabdouble.user(username="reviewer")
@@ -1180,14 +1192,14 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_repo_checkin_project_removed(
-    proxy_client,
-    phabdouble,
-    checkin_project,
-    mocked_repo_config,
-    monkeypatch,
-    mock_permissions,
-    release_management_project,
-    needs_data_classification_project,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    checkin_project,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    monkeypatch,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     repo = phabdouble.repo(name="mozilla-new")
     user = phabdouble.user(username="reviewer")
@@ -1216,11 +1228,11 @@ def test_integrated_transplant_repo_checkin_project_removed(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_without_auth0_permissions(
-    proxy_client,
-    phabdouble,
-    mocked_repo_config,
-    release_management_project,
-    needs_data_classification_project,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     repo = phabdouble.repo(name="mozilla-central")
     d1 = phabdouble.diff()
@@ -1243,7 +1255,9 @@ def test_integrated_transplant_without_auth0_permissions(
 
 
 @pytest.mark.django_db(transaction=True)
-def test_transplant_wrong_landing_path_format(proxy_client, mock_permissions):
+def test_transplant_wrong_landing_path_format(
+    proxy_client, mock_permissions  # noqa: ANN001
+):
     response = proxy_client.post(
         "/transplants",
         json={"landing_path": [{"revision_id": 1, "diff_id": 1}]},
@@ -1268,12 +1282,12 @@ def test_transplant_wrong_landing_path_format(proxy_client, mock_permissions):
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_diff_not_in_revision(
-    proxy_client,
-    phabdouble,
-    mocked_repo_config,
-    mock_permissions,
-    release_management_project,
-    needs_data_classification_project,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     repo = phabdouble.repo()
     d1 = phabdouble.diff()
@@ -1296,11 +1310,11 @@ def test_integrated_transplant_diff_not_in_revision(
 
 @pytest.mark.django_db(transaction=True)
 def test_transplant_nonexisting_revision_returns_404(
-    proxy_client,
-    phabdouble,
-    mock_permissions,
-    release_management_project,
-    needs_data_classification_project,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     response = proxy_client.post(
         "/transplants",
@@ -1314,11 +1328,11 @@ def test_transplant_nonexisting_revision_returns_404(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_revision_with_no_repo(
-    proxy_client,
-    phabdouble,
-    mock_permissions,
-    release_management_project,
-    needs_data_classification_project,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1)
@@ -1338,11 +1352,11 @@ def test_integrated_transplant_revision_with_no_repo(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_revision_with_unmapped_repo(
-    proxy_client,
-    phabdouble,
-    mock_permissions,
-    release_management_project,
-    needs_data_classification_project,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     repo = phabdouble.repo(name="notsupported")
     d1 = phabdouble.diff()
@@ -1363,15 +1377,15 @@ def test_integrated_transplant_revision_with_unmapped_repo(
 
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_list(
-    app,
-    proxy_client,
-    phabdouble,
-    sec_approval_project,
-    release_management_project,
-    needs_data_classification_project,
-    register_codefreeze_uri,
-    mocked_repo_config,
-    mock_permissions,
+    app,  # noqa: ANN001
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    sec_approval_project,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
+    register_codefreeze_uri,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
 ):
     repo = phabdouble.repo()
     user = phabdouble.user(username="normal_reviewer")
@@ -1399,7 +1413,7 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
 
 
 @pytest.mark.django_db
-def test_warning_wip_commit_message(phabdouble, create_state):
+def test_warning_wip_commit_message(phabdouble, create_state):  # noqa: ANN001
     revision = phabdouble.api_object_for(
         phabdouble.revision(
             title="WIP: Bug 123: test something r?reviewer",
@@ -1413,7 +1427,7 @@ def test_warning_wip_commit_message(phabdouble, create_state):
     assert warning_wip_commit_message(revision, {}, stack_state) is not None
 
 
-def test_codefreeze_datetime_mock(codefreeze_datetime):
+def test_codefreeze_datetime_mock(codefreeze_datetime):  # noqa: ANN001
     dt = codefreeze_datetime()
     assert dt.now(tz=timezone.utc) == datetime(2000, 1, 5, 0, 0, 0, tzinfo=timezone.utc)
     assert dt.strptime("tomorrow -0800", fmt="") == datetime(2000, 1, 6, 0, 0, 0)
@@ -1421,12 +1435,12 @@ def test_codefreeze_datetime_mock(codefreeze_datetime):
 
 @pytest.mark.django_db(transaction=True)
 def test_unresolved_comment_warn(
-    proxy_client,
-    phabdouble,
-    mocked_repo_config,
-    mock_permissions,
-    release_management_project,
-    needs_data_classification_project,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     """Ensure a warning is generated when a revision has unresolved comments.
 
@@ -1494,12 +1508,12 @@ def test_unresolved_comment_warn(
 
 @pytest.mark.django_db(transaction=True)
 def test_unresolved_comment_stack(
-    proxy_client,
-    phabdouble,
-    mocked_repo_config,
-    mock_permissions,
-    release_management_project,
-    needs_data_classification_project,
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     """
     Ensure a warning is generated when a revision in the stack has unresolved comments.
@@ -1576,7 +1590,7 @@ def test_unresolved_comment_stack(
     ],
 )
 def test_check_author_planned_changes_changes_not_planned(
-    phabdouble, status, create_state
+    phabdouble, status, create_state  # noqa: ANN001
 ):
     revision = phabdouble.api_object_for(
         phabdouble.revision(status=status),
@@ -1592,7 +1606,9 @@ def test_check_author_planned_changes_changes_not_planned(
 
 
 @pytest.mark.django_db
-def test_check_author_planned_changes_changes_planned(phabdouble, create_state):
+def test_check_author_planned_changes_changes_planned(
+    phabdouble, create_state  # noqa: ANN001
+):
     revision = phabdouble.api_object_for(
         phabdouble.revision(status=PhabricatorRevisionStatus.CHANGES_PLANNED),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
@@ -1609,12 +1625,12 @@ def test_check_author_planned_changes_changes_planned(phabdouble, create_state):
 @pytest.mark.django_db
 @pytest.mark.parametrize("status", list(ReviewerStatus))
 def test_relman_approval_status(
-    status,
-    phabdouble,
-    mocked_repo_config,
-    create_state,
-    release_management_project,
-    needs_data_classification_project,
+    status,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    create_state,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     """Check only an approval from relman allows landing"""
     repo = phabdouble.repo(name="uplift-target")
@@ -1653,11 +1669,11 @@ def test_relman_approval_status(
 
 @pytest.mark.django_db
 def test_relman_approval_missing(
-    phabdouble,
-    mocked_repo_config,
-    create_state,
-    release_management_project,
-    needs_data_classification_project,
+    phabdouble,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    create_state,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     """A repo with an approval required needs relman as reviewer"""
     repo = phabdouble.repo(name="uplift-target")
@@ -1682,7 +1698,7 @@ def test_relman_approval_missing(
 
 @pytest.mark.django_db
 def test_revision_has_data_classification_tag(
-    phabdouble, create_state, needs_data_classification_project
+    phabdouble, create_state, needs_data_classification_project  # noqa: ANN001
 ):
     repo = phabdouble.repo()
     revision = phabdouble.revision(
@@ -1735,7 +1751,7 @@ index 0000000..55faaf5
 
 
 @pytest.mark.django_db
-def test_blocker_prevent_symlinks(phabdouble, create_state):
+def test_blocker_prevent_symlinks(phabdouble, create_state):  # noqa: ANN001
     repo = phabdouble.repo()
 
     # Create a revision/diff pair without a symlink.
@@ -1791,7 +1807,7 @@ index 0000000..e44d36d
 
 @pytest.mark.django_db
 def test_blocker_try_task_config_no_landing_state(
-    phabdouble, mocked_repo_config, create_state
+    phabdouble, mocked_repo_config, create_state  # noqa: ANN001
 ):
     repo = phabdouble.repo()
 
@@ -1814,7 +1830,7 @@ def test_blocker_try_task_config_no_landing_state(
 
 @pytest.mark.django_db
 def test_blocker_try_task_config_landing_state_non_try(
-    phabdouble, mocked_repo_config, create_state
+    phabdouble, mocked_repo_config, create_state  # noqa: ANN001
 ):
     repo = phabdouble.repo()
 
@@ -1836,7 +1852,9 @@ def test_blocker_try_task_config_landing_state_non_try(
 
 
 @pytest.mark.django_db
-def test_warning_multiple_authors(phabdouble, mocked_repo_config, create_state):
+def test_warning_multiple_authors(
+    phabdouble, mocked_repo_config, create_state  # noqa: ANN001
+):
     repo = phabdouble.repo()
 
     # Create two users.
@@ -1866,15 +1884,15 @@ def test_warning_multiple_authors(phabdouble, mocked_repo_config, create_state):
 
 @pytest.mark.django_db(transaction=True)
 def test_transplant_on_linked_legacy_repo(
-    app,
-    proxy_client,
-    phabdouble,
-    treestatusdouble,
-    register_codefreeze_uri,
-    mocked_repo_config,
-    mock_permissions,
-    repo_mc,
-    needs_data_classification_project,
+    app,  # noqa: ANN001
+    proxy_client,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    treestatusdouble,  # noqa: ANN001
+    register_codefreeze_uri,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    repo_mc,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
     new_repo = repo_mc(SCM_TYPE_GIT)
     new_repo.legacy_source = Repo.objects.get(name="mozilla-central")

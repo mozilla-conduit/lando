@@ -76,7 +76,9 @@ def test_parse_git_author_information_no_email():
     ), "Name without email address should return the username and empty email."
 
 
-def test_try_api_requires_data(db, client, mock_permissions, mocked_repo_config):
+def test_try_api_requires_data(
+    db, client, mock_permissions, mocked_repo_config  # noqa: ANN001
+):
     try_push_json = {
         "base_commit": "abc",
         "patch_format": "hgexport",
@@ -97,14 +99,14 @@ def test_try_api_requires_data(db, client, mock_permissions, mocked_repo_config)
 
 
 def test_try_api_patch_decode_error(
-    app,
-    db,
-    hg_server,
-    hg_clone,
-    new_treestatus_tree,
-    client,
-    mock_permissions,
-    mocked_repo_config,
+    app,  # noqa: ANN001
+    db,  # noqa: ANN001
+    hg_server,  # noqa: ANN001
+    hg_clone,  # noqa: ANN001
+    new_treestatus_tree,  # noqa: ANN001
+    client,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
 ):
     """Test when a patch can't be decoded."""
     new_treestatus_tree(tree="mozilla-central", status="open")
@@ -132,16 +134,16 @@ def test_try_api_patch_decode_error(
     ],
 )
 def test_try_api_patch_format_mismatch(
-    app,
-    db,
-    hg_server,
-    hg_clone,
-    new_treestatus_tree,
-    client,
-    mock_permissions,
-    mocked_repo_config,
-    patch_format,
-    patch_content,
+    app,  # noqa: ANN001
+    db,  # noqa: ANN001
+    hg_server,  # noqa: ANN001
+    hg_clone,  # noqa: ANN001
+    new_treestatus_tree,  # noqa: ANN001
+    client,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
+    patch_format,  # noqa: ANN001
+    patch_content,  # noqa: ANN001
 ):
     """Test what happens when a patch does not match the passed format."""
     new_treestatus_tree(tree="mozilla-central", status="open")
@@ -232,14 +234,14 @@ index 0000000..e44d36d
 
 
 def test_symlink_diff_inspect(
-    app,
-    db,
-    hg_server,
-    hg_clone,
-    new_treestatus_tree,
-    client,
-    auth0_mock,
-    mocked_repo_config,
+    app,  # noqa: ANN001
+    db,  # noqa: ANN001
+    hg_server,  # noqa: ANN001
+    hg_clone,  # noqa: ANN001
+    new_treestatus_tree,  # noqa: ANN001
+    client,  # noqa: ANN001
+    auth0_mock,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
 ):
     try_push_json = {
         # The only node in the test repo.
@@ -265,14 +267,14 @@ def test_symlink_diff_inspect(
 
 
 def test_try_task_config_diff_inspect(
-    app,
-    db,
-    hg_server,
-    hg_clone,
-    new_treestatus_tree,
-    client,
-    auth0_mock,
-    mocked_repo_config,
+    app,  # noqa: ANN001
+    db,  # noqa: ANN001
+    hg_server,  # noqa: ANN001
+    hg_clone,  # noqa: ANN001
+    new_treestatus_tree,  # noqa: ANN001
+    client,  # noqa: ANN001
+    auth0_mock,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
 ):
     try_push_json = {
         # The only node in the test repo.
@@ -292,14 +294,14 @@ def test_try_task_config_diff_inspect(
 
 
 def test_try_api_unknown_patch_format(
-    app,
-    db,
-    hg_server,
-    hg_clone,
-    new_treestatus_tree,
-    client,
-    mock_permissions,
-    mocked_repo_config,
+    app,  # noqa: ANN001
+    db,  # noqa: ANN001
+    hg_server,  # noqa: ANN001
+    hg_clone,  # noqa: ANN001
+    new_treestatus_tree,  # noqa: ANN001
+    client,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
 ):
     """Test when `patch_format` isn't one of the accepted values."""
     new_treestatus_tree(tree="mozilla-central", status="open")
@@ -321,14 +323,14 @@ def test_try_api_unknown_patch_format(
 
 
 def test_try_api_success_hgexport(
-    app,
-    db,
-    hg_server,
-    hg_clone,
-    new_treestatus_tree,
-    client,
-    mock_permissions,
-    mocked_repo_config,
+    app,  # noqa: ANN001
+    db,  # noqa: ANN001
+    hg_server,  # noqa: ANN001
+    hg_clone,  # noqa: ANN001
+    new_treestatus_tree,  # noqa: ANN001
+    client,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
 ):
     new_treestatus_tree(tree="mozilla-central", status="open")
 
@@ -408,14 +410,14 @@ def test_try_api_success_hgexport(
 
 
 def test_try_api_success_gitformatpatch(
-    app,
-    db,
-    hg_server,
-    hg_clone,
-    new_treestatus_tree,
-    client,
-    mock_permissions,
-    mocked_repo_config,
+    app,  # noqa: ANN001
+    db,  # noqa: ANN001
+    hg_server,  # noqa: ANN001
+    hg_clone,  # noqa: ANN001
+    new_treestatus_tree,  # noqa: ANN001
+    client,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    mocked_repo_config,  # noqa: ANN001
 ):
     new_treestatus_tree(tree="mozilla-central", status="open")
 

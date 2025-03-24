@@ -57,7 +57,7 @@ def test_commit_message_blank_summary():
         "r=didnt_review!,blocker",
     ],
 )
-def test_commit_message_blocking_reviewers_requested(reviewer_text):
+def test_commit_message_blocking_reviewers_requested(reviewer_text):  # noqa: ANN001
     commit_message = format_commit_message(
         "A title! {}".format(reviewer_text),
         1,
@@ -95,7 +95,7 @@ def test_commit_message_blocking_reviewers_requested(reviewer_text):
         "r=aa,.a,..a,a...a,a.b,a.b.c",
     ],
 )
-def test_commit_message_reviewers_replaced(reviewer_text):
+def test_commit_message_reviewers_replaced(reviewer_text):  # noqa: ANN001
     reviewers = ["reviewer_one", "reviewer.two"]
     commit_message = format_commit_message(
         "A title. {}".format(reviewer_text),
@@ -178,7 +178,7 @@ def test_group_reviewers_replaced_with_period_at_end():
         ("title\n\nmultiline\n\nsummary", "title", "multiline\n\nsummary"),
     ],
 )
-def test_split_title_and_summary(message, title, summary):
+def test_split_title_and_summary(message, title, summary):  # noqa: ANN001
     parsed_title, parsed_summary = split_title_and_summary(message)
     assert parsed_title == title
     assert parsed_summary == summary

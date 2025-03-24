@@ -88,16 +88,16 @@ def test_strip_depends_on_from_commit_message():
 
 @pytest.mark.xfail(strict=True)
 def test_uplift_creation(
-    db,
-    monkeypatch,
-    phabdouble,
-    client,
-    mock_permissions,
-    mock_repo_config,
-    release_management_project,
-    needs_data_classification_project,
+    db,  # noqa: ANN001
+    monkeypatch,  # noqa: ANN001
+    phabdouble,  # noqa: ANN001
+    client,  # noqa: ANN001
+    mock_permissions,  # noqa: ANN001
+    mock_repo_config,  # noqa: ANN001
+    release_management_project,  # noqa: ANN001
+    needs_data_classification_project,  # noqa: ANN001
 ):
-    def _call_conduit(client, method, **kwargs):
+    def _call_conduit(client, method, **kwargs):  # noqa: ANN001
         if method == "differential.revision.edit":
             # Load transactions
             transactions = kwargs.get("transactions")
@@ -366,7 +366,7 @@ def test_add_original_revision_line_if_needed():
     ), "Passing summary with `Original Revision` should return the input."
 
 
-def test_get_revisions_without_bugs(phabdouble):
+def test_get_revisions_without_bugs(phabdouble):  # noqa: ANN001
     phab = phabdouble.get_phabricator_client()
 
     rev1 = phabdouble.revision(bug_id=123)

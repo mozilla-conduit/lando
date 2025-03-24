@@ -238,7 +238,7 @@ def test_build_patch():
         ("diff file", False),
     ],
 )
-def test_patchhelper_is_diff_line(line, expected):
+def test_patchhelper_is_diff_line(line, expected):  # noqa: ANN001
     assert bool(HgPatchHelper._is_diff_line(line)) is expected
 
 
@@ -616,7 +616,9 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
         ),
     ],
 )
-def test_check_commit_message_valid_message(commit_message, error_message):
+def test_check_commit_message_valid_message(
+    commit_message, error_message  # noqa: ANN001
+):
     patch_helpers = [
         HgPatchHelper(
             io.StringIO(
@@ -698,7 +700,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
     ],
 )
 def test_check_commit_message_invalid_message(
-    commit_message, return_string, error_message
+    commit_message, return_string, error_message  # noqa: ANN001
 ):
     patch_helpers = [
         HgPatchHelper(

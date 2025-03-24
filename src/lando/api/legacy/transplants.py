@@ -250,7 +250,7 @@ class StackAssessment:
         self.blockers = blockers if blockers is not None else []
         self.warnings = warnings if warnings is not None else []
 
-    def to_dict(self):
+    def to_dict(self):  # noqa: ANN201
         bucketed_warnings = {}
         for w in self.warnings:
             if w.i not in bucketed_warnings:
@@ -276,7 +276,7 @@ class StackAssessment:
         }
 
     @staticmethod
-    def confirmation_token(warnings):
+    def confirmation_token(warnings):  # noqa: ANN001, ANN205
         """Return a hash of a serialized warning list.
 
         Returns: String.  Returns None if given an empty list.
@@ -288,7 +288,7 @@ class StackAssessment:
         warnings = sorted((w.i, w.revision_id, w.details) for w in warnings)
         return hashlib.sha256(json.dumps(warnings).encode("utf-8")).hexdigest()
 
-    def raise_if_blocked_or_unacknowledged(self, confirmation_token):
+    def raise_if_blocked_or_unacknowledged(self, confirmation_token):  # noqa: ANN001
         if self.blockers:
             error_message = "There are landing blockers present which prevent landing."
             raise LegacyAPIException(
@@ -315,7 +315,7 @@ class StackAssessment:
 class RevisionWarningCheck:
     _warning_ids = set()
 
-    def __init__(self, i, display, articulated=False):
+    def __init__(self, i, display, articulated=False):  # noqa: ANN001
         if not isinstance(i, int):
             raise ValueError("Warning ids must be provided as an integer")
 
@@ -331,7 +331,7 @@ class RevisionWarningCheck:
         self.display = display
         self.articulated = articulated
 
-    def __call__(self, f):
+    def __call__(self, f):  # noqa: ANN001, ANN204
         @functools.wraps(f)
         def wrapped(revision: dict, diff: dict, stack_state: StackAssessmentState):
             result = f(revision, diff, stack_state)
@@ -347,7 +347,7 @@ class RevisionWarningCheck:
 
 
 @RevisionWarningCheck(0, "Has a review intended to block landing.")
-def warning_blocking_reviews(
+def warning_blocking_reviews(  # noqa: ANN201
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ):
     reviewer_extra_state = {
@@ -384,7 +384,7 @@ def warning_blocking_reviews(
 
 
 @RevisionWarningCheck(1, "Has previously landed.")
-def warning_previously_landed(
+def warning_previously_landed(  # noqa: ANN201
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ):
     revision_id = PhabricatorClient.expect(revision, "id")
@@ -423,7 +423,9 @@ def warning_previously_landed(
 
 
 @RevisionWarningCheck(2, "Is not Accepted.")
-def warning_not_accepted(revision: dict, diff: dict, stack_state: StackAssessmentState):
+def warning_not_accepted(  # noqa: ANN201
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+):
     status = PhabricatorRevisionStatus.from_status(
         PhabricatorClient.expect(revision, "fields", "status", "value")
     )
@@ -492,7 +494,9 @@ def warning_revision_missing_testing_tag(
 
 
 @RevisionWarningCheck(6, "Revision has a diff warning.", True)
-def warning_diff_warning(revision: dict, diff: dict, stack_state: StackAssessmentState):
+def warning_diff_warning(  # noqa: ANN201
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+):
     warnings = DiffWarning.objects.filter(
         revision_id=revision["id"],
         diff_id=diff["id"],
@@ -512,7 +516,9 @@ def warning_wip_commit_message(
 
 
 @RevisionWarningCheck(8, "Repository is under a soft code freeze.", True)
-def warning_code_freeze(revision: dict, diff: dict, stack_state: StackAssessmentState):
+def warning_code_freeze(  # noqa: ANN201
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+):
     repo_phid = PhabricatorClient.expect(revision, "fields", "repositoryPHID")
     repo = stack_state.stack_data.repositories.get(repo_phid)
     if not repo:
