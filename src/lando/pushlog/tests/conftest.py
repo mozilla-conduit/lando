@@ -3,6 +3,7 @@ from datetime import datetime
 import pytest
 
 from lando.main.models import Repo
+from lando.main.scm import SCM_TYPE_GIT
 from lando.main.scm.commit import Commit as SCMCommit
 from lando.pushlog.models import Commit, File, Push, Tag
 
@@ -13,7 +14,7 @@ def make_repo():
         """Create a non-descript repository with a sequence number in the test DB."""
         return Repo.objects.create(
             name=f"repo-{seqno}",
-            scm_type="git",
+            scm_type=SCM_TYPE_GIT,
             url=f"https://repo-{seqno}",
             default_branch=f"main-{seqno}",
         )
