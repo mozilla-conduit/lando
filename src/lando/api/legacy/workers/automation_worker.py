@@ -85,7 +85,7 @@ class AutomationWorker(Worker):
                 scm.update_repo(repo.pull_path)
             except SCMInternalServerError as e:
                 message = (
-                    f"`Temporary error ({e.__class__}) "
+                    f"Temporary error ({e.__class__}) "
                     f"encountered while pulling from {repo_pull_info}"
                 )
                 logger.exception(message)
@@ -131,7 +131,7 @@ class AutomationWorker(Worker):
                 SCMInternalServerError,
             ) as e:
                 message = (
-                    f"`Temporary error ({e.__class__}) "
+                    f"Temporary error ({e.__class__}) "
                     f"encountered while pushing to {repo_push_info}"
                 )
                 logger.exception(message)
