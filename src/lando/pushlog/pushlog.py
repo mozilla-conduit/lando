@@ -27,24 +27,28 @@ def PushLogForRepo(repo: Repo, user: str):
     pushlog = PushLog(repo, user)
     try:
         yield pushlog
-    except Exception as e:
-        logger.error(f"Push aborted for {user}: {e}")
-        raise (e)
+    except Exception as exc:
+        logger.error(f"Push aborted for {user}: {exc}")
+        raise (exc)
 
     # Only record the whole push on success.
     try:
         pushlog.record_push()
-    except Exception as e:
+    except Exception as exc:
         # We keep a record of the Pushlog in the extra, in addition to printing
         # details in the log.
         logger.error(
-            f"Failed to record push log due to: {e}\n{pushlog}",
+            f"Failed to record push log due to: {exc}\n{pushlog}",
             extra={"pushlog": pushlog},
         )
-        raise e
+        raise exc
 
 
 class PushLog:
+    """
+    Aggregate a list of Commits and record push information.
+    """
+
     repo: Repo
     push: Push
     user: str
@@ -52,13 +56,13 @@ class PushLog:
     is_confirmed: bool = False
     is_recorded: bool = False
 
-    commits: list
+    commits: list[Commit]
 
     def __init__(
         self,
         repo: Repo,
         user: str,
-        commits: list | None = None,
+        commits: list[Commit] | None = None,
     ):
         self.repo = repo
         self.user = user
