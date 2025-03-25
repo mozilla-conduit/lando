@@ -41,15 +41,29 @@ class Command(BaseCommand):
         self._handle(worker, SCM_TYPE_GIT)
 
     def _handle(self, worker: Worker, repo_type: str):
-        # Clone or update repos upon worker startup.
-        for repo in worker.enabled_repos:
-            # Check if any associated repos are unsupported, raise exception if so.
-            repo.raise_for_unsupported_repo_scm(repo_type)
-            repo.scm.prepare_repo(repo.pull_path)
+        self._check_for_unsupported_repos(worker, repo_type)
+        max_attempts = 5
+        all_repos_cloned = False
+        for attempt in range(max_attempts):
+            logger.info(f"Attempting to prepare repos (attempt #{attempt}).")
+            try:
+                self._prepare_repos(worker)
+            except Exception as e:
+                logger.error("Encountered error while preparing repos.")
+                logger.exception(e)
+                continue
+            else:
+                all_repos_cloned = True
+                break
+
+        if not all_repos_cloned:
+            raise CommandError(
+                "Could not prepare all repos. Check logs for more details."
+            )
 
         # Continue with starting the worker.
         try:
-            automation_worker = AutomationWorker(worker.enabled_repos)
+            automation_worker = AutomationWorker(worker)
         except ConnectionError as e:
             raise CommandError(e)
 
