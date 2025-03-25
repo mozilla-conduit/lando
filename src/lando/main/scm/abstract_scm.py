@@ -5,7 +5,7 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Any, ContextManager, Optional
 
-from lando.main.scm.commit import Commit
+from lando.main.scm.commit import CommitData
 
 logger = logging.getLogger(__name__)
 
@@ -117,11 +117,11 @@ class AbstractSCM:
         """
 
     @abstractmethod
-    def describe_commit(self, revision_id: str) -> Commit:
+    def describe_commit(self, revision_id: str) -> CommitData:
         """Return Commit metadata."""
 
     @abstractmethod
-    def describe_local_changes(self) -> list[Commit]:
+    def describe_local_changes(self) -> list[CommitData]:
         """Return a list of the Commits only present on this branch.
 
         Commits are sorted in ascending topological order."""

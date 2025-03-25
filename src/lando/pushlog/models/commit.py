@@ -10,7 +10,7 @@ from django.db import models
 from lando.main.models import Repo
 
 # We need to import from the specific file to avoid dependency loops.
-from lando.main.scm.commit import Commit as SCMCommit
+from lando.main.scm.commit import CommitData
 
 from .consts import COMMIT_ID_HEX_LENGTH, MAX_FILENAME_LENGTH, MAX_PATH_LENGTH
 
@@ -118,7 +118,7 @@ class Commit(models.Model):
         return f"Commit {self.hash} in {self.repo}"
 
     @staticmethod
-    def from_scm_commit(repo: Repo, scm_commit: SCMCommit):
+    def from_scm_commit(repo: Repo, scm_commit: CommitData):
         """Create a Commit ORM object from an Commit dataclass."""
         try:
             # If a commit already exists in the DB, don't create a new one.

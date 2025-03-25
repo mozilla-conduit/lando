@@ -4,7 +4,7 @@ import pytest
 
 from lando.main.models import Repo
 from lando.main.scm import SCM_TYPE_GIT
-from lando.main.scm.commit import Commit as SCMCommit
+from lando.main.scm.commit import CommitData
 from lando.pushlog.models import Commit, File, Push, Tag
 
 
@@ -91,7 +91,7 @@ def make_push():
 @pytest.fixture
 def make_scm_commit(make_hash):
     def scm_commit_factory(seqno: int):
-        return SCMCommit(
+        return CommitData(
             hash=make_hash(seqno),
             author=f"author-{seqno}",
             desc=f"""SCM Commit {seqno}
@@ -108,7 +108,7 @@ Another line""",
 
 @pytest.fixture
 def assert_same_commit_data():
-    def assertion(commit: Commit, scm_commit: SCMCommit):
+    def assertion(commit: Commit, scm_commit: CommitData):
         assert commit.hash == scm_commit.hash
 
         assert len(commit.parents) == len(scm_commit.parents)

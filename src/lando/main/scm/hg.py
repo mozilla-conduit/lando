@@ -21,7 +21,7 @@ import hglib
 from django.conf import settings
 
 from lando.main.scm.abstract_scm import AbstractSCM
-from lando.main.scm.commit import Commit
+from lando.main.scm.commit import CommitData
 from lando.main.scm.consts import SCM_TYPE_HG
 from lando.main.scm.exceptions import (
     PatchConflict,
@@ -327,15 +327,15 @@ class HgSCM(AbstractSCM):
             breakdown["rejects_paths"][path[:-4]] = reject
         return breakdown
 
-    def describe_commit(self, revision_id: str = ".") -> Commit:
+    def describe_commit(self, revision_id: str = ".") -> CommitData:
         """Return Commit metadata."""
         return self._describe_revisions(revision_id)[0]
 
-    def describe_local_changes(self) -> list[Commit]:
+    def describe_local_changes(self) -> list[CommitData]:
         """Return a list of the Commits only present on this branch."""
         return list(self._describe_revisions("::. and draft()"))
 
-    def _describe_revisions(self, changeset: str = ".") -> list[Commit]:
+    def _describe_revisions(self, changeset: str = ".") -> list[CommitData]:
         """Return revision metadata for a given changeset."""
         commit_separator = self._separator()
         attribute_separator = self._separator()
@@ -371,7 +371,7 @@ class HgSCM(AbstractSCM):
             )
             metadata["files"] = metadata["files"].split()
 
-            commits.append(Commit(**metadata))
+            commits.append(CommitData(**metadata))
 
         return commits
 

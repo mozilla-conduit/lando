@@ -13,7 +13,7 @@ from typing import Any, ContextManager, Optional
 from django.conf import settings
 from simple_github import AppAuth, AppInstallationAuth
 
-from lando.main.scm.commit import Commit
+from lando.main.scm.commit import CommitData
 from lando.main.scm.consts import SCM_TYPE_GIT
 from lando.main.scm.exceptions import (
     PatchConflict,
@@ -238,15 +238,15 @@ class GitSCM(AbstractSCM):
 
         return breakdown
 
-    def describe_commit(self, revision_id: str = "HEAD") -> Commit:
+    def describe_commit(self, revision_id: str = "HEAD") -> CommitData:
         """Return Commit metadata."""
         return self._describe_commits(revision_id)[0]
 
-    def describe_local_changes(self) -> list[Commit]:
+    def describe_local_changes(self) -> list[CommitData]:
         """Return a list of the Commits only present on this branch."""
         return list(reversed(self._describe_commits("@{u}..")))
 
-    def _describe_commits(self, ref_spec: str = "HEAD") -> list[Commit]:
+    def _describe_commits(self, ref_spec: str = "HEAD") -> list[CommitData]:
         """Return Commit metadata for a given ref_spec (including ranges)."""
         commit_separator = self._separator()
         attribute_separator = self._separator()
@@ -287,7 +287,7 @@ class GitSCM(AbstractSCM):
                 :-1
             ]
 
-            commits.append(Commit(**metadata))
+            commits.append(CommitData(**metadata))
 
         return commits
 

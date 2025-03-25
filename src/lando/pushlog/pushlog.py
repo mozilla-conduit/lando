@@ -5,7 +5,7 @@ from typing import Optional
 from django.db import transaction
 
 from lando.main.models.repo import Repo
-from lando.main.scm.commit import Commit as SCMCommit
+from lando.main.scm.commit import CommitData
 from lando.pushlog.models.commit import Commit
 from lando.pushlog.models.push import Push
 
@@ -78,7 +78,7 @@ class PushLog:
             f"{self.__class__.__name__}({self.repo!r}, {self.user}, {self.commits!r})"
         )
 
-    def add_commit(self, scm_commit: SCMCommit) -> Commit:
+    def add_commit(self, scm_commit: CommitData) -> Commit:
         """Add a new commit to the Pushlog, for later recording in the DB.
 
         We create a commit object in memory, but will only write it into the DB when
@@ -143,7 +143,7 @@ class PushLog:
 class NoOpPushLog(PushLog):
     """A noop PushLog object to use when disabled without having to resort to ifs."""
 
-    def add_commit(self, scm_commit: SCMCommit) -> Commit:
+    def add_commit(self, scm_commit: CommitData) -> Commit:
         # Satisfy the return value from the interface, but do nothing else.
         return Commit.from_scm_commit(self.repo, scm_commit)
 

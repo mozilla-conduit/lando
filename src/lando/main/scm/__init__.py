@@ -1,5 +1,5 @@
 from lando.main.scm.abstract_scm import AbstractSCM
-from lando.main.scm.commit import Commit
+from lando.main.scm.commit import CommitData
 from lando.main.scm.consts import (
     SCM_TYPE_GIT,
     SCM_TYPE_HG,
@@ -37,7 +37,7 @@ __all__ = [
     # abstract_scm
     "AbstractSCM",
     # commit
-    Commit,
+    CommitData,
     # consts
     "SCM_TYPE_HG",
     "SCM_TYPE_GIT",

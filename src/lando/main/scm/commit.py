@@ -3,7 +3,7 @@ from datetime import datetime
 
 
 @dataclass
-class Commit:
+class CommitData:
     """A simple dataclass to carry all information related to a commit."""
 
     hash: str
