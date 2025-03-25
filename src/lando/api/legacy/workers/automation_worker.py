@@ -56,7 +56,7 @@ class AutomationWorker(Worker):
             self.refresh_active_repos()
 
         with transaction.atomic():
-            job = AutomationJob.next_job(repositories=self.enabled_repos).first()
+            job = AutomationJob.next_job(repositories=self.active_repos).first()
 
         if job is None:
             self.throttle(self.worker_instance.sleep_seconds)
