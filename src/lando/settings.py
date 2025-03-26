@@ -226,7 +226,7 @@ CELERY_TASK_SERIALIZER = "json"
 
 PULSE_USER = os.getenv("PULSE_USER", "")
 PULSE_PASSWORD = os.getenv("PULSE_PASSWORD", "")
-PULSE_HOST = os.getenv("PULSE_HOST", "pulse.test")
+PULSE_HOST = os.getenv("PULSE_HOST", "memory://")
 PULSE_PORT = os.getenv("PULSE_PORT", "5672")
 PULSE_EXCHANGE = os.getenv("PULSE_EXCHANGE", "exchange/suite/git-hg-sync")
 PULSE_QUEUE = os.getenv("PULSE_QUEUE", "queue/suite/git-hg-sync")

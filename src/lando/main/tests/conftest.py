@@ -41,7 +41,8 @@ def git_repo(tmp_path: Path, git_repo_seed: Path) -> Path:
             ["git", "commit", "--allow-empty", "-m", "dev"],
             ["git", "checkout", "main"],
         ],
-        str(repo_dir),
+        repo_dir,
+    )
     return repo_dir
 
 
