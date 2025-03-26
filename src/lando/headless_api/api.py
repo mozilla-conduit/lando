@@ -40,7 +40,7 @@ class APIPermissionDenied(PermissionError):
 class HeadlessAPIAuthentication(HttpBearer):
     """Authentication class to verify API token."""
 
-    def authenticate(self, request, token: str) -> str:
+    def authenticate(self, request, token: str) -> ApiToken:
         user_agent = request.headers.get("User-Agent")
         if not user_agent:
             raise APIPermissionDenied("`User-Agent` header is required.")
