@@ -6,8 +6,8 @@ from django.db import transaction
 
 from lando.main.models.repo import Repo
 from lando.main.scm.commit import CommitData
-from lando.pushlog.models.commit import Commit
-from lando.pushlog.models.push import Push
+from lando.pulse.pulse import PulseNotifier
+from lando.pushlog.models import Commit, Push
 
 logger = logging.getLogger(__name__)
 
@@ -134,10 +134,13 @@ class PushLog:
 
         push.save()
         self.push = push
+        self.is_recorded = True
 
         logger.info(f"Successfully saved {push}")
 
-        self.is_recorded = True
+        # XXX: share this instance
+        notifier = PulseNotifier()
+        notifier.notify_push(push)
 
         return push
 
