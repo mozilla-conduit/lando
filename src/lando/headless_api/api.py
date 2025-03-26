@@ -49,22 +49,22 @@ class HeadlessAPIAuthentication(HttpBearer):
             raise APIPermissionDenied("Incorrect `User-Agent` format.")
 
         try:
-            api_token = ApiToken.verify_token(token)
+            api_key = ApiToken.verify_token(token)
         except ValueError as exc:
             raise APIPermissionDenied(str(exc))
 
-        if not api_token.user.profile.is_automation_user:
+        if not api_key.user.profile.is_automation_user:
             raise APIPermissionDenied(
-                f"User {api_token.user.email} is not permitted to make automation changes."
+                f"User {api_key.user.email} is not permitted to make automation changes."
             )
 
         # Django-Ninja sets `request.auth` to the verified token, since
         # some APIs may have authentication without user management. Our
         # API tokens always correspond to a specific user, so set that on
         # the request here.
-        request.user = api_token.user
+        request.user = api_key.user
 
-        return api_token
+        return api_key
 
 
 api = NinjaAPI(auth=HeadlessAPIAuthentication())
