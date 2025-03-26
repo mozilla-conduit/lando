@@ -83,7 +83,7 @@ class LandingWorker(Worker):
             self.refresh_active_repos()
 
         if self.last_job_finished is False:
-            logger.info("Last job did not complete, sleeping.")
+            logger.warning("Last job did not complete, sleeping.")
             self.throttle(self.worker_instance.sleep_seconds)
             self.refresh_active_repos()
 
@@ -251,7 +251,6 @@ class LandingWorker(Worker):
 
             # Run through the patches one by one and try to apply them.
             for revision in job.revisions.all():
-
                 try:
                     scm.apply_patch(
                         revision.diff,
