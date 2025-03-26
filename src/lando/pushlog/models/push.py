@@ -40,6 +40,8 @@ class Push(models.Model):
     # [0] https://docs.djangoproject.com/en/dev/topics/db/models/#intermediary-manytomany
     commits = models.ManyToManyField(Commit)
 
+    notified = models.BooleanField(default=False)
+
     class Meta:
         unique_together = ("push_id", "repo")
         verbose_name_plural = "Pushes"
