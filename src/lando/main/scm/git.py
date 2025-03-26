@@ -132,6 +132,10 @@ class GitSCM(AbstractSCM):
             for tag in tags:
                 push_command += [f"refs/tags/{tag}"]
 
+        logger.info(
+            f"Pushing changes to branch {push_target} of repo "
+            + self._redact_url_userinfo(push_path)
+        )
         self._git_run(*push_command, cwd=self.path)
 
     @staticmethod
@@ -443,7 +447,7 @@ class GitSCM(AbstractSCM):
         path = cwd or "/"
         command = ["git"] + list(args)
         sanitised_command = [cls._redact_url_userinfo(a) for a in command]
-        logger.info(
+        logger.debug(
             "running git command",
             extra={
                 "command": sanitised_command,
@@ -467,7 +471,7 @@ class GitSCM(AbstractSCM):
         out = result.stdout.strip()
 
         if out:
-            logger.info(
+            logger.debug(
                 "output from git command",
                 extra={
                     "command_id": correlation_id,
