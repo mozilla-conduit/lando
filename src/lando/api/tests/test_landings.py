@@ -9,8 +9,8 @@ from lando.api.legacy.workers.landing_worker import (
 )
 from lando.main.models import Repo, Revision
 from lando.main.models.landing_job import (
+    JobStatus,
     LandingJob,
-    LandingJobStatus,
     add_job_with_revisions,
 )
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
@@ -274,7 +274,7 @@ def test_integrated_execute_job(
     ]
 
     job_params = {
-        "status": LandingJobStatus.IN_PROGRESS,
+        "status": JobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
         "target_repo": repo,
         "attempts": 1,
@@ -290,7 +290,7 @@ def test_integrated_execute_job(
 
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
-    assert job.status == LandingJobStatus.LANDED, job.error
+    assert job.status == JobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40
     assert (
         mock_trigger_update.call_count == 1
@@ -318,7 +318,7 @@ def test_integrated_execute_job_with_force_push(
     scm = repo.scm
 
     job_params = {
-        "status": LandingJobStatus.IN_PROGRESS,
+        "status": JobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
         "target_repo": repo,
         "attempts": 1,
@@ -363,7 +363,7 @@ def test_integrated_execute_job_with_bookmark(
     scm = repo.scm
 
     job_params = {
-        "status": LandingJobStatus.IN_PROGRESS,
+        "status": JobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
         "target_repo": repo,
         "attempts": 1,
@@ -408,7 +408,7 @@ def test_no_diff_start_line(
 
     job_params = {
         "id": 1234,
-        "status": LandingJobStatus.IN_PROGRESS,
+        "status": JobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
         "target_repo": repo,
         "attempts": 1,
@@ -419,7 +419,7 @@ def test_no_diff_start_line(
 
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
-    assert job.status == LandingJobStatus.FAILED
+    assert job.status == JobStatus.FAILED
     assert "Patch without a diff start line." in caplog.text
 
 
@@ -445,7 +445,7 @@ def test_lose_push_race(
 
     job_params = {
         "id": 1234,
-        "status": LandingJobStatus.IN_PROGRESS,
+        "status": JobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
         "target_repo": repo,
         "attempts": 1,
@@ -466,7 +466,7 @@ def test_lose_push_race(
 
     worker = get_landing_worker(repo_type)
     assert not worker.run_job(job)
-    assert job.status == LandingJobStatus.DEFERRED
+    assert job.status == JobStatus.DEFERRED
 
 
 @pytest.mark.parametrize(
@@ -492,7 +492,7 @@ def test_merge_conflict(
 
     job_params = {
         "id": 1234,
-        "status": LandingJobStatus.IN_PROGRESS,
+        "status": JobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
         "target_repo": repo,
         "attempts": 1,
@@ -513,7 +513,7 @@ def test_merge_conflict(
 
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
-    assert job.status == LandingJobStatus.FAILED
+    assert job.status == JobStatus.FAILED
 
     assert expected_error_log in caplog.text
 
@@ -571,7 +571,7 @@ def test_failed_landing_job_notification(
         create_patch_revision(2),
     ]
     job_params = {
-        "status": LandingJobStatus.IN_PROGRESS,
+        "status": JobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
         "target_repo": repo,
         "attempts": 1,
@@ -587,7 +587,7 @@ def test_failed_landing_job_notification(
 
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
-    assert job.status == LandingJobStatus.FAILED
+    assert job.status == JobStatus.FAILED
     assert mock_notify.call_count == 1
 
 
@@ -617,7 +617,7 @@ def test_format_patch_success_unchanged(
         create_patch_revision(2, patch=normal_patch(2)),
     ]
     job_params = {
-        "status": LandingJobStatus.IN_PROGRESS,
+        "status": JobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
         "target_repo": repo,
         "attempts": 1,
@@ -634,7 +634,7 @@ def test_format_patch_success_unchanged(
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
     assert (
-        job.status == LandingJobStatus.LANDED
+        job.status == JobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
     assert (
         mock_trigger_update.call_count == 1
@@ -679,7 +679,7 @@ def test_format_single_success_changed(
 
     # Upload a patch for formatting.
     job_params = {
-        "status": LandingJobStatus.IN_PROGRESS,
+        "status": JobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
         "target_repo": repo,
         "attempts": 1,
@@ -698,7 +698,7 @@ def test_format_single_success_changed(
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job), "`run_job` should return `True` on a successful run."
     assert (
-        job.status == LandingJobStatus.LANDED
+        job.status == JobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
     assert (
         mock_trigger_update.call_count == 1
@@ -763,7 +763,7 @@ def test_format_stack_success_changed(
         create_patch_revision(3, patch=PATCH_FORMATTED_2),
     ]
     job_params = {
-        "status": LandingJobStatus.IN_PROGRESS,
+        "status": JobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
         "target_repo": repo,
         "attempts": 1,
@@ -780,7 +780,7 @@ def test_format_stack_success_changed(
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job), "`run_job` should return `True` on a successful run."
     assert (
-        job.status == LandingJobStatus.LANDED
+        job.status == JobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
     assert (
         mock_trigger_update.call_count == 1
@@ -844,7 +844,7 @@ def test_format_patch_fail(
         create_patch_revision(3, patch=normal_patch(1)),
     ]
     job_params = {
-        "status": LandingJobStatus.IN_PROGRESS,
+        "status": JobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
         "target_repo": repo,
         "attempts": 1,
@@ -863,7 +863,7 @@ def test_format_patch_fail(
         job
     ), "`run_job` should return `False` when autoformatting fails."
     assert (
-        job.status == LandingJobStatus.FAILED
+        job.status == JobStatus.FAILED
     ), "Failed autoformatting should set `FAILED` job status."
     assert (
         "Lando failed to format your patch" in job.error
@@ -900,7 +900,7 @@ def test_format_patch_no_landoini(
         create_patch_revision(2, patch=None),
     ]
     job_params = {
-        "status": LandingJobStatus.IN_PROGRESS,
+        "status": JobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
         "target_repo": repo,
         "attempts": 1,
@@ -924,7 +924,7 @@ def test_format_patch_no_landoini(
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
     assert (
-        job.status == LandingJobStatus.LANDED
+        job.status == JobStatus.LANDED
     ), "Missing `.lando.ini` should not inhibit landing."
     assert (
         mock_notify.call_count == 0
@@ -944,7 +944,7 @@ def test_landing_job_revisions_sorting(
         create_patch_revision(3),
     ]
     job_params = {
-        "status": LandingJobStatus.SUBMITTED,
+        "status": JobStatus.SUBMITTED,
         "requester_email": "test@example.com",
         "repository_name": "mozilla-central",
         "attempts": 1,

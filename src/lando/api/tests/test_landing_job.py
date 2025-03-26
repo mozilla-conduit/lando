@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from lando.main.models import LandingJob, LandingJobStatus, Repo
+from lando.main.models import JobStatus, LandingJob, Repo
 from lando.main.scm import SCM_TYPE_HG
 
 
@@ -26,43 +26,43 @@ def test_cancel_landing_job_cancels_when_submitted(
     db, authenticated_client, user, landing_job, mock_permissions
 ):
     """Test happy path; cancelling a job that has not started yet."""
-    job = landing_job(LandingJobStatus.SUBMITTED, requester_email=user.email)
+    job = landing_job(JobStatus.SUBMITTED, requester_email=user.email)
     response = authenticated_client.put(
         f"/landing_jobs/{job.id}/",
-        json.dumps({"status": LandingJobStatus.CANCELLED.value}),
+        json.dumps({"status": JobStatus.CANCELLED.value}),
     )
 
     assert response.status_code == 200
     assert response.json()["id"] == job.id
     job.refresh_from_db()
-    assert job.status == LandingJobStatus.CANCELLED
+    assert job.status == JobStatus.CANCELLED
 
 
 def test_cancel_landing_job_cancels_when_deferred(
     db, authenticated_client, user, landing_job, mock_permissions
 ):
     """Test happy path; cancelling a job that has been deferred."""
-    job = landing_job(LandingJobStatus.DEFERRED, requester_email=user.email)
+    job = landing_job(JobStatus.DEFERRED, requester_email=user.email)
     response = authenticated_client.put(
         f"/landing_jobs/{job.id}/",
-        json.dumps({"status": LandingJobStatus.CANCELLED.value}),
+        json.dumps({"status": JobStatus.CANCELLED.value}),
         permissions=mock_permissions,
     )
 
     assert response.status_code == 200
     assert response.json()["id"] == job.id
     job.refresh_from_db()
-    assert job.status == LandingJobStatus.CANCELLED
+    assert job.status == JobStatus.CANCELLED
 
 
 def test_cancel_landing_job_fails_in_progress(
     db, authenticated_client, user, landing_job, mock_permissions
 ):
     """Test trying to cancel a job that is in progress fails."""
-    job = landing_job(LandingJobStatus.IN_PROGRESS, requester_email=user.email)
+    job = landing_job(JobStatus.IN_PROGRESS, requester_email=user.email)
     response = authenticated_client.put(
         f"/landing_jobs/{job.id}/",
-        json.dumps({"status": LandingJobStatus.CANCELLED.value}),
+        json.dumps({"status": JobStatus.CANCELLED.value}),
         permissions=mock_permissions,
     )
 
@@ -72,17 +72,17 @@ def test_cancel_landing_job_fails_in_progress(
         in response.json()["errors"]
     )
     job.refresh_from_db()
-    assert job.status == LandingJobStatus.IN_PROGRESS
+    assert job.status == JobStatus.IN_PROGRESS
 
 
 def test_cancel_landing_job_fails_not_owner(
     db, authenticated_client, landing_job, mock_permissions
 ):
     """Test trying to cancel a job that is created by a different user."""
-    job = landing_job(LandingJobStatus.SUBMITTED, "anotheruser@example.org")
+    job = landing_job(JobStatus.SUBMITTED, "anotheruser@example.org")
     response = authenticated_client.put(
         f"/landing_jobs/{job.id}/",
-        json.dumps({"status": LandingJobStatus.CANCELLED.value}),
+        json.dumps({"status": JobStatus.CANCELLED.value}),
         permissions=mock_permissions,
     )
 
@@ -92,7 +92,7 @@ def test_cancel_landing_job_fails_not_owner(
     )
 
     job.refresh_from_db()
-    assert job.status == LandingJobStatus.SUBMITTED
+    assert job.status == JobStatus.SUBMITTED
 
 
 def test_cancel_landing_job_fails_not_found(
@@ -101,7 +101,7 @@ def test_cancel_landing_job_fails_not_found(
     """Test trying to cancel a job that does not exist."""
     response = authenticated_client.put(
         "/landing_jobs/1/",
-        json.dumps({"status": LandingJobStatus.CANCELLED.value}),
+        json.dumps({"status": JobStatus.CANCELLED.value}),
         permissions=mock_permissions,
     )
 
@@ -113,10 +113,10 @@ def test_cancel_landing_job_fails_bad_input(
     db, authenticated_client, user, landing_job, mock_permissions
 ):
     """Test trying to send an invalid status to the update endpoint."""
-    job = landing_job(LandingJobStatus.SUBMITTED, requester_email=user.email)
+    job = landing_job(JobStatus.SUBMITTED, requester_email=user.email)
     response = authenticated_client.put(
         f"/landing_jobs/{job.id}/",
-        json.dumps({"status": LandingJobStatus.IN_PROGRESS.value}),
+        json.dumps({"status": JobStatus.IN_PROGRESS.value}),
         permissions=mock_permissions,
     )
 
@@ -125,28 +125,28 @@ def test_cancel_landing_job_fails_bad_input(
         "The provided status IN_PROGRESS is not allowed." in response.json()["errors"]
     )
     job.refresh_from_db()
-    assert job.status == LandingJobStatus.SUBMITTED
+    assert job.status == JobStatus.SUBMITTED
 
 
 def test_landing_job_acquire_job_job_queue_query(db, mocked_repo_config):
     REPO = Repo.objects.create(name="test-repo", scm_type=SCM_TYPE_HG)
     jobs = [
         LandingJob(
-            status=LandingJobStatus.SUBMITTED,
+            status=JobStatus.SUBMITTED,
             requester_email="test@example.com",
             target_repo=REPO,
             revision_to_diff_id={"1": 1},
             revision_order=["1"],
         ),
         LandingJob(
-            status=LandingJobStatus.SUBMITTED,
+            status=JobStatus.SUBMITTED,
             requester_email="test@example.com",
             target_repo=REPO,
             revision_to_diff_id={"2": 2},
             revision_order=["2"],
         ),
         LandingJob(
-            status=LandingJobStatus.SUBMITTED,
+            status=JobStatus.SUBMITTED,
             requester_email="test@example.com",
             target_repo=REPO,
             revision_to_diff_id={"3": 3},
@@ -164,8 +164,8 @@ def test_landing_job_acquire_job_job_queue_query(db, mocked_repo_config):
 
     # Update the last job to be in progress and mark the middle job to be
     # cancelled so that the queue changes.
-    jobs[2].status = LandingJobStatus.IN_PROGRESS
-    jobs[1].status = LandingJobStatus.CANCELLED
+    jobs[2].status = JobStatus.IN_PROGRESS
+    jobs[1].status = JobStatus.CANCELLED
 
     for job in jobs:
         job.save()
