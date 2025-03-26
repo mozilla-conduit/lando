@@ -30,7 +30,7 @@ class PushAdmin(PushLogAdmin):
         "user",
         "commits",
     )
-    list_display = ["push_id", "repo__name", "branch", "datetime", "user"]
+    list_display = ["push_id", "notified", "repo__name", "branch", "datetime", "user"]
     list_filter = ["repo", "branch", "user", "datetime"]
 
 
