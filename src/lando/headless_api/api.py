@@ -31,7 +31,7 @@ from lando.main.scm.exceptions import (
 logger = logging.getLogger(__name__)
 
 
-class APIPermissionDenied(Exception):
+class APIPermissionDenied(PermissionError):
     """Custom exception type to allow JSON responses for invalid auth."""
 
     pass
