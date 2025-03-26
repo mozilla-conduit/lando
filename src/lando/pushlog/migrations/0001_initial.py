@@ -6,12 +6,9 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ("main", "0013_alter_repo_scm_type_alter_worker_scm"),
-        ("main", "0013_alter_repo_scm_type_alter_worker_scm"),
         ("main", "0013_alter_repo_scm_type_alter_worker_scm"),
         ("main", "0020_repo_pushlog_disabled"),
     ]
@@ -94,6 +91,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 "unique_together": {("repo", "hash")},
+                "get_latest_by": "id",
                 "ordering": ["id"],
             },
         ),
