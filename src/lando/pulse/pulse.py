@@ -20,11 +20,11 @@ class PulseNotifier:
 
     @classmethod
     def _make_producer(cls) -> kombu.Producer:
-        if settings.PULSE_HOST.startswith("memory://"):
+        if settings.PULSE_HOST.startswith("memory"):
             message = (
                 "PULSE_HOST set to a `memory` location. "
-                    + "This should not be the case in non-local deployments. "
-                    + str(settings.PULSE_HOST)
+                + "This should not be the case in non-local deployments. "
+                + str(settings.PULSE_HOST)
             )
             if settings.ENVIRONMENT not in ["test", "local", "suite"]:
                 logger.warning(message, extra={"PULSE_HOST": settings.PULSE_HOST})
@@ -62,7 +62,7 @@ class PulseNotifier:
         return producer
 
     def notify_push(self, push: Push):
-        message = self.pulse_message_for_push(model_to_dict(push))
+        message = self.pulse_message_for_push(push)
 
         # XXX: make a separate notification worker that loops around un-notified
         # Push entries.
@@ -82,14 +82,16 @@ class PulseNotifier:
         push.save()
 
     @classmethod
-    def pulse_message_for_push(cls, push_data: dict):
+    def pulse_message_for_push(cls, push: Push):
+        push_data = model_to_dict(push)
+        commit = push.commits.latest()
         message = {
             "payload": {
                 "type": "push",
                 "repo_url": push_data["repo_url"],
-                "branches": {push_data["branch"]: push_data["commits"][-1].hash},
+                "branches": {push_data["branch"]: commit.hash},
                 "tags": {},
-                "time": push_data["datetime"],
+                "time": push.datetime.strftime("%s"),
                 "push_id": push_data["push_id"],
                 "user": push_data["user"],
                 # XXX

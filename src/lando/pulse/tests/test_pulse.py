@@ -102,6 +102,8 @@ def test__PulseNotifier(
     # Test push.
     repo = make_repo(1)
     commit = make_commit(repo=repo, seqno=1)
+    # An unrelated commit we don't want to see in the push
+    make_commit(repo=repo, seqno=2)
     push = make_push(repo=repo, commits=[commit])
 
     notifier.notify_push(push)
@@ -109,14 +111,13 @@ def test__PulseNotifier(
     messages = next(queue)
 
     assert messages
-    message = messages[0][0]
+    message = messages[0][0]["payload"]
     assert message["push_id"] == push.push_id
     assert message["type"] == "push"
     assert message["repo_url"] == push.repo_url
     assert repo.default_branch in message["branches"]
     assert message["branches"][repo.default_branch] == commit.hash
     assert not message["tags"]
-    assert message["push_id"] == push.push_id
     assert message["user"] == push.user
     # assert message['push_json_url'] == push.push_json_url
     # assert message['push_full_json_url'] == push.push_full_json_url
