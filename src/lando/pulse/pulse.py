@@ -53,9 +53,6 @@ class PulseNotifier:
         )
         queue(connection).declare()
 
-        logger.warning(connection)
-        logger.warning(queue)
-
         producer = connection.Producer(
             exchange=ex, routing_key=settings.PULSE_ROUTING_KEY, serializer="json"
         )
@@ -66,7 +63,7 @@ class PulseNotifier:
 
         # XXX: make a separate notification worker that loops around un-notified
         # Push entries.
-        logger.warning(f"Sending {message} ...")
+        logger.info(f"Sending {message} ...")
         self.producer.publish(
             message,
             retry=True,
@@ -84,12 +81,25 @@ class PulseNotifier:
     @classmethod
     def pulse_message_for_push(cls, push: Push):
         push_data = model_to_dict(push)
-        commit = push.commits.latest()
+
+        branches = {}
+        if push.commits.count():
+            commit = push.commits.latest()
+            branches = {push_data["branch"]: commit.hash}
+
+        # XXX: to be implemented
+        tags = {}
+
+        if not branches and not tags:
+            logger.error(
+                f"Push {push.push_id} does not contain either branches or tags"
+            )
+
         message = {
             "payload": {
                 "type": "push",
                 "repo_url": push_data["repo_url"],
-                "branches": {push_data["branch"]: commit.hash},
+                "branches": branches,
                 "tags": {},
                 "time": push.datetime.strftime("%s"),
                 "push_id": push_data["push_id"],
