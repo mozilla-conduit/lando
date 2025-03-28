@@ -156,3 +156,14 @@ def test__models__Revision__metadata():
     assert r.commit_message == commit_message
     assert r.timestamp == timestamp
     assert r.diff == DIFF_ONLY
+
+
+@pytest.mark.parametrize(
+    "branch,expected_branch", [(None, "main"), ("non-default", "non-default")]
+)
+def test_repo_default_branch_to_scm(branch: str, expected_branch: str):
+    repo_path = "some_repo"
+    repo = Repo(pull_path=repo_path, scm_type=SCM_TYPE_GIT, default_branch=branch)
+
+    # repo.scm here is a GitSCM
+    assert repo.scm.default_branch == expected_branch

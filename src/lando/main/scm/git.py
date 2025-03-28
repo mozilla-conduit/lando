@@ -60,7 +60,7 @@ class GitSCM(AbstractSCM):
 
     default_branch: str
 
-    def __init__(self, path: str, default_branch: str = "main"):
+    def __init__(self, path: str, default_branch: str = "main", **kwargs):
         self.default_branch = default_branch
         super().__init__(path)
 
@@ -220,7 +220,10 @@ class GitSCM(AbstractSCM):
         breakdown["failed_paths"] = [
             {
                 "path": path,
-                "url": f"{pull_path}/file/{revision}/{path}",
+                # GitHub's /tree/ redirects to (HTML) /blob/ as needed.
+                # XXX: This doesn't work for CGit in our test environment,
+                # which would need f"{pull_path}/tree/{path}?id={revision}".
+                "url": f"{pull_path}/tree/{revision}/{path}",
                 "changeset_id": revision,
             }
             for (path, revision) in failed_path_commits
