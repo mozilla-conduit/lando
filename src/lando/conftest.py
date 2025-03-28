@@ -81,7 +81,7 @@ def conduit_permissions():
 
 
 @pytest.fixture
-def user_plaintext_password() -> str:
+def user_plaintext_password():
     return "test_password"
 
 
