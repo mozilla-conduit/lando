@@ -1,4 +1,5 @@
 import io
+import re
 import unittest.mock as mock
 
 import pytest
@@ -531,6 +532,12 @@ def test_merge_conflict(
         assert job.error_breakdown["rejects_paths"][fp].get(
             "content"
         ), f"Empty or missing reject content for failed path {fp}"
+
+    for fp in job.error_breakdown["failed_paths"]:
+        if repo_type == SCM_TYPE_GIT:
+            assert re.match(f"{repo.pull_path}/tree", fp["url"])
+        else:  # SCM_TYPE_HG
+            assert re.match(f"{repo.pull_path}/file", fp["url"])
 
 
 @pytest.mark.parametrize(
