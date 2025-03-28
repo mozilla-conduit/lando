@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 @celery_app.task
-def debug_task():
+def debug_task() -> int:
     """A simple debug task to test celery functionality.
 
     To queue this task, import it and call `debug_task.apply_async()`.

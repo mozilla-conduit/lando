@@ -63,7 +63,7 @@ class Revision(BaseModel):
 
     _patch_helper: Optional[HgPatchHelper] = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Revision {self.revision_id} Diff {self.diff_id}"
 
     def __repr__(self) -> str:

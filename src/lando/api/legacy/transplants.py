@@ -436,7 +436,7 @@ def warning_not_accepted(revision: dict, diff: dict, stack_state: StackAssessmen
 @RevisionWarningCheck(3, "No reviewer has accepted the current diff.")
 def warning_reviews_not_current(
     revision: dict, diff: dict, stack_state: StackAssessmentState
-):
+) -> Optional[str]:
     for reviewer in stack_state.reviewers[revision["phid"]].values():
         extra = calculate_review_extra_state(
             diff["phid"], reviewer["status"], reviewer["diffPHID"]
@@ -456,7 +456,7 @@ def warning_reviews_not_current(
 )
 def warning_revision_secure(
     revision: dict, diff: dict, stack_state: StackAssessmentState
-):
+) -> Optional[str]:
     if stack_state.secure_project_phid is None:
         return None
 
@@ -472,7 +472,7 @@ def warning_revision_secure(
 @RevisionWarningCheck(5, "Revision is missing a Testing Policy Project Tag.")
 def warning_revision_missing_testing_tag(
     revision: dict, diff: dict, stack_state: StackAssessmentState
-):
+) -> Optional[str]:
     if not stack_state.testing_tag_project_phids:
         return None
 
@@ -505,7 +505,7 @@ def warning_diff_warning(revision: dict, diff: dict, stack_state: StackAssessmen
 @RevisionWarningCheck(7, "Revision is marked as WIP.")
 def warning_wip_commit_message(
     revision: dict, diff: dict, stack_state: StackAssessmentState
-):
+) -> Optional[str]:
     title = PhabricatorClient.expect(revision, "fields", "title")
     if title.lower().startswith("wip:"):
         return "This revision is marked as a WIP. Please remove `WIP:` before landing."
@@ -567,7 +567,7 @@ def warning_code_freeze(revision: dict, diff: dict, stack_state: StackAssessment
 @RevisionWarningCheck(9, "Revision has unresolved comments.")
 def warning_unresolved_comments(
     revision: dict, diff: dict, stack_state: StackAssessmentState
-):
+) -> Optional[str]:
     if not all(
         stack_state.phab.expect(inline, "fields", "isDone")
         for inline in get_inline_comments(stack_state.phab, f"D{revision['id']}")
@@ -578,7 +578,7 @@ def warning_unresolved_comments(
 @RevisionWarningCheck(10, "Revision has multiple authors.")
 def warning_multiple_authors(
     revision: dict, diff: dict, stack_state: StackAssessmentState
-):
+) -> Optional[str]:
     """Warn the landing user when a revision has updates from multiple authors."""
     revision_phid = PhabricatorClient.expect(revision, "phid")
 
