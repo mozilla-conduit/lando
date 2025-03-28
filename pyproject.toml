@@ -73,6 +73,7 @@ testpaths = [
     "src/lando/api",
     "src/lando/dockerflow",
     "src/lando/main/tests",
+    "src/lando/pushlog/tests",
     "src/lando/tests",
     "src/lando/ui/tests",
 ]
