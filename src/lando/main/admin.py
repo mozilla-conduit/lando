@@ -39,8 +39,27 @@ class LandingJobAdmin(admin.ModelAdmin):
     )
 
 
+class RepoAdmin(admin.ModelAdmin):
+    model = Repo
+    list_display = (
+        "name",
+        "scm_type",
+        "system_path",
+        "pull_path",
+        "push_path",
+        "required_permission",
+        "short_name",
+        "url",
+    )
+
+    readonly_fields = (
+        "system_path",
+        "scm_type",
+    )
+
+
+admin.site.register(Repo, RepoAdmin)
 admin.site.register(LandingJob, LandingJobAdmin)
 admin.site.register(Revision, admin.ModelAdmin)
-admin.site.register(Repo, admin.ModelAdmin)
 admin.site.register(Worker, admin.ModelAdmin)
 admin.site.register(ConfigurationVariable, admin.ModelAdmin)
