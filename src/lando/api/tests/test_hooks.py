@@ -7,7 +7,7 @@ from lando.api.legacy.treestatus import (
 
 
 @pytest.mark.django_db
-def test_app_wide_headers_set(client):  # noqa: ANN001
+def test_app_wide_headers_set(client):
     response = client.get("/__version__")
     assert response.status_code == 200
     assert "X-Frame-Options" in response.headers
@@ -21,14 +21,14 @@ def test_app_wide_headers_set(client):  # noqa: ANN001
 # See bug 1927163.
 @pytest.mark.xfail(strict=True)
 @pytest.mark.django_db
-def test_app_wide_headers_set_for_api_endpoints(client):  # noqa: ANN001
+def test_app_wide_headers_set_for_api_endpoints(client):
     response = client.get("/__version__")
     assert response.status_code == 200
     assert response.headers["Content-Security-Policy"] == "default-src 'none'"
 
 
 @pytest.mark.django_db
-def test_app_wide_headers_csp_report_uri(app, client):  # noqa: ANN001
+def test_app_wide_headers_csp_report_uri(app, client):
     app.config["CSP_REPORTING_URL"] = None
     response = client.get("/__version__")
     assert response.status_code == 200
@@ -41,7 +41,7 @@ def test_app_wide_headers_csp_report_uri(app, client):  # noqa: ANN001
 
 
 @pytest.mark.skip
-def test_treestatus_exception_handled(db, app, client):  # noqa: ANN001
+def test_treestatus_exception_handled(db, app, client):
     # We need to tell Flask to handle exceptions as if it were in a production
     # environment.
     app.config["PROPAGATE_EXCEPTIONS"] = False

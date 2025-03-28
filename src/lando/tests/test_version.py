@@ -1,4 +1,4 @@
-def test_version(lando_version):  # noqa: ANN001
+def test_version(lando_version):
     # Every commit will change the exact version string, so it
     # doesn't make sense to compare it against a known value.
     # Testing that it exists, is a string, and is at least 5

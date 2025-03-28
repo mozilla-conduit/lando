@@ -10,18 +10,18 @@ from lando.main.models.revision import (
 
 
 @pytest.fixture
-def phab_header(phabdouble):  # noqa: ANN001, ANN201
+def phab_header(phabdouble):
     user = phabdouble.user(username="test")
     return {"HTTP_X_Phabricator_API_Key": user["apiKey"]}
 
 
 @pytest.fixture
-def diff_warning_data():  # noqa: ANN201
+def diff_warning_data():
     return json.dumps({"message": "this is a test warning"})
 
 
 @pytest.mark.django_db(transaction=True)
-def test_diff_warning_create_bad_request(client):  # noqa: ANN001
+def test_diff_warning_create_bad_request(client):
     """Ensure a request that is missing required data returns an error."""
     response = client.post(
         "/api/diff_warnings/",
@@ -32,9 +32,7 @@ def test_diff_warning_create_bad_request(client):  # noqa: ANN001
 
 
 @pytest.mark.django_db(transaction=True)
-def test_diff_warning_create_bad_request_no_message(
-    client, phab_header  # noqa: ANN001
-):
+def test_diff_warning_create_bad_request_no_message(client, phab_header):
     """Ensure a request with incorrect data returns an error."""
     response = client.post(
         "/api/diff_warnings/",
@@ -46,7 +44,7 @@ def test_diff_warning_create_bad_request_no_message(
 
 
 @pytest.mark.django_db(transaction=True)
-def test_diff_warning_create(client, diff_warning_data, phab_header):  # noqa: ANN001
+def test_diff_warning_create(client, diff_warning_data, phab_header):
     """Ensure that a warning is created correctly according to provided parameters."""
     response = client.post(
         "/api/diff_warnings/",
@@ -75,7 +73,7 @@ def test_diff_warning_create(client, diff_warning_data, phab_header):  # noqa: A
 
 
 @pytest.mark.django_db(transaction=True)
-def test_diff_warning_delete(client, diff_warning_data, phab_header):  # noqa: ANN001
+def test_diff_warning_delete(client, diff_warning_data, phab_header):
     """Ensure that a DELETE request will archive a warning."""
     response = client.post(
         "/api/diff_warnings/",
@@ -106,7 +104,7 @@ def test_diff_warning_delete(client, diff_warning_data, phab_header):  # noqa: A
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)
-def test_diff_warning_get(client, diff_warning_data, phab_header):  # noqa: ANN001
+def test_diff_warning_get(client, diff_warning_data, phab_header):
     """Ensure that the API returns a properly serialized list of warnings."""
     response = client.post(
         "/api/diff_warnings/",

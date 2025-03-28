@@ -18,9 +18,7 @@ from lando.api.legacy.treestatus import (
         requests.TooManyRedirects,
     ],
 )
-def test_raise_communication_exception_on_request_exceptions(
-    treestatus_url, exc  # noqa: ANN001
-):
+def test_raise_communication_exception_on_request_exceptions(treestatus_url, exc):
     api = TreeStatus(url=treestatus_url)
     with requests_mock.mock() as m:
         m.get(treestatus_url + "/trees/autoland", exc=exc)
@@ -31,7 +29,7 @@ def test_raise_communication_exception_on_request_exceptions(
         assert m.called
 
 
-def test_raise_communication_exception_on_invalid_json(treestatus_url):  # noqa: ANN001
+def test_raise_communication_exception_on_invalid_json(treestatus_url):
     api = TreeStatus(url=treestatus_url)
     with requests_mock.mock() as m:
         m.get(treestatus_url + "/stacks/autoland", text="invalid } json {[[")
@@ -52,9 +50,7 @@ def test_raise_communication_exception_on_invalid_json(treestatus_url):  # noqa:
         (401, "{}"),
     ],
 )
-def test_raise_error_exception_on_error_response(
-    treestatus_url, status, body  # noqa: ANN001
-):
+def test_raise_error_exception_on_error_response(treestatus_url, status, body):
     api = TreeStatus(url=treestatus_url)
     with requests_mock.mock() as m:
         m.get(treestatus_url + "/trees/autoland", status_code=status, text=body)
@@ -65,7 +61,7 @@ def test_raise_error_exception_on_error_response(
         assert m.called
 
 
-def test_raise_error_with_details_on_error_response(treestatus_url):  # noqa: ANN001
+def test_raise_error_with_details_on_error_response(treestatus_url):
     api = TreeStatus(url=treestatus_url)
     error = {
         "detail": "No such tree",
@@ -91,24 +87,24 @@ def test_raise_error_with_details_on_error_response(treestatus_url):  # noqa: AN
         assert exc_info.value.response == error
 
 
-def test_is_open_assumes_true_on_unkown_tree(treestatusdouble):  # noqa: ANN001
+def test_is_open_assumes_true_on_unkown_tree(treestatusdouble):
     ts = treestatusdouble.get_treestatus_client()
     assert ts.is_open("tree-doesn't-exist")
 
 
-def test_is_open_for_open_tree(treestatusdouble):  # noqa: ANN001
+def test_is_open_for_open_tree(treestatusdouble):
     ts = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     assert ts.is_open("mozilla-central")
 
 
-def test_is_open_for_closed_tree(treestatusdouble):  # noqa: ANN001
+def test_is_open_for_closed_tree(treestatusdouble):
     ts = treestatusdouble.get_treestatus_client()
     treestatusdouble.close_tree("mozilla-central")
     assert not ts.is_open("mozilla-central")
 
 
-def test_is_open_for_approval_required_tree(treestatusdouble):  # noqa: ANN001
+def test_is_open_for_approval_required_tree(treestatusdouble):
     ts = treestatusdouble.get_treestatus_client()
     treestatusdouble.set_tree("mozilla-central", status="approval required")
     assert ts.is_open("mozilla-central")

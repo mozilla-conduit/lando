@@ -1,3 +1,4 @@
+import re
 import urllib.parse
 
 import pytest
@@ -10,6 +11,7 @@ from lando.jinja import (
     linkify_revision_ids,
     linkify_revision_urls,
     linkify_sec_bug_docs,
+    linkify_transplant_details,
     repo_branch_url,
     repo_path,
     revision_url,
@@ -41,7 +43,7 @@ from lando.main.models import SCM_TYPE_GIT, SCM_TYPE_HG, Repo
         (9000, ""),
     ],
 )
-def test_avatar_url(input_url, output_url):  # noqa: ANN001
+def test_avatar_url(input_url, output_url):
     # Query params are not guaranteed to be in the same order, so
     # we cannot do string comparison of the URLs.
     expected = urllib.parse.urlparse(output_url)
@@ -82,7 +84,7 @@ def test_avatar_url(input_url, output_url):  # noqa: ANN001
         ("A message with no bug number", "A message with no bug number"),
     ],
 )
-def test_linkify_bug_numbers(input_text, output_text):  # noqa: ANN001
+def test_linkify_bug_numbers(input_text, output_text):
     assert output_text == linkify_bug_numbers(input_text)
 
 
@@ -91,10 +93,7 @@ def test_linkify_bug_numbers(input_text, output_text):  # noqa: ANN001
     [
         (
             "http://phabricator.test/D123",
-            (
-                '<a href="http://phabricator.test/D123">'
-                "http://phabricator.test/D123</a>"
-            ),
+            ('<a href="http://phabricator.test/D123">http://phabricator.test/D123</a>'),
         ),
         (
             "word http://phabricator.test/D201525 boundaries",
@@ -121,7 +120,7 @@ def test_linkify_bug_numbers(input_text, output_text):  # noqa: ANN001
         ),
     ],
 )
-def test_linkify_revision_urls(input_text, output_text):  # noqa: ANN001
+def test_linkify_revision_urls(input_text, output_text):
     assert output_text == linkify_revision_urls(input_text)
 
 
@@ -149,8 +148,28 @@ def test_linkify_revision_urls(input_text, output_text):  # noqa: ANN001
         ),
     ],
 )
-def test_linkify_revision_ids(input_text, output_text):  # noqa: ANN001
+def test_linkify_revision_ids(input_text, output_text):
     assert output_text == linkify_revision_ids(input_text)
+
+
+@pytest.mark.parametrize(
+    "repo_url, match",
+    [
+        ("https://github.com/bad/coffee", r"/commit/"),
+        ("https://hg.mozilla.org/bad/coffee", r"/rev/"),
+    ],
+)
+def test_linkify_transplant_details(repo_url: str, match: str):
+    commit_id = "badc0ffe"
+    transplant = {
+        "details": commit_id,
+        "repository_url": repo_url,
+        "status": "landed",
+    }
+
+    out = linkify_transplant_details(f"{commit_id} is here", transplant)
+    match_re = match + commit_id
+    assert re.search(match_re, out)
 
 
 @pytest.mark.parametrize(
@@ -164,7 +183,7 @@ def test_linkify_revision_ids(input_text, output_text):  # noqa: ANN001
         ),
     ],
 )
-def test_linkify_faq(input_text, output_text):  # noqa: ANN001
+def test_linkify_faq(input_text, output_text):
     assert output_text == linkify_faq(input_text)
 
 
@@ -185,7 +204,7 @@ def test_linkify_faq(input_text, output_text):  # noqa: ANN001
         ),
     ],
 )
-def test_linkify_sec_bug_docs(input_text, output_text):  # noqa: ANN001
+def test_linkify_sec_bug_docs(input_text, output_text):
     assert output_text == linkify_sec_bug_docs(input_text)
 
 
@@ -201,7 +220,7 @@ def test_linkify_sec_bug_docs(input_text, output_text):  # noqa: ANN001
         (None, ""),
     ],
 )
-def test_repo_path(repo_url, path):  # noqa: ANN001
+def test_repo_path(repo_url, path):
     assert path == repo_path(repo_url)
 
 
@@ -234,7 +253,7 @@ def test_repo_path(repo_url, path):  # noqa: ANN001
         ),
     ],
 )
-def test_repo_branch_url(repo, path):  # noqa: ANN001
+def test_repo_branch_url(repo, path):
     assert path == repo_branch_url(repo)
 
 
@@ -253,7 +272,7 @@ def test_repo_branch_url(repo, path):  # noqa: ANN001
         ),
     ],
 )
-def test_calculate_duration(start, end, duration):  # noqa: ANN001
+def test_calculate_duration(start, end, duration):
     assert duration == calculate_duration(start, end)
 
 

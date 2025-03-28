@@ -279,9 +279,7 @@ def _create_git_commit(request: pytest.FixtureRequest, clone_path: Path):
     return new_file
 
 
-def _monkeypatch_scm(
-    monkeypatch, scm: GitSCM, method: str  # noqa: ANN001
-) -> MagicMock:
+def _monkeypatch_scm(monkeypatch, scm: GitSCM, method: str) -> MagicMock:
     """
     Mock a method on `scm` to test the call, but let it continue with its original side
     effect, so we can test that it's correct, too.

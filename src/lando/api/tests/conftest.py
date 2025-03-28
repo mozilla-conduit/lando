@@ -98,12 +98,12 @@ def app():
         def __init__(self, overrides: dict | None = None):
             self.overrides = overrides or {}
 
-        def __getitem__(self, key):  # noqa: ANN001, ANN204
+        def __getitem__(self, key):
             if key in self.overrides:
                 return self.overrides[key]
             return getattr(settings, key)
 
-        def __setitem__(self, key, value):  # noqa: ANN001
+        def __setitem__(self, key, value):
             setattr(settings, key, value)
 
     class _app:
@@ -112,10 +112,10 @@ def app():
                 self.args = args
                 self.kwargs = kwargs
 
-            def __enter__(self):  # noqa: ANN204
+            def __enter__(self):
                 return Client(*self.args, **self.kwargs)
 
-            def __exit__(self, exc_type, exc_val, exc_tb):  # noqa: ANN001
+            def __exit__(self, exc_type, exc_val, exc_tb):
                 pass
 
         config = _config(
@@ -137,7 +137,7 @@ def normal_patch():
         PATCH_NORMAL_3,
     ]
 
-    def _patch(number=0):  # noqa: ANN001
+    def _patch(number=0):
         return _patches[number]
 
     return _patch
@@ -182,7 +182,7 @@ EXTERNAL_SERVICES_SHOULD_BE_PRESENT = (
 
 
 @pytest.fixture
-def docker_env_vars(versionfile, monkeypatch):  # noqa: ANN001
+def docker_env_vars(versionfile, monkeypatch):
     """Monkeypatch environment variables that we'd get running under docker."""
     monkeypatch.setenv("ENV", "test")
     monkeypatch.setenv("VERSION_PATH", str(versionfile))
@@ -206,7 +206,7 @@ def request_mocker():
 
 
 @pytest.fixture
-def phabdouble(monkeypatch):  # noqa: ANN001
+def phabdouble(monkeypatch):
     """Mock the Phabricator service and build fake response objects."""
     phabdouble = PhabricatorDouble(monkeypatch)
 
@@ -222,28 +222,28 @@ def phabdouble(monkeypatch):  # noqa: ANN001
 
 
 @pytest.fixture
-def treestatusdouble(monkeypatch, treestatus_url):  # noqa: ANN001
+def treestatusdouble(monkeypatch, treestatus_url):
     """Mock the Tree Status service and build fake responses."""
     yield TreeStatusDouble(monkeypatch, treestatus_url)
 
 
 @pytest.fixture
-def secure_project(phabdouble):  # noqa: ANN001
+def secure_project(phabdouble):
     return phabdouble.project(SEC_PROJ_SLUG)
 
 
 @pytest.fixture
-def checkin_project(phabdouble):  # noqa: ANN001
+def checkin_project(phabdouble):
     return phabdouble.project(CHECKIN_PROJ_SLUG)
 
 
 @pytest.fixture
-def sec_approval_project(phabdouble):  # noqa: ANN001
+def sec_approval_project(phabdouble):
     return phabdouble.project(SEC_APPROVAL_PROJECT_SLUG)
 
 
 @pytest.fixture
-def release_management_project(phabdouble):  # noqa: ANN001
+def release_management_project(phabdouble):
     return phabdouble.project(
         RELMAN_PROJECT_SLUG,
         attachments={"members": {"members": [{"phid": "PHID-USER-1"}]}},
@@ -251,7 +251,7 @@ def release_management_project(phabdouble):  # noqa: ANN001
 
 
 @pytest.fixture
-def versionfile(tmpdir):  # noqa: ANN001
+def versionfile(tmpdir):
     """Provide a temporary version.json on disk."""
     v = tmpdir.mkdir("app").join("version.json")
     v.write(
@@ -268,15 +268,15 @@ def versionfile(tmpdir):  # noqa: ANN001
 
 
 @pytest.fixture
-def mock_repo_config(monkeypatch):  # noqa: ANN001
-    def set_repo_config(config):  # noqa: ANN001
+def mock_repo_config(monkeypatch):
+    def set_repo_config(config):
         monkeypatch.setattr("lando.api.legacy.repos.REPO_CONFIG", config)
 
     return set_repo_config
 
 
 @pytest.fixture
-def mocked_repo_config(mock_repo_config):  # noqa: ANN001
+def mocked_repo_config(mock_repo_config):
     Repo.objects.create(
         scm_type=SCM_TYPE_HG,
         name="mozilla-central",
@@ -321,8 +321,8 @@ def mocked_repo_config(mock_repo_config):  # noqa: ANN001
 
 
 @pytest.fixture
-def landing_worker_instance(mocked_repo_config):  # noqa: ANN001
-    def _instance(scm, **kwargs):  # noqa: ANN001
+def landing_worker_instance(mocked_repo_config):
+    def _instance(scm, **kwargs):
         worker = Worker.objects.create(sleep_seconds=0.1, scm=scm, **kwargs)
         worker.applicable_repos.set(Repo.objects.filter(scm_type=scm))
         return worker
@@ -331,7 +331,7 @@ def landing_worker_instance(mocked_repo_config):  # noqa: ANN001
 
 
 @pytest.fixture
-def hg_landing_worker(landing_worker_instance):  # noqa: ANN001
+def hg_landing_worker(landing_worker_instance):
     worker = landing_worker_instance(
         name="test-hg-worker",
         scm=SCM_TYPE_HG,
@@ -340,7 +340,7 @@ def hg_landing_worker(landing_worker_instance):  # noqa: ANN001
 
 
 @pytest.fixture
-def git_landing_worker(landing_worker_instance):  # noqa: ANN001
+def git_landing_worker(landing_worker_instance):
     worker = landing_worker_instance(
         name="test-git-worker",
         scm=SCM_TYPE_GIT,
@@ -349,21 +349,21 @@ def git_landing_worker(landing_worker_instance):  # noqa: ANN001
 
 
 @pytest.fixture
-def get_landing_worker(hg_landing_worker, git_landing_worker):  # noqa: ANN001
+def get_landing_worker(hg_landing_worker, git_landing_worker):
     workers = {
         SCM_TYPE_GIT: git_landing_worker,
         SCM_TYPE_HG: hg_landing_worker,
     }
 
-    def _get_landing_worker(scm_type):  # noqa: ANN001
+    def _get_landing_worker(scm_type):
         return workers[scm_type]
 
     return _get_landing_worker
 
 
 @pytest.fixture
-def get_phab_client(app):  # noqa: ANN001
-    def get_client(api_key=None):  # noqa: ANN001
+def get_phab_client(app):
+    def get_client(api_key=None):
         api_key = api_key or settings.PHABRICATOR_UNPRIVILEGED_API_KEY
         return PhabricatorClient(settings.PHABRICATOR_URL, api_key)
 
@@ -371,7 +371,7 @@ def get_phab_client(app):  # noqa: ANN001
 
 
 @pytest.fixture
-def redis_cache(app):  # noqa: ANN001
+def redis_cache(app):
     cache.init_app(
         app, config={"CACHE_TYPE": "redis", "CACHE_REDIS_HOST": "redis.cache"}
     )
@@ -393,7 +393,7 @@ def treestatus_url():
     return "http://treestatus.test"
 
 
-def pytest_assertrepr_compare(op, left, right):  # noqa: ANN001
+def pytest_assertrepr_compare(op, left, right):
     if isinstance(left, JSONResponse) and isinstance(right, int) and op == "==":
         # Hook failures when comparing JSONResponse objects so we get the detailed
         # failure description from inside the response object contents.
@@ -410,12 +410,12 @@ def pytest_assertrepr_compare(op, left, right):  # noqa: ANN001
 
 
 @pytest.fixture
-def patch_directory(request):  # noqa: ANN001
+def patch_directory(request):
     return Path(request.fspath.dirname).joinpath("patches")
 
 
 @pytest.fixture
-def register_codefreeze_uri(request_mocker):  # noqa: ANN001
+def register_codefreeze_uri(request_mocker):
     request_mocker.register_uri(
         "GET",
         "https://product-details.mozilla.org/1.0/firefox_versions.json",
@@ -427,7 +427,7 @@ def register_codefreeze_uri(request_mocker):  # noqa: ANN001
 
 
 @pytest.fixture
-def codefreeze_datetime(request_mocker):  # noqa: ANN001
+def codefreeze_datetime(request_mocker):
     utc_offset = CODE_FREEZE_OFFSET
     dates = {
         "today": datetime(2000, 1, 5, 0, 0, 0, tzinfo=timezone.utc),
@@ -439,11 +439,11 @@ def codefreeze_datetime(request_mocker):  # noqa: ANN001
 
     class Mockdatetime:
         @classmethod
-        def now(cls, tz):  # noqa: ANN001, ANN206
+        def now(cls, tz):
             return dates["today"]
 
         @classmethod
-        def strptime(cls, date_string, fmt):  # noqa: ANN001, ANN206
+        def strptime(cls, date_string, fmt):
             return dates[f"{date_string}"]
 
     return Mockdatetime
@@ -452,16 +452,10 @@ def codefreeze_datetime(request_mocker):  # noqa: ANN001
 @pytest.fixture
 def fake_request():
     class FakeUser:
-        def has_perm(self, permission, *args, **kwargs):  # noqa: ANN001
+        def has_perm(self, permission, *args, **kwargs):
             return permission in self.permissions
 
-        def __init__(
-            self,
-            is_authenticated=True,  # noqa: ANN001
-            has_email=True,  # noqa: ANN001
-            permissions=None,  # noqa: ANN001
-        ):
-
+        def __init__(self, is_authenticated=True, has_email=True, permissions=None):
             self.is_authenticated = is_authenticated
             self.permissions = permissions or ()
             if has_email:
@@ -490,7 +484,7 @@ def mock_permissions():
 
 
 @pytest.fixture
-def proxy_client(monkeypatch, fake_request):  # noqa: ANN001
+def proxy_client(monkeypatch, fake_request):
     """A client that bridges tests designed to work with the API.
 
     Most tests that use the API no longer need to access those endpoints through
@@ -507,7 +501,7 @@ def proxy_client(monkeypatch, fake_request):  # noqa: ANN001
 
         # NOTE: The methods tested that rely on this class should be reimplemented
         # to no longer need the structure of a response to function.
-        def __init__(self, status_code=200, json=None):  # noqa: ANN001
+        def __init__(self, status_code=200, json=None):
             self.json = json or {}
             self.status_code = status_code
             self.content_type = (
@@ -517,7 +511,7 @@ def proxy_client(monkeypatch, fake_request):  # noqa: ANN001
     class ProxyClient:
         request = fake_request()
 
-        def _handle__get__stacks__id(self, path):  # noqa: ANN001
+        def _handle__get__stacks__id(self, path):
             revision_id = int(path.removeprefix("/stacks/D"))
             json_response = legacy_api_stacks.get(self.request, revision_id)
             if isinstance(json_response, HttpResponse):
@@ -527,7 +521,7 @@ def proxy_client(monkeypatch, fake_request):  # noqa: ANN001
             # mapped to a response.
             return MockResponse(json=json.loads(json.dumps(json_response)))
 
-        def _handle__get__transplants__id(self, path):  # noqa: ANN001
+        def _handle__get__transplants__id(self, path):
             stack_revision_id = path.removeprefix("/transplants?stack_revision_id=")
             result = legacy_api_transplants.get_list(
                 self.request, stack_revision_id=stack_revision_id
@@ -547,7 +541,7 @@ def proxy_client(monkeypatch, fake_request):  # noqa: ANN001
             json_response = legacy_api_transplants.dryrun(self.request, kwargs["json"])
             return MockResponse(json=json.loads(json.dumps(json_response)))
 
-        def _handle__post__transplants(self, path, **kwargs):  # noqa: ANN001
+        def _handle__post__transplants(self, path, **kwargs):
             try:
                 json_response, status_code = legacy_api_transplants.post(
                     self.request, kwargs["json"]
@@ -567,12 +561,12 @@ def proxy_client(monkeypatch, fake_request):  # noqa: ANN001
                 json=json.loads(json.dumps(json_response)), status_code=status_code
             )
 
-        def _handle__put__landing_jobs__id(self, path, **kwargs):  # noqa: ANN001
+        def _handle__put__landing_jobs__id(self, path, **kwargs):
             job_id = int(path.removeprefix("/landing_jobs/"))
             response = legacy_api_landing_jobs.put(self.request, job_id)
             return MockResponse(json=json.loads(response.content))
 
-        def get(self, path, *args, **kwargs):  # noqa: ANN001
+        def get(self, path, *args, **kwargs):
             """Handle various get endpoints."""
             if path.startswith("/stacks/D"):
                 return self._handle__get__stacks__id(path)
@@ -580,7 +574,7 @@ def proxy_client(monkeypatch, fake_request):  # noqa: ANN001
             if path.startswith("/transplants?"):
                 return self._handle__get__transplants__id(path)
 
-        def post(self, path, **kwargs):  # noqa: ANN001
+        def post(self, path, **kwargs):
             """Handle various post endpoints."""
             if "permissions" in kwargs:
                 self.request = fake_request(permissions=kwargs["permissions"])
@@ -591,7 +585,7 @@ def proxy_client(monkeypatch, fake_request):  # noqa: ANN001
             if path == "/transplants":
                 return self._handle__post__transplants(path, **kwargs)
 
-        def put(self, path, **kwargs):  # noqa: ANN001
+        def put(self, path, **kwargs):
             """Handle put endpoint."""
             request_dict = {}
             if "permissions" in kwargs:
@@ -609,7 +603,7 @@ def proxy_client(monkeypatch, fake_request):  # noqa: ANN001
 
 
 @pytest.fixture
-def authenticated_client(user, user_plaintext_password, client):  # noqa: ANN001
+def authenticated_client(user, user_plaintext_password, client):
     client.login(username=user.username, password=user_plaintext_password)
     return client
 

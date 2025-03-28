@@ -22,12 +22,12 @@ from lando.utils import HgPatchHelper
 
 @pytest.fixture
 @pytest.mark.django_db
-def create_patch_revision(normal_patch):  # noqa: ANN001, ANN201
+def create_patch_revision(normal_patch):
     """A fixture that fake uploads a patch"""
 
     normal_patch_0 = normal_patch(0)
 
-    def _create_patch_revision(number, patch=normal_patch_0):  # noqa: ANN001
+    def _create_patch_revision(number, patch=normal_patch_0):
         """Create revision number `number`, with patch text `patch`.
 
         `patch` will default to the first normal patch fixture if unspecified. However,
@@ -258,13 +258,13 @@ aDd oNe mOrE LiNe
 )
 @pytest.mark.django_db
 def test_integrated_execute_job(
-    repo_mc,  # noqa: ANN001
-    treestatusdouble,  # noqa: ANN001
-    monkeypatch,  # noqa: ANN001
-    create_patch_revision,  # noqa: ANN001
+    repo_mc,
+    treestatusdouble,
+    monkeypatch,
+    create_patch_revision,
     repo_type: str,
-    revisions_params,  # noqa: ANN001
-    get_landing_worker,  # noqa: ANN001
+    revisions_params,
+    get_landing_worker,
 ):
     repo = repo_mc(repo_type)
     treestatusdouble.open_tree(repo.name)
@@ -306,11 +306,11 @@ def test_integrated_execute_job(
 )
 @pytest.mark.django_db
 def test_integrated_execute_job_with_force_push(
-    repo_mc,  # noqa: ANN001
-    treestatusdouble,  # noqa: ANN001
-    monkeypatch,  # noqa: ANN001
-    create_patch_revision,  # noqa: ANN001
-    get_landing_worker,  # noqa: ANN001
+    repo_mc,
+    treestatusdouble,
+    monkeypatch,
+    create_patch_revision,
+    get_landing_worker,
     repo_type: str,
 ):
     repo = repo_mc(repo_type, force_push=True)
@@ -351,11 +351,11 @@ def test_integrated_execute_job_with_force_push(
 )
 @pytest.mark.django_db
 def test_integrated_execute_job_with_bookmark(
-    repo_mc,  # noqa: ANN001
-    treestatusdouble,  # noqa: ANN001
-    monkeypatch,  # noqa: ANN001
-    create_patch_revision,  # noqa: ANN001
-    get_landing_worker,  # noqa: ANN001
+    repo_mc,
+    treestatusdouble,
+    monkeypatch,
+    create_patch_revision,
+    get_landing_worker,
     repo_type: str,
 ):
     repo = repo_mc(repo_type, push_target="@")
@@ -396,11 +396,11 @@ def test_integrated_execute_job_with_bookmark(
 )
 @pytest.mark.django_db
 def test_no_diff_start_line(
-    repo_mc,  # noqa: ANN001
-    treestatusdouble,  # noqa: ANN001
-    create_patch_revision,  # noqa: ANN001
-    caplog,  # noqa: ANN001
-    get_landing_worker,  # noqa: ANN001
+    repo_mc,
+    treestatusdouble,
+    create_patch_revision,
+    caplog,
+    get_landing_worker,
     repo_type: str,
 ):
     repo = repo_mc(repo_type)
@@ -432,11 +432,11 @@ def test_no_diff_start_line(
 )
 @pytest.mark.django_db
 def test_lose_push_race(
-    monkeypatch,  # noqa: ANN001
-    repo_mc,  # noqa: ANN001
-    treestatusdouble,  # noqa: ANN001
-    create_patch_revision,  # noqa: ANN001
-    get_landing_worker,  # noqa: ANN001
+    monkeypatch,
+    repo_mc,
+    treestatusdouble,
+    create_patch_revision,
+    get_landing_worker,
     repo_type: str,
 ):
     repo = repo_mc(repo_type)
@@ -478,12 +478,12 @@ def test_lose_push_race(
 )
 @pytest.mark.django_db
 def test_merge_conflict(
-    repo_mc,  # noqa: ANN001
-    treestatusdouble,  # noqa: ANN001
-    monkeypatch,  # noqa: ANN001
-    create_patch_revision,  # noqa: ANN001
-    caplog,  # noqa: ANN001
-    get_landing_worker,  # noqa: ANN001
+    repo_mc,
+    treestatusdouble,
+    monkeypatch,
+    create_patch_revision,
+    caplog,
+    get_landing_worker,
     repo_type: str,
     expected_error_log: str,
 ):
@@ -549,11 +549,11 @@ def test_merge_conflict(
 )
 @pytest.mark.django_db
 def test_failed_landing_job_notification(
-    repo_mc,  # noqa: ANN001
-    treestatusdouble,  # noqa: ANN001
-    monkeypatch,  # noqa: ANN001
-    create_patch_revision,  # noqa: ANN001
-    get_landing_worker,  # noqa: ANN001
+    repo_mc,
+    treestatusdouble,
+    monkeypatch,
+    create_patch_revision,
+    get_landing_worker,
     repo_type: str,
 ):
     """Ensure that a failed landings triggers a user notification."""
@@ -600,12 +600,12 @@ def test_failed_landing_job_notification(
 )
 @pytest.mark.django_db
 def test_format_patch_success_unchanged(
-    repo_mc,  # noqa: ANN001
-    treestatusdouble,  # noqa: ANN001
-    monkeypatch,  # noqa: ANN001
-    create_patch_revision,  # noqa: ANN001
-    normal_patch,  # noqa: ANN001
-    get_landing_worker,  # noqa: ANN001
+    repo_mc,
+    treestatusdouble,
+    monkeypatch,
+    create_patch_revision,
+    normal_patch,
+    get_landing_worker,
     repo_type: str,
 ):
     """Tests automated formatting happy path where formatters made no changes."""
@@ -653,11 +653,11 @@ def test_format_patch_success_unchanged(
 )
 @pytest.mark.django_db
 def test_format_single_success_changed(
-    repo_mc,  # noqa: ANN001
-    treestatusdouble,  # noqa: ANN001
-    monkeypatch,  # noqa: ANN001
-    create_patch_revision,  # noqa: ANN001
-    get_landing_worker,  # noqa: ANN001
+    repo_mc,
+    treestatusdouble,
+    monkeypatch,
+    create_patch_revision,
+    get_landing_worker,
     repo_type: str,
 ):
     """Test formatting a single commit via amending."""
@@ -745,11 +745,11 @@ def _scm_get_previous_hash(scm: AbstractSCM) -> str:
 )
 @pytest.mark.django_db
 def test_format_stack_success_changed(
-    repo_mc,  # noqa: ANN001
-    treestatusdouble,  # noqa: ANN001
-    monkeypatch,  # noqa: ANN001
-    create_patch_revision,  # noqa: ANN001
-    get_landing_worker,  # noqa: ANN001
+    repo_mc,
+    treestatusdouble,
+    monkeypatch,
+    create_patch_revision,
+    get_landing_worker,
     repo_type: str,
 ):
     """Test formatting a stack via an autoformat tip commit."""
@@ -826,12 +826,12 @@ def _scm_get_last_commit_message(scm: AbstractSCM) -> str:
 )
 @pytest.mark.django_db
 def test_format_patch_fail(
-    repo_mc,  # noqa: ANN001
-    treestatusdouble,  # noqa: ANN001
-    monkeypatch,  # noqa: ANN001
-    create_patch_revision,  # noqa: ANN001
-    normal_patch,  # noqa: ANN001
-    get_landing_worker,  # noqa: ANN001
+    repo_mc,
+    treestatusdouble,
+    monkeypatch,
+    create_patch_revision,
+    normal_patch,
+    get_landing_worker,
     repo_type: str,
 ):
     """Tests automated formatting failures before landing."""
@@ -882,11 +882,11 @@ def test_format_patch_fail(
 )
 @pytest.mark.django_db
 def test_format_patch_no_landoini(
-    repo_mc,  # noqa: ANN001
-    treestatusdouble,  # noqa: ANN001
-    monkeypatch,  # noqa: ANN001
-    create_patch_revision,  # noqa: ANN001
-    get_landing_worker,  # noqa: ANN001
+    repo_mc,
+    treestatusdouble,
+    monkeypatch,
+    create_patch_revision,
+    get_landing_worker,
     repo_type: str,
 ):
     """Tests behaviour of Lando when the `.lando.ini` file is missing."""
@@ -936,7 +936,7 @@ def test_format_patch_no_landoini(
 
 @pytest.mark.django_db
 def test_landing_job_revisions_sorting(
-    create_patch_revision,  # noqa: ANN001
+    create_patch_revision,
 ):
     revisions = [
         create_patch_revision(1),
@@ -961,9 +961,9 @@ def test_landing_job_revisions_sorting(
 
 @pytest.mark.django_db
 def test_worker_active_repos_updated_when_tree_closed(
-    treestatusdouble,  # noqa: ANN001
-    monkeypatch,  # noqa: ANN001
-    get_landing_worker,  # noqa: ANN001
+    treestatusdouble,
+    monkeypatch,
+    get_landing_worker,
 ):
     repo = Repo.objects.get(name="mozilla-central")
     treestatusdouble.open_tree(repo.name)

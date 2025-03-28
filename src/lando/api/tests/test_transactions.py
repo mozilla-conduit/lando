@@ -1,7 +1,7 @@
 from lando.api.legacy.transactions import get_inline_comments, transaction_search
 
 
-def test_transaction_search_for_all_transactions(phabdouble):  # noqa: ANN001
+def test_transaction_search_for_all_transactions(phabdouble):
     phab = phabdouble.get_phabricator_client()
     revision = phabdouble.revision()
     new_txn1 = phabdouble.transaction("dummy", revision)
@@ -10,7 +10,7 @@ def test_transaction_search_for_all_transactions(phabdouble):  # noqa: ANN001
     assert transactions == [new_txn1, new_txn2]
 
 
-def test_transaction_search_for_specific_transaction(phabdouble):  # noqa: ANN001
+def test_transaction_search_for_specific_transaction(phabdouble):
     phab = phabdouble.get_phabricator_client()
     revision = phabdouble.revision()
     phabdouble.transaction("dummy", revision)
@@ -23,13 +23,13 @@ def test_transaction_search_for_specific_transaction(phabdouble):  # noqa: ANN00
     assert transactions == [target_txn]
 
 
-def test_no_transaction_search_results_returns_empty_list(phabdouble):  # noqa: ANN001
+def test_no_transaction_search_results_returns_empty_list(phabdouble):
     phab = phabdouble.get_phabricator_client()
     transactions = list(transaction_search(phab, "PHID-DREV-aaaaa"))
     assert transactions == []
 
 
-def test_paginated_transactions_are_fetched_too(phabdouble):  # noqa: ANN001
+def test_paginated_transactions_are_fetched_too(phabdouble):
     phab = phabdouble.get_phabricator_client()
     revision = phabdouble.revision()
     new_transactions = [phabdouble.transaction("dummy", revision) for _ in range(10)]
@@ -38,7 +38,7 @@ def test_paginated_transactions_are_fetched_too(phabdouble):  # noqa: ANN001
     assert transactions == new_transactions
 
 
-def test_find_transaction_by_object_name(phabdouble):  # noqa: ANN001
+def test_find_transaction_by_object_name(phabdouble):
     phab = phabdouble.get_phabricator_client()
     revision = phabdouble.revision()
     txn = phabdouble.transaction("dummy", revision)
@@ -46,7 +46,7 @@ def test_find_transaction_by_object_name(phabdouble):  # noqa: ANN001
     assert list(transaction_search(phab, name)) == [txn]
 
 
-def test_find_transaction_by_phid(phabdouble):  # noqa: ANN001
+def test_find_transaction_by_phid(phabdouble):
     phab = phabdouble.get_phabricator_client()
     revision = phabdouble.revision()
     txn = phabdouble.transaction("dummy", revision)
@@ -54,7 +54,7 @@ def test_find_transaction_by_phid(phabdouble):  # noqa: ANN001
     assert list(transaction_search(phab, phid)) == [txn]
 
 
-def test_get_inline_comments(phabdouble):  # noqa: ANN001
+def test_get_inline_comments(phabdouble):
     phab = phabdouble.get_phabricator_client()
     revision = phabdouble.revision()
     txn = phabdouble.transaction(

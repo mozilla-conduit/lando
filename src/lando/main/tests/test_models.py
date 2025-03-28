@@ -30,12 +30,12 @@ diff --git a/test.txt b/test.txt
 @patch("lando.main.scm.HgSCM")
 @pytest.mark.django_db(transaction=True)
 def test__models__Repo__scm(
-    HgSCM,  # noqa: ANN001
-    GitSCM,  # noqa: ANN001
-    monkeypatch,  # noqa: ANN001
-    git_returncode,  # noqa: ANN001
-    hg_returncode,  # noqa: ANN001
-    scm_type,  # noqa: ANN001
+    HgSCM,
+    GitSCM,
+    monkeypatch,
+    git_returncode,
+    hg_returncode,
+    scm_type,
 ):
     repo_path = "some_repo"
 
@@ -64,7 +64,7 @@ def test__models__Repo__scm(
 @patch("lando.main.scm.hg.subprocess")
 @pytest.mark.django_db(transaction=True)
 def test__models__Repo__scm_not_calculated_when_preset(
-    hg_subprocess, git_subprocess, scm_type, call_count  # noqa: ANN001
+    hg_subprocess, git_subprocess, scm_type, call_count
 ):
     subprocess_map = {SCM_TYPE_GIT: git_subprocess, SCM_TYPE_HG: hg_subprocess}
     subprocess = subprocess_map[scm_type]
@@ -83,7 +83,7 @@ def test__models__Repo__scm_not_calculated_when_preset(
         ("/invalid_path", ValidationError),
     ],
 )
-def test__models__Repo__system_path_validator(path, expected_exception):  # noqa: ANN001
+def test__models__Repo__system_path_validator(path, expected_exception):
     repo = Repo(
         name="name",
         url="http://example.com",
@@ -126,7 +126,7 @@ def test__models__Repo__system_path_validator(path, expected_exception):  # noqa
         ),
     ],
 )
-def test__models__Revision___parse_author_string(author, expected):  # noqa: ANN001
+def test__models__Revision___parse_author_string(author, expected):
     assert Revision._parse_author_string(author) == expected
 
 

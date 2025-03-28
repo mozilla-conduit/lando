@@ -12,7 +12,7 @@ from lando.utils.tasks import send_landing_failure_email
 dedent = inspect.cleandoc
 
 
-def test_send_failure_notification_email_task(app):  # noqa: ANN001
+def test_send_failure_notification_email_task(app):
     send_landing_failure_email("sadpanda@failure.test", "D54321", "Rebase failed!")
     assert len(mail.outbox) == 1
 
@@ -54,7 +54,7 @@ def test_email_content_try():
 
 
 @pytest.mark.django_db(transaction=True)
-def test_notify_user_of_landing_failure(app):  # noqa: ANN001
+def test_notify_user_of_landing_failure(app):
     # Testing happy path only (as part of porting this test).
     # TODO: should test actual functionality more broadly.
     job = LandingJob(revision_order=["1"])

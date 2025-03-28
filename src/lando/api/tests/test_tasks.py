@@ -7,14 +7,14 @@ from lando.utils.phabricator import (
 from lando.utils.tasks import admin_remove_phab_project
 
 
-def test_admin_remove_phab_project_succeeds(phabdouble, app):  # noqa: ANN001
+def test_admin_remove_phab_project_succeeds(phabdouble, app):
     p = phabdouble.project("test-project")
     r = phabdouble.revision(projects=[p])
     admin_remove_phab_project(r["phid"], p["phid"])
 
 
 def test_admin_remove_phab_project_throws_exception_for_missing_revision(
-    phabdouble, app  # noqa: ANN001
+    phabdouble, app
 ):
     p = phabdouble.project("test-project")
     with pytest.raises(PhabricatorAPIException) as excinfo:

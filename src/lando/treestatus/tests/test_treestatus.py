@@ -90,32 +90,32 @@ class StackEntry(BaseModel):
     who: str
 
 
-def test_is_open_assumes_true_on_unknown_tree(db):  # noqa: ANN001
+def test_is_open_assumes_true_on_unknown_tree(db):
     assert is_open(
         "tree-doesn't-exist"
     ), "`is_open` should return `True` for unknown tree."
 
 
-def test_is_open_for_open_tree(new_treestatus_tree):  # noqa: ANN001
+def test_is_open_for_open_tree(new_treestatus_tree):
     new_treestatus_tree(tree="mozilla-central", status="open")
     assert is_open("mozilla-central"), "`is_open` should return `True` for opened tree."
 
 
-def test_is_open_for_closed_tree(new_treestatus_tree):  # noqa: ANN001
+def test_is_open_for_closed_tree(new_treestatus_tree):
     new_treestatus_tree(tree="mozilla-central", status="closed")
     assert not is_open(
         "mozilla-central"
     ), "`is_open` should return `False` for closed tree."
 
 
-def test_is_open_for_approval_required_tree(new_treestatus_tree):  # noqa: ANN001
+def test_is_open_for_approval_required_tree(new_treestatus_tree):
     new_treestatus_tree(tree="mozilla-central", status="approval required")
     assert is_open(
         "mozilla-central"
     ), "`is_open` should return `True` for approval required tree."
 
 
-def test_get_combined_tree(new_treestatus_tree):  # noqa: ANN001
+def test_get_combined_tree(new_treestatus_tree):
     tree = new_treestatus_tree(
         motd="message",
         reason="reason",
@@ -135,7 +135,7 @@ def test_get_combined_tree(new_treestatus_tree):  # noqa: ANN001
     ), "Combined tree does not match expected."
 
 
-def test_get_tree_exists(db, new_treestatus_tree):  # noqa: ANN001
+def test_get_tree_exists(db, new_treestatus_tree):
     tree = new_treestatus_tree(
         tree="mozilla-central", status="open", reason="reason", motd="message"
     )
@@ -156,13 +156,13 @@ def test_get_tree_exists(db, new_treestatus_tree):  # noqa: ANN001
     ), "Returned `status` should be `open`."
 
 
-def test_get_tree_missing(db):  # noqa: ANN001
+def test_get_tree_missing(db):
     # `ProblemException` should be raised when a missing tree is passed.
     with pytest.raises(ProblemException):
         get_tree("missingtree")
 
 
-def test_api_get_trees2(db, client, new_treestatus_tree):  # noqa: ANN001
+def test_api_get_trees2(db, client, new_treestatus_tree):
     """API test for `GET /trees2`."""
     response = client.get("/trees2")
     assert (
@@ -182,10 +182,10 @@ def test_api_get_trees2(db, client, new_treestatus_tree):  # noqa: ANN001
     assert TreeData(**result[0]), "Response should match expected tree format."
 
 
-def test_api_get_logs(db, client, auth0_mock):  # noqa: ANN001
+def test_api_get_logs(db, client, auth0_mock):
     """API test for `GET /trees/{tree}/logs`."""
 
-    def patch_tree(body):  # noqa: ANN001
+    def patch_tree(body):
         """Convenience closure to patch the tree."""
         client.patch("/trees", headers=auth0_mock.mock_headers, json=body)
 
@@ -402,7 +402,7 @@ def test_api_get_logs(db, client, auth0_mock):  # noqa: ANN001
         ), "Tags should match expected."
 
 
-def test_api_delete_trees_unknown(db, client, auth0_mock):  # noqa: ANN001
+def test_api_delete_trees_unknown(db, client, auth0_mock):
     """API test for `DELETE /trees/{tree}` with an unknown tree."""
     response = client.delete("/trees/unknowntree", headers=auth0_mock.mock_headers)
     assert (
@@ -416,9 +416,7 @@ def test_api_delete_trees_unknown(db, client, auth0_mock):  # noqa: ANN001
     }, "Response JSON for unknown tree should match expected value."
 
 
-def test_api_delete_trees_known(
-    db, client, auth0_mock, new_treestatus_tree  # noqa: ANN001
-):
+def test_api_delete_trees_known(db, client, auth0_mock, new_treestatus_tree):
     """API test for `DELETE /trees/{tree}` with a known tree."""
     new_treestatus_tree(tree="mozilla-central")
 
@@ -436,7 +434,7 @@ def test_api_delete_trees_known(
     assert response.status_code == 404, "Tree should be Not Found after delete."
 
 
-def test_api_put_trees_name_mismatch(db, client, auth0_mock):  # noqa: ANN001
+def test_api_put_trees_name_mismatch(db, client, auth0_mock):
     """API test for `PUT /trees/{tree}` when body and URL name do not match."""
     # Tree name in URL doesn't match body.
     response = client.put(
@@ -455,7 +453,7 @@ def test_api_put_trees_name_mismatch(db, client, auth0_mock):  # noqa: ANN001
     ), "Mismatch of tree name in URL and body should error."
 
 
-def test_api_put_trees(db, client, auth0_mock):  # noqa: ANN001
+def test_api_put_trees(db, client, auth0_mock):
     """API test for `PUT /trees/{tree}`."""
     # Tree can be added as expected.
     response = client.put(
@@ -510,7 +508,7 @@ def test_api_put_trees(db, client, auth0_mock):  # noqa: ANN001
     }, "Response format should match expected."
 
 
-def test_api_get_trees_single_not_found(db, client):  # noqa: ANN001
+def test_api_get_trees_single_not_found(db, client):
     """API test for `GET /trees/{tree}` with an unknown tree."""
     response = client.get("/trees/unknowntree")
     assert (
@@ -524,7 +522,7 @@ def test_api_get_trees_single_not_found(db, client):  # noqa: ANN001
     }, "Response JSON for missing result should match expected value."
 
 
-def test_api_get_trees_single_exists(db, client, new_treestatus_tree):  # noqa: ANN001
+def test_api_get_trees_single_exists(db, client, new_treestatus_tree):
     """API test for `GET /trees/{tree}` with a known tree."""
     new_treestatus_tree(tree="mozilla-central")
 
@@ -538,9 +536,7 @@ def test_api_get_trees_single_exists(db, client, new_treestatus_tree):  # noqa: 
     assert get_data.tree == "mozilla-central", "Tree name should match expected"
 
 
-def test_api_patch_trees_unknown_tree(
-    db, client, auth0_mock, new_treestatus_tree  # noqa: ANN001
-):
+def test_api_patch_trees_unknown_tree(db, client, auth0_mock, new_treestatus_tree):
     """API test for `PATCH /trees` with unknown tree name."""
     new_treestatus_tree(tree="mozilla-central")
     new_treestatus_tree(tree="autoland")
@@ -554,9 +550,7 @@ def test_api_patch_trees_unknown_tree(
     assert response.status_code == 404, "Passing a missing tree should return `404`."
 
 
-def test_api_patch_trees_tags_required(
-    db, client, auth0_mock, new_treestatus_tree  # noqa: ANN001
-):
+def test_api_patch_trees_tags_required(db, client, auth0_mock, new_treestatus_tree):
     """API test for `PATCH /trees` with missing tags when closing."""
     new_treestatus_tree(tree="mozilla-central")
     new_treestatus_tree(tree="autoland")
@@ -579,7 +573,7 @@ def test_api_patch_trees_tags_required(
 
 
 def test_api_patch_trees_remember_required_args(
-    db, client, auth0_mock, new_treestatus_tree  # noqa: ANN001
+    db, client, auth0_mock, new_treestatus_tree
 ):
     """API test for `PATCH /trees` required args with `remember`."""
     new_treestatus_tree(tree="mozilla-central")
@@ -649,9 +643,7 @@ def test_api_patch_trees_remember_required_args(
     }, "Error response should match expected."
 
 
-def test_api_patch_trees_success_remember(
-    db, client, auth0_mock, new_treestatus_tree  # noqa: ANN001
-):
+def test_api_patch_trees_success_remember(db, client, auth0_mock, new_treestatus_tree):
     """API test for `PATCH /trees` success with `remember: true`."""
     tree_names = ["autoland", "mozilla-central"]
     for tree in tree_names:
@@ -708,7 +700,7 @@ def test_api_patch_trees_success_remember(
 
 
 def test_api_patch_trees_success_no_remember(
-    db, client, auth0_mock, new_treestatus_tree  # noqa: ANN001
+    db, client, auth0_mock, new_treestatus_tree
 ):
     """API test for `PATCH /trees` success with `remember: false`."""
     new_treestatus_tree(tree="mozilla-central")
@@ -746,7 +738,7 @@ def test_api_patch_trees_success_no_remember(
     ), "Status should not have been added to the stack."
 
 
-def test_api_get_trees(db, client, new_treestatus_tree):  # noqa: ANN001
+def test_api_get_trees(db, client, new_treestatus_tree):
     """API test for `GET /trees`."""
     response = client.get("/trees")
     assert (
@@ -769,9 +761,7 @@ def test_api_get_trees(db, client, new_treestatus_tree):  # noqa: ANN001
     assert TreeData(**tree), "Tree response should match expected format."
 
 
-def test_api_delete_stack_revert(
-    db, client, new_treestatus_tree, auth0_mock  # noqa: ANN001
-):
+def test_api_delete_stack_revert(db, client, new_treestatus_tree, auth0_mock):
     """API test for `DELETE /stack/{id}` with `revert=1`."""
     new_treestatus_tree(tree="mozilla-central")
     new_treestatus_tree(tree="autoland")
@@ -853,9 +843,7 @@ def test_api_delete_stack_revert(
     ], "Previous tags should be restored."
 
 
-def test_api_delete_stack_no_revert(
-    db, client, new_treestatus_tree, auth0_mock  # noqa: ANN001
-):
+def test_api_delete_stack_no_revert(db, client, new_treestatus_tree, auth0_mock):
     """API test for `DELETE /stack/{id}` with `revert=0`."""
     new_treestatus_tree(tree="mozilla-central")
     new_treestatus_tree(tree="autoland")
@@ -939,7 +927,7 @@ def test_api_delete_stack_no_revert(
     ], "Tags should be preserved after discard."
 
 
-def test_api_patch_stack(db, client, new_treestatus_tree, auth0_mock):  # noqa: ANN001
+def test_api_patch_stack(db, client, new_treestatus_tree, auth0_mock):
     """API test for `PATCH /stack/{id}`."""
     new_treestatus_tree(tree="autoland")
 
@@ -1018,7 +1006,7 @@ def test_api_patch_stack(db, client, new_treestatus_tree, auth0_mock):  # noqa: 
         ]
 
 
-def test_api_patch_log(client, new_treestatus_tree, auth0_mock):  # noqa: ANN001
+def test_api_patch_log(client, new_treestatus_tree, auth0_mock):
     """API test for `PATCH /log/{id}`."""
     new_treestatus_tree(tree="autoland")
     response = client.patch(
@@ -1088,7 +1076,7 @@ def test_api_patch_log(client, new_treestatus_tree, auth0_mock):  # noqa: ANN001
     ], "Stack should show updated log tags."
 
 
-def test_api_get_stack(db, client, new_treestatus_tree, auth0_mock):  # noqa: ANN001
+def test_api_get_stack(db, client, new_treestatus_tree, auth0_mock):
     """API test for `GET /stack`."""
     new_treestatus_tree(tree="mozilla-central")
     new_treestatus_tree(tree="autoland")
