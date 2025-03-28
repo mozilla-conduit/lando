@@ -22,7 +22,7 @@ LIST = r"[;,\/\\]\s*"
 IRC_NICK = r"[a-zA-Z0-9\-\_.]*[a-zA-Z0-9\-\_]+"
 
 # fmt: off
-REVIEWERS_RE = re.compile(  # noqa: E131
+REVIEWERS_RE = re.compile(
     r"([\s\(\.\[;,])"                   # before "r" delimiter
     + r"(" + SPECIFIER + r")"           # flag
     + r"("                              # capture all reviewers
@@ -249,7 +249,7 @@ def replace_reviewers(
         # later
         d = {"first": True}
 
-        def replace_first_reviewer(matchobj):
+        def replace_first_reviewer(matchobj):  # noqa: ANN001
             if SPECIFIER_RE.match(matchobj.group(2)):
                 if d["first"]:
                     d["first"] = False

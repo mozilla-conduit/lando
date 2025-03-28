@@ -8,5 +8,5 @@ logger = logging.getLogger(__name__)
 
 
 class Index(LandoView):
-    def get(self, request):
+    def get(self, request):  # noqa: ANN001, ANN201
         return TemplateResponse(request=request, template="home.html")

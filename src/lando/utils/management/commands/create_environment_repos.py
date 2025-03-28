@@ -122,7 +122,7 @@ REPOS = {
 class Command(BaseCommand):
     help = "Create repos based on specified environment."
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser):  # noqa: ANN001
         parser.add_argument(
             "environment",
             help=f"Enter one of {', '.join(ENVIRONMENTS)}",
