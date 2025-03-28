@@ -12,7 +12,7 @@ from django.urls import reverse
 from django.utils.html import escape
 from jinja2 import Environment
 
-from lando.main.models import Repo
+from lando.main.models import LandingJob, Repo
 from lando.treestatus.forms import (
     ReasonCategory,
     TreeCategory,
@@ -72,7 +72,7 @@ def calculate_duration(start: str, end: Optional[str] = None) -> dict[str, int]:
     return {"minutes": int(result[0]), "seconds": int(result[1])}
 
 
-def tostatusbadgeclass(status: dict) -> str:
+def tostatusbadgeclass(landing_job: LandingJob) -> str:
     mapping = {
         "aborted": "Badge Badge--negative",
         "submitted": "Badge Badge--warning",
@@ -80,7 +80,7 @@ def tostatusbadgeclass(status: dict) -> str:
         "landed": "Badge Badge--positive",
         "failed": "Badge Badge--negative",
     }
-    return mapping.get(status["status"].lower(), "Badge Badge--negative")
+    return mapping.get(landing_job.status.lower(), "Badge Badge--negative")
 
 
 def reviewer_to_status_badge_class(reviewer: dict) -> str:
@@ -129,7 +129,7 @@ def revision_status_to_badge_class(status: str) -> str:
     }.get(status, "Badge Badge--warning")
 
 
-def tostatusbadgename(status: dict) -> str:
+def tostatusbadgename(landing_job: LandingJob) -> str:
     mapping = {
         "aborted": "Aborted",
         "submitted": "Landing queued",
@@ -137,7 +137,7 @@ def tostatusbadgename(status: dict) -> str:
         "landed": "Successfully landed",
         "failed": "Failed to land",
     }
-    return mapping.get(status["status"].lower(), status["status"].capitalize())
+    return mapping.get(landing_job.status.lower(), landing_job.status.capitalize())
 
 
 def reason_category_to_display(reason_category_str: str) -> str:
