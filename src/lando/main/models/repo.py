@@ -154,7 +154,11 @@ class Repo(BaseModel):
         """Return the SCM implementation associated with this Repository"""
         if not self._scm:
             if impl := SCM_IMPLEMENTATIONS.get(self.scm_type):
-                self._scm = impl(self.path)
+                kwargs = {}
+                if self.default_branch:
+                    kwargs["default_branch"] = self.default_branch
+
+                self._scm = impl(self.path, **kwargs)
             else:
                 raise Exception(f"Repository type not supported: {self.scm_type}")
         return self._scm

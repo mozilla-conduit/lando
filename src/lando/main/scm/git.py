@@ -59,7 +59,7 @@ class GitSCM(AbstractSCM):
 
     default_branch: str
 
-    def __init__(self, path: str, default_branch: str = "main"):
+    def __init__(self, path: str, default_branch: str = "main", **kwargs):
         self.default_branch = default_branch
         super().__init__(path)
 
