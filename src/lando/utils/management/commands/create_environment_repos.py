@@ -5,19 +5,13 @@ from django.db.utils import IntegrityError
 from lando.environments import Environment
 from lando.main.models import (
     DONTBUILD,
-    SCM_ALLOW_DIRECT_PUSH,
     SCM_CONDUIT,
-    SCM_FIREFOXCI,
-    SCM_L10N_INFRA,
     SCM_LEVEL_1,
-    SCM_LEVEL_3,
-    SCM_NSS,
-    SCM_VERSIONCONTROL,
     Repo,
 )
 from lando.main.scm import GitSCM
 
-ENVIRONMENTS = [e for e in Environment if not e.is_test]
+ENVIRONMENTS = [e for e in Environment if not e.is_test and e.is_lower]
 
 # These repos are copied from the legacy repo "subsystem".
 REPOS = {
@@ -120,155 +114,6 @@ REPOS = {
             "name": "test-repo-clone",
             "url": "https://hg.mozilla.org/conduit-testing/test-repo-clone",
             "required_permission": SCM_CONDUIT,
-        },
-        # Use real `try` for testing since `try` is a testing environment anyway.
-        {
-            "name": "try",
-            "url": "https://hg.mozilla.org/try",
-            "push_path": "ssh://hg.mozilla.org/try",
-            "pull_path": "https://hg.mozilla.org/mozilla-unified",
-            "required_permission": SCM_LEVEL_1,
-            "short_name": "try",
-            "is_phabricator_repo": False,
-            "force_push": True,
-        },
-    ],
-    Environment.production: [
-        {
-            "name": "phabricator-qa-stage",
-            "url": "https://hg.mozilla.org/automation/phabricator-qa-stage",
-            "required_permission": SCM_LEVEL_3,
-        },
-        {
-            "name": "version-control-tools",
-            "url": "https://hg.mozilla.org/hgcustom/version-control-tools",
-            "required_permission": SCM_VERSIONCONTROL,
-            "push_target": "@",
-        },
-        {
-            "name": "build-tools",
-            "url": "https://hg.mozilla.org/build/tools/",
-            "required_permission": SCM_LEVEL_3,
-        },
-        {
-            "name": "ci-admin",
-            "url": "https://hg.mozilla.org/ci/ci-admin",
-            "required_permission": SCM_FIREFOXCI,
-        },
-        {
-            "name": "ci-configuration",
-            "url": "https://hg.mozilla.org/ci/ci-configuration",
-            "required_permission": SCM_FIREFOXCI,
-        },
-        {
-            "name": "fluent-migration",
-            "url": "https://hg.mozilla.org/l10n/fluent-migration",
-            "required_permission": SCM_L10N_INFRA,
-        },
-        {
-            "name": "autoland",
-            "url": "https://hg.mozilla.org/integration/autoland",
-            "required_permission": SCM_LEVEL_3,
-            "short_name": "mozilla-central",
-            "commit_flags": [DONTBUILD],
-            "product_details_url": "https://product-details.mozilla.org"
-            "/1.0/firefox_versions.json",
-            "autoformat_enabled": True,
-        },
-        # Try uses `mozilla-unified` as the `pull_path` as using try
-        # proper is exceptionally slow. `mozilla-unified` includes both
-        # autoland and central and is the most likely to contain the passed
-        # base commit.
-        {
-            "name": "try",
-            "url": "https://hg.mozilla.org/try",
-            "push_path": "ssh://hg.mozilla.org/try",
-            "pull_path": "https://hg.mozilla.org/mozilla-unified",
-            "required_permission": SCM_LEVEL_1,
-            "short_name": "try",
-            "is_phabricator_repo": False,
-            "force_push": True,
-        },
-        {
-            "name": "comm-central",
-            "url": "https://hg.mozilla.org/comm-central",
-            "required_permission": SCM_LEVEL_3,
-            "commit_flags": [DONTBUILD],
-        },
-        {
-            "name": "nspr",
-            "url": "https://hg.mozilla.org/projects/nspr",
-            "required_permission": SCM_NSS,
-        },
-        {
-            "name": "taskgraph",
-            "url": "https://hg.mozilla.org/ci/taskgraph",
-            "required_permission": SCM_LEVEL_3,
-        },
-        {
-            "name": "nss",
-            "url": "https://hg.mozilla.org/projects/nss",
-            "required_permission": SCM_NSS,
-        },
-        {
-            "name": "pine",
-            "url": "https://hg.mozilla.org/projects/pine",
-            "required_permission": SCM_LEVEL_3,
-        },
-        {
-            "name": "elm",
-            "url": "https://hg.mozilla.org/projects/elm",
-            "required_permission": SCM_LEVEL_3,
-        },
-        {
-            "name": "mozilla-build",
-            "url": "https://hg.mozilla.org/mozilla-build",
-            "required_permission": SCM_LEVEL_3,
-        },
-        {
-            "name": "mozilla-beta",
-            "short_name": "beta",
-            "url": "https://hg.mozilla.org/releases/mozilla-beta",
-            "required_permission": SCM_ALLOW_DIRECT_PUSH,
-            "approval_required": True,
-            "milestone_tracking_flag_template": "cf_status_firefox{milestone}",
-            "commit_flags": [DONTBUILD],
-        },
-        {
-            "name": "mozilla-release",
-            "short_name": "release",
-            "url": "https://hg.mozilla.org/releases/mozilla-release",
-            "required_permission": SCM_ALLOW_DIRECT_PUSH,
-            "approval_required": True,
-            "milestone_tracking_flag_template": "cf_status_firefox{milestone}",
-            "commit_flags": [DONTBUILD],
-        },
-        {
-            "name": "mozilla-esr102",
-            "short_name": "esr102",
-            "url": "https://hg.mozilla.org/releases/mozilla-esr102",
-            "required_permission": SCM_ALLOW_DIRECT_PUSH,
-            "approval_required": True,
-            "milestone_tracking_flag_template": "cf_status_firefox_esr{milestone}",
-            "commit_flags": [DONTBUILD],
-        },
-        {
-            "name": "mozilla-esr115",
-            "short_name": "esr115",
-            "url": "https://hg.mozilla.org/releases/mozilla-esr115",
-            "required_permission": SCM_ALLOW_DIRECT_PUSH,
-            "approval_required": True,
-            "milestone_tracking_flag_template": "cf_status_firefox_esr{milestone}",
-            "commit_flags": [DONTBUILD],
-        },
-        {
-            "name": "mozilla-esr128",
-            "short_name": "esr128",
-            "url": "https://hg.mozilla.org/releases/mozilla-esr128",
-            "required_permission": SCM_ALLOW_DIRECT_PUSH,
-            "approval_required": True,
-            "milestone_tracking_flag_template": "cf_status_firefox_esr{milestone}",
-            "commit_flags": [DONTBUILD],
         },
     ],
 }
