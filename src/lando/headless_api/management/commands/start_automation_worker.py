@@ -40,6 +40,11 @@ class Command(BaseCommand):
         """Handle the starting of the Git automation worker ("git-automation-worker")."""
         self._handle(worker, SCM_TYPE_GIT)
 
+    def _check_for_unsupported_repos(self, worker: Worker, repo_type: str):
+        for repo in worker.enabled_repos:
+            # Check if any associated repos are unsupported, raise exception if so.
+            repo.raise_for_unsupported_repo_scm(repo_type)
+
     def _handle(self, worker: Worker, repo_type: str):
         self._check_for_unsupported_repos(worker, repo_type)
         max_attempts = 5
