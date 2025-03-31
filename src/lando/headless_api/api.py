@@ -220,10 +220,12 @@ class AddBranchAction(Schema):
 
 Action = Union[AddCommitAction, MergeOntoAction, AddBranchAction, TagAction]
 
+ActionAdapter = TypeAdapter(Action)
+
 
 def resolve_action(action_data: dict) -> Action:
     """Convert a raw `dict` into an `Action` object."""
-    return TypeAdapter(Action).validate_python(action_data)
+    return ActionAdapter.validate_python(action_data)
 
 
 class AutomationOperation(Schema):
