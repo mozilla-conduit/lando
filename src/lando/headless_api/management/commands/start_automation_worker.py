@@ -45,6 +45,12 @@ class Command(BaseCommand):
             # Check if any associated repos are unsupported, raise exception if so.
             repo.raise_for_unsupported_repo_scm(repo_type)
 
+    def _prepare_repos(self, worker: Worker):
+        for repo in worker.enabled_repos:
+            if not repo.scm.repo_is_initialized:
+                logger.info(f"Repo {repo} not prepared, preparing...")
+                repo.scm.prepare_repo(repo.pull_path)
+
     def _handle(self, worker: Worker, repo_type: str):
         self._check_for_unsupported_repos(worker, repo_type)
         max_attempts = 5
