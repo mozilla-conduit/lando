@@ -1,7 +1,11 @@
 import logging
+import random
+import string
 from abc import abstractmethod
 from pathlib import Path
 from typing import Any, ContextManager, Optional
+
+from lando.main.scm.commit import CommitData
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +117,16 @@ class AbstractSCM:
         """
 
     @abstractmethod
+    def describe_commit(self, revision_id: str) -> CommitData:
+        """Return Commit metadata."""
+
+    @abstractmethod
+    def describe_local_changes(self) -> list[CommitData]:
+        """Return a list of the Commits only present on this branch.
+
+        Commits are sorted in ascending topological order."""
+
+    @abstractmethod
     def for_pull(self) -> ContextManager:
         """Context manager to prepare the repo with the correct environment variables set for pulling."""
 
@@ -195,3 +209,10 @@ class AbstractSCM:
 
         Returns a list containing a single string representing the ID of the newly created commit.
         """
+
+    @staticmethod
+    def _separator() -> str:
+        """Generate a long random string usable as a separator.
+
+        This is useful when parsing semi-structured multiline text output."""
+        return "".join(random.choices(string.ascii_uppercase, k=16))
