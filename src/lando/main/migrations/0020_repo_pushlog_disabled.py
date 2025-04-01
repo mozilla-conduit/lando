@@ -3,7 +3,7 @@
 from django.db import migrations, models
 
 
-def disable_pushlog_for_hg_repos(apps, schema_editor):
+def disable_pushlog_for_hg_repos(apps, schema_editor):  # noqa: ANN001
     """Disable the Lando PushLog for any pre-existing Hg repo."""
     Repo = apps.get_model("main", "Repo")
     for repo in Repo.objects.filter(scm_type="hg"):

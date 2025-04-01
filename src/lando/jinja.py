@@ -354,7 +354,7 @@ def message_type_to_notification_class(flash_message_category: str) -> str:
     }.get(flash_message_category, "is-info")
 
 
-def environment(**options):
+def environment(**options):  # noqa: ANN201
     env = Environment(extensions=[CompressorExtension], **options)
     env.globals.update(
         {

@@ -64,7 +64,7 @@ class Push(models.Model):
         super(Push, self).save(*args, **kwargs)
 
     @classmethod
-    def _next_push_id(cls, repo: Repo):
+    def _next_push_id(cls, repo: Repo):  # noqa: ANN206
         """Generate a monotonically increasing sequence of push_id, scoped by Repo."""
         max_push_id = (
             cls.objects.filter(repo=repo)

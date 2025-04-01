@@ -119,7 +119,7 @@ class Commit(models.Model):
         return f"Commit {self.hash} in {self.repo}"
 
     @staticmethod
-    def from_scm_commit(repo: Repo, scm_commit: CommitData):
+    def from_scm_commit(repo: Repo, scm_commit: CommitData):  # noqa: ANN205
         """Create a Commit ORM object from an Commit dataclass."""
         try:
             # If a commit already exists in the DB, don't create a new one.

@@ -180,7 +180,7 @@ class HgSCM(AbstractSCM):
         super().__init__(path)
 
     @classmethod
-    def scm_type(cls):
+    def scm_type(cls):  # noqa: ANN206
         """Return a string identifying the supported SCM."""
         return SCM_TYPE_HG
 
@@ -453,7 +453,7 @@ class HgSCM(AbstractSCM):
         self._update_from_upstream(source, target_cset)
         return self.head_ref()
 
-    def _update_from_upstream(self, source, remote_rev):
+    def _update_from_upstream(self, source, remote_rev):  # noqa: ANN001
         """Update the repository to the specified changeset (not optional)."""
         # Pull and update to remote tip.
         cmds = [
