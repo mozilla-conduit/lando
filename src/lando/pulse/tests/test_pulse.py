@@ -119,5 +119,6 @@ def test__PulseNotifier(
     assert message["branches"][repo.default_branch] == commit.hash
     assert not message["tags"]
     assert message["user"] == push.user
+    # XXX: https://bugzilla.mozilla.org/show_bug.cgi?id=1957549
     # assert message['push_json_url'] == push.push_json_url
     # assert message['push_full_json_url'] == push.push_full_json_url

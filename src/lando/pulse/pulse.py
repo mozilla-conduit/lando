@@ -102,7 +102,7 @@ class PulseNotifier:
                 "time": push.datetime.strftime("%s"),
                 "push_id": push.push_id,
                 "user": push.user,
-                # XXX
+                # XXX: https://bugzilla.mozilla.org/show_bug.cgi?id=1957549
                 "push_json_url": "FIXME",
                 "push_full_json_url": "FIXME",
             }
