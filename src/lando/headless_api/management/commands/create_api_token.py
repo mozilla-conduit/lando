@@ -28,5 +28,5 @@ class Command(BaseCommand):
         except Exception as exc:
             raise CommandError(f"Error creating token.") from exc
 
-        self.stdout.write(f"Token created for {email}")
-        self.stdout.write(f"Token: {token}")
+        self.stdout.write(self.style.SUCCESS(f"Token created for {email}"))
+        self.stdout.write(self.style.SUCCESS(f"Token: {token}"))
