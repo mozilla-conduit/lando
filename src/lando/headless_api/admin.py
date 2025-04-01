@@ -36,10 +36,10 @@ class ApiTokenAdmin(admin.ModelAdmin):
 
     form = ApiTokenForm
 
-    list_display = ("user", "token_prefix", "created")
+    list_display = ("user", "token_prefix", "created_at")
 
     # Mark these fields as read-only in the admin.
-    readonly_fields = ("token_prefix", "token_hash", "created")
+    readonly_fields = ("token_prefix", "token_hash", "created_at")
 
     def response_add(self, request, obj, post_url_continue=None):
         # After the token is created, check if the raw token is attached and display it.
