@@ -12,23 +12,12 @@ on:
 env:
   IMAGE_NAME: lando
   GAR_LOCATION: us
-  GCP_PROJECT_ID: moz-fx-lando-prod 
+  GCP_PROJECT_ID: moz-fx-lando-prod
   GAR_REPOSITORY: lando-prod
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-            fetch-depth: '0'
-      - name: Build the Docker image
-        run: docker build -t lando .
-
   deploy:
     runs-on: ubuntu-latest
-    needs:
-      - build
     permissions:
       contents: read
       id-token: write
