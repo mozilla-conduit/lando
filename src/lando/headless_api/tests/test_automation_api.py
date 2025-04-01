@@ -619,8 +619,12 @@ def test_valid_token_verification(headless_user):
 def test_invalid_token_prefix_invalid(headless_user):
     user, token = headless_user
 
+    first_char = token[0]
+
+    new_char = "a" if first_char != "a" else "b"
+
     # Modify the token prefix so it is invalid.
-    invalid_token = "f" + token[1:]
+    invalid_token = new_char + token[1:]
 
     # verify_token should raise a `ValueError` for bad token.
     with pytest.raises(ValueError):
