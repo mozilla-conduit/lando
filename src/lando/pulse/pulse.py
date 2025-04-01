@@ -2,7 +2,6 @@ import logging
 
 import kombu
 from django.conf import settings
-from django.forms.models import model_to_dict
 
 from lando.environments import Environment
 from lando.pushlog.models import Push
