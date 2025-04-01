@@ -631,9 +631,13 @@ def test_invalid_token_prefix_invalid(headless_user):
 def test_invalid_token_prefix_valid(headless_user):
     user, token = headless_user
 
+    last_char = token[-1]
+
+    new_char = "a" if last_char != "a" else "b"
+
     # Modify the end of the token to confirm a found prefix must still
     # match the hash/salt.
-    invalid_token = token[:-1] + "f"
+    invalid_token = token[:-1] + new_char
 
     # verify_token should raise a `ValueError` for bad token.
     with pytest.raises(ValueError):
