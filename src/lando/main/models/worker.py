@@ -26,7 +26,7 @@ class Worker(BaseModel):
         default=SCM_TYPE_HG,
     )
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.is_stopped:
             state = "STOPPED"
         elif self.is_paused:

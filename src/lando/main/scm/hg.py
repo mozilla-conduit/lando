@@ -185,7 +185,7 @@ class HgSCM(AbstractSCM):
         return SCM_TYPE_HG
 
     @classmethod
-    def scm_name(cls):
+    def scm_name(cls) -> str:
         """Return a _human-friendly_ string identifying the supported SCM."""
         return "Mercurial"
 
