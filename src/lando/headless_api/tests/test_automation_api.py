@@ -437,10 +437,18 @@ def git_automation_worker(landing_worker_instance):
 
 @pytest.mark.django_db
 def test_automation_job_add_commit_success_hg(
-    hg_server, hg_clone, hg_automation_worker, repo_mc, monkeypatch, normal_patch
+    hg_server,
+    hg_clone,
+    hg_automation_worker,
+    repo_mc,
+    monkeypatch,
+    normal_patch,
+    treestatusdouble,
 ):
     repo = repo_mc(SCM_TYPE_HG)
     scm = repo.scm
+
+    treestatusdouble.open_tree(repo.name)
 
     # Create a job and actions
     job = AutomationJob.objects.create(

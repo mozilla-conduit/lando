@@ -23,15 +23,10 @@ from lando.api.legacy.projects import (
 )
 from lando.api.legacy.transplants import CODE_FREEZE_OFFSET
 from lando.api.legacy.workers.landing_worker import LandingWorker
-from lando.api.tests.mocks import PhabricatorDouble, TreeStatusDouble
+from lando.api.tests.mocks import PhabricatorDouble
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.support import LegacyAPIException
-from lando.main.tests.conftest import git_repo, git_repo_seed
 from lando.utils.phabricator import PhabricatorClient
-
-# We need some local usage of those imported fixtures to satisfy the linters.
-# This is it.
-__all__ = ["git_repo", "git_repo_seed"]
 
 
 @pytest.fixture
@@ -151,12 +146,6 @@ def phabdouble(monkeypatch):
 
 
 @pytest.fixture
-def treestatusdouble(monkeypatch, treestatus_url):
-    """Mock the Tree Status service and build fake responses."""
-    yield TreeStatusDouble(monkeypatch, treestatus_url)
-
-
-@pytest.fixture
 def secure_project(phabdouble):
     return phabdouble.project(SEC_PROJ_SLUG)
 
@@ -259,12 +248,6 @@ def redis_cache(app):
     yield cache
     cache.clear()
     cache.init_app(app, config={"CACHE_TYPE": "null", "CACHE_NO_NULL_WARNING": True})
-
-
-@pytest.fixture
-def treestatus_url():
-    """A string holding the Tree Status base URL."""
-    return "http://treestatus.test"
 
 
 def pytest_assertrepr_compare(op, left, right):
