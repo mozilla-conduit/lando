@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import uuid
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import (
     Any,
@@ -20,6 +21,7 @@ import hglib
 from django.conf import settings
 
 from lando.main.scm.abstract_scm import AbstractSCM
+from lando.main.scm.commit import CommitData
 from lando.main.scm.consts import SCM_TYPE_HG
 from lando.main.scm.exceptions import (
     PatchConflict,
@@ -34,6 +36,8 @@ from lando.main.scm.exceptions import (
 logger = logging.getLogger(__name__)
 
 REQUEST_USER_ENV_VAR = "AUTOLAND_REQUEST_USER"
+
+NULL_PARENT_HASH = 40 * "0"
 
 
 class HgException(SCMException):
@@ -164,7 +168,7 @@ class HgSCM(AbstractSCM):
 
     hg_repo: hglib.client.hgclient
 
-    def __init__(self, path: str, config: Optional[dict] = None):
+    def __init__(self, path: str, config: Optional[dict] = None, **kwargs):
         self.config = copy.copy(self.DEFAULT_CONFIGS)
 
         # Somewhere to store patch headers for testing.
@@ -322,6 +326,54 @@ class HgSCM(AbstractSCM):
             # `.rej` extension.
             breakdown["rejects_paths"][path[:-4]] = reject
         return breakdown
+
+    def describe_commit(self, revision_id: str = ".") -> CommitData:
+        """Return Commit metadata."""
+        return self._describe_revisions(revision_id)[0]
+
+    def describe_local_changes(self) -> list[CommitData]:
+        """Return a list of the Commits only present on this branch."""
+        return list(self._describe_revisions("::. and draft()"))
+
+    def _describe_revisions(self, changeset: str = ".") -> list[CommitData]:
+        """Return revision metadata for a given changeset."""
+        commit_separator = self._separator()
+        attribute_separator = self._separator()
+        format = attribute_separator.join(
+            [
+                commit_separator,
+                "hash:{node}",
+                "parent:{p1.node}",
+                "parents:{parents % '{node}'}",
+                "author:{author}",
+                "datetime:{date}",
+                "desc:{desc}",
+                "files:{files}",
+            ]
+        )
+
+        commits = []
+
+        output = self.run_hg(["log", "-r", changeset, "-T", format]).decode("utf-8")
+        for commit_output in output.split(commit_separator)[1:]:
+            parts = re.split(f"{attribute_separator}", commit_output)[1:]
+            metadata: dict[str, Any] = dict(p.split(":", 1) for p in parts)
+
+            metadata["parents"] = metadata["parents"].split()
+            # {parents} in Mercurial is empty if the commit has a single parent.
+            # We re-add it manually, but only if it is a non-null parent.
+            if not metadata["parents"] and not metadata["parent"] == NULL_PARENT_HASH:
+                metadata["parents"] = metadata["parent"]
+            del metadata["parent"]
+
+            metadata["datetime"] = datetime.fromtimestamp(
+                int(metadata["datetime"].split(".")[0])
+            )
+            metadata["files"] = metadata["files"].split()
+
+            commits.append(CommitData(**metadata))
+
+        return commits
 
     @classmethod
     def _get_rejects_path(cls) -> Path:
