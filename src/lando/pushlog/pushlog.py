@@ -138,9 +138,12 @@ class PushLog:
 
         logger.info(f"Successfully saved {push}")
 
-        # XXX: share this instance
-        notifier = PulseNotifier()
-        notifier.notify_push(push)
+        try:
+            # XXX: share this instance
+            notifier = PulseNotifier()
+            notifier.notify_push(push)
+        except Exception as exc:
+            logger.warning(f"Failed to notify push {push}: {exc}")
 
         return push
 
