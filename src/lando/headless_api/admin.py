@@ -1,5 +1,6 @@
 from django.contrib import admin
 
+from lando.headless_api.models.automation_job import AutomationAction, AutomationJob
 from lando.headless_api.models.tokens import ApiToken
 
 
@@ -12,3 +13,5 @@ class ApiTokenAdmin(admin.ModelAdmin):
 
 
 admin.site.register(ApiToken, ApiTokenAdmin)
+admin.site.register(AutomationJob, admin.ModelAdmin)
+admin.site.register(AutomationAction, admin.ModelAdmin)
