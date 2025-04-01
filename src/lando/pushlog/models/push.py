@@ -44,10 +44,10 @@ class Push(models.Model):
         unique_together = ("push_id", "repo")
         verbose_name_plural = "Pushes"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.__class__.__name__}(push_id={self.push_id}, repo={self.repo})"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Push {self.push_id} in {self.repo}"
 
     def save(self, *args, **kwargs):
