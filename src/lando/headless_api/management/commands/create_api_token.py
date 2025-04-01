@@ -10,6 +10,7 @@ from lando.headless_api.models.tokens import ApiToken
 
 logger = logging.getLogger(__name__)
 
+
 class Command(BaseCommand):
     help = "Create an API token for a given user."
 
@@ -26,7 +27,7 @@ class Command(BaseCommand):
         try:
             token = ApiToken.create_token(user)
         except Exception as exc:
-            raise CommandError(f"Error creating token.") from exc
+            raise CommandError("Error creating token.") from exc
 
         self.stdout.write(self.style.SUCCESS(f"Token created for {email}"))
         self.stdout.write(self.style.SUCCESS(f"Token: {token}"))
