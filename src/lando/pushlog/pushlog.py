@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 @contextmanager
-def PushLogForRepo(repo: Repo, user: str):
+def PushLogForRepo(repo: Repo, user: str):  # noqa: ANN201
     """
     Context manager allowing to incrementally build push information, and only submit it
     when complete.

@@ -11,11 +11,11 @@ from lando.pushlog.models import (
 class PushLogAdmin(admin.ModelAdmin):
     """A base ModelAdmin class for PushLog-related admin parameters."""
 
-    def has_add_permission(self, request, obj=None) -> bool:
+    def has_add_permission(self, request, obj=None) -> bool:  # noqa: ANN001
         """Forbid addition of any pushlog object from the admin interface."""
         return False
 
-    def has_delete_permission(self, request, obj=None) -> bool:
+    def has_delete_permission(self, request, obj=None) -> bool:  # noqa: ANN001
         """Forbid deletion of any pushlog object from the admin interface."""
         return False
 
