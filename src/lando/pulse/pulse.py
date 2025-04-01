@@ -77,7 +77,7 @@ class PulseNotifier:
         push.save()
 
     @classmethod
-    def pulse_message_for_push(cls, push: Push):
+    def pulse_message_for_push(cls, push: Push) -> dict:
         branches = {}
         if push.commits.count():
             commit = push.commits.latest()
