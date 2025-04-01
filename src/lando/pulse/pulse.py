@@ -80,30 +80,28 @@ class PulseNotifier:
 
     @classmethod
     def pulse_message_for_push(cls, push: Push):
-        push_data = model_to_dict(push)
-
         branches = {}
         if push.commits.count():
             commit = push.commits.latest()
-            branches = {push_data["branch"]: commit.hash}
+            branches = {push.branch: commit.hash}
 
-        # XXX: to be implemented
+        # XXX: to be implemented in https://bugzilla.mozilla.org/show_bug.cgi?id=1957547
         tags = {}
 
         if not branches and not tags:
-            logger.error(
-                f"Push {push.push_id} does not contain either branches or tags"
+            logger.warning(
+                f"Push {push.push_id} for repo {push.repo_url} does not contain either branches or tags"
             )
 
         message = {
             "payload": {
                 "type": "push",
-                "repo_url": push_data["repo_url"],
+                "repo_url": push.repo_url,
                 "branches": branches,
-                "tags": {},
+                "tags": tags,
                 "time": push.datetime.strftime("%s"),
-                "push_id": push_data["push_id"],
-                "user": push_data["user"],
+                "push_id": push.push_id,
+                "user": push.user,
                 # XXX
                 "push_json_url": "FIXME",
                 "push_full_json_url": "FIXME",
