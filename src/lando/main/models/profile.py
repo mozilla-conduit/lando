@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, MultiFernet
 from django.conf import settings
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
@@ -67,7 +67,7 @@ class Profile(BaseModel):
         permissions = SCM_PERMISSIONS
 
     # Provide encryption/decryption functionality.
-    cryptography = Fernet(settings.ENCRYPTION_KEY)
+    cryptography = MultiFernet([Fernet(key) for key in settings.ENCRYPTION_KEYS])
 
     user = models.OneToOneField(User, null=True, on_delete=models.SET_NULL)
 
@@ -87,6 +87,10 @@ class Profile(BaseModel):
     def _decrypt_value(self, value: bytes) -> str:
         """Decrypt a given bytes value."""
         return self.cryptography.decrypt(value).decode("utf-8")
+
+    def _rotate_value(self, value: bytes) -> bytes:
+        """Return a rotated encrypted bytes value."""
+        return self.cryptography.rotate(value)
 
     def _has_scm_permission_groups(self, codename: str, groups: list[str]) -> bool:
         """Return whether the group membership provides the correct permission.
@@ -128,6 +132,12 @@ class Profile(BaseModel):
     def save_phabricator_api_key(self, key: str):
         """Given a raw API key, encrypt it and store it in the relevant field."""
         self.encrypted_phabricator_api_key = self._encrypt_value(key)
+        self.save()
+
+    def rotate_phabricator_api_key_encryption(self):
+        self.encrypted_phabricator_api_key = self._rotate_value(
+            bytes(self.encrypted_phabricator_api_key)
+        )
         self.save()
 
     def update_permissions(self):

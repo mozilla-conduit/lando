@@ -121,6 +121,10 @@ class Repo(BaseModel):
         related_name="new_target",
     )
 
+    pushlog_disabled = models.BooleanField(
+        default=False,
+    )
+
     # Use this field to enable/disable access to this repo via the automation API.
     automation_enabled = models.BooleanField(default=False)
 
@@ -157,7 +161,11 @@ class Repo(BaseModel):
         """Return the SCM implementation associated with this Repository"""
         if not self._scm:
             if impl := SCM_IMPLEMENTATIONS.get(self.scm_type):
-                self._scm = impl(self.path)
+                kwargs = {}
+                if self.default_branch:
+                    kwargs["default_branch"] = self.default_branch
+
+                self._scm = impl(self.path, **kwargs)
             else:
                 raise Exception(f"Repository type not supported: {self.scm_type}")
         return self._scm

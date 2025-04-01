@@ -9,6 +9,8 @@ services:
       interval: 1s
       timeout: 10s
       retries: 10
+    volumes:
+      - postgres_db:/var/lib/postgresql/data
 
   lando:
     user: ${UID}:${GID}
@@ -88,3 +90,4 @@ services:
 
 volumes:
   media:
+  postgres_db:

@@ -14,9 +14,9 @@ from lando.main.models.landing_job import (
     add_job_with_revisions,
 )
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
-from lando.main.scm.abstract_scm import AbstractSCM
-from lando.main.scm.git import GitSCM
-from lando.main.scm.hg import HgSCM, LostPushRace
+from lando.main.scm.hg import LostPushRace
+from lando.pushlog.models.commit import Commit
+from lando.pushlog.models.push import Push
 from lando.utils import HgPatchHelper
 
 
@@ -53,7 +53,7 @@ LARGE_PATCH = rf"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add another file.
+add another line with utf-8
 
 diff --git a/test.txt b/test.txt
 --- a/test.txt
@@ -68,7 +68,7 @@ PATCH_WITHOUT_STARTLINE = r"""
 # User Test User <test@example.com>
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
-add another file.
+add another line without startline.
 diff --git a/test.txt b/test.txt
 --- a/test.txt
 +++ b/test.txt
@@ -85,7 +85,7 @@ PATCH_PUSH_LOSER = r"""
 #      Thu Jan 01 00:00:00 1970 +0000
 # Fail HG Import LOSE_PUSH_RACE
 # Diff Start Line 8
-add another file.
+add one more line.
 diff --git a/test.txt b/test.txt
 --- a/test.txt
 +++ b/test.txt
@@ -290,6 +290,14 @@ def test_integrated_execute_job(
 
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
+
+    new_commit_count = Commit.objects.filter(repo=repo).count()
+    new_push_count = Push.objects.filter(repo=repo).count()
+    assert new_commit_count == len(
+        revisions
+    ), "Incorrect number of additional commits in the PushLog"
+    assert new_push_count == 1, "Incorrect number of additional pushes in the PushLog"
+
     assert job.status == JobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40
     assert (
@@ -333,8 +341,13 @@ def test_integrated_execute_job_with_force_push(
     )
 
     scm.push = mock.MagicMock()
+
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
+
+    new_push_count = Push.objects.filter(repo=repo).count()
+    assert new_push_count == 1, "Incorrect number of additional pushes in the PushLog"
+
     assert scm.push.call_count == 1
     assert len(scm.push.call_args) == 2
     assert len(scm.push.call_args[0]) == 1
@@ -633,6 +646,14 @@ def test_format_patch_success_unchanged(
 
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
+
+    new_commit_count = Commit.objects.filter(repo=repo).count()
+    new_push_count = Push.objects.filter(repo=repo).count()
+    assert new_commit_count == len(
+        revisions
+    ), "Incorrect number of additional commits in the PushLog"
+    assert new_push_count == 1, "Incorrect number of additional pushes in the PushLog"
+
     assert (
         job.status == JobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
@@ -675,7 +696,7 @@ def test_format_single_success_changed(
             ph.get_header("Date"),
         )
         scm.push(repo.push_path)
-        pre_landing_tip = scm.head_ref()
+        pre_landing_tip = scm.describe_commit().hash
 
     # Upload a patch for formatting.
     job_params = {
@@ -697,6 +718,14 @@ def test_format_single_success_changed(
 
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job), "`run_job` should return `True` on a successful run."
+
+    new_commit_count = Commit.objects.filter(repo=repo).count()
+    new_push_count = Push.objects.filter(repo=repo).count()
+    assert (
+        new_commit_count == 1
+    ), "Incorrect number of additional commits in the PushLog"
+    assert new_push_count == 1, "Incorrect number of additional pushes in the PushLog"
+
     assert (
         job.status == JobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
@@ -706,13 +735,14 @@ def test_format_single_success_changed(
 
     with scm.for_push(job.requester_email):
         # Get the commit message.
-        desc = _scm_get_last_commit_message(scm)
+        desc = scm.describe_commit().desc.strip()
 
         # Get the content of the file after autoformatting.
         tip_content = scm.read_checkout_file("test.txt").encode("utf-8")
 
         # Get the hash behind the tip commit.
-        hash_behind_current_tip = _scm_get_previous_hash(scm)
+        parent_rev = scm.describe_commit().parents[0]
+        hash_behind_current_tip = scm.describe_commit(parent_rev).hash
 
     assert tip_content == TESTTXT_FORMATTED_1, "`test.txt` is incorrect in base commit."
 
@@ -723,17 +753,6 @@ def test_format_single_success_changed(
     assert (
         hash_behind_current_tip == pre_landing_tip
     ), "Autoformat via amending should only land a single commit."
-
-
-def _scm_get_previous_hash(scm: AbstractSCM) -> str:
-    """Get the second last commit hash.
-
-    This is implementation-specific code, but is only used in the tests. Rather than
-    extending the AbstractSCM for the sole purpose of support test assertions, we keep
-    this in the test code instead."""
-    if isinstance(scm, HgSCM):
-        return HgSCM.run_hg(scm, ["log", "-r", "tip^", "-T", "{node}"]).decode("utf-8")
-    return GitSCM._git_run("rev-parse", "HEAD^", cwd=scm.path)
 
 
 @pytest.mark.parametrize(
@@ -779,6 +798,14 @@ def test_format_stack_success_changed(
 
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job), "`run_job` should return `True` on a successful run."
+
+    new_commit_count = Commit.objects.filter(repo=repo).count()
+    new_push_count = Push.objects.filter(repo=repo).count()
+    assert (
+        new_commit_count == len(revisions) + 1
+    ), "Incorrect number of additional commits in the PushLog (should be one more than the number of revisions)"
+    assert new_push_count == 1, "Incorrect number of additional pushes in the PushLog"
+
     assert (
         job.status == JobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
@@ -788,7 +815,7 @@ def test_format_stack_success_changed(
 
     with scm.for_push(job.requester_email):
         # Get the commit message.
-        desc = _scm_get_last_commit_message(scm)
+        desc = scm.describe_commit().desc.strip()
 
         # Get the content of the file after autoformatting.
         rev3_content = scm.read_checkout_file("test.txt").encode("utf-8")
@@ -804,17 +831,6 @@ def test_format_stack_success_changed(
     assert desc == AUTOFORMAT_COMMIT_MESSAGE.format(
         bugs="Bug 123"
     ), "Autoformat commit has incorrect commit message."
-
-
-def _scm_get_last_commit_message(scm: AbstractSCM) -> str:
-    """Get the last commit message.
-
-    This is implementation-specific code, but is only used in the tests. Rather than
-    extending the AbstractSCM for the sole purpose of support test assertions, we keep
-    this in the test code instead."""
-    if isinstance(scm, HgSCM):
-        return HgSCM.run_hg(scm, ["log", "-r", "tip", "-T", "{desc}"]).decode("utf-8")
-    return GitSCM._git_run("log", "--pretty=%B", "HEAD^..", cwd=scm.path)
 
 
 @pytest.mark.parametrize(
@@ -862,6 +878,10 @@ def test_format_patch_fail(
     assert not worker.run_job(
         job
     ), "`run_job` should return `False` when autoformatting fails."
+
+    new_push_count = Push.objects.filter(repo=repo).count()
+    assert new_push_count == 0, "The number of pushes shouldn't have changed"
+
     assert (
         job.status == JobStatus.FAILED
     ), "Failed autoformatting should set `FAILED` job status."
