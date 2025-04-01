@@ -16,14 +16,14 @@ class CachedGoogleCloudStorage(GoogleCloudStorage):
             {"BACKEND": "compressor.storage.CompressorFileStorage"}
         )
 
-    def save(self, name, content):
+    def save(self, name, content):  # noqa: ANN001, ANN201
         self.local_storage.save(name, content)
         super().save(name, self.local_storage._open(name))
         return name
 
 
 class LegacyAPIException(Exception):
-    def __init__(self, status, detail, extra=None):
+    def __init__(self, status, detail, extra=None):  # noqa: ANN001
         self.status = status
         self.detail = detail
         self.extra = extra
@@ -34,7 +34,15 @@ class LegacyAPIException(Exception):
             self.json_detail.update(self.extra)
 
 
-def problem(status, title, detail, type=None, instance=None, headers=None, ext=None):
+def problem(  # noqa: ANN201
+    status,  # noqa: ANN001
+    title,  # noqa: ANN001
+    detail,  # noqa: ANN001
+    type=None,  # noqa: ANN001
+    instance=None,  # noqa: ANN001
+    headers=None,  # noqa: ANN001
+    ext=None,  # noqa: ANN001
+):
     return HttpResponse(content=detail, headers=headers, status=status)
 
 
@@ -50,7 +58,7 @@ g = None
 
 class FlaskApi:
     @classmethod
-    def get_response(self, _problem):
+    def get_response(self, _problem):  # noqa: ANN001, ANN206
         return _problem
 
 

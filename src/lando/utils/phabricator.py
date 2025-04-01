@@ -168,7 +168,7 @@ class PhabricatorClient:
         self.api_token = api_token
         self.session = session or self.create_session()
 
-    def call_conduit(self, method: str, **kwargs) -> Any:
+    def call_conduit(self, method: str, **kwargs) -> Any:  # noqa: ANN401
         """Return the result of an RPC call to a conduit method.
 
         Args:
@@ -221,8 +221,11 @@ class PhabricatorClient:
 
     @classmethod
     def single(
-        cls, result: Any, *subkeys: Iterable[int | str], none_when_empty: bool = False
-    ) -> Optional[Any]:
+        cls,
+        result: Any,  # noqa: ANN401
+        *subkeys: Iterable[int | str],
+        none_when_empty: bool = False,  # noqa: ANN401
+    ) -> Optional[Any]:  # noqa: ANN401
         """Return the first item of a phabricator result.
 
         Args:
@@ -253,7 +256,7 @@ class PhabricatorClient:
         return result[0] if result else None
 
     @staticmethod
-    def expect(result: Any, *args) -> Any:
+    def expect(result: Any, *args) -> Any:  # noqa: ANN401
         """Return data from a phabricator result.
 
         Args:

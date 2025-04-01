@@ -14,7 +14,7 @@ DEFAULT_GRACE_SECONDS = int(os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2))
 class LockTableContextManager(ContextDecorator):
     """Decorator to lock table for current model."""
 
-    def __init__(self, model, lock="SHARE ROW EXCLUSIVE"):
+    def __init__(self, model, lock="SHARE ROW EXCLUSIVE"):  # noqa: ANN001
         self.lock = lock
         self.model = model
 
@@ -28,7 +28,7 @@ class LockTableContextManager(ContextDecorator):
                 f"LOCK TABLE {self.model._meta.db_table} IN {self.lock} MODE"
             )
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type, exc_value, traceback):  # noqa: ANN001
         pass
 
 
@@ -41,11 +41,11 @@ class BaseModel(models.Model):
 
     @classmethod
     @property
-    def lock_table(cls):
+    def lock_table(cls):  # noqa: ANN206
         return LockTableContextManager(cls)
 
     @classmethod
-    def one_or_none(cls, *args, **kwargs):
+    def one_or_none(cls, *args, **kwargs):  # noqa: ANN206
         try:
             result = cls.objects.get(*args, **kwargs)
         except cls.DoesNotExist:

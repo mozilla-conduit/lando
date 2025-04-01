@@ -15,11 +15,11 @@ class DockerflowView(View):
 
     @disable_caching
     @log_request
-    def dispatch(self, request, *args, **kwargs):
+    def dispatch(self, request, *args, **kwargs):  # noqa: ANN001, ANN201
         return super().dispatch(request, *args, **kwargs)
 
     @staticmethod
-    def _json_response(data, status):
+    def _json_response(data, status):  # noqa: ANN001, ANN205
         return JsonResponse(data, status=status, json_dumps_params={"indent": 2})
 
 
@@ -30,7 +30,7 @@ class VersionView(DockerflowView):
     It returns a JSON response containing the version information.
     """
 
-    def get(self, request):
+    def get(self, request):  # noqa: ANN001, ANN201
         try:
             from lando.version import version
         except ImportError:
@@ -53,7 +53,7 @@ class HeartbeatView(DockerflowView):
     It returns a JSON response containing the heartbeat information.
     """
 
-    def get(self, request):
+    def get(self, request):  # noqa: ANN001, ANN201
         try:
             connection.ensure_connection()
         except OperationalError:
@@ -81,5 +81,5 @@ class LoadBalancerHeartbeatView(DockerflowView):
     It simply returns a JSON response with status 200.
     """
 
-    def get(self, request):
+    def get(self, request):  # noqa: ANN001, ANN201
         return self._json_response(data={}, status=200)

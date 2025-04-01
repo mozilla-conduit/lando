@@ -55,7 +55,7 @@ class LandingJobAction(enum.Enum):
 
 
 class LandingJob(BaseModel):
-    def __str__(self):
+    def __str__(self) -> str:
         return f"LandingJob {self.id} [{self.status}]"
 
     status = models.CharField(
@@ -130,7 +130,7 @@ class LandingJob(BaseModel):
         return dict(revision_landing_jobs)
 
     @property
-    def serialized_landing_path(self):
+    def serialized_landing_path(self):  # noqa: ANN201
         """Return landing path based on associated revisions or legacy fields."""
         if self.unsorted_revisions:
             return [
@@ -266,7 +266,7 @@ class LandingJob(BaseModel):
             ).update(index=index)
 
     @property
-    def revisions(self):
+    def revisions(self):  # noqa: ANN201
         return self.unsorted_revisions.all().order_by("revisionlandingjob__index")
 
     def set_landed_revision_diffs(self):
@@ -357,7 +357,9 @@ class LandingJob(BaseModel):
         )
 
 
-def add_job_with_revisions(revisions: list[Revision], **params: Any) -> LandingJob:
+def add_job_with_revisions(
+    revisions: list[Revision], **params: Any  # noqa: ANN401
+) -> LandingJob:
     """Creates a new job and associates provided revisions with it."""
     job = LandingJob(**params)
     job.save()

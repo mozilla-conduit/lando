@@ -115,7 +115,7 @@ def _find_stack_from_landing_path(
 
 @require_authenticated_user
 @require_phabricator_api_key(optional=True)
-def dryrun(phab: PhabricatorClient, request: HttpRequest, data: dict):
+def dryrun(phab: PhabricatorClient, request: HttpRequest, data: dict):  # noqa: ANN201
     lando_user = request.user
     landing_path = _parse_transplant_request(data)["landing_path"]
 
@@ -153,7 +153,7 @@ def dryrun(phab: PhabricatorClient, request: HttpRequest, data: dict):
 
 @require_authenticated_user
 @require_phabricator_api_key(optional=True)
-def post(phab: PhabricatorClient, request: HttpRequest, data: dict):
+def post(phab: PhabricatorClient, request: HttpRequest, data: dict):  # noqa: ANN201
     lando_user = request.user
     parsed_transplant_request = _parse_transplant_request(data)
     confirmation_token = parsed_transplant_request["confirmation_token"]

@@ -14,7 +14,7 @@ from lando.main.models import (
 class Command(BaseCommand):
     help = "Turn maintenance mode on or off"
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser):  # noqa: ANN001
         parser.add_argument(
             "action",
             help="Enter one of on, off",
