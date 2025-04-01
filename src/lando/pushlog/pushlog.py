@@ -22,9 +22,10 @@ def PushLogForRepo(repo: Repo, user: str):
     will take care of it automatically. Calling it multiple times will raise a RuntimeError.
     """
     if repo.pushlog_disabled:
-        return NoOpPushLog(repo, user)
+        pushlog = NoOpPushLog(repo, user)
+    else:
+        pushlog = PushLog(repo, user)
 
-    pushlog = PushLog(repo, user)
     try:
         yield pushlog
     except Exception as exc:
