@@ -53,7 +53,7 @@ class HeadlessAPIAuthentication(HttpBearer):
         except ValueError as exc:
             raise APIPermissionDenied(str(exc))
 
-        if not api_key.user.profile.is_automation_user:
+        if not api_key.user.has_perm("headless_api.add_automationjob"):
             raise APIPermissionDenied(
                 f"User {api_key.user.email} is not permitted to make automation changes."
             )

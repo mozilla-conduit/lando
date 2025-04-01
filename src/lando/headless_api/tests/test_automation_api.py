@@ -247,12 +247,12 @@ def test_automation_job_create_repo_automation_disabled(
 
 @pytest.mark.django_db
 def test_automation_job_create_user_automation_disabled(
-    client, headless_user, hg_server, hg_clone
+    client, headless_user, hg_server, hg_clone, headless_permission
 ):
     user, token = headless_user
 
     # Disable automation enabled for user.
-    user.profile.is_automation_user = False
+    user.user_permissions.remove(headless_permission)
     user.save()
     user.profile.save()
 
