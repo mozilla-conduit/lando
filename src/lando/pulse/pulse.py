@@ -3,7 +3,6 @@ import logging
 import kombu
 from django.conf import settings
 
-from lando.environments import Environment
 from lando.pushlog.models import Push
 
 logger = logging.getLogger(__name__)
@@ -26,7 +25,7 @@ class PulseNotifier:
                 + "This should not be the case in non-local deployments. "
                 + str(settings.PULSE_HOST)
             )
-            if Environment.is_remote:
+            if settings.ENVIRONMENT.is_remote:
                 # XXX: we should verify this much earlier on
                 raise RuntimeError(message)
             logger.warning(message, extra={"PULSE_HOST": settings.PULSE_HOST})
