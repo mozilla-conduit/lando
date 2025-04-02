@@ -23,6 +23,13 @@ class RevisionLandingJobInline(admin.TabularInline):
 class LandingJobAdmin(admin.ModelAdmin):
     model = LandingJob
     inlines = [RevisionLandingJobInline]
+    list_display = (
+        "id",
+        "status",
+        "target_repo__name",
+        "created_at",
+        "duration_seconds",
+    )
     fields = (
         "status",
         "attempts",
