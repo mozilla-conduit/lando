@@ -44,7 +44,7 @@ class ConfigurationVariable(BaseModel):
         blank=True,
     )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.key
 
     @property
