@@ -34,10 +34,10 @@ class File(models.Model):
     class Meta:
         unique_together = ("repo", "name")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.__class__.__name__}(repo={self.repo!r}, name={self.name})"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"File {self.name} in {self.repo}"
 
 
@@ -112,14 +112,14 @@ class Commit(models.Model):
 
         super(Commit, self).__init__(*args, **kwargs)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.__class__.__name__}(repo={self.repo!r}, hash={self.hash})"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Commit {self.hash} in {self.repo}"
 
     @staticmethod
-    def from_scm_commit(repo: Repo, scm_commit: CommitData):
+    def from_scm_commit(repo: Repo, scm_commit: CommitData):  # noqa: ANN205
         """Create a Commit ORM object from an Commit dataclass."""
         try:
             # If a commit already exists in the DB, don't create a new one.
@@ -242,10 +242,10 @@ class Tag(models.Model):
     class Meta:
         unique_together = ("repo", "name")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.__class__.__name__}(repo={self.repo!r}, name={self.name}, commit={self.commit})"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             f"Tag {self.name} in {self.repo.url} pointing to Commit {self.commit.hash}"
         )

@@ -5,9 +5,9 @@ from functools import wraps
 request_logger = logging.getLogger("__name__")
 
 
-def log_request(view):
+def log_request(view):  # noqa: ANN001, ANN201
     @wraps(view)
-    def _wrapped_view(self, request, *args, **kwargs):
+    def _wrapped_view(self, request, *args, **kwargs):  # noqa: ANN001
         start_time = time.time()
         response = view(self, request, *args, **kwargs)
         end_time = time.time()
@@ -29,9 +29,9 @@ def log_request(view):
     return _wrapped_view
 
 
-def disable_caching(view):
+def disable_caching(view):  # noqa: ANN001, ANN201
     @wraps(view)
-    def _wrapped_view(self, request, *args, **kwargs):
+    def _wrapped_view(self, request, *args, **kwargs):  # noqa: ANN001
         response = view(self, request, *args, **kwargs)
 
         response["Cache-Control"] = "no-cache, no-store, must-revalidate"

@@ -6,7 +6,7 @@ from django.core.management.base import BaseCommand
 class Command(BaseCommand):
     help = "Generate requirements.txt file to be used in local and remote environments"
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser):  # noqa: ANN001
         """Add options to pass to piptools."""
         parser.add_argument(
             "--upgrade",

@@ -250,7 +250,7 @@ class LandingWorker(Worker):
             job.transition_status(JobAction.DEFER, message=message)
 
             # Try again, this is a temporary failure.
-            return False
+            raise TemporaryFailureException(message) from e
         except Exception as e:
             message = f"Unexpected error while fetching repo from {repo.name}."
             logger.exception(message)

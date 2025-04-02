@@ -63,7 +63,7 @@ class Revision(BaseModel):
 
     _patch_helper: Optional[HgPatchHelper] = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Revision {self.revision_id} Diff {self.diff_id}"
 
     def __repr__(self) -> str:
@@ -116,7 +116,7 @@ class Revision(BaseModel):
         }
 
     @property
-    def author(self):
+    def author(self):  # noqa: ANN201
         """Get the full author string in "Name <Email>" format."""
         parts = []
         if self.author_name:
@@ -234,7 +234,7 @@ class DiffWarning(BaseModel):
         blank=False,
     )
 
-    def serialize(self):
+    def serialize(self):  # noqa: ANN201
         """Return a JSON serializable dictionary."""
         return {
             "data": self.data,

@@ -108,7 +108,7 @@ def parse_revisions_from_request(
 
 @require_authenticated_user
 @require_permission("scm_level_1")
-def post_patches(request: HttpRequest, data: dict):
+def post_patches(request: HttpRequest, data: dict):  # noqa: ANN201
     # TODO: this endpoint is not currently functional as it will need to
     # have support for token authentication. See bug 1909723.
     base_commit = data["base_commit"]

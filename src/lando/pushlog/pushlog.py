@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 @contextmanager
-def PushLogForRepo(repo: Repo, user: str):
+def PushLogForRepo(repo: Repo, user: str):  # noqa: ANN201
     """
     Context manager allowing to incrementally build push information, and only submit it
     when complete.
@@ -22,9 +22,10 @@ def PushLogForRepo(repo: Repo, user: str):
     will take care of it automatically. Calling it multiple times will raise a RuntimeError.
     """
     if repo.pushlog_disabled:
-        return NoOpPushLog(repo, user)
+        pushlog = NoOpPushLog(repo, user)
+    else:
+        pushlog = PushLog(repo, user)
 
-    pushlog = PushLog(repo, user)
     try:
         yield pushlog
     except Exception as exc:
@@ -73,7 +74,7 @@ class PushLog:
             commits = []
         self.commits = commits
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}({self.repo!r}, {self.user}, {self.commits!r})"
         )

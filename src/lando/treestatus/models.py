@@ -54,7 +54,7 @@ class TreeStatus(enum.Enum):
         return self in {TreeStatus.OPEN, TreeStatus.APPROVAL_REQUIRED}
 
 
-def get_default_tree():
+def get_default_tree():  # noqa: ANN201
     return {
         "category": TreeCategory.OTHER,
         "reason": "New tree",
