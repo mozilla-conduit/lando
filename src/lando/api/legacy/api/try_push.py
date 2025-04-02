@@ -1,42 +1,27 @@
 import base64
 import binascii
-import enum
 import io
 import logging
 
 from django.http import HttpRequest
 
 from lando.api.legacy.hgexports import (
+    PATCH_HELPER_MAPPING,
     BugReferencesCheck,
-    GitPatchHelper,
-    HgPatchHelper,
     PatchCollectionAssessor,
+    PatchFormat,
     PatchHelper,
     PreventSymlinksCheck,
 )
 from lando.main.auth import require_authenticated_user, require_permission
 from lando.main.models import Repo, Revision
 from lando.main.models.landing_job import (
-    LandingJobStatus,
+    JobStatus,
     add_job_with_revisions,
 )
 from lando.main.support import LegacyAPIException
 
 logger = logging.getLogger(__name__)
-
-
-@enum.unique
-class PatchFormat(enum.Enum):
-    """Enumeration of the acceptable types of patches."""
-
-    GitFormatPatch = "git-format-patch"
-    HgExport = "hgexport"
-
-
-PATCH_HELPER_MAPPING = {
-    PatchFormat.GitFormatPatch: GitPatchHelper,
-    PatchFormat.HgExport: HgPatchHelper,
-}
 
 
 def build_revision_from_patch_helper(helper: PatchHelper, repo: Repo) -> Revision:
@@ -146,7 +131,7 @@ def post_patches(request: HttpRequest, data: dict):  # noqa: ANN201
         repository_name=try_repo.short_name,
         repository_url=try_repo.url,
         requester_email=ldap_username,
-        status=LandingJobStatus.SUBMITTED,
+        status=JobStatus.SUBMITTED,
         target_commit_hash=base_commit,
     )
     logger.info(

@@ -20,6 +20,9 @@ from django.urls import include, path
 
 from lando.api.legacy.api import landing_jobs
 from lando.api.views import LegacyDiffWarningView
+from lando.headless_api.api import (
+    api as headless_api,
+)
 from lando.ui.legacy import pages, revisions, user_settings
 
 urlpatterns = [
@@ -47,4 +50,8 @@ urlpatterns += [
 # "API" endpoints ported from legacy API app.
 urlpatterns += [
     path("landing_jobs/<int:landing_job_id>/", landing_jobs.put, name="landing-jobs"),
+]
+
+urlpatterns += [
+    path("api/", headless_api.urls, name="headless-api"),
 ]
