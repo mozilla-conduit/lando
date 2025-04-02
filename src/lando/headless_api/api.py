@@ -4,6 +4,7 @@ from io import StringIO
 from typing import Annotated, Literal, Union
 
 from django.db import transaction
+from django.http import HttpRequest, HttpResponse
 from ninja import (
     NinjaAPI,
     Schema,
@@ -40,7 +41,7 @@ class APIPermissionDenied(PermissionError):
 class HeadlessAPIAuthentication(HttpBearer):
     """Authentication class to verify API token."""
 
-    def authenticate(self, request, token: str) -> ApiToken:
+    def authenticate(self, request: HttpRequest, token: str) -> ApiToken:
         user_agent = request.headers.get("User-Agent")
         if not user_agent:
             raise APIPermissionDenied("`User-Agent` header is required.")
@@ -71,7 +72,7 @@ api = NinjaAPI(auth=HeadlessAPIAuthentication())
 
 
 @api.exception_handler(APIPermissionDenied)
-def on_invalid_token(request, exc):
+def on_invalid_token(request: HttpRequest, exc: Exception) -> HttpResponse:
     """Create a JSON response when the API returns a 401."""
     return api.create_response(request, {"details": str(exc)}, status=401)
 
@@ -252,7 +253,9 @@ class JobStatusResponse(Schema):
 
 
 @api.post("/repo/{repo_name}", response={202: JobStatusResponse, codes_4xx: ApiError})
-def post_repo_actions(request, repo_name: str, operation: AutomationOperation):
+def post_repo_actions(
+    request: HttpRequest, repo_name: str, operation: AutomationOperation
+) -> tuple[int, dict]:
     """API endpoint to handle submission of pushes."""
     # Get the repo object.
     try:
@@ -298,7 +301,7 @@ def post_repo_actions(request, repo_name: str, operation: AutomationOperation):
 
 
 @api.get("/job/{int:job_id}", response={200: JobStatusResponse, codes_4xx: ApiError})
-def get_job_status(request, job_id: int):
+def get_job_status(request: HttpRequest, job_id: int) -> tuple[int, dict]:
     """Retrieve the status of a job by ID."""
     try:
         automation_job = AutomationJob.objects.get(id=job_id)
