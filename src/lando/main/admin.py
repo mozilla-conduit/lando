@@ -58,8 +58,16 @@ class RepoAdmin(admin.ModelAdmin):
     )
 
 
+class ConfigurationVariableAdmin(admin.ModelAdmin):
+    model = ConfigurationVariable
+    list_display = (
+        "key",
+        "value",
+    )
+
+
 admin.site.register(Repo, RepoAdmin)
 admin.site.register(LandingJob, LandingJobAdmin)
 admin.site.register(Revision, admin.ModelAdmin)
 admin.site.register(Worker, admin.ModelAdmin)
-admin.site.register(ConfigurationVariable, admin.ModelAdmin)
+admin.site.register(ConfigurationVariable, ConfigurationVariableAdmin)
