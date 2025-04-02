@@ -10,7 +10,7 @@ ROOT_DIR = settings.BASE_DIR.parent.parent
 class Command(BaseCommand):
     help = "Run pytest from project directory"
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser):  # noqa: ANN001
         parser.add_argument(
             "--exitfirst",
             "-x",

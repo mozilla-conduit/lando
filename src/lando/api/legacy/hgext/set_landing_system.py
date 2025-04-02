@@ -8,12 +8,12 @@ testedwith = b"5.1 5.5"
 EXTRA_KEY = b"moz-landing-system"
 
 
-def commitcommand(orig, ui, repo, *args, **kwargs):
+def commitcommand(orig, ui, repo, *args, **kwargs):  # noqa: ANN001, ANN201
     repo.moz_landing_system = kwargs.get("landing_system")
     return orig(ui, repo, *args, **kwargs)
 
 
-def reposetup(ui, repo):
+def reposetup(ui, repo):  # noqa: ANN001
     if not repo.local():
         return
 
@@ -27,7 +27,7 @@ def reposetup(ui, repo):
     repo.__class__ = MozLandingRepo
 
 
-def extsetup(ui):
+def extsetup(ui):  # noqa: ANN001
     entry = extensions.wrapcommand(commands.table, b"commit", commitcommand)
     options = entry[1]
     options.append(

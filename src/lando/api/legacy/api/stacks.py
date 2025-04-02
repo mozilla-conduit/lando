@@ -49,7 +49,9 @@ HTTP_404_STRING = "Revision does not exist or you do not have permission to view
 
 
 @require_phabricator_api_key(optional=True)
-def get(phab: PhabricatorClient, request: HttpRequest, revision_id: int):
+def get(  # noqa: ANN201
+    phab: PhabricatorClient, request: HttpRequest, revision_id: int
+):
     """Get the stack a revision is part of.
 
     Args:

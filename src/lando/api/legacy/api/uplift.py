@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 @require_authenticated_user
 @require_phabricator_api_key(optional=False)
-def create(phab: PhabricatorClient, request, data: dict) -> dict:
+def create(phab: PhabricatorClient, request, data: dict) -> dict:  # noqa: ANN001
     """Create new uplift requests for requested repository & revision"""
     repository = data["repository"]
     repo_name = repository.short_name

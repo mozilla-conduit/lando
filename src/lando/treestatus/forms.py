@@ -49,7 +49,7 @@ class ReasonCategory(enum.Enum):
         }[self]
 
     @classmethod
-    def is_valid_for_backend(cls, value) -> bool:
+    def is_valid_for_backend(cls, value) -> bool:  # noqa: ANN001
         """Return `True` if `value` is a valid `ReasonCategory` to be submitted.
 
         All `ReasonCategory` members are valid except for `NO_CATEGORY` as that is

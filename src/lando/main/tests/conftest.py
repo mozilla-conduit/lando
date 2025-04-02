@@ -12,7 +12,7 @@ def git_repo_seed() -> Path:
     The diff can  apply on an empty repo to create a known base for application
     of other patches as part of the tests.
     """
-    return Path(__file__).parent / "data" / "test-repo.patch"
+    return Path(__file__).parent / "data"
 
 
 @pytest.fixture
@@ -31,15 +31,18 @@ def git_repo(tmp_path: Path, git_repo_seed: Path) -> Path:
     subprocess.run(["git", "branch", "-m", "main"], check=True, cwd=repo_dir)
     _git_setup_user(repo_dir)
     _git_ignore_denyCurrentBranch(repo_dir)
-    subprocess.run(["git", "am", str(git_repo_seed)], check=True, cwd=repo_dir)
+    for patch in sorted(git_repo_seed.glob("*")):
+        subprocess.run(["git", "am", str(patch)], check=True, cwd=repo_dir)
 
     # Create a separate base branch for branch tests.
-    subprocess.run(["git", "checkout", "-b", "dev"], check=True, cwd=repo_dir)
-    subprocess.run(
-        ["git", "commit", "--allow-empty", "-m", "dev"], check=True, cwd=repo_dir
+    _run_commands(
+        [
+            ["git", "checkout", "-b", "dev"],
+            ["git", "commit", "--allow-empty", "-m", "dev"],
+            ["git", "checkout", "main"],
+        ],
+        repo_dir,
     )
-
-    subprocess.run(["git", "checkout", "main"], check=True, cwd=repo_dir)
     return repo_dir
 
 
@@ -50,12 +53,18 @@ def git_setup_user():
 
 def _git_setup_user(repo_dir: Path):
     """Configure the git user locally to repo_dir so as not to mess with the real user's configuration."""
-    subprocess.run(["git", "config", "user.name", "Py Test"], check=True, cwd=repo_dir)
-    subprocess.run(
-        ["git", "config", "user.email", "pytest@lando.example.net"],
-        check=True,
-        cwd=repo_dir,
+    _run_commands(
+        [
+            ["git", "config", "user.name", "Py Test"],
+            ["git", "config", "user.email", "pytest@lando.example.net"],
+        ],
+        repo_dir,
     )
+
+
+def _run_commands(commands: list[list[str]], cwd: Path):
+    for c in commands:
+        subprocess.run(c, check=True, cwd=cwd)
 
 
 def _git_ignore_denyCurrentBranch(repo_dir: Path):

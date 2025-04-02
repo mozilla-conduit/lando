@@ -348,7 +348,7 @@ def revert_change(id: int, revert: bool = False) -> tuple[dict, int]:
 @auth.require_auth0(
     groups=(auth.TREESTATUS_USERS,), scopes=("lando", "profile", "email"), userinfo=True
 )
-def delete_stack(id: int, revert: Optional[int] = None):
+def delete_stack(id: int, revert: Optional[int] = None):  # noqa: ANN201
     """Handler for `DELETE /stack/{id}`."""
     if revert not in {0, 1, None}:
         raise ProblemException(
@@ -370,7 +370,7 @@ def get_trees() -> dict:
 @auth.require_auth0(
     groups=(auth.TREESTATUS_USERS,), scopes=("lando", "profile", "email"), userinfo=True
 )
-def update_trees(body: dict):
+def update_trees(body: dict):  # noqa: ANN201
     """Handler for `PATCH /trees`."""
     # Fetch all trees.
     trees = get_combined_trees(body["trees"])
@@ -479,7 +479,7 @@ def get_tree(tree: str) -> dict:
 @auth.require_auth0(
     groups=(auth.TREESTATUS_ADMIN,), scopes=("lando", "profile", "email"), userinfo=True
 )
-def make_tree(tree: str, body: dict):
+def make_tree(tree: str, body: dict):  # noqa: ANN201
     """Handler for `PUT /trees/{tree}`."""
     if body["tree"] != tree:
         raise ProblemException(
@@ -522,7 +522,7 @@ def delete_tree(tree: str) -> tuple[dict, int]:
 @auth.require_auth0(
     groups=(auth.TREESTATUS_USERS,), scopes=("lando", "profile", "email"), userinfo=True
 )
-def update_log(id: int, body: dict):
+def update_log(id: int, body: dict):  # noqa: ANN201
     """Handler for `PATCH /log/{id}`."""
     tags = body.get("tags")
     reason = body.get("reason")

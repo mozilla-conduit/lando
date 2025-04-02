@@ -10,7 +10,7 @@ from lando.utils.tasks import (
 logger = logging.getLogger(__name__)
 
 
-def notify_user_of_landing_failure(
+def notify_user_of_landing_failure(  # noqa: ANN201
     email: str, landing_job_identifier: str, error: str, request_id: int
 ):
     """Send out user notifications that a Landing failed.
@@ -52,7 +52,7 @@ def notify_user_of_landing_failure(
         raise
 
 
-def notify_user_of_bug_update_failure(
+def notify_user_of_bug_update_failure(  # noqa: ANN201
     email: str, revision: str, error: str, request_id: int
 ):
     """Send out user notifications that a bug update failed.

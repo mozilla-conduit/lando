@@ -16,7 +16,7 @@ def phabricator_api_key_required(func: callable) -> Callable:
     """A simple wrapper that checks for a valid Phabricator API token."""
 
     @wraps(func)
-    def _wrapper(self, request, *args, **kwargs):
+    def _wrapper(self, request, *args, **kwargs):  # noqa: ANN001
         HEADER = "X-Phabricator-API-Key"
         if HEADER not in request.headers:
             return JsonResponse({"error": f"{HEADER} missing."}, status=400)
@@ -43,7 +43,7 @@ class LegacyDiffWarningView(View):
     """
 
     @phabricator_api_key_required
-    def post(self, request):
+    def post(self, request):  # noqa: ANN001, ANN201
         """Create a new `DiffWarning` based on provided revision and diff IDs.
 
         Args:
@@ -77,7 +77,7 @@ class LegacyDiffWarningView(View):
         return JsonResponse({"errors": dict(form.errors)}, status=400)
 
     @phabricator_api_key_required
-    def delete(self, request, diff_warning_id):
+    def delete(self, request, diff_warning_id):  # noqa: ANN001, ANN201
         """Archive a `DiffWarning` based on provided pk."""
         warning = DiffWarning.objects.get(pk=diff_warning_id)
         if not warning:
@@ -88,7 +88,7 @@ class LegacyDiffWarningView(View):
         return JsonResponse(warning.serialize(), status=200)
 
     @phabricator_api_key_required
-    def get(self, request, **kwargs):
+    def get(self, request, **kwargs):  # noqa: ANN001, ANN201
         """Return a list of active revision diff warnings, if any."""
 
         class Form(forms.Form):

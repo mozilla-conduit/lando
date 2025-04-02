@@ -13,6 +13,7 @@ from typing import Any, ContextManager, Optional
 from django.conf import settings
 from simple_github import AppAuth, AppInstallationAuth
 
+from lando.main.scm.commit import CommitData
 from lando.main.scm.consts import SCM_TYPE_GIT
 from lando.main.scm.exceptions import (
     PatchConflict,
@@ -59,17 +60,17 @@ class GitSCM(AbstractSCM):
 
     default_branch: str
 
-    def __init__(self, path: str, default_branch: str = "main"):
+    def __init__(self, path: str, default_branch: str = "main", **kwargs):
         self.default_branch = default_branch
         super().__init__(path)
 
     @classmethod
-    def scm_type(cls):
+    def scm_type(cls):  # noqa: ANN206
         """Return a string identifying the supported SCM."""
         return SCM_TYPE_GIT
 
     @classmethod
-    def scm_name(cls):
+    def scm_name(cls) -> str:
         """Return a _human-friendly_ string identifying the supported SCM."""
         return "Git"
 
@@ -239,6 +240,59 @@ class GitSCM(AbstractSCM):
             breakdown["rejects_paths"][path] = reject
 
         return breakdown
+
+    def describe_commit(self, revision_id: str = "HEAD") -> CommitData:
+        """Return Commit metadata."""
+        return self._describe_commits(revision_id)[0]
+
+    def describe_local_changes(self) -> list[CommitData]:
+        """Return a list of the Commits only present on this branch."""
+        return list(reversed(self._describe_commits("@{u}..")))
+
+    def _describe_commits(self, ref_spec: str = "HEAD") -> list[CommitData]:
+        """Return Commit metadata for a given ref_spec (including ranges)."""
+        commit_separator = self._separator()
+        attribute_separator = self._separator()
+        format = attribute_separator.join(
+            [
+                commit_separator,
+                "hash:%H",
+                "parents:%P",
+                "author:%an <%ae>",
+                "datetime:%ad",
+                "desc:%B",
+                "files:",
+            ]
+        )
+        date_format = "%Y-%m-%d %H:%M:%S %z"
+
+        output = self._git_run(
+            "show",
+            "--stat",
+            f"--pretty=format:{format}",
+            f"--date=format:{date_format}",
+            ref_spec,
+            cwd=self.path,
+        )
+
+        commits = []
+
+        # As we add the separator at the beginning of the format string, the first entry
+        # is always empty, so we skip it.
+        for commit_output in output.split(commit_separator)[1:]:
+            parts = re.split(attribute_separator, commit_output)[1:]
+            metadata: dict[str, Any] = dict(p.split(":", 1) for p in parts)
+
+            metadata["parents"] = metadata["parents"].split()
+            metadata["datetime"] = datetime.strptime(metadata["datetime"], date_format)
+            # Parse the --stat output, removing the last summary line.
+            metadata["files"] = re.split(r"\s+\|.*\n\s+", metadata["files"].strip())[
+                :-1
+            ]
+
+            commits.append(CommitData(**metadata))
+
+        return commits
 
     @contextmanager
     def for_pull(self) -> ContextManager:
@@ -417,7 +471,7 @@ class GitSCM(AbstractSCM):
         return re.sub(URL_USERINFO_RE, "[REDACTED]@", url)
 
     @classmethod
-    def _git_env(cls):
+    def _git_env(cls):  # noqa: ANN206
         env = os.environ.copy()
         env.update(cls.DEFAULT_ENV)
         return env

@@ -1,4 +1,6 @@
+import datetime
 import subprocess
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import Optional
@@ -131,6 +133,59 @@ def test_GitSCM_clean_repo(
     ), f"strip_non_public_commits not honoured for {new_file}"
 
 
+def test_GitSCM_describe_commit(git_repo: Path):
+    scm = GitSCM(str(git_repo))
+
+    commit = scm.describe_commit()
+    prev_commit = scm.describe_commit("HEAD^")
+
+    assert commit.hash, "Hash missing"
+    assert len(commit.hash) == 40, "Incorrect hash length"
+    assert commit.parents, "Non-initial commit should have parents"
+    assert commit.author == "Test User <test@example.com>"
+    assert commit.datetime == datetime.datetime.fromtimestamp(0, datetime.timezone.utc)
+    assert (
+        commit.desc
+        == """add another file
+"""
+    )
+    assert len(commit.files) == 1
+    assert "test.txt" in commit.files
+
+    assert prev_commit.hash, "Hash missing"
+    assert not prev_commit.parents, "Initial commit should not have parents"
+    assert prev_commit.author == "Test User <test@example.com>"
+    assert prev_commit.datetime == datetime.datetime.fromtimestamp(
+        0, datetime.timezone.utc
+    )
+    assert (
+        prev_commit.desc
+        == """initial commit
+"""
+    )
+    assert len(prev_commit.files) == 1
+    assert "README" in prev_commit.files
+
+
+def test_GitSCM_describe_local_changes(
+    git_repo: Path,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+
+    file1 = _create_git_commit(request, clone_path)
+    file2 = _create_git_commit(request, clone_path)
+
+    changes = scm.describe_local_changes()
+
+    assert file1.name in changes[0].files
+    assert file2.name in changes[1].files
+
+
 @pytest.mark.parametrize("target_cs", [None, "main", "dev", "git-ref"])
 def test_GitSCM_update_repo(
     git_repo: Path,
@@ -179,16 +234,58 @@ def test_GitSCM_update_repo(
     scm.update_repo(str(git_repo), target_cs)
 
     current_commit = subprocess.run(
-        ["git", "rev-parse", "--branch", "HEAD"],
-        cwd=str(clone_path),
-        capture_output=True,
-    ).stdout
-    current_commit = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=str(clone_path), capture_output=True
     ).stdout
     assert (
         current_commit == original_commit
     ), f"Not on original_commit {original_commit} updating repo: {current_commit}"
+
+    current_branch = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=str(clone_path),
+        capture_output=True,
+    ).stdout
+    assert current_branch.startswith(
+        b"lando-"
+    ), f"Not on a work branch after update_repo: {current_branch}"
+
+
+@pytest.mark.parametrize(
+    "on_parent",
+    [
+        False,
+        # XXX: changeset_descriptions doesn't work when update_repo has been used with a commit rev
+        # as the target_cs. This is generally used when grafting a revision for Try, which
+        # doesn't use changeset_descriptions, so we tolerate this for now.
+        #
+        # True,
+    ],
+)
+def test_GitSCM_changeset_descriptions_on_workbranch(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    on_parent: str,
+    tmp_path: Path,
+):
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+
+    git_setup_user(str(clone_path))
+
+    target_cs = ""
+    if on_parent:
+        target_cs = scm.describe_commit().parents[0]
+
+    scm.update_repo(str(git_repo), target_cs)
+
+    _create_git_commit(request, clone_path)
+
+    assert (
+        len(scm.changeset_descriptions()) == 1
+    ), "Incorrect number of commit from the local changeset"
 
 
 @pytest.mark.parametrize("push_target", [None, "main", "dev"])
@@ -259,7 +356,7 @@ def test_GitSCM_git_run_redact_url_userinfo(git_repo: Path):
 
 
 def _create_git_commit(request: pytest.FixtureRequest, clone_path: Path):
-    new_file = clone_path / "new_file"
+    new_file = clone_path / str(uuid.uuid4())
     new_file.write_text(request.node.name, encoding="utf-8")
 
     subprocess.run(["git", "add", new_file.name], cwd=str(clone_path), check=True)
@@ -268,7 +365,7 @@ def _create_git_commit(request: pytest.FixtureRequest, clone_path: Path):
             "git",
             "commit",
             "-m",
-            "adding new_file",
+            f"adding {new_file}",
             "--author",
             f"{request.node.name} <pytest@lando>",
         ],

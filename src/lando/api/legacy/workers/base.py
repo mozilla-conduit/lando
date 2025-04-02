@@ -25,7 +25,7 @@ class Worker:
 
     ssh_private_key: Optional[str]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Worker {self.worker_instance}"
 
     def __init__(

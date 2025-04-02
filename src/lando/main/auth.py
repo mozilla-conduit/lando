@@ -62,14 +62,14 @@ class LandoOIDCAuthenticationBackend(OIDCAuthenticationBackend):
         return super().update_user(user, claims)
 
 
-def require_authenticated_user(f):
+def require_authenticated_user(f):  # noqa: ANN001, ANN201
     """
     Decorator which requires a user to be authenticated.
 
     Raises a PermissionError if a request is by an unauthenticated user.
     """
 
-    def wrapper(request, *args, **kwargs):
+    def wrapper(request, *args, **kwargs):  # noqa: ANN001
         if not request.user.is_authenticated:
             raise PermissionError("Authentication is required")
         return f(request, *args, **kwargs)
@@ -106,11 +106,11 @@ class require_permission:
     Decorator that raises a PermissionError if a user is missing the given permission.
     """
 
-    def __init__(self, permission):
+    def __init__(self, permission):  # noqa: ANN001
         self.required_permission = permission
 
     def __call__(self, f: Callable) -> Callable:
-        def wrapper(request, *args, **kwargs):
+        def wrapper(request, *args, **kwargs):  # noqa: ANN001
             if not request.user.has_perm(f"main.{self.required_permission}"):
                 raise PermissionError()
             return f(request, *args, **kwargs)
@@ -138,7 +138,7 @@ class require_phabricator_api_key:
 
     def __call__(self, f: Callable) -> Callable:
         @functools.wraps(f)
-        def wrapped(request, *args, **kwargs):
+        def wrapped(request, *args, **kwargs):  # noqa: ANN001
             user = request.user
             if (
                 user.is_authenticated

@@ -137,8 +137,12 @@ class Repo(BaseModel):
         help_text="If this repo was migrated from a legacy (hg) repo, setting the value here will automatically retarget revisions to this repo.",
     )
 
+    pushlog_disabled = models.BooleanField(
+        default=False,
+    )
+
     @property
-    def is_legacy(self):
+    def is_legacy(self):  # noqa: ANN201
         """Return True if this repo is listed as a legacy source."""
         try:
             return self.new_target is not None
@@ -146,14 +150,14 @@ class Repo(BaseModel):
             return False
 
     @property
-    def is_git(self):
+    def is_git(self):  # noqa: ANN201
         return self.scm_type == SCM_TYPE_GIT
 
     @property
-    def is_hg(self):
+    def is_hg(self):  # noqa: ANN201
         return self.scm_type == SCM_TYPE_HG
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.is_git:
             return f"{self.name}@{self.default_branch} ({self.scm_type})"
         return f"{self.name} ({self.scm_type})"
@@ -170,7 +174,11 @@ class Repo(BaseModel):
         """Return the SCM implementation associated with this Repository"""
         if not self._scm:
             if impl := SCM_IMPLEMENTATIONS.get(self.scm_type):
-                self._scm = impl(self.path)
+                kwargs = {}
+                if self.default_branch:
+                    kwargs["default_branch"] = self.default_branch
+
+                self._scm = impl(self.path, **kwargs)
             else:
                 raise Exception(f"Repository type not supported: {self.scm_type}")
         return self._scm
@@ -221,7 +229,7 @@ class Repo(BaseModel):
         raise ValueError(f"Could not determine repo type for {pull_path}")
 
     @property
-    def tree(self):
+    def tree(self):  # noqa: ANN201
         """Backwards-compatibility alias for tree name."""
         return self.name
 

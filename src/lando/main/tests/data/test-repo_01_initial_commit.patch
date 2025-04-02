@@ -1,0 +1,14 @@
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Node ID 7048446d5acc9ab6634683f9beacef59ec3c818d
+# Parent  0000000000000000000000000000000000000000
+initial commit
+
+diff --git a/README b/README
+new file mode 100644
+--- /dev/null
++++ b/README
+@@ -0,0 +1,1 @@
++HELLO
