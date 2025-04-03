@@ -43,10 +43,8 @@ Parameters of interest are the following.
   - `DEFAULT_DB_USER`
 - [GitHub application][github-app] authentication (needs to be
   [installed][github-app-install] on all target repos)
-
   - `GITHUB_APP_ID`
   - `GITHUB_APP_PRIVKEY` (PEM)
-
 - HgMO authentication
   - `SSH_PRIVATE_KEY` (PEM)
 - Mozilla services
@@ -54,10 +52,12 @@ Parameters of interest are the following.
   - `PHABRICATOR_UNPRIVILEGED_API_KEY`
   - `PHABRICATOR_URL` (URL)
   - `TREESTATUS_URL` (URL)
-- OIDC parameters:
+- OIDC parameters
   - `OIDC_DOMAIN` (domain name, no scheme)
   - `OIDC_RP_CLIENT_ID`
   - `OIDC_RP_CLIENT_SECRET`
+- Sentry parameters
+  - `SENTRY_DSN`
 
 Have a look at all variables set via `os.getenv` in
 [`src/lando/settings.py`](src/lando/settings.py) for a more authoritative list.
