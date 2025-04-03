@@ -138,7 +138,7 @@ def test__models__Revision__metadata():
 
     More lines
     """
-    timestamp = datetime.now(timezone.utc).strftime("%s")
+    timestamp = datetime.now(tz=timezone.utc).strftime("%s")
 
     r = Revision.new_from_patch(
         raw_diff=DIFF_ONLY,

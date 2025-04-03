@@ -97,7 +97,7 @@ def make_scm_commit(make_hash):
             desc=f"""SCM Commit {seqno}
 
 Another line""",
-            datetime=datetime.now(timezone.utc),
+            datetime=datetime.now(tz=timezone.utc),
             # The first commit doesn't have a parent.
             parents=[make_hash(seqno - 1)] if seqno > 1 else [],
             files=[f"/file-{s}" for s in range(seqno)],
