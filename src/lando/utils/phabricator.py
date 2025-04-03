@@ -212,6 +212,21 @@ class PhabricatorClient:
         PhabricatorAPIException.raise_if_error(response)
         return response.get("result")
 
+    def get_conduit_result_data(self, method: str, **kwargs) -> dict:
+        """Helper method to fetch multiple pages of data."""
+        result = self.call_conduit(method, **kwargs)
+        if not result:
+            return []
+
+        data = result["data"]
+        while result and result["cursor"] and result["cursor"]["after"]:
+            result = self.call_conduit(
+                method, after=result["cursor"]["after"], **kwargs
+            )
+            if result and "data" in result and result["data"]:
+                data += result["data"]
+        return {"data": data}
+
     @staticmethod
     def create_session() -> requests.Session:
         session = requests.Session()

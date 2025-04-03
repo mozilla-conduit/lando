@@ -2,6 +2,8 @@
 Tests for the PhabricatorClient
 """
 
+import unittest.mock as mock
+
 import pytest
 import requests
 import requests_mock
@@ -83,3 +85,24 @@ def test_phabricator_exception(get_phab_client):
             phab.call_conduit("differential.query", ids=["1"])[0]
         assert e_info.value.error_code == error["error_code"]
         assert e_info.value.error_info == error["error_info"]
+
+
+def test_phabricator__get_conduit_result_data(get_phab_client, monkeypatch):
+    phab = get_phab_client(api_key="api-key")
+    mock_call_conduit = mock.MagicMock()
+
+    first_batch = []
+    second_batch = []
+    for i in range(100):
+        first_batch.append(f"batch-1-{i}")
+        second_batch.append(f"batch-2-{i}")
+
+    initial_result = {"data": first_batch.copy(), "cursor": {"after": 1234}}
+    second_result = {"data": second_batch.copy(), "cursor": {}}
+
+    mock_call_conduit.side_effect = [initial_result, second_result]
+    monkeypatch.setattr(phab, "call_conduit", mock_call_conduit)
+    test = phab.get_conduit_result_data("conduit.some_method")
+    assert len(test["data"]) == 200
+    assert test["data"][:100] == first_batch
+    assert test["data"][100:] == second_batch
