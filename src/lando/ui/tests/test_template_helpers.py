@@ -17,6 +17,7 @@ from lando.jinja import (
     revision_url,
 )
 from lando.main.models import SCM_TYPE_GIT, SCM_TYPE_HG, Repo
+from lando.main.models.landing_job import LandingJob, LandingJobStatus
 
 
 @pytest.mark.parametrize(
@@ -161,13 +162,13 @@ def test_linkify_revision_ids(input_text, output_text):
 )
 def test_linkify_transplant_details(repo_url: str, match: str):
     commit_id = "badc0ffe"
-    transplant = {
-        "details": commit_id,
-        "repository_url": repo_url,
-        "status": "landed",
-    }
+    landing_job = LandingJob(
+        landed_commit_id=commit_id,
+        repository_url=repo_url,
+        status=LandingJobStatus.LANDED,
+    )
 
-    out = linkify_transplant_details(f"{commit_id} is here", transplant)
+    out = linkify_transplant_details(f"{commit_id} is here", landing_job)
     match_re = match + commit_id
     assert re.search(match_re, out)
 
