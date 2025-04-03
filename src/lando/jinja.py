@@ -12,7 +12,8 @@ from django.urls import reverse
 from django.utils.html import escape
 from jinja2 import Environment
 
-from lando.main.models import LandingJob, Repo
+from lando.main.models import Repo
+from lando.main.models.landing_job import LandingJob, LandingJobStatus
 from lando.treestatus.forms import (
     ReasonCategory,
     TreeCategory,
@@ -203,23 +204,23 @@ def linkify_revision_ids(text: str) -> str:
     return re.sub(search, replace, str(text), flags=re.IGNORECASE)
 
 
-def linkify_transplant_details(text: str, transplant: dict) -> str:
+def linkify_transplant_details(text: str, landing_job: LandingJob) -> str:
     # The transplant result is not always guaranteed to be a commit id. It
     # can be a message saying that the landing was queued and will land later.
-    if transplant["status"].lower() != "landed":
+    if landing_job.status != LandingJobStatus.LANDED:
         return text
 
-    commit_id = transplant["details"]
+    commit_id = landing_job.legacy_details
     search = r"(?=\b)(" + re.escape(commit_id) + r")(?=\b)"
 
-    parsed_repo_url = urllib.parse.urlsplit(transplant["repository_url"])
+    parsed_repo_url = urllib.parse.urlsplit(landing_job.repository_url)
     # We assume HG by default (legacy path), but use a Github-like path if 'git' is
     # present in the netloc.
     link_template = r'<a href="{repo_url}/rev/\g<1>">{repo_url}/rev/\g<1></a>'
     if "git" in parsed_repo_url.netloc:
         link_template = r'<a href="{repo_url}/commit/\g<1>">{repo_url}/commit/\g<1></a>'
 
-    replace = link_template.format(repo_url=transplant["repository_url"])
+    replace = link_template.format(repo_url=landing_job.repository_url)
     return re.sub(search, replace, str(text))  # This is case sensitive
 
 
