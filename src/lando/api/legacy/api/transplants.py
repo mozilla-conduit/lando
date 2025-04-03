@@ -385,10 +385,10 @@ def post(phab: PhabricatorClient, request: HttpRequest, data: dict):  # noqa: AN
 
 
 @require_phabricator_api_key(optional=True)
-def get_list(  # noqa: ANN201
+def get_list(
     phab: PhabricatorClient, request: HttpRequest, stack_revision_id: str
-):
-    """Return a list of Transplant objects"""
+) -> list[LandingJob]:
+    """Return a list of landing jobs related to the revision."""
     revision_id_int = revision_id_to_int(stack_revision_id)
 
     revision = phab.call_conduit(
@@ -407,6 +407,4 @@ def get_list(  # noqa: ANN201
 
     rev_ids = [phab.expect(r, "id") for r in phab.expect(revs, "data")]
 
-    landing_jobs = LandingJob.revisions_query(rev_ids).all()
-
-    return [job.serialize() for job in landing_jobs]
+    return LandingJob.revisions_query(rev_ids).all()
