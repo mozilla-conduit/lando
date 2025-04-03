@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -43,7 +43,7 @@ def make_commit(make_hash):
             repo=repo,
             author=f"author-{seqno}",
             desc=message,
-            datetime=datetime.now(),
+            datetime=datetime.now(tz=timezone.utc),
         )
 
     return commit_factory
@@ -97,7 +97,7 @@ def make_scm_commit(make_hash):
             desc=f"""SCM Commit {seqno}
 
 Another line""",
-            datetime=datetime.now(),
+            datetime=datetime.now(tz=timezone.utc),
             # The first commit doesn't have a parent.
             parents=[make_hash(seqno - 1)] if seqno > 1 else [],
             files=[f"/file-{s}" for s in range(seqno)],

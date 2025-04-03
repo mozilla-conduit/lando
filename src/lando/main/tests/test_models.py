@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -138,7 +138,7 @@ def test__models__Revision__metadata():
 
     More lines
     """
-    timestamp = datetime.now().strftime("%s")
+    timestamp = datetime.now(tz=timezone.utc).strftime("%s")
 
     r = Revision.new_from_patch(
         raw_diff=DIFF_ONLY,
