@@ -9,6 +9,8 @@ logger = logging.getLogger(__name__)
 
 
 class PulseNotifier:
+    """Class to generate and send Pulse notification based on Push objects."""
+
     producer: kombu.Producer
 
     def __init__(self, producer: kombu.Producer | None = None) -> None:
@@ -43,6 +45,7 @@ class PulseNotifier:
         return producer
 
     def notify_push(self, push: Push):
+        """Send a Pulse notification for the given Push."""
         message = self.pulse_message_for_push(push)
 
         # XXX: make a separate notification worker that loops around un-notified
@@ -64,6 +67,7 @@ class PulseNotifier:
 
     @classmethod
     def pulse_message_for_push(cls, push: Push) -> dict:
+        """Generate Pulse notification payload for the given Push."""
         branches = {}
         if push.commits.count():
             commit = push.commits.latest()
