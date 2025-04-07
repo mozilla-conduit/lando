@@ -12,10 +12,7 @@ class PulseNotifier:
     producer: kombu.Producer
 
     def __init__(self, producer: kombu.Producer | None = None) -> None:
-        if not producer:
-            producer = self._make_producer()
-
-        self.producer = producer
+        self.producer = producer or self._make_producer()
 
     @classmethod
     def _make_producer(cls) -> kombu.Producer:
