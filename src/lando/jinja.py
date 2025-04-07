@@ -13,7 +13,7 @@ from django.utils.html import escape
 from jinja2 import Environment
 
 from lando.main.models import Repo
-from lando.main.models.landing_job import LandingJob, JobStatus
+from lando.main.models.landing_job import JobStatus, LandingJob
 from lando.treestatus.forms import (
     ReasonCategory,
     TreeCategory,
