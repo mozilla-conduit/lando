@@ -347,28 +347,14 @@ class LandingJob(BaseModel):
 
         self.save()
 
-    def serialize(self) -> dict[str, Any]:
-        """Return a JSON compatible dictionary."""
-        return {
-            "id": self.id,
-            "status": self.status,
-            "landing_path": self.serialized_landing_path,
-            "error_breakdown": self.error_breakdown,
-            "details": (
-                self.error or self.landed_commit_id
-                if self.status in (JobStatus.FAILED, JobStatus.CANCELLED)
-                else self.landed_commit_id or self.error
-            ),
-            "requester_email": self.requester_email,
-            "tree": self.repository_name,
-            "repository_url": self.repository_url,
-            "created_at": (
-                self.created_at.astimezone(datetime.timezone.utc).isoformat()
-            ),
-            "updated_at": (
-                self.updated_at.astimezone(datetime.timezone.utc).isoformat()
-            ),
-        }
+    @property
+    def legacy_details(self) -> str:
+        """Return a string of the landed commit id or the error details."""
+        if self.status in (JobStatus.FAILED, JobStatus.CANCELLED):
+            return self.error
+
+        # In case the job is deferred, there may be an error still associated.
+        return self.landed_commit_id or self.error
 
 
 def add_job_with_revisions(

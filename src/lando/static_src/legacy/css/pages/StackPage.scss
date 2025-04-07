@@ -138,7 +138,7 @@ ul.StackPage-blockers {
     border-color: #A53030;
     color:#A53030;
     margin-bottom: 4px;
-    padding: 3px 9px 3px 30px;
+    padding: 3px 9px;
     position: relative;
   }
 }
@@ -268,14 +268,8 @@ ul.StackPage-blockers {
     border-color: #e9dbcd;
     color:#726f56;
     margin-bottom: 4px;
-    padding: 3px 9px 3px 30px;
+    padding: 3px 9px;
     position: relative;
-
-    input {
-      position: absolute;
-      top: 10px;
-      left: 8px;
-    }
   }
 
   &-blocker {
@@ -283,7 +277,7 @@ ul.StackPage-blockers {
     border-color: #A53030;
     color:#A53030;
     margin-bottom: 4px;
-    padding: 3px 9px 3px 30px;
+    padding: 3px 9px;
     position: relative;
   }
 

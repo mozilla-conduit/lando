@@ -84,7 +84,7 @@ class Repo(BaseModel):
     autoformat_enabled = models.BooleanField(default=False)
     commit_flags = ArrayField(
         ArrayField(
-            models.CharField(max_length=100, blank=True),
+            models.CharField(max_length=255, blank=True),
         ),
         size=2,
         blank=True,

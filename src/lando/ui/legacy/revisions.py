@@ -95,8 +95,8 @@ class Revision(LandoView):
                 short_name=phab_repo["short_name"]
             )
 
-        # Request all previous transplants for the stack.
-        transplants = legacy_api.transplants.get_list(request, f"D{revision_id}")
+        # Request all previous landing jobs for the stack.
+        landing_jobs = legacy_api.transplants.get_list(request, f"D{revision_id}")
 
         # The revision may appear in many `landable_paths`` if it has
         # multiple children, or any of its landable descendents have
@@ -172,7 +172,7 @@ class Revision(LandoView):
             "stack": stack,
             "rows": list(zip(reversed(order), reversed(drawing_rows), strict=False)),
             "drawing_width": drawing_width,
-            "transplants": transplants,
+            "landing_jobs": landing_jobs,
             "revisions": revisions,
             "revision_phid": revision,
             "target_repo": target_repo,
