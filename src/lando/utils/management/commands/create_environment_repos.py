@@ -198,10 +198,12 @@ class Command(BaseCommand):
                         f"Repo {definition['name']} already exists or could not be added, skipping."
                     )
                 )
-            except Exception as e:
+            except ValueError as e: # when a repo is not reachable
                 if environment == Environment.local:
-                    self.style.WARNING(
-                        f"Failed setting up Repo {definition['name']}: {e}, skipping (local only)..."
+                    self.stdout.write(
+                        self.style.WARNING(
+                            f"Failed setting up Repo {definition['name']}: {e}, skipping (local only)..."
+                        )
                     )
                     # Don't fail on error locally
                     continue
