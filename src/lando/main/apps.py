@@ -15,7 +15,7 @@ class MainConfig(AppConfig):
 
 
 @register(deploy=True)
-def pulse_check(app_configs, **kwargs) -> list[Error]:
+def pulse_check(app_configs: list[AppConfig], **kwargs) -> list[Error]:
     errors = []
     if settings.PULSE_HOST.startswith("memory"):
         message = (
