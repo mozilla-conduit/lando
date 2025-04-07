@@ -198,7 +198,7 @@ class Command(BaseCommand):
                         f"Repo {definition['name']} already exists or could not be added, skipping."
                     )
                 )
-            except ValueError as e: # when a repo is not reachable
+            except ValueError as e:  # when a repo is not reachable
                 if environment == Environment.local:
                     self.stdout.write(
                         self.style.WARNING(
