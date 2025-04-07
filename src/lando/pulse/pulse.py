@@ -16,17 +16,6 @@ class PulseNotifier:
 
     @classmethod
     def _make_producer(cls) -> kombu.Producer:
-        if settings.PULSE_HOST.startswith("memory"):
-            message = (
-                "PULSE_HOST set to a `memory` location. "
-                + "This should not be the case in non-local deployments. "
-                + str(settings.PULSE_HOST)
-            )
-            if settings.ENVIRONMENT.is_remote:
-                # XXX: we should verify this much earlier on
-                raise RuntimeError(message)
-            logger.warning(message, extra={"PULSE_HOST": settings.PULSE_HOST})
-
         connection = kombu.Connection(
             hostname=settings.PULSE_HOST,
             port=settings.PULSE_PORT,
