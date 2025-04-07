@@ -77,9 +77,6 @@ class Profile(BaseModel):
     # Encrypted Phabricator API token.
     encrypted_phabricator_api_key = models.BinaryField(default=b"", blank=True)
 
-    # Is the user allowed to make pushes via the automation API.
-    is_automation_user = models.BooleanField(default=False)
-
     def _encrypt_value(self, value: str) -> bytes:
         """Encrypt a given string value."""
         return self.cryptography.encrypt(value.encode("utf-8"))
