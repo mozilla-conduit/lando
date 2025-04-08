@@ -219,7 +219,7 @@ PHABRICATOR_URL = os.getenv("PHABRICATOR_URL", "http://phabricator.test")
 PHABRICATOR_ADMIN_API_KEY = os.getenv("PHABRICATOR_ADMIN_API_KEY", "")
 PHABRICATOR_UNPRIVILEGED_API_KEY = os.getenv("PHABRICATOR_UNPRIVILEGED_API_KEY", "")
 
-TREESTATUS_URL = os.getenv("TREESTATUS_URL")
+TREESTATUS_URL = os.getenv("TREESTATUS_URL", "http://treestatus.test")
 
 ENVIRONMENT = Environment(os.getenv("ENVIRONMENT", "test"))
 

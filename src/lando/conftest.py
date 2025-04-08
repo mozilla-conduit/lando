@@ -489,7 +489,7 @@ def create_state(
 @pytest.fixture
 def treestatus_url():
     """A string holding the Tree Status base URL."""
-    return "http://treestatus.test"
+    return settings.TREESTATUS_URL
 
 
 @pytest.fixture
