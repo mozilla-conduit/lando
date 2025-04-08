@@ -84,8 +84,6 @@ class AutomationWorker(Worker):
         ):
             repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
             try:
-                # TODO should we always update to the latest pull_path for a repo?
-                # or perhaps we need to specify some commit SHA?
                 scm.update_repo(repo.pull_path)
             except SCMInternalServerError as e:
                 message = (
