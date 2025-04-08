@@ -31,7 +31,7 @@ class Command(BaseCommand):
             pushes = pushes[:limit]
 
         for push in pushes:
-            self.stdout.write(push)
+            self.stdout.write(f"{push} (notified: {push.notified})")
             if with_commits:
                 for commit in push.commits.order_by("-datetime"):
                     self.stdout.write(f"  {commit}")
