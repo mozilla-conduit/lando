@@ -108,7 +108,7 @@ def git_repo_seed() -> Path:
     The diff can  apply on an empty repo to create a known base for application
     of other patches as part of the tests.
     """
-    return Path(__file__).parent / "main" / "tests" / "data"
+    return settings.BASE_DIR / "main" / "tests" / "data"
 
 
 def _git_ignore_denyCurrentBranch(repo_dir: Path):
