@@ -3,9 +3,6 @@ import logging
 import kombu
 from django.db import transaction
 
-from lando.api.legacy.notifications import (
-    notify_user_of_landing_failure,
-)
 from lando.api.legacy.workers.base import Worker
 from lando.headless_api.api import (
     AutomationActionException,
@@ -167,18 +164,6 @@ class AutomationWorker(Worker):
             self.phab_trigger_repo_update(repo.phab_identifier)
 
         return True
-
-    @staticmethod
-    def notify_user_of_landing_failure(job: AutomationJob):
-        """Wrapper around notify_user_of_landing_failure for convenience.
-
-        Args:
-            job (AutomationJob): An AutomationJob instance to use when fetching the
-                notification parameters.
-        """
-        notify_user_of_landing_failure(
-            job.requester_email, job.landing_job_identifier, job.error, job.id
-        )
 
     @staticmethod
     def phab_trigger_repo_update(phab_identifier: str):
