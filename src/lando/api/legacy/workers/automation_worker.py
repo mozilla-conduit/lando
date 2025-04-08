@@ -22,6 +22,7 @@ from lando.main.scm.exceptions import (
     TreeApprovalRequired,
     TreeClosed,
 )
+from lando.pushlog.pushlog import PushLogForRepo
 from lando.utils.tasks import phab_trigger_repo_update
 
 logger = logging.getLogger(__name__)
@@ -77,7 +78,10 @@ class AutomationWorker(Worker):
         repo = job.target_repo
         scm = repo.scm
 
-        with scm.for_push(job.requester_email):
+        with (
+            scm.for_push(job.requester_email),
+            PushLogForRepo(repo, job.requester_email) as pushlog,
+        ):
             repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
             try:
                 # TODO should we always update to the latest pull_path for a repo?
@@ -116,6 +120,12 @@ class AutomationWorker(Worker):
                     job.transition_status(exc.job_status, message=exc.message)
                     return not exc.is_fatal
 
+            # We need to add the commits to the pushlog _before_ pushing, so we can
+            # compare the current stack to the last upstream.
+            # We'll only confirm them if the push succeeds.
+            for commit in scm.describe_local_changes():
+                pushlog.add_commit(commit)
+
             repo_push_info = f"tree: {repo.tree}, push path: {repo.push_path}"
             try:
                 scm.push(
@@ -145,6 +155,8 @@ class AutomationWorker(Worker):
                     message=message,
                 )
                 return True  # Do not try again, this is a permanent failure.
+            else:
+                pushlog.confirm()
 
             # Get the changeset hash of the first node.
             commit_id = scm.head_ref()
