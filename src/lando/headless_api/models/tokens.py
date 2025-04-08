@@ -53,17 +53,12 @@ class ApiToken(BaseModel):
         `ApiToken` table. Verify the full token against the stored hash
         """
         token_prefix = token[:API_TOKEN_PREFIX_LENGTH]
-        token_prefix_matches = cls.objects.filter(token_prefix=token_prefix)
+        token_prefix_matches = cls.objects.filter(
+            token_prefix=token_prefix, is_valid=True
+        )
 
         for api_token_obj in token_prefix_matches:
-            if not check_password(token, api_token_obj.token_hash):
-                # The prefix matches, but the full token is incorrect.
-                # Rare that this would happen, but not a failure.
-                continue
-
-            if not api_token_obj.is_valid:
-                raise ValueError(f"Token {token} has been revoked.")
-
-            return api_token_obj
+            if check_password(token, api_token_obj.token_hash):
+                return api_token_obj
 
         raise ValueError(f"Token {token} was not found.")
