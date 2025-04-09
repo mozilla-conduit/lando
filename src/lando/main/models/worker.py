@@ -45,3 +45,15 @@ class Worker(BaseModel):
     @property
     def enabled_repo_names(self) -> list[str]:
         return self.enabled_repos.values_list("name", flat=True)
+
+    def pause(self):
+        """Pause the landing worker if it is not already paused."""
+        if not self.is_paused:
+            self.is_paused = True
+            self.save()
+
+    def resume(self):
+        """Resume the landing worker if it is paused."""
+        if self.is_paused:
+            self.is_paused = False
+            self.save()
