@@ -389,3 +389,145 @@ def _monkeypatch_scm(monkeypatch, scm: GitSCM, method: str) -> MagicMock:
     mock.side_effect = original
     monkeypatch.setattr(scm, method, mock)
     return mock
+
+
+@pytest.mark.parametrize("strategy", [None, "ours", "theirs"])
+def test_GitSCM_merge_onto(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+    strategy: Optional[str],
+):
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+
+    main_branch = "main"
+    scm = GitSCM(str(clone_path), default_branch=main_branch)
+    scm.clone(str(git_repo))
+
+    git_setup_user(str(clone_path))
+
+    # Create a new commit on a branch for merging
+    main_commit_file = _create_git_commit(request, clone_path)
+    main_commit = (
+        subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(clone_path),
+            capture_output=True,
+            check=True,
+        )
+        .stdout.decode()
+        .strip()
+    )
+
+    # Switch to target branch and create another commit.
+    target_branch = "target"
+    subprocess.run(
+        ["git", "switch", "-c", target_branch, "HEAD^"], cwd=str(clone_path), check=True
+    )
+    target_commit_file = _create_git_commit(request, clone_path)
+    target_commit = (
+        subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(clone_path),
+            capture_output=True,
+            check=True,
+        )
+        .stdout.decode()
+        .strip()
+    )
+
+    # Merge feature into main
+    subprocess.run(["git", "switch", main_branch], cwd=str(clone_path), check=True)
+    commit_msg = f"Merge main into feature with strategy {strategy}"
+    merge_commit = scm.merge_onto(commit_msg, target_branch, strategy)
+
+    # Assert we are on the correct branch.
+    current_branch = (
+        subprocess.run(
+            ["git", "branch", "--show-current"],
+            cwd=str(clone_path),
+            check=True,
+            capture_output=True,
+        )
+        .stdout.decode()
+        .strip()
+    )
+    current_sha = (
+        subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(clone_path),
+            check=True,
+            capture_output=True,
+        )
+        .stdout.decode()
+        .strip()
+    )
+    assert (
+        current_branch == main_branch
+    ), "`merge_onto` incorrectly changed the current branch."
+    assert (
+        current_sha == merge_commit
+    ), "`merge_onto` did not leave the repo on the merge commit."
+
+    # Confirm the new commit has two parents.
+    parents = (
+        subprocess.run(
+            ["git", "rev-list", "--parents", "-n", "1", merge_commit],
+            cwd=str(clone_path),
+            capture_output=True,
+            check=True,
+        )
+        .stdout.decode()
+        .strip()
+        .split()
+    )
+    # Len is 3 here due to 2 parents + the commit itself.
+    assert len(parents) == 3, f"Expected merge commit with 2 parents, got: {parents}"
+
+    assert (
+        main_commit in parents and target_commit in parents
+    ), "Unexpected merge parents."
+    assert (
+        commit_msg in scm.changeset_descriptions()
+    ), "Commit message is not found in descriptions."
+
+    if strategy == "ours":
+        # The file in the merge commit should be the same as `main`.
+        file_to_check = main_commit_file
+        expected_sha = main_commit
+    elif strategy == "theirs":
+        # The file in the merge commit should be the same as `target`.
+        file_to_check = target_commit_file
+        expected_sha = target_commit
+    else:
+        file_to_check = target_commit_file
+        expected_sha = None
+
+    # # Get the contents of the file at the merge commit.
+    merged_file = subprocess.run(
+        ["git", "show", f"{merge_commit}:{file_to_check.name}"],
+        cwd=clone_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+    # Get expected content based on strategy.
+    if expected_sha:
+        expected_content = subprocess.run(
+            ["git", "show", f"{expected_sha}:{file_to_check.name}"],
+            cwd=clone_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+
+        assert all(
+            {merged_file, expected_content}
+        ), "File contents should be non-empty."
+
+        assert (
+            merged_file == expected_content
+        ), f"File contents did not match expected for strategy {strategy}"

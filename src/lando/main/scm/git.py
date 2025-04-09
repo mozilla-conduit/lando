@@ -14,7 +14,7 @@ from django.conf import settings
 from simple_github import AppAuth, AppInstallationAuth
 
 from lando.main.scm.commit import CommitData
-from lando.main.scm.consts import SCM_TYPE_GIT
+from lando.main.scm.consts import SCM_TYPE_GIT, MergeStrategy
 from lando.main.scm.exceptions import (
     PatchConflict,
     SCMException,
@@ -475,3 +475,58 @@ class GitSCM(AbstractSCM):
         env = os.environ.copy()
         env.update(cls.DEFAULT_ENV)
         return env
+
+    def merge_onto(
+        self, commit_message: str, target: str, strategy: Optional[MergeStrategy]
+    ) -> str:
+        """Create a merge commit on the specified repo.
+
+        Return the SHA of the newly created merge commit.
+        """
+
+        if strategy == MergeStrategy.Theirs:
+            current_branch = self._git_run(
+                "rev-parse", "--abbrev-ref", "HEAD", cwd=self.path
+            )
+            current_sha = self.head_ref()
+
+            # Switch to target and merge current into it with 'ours' strategy
+            self._git_run("checkout", target, cwd=self.path)
+
+            # Create merge commit that favors the target's content
+            self._git_run(
+                "merge",
+                "--no-ff",
+                # Use the `ours` strategy instead of `theirs`.
+                "-s",
+                "ours",
+                "-m",
+                commit_message,
+                current_sha,
+                cwd=self.path,
+            )
+
+            new_merge_commit = self.get_current_node()
+
+            # Move the original branch to point to the merge commit
+            self._git_run(
+                "branch", "-f", current_branch, new_merge_commit, cwd=self.path
+            )
+            self._git_run("switch", current_branch, cwd=self.path)
+
+            return new_merge_commit
+
+        # Set strategy args.
+        strategy_args = ["-s", strategy] if strategy else []
+
+        self._git_run(
+            "merge",
+            "--no-ff",
+            "-m",
+            commit_message,
+            *strategy_args,
+            target,
+            cwd=self.path,
+        )
+
+        return self.get_current_node()

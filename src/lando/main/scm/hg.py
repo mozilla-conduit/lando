@@ -22,7 +22,7 @@ from django.conf import settings
 
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.commit import CommitData
-from lando.main.scm.consts import SCM_TYPE_HG
+from lando.main.scm.consts import SCM_TYPE_HG, MergeStrategy
 from lando.main.scm.exceptions import (
     PatchConflict,
     SCMException,
@@ -668,3 +668,35 @@ class HgSCM(AbstractSCM):
                 self.run_hg(["strip", "--no-backup", "-r", "not public()"])
             except HgException:
                 pass
+
+    def merge_onto(
+        self, commit_message: str, target: str, strategy: Optional[MergeStrategy]
+    ) -> str:
+        """Create a merge commit on the specified repo.
+
+        Return the SHA of the newly created merge commit.
+        """
+        if strategy == MergeStrategy.Ours:
+            # Create a fake `hg debugsetparent` merge.
+            self.run_hg(["debugsetparent", ".", target])
+        elif strategy == MergeStrategy.Theirs:
+            # Create a fake `hg debugsetparent` merge.
+            self.run_hg(["debugsetparent", target, "."])
+        else:
+            # Without strategy, do a regular merge, and fail if there are
+            # conflicts.
+            self.run_hg(["merge", "-r", target])
+            unresolved = self.run_hg(["resolve", "--list"]).decode("utf-8")
+            unresolved_files = [
+                line.split()[1]
+                for line in unresolved.splitlines()
+                if line.startswith("U ")
+            ]
+            if unresolved_files:
+                raise PatchConflict(
+                    f"Unresolved merge conflicts in files: {', '.join(unresolved_files)}",
+                )
+
+        self.run_hg(["commit", "-m", commit_message, "--landing_system", "lando"])
+
+        return self.get_current_node().decode("utf-8")
