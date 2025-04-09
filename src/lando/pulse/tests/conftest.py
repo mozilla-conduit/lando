@@ -47,7 +47,7 @@ def kombu_queue_maker(
             exchange=kombu_exchange,
             routing_key=routing_key,
         )
-        queue = make_kombu_queue(routing_key="routing_key")
+        queue = make_kombu_queue(routing_key=routing_key)
 
         yield producer
 
