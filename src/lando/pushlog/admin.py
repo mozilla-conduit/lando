@@ -23,6 +23,7 @@ class PushLogAdmin(admin.ModelAdmin):
 class PushAdmin(PushLogAdmin):
     readonly_fields = (
         "push_id",
+        "notified",
         "repo",
         "repo_url",
         "branch",
