@@ -16,6 +16,7 @@ dependencies = [
     "datadog",
     "django ~= 5.0",
     "django-libsass",
+    "django-ninja",
     "django-storages[google]",
     "django_compressor",
     "jinja2",
@@ -72,6 +73,7 @@ addopts = "--cov --cov-report html"
 testpaths = [
     "src/lando/api",
     "src/lando/dockerflow",
+    "src/lando/headless_api",
     "src/lando/main/tests",
     "src/lando/pushlog/tests",
     "src/lando/tests",

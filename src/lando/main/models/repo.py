@@ -125,6 +125,9 @@ class Repo(BaseModel):
         default=False,
     )
 
+    # Use this field to enable/disable access to this repo via the automation API.
+    automation_enabled = models.BooleanField(default=False)
+
     @property
     def is_legacy(self):  # noqa: ANN201
         """Return True if this repo is listed as a legacy source."""

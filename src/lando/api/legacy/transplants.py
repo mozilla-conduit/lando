@@ -48,7 +48,7 @@ from lando.api.legacy.stacks import (
 from lando.api.legacy.transactions import get_inline_comments
 from lando.api.legacy.users import user_search
 from lando.main.models import Repo
-from lando.main.models.landing_job import LandingJob, LandingJobStatus
+from lando.main.models.landing_job import JobStatus, LandingJob
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.main.support import LegacyAPIException
 from lando.utils.phabricator import (
@@ -392,7 +392,7 @@ def warning_previously_landed(  # noqa: ANN201
 
     job = (
         LandingJob.revisions_query([revision_id])
-        .filter(status=LandingJobStatus.LANDED)
+        .filter(status=JobStatus.LANDED)
         .order_by("-updated_at")
         .first()
     )
@@ -680,9 +680,9 @@ def blocker_landing_already_requested(
         .filter(
             status__in=(
                 (
-                    LandingJobStatus.SUBMITTED,
-                    LandingJobStatus.DEFERRED,
-                    LandingJobStatus.IN_PROGRESS,
+                    JobStatus.SUBMITTED,
+                    JobStatus.DEFERRED,
+                    JobStatus.IN_PROGRESS,
                     None,
                 )
             )

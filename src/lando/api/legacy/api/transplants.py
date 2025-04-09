@@ -50,8 +50,8 @@ from lando.api.legacy.validation import (
 from lando.main.auth import require_authenticated_user, require_phabricator_api_key
 from lando.main.models import Repo, Revision
 from lando.main.models.landing_job import (
+    JobStatus,
     LandingJob,
-    LandingJobStatus,
     add_revisions_to_job,
 )
 from lando.main.support import LegacyAPIException, problem
@@ -338,9 +338,7 @@ def post(phab: PhabricatorClient, request: HttpRequest, data: dict):  # noqa: AN
     with LandingJob.lock_table:
         if (
             LandingJob.revisions_query(stack_ids)
-            .filter(
-                status__in=([LandingJobStatus.SUBMITTED, LandingJobStatus.IN_PROGRESS])
-            )
+            .filter(status__in=([JobStatus.SUBMITTED, JobStatus.IN_PROGRESS]))
             .count()
             != 0
         ):
@@ -362,7 +360,7 @@ def post(phab: PhabricatorClient, request: HttpRequest, data: dict):  # noqa: AN
         revision.save()
 
     # Submit landing job.
-    job.status = LandingJobStatus.SUBMITTED
+    job.status = JobStatus.SUBMITTED
     job.set_landed_revision_diffs()
     job.save()
 

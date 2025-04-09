@@ -1,11 +1,8 @@
 import json
 import os
-import pathlib
-from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
-import py
 import pytest
 import redis
 import requests_mock
@@ -26,68 +23,10 @@ from lando.api.legacy.projects import (
 )
 from lando.api.legacy.transplants import CODE_FREEZE_OFFSET
 from lando.api.legacy.workers.landing_worker import LandingWorker
-from lando.api.tests.mocks import PhabricatorDouble, TreeStatusDouble
-from lando.main.models import SCM_LEVEL_1, SCM_LEVEL_3, Repo, Worker
+from lando.api.tests.mocks import PhabricatorDouble
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.support import LegacyAPIException
-from lando.main.tests.conftest import git_repo, git_repo_seed
 from lando.utils.phabricator import PhabricatorClient
-
-# We need some local usage of those imported fixtures to satisfy the linters.
-# This is it.
-__all__ = ["git_repo", "git_repo_seed"]
-
-PATCH_NORMAL_1 = r"""
-# HG changeset patch
-# User Test User <test@example.com>
-# Date 0 0
-#      Thu Jan 01 00:00:00 1970 +0000
-# Diff Start Line 7
-add another line.
-diff --git a/test.txt b/test.txt
---- a/test.txt
-+++ b/test.txt
-@@ -1,1 +1,2 @@
- TEST
-+adding another line
-""".lstrip()
-
-PATCH_NORMAL_2 = r"""
-# HG changeset patch
-# User Test User <test@example.com>
-# Date 0 0
-#      Thu Jan 01 00:00:00 1970 +0000
-# Diff Start Line 7
-add one more line
-diff --git a/test.txt b/test.txt
---- a/test.txt
-+++ b/test.txt
-@@ -1,2 +1,3 @@
- TEST
- adding another line
-+adding one more line
-""".lstrip()
-
-PATCH_NORMAL_3 = r"""
-# HG changeset patch
-# User Test User <test@example.com>
-# Date 0 0
-#      Thu Jan 01 00:00:00 1970 +0000
-# Diff Start Line 7
-rename file
-diff --git a/test.txt b/test.txt
-deleted file mode 100644
---- a/test.txt
-+++ /dev/null
-@@ -1,1 +0,0 @@
--TEST
-diff --git a/blah.txt b/blah.txt
-new file mode 100644
---- /dev/null
-+++ b/blah.txt
-@@ -0,0 +1,1 @@
-+TEST
-""".lstrip()
 
 
 @pytest.fixture
@@ -126,21 +65,6 @@ def app():
         )
 
     return _app()
-
-
-@pytest.fixture
-def normal_patch():
-    """Return one of several "normal" patches."""
-    _patches = [
-        PATCH_NORMAL_1,
-        PATCH_NORMAL_2,
-        PATCH_NORMAL_3,
-    ]
-
-    def _patch(number=0):
-        return _patches[number]
-
-    return _patch
 
 
 class JSONClient(Client):
@@ -222,12 +146,6 @@ def phabdouble(monkeypatch):
 
 
 @pytest.fixture
-def treestatusdouble(monkeypatch, treestatus_url):
-    """Mock the Tree Status service and build fake responses."""
-    yield TreeStatusDouble(monkeypatch, treestatus_url)
-
-
-@pytest.fixture
 def secure_project(phabdouble):
     return phabdouble.project(SEC_PROJ_SLUG)
 
@@ -273,61 +191,6 @@ def mock_repo_config(monkeypatch):
         monkeypatch.setattr("lando.api.legacy.repos.REPO_CONFIG", config)
 
     return set_repo_config
-
-
-@pytest.fixture
-def mocked_repo_config(mock_repo_config):
-    Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="mozilla-central",
-        url="http://hg.test",
-        required_permission=SCM_LEVEL_3,
-        approval_required=False,
-    )
-    Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="mozilla-uplift",
-        url="http://hg.test/uplift",
-        required_permission=SCM_LEVEL_3,
-        approval_required=True,
-    )
-    Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="mozilla-new",
-        url="http://hg.test/new",
-        required_permission=SCM_LEVEL_3,
-        commit_flags=[("VALIDFLAG1", "testing"), ("VALIDFLAG2", "testing")],
-    )
-    Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="try",
-        url="http://hg.test/try",
-        push_path="http://hg.test/try",
-        pull_path="http://hg.test",
-        required_permission=SCM_LEVEL_1,
-        short_name="try",
-        is_phabricator_repo=False,
-        force_push=True,
-    )
-    # Copied from legacy "local-dev". Should have been in mocked repos.
-    Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="uplift-target",
-        url="http://hg.test",  # TODO: fix this? URL is probably incorrect.
-        required_permission=SCM_LEVEL_1,
-        approval_required=True,
-        milestone_tracking_flag_template="cf_status_firefox{milestone}",
-    )
-
-
-@pytest.fixture
-def landing_worker_instance(mocked_repo_config):
-    def _instance(scm, **kwargs):
-        worker = Worker.objects.create(sleep_seconds=0.1, scm=scm, **kwargs)
-        worker.applicable_repos.set(Repo.objects.filter(scm_type=scm))
-        return worker
-
-    return _instance
 
 
 @pytest.fixture
@@ -385,12 +248,6 @@ def redis_cache(app):
     yield cache
     cache.clear()
     cache.init_app(app, config={"CACHE_TYPE": "null", "CACHE_NO_NULL_WARNING": True})
-
-
-@pytest.fixture
-def treestatus_url():
-    """A string holding the Tree Status base URL."""
-    return "http://treestatus.test"
 
 
 def pytest_assertrepr_compare(op, left, right):
@@ -606,103 +463,3 @@ def proxy_client(monkeypatch, fake_request):
 def authenticated_client(user, user_plaintext_password, client):
     client.login(username=user.username, password=user_plaintext_password)
     return client
-
-
-@pytest.mark.django_db
-def hg_repo_mc(
-    hg_server: str,
-    hg_clone: py.path,
-    *,
-    approval_required: bool = False,
-    autoformat_enabled: bool = False,
-    force_push: bool = False,
-    push_target: str = "",
-) -> Repo:
-    params = {
-        "required_permission": SCM_LEVEL_3,
-        "url": hg_server,
-        "push_path": hg_server,
-        "pull_path": hg_server,
-        "system_path": hg_clone.strpath,
-        # The option below can be overriden in the parameters
-        "approval_required": approval_required,
-        "autoformat_enabled": autoformat_enabled,
-        "force_push": force_push,
-        "push_target": push_target,
-    }
-    repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="mozilla-central-hg",
-        **params,
-    )
-    repo.save()
-    return repo
-
-
-@pytest.mark.django_db
-def git_repo_mc(
-    git_repo: pathlib.Path,
-    tmp_path: pathlib.Path,
-    *,
-    approval_required: bool = False,
-    autoformat_enabled: bool = False,
-    force_push: bool = False,
-    push_target: str = "",
-) -> Repo:
-    repos_dir = tmp_path / "repos"
-    repos_dir.mkdir()
-
-    params = {
-        "required_permission": SCM_LEVEL_3,
-        "url": str(git_repo),
-        "push_path": str(git_repo),
-        "pull_path": str(git_repo),
-        "system_path": repos_dir / "git_repo",
-        # The option below can be overriden in the parameters
-        "approval_required": approval_required,
-        "autoformat_enabled": autoformat_enabled,
-        "force_push": force_push,
-        "push_target": push_target,
-    }
-
-    repo = Repo.objects.create(
-        scm_type=SCM_TYPE_GIT,
-        name="mozilla-central-git",
-        **params,
-    )
-    repo.save()
-    repo.scm.prepare_repo(repo.pull_path)
-    return repo
-
-
-@pytest.fixture()
-def repo_mc(
-    # Git
-    git_repo: pathlib.Path,
-    tmp_path: pathlib.Path,
-    # Hg
-    hg_server: str,
-    hg_clone: py.path,
-) -> Callable:
-    def factory(
-        scm_type: str,
-        *,
-        approval_required: bool = False,
-        autoformat_enabled: bool = False,
-        force_push: bool = False,
-        push_target: str = "",
-    ) -> Repo:
-        params = {
-            "approval_required": approval_required,
-            "autoformat_enabled": autoformat_enabled,
-            "force_push": force_push,
-            "push_target": push_target,
-        }
-
-        if scm_type == SCM_TYPE_GIT:
-            return git_repo_mc(git_repo, tmp_path, **params)
-        elif scm_type == SCM_TYPE_HG:
-            return hg_repo_mc(hg_server, hg_clone, **params)
-        raise Exception(f"Unknown SCM Type {scm_type=}")
-
-    return factory

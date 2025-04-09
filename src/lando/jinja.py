@@ -13,7 +13,7 @@ from django.utils.html import escape
 from jinja2 import Environment
 
 from lando.main.models import Repo
-from lando.main.models.landing_job import LandingJob, LandingJobStatus
+from lando.main.models.landing_job import JobStatus, LandingJob
 from lando.treestatus.forms import (
     ReasonCategory,
     TreeCategory,
@@ -207,7 +207,7 @@ def linkify_revision_ids(text: str) -> str:
 def linkify_transplant_details(text: str, landing_job: LandingJob) -> str:
     # The transplant result is not always guaranteed to be a commit id. It
     # can be a message saying that the landing was queued and will land later.
-    if landing_job.status != LandingJobStatus.LANDED:
+    if landing_job.status != JobStatus.LANDED:
         return text
 
     commit_id = landing_job.legacy_details
