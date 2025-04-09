@@ -229,7 +229,7 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 
 
-PULSE_USER = os.getenv("PULSE_USER", "")
+PULSE_USERID = os.getenv("PULSE_USERID", "")
 PULSE_PASSWORD = os.getenv("PULSE_PASSWORD", "")
 PULSE_HOST = os.getenv("PULSE_HOST", "memory://")
 PULSE_PORT = os.getenv("PULSE_PORT", "5672")

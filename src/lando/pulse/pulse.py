@@ -21,7 +21,7 @@ class PulseNotifier:
         connection = kombu.Connection(
             hostname=settings.PULSE_HOST,
             port=settings.PULSE_PORT,
-            userid=settings.PULSE_USER,
+            userid=settings.PULSE_USERID,
             password=settings.PULSE_PASSWORD,
             connect_timeout=100,
             ssl=settings.PULSE_SSL,
