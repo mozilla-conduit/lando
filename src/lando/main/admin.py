@@ -28,6 +28,7 @@ class LandingJobAdmin(admin.ModelAdmin):
         "attempts",
         "duration_seconds",
         "error",
+        "formatted_replacements",
         "landed_commit_id",
         "priority",
         "repository_name",
