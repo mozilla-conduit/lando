@@ -11,7 +11,7 @@ def kombu_connection():
 
 @pytest.fixture()
 def kombu_exchange():
-    return Exchange("test_exchange", type="direct")
+    return Exchange("test_exchange", type="topic")
 
 
 @pytest.fixture()
