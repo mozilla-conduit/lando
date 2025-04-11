@@ -1,0 +1,107 @@
+import argparse
+from typing import Optional
+
+from django.core.management.base import BaseCommand, CommandError, CommandParser
+
+from lando.main.models.repo import Repo
+from lando.pulse.pulse import PulseNotifier
+from lando.pushlog.models.push import Push
+
+
+class Command(BaseCommand):
+    help = "Send Pulse notification for selected Pushes"
+    name = "pulse_notify"
+
+    def add_arguments(self, parser: CommandParser):
+        parser.add_argument("-r", "--repo", required=True)
+        parser.add_argument("-p", "--push-id", type=int, default=0)
+        parser.add_argument(
+            "-R",
+            "--force-renotify",
+            default=False,
+            action=argparse.BooleanOptionalAction,
+        )
+        parser.add_argument(
+            "-O",
+            "--force-out-of-order",
+            default=False,
+            action=argparse.BooleanOptionalAction,
+        )
+        parser.add_argument(
+            "-D",
+            "--only-declare-exchange",
+            default=False,
+            action=argparse.BooleanOptionalAction,
+        )
+
+    def handle(self, *args, **options):
+        repo_name = options["repo"]
+        push_id = options.get("push_id")
+        force_renotify = options["force_renotify"]
+        force_out_of_order = options["force_out_of_order"]
+        only_declare_exchange = options["only_declare_exchange"]
+
+        if only_declare_exchange:
+            return self._declare_exchange()
+
+        return self._notify_push(repo_name, push_id, force_renotify, force_out_of_order)
+
+    def _declare_exchange(self):
+        notifier = PulseNotifier()
+        exchange = notifier.declare_exchange()
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Declared exchange {exchange.name} on {exchange._channel.connection}"
+            )
+        )
+
+    def _notify_push(
+        self,
+        repo_name: str,
+        push_id: Optional[int] = None,
+        force_renotify: bool = False,
+        force_out_of_order: bool = False,
+    ):
+        try:
+            repo = Repo.objects.get(name=repo_name)
+        except Repo.DoesNotExist:
+            raise CommandError(f"Repository not found: {repo_name}")
+
+        first_push = None
+        try:
+            first_push = Push.objects.filter(repo=repo, notified=False).first()
+        except Push.DoesNotExist:
+            self.stdout.write(
+                self.style.WARNING(f"No un-notified push for {repo_name}")
+            )
+
+        push = None
+        if push_id:
+            try:
+                push = Push.objects.get(repo=repo, push_id=push_id)
+            except Push.DoesNotExist:
+                raise CommandError(f"Push {push_id} not found for {repo_name}")
+
+            if first_push and first_push.push_id < push_id and not force_out_of_order:
+                raise CommandError(
+                    f"Push {push} is not the first un-notified push for {repo_name} (use --force-out-of-order to force, at your own risks)"
+                )
+
+        if push and push.notified and not force_renotify:
+            raise CommandError(
+                f"Push {push} has already been notified (use --force-renotify to force, at your own risks)"
+            )
+
+        if not push:
+            push = first_push
+        if not push:
+            self.stdout.write("Nothing to do")
+            return
+
+        self.stdout.write(f"Notifying for {push} ...")
+
+        try:
+            notifier = PulseNotifier()
+            notifier.notify_push(push)
+        except Exception as exc:
+            raise CommandError(f"Failed to notify push {push}: {exc}") from exc
