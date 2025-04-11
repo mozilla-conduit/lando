@@ -1,4 +1,5 @@
 import argparse
+from typing import Optional
 
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
@@ -27,12 +28,21 @@ class Command(BaseCommand):
             action=argparse.BooleanOptionalAction,
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args, **options) -> None:
         repo_name = options["repo"]
         push_id = options.get("push_id")
-        force_renotify = options.get("force_renotify", False)
-        force_out_of_order = options.get("force_out_of_order", False)
+        force_renotify = options["force_renotify"]
+        force_out_of_order = options["force_out_of_order"]
 
+        return self._notify_push(repo_name, push_id, force_renotify, force_out_of_order)
+
+    def _notify_push(
+        self,
+        repo_name: str,
+        push_id: Optional[int] = None,
+        force_renotify: bool = False,
+        force_out_of_order: bool = False,
+    ):
         try:
             repo = Repo.objects.get(name=repo_name)
         except Repo.DoesNotExist:

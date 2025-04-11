@@ -35,6 +35,10 @@ class PulseNotifier:
         )
         return producer
 
+    def declare_exchange(self) -> kombu.Exchange:
+        self.producer.exchange.declare()
+        return self.producer.exchange
+
     def notify_push(self, push: Push):
         """Send a Pulse notification for the given Push."""
         message = self.pulse_message_for_push(push)
