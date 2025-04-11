@@ -29,15 +29,6 @@ class PulseNotifier:
         connection.connect()
 
         ex = kombu.Exchange(settings.PULSE_EXCHANGE, type="direct")
-        queue = kombu.Queue(
-            name=settings.PULSE_QUEUE,
-            exchange=settings.PULSE_EXCHANGE,
-            routing_key=settings.PULSE_ROUTING_KEY,
-            durable=True,
-            exclusive=False,
-            auto_delete=False,
-        )
-        queue(connection).declare()
 
         producer = connection.Producer(
             exchange=ex, routing_key=settings.PULSE_ROUTING_KEY, serializer="json"
