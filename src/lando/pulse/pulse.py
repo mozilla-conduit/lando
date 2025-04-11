@@ -28,7 +28,7 @@ class PulseNotifier:
         )
         connection.connect()
 
-        ex = kombu.Exchange(settings.PULSE_EXCHANGE, type="direct")
+        ex = kombu.Exchange(settings.PULSE_EXCHANGE, type="topic")
 
         producer = connection.Producer(
             exchange=ex, routing_key=settings.PULSE_ROUTING_KEY, serializer="json"
