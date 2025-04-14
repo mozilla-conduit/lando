@@ -73,16 +73,15 @@ class Command(BaseCommand):
                 f"Push {push} has already been notified (use --force-renotify to force, at your own risks)"
             )
 
-        if not push:
-            push = first_push
+        push = push or first_push
         if not push:
             self.stdout.write("Nothing to do")
             return
 
         self.stdout.write(f"Notifying for {push} ...")
 
+        notifier = PulseNotifier()
         try:
-            notifier = PulseNotifier()
             notifier.notify_push(push)
         except Exception as exc:
             raise CommandError(f"Failed to notify push {push}: {exc}") from exc

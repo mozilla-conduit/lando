@@ -6,14 +6,6 @@ import pytest
 from django.core.management import call_command
 from django.core.management.base import CommandError
 
-# We need to import dependencies of the fixtures we use, even if we don't use those
-# directly.
-from lando.pushlog.tests.conftest import make_commit, make_hash, make_push, make_repo
-
-# We need some local usage of those imported fixtures to satisfy the linters.
-# This is it.
-__all__ = ["make_commit", "make_hash", "make_push", "make_repo"]
-
 
 def test_pulse_notify_no_repo():
     with pytest.raises(CommandError, match="required: -r"):
