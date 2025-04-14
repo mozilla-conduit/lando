@@ -65,19 +65,34 @@ class Repo(BaseModel):
         null=True,
         blank=True,
         default=None,
+        help_text="Automatically detected upon saving, will match the type of the remote repo.",
     )
     system_path = models.CharField(
         max_length=255,
         blank=True,
         default="",
         validators=[validate_path_in_repo_root],
+        help_text="An automatically generated path on the landing worker instance, used to store the contents of the repo.",
     )
 
     # Legacy fields. These fields were adapted from the legacy implementation of Lando.
-    pull_path = models.CharField(blank=True)
-    push_path = models.CharField(blank=True)
-    required_permission = models.CharField(default="")
-    short_name = models.CharField(blank=True, unique=True)
+    pull_path = models.CharField(
+        blank=True,
+        help_text="The path that the landing worker should pull from when landing.",
+    )
+    push_path = models.CharField(
+        blank=True,
+        help_text="The path that the landing worker should push to when landing.",
+    )
+    required_permission = models.CharField(
+        default="",
+        help_text="The permission required to be able to land to this repo. For example, main.scm_conduit.",
+    )
+    short_name = models.CharField(
+        blank=True,
+        unique=True,
+        help_text="Should match the shortname field on Phabricator for this repo.",
+    )
     url = models.CharField()
 
     approval_required = models.BooleanField(default=False)
@@ -119,6 +134,7 @@ class Repo(BaseModel):
         blank=True,
         on_delete=models.SET_NULL,
         related_name="new_target",
+        help_text="If this repo was migrated from a legacy (hg) repo, setting the value here will automatically retarget revisions to this repo.",
     )
 
     pushlog_disabled = models.BooleanField(
