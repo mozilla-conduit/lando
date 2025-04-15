@@ -101,6 +101,9 @@ class AutomationWorker(Worker):
                 )
                 return True
 
+            # Record any created tags.
+            created_tags = []
+
             # Run each action for the job.
             actions = job.actions.all()
             for action_row in actions:
@@ -110,10 +113,15 @@ class AutomationWorker(Worker):
                 # Execute the action locally.
                 try:
                     action.process(job, repo, scm, action_row.order)
+
                 except AutomationActionException as exc:
                     logger.exception(exc.message)
                     job.transition_status(exc.job_status, message=exc.message)
                     return not exc.is_fatal
+
+                if action.action == "tag":
+                    # Record tag if created.
+                    created_tags.append(action.name)
 
             # We need to add the commits to the pushlog _before_ pushing, so we can
             # compare the current stack to the last upstream.
@@ -155,6 +163,34 @@ class AutomationWorker(Worker):
 
             # Get the changeset hash of the first node.
             commit_id = scm.head_ref()
+
+            for tag in created_tags:
+                try:
+                    scm.push_tag(tag, repo.push_path)
+                except (
+                    TreeClosed,
+                    TreeApprovalRequired,
+                    SCMLostPushRace,
+                    SCMPushTimeoutException,
+                    SCMInternalServerError,
+                ) as e:
+                    message = (
+                        f"Temporary error ({e.__class__}) "
+                        f"encountered while pushing tag {tag} to {repo_push_info}"
+                    )
+                    logger.exception(message)
+                    job.transition_status(JobAction.DEFER, message=message)
+                    return False  # Try again, this is a temporary failure.
+                except Exception as e:
+                    message = f"Unexpected error while pushing tag {tag} to {repo.push_path}.\n{e}"
+                    logger.exception(message)
+                    job.transition_status(
+                        JobAction.FAIL,
+                        message=message,
+                    )
+                    return True  # Do not try again, this is a permanent failure.
+                else:
+                    pushlog.confirm()
 
         job.transition_status(JobAction.LAND, commit_id=commit_id)
 

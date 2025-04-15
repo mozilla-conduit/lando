@@ -229,3 +229,14 @@ class AbstractSCM:
 
         Return the SHA of the newly created merge commit.
         """
+
+    @abstractmethod
+    def tag(self, name: str, target: str | None):
+        """Create a new tag called `name` on the `target` commit.
+
+        If `target` is `None`, use the currently checked out commit.
+        """
+
+    @abstractmethod
+    def push_tag(self, tag: str, remote: str):
+        """Push the tag with name `tag` to `remote`."""
