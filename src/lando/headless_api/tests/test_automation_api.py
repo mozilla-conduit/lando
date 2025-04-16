@@ -7,11 +7,16 @@ import pytest
 from django.contrib.auth.hashers import check_password
 
 from lando.api.legacy.workers.automation_worker import AutomationWorker
-from lando.headless_api.api import AutomationAction, AutomationJob
+from lando.headless_api.api import (
+    AutomationAction,
+    AutomationActionException,
+    AutomationJob,
+)
 from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import SCM_LEVEL_3, Repo
 from lando.main.models.landing_job import JobStatus
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
+from lando.main.scm.exceptions import PatchConflict
 
 
 @pytest.mark.django_db
@@ -664,6 +669,46 @@ def test_automation_job_create_commit_success(
     assert scm.push.call_args[1] == {"push_target": "", "force_push": False}
     assert job.status == JobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
+
+
+@pytest.mark.parametrize("scm_type", (SCM_TYPE_HG, SCM_TYPE_GIT))
+@pytest.mark.django_db
+def test_automation_job_create_commit_patch_conflict(
+    scm_type, repo_mc, treestatusdouble, get_automation_worker, monkeypatch
+):
+    repo = repo_mc(scm_type)
+    job = AutomationJob.objects.create(
+        status=JobStatus.SUBMITTED,
+        requester_email="example@example.com",
+        target_repo=repo,
+    )
+
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="create-commit",
+        data={
+            "action": "create-commit",
+            "author": "Test User <test@example.com>",
+            "commitmsg": "conflict commit",
+            "date": 0,
+            "diff": PATCH_DIFF,
+        },
+        order=0,
+    )
+
+    automation_worker = get_automation_worker(SCM_TYPE_GIT)
+    automation_worker.worker_instance.applicable_repos.add(repo)
+
+    def raise_conflict(*args, **kwargs):
+        raise PatchConflict("Conflict in patch")
+
+    monkeypatch.setattr(repo.scm, "apply_patch", raise_conflict)
+
+    assert not automation_worker.run_automation_job(job)
+
+    assert "Merge conflict while creating commit" in job.error
+    job.refresh_from_db()
+    assert job.status == JobStatus.FAILED
 
 
 @pytest.mark.django_db
