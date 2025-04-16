@@ -75,6 +75,7 @@ testpaths = [
     "src/lando/dockerflow",
     "src/lando/headless_api",
     "src/lando/main/tests",
+    "src/lando/pulse/tests",
     "src/lando/pushlog/tests",
     "src/lando/tests",
     "src/lando/ui/tests",

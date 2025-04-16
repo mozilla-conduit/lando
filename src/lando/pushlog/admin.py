@@ -23,6 +23,7 @@ class PushLogAdmin(admin.ModelAdmin):
 class PushAdmin(PushLogAdmin):
     readonly_fields = (
         "push_id",
+        "notified",
         "repo",
         "repo_url",
         "branch",
@@ -30,7 +31,7 @@ class PushAdmin(PushLogAdmin):
         "user",
         "commits",
     )
-    list_display = ["push_id", "repo__name", "branch", "datetime", "user"]
+    list_display = ["push_id", "notified", "repo__name", "branch", "datetime", "user"]
     list_filter = ["repo", "branch", "user", "datetime"]
 
 

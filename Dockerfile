@@ -19,7 +19,7 @@ COPY ./ /code
 RUN mkdir -p /code/.ruff_cache
 RUN chown -R app /code/.ruff_cache
 
-RUN pip install --upgrade pip
+RUN pip install --upgrade pip setuptools
 
 
 # Install the Rust toolchain. Some packages do not have pre-built wheels (e.g.
