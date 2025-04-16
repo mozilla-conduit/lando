@@ -495,8 +495,11 @@ class GitSCM(AbstractSCM):
             current_branch = self.get_current_branch()
             current_sha = self.head_ref()
 
+            timestamp = datetime.now().strftime(ISO8601_TIMESTAMP_BASIC)
+            temp_branch_name = f"theirs-merge-temp-branch-{timestamp}"
+
             # Switch to target and merge current into it with 'ours' strategy
-            self._git_run("checkout", target, cwd=self.path)
+            self._git_run("switch", "-c", temp_branch_name, target, cwd=self.path)
 
             # Create merge commit that favors the target's content
             self._git_run(
