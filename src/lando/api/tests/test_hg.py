@@ -428,16 +428,16 @@ def test_HgSCM_merge_onto(
     scm = HgSCM(hg_clone.strpath)
 
     with scm.for_push(f"pytest+{request.node.name}@lando"):
-        # Start on the default branch (main)
+        # Start on the default branch (main).
         main_start_commit = scm.head_ref()
 
-        # Create commits on main branch
+        # Create commits on main branch.
         main_file = _create_hg_commit(request, Path(hg_clone))
         _create_hg_commit(request, Path(hg_clone))
         _create_hg_commit(request, Path(hg_clone))
         main_commit = scm.head_ref()
 
-        # Update to start commit and create separate feature history
+        # Update to start commit and create separate feature history.
         subprocess.run(
             ["hg", "update", "--clean", "-r", main_start_commit],
             cwd=str(hg_clone),
@@ -449,7 +449,7 @@ def test_HgSCM_merge_onto(
         _create_hg_commit(request, Path(hg_clone))
         feature_commit = scm.head_ref()
 
-        # Update back to main and merge in feature
+        # Update back to main and merge in feature.
         subprocess.run(
             ["hg", "update", "--clean", "-r", main_commit],
             cwd=str(hg_clone),
@@ -459,7 +459,7 @@ def test_HgSCM_merge_onto(
         merge_msg = f"Merge main into feature with strategy {strategy}"
         merge_node = scm.merge_onto(merge_msg, feature_commit, strategy)
 
-        # Check that the merge commit has two parents
+        # Check that the merge commit has two parents.
         parents = (
             subprocess.run(
                 ["hg", "log", "-r", merge_node, "-T", "{p1node} {p2node}"],
@@ -491,7 +491,7 @@ def test_HgSCM_merge_onto(
             file_to_check = feature_file
             expected_rev = feature_commit
 
-        # Check the content in the merge commit
+        # Check the content in the merge commit.
         merged_content = subprocess.run(
             ["hg", "cat", "-r", merge_node, file_to_check.name],
             cwd=str(hg_clone),
