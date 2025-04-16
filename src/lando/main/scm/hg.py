@@ -674,6 +674,9 @@ class HgSCM(AbstractSCM):
     ) -> str:
         """Create a merge commit on the specified repo.
 
+        Use the specified `MergeStrategy` if passed. Otherwise, perform
+        a normal merge and fail if there are merge conflicts.
+
         Return the SHA of the newly created merge commit.
         """
         if strategy == MergeStrategy.Ours:
