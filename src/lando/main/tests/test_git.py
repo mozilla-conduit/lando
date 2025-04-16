@@ -466,6 +466,8 @@ def test_GitSCM_merge_onto(
         commit_msg in scm.changeset_descriptions()
     ), "Commit message is not found in descriptions."
 
+    file_to_check = target_commit_file
+    expected_sha = None
     if strategy == "ours":
         # The file in the merge commit should be the same as `main`.
         file_to_check = main_commit_file
@@ -474,9 +476,6 @@ def test_GitSCM_merge_onto(
         # The file in the merge commit should be the same as `target`.
         file_to_check = target_commit_file
         expected_sha = target_commit
-    else:
-        file_to_check = target_commit_file
-        expected_sha = None
 
     # # Get the contents of the file at the merge commit.
     merged_file = subprocess.run(

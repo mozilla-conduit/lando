@@ -479,18 +479,17 @@ def test_HgSCM_merge_onto(
             main_commit in parents and feature_commit in parents
         ), f"Unexpected merge parents: {parents}"
 
-        # Pick the file and commit that should define the content
+        # Pick the file and commit that should define the content.
+        # At first, we don't know which content will win in normal merge,
+        # so we just ensure the file exists.
+        file_to_check = feature_file
+        expected_rev = None
         if strategy == "ours":
             file_to_check = main_file
             expected_rev = main_commit
         elif strategy == "theirs":
             file_to_check = feature_file
             expected_rev = feature_commit
-        else:
-            # We don't know which content will win in normal merge,
-            # so we just ensure the file exists
-            file_to_check = feature_file
-            expected_rev = None
 
         # Check the content in the merge commit
         merged_content = subprocess.run(
