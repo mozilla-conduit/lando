@@ -410,16 +410,7 @@ def test_GitSCM_merge_onto(
 
     # Create a new commit on a branch for merging
     main_commit_file = _create_git_commit(request, clone_path)
-    main_commit = (
-        subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=str(clone_path),
-            capture_output=True,
-            check=True,
-        )
-        .stdout.decode()
-        .strip()
-    )
+    main_commit = scm.head_ref()
 
     # Switch to target branch and create another commit.
     target_branch = "target"
@@ -427,16 +418,7 @@ def test_GitSCM_merge_onto(
         ["git", "switch", "-c", target_branch, "HEAD^"], cwd=str(clone_path), check=True
     )
     target_commit_file = _create_git_commit(request, clone_path)
-    target_commit = (
-        subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=str(clone_path),
-            capture_output=True,
-            check=True,
-        )
-        .stdout.decode()
-        .strip()
-    )
+    target_commit = scm.head_ref()
 
     # Merge feature into main
     subprocess.run(["git", "switch", main_branch], cwd=str(clone_path), check=True)
@@ -454,16 +436,7 @@ def test_GitSCM_merge_onto(
         .stdout.decode()
         .strip()
     )
-    current_sha = (
-        subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=str(clone_path),
-            check=True,
-            capture_output=True,
-        )
-        .stdout.decode()
-        .strip()
-    )
+    current_sha = scm.head_ref()
     assert (
         current_branch == main_branch
     ), "`merge_onto` incorrectly changed the current branch."

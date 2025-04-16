@@ -719,25 +719,13 @@ def _create_split_branches_for_merge(
 ):
     subprocess.run(["git", "switch", main_branch], cwd=repo_path, check=True)
     main_file = _create_git_commit(request, repo_path)
-    main_commit = (
-        subprocess.run(
-            ["git", "rev-parse", "HEAD"], cwd=repo_path, capture_output=True, check=True
-        )
-        .stdout.decode()
-        .strip()
-    )
+    main_commit = scm.head_ref()
 
     subprocess.run(
         ["git", "switch", "-c", feature_branch, "HEAD^"], cwd=repo_path, check=True
     )
     feature_file = _create_git_commit(request, repo_path)
-    feature_commit = (
-        subprocess.run(
-            ["git", "rev-parse", "HEAD"], cwd=repo_path, capture_output=True, check=True
-        )
-        .stdout.decode()
-        .strip()
-    )
+    feature_commit = scm.head_ref()
 
     subprocess.run(["git", "switch", main_branch], cwd=repo_path, check=True)
 
