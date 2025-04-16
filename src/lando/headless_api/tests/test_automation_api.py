@@ -7,11 +7,15 @@ import pytest
 from django.contrib.auth.hashers import check_password
 
 from lando.api.legacy.workers.automation_worker import AutomationWorker
-from lando.headless_api.api import AutomationAction, AutomationJob
+from lando.headless_api.api import (
+    AutomationAction,
+    AutomationJob,
+)
 from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import SCM_LEVEL_3, Repo
 from lando.main.models.landing_job import JobStatus
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
+from lando.main.scm.exceptions import PatchConflict
 
 
 @pytest.mark.django_db
@@ -420,7 +424,7 @@ def test_get_job_status(status, message, client, headless_user):
 @pytest.fixture
 def hg_automation_worker(landing_worker_instance):
     worker = landing_worker_instance(
-        name="automation-worker",
+        name="automation-worker-hg",
         scm=SCM_TYPE_HG,
     )
     return AutomationWorker(worker)
@@ -429,10 +433,23 @@ def hg_automation_worker(landing_worker_instance):
 @pytest.fixture
 def git_automation_worker(landing_worker_instance):
     worker = landing_worker_instance(
-        name="automation-worker",
+        name="automation-worker-git",
         scm=SCM_TYPE_GIT,
     )
     return AutomationWorker(worker)
+
+
+@pytest.fixture
+def get_automation_worker(hg_automation_worker, git_automation_worker):
+    workers = {
+        SCM_TYPE_GIT: git_automation_worker,
+        SCM_TYPE_HG: hg_automation_worker,
+    }
+
+    def _get_automation_worker(scm_type):
+        return workers[scm_type]
+
+    return _get_automation_worker
 
 
 @pytest.mark.django_db
@@ -587,6 +604,110 @@ def test_automation_job_add_commit_fail(
     assert not hg_automation_worker.run_automation_job(job)
     assert job.status == JobStatus.FAILED, "Automation job should fail."
     assert scm.push.call_count == 0
+
+
+PATCH_DIFF = """
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,2 @@
+ TEST
++adding another line
+""".lstrip()
+
+
+@pytest.mark.parametrize("scm_type", (SCM_TYPE_HG, SCM_TYPE_GIT))
+@pytest.mark.django_db
+def test_automation_job_create_commit_success(
+    scm_type,
+    repo_mc,
+    treestatusdouble,
+    get_automation_worker,
+    monkeypatch,
+):
+    repo = repo_mc(SCM_TYPE_HG)
+    scm = repo.scm
+
+    # Create a job and actions
+    job = AutomationJob.objects.create(
+        status=JobStatus.SUBMITTED,
+        requester_email="example@example.com",
+        target_repo=repo,
+    )
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="create-commit",
+        data={
+            "action": "create-commit",
+            "author": "Test User <test@example.com>",
+            "commitmsg": "add another file",
+            "date": 0,
+            "diff": PATCH_DIFF,
+        },
+        order=0,
+    )
+
+    automation_worker = get_automation_worker(scm_type)
+
+    automation_worker.worker_instance.applicable_repos.add(repo)
+
+    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
+    mock_trigger_update = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.automation_worker.AutomationWorker.phab_trigger_repo_update",
+        mock_trigger_update,
+    )
+
+    scm.push = mock.MagicMock()
+
+    assert automation_worker.run_automation_job(job)
+    assert scm.push.call_count == 1
+    assert len(scm.push.call_args) == 2
+    assert len(scm.push.call_args[0]) == 1
+    assert scm.push.call_args[0][0] == repo.url
+    assert scm.push.call_args[1] == {"push_target": "", "force_push": False}
+    assert job.status == JobStatus.LANDED, job.error
+    assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
+
+
+@pytest.mark.parametrize("scm_type", (SCM_TYPE_HG, SCM_TYPE_GIT))
+@pytest.mark.django_db
+def test_automation_job_create_commit_patch_conflict(
+    scm_type, repo_mc, treestatusdouble, get_automation_worker, monkeypatch
+):
+    repo = repo_mc(scm_type)
+    job = AutomationJob.objects.create(
+        status=JobStatus.SUBMITTED,
+        requester_email="example@example.com",
+        target_repo=repo,
+    )
+
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="create-commit",
+        data={
+            "action": "create-commit",
+            "author": "Test User <test@example.com>",
+            "commitmsg": "conflict commit",
+            "date": 0,
+            "diff": PATCH_DIFF,
+        },
+        order=0,
+    )
+
+    automation_worker = get_automation_worker(SCM_TYPE_GIT)
+    automation_worker.worker_instance.applicable_repos.add(repo)
+
+    def raise_conflict(*args, **kwargs):
+        raise PatchConflict("Conflict in patch")
+
+    monkeypatch.setattr(repo.scm, "apply_patch", raise_conflict)
+
+    assert not automation_worker.run_automation_job(job)
+
+    assert "Merge conflict while creating commit" in job.error
+    job.refresh_from_db()
+    assert job.status == JobStatus.FAILED
 
 
 @pytest.mark.django_db

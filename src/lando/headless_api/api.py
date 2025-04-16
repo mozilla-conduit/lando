@@ -178,6 +178,48 @@ class AddCommitAction(Schema):
         return True
 
 
+class CreateCommitAction(Schema):
+    """Create a new commit from a diff and metadata."""
+
+    action: Literal["create-commit"]
+    author: str
+    commitmsg: str
+    date: datetime.datetime
+    diff: str
+
+    def process(
+        self, job: AutomationJob, repo: Repo, scm: AbstractSCM, index: int
+    ) -> bool:
+        """Create a new commit from a diff and metadata."""
+        try:
+            scm.apply_patch(
+                self.diff,
+                self.commitmsg,
+                self.author,
+                self.date.isoformat(),
+            )
+        except PatchConflict as exc:
+            message = (
+                f"Merge conflict while creating commit in `create-commit`, "
+                f"action #{index}.\n\n"
+                f"{str(exc)}"
+            )
+            raise AutomationActionException(
+                message=message, job_action=JobAction.FAIL, is_fatal=True
+            )
+        except Exception as e:
+            message = (
+                f"Aborting, could not create commit from `create-commit`, "
+                f"action #{index}."
+                f"\n{e}"
+            )
+            raise AutomationActionException(
+                message=message, job_action=JobAction.FAIL, is_fatal=True
+            )
+
+        return True
+
+
 class MergeOntoAction(Schema):
     """Merge the current branch into the target commit."""
 
@@ -219,7 +261,9 @@ class AddBranchAction(Schema):
         raise NotImplementedError()
 
 
-Action = Union[AddCommitAction, MergeOntoAction, AddBranchAction, TagAction]
+Action = Union[
+    AddCommitAction, CreateCommitAction, MergeOntoAction, AddBranchAction, TagAction
+]
 
 ActionAdapter = TypeAdapter(Action)
 
