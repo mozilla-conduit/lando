@@ -679,10 +679,10 @@ class HgSCM(AbstractSCM):
 
         Return the SHA of the newly created merge commit.
         """
-        if strategy == MergeStrategy.Ours:
+        if strategy == MergeStrategy.OURS:
             # Create a fake `hg debugsetparent` merge.
             self.run_hg(["debugsetparent", ".", target])
-        elif strategy == MergeStrategy.Theirs:
+        elif strategy == MergeStrategy.THEIRS:
             # Create a fake `hg debugsetparent` merge.
             self.run_hg(["debugsetparent", target, "."])
         else:

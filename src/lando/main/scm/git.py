@@ -491,7 +491,7 @@ class GitSCM(AbstractSCM):
         Return the SHA of the newly created merge commit.
         """
 
-        if strategy == MergeStrategy.Theirs:
+        if strategy == MergeStrategy.THEIRS:
             current_branch = self.get_current_branch()
             current_sha = self.head_ref()
 

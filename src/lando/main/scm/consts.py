@@ -11,5 +11,5 @@ class MergeStrategy(str, enum.Enum):
     This class is a subclass of `str` to enable serialization in Pydantic.
     """
 
-    Ours = "ours"
-    Theirs = "theirs"
+    OURS = "ours"
+    THEIRS = "theirs"
