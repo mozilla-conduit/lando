@@ -681,10 +681,10 @@ class HgSCM(AbstractSCM):
         """
         if strategy == MergeStrategy.OURS:
             # Create a fake `hg debugsetparent` merge.
-            self.run_hg(["debugsetparent", ".", target])
+            self.run_hg(["debugsetparents", ".", target])
         elif strategy == MergeStrategy.THEIRS:
             # Create a fake `hg debugsetparent` merge.
-            self.run_hg(["debugsetparent", target, "."])
+            self.run_hg(["debugsetparents", target, "."])
         else:
             # Without strategy, do a regular merge, and fail if there are
             # conflicts.
