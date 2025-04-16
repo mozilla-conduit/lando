@@ -502,7 +502,9 @@ class GitSCM(AbstractSCM):
             self._git_run(
                 "merge",
                 "--no-ff",
-                # Use the `ours` strategy instead of `theirs`.
+                # Use the `ours` strategy after moving to the target,
+                # to replicate the behaviour of the deprecated `theirs`
+                # merge strategy.
                 "-s",
                 "ours",
                 "-m",
