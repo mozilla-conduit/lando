@@ -9,7 +9,6 @@ from django.contrib.auth.hashers import check_password
 from lando.api.legacy.workers.automation_worker import AutomationWorker
 from lando.headless_api.api import (
     AutomationAction,
-    AutomationActionException,
     AutomationJob,
 )
 from lando.headless_api.models.tokens import ApiToken
