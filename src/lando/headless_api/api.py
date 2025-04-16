@@ -205,7 +205,7 @@ class CreateCommitAction(Schema):
                 f"{str(exc)}"
             )
             raise AutomationActionException(
-                message=message, job_action=JobAction.FAIL, is_fatal=False
+                message=message, job_action=JobAction.FAIL, is_fatal=True
             )
         except Exception as e:
             message = (
@@ -214,7 +214,7 @@ class CreateCommitAction(Schema):
                 f"\n{e}"
             )
             raise AutomationActionException(
-                message=message, job_action=JobAction.FAIL, is_fatal=False
+                message=message, job_action=JobAction.FAIL, is_fatal=True
             )
 
         return True
