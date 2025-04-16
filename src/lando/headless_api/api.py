@@ -245,7 +245,7 @@ class MergeOntoAction(Schema):
             )
             raise AutomationActionException(
                 message=message, job_action=JobAction.FAIL, is_fatal=True
-            )
+            ) from exc
 
         return True
 
