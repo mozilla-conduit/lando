@@ -476,6 +476,10 @@ class GitSCM(AbstractSCM):
         env.update(cls.DEFAULT_ENV)
         return env
 
+    def get_current_branch(self) -> str:
+        """Return the currently active branch."""
+        return self._git_run("branch", "--show-current", cwd=self.path)
+
     def merge_onto(
         self, commit_message: str, target: str, strategy: Optional[MergeStrategy]
     ) -> str:
@@ -488,9 +492,7 @@ class GitSCM(AbstractSCM):
         """
 
         if strategy == MergeStrategy.Theirs:
-            current_branch = self._git_run(
-                "rev-parse", "--abbrev-ref", "HEAD", cwd=self.path
-            )
+            current_branch = self.get_current_branch()
             current_sha = self.head_ref()
 
             # Switch to target and merge current into it with 'ours' strategy
