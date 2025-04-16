@@ -618,7 +618,7 @@ def test_automation_job_create_commit_success_hg(
         data={
             "action": "create-commit",
             "author": "Test User <test@example.com>",
-            "commit_message": "add another file",
+            "commitmsg": "add another file",
             "date": 0,
             "diff": PATCH_DIFF,
         },

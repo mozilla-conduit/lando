@@ -183,7 +183,7 @@ class CreateCommitAction(Schema):
 
     action: Literal["create-commit"]
     author: str
-    commit_message: str
+    commitmsg: str
     date: datetime.datetime
     diff: str
 
@@ -194,7 +194,7 @@ class CreateCommitAction(Schema):
         try:
             scm.apply_patch(
                 self.diff,
-                self.commit_message,
+                self.commitmsg,
                 self.author,
                 self.date.isoformat(),
             )
