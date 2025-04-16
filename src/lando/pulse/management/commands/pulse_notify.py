@@ -1,5 +1,4 @@
 import argparse
-from typing import Optional
 
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
@@ -9,7 +8,14 @@ from lando.pushlog.models.push import Push
 
 
 class Command(BaseCommand):
-    help = "Send Pulse notification for selected Pushes"
+    help = """Send Pulse notification for selected Pushes.
+
+        This should not be needed in normal operation, but could be useful when
+        something went wrong and messages got lost.
+
+        Caution should be taken when sending duplicate or out-of-order notifications.
+        To prevent accidental use, those behaviours are guarded by CLI options to force them.
+        """
     name = "pulse_notify"
 
     def add_arguments(self, parser: CommandParser):
@@ -30,7 +36,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options) -> None:
         repo_name = options["repo"]
-        push_id = options.get("push_id")
+        push_id = options["push_id"]
         force_renotify = options["force_renotify"]
         force_out_of_order = options["force_out_of_order"]
 
@@ -39,7 +45,7 @@ class Command(BaseCommand):
     def _notify_push(
         self,
         repo_name: str,
-        push_id: Optional[int] = None,
+        push_id: int,
         force_renotify: bool = False,
         force_out_of_order: bool = False,
     ):
