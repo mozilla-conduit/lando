@@ -1015,4 +1015,6 @@ def test_get_repo_info_not_found(client, headless_user):
     )
 
     assert response.status_code == 404, "Non-existent repo should return 404."
-    assert response.json() == {"details": "Repo with short name nonexistent-repo does not exist."}
+    assert response.json() == {
+        "details": "Repo with short name nonexistent-repo does not exist."
+    }
