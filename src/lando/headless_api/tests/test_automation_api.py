@@ -972,3 +972,49 @@ def test_token_prefix_collision(monkeypatch, headless_user):
     assert (
         ApiToken.verify_token(token2).user == user
     ), "Second token with common prefix should return headless user."
+
+
+@pytest.mark.django_db
+def test_get_repo_info_success(client, headless_user, repo_mc):
+    user, token = headless_user
+
+    repo = repo_mc(SCM_TYPE_GIT)
+
+    response = client.get(
+        f"/api/repoinfo/{repo.short_name}",
+        headers={
+            "User-Agent": "Lando-User/testuser@example.org",
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert (
+        response.status_code == 200
+    ), "`repoinfo` should return 200 for successful response."
+
+    response_json = response.json()
+    assert response_json["repo_url"] == repo.url, "`repo_url` does not match expected."
+    assert (
+        response_json["branch_name"] == repo.default_branch
+    ), "`branch_name` does not match expected."
+    assert (
+        response_json["scm_level"] == "scm_level_3"
+    ), "`scm_level` does not match expected."
+
+
+@pytest.mark.django_db
+def test_get_repo_info_not_found(client, headless_user):
+    user, token = headless_user
+
+    response = client.get(
+        "/api/repoinfo/nonexistent-repo",
+        headers={
+            "User-Agent": "Lando-User/testuser@example.org",
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 404, "Non-existent repo should return 404."
+    assert response.json() == {
+        "details": "Repo with short name nonexistent-repo does not exist."
+    }

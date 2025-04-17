@@ -379,3 +379,48 @@ def get_job_status(request: HttpRequest, job_id: int) -> tuple[int, dict]:
     )
 
     return 200, automation_job.to_api_status()
+
+
+class RepoInfoReponse(Schema):
+    """Response format for the repo lookup endpoint."""
+
+    repo_url: str
+    branch_name: str
+    scm_level: str
+
+
+def strip_app_from_permission(permission_str: str) -> str:
+    """Strip the Django app name from a permission.
+
+    Assumes the permission takes the form `<app>.<permission`.
+
+    >>> strip_app_from_permission("main.scm_level_3")
+    "scm_level_3"
+    """
+    _app, permission = permission_str.split(".")
+    return permission
+
+
+@api.get("/repoinfo/{short_name}", response={200: RepoInfoReponse, codes_4xx: ApiError})
+def get_repo_by_short_name(request: HttpRequest, short_name: str) -> tuple[int, dict]:
+    """Retrieve repo information by short name.
+
+    Used by merge day automation.
+    """
+    try:
+        repo = Repo.objects.get(short_name=short_name)
+    except Repo.DoesNotExist:
+        error = f"Repo with short name {short_name} does not exist."
+        logger.info(
+            error,
+            extra={"user": request.user.email, "token": request.auth.token_prefix},
+        )
+        return 404, {"details": error}
+
+    stripped_permission = strip_app_from_permission(repo.required_permission)
+
+    return 200, RepoInfoReponse(
+        repo_url=repo.url,
+        branch_name=repo.default_branch,
+        scm_level=stripped_permission,
+    )
