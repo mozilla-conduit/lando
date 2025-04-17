@@ -20,8 +20,9 @@ def reposetup(ui, repo):  # noqa: ANN001
     class MozLandingRepo(repo.__class__):
         def commit(self, *args, **kwargs):
             if hasattr(self, "moz_landing_system"):
-                kwargs.setdefault("extra", {})
-                kwargs["extra"][EXTRA_KEY] = encoding.tolocal(self.moz_landing_system)
+                extra = kwargs.get("extra") or {}
+                extra[EXTRA_KEY] = encoding.tolocal(self.moz_landing_system)
+                kwargs["extra"] = extra
             return super().commit(*args, **kwargs)
 
     repo.__class__ = MozLandingRepo

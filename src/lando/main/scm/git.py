@@ -540,3 +540,19 @@ class GitSCM(AbstractSCM):
         )
 
         return self.get_current_node()
+
+    def tag(self, name: str, target: str | None):
+        """Create a new tag called `name` on the `target` commit.
+
+        If `target` is `None`, use the currently checked out commit.
+        """
+        tag_command = ["tag", name]
+
+        if target:
+            tag_command.append(target)
+
+        self._git_run(*tag_command, cwd=self.path)
+
+    def push_tag(self, tag: str, remote: str):
+        """Push the tag with name `tag` to `remote`."""
+        self._git_run("push", remote, f"refs/tags/{tag}", cwd=self.path)

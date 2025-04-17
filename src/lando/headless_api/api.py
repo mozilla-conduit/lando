@@ -255,12 +255,21 @@ class TagAction(Schema):
 
     action: Literal["tag"]
     name: str
+    target: str | None
 
     def process(
         self, job: AutomationJob, repo: Repo, scm: AbstractSCM, index: int
     ) -> bool:
         """Add a new tag to the repo."""
-        raise NotImplementedError()
+        try:
+            scm.tag(name=self.name, target=self.target)
+        except Exception as exc:
+            message = f"Aborting, could not perform `tag`, action #{index}\n{exc}"
+            raise AutomationActionException(
+                message=message, job_action=JobAction.FAIL, is_fatal=True
+            )
+
+        return True
 
 
 class AddBranchAction(Schema):

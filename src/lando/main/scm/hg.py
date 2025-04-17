@@ -703,3 +703,22 @@ class HgSCM(AbstractSCM):
         self.run_hg(["commit", "-m", commit_message, "--landing_system", "lando"])
 
         return self.get_current_node().decode("utf-8")
+
+    def tag(self, name: str, target: str | None):
+        """Create a new tag called `name` on the `target` commit.
+
+        If `target` is `None`, use the currently checked out commit.
+        """
+        tag_command = ["tag", name]
+
+        if target:
+            tag_command.append(target)
+
+        self.run_hg(tag_command)
+
+    def push_tag(self, tag: str, remote: str):
+        """Push the tag with name `tag` to `remote`.
+
+        Since Mercurial creates tags as new commits, this is a no-op.
+        """
+        pass
