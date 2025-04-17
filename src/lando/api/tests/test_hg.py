@@ -417,3 +417,102 @@ def _create_hg_commit(request: pytest.FixtureRequest, clone_path: Path):
     )
 
     return new_file
+
+
+@pytest.mark.parametrize("strategy", [None, "ours", "theirs"])
+def test_HgSCM_merge_onto(
+    hg_clone,
+    request: pytest.FixtureRequest,
+    strategy: str | None,
+):
+    scm = HgSCM(hg_clone.strpath)
+
+    with scm.for_push(f"pytest+{request.node.name}@lando"):
+        # Start on the default branch (main).
+        main_start_commit = scm.head_ref()
+
+        # Create commits on main branch.
+        main_file = _create_hg_commit(request, Path(hg_clone))
+        _create_hg_commit(request, Path(hg_clone))
+        _create_hg_commit(request, Path(hg_clone))
+        main_commit = scm.head_ref()
+
+        # Update to start commit and create separate feature history.
+        subprocess.run(
+            ["hg", "update", "--clean", "-r", main_start_commit],
+            cwd=str(hg_clone),
+            check=True,
+        )
+
+        feature_file = _create_hg_commit(request, Path(hg_clone))
+        _create_hg_commit(request, Path(hg_clone))
+        _create_hg_commit(request, Path(hg_clone))
+        feature_commit = scm.head_ref()
+
+        # Update back to main and merge in feature.
+        subprocess.run(
+            ["hg", "update", "--clean", "-r", main_commit],
+            cwd=str(hg_clone),
+            check=True,
+        )
+
+        merge_msg = f"Merge main into feature with strategy {strategy}"
+        merge_node = scm.merge_onto(merge_msg, feature_commit, strategy)
+
+        # Check that the merge commit has two parents.
+        parents = (
+            subprocess.run(
+                ["hg", "log", "-r", merge_node, "-T", "{p1node} {p2node}"],
+                cwd=str(hg_clone),
+                capture_output=True,
+                check=True,
+            )
+            .stdout.decode()
+            .strip()
+            .split()
+        )
+
+        assert (
+            len(parents) == 2
+        ), f"Expected merge commit with 2 parents, got: {parents}"
+        assert (
+            main_commit in parents and feature_commit in parents
+        ), f"Unexpected merge parents: {parents}"
+
+        # Pick the file and commit that should define the content.
+        # At first, we don't know which content will win in normal merge,
+        # so we just ensure the file exists.
+        file_to_check = feature_file
+        expected_rev = None
+        if strategy == "ours":
+            file_to_check = main_file
+            expected_rev = main_commit
+        elif strategy == "theirs":
+            file_to_check = feature_file
+            expected_rev = feature_commit
+
+        # Check the content in the merge commit.
+        merged_content = subprocess.run(
+            ["hg", "cat", "-r", merge_node, file_to_check.name],
+            cwd=str(hg_clone),
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+
+        if expected_rev:
+            expected_content = subprocess.run(
+                ["hg", "cat", "-r", expected_rev, file_to_check.name],
+                cwd=str(hg_clone),
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
+
+            assert all(
+                {merged_content, expected_content}
+            ), "File contents should be non-empty"
+
+            assert (
+                merged_content == expected_content
+            ), f"File contents did not match expected for strategy {strategy}"

@@ -1,12 +1,15 @@
 import datetime
 import json
 import secrets
+import subprocess
 import unittest.mock as mock
+from pathlib import Path
 
 import pytest
 from django.contrib.auth.hashers import check_password
 
 from lando.api.legacy.workers.automation_worker import AutomationWorker
+from lando.api.tests.test_hg import _create_hg_commit
 from lando.headless_api.api import (
     AutomationAction,
     AutomationJob,
@@ -16,6 +19,7 @@ from lando.main.models import SCM_LEVEL_3, Repo
 from lando.main.models.landing_job import JobStatus
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.scm.exceptions import PatchConflict
+from lando.main.tests.test_git import _create_git_commit
 
 
 @pytest.mark.django_db
@@ -708,6 +712,177 @@ def test_automation_job_create_commit_patch_conflict(
     assert "Merge conflict while creating commit" in job.error
     job.refresh_from_db()
     assert job.status == JobStatus.FAILED
+
+
+def _create_split_branches_for_merge(
+    request, scm, repo_path, main_branch="main", feature_branch="feature"
+):
+    subprocess.run(["git", "switch", main_branch], cwd=repo_path, check=True)
+    main_file = _create_git_commit(request, repo_path)
+    main_commit = scm.head_ref()
+
+    subprocess.run(
+        ["git", "switch", "-c", feature_branch, "HEAD^"], cwd=repo_path, check=True
+    )
+    feature_file = _create_git_commit(request, repo_path)
+    feature_commit = scm.head_ref()
+
+    subprocess.run(["git", "switch", main_branch], cwd=repo_path, check=True)
+
+    return main_commit, main_file, feature_commit, feature_file
+
+
+@pytest.mark.parametrize("strategy", [None, "ours", "theirs"])
+@pytest.mark.django_db
+def test_automation_job_merge_onto_success_git(
+    strategy,
+    repo_mc,
+    treestatusdouble,
+    git_automation_worker,
+    monkeypatch,
+    request,
+):
+    repo = repo_mc(SCM_TYPE_GIT)
+    scm = repo.scm
+    scm.push = mock.MagicMock()
+
+    # Create a repo with diverging history
+    main_commit, main_file, feature_commit, feature_file = (
+        _create_split_branches_for_merge(request, scm, repo.system_path)
+    )
+
+    job = AutomationJob.objects.create(
+        status=JobStatus.SUBMITTED,
+        requester_email="test@example.com",
+        target_repo=repo,
+    )
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="merge-onto",
+        data={
+            "action": "merge-onto",
+            "commit_message": f"Merge test with strategy {strategy}",
+            "strategy": strategy,
+            "target": feature_commit,
+        },
+        order=0,
+    )
+
+    git_automation_worker.worker_instance.applicable_repos.add(repo)
+
+    assert git_automation_worker.run_automation_job(job)
+    assert job.status == JobStatus.LANDED
+    assert scm.push.called
+    assert len(job.landed_commit_id) == 40
+
+
+@pytest.mark.parametrize("strategy", [None, "ours", "theirs"])
+@pytest.mark.django_db
+def test_automation_job_merge_onto_success_hg(
+    strategy,
+    repo_mc,
+    treestatusdouble,
+    hg_automation_worker,
+    monkeypatch,
+    request,
+):
+    repo = repo_mc(SCM_TYPE_HG)
+    scm = repo.scm
+    scm.push = mock.MagicMock()
+
+    repo_path = Path(repo.system_path)
+
+    # Create commits on a feature branch
+    _create_hg_commit(request, repo_path)
+    _create_hg_commit(request, repo_path)
+    _create_hg_commit(request, repo_path)
+    feature_commit = subprocess.run(
+        ["hg", "log", "-r", ".", "-T", "{node}"],
+        cwd=repo_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+    # Return to rev 0 and create mainline commits
+    subprocess.run(["hg", "update", "--clean", "-r", "0"], cwd=repo_path, check=True)
+    _create_hg_commit(request, repo_path)
+    _create_hg_commit(request, repo_path)
+    _create_hg_commit(request, repo_path)
+    main_commit = subprocess.run(
+        ["hg", "log", "-r", ".", "-T", "{node}"],
+        cwd=repo_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+    # Push changes to hg_server before running the automation job
+    subprocess.run(
+        ["hg", "push", "-r", "draft()", repo.push_path, "-f"], cwd=repo_path, check=True
+    )
+
+    subprocess.run(
+        ["hg", "update", "--clean", "-r", main_commit], cwd=repo.system_path, check=True
+    )
+
+    job = AutomationJob.objects.create(
+        status=JobStatus.SUBMITTED,
+        requester_email="test@example.com",
+        target_repo=repo,
+    )
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="merge-onto",
+        data={
+            "action": "merge-onto",
+            "commit_message": f"merge test ({strategy})",
+            "strategy": strategy,
+            "target": feature_commit,
+        },
+        order=0,
+    )
+
+    hg_automation_worker.worker_instance.applicable_repos.add(repo)
+
+    assert hg_automation_worker.run_automation_job(job)
+    assert job.status == JobStatus.LANDED
+    assert scm.push.called
+    assert len(job.landed_commit_id) == 40
+
+
+@pytest.mark.parametrize("scm_type", (SCM_TYPE_HG, SCM_TYPE_GIT))
+@pytest.mark.django_db
+def test_automation_job_merge_onto_fail(
+    scm_type, repo_mc, treestatusdouble, get_automation_worker, monkeypatch
+):
+    repo = repo_mc(scm_type)
+
+    job = AutomationJob.objects.create(
+        status=JobStatus.SUBMITTED,
+        requester_email="test@example.com",
+        target_repo=repo,
+    )
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="merge-onto",
+        data={
+            "action": "merge-onto",
+            "commit_message": "bad merge",
+            "strategy": None,
+            "target": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+        },
+        order=0,
+    )
+
+    automation_worker = get_automation_worker(scm_type)
+    automation_worker.worker_instance.applicable_repos.add(repo)
+
+    assert not automation_worker.run_automation_job(
+        job
+    ), f"Job should fail for SCM: {scm_type}"
+    assert job.status == JobStatus.FAILED
+    assert "Aborting, could not perform `merge-onto`" in job.error
 
 
 @pytest.mark.django_db
