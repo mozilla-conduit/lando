@@ -895,6 +895,7 @@ def test_automation_job_tag_success_git_tip_commit(
     normal_patch,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
+    scm = repo.scm
 
     # Create a new commit that will be tagged
     _create_git_commit(request, Path(repo.system_path))
@@ -930,13 +931,7 @@ def test_automation_job_tag_success_git_tip_commit(
     assert job.status == JobStatus.LANDED
 
     # Tag should be on the most recent commit.
-    expected_commit = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=repo.system_path,
-        capture_output=True,
-        check=True,
-        text=True,
-    ).stdout.strip()
+    expected_commit = scm.head_ref()
 
     # now compare to the tag
     tag_commit = subprocess.run(
@@ -960,6 +955,7 @@ def test_automation_job_tag_success_git_new_commit(
     normal_patch,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
+    scm = repo.scm
 
     # Create a new commit that will be tagged
     _create_git_commit(request, Path(repo.system_path))
@@ -995,13 +991,7 @@ def test_automation_job_tag_success_git_new_commit(
     assert job.status == JobStatus.LANDED
 
     # Tag should be on the most recent commit.
-    expected_commit = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=repo.system_path,
-        capture_output=True,
-        check=True,
-        text=True,
-    ).stdout.strip()
+    expected_commit = scm.head_ref()
 
     # now compare to the tag
     tag_commit = subprocess.run(
