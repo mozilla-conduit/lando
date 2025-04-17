@@ -28,21 +28,16 @@ class PulseNotifier:
         )
         connection.connect()
 
-        ex = kombu.Exchange(settings.PULSE_EXCHANGE, type="direct")
-        queue = kombu.Queue(
-            name=settings.PULSE_QUEUE,
-            exchange=settings.PULSE_EXCHANGE,
-            routing_key=settings.PULSE_ROUTING_KEY,
-            durable=True,
-            exclusive=False,
-            auto_delete=False,
-        )
-        queue(connection).declare()
+        ex = kombu.Exchange(settings.PULSE_EXCHANGE, type="topic")
 
         producer = connection.Producer(
             exchange=ex, routing_key=settings.PULSE_ROUTING_KEY, serializer="json"
         )
         return producer
+
+    def declare_exchange(self) -> kombu.Exchange:
+        self.producer.exchange.declare()
+        return self.producer.exchange
 
     def notify_push(self, push: Push):
         """Send a Pulse notification for the given Push."""
