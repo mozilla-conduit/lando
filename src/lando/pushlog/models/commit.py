@@ -1,4 +1,5 @@
 import logging
+from typing import Self
 
 from django.core.validators import (
     MaxLengthValidator,
@@ -118,8 +119,8 @@ class Commit(models.Model):
     def __str__(self) -> str:
         return f"Commit {self.hash} in {self.repo}"
 
-    @staticmethod
-    def from_scm_commit(repo: Repo, scm_commit: CommitData):  # noqa: ANN205
+    @classmethod
+    def from_scm_commit(cls, repo: Repo, scm_commit: CommitData) -> Self:
         """Create a Commit ORM object from an Commit dataclass."""
         try:
             # If a commit already exists in the DB, don't create a new one.
@@ -241,8 +242,8 @@ class Tag(models.Model):
 
     _scm_commit: CommitData | None = None
 
-    @staticmethod
-    def for_scm_commit(repo: Repo, name: str, scm_commit: CommitData):  # noqa: ANN205
+    @classmethod
+    def for_scm_commit(cls, repo: Repo, name: str, scm_commit: CommitData) -> Self:
         """Create a partial Tag object, based on CommitData not present in the DB
         yet."""
         try:
