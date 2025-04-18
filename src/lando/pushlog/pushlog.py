@@ -7,7 +7,7 @@ from django.db import transaction
 from lando.main.models.repo import Repo
 from lando.main.scm.commit import CommitData
 from lando.pulse.pulse import PulseNotifier
-from lando.pushlog.models import Commit, Push
+from lando.pushlog.models import Commit, Push, Tag
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ def PushLogForRepo(repo: Repo, user: str):  # noqa: ANN201
 
 class PushLog:
     """
-    Aggregate a list of Commits and record push information.
+    Aggregate a list of Commits and Tag and record push information.
     """
 
     repo: Repo
@@ -58,21 +58,29 @@ class PushLog:
     is_recorded: bool = False
 
     commits: list[Commit]
+    tags: list[Tag]
 
     def __init__(
         self,
         repo: Repo,
         user: str,
         commits: list[Commit] | None = None,
+        tags: list[Tag] | None = None,
     ):
         self.repo = repo
         self.user = user
 
         if not commits:
-            # We cannot use the default value of the argument as a mutable type, and will
-            # get reused on every initialisation.
+            # We cannot use the default value of a mutable type argument,
+            # as it will get reused on every initialisation.
             commits = []
         self.commits = commits
+
+        if not tags:
+            # We cannot use the default value of a mutable type argument,
+            # as it will get reused on every initialisation.
+            tags = []
+        self.tags = tags
 
     def __repr__(self) -> str:
         return (
@@ -90,6 +98,15 @@ class PushLog:
         self.commits.append(commit)
 
         return commit
+
+    def add_tag(self, tag_name: str, scm_commit: CommitData) -> Tag:
+        """Add a new tag to the Pushlog, for later recording in the DB."""
+        logger.debug(f"Adding tag {str} to {scm_commit.hash} to current push ...")
+
+        tag = Tag.for_scm_commit(repo=self.repo, name=tag_name, scm_commit=scm_commit)
+        self.tags.append(tag)
+
+        return tag
 
     def confirm(self, value: bool = True):
         """Mark the push as confirmed and ready to record.
@@ -132,6 +149,13 @@ class PushLog:
             )
             commit.save()
             push.commits.add(commit)
+
+        for tag in self.tags:
+            logger.debug(
+                f"Saving tag {tag} for push {push.push_id} to {push.repo_url} ..."
+            )
+            tag.save()
+            push.tags.add(tag)
 
         push.save()
         self.push = push

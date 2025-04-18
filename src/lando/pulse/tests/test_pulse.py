@@ -10,6 +10,7 @@ def test__PulseNotifier(
     make_repo: Callable,
     make_commit: Callable,
     make_push: Callable,
+    make_tag: Callable,
     kombu_queue_maker: Callable,
 ):
     routing_key = "routing_key"
@@ -23,7 +24,11 @@ def test__PulseNotifier(
     commit = make_commit(repo=repo, seqno=1)
     # An unrelated commit we don't want to see in the push
     make_commit(repo=repo, seqno=2)
-    push = make_push(repo=repo, commits=[commit])
+
+    tag = make_tag(repo, 1, commit)
+    tag_name = tag.name
+
+    push = make_push(repo=repo, commits=[commit], tags=[tag])
 
     notifier.notify_push(push)
 
@@ -36,7 +41,8 @@ def test__PulseNotifier(
     assert message["repo_url"] == push.repo_url
     assert repo.default_branch in message["branches"]
     assert message["branches"][repo.default_branch] == commit.hash
-    assert not message["tags"]
+    assert tag_name in message["tags"]
+    assert message["tags"][tag_name] == commit.hash
     assert message["user"] == push.user
     # XXX: https://bugzilla.mozilla.org/show_bug.cgi?id=1957549
     # assert message['push_json_url'] == push.push_json_url
