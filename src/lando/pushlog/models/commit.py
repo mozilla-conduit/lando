@@ -239,6 +239,44 @@ class Tag(models.Model):
         on_delete=models.SET_NULL,
     )
 
+    _scm_commit: CommitData | None = None
+
+    @staticmethod
+    def for_scm_commit(repo: Repo, name: str, scm_commit: CommitData):  # noqa: ANN205
+        """Create a partial Tag object, based on CommitData not present in the DB
+        yet."""
+        try:
+            # If a commit already exists in the DB, use that
+            commit = Commit.objects.get(repo=repo, hash=scm_commit.hash)
+            return Tag(repo=repo, name=name, commit=commit)
+        except Commit.DoesNotExist:
+            pass
+
+        tag = Tag(repo=repo, name=name)
+        tag._scm_commit = scm_commit
+
+        return tag
+
+    def save(self, *args, **kwargs):
+        """Save the Tag data to the DB.
+
+        If the target commit is not an ORM model yet, this method will find or create
+        it as needed, and maintain the DB relations.
+        """
+        # First make sure we don't deal with stale data.
+        try:
+            self.refresh_from_db()
+        except Tag.DoesNotExist:
+            # We're OK if this commit doesn't exist in the DB yet; we're just about to
+            # write it.
+            pass
+
+        if self._scm_commit:
+            self.commit = Commit.from_scm_commit(self.repo, self._scm_commit)
+            self._scm_commit = None
+
+        super(Tag, self).save(*args, **kwargs)
+
     class Meta:
         unique_together = ("repo", "name")
 
@@ -246,6 +284,7 @@ class Tag(models.Model):
         return f"{self.__class__.__name__}(repo={self.repo!r}, name={self.name}, commit={self.commit})"
 
     def __str__(self) -> str:
-        return (
-            f"Tag {self.name} in {self.repo.url} pointing to Commit {self.commit.hash}"
-        )
+        try:
+            return f"Tag {self.name} in {self.repo.url} pointing to Commit {self.commit.hash}"
+        except Tag.commit.RelatedObjectDoesNotExist:
+            return f"Partial tag {self.name} in {self.repo.url} pointing to Commit {self._scm_commit.hash}"
