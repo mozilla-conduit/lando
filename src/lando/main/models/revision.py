@@ -15,10 +15,9 @@ from typing import Any, Optional
 from django.db import models
 from django.utils.translation import gettext_lazy
 
-from lando.api.legacy.hgexports import HgPatchHelper
+from lando.api.legacy.hgexports import HgPatchHelper, build_patch_for_revision
 from lando.main.models.base import BaseModel
 from lando.main.scm.exceptions import NoDiffStartLine
-from lando.utils import build_patch_for_revision
 
 logger = logging.getLogger(__name__)
 

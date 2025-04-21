@@ -4,6 +4,7 @@ import unittest.mock as mock
 
 import pytest
 
+from lando.api.legacy.hgexports import HgPatchHelper
 from lando.api.legacy.workers.landing_worker import (
     AUTOFORMAT_COMMIT_MESSAGE,
 )
@@ -17,7 +18,6 @@ from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.scm.hg import LostPushRace
 from lando.pushlog.models.commit import Commit
 from lando.pushlog.models.push import Push
-from lando.utils import HgPatchHelper
 
 
 @pytest.fixture
