@@ -111,7 +111,7 @@ class Commit(models.Model):
             self.add_files(kwargs["files"])
             del kwargs["files"]
 
-        super(Commit, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(repo={self.repo!r}, hash={self.hash})"
@@ -155,7 +155,7 @@ class Commit(models.Model):
         if not self.id and any([self._unsaved_files, self._unsaved_parents]):
             # We need the Commit to exist in the DB before being able to associate
             # parents or files to it.
-            super(Commit, self).save(*args, **kwargs)
+            super().save(*args, **kwargs)
 
         if self._unsaved_parents:
             while self._unsaved_parents:
@@ -185,7 +185,7 @@ class Commit(models.Model):
                 )[0]
                 self._files.add(file)
 
-        super(Commit, self).save(*args, **kwargs)
+        super().save(*args, **kwargs)
 
     @property
     def parents(self) -> list[str]:
@@ -244,10 +244,9 @@ class Tag(models.Model):
 
     @classmethod
     def for_scm_commit(cls, repo: Repo, name: str, scm_commit: CommitData) -> Self:
-        """Create a partial Tag object, based on CommitData not present in the DB
-        yet."""
+        """Create a partial Tag object, based on info not present in the DB yet."""
         try:
-            # If a commit already exists in the DB, use that
+            # If a commit already exists in the DB, use that.
             commit = Commit.objects.get(repo=repo, hash=scm_commit.hash)
             return Tag(repo=repo, name=name, commit=commit)
         except Commit.DoesNotExist:
@@ -276,7 +275,7 @@ class Tag(models.Model):
             self.commit = Commit.from_scm_commit(self.repo, self._scm_commit)
             self._scm_commit = None
 
-        super(Tag, self).save(*args, **kwargs)
+        super().save(*args, **kwargs)
 
     class Meta:
         unique_together = ("repo", "name")

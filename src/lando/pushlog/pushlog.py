@@ -37,17 +37,9 @@ class PushLog:
         self.repo = repo
         self.user = user
 
-        if not commits:
-            # We cannot use the default value of a mutable type argument,
-            # as it will get reused on every initialisation.
-            commits = []
-        self.commits = commits
+        self.commits = commits or []
 
-        if not tags:
-            # We cannot use the default value of a mutable type argument,
-            # as it will get reused on every initialisation.
-            tags = []
-        self.tags = tags
+        self.tags = tags or []
 
     def __repr__(self) -> str:
         return (
