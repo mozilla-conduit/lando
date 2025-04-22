@@ -1,5 +1,6 @@
 import datetime
 import json
+from os import wait
 import secrets
 import subprocess
 import unittest.mock as mock
@@ -509,25 +510,26 @@ def test_automation_job_add_commit_success_hg(
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
 
 
-PATCH_GIT_1 = r"""
-From 0f5a3c99e12c1e9b0e81bed245fe537961f89e57 Mon Sep 17 00:00:00 2001
-From: Connor Sheehan <sheehan@mozilla.com>
-Date: Wed, 6 Jul 2022 16:36:09 -0400
-Subject: [PATCH] add another file.
+PATCH_GIT_1 = """\
+From 77a05b90d0d4eb7a75fa7acf052673e5dc36a20b Mon Sep 17 00:00:00 2001
+From: Py Test <pytest@lando.example.net>
+Date: Tue, 22 Apr 2025 02:02:55 +0000
+Subject: [PATCH] add another file
 
---
- test.txt | 8 +
- 1 file changed, 1 insertions(+), 0 deletion(-)
+---
+ test.txt | 1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/test.txt b/test.txt
+index 2a02d41..45e9938 100644
 --- a/test.txt
 +++ b/test.txt
-@@ -1,1 +1,2 @@
+@@ -1 +1,2 @@
  TEST
 +adding another line
---
-2.31.1
-""".lstrip()
+-- 
+2.39.5
+"""
 
 
 @pytest.mark.django_db
