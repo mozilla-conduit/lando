@@ -258,6 +258,7 @@ class Tag(models.Model):
         if self._scm_commit:
             self.commit = Commit.from_scm_commit(self.repo, self._scm_commit)
             self._scm_commit = None
+            self.commit.save()
 
         super().save(*args, **kwargs)
 
