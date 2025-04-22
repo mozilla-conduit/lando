@@ -122,17 +122,19 @@ class AutomationWorker(Worker):
                 if action.action == "tag":
                     # Record tag if created.
                     tag_name = action.name
-
-                    tag_commitdata = scm.describe_commit(action.name)
-                    pushlog.add_tag(tag_name, tag_commitdata)
-
-                    created_tags.append(action.name)
+                    created_tags.append(tag_name)
 
             # We need to add the commits to the pushlog _before_ pushing, so we can
             # compare the current stack to the last upstream.
             # We'll only confirm them if the push succeeds.
             for commit in scm.describe_local_changes():
                 pushlog.add_commit(commit)
+
+            # We need to add the tags after the commits, in case a `Tag` is created
+            # which refers to a commit which does not exist.
+            for tag_name in created_tags:
+                tag_commitdata = scm.describe_commit(tag_name)
+                pushlog.add_tag(tag_name, tag_commitdata)
 
             repo_push_info = f"tree: {repo.tree}, push path: {repo.push_path}"
             try:
