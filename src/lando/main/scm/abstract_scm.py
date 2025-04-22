@@ -50,6 +50,7 @@ class AbstractSCM:
         push_path: str,
         push_target: Optional[str] = None,
         force_push: bool = False,
+        tags: list[str] | None = None,
     ):
         """Push local code to the remote repository.
 
@@ -58,6 +59,7 @@ class AbstractSCM:
             will remain unspecified if None or empty string.
             target (Optional[str]): The target branch or reference to push to. Defaults to None.
             force_push (bool): If True, force the push even if it results in a non-fast-forward update. Defaults to False.
+            tags (Optional[list[str]]): List of tags to push, if applicable.
 
         Returns:
             None
@@ -236,7 +238,3 @@ class AbstractSCM:
 
         If `target` is `None`, use the currently checked out commit.
         """
-
-    @abstractmethod
-    def push_tag(self, tag: str, remote: str):
-        """Push the tag with name `tag` to `remote`."""

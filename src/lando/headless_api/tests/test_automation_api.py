@@ -504,7 +504,7 @@ def test_automation_job_add_commit_success_hg(
     assert len(scm.push.call_args) == 2
     assert len(scm.push.call_args[0]) == 1
     assert scm.push.call_args[0][0] == hg_server
-    assert scm.push.call_args[1] == {"push_target": "", "force_push": False}
+    assert scm.push.call_args[1] == {"push_target": "", "force_push": False, "tags": []}
     assert job.status == JobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
 
@@ -569,7 +569,7 @@ def test_automation_job_add_commit_success_git(
     assert scm.push.call_count == 1
     assert len(scm.push.call_args) == 2
     assert len(scm.push.call_args[0]) == 1
-    assert scm.push.call_args[1] == {"push_target": "", "force_push": False}
+    assert scm.push.call_args[1] == {"push_target": "", "force_push": False, "tags": []}
     assert job.status == JobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
 
@@ -669,7 +669,7 @@ def test_automation_job_create_commit_success(
     assert len(scm.push.call_args) == 2
     assert len(scm.push.call_args[0]) == 1
     assert scm.push.call_args[0][0] == repo.url
-    assert scm.push.call_args[1] == {"push_target": "", "force_push": False}
+    assert scm.push.call_args[1] == {"push_target": "", "force_push": False, "tags": []}
     assert job.status == JobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
 

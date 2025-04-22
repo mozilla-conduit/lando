@@ -135,6 +135,7 @@ class AutomationWorker(Worker):
                     repo.push_path,
                     push_target=repo.push_target,
                     force_push=repo.force_push,
+                    tags=created_tags,
                 )
             except (
                 TreeClosed,
@@ -163,34 +164,6 @@ class AutomationWorker(Worker):
 
             # Get the changeset hash of the first node.
             commit_id = scm.head_ref()
-
-            for tag in created_tags:
-                try:
-                    scm.push_tag(tag, repo.push_path)
-                except (
-                    TreeClosed,
-                    TreeApprovalRequired,
-                    SCMLostPushRace,
-                    SCMPushTimeoutException,
-                    SCMInternalServerError,
-                ) as e:
-                    message = (
-                        f"Temporary error ({e.__class__}) "
-                        f"encountered while pushing tag {tag} to {repo_push_info}"
-                    )
-                    logger.exception(message)
-                    job.transition_status(JobAction.DEFER, message=message)
-                    return False  # Try again, this is a temporary failure.
-                except Exception as e:
-                    message = f"Unexpected error while pushing tag {tag} to {repo.push_path}.\n{e}"
-                    logger.exception(message)
-                    job.transition_status(
-                        JobAction.FAIL,
-                        message=message,
-                    )
-                    return True  # Do not try again, this is a permanent failure.
-                else:
-                    pushlog.confirm()
 
         job.transition_status(JobAction.LAND, commit_id=commit_id)
 

@@ -550,32 +550,3 @@ def test_HgSCM_tag(hg_clone, request: pytest.FixtureRequest):
         )
 
         assert commit_sha.startswith(tagged_sha) or tagged_sha.startswith(commit_sha)
-
-
-def test_HgSCM_push_tag(hg_clone, request: pytest.FixtureRequest):
-    scm = HgSCM(hg_clone.strpath)
-
-    with scm.for_push(f"pytest+{request.node.name}@lando"):
-        # Create a new commit and tag it
-        _create_hg_commit(request, Path(hg_clone))
-        commit_sha = scm.head_ref()
-
-        tag_name = "v1.0.0"
-        scm.tag(tag_name, None)
-        scm.push_tag(tag_name, hg_clone.strpath)
-
-        # Verify tag is available in the remote
-        tag_sha = (
-            subprocess.run(
-                ["hg", "log", "-r", f"tag('{tag_name}')", "-T", "{node}"],
-                cwd=hg_clone.strpath,
-                capture_output=True,
-                check=True,
-            )
-            .stdout.decode()
-            .strip()
-        )
-
-        assert commit_sha.startswith(tag_sha) or tag_sha.startswith(
-            commit_sha
-        ), f"Expected tag {tag_name} to point to {commit_sha}, but got {tag_sha}"

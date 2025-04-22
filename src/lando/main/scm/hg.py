@@ -194,6 +194,7 @@ class HgSCM(AbstractSCM):
         push_path: str,
         push_target: Optional[str] = None,
         force_push: bool = False,
+        tags: list[str] | None = None,
     ) -> None:
         """Push local code to the remote repository."""
         if not os.getenv(REQUEST_USER_ENV_VAR):
@@ -715,10 +716,3 @@ class HgSCM(AbstractSCM):
             tag_command.append(target)
 
         self.run_hg(tag_command)
-
-    def push_tag(self, tag: str, remote: str):
-        """Push the tag with name `tag` to `remote`.
-
-        Since Mercurial creates tags as new commits, this is a no-op.
-        """
-        pass

@@ -91,12 +91,13 @@ class GitSCM(AbstractSCM):
         push_path: str,
         push_target: Optional[str] = None,
         force_push: bool = False,
+        tags: list[str] | None = None,
     ):
         """Push local code to the remote repository."""
-        command = ["push"]
+        common_args = ["push"]
 
         if force_push:
-            command += ["--force"]
+            common_args += ["--force"]
 
         if match := re.match(GITHUB_URL_RE, push_path):
             # We only fetch a token if no authentication is explicitly specified in
@@ -115,14 +116,20 @@ class GitSCM(AbstractSCM):
                 if token:
                     push_path = f"https://git:{token}@github.com/{match['owner']}/{match['repo']}"
 
-        command += [push_path]
+        common_args += [push_path]
 
         if not push_target:
             push_target = self.default_branch
 
-        command += [f"HEAD:{push_target}"]
+        push_command = [*common_args, f"HEAD:{push_target}"]
 
-        self._git_run(*command, cwd=self.path)
+        self._git_run(*push_command, cwd=self.path)
+
+        # If any tags were passed, ensure they are pushed.
+        if tags:
+            for tag in tags:
+                push_tags_command = [*common_args, f"refs/tags/{tag}"]
+                self._git_run(*push_tags_command, cwd=self.path)
 
     @staticmethod
     def _get_github_token(repo_owner: str, repo_name: str) -> Optional[str]:
