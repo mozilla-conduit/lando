@@ -204,6 +204,8 @@ class GitSCM(AbstractSCM):
                     if "error: patch" in exc.err:
                         raise PatchConflict(exc.err) from exc
 
+                    raise exc
+
     def process_merge_conflict(
         self,
         pull_path: str,
