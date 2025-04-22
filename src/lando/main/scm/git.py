@@ -111,9 +111,13 @@ class GitSCM(AbstractSCM):
                     },
                 )
 
-                token = self._get_github_token(match["owner"], match["repo"])
+                owner = match["owner"]
+                repo = match["repo"]
+                repo_name = repo.removesuffix(".git")
+
+                token = self._get_github_token(owner, repo_name)
                 if token:
-                    push_path = f"https://git:{token}@github.com/{match['owner']}/{match['repo']}"
+                    push_path = f"https://git:{token}@github.com/{owner}/{repo}"
 
         command += [push_path]
 
