@@ -144,14 +144,6 @@ class Commit(models.Model):
         If any parent commits or files have been added, this method will find or create
         them as needed, and maintain the DB relations.
         """
-        # First make sure we don't deal with stale data.
-        try:
-            self.refresh_from_db()
-        except Commit.DoesNotExist:
-            # We're OK if this commit doesn't exist in the DB yet; we're just about to
-            # write it.
-            pass
-
         if not self.id and any([self._unsaved_files, self._unsaved_parents]):
             # We need the Commit to exist in the DB before being able to associate
             # parents or files to it.
@@ -169,7 +161,7 @@ class Commit(models.Model):
                     # XXX: This MUST be an exception, but it's problematic for
                     # pre-existing repos with un-imported history.
                     # raise Commit.DoesNotExist(
-                    logger.error(
+                    logger.warning(
                         f"Parent commit not found for repo. commit={self.hash} parent_commit={parent_hash} repo={self.repo}"
                     )
                     # ) from e
@@ -263,14 +255,6 @@ class Tag(models.Model):
         If the target commit is not an ORM model yet, this method will find or create
         it as needed, and maintain the DB relations.
         """
-        # First make sure we don't deal with stale data.
-        try:
-            self.refresh_from_db()
-        except Tag.DoesNotExist:
-            # We're OK if this commit doesn't exist in the DB yet; we're just about to
-            # write it.
-            pass
-
         if self._scm_commit:
             self.commit = Commit.from_scm_commit(self.repo, self._scm_commit)
             self._scm_commit = None
