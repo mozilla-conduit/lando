@@ -121,6 +121,11 @@ class AutomationWorker(Worker):
 
                 if action.action == "tag":
                     # Record tag if created.
+                    tag_name = action.name
+
+                    tag_commitdata = scm.describe_commit(action.name)
+                    pushlog.add_tag(tag_name, tag_commitdata)
+
                     created_tags.append(action.name)
 
             # We need to add the commits to the pushlog _before_ pushing, so we can
