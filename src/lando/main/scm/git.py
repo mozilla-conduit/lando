@@ -91,12 +91,13 @@ class GitSCM(AbstractSCM):
         push_path: str,
         push_target: Optional[str] = None,
         force_push: bool = False,
+        tags: list[str] | None = None,
     ):
         """Push local code to the remote repository."""
-        command = ["push"]
+        push_command = ["push"]
 
         if force_push:
-            command += ["--force"]
+            push_command += ["--force"]
 
         if match := re.match(GITHUB_URL_RE, push_path):
             # We only fetch a token if no authentication is explicitly specified in
@@ -111,18 +112,27 @@ class GitSCM(AbstractSCM):
                     },
                 )
 
-                token = self._get_github_token(match["owner"], match["repo"])
-                if token:
-                    push_path = f"https://git:{token}@github.com/{match['owner']}/{match['repo']}"
+                owner = match["owner"]
+                repo = match["repo"]
+                repo_name = repo.removesuffix(".git")
 
-        command += [push_path]
+                token = self._get_github_token(owner, repo_name)
+                if token:
+                    push_path = f"https://git:{token}@github.com/{owner}/{repo}"
+
+        push_command += [push_path]
 
         if not push_target:
             push_target = self.default_branch
 
-        command += [f"HEAD:{push_target}"]
+        push_command += [f"HEAD:{push_target}"]
 
-        self._git_run(*command, cwd=self.path)
+        # If any tags were passed, ensure they are pushed.
+        if tags:
+            for tag in tags:
+                push_command += [f"refs/tags/{tag}"]
+
+        self._git_run(*push_command, cwd=self.path)
 
     @staticmethod
     def _get_github_token(repo_owner: str, repo_name: str) -> Optional[str]:
@@ -542,3 +552,19 @@ class GitSCM(AbstractSCM):
         )
 
         return self.get_current_node()
+
+    def tag(self, name: str, target: str | None):
+        """Create a new tag called `name` on the `target` commit.
+
+        If `target` is `None`, use the currently checked out commit.
+        """
+        tag_command = ["tag", name]
+
+        if target:
+            tag_command.append(target)
+
+        self._git_run(*tag_command, cwd=self.path)
+
+    def push_tag(self, tag: str, remote: str):
+        """Push the tag with name `tag` to `remote`."""
+        self._git_run("push", remote, f"refs/tags/{tag}", cwd=self.path)

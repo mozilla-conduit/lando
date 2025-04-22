@@ -194,6 +194,7 @@ class HgSCM(AbstractSCM):
         push_path: str,
         push_target: Optional[str] = None,
         force_push: bool = False,
+        tags: list[str] | None = None,
     ) -> None:
         """Push local code to the remote repository."""
         if not os.getenv(REQUEST_USER_ENV_VAR):
@@ -703,3 +704,15 @@ class HgSCM(AbstractSCM):
         self.run_hg(["commit", "-m", commit_message, "--landing_system", "lando"])
 
         return self.get_current_node().decode("utf-8")
+
+    def tag(self, name: str, target: str | None):
+        """Create a new tag called `name` on the `target` commit.
+
+        If `target` is `None`, use the currently checked out commit.
+        """
+        tag_command = ["tag", name]
+
+        if target:
+            tag_command.append(target)
+
+        self.run_hg(tag_command)

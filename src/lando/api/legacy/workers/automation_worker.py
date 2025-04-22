@@ -101,6 +101,9 @@ class AutomationWorker(Worker):
                 )
                 return True
 
+            # Record any created tags.
+            created_tags = []
+
             # Run each action for the job.
             actions = job.actions.all()
             for action_row in actions:
@@ -110,10 +113,16 @@ class AutomationWorker(Worker):
                 # Execute the action locally.
                 try:
                     action.process(job, repo, scm, action_row.order)
+
                 except AutomationActionException as exc:
                     logger.exception(exc.message)
                     job.transition_status(exc.job_status, message=exc.message)
                     return not exc.is_fatal
+
+                if action.action == "tag":
+                    # Record tag if created.
+                    tag_name = action.name
+                    created_tags.append(tag_name)
 
             # We need to add the commits to the pushlog _before_ pushing, so we can
             # compare the current stack to the last upstream.
@@ -121,12 +130,19 @@ class AutomationWorker(Worker):
             for commit in scm.describe_local_changes():
                 pushlog.add_commit(commit)
 
+            # We need to add the tags after the commits, in case a `Tag` is created
+            # which refers to a commit which does not exist.
+            for tag_name in created_tags:
+                tag_commitdata = scm.describe_commit(tag_name)
+                pushlog.add_tag(tag_name, tag_commitdata)
+
             repo_push_info = f"tree: {repo.tree}, push path: {repo.push_path}"
             try:
                 scm.push(
                     repo.push_path,
                     push_target=repo.push_target,
                     force_push=repo.force_push,
+                    tags=created_tags,
                 )
             except (
                 TreeClosed,

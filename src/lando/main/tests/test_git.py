@@ -503,3 +503,91 @@ def test_GitSCM_merge_onto(
         assert (
             merged_file == expected_content
         ), f"File contents did not match expected for strategy {strategy}"
+
+
+def test_GitSCM_tag(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+
+    # Create a new commit and get its SHA
+    _create_git_commit(request, clone_path)
+    commit_sha = (
+        subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=clone_path,
+            capture_output=True,
+            check=True,
+        )
+        .stdout.decode()
+        .strip()
+    )
+
+    # Tag the current commit
+    tag_name = "v1.0"
+    scm.tag(tag_name, None)
+
+    # Check that the tag exists
+    tag_output = (
+        subprocess.run(
+            ["git", "tag", "--list"], cwd=clone_path, capture_output=True, check=True
+        )
+        .stdout.decode()
+        .splitlines()
+    )
+
+    assert tag_name in tag_output, f"New tag {tag_name} should be present in tags list."
+
+    # Check the tag points to the expected commit
+    tag_sha = (
+        subprocess.run(
+            ["git", "rev-list", "-n", "1", tag_name],
+            cwd=clone_path,
+            capture_output=True,
+            check=True,
+        )
+        .stdout.decode()
+        .strip()
+    )
+
+    assert tag_sha == commit_sha, "Tag should point to expected commit."
+
+
+def test_GitSCM_push_tag(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+
+    # Create a commit and tag it
+    _create_git_commit(request, clone_path)
+    tag_name = "v1.0.0"
+    scm.tag(tag_name, None)
+
+    # Push the tag
+    scm.push_tag(tag_name, str(git_repo))
+
+    # Check that the tag exists in the remote
+    tag_exists = subprocess.run(
+        ["git", "ls-remote", "--tags", str(git_repo), tag_name],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+    assert tag_exists, f"Tag {tag_name} was not found in the remote repository."

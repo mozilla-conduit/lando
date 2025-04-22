@@ -504,30 +504,31 @@ def test_automation_job_add_commit_success_hg(
     assert len(scm.push.call_args) == 2
     assert len(scm.push.call_args[0]) == 1
     assert scm.push.call_args[0][0] == hg_server
-    assert scm.push.call_args[1] == {"push_target": "", "force_push": False}
+    assert scm.push.call_args[1] == {"push_target": "", "force_push": False, "tags": []}
     assert job.status == JobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
 
 
-PATCH_GIT_1 = r"""
-From 0f5a3c99e12c1e9b0e81bed245fe537961f89e57 Mon Sep 17 00:00:00 2001
-From: Connor Sheehan <sheehan@mozilla.com>
-Date: Wed, 6 Jul 2022 16:36:09 -0400
-Subject: [PATCH] add another file.
+PATCH_GIT_1 = """\
+From 77a05b90d0d4eb7a75fa7acf052673e5dc36a20b Mon Sep 17 00:00:00 2001
+From: Py Test <pytest@lando.example.net>
+Date: Tue, 22 Apr 2025 02:02:55 +0000
+Subject: [PATCH] add another file
 
---
- test.txt | 8 +
- 1 file changed, 1 insertions(+), 0 deletion(-)
+---
+ test.txt | 1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/test.txt b/test.txt
+index 2a02d41..45e9938 100644
 --- a/test.txt
 +++ b/test.txt
-@@ -1,1 +1,2 @@
+@@ -1 +1,2 @@
  TEST
 +adding another line
---
-2.31.1
-""".lstrip()
+-- 
+2.39.5
+"""  # noqa: W291, `git` adds an empty newline after `--`.
 
 
 @pytest.mark.django_db
@@ -569,7 +570,7 @@ def test_automation_job_add_commit_success_git(
     assert scm.push.call_count == 1
     assert len(scm.push.call_args) == 2
     assert len(scm.push.call_args[0]) == 1
-    assert scm.push.call_args[1] == {"push_target": "", "force_push": False}
+    assert scm.push.call_args[1] == {"push_target": "", "force_push": False, "tags": []}
     assert job.status == JobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
 
@@ -669,7 +670,7 @@ def test_automation_job_create_commit_success(
     assert len(scm.push.call_args) == 2
     assert len(scm.push.call_args[0]) == 1
     assert scm.push.call_args[0][0] == repo.url
-    assert scm.push.call_args[1] == {"push_target": "", "force_push": False}
+    assert scm.push.call_args[1] == {"push_target": "", "force_push": False, "tags": []}
     assert job.status == JobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
 
@@ -883,6 +884,242 @@ def test_automation_job_merge_onto_fail(
     ), f"Job should fail for SCM: {scm_type}"
     assert job.status == JobStatus.FAILED
     assert "Aborting, could not perform `merge-onto`" in job.error
+
+
+@pytest.mark.django_db
+def test_automation_job_tag_success_git_tip_commit(
+    repo_mc,
+    treestatusdouble,
+    get_automation_worker,
+    request,
+    monkeypatch,
+    normal_patch,
+):
+    repo = repo_mc(SCM_TYPE_GIT)
+    scm = repo.scm
+
+    head_ref = scm.head_ref()
+
+    # Create a new commit that will be tagged
+    _create_git_commit(request, Path(repo.system_path))
+
+    tag_name = "v-tagtest-git"
+
+    job = AutomationJob.objects.create(
+        status=JobStatus.SUBMITTED,
+        requester_email="test@example.com",
+        target_repo=repo,
+    )
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="tag",
+        data={
+            "action": "tag",
+            "name": tag_name,
+            "target": head_ref,
+        },
+        order=1,
+    )
+
+    automation_worker = get_automation_worker(SCM_TYPE_GIT)
+    automation_worker.worker_instance.applicable_repos.add(repo)
+
+    assert automation_worker.run_automation_job(job)
+    assert job.status == JobStatus.LANDED
+
+    # Tag should be on the most recent commit.
+    expected_commit = scm.head_ref()
+
+    # now compare to the tag
+    tag_commit = subprocess.run(
+        ["git", "rev-list", "-n", "1", tag_name],
+        cwd=repo.system_path,
+        capture_output=True,
+        check=True,
+        text=True,
+    ).stdout.strip()
+
+    assert tag_commit == expected_commit
+
+
+@pytest.mark.django_db
+def test_automation_job_tag_success_git_new_commit(
+    repo_mc,
+    treestatusdouble,
+    get_automation_worker,
+    request,
+    monkeypatch,
+    normal_patch,
+):
+    repo = repo_mc(SCM_TYPE_GIT)
+    scm = repo.scm
+
+    # Create a new commit that will be tagged
+    _create_git_commit(request, Path(repo.system_path))
+
+    tag_name = "v-tagtest-git"
+
+    job = AutomationJob.objects.create(
+        status=JobStatus.SUBMITTED,
+        requester_email="test@example.com",
+        target_repo=repo,
+    )
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="add-commit",
+        data={
+            "action": "add-commit",
+            "content": PATCH_GIT_1,
+            "patch_format": "git-format-patch",
+        },
+        order=0,
+    )
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="tag",
+        data={"action": "tag", "name": tag_name, "target": None},
+        order=1,
+    )
+
+    automation_worker = get_automation_worker(SCM_TYPE_GIT)
+    automation_worker.worker_instance.applicable_repos.add(repo)
+
+    assert automation_worker.run_automation_job(job)
+    assert job.status == JobStatus.LANDED
+
+    # Tag should be on the most recent commit.
+    expected_commit = scm.head_ref()
+
+    # now compare to the tag
+    tag_commit = subprocess.run(
+        ["git", "rev-list", "-n", "1", tag_name],
+        cwd=repo.system_path,
+        capture_output=True,
+        check=True,
+        text=True,
+    ).stdout.strip()
+
+    assert tag_commit == expected_commit
+
+
+@pytest.mark.django_db
+def test_automation_job_tag_failure_git(
+    repo_mc,
+    treestatusdouble,
+    get_automation_worker,
+    request,
+    monkeypatch,
+    normal_patch,
+):
+    repo = repo_mc(SCM_TYPE_GIT)
+
+    # Create a new commit that will be tagged
+    _create_git_commit(request, Path(repo.system_path))
+
+    tag_name = "v-tagtest-git"
+
+    job = AutomationJob.objects.create(
+        status=JobStatus.SUBMITTED,
+        requester_email="test@example.com",
+        target_repo=repo,
+    )
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="add-commit",
+        data={
+            "action": "add-commit",
+            "content": PATCH_GIT_1,
+            "patch_format": "git-format-patch",
+        },
+        order=0,
+    )
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="tag",
+        data={"action": "tag", "name": tag_name, "target": "bad-target"},
+        order=1,
+    )
+
+    automation_worker = get_automation_worker(SCM_TYPE_GIT)
+    automation_worker.worker_instance.applicable_repos.add(repo)
+
+    assert not automation_worker.run_automation_job(job)
+    job.refresh_from_db()
+    assert job.status == JobStatus.FAILED
+    assert "Aborting, could not perform `tag`, action #1" in job.error
+
+
+@pytest.mark.django_db
+def test_automation_job_tag_success_hg(
+    repo_mc,
+    treestatusdouble,
+    get_automation_worker,
+    normal_patch,
+    request,
+):
+    repo = repo_mc(SCM_TYPE_HG)
+
+    repo_path = Path(repo.system_path)
+
+    # Create a new commit that will be tagged.
+    _create_hg_commit(request, repo_path)
+    expected_commit = subprocess.run(
+        ["hg", "log", "-r", ".", "-T", "{node}"],
+        cwd=repo_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+    tag_name = "v-tagtest-hg"
+
+    job = AutomationJob.objects.create(
+        status=JobStatus.SUBMITTED,
+        requester_email="test@example.com",
+        target_repo=repo,
+    )
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="add-commit",
+        data={
+            "action": "add-commit",
+            "content": normal_patch(1),
+            "patch_format": "hgexport",
+        },
+        order=0,
+    )
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="tag",
+        data={"action": "tag", "name": tag_name, "target": None},
+        order=1,
+    )
+
+    automation_worker = get_automation_worker(SCM_TYPE_HG)
+    automation_worker.worker_instance.applicable_repos.add(repo)
+
+    assert automation_worker.run_automation_job(job)
+    assert job.status == JobStatus.LANDED, job.error
+
+    # Verify the created commit is the one with the tag.
+    expected_commit = subprocess.run(
+        ["hg", "log", "-r", ".^", "-T", "{node}"],
+        cwd=repo.system_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+    # Verify tag was pushed to remote.
+    tagged_commit = subprocess.run(
+        ["hg", "log", "-r", f"tag('{tag_name}')", "-T", "{node}"],
+        cwd=repo.system_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+    assert expected_commit == tagged_commit
 
 
 @pytest.mark.django_db
