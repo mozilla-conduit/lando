@@ -2,7 +2,7 @@ from django.db import models
 
 from lando.main.models import Repo
 
-from .commit import Commit
+from .commit import Commit, Tag
 from .consts import MAX_BRANCH_LENGTH, MAX_URL_LENGTH
 
 
@@ -39,6 +39,8 @@ class Push(models.Model):
     # via a Through relationship model [0]
     # [0] https://docs.djangoproject.com/en/dev/topics/db/models/#intermediary-manytomany
     commits = models.ManyToManyField(Commit)
+
+    tags = models.ManyToManyField(Tag)
 
     notified = models.BooleanField(default=False)
 

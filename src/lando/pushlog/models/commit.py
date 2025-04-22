@@ -1,4 +1,5 @@
 import logging
+from typing import Self
 
 from django.core.validators import (
     MaxLengthValidator,
@@ -110,7 +111,7 @@ class Commit(models.Model):
             self.add_files(kwargs["files"])
             del kwargs["files"]
 
-        super(Commit, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(repo={self.repo!r}, hash={self.hash})"
@@ -118,8 +119,8 @@ class Commit(models.Model):
     def __str__(self) -> str:
         return f"Commit {self.hash} in {self.repo}"
 
-    @staticmethod
-    def from_scm_commit(repo: Repo, scm_commit: CommitData):  # noqa: ANN205
+    @classmethod
+    def from_scm_commit(cls, repo: Repo, scm_commit: CommitData) -> Self:
         """Create a Commit ORM object from an Commit dataclass."""
         try:
             # If a commit already exists in the DB, don't create a new one.
@@ -143,18 +144,10 @@ class Commit(models.Model):
         If any parent commits or files have been added, this method will find or create
         them as needed, and maintain the DB relations.
         """
-        # First make sure we don't deal with stale data.
-        try:
-            self.refresh_from_db()
-        except Commit.DoesNotExist:
-            # We're OK if this commit doesn't exist in the DB yet; we're just about to
-            # write it.
-            pass
-
         if not self.id and any([self._unsaved_files, self._unsaved_parents]):
             # We need the Commit to exist in the DB before being able to associate
             # parents or files to it.
-            super(Commit, self).save(*args, **kwargs)
+            super().save(*args, **kwargs)
 
         if self._unsaved_parents:
             while self._unsaved_parents:
@@ -168,7 +161,7 @@ class Commit(models.Model):
                     # XXX: This MUST be an exception, but it's problematic for
                     # pre-existing repos with un-imported history.
                     # raise Commit.DoesNotExist(
-                    logger.error(
+                    logger.warning(
                         f"Parent commit not found for repo. commit={self.hash} parent_commit={parent_hash} repo={self.repo}"
                     )
                     # ) from e
@@ -184,7 +177,7 @@ class Commit(models.Model):
                 )[0]
                 self._files.add(file)
 
-        super(Commit, self).save(*args, **kwargs)
+        super().save(*args, **kwargs)
 
     @property
     def parents(self) -> list[str]:
@@ -239,6 +232,35 @@ class Tag(models.Model):
         on_delete=models.SET_NULL,
     )
 
+    _scm_commit: CommitData | None = None
+
+    @classmethod
+    def for_scm_commit(cls, repo: Repo, name: str, scm_commit: CommitData) -> Self:
+        """Create a partial Tag object, based on info not present in the DB yet."""
+        try:
+            # If a commit already exists in the DB, use that.
+            commit = Commit.objects.get(repo=repo, hash=scm_commit.hash)
+            return Tag(repo=repo, name=name, commit=commit)
+        except Commit.DoesNotExist:
+            pass
+
+        tag = Tag(repo=repo, name=name)
+        tag._scm_commit = scm_commit
+
+        return tag
+
+    def save(self, *args, **kwargs):
+        """Save the Tag data to the DB.
+
+        If the target commit is not an ORM model yet, this method will find or create
+        it as needed, and maintain the DB relations.
+        """
+        if self._scm_commit:
+            self.commit = Commit.from_scm_commit(self.repo, self._scm_commit)
+            self._scm_commit = None
+
+        super().save(*args, **kwargs)
+
     class Meta:
         unique_together = ("repo", "name")
 
@@ -246,6 +268,7 @@ class Tag(models.Model):
         return f"{self.__class__.__name__}(repo={self.repo!r}, name={self.name}, commit={self.commit})"
 
     def __str__(self) -> str:
-        return (
-            f"Tag {self.name} in {self.repo.url} pointing to Commit {self.commit.hash}"
-        )
+        try:
+            return f"Tag {self.name} in {self.repo.url} pointing to Commit {self.commit.hash}"
+        except Tag.commit.RelatedObjectDoesNotExist:
+            return f"Partial tag {self.name} in {self.repo.url} pointing to Commit {self._scm_commit.hash}"
