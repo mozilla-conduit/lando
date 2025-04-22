@@ -898,6 +898,8 @@ def test_automation_job_tag_success_git_tip_commit(
     repo = repo_mc(SCM_TYPE_GIT)
     scm = repo.scm
 
+    head_ref = scm.head_ref()
+
     # Create a new commit that will be tagged
     _create_git_commit(request, Path(repo.system_path))
 
@@ -910,18 +912,12 @@ def test_automation_job_tag_success_git_tip_commit(
     )
     AutomationAction.objects.create(
         job_id=job,
-        action_type="add-commit",
-        data={
-            "action": "add-commit",
-            "content": PATCH_GIT_1,
-            "patch_format": "git-format-patch",
-        },
-        order=0,
-    )
-    AutomationAction.objects.create(
-        job_id=job,
         action_type="tag",
-        data={"action": "tag", "name": tag_name, "target": None},
+        data={
+            "action": "tag",
+            "name": tag_name,
+            "target": head_ref,
+        },
         order=1,
     )
 
