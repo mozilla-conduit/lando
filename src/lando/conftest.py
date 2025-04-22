@@ -572,11 +572,15 @@ def make_tag():
 
 @pytest.fixture
 def make_push():
-    def push_factory(repo: Repo, commits: list[Commit]):
+    def push_factory(
+        repo: Repo, commits: list[Commit] | None = None, tags: list[Tag] | None = None
+    ):
         """Create a non-descript push containing the associated commits in the test DB."""
         push = Push.objects.create(repo=repo, user="Push-User")
-        for c in commits:
+        for c in commits or []:
             push.commits.add(c)
+        for t in tags or []:
+            push.tags.add(t)
         push.save()
 
         return push

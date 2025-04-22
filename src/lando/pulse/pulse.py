@@ -62,14 +62,20 @@ class PulseNotifier:
 
     @classmethod
     def pulse_message_for_push(cls, push: Push) -> dict:
-        """Generate Pulse notification payload for the given Push."""
+        """Generate Pulse notification payload for the given Push.
+
+        Documentation of the message format can be found at [0].
+
+        [0] https://moz-conduit.readthedocs.io/en/latest/lando-pushlog.html.
+        """
         branches = {}
         if push.commits.count():
             commit = push.commits.latest()
             branches = {push.branch: commit.hash}
 
-        # XXX: to be implemented in https://bugzilla.mozilla.org/show_bug.cgi?id=1957547
         tags = {}
+        for tag in push.tags.all():
+            tags[tag.name] = tag.commit.hash
 
         if not branches and not tags:
             logger.warning(
