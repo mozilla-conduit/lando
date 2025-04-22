@@ -1,6 +1,5 @@
 import datetime
 import json
-from os import wait
 import secrets
 import subprocess
 import unittest.mock as mock
@@ -529,7 +528,7 @@ index 2a02d41..45e9938 100644
 +adding another line
 -- 
 2.39.5
-"""
+"""  # noqa: W291, `git` adds an empty newline after `--`.
 
 
 @pytest.mark.django_db
