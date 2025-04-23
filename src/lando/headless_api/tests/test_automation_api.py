@@ -368,6 +368,37 @@ def test_automation_job_create_api(client, hg_server, hg_clone, headless_user):
 
 
 @pytest.mark.django_db
+def test_automation_job_create_commit_request(client, repo_mc, headless_user):
+    user, token = headless_user
+
+    repo = repo_mc(SCM_TYPE_GIT)
+    body = {
+        "actions": [
+            {
+                "action": "create-commit",
+                "commitmsg": "test commit message",
+                "date": "2025-04-22T18:30:27.786900+00:00",
+                "author": "Test User <test@example.com>",
+                "diff": "diff --git",
+            }
+        ],
+    }
+    response = client.post(
+        f"/api/repo/{repo.name}",
+        data=json.dumps(body),
+        content_type="application/json",
+        headers={
+            "User-Agent": "Lando-User/testuser@example.org",
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert (
+        response.status_code == 202
+    ), "Successful submission should result in `202 Accepted` status code."
+
+
+@pytest.mark.django_db
 def test_get_job_status_not_found(client, headless_user):
     user, token = headless_user
     response = client.get(

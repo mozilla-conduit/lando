@@ -356,7 +356,7 @@ def post_repo_actions(
             AutomationAction.objects.create(
                 job_id=automation_job,
                 action_type=action.action,
-                data=action.dict(),
+                data=action.model_dump(mode="json"),
                 order=index,
             )
 
