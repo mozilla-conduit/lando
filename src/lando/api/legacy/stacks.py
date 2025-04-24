@@ -66,7 +66,7 @@ def request_extended_revision_data(
     if not revision_phids:
         return RevisionData({}, {}, {})
 
-    revs = phab.call_conduit(
+    revs = phab.call_conduit_collated(
         "differential.revision.search",
         constraints={"phids": revision_phids},
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
@@ -79,7 +79,7 @@ def request_extended_revision_data(
     phab.expect(revs, "data", len(revision_phids) - 1)
     revs = result_list_to_phid_dict(phab.expect(revs, "data"))
 
-    diffs = phab.call_conduit(
+    diffs = phab.call_conduit_collated(
         "differential.diff.search",
         constraints={"revisionPHIDs": revision_phids},
         attachments={"commits": True},
