@@ -255,7 +255,7 @@ class TagAction(Schema):
 
     action: Literal["tag"]
     name: str
-    target: str | None
+    target: str | None = None
 
     def process(
         self, job: AutomationJob, repo: Repo, scm: AbstractSCM, index: int

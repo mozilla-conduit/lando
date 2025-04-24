@@ -8,7 +8,7 @@ from lando.pushlog.models import Push
 
 class Command(BaseCommand):
     title = "View the pushlog for a given repository"
-    name = "view_pushlog"
+    name = "pushlog_view"
 
     def add_arguments(self, parser: CommandParser):
         parser.add_argument("-r", "--repo", required=True)

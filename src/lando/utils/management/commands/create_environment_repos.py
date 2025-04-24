@@ -5,13 +5,15 @@ from django.db.utils import IntegrityError
 from lando.environments import Environment
 from lando.main.models import (
     DONTBUILD,
+    SCM_ALLOW_DIRECT_PUSH,
     SCM_CONDUIT,
     SCM_LEVEL_1,
+    SCM_LEVEL_3,
     Repo,
 )
 from lando.main.scm import GitSCM
 
-ENVIRONMENTS = [e for e in Environment if not e.is_test and e.is_lower]
+ENVIRONMENTS = [e for e in Environment if not e.is_test]
 
 # These repos are copied from the legacy repo "subsystem".
 REPOS = {
@@ -151,7 +153,22 @@ REPOS = {
             "required_permission": SCM_CONDUIT,
         },
     ],
+    Environment.production: [],
 }
+
+for branch in ["autoland", "beta", "esr115", "esr128", "release"]:
+    REPOS[Environment.production].append(
+        {
+            "name": f"firefox-{branch}",
+            "default_branch": branch,
+            "url": "https://github.com/mozilla-firefox/firefox.git",
+            "push_path": "https://github.com/mozilla-firefox/firefox.git",
+            "short_name": f"firefox-{branch}",
+            "required_permission": (
+                SCM_ALLOW_DIRECT_PUSH if branch != "autoland" else SCM_LEVEL_3
+            ),
+        }
+    )
 
 
 class Command(BaseCommand):
