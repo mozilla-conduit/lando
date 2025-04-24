@@ -216,7 +216,7 @@ class PhabricatorClient:
         """Continuously call call_conduit and return the collated data in one dict."""
         result = self.call_conduit(method, **kwargs)
         if not result:
-            return []
+            return {"data": []}
 
         data = result["data"]
         while result and result["cursor"] and result["cursor"]["after"]:
