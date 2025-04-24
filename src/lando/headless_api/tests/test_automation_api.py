@@ -377,7 +377,7 @@ def test_automation_job_create_commit_request(client, repo_mc, headless_user):
             {
                 "action": "create-commit",
                 "commitmsg": "test commit message",
-                "date": "2025-04-22T18:30:27.786900+00:00",
+                "date": "2025-04-22T18:30:27.786900Z",
                 "author": "Test User <test@example.com>",
                 "diff": "diff --git",
             }
@@ -396,6 +396,14 @@ def test_automation_job_create_commit_request(client, repo_mc, headless_user):
     assert (
         response.status_code == 202
     ), "Successful submission should result in `202 Accepted` status code."
+
+    job_id = response.json()["job_id"]
+    job = AutomationJob.objects.get(id=job_id)
+    action = job.actions.all()[0]
+
+    assert (
+        action.data["date"] == "2025-04-22T18:30:27.786900Z"
+    ), "`date` field should be serialized properly."
 
 
 @pytest.mark.django_db
