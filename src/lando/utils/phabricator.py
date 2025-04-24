@@ -212,8 +212,8 @@ class PhabricatorClient:
         PhabricatorAPIException.raise_if_error(response)
         return response.get("result")
 
-    def get_conduit_result_data(self, method: str, **kwargs) -> dict:
-        """Helper method to fetch multiple pages of data."""
+    def call_conduit_collated(self, method: str, **kwargs) -> dict[str, list[Any]]:
+        """Continuously call call_conduit and return the collated data in one dict."""
         result = self.call_conduit(method, **kwargs)
         if not result:
             return []
