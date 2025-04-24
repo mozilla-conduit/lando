@@ -214,6 +214,15 @@ class PhabricatorClient:
 
     def call_conduit_collated(self, method: str, **kwargs) -> dict[str, list[Any]]:
         """Continuously call call_conduit and return the collated data in one dict."""
+
+        # NOTE: if a limit is passed, it is ignored since Phabricator already limits
+        # results to 100, and raises and error if a limit is passed that is greater
+        # than 100. This is kept for backwards compatibility.
+        # See bug 1962523 for more information.
+        limit = None
+        if "limit" in kwargs:
+            limit = kwargs.pop("limit")
+
         result = self.call_conduit(method, **kwargs)
         if not result:
             return {"data": []}
@@ -225,6 +234,8 @@ class PhabricatorClient:
             )
             if result and "data" in result and result["data"]:
                 data += result["data"]
+        if limit:
+            data = data[:limit]
         return {"data": data}
 
     @staticmethod
