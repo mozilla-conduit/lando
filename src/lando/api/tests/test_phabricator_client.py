@@ -87,7 +87,7 @@ def test_phabricator_exception(get_phab_client):
         assert e_info.value.error_info == error["error_info"]
 
 
-def test_phabricator__get_conduit_result_data(get_phab_client, monkeypatch):
+def test_phabricator__call_conduit_collated(get_phab_client, monkeypatch):
     phab = get_phab_client(api_key="api-key")
     mock_call_conduit = mock.MagicMock()
 
@@ -102,7 +102,7 @@ def test_phabricator__get_conduit_result_data(get_phab_client, monkeypatch):
 
     mock_call_conduit.side_effect = [initial_result, second_result]
     monkeypatch.setattr(phab, "call_conduit", mock_call_conduit)
-    test = phab.get_conduit_result_data("conduit.some_method")
+    test = phab.call_conduit_collated("conduit.some_method")
     assert len(test["data"]) == 200
     assert test["data"][:100] == first_batch
     assert test["data"][100:] == second_batch
