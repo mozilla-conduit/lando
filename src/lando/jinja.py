@@ -220,7 +220,9 @@ def linkify_transplant_details(text: str, landing_job: LandingJob) -> str:
     if "git" in parsed_repo_url.netloc:
         link_template = r'<a href="{repo_url}/commit/\g<1>">{repo_url}/commit/\g<1></a>'
 
-    replace = link_template.format(repo_url=landing_job.repository_url)
+    replace = link_template.format(
+        repo_url=landing_job.repository_url.removesuffix(".git")
+    )
     return re.sub(search, replace, str(text))  # This is case sensitive
 
 
