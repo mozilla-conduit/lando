@@ -4,6 +4,7 @@ import logging
 from django.contrib import messages
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.template.response import TemplateResponse
 
 from lando.api.legacy import api as legacy_api
@@ -41,9 +42,12 @@ class Uplift(LandoView):
                 messages.add_message(request, messages.ERROR, error)
 
             # Not ideal, but because we do not have access to the revision ID
-            # we will just redirect the user back to the referring page and
-            # they will see the flash messages.
-            return redirect(request.META.get("HTTP_REFERER"))
+            # we will just redirect the user back to the referring page if it is valid,
+            # or to the home page if the referring page is invalid.
+            referer = request.META.get("HTTP_REFERER", "")
+            if url_has_allowed_host_and_scheme(referer, allowed_hosts=None):
+                return redirect(referer)
+            return redirect("/")
 
         revision_id = uplift_request_form.cleaned_data["revision_id"]
         repository = uplift_request_form.cleaned_data["repository"]
