@@ -156,7 +156,7 @@ REPOS = {
     Environment.production: [],
 }
 
-for branch in ["autoland", "beta", "esr115", "esr128", "release"]:
+for branch in ["main"]:
     REPOS[Environment.production].append(
         {
             "name": f"firefox-{branch}",
