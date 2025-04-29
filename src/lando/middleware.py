@@ -83,11 +83,24 @@ class MaintenanceModeMiddleware:
             ConfigurationKey.API_IN_MAINTENANCE, False
         )
 
+        maintenance_message = ConfigurationVariable.get(
+            ConfigurationKey.MAINTENANCE_MESSAGE,
+            "Lando is under maintenance and is temporarily unavailable. Please try again later.",
+        )
+
         if (
             in_maintenance
             and resolve(request.path).namespace not in excepted_namespaces
             and resolve(request.path).url_name not in excepted_url_names
         ):
-            return HttpResponse(render_to_string("503.html", {"in_maintenance": True}))
+            return HttpResponse(
+                render_to_string(
+                    "503.html",
+                    {
+                        "in_maintenance": True,
+                        "maintenance_message": maintenance_message,
+                    },
+                )
+            )
 
         return self.get_response(request)

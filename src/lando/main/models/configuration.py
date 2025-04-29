@@ -20,6 +20,7 @@ class ConfigurationKey(enum.Enum):
     """Configuration keys used throughout the system."""
 
     API_IN_MAINTENANCE = "API_IN_MAINTENANCE"
+    MAINTENANCE_MESSAGE = "MAINTENANCE_MESSAGE"
 
 
 class VariableTypeChoices(models.TextChoices):

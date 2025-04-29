@@ -154,23 +154,35 @@ def test_linkify_revision_ids(input_text, output_text):
 
 
 @pytest.mark.parametrize(
-    "repo_url, match",
+    "commit_id, repo_url, result",
     [
-        ("https://github.com/bad/coffee", r"/commit/"),
-        ("https://hg.mozilla.org/bad/coffee", r"/rev/"),
+        (
+            "badc0ffe",
+            "https://github.com/bad/coffee",
+            "https://github.com/bad/coffee/commit/badc0ffe",
+        ),
+        (
+            "badc0ffe",
+            "https://github.com/bad/coffee.git",
+            "https://github.com/bad/coffee/commit/badc0ffe",
+        ),
+        (
+            "badc0ffe",
+            "https://hg.mozilla.org/bad/coffee",
+            "https://hg.mozilla.org/bad/coffee/rev/badc0ffe",
+        ),
     ],
 )
-def test_linkify_transplant_details(repo_url: str, match: str):
-    commit_id = "badc0ffe"
+def test_linkify_transplant_details(commit_id: str, repo_url: str, result: str):
     landing_job = LandingJob(
         landed_commit_id=commit_id,
         repository_url=repo_url,
         status=JobStatus.LANDED,
     )
-
+    re_string = re.compile(r'.*href="(.*)".*')
     out = linkify_transplant_details(f"{commit_id} is here", landing_job)
-    match_re = match + commit_id
-    assert re.search(match_re, out)
+    url = re_string.match(out).groups()[0]
+    assert url == result
 
 
 @pytest.mark.parametrize(
