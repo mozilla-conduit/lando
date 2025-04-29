@@ -45,6 +45,9 @@ class ConfigurationVariable(BaseModel):
         blank=True,
     )
 
+    def __str__(self) -> str:
+        return self.key
+
     @property
     def value(self) -> ConfigurationValueType:
         """The parsed value of `raw_value` based on `variable_type`.

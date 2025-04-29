@@ -23,6 +23,13 @@ class RevisionLandingJobInline(admin.TabularInline):
 class LandingJobAdmin(admin.ModelAdmin):
     model = LandingJob
     inlines = [RevisionLandingJobInline]
+    list_display = (
+        "id",
+        "status",
+        "target_repo__name",
+        "created_at",
+        "duration_seconds",
+    )
     fields = (
         "status",
         "attempts",
@@ -39,8 +46,35 @@ class LandingJobAdmin(admin.ModelAdmin):
     )
 
 
+class RepoAdmin(admin.ModelAdmin):
+    model = Repo
+    list_display = (
+        "name",
+        "scm_type",
+        "system_path",
+        "pull_path",
+        "push_path",
+        "required_permission",
+        "short_name",
+        "url",
+    )
+
+    readonly_fields = (
+        "system_path",
+        "scm_type",
+    )
+
+
+class ConfigurationVariableAdmin(admin.ModelAdmin):
+    model = ConfigurationVariable
+    list_display = (
+        "key",
+        "value",
+    )
+
+
+admin.site.register(Repo, RepoAdmin)
 admin.site.register(LandingJob, LandingJobAdmin)
 admin.site.register(Revision, admin.ModelAdmin)
-admin.site.register(Repo, admin.ModelAdmin)
 admin.site.register(Worker, admin.ModelAdmin)
-admin.site.register(ConfigurationVariable, admin.ModelAdmin)
+admin.site.register(ConfigurationVariable, ConfigurationVariableAdmin)
