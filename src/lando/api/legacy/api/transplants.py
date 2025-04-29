@@ -397,7 +397,7 @@ def get_list(
         return problem(404, "Revision not found", HTTP_404_STRING)
     nodes, edges = build_stack_graph(revision)
     revision_phids = list(nodes)
-    revs = phab.call_conduit(
+    revs = phab.call_conduit_collated(
         "differential.revision.search",
         constraints={"phids": revision_phids},
         limit=len(revision_phids),

@@ -87,7 +87,11 @@ def test_phabricator_exception(get_phab_client):
         assert e_info.value.error_info == error["error_info"]
 
 
-def test_phabricator__call_conduit_collated(get_phab_client, monkeypatch):
+@pytest.mark.parametrize(
+    "limit",
+    [100, 150, None],
+)
+def test_phabricator__call_conduit_collated(get_phab_client, monkeypatch, limit):
     phab = get_phab_client(api_key="api-key")
     mock_call_conduit = mock.MagicMock()
 
@@ -102,7 +106,17 @@ def test_phabricator__call_conduit_collated(get_phab_client, monkeypatch):
 
     mock_call_conduit.side_effect = [initial_result, second_result]
     monkeypatch.setattr(phab, "call_conduit", mock_call_conduit)
-    test = phab.call_conduit_collated("conduit.some_method")
-    assert len(test["data"]) == 200
-    assert test["data"][:100] == first_batch
-    assert test["data"][100:] == second_batch
+    if limit:
+        test = phab.call_conduit_collated("conduit.some_method", limit=limit)
+    else:
+        test = phab.call_conduit_collated("conduit.some_method")
+
+    if limit:
+        assert len(test["data"]) == limit
+        assert (
+            test["data"][limit - 1] == (first_batch + second_batch)[:limit][limit - 1]
+        )
+    else:
+        assert len(test["data"]) == 200
+        assert test["data"][:100] == first_batch
+        assert test["data"][100:] == second_batch
