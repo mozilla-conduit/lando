@@ -505,6 +505,67 @@ def test_GitSCM_merge_onto(
         ), f"File contents did not match expected for strategy {strategy}"
 
 
+def test_GitSCM_merge_onto_fast_forward(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+
+    # Create base commit on main
+    _create_git_commit(request, clone_path)
+
+    # Create a feature branch and add a commit
+    subprocess.run(["git", "switch", "-c", "feature"], cwd=clone_path, check=True)
+    _create_git_commit(request, clone_path)
+    feature_commit = scm.head_ref()
+
+    # Switch back to base
+    subprocess.run(["git", "switch", "main"], cwd=clone_path, check=True)
+    base_commit = scm.head_ref()
+
+    # Merge (should fast-forward)
+    commit_msg = "Fast-forward merge"
+    new_head = scm.merge_onto(commit_msg, feature_commit, strategy=None)
+
+    # Check that the HEAD matches the feature commit (i.e. fast-forward happened)
+    assert (
+        new_head == feature_commit
+    ), "Returned head for `main` should point to the same SHA as `feature`."
+    assert (
+        new_head != base_commit
+    ), "Returned head for `main` should not point to the old base."
+    assert (
+        scm.head_ref() == feature_commit
+    ), "Current head should point to the same SHA as `feature`."
+    assert (
+        scm.head_ref() != base_commit
+    ), "Returned head for `main` should not point to the old base."
+
+    # Check that no merge commit was created
+    parents = (
+        subprocess.run(
+            ["git", "rev-list", "--parents", "-n", "1", new_head],
+            cwd=clone_path,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        .stdout.strip()
+        .split()
+    )
+
+    assert (
+        len(parents) == 2
+    ), "Fast-forward should have one parent (i.e. no merge commit)"
+
+
 def test_GitSCM_tag(
     git_repo: Path,
     git_setup_user: Callable,

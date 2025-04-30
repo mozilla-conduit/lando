@@ -816,6 +816,55 @@ def test_automation_job_merge_onto_success_git(
     assert len(job.landed_commit_id) == 40
 
 
+@pytest.mark.django_db
+def test_automation_job_merge_onto_fast_forward_git(
+    repo_mc,
+    treestatusdouble,
+    git_automation_worker,
+    request,
+):
+    repo = repo_mc(SCM_TYPE_GIT)
+    scm = repo.scm
+    scm.push = mock.MagicMock()
+
+    repo_path = Path(repo.system_path)
+
+    # Start on main, make a commit
+    subprocess.run(["git", "switch", "main"], cwd=repo_path, check=True)
+    _create_git_commit(request, repo_path)
+
+    # Create feature branch from main, add another commit
+    subprocess.run(["git", "switch", "-c", "feature"], cwd=repo_path, check=True)
+    _create_git_commit(request, repo_path)
+    feature_sha = scm.head_ref()
+
+    # Return to base (fast-forward target)
+    subprocess.run(["git", "switch", "main"], cwd=repo_path, check=True)
+
+    job = AutomationJob.objects.create(
+        status=JobStatus.SUBMITTED,
+        requester_email="test@example.com",
+        target_repo=repo,
+    )
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="merge-onto",
+        data={
+            "action": "merge-onto",
+            "commit_message": "Fast-forward merge test",
+            "strategy": None,
+            "target": feature_sha,
+        },
+        order=0,
+    )
+
+    git_automation_worker.worker_instance.applicable_repos.add(repo)
+
+    assert git_automation_worker.run_automation_job(job)
+    assert job.status == JobStatus.LANDED
+    assert scm.head_ref() == feature_sha
+
+
 @pytest.mark.parametrize("strategy", [None, "ours", "theirs"])
 @pytest.mark.django_db
 def test_automation_job_merge_onto_success_hg(
