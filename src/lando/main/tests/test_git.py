@@ -518,19 +518,19 @@ def test_GitSCM_merge_onto_fast_forward(
     scm.clone(str(git_repo))
     git_setup_user(str(clone_path))
 
-    # Create base commit on main
+    # Create base commit on main.
     _create_git_commit(request, clone_path)
 
-    # Create a feature branch and add a commit
+    # Create a feature branch and add a commit.
     subprocess.run(["git", "switch", "-c", "feature"], cwd=clone_path, check=True)
     _create_git_commit(request, clone_path)
     feature_commit = scm.head_ref()
 
-    # Switch back to base
+    # Switch back to base.
     subprocess.run(["git", "switch", "main"], cwd=clone_path, check=True)
     base_commit = scm.head_ref()
 
-    # Merge (should fast-forward)
+    # Merge (should fast-forward).
     commit_msg = "Fast-forward merge"
     new_head = scm.merge_onto(commit_msg, feature_commit, strategy=None)
 
@@ -548,7 +548,7 @@ def test_GitSCM_merge_onto_fast_forward(
         scm.head_ref() != base_commit
     ), "Returned head for `main` should not point to the old base."
 
-    # Check that no merge commit was created
+    # Check that no merge commit was created.
     parents = (
         subprocess.run(
             ["git", "rev-list", "--parents", "-n", "1", new_head],
@@ -563,7 +563,7 @@ def test_GitSCM_merge_onto_fast_forward(
 
     assert (
         len(parents) == 2
-    ), "Fast-forward should have one parent (i.e. no merge commit)"
+    ), "Fast-forward should have one parent (i.e. no merge commit)."
 
 
 def test_GitSCM_tag(

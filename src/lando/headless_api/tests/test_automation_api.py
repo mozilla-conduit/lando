@@ -829,16 +829,16 @@ def test_automation_job_merge_onto_fast_forward_git(
 
     repo_path = Path(repo.system_path)
 
-    # Start on main, make a commit
+    # Start on main, make a commit.
     subprocess.run(["git", "switch", "main"], cwd=repo_path, check=True)
     _create_git_commit(request, repo_path)
 
-    # Create feature branch from main, add another commit
+    # Create feature branch from main, add another commit.
     subprocess.run(["git", "switch", "-c", "feature"], cwd=repo_path, check=True)
     _create_git_commit(request, repo_path)
     feature_sha = scm.head_ref()
 
-    # Return to base (fast-forward target)
+    # Return to base (fast-forward target).
     subprocess.run(["git", "switch", "main"], cwd=repo_path, check=True)
 
     job = AutomationJob.objects.create(
