@@ -330,6 +330,7 @@ def create_uplift_revision(
                         phab.expect(commit, "message")
                     ),
                     "commit": phab.expect(commit, "identifier"),
+                    "tree": "0000000000000000000000000000000000000000",
                     "rev": phab.expect(commit, "identifier"),
                     "parents": [base_revision],
                 }
