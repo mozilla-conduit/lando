@@ -862,7 +862,26 @@ def test_automation_job_merge_onto_fast_forward_git(
 
     assert git_automation_worker.run_automation_job(job)
     assert job.status == JobStatus.LANDED
-    assert scm.head_ref() == feature_sha
+
+    head_ref = scm.head_ref()
+    assert head_ref == feature_sha, "New `head_ref` should match the `feature_sha`."
+
+    # Confirm only one parent (not a merge commit)
+    parents = (
+        subprocess.run(
+            ["git", "rev-list", "--parents", "-n", "1", head_ref],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        .stdout.strip()
+        .split()
+    )
+
+    assert (
+        len(parents) == 2
+    ), f"Expected fast-forward commit with 1 parent, got: {parents}"
 
 
 @pytest.mark.parametrize("strategy", [None, "ours", "theirs"])
