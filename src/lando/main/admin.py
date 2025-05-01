@@ -60,6 +60,7 @@ class RepoAdmin(admin.ModelAdmin):
     )
 
     readonly_fields = (
+        "commit_flags",
         "system_path",
         "scm_type",
     )
