@@ -209,7 +209,10 @@ class LandingWorker(Worker):
             try:
                 # If we just landed an uplift, update the relevant bugs as appropriate.
                 update_bugs_for_uplift(
-                    repo.short_name,
+                    # Use the `legacy source` shortname here, since the new repos
+                    # use the `firefox-` prefix naming convention. For `firefox-beta`
+                    # this should return `beta`, etc.
+                    repo.default_branch,
                     scm.read_checkout_file("config/milestone.txt"),
                     repo.milestone_tracking_flag_template,
                     bug_ids,
