@@ -31,3 +31,9 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(f"Token created for {email}"))
         self.stdout.write(self.style.SUCCESS(f"Token: {token}"))
+        self.stdout.write(
+            self.style.NOTICE(
+                "Once the user has received their token, they will need the\n"
+                "`headless_api.add_automationjob` permission on their user profile."
+            )
+        )
