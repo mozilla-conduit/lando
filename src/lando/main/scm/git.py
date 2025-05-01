@@ -539,11 +539,10 @@ class GitSCM(AbstractSCM):
             return new_merge_commit
 
         # Set strategy args.
-        strategy_args = ["-s", strategy] if strategy else []
+        strategy_args = ["--no-ff", "-s", strategy] if strategy else []
 
         self._git_run(
             "merge",
-            "--no-ff",
             "-m",
             commit_message,
             *strategy_args,
