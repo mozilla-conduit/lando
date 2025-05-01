@@ -38,6 +38,10 @@ class AutomationWorker(Worker):
         self.last_job_finished = None
         self.refresh_active_repos()
 
+    def refresh_active_repos(self):
+        """Override base functionality by not checking treestatus."""
+        self.active_repos = self.enabled_repos
+
     def loop(self):
         logger.debug(
             f"{len(self.worker_instance.enabled_repos)} "
