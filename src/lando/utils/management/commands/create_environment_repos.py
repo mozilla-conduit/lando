@@ -156,6 +156,20 @@ REPOS = {
     Environment.production: [],
 }
 
+# RelEng staging repo / branches - used in try pushes
+for branch in ["main", "autoland", "beta", "release", "esr115", "esr128"]:
+    REPOS[Environment.staging].append(
+        {
+            "name": f"staging-firefox-{branch}",
+            "default_branch": branch,
+            "url": "https://github.com/mozilla-releng/staging-firefox.git",
+            "push_path": "https://github.com/mozilla-releng/staging-firefox.git",
+            "short_name": f"staging-firefox-{branch}",
+            "required_permission": SCM_LEVEL_1,
+            "automation_enabled": True,
+        }
+    )
+
 for branch in ["main"]:
     REPOS[Environment.production].append(
         {
