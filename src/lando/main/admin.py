@@ -28,8 +28,10 @@ class LandingJobAdmin(admin.ModelAdmin):
         "status",
         "target_repo__name",
         "created_at",
+        "requester_email",
         "duration_seconds",
     )
+    list_filter = ["target_repo__name", "requester_email", "created_at"]
     fields = (
         "status",
         "attempts",
@@ -44,6 +46,13 @@ class LandingJobAdmin(admin.ModelAdmin):
         "target_commit_hash",
         "target_repo",
     )
+    readonly_fields = [
+        "attempts",
+        "duration_seconds",
+        "error",
+        "formatted_replacements",
+        "landed_commit_id",
+    ]
 
 
 class RepoAdmin(admin.ModelAdmin):
