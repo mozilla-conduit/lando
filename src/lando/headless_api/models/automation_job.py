@@ -46,6 +46,9 @@ class AutomationJob(BaseModel):
     # Reference to the target repo.
     target_repo = models.ForeignKey(Repo, on_delete=models.SET_NULL, null=True)
 
+    # Text describing errors when status != LANDED.
+    error = models.TextField(default="", blank=True)
+
     @contextmanager
     def processing(self):
         """Mutex-like context manager that manages job processing miscellany.
@@ -67,6 +70,7 @@ class AutomationJob(BaseModel):
             "message": f"Job is in the {self.status} state.",
             "created_at": self.created_at,
             "status": self.status,
+            "error": self.error,
         }
 
     def transition_status(
