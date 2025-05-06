@@ -332,7 +332,7 @@ class HgSCM(AbstractSCM):
         """Return Commit metadata."""
         return self._describe_revisions(revision_id)[0]
 
-    def describe_local_changes(self) -> list[CommitData]:
+    def describe_local_changes(self, **kwargs) -> list[CommitData]:
         """Return a list of the Commits only present on this branch."""
         return list(self._describe_revisions("::. and draft()"))
 

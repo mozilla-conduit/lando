@@ -257,9 +257,13 @@ class GitSCM(AbstractSCM):
         """Return Commit metadata."""
         return self._describe_commits(revision_id)[0]
 
-    def describe_local_changes(self) -> list[CommitData]:
+    def describe_local_changes(
+        self, target_cset: str | None = None
+    ) -> list[CommitData]:
         """Return a list of the Commits only present on this branch."""
-        return list(reversed(self._describe_commits("@{u}..")))
+        refspec = f"{target_cset}.." if target_cset else "@{u}.."
+
+        return list(reversed(self._describe_commits(refspec)))
 
     def _describe_commits(self, ref_spec: str = "HEAD") -> list[CommitData]:
         """Return Commit metadata for a given ref_spec (including ranges)."""
