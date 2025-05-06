@@ -70,6 +70,7 @@ class AutomationJob(BaseModel):
             "message": f"Job is in the {self.status} state.",
             "created_at": self.created_at,
             "status": self.status,
+            "error": self.error,
         }
 
     def transition_status(

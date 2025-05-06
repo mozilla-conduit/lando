@@ -319,6 +319,7 @@ class JobStatusResponse(Schema):
     message: str
     created_at: datetime.datetime
     status: str
+    error: str
 
 
 @api.post("/repo/{repo_name}", response={202: JobStatusResponse, codes_4xx: ApiError})
