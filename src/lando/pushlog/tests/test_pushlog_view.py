@@ -56,3 +56,35 @@ def test_pushlog_view(
     else:
         # If unset, defaults to True.
         assert str(tag) in output, "Tag not present in output"
+
+
+@pytest.mark.django_db
+def test_pushlog_view_single_push(
+    make_commit: Callable,
+    make_push: Callable,
+    make_repo: Callable,
+    make_tag: Callable,
+) -> None:
+    repo = make_repo(1)
+    commit = make_commit(repo, 1)
+    push1 = make_push(repo, [commit], [])
+    push1.notified = True
+    push1.save()
+
+    tag = make_tag(repo, 1, commit)
+    push2 = make_push(repo, [], [tag])
+    push2.notified = True
+    push2.save()
+
+    out = StringIO()
+    opts = {
+        "repo": repo.name,
+        "push_id": 1,
+    }
+
+    call_command("pushlog_view", stdout=out, **opts)
+
+    output = out.getvalue()
+
+    assert str(commit) in output
+    assert str(tag) not in output
