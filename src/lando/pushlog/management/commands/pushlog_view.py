@@ -32,7 +32,7 @@ class Command(BaseCommand):
         except Repo.DoesNotExist:
             raise CommandError(f"Repository not found: {repo_name}")
 
-        if push_id > 0:
+        if push_id:
             pushes = Push.objects.filter(repo=repo, push_id=push_id)
         else:
             pushes = Push.objects.filter(repo=repo).order_by("-push_id")
