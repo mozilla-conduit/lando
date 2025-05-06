@@ -40,7 +40,7 @@ class Command(BaseCommand):
                 pushes = pushes[:limit]
 
         if not pushes:
-            push_id_info = f" (push_id {push_id})" if push_id > 0 else ""
+            push_id_info = f" (push_id {push_id})" if push_id else ""
             raise CommandError(f"No push found for {repo_name}{push_id_info}")
 
         for push in pushes:
