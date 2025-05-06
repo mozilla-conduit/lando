@@ -83,9 +83,12 @@ class AutomationWorker(Worker):
             scm.for_push(job.requester_email),
             PushLogForRepo(repo, job.requester_email) as pushlog,
         ):
+            # Determine if a RelBranch should be used for the push.
+            target_cset, push_target = job.resolve_push_target_from_relbranch(repo)
+
             repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
             try:
-                scm.update_repo(repo.pull_path)
+                pre_head_ref = scm.update_repo(repo.pull_path, target_cset=target_cset)
             except SCMInternalServerError as e:
                 message = (
                     f"Temporary error ({e.__class__}) "
@@ -131,7 +134,7 @@ class AutomationWorker(Worker):
             # We need to add the commits to the pushlog _before_ pushing, so we can
             # compare the current stack to the last upstream.
             # We'll only confirm them if the push succeeds.
-            for commit in scm.describe_local_changes():
+            for commit in scm.describe_local_changes(target_cset=pre_head_ref):
                 pushlog.add_commit(commit)
 
             # We need to add the tags after the commits, in case a `Tag` is created
@@ -144,7 +147,7 @@ class AutomationWorker(Worker):
             try:
                 scm.push(
                     repo.push_path,
-                    push_target=repo.push_target,
+                    push_target=push_target,
                     force_push=repo.force_push,
                     tags=created_tags,
                 )

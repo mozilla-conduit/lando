@@ -49,6 +49,9 @@ class AutomationJob(BaseModel):
     # Text describing errors when status != LANDED.
     error = models.TextField(default="", blank=True)
 
+    # Specification of RelBranch to push changes to.
+    relbranch_specifier = models.JSONField(null=True, blank=True)
+
     @contextmanager
     def processing(self):
         """Mutex-like context manager that manages job processing miscellany.
@@ -132,6 +135,30 @@ class AutomationJob(BaseModel):
             .order_by("-priority", "created_at")
             .select_for_update()
         )
+
+    def resolve_push_target_from_relbranch(self, repo: Repo) -> tuple[str | None, str]:
+        """Return (target_cset, push_target) tuple for the `RelBranchSpecifier` if required."""
+        if not self.relbranch_specifier:
+            # Without a specifier, don't set a target cset and use the usual
+            # push target.
+            return None, repo.push_target
+
+        # TODO once we refactor the headless API actions definitions into their
+        # own module, we can create a `RelBranchSpecifier` here instead of
+        # inspecting the JSON.
+
+        # Push to the RelBranch.
+        push_target = self.relbranch_specifier["branch_name"]
+
+        commit_sha = self.relbranch_specifier.get("commit_sha")
+        if commit_sha:
+            # Specify an explicit target cset if passed.
+            target_cset = commit_sha
+        else:
+            # Update to the existing branch head if it exists.
+            target_cset = push_target
+
+        return target_cset, push_target
 
 
 class AutomationAction(BaseModel):
