@@ -86,7 +86,7 @@ def test_pushlog_view_filtering(
     output = out.getvalue()
 
     assert str(commit) in output
-    assert str(tag) not in output, "Other Pushes than selected found in outpu"
+    assert str(tag) not in output, "Other Pushes than selected found in output."
 
     out = StringIO()
     commits_opts = {
