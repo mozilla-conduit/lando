@@ -46,20 +46,20 @@ def test_pushlog_view(
     output = out.getvalue()
 
     if with_commits is False:
-        assert str(commit) not in output, "Commit unexpectedly present in output"
+        assert str(commit) not in output, "Commit unexpectedly present in output."
     else:
         # If unset, defaults to True.
-        assert str(commit) in output, "Commit not present in output"
+        assert str(commit) in output, "Commit not present in output."
 
     if with_tags is False:
-        assert str(tag) not in output, "Tag unexpectedly present in output"
+        assert str(tag) not in output, "Tag unexpectedly present in output."
     else:
         # If unset, defaults to True.
-        assert str(tag) in output, "Tag not present in output"
+        assert str(tag) in output, "Tag not present in output."
 
 
 @pytest.mark.django_db
-def test_pushlog_view_single_push(
+def test_pushlog_view_filtering(
     make_commit: Callable,
     make_push: Callable,
     make_repo: Callable,
@@ -83,8 +83,33 @@ def test_pushlog_view_single_push(
     }
 
     call_command("pushlog_view", stdout=out, **opts)
-
     output = out.getvalue()
 
     assert str(commit) in output
-    assert str(tag) not in output
+    assert str(tag) not in output, "Other Pushes than selected found in output."
+
+    out = StringIO()
+    commits_opts = {
+        "repo": repo.name,
+        "commits_only": True,
+    }
+    call_command("pushlog_view", stdout=out, **commits_opts)
+    output = out.getvalue()
+
+    assert str(push1) in output
+    assert str(push2) not in output, "Tags push found in --tags-only output."
+    assert str(commit) in output
+    assert str(tag) not in output, "Tags found in --commits-only output."
+
+    out = StringIO()
+    tags_opts = {
+        "repo": repo.name,
+        "tags_only": True,
+    }
+    call_command("pushlog_view", stdout=out, **tags_opts)
+    output = out.getvalue()
+
+    assert str(push1) not in output, "Commit push found in --tags-only output."
+    assert str(push2) in output
+    assert str(commit) not in output, "Commits found in --tags-only output."
+    assert str(tag) in output
