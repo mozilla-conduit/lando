@@ -12,10 +12,11 @@ class Command(BaseCommand):
     name = "pushlog_view"
 
     def add_arguments(self, parser: CommandParser):
-        parser.add_argument(
+        only_group = parser.add_mutually_exclusive_group()
+        only_group.add_argument(
             "-C", "--commits-only", default=False, action=argparse.BooleanOptionalAction
         )
-        parser.add_argument(
+        only_group.add_argument(
             "-T", "--tags-only", default=False, action=argparse.BooleanOptionalAction
         )
         parser.add_argument("-l", "--limit", type=int, default=0)
@@ -47,12 +48,6 @@ class Command(BaseCommand):
             pushes = Push.objects.filter(repo=repo)
 
             if commits_only:
-                if tags_only:
-                    self.stdout.write(
-                        self.style.WARNING(
-                            "Option --commits-only takes precedence over --tags-only"
-                        )
-                    )
                 pushes = pushes.annotate(num_commits=Count("commits")).filter(
                     num_commits__gt=0
                 )
