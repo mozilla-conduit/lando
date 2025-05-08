@@ -46,16 +46,16 @@ def test_pushlog_view(
     output = out.getvalue()
 
     if with_commits is False:
-        assert str(commit) not in output, "Commit unexpectedly present in output"
+        assert str(commit) not in output, "Commit unexpectedly present in output."
     else:
         # If unset, defaults to True.
-        assert str(commit) in output, "Commit not present in output"
+        assert str(commit) in output, "Commit not present in output."
 
     if with_tags is False:
-        assert str(tag) not in output, "Tag unexpectedly present in output"
+        assert str(tag) not in output, "Tag unexpectedly present in output."
     else:
         # If unset, defaults to True.
-        assert str(tag) in output, "Tag not present in output"
+        assert str(tag) in output, "Tag not present in output."
 
 
 @pytest.mark.django_db
@@ -97,9 +97,9 @@ def test_pushlog_view_filtering(
     output = out.getvalue()
 
     assert str(push1) in output
-    assert str(push2) not in output, "Tags push found in --tags-only output"
+    assert str(push2) not in output, "Tags push found in --tags-only output."
     assert str(commit) in output
-    assert str(tag) not in output, "Tags found in --commits-only output"
+    assert str(tag) not in output, "Tags found in --commits-only output."
 
     out = StringIO()
     tags_opts = {
@@ -109,7 +109,7 @@ def test_pushlog_view_filtering(
     call_command("pushlog_view", stdout=out, **tags_opts)
     output = out.getvalue()
 
-    assert str(push1) not in output, "Commit push found in --tags-only output"
+    assert str(push1) not in output, "Commit push found in --tags-only output."
     assert str(push2) in output
-    assert str(commit) not in output, "Commits found in --tags-only output"
+    assert str(commit) not in output, "Commits found in --tags-only output."
     assert str(tag) in output
