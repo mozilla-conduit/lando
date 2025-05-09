@@ -353,11 +353,6 @@ class GitSCM(AbstractSCM):
         if not target_cset:
             target_cset = self.default_branch
 
-        remote_branch = f"origin/{target_cset}"
-        if self._git_run("branch", "--list", "--remote", remote_branch, cwd=self.path):
-            # If the branch exists remotely, make sure we get the up-to-date version.
-            target_cset = remote_branch
-
         self.clean_repo()
         # Fetch all refs at the given pull_path, and overwrite the `origin` references.
         self._git_run(
@@ -367,6 +362,11 @@ class GitSCM(AbstractSCM):
             "+refs/heads/*:refs/remotes/origin/*",
             cwd=self.path,
         )
+
+        remote_branch = f"origin/{target_cset}"
+        if self._git_run("branch", "--list", "--remote", remote_branch, cwd=self.path):
+            # If the branch exists remotely, make sure we get the up-to-date version.
+            target_cset = remote_branch
 
         # Create a new work branch, named after the current time, to work in.
         # Ideally, we'd use the revision number, too, but it's not available to the SCM.
