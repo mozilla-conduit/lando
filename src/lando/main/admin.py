@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.contrib import admin
 from django.utils.translation import gettext_lazy
 
@@ -28,8 +30,10 @@ class LandingJobAdmin(admin.ModelAdmin):
         "status",
         "target_repo__name",
         "created_at",
+        "requester_email",
         "duration_seconds",
     )
+    list_filter = ["target_repo__name", "requester_email", "created_at"]
     fields = (
         "status",
         "attempts",
@@ -44,6 +48,53 @@ class LandingJobAdmin(admin.ModelAdmin):
         "target_commit_hash",
         "target_repo",
     )
+    readonly_fields = [
+        "attempts",
+        "duration_seconds",
+        "error",
+        "formatted_replacements",
+        "landed_commit_id",
+    ]
+
+
+class RevisionAdmin(admin.ModelAdmin):
+    model = Revision
+    list_display = (
+        "revision",
+        "desc",
+        "datetime",
+        "author",
+    )
+
+    def revision(self, instance: Revision) -> str:
+        return f"D{instance.revision_id}"
+
+    def datetime(self, instance: Revision) -> datetime | None:
+        ts = instance.patch_data.get("timestamp")
+        if not isinstance(ts, int):
+            return None
+        return datetime.fromtimestamp(ts)
+
+    def author(self, instance: Revision) -> str:
+        author_name = instance.patch_data.get("author_name")
+        author_email = instance.patch_data.get("author_email")
+
+        author_list = []
+
+        if author_name:
+            author_list.append(author_name)
+
+        if author_email:
+            author_email = f"<{author_email}>"
+            author_list.append(author_email)
+
+        if not author_list:
+            return "-"
+
+        return " ".join(author_list)
+
+    def desc(self, instance: Revision) -> str:
+        return (instance.patch_data.get("commit_message") or "-").splitlines()[0]
 
 
 class RepoAdmin(admin.ModelAdmin):
@@ -76,6 +127,6 @@ class ConfigurationVariableAdmin(admin.ModelAdmin):
 
 admin.site.register(Repo, RepoAdmin)
 admin.site.register(LandingJob, LandingJobAdmin)
-admin.site.register(Revision, admin.ModelAdmin)
+admin.site.register(Revision, RevisionAdmin)
 admin.site.register(Worker, admin.ModelAdmin)
 admin.site.register(ConfigurationVariable, ConfigurationVariableAdmin)
