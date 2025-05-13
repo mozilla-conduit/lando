@@ -95,6 +95,17 @@ class Repo(BaseModel):
     )
     url = models.CharField()
 
+    github_repo_name = models.CharField(
+        default="",
+        blank=True,
+        help_text="Automatically generated based on the url field.",
+    )
+    hgmo_repo_name = models.CharField(
+        default="",
+        blank=True,
+        help_text="Automatically generated based on the url field.",
+    )
+
     approval_required = models.BooleanField(default=False)
     autoformat_enabled = models.BooleanField(default=False)
     commit_flags = ArrayField(
@@ -205,7 +216,7 @@ class Repo(BaseModel):
             self.system_path = self.get_system_path()
 
         if not self.push_path or not self.pull_path:
-            url = urllib.parse.urlparse(self.url)
+            url = self.parsed_url
             if not self.push_path:
                 self.push_path = f"ssh://{url.netloc}{url.path}"
             if not self.pull_path:
@@ -220,7 +231,48 @@ class Repo(BaseModel):
         if not self.scm_type:
             self.scm_type = self._find_supporting_scm(self.pull_path)
 
+        if self.url.endswith("/"):
+            self.url = self.url[:-1]
+
+        if self.is_github and not self.url.endswith(".git"):
+            self.url += ".git"
+            self.github_repo_name = self._github_repo_name
+        elif self.is_hgmo:
+            self.hgmo_repo_name = self._hgmo_repo_name
+
         super().save(*args, **kwargs)
+
+    @property
+    def parsed_url(self) -> urllib.parse.ParseResult:
+        return urllib.parse.urlparse(self.url)
+
+    @property
+    def is_github(self) -> bool:
+        if not self.is_git:
+            return False
+        if self.parsed_url.hostname:
+            return self.parsed_url.hostname.endswith("github.com")
+        return False
+
+    @property
+    def _github_repo_name(self) -> str:
+        if self.is_github:
+            return self.parsed_url.path.split("/")[-1].rstrip(".git")
+        return ""
+
+    @property
+    def is_hgmo(self) -> bool:
+        if not self.is_hg:
+            return False
+        if self.parsed_url.hostname:
+            return self.parsed_url.hostname.endswith("hg.mozilla.org")
+        return False
+
+    @property
+    def _hgmo_repo_name(self) -> str:
+        if self.is_hgmo:
+            return self.parsed_url.path.lstrip("/")
+        return ""
 
     def _find_supporting_scm(self, pull_path: str) -> str:
         """Loop through the supported SCM_IMPLEMENTATIONS and return a key representing
