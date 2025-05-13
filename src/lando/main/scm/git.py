@@ -257,13 +257,13 @@ class GitSCM(AbstractSCM):
         """Return Commit metadata."""
         return self._describe_commits(revision_id)[0]
 
-    def describe_local_changes(self, base_cset: str | None = None) -> list[CommitData]:
+    def describe_local_changes(self, base_cset: str = "@{u}") -> list[CommitData]:
         """Return a list of the Commits only present on this branch.
 
         Use the passed target changeset as the base commit. Otherwise, use the
         configured upstream branch.
         """
-        refspec = f"{base_cset}.." if base_cset else "@{u}.."
+        refspec = f"{base_cset}.."
 
         return list(reversed(self._describe_commits(refspec)))
 

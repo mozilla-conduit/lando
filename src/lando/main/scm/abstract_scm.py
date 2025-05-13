@@ -124,7 +124,7 @@ class AbstractSCM:
         """Return Commit metadata."""
 
     @abstractmethod
-    def describe_local_changes(self, base_cset: str | None = None) -> list[CommitData]:
+    def describe_local_changes(self, base_cset: str = "") -> list[CommitData]:
         """Return a list of the Commits only present on this branch.
 
         Commits are sorted in ascending topological order.
