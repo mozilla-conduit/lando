@@ -364,17 +364,12 @@ def post_repo_actions(
             status=JobStatus.SUBMITTED,
             requester_email=request.user.email,
             target_repo=repo,
-            relbranch_name=(
-                operation.relbranch.branch_name if operation.relbranch else None
-            ),
-            relbranch_commit_sha=(
-                operation.relbranch.commit_sha if operation.relbranch else None
-            ),
         )
 
         if operation.relbranch:
             automation_job.relbranch_name = operation.relbranch.branch_name
             automation_job.relbranch_commit_sha = operation.relbranch.commit_sha
+            automation_job.save()
 
         for index, action in enumerate(operation.actions):
             AutomationAction.objects.create(
