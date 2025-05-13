@@ -20,6 +20,7 @@ from lando.main.models.landing_job import JobStatus
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.scm.exceptions import PatchConflict
 from lando.main.tests.test_git import _create_git_commit
+from lando.pushlog.models import Push
 
 
 @pytest.mark.django_db
@@ -1335,6 +1336,13 @@ def test_create_and_push_to_new_relbranch(
         base_commit in parents[1:]
     ), f"Expected base_commit {base_commit} to be parent of {current_commit}"
 
+    # Confirm `Push` has the correct branch name.
+    pushes = Push.objects.all()
+    assert len(pushes) == 1
+    assert (
+        pushes[0].branch == relbranch_name
+    ), f"Completed push should point to `{relbranch_name}`."
+
 
 @pytest.mark.django_db
 def test_push_to_existing_relbranch(
@@ -1418,6 +1426,13 @@ def test_push_to_existing_relbranch(
         check=True,
     ).stdout.strip()
     assert local_sha == remote_sha, "Remote relbranch SHA does not match local SHA."
+
+    # Confirm `Push` has the correct branch name.
+    pushes = Push.objects.all()
+    assert len(pushes) == 1
+    assert (
+        pushes[0].branch == relbranch_name
+    ), f"Completed push should point to `{relbranch_name}`."
 
 
 @pytest.mark.parametrize(
