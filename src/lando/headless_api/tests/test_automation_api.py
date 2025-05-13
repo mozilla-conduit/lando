@@ -1336,6 +1336,21 @@ def test_create_and_push_to_new_relbranch(
         base_commit in parents[1:]
     ), f"Expected base_commit {base_commit} to be parent of {current_commit}"
 
+    # Confirm that 'head.txt' is not present on the relbranch
+    tree_files = (
+        subprocess.run(
+            ["git", "ls-tree", "-r", "--name-only", current_commit],
+            cwd=repo.system_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        .stdout.strip()
+        .splitlines()
+    )
+
+    assert "head.txt" not in tree_files, "'head.txt' should not exist on the relbranch"
+
     # Confirm `Push` has the correct branch name.
     pushes = Push.objects.all()
     assert len(pushes) == 1
