@@ -79,12 +79,13 @@ class AutomationWorker(Worker):
         repo = job.target_repo
         scm = repo.scm
 
+        # Determine if a RelBranch should be used for the push.
+        target_cset, push_target = job.resolve_push_target_from_relbranch(repo)
+
         with (
             scm.for_push(job.requester_email),
-            PushLogForRepo(repo, job.requester_email) as pushlog,
+            PushLogForRepo(repo, job.requester_email, branch=push_target) as pushlog,
         ):
-            # Determine if a RelBranch should be used for the push.
-            target_cset, push_target = job.resolve_push_target_from_relbranch(repo)
 
             repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
             try:
