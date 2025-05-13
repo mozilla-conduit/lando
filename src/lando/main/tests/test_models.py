@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
+from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import pytest
 from django.conf import settings
 from django.core.exceptions import ValidationError
 
-from lando.main.models import Repo
+from lando.main.models import CommitMap, Repo
 from lando.main.models.revision import Revision
 from lando.main.scm import (
     SCM_TYPE_GIT,
@@ -167,3 +168,72 @@ def test_repo_default_branch_to_scm(branch: str, expected_branch: str):
 
     # repo.scm here is a GitSCM
     assert repo.scm.default_branch == expected_branch
+
+
+@pytest.mark.django_db(transaction=True)
+def test__models__CommitMap___find_last_node(commit_maps):
+    assert commit_maps[-1] == CommitMap._find_last_node("test_git_repo")
+
+
+@pytest.mark.django_db(transaction=True)
+def test__models__CommitMap__find_last_hg_node(commit_maps, monkeypatch):
+    mock__find_last_node = mock.MagicMock()
+    monkeypatch.setattr(CommitMap, "_find_last_node", mock__find_last_node)
+    last_hg_node = CommitMap.find_last_hg_node("test_git_repo")
+    assert mock__find_last_node.call_count == 1
+    assert mock__find_last_node.call_args[0] == ("test_git_repo",)
+    assert last_hg_node == mock__find_last_node("test_git_repo").hg_hash
+
+
+@pytest.mark.django_db(transaction=True)
+def test__models__CommitMap__catch_up(commit_maps, monkeypatch):
+    mock_find_last_hg_node = MagicMock()
+    mock_fetch_push_data = MagicMock()
+    monkeypatch.setattr(CommitMap, "find_last_hg_node", mock_find_last_hg_node)
+    monkeypatch.setattr(CommitMap, "fetch_push_data", mock_fetch_push_data)
+
+    CommitMap.catch_up("test_git_repo")
+    assert mock_find_last_hg_node.call_count == 1
+    assert mock_fetch_push_data.call_count == 1
+    assert mock_find_last_hg_node.call_args[0] == ("test_git_repo",)
+    assert mock_fetch_push_data.call_args[1] == {
+        "git_repo_name": "test_git_repo",
+        "fromchangeset": mock_find_last_hg_node("test_git_repo"),
+    }
+
+
+@pytest.mark.django_db(transaction=True)
+def test__models__CommitMap__fetch_push_data(commit_maps, monkeypatch):
+    last_hg_node = commit_maps[-1].hg_hash
+    previous_commit_map_count = CommitMap.objects.all().count()
+    mock_requests_get = MagicMock()
+    mock_requests_get(
+        "https://hg.mozilla.org/test_git_repo/json-pushes",
+        params={"fromchangeset": last_hg_node},
+    ).json.return_value = {
+        "some_push": {"changesets": ["1" * 40], "git_changesets": ["2" * 40]}
+    }
+    monkeypatch.setattr("lando.main.models.commit.requests.get", mock_requests_get)
+    CommitMap.fetch_push_data("test_git_repo", fromchangeset=last_hg_node)
+    assert CommitMap.objects.all().count() == previous_commit_map_count + 1
+    assert CommitMap.find_last_hg_node("test_git_repo") == "1" * 40
+
+
+@pytest.mark.django_db(transaction=True)
+def test__models__CommitMap__fetch_push_data_invalid_response(commit_maps, monkeypatch):
+    last_hg_node = commit_maps[-1].hg_hash
+    previous_commit_map_count = CommitMap.objects.all().count()
+    mock_requests_get = MagicMock()
+    mock_requests_get(
+        "https://hg.mozilla.org/test_git_repo/json-pushes",
+        params={"fromchangeset": last_hg_node},
+    ).json.return_value = {
+        "some_push": {"changesets": ["1" * 40, "2" * 40], "git_changesets": ["3" * 40]}
+    }
+    monkeypatch.setattr("lando.main.models.commit.requests.get", mock_requests_get)
+    with pytest.raises(ValueError) as e:
+        CommitMap.fetch_push_data("test_git_repo", fromchangeset=last_hg_node)
+    assert e.value.args == (
+        "Number of changesets does not match number of git changesets: 2 vs 1",
+    )
+    assert CommitMap.objects.all().count() == previous_commit_map_count

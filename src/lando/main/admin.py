@@ -5,6 +5,7 @@ from django.contrib import admin
 from django.utils.translation import gettext_lazy
 
 from lando.main.models import (
+    CommitMap,
     ConfigurationVariable,
     LandingJob,
     Repo,
@@ -167,4 +168,5 @@ admin.site.register(Repo, RepoAdmin)
 admin.site.register(LandingJob, LandingJobAdmin)
 admin.site.register(Revision, RevisionAdmin)
 admin.site.register(Worker, admin.ModelAdmin)
+admin.site.register(CommitMap, admin.ModelAdmin)
 admin.site.register(ConfigurationVariable, ConfigurationVariableAdmin)

@@ -25,6 +25,7 @@ from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import (
     SCM_LEVEL_1,
     SCM_LEVEL_3,
+    CommitMap,
     Profile,
     Repo,
     Worker,
@@ -888,3 +889,18 @@ def assert_same_commit_data():
         assert set(commit.files) == set(scm_commit.files)
 
     return assertion
+
+
+@pytest.fixture
+def commit_maps():
+    for git_hash, hg_hash in (
+        ("a" * 40, "b" * 40),
+        ("c" * 40, "d" * 40),
+        ("e" * 40, "f" * 40),
+    ):
+        CommitMap.objects.create(
+            git_hash=git_hash,
+            hg_hash=hg_hash,
+            git_repo_name="test_git_repo",
+        )
+    return list(CommitMap.objects.all().order_by("id"))
