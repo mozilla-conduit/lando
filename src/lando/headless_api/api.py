@@ -359,18 +359,22 @@ def post_repo_actions(
         )
         return 400, {"details": error}
 
-    # Point the job at a RelBranch if passed in the operation body.
-    relbranch_specifier = (
-        operation.relbranch.model_dump(mode="json") if operation.relbranch else None
-    )
-
     with transaction.atomic():
         automation_job = AutomationJob.objects.create(
             status=JobStatus.SUBMITTED,
             requester_email=request.user.email,
             target_repo=repo,
-            relbranch_specifier=relbranch_specifier,
+            relbranch_name=(
+                operation.relbranch.branch_name if operation.relbranch else None
+            ),
+            relbranch_commit_sha=(
+                operation.relbranch.commit_sha if operation.relbranch else None
+            ),
         )
+
+        if operation.relbranch:
+            automation_job.relbranch_name = operation.relbranch.branch_name
+            automation_job.relbranch_commit_sha = operation.relbranch.commit_sha
 
         for index, action in enumerate(operation.actions):
             AutomationAction.objects.create(
