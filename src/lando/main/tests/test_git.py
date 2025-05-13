@@ -206,7 +206,7 @@ def test_GitSCM_describe_local_changes_with_explicit_target_cset(
     third_commit_file = _create_git_commit(request, clone_path)
 
     # Now get commits since the base commit explicitly
-    commits = scm.describe_local_changes(target_cset=base_commit_sha)
+    commits = scm.describe_local_changes(base_cset=base_commit_sha)
 
     # We expect exactly two new commits
     assert len(commits) == 2, "Expected exactly two commits since the base commit."

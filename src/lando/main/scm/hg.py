@@ -333,10 +333,10 @@ class HgSCM(AbstractSCM):
         return self._describe_revisions(revision_id)[0]
 
     def describe_local_changes(
-        self, target_cset: str | None = None
+        self, base_cset: str | None = None
     ) -> list[CommitData]:
         """Return a list of the Commits only present on this branch."""
-        base = target_cset if target_cset else ""
+        base = base_cset if base_cset else ""
         return list(self._describe_revisions(f"{base}::. and draft()"))
 
     def _describe_revisions(self, changeset: str = ".") -> list[CommitData]:

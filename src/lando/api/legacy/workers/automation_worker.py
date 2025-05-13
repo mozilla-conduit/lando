@@ -135,7 +135,7 @@ class AutomationWorker(Worker):
             # We need to add the commits to the pushlog _before_ pushing, so we can
             # compare the current stack to the last upstream.
             # We'll only confirm them if the push succeeds.
-            for commit in scm.describe_local_changes(target_cset=pre_head_ref):
+            for commit in scm.describe_local_changes(base_cset=pre_head_ref):
                 pushlog.add_commit(commit)
 
             # We need to add the tags after the commits, in case a `Tag` is created
