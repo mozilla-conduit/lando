@@ -1473,8 +1473,8 @@ def test_resolve_push_target_from_relbranch(
     )
 
     if relbranch_specifier:
-        job.relbranch_name = relbranch_specifier["branch_name"]
-        job.relbranch_commit_sha = relbranch_specifier["branch_commit_sha"]
+        job.relbranch_name = relbranch_specifier.get("branch_name")
+        job.relbranch_commit_sha = relbranch_specifier.get("commit_sha")
 
     target_cset, push_target = job.resolve_push_target_from_relbranch(repo)
 
