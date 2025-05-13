@@ -1370,6 +1370,8 @@ def test_push_to_existing_relbranch(
         ["git", "push", "origin", relbranch_name], cwd=repo.system_path, check=True
     )
 
+    subprocess.run(["git", "switch", "main"], cwd=repo.system_path, check=True)
+
     body = {
         "relbranch": {"branch_name": relbranch_name},
         "actions": [
