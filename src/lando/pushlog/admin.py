@@ -1,7 +1,6 @@
-from typing import Callable, Self
-
 from django.contrib import admin
 
+from lando.main.admin import ReadOnlyInline
 from lando.pushlog.models import (
     Commit,
     File,
@@ -24,31 +23,6 @@ class PushLogAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None) -> bool:  # noqa: ANN001
         """Forbid deletion of any pushlog object from the admin interface."""
         return False
-
-
-class ReadOnlyInline(admin.TabularInline):
-    extra = 0
-    can_delete = False
-    show_change_link = False
-
-    def _field_getter_factory(self, f: str) -> Callable:
-        """Programatically add getters for all readonly fields which don't have one.
-
-        [0] https://forum.djangoproject.com/t/show-all-the-fields-in-inline-of-the-many-to-many-model-instead-of-a-simple-dropdown/28062/7
-        """
-
-        def getter(self: Self):
-            return getattr(getattr(self, self._target_object), f)
-
-        getter.__name__ = f
-
-        return getter
-
-    def __init__(self, *args, **kwargs):
-        for f in self.readonly_fields:
-            if not hasattr(self, f):
-                setattr(self, f, self._field_getter_factory(f))
-        super().__init__(*args, **kwargs)
 
 
 class PushCommitInline(ReadOnlyInline):

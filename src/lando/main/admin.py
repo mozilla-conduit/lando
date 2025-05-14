@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Callable, Self
 
 from django.contrib import admin
 from django.utils.translation import gettext_lazy
@@ -15,6 +16,40 @@ from lando.main.models import (
 admin.site.site_title = gettext_lazy("Lando Admin")
 admin.site.site_header = gettext_lazy("Lando Administration")
 admin.site.index_title = gettext_lazy("Lando administration")
+
+
+class ReadOnlyInline(admin.TabularInline):
+    """
+    A Tabular Inline that supports a readonly_fields to disallow editing linked models.
+
+    The `_target_object` *string* property needs to be set on child classes so fields are
+    automatically discovered for the target model. This string should be the name of the
+    attribute on the `model` class that contains the link.
+
+    """
+
+    extra = 0
+    can_delete = False
+    show_change_link = False
+
+    def _field_getter_factory(self, f: str) -> Callable:
+        """Programatically add getters for all readonly fields which don't have one.
+
+        [0] https://forum.djangoproject.com/t/show-all-the-fields-in-inline-of-the-many-to-many-model-instead-of-a-simple-dropdown/28062/7
+        """
+
+        def getter(self: Self):
+            return getattr(getattr(self, self._target_object), f)
+
+        getter.__name__ = f
+
+        return getter
+
+    def __init__(self, *args, **kwargs):
+        for f in self.readonly_fields:
+            if not hasattr(self, f):
+                setattr(self, f, self._field_getter_factory(f))
+        super().__init__(*args, **kwargs)
 
 
 class RevisionLandingJobInline(admin.TabularInline):
