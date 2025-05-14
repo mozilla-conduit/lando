@@ -1,3 +1,4 @@
+from typing import Any
 from django.contrib import admin
 
 from lando.main.admin import ReadOnlyInline
@@ -98,6 +99,19 @@ class PushAdmin(PushLogAdmin):
         return summary
 
 
+class CommitPushInline(ReadOnlyInline):
+    model = Push.commits.through
+    _target_object = "push"
+
+    readonly_fields = [
+        "push_id",
+        "repo",
+        "branch",
+        "datetime",
+        "user",
+    ]
+
+
 class CommitAdmin(PushLogAdmin):
     model = Commit
     readonly_fields = (
@@ -112,6 +126,7 @@ class CommitAdmin(PushLogAdmin):
     )
     list_display = ["hash_short", "repo__name", "desc_first", "datetime", "author"]
     list_filter = ["repo", "author", "datetime"]
+    inlines = [CommitPushInline]
 
     def hash_short(self, instance: Commit) -> str:
         return instance.hash[:8]
@@ -129,6 +144,11 @@ class FileAdmin(PushLogAdmin):
     list_filter = ["repo"]
 
 
+class TagPushInline(CommitPushInline):
+    model = Push.tags.through
+    _target_object = "push"
+
+
 class TagAdmin(PushLogAdmin):
     readonly_fields = (
         "repo",
@@ -137,6 +157,7 @@ class TagAdmin(PushLogAdmin):
     )
     list_display = ["name", "commit", "repo__name"]
     list_filter = ["repo"]
+    inlines = [TagPushInline]
 
 
 admin.site.register(Push, PushAdmin)
