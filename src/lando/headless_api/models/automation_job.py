@@ -50,7 +50,7 @@ class AutomationJob(BaseModel):
     error = models.TextField(default="", blank=True)
 
     # Name of RelBranch to push changes to.
-    relbranch_name = models.JSONField(null=True, blank=True)
+    relbranch_name = models.CharField(null=True, blank=True)
 
     # SHA to create RelBranch from, if passed.
     relbranch_commit_sha = models.CharField(null=True, blank=True)
