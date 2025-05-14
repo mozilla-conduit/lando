@@ -1,4 +1,3 @@
-from typing import Any
 from django.contrib import admin
 
 from lando.main.admin import ReadOnlyInline
