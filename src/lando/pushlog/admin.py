@@ -86,8 +86,6 @@ class PushAdmin(PushLogAdmin):
         "branch",
         "datetime",
         "user",
-        # "commits",
-        # "tags",
     )
     inlines = [PushCommitInline, PushTagInline]
     exclude = ["commits", "tags"]
