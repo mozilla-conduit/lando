@@ -32,14 +32,15 @@ class ReadOnlyInline(admin.TabularInline):
     can_delete = False
     show_change_link = False
 
-    def _field_getter_factory(self, f: str) -> Callable:
+    @classmethod
+    def _field_getter_factory(cls, f: str) -> Callable:
         """Programatically add getters for all readonly fields which don't have one.
 
         [0] https://forum.djangoproject.com/t/show-all-the-fields-in-inline-of-the-many-to-many-model-instead-of-a-simple-dropdown/28062/7
         """
 
         def getter(self: Self):
-            return getattr(getattr(self, self._target_object), f)
+            return getattr(getattr(self, cls._target_object), f)
 
         getter.__name__ = f
 
