@@ -298,11 +298,24 @@ def resolve_action(action_data: dict) -> Action:
     return ActionAdapter.validate_python(action_data)
 
 
+class RelBranchSpecifier(Schema):
+    """Metadata requried to specify the RelBranch for pushing."""
+
+    # Name of the RelBranch for pushing.
+    branch_name: str
+
+    # Commit to point the RelBranch to, if it does not exist yet.
+    commit_sha: str | None = None
+
+
 class AutomationOperation(Schema):
     """Represents the body of an automation API operation request."""
 
     # `Annotated` here to specify `min_items=1`.
     actions: Annotated[list[Action], Field(min_items=1)]
+
+    # Optional field indicating the changes should be pushed to a RelBranch.
+    relbranch: RelBranchSpecifier | None = None
 
 
 class ApiError(Schema):
@@ -352,6 +365,11 @@ def post_repo_actions(
             requester_email=request.user.email,
             target_repo=repo,
         )
+
+        if operation.relbranch:
+            automation_job.relbranch_name = operation.relbranch.branch_name
+            automation_job.relbranch_commit_sha = operation.relbranch.commit_sha
+            automation_job.save()
 
         for index, action in enumerate(operation.actions):
             AutomationAction.objects.create(

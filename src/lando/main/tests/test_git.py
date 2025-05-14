@@ -186,6 +186,40 @@ def test_GitSCM_describe_local_changes(
     assert file2.name in changes[1].files
 
 
+def test_GitSCM_describe_local_changes_with_explicit_target_cset(
+    git_repo: Path,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    # Clone the repo into a new directory
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+
+    # Create a base commit
+    base_commit_file = _create_git_commit(request, clone_path)
+    base_commit_sha = scm.head_ref()
+
+    # Create two more commits
+    second_commit_file = _create_git_commit(request, clone_path)
+    third_commit_file = _create_git_commit(request, clone_path)
+
+    # Now get commits since the base commit explicitly
+    commits = scm.describe_local_changes(base_cset=base_commit_sha)
+
+    # We expect exactly two new commits
+    assert len(commits) == 2, "Expected exactly two commits since the base commit."
+
+    changed_files = [file for commit in commits for file in commit.files]
+
+    assert second_commit_file.name in changed_files
+    assert third_commit_file.name in changed_files
+    assert (
+        base_commit_file.name not in changed_files
+    ), "Base commit file should not appear in local changes."
+
+
 @pytest.mark.parametrize("target_cs", [None, "main", "dev", "git-ref"])
 def test_GitSCM_update_repo(
     git_repo: Path,

@@ -20,6 +20,7 @@ class PushLog:
     repo: Repo
     push: Push
     user: str
+    branch: str | None = None
 
     is_confirmed: bool = False
     is_recorded: bool = False
@@ -31,11 +32,13 @@ class PushLog:
         self,
         repo: Repo,
         user: str,
+        branch: str | None = None,
         commits: list[Commit] | None = None,
         tags: list[Tag] | None = None,
     ):
         self.repo = repo
         self.user = user
+        self.branch = branch
 
         self.commits = commits or []
 
@@ -95,7 +98,7 @@ class PushLog:
             )
             return None
 
-        push = Push.objects.create(repo=self.repo, user=self.user)
+        push = Push.objects.create(repo=self.repo, user=self.user, branch=self.branch)
         logger.debug(f"Creating push {push.push_id} to {push.repo_url} ...")
         logger.debug(
             f"Commits in push {push.push_id} to {push.repo_url}: {self.commits}"
@@ -147,7 +150,9 @@ class NoOpPushLog(PushLog):
 
 
 @contextmanager
-def PushLogForRepo(repo: Repo, user: str) -> ContextManager[PushLog]:
+def PushLogForRepo(
+    repo: Repo, user: str, branch: str | None = None
+) -> ContextManager[PushLog]:
     """
     Context manager allowing to incrementally build push information, and only submit it
     when complete.
@@ -158,7 +163,7 @@ def PushLogForRepo(repo: Repo, user: str) -> ContextManager[PushLog]:
     if repo.pushlog_disabled:
         pushlog = NoOpPushLog(repo, user)
     else:
-        pushlog = PushLog(repo, user)
+        pushlog = PushLog(repo, user, branch=branch)
 
     try:
         yield pushlog

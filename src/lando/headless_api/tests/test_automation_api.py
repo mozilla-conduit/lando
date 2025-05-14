@@ -20,6 +20,7 @@ from lando.main.models.landing_job import JobStatus
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.scm.exceptions import PatchConflict
 from lando.main.tests.test_git import _create_git_commit
+from lando.pushlog.models import Push
 
 
 @pytest.mark.django_db
@@ -1227,6 +1228,275 @@ def test_automation_job_tag_success_hg(
     ).stdout.strip()
 
     assert expected_commit == tagged_commit
+
+
+@pytest.mark.django_db
+def test_create_and_push_to_new_relbranch(
+    client, treestatusdouble, repo_mc, git_automation_worker, headless_user, request
+):
+    user, token = headless_user
+    repo = repo_mc(SCM_TYPE_GIT)
+    scm = repo.scm
+
+    # Create a base commit (HEAD)
+    subprocess.run(["git", "switch", "main"], cwd=repo.system_path)
+    file_path = Path(repo.system_path) / "relbranch.txt"
+    file_path.write_text("relbranch base\n")
+    subprocess.run(["git", "add", "."], cwd=repo.system_path)
+    subprocess.run(["git", "commit", "-m", "Base commit"], cwd=repo.system_path)
+    base_commit = scm.head_ref()
+
+    # Create a second commit to ensure the RelBranch can be created from any
+    # arbitrary commit, not just the current head.
+    head_file = Path(repo.system_path) / "head.txt"
+    head_file.write_text("head\n")
+    subprocess.run(["git", "add", "."], cwd=repo.system_path, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "HEAD commit"], cwd=repo.system_path, check=True
+    )
+    head_commit = scm.head_ref()
+
+    assert base_commit != head_commit
+
+    relbranch_name = "FIREFOX_ESR_999_99_X_RELBRANCH"
+
+    body = {
+        "relbranch": {
+            "branch_name": relbranch_name,
+            "commit_sha": base_commit,
+        },
+        "actions": [
+            {
+                "action": "add-commit",
+                "content": PATCH_GIT_1,
+                "patch_format": "git-format-patch",
+            },
+        ],
+    }
+
+    # Submit the job
+    response = client.post(
+        f"/api/repo/{repo.name}",
+        data=json.dumps(body),
+        content_type="application/json",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "User-Agent": "Lando-User/testuser@example.org",
+        },
+    )
+
+    job_id = response.json()["job_id"]
+    job = AutomationJob.objects.get(id=job_id)
+
+    git_automation_worker.worker_instance.applicable_repos.add(repo)
+    assert git_automation_worker.run_automation_job(job)
+
+    assert job.status == JobStatus.LANDED
+    assert job.landed_commit_id is not None
+
+    # Fetch from `origin` so the remotes are available locally.
+    subprocess.run(["git", "fetch", "origin"], cwd=repo.system_path, check=True)
+
+    remote_branches = subprocess.run(
+        ["git", "ls-remote", "--heads", repo.push_path, relbranch_name],
+        cwd=repo.system_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert (
+        f"refs/heads/{relbranch_name}" in remote_branches
+    ), "Push did not create a new RelBranch."
+
+    local_sha = scm.head_ref()
+    remote_sha = subprocess.run(
+        ["git", "rev-parse", f"origin/{relbranch_name}"],
+        cwd=repo.system_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert local_sha == remote_sha, "Remote relbranch SHA does not match local SHA."
+
+    # Confirm new commit is based on base_commit
+    current_commit = scm.head_ref()
+    parents = (
+        subprocess.run(
+            ["git", "rev-list", "--parents", "-n", "1", current_commit],
+            cwd=repo.system_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        .stdout.strip()
+        .split()
+    )
+
+    assert (
+        base_commit in parents[1:]
+    ), f"Expected base_commit {base_commit} to be parent of {current_commit}"
+
+    # Confirm that 'head.txt' is not present on the relbranch
+    tree_files = (
+        subprocess.run(
+            ["git", "ls-tree", "-r", "--name-only", current_commit],
+            cwd=repo.system_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        .stdout.strip()
+        .splitlines()
+    )
+
+    assert "head.txt" not in tree_files, "'head.txt' should not exist on the relbranch"
+
+    # Confirm `Push` has the correct branch name.
+    pushes = Push.objects.all()
+    assert len(pushes) == 1
+    assert (
+        pushes[0].branch == relbranch_name
+    ), f"Completed push should point to `{relbranch_name}`."
+
+
+@pytest.mark.django_db
+def test_push_to_existing_relbranch(
+    client, treestatusdouble, repo_mc, git_automation_worker, headless_user, request
+):
+    user, token = headless_user
+    repo = repo_mc(SCM_TYPE_GIT)
+    scm = repo.scm
+
+    relbranch_name = "FIREFOX_ESR_999_99_X_RELBRANCH"
+
+    # Create branch manually and push it to simulate an existing remote relbranch
+    subprocess.run(
+        ["git", "switch", "-c", relbranch_name], cwd=repo.system_path, check=True
+    )
+    file_path = Path(repo.system_path) / "existing-relbranch.txt"
+    file_path.write_text("existing relbranch base\n")
+    subprocess.run(["git", "add", "."], cwd=repo.system_path, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "Initial relbranch commit"],
+        cwd=repo.system_path,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "push", "origin", relbranch_name], cwd=repo.system_path, check=True
+    )
+
+    subprocess.run(["git", "switch", "main"], cwd=repo.system_path, check=True)
+
+    body = {
+        "relbranch": {"branch_name": relbranch_name},
+        "actions": [
+            {
+                "action": "add-commit",
+                "content": PATCH_GIT_1,
+                "patch_format": "git-format-patch",
+            },
+        ],
+    }
+
+    # Submit the job
+    response = client.post(
+        f"/api/repo/{repo.name}",
+        data=json.dumps(body),
+        content_type="application/json",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "User-Agent": "Lando-User/testuser@example.org",
+        },
+    )
+
+    job_id = response.json()["job_id"]
+    job = AutomationJob.objects.get(id=job_id)
+
+    git_automation_worker.worker_instance.applicable_repos.add(repo)
+    assert git_automation_worker.run_automation_job(job)
+
+    assert job.status == JobStatus.LANDED
+    assert job.landed_commit_id is not None
+
+    # Fetch updated remote refs
+    subprocess.run(["git", "fetch", "origin"], cwd=repo.system_path, check=True)
+
+    # Ensure remote branch exists
+    remote_branches = subprocess.run(
+        ["git", "ls-remote", "--heads", repo.push_path, relbranch_name],
+        cwd=repo.system_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert (
+        f"refs/heads/{relbranch_name}" in remote_branches
+    ), "Expected relbranch to exist on remote after push."
+
+    # Compare local HEAD to remote relbranch SHA
+    local_sha = scm.head_ref()
+    remote_sha = subprocess.run(
+        ["git", "rev-parse", f"origin/{relbranch_name}"],
+        cwd=repo.system_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert local_sha == remote_sha, "Remote relbranch SHA does not match local SHA."
+
+    # Confirm `Push` has the correct branch name.
+    pushes = Push.objects.all()
+    assert len(pushes) == 1
+    assert (
+        pushes[0].branch == relbranch_name
+    ), f"Completed push should point to `{relbranch_name}`."
+
+
+@pytest.mark.parametrize(
+    "relbranch_specifier,expected_target_cset,expected_push_target",
+    [
+        # Case 1: No relbranch_specifier
+        (None, None, "default_target"),
+        # Case 2: Only branch_name
+        (
+            {"branch_name": "FIREFOX_ESR_123_45_X_RELBRANCH"},
+            "FIREFOX_ESR_123_45_X_RELBRANCH",
+            "FIREFOX_ESR_123_45_X_RELBRANCH",
+        ),
+        # Case 3: branch_name + commit_sha
+        (
+            {
+                "branch_name": "FIREFOX_ESR_123_45_X_RELBRANCH",
+                "commit_sha": "blah1234",
+            },
+            "blah1234",
+            "FIREFOX_ESR_123_45_X_RELBRANCH",
+        ),
+    ],
+)
+@pytest.mark.django_db
+def test_resolve_push_target_from_relbranch(
+    repo_mc, relbranch_specifier, expected_target_cset, expected_push_target
+):
+    repo = repo_mc(SCM_TYPE_GIT)
+
+    # Set the push target to a default for the no-relbranch case.
+    repo.push_target = "default_target"
+
+    job = AutomationJob(
+        status="SUBMITTED",
+        requester_email="user@example.com",
+        target_repo=repo,
+    )
+
+    if relbranch_specifier:
+        job.relbranch_name = relbranch_specifier.get("branch_name")
+        job.relbranch_commit_sha = relbranch_specifier.get("commit_sha")
+
+    target_cset, push_target = job.resolve_push_target_from_relbranch(repo)
+
+    assert target_cset == expected_target_cset, "Expected checkout target is incorrect."
+    assert push_target == expected_push_target, "Expected push target is incorrect."
 
 
 @pytest.mark.django_db
