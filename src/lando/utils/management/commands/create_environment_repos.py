@@ -168,6 +168,22 @@ for branch in ["main", "autoland", "beta", "release", "esr115", "esr128"]:
         }
     )
 
+# Set up `infra-testing-*` repos in prod.
+# See bug 1966728.
+for branch in ["release", "beta", "esr128", "esr115"]:
+    REPOS[Environment.production].append(
+        {
+            "name": f"infra-testing-{branch}",
+            "default_branch": branch,
+            "url": "https://github.com/mozilla-firefox/infra-testing.git",
+            "push_path": "https://github.com/mozilla-firefox/infra-testing.git",
+            "short_name": f"infra-testing-{branch}",
+            "required_permission": SCM_LEVEL_1,
+            "automation_enabled": True,
+            "approval_required": True,
+        }
+    )
+
 
 class Command(BaseCommand):
     help = "Create repos based on specified environment."
