@@ -207,6 +207,22 @@ class GitSCM(AbstractSCM):
 
                     raise exc
 
+    def get_patch(self, revision_id: str) -> str:
+        """Return a complete patch for the given revision, in the git extended diff format.
+
+        Note that `_git_run` strips the output before returning it. This means
+        that trailing newlines in the patch output will no be present. This is
+        acceptable for our purpose, but it may not reapply cleanly (TBC).
+        """
+        return self._git_run(
+            "format-patch",
+            "--keep-subject",
+            "--stdout",
+            "-1",
+            revision_id,
+            cwd=self.path,
+        )
+
     def process_merge_conflict(
         self,
         pull_path: str,

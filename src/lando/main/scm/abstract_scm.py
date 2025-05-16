@@ -100,6 +100,18 @@ class AbstractSCM:
         """
 
     @abstractmethod
+    def get_patch(self, revision_id: str) -> str:
+        """Return a complete patch for the given revision, in the git extended diff format.
+
+        Args:
+            revision_id (str): The ID of the revision / commit to return a patch for.
+
+        Returns:
+            str: The patch for the selected commit.
+
+        """
+
+    @abstractmethod
     def process_merge_conflict(
         self, pull_path: str, revision_id: int, error_message: str
     ) -> dict[str, Any]:
