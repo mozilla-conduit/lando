@@ -549,31 +549,9 @@ def test_automation_job_add_commit_success_hg(
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
 
 
-PATCH_GIT_1 = """\
-From 77a05b90d0d4eb7a75fa7acf052673e5dc36a20b Mon Sep 17 00:00:00 2001
-From: Py Test <pytest@lando.example.net>
-Date: Tue, 22 Apr 2025 02:02:55 +0000
-Subject: [PATCH] add another file
-
----
- test.txt | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/test.txt b/test.txt
-index 2a02d41..45e9938 100644
---- a/test.txt
-+++ b/test.txt
-@@ -1 +1,2 @@
- TEST
-+adding another line
--- 
-2.39.5
-"""  # noqa: W291, `git` adds an empty newline after `--`.
-
-
 @pytest.mark.django_db
 def test_automation_job_add_commit_success_git(
-    treestatusdouble, git_automation_worker, repo_mc, monkeypatch, normal_patch
+    treestatusdouble, git_automation_worker, repo_mc, monkeypatch, git_patch
 ):
     repo = repo_mc(SCM_TYPE_GIT)
     scm = repo.scm
@@ -589,7 +567,7 @@ def test_automation_job_add_commit_success_git(
         action_type="add-commit",
         data={
             "action": "add-commit",
-            "content": PATCH_GIT_1,
+            "content": git_patch(),
             "patch_format": "git-format-patch",
         },
         order=0,
@@ -1057,7 +1035,7 @@ def test_automation_job_tag_success_git_new_commit(
     get_automation_worker,
     request,
     monkeypatch,
-    normal_patch,
+    git_patch,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
     scm = repo.scm
@@ -1077,7 +1055,7 @@ def test_automation_job_tag_success_git_new_commit(
         action_type="add-commit",
         data={
             "action": "add-commit",
-            "content": PATCH_GIT_1,
+            "content": git_patch(),
             "patch_format": "git-format-patch",
         },
         order=0,
@@ -1117,7 +1095,7 @@ def test_automation_job_tag_failure_git(
     get_automation_worker,
     request,
     monkeypatch,
-    normal_patch,
+    git_patch,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
 
@@ -1136,7 +1114,7 @@ def test_automation_job_tag_failure_git(
         action_type="add-commit",
         data={
             "action": "add-commit",
-            "content": PATCH_GIT_1,
+            "content": git_patch(),
             "patch_format": "git-format-patch",
         },
         order=0,
@@ -1232,7 +1210,13 @@ def test_automation_job_tag_success_hg(
 
 @pytest.mark.django_db
 def test_create_and_push_to_new_relbranch(
-    client, treestatusdouble, repo_mc, git_automation_worker, headless_user, request
+    client,
+    treestatusdouble,
+    repo_mc,
+    git_automation_worker,
+    headless_user,
+    request,
+    git_patch,
 ):
     user, token = headless_user
     repo = repo_mc(SCM_TYPE_GIT)
@@ -1268,7 +1252,7 @@ def test_create_and_push_to_new_relbranch(
         "actions": [
             {
                 "action": "add-commit",
-                "content": PATCH_GIT_1,
+                "content": git_patch(),
                 "patch_format": "git-format-patch",
             },
         ],
@@ -1361,7 +1345,13 @@ def test_create_and_push_to_new_relbranch(
 
 @pytest.mark.django_db
 def test_push_to_existing_relbranch(
-    client, treestatusdouble, repo_mc, git_automation_worker, headless_user, request
+    client,
+    treestatusdouble,
+    repo_mc,
+    git_automation_worker,
+    headless_user,
+    request,
+    git_patch,
 ):
     user, token = headless_user
     repo = repo_mc(SCM_TYPE_GIT)
@@ -1392,7 +1382,7 @@ def test_push_to_existing_relbranch(
         "actions": [
             {
                 "action": "add-commit",
-                "content": PATCH_GIT_1,
+                "content": git_patch(),
                 "patch_format": "git-format-patch",
             },
         ],
