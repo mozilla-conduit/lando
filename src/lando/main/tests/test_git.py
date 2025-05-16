@@ -1,4 +1,6 @@
 import datetime
+import io
+import re
 import subprocess
 import uuid
 from collections.abc import Callable
@@ -8,6 +10,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from lando.api.legacy.hgexports import GitPatchHelper
 from lando.main.scm.exceptions import SCMException
 from lando.main.scm.git import GitSCM
 
@@ -131,6 +134,39 @@ def test_GitSCM_clean_repo(
     assert (
         strip_non_public_commits != new_file.exists()
     ), f"strip_non_public_commits not honoured for {new_file}"
+
+
+def test_GitSCM_apply_get_patch(git_repo: Path, git_patch: Callable):
+    scm = GitSCM(str(git_repo))
+
+    patch = git_patch()
+
+    ph = GitPatchHelper(io.StringIO(patch))
+
+    author_name, author_email = ph.parse_author_information()
+    author = f"{author_name} <{author_email}>"
+    scm.apply_patch(
+        ph.get_diff(), ph.get_commit_description(), author, ph.get_timestamp()
+    )
+
+    commit = scm.describe_commit()
+
+    new_patch = scm.get_patch(commit.hash)
+
+    # Trim first line from both patches, as they will contain a `From` line
+    # with a different base commit.
+    trim_from_re = r"^From [^\n]+\n"
+    expected_patch = re.sub(trim_from_re, "", patch, count=1)
+    new_patch = re.sub(trim_from_re, "", new_patch, count=1)
+
+    # The original patch may have a `[PATCH]` in the subject that we don't want to
+    # retain on application and subsequent export.
+    expected_patch = re.sub(r"Subject: \[PATCH\]", "Subject:", expected_patch, count=1)
+
+    # We strip git output, so need to do the same on the original patch.
+    expected_patch = expected_patch.strip()
+
+    assert new_patch == expected_patch
 
 
 def test_GitSCM_describe_commit(git_repo: Path):
