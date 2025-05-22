@@ -1,4 +1,5 @@
 import asyncio
+import io
 import logging
 import os
 import re
@@ -13,6 +14,7 @@ from typing import Any, ContextManager, Optional
 from django.conf import settings
 from simple_github import AppAuth, AppInstallationAuth
 
+from lando.api.legacy.hgexports import GitPatchHelper, PatchHelper
 from lando.main.scm.commit import CommitData
 from lando.main.scm.consts import SCM_TYPE_GIT, MergeStrategy
 from lando.main.scm.exceptions import (
@@ -222,6 +224,10 @@ class GitSCM(AbstractSCM):
             revision_id,
             cwd=self.path,
         )
+
+    def get_patch_helper(self, revision_id: str) -> PatchHelper:
+        """Return a PatchHelper containing the patch for the given revision."""
+        return GitPatchHelper(io.StringIO(self.get_patch(revision_id)))
 
     def process_merge_conflict(
         self,
