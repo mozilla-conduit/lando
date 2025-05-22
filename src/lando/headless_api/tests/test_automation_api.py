@@ -779,7 +779,7 @@ def test_automation_job_merge_onto_success_git(
         action_type="merge-onto",
         data={
             "action": "merge-onto",
-            "commit_message": f"Merge test with strategy {strategy}",
+            "commit_message": f"No bug: Merge test with strategy {strategy}",
             "strategy": strategy,
             "target": feature_commit,
         },
