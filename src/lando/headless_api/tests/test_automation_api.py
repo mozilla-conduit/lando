@@ -663,7 +663,7 @@ def test_automation_job_create_commit_success(
         data={
             "action": "create-commit",
             "author": "Test User <test@example.com>",
-            "commitmsg": "add another file",
+            "commitmsg": "No bug: commit success",
             "date": 0,
             "diff": PATCH_DIFF,
         },
@@ -711,7 +711,7 @@ def test_automation_job_create_commit_patch_conflict(
         data={
             "action": "create-commit",
             "author": "Test User <test@example.com>",
-            "commitmsg": "conflict commit",
+            "commitmsg": "No bug: conflict commit",
             "date": 0,
             "diff": PATCH_DIFF,
         },
@@ -780,7 +780,7 @@ def test_automation_job_merge_onto_success_git(
         action_type="merge-onto",
         data={
             "action": "merge-onto",
-            "commit_message": f"Merge test with strategy {strategy}",
+            "commit_message": f"No bug: Merge test with strategy {strategy}",
             "strategy": strategy,
             "target": feature_commit,
         },
