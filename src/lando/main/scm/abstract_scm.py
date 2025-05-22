@@ -5,6 +5,7 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Any, ContextManager, Optional
 
+from lando.api.legacy.hgexports import PatchHelper
 from lando.main.scm.commit import CommitData
 from lando.main.scm.consts import MergeStrategy
 
@@ -108,6 +109,18 @@ class AbstractSCM:
 
         Returns:
             str: The patch for the selected commit.
+
+        """
+
+    @abstractmethod
+    def get_patch_helper(self, revision_id: str) -> PatchHelper:
+        """Return a PatchHelper containing the patch for the given revision.
+
+        Args:
+            revision_id (str): The ID of the revision / commit to return a patch for.
+
+        Returns:
+            PatchHelper: a PatchHelper containing the patch for the specified revision.
 
         """
 
