@@ -662,7 +662,7 @@ def test_automation_job_create_commit_success(
         data={
             "action": "create-commit",
             "author": "Test User <test@example.com>",
-            "commitmsg": "add another file",
+            "commitmsg": "No bug: commit success",
             "date": 0,
             "diff": PATCH_DIFF,
         },
@@ -710,7 +710,7 @@ def test_automation_job_create_commit_patch_conflict(
         data={
             "action": "create-commit",
             "author": "Test User <test@example.com>",
-            "commitmsg": "conflict commit",
+            "commitmsg": "No bug: conflict commit",
             "date": 0,
             "diff": PATCH_DIFF,
         },

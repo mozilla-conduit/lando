@@ -41,7 +41,7 @@ PATCH_NORMAL_1 = r"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add another file.
+Bug 35: add another line
 diff --git a/test.txt b/test.txt
 --- a/test.txt
 +++ b/test.txt
@@ -56,7 +56,7 @@ PATCH_NORMAL_2 = r"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add another file.
+No bug: add one more line
 diff --git a/test.txt b/test.txt
 --- a/test.txt
 +++ b/test.txt
@@ -72,7 +72,7 @@ PATCH_NORMAL_3 = r"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add another file.
+Bug 42: add another file
 diff --git a/test.txt b/test.txt
 deleted file mode 100644
 --- a/test.txt
@@ -91,7 +91,7 @@ PATCH_GIT_1 = """\
 From 77a05b90d0d4eb7a75fa7acf052673e5dc36a20b Mon Sep 17 00:00:00 2001
 From: Py Test <pytest@lando.example.net>
 Date: Tue, 22 Apr 2025 02:02:55 +0000
-Subject: [PATCH] add another file
+Subject: [PATCH] No bug: add another line
 
 ---
  test.txt | 1 +
