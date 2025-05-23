@@ -577,7 +577,7 @@ class HgSCM(AbstractSCM):
     def _run_hg(self, args: list[str]) -> bytes:
         """Use hglib to run a Mercurial command, and return its output."""
         correlation_id = str(uuid.uuid4())
-        logger.info(
+        logger.debug(
             "running hg command",
             extra={
                 "command": ["hg"] + [shlex.quote(str(arg)) for arg in args],
@@ -602,7 +602,7 @@ class HgSCM(AbstractSCM):
         out = out.getvalue()
         err = err.getvalue()
         if out:
-            logger.info(
+            logger.debug(
                 "output from hg command",
                 extra={
                     "command_id": correlation_id,
