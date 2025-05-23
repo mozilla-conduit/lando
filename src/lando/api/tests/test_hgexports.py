@@ -696,44 +696,44 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
     [
         (
             "this message is missing the bug.",
-            "Revision needs 'Bug N' or 'No bug' in the commit message.",
+            "Revision needs 'Bug N' or 'No bug' in the commit message: ",
             "Commit message is rejected without a bug number.",
         ),
         (
             "Mass revert m-i to the last known good state",
-            "Revision needs 'Bug N' or 'No bug' in the commit message.",
+            "Revision needs 'Bug N' or 'No bug' in the commit message: ",
             "Revision missing a bug number or no bug should result in a failed check.",
         ),
         (
             "update revision of Add-on SDK tests to latest tip; test-only",
-            "Revision needs 'Bug N' or 'No bug' in the commit message.",
+            "Revision needs 'Bug N' or 'No bug' in the commit message: ",
             "Revision missing a bug number or no bug should result in a failed check.",
         ),
         (
             "Fix stupid bug in foo::bar()",
-            "Revision needs 'Bug N' or 'No bug' in the commit message.",
+            "Revision needs 'Bug N' or 'No bug' in the commit message: ",
             "Commit message with 'bug' bug in improper format should result in a failed check.",
         ),
         (
             "Back out Dao's push because of build bustage",
-            "Revision is a backout but commit message does not indicate backed out revisions.",
+            "Revision is a backout but commit message does not indicate backed out revisions: ",
             "Backout should be rejected when a reference to the original patch is missing.",
         ),
         (
             "Bug 100 - Foo. r?bar",
-            "Revision contains 'r?' in the commit message. Please use 'r=' instead.",
+            "Revision contains 'r?' in the commit message. Please use 'r=' instead: ",
             "Improper review specifier should be rejected.",
         ),
         (
             "WIP: bug 123: this is a wip r=reviewer",
-            "Revision seems to be marked as WIP.",
+            "Revision seems to be marked as WIP: ",
             "WIP revisions should be rejected.",
         ),
         (
             "[PATCH 1/2] first part of my git patch",
             (
                 "Revision contains git-format-patch '[PATCH]' cruft. "
-                "Use git-format-patch -k to avoid this."
+                "Use git-format-patch -k to avoid this: "
             ),
             "`git-format-patch` cruft should result in a failed check.",
         ),
@@ -768,7 +768,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
     assert assessor.run_patch_collection_checks(
         patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
-    ) == [return_string], error_message
+    ) == [return_string + commit_message], error_message
 
 
 def test_check_wpt_sync_irrelevant_user():
