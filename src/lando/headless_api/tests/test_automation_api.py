@@ -1,4 +1,5 @@
 import datetime
+import itertools
 import json
 import secrets
 import subprocess
@@ -375,7 +376,7 @@ def test_automation_job_create_commit_request(client, repo_mc, headless_user):
         "actions": [
             {
                 "action": "create-commit",
-                "commitmsg": "test commit message",
+                "commitmsg": "No bug: test commit message",
                 "date": "2025-04-22T18:30:27.786900Z",
                 "author": "Test User <test@example.com>",
                 "diff": "diff --git",
@@ -685,6 +686,128 @@ def test_automation_job_create_commit_success(
     assert scm.push.call_args[1] == {"push_target": "", "force_push": False, "tags": []}
     assert job.status == JobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
+
+
+@pytest.mark.parametrize(
+    "scm_type,bad_action_reason",
+    # We make a cross-product of all the SCM and all the bad actions.
+    # As we don't want a cross-product of bad actions and reasons, we bundle them in a
+    # tuple, that we deconstruct in the test.
+    itertools.product(
+        (SCM_TYPE_HG, SCM_TYPE_GIT),
+        (
+            # CommitMessagesCheck
+            (
+                {
+                    "action": "create-commit",
+                    "author": "Test User <test@example.com>",
+                    "commitmsg": "commit message without bug info",
+                    "date": 0,
+                    "diff": PATCH_DIFF,
+                },
+                "Revision needs 'Bug N' or 'No bug' in the commit message: commit message without bug info",
+            ),
+            # PreventSymlinksCheck
+            (
+                {
+                    "action": "create-commit",
+                    "author": "Test User <test@example.com>",
+                    "commitmsg": "No bug: commit with symlink",
+                    "date": 0,
+                    "diff": PATCH_DIFF,
+                },
+                "Revision introduces symlinks in the files ",
+            ),
+            # TryTaskConfigCheck
+            (
+                {
+                    "action": "create-commit",
+                    "author": "Test User <test@example.com>",
+                    "commitmsg": "No bug: commit with try_task_config.json",
+                    "date": 0,
+                    "diff": PATCH_DIFF,
+                },
+                "Revision introduces the `try_task_config.json` file.",
+            ),
+            # PreventNSPRNSSCheck
+            (
+                {
+                    "action": "create-commit",
+                    "author": "Test User <test@example.com>",
+                    "commitmsg": "No bug: commit with NSS/NSPR changes",
+                    "date": 0,
+                    "diff": PATCH_DIFF,
+                },
+                "Revision makes changes to restricted directories:",
+            ),
+            # PreventSubmodulesCheck
+            (
+                {
+                    "action": "create-commit",
+                    "author": "Test User <test@example.com>",
+                    "commitmsg": "No bug: commit with .gitmodules changes",
+                    "date": 0,
+                    "diff": PATCH_DIFF,
+                },
+                "Revision introduces a Git submodule into the repository.",
+            ),
+            # WPTSyncCheck
+            (
+                {
+                    "action": "create-commit",
+                    "author": "Test User <test@example.com>",
+                    "commitmsg": "No bug: commit with WPTSync changes",
+                    "date": 0,
+                    "diff": PATCH_DIFF,
+                },
+                "Revision has WPTSync bot making changes to disallowed files ",
+            ),
+        ),
+    ),
+)
+@pytest.mark.django_db
+def test_automation_job_create_commit_failed_check(
+    scm_type,
+    repo_mc,
+    get_automation_worker,
+    monkeypatch,
+    bad_action_reason,
+):
+    bad_action, reason = bad_action_reason
+    repo = repo_mc(SCM_TYPE_HG)
+    scm = repo.scm
+
+    # Create a job and actions
+    job = AutomationJob.objects.create(
+        status=JobStatus.SUBMITTED,
+        requester_email="example@example.com",
+        target_repo=repo,
+    )
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="create-commit",
+        data=bad_action,
+        order=0,
+    )
+
+    automation_worker = get_automation_worker(scm_type)
+
+    automation_worker.worker_instance.applicable_repos.add(repo)
+
+    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
+    mock_trigger_update = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.automation_worker.AutomationWorker.phab_trigger_repo_update",
+        mock_trigger_update,
+    )
+
+    scm.push = mock.MagicMock()
+
+    assert automation_worker.run_automation_job(
+        job
+    ), "Job indicated that it should be retried"
+    assert job.status == JobStatus.FAILED, "Job unexpectedly succeeded"
+    assert reason in job.error, "Expected job failure reason was not found"
 
 
 @pytest.mark.parametrize("scm_type", (SCM_TYPE_HG, SCM_TYPE_GIT))
