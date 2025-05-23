@@ -25,8 +25,7 @@ from lando.pushlog.models import Push
 
 @pytest.mark.django_db
 def test_auth_missing_user_agent(client, headless_user):
-    user, token = headless_user
-
+    _, token = headless_user
     # Create a job and actions
     job = AutomationJob.objects.create(status=JobStatus.SUBMITTED)
     AutomationAction.objects.create(
@@ -47,7 +46,7 @@ def test_auth_missing_user_agent(client, headless_user):
 
 @pytest.mark.django_db
 def test_auth_user_agent_bad_format(client, headless_user):
-    user, token = headless_user
+    _, token = headless_user
 
     # Create a job and actions
     job = AutomationJob.objects.create(status=JobStatus.SUBMITTED)
@@ -69,7 +68,7 @@ def test_auth_user_agent_bad_format(client, headless_user):
 
 
 @pytest.mark.django_db
-def test_auth_missing_authorization_header(client, headless_user):
+def test_auth_missing_authorization_header(client):
     # Create a job and actions
     job = AutomationJob.objects.create(status=JobStatus.SUBMITTED)
     AutomationAction.objects.create(
@@ -89,7 +88,7 @@ def test_auth_missing_authorization_header(client, headless_user):
 
 
 @pytest.mark.django_db
-def test_auth_invalid_token(client, headless_user):
+def test_auth_invalid_token(client):
     # Create a job and actions
     job = AutomationJob.objects.create(status=JobStatus.SUBMITTED)
     AutomationAction.objects.create(
@@ -113,7 +112,7 @@ def test_auth_invalid_token(client, headless_user):
 
 @pytest.mark.django_db
 def test_automation_job_create_bad_repo(client, headless_user):
-    user, token = headless_user
+    _, token = headless_user
 
     body = {
         "actions": [
@@ -140,7 +139,7 @@ def test_automation_job_create_bad_repo(client, headless_user):
 
 @pytest.mark.django_db
 def test_automation_job_empty_actions(client, headless_user):
-    user, token = headless_user
+    _, token = headless_user
 
     body = {
         "actions": [],
@@ -191,7 +190,7 @@ def test_automation_job_empty_actions(client, headless_user):
 )
 @pytest.mark.django_db
 def test_automation_job_create_bad_action(bad_action, reason, client, headless_user):
-    user, token = headless_user
+    _, token = headless_user
 
     body = {
         "actions": [bad_action],
@@ -215,7 +214,7 @@ def test_automation_job_create_bad_action(bad_action, reason, client, headless_u
 def test_automation_job_create_repo_automation_disabled(
     client, headless_user, hg_server, hg_clone
 ):
-    user, token = headless_user
+    _, token = headless_user
 
     Repo.objects.create(
         scm_type=SCM_TYPE_HG,
@@ -314,7 +313,7 @@ def is_isoformat_timestamp(date_string: str) -> bool:
 
 @pytest.mark.django_db
 def test_automation_job_create_api(client, hg_server, hg_clone, headless_user):
-    user, token = headless_user
+    _, token = headless_user
 
     Repo.objects.create(
         scm_type=SCM_TYPE_HG,
@@ -370,7 +369,7 @@ def test_automation_job_create_api(client, hg_server, hg_clone, headless_user):
 
 @pytest.mark.django_db
 def test_automation_job_create_commit_request(client, repo_mc, headless_user):
-    user, token = headless_user
+    _, token = headless_user
 
     repo = repo_mc(SCM_TYPE_GIT)
     body = {
@@ -409,7 +408,7 @@ def test_automation_job_create_commit_request(client, repo_mc, headless_user):
 
 @pytest.mark.django_db
 def test_get_job_status_not_found(client, headless_user):
-    user, token = headless_user
+    _, token = headless_user
     response = client.get(
         "/api/job/12345",
         headers={
@@ -435,7 +434,7 @@ def test_get_job_status_not_found(client, headless_user):
 )
 @pytest.mark.django_db
 def test_get_job_status(status, message, client, headless_user):
-    user, token = headless_user
+    _, token = headless_user
 
     # Create a job and actions
     job = AutomationJob.objects.create(status=status)
@@ -499,7 +498,6 @@ def get_automation_worker(hg_automation_worker, git_automation_worker):
 @pytest.mark.django_db
 def test_automation_job_add_commit_success_hg(
     hg_server,
-    hg_clone,
     treestatusdouble,
     hg_automation_worker,
     repo_mc,
@@ -551,7 +549,7 @@ def test_automation_job_add_commit_success_hg(
 
 @pytest.mark.django_db
 def test_automation_job_add_commit_success_git(
-    treestatusdouble, git_automation_worker, repo_mc, monkeypatch, git_patch
+    git_automation_worker, repo_mc, monkeypatch, git_patch
 ):
     repo = repo_mc(SCM_TYPE_GIT)
     scm = repo.scm
@@ -594,9 +592,7 @@ def test_automation_job_add_commit_success_git(
 
 
 @pytest.mark.django_db
-def test_automation_job_add_commit_fail(
-    hg_server, hg_clone, repo_mc, treestatusdouble, hg_automation_worker, monkeypatch
-):
+def test_automation_job_add_commit_fail(repo_mc, hg_automation_worker, monkeypatch):
     repo = repo_mc(SCM_TYPE_HG)
     scm = repo.scm
 
@@ -644,7 +640,6 @@ diff --git a/test.txt b/test.txt
 def test_automation_job_create_commit_success(
     scm_type,
     repo_mc,
-    treestatusdouble,
     get_automation_worker,
     monkeypatch,
 ):
@@ -696,7 +691,7 @@ def test_automation_job_create_commit_success(
 @pytest.mark.parametrize("scm_type", (SCM_TYPE_HG, SCM_TYPE_GIT))
 @pytest.mark.django_db
 def test_automation_job_create_commit_patch_conflict(
-    scm_type, repo_mc, treestatusdouble, get_automation_worker, monkeypatch
+    scm_type, repo_mc, get_automation_worker, monkeypatch
 ):
     repo = repo_mc(scm_type)
     job = AutomationJob.objects.create(
@@ -756,9 +751,7 @@ def _create_split_branches_for_merge(
 def test_automation_job_merge_onto_success_git(
     strategy,
     repo_mc,
-    treestatusdouble,
     git_automation_worker,
-    monkeypatch,
     request,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
@@ -766,8 +759,8 @@ def test_automation_job_merge_onto_success_git(
     scm.push = mock.MagicMock()
 
     # Create a repo with diverging history
-    main_commit, main_file, feature_commit, feature_file = (
-        _create_split_branches_for_merge(request, scm, repo.system_path)
+    _, _, feature_commit, _ = _create_split_branches_for_merge(
+        request, scm, repo.system_path
     )
 
     job = AutomationJob.objects.create(
@@ -798,7 +791,6 @@ def test_automation_job_merge_onto_success_git(
 @pytest.mark.django_db
 def test_automation_job_merge_onto_fast_forward_git(
     repo_mc,
-    treestatusdouble,
     git_automation_worker,
     request,
 ):
@@ -830,7 +822,7 @@ def test_automation_job_merge_onto_fast_forward_git(
         action_type="merge-onto",
         data={
             "action": "merge-onto",
-            "commit_message": "Fast-forward merge test",
+            "commit_message": "No bug: Fast-forward merge test",
             "strategy": None,
             "target": feature_sha,
         },
@@ -868,9 +860,7 @@ def test_automation_job_merge_onto_fast_forward_git(
 def test_automation_job_merge_onto_success_hg(
     strategy,
     repo_mc,
-    treestatusdouble,
     hg_automation_worker,
-    monkeypatch,
     request,
 ):
     repo = repo_mc(SCM_TYPE_HG)
@@ -923,7 +913,7 @@ def test_automation_job_merge_onto_success_hg(
         action_type="merge-onto",
         data={
             "action": "merge-onto",
-            "commit_message": f"merge test ({strategy})",
+            "commit_message": f"No bug: merge test ({strategy})",
             "strategy": strategy,
             "target": feature_commit,
         },
@@ -940,9 +930,7 @@ def test_automation_job_merge_onto_success_hg(
 
 @pytest.mark.parametrize("scm_type", (SCM_TYPE_HG, SCM_TYPE_GIT))
 @pytest.mark.django_db
-def test_automation_job_merge_onto_fail(
-    scm_type, repo_mc, treestatusdouble, get_automation_worker, monkeypatch
-):
+def test_automation_job_merge_onto_fail(scm_type, repo_mc, get_automation_worker):
     repo = repo_mc(scm_type)
 
     job = AutomationJob.objects.create(
@@ -975,11 +963,8 @@ def test_automation_job_merge_onto_fail(
 @pytest.mark.django_db
 def test_automation_job_tag_success_git_tip_commit(
     repo_mc,
-    treestatusdouble,
     get_automation_worker,
     request,
-    monkeypatch,
-    normal_patch,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
     scm = repo.scm
@@ -1031,10 +1016,8 @@ def test_automation_job_tag_success_git_tip_commit(
 @pytest.mark.django_db
 def test_automation_job_tag_success_git_new_commit(
     repo_mc,
-    treestatusdouble,
     get_automation_worker,
     request,
-    monkeypatch,
     git_patch,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
@@ -1091,10 +1074,8 @@ def test_automation_job_tag_success_git_new_commit(
 @pytest.mark.django_db
 def test_automation_job_tag_failure_git(
     repo_mc,
-    treestatusdouble,
     get_automation_worker,
     request,
-    monkeypatch,
     git_patch,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
@@ -1138,7 +1119,6 @@ def test_automation_job_tag_failure_git(
 @pytest.mark.django_db
 def test_automation_job_tag_success_hg(
     repo_mc,
-    treestatusdouble,
     get_automation_worker,
     normal_patch,
     request,
@@ -1517,7 +1497,7 @@ def test_valid_token_verification(headless_user):
 
 @pytest.mark.django_db
 def test_invalid_token_prefix_invalid(headless_user):
-    user, token = headless_user
+    _, token = headless_user
 
     first_char = token[0]
 
@@ -1533,7 +1513,7 @@ def test_invalid_token_prefix_invalid(headless_user):
 
 @pytest.mark.django_db
 def test_invalid_token_prefix_valid(headless_user):
-    user, token = headless_user
+    _, token = headless_user
 
     last_char = token[-1]
 
@@ -1555,7 +1535,7 @@ def test_token_prefix_collision(monkeypatch, headless_user):
     Although extremely unlikely in production, this ensures our filtering plus
     hash-check strategy works.
     """
-    user, token = headless_user
+    user, _ = headless_user
 
     original_token_hex = secrets.token_hex
 
@@ -1580,7 +1560,7 @@ def test_token_prefix_collision(monkeypatch, headless_user):
 
 @pytest.mark.django_db
 def test_get_repo_info_success(client, headless_user, repo_mc):
-    user, token = headless_user
+    _, token = headless_user
 
     repo = repo_mc(SCM_TYPE_GIT)
 
@@ -1608,7 +1588,7 @@ def test_get_repo_info_success(client, headless_user, repo_mc):
 
 @pytest.mark.django_db
 def test_get_repo_info_not_found(client, headless_user):
-    user, token = headless_user
+    _, token = headless_user
 
     response = client.get(
         "/api/repoinfo/nonexistent-repo",
