@@ -51,6 +51,18 @@ class Command(BaseCommand):
                 logger.info(f"Repo {repo} not prepared, preparing...")
                 repo.scm.prepare_repo(repo.pull_path)
 
+    def _bootstrap_repos(self, worker: LandingWorker):
+        repos = worker.worker_instance.enabled_repos.filter(autoformat_enabled=True)
+        command = [
+            "bootstrap",
+            "--no-system-changes",
+            "--application-choice",
+            "browser",
+        ]
+
+        for repo in repos:
+            worker.run_mach_command(repo.path, command)
+
     def _handle(self, worker: Worker, repo_type: str):
         self._check_for_unsupported_repos(worker, repo_type)
         max_attempts = 5
@@ -77,6 +89,9 @@ class Command(BaseCommand):
             landing_worker = LandingWorker(worker)
         except ConnectionError as e:
             raise CommandError(e)
+
+        logger.info("Bootstrapping applicable repos...")
+        self._bootstrap_repos(landing_worker)
 
         logger.info(f"Starting {worker}...")
         try:

@@ -138,7 +138,6 @@ class GitSCM(AbstractSCM):
         )
         self._git_run(*push_command, cwd=self.path)
 
-
     @staticmethod
     def _get_github_token(repo_owner: str, repo_name: str) -> Optional[str]:
         """Obtain a fresh GitHub token to push to the specified repo.
