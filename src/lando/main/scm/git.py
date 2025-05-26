@@ -42,7 +42,8 @@ ENV_COMMITTER_EMAIL = "GIT_COMMITTER_EMAIL"
 #
 # [0] https://www.rfc-editor.org/rfc/rfc3986
 URL_USERINFO_RE = re.compile(
-    "(?P<userinfo>[-A-Za-z0-9:._~%!$&'*()*+;=]*@)", flags=re.MULTILINE
+    "(?P<userinfo>[-A-Za-z0-9:._~%!$&'*()*+;=]*:[-A-Za-z0-9:._~%!$&'*()*+;=]*@)",
+    flags=re.MULTILINE,
 )
 GITHUB_URL_RE = re.compile(
     f"https://{URL_USERINFO_RE.pattern}?github.com/(?P<owner>[-A-Za-z0-9]+)/(?P<repo>[^/]+)"
