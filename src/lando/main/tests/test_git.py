@@ -374,19 +374,32 @@ def test_GitSCM_push_get_github_token(git_repo: Path):
     ), "github token not found in rewritten push_path"
 
 
-def test_GitSCM_git_run_redact_url_userinfo(git_repo: Path):
+@pytest.mark.parametrize(
+    "userinfo,redacted",
+    [
+        ("user:password", True),
+        ("user", False),
+    ],
+)
+def test_GitSCM_git_run_redact_url_userinfo(
+    git_repo: Path, userinfo: str, redacted: bool
+):
     scm = GitSCM(str(git_repo))
-    userinfo = "user:password"
     with pytest.raises(SCMException) as exc:
         scm.push(
             f"http://{userinfo}@this-shouldn-t-resolve-otherwise-this-will-timeout-and-this-test-will-take-longer/some/repo"
         )
 
-    assert userinfo not in exc.value.out
-    assert userinfo not in exc.value.err
-    assert userinfo not in str(exc.value)
-    assert userinfo not in repr(exc.value)
-    assert "[REDACTED]" in str(exc.value)
+    if redacted:
+        assert userinfo not in exc.value.out
+        assert userinfo not in exc.value.err
+        assert userinfo not in str(exc.value)
+        assert userinfo not in repr(exc.value)
+        assert "[REDACTED]" in str(exc.value)
+    else:
+        assert userinfo in str(exc.value)
+        assert userinfo in repr(exc.value)
+        assert "[REDACTED]" not in str(exc.value)
 
 
 def _create_git_commit(request: pytest.FixtureRequest, clone_path: Path):
