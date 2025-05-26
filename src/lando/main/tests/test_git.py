@@ -375,30 +375,27 @@ def test_GitSCM_push_get_github_token(git_repo: Path):
 
 
 @pytest.mark.parametrize(
-    "userinfo,should_be_redacted",
-    [
-        ("user:password", True),
-        ("user", False),
-    ],
+    "string,should_be_redacted",
+    [("user:password", True), ("user", False), ("guage@2x.png", False)],
 )
 def test_GitSCM_git_run_redact_url_userinfo(
-    git_repo: Path, userinfo: str, should_be_redacted: bool
+    git_repo: Path, string: str, should_be_redacted: bool
 ):
     scm = GitSCM(str(git_repo))
     with pytest.raises(SCMException) as exc:
         scm.push(
-            f"http://{userinfo}@this-shouldn-t-resolve-otherwise-this-will-timeout-and-this-test-will-take-longer/some/repo"
+            f"http://{string}@this-shouldn-t-resolve-otherwise-this-will-timeout-and-this-test-will-take-longer/some/repo"
         )
 
     if should_be_redacted:
-        assert userinfo not in exc.value.out
-        assert userinfo not in exc.value.err
-        assert userinfo not in str(exc.value)
-        assert userinfo not in repr(exc.value)
+        assert string not in exc.value.out
+        assert string not in exc.value.err
+        assert string not in str(exc.value)
+        assert string not in repr(exc.value)
         assert "[REDACTED]" in str(exc.value)
     else:
-        assert userinfo in str(exc.value)
-        assert userinfo in repr(exc.value)
+        assert string in str(exc.value)
+        assert string in repr(exc.value)
         assert "[REDACTED]" not in str(exc.value)
 
 
