@@ -375,14 +375,14 @@ def test_GitSCM_push_get_github_token(git_repo: Path):
 
 
 @pytest.mark.parametrize(
-    "userinfo,redacted",
+    "userinfo,should_be_redacted",
     [
         ("user:password", True),
         ("user", False),
     ],
 )
 def test_GitSCM_git_run_redact_url_userinfo(
-    git_repo: Path, userinfo: str, redacted: bool
+    git_repo: Path, userinfo: str, should_be_redacted: bool
 ):
     scm = GitSCM(str(git_repo))
     with pytest.raises(SCMException) as exc:
@@ -390,7 +390,7 @@ def test_GitSCM_git_run_redact_url_userinfo(
             f"http://{userinfo}@this-shouldn-t-resolve-otherwise-this-will-timeout-and-this-test-will-take-longer/some/repo"
         )
 
-    if redacted:
+    if should_be_redacted:
         assert userinfo not in exc.value.out
         assert userinfo not in exc.value.err
         assert userinfo not in str(exc.value)
