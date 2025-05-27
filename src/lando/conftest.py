@@ -137,6 +137,78 @@ def git_patch():
     return _patch
 
 
+PATCH_DIFF = """
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,2 @@
+ TEST
++adding another line
+""".lstrip()
+
+PATCH_SYMLINK_DIFF = """
+diff --git a/symlink b/symlink
+new file mode 120000
+index 0000000..541cb64
+--- /dev/null
++++ b/symlink
+@@ -0,0 +1 @@
++test.txt
+""".lstrip()
+
+PATCH_TRY_DIFF = """
+diff --git a/try_task_config.json b/try_task_config.json
+new file mode 100644
+index 0000000..e69de29
+""".lstrip()
+
+PATCH_NSS_DIFF = """
+diff --git a/security/nss/.keep b/security/nss/.keep
+new file mode 100644
+index 0000000..e69de29
+""".lstrip()
+
+PATCH_NSPR_DIFF = """
+diff --git a/nsprpub/.keep b/nsprpub/.keep
+new file mode 100644
+index 0000000..e69de29
+""".lstrip()
+
+PATCH_SUBMODULE_DIFF = """
+diff --git a/.gitmodules b/.gitmodules
+new file mode 100644
+index 0000000..4c39732
+--- /dev/null
++++ b/.gitmodules
+@@ -0,0 +1,3 @@
++[submodule "submodule"]
++       path = submodule
++       url = https://github.com/mozilla-conduit/test-repo
+"""
+
+
+@pytest.fixture
+def check_diff() -> Callable:
+    """Return a diff failing a specific check."""
+
+    patches = {
+        "nspr": PATCH_NSPR_DIFF,
+        "nss": PATCH_NSS_DIFF,
+        "submodule": PATCH_SUBMODULE_DIFF,
+        "symlink": PATCH_SYMLINK_DIFF,
+        "try": PATCH_TRY_DIFF,
+        "valid": PATCH_DIFF,
+        # WPTCheck verifies that commits from wptsync@mozilla only touch paths in
+        # WPT_SYNC_ALLOWED_PATHS_RE (currently a subset of testing/web-platform/).
+        "wpt": PATCH_DIFF,
+    }
+
+    def _diff(key: str) -> str | None:
+        return patches.get(key)
+
+    return _diff
+
+
 @pytest.fixture
 def git_repo_seed() -> Path:
     """

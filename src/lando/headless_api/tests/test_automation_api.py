@@ -630,56 +630,6 @@ def test_automation_job_add_commit_fail(
     assert scm.push.call_count == 0
 
 
-PATCH_DIFF = """
-diff --git a/test.txt b/test.txt
---- a/test.txt
-+++ b/test.txt
-@@ -1,1 +1,2 @@
- TEST
-+adding another line
-""".lstrip()
-
-PATCH_SYMLINK_DIFF = """
-diff --git a/symlink b/symlink
-new file mode 120000
-index 0000000..541cb64
---- /dev/null
-+++ b/symlink
-@@ -0,0 +1 @@
-+test.txt
-""".lstrip()
-
-PATCH_TRY_DIFF = """
-diff --git a/try_task_config.json b/try_task_config.json
-new file mode 100644
-index 0000000..e69de29
-""".lstrip()
-
-PATCH_NSS_DIFF = """
-diff --git a/security/nss/.keep b/security/nss/.keep
-new file mode 100644
-index 0000000..e69de29
-""".lstrip()
-
-PATCH_NSPR_DIFF = """
-diff --git a/nsprpub/.keep b/nsprpub/.keep
-new file mode 100644
-index 0000000..e69de29
-""".lstrip()
-
-PATCH_SUBMODULE_DIFF = """
-diff --git a/.gitmodules b/.gitmodules
-new file mode 100644
-index 0000000..4c39732
---- /dev/null
-+++ b/.gitmodules
-@@ -0,0 +1,3 @@
-+[submodule "submodule"]
-+       path = submodule
-+       url = https://github.com/mozilla-conduit/test-repo
-"""
-
-
 @pytest.mark.parametrize("scm_type", (SCM_TYPE_HG, SCM_TYPE_GIT))
 @pytest.mark.django_db
 def test_automation_job_create_commit_success(
@@ -688,6 +638,7 @@ def test_automation_job_create_commit_success(
     treestatusdouble,
     get_automation_worker,
     monkeypatch,
+    check_diff,
 ):
     repo = repo_mc(SCM_TYPE_HG)
     scm = repo.scm
@@ -706,7 +657,7 @@ def test_automation_job_create_commit_success(
             "author": "Test User <test@example.com>",
             "commitmsg": "No bug: commit success",
             "date": 0,
-            "diff": PATCH_DIFF,
+            "diff": check_diff("valid"),
         },
         order=0,
     )
@@ -749,7 +700,7 @@ def test_automation_job_create_commit_success(
                     "author": "Test User <test@example.com>",
                     "commitmsg": "commit message without bug info",
                     "date": 0,
-                    "diff": PATCH_DIFF,
+                    "diff_name": "valid",  # The commit message is invalid
                 },
                 "Revision needs 'Bug N' or 'No bug' in the commit message: commit message without bug info",
             ),
@@ -760,7 +711,7 @@ def test_automation_job_create_commit_success(
                     "author": "Test User <test@example.com>",
                     "commitmsg": "No bug: commit with symlink",
                     "date": 0,
-                    "diff": PATCH_SYMLINK_DIFF,
+                    "diff_name": "symlink",
                 },
                 "Revision introduces symlinks in the files ",
             ),
@@ -771,7 +722,7 @@ def test_automation_job_create_commit_success(
                     "author": "Test User <test@example.com>",
                     "commitmsg": "No bug: commit with try_task_config.json",
                     "date": 0,
-                    "diff": PATCH_TRY_DIFF,
+                    "diff_name": "try",
                 },
                 "Revision introduces the `try_task_config.json` file.",
             ),
@@ -782,7 +733,7 @@ def test_automation_job_create_commit_success(
                     "author": "Test User <test@example.com>",
                     "commitmsg": "No bug: commit with NSS changes",
                     "date": 0,
-                    "diff": PATCH_NSS_DIFF,
+                    "diff_name": "nss",
                 },
                 "Revision makes changes to restricted directories:",
             ),
@@ -792,7 +743,7 @@ def test_automation_job_create_commit_success(
                     "author": "Test User <test@example.com>",
                     "commitmsg": "No bug: commit with NSPR changes",
                     "date": 0,
-                    "diff": PATCH_NSPR_DIFF,
+                    "diff_name": "nspr",
                 },
                 "Revision makes changes to restricted directories:",
             ),
@@ -803,7 +754,7 @@ def test_automation_job_create_commit_success(
                     "author": "Test User <test@example.com>",
                     "commitmsg": "No bug: commit with .gitmodules changes",
                     "date": 0,
-                    "diff": PATCH_SUBMODULE_DIFF,
+                    "diff_name": "submodule",
                 },
                 "Revision introduces a Git submodule into the repository.",
             ),
@@ -814,7 +765,7 @@ def test_automation_job_create_commit_success(
                     "author": "WPT Sync Bot <wptsync@mozilla.com>",
                     "commitmsg": "No bug: WPT commit with non-WPTSync changes",
                     "date": 0,
-                    "diff": PATCH_DIFF,
+                    "diff_name": "wpt",  # This author email is not allowed to write outsid of testing/web-platform
                 },
                 "Revision has WPTSync bot making changes to disallowed files ",
             ),
@@ -829,8 +780,17 @@ def test_automation_job_create_commit_failed_check(
     get_automation_worker,
     monkeypatch,
     bad_action_reason,
+    check_diff,
 ):
     bad_action, reason = bad_action_reason
+
+    # Get the actual from the fixture.
+    if "diff_name" in bad_action:
+        # Due to the way we use itertools to pass the parameters, this fixture
+        # get reused in its mutated state. Make sure we don't try to mutate it again.
+        bad_action["diff"] = check_diff(bad_action["diff_name"])
+        del bad_action["diff_name"]
+
     repo = repo_mc(SCM_TYPE_HG)
     scm = repo.scm
 
@@ -872,7 +832,12 @@ def test_automation_job_create_commit_failed_check(
 @pytest.mark.parametrize("scm_type", (SCM_TYPE_HG, SCM_TYPE_GIT))
 @pytest.mark.django_db
 def test_automation_job_create_commit_patch_conflict(
-    scm_type, repo_mc, treestatusdouble, get_automation_worker, monkeypatch
+    scm_type,
+    repo_mc,
+    treestatusdouble,
+    get_automation_worker,
+    monkeypatch,
+    check_diff,
 ):
     repo = repo_mc(scm_type)
     job = AutomationJob.objects.create(
@@ -889,7 +854,7 @@ def test_automation_job_create_commit_patch_conflict(
             "author": "Test User <test@example.com>",
             "commitmsg": "No bug: conflict commit",
             "date": 0,
-            "diff": PATCH_DIFF,
+            "diff": check_diff("valid"),
         },
         order=0,
     )
