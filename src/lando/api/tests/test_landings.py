@@ -676,7 +676,6 @@ def test_failed_landing_job_checks(
     assert job.status == JobStatus.FAILED
     assert reason in job.error
 
-
 @pytest.mark.parametrize(
     "repo_type",
     [
