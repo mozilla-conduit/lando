@@ -160,7 +160,9 @@ def test_GitSCM_apply_get_patch(git_repo: Path, git_patch: Callable):
     expected_patch = re.sub(trim_from_re, "", expected_patch, count=1)
     new_patch = re.sub(trim_from_re, "", new_patch, count=1)
 
-    unify_git_version_re = r"^(\d+){3}\n$"
+    # The git version used when we created our fixture may no longer match the one on
+    # the system running the test.
+    unify_git_version_re = r"\d+(\.\d+)+$"
     expected_patch = re.sub(unify_git_version_re, "GIT.VERS.ION", expected_patch)
     new_patch = re.sub(unify_git_version_re, "GIT.VERS.ION", new_patch)
 
