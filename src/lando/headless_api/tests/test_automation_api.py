@@ -825,6 +825,7 @@ def test_automation_job_create_commit_success(
 def test_automation_job_create_commit_failed_check(
     scm_type,
     repo_mc,
+    treestatusdouble,
     get_automation_worker,
     monkeypatch,
     bad_action_reason,
