@@ -1,4 +1,5 @@
 import io
+import itertools
 import re
 import unittest.mock as mock
 
@@ -551,6 +552,129 @@ def test_merge_conflict(
             assert re.match(f"{repo.pull_path}/tree", fp["url"])
         else:  # SCM_TYPE_HG
             assert re.match(f"{repo.pull_path}/file", fp["url"])
+
+
+@pytest.mark.parametrize(
+    "repo_type,disallowed_revision_reason",
+    # We make a cross-product of all the SCM and all the bad actions.
+    # As we don't want a cross-product of bad actions and reasons, we bundle them in a
+    # tuple, that we deconstruct in the test.
+    itertools.product(
+        (SCM_TYPE_HG, SCM_TYPE_GIT),
+        (
+            # CommitMessagesCheck
+            (
+                {
+                    "author_email": "test@example.com",
+                    "commitmsg": "commit message without bug info",
+                    "diff": "valid",  # The commit message is invalid
+                },
+                "Revision needs 'Bug N' or 'No bug' in the commit message: commit message without bug info",
+            ),
+            # PreventSymlinksCheck
+            (
+                {
+                    "author_email": "test@example.com",
+                    "commitmsg": "No bug: commit with symlink",
+                    "diff": "symlink",
+                },
+                "Revision introduces symlinks in the files ",
+            ),
+            # TryTaskConfigCheck
+            (
+                {
+                    "author_email": "test@example.com",
+                    "commitmsg": "No bug: commit with try_task_config.json",
+                    "diff": "try",
+                },
+                "Revision introduces the `try_task_config.json` file.",
+            ),
+            # PreventNSPRNSSCheck
+            (
+                {
+                    "author_email": "test@example.com",
+                    "commitmsg": "No bug: commit with NSS changes",
+                    "diff": "nss",
+                },
+                "Revision makes changes to restricted directories:",
+            ),
+            (
+                {
+                    "author_email": "test@example.com",
+                    "commitmsg": "No bug: commit with NSPR changes",
+                    "diff": "nspr",
+                },
+                "Revision makes changes to restricted directories:",
+            ),
+            # PreventSubmodulesCheck
+            (
+                {
+                    "author_email": "test@example.com",
+                    "commitmsg": "No bug: commit with .gitmodules changes",
+                    "diff": "submodule",
+                },
+                "Revision introduces a Git submodule into the repository.",
+            ),
+            # WPTSyncCheck
+            (
+                {
+                    "author_email": "wptsync@mozilla.com",
+                    "commitmsg": "No bug: WPT commit with non-WPTSync changes",
+                    "diff": "valid",  # This author email is not allowed to write outsid of testing/web-platform
+                },
+                "Revision has WPTSync bot making changes to disallowed files ",
+            ),
+        ),
+    ),
+)
+@pytest.mark.django_db
+def test_failed_landing_job_checks(
+    repo_mc,
+    treestatusdouble,
+    create_patch_revision,
+    get_landing_worker,
+    check_diff,
+    repo_type: str,
+    disallowed_revision_reason,
+):
+    """Ensure that checks fail non-compliant landings."""
+    repo = repo_mc(repo_type, approval_required=True, autoformat_enabled=False)
+    treestatusdouble.open_tree(repo.name)
+
+    disallowed_revision, reason = disallowed_revision_reason
+
+    patch = (
+        r"""# HG changeset patch
+# User Test User <"""
+        + disallowed_revision["author_email"]
+        + """>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+"""
+        + disallowed_revision["commitmsg"]
+        + """
+"""
+        + check_diff(disallowed_revision["diff"])
+    )
+
+    revisions = [
+        # create_patch_revision(i, patch=patch) for i, patch in enumerate(patches)
+        #        for i, patch in enumerate(patches)
+        create_patch_revision(1, patch=patch)
+    ]
+    job_params = {
+        "status": JobStatus.IN_PROGRESS,
+        "requester_email": disallowed_revision["author_email"],
+        "target_repo": repo,
+        "attempts": 1,
+    }
+    job = add_job_with_revisions(revisions, **job_params)
+
+    worker = get_landing_worker(repo_type)
+    assert worker.run_job(job)
+    assert job.status == JobStatus.FAILED
+    assert reason in job.error
 
 
 @pytest.mark.parametrize(
