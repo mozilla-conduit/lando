@@ -1099,7 +1099,7 @@ def test_automation_job_merge_onto_success_hg(
         action_type="merge-onto",
         data={
             "action": "merge-onto",
-            "commit_message": f"merge test ({strategy})",
+            "commit_message": f"No bug: merge test ({strategy})",
             "strategy": strategy,
             "target": feature_commit,
         },
