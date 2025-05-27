@@ -374,7 +374,7 @@ class HgSCM(AbstractSCM):
             # {parents} in Mercurial is empty if the commit has a single parent.
             # We re-add it manually, but only if it is a non-null parent.
             if not metadata["parents"] and not metadata["parent"] == NULL_PARENT_HASH:
-                metadata["parents"] = metadata["parent"]
+                metadata["parents"] = [metadata["parent"]]
             del metadata["parent"]
 
             metadata["datetime"] = datetime.fromtimestamp(
