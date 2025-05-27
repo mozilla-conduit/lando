@@ -151,13 +151,18 @@ def test_GitSCM_apply_get_patch(git_repo: Path, git_patch: Callable):
 
     commit = scm.describe_commit()
 
+    expected_patch = patch
     new_patch = scm.get_patch(commit.hash)
 
     # Trim first line from both patches, as they will contain a `From` line
     # with a different base commit.
     trim_from_re = r"^From [^\n]+\n"
-    expected_patch = re.sub(trim_from_re, "", patch, count=1)
+    expected_patch = re.sub(trim_from_re, "", expected_patch, count=1)
     new_patch = re.sub(trim_from_re, "", new_patch, count=1)
+
+    unify_git_version_re = r"^(\d+){3}\n$"
+    expected_patch = re.sub(unify_git_version_re, "GIT.VERS.ION", expected_patch)
+    new_patch = re.sub(unify_git_version_re, "GIT.VERS.ION", new_patch)
 
     # The original patch may have a `[PATCH]` in the subject that we don't want to
     # retain on application and subsequent export.
