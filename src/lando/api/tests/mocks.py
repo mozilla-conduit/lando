@@ -275,7 +275,7 @@ class PhabricatorDouble:
         revision_id = self._new_id(self._revisions)
         phid = self._new_phid("DREV-")
         uri = "http://phabricator.test/D{}".format(revision_id)
-        title = "my test revision title" if not title else title
+        title = "no bug: my test revision title" if not title else title
 
         author = self.user() if author is None else author
 
@@ -296,7 +296,7 @@ class PhabricatorDouble:
             "status": status,
             "properties": [],
             "branch": None,
-            "summary": summary or "my test revision summary",
+            "summary": summary or "no bug: my test revision summary",
             "testPlan": "my revision test plan",
             "lineCount": "2",
             "commits": [],

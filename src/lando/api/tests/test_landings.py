@@ -54,7 +54,7 @@ LARGE_PATCH = rf"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add another line with utf-8
+No bug: add another line with utf-8
 
 diff --git a/test.txt b/test.txt
 --- a/test.txt
@@ -69,7 +69,7 @@ PATCH_WITHOUT_STARTLINE = r"""
 # User Test User <test@example.com>
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
-add another line without startline.
+No bug: add another line without startline.
 diff --git a/test.txt b/test.txt
 --- a/test.txt
 +++ b/test.txt
@@ -86,7 +86,7 @@ PATCH_PUSH_LOSER = r"""
 #      Thu Jan 01 00:00:00 1970 +0000
 # Fail HG Import LOSE_PUSH_RACE
 # Diff Start Line 8
-add one more line.
+No bug: add one more line.
 diff --git a/test.txt b/test.txt
 --- a/test.txt
 +++ b/test.txt
@@ -101,7 +101,7 @@ PATCH_FORMATTING_PATTERN_PASS = r"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add formatting config
+No bug: add formatting config
 
 diff --git a/.lando.ini b/.lando.ini
 new file mode 100644
@@ -155,7 +155,7 @@ PATCH_FORMATTING_PATTERN_FAIL = r"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add formatting config
+No bug: add formatting config
 
 diff --git a/.lando.ini b/.lando.ini
 new file mode 100644
@@ -206,7 +206,7 @@ PATCH_FORMATTED_2 = r"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add another file for formatting 2
+no bug: add another file for formatting 2
 
 diff --git a/test.txt b/test.txt
 --- a/test.txt

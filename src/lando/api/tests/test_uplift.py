@@ -308,7 +308,7 @@ def test_uplift_creation(
     # We still have the same revision
     assert len(phabdouble._revisions) == 1
     new_rev = phabdouble._revisions[0]
-    assert new_rev["title"] == "my test revision title"
+    assert new_rev["title"] == "no bug: my test revision title"
 
 
 def test_create_uplift_bug_update_payload():
