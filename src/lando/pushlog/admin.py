@@ -76,6 +76,11 @@ class PushAdmin(PushLogAdmin):
     list_filter = ["repo", "branch", "user", "datetime"]
 
     def commit_summary(self, instance: Push) -> str:
+        """Return a summary of commits present in a Push.
+
+        The summary is the hash of the last commit, and a count of all the other
+        commits present in the Push.
+        """
         last_commit = instance.commits.order_by("-id").last()
         ncommits = instance.commits.count()
         summary = "(no commit)"
@@ -87,6 +92,11 @@ class PushAdmin(PushLogAdmin):
         return summary
 
     def tag_summary(self, instance: Push) -> str:
+        """Return a summary of tags present in a Push.
+
+        The summary is the hash of the last tag, and a count of all the other
+        tags present in the Push.
+        """
         last_tag = instance.tags.order_by("-id").last()
         ntags = instance.tags.count()
         summary = "(no tag)"

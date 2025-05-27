@@ -65,6 +65,7 @@ class AutomationJobAdmin(admin.ModelAdmin):
         return False
 
     def action_types(self, instance: AutomationJob) -> str:
+        """Return a summary string of the action types associated to a given job."""
         return str([a.action_type for a in instance.actions.all()])
 
 

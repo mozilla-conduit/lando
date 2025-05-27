@@ -98,20 +98,23 @@ class RevisionAdmin(admin.ModelAdmin):
     list_display = (
         "revision",
         "desc",
-        "datetime",
+        "patch_timestamp",
         "author",
     )
 
     def revision(self, instance: Revision) -> str:
+        """Return a Phabricator-like revision identifier."""
         return f"D{instance.revision_id}"
 
-    def datetime(self, instance: Revision) -> datetime | None:
+    def patch_timestamp(self, instance: Revision) -> datetime | None:
+        """Return a datetime based on the timestamp from the patch data."""
         ts = instance.patch_data.get("timestamp")
         if not isinstance(ts, int):
             return None
         return datetime.fromtimestamp(ts)
 
     def author(self, instance: Revision) -> str:
+        """Return an author string based on information available in the patch data."""
         author_name = instance.patch_data.get("author_name")
         author_email = instance.patch_data.get("author_email")
 
@@ -130,6 +133,7 @@ class RevisionAdmin(admin.ModelAdmin):
         return " ".join(author_list)
 
     def desc(self, instance: Revision) -> str:
+        """Return the first line of the commit message in the patch data."""
         return (instance.patch_data.get("commit_message") or "-").splitlines()[0]
 
 
