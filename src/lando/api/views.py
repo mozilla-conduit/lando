@@ -2,12 +2,16 @@ import json
 from functools import wraps
 from typing import Callable
 
+import requests
 from django import forms
+from django.core.handlers.wsgi import WSGIRequest
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
+from lando.main.models.commit import CommitMap
+from lando.main.models.repo import Repo
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.utils.phabricator import get_phabricator_client
 
@@ -104,3 +108,70 @@ class LegacyDiffWarningView(View):
             )
 
         return JsonResponse({"errors": dict(form.errors)}, status=400)
+
+
+class CommitMapBaseView(View):
+    def fetch_push_data(self, hg_repo: Repo, git_repo: Repo, **kwargs) -> dict:
+        url = f"{hg_repo.url}/json-pushes"
+        push_data = requests.get(url, params=kwargs).json()
+
+        # We don't care about the key, as it is just the build ID.
+        # NOTE: multiple changesets may be included in the response.
+        for changeset in push_data.values()["changesets"]:
+            params = {
+                "hg_node": changeset["node"],
+                "git_node": changeset["git_node"],
+                "hg_repo": hg_repo,
+                "git_repo": git_repo,
+            }
+            if not CommitMap.objects.filter(**params).exists():
+                CommitMap.objects.create(**params)
+
+    def get(
+        self, request: WSGIRequest, repo_name: str, commit_hash: str, **kwargs
+    ) -> JsonResponse:
+        try:
+            repo = Repo.objects.get(name=repo_name)
+        except Repo.DoesNotExist:
+            return JsonResponse(
+                {"error": f"Repo {repo_name} does not exist"}, status=404
+            )
+
+        if repo.is_hg:
+            hg_repo = repo
+            git_repo = repo.new_target
+        else:
+            hg_repo = repo.legacy_source
+            git_repo = repo
+
+        filters = {f"{self.hash_field}__startswith": commit_hash, "git_repo": git_repo}
+        commits = CommitMap.objects.filter(**filters)
+
+        if not commits.exists():
+            # Commit either does not exist or has not been encountered before.
+            push_data = self.fetch_push_data(
+                hg_repo=hg_repo,
+                git_repo=git_repo,
+                changeset=commit_hash,
+                full=True,
+            )
+            self.process_push_data(push_data)
+
+        if commits.count() == 1:
+            commit = commits.first()
+            return JsonResponse(commit.serialize(), status=200)
+        elif commits.count() > 1:
+            return JsonResponse(
+                {"error": f"Multiple commits found ({commits.count()})"}, status=400
+            )
+        return JsonResponse({"error": "No commits found"}, status=404)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class git2hgCommitMapView(CommitMapBaseView):
+    hash_field = "git_hash"
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class hg2gitCommitMapView(CommitMapBaseView):
+    hash_field = "hg_hash"
