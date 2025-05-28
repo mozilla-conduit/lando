@@ -915,6 +915,75 @@ def test_automation_job_create_commit_failed_check(
     assert reason in job.error, "Expected job failure reason was not found"
 
 
+@pytest.mark.parametrize(
+    "scm_type,override_action_data",
+    itertools.product(
+        [SCM_TYPE_HG, SCM_TYPE_GIT],
+        [
+            {
+                "action": "create-commit",
+                "author": "Test User <test@example.com>",
+                "commitmsg": "IGNORE BAD COMMIT MESSAGES",
+                "date": 0,
+                "diff": PATCH_DIFF,
+            }
+        ],
+    ),
+)
+@pytest.mark.django_db
+def test_automation_job_create_commit_failed_check_override(
+    scm_type,
+    repo_mc,
+    treestatusdouble,
+    get_automation_worker,
+    monkeypatch,
+    failed_check_action_reason: Callable,
+    override_action_data,
+):
+
+    repo = repo_mc(SCM_TYPE_HG)
+    scm = repo.scm
+
+    # Create a job and _all_ invalid actions
+    job = AutomationJob.objects.create(
+        status=JobStatus.SUBMITTED,
+        requester_email="example@example.com",
+        target_repo=repo,
+    )
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="create-commit",
+        data = failed_check_action_reason("nobug")[0],
+        order=0,
+    )
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="create-commit",
+        data=override_action_data,
+        order=0,
+    )
+
+    automation_worker = get_automation_worker(scm_type)
+
+    automation_worker.worker_instance.applicable_repos.add(repo)
+
+    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
+    mock_trigger_update = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.automation_worker.AutomationWorker.phab_trigger_repo_update",
+        mock_trigger_update,
+    )
+
+    scm.push = mock.MagicMock()
+
+    assert automation_worker.run_automation_job(
+        job
+    ), "Job indicated that it should be retried"
+    assert (
+        job.status == JobStatus.LANDED
+    ), f"Job failed despite overrides: {job.error}"
+
+
 @pytest.mark.parametrize("scm_type", (SCM_TYPE_HG, SCM_TYPE_GIT))
 @pytest.mark.django_db
 def test_automation_job_create_commit_patch_conflict(
@@ -1012,7 +1081,9 @@ def test_automation_job_merge_onto_success_git(
     git_automation_worker.worker_instance.applicable_repos.add(repo)
 
     assert git_automation_worker.run_automation_job(job)
-    assert job.status == JobStatus.LANDED
+    assert (
+        job.status == JobStatus.LANDED
+    ), f"Job unexpectedly failed: {job.error}"
     assert scm.push.called
     assert len(job.landed_commit_id) == 40
 
