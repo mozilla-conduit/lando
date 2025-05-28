@@ -675,7 +675,7 @@ class CommitMessagesCheck(PatchCollectionCheck):
             if not backouts or not backouts[0]:
                 self.commit_message_issues.append(
                     "Revision is a backout but commit message "
-                    "does not indicate backed out revisions: " + commit_message
+                    f"does not indicate backed out revisions: {commit_message}"
                 )
                 return
 
@@ -687,20 +687,19 @@ class CommitMessagesCheck(PatchCollectionCheck):
         if "[PATCH" in firstline:
             self.commit_message_issues.append(
                 "Revision contains git-format-patch '[PATCH]' cruft. Use "
-                "git-format-patch -k to avoid this: " + commit_message
+                f"git-format-patch -k to avoid this: {commit_message}"
             )
             return
 
         if INVALID_REVIEW_FLAG_RE.search(firstline):
             self.commit_message_issues.append(
-                "Revision contains 'r?' in the commit message. Please use 'r=' instead: "
-                + commit_message
+                f"Revision contains 'r?' in the commit message. Please use 'r=' instead: {commit_message}"
             )
             return
 
         if firstline.lower().startswith("wip:"):
             self.commit_message_issues.append(
-                "Revision seems to be marked as WIP: " + commit_message
+                f"Revision seems to be marked as WIP: {commit_message}"
             )
             return
 
@@ -713,13 +712,12 @@ class CommitMessagesCheck(PatchCollectionCheck):
             # Purposely ambiguous: it's ok to say "backed out rev N" or
             # "reverted to rev N-1"
             self.commit_message_issues.append(
-                "Backout revision needs a bug number or a rev id: " + commit_message
+                f"Backout revision needs a bug number or a rev id: {commit_message}"
             )
             return
 
         self.commit_message_issues.append(
-            "Revision needs 'Bug N' or 'No bug' in the commit message: "
-            + commit_message
+            f"Revision needs 'Bug N' or 'No bug' in the commit message: {commit_message}"
         )
 
     def result(self) -> Optional[str]:
