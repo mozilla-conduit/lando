@@ -147,19 +147,35 @@ diff --git a/test.txt b/test.txt
 """.lstrip()
 
 PATCH_SYMLINK_DIFF = """
-diff --git a/symlink b/symlink
-new file mode 120000
-index 0000000..541cb64
+diff --git a/blahfile_real b/blahfile_real
+new file mode 100644
+index 0000000..907b308
 --- /dev/null
-+++ b/symlink
++++ b/blahfile_real
 @@ -0,0 +1 @@
-+test.txt
++blah
+diff --git a/blahfile_symlink b/blahfile_symlink
+new file mode 120000
+index 0000000..55faaf5
+--- /dev/null
++++ b/blahfile_symlink
+@@ -0,0 +1 @@
++/home/sheehan/blahfile
 """.lstrip()
 
-PATCH_TRY_DIFF = """
+PATCH_TRY_TASK_CONFIG_DIFF = """
+index 0000000..663cbc2
+--- /dev/null
++++ b/blah.json
+@@ -0,0 +1 @@
++{"123":"456"}
 diff --git a/try_task_config.json b/try_task_config.json
 new file mode 100644
-index 0000000..e69de29
+index 0000000..e44d36d
+--- /dev/null
++++ b/try_task_config.json
+@@ -0,0 +1 @@
++{"env": {"TRY_SELECTOR": "fuzzy"}, "version": 1, "tasks": ["source-test-cram-tryselect"]}
 """.lstrip()
 
 PATCH_NSS_DIFF = """
@@ -196,7 +212,7 @@ def check_diff() -> Callable:
         "nss": PATCH_NSS_DIFF,
         "submodule": PATCH_SUBMODULE_DIFF,
         "symlink": PATCH_SYMLINK_DIFF,
-        "try": PATCH_TRY_DIFF,
+        "try_task_config": PATCH_TRY_TASK_CONFIG_DIFF,
         "valid": PATCH_DIFF,
         # WPTCheck verifies that commits from wptsync@mozilla only touch paths in
         # WPT_SYNC_ALLOWED_PATHS_RE (currently a subset of testing/web-platform/).
@@ -204,6 +220,8 @@ def check_diff() -> Callable:
     }
 
     def _diff(key: str) -> str | None:
+        if key not in patches:
+            raise Exception(f"check_diff doesn't know {key}")
         return patches.get(key)
 
     return _diff

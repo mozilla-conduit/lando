@@ -1716,26 +1716,8 @@ def test_revision_has_data_classification_tag(
     ), "Revision with no data classification tag should not be blocked from landing."
 
 
-SYMLINK_DIFF = """
-diff --git a/blahfile_real b/blahfile_real
-new file mode 100644
-index 0000000..907b308
---- /dev/null
-+++ b/blahfile_real
-@@ -0,0 +1 @@
-+blah
-diff --git a/blahfile_symlink b/blahfile_symlink
-new file mode 120000
-index 0000000..55faaf5
---- /dev/null
-+++ b/blahfile_symlink
-@@ -0,0 +1 @@
-+/home/sheehan/blahfile
-""".lstrip()
-
-
 @pytest.mark.django_db
-def test_blocker_prevent_symlinks(phabdouble, create_state):
+def test_blocker_prevent_symlinks(phabdouble, create_state, check_diff):
     repo = phabdouble.repo()
 
     # Create a revision/diff pair without a symlink.
@@ -1752,7 +1734,9 @@ def test_blocker_prevent_symlinks(phabdouble, create_state):
         revision_symlink,
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
-    diff_symlink = phabdouble.diff(rawdiff=SYMLINK_DIFF, revision=revision_symlink)
+    diff_symlink = phabdouble.diff(
+        rawdiff=check_diff("symlink"), revision=revision_symlink
+    )
 
     stack_state = create_state(phab_revision_symlink)
 
@@ -1771,27 +1755,9 @@ def test_blocker_prevent_symlinks(phabdouble, create_state):
     ), "Diff with symlinks present should fail the check."
 
 
-TRY_TASK_CONFIG_DIFF = """
-diff --git a/blah.json b/blah.json
-new file mode 100644
-index 0000000..663cbc2
---- /dev/null
-+++ b/blah.json
-@@ -0,0 +1 @@
-+{"123":"456"}
-diff --git a/try_task_config.json b/try_task_config.json
-new file mode 100644
-index 0000000..e44d36d
---- /dev/null
-+++ b/try_task_config.json
-@@ -0,0 +1 @@
-+{"env": {"TRY_SELECTOR": "fuzzy"}, "version": 1, "tasks": ["source-test-cram-tryselect"]}
-""".lstrip()
-
-
 @pytest.mark.django_db
 def test_blocker_try_task_config_no_landing_state(
-    phabdouble, mocked_repo_config, create_state
+    phabdouble, mocked_repo_config, create_state, check_diff
 ):
     repo = phabdouble.repo()
 
@@ -1800,7 +1766,7 @@ def test_blocker_try_task_config_no_landing_state(
         revision,
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
-    diff = phabdouble.diff(revision=revision, rawdiff=TRY_TASK_CONFIG_DIFF)
+    diff = phabdouble.diff(revision=revision, rawdiff=check_diff("try_task_config"))
 
     stack_state = create_state(phab_revision)
 
@@ -1814,7 +1780,7 @@ def test_blocker_try_task_config_no_landing_state(
 
 @pytest.mark.django_db
 def test_blocker_try_task_config_landing_state_non_try(
-    phabdouble, mocked_repo_config, create_state
+    phabdouble, mocked_repo_config, create_state, check_diff
 ):
     repo = phabdouble.repo()
 
@@ -1823,7 +1789,7 @@ def test_blocker_try_task_config_landing_state_non_try(
         revision,
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
-    diff = phabdouble.diff(revision=revision, rawdiff=TRY_TASK_CONFIG_DIFF)
+    diff = phabdouble.diff(revision=revision, rawdiff=check_diff("try_task_config"))
 
     stack_state = create_state(phab_revision)
 

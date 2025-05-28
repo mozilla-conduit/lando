@@ -585,7 +585,7 @@ def test_merge_conflict(
                 {
                     "author_email": "test@example.com",
                     "commitmsg": "No bug: commit with try_task_config.json",
-                    "diff": "try",
+                    "diff": "try_task_config",
                 },
                 "Revision introduces the `try_task_config.json` file.",
             ),
@@ -675,6 +675,7 @@ def test_failed_landing_job_checks(
     assert worker.run_job(job)
     assert job.status == JobStatus.FAILED
     assert reason in job.error
+
 
 @pytest.mark.parametrize(
     "repo_type",

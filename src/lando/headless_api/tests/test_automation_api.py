@@ -722,7 +722,7 @@ def test_automation_job_create_commit_success(
                     "author": "Test User <test@example.com>",
                     "commitmsg": "No bug: commit with try_task_config.json",
                     "date": 0,
-                    "diff_name": "try",
+                    "diff_name": "try_task_config",
                 },
                 "Revision introduces the `try_task_config.json` file.",
             ),
