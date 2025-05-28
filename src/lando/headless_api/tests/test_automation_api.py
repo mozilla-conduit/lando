@@ -5,6 +5,7 @@ import secrets
 import subprocess
 import unittest.mock as mock
 from pathlib import Path
+from typing import Callable
 
 import pytest
 from django.contrib.auth.hashers import check_password
@@ -734,91 +735,128 @@ def test_automation_job_create_commit_success(
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
 
 
+BAD_ACTION_TYPES = [
+    "nobug",
+    "nspr",
+    "nss",
+    "submodule",
+    "symlink",
+    "try",
+    "wpt",
+]
+
+
+@pytest.fixture
+def failed_check_action_reason() -> Callable:
+    """Factory providing a check-failing action, and the expected error.
+
+    See BAD_ACTION_TYPES for the list of bad actions available for request."""
+    action_reasons = {
+        # CommitMessagesCheck
+        "nobug": (
+            {
+                "action": "create-commit",
+                "author": "Test User <test@example.com>",
+                "commitmsg": "commit message without bug info",
+                "date": 0,
+                "diff": PATCH_DIFF,
+            },
+            "Revision needs 'Bug N' or 'No bug' in the commit message: commit message without bug info",
+        ),
+        # PreventNSPRNSSCheck
+        "nspr": (
+            {
+                "action": "create-commit",
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit with NSPR changes",
+                "date": 0,
+                "diff": PATCH_NSPR_DIFF,
+            },
+            "Revision makes changes to restricted directories:",
+        ),
+        # PreventNSPRNSSCheck
+        "nss": (
+            {
+                "action": "create-commit",
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit with NSS changes",
+                "date": 0,
+                "diff": PATCH_NSS_DIFF,
+            },
+            "Revision makes changes to restricted directories:",
+        ),
+        # PreventSubmodulesCheck
+        "submodule": (
+            {
+                "action": "create-commit",
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit with .gitmodules changes",
+                "date": 0,
+                "diff": PATCH_SUBMODULE_DIFF,
+            },
+            "Revision introduces a Git submodule into the repository.",
+        ),
+        # PreventSymlinksCheck
+        "symlink": (
+            {
+                "action": "create-commit",
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit with symlink",
+                "date": 0,
+                "diff": PATCH_SYMLINK_DIFF,
+            },
+            "Revision introduces symlinks in the files ",
+        ),
+        # TryTaskConfigCheck
+        "try": (
+            {
+                "action": "create-commit",
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit with try_task_config.json",
+                "date": 0,
+                "diff": PATCH_TRY_DIFF,
+            },
+            "Revision introduces the `try_task_config.json` file.",
+        ),
+        # One that works, for reference.
+        "valid": (
+            {
+                "action": "create-commit",
+                "author": "Test User <test@example.com>",
+                "commitmsg": "no bug: commit message without bug info",
+                "date": 0,
+                "diff": PATCH_DIFF,
+            },
+            "",
+        ),
+        # WPTSyncCheck
+        "wpt":
+        # WPTCheck verifies that commits from wptsync@mozilla only touch paths in
+        # WPT_SYNC_ALLOWED_PATHS_RE (currently a subset of testing/web-platform/).
+        (
+            {
+                "action": "create-commit",
+                "author": "WPT Sync Bot <wptsync@mozilla.com>",
+                "commitmsg": "No bug: WPT commit with non-WPTSync changes",
+                "date": 0,
+                "diff": PATCH_DIFF,
+            },
+            "Revision has WPTSync bot making changes to disallowed files ",
+        ),
+    }
+
+    def failed_check_factory(name: str) -> tuple[dict, str] | None:
+        return action_reasons.get(name)
+
+    return failed_check_factory
+
+
 @pytest.mark.parametrize(
     "scm_type,bad_action_reason",
     # We make a cross-product of all the SCM and all the bad actions.
-    # As we don't want a cross-product of bad actions and reasons, we bundle them in a
-    # tuple, that we deconstruct in the test.
     itertools.product(
-        (SCM_TYPE_HG, SCM_TYPE_GIT),
-        (
-            # CommitMessagesCheck
-            (
-                {
-                    "action": "create-commit",
-                    "author": "Test User <test@example.com>",
-                    "commitmsg": "commit message without bug info",
-                    "date": 0,
-                    "diff": PATCH_DIFF,
-                },
-                "Revision needs 'Bug N' or 'No bug' in the commit message: commit message without bug info",
-            ),
-            # PreventSymlinksCheck
-            (
-                {
-                    "action": "create-commit",
-                    "author": "Test User <test@example.com>",
-                    "commitmsg": "No bug: commit with symlink",
-                    "date": 0,
-                    "diff": PATCH_SYMLINK_DIFF,
-                },
-                "Revision introduces symlinks in the files ",
-            ),
-            # TryTaskConfigCheck
-            (
-                {
-                    "action": "create-commit",
-                    "author": "Test User <test@example.com>",
-                    "commitmsg": "No bug: commit with try_task_config.json",
-                    "date": 0,
-                    "diff": PATCH_TRY_DIFF,
-                },
-                "Revision introduces the `try_task_config.json` file.",
-            ),
-            # PreventNSPRNSSCheck
-            (
-                {
-                    "action": "create-commit",
-                    "author": "Test User <test@example.com>",
-                    "commitmsg": "No bug: commit with NSS changes",
-                    "date": 0,
-                    "diff": PATCH_NSS_DIFF,
-                },
-                "Revision makes changes to restricted directories:",
-            ),
-            (
-                {
-                    "action": "create-commit",
-                    "author": "Test User <test@example.com>",
-                    "commitmsg": "No bug: commit with NSPR changes",
-                    "date": 0,
-                    "diff": PATCH_NSPR_DIFF,
-                },
-                "Revision makes changes to restricted directories:",
-            ),
-            # PreventSubmodulesCheck
-            (
-                {
-                    "action": "create-commit",
-                    "author": "Test User <test@example.com>",
-                    "commitmsg": "No bug: commit with .gitmodules changes",
-                    "date": 0,
-                    "diff": PATCH_SUBMODULE_DIFF,
-                },
-                "Revision introduces a Git submodule into the repository.",
-            ),
-            # WPTSyncCheck
-            (
-                {
-                    "action": "create-commit",
-                    "author": "WPT Sync Bot <wptsync@mozilla.com>",
-                    "commitmsg": "No bug: WPT commit with non-WPTSync changes",
-                    "date": 0,
-                    "diff": PATCH_DIFF,
-                },
-                "Revision has WPTSync bot making changes to disallowed files ",
-            ),
-        ),
+        [SCM_TYPE_HG, SCM_TYPE_GIT],
+        BAD_ACTION_TYPES,
     ),
 )
 @pytest.mark.django_db
@@ -828,9 +866,10 @@ def test_automation_job_create_commit_failed_check(
     treestatusdouble,
     get_automation_worker,
     monkeypatch,
-    bad_action_reason,
+    failed_check_action_reason: Callable,
+    bad_action_reason: str,
 ):
-    bad_action, reason = bad_action_reason
+    bad_action, reason = failed_check_action_reason(bad_action_reason)
     repo = repo_mc(SCM_TYPE_HG)
     scm = repo.scm
 
