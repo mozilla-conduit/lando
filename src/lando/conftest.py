@@ -111,7 +111,7 @@ index 2a02d41..45e9938 100644
 
 @pytest.fixture
 def normal_patch():
-    """Return one of several "normal" patches."""
+    """Return a factory providing one of several Hg-formatted patches."""
     _patches = [
         PATCH_NORMAL_1,
         PATCH_NORMAL_2,
@@ -126,7 +126,10 @@ def normal_patch():
 
 @pytest.fixture
 def git_patch():
-    """Return one of ... one git patches."""
+    """Return a factory providing one of several git patches.
+
+    Currently, there's only one patch.
+    """
     _patches = [
         PATCH_GIT_1,
     ]
