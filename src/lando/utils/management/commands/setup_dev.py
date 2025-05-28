@@ -1,3 +1,5 @@
+import itertools
+
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management import call_command
@@ -19,28 +21,35 @@ class Command(BaseCommand):
             SCM_TYPE_HG: None,
         }
 
-        for worker_scm in workers:
+        worker_types = [
+            "",  # landing workers
+            "-automation-worker",
+        ]
+
+        for worker_scm, worker_type in itertools.product(workers, worker_types):
+            worker_name = f"{worker_scm}{worker_type}"
             try:
-                worker = Worker.objects.get(name=worker_scm)
+                worker = Worker.objects.get(name=worker_name)
                 self.stdout.write(f"Found {worker} worker.")
             except Worker.DoesNotExist:
                 # Set the name of the worker to match the SCM.
-                worker = Worker(name=worker_scm, scm=worker_scm)
+                worker = Worker(name=worker_name, scm=worker_scm)
                 worker.save()
                 self.stdout.write(f"Created {worker} worker.")
             finally:
-                workers[worker_scm] = worker
+                workers[worker_name] = worker
 
         for repo in Repo.objects.all():
             # Associate all repos with applicable worker.
-            self.stdout.write(
-                f"Adding {repo} ({repo.scm_type}) to {workers[repo.scm_type]}."
-            )
-            workers[repo.scm_type].applicable_repos.add(repo)
+            for worker in workers.values():
+                if not worker or worker.scm != repo.scm_type:
+                    continue
+                self.stdout.write(f"Adding {repo} ({repo.scm_type}) to {worker}.")
+                worker.applicable_repos.add(repo)
         self.stdout.write(
             self.style.SUCCESS(
-                'Workers initialized ("hg" and "git"). '
-                "To start one, run `lando start_landing_worker <name>`.",
+                f"Workers initialized ({', '.join(list(workers))}). "
+                "To start one, run `lando start_landing_worker <name>` or `lando start_automation_worker <name>`.",
             )
         )
 
