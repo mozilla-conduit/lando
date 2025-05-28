@@ -163,7 +163,7 @@ class AutomationWorker(Worker):
             check_errors = self.run_automation_checks(scm, new_commits)
 
             if check_errors:
-                message = "Some checks weren't successful:\n" + "\n".join(check_errors)
+                message = f"Some checks weren't successful:\n {'\n'.join(check_errors)}"
                 logger.exception(message)
                 job.transition_status(
                     JobAction.FAIL,
