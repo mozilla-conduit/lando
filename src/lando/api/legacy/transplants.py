@@ -40,7 +40,6 @@ from lando.api.legacy.revisions import (
     revision_has_needs_data_classification_tag,
     revision_is_secure,
     revision_needs_testing_tag,
-    select_diff_author,
 )
 from lando.api.legacy.stacks import (
     RevisionData,
@@ -342,7 +341,7 @@ class RevisionWarningCheck:
                 None
                 if result is None
                 else RevisionWarning(
-                    self.i, self.display, f'D{revision["id"]}', result, self.articulated
+                    self.i, self.display, f"D{revision['id']}", result, self.articulated
                 )
             )
 
@@ -566,8 +565,7 @@ def warning_code_freeze(  # noqa: ANN201
         return [
             {
                 "message": (
-                    f"Repository is under a soft code freeze "
-                    f"(ends {merge_date_str})."
+                    f"Repository is under a soft code freeze (ends {merge_date_str})."
                 )
             }
         ]
