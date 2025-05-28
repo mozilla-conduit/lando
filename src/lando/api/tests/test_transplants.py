@@ -7,6 +7,8 @@ from lando.api.legacy.transplants import (
     RevisionWarning,
     StackAssessment,
     blocker_author_planned_changes,
+    blocker_prevent_nsprnss_files,
+    blocker_prevent_submodules,
     blocker_prevent_symlinks,
     blocker_revision_data_classification,
     blocker_try_task_config,
@@ -1714,6 +1716,145 @@ def test_revision_has_data_classification_tag(
         )
         is None
     ), "Revision with no data classification tag should not be blocked from landing."
+
+
+@pytest.mark.django_db
+def test_blocker_nsprnss_files(phabdouble, create_state, check_diff):
+    repo = phabdouble.repo()
+
+    # Create a revision/diff pair without NSPR or NSS changes.
+    revision = phabdouble.revision(repo=repo)
+    phab_revision = phabdouble.api_object_for(
+        revision,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    diff_normal = phabdouble.diff(revision=revision)
+
+    # Create a revision/diff pair with an NSPR change, and commit message allowing it.
+    revision_nspr_allowed = phabdouble.revision(
+        repo=repo, depends_on=[revision], title="UPGRADE_NSPR_RELEASE"
+    )
+    phab_revision_nspr_allowed = phabdouble.api_object_for(
+        revision_nspr_allowed,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    diff_nspr_allowed = phabdouble.diff(
+        rawdiff=check_diff("nspr"), revision=revision_nspr_allowed
+    )
+
+    # Create a revision/diff pair with an NSS change, and commit message allowing it.
+    revision_nss_allowed = phabdouble.revision(
+        repo=repo, depends_on=[revision_nspr_allowed], title="UPGRADE_NSS_RELEASE"
+    )
+    phab_revision_nss_allowed = phabdouble.api_object_for(
+        revision_nss_allowed,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    diff_nss_allowed = phabdouble.diff(
+        rawdiff=check_diff("nss"), revision=revision_nss_allowed
+    )
+
+    # Create a revision/diff pair with an NSPR change.
+    revision_nspr = phabdouble.revision(repo=repo, depends_on=[revision_nss_allowed])
+    phab_revision_nspr = phabdouble.api_object_for(
+        revision_nspr,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    diff_nspr = phabdouble.diff(rawdiff=check_diff("nspr"), revision=revision_nspr)
+
+    # Create a revision/diff pair with an NSS change.
+    revision_nss = phabdouble.revision(repo=repo, depends_on=[revision_nspr])
+    phab_revision_nss = phabdouble.api_object_for(
+        revision_nss,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    diff_nss = phabdouble.diff(rawdiff=check_diff("nss"), revision=revision_nss)
+
+    stack_state = create_state(phab_revision_nss)
+
+    assert (
+        blocker_prevent_nsprnss_files(
+            revision=phab_revision, diff=diff_normal, stack_state=stack_state
+        )
+        is None
+    ), "Diff without NSS or NSPR changes should pass the check."
+
+    assert (
+        blocker_prevent_nsprnss_files(
+            revision=phab_revision_nspr_allowed,
+            diff=diff_nspr_allowed,
+            stack_state=stack_state,
+        )
+        is None
+    ), "Diff with explicit NSPR changes should pass the check."
+
+    assert (
+        blocker_prevent_nsprnss_files(
+            revision=phab_revision_nss_allowed,
+            diff=diff_nss_allowed,
+            stack_state=stack_state,
+        )
+        is None
+    ), "Diff with explicit NSS changes should pass the check."
+
+    assert (
+        blocker_prevent_nsprnss_files(
+            revision=phab_revision_nspr,
+            diff=diff_nspr,
+            stack_state=stack_state,
+        )
+        == "Revision makes changes to restricted directories: vendored NSPR directories: `nsprpub/.keep`."
+    ), "Diff with NSPR changes should fail the check."
+
+    assert (
+        blocker_prevent_nsprnss_files(
+            revision=phab_revision_nss,
+            diff=diff_nss,
+            stack_state=stack_state,
+        )
+        == "Revision makes changes to restricted directories: vendored NSS directories: `security/nss/.keep`."
+    ), "Diff with NSS changes should fail the check."
+
+
+@pytest.mark.django_db
+def test_blocker_prevent_submodules(phabdouble, create_state, check_diff):
+    repo = phabdouble.repo()
+
+    # Create a revision/diff pair without a submodule.
+    revision = phabdouble.revision(repo=repo)
+    phab_revision = phabdouble.api_object_for(
+        revision,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    diff_normal = phabdouble.diff(revision=revision)
+
+    # Create a revision/diff pair with a submodule.
+    revision_submodule = phabdouble.revision(repo=repo, depends_on=[revision])
+    phab_revision_submodule = phabdouble.api_object_for(
+        revision_submodule,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    diff_submodule = phabdouble.diff(
+        rawdiff=check_diff("submodule"), revision=revision_submodule
+    )
+
+    stack_state = create_state(phab_revision_submodule)
+
+    assert (
+        blocker_prevent_submodules(
+            revision=phab_revision, diff=diff_normal, stack_state=stack_state
+        )
+        is None
+    ), "Diff without submodules present should pass the check."
+
+    assert (
+        blocker_prevent_submodules(
+            revision=phab_revision_submodule,
+            diff=diff_submodule,
+            stack_state=stack_state,
+        )
+        == "Revision introduces a Git submodule into the repository. xxx"
+    ), "Diff with submodules present should fail the check."
 
 
 @pytest.mark.django_db
