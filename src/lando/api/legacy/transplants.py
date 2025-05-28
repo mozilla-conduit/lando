@@ -18,8 +18,11 @@ from django.core.cache import cache
 
 from lando.api.legacy.hgexports import (
     DiffAssessor,
+    PreventNSPRNSSCheck,
+    PreventSubmodulesCheck,
     PreventSymlinksCheck,
     TryTaskConfigCheck,
+    WPTSyncCheck,
 )
 from lando.api.legacy.projects import (
     get_secure_project_phid,
@@ -38,6 +41,7 @@ from lando.api.legacy.revisions import (
     revision_has_needs_data_classification_tag,
     revision_is_secure,
     revision_needs_testing_tag,
+    select_diff_author,
 )
 from lando.api.legacy.stacks import (
     RevisionData,
@@ -871,6 +875,35 @@ def blocker_single_landing_repo(
     )
 
 
+def blocker_prevent_nsprnss_files(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> Optional[str]:
+    """Block revisions which contain changs to the NSS or security directories."""
+    diff_id = PhabricatorClient.expect(diff, "id")
+    parsed_diff = stack_state.parsed_diffs[diff_id]
+
+    # `PreventNSPRNSSCheck` only requires inspecting the diff and the commit message.
+    title = PhabricatorClient.expect(revision, "fields", "title")
+    diff_assessor = DiffAssessor(parsed_diff=parsed_diff, commit_message=title)
+
+    if issues := diff_assessor.run_diff_checks([PreventNSPRNSSCheck]):
+        return issues[0]
+
+
+def blocker_prevent_submodules(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> Optional[str]:
+    """Block revisions which manipulate submodules."""
+    diff_id = PhabricatorClient.expect(diff, "id")
+    parsed_diff = stack_state.parsed_diffs[diff_id]
+
+    # `PreventSubmodulesCheck` only requires inspecting the diff.
+    diff_assessor = DiffAssessor(parsed_diff=parsed_diff)
+
+    if issues := diff_assessor.run_diff_checks([PreventSubmodulesCheck]):
+        return issues[0]
+
+
 def blocker_prevent_symlinks(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> Optional[str]:
@@ -898,6 +931,21 @@ def blocker_try_task_config(
         return issues[0]
 
 
+def blocker_wptsync(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> Optional[str]:
+    """Block non-WPT revisions which change WPT tests."""
+    diff_id = PhabricatorClient.expect(diff, "id")
+    parsed_diff = stack_state.parsed_diffs[diff_id]
+
+    # `WPTSyncCheck` only requires inspecting the diff and the author.
+    author_email = PhabricatorClient.expect(diff, "commits", "author", "email")
+    diff_assessor = DiffAssessor(parsed_diff=parsed_diff, author=author_email)
+
+    if issues := diff_assessor.run_diff_checks([WPTSyncCheck]):
+        return issues[0]
+
+
 STACK_BLOCKER_CHECKS = [
     # This check needs to be first.
     blocker_stack_landing_path_valid,
@@ -916,8 +964,12 @@ REVISION_BLOCKER_CHECKS = [
     blocker_diff_author_is_known,
     blocker_uplift_approval,
     blocker_revision_data_classification,
+    # Diff-based checks.
     blocker_prevent_symlinks,
     blocker_try_task_config,
+    blocker_prevent_submodules,
+    blocker_prevent_nsprnss_files,
+    blocker_wptsync,
     # This check needs to be last.
     blocker_open_ancestor,
 ]
