@@ -118,7 +118,7 @@ index f56ba1c..33391ea 100644
 
 """.lstrip()
 
-GIT_PATCH_UTF8 = """\
+GIT_DIFF_UTF8 = """\
 diff --git a/testing/web-platform/tests/html/dom/elements/global-attributes/dir-auto-dynamic-simple-textContent.html b/testing/web-platform/tests/html/dom/elements/global-attributes/dir-auto-dynamic-simple-textContent.html
 new file mode 100644
 --- /dev/null
@@ -168,11 +168,11 @@ Subject: [PATCH] Bug 1874040 - Move 1103348-1.html to WPT, and expand it.
  .../dir-auto-dynamic-simple-textContent.html  | 31 ++++++++++++++++
  1 files changed, 31 insertions(+), 0 deletions(-)
  create mode 100644 testing/web-platform/tests/html/dom/elements/global-attributes/dir-auto-dynamic-simple-textContent.html
-{GIT_PATCH_UTF8}--
+{GIT_DIFF_UTF8}--
 2.46.1
 """
 
-GIT_PATCH_ONLY_DIFF = """diff --git a/landoui/errorhandlers.py b/landoui/errorhandlers.py
+GIT_DIFF = """diff --git a/landoui/errorhandlers.py b/landoui/errorhandlers.py
 index f56ba1c..33391ea 100644
 --- a/landoui/errorhandlers.py
 +++ b/landoui/errorhandlers.py
@@ -476,7 +476,7 @@ def test_git_formatpatch_helper_parse():
         "unavailable at the moment and is not broken."
     ), "`commit_description()` should return full commit message."
     assert (
-        patch.get_diff() == GIT_PATCH_ONLY_DIFF
+        patch.get_diff() == GIT_DIFF
     ), "`get_diff()` should return the full diff."
 
 
@@ -507,7 +507,7 @@ def test_git_formatpatch_helper_utf8():
     helper = GitPatchHelper(io.StringIO(GIT_FORMATPATCH_UTF8))
 
     assert (
-        helper.get_diff() == GIT_PATCH_UTF8
+        helper.get_diff() == GIT_DIFF_UTF8
     ), "`get_diff()` should return unescaped unicode and match the original patch."
 
 
