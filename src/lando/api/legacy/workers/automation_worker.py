@@ -43,11 +43,11 @@ COMMIT_CHECKS: list[Type[PatchCheck]] = [
     TryTaskConfigCheck,
     PreventNSPRNSSCheck,
     PreventSubmodulesCheck,
-    WPTSyncCheck,
 ]
 
 STACK_CHECKS: list[Type[PatchCollectionCheck]] = [
     CommitMessagesCheck,
+    WPTSyncCheck,
 ]
 
 

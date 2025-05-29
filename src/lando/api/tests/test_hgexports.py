@@ -1,4 +1,5 @@
 import io
+from typing import Optional
 from unittest.mock import patch
 
 import pytest
@@ -224,6 +225,16 @@ diff --git a/{filename} b/{filename}
  }}
 """
 
+GIT_PATCH_FILENAME_TEMPLATE = r"""
+From 0f5a3c99e12c1e9b0e81bed245fe537961f89e57 Mon Sep 17 00:00:00 2001
+From: Connor Sheehan <sheehan@mozilla.com>
+Date: Wed, 6 Jul 2022 16:36:09 -0400
+Subject: Change things
+---
+ {filename} | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+""".lstrip() + GIT_DIFF_FILENAME_TEMPLATE
 
 def test_build_patch():
     patch = build_patch_for_revision(
@@ -771,49 +782,48 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
     ) == [return_string + commit_message], error_message
 
 
-def test_check_wpt_sync_irrelevant_user():
-    parsed_diff = rs_parsepatch.get_diffs(
-        GIT_DIFF_FILENAME_TEMPLATE.format(filename="somefile.txt")
+@pytest.mark.parametrize(
+    "push_user_email,patch,return_string,error_message",
+    [
+        (
+            "sheehan@mozilla.com",
+            GIT_PATCH_FILENAME_TEMPLATE.format(filename="somefile.txt"),
+            None,
+            "Non-WPT pushes by non-WPT user should be allowed",
+        ),
+        (
+            "wptsync@mozilla.com",
+            GIT_PATCH_FILENAME_TEMPLATE.format(filename="somefile.txt"),
+            "Revision has WPTSync bot making changes to disallowed "
+            "files `somefile.txt`.",
+            "Non-WPT pushes by WPT user should not be allowed",
+        ),
+        (
+            "wptsync@mozilla.com",
+            GIT_PATCH_FILENAME_TEMPLATE.format(
+                filename="testing/web-platform/moz.build"
+            ),
+            None,
+            "WPT pushes by non-WPT user should be allowed",
+        ),
+    ],
+)
+def test_check_wpt_sync_git(
+    push_user_email: str, patch: str, return_string: Optional[str], error_message: str
+):
+    patch_helpers = [GitPatchHelper(io.StringIO(patch))]
+    assessor = PatchCollectionAssessor(
+        patch_helpers=patch_helpers, push_user_email=push_user_email
     )
-    wpt_sync_check = WPTSyncCheck(
-        email="sheehan@mozilla.com",
-        commit_message=COMMIT_MESSAGE,
-    )
-    for diff in parsed_diff:
-        wpt_sync_check.next_diff(diff)
-    assert (
-        wpt_sync_check.result() is None
-    ), "Check should pass when user is not `wptsync@mozilla.com`."
 
+    errors = assessor.run_patch_collection_checks(
+        patch_collection_checks=[WPTSyncCheck], patch_checks=[]
+    )
 
-def test_check_wpt_sync_invalid_paths():
-    parsed_diff = rs_parsepatch.get_diffs(
-        GIT_DIFF_FILENAME_TEMPLATE.format(filename="somefile.txt")
-    )
-    wpt_sync_check = WPTSyncCheck(
-        email="wptsync@mozilla.com",
-        commit_message=COMMIT_MESSAGE,
-    )
-    for diff in parsed_diff:
-        wpt_sync_check.next_diff(diff)
-    assert wpt_sync_check.result() == (
-        "Revision has WPTSync bot making changes to disallowed " "files `somefile.txt`."
-    ), "Check should fail if WPTSync bot pushes disallowed files."
-
-
-def test_check_wpt_sync_valid_paths():
-    parsed_diff = rs_parsepatch.get_diffs(
-        GIT_DIFF_FILENAME_TEMPLATE.format(filename="testing/web-platform/moz.build")
-    )
-    wpt_sync_check = WPTSyncCheck(
-        email="wptsync@mozilla.com",
-        commit_message=COMMIT_MESSAGE,
-    )
-    for diff in parsed_diff:
-        wpt_sync_check.next_diff(diff)
-    assert (
-        wpt_sync_check.result() is None
-    ), "Check should pass if WPTSync bot makes changes to allowed files."
+    if return_string:
+        assert errors == [return_string], error_message
+    else:
+        assert not errors, error_message
 
 
 def test_check_prevent_nspr_nss_missing_fields():

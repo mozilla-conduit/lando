@@ -568,30 +568,6 @@ class PreventSubmodulesCheck(PatchCheck):
 
 
 @dataclass
-class WPTSyncCheck(PatchCheck):
-    """Check the WPT Sync bot has only made changes to relevant subset of the tree."""
-
-    wpt_disallowed_files: list[str] = field(default_factory=list)
-
-    def next_diff(self, diff: dict):
-        """Check each diff to assert the WPT-Sync bot is only updating allowed files."""
-        if self.email != "wptsync@mozilla.com":
-            return
-
-        filename = diff["filename"]
-        if not WPT_SYNC_ALLOWED_PATHS_RE.match(filename):
-            self.wpt_disallowed_files.append(filename)
-
-    def result(self) -> Optional[str]:
-        """Return an error if the WPT-Sync bot touched disallowed files."""
-        if self.wpt_disallowed_files:
-            return (
-                "Revision has WPTSync bot making changes to disallowed files "
-                f"{wrap_filenames(self.wpt_disallowed_files)}."
-            )
-
-
-@dataclass
 class DiffAssessor:
     """Assess diffs for landing issues.
 
@@ -726,6 +702,32 @@ class CommitMessagesCheck(PatchCollectionCheck):
         """Calcuate and return the result of the check."""
         if not self.ignore_bad_commit_message and self.commit_message_issues:
             return ", ".join(self.commit_message_issues)
+
+
+@dataclass
+class WPTSyncCheck(PatchCollectionCheck):
+    """Check the WPT Sync bot is only psuhing changes to relevant subset of the tree."""
+
+    wpt_disallowed_files: list[str] = field(default_factory=list)
+
+    def next_diff(self, patch_helper: PatchHelper):
+        """Check each diff to assert the WPT-Sync bot is only updating allowed files."""
+        if self.push_user_email != "wptsync@mozilla.com":
+            return
+
+        diffs = rs_parsepatch.get_diffs(patch_helper.get_diff())
+        for parsed_diff in diffs:
+            filename = parsed_diff["filename"]
+            if not WPT_SYNC_ALLOWED_PATHS_RE.match(filename):
+                self.wpt_disallowed_files.append(filename)
+
+    def result(self) -> Optional[str]:
+        """Return an error if the WPT-Sync bot touched disallowed files."""
+        if self.wpt_disallowed_files:
+            return (
+                "Revision has WPTSync bot making changes to disallowed files "
+                f"{wrap_filenames(self.wpt_disallowed_files)}."
+            )
 
 
 BMO_SKIP_HINT = "Use `SKIP_BMO_CHECK` in your commit message to push anyway."
