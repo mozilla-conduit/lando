@@ -638,6 +638,8 @@ class PatchCollectionCheck:
     called to receive the result of the check.
     """
 
+    push_user_email: Optional[str] = None
+
     @abstractmethod
     def next_diff(self, patch_helper: PatchHelper):
         """Pass the next `PatchHelper` into the check."""
@@ -801,6 +803,7 @@ class PatchCollectionAssessor:
     """Assess pushes for landing issues."""
 
     patch_helpers: Iterable[PatchHelper]
+    push_user_email: Optional[str] = None
 
     def run_patch_collection_checks(
         self,
@@ -815,7 +818,7 @@ class PatchCollectionAssessor:
         """
         issues = []
 
-        checks = [check() for check in patch_collection_checks]
+        checks = [check(self.push_user_email) for check in patch_collection_checks]
 
         for patch_helper in self.patch_helpers:
             # Pass the patch information into the push-wide check.
