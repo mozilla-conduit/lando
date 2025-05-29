@@ -139,6 +139,9 @@ def test_GitSCM_clean_repo(
 def test_GitSCM_apply_get_patch(git_repo: Path, git_patch: Callable):
     scm = GitSCM(str(git_repo))
 
+    # Choose the patch to apply wisely: the original patch may have a `[PATCH]`
+    # in the subject that will get stripped on on application and subsequent export,
+    # leading to a spurious test failure when comparing output to expected.
     patch = git_patch()
 
     ph = GitPatchHelper(io.StringIO(patch))
@@ -154,26 +157,11 @@ def test_GitSCM_apply_get_patch(git_repo: Path, git_patch: Callable):
     expected_patch = patch
     new_patch = scm.get_patch(commit.hash)
 
-    # Trim first line from both patches, as they will contain a `From` line
-    # with a different base commit.
-    trim_from_re = r"^From [^\n]+\n"
-    expected_patch = re.sub(trim_from_re, "", expected_patch, count=1)
-    new_patch = re.sub(trim_from_re, "", new_patch, count=1)
+    # The git version stamp varies. Strip it from the output before comparing.
+    remove_git_version_re = r"\d+(\.\d+)+$"
+    no_version_patch = re.sub(remove_git_version_re, "", new_patch)
 
-    # The git version used when we created our fixture may no longer match the one on
-    # the system running the test.
-    unify_git_version_re = r"\d+(\.\d+)+$"
-    expected_patch = re.sub(unify_git_version_re, "GIT.VERS.ION", expected_patch)
-    new_patch = re.sub(unify_git_version_re, "GIT.VERS.ION", new_patch)
-
-    # The original patch may have a `[PATCH]` in the subject that we don't want to
-    # retain on application and subsequent export.
-    expected_patch = re.sub(r"Subject: \[PATCH\]", "Subject:", expected_patch, count=1)
-
-    # We strip git output, so need to do the same on the original patch.
-    expected_patch = expected_patch.strip()
-
-    assert new_patch == expected_patch
+    assert no_version_patch == expected_patch
 
 
 def test_GitSCM_describe_commit(git_repo: Path):

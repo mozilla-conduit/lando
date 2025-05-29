@@ -91,7 +91,7 @@ PATCH_GIT_1 = """\
 From be6df88a1c2c64621ab9dfdf244272748e93c26f Mon Sep 17 00:00:00 2001
 From: Py Test <pytest@lando.example.net>
 Date: Tue, 22 Apr 2025 02:02:55 +0000
-Subject: [PATCH] No bug: add another line
+Subject: No bug: add another line
 
 ---
  test.txt | 1 +
@@ -105,8 +105,7 @@ index 2a02d41..45e9938 100644
  TEST
 +adding another line
 -- 
-2.39.5
-"""  # noqa: W291, `git` adds an empty newline after `--`.
+"""  # noqa: W291, `git` adds a trailing whitespace after `--`.
 
 
 @pytest.fixture
