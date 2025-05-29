@@ -88,7 +88,7 @@ new file mode 100644
 """.lstrip()
 
 PATCH_GIT_1 = """\
-From 77a05b90d0d4eb7a75fa7acf052673e5dc36a20b Mon Sep 17 00:00:00 2001
+From be6df88a1c2c64621ab9dfdf244272748e93c26f Mon Sep 17 00:00:00 2001
 From: Py Test <pytest@lando.example.net>
 Date: Tue, 22 Apr 2025 02:02:55 +0000
 Subject: [PATCH] No bug: add another line
@@ -187,7 +187,9 @@ def _run_commands(commands: list[list[str]], cwd: Path):
 
 
 @pytest.fixture
-def git_repo(tmp_path: Path, git_repo_seed: Path) -> Path:
+def git_repo(
+    tmp_path: Path, git_repo_seed: Path, monkeypatch: pytest.MonkeyPatch
+) -> Path:
     """
     Creates a temporary Git repository for testing purposes.
 
@@ -197,19 +199,28 @@ def git_repo(tmp_path: Path, git_repo_seed: Path) -> Path:
     Returns:
         pathlib.Path: The path to the created Git repository.
     """
+    # Force the committer date to a known value. This allows to have
+    # predictable commit SHAs when applying known patches on top.
+    epoch = "1970-01-01T00:00:00"
+    monkeypatch.setenv("GIT_COMMITTER_DATE", epoch)
+
     repo_dir = tmp_path / "git_repo"
     subprocess.run(["git", "init", repo_dir], check=True)
     subprocess.run(["git", "branch", "-m", "main"], check=True, cwd=repo_dir)
     _git_setup_user(repo_dir)
     _git_ignore_denyCurrentBranch(repo_dir)
     for patch in sorted(git_repo_seed.glob("*")):
-        subprocess.run(["git", "am", str(patch)], check=True, cwd=repo_dir)
+        subprocess.run(
+            ["git", "am", "--committer-date-is-author-date", str(patch)],
+            check=True,
+            cwd=repo_dir,
+        )
 
     # Create a separate base branch for branch tests.
     _run_commands(
         [
             ["git", "checkout", "-b", "dev"],
-            ["git", "commit", "--allow-empty", "-m", "dev"],
+            ["git", "commit", "--date", epoch, "--allow-empty", "-m", "dev"],
             ["git", "checkout", "main"],
         ],
         repo_dir,
