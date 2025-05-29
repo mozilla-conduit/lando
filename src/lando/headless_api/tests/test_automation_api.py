@@ -1,6 +1,7 @@
 import datetime
 import itertools
 import json
+import re
 import secrets
 import subprocess
 import unittest.mock as mock
@@ -873,10 +874,16 @@ def test_automation_job_create_commit_failed_check(
     repo = repo_mc(SCM_TYPE_HG)
     scm = repo.scm
 
+    author_match = re.search("<([^>]*@[^>]*)>", bad_action["author"])
+    if not author_match:
+        raise AssertionError(f"Can't parse email from {bad_action['author']}")
+
+    author_email = author_match[1]
+
     # Create a job and actions
     job = AutomationJob.objects.create(
         status=JobStatus.SUBMITTED,
-        requester_email="example@example.com",
+        requester_email=author_email,
         target_repo=repo,
     )
     AutomationAction.objects.create(
