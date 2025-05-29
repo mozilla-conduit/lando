@@ -24,7 +24,6 @@ from lando.api.legacy.hgexports import (
     PreventSubmodulesCheck,
     PreventSymlinksCheck,
     TryTaskConfigCheck,
-    WPTSyncCheck,
 )
 from lando.api.legacy.notifications import (
     notify_user_of_bug_update_failure,
@@ -60,7 +59,6 @@ COMMIT_CHECKS: list[Type[PatchCheck]] = [
     TryTaskConfigCheck,
     PreventNSPRNSSCheck,
     PreventSubmodulesCheck,
-    WPTSyncCheck,
 ]
 
 STACK_CHECKS: list[Type[PatchCollectionCheck]] = [
