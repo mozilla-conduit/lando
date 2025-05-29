@@ -1853,7 +1853,7 @@ def test_blocker_prevent_submodules(phabdouble, create_state, check_diff):
             diff=diff_submodule,
             stack_state=stack_state,
         )
-        == "Revision introduces a Git submodule into the repository. xxx"
+        == "Revision introduces a Git submodule into the repository."
     ), "Diff with submodules present should fail the check."
 
 

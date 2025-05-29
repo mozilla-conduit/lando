@@ -615,15 +615,6 @@ def test_merge_conflict(
                 },
                 "Revision introduces a Git submodule into the repository.",
             ),
-            # WPTSyncCheck
-            (
-                {
-                    "author_email": "wptsync@mozilla.com",
-                    "commitmsg": "No bug: WPT commit with non-WPTSync changes",
-                    "diff": "valid",  # This author email is not allowed to write outsid of testing/web-platform
-                },
-                "Revision has WPTSync bot making changes to disallowed files ",
-            ),
         ),
     ),
 )

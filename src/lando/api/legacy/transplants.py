@@ -22,7 +22,6 @@ from lando.api.legacy.hgexports import (
     PreventSubmodulesCheck,
     PreventSymlinksCheck,
     TryTaskConfigCheck,
-    WPTSyncCheck,
 )
 from lando.api.legacy.projects import (
     get_secure_project_phid,
@@ -931,21 +930,6 @@ def blocker_try_task_config(
         return issues[0]
 
 
-def blocker_wptsync(
-    revision: dict, diff: dict, stack_state: StackAssessmentState
-) -> Optional[str]:
-    """Block non-WPT revisions which change WPT tests."""
-    diff_id = PhabricatorClient.expect(diff, "id")
-    parsed_diff = stack_state.parsed_diffs[diff_id]
-
-    # `WPTSyncCheck` only requires inspecting the diff and the author.
-    author_email = PhabricatorClient.expect(diff, "commits", "author", "email")
-    diff_assessor = DiffAssessor(parsed_diff=parsed_diff, author=author_email)
-
-    if issues := diff_assessor.run_diff_checks([WPTSyncCheck]):
-        return issues[0]
-
-
 STACK_BLOCKER_CHECKS = [
     # This check needs to be first.
     blocker_stack_landing_path_valid,
@@ -969,7 +953,6 @@ REVISION_BLOCKER_CHECKS = [
     blocker_try_task_config,
     blocker_prevent_submodules,
     blocker_prevent_nsprnss_files,
-    blocker_wptsync,
     # This check needs to be last.
     blocker_open_ancestor,
 ]
