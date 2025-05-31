@@ -41,7 +41,7 @@ PATCH_NORMAL_1 = r"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add another file.
+Bug 35: add another line
 diff --git a/test.txt b/test.txt
 --- a/test.txt
 +++ b/test.txt
@@ -56,7 +56,7 @@ PATCH_NORMAL_2 = r"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add another file.
+No bug: add one more line
 diff --git a/test.txt b/test.txt
 --- a/test.txt
 +++ b/test.txt
@@ -72,7 +72,7 @@ PATCH_NORMAL_3 = r"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add another file.
+Bug 42: add another file
 diff --git a/test.txt b/test.txt
 deleted file mode 100644
 --- a/test.txt
@@ -87,14 +87,50 @@ new file mode 100644
 +TEST
 """.lstrip()
 
+PATCH_GIT_1 = """\
+From be6df88a1c2c64621ab9dfdf244272748e93c26f Mon Sep 17 00:00:00 2001
+From: Py Test <pytest@lando.example.net>
+Date: Tue, 22 Apr 2025 02:02:55 +0000
+Subject: No bug: add another line
+
+---
+ test.txt | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/test.txt b/test.txt
+index 2a02d41..45e9938 100644
+--- a/test.txt
++++ b/test.txt
+@@ -1 +1,2 @@
+ TEST
++adding another line
+-- 
+"""  # noqa: W291, `git` adds a trailing whitespace after `--`.
+
 
 @pytest.fixture
 def normal_patch():
-    """Return one of several "normal" patches."""
+    """Return a factory providing one of several Hg-formatted patches."""
     _patches = [
         PATCH_NORMAL_1,
         PATCH_NORMAL_2,
         PATCH_NORMAL_3,
+    ]
+
+    def _patch(number=0):
+        return _patches[number]
+
+    return _patch
+
+
+@pytest.fixture
+def git_patch():
+    """Return a factory providing one of several git patches.
+
+    Currently, there's only one patch.
+    """
+    _patches = [
+        PATCH_GIT_1,
     ]
 
     def _patch(number=0):
@@ -150,7 +186,9 @@ def _run_commands(commands: list[list[str]], cwd: Path):
 
 
 @pytest.fixture
-def git_repo(tmp_path: Path, git_repo_seed: Path) -> Path:
+def git_repo(
+    tmp_path: Path, git_repo_seed: Path, monkeypatch: pytest.MonkeyPatch
+) -> Path:
     """
     Creates a temporary Git repository for testing purposes.
 
@@ -160,19 +198,28 @@ def git_repo(tmp_path: Path, git_repo_seed: Path) -> Path:
     Returns:
         pathlib.Path: The path to the created Git repository.
     """
+    # Force the committer date to a known value. This allows to have
+    # predictable commit SHAs when applying known patches on top.
+    epoch = "1970-01-01T00:00:00"
+    monkeypatch.setenv("GIT_COMMITTER_DATE", epoch)
+
     repo_dir = tmp_path / "git_repo"
     subprocess.run(["git", "init", repo_dir], check=True)
     subprocess.run(["git", "branch", "-m", "main"], check=True, cwd=repo_dir)
     _git_setup_user(repo_dir)
     _git_ignore_denyCurrentBranch(repo_dir)
     for patch in sorted(git_repo_seed.glob("*")):
-        subprocess.run(["git", "am", str(patch)], check=True, cwd=repo_dir)
+        subprocess.run(
+            ["git", "am", "--committer-date-is-author-date", str(patch)],
+            check=True,
+            cwd=repo_dir,
+        )
 
     # Create a separate base branch for branch tests.
     _run_commands(
         [
             ["git", "checkout", "-b", "dev"],
-            ["git", "commit", "--allow-empty", "-m", "dev"],
+            ["git", "commit", "--date", epoch, "--allow-empty", "-m", "dev"],
             ["git", "checkout", "main"],
         ],
         repo_dir,

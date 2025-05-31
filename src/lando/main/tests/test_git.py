@@ -1,4 +1,6 @@
 import datetime
+import io
+import re
 import subprocess
 import uuid
 from collections.abc import Callable
@@ -8,6 +10,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from lando.api.legacy.hgexports import GitPatchHelper
 from lando.main.scm.exceptions import SCMException
 from lando.main.scm.git import GitSCM
 
@@ -131,6 +134,34 @@ def test_GitSCM_clean_repo(
     assert (
         strip_non_public_commits != new_file.exists()
     ), f"strip_non_public_commits not honoured for {new_file}"
+
+
+def test_GitSCM_apply_get_patch(git_repo: Path, git_patch: Callable):
+    scm = GitSCM(str(git_repo))
+
+    # Choose the patch to apply wisely: the original patch may have a `[PATCH]`
+    # in the subject that will get stripped on on application and subsequent export,
+    # leading to a spurious test failure when comparing output to expected.
+    patch = git_patch()
+
+    ph = GitPatchHelper(io.StringIO(patch))
+
+    author_name, author_email = ph.parse_author_information()
+    author = f"{author_name} <{author_email}>"
+    scm.apply_patch(
+        ph.get_diff(), ph.get_commit_description(), author, ph.get_timestamp()
+    )
+
+    commit = scm.describe_commit()
+
+    expected_patch = patch
+    new_patch = scm.get_patch(commit.hash)
+
+    # The git version stamp varies. Strip it from the output before comparing.
+    remove_git_version_re = r"\d+(\.\d+)+$"
+    no_version_patch = re.sub(remove_git_version_re, "", new_patch)
+
+    assert no_version_patch == expected_patch
 
 
 def test_GitSCM_describe_commit(git_repo: Path):
@@ -409,7 +440,7 @@ def _create_git_commit(request: pytest.FixtureRequest, clone_path: Path):
             "git",
             "commit",
             "-m",
-            f"adding {new_file}",
+            f"No bug: adding {new_file}",
             "--author",
             f"{request.node.name} <pytest@lando>",
         ],

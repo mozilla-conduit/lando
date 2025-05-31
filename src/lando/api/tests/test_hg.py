@@ -1,10 +1,12 @@
 import io
 import os
+import re
 import subprocess
 import textwrap
 import uuid
 from datetime import datetime
 from pathlib import Path
+from typing import Callable
 from unittest import mock
 
 import pytest
@@ -250,6 +252,38 @@ def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
         assert "file removed" in str(repo.run_hg(["outgoing"]))
 
 
+def test_HgSCM_apply_get_patch(hg_clone: Path, normal_patch: Callable):
+    scm = HgSCM(str(hg_clone))
+
+    patch = normal_patch()
+
+    ph = HgPatchHelper(io.StringIO(patch))
+
+    author_name, author_email = ph.parse_author_information()
+    author = f"{author_name} <{author_email}>"
+
+    with scm.for_push("committer@example.com"):
+        commit = scm.describe_commit()
+
+        scm.apply_patch(
+            ph.get_diff(), ph.get_commit_description(), author, ph.get_timestamp()
+        )
+
+        commit = scm.describe_commit()
+
+        new_patch = scm.get_patch(commit.hash)
+
+    # Trim Diff Start Line, Node ID, and Parent.
+    trim_known_diffs = r"# (Diff Start Line|Node ID|Parent)[^\n]+\n"
+    expected_patch = re.sub(trim_known_diffs, "", patch)
+    new_patch = re.sub(trim_known_diffs, "", new_patch)
+
+    # `hg export` adds a non-meaningful newline after the commit message.
+    new_patch = re.sub("\n\ndiff --git", "\ndiff --git", new_patch)
+
+    assert new_patch == expected_patch
+
+
 def test_hg_exceptions():
     """Ensure the correct exception is raised if a particular snippet is present."""
     snippet_exception_mapping = {
@@ -358,7 +392,7 @@ def test_HgSCM__extract_error_data():
 def test_HgSCM_describe_commit(hg_clone):
     scm = HgSCM(str(hg_clone))
 
-    with scm.for_push("committer@moz.test"):
+    with scm.for_push("committer@example.com"):
         commit = scm.describe_commit()
         prev_commit = scm.describe_commit("-2")
 

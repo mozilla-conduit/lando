@@ -1,4 +1,5 @@
 import asyncio
+import io
 import logging
 import os
 import re
@@ -13,6 +14,7 @@ from typing import Any, ContextManager, Optional
 from django.conf import settings
 from simple_github import AppAuth, AppInstallationAuth
 
+from lando.api.legacy.hgexports import GitPatchHelper, PatchHelper
 from lando.main.scm.commit import CommitData
 from lando.main.scm.consts import SCM_TYPE_GIT, MergeStrategy
 from lando.main.scm.exceptions import (
@@ -206,6 +208,26 @@ class GitSCM(AbstractSCM):
                         raise PatchConflict(exc.err) from exc
 
                     raise exc
+
+    def get_patch(self, revision_id: str) -> str:
+        """Return a complete patch for the given revision, in the git extended diff format.
+
+        Note that `_git_run` strips the output before returning it. This means
+        that trailing newlines in the patch output will no be present. This is
+        acceptable for our purpose, but it may not reapply cleanly (TBC).
+        """
+        return self._git_run(
+            "format-patch",
+            "--keep-subject",
+            "--stdout",
+            "-1",
+            revision_id,
+            cwd=self.path,
+        )
+
+    def get_patch_helper(self, revision_id: str) -> PatchHelper:
+        """Return a PatchHelper containing the patch for the given revision."""
+        return GitPatchHelper(io.StringIO(self.get_patch(revision_id)))
 
     def process_merge_conflict(
         self,
