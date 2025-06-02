@@ -953,7 +953,7 @@ def test_automation_job_create_commit_failed_check_override(
     AutomationAction.objects.create(
         job_id=job,
         action_type="create-commit",
-        data = failed_check_action_reason("nobug")[0],
+        data=failed_check_action_reason("nobug")[0],
         order=0,
     )
     AutomationAction.objects.create(
@@ -979,9 +979,7 @@ def test_automation_job_create_commit_failed_check_override(
     assert automation_worker.run_automation_job(
         job
     ), "Job indicated that it should be retried"
-    assert (
-        job.status == JobStatus.LANDED
-    ), f"Job failed despite overrides: {job.error}"
+    assert job.status == JobStatus.LANDED, f"Job failed despite overrides: {job.error}"
 
 
 @pytest.mark.parametrize("scm_type", (SCM_TYPE_HG, SCM_TYPE_GIT))
@@ -1081,9 +1079,7 @@ def test_automation_job_merge_onto_success_git(
     git_automation_worker.worker_instance.applicable_repos.add(repo)
 
     assert git_automation_worker.run_automation_job(job)
-    assert (
-        job.status == JobStatus.LANDED
-    ), f"Job unexpectedly failed: {job.error}"
+    assert job.status == JobStatus.LANDED, f"Job unexpectedly failed: {job.error}"
     assert scm.push.called
     assert len(job.landed_commit_id) == 40
 
