@@ -225,7 +225,8 @@ diff --git a/{filename} b/{filename}
  }}
 """
 
-GIT_PATCH_FILENAME_TEMPLATE = r"""
+GIT_PATCH_FILENAME_TEMPLATE = (
+    r"""
 From 0f5a3c99e12c1e9b0e81bed245fe537961f89e57 Mon Sep 17 00:00:00 2001
 From: Connor Sheehan <sheehan@mozilla.com>
 Date: Wed, 6 Jul 2022 16:36:09 -0400
@@ -234,7 +235,10 @@ Subject: Change things
  {filename} | 8 +++++++-
  1 file changed, 7 insertions(+), 1 deletion(-)
 
-""".lstrip() + GIT_DIFF_FILENAME_TEMPLATE
+""".lstrip()
+    + GIT_DIFF_FILENAME_TEMPLATE
+)
+
 
 def test_build_patch():
     patch = build_patch_for_revision(
@@ -486,9 +490,7 @@ def test_git_formatpatch_helper_parse():
         "returned from Lando. This should inform users that Lando is\n"
         "unavailable at the moment and is not broken."
     ), "`commit_description()` should return full commit message."
-    assert (
-        patch.get_diff() == GIT_DIFF
-    ), "`get_diff()` should return the full diff."
+    assert patch.get_diff() == GIT_DIFF, "`get_diff()` should return the full diff."
 
 
 def test_git_formatpatch_helper_empty_commit():
