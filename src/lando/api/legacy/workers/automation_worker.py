@@ -237,7 +237,10 @@ class AutomationWorker(Worker):
 
         Returns a list of error messages.
         """
-        patch_helpers = [scm.get_patch_helper(commit.hash) for commit in commits]
+        patch_helpers = filter(
+            lambda x: x is not None,
+            [scm.get_patch_helper(commit.hash) for commit in commits],
+        )
 
         assessor = PatchCollectionAssessor(
             patch_helpers, push_user_email=requester_email
