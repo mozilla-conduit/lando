@@ -275,7 +275,7 @@ class PhabricatorDouble:
         revision_id = self._new_id(self._revisions)
         phid = self._new_phid("DREV-")
         uri = "http://phabricator.test/D{}".format(revision_id)
-        title = "my test revision title" if not title else title
+        title = "no bug: my test revision title" if not title else title
 
         author = self.user() if author is None else author
 
@@ -296,7 +296,7 @@ class PhabricatorDouble:
             "status": status,
             "properties": [],
             "branch": None,
-            "summary": summary or "my test revision summary",
+            "summary": summary or "no bug: my test revision summary",
             "testPlan": "my revision test plan",
             "lineCount": "2",
             "commits": [],
@@ -352,7 +352,7 @@ class PhabricatorDouble:
 
         return revision
 
-    def user(self, *, username="imadueme_admin"):
+    def user(self, *, username="imadueme_admin", email=None):
         """Return a Phabricator User."""
         users = [u for u in self._users if u["userName"] == username]
         if users:
@@ -360,7 +360,8 @@ class PhabricatorDouble:
 
         phid = self._new_phid("USER-{}".format(username))
         fullname = "{} Name".format(username)
-        email = "{}@example.com".format(username)
+        if not email:
+            email = "{}@example.com".format(username)
         uri = "http://phabricator.test/p/{}".format(username)
         user = {
             "id": self._new_id(self._users),
@@ -448,7 +449,16 @@ class PhabricatorDouble:
         self._diff_refs += refs
 
         author_name, author_email = None, None
-        if commits:
+        # Propagate a provided author to all commits,
+        # or get the first commit author as
+        # the revision author.
+        if author:
+            author_name = author["userName"]
+            author_email = author["email"]
+            for c in commits:
+                c["author"]["name"] = author_name
+                c["author"]["email"] = author_name
+        elif commits:
             author_name = commits[0]["author"]["name"]
             author_email = commits[0]["author"]["email"]
 
