@@ -63,6 +63,7 @@ COMMIT_CHECKS: list[Type[PatchCheck]] = [
 
 STACK_CHECKS: list[Type[PatchCollectionCheck]] = [
     CommitMessagesCheck,
+    # We don't include the WPT check here, as wptsyncbot cannot manually land a stack.
 ]
 AUTOFORMAT_COMMIT_MESSAGE = """
 {bugs}: apply code formatting via Lando
