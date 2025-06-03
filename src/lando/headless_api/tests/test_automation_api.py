@@ -1,7 +1,6 @@
 import datetime
 import itertools
 import json
-import re
 import secrets
 import subprocess
 import unittest.mock as mock
@@ -13,6 +12,7 @@ from django.contrib.auth.hashers import check_password
 
 from lando.api.legacy.workers.automation_worker import AutomationWorker
 from lando.api.tests.test_hg import _create_hg_commit
+from lando.conftest import BAD_COMMIT_TYPES
 from lando.headless_api.api import (
     AutomationAction,
     AutomationJob,
@@ -687,128 +687,12 @@ def test_automation_job_create_commit_success(
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
 
 
-BAD_ACTION_TYPES = [
-    "nobug",
-    "nspr",
-    "nss",
-    "submodule",
-    "symlink",
-    "try_task_config",
-    "wpt",
-]
-
-
-@pytest.fixture
-def failed_check_action_reason() -> Callable:
-    """Factory providing a check-failing action, and the expected error.
-
-    See BAD_ACTION_TYPES for the list of bad actions available for request."""
-    action_reasons = {
-        # CommitMessagesCheck
-        "nobug": (
-            {
-                "action": "create-commit",
-                "author": "Test User <test@example.com>",
-                "commitmsg": "commit message without bug info",
-                "date": 0,
-                # diff should get added by the test using check_diff
-            },
-            "Revision needs 'Bug N' or 'No bug' in the commit message: commit message without bug info",
-        ),
-        # PreventNSPRNSSCheck
-        "nspr": (
-            {
-                "action": "create-commit",
-                "author": "Test User <test@example.com>",
-                "commitmsg": "No bug: commit with NSPR changes",
-                "date": 0,
-                # diff should get added by the test using check_diff
-            },
-            "Revision makes changes to restricted directories:",
-        ),
-        # PreventNSPRNSSCheck
-        "nss": (
-            {
-                "action": "create-commit",
-                "author": "Test User <test@example.com>",
-                "commitmsg": "No bug: commit with NSS changes",
-                "date": 0,
-                # diff should get added by the test using check_diff
-            },
-            "Revision makes changes to restricted directories:",
-        ),
-        # PreventSubmodulesCheck
-        "submodule": (
-            {
-                "action": "create-commit",
-                "author": "Test User <test@example.com>",
-                "commitmsg": "No bug: commit with .gitmodules changes",
-                "date": 0,
-                # diff should get added by the test using check_diff
-            },
-            "Revision introduces a Git submodule into the repository.",
-        ),
-        # PreventSymlinksCheck
-        "symlink": (
-            {
-                "action": "create-commit",
-                "author": "Test User <test@example.com>",
-                "commitmsg": "No bug: commit with symlink",
-                "date": 0,
-                # diff should get added by the test using check_diff
-            },
-            "Revision introduces symlinks in the files ",
-        ),
-        # TryTaskConfigCheck
-        "try_task_config": (
-            {
-                "action": "create-commit",
-                "author": "Test User <test@example.com>",
-                "commitmsg": "No bug: commit with try_task_config.json",
-                "date": 0,
-                # diff should get added by the test using check_diff
-            },
-            "Revision introduces the `try_task_config.json` file.",
-        ),
-        # One that works, for reference.
-        "valid": (
-            {
-                "action": "create-commit",
-                "author": "Test User <test@example.com>",
-                "commitmsg": "no bug: commit message without bug info",
-                "date": 0,
-                # diff should get added by the test using check_diff
-            },
-            "",
-        ),
-        # WPTSyncCheck
-        "wpt":
-        # WPTCheck verifies that commits from wptsync@mozilla only touch paths in
-        # WPT_SYNC_ALLOWED_PATHS_RE (currently a subset of testing/web-platform/).
-        (
-            {
-                "action": "create-commit",
-                "author": "WPT Sync Bot <wptsync@mozilla.com>",
-                "commitmsg": "No bug: WPT commit with non-WPTSync changes",
-                "date": 0,
-                # diff should get added by the test using check_diff
-            },
-            "Revision has WPTSync bot making changes to disallowed files ",
-        ),
-    }
-
-    def failed_check_factory(name: str) -> tuple[dict, str] | None:
-        return action_reasons.get(name)
-
-    return failed_check_factory
-
-
 @pytest.mark.parametrize(
     "scm_type,bad_action_type",
     # We make a cross-product of all the SCM and all the bad actions.
     itertools.product(
         [SCM_TYPE_HG, SCM_TYPE_GIT],
-        BAD_ACTION_TYPES,
+        BAD_COMMIT_TYPES,
     ),
 )
 @pytest.mark.django_db
@@ -818,25 +702,24 @@ def test_automation_job_create_commit_failed_check(
     treestatusdouble,
     get_automation_worker,
     monkeypatch,
-    failed_check_action_reason: Callable,
+    failed_check_reason: Callable,
     bad_action_type: str,
-    check_diff,
+    check_diff: Callable,
+    extract_email: Callable,
 ):
-    bad_action, reason = failed_check_action_reason(bad_action_type)
-    if bad_action_type in ["nobug"]:
-        # Some actions are bad not because of their diff, but some other metadata of the
-        # patch. We use an innocuous diff for them.
-        bad_action_type = "valid"
+    bad_action, reason = failed_check_reason(bad_action_type)
+    # Warning: I suspect, but haven't been able to confirm, that doing this
+    # may directly modify the data in the fixture. If, in the future, the
+    # failed_check_reason fixtures appears to contain weird unexpected content in other
+    # test cases, look with suspicion towards this.
+    bad_action["action"] = "create-commit"
+    bad_action["date"] = 0
     bad_action["diff"] = check_diff(bad_action_type)
 
     repo = repo_mc(SCM_TYPE_HG)
     scm = repo.scm
 
-    author_match = re.search("<([^>]*@[^>]*)>", bad_action["author"])
-    if not author_match:
-        raise AssertionError(f"Can't parse email from {bad_action['author']}")
-
-    author_email = author_match[1]
+    author_email = extract_email(bad_action["author"])
 
     # Create a job and actions
     job = AutomationJob.objects.create(
@@ -895,7 +778,7 @@ def test_automation_job_create_commit_failed_check_override(
     treestatusdouble,
     get_automation_worker,
     monkeypatch,
-    failed_check_action_reason: Callable,
+    failed_check_reason: Callable,
     override_action_data,
     check_diff,
 ):
@@ -910,8 +793,13 @@ def test_automation_job_create_commit_failed_check_override(
         requester_email="example@example.com",
         target_repo=repo,
     )
-    no_bug_action = failed_check_action_reason("nobug")[0]
+
+    # Create a failing commit.
+    no_bug_action = failed_check_reason("nobug")[0]
+    no_bug_action["action"] = "create-commit"
+    no_bug_action["date"] = 0
     no_bug_action["diff"] = check_diff("valid")
+
     AutomationAction.objects.create(
         job_id=job,
         action_type="create-commit",
