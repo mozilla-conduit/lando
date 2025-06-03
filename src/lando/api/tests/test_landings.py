@@ -2,6 +2,7 @@ import io
 import itertools
 import re
 import unittest.mock as mock
+from typing import Callable
 
 import pytest
 
@@ -555,67 +556,21 @@ def test_merge_conflict(
 
 
 @pytest.mark.parametrize(
-    "repo_type,disallowed_revision_reason",
+    "repo_type,bad_commit_type",
     # We make a cross-product of all the SCM and all the bad actions.
     # As we don't want a cross-product of bad actions and reasons, we bundle them in a
     # tuple, that we deconstruct in the test.
     itertools.product(
-        (SCM_TYPE_HG, SCM_TYPE_GIT),
-        (
-            # CommitMessagesCheck
-            (
-                {
-                    "author_email": "test@example.com",
-                    "commitmsg": "commit message without bug info",
-                    "diff": "valid",  # The commit message is invalid
-                },
-                "Revision needs 'Bug N' or 'No bug' in the commit message: commit message without bug info",
-            ),
-            # PreventSymlinksCheck
-            (
-                {
-                    "author_email": "test@example.com",
-                    "commitmsg": "No bug: commit with symlink",
-                    "diff": "symlink",
-                },
-                "Revision introduces symlinks in the files ",
-            ),
-            # TryTaskConfigCheck
-            (
-                {
-                    "author_email": "test@example.com",
-                    "commitmsg": "No bug: commit with try_task_config.json",
-                    "diff": "try_task_config",
-                },
-                "Revision introduces the `try_task_config.json` file.",
-            ),
-            # PreventNSPRNSSCheck
-            (
-                {
-                    "author_email": "test@example.com",
-                    "commitmsg": "No bug: commit with NSS changes",
-                    "diff": "nss",
-                },
-                "Revision makes changes to restricted directories:",
-            ),
-            (
-                {
-                    "author_email": "test@example.com",
-                    "commitmsg": "No bug: commit with NSPR changes",
-                    "diff": "nspr",
-                },
-                "Revision makes changes to restricted directories:",
-            ),
-            # PreventSubmodulesCheck
-            (
-                {
-                    "author_email": "test@example.com",
-                    "commitmsg": "No bug: commit with .gitmodules changes",
-                    "diff": "submodule",
-                },
-                "Revision introduces a Git submodule into the repository.",
-            ),
-        ),
+        [SCM_TYPE_HG, SCM_TYPE_GIT],
+        # All of BAD_COMMIT_TYPES, but not wpt
+        [
+            "nobug",
+            "nspr",
+            "nss",
+            "submodule",
+            "symlink",
+            "try_task_config",
+        ],
     ),
 )
 @pytest.mark.django_db
@@ -626,18 +581,22 @@ def test_failed_landing_job_checks(
     get_landing_worker,
     check_diff,
     repo_type: str,
-    disallowed_revision_reason,
+    bad_commit_type: str,
+    failed_check_reason: Callable,
+    extract_email: Callable,
 ):
     """Ensure that checks fail non-compliant landings."""
     repo = repo_mc(repo_type, approval_required=True, autoformat_enabled=False)
     treestatusdouble.open_tree(repo.name)
 
-    disallowed_revision, reason = disallowed_revision_reason
+    disallowed_revision, reason = failed_check_reason(bad_commit_type)
+
+    author_email = extract_email(disallowed_revision["author"])
 
     patch = (
         r"""# HG changeset patch
 # User Test User <"""
-        + disallowed_revision["author_email"]
+        + author_email
         + """>
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
@@ -646,7 +605,7 @@ def test_failed_landing_job_checks(
         + disallowed_revision["commitmsg"]
         + """
 """
-        + check_diff(disallowed_revision["diff"])
+        + check_diff(bad_commit_type)
     )
 
     revisions = [
@@ -656,7 +615,7 @@ def test_failed_landing_job_checks(
     ]
     job_params = {
         "status": JobStatus.IN_PROGRESS,
-        "requester_email": disallowed_revision["author_email"],
+        "requester_email": author_email,
         "target_repo": repo,
         "attempts": 1,
     }

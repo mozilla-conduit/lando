@@ -1,4 +1,5 @@
 import pathlib
+import re
 import subprocess
 import time
 from collections.abc import Callable
@@ -222,11 +223,129 @@ def check_diff() -> Callable:
     }
 
     def _diff(key: str) -> str | None:
+        if key in ["nobug"]:
+            # Some actions are bad not because of their diff, but some other metadata of the
+            # patch (e.g. no bug in the commit message). We use an innocuous diff for them.
+            key = "valid"
         if key not in patches:
             raise Exception(f"check_diff doesn't know {key}")
         return patches.get(key)
 
     return _diff
+
+
+BAD_COMMIT_TYPES = [
+    "nobug",
+    "nspr",
+    "nss",
+    "submodule",
+    "symlink",
+    "try_task_config",
+    "wpt",
+]
+
+
+@pytest.fixture
+def failed_check_reason() -> Callable:
+    """Factory providing a check-failing commit, and the expected error.
+
+    See BAD_ACTION_TYPES for the list of bad actions available for request."""
+    action_reasons = {
+        # CommitMessagesCheck
+        "nobug": (
+            {
+                "author": "Test User <test@example.com>",
+                "commitmsg": "commit message without bug info",
+                # diff should get added by the test using check_diff
+            },
+            "Revision needs 'Bug N' or 'No bug' in the commit message: commit message without bug info",
+        ),
+        # PreventNSPRNSSCheck
+        "nspr": (
+            {
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit with NSPR changes",
+                # diff should get added by the test using check_diff
+            },
+            "Revision makes changes to restricted directories:",
+        ),
+        # PreventNSPRNSSCheck
+        "nss": (
+            {
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit with NSS changes",
+                # diff should get added by the test using check_diff
+            },
+            "Revision makes changes to restricted directories:",
+        ),
+        # PreventSubmodulesCheck
+        "submodule": (
+            {
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit with .gitmodules changes",
+                # diff should get added by the test using check_diff
+            },
+            "Revision introduces a Git submodule into the repository.",
+        ),
+        # PreventSymlinksCheck
+        "symlink": (
+            {
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit with symlink",
+                # diff should get added by the test using check_diff
+            },
+            "Revision introduces symlinks in the files ",
+        ),
+        # TryTaskConfigCheck
+        "try_task_config": (
+            {
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit with try_task_config.json",
+                # diff should get added by the test using check_diff
+            },
+            "Revision introduces the `try_task_config.json` file.",
+        ),
+        # One that works, for reference.
+        "valid": (
+            {
+                "author": "Test User <test@example.com>",
+                "commitmsg": "no bug: commit message without bug info",
+                # diff should get added by the test using check_diff
+            },
+            "",
+        ),
+        # WPTSyncCheck
+        "wpt":
+        # WPTCheck verifies that commits from wptsync@mozilla only touch paths in
+        # WPT_SYNC_ALLOWED_PATHS_RE (currently a subset of testing/web-platform/).
+        (
+            {
+                "author": "WPT Sync Bot <wptsync@mozilla.com>",
+                "commitmsg": "No bug: WPT commit with non-WPTSync changes",
+                # diff should get added by the test using check_diff
+            },
+            "Revision has WPTSync bot making changes to disallowed files ",
+        ),
+    }
+
+    def failed_check_factory(name: str) -> tuple[dict, str] | None:
+        return action_reasons.get(name)
+
+    return failed_check_factory
+
+
+@pytest.fixture
+def extract_email() -> Callable:
+    def _extract_email(author_string: str) -> str:
+        """Extract the email address from a string containing it between angle brackets."""
+        author_match = re.search("<([^>]*@[^>]*)>", author_string)
+        if not author_match:
+            raise AssertionError(f"Can't parse email from `{author_string}`")
+
+        author_email = author_match[1]
+        return author_email
+
+    return _extract_email
 
 
 @pytest.fixture
