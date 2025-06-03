@@ -289,13 +289,14 @@ class HgSCM(AbstractSCM):
                 + ["--logfile", f_msg.name]
             )
 
-    def get_patch(self, revision_id: str) -> str:
+    def get_patch(self, revision_id: str) -> str | None:
         """Return a complete patch for the given revision, in the git extended diff format."""
         return self.run_hg(["export", "--git", "-r", revision_id]).decode("utf-8")
 
-    def get_patch_helper(self, revision_id: str) -> PatchHelper:
+    def get_patch_helper(self, revision_id: str) -> PatchHelper | None:
         """Return a PatchHelper containing the patch for the given revision."""
-        return HgPatchHelper(io.StringIO(self.get_patch(revision_id)))
+        patch = self.get_patch(revision_id)
+        return HgPatchHelper(io.StringIO(patch)) if patch else None
 
     def process_merge_conflict(
         self,

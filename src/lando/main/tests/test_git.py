@@ -139,6 +139,9 @@ def test_GitSCM_clean_repo(
 def test_GitSCM_apply_get_patch(git_repo: Path, git_patch: Callable):
     scm = GitSCM(str(git_repo))
 
+    # Choose the patch to apply wisely: the original patch may have a `[PATCH]`
+    # in the subject that will get stripped on on application and subsequent export,
+    # leading to a spurious test failure when comparing output to expected.
     patch = git_patch()
 
     ph = GitPatchHelper(io.StringIO(patch))
@@ -154,26 +157,64 @@ def test_GitSCM_apply_get_patch(git_repo: Path, git_patch: Callable):
     expected_patch = patch
     new_patch = scm.get_patch(commit.hash)
 
-    # Trim first line from both patches, as they will contain a `From` line
-    # with a different base commit.
-    trim_from_re = r"^From [^\n]+\n"
-    expected_patch = re.sub(trim_from_re, "", expected_patch, count=1)
-    new_patch = re.sub(trim_from_re, "", new_patch, count=1)
+    assert new_patch, f"Empty patch unexpectedly generated for {commit.hash}"
 
-    # The git version used when we created our fixture may no longer match the one on
-    # the system running the test.
-    unify_git_version_re = r"\d+(\.\d+)+$"
-    expected_patch = re.sub(unify_git_version_re, "GIT.VERS.ION", expected_patch)
-    new_patch = re.sub(unify_git_version_re, "GIT.VERS.ION", new_patch)
+    # The git version stamp varies. Strip it from the output before comparing.
+    remove_git_version_re = r"\d+(\.\d+)+$"
+    no_version_patch = re.sub(remove_git_version_re, "", new_patch)
 
-    # The original patch may have a `[PATCH]` in the subject that we don't want to
-    # retain on application and subsequent export.
-    expected_patch = re.sub(r"Subject: \[PATCH\]", "Subject:", expected_patch, count=1)
+    assert no_version_patch == expected_patch
 
-    # We strip git output, so need to do the same on the original patch.
-    expected_patch = expected_patch.strip()
 
-    assert new_patch == expected_patch
+def test_GitSCM_apply_get_patch_merge(
+    git_repo: Path,
+    git_patch: Callable,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    scm = GitSCM(str(git_repo))
+
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+
+    main_branch = "main"
+    scm = GitSCM(str(clone_path), default_branch=main_branch)
+    scm.clone(str(git_repo))
+
+    git_setup_user(str(clone_path))
+
+    # Create a new commit on a branch for merging
+    _create_git_commit(request, clone_path)
+    scm.head_ref()
+
+    # Switch to target branch and create another commit.
+    target_branch = "target"
+    subprocess.run(
+        ["git", "switch", "-c", target_branch, "HEAD^"], cwd=str(clone_path), check=True
+    )
+
+    # Choose the patch to apply wisely: the original patch may have a `[PATCH]`
+    # in the subject that will get stripped on on application and subsequent export,
+    # leading to a spurious test failure when comparing output to expected.
+    patch = git_patch()
+    ph = GitPatchHelper(io.StringIO(patch))
+    author_name, author_email = ph.parse_author_information()
+    author = f"{author_name} <{author_email}>"
+    scm.apply_patch(
+        ph.get_diff(), ph.get_commit_description(), author, ph.get_timestamp()
+    )
+
+    # Merge feature into main
+    subprocess.run(["git", "switch", main_branch], cwd=str(clone_path), check=True)
+    strategy = "theirs"
+    commit_msg = f"Merge main into feature with strategy {strategy}"
+    merge_commit = scm.merge_onto(commit_msg, target_branch, strategy)
+
+    commit = scm.describe_commit(merge_commit)
+    merge_patch_helper = scm.get_patch_helper(commit.hash)
+
+    assert merge_patch_helper is None
 
 
 def test_GitSCM_describe_commit(git_repo: Path):
