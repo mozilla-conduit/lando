@@ -302,7 +302,7 @@ class GitPatchHelper(PatchHelper):
 
     def __init__(self, fileobj: io.StringIO):
         super().__init__(fileobj)
-        message_bytes = fileobj.read().encode("utf-8")
+        message_bytes = self.patch.read().encode("utf-8")
         self.message = email.message_from_bytes(
             message_bytes, policy=default_email_policy
         )
