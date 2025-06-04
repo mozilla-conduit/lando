@@ -2,6 +2,7 @@ import datetime
 import json
 import secrets
 import subprocess
+import time
 import unittest.mock as mock
 from pathlib import Path
 
@@ -1632,3 +1633,18 @@ def test_get_repo_info_not_found(client, headless_user):
     assert response.json() == {
         "details": "Repo with short name nonexistent-repo does not exist."
     }
+
+
+@pytest.mark.django_db
+def test_automation_job_processing():
+    # Create a job.
+    job = AutomationJob.objects.create(status=JobStatus.SUBMITTED)
+
+    with job.processing():
+        time.sleep(1)
+
+    # Query for the job to ensure we inspect the result as it exists in the DB.
+    job_from_db = AutomationJob.objects.get(id=job.id)
+    assert (
+        job_from_db.duration_seconds > 0
+    ), "`processing` should set and save the job duration."
