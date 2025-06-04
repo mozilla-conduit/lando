@@ -810,7 +810,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
         ),
     ],
 )
-def test_check_wpt_sync_git(
+def test_check_wptsync_git(
     push_user_email: str, patch: str, return_string: Optional[str], error_message: str
 ):
     patch_helpers = [GitPatchHelper(io.StringIO(patch))]
