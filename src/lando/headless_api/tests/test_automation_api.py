@@ -736,7 +736,7 @@ def test_automation_job_create_commit_success(
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
 
 
-BAD_ACTION_TYPES = [
+FAILING_CHECK_TYPES = [
     "nobug",
     "nspr",
     "nss",
@@ -751,7 +751,7 @@ BAD_ACTION_TYPES = [
 def failed_check_action_reason() -> Callable:
     """Factory providing a check-failing action, and the expected error.
 
-    See BAD_ACTION_TYPES for the list of bad actions available for request."""
+    See FAILING_CHECK_TYPES for the list of bad actions available for request."""
     action_reasons = {
         # CommitMessagesCheck
         "nobug": (
@@ -857,7 +857,7 @@ def failed_check_action_reason() -> Callable:
     # We make a cross-product of all the SCM and all the bad actions.
     itertools.product(
         [SCM_TYPE_HG, SCM_TYPE_GIT],
-        BAD_ACTION_TYPES,
+        FAILING_CHECK_TYPES,
     ),
 )
 @pytest.mark.django_db
@@ -940,7 +940,6 @@ def test_automation_job_create_commit_failed_check_override(
     failed_check_action_reason: Callable,
     override_action_data,
 ):
-
     repo = repo_mc(SCM_TYPE_HG)
     scm = repo.scm
 
