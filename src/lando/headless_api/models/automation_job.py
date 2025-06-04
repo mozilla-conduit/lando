@@ -67,6 +67,7 @@ class AutomationJob(BaseModel):
             yield
         finally:
             self.duration_seconds = (datetime.now() - start_time).seconds
+            self.save()
 
     def to_api_status(self) -> dict[str, Any]:
         """Return the job details as API status JSON."""
