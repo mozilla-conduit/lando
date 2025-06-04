@@ -706,7 +706,7 @@ class CommitMessagesCheck(PatchCollectionCheck):
 
 @dataclass
 class WPTSyncCheck(PatchCollectionCheck):
-    """Check the WPT Sync bot is only psuhing changes to relevant subset of the tree."""
+    """Check the WPT Sync bot is only pushing changes to relevant subset of the tree."""
 
     wpt_disallowed_files: list[str] = field(default_factory=list)
 
