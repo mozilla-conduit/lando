@@ -1637,12 +1637,13 @@ def test_get_repo_info_not_found(client, headless_user):
 
 @pytest.mark.django_db
 def test_automation_job_processing():
-    # Create a job and actions
+    # Create a job.
     job = AutomationJob.objects.create(status=JobStatus.SUBMITTED)
 
     with job.processing():
         time.sleep(1)
 
+    # Query for the job to ensure we inspect the result as it exists in the DB.
     job_from_db = AutomationJob.objects.get(id=job.id)
     assert (
         job_from_db.duration_seconds > 0
