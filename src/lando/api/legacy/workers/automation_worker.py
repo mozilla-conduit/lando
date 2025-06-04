@@ -237,8 +237,9 @@ class AutomationWorker(Worker):
 
         Returns a list of error messages.
         """
+        # Filter out None PatchHelpers that may be obtained from merge-commits.
         patch_helpers = filter(
-            lambda x: x is not None,
+            lambda ph: ph is not None,
             [scm.get_patch_helper(commit.hash) for commit in commits],
         )
 
