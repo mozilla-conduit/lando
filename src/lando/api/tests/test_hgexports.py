@@ -162,6 +162,10 @@ From 71ce7889eaa24616632a455636598d8f5c60b765 Mon Sep 17 00:00:00 2001
 From: Connor Sheehan <sheehan@mozilla.com>
 Date: Wed, 21 Feb 2024 10:20:49 +0000
 Subject: [PATCH] Bug 1874040 - Move 1103348-1.html to WPT, and expand it.
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
  r=smaug
 
 ---
