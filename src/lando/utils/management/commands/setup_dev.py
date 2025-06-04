@@ -16,17 +16,19 @@ class Command(BaseCommand):
     def setup_workers(self):
         """Ensure a git and an hg worker exist on the local environment."""
         # Set up two workers, one for each SCM.
-        workers = {
-            SCM_TYPE_GIT: None,
-            SCM_TYPE_HG: None,
-        }
+        scm_types = [
+            SCM_TYPE_GIT,
+            SCM_TYPE_HG,
+        ]
 
         worker_types = [
             "",  # landing workers
             "-automation-worker",
         ]
 
-        for worker_scm, worker_type in itertools.product(workers, worker_types):
+        workers = {}
+
+        for worker_scm, worker_type in itertools.product(scm_types, worker_types):
             worker_name = f"{worker_scm}{worker_type}"
             try:
                 worker = Worker.objects.get(name=worker_name)
@@ -42,10 +44,12 @@ class Command(BaseCommand):
         for repo in Repo.objects.all():
             # Associate all repos with applicable worker.
             for worker in workers.values():
-                if not worker or worker.scm != repo.scm_type:
+                if worker.scm != repo.scm_type:
                     continue
-                self.stdout.write(f"Adding {repo} ({repo.scm_type}) to {worker}.")
-                worker.applicable_repos.add(repo)
+                # if not worker.applicable_repos.filter(repo=repo):
+                if repo.worker_set.exists():
+                    self.stdout.write(f"Adding {repo} ({repo.scm_type}) to {worker}.")
+                    worker.applicable_repos.add(repo)
         self.stdout.write(
             self.style.SUCCESS(
                 f"Workers initialized ({', '.join(list(workers))}). "
