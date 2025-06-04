@@ -421,8 +421,8 @@ class GitPatchHelper(PatchHelper):
 # Decimal notation for the `symlink` file mode.
 SYMLINK_MODE = 40960
 
-# WPT Sync bot is restricted to paths matching this regex.
-WPT_SYNC_ALLOWED_PATHS_RE = re.compile(
+# WPTSync bot is restricted to paths matching this regex.
+WPTSYNC_ALLOWED_PATHS_RE = re.compile(
     r"testing/web-platform/(?:moz\.build|meta/.*|tests/.*)$"
 )
 
@@ -706,23 +706,23 @@ class CommitMessagesCheck(PatchCollectionCheck):
 
 @dataclass
 class WPTSyncCheck(PatchCollectionCheck):
-    """Check the WPT Sync bot is only pushing changes to relevant subset of the tree."""
+    """Check the WPTSync bot is only pushing changes to relevant subset of the tree."""
 
     wpt_disallowed_files: list[str] = field(default_factory=list)
 
     def next_diff(self, patch_helper: PatchHelper):
-        """Check each diff to assert the WPT-Sync bot is only updating allowed files."""
+        """Check each diff to assert the WPTSync bot is only updating allowed files."""
         if self.push_user_email != "wptsync@mozilla.com":
             return
 
         diffs = rs_parsepatch.get_diffs(patch_helper.get_diff())
         for parsed_diff in diffs:
             filename = parsed_diff["filename"]
-            if not WPT_SYNC_ALLOWED_PATHS_RE.match(filename):
+            if not WPTSYNC_ALLOWED_PATHS_RE.match(filename):
                 self.wpt_disallowed_files.append(filename)
 
     def result(self) -> Optional[str]:
-        """Return an error if the WPT-Sync bot touched disallowed files."""
+        """Return an error if the WPTSync bot touched disallowed files."""
         if self.wpt_disallowed_files:
             return (
                 "Revision has WPTSync bot making changes to disallowed files "

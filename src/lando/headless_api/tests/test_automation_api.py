@@ -833,11 +833,11 @@ def failed_check_action_reason() -> Callable:
         # WPTSyncCheck
         "wpt":
         # WPTCheck verifies that commits from wptsync@mozilla only touch paths in
-        # WPT_SYNC_ALLOWED_PATHS_RE (currently a subset of testing/web-platform/).
+        # WPTSYNC_ALLOWED_PATHS_RE (currently a subset of testing/web-platform/).
         (
             {
                 "action": "create-commit",
-                "author": "WPT Sync Bot <wptsync@mozilla.com>",
+                "author": "WPTSync Bot <wptsync@mozilla.com>",
                 "commitmsg": "No bug: WPT commit with non-WPTSync changes",
                 "date": 0,
                 "diff": PATCH_DIFF,
