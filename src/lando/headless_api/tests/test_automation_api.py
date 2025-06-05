@@ -709,13 +709,6 @@ def test_automation_job_create_commit_failed_check(
     extract_email: Callable,
 ):
     bad_action, reason = get_failing_check_action_reason(bad_action_type)
-    # Warning: I suspect, but haven't been able to confirm, that doing this
-    # may directly modify the data in the fixture. If, in the future, the
-    # get_failing_check_action_reason fixtures appears to contain weird unexpected content in other
-    # test cases, look with suspicion towards this.
-    bad_action["action"] = "create-commit"
-    bad_action["date"] = 0
-    bad_action["diff"] = get_failing_check_diff(bad_action_type)
 
     repo = repo_mc(SCM_TYPE_HG)
     scm = repo.scm
