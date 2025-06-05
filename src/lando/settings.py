@@ -48,6 +48,9 @@ SECURE_SSL_REDIRECT = False
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
+# Set the default upload memory size to 20x the default value (2.5MiB).
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("DATA_UPLOAD_MAX_MEMORY_SIZE", "52428800"))
+
 # Application definition
 
 INSTALLED_APPS = [

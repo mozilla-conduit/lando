@@ -155,7 +155,7 @@ REPOS = {
 }
 
 # RelEng staging repo / branches - used in try pushes
-for branch in ["main", "autoland", "beta", "release", "esr115", "esr128"]:
+for branch in ["main", "autoland", "beta", "release", "esr115", "esr128", "esr140"]:
     REPOS[Environment.staging].append(
         {
             "name": f"staging-firefox-{branch}",

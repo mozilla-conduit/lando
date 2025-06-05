@@ -1,3 +1,6 @@
+from datetime import datetime
+from typing import Callable, Self
+
 from django.contrib import admin
 from django.utils.translation import gettext_lazy
 
@@ -15,6 +18,41 @@ admin.site.site_header = gettext_lazy("Lando Administration")
 admin.site.index_title = gettext_lazy("Lando administration")
 
 
+class ReadOnlyInline(admin.TabularInline):
+    """
+    A Tabular Inline that supports a readonly_fields to disallow editing linked models.
+
+    The `_target_object` *string* property needs to be set on child classes so fields are
+    automatically discovered for the target model. This string should be the name of the
+    attribute on the `model` class that contains the link.
+
+    """
+
+    extra = 0
+    can_delete = False
+    show_change_link = False
+
+    @classmethod
+    def _field_getter_factory(cls, f: str) -> Callable:
+        """Programatically add getters for all readonly fields which don't have one.
+
+        [0] https://forum.djangoproject.com/t/show-all-the-fields-in-inline-of-the-many-to-many-model-instead-of-a-simple-dropdown/28062/7
+        """
+
+        def getter(self: Self):
+            return getattr(getattr(self, cls._target_object), f)
+
+        getter.__name__ = f
+
+        return getter
+
+    def __init__(self, *args, **kwargs):
+        for f in self.readonly_fields:
+            if not hasattr(self, f):
+                setattr(self, f, self._field_getter_factory(f))
+        super().__init__(*args, **kwargs)
+
+
 class RevisionLandingJobInline(admin.TabularInline):
     model = RevisionLandingJob
     fields = ("revision",)
@@ -28,8 +66,10 @@ class LandingJobAdmin(admin.ModelAdmin):
         "status",
         "target_repo__name",
         "created_at",
+        "requester_email",
         "duration_seconds",
     )
+    list_filter = ["target_repo__name", "requester_email", "created_at"]
     fields = (
         "status",
         "attempts",
@@ -44,6 +84,57 @@ class LandingJobAdmin(admin.ModelAdmin):
         "target_commit_hash",
         "target_repo",
     )
+    readonly_fields = [
+        "attempts",
+        "duration_seconds",
+        "error",
+        "formatted_replacements",
+        "landed_commit_id",
+    ]
+
+
+class RevisionAdmin(admin.ModelAdmin):
+    model = Revision
+    list_display = (
+        "revision",
+        "desc",
+        "patch_timestamp",
+        "author",
+    )
+
+    def revision(self, instance: Revision) -> str:
+        """Return a Phabricator-like revision identifier."""
+        return f"D{instance.revision_id}"
+
+    def patch_timestamp(self, instance: Revision) -> datetime | None:
+        """Return a datetime based on the timestamp from the patch data."""
+        ts = instance.patch_data.get("timestamp")
+        if not isinstance(ts, int):
+            return None
+        return datetime.fromtimestamp(ts)
+
+    def author(self, instance: Revision) -> str:
+        """Return an author string based on information available in the patch data."""
+        author_name = instance.patch_data.get("author_name")
+        author_email = instance.patch_data.get("author_email")
+
+        author_list = []
+
+        if author_name:
+            author_list.append(author_name)
+
+        if author_email:
+            author_email = f"<{author_email}>"
+            author_list.append(author_email)
+
+        if not author_list:
+            return "-"
+
+        return " ".join(author_list)
+
+    def desc(self, instance: Revision) -> str:
+        """Return the first line of the commit message in the patch data."""
+        return (instance.patch_data.get("commit_message") or "-").splitlines()[0]
 
 
 class RepoAdmin(admin.ModelAdmin):
@@ -76,6 +167,6 @@ class ConfigurationVariableAdmin(admin.ModelAdmin):
 
 admin.site.register(Repo, RepoAdmin)
 admin.site.register(LandingJob, LandingJobAdmin)
-admin.site.register(Revision, admin.ModelAdmin)
+admin.site.register(Revision, RevisionAdmin)
 admin.site.register(Worker, admin.ModelAdmin)
 admin.site.register(ConfigurationVariable, ConfigurationVariableAdmin)

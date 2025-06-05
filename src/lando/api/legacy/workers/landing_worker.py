@@ -366,7 +366,9 @@ class LandingWorker(Worker):
         check_errors = self.run_landing_checks(scm, new_commits)
 
         if check_errors:
-            message = "Some checks failed before attempting to land:\n" + "\n".join(check_errors)
+            message = "Some checks failed before attempting to land:\n" + "\n".join(
+                check_errors
+            )
             logger.exception(message)
             job.transition_status(
                 JobAction.FAIL,
