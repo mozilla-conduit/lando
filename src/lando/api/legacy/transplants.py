@@ -875,7 +875,7 @@ def blocker_single_landing_repo(
 def blocker_prevent_nsprnss_files(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> Optional[str]:
-    """Block revisions which contain changs to the NSS or security directories."""
+    """Block revisions which contain changes to the NSS or security directories."""
     diff_id = PhabricatorClient.expect(diff, "id")
     parsed_diff = stack_state.parsed_diffs[diff_id]
 
