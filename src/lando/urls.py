@@ -19,7 +19,11 @@ from django.contrib import admin
 from django.urls import include, path
 
 from lando.api.legacy.api import landing_jobs
-from lando.api.views import LegacyDiffWarningView
+from lando.api.views import (
+    LegacyDiffWarningView,
+    git2hgCommitMapView,
+    hg2gitCommitMapView,
+)
 from lando.headless_api.api import (
     api as headless_api,
 )
@@ -44,6 +48,16 @@ urlpatterns += [
         "api/diff_warnings/<int:diff_warning_id>/",
         LegacyDiffWarningView.as_view(),
         name="diff-warnings",
+    ),
+    path(
+        "api/git2hg/<str:repo_name>/<str:commit_hash>",
+        git2hgCommitMapView.as_view(),
+        name="git2hg",
+    ),
+    path(
+        "api/hg2git/<str:repo_name>/<str:commit_hash>",
+        hg2gitCommitMapView.as_view(),
+        name="hg2git",
     ),
 ]
 
