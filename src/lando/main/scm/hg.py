@@ -1,4 +1,5 @@
 import copy
+import io
 import logging
 import os
 import re
@@ -20,6 +21,7 @@ from typing import (
 import hglib
 from django.conf import settings
 
+from lando.api.legacy.hgexports import HgPatchHelper, PatchHelper
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.commit import CommitData
 from lando.main.scm.consts import SCM_TYPE_HG, MergeStrategy
@@ -286,6 +288,15 @@ class HgSCM(AbstractSCM):
                 + ["--landing_system", "lando"]
                 + ["--logfile", f_msg.name]
             )
+
+    def get_patch(self, revision_id: str) -> str | None:
+        """Return a complete patch for the given revision, in the git extended diff format."""
+        return self.run_hg(["export", "--git", "-r", revision_id]).decode("utf-8")
+
+    def get_patch_helper(self, revision_id: str) -> PatchHelper | None:
+        """Return a PatchHelper containing the patch for the given revision."""
+        patch = self.get_patch(revision_id)
+        return HgPatchHelper(io.StringIO(patch)) if patch else None
 
     def process_merge_conflict(
         self,

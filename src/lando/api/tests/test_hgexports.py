@@ -1,4 +1,5 @@
 import io
+from typing import Optional
 from unittest.mock import patch
 
 import pytest
@@ -118,7 +119,7 @@ index f56ba1c..33391ea 100644
 
 """.lstrip()
 
-GIT_PATCH_UTF8 = """\
+GIT_DIFF_UTF8 = """\
 diff --git a/testing/web-platform/tests/html/dom/elements/global-attributes/dir-auto-dynamic-simple-textContent.html b/testing/web-platform/tests/html/dom/elements/global-attributes/dir-auto-dynamic-simple-textContent.html
 new file mode 100644
 --- /dev/null
@@ -172,11 +173,11 @@ Content-Transfer-Encoding: 8bit
  .../dir-auto-dynamic-simple-textContent.html  | 31 ++++++++++++++++
  1 files changed, 31 insertions(+), 0 deletions(-)
  create mode 100644 testing/web-platform/tests/html/dom/elements/global-attributes/dir-auto-dynamic-simple-textContent.html
-{GIT_PATCH_UTF8}--
+{GIT_DIFF_UTF8}--
 2.46.1
 """
 
-GIT_PATCH_ONLY_DIFF = """diff --git a/landoui/errorhandlers.py b/landoui/errorhandlers.py
+GIT_DIFF = """diff --git a/landoui/errorhandlers.py b/landoui/errorhandlers.py
 index f56ba1c..33391ea 100644
 --- a/landoui/errorhandlers.py
 +++ b/landoui/errorhandlers.py
@@ -227,6 +228,20 @@ diff --git a/{filename} b/{filename}
         return 0;
  }}
 """
+
+GIT_PATCH_FILENAME_TEMPLATE = (
+    r"""
+From 0f5a3c99e12c1e9b0e81bed245fe537961f89e57 Mon Sep 17 00:00:00 2001
+From: Connor Sheehan <sheehan@mozilla.com>
+Date: Wed, 6 Jul 2022 16:36:09 -0400
+Subject: Change things
+---
+ {filename} | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+""".lstrip()
+    + GIT_DIFF_FILENAME_TEMPLATE
+)
 
 
 def test_build_patch():
@@ -479,9 +494,7 @@ def test_git_formatpatch_helper_parse():
         "returned from Lando. This should inform users that Lando is\n"
         "unavailable at the moment and is not broken."
     ), "`commit_description()` should return full commit message."
-    assert (
-        patch.get_diff() == GIT_PATCH_ONLY_DIFF
-    ), "`get_diff()` should return the full diff."
+    assert patch.get_diff() == GIT_DIFF, "`get_diff()` should return the full diff."
 
 
 def test_git_formatpatch_helper_empty_commit():
@@ -511,7 +524,7 @@ def test_git_formatpatch_helper_utf8():
     helper = GitPatchHelper(io.StringIO(GIT_FORMATPATCH_UTF8))
 
     assert (
-        helper.get_diff() == GIT_PATCH_UTF8
+        helper.get_diff() == GIT_DIFF_UTF8
     ), "`get_diff()` should return unescaped unicode and match the original patch."
 
 
@@ -700,44 +713,44 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
     [
         (
             "this message is missing the bug.",
-            "Revision needs 'Bug N' or 'No bug' in the commit message.",
+            "Revision needs 'Bug N' or 'No bug' in the commit message: ",
             "Commit message is rejected without a bug number.",
         ),
         (
             "Mass revert m-i to the last known good state",
-            "Revision needs 'Bug N' or 'No bug' in the commit message.",
+            "Revision needs 'Bug N' or 'No bug' in the commit message: ",
             "Revision missing a bug number or no bug should result in a failed check.",
         ),
         (
             "update revision of Add-on SDK tests to latest tip; test-only",
-            "Revision needs 'Bug N' or 'No bug' in the commit message.",
+            "Revision needs 'Bug N' or 'No bug' in the commit message: ",
             "Revision missing a bug number or no bug should result in a failed check.",
         ),
         (
             "Fix stupid bug in foo::bar()",
-            "Revision needs 'Bug N' or 'No bug' in the commit message.",
+            "Revision needs 'Bug N' or 'No bug' in the commit message: ",
             "Commit message with 'bug' bug in improper format should result in a failed check.",
         ),
         (
             "Back out Dao's push because of build bustage",
-            "Revision is a backout but commit message does not indicate backed out revisions.",
+            "Revision is a backout but commit message does not indicate backed out revisions: ",
             "Backout should be rejected when a reference to the original patch is missing.",
         ),
         (
             "Bug 100 - Foo. r?bar",
-            "Revision contains 'r?' in the commit message. Please use 'r=' instead.",
+            "Revision contains 'r?' in the commit message. Please use 'r=' instead: ",
             "Improper review specifier should be rejected.",
         ),
         (
             "WIP: bug 123: this is a wip r=reviewer",
-            "Revision seems to be marked as WIP.",
+            "Revision seems to be marked as WIP: ",
             "WIP revisions should be rejected.",
         ),
         (
             "[PATCH 1/2] first part of my git patch",
             (
                 "Revision contains git-format-patch '[PATCH]' cruft. "
-                "Use git-format-patch -k to avoid this."
+                "Use git-format-patch -k to avoid this: "
             ),
             "`git-format-patch` cruft should result in a failed check.",
         ),
@@ -772,52 +785,51 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
     assert assessor.run_patch_collection_checks(
         patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
-    ) == [return_string], error_message
+    ) == [return_string + commit_message], error_message
 
 
-def test_check_wpt_sync_irrelevant_user():
-    parsed_diff = rs_parsepatch.get_diffs(
-        GIT_DIFF_FILENAME_TEMPLATE.format(filename="somefile.txt")
+@pytest.mark.parametrize(
+    "push_user_email,patch,return_string,error_message",
+    [
+        (
+            "sheehan@mozilla.com",
+            GIT_PATCH_FILENAME_TEMPLATE.format(filename="somefile.txt"),
+            None,
+            "Non-WPT pushes by non-WPT user should be allowed",
+        ),
+        (
+            "wptsync@mozilla.com",
+            GIT_PATCH_FILENAME_TEMPLATE.format(filename="somefile.txt"),
+            "Revision has WPTSync bot making changes to disallowed "
+            "files `somefile.txt`.",
+            "Non-WPT pushes by WPT user should not be allowed",
+        ),
+        (
+            "wptsync@mozilla.com",
+            GIT_PATCH_FILENAME_TEMPLATE.format(
+                filename="testing/web-platform/moz.build"
+            ),
+            None,
+            "WPT pushes by non-WPT user should be allowed",
+        ),
+    ],
+)
+def test_check_wptsync_git(
+    push_user_email: str, patch: str, return_string: Optional[str], error_message: str
+):
+    patch_helpers = [GitPatchHelper(io.StringIO(patch))]
+    assessor = PatchCollectionAssessor(
+        patch_helpers=patch_helpers, push_user_email=push_user_email
     )
-    wpt_sync_check = WPTSyncCheck(
-        email="sheehan@mozilla.com",
-        commit_message=COMMIT_MESSAGE,
-    )
-    for diff in parsed_diff:
-        wpt_sync_check.next_diff(diff)
-    assert (
-        wpt_sync_check.result() is None
-    ), "Check should pass when user is not `wptsync@mozilla.com`."
 
+    errors = assessor.run_patch_collection_checks(
+        patch_collection_checks=[WPTSyncCheck], patch_checks=[]
+    )
 
-def test_check_wpt_sync_invalid_paths():
-    parsed_diff = rs_parsepatch.get_diffs(
-        GIT_DIFF_FILENAME_TEMPLATE.format(filename="somefile.txt")
-    )
-    wpt_sync_check = WPTSyncCheck(
-        email="wptsync@mozilla.com",
-        commit_message=COMMIT_MESSAGE,
-    )
-    for diff in parsed_diff:
-        wpt_sync_check.next_diff(diff)
-    assert wpt_sync_check.result() == (
-        "Revision has WPTSync bot making changes to disallowed " "files `somefile.txt`."
-    ), "Check should fail if WPTSync bot pushes disallowed files."
-
-
-def test_check_wpt_sync_valid_paths():
-    parsed_diff = rs_parsepatch.get_diffs(
-        GIT_DIFF_FILENAME_TEMPLATE.format(filename="testing/web-platform/moz.build")
-    )
-    wpt_sync_check = WPTSyncCheck(
-        email="wptsync@mozilla.com",
-        commit_message=COMMIT_MESSAGE,
-    )
-    for diff in parsed_diff:
-        wpt_sync_check.next_diff(diff)
-    assert (
-        wpt_sync_check.result() is None
-    ), "Check should pass if WPTSync bot makes changes to allowed files."
+    if return_string:
+        assert errors == [return_string], error_message
+    else:
+        assert not errors, error_message
 
 
 def test_check_prevent_nspr_nss_missing_fields():

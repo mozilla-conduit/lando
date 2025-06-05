@@ -1,10 +1,13 @@
 import datetime
+import itertools
 import json
+import re
 import secrets
 import subprocess
 import time
 import unittest.mock as mock
 from pathlib import Path
+from typing import Callable
 
 import pytest
 from django.contrib.auth.hashers import check_password
@@ -378,7 +381,7 @@ def test_automation_job_create_commit_request(client, repo_mc, headless_user):
         "actions": [
             {
                 "action": "create-commit",
-                "commitmsg": "test commit message",
+                "commitmsg": "No bug: test commit message",
                 "date": "2025-04-22T18:30:27.786900Z",
                 "author": "Test User <test@example.com>",
                 "diff": "diff --git",
@@ -550,31 +553,9 @@ def test_automation_job_add_commit_success_hg(
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
 
 
-PATCH_GIT_1 = """\
-From 77a05b90d0d4eb7a75fa7acf052673e5dc36a20b Mon Sep 17 00:00:00 2001
-From: Py Test <pytest@lando.example.net>
-Date: Tue, 22 Apr 2025 02:02:55 +0000
-Subject: [PATCH] add another file
-
----
- test.txt | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/test.txt b/test.txt
-index 2a02d41..45e9938 100644
---- a/test.txt
-+++ b/test.txt
-@@ -1 +1,2 @@
- TEST
-+adding another line
--- 
-2.39.5
-"""  # noqa: W291, `git` adds an empty newline after `--`.
-
-
 @pytest.mark.django_db
 def test_automation_job_add_commit_success_git(
-    treestatusdouble, git_automation_worker, repo_mc, monkeypatch, normal_patch
+    treestatusdouble, git_automation_worker, repo_mc, monkeypatch, git_patch
 ):
     repo = repo_mc(SCM_TYPE_GIT)
     scm = repo.scm
@@ -590,7 +571,7 @@ def test_automation_job_add_commit_success_git(
         action_type="add-commit",
         data={
             "action": "add-commit",
-            "content": PATCH_GIT_1,
+            "content": git_patch(),
             "patch_format": "git-format-patch",
         },
         order=0,
@@ -661,6 +642,46 @@ diff --git a/test.txt b/test.txt
 +adding another line
 """.lstrip()
 
+PATCH_SYMLINK_DIFF = """
+diff --git a/symlink b/symlink
+new file mode 120000
+index 0000000..541cb64
+--- /dev/null
++++ b/symlink
+@@ -0,0 +1 @@
++test.txt
+""".lstrip()
+
+PATCH_TRY_DIFF = """
+diff --git a/try_task_config.json b/try_task_config.json
+new file mode 100644
+index 0000000..e69de29
+""".lstrip()
+
+PATCH_NSS_DIFF = """
+diff --git a/security/nss/.keep b/security/nss/.keep
+new file mode 100644
+index 0000000..e69de29
+""".lstrip()
+
+PATCH_NSPR_DIFF = """
+diff --git a/nsprpub/.keep b/nsprpub/.keep
+new file mode 100644
+index 0000000..e69de29
+""".lstrip()
+
+PATCH_SUBMODULE_DIFF = """
+diff --git a/.gitmodules b/.gitmodules
+new file mode 100644
+index 0000000..4c39732
+--- /dev/null
++++ b/.gitmodules
+@@ -0,0 +1,3 @@
++[submodule "submodule"]
++       path = submodule
++       url = https://github.com/mozilla-conduit/test-repo
+"""
+
 
 @pytest.mark.parametrize("scm_type", (SCM_TYPE_HG, SCM_TYPE_GIT))
 @pytest.mark.django_db
@@ -686,7 +707,7 @@ def test_automation_job_create_commit_success(
         data={
             "action": "create-commit",
             "author": "Test User <test@example.com>",
-            "commitmsg": "add another file",
+            "commitmsg": "No bug: commit success",
             "date": 0,
             "diff": PATCH_DIFF,
         },
@@ -716,6 +737,251 @@ def test_automation_job_create_commit_success(
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
 
 
+FAILING_CHECK_TYPES = [
+    "nobug",
+    "nspr",
+    "nss",
+    "submodule",
+    "symlink",
+    "try",
+    "wpt",
+]
+
+
+@pytest.fixture
+def failed_check_action_reason() -> Callable:
+    """Factory providing a check-failing action, and the expected error.
+
+    See FAILING_CHECK_TYPES for the list of bad actions available for request."""
+    action_reasons = {
+        # CommitMessagesCheck
+        "nobug": (
+            {
+                "action": "create-commit",
+                "author": "Test User <test@example.com>",
+                "commitmsg": "commit message without bug info",
+                "date": 0,
+                "diff": PATCH_DIFF,
+            },
+            "Revision needs 'Bug N' or 'No bug' in the commit message: commit message without bug info",
+        ),
+        # PreventNSPRNSSCheck
+        "nspr": (
+            {
+                "action": "create-commit",
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit with NSPR changes",
+                "date": 0,
+                "diff": PATCH_NSPR_DIFF,
+            },
+            "Revision makes changes to restricted directories:",
+        ),
+        # PreventNSPRNSSCheck
+        "nss": (
+            {
+                "action": "create-commit",
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit with NSS changes",
+                "date": 0,
+                "diff": PATCH_NSS_DIFF,
+            },
+            "Revision makes changes to restricted directories:",
+        ),
+        # PreventSubmodulesCheck
+        "submodule": (
+            {
+                "action": "create-commit",
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit with .gitmodules changes",
+                "date": 0,
+                "diff": PATCH_SUBMODULE_DIFF,
+            },
+            "Revision introduces a Git submodule into the repository.",
+        ),
+        # PreventSymlinksCheck
+        "symlink": (
+            {
+                "action": "create-commit",
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit with symlink",
+                "date": 0,
+                "diff": PATCH_SYMLINK_DIFF,
+            },
+            "Revision introduces symlinks in the files ",
+        ),
+        # TryTaskConfigCheck
+        "try": (
+            {
+                "action": "create-commit",
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit with try_task_config.json",
+                "date": 0,
+                "diff": PATCH_TRY_DIFF,
+            },
+            "Revision introduces the `try_task_config.json` file.",
+        ),
+        # One that works, for reference.
+        "valid": (
+            {
+                "action": "create-commit",
+                "author": "Test User <test@example.com>",
+                "commitmsg": "no bug: commit message without bug info",
+                "date": 0,
+                "diff": PATCH_DIFF,
+            },
+            "",
+        ),
+        # WPTSyncCheck
+        "wpt":
+        # WPTCheck verifies that commits from wptsync@mozilla only touch paths in
+        # WPTSYNC_ALLOWED_PATHS_RE (currently a subset of testing/web-platform/).
+        (
+            {
+                "action": "create-commit",
+                "author": "WPTSync Bot <wptsync@mozilla.com>",
+                "commitmsg": "No bug: WPT commit with non-WPTSync changes",
+                "date": 0,
+                "diff": PATCH_DIFF,
+            },
+            "Revision has WPTSync bot making changes to disallowed files ",
+        ),
+    }
+
+    def failed_check_factory(name: str) -> tuple[dict, str] | None:
+        return action_reasons.get(name)
+
+    return failed_check_factory
+
+
+@pytest.mark.parametrize(
+    "scm_type,bad_action_reason",
+    # We make a cross-product of all the SCM and all the bad actions.
+    itertools.product(
+        [SCM_TYPE_HG, SCM_TYPE_GIT],
+        FAILING_CHECK_TYPES,
+    ),
+)
+@pytest.mark.django_db
+def test_automation_job_create_commit_failed_check(
+    scm_type,
+    repo_mc,
+    treestatusdouble,
+    get_automation_worker,
+    monkeypatch,
+    failed_check_action_reason: Callable,
+    bad_action_reason: str,
+):
+    bad_action, reason = failed_check_action_reason(bad_action_reason)
+    repo = repo_mc(SCM_TYPE_HG)
+    scm = repo.scm
+
+    author_match = re.search("<([^>]*@[^>]*)>", bad_action["author"])
+    if not author_match:
+        raise AssertionError(f"Can't parse email from {bad_action['author']}")
+
+    author_email = author_match[1]
+
+    # Create a job and actions
+    job = AutomationJob.objects.create(
+        status=JobStatus.SUBMITTED,
+        requester_email=author_email,
+        target_repo=repo,
+    )
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="create-commit",
+        data=bad_action,
+        order=0,
+    )
+
+    automation_worker = get_automation_worker(scm_type)
+
+    automation_worker.worker_instance.applicable_repos.add(repo)
+
+    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
+    mock_trigger_update = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.automation_worker.AutomationWorker.phab_trigger_repo_update",
+        mock_trigger_update,
+    )
+
+    scm.push = mock.MagicMock()
+
+    assert automation_worker.run_automation_job(
+        job
+    ), "Job indicated that it should be retried"
+    assert (
+        job.status == JobStatus.FAILED
+    ), f"Job unexpectedly succeeded for commit `{bad_action['commitmsg']}`"
+    assert reason in job.error, "Expected job failure reason was not found"
+
+
+@pytest.mark.parametrize(
+    "scm_type,override_action_data",
+    itertools.product(
+        [SCM_TYPE_HG, SCM_TYPE_GIT],
+        [
+            {
+                "action": "create-commit",
+                "author": "Test User <test@example.com>",
+                "commitmsg": "IGNORE BAD COMMIT MESSAGES",
+                "date": 0,
+                "diff": PATCH_DIFF,
+            }
+        ],
+    ),
+)
+@pytest.mark.django_db
+def test_automation_job_create_commit_failed_check_override(
+    scm_type,
+    repo_mc,
+    treestatusdouble,
+    get_automation_worker,
+    monkeypatch,
+    failed_check_action_reason: Callable,
+    override_action_data,
+):
+    repo = repo_mc(SCM_TYPE_HG)
+    scm = repo.scm
+
+    # Create a job and _all_ invalid actions
+    job = AutomationJob.objects.create(
+        status=JobStatus.SUBMITTED,
+        requester_email="example@example.com",
+        target_repo=repo,
+    )
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="create-commit",
+        data=failed_check_action_reason("nobug")[0],
+        order=0,
+    )
+    AutomationAction.objects.create(
+        job_id=job,
+        action_type="create-commit",
+        data=override_action_data,
+        order=0,
+    )
+
+    automation_worker = get_automation_worker(scm_type)
+
+    automation_worker.worker_instance.applicable_repos.add(repo)
+
+    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
+    mock_trigger_update = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.automation_worker.AutomationWorker.phab_trigger_repo_update",
+        mock_trigger_update,
+    )
+
+    scm.push = mock.MagicMock()
+
+    assert automation_worker.run_automation_job(
+        job
+    ), "Job indicated that it should be retried"
+    assert job.status == JobStatus.LANDED, f"Job failed despite overrides: {job.error}"
+
+
 @pytest.mark.parametrize("scm_type", (SCM_TYPE_HG, SCM_TYPE_GIT))
 @pytest.mark.django_db
 def test_automation_job_create_commit_patch_conflict(
@@ -734,7 +1000,7 @@ def test_automation_job_create_commit_patch_conflict(
         data={
             "action": "create-commit",
             "author": "Test User <test@example.com>",
-            "commitmsg": "conflict commit",
+            "commitmsg": "No bug: conflict commit",
             "date": 0,
             "diff": PATCH_DIFF,
         },
@@ -803,7 +1069,7 @@ def test_automation_job_merge_onto_success_git(
         action_type="merge-onto",
         data={
             "action": "merge-onto",
-            "commit_message": f"Merge test with strategy {strategy}",
+            "commit_message": f"No bug: Merge test with strategy {strategy}",
             "strategy": strategy,
             "target": feature_commit,
         },
@@ -813,7 +1079,7 @@ def test_automation_job_merge_onto_success_git(
     git_automation_worker.worker_instance.applicable_repos.add(repo)
 
     assert git_automation_worker.run_automation_job(job)
-    assert job.status == JobStatus.LANDED
+    assert job.status == JobStatus.LANDED, f"Job unexpectedly failed: {job.error}"
     assert scm.push.called
     assert len(job.landed_commit_id) == 40
 
@@ -946,7 +1212,7 @@ def test_automation_job_merge_onto_success_hg(
         action_type="merge-onto",
         data={
             "action": "merge-onto",
-            "commit_message": f"merge test ({strategy})",
+            "commit_message": f"No bug: merge test ({strategy})",
             "strategy": strategy,
             "target": feature_commit,
         },
@@ -1058,7 +1324,7 @@ def test_automation_job_tag_success_git_new_commit(
     get_automation_worker,
     request,
     monkeypatch,
-    normal_patch,
+    git_patch,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
     scm = repo.scm
@@ -1078,7 +1344,7 @@ def test_automation_job_tag_success_git_new_commit(
         action_type="add-commit",
         data={
             "action": "add-commit",
-            "content": PATCH_GIT_1,
+            "content": git_patch(),
             "patch_format": "git-format-patch",
         },
         order=0,
@@ -1118,7 +1384,7 @@ def test_automation_job_tag_failure_git(
     get_automation_worker,
     request,
     monkeypatch,
-    normal_patch,
+    git_patch,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
 
@@ -1137,7 +1403,7 @@ def test_automation_job_tag_failure_git(
         action_type="add-commit",
         data={
             "action": "add-commit",
-            "content": PATCH_GIT_1,
+            "content": git_patch(),
             "patch_format": "git-format-patch",
         },
         order=0,
@@ -1233,7 +1499,13 @@ def test_automation_job_tag_success_hg(
 
 @pytest.mark.django_db
 def test_create_and_push_to_new_relbranch(
-    client, treestatusdouble, repo_mc, git_automation_worker, headless_user, request
+    client,
+    treestatusdouble,
+    repo_mc,
+    git_automation_worker,
+    headless_user,
+    request,
+    git_patch,
 ):
     user, token = headless_user
     repo = repo_mc(SCM_TYPE_GIT)
@@ -1269,7 +1541,7 @@ def test_create_and_push_to_new_relbranch(
         "actions": [
             {
                 "action": "add-commit",
-                "content": PATCH_GIT_1,
+                "content": git_patch(),
                 "patch_format": "git-format-patch",
             },
         ],
@@ -1362,7 +1634,13 @@ def test_create_and_push_to_new_relbranch(
 
 @pytest.mark.django_db
 def test_push_to_existing_relbranch(
-    client, treestatusdouble, repo_mc, git_automation_worker, headless_user, request
+    client,
+    treestatusdouble,
+    repo_mc,
+    git_automation_worker,
+    headless_user,
+    request,
+    git_patch,
 ):
     user, token = headless_user
     repo = repo_mc(SCM_TYPE_GIT)
@@ -1393,7 +1671,7 @@ def test_push_to_existing_relbranch(
         "actions": [
             {
                 "action": "add-commit",
-                "content": PATCH_GIT_1,
+                "content": git_patch(),
                 "patch_format": "git-format-patch",
             },
         ],

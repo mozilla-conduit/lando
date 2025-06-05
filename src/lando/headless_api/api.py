@@ -115,8 +115,7 @@ class AddCommitAction(Schema):
             patch_helper = helper_class(StringIO(self.content))
         except ValueError as exc:
             message = (
-                "Could not parse patch in `add-commit`, "
-                f"action #{index}.: {str(exc)}"
+                f"Could not parse patch in `add-commit`, action #{index}.: {str(exc)}"
             )
             raise AutomationActionException(
                 message=message,

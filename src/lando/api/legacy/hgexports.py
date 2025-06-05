@@ -422,8 +422,8 @@ class GitPatchHelper(PatchHelper):
 # Decimal notation for the `symlink` file mode.
 SYMLINK_MODE = 40960
 
-# WPT Sync bot is restricted to paths matching this regex.
-WPT_SYNC_ALLOWED_PATHS_RE = re.compile(
+# WPTSync bot is restricted to paths matching this regex.
+WPTSYNC_ALLOWED_PATHS_RE = re.compile(
     r"testing/web-platform/(?:moz\.build|meta/.*|tests/.*)$"
 )
 
@@ -569,30 +569,6 @@ class PreventSubmodulesCheck(PatchCheck):
 
 
 @dataclass
-class WPTSyncCheck(PatchCheck):
-    """Check the WPT Sync bot has only made changes to relevant subset of the tree."""
-
-    wpt_disallowed_files: list[str] = field(default_factory=list)
-
-    def next_diff(self, diff: dict):
-        """Check each diff to assert the WPT-Sync bot is only updating allowed files."""
-        if self.email != "wptsync@mozilla.com":
-            return
-
-        filename = diff["filename"]
-        if not WPT_SYNC_ALLOWED_PATHS_RE.match(filename):
-            self.wpt_disallowed_files.append(filename)
-
-    def result(self) -> Optional[str]:
-        """Return an error if the WPT-Sync bot touched disallowed files."""
-        if self.wpt_disallowed_files:
-            return (
-                "Revision has WPTSync bot making changes to disallowed files "
-                f"{wrap_filenames(self.wpt_disallowed_files)}."
-            )
-
-
-@dataclass
 class DiffAssessor:
     """Assess diffs for landing issues.
 
@@ -639,6 +615,8 @@ class PatchCollectionCheck:
     called to receive the result of the check.
     """
 
+    push_user_email: Optional[str] = None
+
     @abstractmethod
     def next_diff(self, patch_helper: PatchHelper):
         """Pass the next `PatchHelper` into the check."""
@@ -676,7 +654,7 @@ class CommitMessagesCheck(PatchCollectionCheck):
             if not backouts or not backouts[0]:
                 self.commit_message_issues.append(
                     "Revision is a backout but commit message "
-                    "does not indicate backed out revisions."
+                    f"does not indicate backed out revisions: {commit_message}"
                 )
                 return
 
@@ -688,19 +666,20 @@ class CommitMessagesCheck(PatchCollectionCheck):
         if "[PATCH" in firstline:
             self.commit_message_issues.append(
                 "Revision contains git-format-patch '[PATCH]' cruft. Use "
-                "git-format-patch -k to avoid this."
+                f"git-format-patch -k to avoid this: {commit_message}"
             )
             return
 
         if INVALID_REVIEW_FLAG_RE.search(firstline):
             self.commit_message_issues.append(
-                "Revision contains 'r?' in the commit message. "
-                "Please use 'r=' instead."
+                f"Revision contains 'r?' in the commit message. Please use 'r=' instead: {commit_message}"
             )
             return
 
         if firstline.lower().startswith("wip:"):
-            self.commit_message_issues.append("Revision seems to be marked as WIP.")
+            self.commit_message_issues.append(
+                f"Revision seems to be marked as WIP: {commit_message}"
+            )
             return
 
         if any(regex.search(firstline) for regex in ACCEPTABLE_MESSAGE_FORMAT_RES):
@@ -712,18 +691,44 @@ class CommitMessagesCheck(PatchCollectionCheck):
             # Purposely ambiguous: it's ok to say "backed out rev N" or
             # "reverted to rev N-1"
             self.commit_message_issues.append(
-                "Backout revision needs a bug number or a rev id."
+                f"Backout revision needs a bug number or a rev id: {commit_message}"
             )
             return
 
         self.commit_message_issues.append(
-            "Revision needs 'Bug N' or 'No bug' in the commit message."
+            f"Revision needs 'Bug N' or 'No bug' in the commit message: {commit_message}"
         )
 
     def result(self) -> Optional[str]:
         """Calcuate and return the result of the check."""
         if not self.ignore_bad_commit_message and self.commit_message_issues:
             return ", ".join(self.commit_message_issues)
+
+
+@dataclass
+class WPTSyncCheck(PatchCollectionCheck):
+    """Check the WPTSync bot is only pushing changes to relevant subset of the tree."""
+
+    wpt_disallowed_files: list[str] = field(default_factory=list)
+
+    def next_diff(self, patch_helper: PatchHelper):
+        """Check each diff to assert the WPTSync bot is only updating allowed files."""
+        if self.push_user_email != "wptsync@mozilla.com":
+            return
+
+        diffs = rs_parsepatch.get_diffs(patch_helper.get_diff())
+        for parsed_diff in diffs:
+            filename = parsed_diff["filename"]
+            if not WPTSYNC_ALLOWED_PATHS_RE.match(filename):
+                self.wpt_disallowed_files.append(filename)
+
+    def result(self) -> Optional[str]:
+        """Return an error if the WPTSync bot touched disallowed files."""
+        if self.wpt_disallowed_files:
+            return (
+                "Revision has WPTSync bot making changes to disallowed files "
+                f"{wrap_filenames(self.wpt_disallowed_files)}."
+            )
 
 
 BMO_SKIP_HINT = "Use `SKIP_BMO_CHECK` in your commit message to push anyway."
@@ -801,6 +806,7 @@ class PatchCollectionAssessor:
     """Assess pushes for landing issues."""
 
     patch_helpers: Iterable[PatchHelper]
+    push_user_email: Optional[str] = None
 
     def run_patch_collection_checks(
         self,
@@ -815,7 +821,7 @@ class PatchCollectionAssessor:
         """
         issues = []
 
-        checks = [check() for check in patch_collection_checks]
+        checks = [check(self.push_user_email) for check in patch_collection_checks]
 
         for patch_helper in self.patch_helpers:
             # Pass the patch information into the push-wide check.
