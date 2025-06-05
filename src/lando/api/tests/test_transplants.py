@@ -1719,7 +1719,7 @@ def test_revision_has_data_classification_tag(
 
 
 @pytest.mark.django_db
-def test_blocker_nsprnss_files(phabdouble, create_state, check_diff):
+def test_blocker_nsprnss_files(phabdouble, create_state, get_failing_check_diff):
     repo = phabdouble.repo()
 
     # Create a revision/diff pair without NSPR or NSS changes.
@@ -1739,7 +1739,7 @@ def test_blocker_nsprnss_files(phabdouble, create_state, check_diff):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
     diff_nspr_allowed = phabdouble.diff(
-        rawdiff=check_diff("nspr"), revision=revision_nspr_allowed
+        rawdiff=get_failing_check_diff("nspr"), revision=revision_nspr_allowed
     )
 
     # Create a revision/diff pair with an NSS change, and commit message allowing it.
@@ -1751,7 +1751,7 @@ def test_blocker_nsprnss_files(phabdouble, create_state, check_diff):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
     diff_nss_allowed = phabdouble.diff(
-        rawdiff=check_diff("nss"), revision=revision_nss_allowed
+        rawdiff=get_failing_check_diff("nss"), revision=revision_nss_allowed
     )
 
     # Create a revision/diff pair with an NSPR change.
@@ -1760,7 +1760,9 @@ def test_blocker_nsprnss_files(phabdouble, create_state, check_diff):
         revision_nspr,
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
-    diff_nspr = phabdouble.diff(rawdiff=check_diff("nspr"), revision=revision_nspr)
+    diff_nspr = phabdouble.diff(
+        rawdiff=get_failing_check_diff("nspr"), revision=revision_nspr
+    )
 
     # Create a revision/diff pair with an NSS change.
     revision_nss = phabdouble.revision(repo=repo, depends_on=[revision_nspr])
@@ -1768,7 +1770,9 @@ def test_blocker_nsprnss_files(phabdouble, create_state, check_diff):
         revision_nss,
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
-    diff_nss = phabdouble.diff(rawdiff=check_diff("nss"), revision=revision_nss)
+    diff_nss = phabdouble.diff(
+        rawdiff=get_failing_check_diff("nss"), revision=revision_nss
+    )
 
     stack_state = create_state(phab_revision_nss)
 
@@ -1817,7 +1821,7 @@ def test_blocker_nsprnss_files(phabdouble, create_state, check_diff):
 
 
 @pytest.mark.django_db
-def test_blocker_prevent_submodules(phabdouble, create_state, check_diff):
+def test_blocker_prevent_submodules(phabdouble, create_state, get_failing_check_diff):
     repo = phabdouble.repo()
 
     # Create a revision/diff pair without a submodule.
@@ -1835,7 +1839,7 @@ def test_blocker_prevent_submodules(phabdouble, create_state, check_diff):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
     diff_submodule = phabdouble.diff(
-        rawdiff=check_diff("submodule"), revision=revision_submodule
+        rawdiff=get_failing_check_diff("submodule"), revision=revision_submodule
     )
 
     stack_state = create_state(phab_revision_submodule)
@@ -1858,7 +1862,7 @@ def test_blocker_prevent_submodules(phabdouble, create_state, check_diff):
 
 
 @pytest.mark.django_db
-def test_blocker_prevent_symlinks(phabdouble, create_state, check_diff):
+def test_blocker_prevent_symlinks(phabdouble, create_state, get_failing_check_diff):
     repo = phabdouble.repo()
 
     # Create a revision/diff pair without a symlink.
@@ -1876,7 +1880,7 @@ def test_blocker_prevent_symlinks(phabdouble, create_state, check_diff):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
     diff_symlink = phabdouble.diff(
-        rawdiff=check_diff("symlink"), revision=revision_symlink
+        rawdiff=get_failing_check_diff("symlink"), revision=revision_symlink
     )
 
     stack_state = create_state(phab_revision_symlink)
@@ -1898,7 +1902,7 @@ def test_blocker_prevent_symlinks(phabdouble, create_state, check_diff):
 
 @pytest.mark.django_db
 def test_blocker_try_task_config_no_landing_state(
-    phabdouble, mocked_repo_config, create_state, check_diff
+    phabdouble, mocked_repo_config, create_state, get_failing_check_diff
 ):
     repo = phabdouble.repo()
 
@@ -1907,7 +1911,9 @@ def test_blocker_try_task_config_no_landing_state(
         revision,
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
-    diff = phabdouble.diff(revision=revision, rawdiff=check_diff("try_task_config"))
+    diff = phabdouble.diff(
+        revision=revision, rawdiff=get_failing_check_diff("try_task_config")
+    )
 
     stack_state = create_state(phab_revision)
 
@@ -1921,7 +1927,7 @@ def test_blocker_try_task_config_no_landing_state(
 
 @pytest.mark.django_db
 def test_blocker_try_task_config_landing_state_non_try(
-    phabdouble, mocked_repo_config, create_state, check_diff
+    phabdouble, mocked_repo_config, create_state, get_failing_check_diff
 ):
     repo = phabdouble.repo()
 
@@ -1930,7 +1936,9 @@ def test_blocker_try_task_config_landing_state_non_try(
         revision,
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
-    diff = phabdouble.diff(revision=revision, rawdiff=check_diff("try_task_config"))
+    diff = phabdouble.diff(
+        revision=revision, rawdiff=get_failing_check_diff("try_task_config")
+    )
 
     stack_state = create_state(phab_revision)
 

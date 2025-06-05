@@ -205,36 +205,7 @@ index 0000000..4c39732
 +       url = https://github.com/mozilla-conduit/test-repo
 """
 
-
-@pytest.fixture
-def check_diff() -> Callable:
-    """Return a diff failing a specific check."""
-
-    patches = {
-        "nspr": PATCH_NSPR_DIFF,
-        "nss": PATCH_NSS_DIFF,
-        "submodule": PATCH_SUBMODULE_DIFF,
-        "symlink": PATCH_SYMLINK_DIFF,
-        "try_task_config": PATCH_TRY_TASK_CONFIG_DIFF,
-        "valid": PATCH_DIFF,
-        # WPTCheck verifies that commits from wptsync@mozilla only touch paths in
-        # WPT_SYNC_ALLOWED_PATHS_RE (currently a subset of testing/web-platform/).
-        "wpt": PATCH_DIFF,
-    }
-
-    def _diff(key: str) -> str | None:
-        if key in ["nobug"]:
-            # Some actions are bad not because of their diff, but some other metadata of the
-            # patch (e.g. no bug in the commit message). We use an innocuous diff for them.
-            key = "valid"
-        if key not in patches:
-            raise Exception(f"check_diff doesn't know {key}")
-        return patches.get(key)
-
-    return _diff
-
-
-BAD_COMMIT_TYPES = [
+FAILING_CHECK_TYPES = [
     "nobug",
     "nspr",
     "nss",
@@ -246,17 +217,53 @@ BAD_COMMIT_TYPES = [
 
 
 @pytest.fixture
-def failed_check_reason() -> Callable:
-    """Factory providing a check-failing commit, and the expected error.
+def get_failing_check_diff() -> Callable:
+    """Factory providing a check-failingd diff.
 
-    See BAD_ACTION_TYPES for the list of bad actions available for request."""
-    action_reasons = {
+    See FAILING_CHECK_TYPES for the list of commit types available for request.
+
+    For convenience, a "valid" case is also availabled.
+    """
+
+    diffs = {
+        "nspr": PATCH_NSPR_DIFF,
+        "nss": PATCH_NSS_DIFF,
+        "submodule": PATCH_SUBMODULE_DIFF,
+        "symlink": PATCH_SYMLINK_DIFF,
+        "try_task_config": PATCH_TRY_TASK_CONFIG_DIFF,
+        "valid": PATCH_DIFF,
+        # WPTCheck verifies that commits from wptsync@mozilla only touch paths in
+        # WPT_SYNC_ALLOWED_PATHS_RE (currently a subset of testing/web-platform/).
+        "wpt": PATCH_DIFF,
+    }
+
+    def _diff(name: str) -> str | None:
+        if name in ["nobug"]:
+            # Some actions are bad not because of their diff, but some other metadata of the
+            # patch (e.g. no bug in the commit message). We use an innocuous diff for them.
+            name = "valid"
+        diff = diffs.get(name)
+        assert diff, f"get_failing_check_diff doesn't know {name}"
+        return diff
+
+    return _diff
+
+
+@pytest.fixture
+def get_failing_check_commit_reason(get_failing_check_diff) -> Callable:
+    """Factory providing a check-failing commit, and the expected failure reason.
+
+    See FAILING_CHECK_TYPES for the list of commit types available for request.
+
+    For convenience, a "valid" case is also availabled.
+    """
+    commit_reasons = {
         # CommitMessagesCheck
         "nobug": (
             {
                 "author": "Test User <test@example.com>",
                 "commitmsg": "commit message without bug info",
-                # diff should get added by the test using check_diff
+                # diff should get added by the test using get_failing_check_diff
             },
             "Revision needs 'Bug N' or 'No bug' in the commit message: commit message without bug info",
         ),
@@ -265,7 +272,7 @@ def failed_check_reason() -> Callable:
             {
                 "author": "Test User <test@example.com>",
                 "commitmsg": "No bug: commit with NSPR changes",
-                # diff should get added by the test using check_diff
+                # diff should get added by the test using get_failing_check_diff
             },
             "Revision makes changes to restricted directories:",
         ),
@@ -274,7 +281,7 @@ def failed_check_reason() -> Callable:
             {
                 "author": "Test User <test@example.com>",
                 "commitmsg": "No bug: commit with NSS changes",
-                # diff should get added by the test using check_diff
+                # diff should get added by the test using get_failing_check_diff
             },
             "Revision makes changes to restricted directories:",
         ),
@@ -283,7 +290,7 @@ def failed_check_reason() -> Callable:
             {
                 "author": "Test User <test@example.com>",
                 "commitmsg": "No bug: commit with .gitmodules changes",
-                # diff should get added by the test using check_diff
+                # diff should get added by the test using get_failing_check_diff
             },
             "Revision introduces a Git submodule into the repository.",
         ),
@@ -292,7 +299,7 @@ def failed_check_reason() -> Callable:
             {
                 "author": "Test User <test@example.com>",
                 "commitmsg": "No bug: commit with symlink",
-                # diff should get added by the test using check_diff
+                # diff should get added by the test using get_failing_check_diff
             },
             "Revision introduces symlinks in the files ",
         ),
@@ -301,7 +308,7 @@ def failed_check_reason() -> Callable:
             {
                 "author": "Test User <test@example.com>",
                 "commitmsg": "No bug: commit with try_task_config.json",
-                # diff should get added by the test using check_diff
+                # diff should get added by the test using get_failing_check_diff
             },
             "Revision introduces the `try_task_config.json` file.",
         ),
@@ -310,7 +317,7 @@ def failed_check_reason() -> Callable:
             {
                 "author": "Test User <test@example.com>",
                 "commitmsg": "no bug: commit message without bug info",
-                # diff should get added by the test using check_diff
+                # diff should get added by the test using get_failing_check_diff
             },
             "",
         ),
@@ -322,16 +329,19 @@ def failed_check_reason() -> Callable:
             {
                 "author": "WPT Sync Bot <wptsync@mozilla.com>",
                 "commitmsg": "No bug: WPT commit with non-WPTSync changes",
-                # diff should get added by the test using check_diff
+                # diff should get added by the test using get_failing_check_diff
             },
             "Revision has WPTSync bot making changes to disallowed files ",
         ),
     }
 
-    def failed_check_factory(name: str) -> tuple[dict, str] | None:
-        return action_reasons.get(name)
+    def failing_check_commit_reason_factory(name: str) -> tuple[dict, str] | None:
+        cr = commit_reasons.get(name)
+        assert cr, f"get_failing_check_commit_reason doesn't know {name}"
+        cr[0]["diff"] = get_failing_check_diff(name)
+        return cr
 
-    return failed_check_factory
+    return failing_check_commit_reason_factory
 
 
 @pytest.fixture

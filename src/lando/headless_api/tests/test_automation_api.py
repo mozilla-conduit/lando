@@ -12,7 +12,7 @@ from django.contrib.auth.hashers import check_password
 
 from lando.api.legacy.workers.automation_worker import AutomationWorker
 from lando.api.tests.test_hg import _create_hg_commit
-from lando.conftest import BAD_COMMIT_TYPES
+from lando.conftest import FAILING_CHECK_TYPES
 from lando.headless_api.api import (
     AutomationAction,
     AutomationJob,
@@ -640,7 +640,7 @@ def test_automation_job_create_commit_success(
     treestatusdouble,
     get_automation_worker,
     monkeypatch,
-    check_diff,
+    get_failing_check_diff,
 ):
     repo = repo_mc(SCM_TYPE_HG)
     scm = repo.scm
@@ -659,7 +659,7 @@ def test_automation_job_create_commit_success(
             "author": "Test User <test@example.com>",
             "commitmsg": "No bug: commit success",
             "date": 0,
-            "diff": check_diff("valid"),
+            "diff": get_failing_check_diff("valid"),
         },
         order=0,
     )
@@ -692,7 +692,7 @@ def test_automation_job_create_commit_success(
     # We make a cross-product of all the SCM and all the bad actions.
     itertools.product(
         [SCM_TYPE_HG, SCM_TYPE_GIT],
-        BAD_COMMIT_TYPES,
+        FAILING_CHECK_TYPES,
     ),
 )
 @pytest.mark.django_db
@@ -702,19 +702,19 @@ def test_automation_job_create_commit_failed_check(
     treestatusdouble,
     get_automation_worker,
     monkeypatch,
-    failed_check_reason: Callable,
+    get_failing_check_action_reason: Callable,
     bad_action_type: str,
-    check_diff: Callable,
+    get_failing_check_diff: Callable,
     extract_email: Callable,
 ):
-    bad_action, reason = failed_check_reason(bad_action_type)
+    bad_action, reason = get_failing_check_action_reason(bad_action_type)
     # Warning: I suspect, but haven't been able to confirm, that doing this
     # may directly modify the data in the fixture. If, in the future, the
-    # failed_check_reason fixtures appears to contain weird unexpected content in other
+    # get_failing_check_action_reason fixtures appears to contain weird unexpected content in other
     # test cases, look with suspicion towards this.
     bad_action["action"] = "create-commit"
     bad_action["date"] = 0
-    bad_action["diff"] = check_diff(bad_action_type)
+    bad_action["diff"] = get_failing_check_diff(bad_action_type)
 
     repo = repo_mc(SCM_TYPE_HG)
     scm = repo.scm
@@ -756,20 +756,28 @@ def test_automation_job_create_commit_failed_check(
     assert reason in job.error, "Expected job failure reason was not found"
 
 
+@pytest.fixture
+def get_failing_check_action_reason(get_failing_check_commit_reason):
+    def failed_check_action_factory(name: str) -> tuple[dict, str] | None:
+        """Factory providing a check-failing action, and the expected failure reason.
+
+        See FAILING_CHECK_TYPES for the list of commit types available for request.
+
+        For convenience, a "valid" case is also availabled.
+        """
+        # We simply take a failing commit metadata, and add the rest of the
+        # AutomationAction payload.
+        action_reason = get_failing_check_commit_reason(name)
+        action_reason[0]["action"] = "create-commit"
+        action_reason[0]["date"] = 0
+        return action_reason
+
+    return failed_check_action_factory
+
+
 @pytest.mark.parametrize(
-    "scm_type,override_action_data",
-    itertools.product(
-        [SCM_TYPE_HG, SCM_TYPE_GIT],
-        [
-            {
-                "action": "create-commit",
-                "author": "Test User <test@example.com>",
-                "commitmsg": "IGNORE BAD COMMIT MESSAGES",
-                "date": 0,
-                # diff gets added by the test
-            }
-        ],
-    ),
+    "scm_type",
+    [SCM_TYPE_HG, SCM_TYPE_GIT],
 )
 @pytest.mark.django_db
 def test_automation_job_create_commit_failed_check_override(
@@ -778,14 +786,20 @@ def test_automation_job_create_commit_failed_check_override(
     treestatusdouble,
     get_automation_worker,
     monkeypatch,
-    failed_check_reason: Callable,
-    override_action_data,
-    check_diff,
+    get_failing_check_action_reason: Callable,
+    get_failing_check_diff,
 ):
     repo = repo_mc(SCM_TYPE_HG)
     scm = repo.scm
 
-    override_action_data["diff"] = check_diff("valid")
+    no_bug_action_data = get_failing_check_action_reason("nobug")[0]
+    override_action_data = {
+        "action": "create-commit",
+        "author": "Test User <test@example.com>",
+        "commitmsg": "IGNORE BAD COMMIT MESSAGES",
+        "date": 0,
+        "diff": get_failing_check_diff("valid"),
+    }
 
     # Create a job and _all_ invalid actions
     job = AutomationJob.objects.create(
@@ -794,23 +808,17 @@ def test_automation_job_create_commit_failed_check_override(
         target_repo=repo,
     )
 
-    # Create a failing commit.
-    no_bug_action = failed_check_reason("nobug")[0]
-    no_bug_action["action"] = "create-commit"
-    no_bug_action["date"] = 0
-    no_bug_action["diff"] = check_diff("valid")
-
     AutomationAction.objects.create(
         job_id=job,
-        action_type="create-commit",
-        data=no_bug_action,
+        action_type=no_bug_action_data["action"],
+        data=no_bug_action_data,
         order=0,
     )
     AutomationAction.objects.create(
         job_id=job,
-        action_type="create-commit",
+        action_type=override_action_data["action"],
         data=override_action_data,
-        order=0,
+        order=1,
     )
 
     automation_worker = get_automation_worker(scm_type)
@@ -840,7 +848,7 @@ def test_automation_job_create_commit_patch_conflict(
     treestatusdouble,
     get_automation_worker,
     monkeypatch,
-    check_diff,
+    get_failing_check_diff,
 ):
     repo = repo_mc(scm_type)
     job = AutomationJob.objects.create(
@@ -857,7 +865,7 @@ def test_automation_job_create_commit_patch_conflict(
             "author": "Test User <test@example.com>",
             "commitmsg": "No bug: conflict commit",
             "date": 0,
-            "diff": check_diff("valid"),
+            "diff": get_failing_check_diff("valid"),
         },
         order=0,
     )

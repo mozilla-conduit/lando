@@ -10,6 +10,7 @@ from lando.api.legacy.hgexports import HgPatchHelper
 from lando.api.legacy.workers.landing_worker import (
     AUTOFORMAT_COMMIT_MESSAGE,
 )
+from lando.conftest import FAILING_CHECK_TYPES
 from lando.main.models import Repo, Revision
 from lando.main.models.landing_job import (
     JobStatus,
@@ -556,21 +557,14 @@ def test_merge_conflict(
 
 
 @pytest.mark.parametrize(
-    "repo_type,bad_commit_type",
+    "repo_type,failing_check_commit_type",
     # We make a cross-product of all the SCM and all the bad actions.
     # As we don't want a cross-product of bad actions and reasons, we bundle them in a
     # tuple, that we deconstruct in the test.
     itertools.product(
         [SCM_TYPE_HG, SCM_TYPE_GIT],
-        # All of BAD_COMMIT_TYPES, but not wpt
-        [
-            "nobug",
-            "nspr",
-            "nss",
-            "submodule",
-            "symlink",
-            "try_task_config",
-        ],
+        # All of FAILING_CHECK_TYPES, except for wpt
+        [type for type in FAILING_CHECK_TYPES if type != "wpt"],
     ),
 )
 @pytest.mark.django_db
@@ -579,17 +573,19 @@ def test_failed_landing_job_checks(
     treestatusdouble,
     create_patch_revision,
     get_landing_worker,
-    check_diff,
+    get_failing_check_diff,
     repo_type: str,
-    bad_commit_type: str,
-    failed_check_reason: Callable,
+    failing_check_commit_type: str,
+    get_failing_check_commit_reason: Callable,
     extract_email: Callable,
 ):
     """Ensure that checks fail non-compliant landings."""
     repo = repo_mc(repo_type, approval_required=True, autoformat_enabled=False)
     treestatusdouble.open_tree(repo.name)
 
-    disallowed_revision, reason = failed_check_reason(bad_commit_type)
+    disallowed_revision, reason = get_failing_check_commit_reason(
+        failing_check_commit_type
+    )
 
     author_email = extract_email(disallowed_revision["author"])
 
@@ -605,7 +601,7 @@ def test_failed_landing_job_checks(
         + disallowed_revision["commitmsg"]
         + """
 """
-        + check_diff(bad_commit_type)
+        + get_failing_check_diff(failing_check_commit_type)
     )
 
     revisions = [
