@@ -217,6 +217,80 @@ def test_GitSCM_apply_get_patch_merge(
     assert merge_patch_helper is None
 
 
+DIFF_WITH_IGNORED_JSON = """\
+diff --git a/ignored.json b/ignored.json
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/ignored.json
+@@
++{"key": "value"}
+"""
+
+
+def test_GitSCM_apply_patch_includes_ignored_files(
+    git_repo: Path,
+    tmp_path: Path,
+    request: pytest.FixtureRequest,
+    git_setup_user: Callable,
+):
+    scm = GitSCM(str(git_repo))
+
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+
+    main_branch = "main"
+    scm = GitSCM(str(clone_path), default_branch=main_branch)
+    scm.clone(str(git_repo))
+
+    git_setup_user(str(clone_path))
+
+    # Add .gitignore that ignores `ignored.json`.
+    (clone_path / ".gitignore").write_text("ignored.json\n", encoding="utf-8")
+    subprocess.run(["git", "add", ".gitignore"], cwd=clone_path, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "add .gitignore"], cwd=clone_path, check=True
+    )
+
+    # Apply the patch.
+    commit_msg = "add ignored.json"
+    author = "Patch Author <author@example.com>"
+    commit_date = "Thu, 1 Jan 1970 00:00:00 +0000"
+    scm.apply_patch(DIFF_WITH_IGNORED_JSON, commit_msg, author, commit_date)
+
+    # Check that ignored.json is tracked
+    result = subprocess.run(
+        ["git", "ls-files", "ignored.json"],
+        cwd=clone_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert result == "ignored.json", "`ignored.json` was not tracked after patch apply."
+
+    # Check that the commit message matches.
+    last_commit_msg = subprocess.run(
+        ["git", "log", "-1", "--pretty=%B"],
+        cwd=clone_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert last_commit_msg == commit_msg, "Commit message did not match."
+
+    # Check that ignored.json is part of that commit.
+    files_in_commit = subprocess.run(
+        ["git", "show", "--pretty=", "--name-only", "HEAD"],
+        cwd=clone_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.splitlines()
+    assert (
+        "ignored.json" in files_in_commit
+    ), "`ignored.json` not found in committed files."
+
+
 def test_GitSCM_describe_commit(git_repo: Path):
     scm = GitSCM(str(git_repo))
 
