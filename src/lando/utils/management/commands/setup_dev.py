@@ -26,7 +26,10 @@ class Command(BaseCommand):
 
         workers = {}
 
-        for worker_scm, worker_type in itertools.product(scm_types, worker_types):
+        breakpoint()
+        for worker_scm, worker_type in {
+            scm: type for scm, types in worker_scm_types.items() for type in types
+        }.items():
             worker_name = f"{worker_scm}{worker_type}"
             try:
                 worker = Worker.objects.get(name=worker_name)
