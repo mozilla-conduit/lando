@@ -564,7 +564,7 @@ def test_merge_conflict(
     itertools.product(
         [SCM_TYPE_HG, SCM_TYPE_GIT],
         # All of FAILING_CHECK_TYPES, except for wpt
-        [type for type in FAILING_CHECK_TYPES if type != "wpt"],
+        [check_type for check_type in FAILING_CHECK_TYPES if check_type != "wpt"],
     ),
 )
 @pytest.mark.django_db
@@ -604,11 +604,7 @@ def test_failed_landing_job_checks(
         + get_failing_check_diff(failing_check_commit_type)
     )
 
-    revisions = [
-        # create_patch_revision(i, patch=patch) for i, patch in enumerate(patches)
-        #        for i, patch in enumerate(patches)
-        create_patch_revision(1, patch=patch)
-    ]
+    revisions = [create_patch_revision(1, patch=patch)]
     job_params = {
         "status": JobStatus.IN_PROGRESS,
         "requester_email": author_email,
