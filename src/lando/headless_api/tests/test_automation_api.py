@@ -757,7 +757,7 @@ def get_failing_check_action_reason(get_failing_check_commit_reason):
 
         See FAILING_CHECK_TYPES for the list of commit types available for request.
 
-        For convenience, a "valid" case is also availabled.
+        For convenience, a "valid" case is also available.
         """
         # We simply take a failing commit metadata, and add the rest of the
         # AutomationAction payload.
