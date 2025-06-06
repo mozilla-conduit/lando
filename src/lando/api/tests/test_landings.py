@@ -1,6 +1,8 @@
 import io
+import itertools
 import re
 import unittest.mock as mock
+from typing import Callable
 
 import pytest
 
@@ -8,6 +10,7 @@ from lando.api.legacy.hgexports import HgPatchHelper
 from lando.api.legacy.workers.landing_worker import (
     AUTOFORMAT_COMMIT_MESSAGE,
 )
+from lando.conftest import FAILING_CHECK_TYPES
 from lando.main.models import Repo, Revision
 from lando.main.models.landing_job import (
     JobStatus,
@@ -53,7 +56,7 @@ LARGE_PATCH = rf"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add another line with utf-8
+No bug: add another line with utf-8
 
 diff --git a/test.txt b/test.txt
 --- a/test.txt
@@ -68,7 +71,7 @@ PATCH_WITHOUT_STARTLINE = r"""
 # User Test User <test@example.com>
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
-add another line without startline.
+No bug: add another line without startline.
 diff --git a/test.txt b/test.txt
 --- a/test.txt
 +++ b/test.txt
@@ -85,7 +88,7 @@ PATCH_PUSH_LOSER = r"""
 #      Thu Jan 01 00:00:00 1970 +0000
 # Fail HG Import LOSE_PUSH_RACE
 # Diff Start Line 8
-add one more line.
+No bug: add one more line.
 diff --git a/test.txt b/test.txt
 --- a/test.txt
 +++ b/test.txt
@@ -100,7 +103,7 @@ PATCH_FORMATTING_PATTERN_PASS = r"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add formatting config
+No bug: add formatting config
 
 diff --git a/.lando.ini b/.lando.ini
 new file mode 100644
@@ -154,7 +157,7 @@ PATCH_FORMATTING_PATTERN_FAIL = r"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add formatting config
+No bug: add formatting config
 
 diff --git a/.lando.ini b/.lando.ini
 new file mode 100644
@@ -205,7 +208,7 @@ PATCH_FORMATTED_2 = r"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add another file for formatting 2
+no bug: add another file for formatting 2
 
 diff --git a/test.txt b/test.txt
 --- a/test.txt
@@ -551,6 +554,69 @@ def test_merge_conflict(
             assert re.match(f"{repo.pull_path}/tree", fp["url"])
         else:  # SCM_TYPE_HG
             assert re.match(f"{repo.pull_path}/file", fp["url"])
+
+
+@pytest.mark.parametrize(
+    "repo_type,failing_check_commit_type",
+    # We make a cross-product of all the SCM and all the bad actions.
+    # As we don't want a cross-product of bad actions and reasons, we bundle them in a
+    # tuple, that we deconstruct in the test.
+    itertools.product(
+        [SCM_TYPE_HG, SCM_TYPE_GIT],
+        # All of FAILING_CHECK_TYPES, except for wpt
+        [check_type for check_type in FAILING_CHECK_TYPES if check_type != "wpt"],
+    ),
+)
+@pytest.mark.django_db
+def test_failed_landing_job_checks(
+    repo_mc,
+    treestatusdouble,
+    create_patch_revision,
+    get_landing_worker,
+    get_failing_check_diff,
+    repo_type: str,
+    failing_check_commit_type: str,
+    get_failing_check_commit_reason: Callable,
+    extract_email: Callable,
+):
+    """Ensure that checks fail non-compliant landings."""
+    repo = repo_mc(repo_type, approval_required=True, autoformat_enabled=False)
+    treestatusdouble.open_tree(repo.name)
+
+    disallowed_revision, reason = get_failing_check_commit_reason(
+        failing_check_commit_type
+    )
+
+    author_email = extract_email(disallowed_revision["author"])
+
+    patch = (
+        r"""# HG changeset patch
+# User Test User <"""
+        + author_email
+        + """>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+"""
+        + disallowed_revision["commitmsg"]
+        + """
+"""
+        + get_failing_check_diff(failing_check_commit_type)
+    )
+
+    revisions = [create_patch_revision(1, patch=patch)]
+    job_params = {
+        "status": JobStatus.IN_PROGRESS,
+        "requester_email": author_email,
+        "target_repo": repo,
+        "attempts": 1,
+    }
+    job = add_job_with_revisions(revisions, **job_params)
+
+    worker = get_landing_worker(repo_type)
+    assert worker.run_job(job)
+    assert job.status == JobStatus.FAILED
+    assert reason in job.error
 
 
 @pytest.mark.parametrize(

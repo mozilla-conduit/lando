@@ -18,6 +18,8 @@ from django.core.cache import cache
 
 from lando.api.legacy.hgexports import (
     DiffAssessor,
+    PreventNSPRNSSCheck,
+    PreventSubmodulesCheck,
     PreventSymlinksCheck,
     TryTaskConfigCheck,
 )
@@ -339,7 +341,7 @@ class RevisionWarningCheck:
                 None
                 if result is None
                 else RevisionWarning(
-                    self.i, self.display, f'D{revision["id"]}', result, self.articulated
+                    self.i, self.display, f"D{revision['id']}", result, self.articulated
                 )
             )
 
@@ -563,8 +565,7 @@ def warning_code_freeze(  # noqa: ANN201
         return [
             {
                 "message": (
-                    f"Repository is under a soft code freeze "
-                    f"(ends {merge_date_str})."
+                    f"Repository is under a soft code freeze (ends {merge_date_str})."
                 )
             }
         ]
@@ -871,6 +872,35 @@ def blocker_single_landing_repo(
     )
 
 
+def blocker_prevent_nsprnss_files(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> Optional[str]:
+    """Block revisions which contain changes to the NSS or security directories."""
+    diff_id = PhabricatorClient.expect(diff, "id")
+    parsed_diff = stack_state.parsed_diffs[diff_id]
+
+    # `PreventNSPRNSSCheck` only requires inspecting the diff and the commit message.
+    title = PhabricatorClient.expect(revision, "fields", "title")
+    diff_assessor = DiffAssessor(parsed_diff=parsed_diff, commit_message=title)
+
+    if issues := diff_assessor.run_diff_checks([PreventNSPRNSSCheck]):
+        return issues[0]
+
+
+def blocker_prevent_submodules(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> Optional[str]:
+    """Block revisions which manipulate submodules."""
+    diff_id = PhabricatorClient.expect(diff, "id")
+    parsed_diff = stack_state.parsed_diffs[diff_id]
+
+    # `PreventSubmodulesCheck` only requires inspecting the diff.
+    diff_assessor = DiffAssessor(parsed_diff=parsed_diff)
+
+    if issues := diff_assessor.run_diff_checks([PreventSubmodulesCheck]):
+        return issues[0]
+
+
 def blocker_prevent_symlinks(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> Optional[str]:
@@ -916,8 +946,11 @@ REVISION_BLOCKER_CHECKS = [
     blocker_diff_author_is_known,
     blocker_uplift_approval,
     blocker_revision_data_classification,
+    # Diff-based checks.
     blocker_prevent_symlinks,
     blocker_try_task_config,
+    blocker_prevent_submodules,
+    blocker_prevent_nsprnss_files,
     # This check needs to be last.
     blocker_open_ancestor,
 ]
