@@ -218,7 +218,7 @@ FAILING_CHECK_TYPES = [
 
 @pytest.fixture
 def get_failing_check_diff() -> Callable:
-    """Factory providing a check-failingd diff.
+    """Factory providing a check-failing diff.
 
     See FAILING_CHECK_TYPES for the list of commit types available for request.
 
