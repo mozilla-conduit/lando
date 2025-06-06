@@ -26,7 +26,6 @@ class Command(BaseCommand):
 
         workers = {}
 
-        breakpoint()
         for worker_scm, worker_type in {
             scm: type for scm, types in worker_scm_types.items() for type in types
         }.items():
