@@ -13,34 +13,44 @@ class Command(BaseCommand):
 
     def setup_workers(self):
         """Ensure a git and an hg worker exist on the local environment."""
-        # Set up two workers, one for each SCM.
-        workers = {
-            SCM_TYPE_GIT: None,
-            SCM_TYPE_HG: None,
+        # Set up workers for each SCM. Historically, the worker with no suffix is the landing worker.
+        worker_scm_types = {
+            SCM_TYPE_GIT: [
+                "",
+                "-automation-worker",
+            ],
+            SCM_TYPE_HG: [""],
         }
 
-        for worker_scm in workers:
+        workers = {}
+
+        for worker_scm, worker_type in [
+            (scm, type) for scm, types in worker_scm_types.items() for type in types
+        ]:
+            worker_name = f"{worker_scm}{worker_type}"
             try:
-                worker = Worker.objects.get(name=worker_scm)
+                worker = Worker.objects.get(name=worker_name)
                 self.stdout.write(f"Found {worker} worker.")
             except Worker.DoesNotExist:
                 # Set the name of the worker to match the SCM.
-                worker = Worker(name=worker_scm, scm=worker_scm)
+                worker = Worker(name=worker_name, scm=worker_scm)
                 worker.save()
                 self.stdout.write(f"Created {worker} worker.")
             finally:
-                workers[worker_scm] = worker
+                workers[worker_name] = worker
 
         for repo in Repo.objects.all():
             # Associate all repos with applicable worker.
-            self.stdout.write(
-                f"Adding {repo} ({repo.scm_type}) to {workers[repo.scm_type]}."
-            )
-            workers[repo.scm_type].applicable_repos.add(repo)
+            for worker in workers.values():
+                if worker.scm != repo.scm_type:
+                    continue
+                if repo.worker_set.exists():
+                    self.stdout.write(f"Adding {repo} ({repo.scm_type}) to {worker}.")
+                    worker.applicable_repos.add(repo)
         self.stdout.write(
             self.style.SUCCESS(
-                'Workers initialized ("hg" and "git"). '
-                "To start one, run `lando start_landing_worker <name>`.",
+                f"Workers initialized ({', '.join(list(workers))}). "
+                "To start one, run `lando start_landing_worker <name>` or `lando start_automation_worker <name>`.",
             )
         )
 
