@@ -47,7 +47,6 @@ class Command(BaseCommand):
             for worker in workers.values():
                 if worker.scm != repo.scm_type:
                     continue
-                # if not worker.applicable_repos.filter(repo=repo):
                 if repo.worker_set.exists():
                     self.stdout.write(f"Adding {repo} ({repo.scm_type}) to {worker}.")
                     worker.applicable_repos.add(repo)
