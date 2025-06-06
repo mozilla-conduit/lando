@@ -188,7 +188,8 @@ class GitSCM(AbstractSCM):
 
             cmds = [
                 ["apply", "--reject", f_diff.name],
-                ["add", "-A"],
+                # Use `-f` here to include files in `.gitignore`.
+                ["add", "-A", "-f"],
                 [
                     "commit",
                     "--date",

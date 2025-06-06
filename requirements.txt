@@ -4,9 +4,9 @@
 #
 #    pip-compile --all-build-deps --allow-unsafe --extra=code-quality,testing --generate-hashes --output-file=requirements.txt pyproject.toml
 #
-aiodns==3.3.0 \
-    --hash=sha256:10773b905296afd92d41ef79b9ed0c97957d9af17262ffa67f405dc07f1600a4 \
-    --hash=sha256:fdf7a7d51dcab0ad7cc22bf9cf54690d9c31b06414ac41c6cdbbecf50dd75ef1
+aiodns==3.4.0 \
+    --hash=sha256:24b0ae58410530367f21234d0c848e4de52c1f16fbddc111726a4ab536ec1b2f \
+    --hash=sha256:4da2b25f7475343f3afbb363a2bfe46afa544f2b318acb9a945065e622f4ed24
     # via aiohttp
 aiohappyeyeballs==2.6.1 \
     --hash=sha256:c3f9d0113123803ccadfdf3f0faa505bc78e6a72d1cc4806cbd719826e943558 \
@@ -747,9 +747,9 @@ google-api-core==2.25.0rc1 \
     # via
     #   google-cloud-core
     #   google-cloud-storage
-google-auth==2.40.1 \
-    --hash=sha256:58f0e8416a9814c1d86c9b7f6acf6816b51aba167b2c76821965271bac275540 \
-    --hash=sha256:ed4cae4f5c46b41bae1d19c036e06f6c371926e97b19e816fc854eff811974ee
+google-auth==2.40.2 \
+    --hash=sha256:a33cde547a2134273226fa4b853883559947ebe9207521f7afc707efbf690f58 \
+    --hash=sha256:f7e568d42eedfded58734f6a60c58321896a621f7c116c411550a4b4a13da90b
     # via
     #   google-api-core
     #   google-cloud-core
