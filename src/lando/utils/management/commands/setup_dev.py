@@ -15,16 +15,14 @@ class Command(BaseCommand):
 
     def setup_workers(self):
         """Ensure a git and an hg worker exist on the local environment."""
-        # Set up two workers, one for each SCM.
-        scm_types = [
-            SCM_TYPE_GIT,
-            SCM_TYPE_HG,
-        ]
-
-        worker_types = [
-            "",  # landing workers
-            "-automation-worker",
-        ]
+        # Set up workers for each SCM. Historically, the worker with no suffix is the landing worker.
+        worker_scm_types = {
+            SCM_TYPE_GIT: [
+                "",
+                "-automation-worker",
+            ],
+            SCM_TYPE_HG: [""],
+        }
 
         workers = {}
 
