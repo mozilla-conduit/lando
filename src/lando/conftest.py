@@ -222,7 +222,7 @@ def get_failing_check_diff() -> Callable:
 
     See FAILING_CHECK_TYPES for the list of commit types available for request.
 
-    For convenience, a "valid" case is also availabled.
+    For convenience, a "valid" case is also available.
     """
 
     diffs = {
