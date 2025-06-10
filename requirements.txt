@@ -808,9 +808,9 @@ googleapis-common-protos==1.70.0 \
     --hash=sha256:0e1b44e0ea153e6594f9f394fef15193a68aaaea2d843f83e2742717ca753257 \
     --hash=sha256:b8bfcca8c25a2bb253e0e0b0adaf8c00773e5e6af6fd92397576680b807e0fd8
     # via google-api-core
-gql[aiohttp,requests]==3.5.2 \
-    --hash=sha256:07e1325b820c8ba9478e95de27ce9f23250486e7e79113dbb7659a442dc13e74 \
-    --hash=sha256:c830ffc38b3997b2a146317b27758305ab3d0da3bde607b49f34e32affb23ba2
+gql[aiohttp,requests]==3.5.3 \
+    --hash=sha256:393b8c049d58e0d2f5461b9d738a2b5f904186a40395500b4a84dd092d56e42b \
+    --hash=sha256:e1fcbde2893fcafdd28114ece87ff47f1cc339a31db271fc4e1d528f5a1d4fbc
     # via simple-github
 graphql-core==3.2.4 \
     --hash=sha256:1604f2042edc5f3114f49cac9d77e25863be51b23a54a61a23245cf32f6476f0 \
