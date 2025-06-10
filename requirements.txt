@@ -1499,9 +1499,9 @@ python-dateutil==2.9.0.post0 \
 python-hglib==2.6.2 \
     --hash=sha256:b18bd1ed53c90ee57d5714d66ad6bb72b64e930d4aeca9830892c08bb28da608
     # via lando (pyproject.toml)
-python-jose==3.4.0 \
-    --hash=sha256:9a9a40f418ced8ecaf7e3b28d69887ceaa76adad3bcaa6dae0d9e596fec1d680 \
-    --hash=sha256:9c9f616819652d109bd889ecd1e15e9a162b9b94d682534c9c2146092945b78f
+python-jose==3.5.0 \
+    --hash=sha256:abd1202f23d34dfad2c3d28cb8617b90acf34132c7afd60abd0b0b7d3cb55771 \
+    --hash=sha256:fb4eaa44dbeb1c26dcc69e4bd7ec54a1cb8dd64d3b4d81ef08d90ff453f2b01b
     # via lando (pyproject.toml)
 rcssmin==1.1.2 \
     --hash=sha256:0101a55992ded00220d38ebaf003d0858c1e6e8b365df6f18f9d7a2cdc5574b3 \
