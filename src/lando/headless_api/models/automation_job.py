@@ -164,6 +164,7 @@ class AutomationJob(BaseModel):
 
 class ActionTypeChoices(models.TextChoices):
     ADD_COMMIT = "add-commit", gettext_lazy("Add commit")
+    CREATE_COMMIT = "create-commit", gettext_lazy("Create commit")
     TAG = "tag", gettext_lazy("Tag")
     MERGE_ONTO = "merge-onto", gettext_lazy("Merge onto")
 
