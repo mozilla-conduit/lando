@@ -21,6 +21,7 @@ from lando.headless_api.api import (
     resolve_action,
 )
 from lando.headless_api.models.automation_job import (
+    ActionTypeChoices,
     AutomationJob,
 )
 from lando.main.models.landing_job import JobAction, JobStatus
@@ -160,18 +161,26 @@ class AutomationWorker(Worker):
 
             new_commits = scm.describe_local_changes(base_cset=pre_head_ref)
 
-            check_errors = self.run_automation_checks(
-                scm, job.requester_email, new_commits
+            skip_checks = (
+                job.actions.count() == 1
+                and job.actions.first().action_type == ActionTypeChoices.MERGE_ONTO
             )
 
-            if check_errors:
-                message = "Some checks weren't successful:\n" + "\n".join(check_errors)
-                logger.exception(message)
-                job.transition_status(
-                    JobAction.FAIL,
-                    message=message,
+            if not skip_checks:
+                check_errors = self.run_automation_checks(
+                    scm, job.requester_email, new_commits
                 )
-                return True  # Do not try again, this is a permanent failure.
+
+                if check_errors:
+                    message = "Some checks weren't successful:\n" + "\n".join(
+                        check_errors
+                    )
+                    logger.exception(message)
+                    job.transition_status(
+                        JobAction.FAIL,
+                        message=message,
+                    )
+                    return True  # Do not try again, this is a permanent failure.
 
             # We need to add the commits to the pushlog _before_ pushing, so we can
             # compare the current stack to the last upstream.

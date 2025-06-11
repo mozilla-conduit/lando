@@ -947,6 +947,7 @@ def test_automation_job_merge_onto_fast_forward_git(
     treestatusdouble,
     git_automation_worker,
     request,
+    monkeypatch,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
     scm = repo.scm
@@ -985,7 +986,12 @@ def test_automation_job_merge_onto_fast_forward_git(
 
     git_automation_worker.worker_instance.applicable_repos.add(repo)
 
+    mock_run_automation_checks = mock.MagicMock()
+    monkeypatch.setattr(
+        git_automation_worker, "run_automation_checks", mock_run_automation_checks
+    )
     assert git_automation_worker.run_automation_job(job)
+    assert mock_run_automation_checks.call_count == 0
     assert job.status == JobStatus.LANDED
 
     head_ref = scm.head_ref()
@@ -1216,7 +1222,14 @@ def test_automation_job_tag_success_git_new_commit(
     automation_worker = get_automation_worker(SCM_TYPE_GIT)
     automation_worker.worker_instance.applicable_repos.add(repo)
 
+    mock_run_automation_checks = mock.Mock(
+        wraps=automation_worker.run_automation_checks
+    )
+    monkeypatch.setattr(
+        automation_worker, "run_automation_checks", mock_run_automation_checks
+    )
     assert automation_worker.run_automation_job(job)
+    assert mock_run_automation_checks.call_count == 1
     assert job.status == JobStatus.LANDED
 
     # Tag should be on the most recent commit.
