@@ -4,6 +4,7 @@ from typing import Any, Iterable, Optional, Self
 
 from django.conf import settings
 from django.db import models
+from django.utils.translation import gettext_lazy
 
 from lando.main.models.base import BaseModel
 from lando.main.models.landing_job import (
@@ -161,6 +162,12 @@ class AutomationJob(BaseModel):
         return target_cset, push_target
 
 
+class ActionTypeChoices(models.TextChoices):
+    ADD_COMMIT = "add-commit", gettext_lazy("Add commit")
+    TAG = "tag", gettext_lazy("Tag")
+    MERGE_ONTO = "merge-onto", gettext_lazy("Merge onto")
+
+
 class AutomationAction(BaseModel):
     """An action in the automation API."""
 
@@ -168,7 +175,7 @@ class AutomationAction(BaseModel):
         AutomationJob, on_delete=models.CASCADE, related_name="actions"
     )
 
-    action_type = models.CharField()
+    action_type = models.CharField(choices=ActionTypeChoices)
 
     # Data for each individual action. Data in these fields should be
     # parsable into the appropriate Pydantic schema.
