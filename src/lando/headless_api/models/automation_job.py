@@ -163,6 +163,7 @@ class AutomationJob(BaseModel):
 
 
 class ActionTypeChoices(models.TextChoices):
+    """Accepted choices for the types of automation job actions."""
     ADD_COMMIT = "add-commit", gettext_lazy("Add commit")
     CREATE_COMMIT = "create-commit", gettext_lazy("Create commit")
     TAG = "tag", gettext_lazy("Tag")
