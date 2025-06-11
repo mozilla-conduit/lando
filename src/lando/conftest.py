@@ -1,4 +1,5 @@
 import pathlib
+import re
 import subprocess
 import time
 from collections.abc import Callable
@@ -137,6 +138,224 @@ def git_patch():
         return _patches[number]
 
     return _patch
+
+
+PATCH_DIFF = """
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,2 @@
+ TEST
++adding another line
+""".lstrip()
+
+PATCH_SYMLINK_DIFF = """
+diff --git a/blahfile_real b/blahfile_real
+new file mode 100644
+index 0000000..907b308
+--- /dev/null
++++ b/blahfile_real
+@@ -0,0 +1 @@
++blah
+diff --git a/blahfile_symlink b/blahfile_symlink
+new file mode 120000
+index 0000000..55faaf5
+--- /dev/null
++++ b/blahfile_symlink
+@@ -0,0 +1 @@
++/home/sheehan/blahfile
+""".lstrip()
+
+PATCH_TRY_TASK_CONFIG_DIFF = """
+index 0000000..663cbc2
+--- /dev/null
++++ b/blah.json
+@@ -0,0 +1 @@
++{"123":"456"}
+diff --git a/try_task_config.json b/try_task_config.json
+new file mode 100644
+index 0000000..e44d36d
+--- /dev/null
++++ b/try_task_config.json
+@@ -0,0 +1 @@
++{"env": {"TRY_SELECTOR": "fuzzy"}, "version": 1, "tasks": ["source-test-cram-tryselect"]}
+""".lstrip()
+
+PATCH_NSS_DIFF = """
+diff --git a/security/nss/.keep b/security/nss/.keep
+new file mode 100644
+index 0000000..e69de29
+""".lstrip()
+
+PATCH_NSPR_DIFF = """
+diff --git a/nsprpub/.keep b/nsprpub/.keep
+new file mode 100644
+index 0000000..e69de29
+""".lstrip()
+
+PATCH_SUBMODULE_DIFF = """
+diff --git a/.gitmodules b/.gitmodules
+new file mode 100644
+index 0000000..4c39732
+--- /dev/null
++++ b/.gitmodules
+@@ -0,0 +1,3 @@
++[submodule "submodule"]
++       path = submodule
++       url = https://github.com/mozilla-conduit/test-repo
+"""
+
+FAILING_CHECK_TYPES = [
+    "nobug",
+    "nspr",
+    "nss",
+    "submodule",
+    "symlink",
+    "try_task_config",
+    "wpt",
+]
+
+
+@pytest.fixture
+def get_failing_check_diff() -> Callable:
+    """Factory providing a check-failing diff.
+
+    See FAILING_CHECK_TYPES for the list of commit types available for request.
+
+    For convenience, a "valid" case is also available.
+    """
+
+    diffs = {
+        "nspr": PATCH_NSPR_DIFF,
+        "nss": PATCH_NSS_DIFF,
+        "submodule": PATCH_SUBMODULE_DIFF,
+        "symlink": PATCH_SYMLINK_DIFF,
+        "try_task_config": PATCH_TRY_TASK_CONFIG_DIFF,
+        "valid": PATCH_DIFF,
+        # WPTCheck verifies that commits from wptsync@mozilla only touch paths in
+        # WPT_SYNC_ALLOWED_PATHS_RE (currently a subset of testing/web-platform/).
+        "wpt": PATCH_DIFF,
+    }
+
+    def _diff(name: str) -> str | None:
+        if name in ["nobug"]:
+            # Some actions are bad not because of their diff, but some other metadata of the
+            # patch (e.g. no bug in the commit message). We use an innocuous diff for them.
+            name = "valid"
+        diff = diffs.get(name)
+        assert diff, f"get_failing_check_diff doesn't know {name}"
+        return diff
+
+    return _diff
+
+
+@pytest.fixture
+def get_failing_check_commit_reason(get_failing_check_diff) -> Callable:
+    """Factory providing a check-failing commit, and the expected failure reason.
+
+    See FAILING_CHECK_TYPES for the list of commit types available for request.
+
+    For convenience, a "valid" case is also available.
+    """
+    commit_reasons = {
+        # CommitMessagesCheck
+        "nobug": (
+            {
+                "author": "Test User <test@example.com>",
+                "commitmsg": "commit message without bug info",
+                # diff should get added by the test using get_failing_check_diff
+            },
+            "Revision needs 'Bug N' or 'No bug' in the commit message: commit message without bug info",
+        ),
+        # PreventNSPRNSSCheck
+        "nspr": (
+            {
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit with NSPR changes",
+                # diff should get added by the test using get_failing_check_diff
+            },
+            "Revision makes changes to restricted directories:",
+        ),
+        # PreventNSPRNSSCheck
+        "nss": (
+            {
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit with NSS changes",
+                # diff should get added by the test using get_failing_check_diff
+            },
+            "Revision makes changes to restricted directories:",
+        ),
+        # PreventSubmodulesCheck
+        "submodule": (
+            {
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit with .gitmodules changes",
+                # diff should get added by the test using get_failing_check_diff
+            },
+            "Revision introduces a Git submodule into the repository.",
+        ),
+        # PreventSymlinksCheck
+        "symlink": (
+            {
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit with symlink",
+                # diff should get added by the test using get_failing_check_diff
+            },
+            "Revision introduces symlinks in the files ",
+        ),
+        # TryTaskConfigCheck
+        "try_task_config": (
+            {
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit with try_task_config.json",
+                # diff should get added by the test using get_failing_check_diff
+            },
+            "Revision introduces the `try_task_config.json` file.",
+        ),
+        # One that works, for reference.
+        "valid": (
+            {
+                "author": "Test User <test@example.com>",
+                "commitmsg": "no bug: commit message without bug info",
+                # diff should get added by the test using get_failing_check_diff
+            },
+            "",
+        ),
+        # WPTSyncCheck
+        "wpt":
+        # WPTCheck verifies that commits from wptsync@mozilla only touch paths in
+        # WPT_SYNC_ALLOWED_PATHS_RE (currently a subset of testing/web-platform/).
+        (
+            {
+                "author": "WPT Sync Bot <wptsync@mozilla.com>",
+                "commitmsg": "No bug: WPT commit with non-WPTSync changes",
+                # diff should get added by the test using get_failing_check_diff
+            },
+            "Revision has WPTSync bot making changes to disallowed files ",
+        ),
+    }
+
+    def failing_check_commit_reason_factory(name: str) -> tuple[dict, str] | None:
+        cr = commit_reasons.get(name)
+        assert cr, f"get_failing_check_commit_reason doesn't know {name}"
+        cr[0]["diff"] = get_failing_check_diff(name)
+        return cr
+
+    return failing_check_commit_reason_factory
+
+
+@pytest.fixture
+def extract_email() -> Callable:
+    def _extract_email(author_string: str) -> str:
+        """Extract the email address from a string containing it between angle brackets."""
+        author_match = re.search("<([^>]*@[^>]*)>", author_string)
+        if not author_match:
+            raise AssertionError(f"Can't parse email from `{author_string}`")
+
+        author_email = author_match[1]
+        return author_email
+
+    return _extract_email
 
 
 @pytest.fixture
