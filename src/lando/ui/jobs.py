@@ -1,7 +1,8 @@
 import urllib
 
 import requests
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpRequest
+from django.template.response import TemplateResponse
 
 from lando.ui.views import LandoView
 
@@ -12,19 +13,32 @@ class JobView(LandoView):
     pass
 
 
-class LegacyTryJob(JobView):
+class Job(JobView):
+    pass
 
+
+class LandingJob(JobView):
+    def get(self, request: HttpRequest, landing_job_id: int) -> HttpResponse:
+        # XXX: if not found, offer a redirection to Try
+        landing_job = LandingJob.objects.get(id=landing_job_id)
+
+        return HttpResponse(landing_job.id)
+
+
+class LegacyTryJob(JobView):
     LANDO_API_BASE_URL = "https://api.lando.services.mozilla.com"
     LANDO_API_LANDING_JOBS_ENDPOINT = "landing_jobs"
 
-    def get(self, request, landing_job_id: int):
+    def get(self, request: HttpRequest, landing_job_id: int) -> HttpResponse:
         repo = "try"
-
-        links = []
 
         landing_job_url = f"{self.LANDO_API_BASE_URL}/{self.LANDO_API_LANDING_JOBS_ENDPOINT}/{landing_job_id}"
         # Placeholder for GET method implementation
-        links.append(landing_job_url)
+
+        context = {
+            "landing_job_id": landing_job_id,
+            "landing_job_url": landing_job_url,
+        }
 
         job_state = requests.get(landing_job_url)
         if job_state.status_code >= 400:
@@ -47,6 +61,8 @@ class LegacyTryJob(JobView):
         job_data = job_state.json()
         revision = job_data.get("commit_id")
 
+        context["job_data"] = job_data
+
         treeherder_params = {
             "repo": repo,
             "landoCommitId": landing_job_id,
@@ -55,7 +71,11 @@ class LegacyTryJob(JobView):
         treeherder_url = f"{TREEHERDER_JOBS}?" + urllib.parse.urlencode(
             treeherder_params
         )
-        links.append(treeherder_url)
 
-        html_links = [f'<li><a href="{url}">{url}</a>' for url in links]
-        return HttpResponse("".join(html_links))
+        context["treeherder_url"] = treeherder_url
+
+        return TemplateResponse(
+            request=request,
+            template="jobs/job.html",
+            context=context,
+        )

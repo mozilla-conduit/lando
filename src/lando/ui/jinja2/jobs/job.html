@@ -1,0 +1,21 @@
+{% extends "partials/layout.html" %}
+{% block page_title %}{{landing_job_id}} - Lando - Mozilla{% endblock %}
+
+{% block main %}
+<main class="StackPage container fullhd">
+
+  <h1>Landing Job {{landing_job_id}}</h1>
+
+  <!-- this renders data from https://api.lando.services.mozilla.com/landing_jobs/:id -->
+
+  <ul>
+    <li>Status: {{ job_data.status }}<li>
+    {% if job_data.commit_id %}
+    <li>Commit: {{ job_data.commit_id }}<li>
+    {% endif %}
+    <li><a href="{{ landing_job_url }}">Landing Job (JSON)</a>
+    <li><a href="{{ treeherder_url }}">Treeherder</a>
+  </ul>
+
+</main>
+{% endblock %}
