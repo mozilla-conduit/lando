@@ -1,0 +1,14 @@
+{% extends "partials/layout.html" %}
+{% block page_title %}{{job.id}} - Lando - Mozilla{% endblock %}
+
+{% block main %}
+<main class="StackPage container fullhd">
+
+  <h1>Landing Job {{job.id}}</h1>
+
+  {% set embedded = False %}
+
+  {% include "partials/job.html" %}
+
+</main>
+{% endblock %}
