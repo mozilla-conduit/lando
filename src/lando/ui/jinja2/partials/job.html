@@ -23,6 +23,10 @@
       <ul>
         {% for path in job.error_breakdown.failed_paths if path.path in rejects_paths %}
         <li><strong>{{ path.path }}</strong> @ <a href="{{ path.url }}">{{ path.changeset_id }}</a></li>
+        {% if path.path not in rejects_paths or content not in rejects_paths[path.path] %}
+        <p>Error parsing error for {{ path.path }}. This is likely due to a conflict when removing a file, see <a
+            href="https://bugzilla.mozilla.org/show_bug.cgi?id=1968636">bug 1968636</a>. See Raw error output below.</p>
+        {% else %}
         {% set reject_lines = rejects_paths[path.path].content.split("\n") %}
         {% if reject_lines.__len__() < 3 %} <pre>{{ "\n".join(reject_lines) }}</pre>
           {% else %}
@@ -32,6 +36,7 @@
             <pre class="hidden-content">{{ "\n".join(reject_lines) }}<button
                 class="is-small is-light button toggle-content">collapse diff</button></pre>
           </div>
+          {% endif %}
           {% endif %}
           {% endfor %}
           </ul?>
