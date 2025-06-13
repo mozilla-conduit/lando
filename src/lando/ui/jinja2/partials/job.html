@@ -17,6 +17,7 @@
       <a href="{{ url('revisions-page', args=[top_revision.revision_id]) }}">D{{ top_revision.revision_id }}</a>
     </p>
     {% endif %}
+    {% if job.revisions %}
     <p><strong>Revisions:</strong>
       {% for i in job.serialized_landing_path %}{{
       "" if loop.first else " ← "
@@ -24,6 +25,7 @@
         {{ i['revision_id'] }} diff {{ i['diff_id'] }}
       </a>{% endfor %}
     </p>
+    {% endif %}
     {% if job.error_breakdown %}
     {% set tree = job.tree|default("!unknown tree!") %}
     {% set rejects_paths = job.error_breakdown.rejects_paths %}
@@ -55,8 +57,11 @@
     </div>
     {% endif %}
     <div>
+      {% if job.duration|default(None) %}
+      <p><strong>Duration:</strong> {{ job.duration }}s</p>
+      {% endif %}
       <p><strong>Last update:</strong> <time data-timestamp="{{ job.updated_at }}"></time></p>
-      {% if job.status.lower() == 'landed' %}
+      {% if job.status.lower() == 'landed' and job.legacy_details|default(None) %}
       <strong>Result:</strong> {{ job.legacy_details|escape_html|linkify_transplant_details(job)|safe }}
       {% elif job.legacy_details %}
       <div class="StackPage-timeline-item-error">

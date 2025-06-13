@@ -38,3 +38,16 @@ class LandingJobView(JobView):
             template="jobs/job.html",
             context=context,
         )
+
+
+class AutomationJobView(JobView):
+    def get(self, request: HttpRequest, automation_job_id: int) -> HttpResponse:
+        automation_job = AutomationJob.objects.get(id=automation_job_id)
+
+        context = {"job": automation_job}
+
+        return TemplateResponse(
+            request=request,
+            template="jobs/job.html",
+            context=context,
+        )
