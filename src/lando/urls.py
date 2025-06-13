@@ -66,15 +66,17 @@ urlpatterns += [
 urlpatterns += [
     path("landing_jobs/<int:landing_job_id>/", landing_jobs.put, name="landing-jobs"),
     path(
+        "D<int:revision_id>/landings/<int:landing_job_id>/",
+        jobs.LandingJobView.as_view(),
+        name="revision-jobs-page",
+    ),
+    # Allow to find a landing job by ID only. The page will redirect to the canonical
+    # URL including the revision.
+    path(
         "landings/<int:landing_job_id>/",
         jobs.LandingJobView.as_view(),
         {"revision_id": None},
         name="jobs-page",
-    ),
-    path(
-        "D<int:revision_id>/landings/<int:landing_job_id>/",
-        jobs.LandingJobView.as_view(),
-        name="revision-jobs-page",
     ),
 ]
 
