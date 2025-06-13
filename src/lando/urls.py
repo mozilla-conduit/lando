@@ -28,8 +28,6 @@ from lando.headless_api.api import (
     api as headless_api,
 )
 from lando.ui import jobs
-
-# from lando.main.models.landing_jobs import LandingJob
 from lando.ui.legacy import pages, revisions, user_settings
 
 urlpatterns = [
@@ -67,6 +65,17 @@ urlpatterns += [
 # "API" endpoints ported from legacy API app.
 urlpatterns += [
     path("landing_jobs/<int:landing_job_id>/", landing_jobs.put, name="landing-jobs"),
+    path(
+        "landings/<int:landing_job_id>/",
+        jobs.LandingJobView.as_view(),
+        {"revision_id": None},
+        name="jobs-page",
+    ),
+    path(
+        "D<int:revision_id>/landings/<int:landing_job_id>/",
+        jobs.LandingJobView.as_view(),
+        name="revision-jobs-page",
+    ),
 ]
 
 urlpatterns += [

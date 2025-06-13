@@ -1,3 +1,5 @@
+{% set embedded = embedded|default(True) %}
+
 <div class="StackPage-timeline-item">
   <div class="StackPage-timeline-itemStatus">
     <span class="{{ job|tostatusbadgeclass }}">{{ job|tostatusbadgename}}</span>
@@ -5,8 +7,16 @@
 
   <div class="StackPage-timeline-itemDetail">
     <p>Landing requested on <time data-timestamp="{{ job.created_at }}"></time>, by {{ job.requester_email }}.</p>
-    <p><strong>Stack:</strong>
+    {% if embedded %}
+    <p><strong>Job:</strong>
+      <a href="{{ url('jobs-page', args=[job.id]) }}">{{ job.id }}</a>
     </p>
+    {% elif job.revisions %}
+    <p><strong>Lando Stack:</strong>
+      {% set top_revision = job.revisions[0] %}
+      <a href="{{ url('revisions-page', args=[top_revision.revision_id]) }}">D{{ top_revision.revision_id }}</a>
+    </p>
+    {% endif %}
     <p><strong>Revisions:</strong>
       {% for i in job.serialized_landing_path %}{{
       "" if loop.first else " ← "
