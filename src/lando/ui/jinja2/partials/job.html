@@ -8,7 +8,7 @@
   <div class="StackPage-timeline-itemDetail">
     <p>Landing requested on <time data-timestamp="{{ job.created_at }}"></time>, by {{ job.requester_email }}.</p>
     {% if embedded %}
-    <p><strong>Job:</strong>
+    <p><strong>Landing Job:</strong>
       <a href="{{ url('jobs-page', args=[job.id]) }}">{{ job.id }}</a>
     </p>
     {% elif job.revisions %}
@@ -55,6 +55,7 @@
     </div>
     {% endif %}
     <div>
+      <p><strong>Last update:</strong> <time data-timestamp="{{ job.updated_at }}"></time></p>
       {% if job.status.lower() == 'landed' %}
       <strong>Result:</strong> {{ job.legacy_details|escape_html|linkify_transplant_details(job)|safe }}
       {% elif job.legacy_details %}
