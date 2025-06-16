@@ -745,18 +745,16 @@ def test_automation_job_create_commit_failed_check(
 
     scm.push = mock.MagicMock()
 
+    assert automation_worker.run_automation_job(
+        job
+    ), "Job indicated that it should be retried"
+
     if hooks_enabled:
-        assert automation_worker.run_automation_job(
-            job
-        ), "Job indicated that it should be retried"
         assert (
             job.status == JobStatus.FAILED
         ), f"Job unexpectedly succeeded for commit `{bad_action['commitmsg']}`"
         assert reason in job.error, "Expected job failure reason was not found"
     else:
-        assert automation_worker.run_automation_job(
-            job
-        ), "Job indicated that it should be retried"
         assert (
             job.status == JobStatus.LANDED
         ), "Job did not succeed despite disabled hooks."
