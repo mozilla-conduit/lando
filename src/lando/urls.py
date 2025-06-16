@@ -70,6 +70,11 @@ urlpatterns += [
         jobs.LandingJobView.as_view(),
         name="revision-jobs-page",
     ),
+    path(
+        "landings/_internal/queue",
+        jobs.LandingQueueView.as_view(),
+        name="jobs-queue-page",
+    ),
     # Allow to find a landing job by ID only. The page will redirect to the canonical
     # URL including the revision.
     path(
