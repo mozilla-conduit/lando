@@ -166,7 +166,7 @@ class AutomationWorker(Worker):
                 and job.actions.first().action_type == ActionTypeChoices.MERGE_ONTO
             )
 
-            if not skip_checks:
+            if not skip_checks and repo.hooks_enabled:
                 check_errors = self.run_automation_checks(
                     scm, job.requester_email, new_commits
                 )

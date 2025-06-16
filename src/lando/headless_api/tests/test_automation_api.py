@@ -689,11 +689,12 @@ def test_automation_job_create_commit_success(
 
 
 @pytest.mark.parametrize(
-    "scm_type,bad_action_type",
+    "scm_type,bad_action_type,hooks_enabled",
     # We make a cross-product of all the SCM and all the bad actions.
     itertools.product(
         [SCM_TYPE_HG, SCM_TYPE_GIT],
         FAILING_CHECK_TYPES,
+        (True, False),
     ),
 )
 @pytest.mark.django_db
@@ -705,6 +706,7 @@ def test_automation_job_create_commit_failed_check(
     monkeypatch,
     get_failing_check_action_reason: Callable,
     bad_action_type: str,
+    hooks_enabled: bool,
     get_failing_check_diff: Callable,
     extract_email: Callable,
 ):
@@ -712,6 +714,8 @@ def test_automation_job_create_commit_failed_check(
 
     repo = repo_mc(SCM_TYPE_HG)
     scm = repo.scm
+
+    repo.hooks_enabled = hooks_enabled
 
     author_email = extract_email(bad_action["author"])
 
@@ -744,10 +748,16 @@ def test_automation_job_create_commit_failed_check(
     assert automation_worker.run_automation_job(
         job
     ), "Job indicated that it should be retried"
-    assert (
-        job.status == JobStatus.FAILED
-    ), f"Job unexpectedly succeeded for commit `{bad_action['commitmsg']}`"
-    assert reason in job.error, "Expected job failure reason was not found"
+
+    if hooks_enabled:
+        assert (
+            job.status == JobStatus.FAILED
+        ), f"Job unexpectedly succeeded for commit `{bad_action['commitmsg']}`"
+        assert reason in job.error, "Expected job failure reason was not found"
+    else:
+        assert (
+            job.status == JobStatus.LANDED
+        ), "Job did not succeed despite disabled hooks."
 
 
 @pytest.fixture
