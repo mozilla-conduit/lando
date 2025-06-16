@@ -1,9 +1,11 @@
-from django.http import HttpRequest, HttpResponse
+from django.conf import settings
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
 
 from lando.headless_api.models.automation_job import AutomationJob
-from lando.main.models.landing_job import LandingJob
+from lando.main.models.landing_job import JobStatus, LandingJob
+from lando.main.scm.consts import SCM_TYPE_HG
 from lando.ui.views import LandoView
 
 TREEHERDER_JOBS = "https://treeherder.mozilla.org/jobs"
@@ -11,6 +13,27 @@ TREEHERDER_JOBS = "https://treeherder.mozilla.org/jobs"
 
 class JobView(LandoView):
     pass
+
+
+class LandingQueueView(JobView):
+    def get(self, request: HttpRequest) -> HttpResponse:
+        jobs = LandingJob.job_queue_query().all()
+        data = [
+            {
+                "created_at": j.created_at,
+                "id": j.id,
+                "url": f"{settings.SITE_URL}/landings/{j.id}",
+                "repository": j.target_repo.short_name,
+                "requester": j.requester_email,
+                "revisions": [
+                    f"{settings.PHABRICATOR_URL}/D{r.revision_id}" for r in j.revisions
+                ],
+                "status": j.status,
+                "updated_at": j.updated_at,
+            }
+            for j in jobs
+        ]
+        return JsonResponse({"jobs": data}, safe=False)
 
 
 class LandingJobView(JobView):
