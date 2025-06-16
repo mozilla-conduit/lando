@@ -92,6 +92,7 @@ class LandingJob(BaseModel):
         default=None,
         null=True,  # TODO: should change this to not-nullable
         blank=True,
+        db_index=True,
     )
 
     # revision_to_diff_id and revision_order are deprecated and kept for historical reasons.
