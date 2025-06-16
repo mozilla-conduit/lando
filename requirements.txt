@@ -1556,9 +1556,9 @@ rcssmin==1.1.2 \
     --hash=sha256:f363c9d242e1afce4fafbbf6bed52452464b19199e66075bed606764f31ca329 \
     --hash=sha256:fdffd58868a752cac0400249ce21bddf55e00d3206f8885d4a3aca1dab487070
     # via django-compressor
-redis==6.0.0 \
-    --hash=sha256:5446780d2425b787ed89c91ddbfa1be6d32370a636c8fdb687f11b1c26c1fa88 \
-    --hash=sha256:a2e040aee2cdd947be1fa3a32e35a956cd839cc4c1dbbe4b2cdee5b9623fd27c
+redis==6.2.0 \
+    --hash=sha256:c8ddf316ee0aab65f04a11229e94a64b2618451dab7a67cb2f77eb799d872d5e \
+    --hash=sha256:e821f129b75dde6cb99dd35e5c76e8c49512a5a0d8dfdc560b2fbd44b85ca977
     # via lando (pyproject.toml)
 requests==2.32.4 \
     --hash=sha256:27babd3cda2a6d50b30443204ee89830707d396671944c998b5975b031ac2b2c \
