@@ -216,9 +216,9 @@ def linkify_transplant_details(text: str, landing_job: LandingJob) -> str:
     parsed_repo_url = urllib.parse.urlsplit(landing_job.repository_url)
     # We assume HG by default (legacy path), but use a Github-like path if 'git' is
     # present in the netloc.
-    link_template = r'<a href="{repo_url}/rev/\g<1>">{repo_url}/rev/\g<1></a>'
+    link_template = r'<a href="{repo_url}/rev/\g<1>">\g<1></a> (Hg)'
     if "git" in parsed_repo_url.netloc:
-        link_template = r'<a href="{repo_url}/commit/\g<1>">{repo_url}/commit/\g<1></a>'
+        link_template = r'<a href="{repo_url}/commit/\g<1>">\g<1></a> (Git)'
 
     replace = link_template.format(
         repo_url=landing_job.repository_url.removesuffix(".git")
