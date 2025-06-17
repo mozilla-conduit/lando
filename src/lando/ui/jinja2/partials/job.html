@@ -61,8 +61,15 @@
       <p><strong>Duration:</strong> {{ job.duration }}s</p>
       {% endif %}
       <p><strong>Last update:</strong> <time data-timestamp="{{ job.updated_at }}"></time></p>
+
       {% if job.status.lower() == 'landed' and job.legacy_details|default(None) %}
       <strong>Result:</strong> {{ job.legacy_details|escape_html|linkify_transplant_details(job)|safe }}
+
+      {% elif job.status.lower() == 'submitted' and treestatus and not embedded %}
+      <div>
+        <p><strong>Tree Status for <code>{{treestatus.repo}}</code>:</strong> {{ treestatus.status }} ({{treestatus.reason }})</p>
+      </div>
+
       {% elif job.legacy_details %}
       <div class="StackPage-timeline-item-error">
         {% if job.error_breakdown %}
