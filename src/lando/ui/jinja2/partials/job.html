@@ -63,7 +63,7 @@
       <p><strong>Last update:</strong> <time data-timestamp="{{ job.updated_at }}"></time></p>
 
       {% if job.status.lower() == 'landed' and job.legacy_details|default(None) %}
-      <p><strong>Result:</strong> {{ job.legacy_details|escape_html|linkify_transplant_details(job)|safe }}</p>
+      <p><strong>Result:</strong> {{ job.legacy_details|escape_html|linkify_transplant_details(job)|safe }}{% if treeherder %} (<a href="{{ treeherder.job_url }}">TreeHerder</a>){% endif %}</p>
 
       {% elif job.status.lower() == 'submitted' and treestatus and not embedded %}
       <div>
