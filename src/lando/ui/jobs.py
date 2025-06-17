@@ -8,8 +8,6 @@ from lando.main.models.landing_job import JobStatus, LandingJob
 from lando.main.scm.consts import SCM_TYPE_HG
 from lando.ui.views import LandoView
 
-TREEHERDER_JOBS = "https://treeherder.mozilla.org/jobs"
-
 
 class JobView(LandoView):
     pass
