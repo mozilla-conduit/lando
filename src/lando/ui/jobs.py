@@ -5,7 +5,8 @@ from django.template.response import TemplateResponse
 
 from lando.headless_api.models.automation_job import AutomationJob
 from lando.main.models.landing_job import JobStatus, LandingJob
-from lando.main.scm.consts import SCM_TYPE_HG
+from lando.main.models.worker import Worker, WorkerType
+from lando.main.scm import SCM_TYPE_HG
 from lando.ui.views import LandoView
 
 
@@ -53,6 +54,28 @@ class LandingJobView(JobView):
             )
 
         context = {"job": landing_job}
+        if landing_job.status not in JobStatus.final():
+            # There's only one Landing worker for each repo.
+
+            try:
+                landing_worker = Worker.objects.get(
+                    applicable_repos=landing_job.target_repo, type=WorkerType.LANDING
+                )
+            except Worker.DoesNotExist:
+                queue = []
+            else:
+                queue_query = LandingJob.job_queue_query(
+                    repositories=landing_worker.applicable_repos.all(),
+                    # We set the grace_seconds to 0, so all current jobs are shown, including
+                    # those in the grace period, so they don't appear unannounced later.
+                    grace_seconds=0,
+                )
+                queue = list(queue_query.all())
+                # Only include jobs before the current landing_job in the queue
+                # I'd rather do this DB-side, but I couldn't work out how.
+                if landing_job in queue:
+                    queue = queue[: queue.index(landing_job)]
+            context["queue"] = queue
 
         return TemplateResponse(
             request=request,
