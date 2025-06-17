@@ -93,6 +93,12 @@ class LandingJobView(JobView):
                 if landing_job in queue:
                     queue = queue[: queue.index(landing_job)]
             context["queue"] = queue
+        else:
+            # XXX: Only works for Hg repos, waiting for bug 1963822.
+            if landing_job.target_repo.scm_type == SCM_TYPE_HG:
+                context["treeherder"] = {
+                    "job_url": f"{settings.TREEHERDER_URL}/jobs?revision={landing_job.landed_commit_id}"
+                }
 
         return TemplateResponse(
             request=request,
