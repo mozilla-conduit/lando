@@ -449,11 +449,11 @@ class GitSCM(AbstractSCM):
             return False
 
         try:
-            self._git_run("status", cwd=self.path)
+            result = self._git_run("rev-parse", "--is-inside-work-tree", cwd=self.path)
         except SCMException:
             return False
 
-        return True
+        return result.strip() == "true"
 
     @classmethod
     def repo_is_supported(cls, path: str) -> bool:
