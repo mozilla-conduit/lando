@@ -352,15 +352,6 @@ class LandingJob(BaseModel):
 
         self.save()
 
-    @property
-    def legacy_details(self) -> str:
-        """Return a string of the landed commit id or the error details."""
-        if self.status in (JobStatus.FAILED, JobStatus.CANCELLED):
-            return self.error
-
-        # In case the job is deferred, there may be an error still associated.
-        return self.landed_commit_id or self.error
-
 
 def add_job_with_revisions(
     revisions: list[Revision], **params: Any  # noqa: ANN401

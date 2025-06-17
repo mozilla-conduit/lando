@@ -213,8 +213,7 @@ def linkify_transplant_details(text: str, landing_job: LandingJob) -> str:
     if landing_job.status != JobStatus.LANDED:
         return text
 
-    commit_id = landing_job.legacy_details
-    search = r"(?=\b)(" + re.escape(commit_id) + r")(?=\b)"
+    search = r"(?=\b)(" + re.escape(landing_job.landed_commit_id) + r")(?=\b)"
 
     # We assume HG by default (legacy path), but use a Github-like path if 'git' is
     # present in the netloc.
