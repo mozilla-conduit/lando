@@ -52,16 +52,10 @@ CSRF_COOKIE_SECURE = True
 DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("DATA_UPLOAD_MAX_MEMORY_SIZE", "52428800"))
 
 # Application definition
-
+# Order matters if we want to override things like templates
+# (in the first apps, for the later apps).
 INSTALLED_APPS = [
-    "django.contrib.admin",
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    "django.contrib.sessions",
-    "django.contrib.messages",
-    "django.contrib.staticfiles",
-    "compressor",
-    "mozilla_django_oidc",
+    # Our own apps.
     "lando.main",
     "lando.pulse",
     "lando.pushlog",
@@ -70,6 +64,15 @@ INSTALLED_APPS = [
     "lando.dockerflow",
     "lando.ui",
     "lando.headless_api",
+    # Third-party apps
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "compressor",
+    "mozilla_django_oidc",
 ]
 
 MIDDLEWARE = [
