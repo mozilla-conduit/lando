@@ -63,7 +63,7 @@
       <p><strong>Last update:</strong> <time data-timestamp="{{ job.updated_at }}"></time></p>
 
       {% if job.status.lower() == 'landed' and job.legacy_details|default(None) %}
-      <strong>Result:</strong> {{ job.legacy_details|escape_html|linkify_transplant_details(job)|safe }}
+      <p><strong>Result:</strong> {{ job.legacy_details|escape_html|linkify_transplant_details(job)|safe }}</p>
 
       {% elif job.status.lower() == 'submitted' and treestatus and not embedded %}
       <div>
@@ -80,6 +80,7 @@
         {% endif %}
       </div>
       {% endif %}
+
       {% if job.status in ("SUBMITTED", "DEFERRED") %}
       <button data-landing_job_id="{{ job.id }}" class="cancel-landing-job button is-small is-danger"
         data-csrf-token="{{ csrf_token }}">Cancel landing request</button>
