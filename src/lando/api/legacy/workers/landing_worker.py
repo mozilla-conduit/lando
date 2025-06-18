@@ -35,6 +35,7 @@ from lando.api.legacy.uplift import (
 from lando.api.legacy.workers.base import Worker
 from lando.main.models.landing_job import JobAction, JobStatus, LandingJob
 from lando.main.models.repo import Repo
+from lando.main.models.worker import WorkerType
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.commit import CommitData
 from lando.main.scm.exceptions import (
@@ -101,6 +102,9 @@ def job_processing(job: LandingJob):
 
 
 class LandingWorker(Worker):
+
+    type = WorkerType.LANDING
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.last_job_finished = None
