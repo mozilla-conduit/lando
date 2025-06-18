@@ -5,6 +5,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 from lando.environments import Environment
 from lando.main.models import Repo, Worker
+from lando.main.models.worker import WorkerType
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 
 
@@ -15,11 +16,13 @@ class Command(BaseCommand):
         """Ensure a git and an hg worker exist on the local environment."""
         # Set up workers for each SCM. Historically, the worker with no suffix is the landing worker.
         worker_scm_types = {
-            SCM_TYPE_GIT: [
-                "",
-                "-automation-worker",
-            ],
-            SCM_TYPE_HG: [""],
+            SCM_TYPE_GIT: {
+                WorkerType.LANDING: "",
+                WorkerType.AUTOMATION: "-automation-worker",
+            },
+            SCM_TYPE_HG: {
+                WorkerType.LANDING: "",
+            },
         }
 
         workers = {}
@@ -27,13 +30,13 @@ class Command(BaseCommand):
         for worker_scm, worker_type in [
             (scm, type) for scm, types in worker_scm_types.items() for type in types
         ]:
-            worker_name = f"{worker_scm}{worker_type}"
+            worker_name = f"{worker_scm}{worker_scm_types[worker_scm][worker_type]}"
             try:
                 worker = Worker.objects.get(name=worker_name)
                 self.stdout.write(f"Found {worker} worker.")
             except Worker.DoesNotExist:
                 # Set the name of the worker to match the SCM.
-                worker = Worker(name=worker_name, scm=worker_scm)
+                worker = Worker(name=worker_name, scm=worker_scm, type=worker_type)
                 worker.save()
                 self.stdout.write(f"Created {worker} worker.")
             finally:

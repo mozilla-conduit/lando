@@ -178,6 +178,7 @@ class WorkerAdmin(admin.ModelAdmin):
     model = Worker
     list_display = (
         "name",
+        "type",
         "scm",
         "repo_count",
         "is_paused",
