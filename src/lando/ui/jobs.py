@@ -73,10 +73,10 @@ class LandingJobView(JobView):
         }
 
         if landing_job.status not in JobStatus.final():
-            # There's only one Landing worker for each job.
-            landing_worker = Worker.objects.filter(
+            # There's only one Landing worker for each repo.
+            landing_worker = Worker.objects.one_or_none(
                 applicable_repos=landing_job.target_repo, type=WorkerType.LANDING
-            ).get()
+            )
             queue_query = LandingJob.job_queue_query(
                 repositories=landing_worker.applicable_repos.all(),
                 # We set the grace_seconds to 0, so all current jobs are shown, including
