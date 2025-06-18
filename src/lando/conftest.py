@@ -31,6 +31,8 @@ from lando.main.models import (
     Repo,
     Worker,
 )
+from lando.main.models.landing_job import add_job_with_revisions
+from lando.main.models.revision import Revision
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.scm.commit import CommitData
 from lando.pushlog.models import Commit, File, Push, Tag
@@ -927,3 +929,43 @@ def mock_automation_worker_phab_repo_update(monkeypatch):
     )
 
     return mock_trigger_update
+
+
+@pytest.fixture
+def make_landing_job(repo_mc):
+    def landing_job_factory(
+        *,
+        revisions=None,
+        landing_path=((1, 1),),
+        requester_email="tuser@example.com",
+        status=None,
+        target_repo=None,
+        **kwargs,
+    ):
+        """Create a landing job with revisions.
+
+        If revisions is None, a set of revisions will be built from landing_paths.
+        """
+        if not target_repo:
+            target_repo = repo_mc(SCM_TYPE_GIT)
+
+        job_params = {
+            "requester_email": requester_email,
+            "status": status,
+            "target_repo": target_repo,
+            **kwargs,
+        }
+        if not revisions:
+            revisions = []
+            for revision_id, diff_id in landing_path:
+                revision = Revision.one_or_none(revision_id=revision_id)
+                if not revision:
+                    revision = Revision(revision_id=revision_id)
+                revision.diff_id = diff_id
+                revisions.append(revision)
+            for revision in revisions:
+                revision.save()
+        job = add_job_with_revisions(revisions, **job_params)
+        return job
+
+    return landing_job_factory
