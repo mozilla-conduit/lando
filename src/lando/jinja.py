@@ -14,6 +14,7 @@ from jinja2 import Environment
 
 from lando.main.models import Repo
 from lando.main.models.landing_job import JobStatus, LandingJob
+from lando.main.scm.consts import SCM_TYPE_GIT
 from lando.treestatus.forms import (
     ReasonCategory,
     TreeCategory,
@@ -213,15 +214,14 @@ def linkify_transplant_details(text: str, landing_job: LandingJob) -> str:
     commit_id = landing_job.legacy_details
     search = r"(?=\b)(" + re.escape(commit_id) + r")(?=\b)"
 
-    parsed_repo_url = urllib.parse.urlsplit(landing_job.repository_url)
     # We assume HG by default (legacy path), but use a Github-like path if 'git' is
     # present in the netloc.
     link_template = r'<a href="{repo_url}/rev/\g<1>">{repo_url}/rev/\g<1></a>'
-    if "git" in parsed_repo_url.netloc:
+    if landing_job.target_repo.scm_type == SCM_TYPE_GIT:
         link_template = r'<a href="{repo_url}/commit/\g<1>">{repo_url}/commit/\g<1></a>'
 
     replace = link_template.format(
-        repo_url=landing_job.repository_url.removesuffix(".git")
+        repo_url=landing_job.target_repo.url.removesuffix(".git")
     )
     return re.sub(search, replace, str(text))  # This is case sensitive
 
