@@ -15,7 +15,6 @@ from lando.main.models import Repo, Revision
 from lando.main.models.landing_job import (
     JobStatus,
     LandingJob,
-    add_job_with_revisions,
 )
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.scm.hg import LostPushRace
@@ -265,6 +264,7 @@ def test_integrated_execute_job(
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    make_landing_job,
     repo_type: str,
     revisions_params,
     get_landing_worker,
@@ -282,7 +282,7 @@ def test_integrated_execute_job(
         "target_repo": repo,
         "attempts": 1,
     }
-    job = add_job_with_revisions(revisions, **job_params)
+    job = make_landing_job(revisions=revisions, **job_params)
 
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
@@ -321,6 +321,7 @@ def test_integrated_execute_job_with_force_push(
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    make_landing_job,
     get_landing_worker,
     repo_type: str,
 ):
@@ -334,7 +335,7 @@ def test_integrated_execute_job_with_force_push(
         "target_repo": repo,
         "attempts": 1,
     }
-    job = add_job_with_revisions([create_patch_revision(1)], **job_params)
+    job = make_landing_job(revisions=[create_patch_revision(1)], **job_params)
 
     # We don't care about repo update in this test, however if we don't mock
     # this, the test will fail since there is no celery instance.
@@ -371,6 +372,7 @@ def test_integrated_execute_job_with_bookmark(
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    make_landing_job,
     get_landing_worker,
     repo_type: str,
 ):
@@ -384,7 +386,7 @@ def test_integrated_execute_job_with_bookmark(
         "target_repo": repo,
         "attempts": 1,
     }
-    job = add_job_with_revisions([create_patch_revision(1)], **job_params)
+    job = make_landing_job(revisions=[create_patch_revision(1)], **job_params)
 
     # We don't care about repo update in this test, however if we don't mock
     # this, the test will fail since there is no celery instance.
@@ -412,26 +414,25 @@ def test_integrated_execute_job_with_bookmark(
 )
 @pytest.mark.django_db
 def test_no_diff_start_line(
-    repo_mc,
     treestatusdouble,
     create_patch_revision,
+    make_landing_job,
     caplog,
     get_landing_worker,
     repo_type: str,
 ):
-    repo = repo_mc(repo_type)
-    treestatusdouble.open_tree(repo.name)
 
     job_params = {
         "id": 1234,
         "status": JobStatus.IN_PROGRESS,
         "requester_email": "test@example.com",
-        "target_repo": repo,
         "attempts": 1,
     }
-    job = add_job_with_revisions(
-        [create_patch_revision(1, patch=PATCH_WITHOUT_STARTLINE)], **job_params
+    job = make_landing_job(
+        revisions=[create_patch_revision(1, patch=PATCH_WITHOUT_STARTLINE)],
+        **job_params,
     )
+    treestatusdouble.open_tree(job.target_repo.name)
 
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
@@ -452,6 +453,7 @@ def test_lose_push_race(
     repo_mc,
     treestatusdouble,
     create_patch_revision,
+    make_landing_job,
     get_landing_worker,
     repo_type: str,
 ):
@@ -466,8 +468,8 @@ def test_lose_push_race(
         "target_repo": repo,
         "attempts": 1,
     }
-    job = add_job_with_revisions(
-        [create_patch_revision(1, patch=PATCH_PUSH_LOSER)], **job_params
+    job = make_landing_job(
+        revisions=[create_patch_revision(1, patch=PATCH_PUSH_LOSER)], **job_params
     )
 
     mock_push = mock.MagicMock()
@@ -498,6 +500,7 @@ def test_merge_conflict(
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    make_landing_job,
     caplog,
     get_landing_worker,
     repo_type: str,
@@ -513,8 +516,8 @@ def test_merge_conflict(
         "target_repo": repo,
         "attempts": 1,
     }
-    job = add_job_with_revisions(
-        [
+    job = make_landing_job(
+        revisions=[
             create_patch_revision(1, patch=PATCH_FORMATTED_2),
         ],
         **job_params,
@@ -572,6 +575,7 @@ def test_failed_landing_job_checks(
     repo_mc,
     treestatusdouble,
     create_patch_revision,
+    make_landing_job,
     get_landing_worker,
     get_failing_check_diff,
     repo_type: str,
@@ -611,7 +615,7 @@ def test_failed_landing_job_checks(
         "target_repo": repo,
         "attempts": 1,
     }
-    job = add_job_with_revisions(revisions, **job_params)
+    job = make_landing_job(revisions=revisions, **job_params)
 
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
@@ -632,6 +636,7 @@ def test_failed_landing_job_notification(
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    make_landing_job,
     get_landing_worker,
     repo_type: str,
 ):
@@ -655,7 +660,7 @@ def test_failed_landing_job_notification(
         "target_repo": repo,
         "attempts": 1,
     }
-    job = add_job_with_revisions(revisions, **job_params)
+    job = make_landing_job(revisions=revisions, **job_params)
 
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
@@ -683,6 +688,7 @@ def test_format_patch_success_unchanged(
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    make_landing_job,
     normal_patch,
     get_landing_worker,
     repo_type: str,
@@ -701,7 +707,7 @@ def test_format_patch_success_unchanged(
         "target_repo": repo,
         "attempts": 1,
     }
-    job = add_job_with_revisions(revisions, **job_params)
+    job = make_landing_job(revisions=revisions, **job_params)
 
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
@@ -744,6 +750,7 @@ def test_format_single_success_changed(
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    make_landing_job,
     get_landing_worker,
     repo_type: str,
 ):
@@ -771,8 +778,8 @@ def test_format_single_success_changed(
         "target_repo": repo,
         "attempts": 1,
     }
-    job = add_job_with_revisions(
-        [create_patch_revision(2, patch=PATCH_FORMATTED_1)], **job_params
+    job = make_landing_job(
+        revisions=[create_patch_revision(2, patch=PATCH_FORMATTED_1)], **job_params
     )
 
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
@@ -834,6 +841,7 @@ def test_format_stack_success_changed(
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    make_landing_job,
     get_landing_worker,
     repo_type: str,
 ):
@@ -853,7 +861,7 @@ def test_format_stack_success_changed(
         "target_repo": repo,
         "attempts": 1,
     }
-    job = add_job_with_revisions(revisions, **job_params)
+    job = make_landing_job(revisions=revisions, **job_params)
 
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
@@ -912,6 +920,7 @@ def test_format_patch_fail(
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    make_landing_job,
     normal_patch,
     get_landing_worker,
     repo_type: str,
@@ -931,7 +940,7 @@ def test_format_patch_fail(
         "target_repo": repo,
         "attempts": 1,
     }
-    job = add_job_with_revisions(revisions, **job_params)
+    job = make_landing_job(revisions=revisions, **job_params)
 
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
@@ -972,6 +981,7 @@ def test_format_patch_no_landoini(
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    make_landing_job,
     get_landing_worker,
     repo_type: str,
 ):
@@ -991,7 +1001,7 @@ def test_format_patch_no_landoini(
         "target_repo": repo,
         "attempts": 1,
     }
-    job = add_job_with_revisions(revisions, **job_params)
+    job = make_landing_job(revisions=revisions, **job_params)
 
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
@@ -1023,7 +1033,7 @@ def test_format_patch_no_landoini(
 @pytest.mark.django_db
 def test_landing_job_revisions_sorting(
     create_patch_revision,
-    repo_mc,
+    make_landing_job,
 ):
     revisions = [
         create_patch_revision(1),
@@ -1033,10 +1043,9 @@ def test_landing_job_revisions_sorting(
     job_params = {
         "status": JobStatus.SUBMITTED,
         "requester_email": "test@example.com",
-        "target_repo": repo_mc(scm_type=SCM_TYPE_HG),
         "attempts": 1,
     }
-    job = add_job_with_revisions(revisions, **job_params)
+    job = make_landing_job(revisions=revisions, **job_params)
 
     assert list(job.revisions.all()) == revisions
     new_ordering = [revisions[2], revisions[0], revisions[1]]
