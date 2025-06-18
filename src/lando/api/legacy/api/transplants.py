@@ -217,8 +217,7 @@ def post(phab: PhabricatorClient, request: HttpRequest, data: dict):  # noqa: AN
     invalid_flags = set(flags) - set(allowed_flags)
     if invalid_flags:
         error_message = (
-            f"Flags must be one or more of {allowed_flags}; "
-            f"{invalid_flags} provided."
+            f"Flags must be one or more of {allowed_flags}; {invalid_flags} provided."
         )
         raise LegacyAPIException(400, error_message)
 
@@ -347,8 +346,6 @@ def post(phab: PhabricatorClient, request: HttpRequest, data: dict):  # noqa: AN
         # Trigger a local transplant
         job = LandingJob(
             requester_email=ldap_username,
-            repository_name=landing_repo.short_name,
-            repository_url=landing_repo.url,
             target_repo=landing_repo,
         )
         job.save()

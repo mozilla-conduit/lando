@@ -78,8 +78,6 @@ class LandingJobAdmin(admin.ModelAdmin):
         "formatted_replacements",
         "landed_commit_id",
         "priority",
-        "repository_name",
-        "repository_url",
         "requester_email",
         "target_commit_hash",
         "target_repo",
@@ -165,8 +163,24 @@ class ConfigurationVariableAdmin(admin.ModelAdmin):
     )
 
 
+class WorkerAdmin(admin.ModelAdmin):
+    model = Worker
+    list_display = (
+        "name",
+        "type",
+        "scm",
+        "repo_count",
+        "is_paused",
+        "is_stopped",
+    )
+
+    def repo_count(self, instance: Worker) -> int:
+        """Return the count of repositories associated to the Worker."""
+        return instance.applicable_repos.count()
+
+
 admin.site.register(Repo, RepoAdmin)
 admin.site.register(LandingJob, LandingJobAdmin)
 admin.site.register(Revision, RevisionAdmin)
-admin.site.register(Worker, admin.ModelAdmin)
+admin.site.register(Worker, WorkerAdmin)
 admin.site.register(ConfigurationVariable, ConfigurationVariableAdmin)

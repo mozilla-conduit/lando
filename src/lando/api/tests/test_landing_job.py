@@ -6,15 +6,16 @@ from lando.main.models import JobStatus, LandingJob, Repo
 from lando.main.scm import SCM_TYPE_HG
 
 
+@pytest.mark.django_db
 @pytest.fixture
-def landing_job(db):
+def landing_job(repo_mc):
     def _landing_job(status, requester_email="tuser@example.com"):
         job = LandingJob(
             status=status,
             revision_to_diff_id={},
             revision_order=[],
             requester_email=requester_email,
-            repository_name="",
+            target_repo=repo_mc(scm_type=SCM_TYPE_HG),
         )
         job.save()
         return job
@@ -22,8 +23,9 @@ def landing_job(db):
     return _landing_job
 
 
+@pytest.mark.django_db
 def test_cancel_landing_job_cancels_when_submitted(
-    db, authenticated_client, user, landing_job, mock_permissions
+    authenticated_client, user, landing_job, mock_permissions
 ):
     """Test happy path; cancelling a job that has not started yet."""
     job = landing_job(JobStatus.SUBMITTED, requester_email=user.email)
@@ -38,8 +40,9 @@ def test_cancel_landing_job_cancels_when_submitted(
     assert job.status == JobStatus.CANCELLED
 
 
+@pytest.mark.django_db
 def test_cancel_landing_job_cancels_when_deferred(
-    db, authenticated_client, user, landing_job, mock_permissions
+    authenticated_client, user, landing_job, mock_permissions
 ):
     """Test happy path; cancelling a job that has been deferred."""
     job = landing_job(JobStatus.DEFERRED, requester_email=user.email)
@@ -55,8 +58,9 @@ def test_cancel_landing_job_cancels_when_deferred(
     assert job.status == JobStatus.CANCELLED
 
 
+@pytest.mark.django_db
 def test_cancel_landing_job_fails_in_progress(
-    db, authenticated_client, user, landing_job, mock_permissions
+    authenticated_client, user, landing_job, mock_permissions
 ):
     """Test trying to cancel a job that is in progress fails."""
     job = landing_job(JobStatus.IN_PROGRESS, requester_email=user.email)
@@ -75,8 +79,9 @@ def test_cancel_landing_job_fails_in_progress(
     assert job.status == JobStatus.IN_PROGRESS
 
 
+@pytest.mark.django_db
 def test_cancel_landing_job_fails_not_owner(
-    db, authenticated_client, landing_job, mock_permissions
+    authenticated_client, landing_job, mock_permissions
 ):
     """Test trying to cancel a job that is created by a different user."""
     job = landing_job(JobStatus.SUBMITTED, "anotheruser@example.org")
@@ -95,8 +100,9 @@ def test_cancel_landing_job_fails_not_owner(
     assert job.status == JobStatus.SUBMITTED
 
 
+@pytest.mark.django_db
 def test_cancel_landing_job_fails_not_found(
-    db, authenticated_client, landing_job, mock_permissions
+    authenticated_client, landing_job, mock_permissions
 ):
     """Test trying to cancel a job that does not exist."""
     response = authenticated_client.put(
@@ -109,8 +115,9 @@ def test_cancel_landing_job_fails_not_found(
     assert response.json()["detail"] == ("A landing job with ID 1 was not found.")
 
 
+@pytest.mark.django_db
 def test_cancel_landing_job_fails_bad_input(
-    db, authenticated_client, user, landing_job, mock_permissions
+    authenticated_client, user, landing_job, mock_permissions
 ):
     """Test trying to send an invalid status to the update endpoint."""
     job = landing_job(JobStatus.SUBMITTED, requester_email=user.email)
@@ -128,7 +135,8 @@ def test_cancel_landing_job_fails_bad_input(
     assert job.status == JobStatus.SUBMITTED
 
 
-def test_landing_job_acquire_job_job_queue_query(db, mocked_repo_config):
+@pytest.mark.django_db
+def test_landing_job_acquire_job_job_queue_query(mocked_repo_config):
     REPO = Repo.objects.create(name="test-repo", scm_type=SCM_TYPE_HG)
     jobs = [
         LandingJob(

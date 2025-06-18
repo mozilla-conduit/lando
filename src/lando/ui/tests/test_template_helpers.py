@@ -153,31 +153,37 @@ def test_linkify_revision_ids(input_text, output_text):
     assert output_text == linkify_revision_ids(input_text)
 
 
+@pytest.mark.django_db
 @pytest.mark.parametrize(
-    "commit_id, repo_url, result",
+    "commit_id, repo_type, repo_url, result",
     [
         (
             "badc0ffe",
+            SCM_TYPE_GIT,
             "https://github.com/bad/coffee",
             "https://github.com/bad/coffee/commit/badc0ffe",
         ),
         (
             "badc0ffe",
+            SCM_TYPE_GIT,
             "https://github.com/bad/coffee.git",
             "https://github.com/bad/coffee/commit/badc0ffe",
         ),
         (
             "badc0ffe",
+            SCM_TYPE_HG,
             "https://hg.mozilla.org/bad/coffee",
             "https://hg.mozilla.org/bad/coffee/rev/badc0ffe",
         ),
     ],
 )
-def test_linkify_transplant_details(commit_id: str, repo_url: str, result: str):
+def test_linkify_transplant_details(
+    repo_mc, commit_id: str, repo_type: str, repo_url: str, result: str
+):
+    repo = repo_mc(repo_type)
+    repo.url = repo_url
     landing_job = LandingJob(
-        landed_commit_id=commit_id,
-        repository_url=repo_url,
-        status=JobStatus.LANDED,
+        landed_commit_id=commit_id, status=JobStatus.LANDED, target_repo=repo
     )
     re_string = re.compile(r'.*href="(.*)".*')
     out = linkify_transplant_details(f"{commit_id} is here", landing_job)

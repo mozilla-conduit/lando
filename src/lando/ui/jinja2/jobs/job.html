@@ -1,0 +1,35 @@
+{% extends "partials/layout.html" %}
+{% block page_title %}{{job.id}} - Lando - Mozilla{% endblock %}
+
+{% block main %}
+<main class="StackPage container fullhd">
+
+  <h1>Landing Job {{job.id}}</h1>
+
+<div class="StackPage-timeline">
+
+  {% set embedded = False %}
+  {% include "partials/job.html" %}
+
+</div>
+
+{% if queue %}
+
+  <h1>Landing Queue</h1>
+
+  <p>There are {{ queue|length }} jobs ahead in the queue.</p>
+
+  <div class="StackPage-landingQueue StackPage-timeline"/>
+
+    {% set main_job = job %}
+    {% for job in queue %}
+      {% if job.id != main_job.id %}
+      {% set embedded =  True %}
+      {% include "partials/job.html" %}
+      {% endif %}
+    {% endfor %}
+
+{% endif %}
+
+</main>
+{% endblock %}

@@ -9,6 +9,7 @@ from typing import (
     Any,
     Iterable,
     Optional,
+    Self,
 )
 
 from django.db import models
@@ -32,6 +33,33 @@ class JobStatus(models.TextChoices):
     FAILED = "FAILED", gettext_lazy("Failed")
     LANDED = "LANDED", gettext_lazy("Landed")
     CANCELLED = "CANCELLED", gettext_lazy("Cancelled")
+
+    @classmethod
+    def ordering(cls) -> Case[Self]:
+        # For `JobStatus.SUBMITTED` jobs, higher priority items come first
+        # and then we order by creation time (older first).
+        # Any `JobStatus.IN_PROGRESS` job are second and there should
+        # be a maximum of one (per repository). With the assumption of a single worker
+        # instance, a worker picking up an IN_PROGRESS job would mean that the job
+        # previously crashed, and that the worker needs to restart processing.
+        return Case(
+            When(status=cls.SUBMITTED, then=1),
+            When(status=cls.IN_PROGRESS, then=2),
+            When(status=cls.DEFERRED, then=3),
+            When(status=cls.FAILED, then=4),
+            When(status=cls.LANDED, then=5),
+            When(status=cls.CANCELLED, then=6),
+            default=0,
+            output_field=IntegerField(),
+        )
+
+    @classmethod
+    def pending(cls) -> list[tuple[str, str]]:
+        return [cls.SUBMITTED, cls.IN_PROGRESS, cls.DEFERRED]
+
+    @classmethod
+    def final(cls) -> list[tuple[str, str]]:
+        return [cls.FAILED, cls.LANDED, cls.CANCELLED]
 
 
 @enum.unique
@@ -64,6 +92,7 @@ class LandingJob(BaseModel):
         default=None,
         null=True,  # TODO: should change this to not-nullable
         blank=True,
+        db_index=True,
     )
 
     # revision_to_diff_id and revision_order are deprecated and kept for historical reasons.
@@ -107,10 +136,6 @@ class LandingJob(BaseModel):
     unsorted_revisions = models.ManyToManyField(
         Revision, through="RevisionLandingJob", related_name="landing_jobs"
     )
-
-    # These are automatically set, deprecated fields, but kept for compatibility.
-    repository_name = models.TextField(default="", blank=True)
-    repository_url = models.TextField(default="", blank=True)
 
     # New field in lieu of deprecated repository fields.
     target_repo = models.ForeignKey("Repo", on_delete=models.SET_NULL, null=True)
@@ -204,12 +229,7 @@ class LandingJob(BaseModel):
             grace_seconds (int): Ignore landing jobs that were submitted after this
                 many seconds ago.
         """
-        applicable_statuses = (
-            JobStatus.SUBMITTED,
-            JobStatus.IN_PROGRESS,
-            JobStatus.DEFERRED,
-        )
-        q = cls.objects.filter(status__in=applicable_statuses)
+        q = cls.objects.filter(status__in=JobStatus.pending())
 
         if repositories:
             q = q.filter(target_repo__in=repositories)
@@ -219,22 +239,7 @@ class LandingJob(BaseModel):
             grace_cutoff = now - datetime.timedelta(seconds=grace_seconds)
             q = q.filter(created_at__lt=grace_cutoff)
 
-        # Any `JobStatus.IN_PROGRESS` job is first and there should
-        # be a maximum of one (per repository). For
-        # `JobStatus.SUBMITTED` jobs, higher priority items come first
-        # and then we order by creation time (older first).
-        ordering = Case(
-            When(status=JobStatus.SUBMITTED, then=1),
-            When(status=JobStatus.IN_PROGRESS, then=2),
-            When(status=JobStatus.DEFERRED, then=3),
-            When(status=JobStatus.FAILED, then=4),
-            When(status=JobStatus.LANDED, then=5),
-            When(status=JobStatus.CANCELLED, then=6),
-            default=0,
-            output_field=IntegerField(),
-        )
-
-        q = q.annotate(status_order=ordering).order_by(
+        q = q.annotate(status_order=JobStatus.ordering()).order_by(
             "-status_order", "-priority", "created_at"
         )
 
@@ -346,15 +351,6 @@ class LandingJob(BaseModel):
             self.landed_commit_id = kwargs["commit_id"]
 
         self.save()
-
-    @property
-    def legacy_details(self) -> str:
-        """Return a string of the landed commit id or the error details."""
-        if self.status in (JobStatus.FAILED, JobStatus.CANCELLED):
-            return self.error
-
-        # In case the job is deferred, there may be an error still associated.
-        return self.landed_commit_id or self.error
 
 
 def add_job_with_revisions(
