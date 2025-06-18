@@ -1,3 +1,4 @@
+import base64
 import datetime
 import io
 import re
@@ -215,6 +216,53 @@ def test_GitSCM_apply_get_patch_merge(
     merge_patch_helper = scm.get_patch_helper(commit.hash)
 
     assert merge_patch_helper is None
+
+
+def test_GitSCM_apply_patch_bytes(git_repo: Path, git_patch: Callable):
+    scm = GitSCM(str(git_repo))
+
+    # Get patch content as bytes
+    patch_str = git_patch()
+    patch_bytes = patch_str.encode("utf-8")
+
+    # Apply patch using the new method
+    scm.apply_patch_bytes(patch_bytes)
+
+    commit = scm.describe_commit()
+
+    expected_patch = patch_str
+    new_patch = scm.get_patch(commit.hash)
+
+    assert new_patch, f"Empty patch unexpectedly generated for {commit.hash}"
+
+    # The git version stamp varies. Strip it from the output before comparing.
+    remove_git_version_re = r"\d+(\.\d+)+$"
+    no_version_patch = re.sub(remove_git_version_re, "", new_patch)
+
+    assert no_version_patch == expected_patch
+
+
+def test_GitSCM_apply_patch_bytes_base64(git_repo: Path, git_patch: Callable):
+    scm = GitSCM(str(git_repo))
+
+    patch_str = git_patch()
+    patch_b64 = base64.b64encode(patch_str.encode("utf-8")).decode("ascii")
+
+    patch_bytes = base64.b64decode(patch_b64)
+    scm.apply_patch_bytes(patch_bytes)
+
+    commit = scm.describe_commit()
+
+    expected_patch = patch_str
+    new_patch = scm.get_patch(commit.hash)
+
+    assert new_patch, f"Empty patch unexpectedly generated for {commit.hash}"
+
+    # The git version stamp varies. Strip it from the output before comparing.
+    remove_git_version_re = r"\d+(\.\d+)+$"
+    no_version_patch = re.sub(remove_git_version_re, "", new_patch)
+
+    assert no_version_patch == expected_patch
 
 
 DIFF_WITH_IGNORED_JSON = """\

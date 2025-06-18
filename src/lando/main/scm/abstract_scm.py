@@ -101,6 +101,17 @@ class AbstractSCM:
         """
 
     @abstractmethod
+    def apply_patch_bytes(self, patch_bytes: bytes):
+        """Apply the given bytes representing a patch to the current repository.
+
+        Args:
+            patch_bytes (bytes): A patch in the concrete SCM's standard format.
+
+        Returns:
+            None
+        """
+
+    @abstractmethod
     def get_patch(self, revision_id: str) -> str | None:
         """Return a complete patch for the given revision, in the git extended diff format.
 

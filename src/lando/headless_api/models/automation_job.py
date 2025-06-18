@@ -166,6 +166,7 @@ class ActionTypeChoices(models.TextChoices):
     """Accepted choices for the types of automation job actions."""
 
     ADD_COMMIT = "add-commit", gettext_lazy("Add commit")
+    ADD_COMMIT_BASE64 = "add-commit-base64", gettext_lazy("Add base64 commit")
     CREATE_COMMIT = "create-commit", gettext_lazy("Create commit")
     TAG = "tag", gettext_lazy("Tag")
     MERGE_ONTO = "merge-onto", gettext_lazy("Merge onto")

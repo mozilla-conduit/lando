@@ -289,6 +289,14 @@ class HgSCM(AbstractSCM):
                 + ["--logfile", f_msg.name]
             )
 
+    def apply_patch_bytes(self, patch_bytes: bytes):
+        """Apply the given `hg export` to the repo directly."""
+        with tempfile.NamedTemporaryFile(mode="wb", suffix=".patch") as tmp_file:
+            tmp_file.write(patch_bytes)
+            tmp_file.flush()
+
+            self.run_hg(["import", tmp_file.name])
+
     def get_patch(self, revision_id: str) -> str | None:
         """Return a complete patch for the given revision, in the git extended diff format."""
         return self.run_hg(["export", "--git", "-r", revision_id]).decode("utf-8")

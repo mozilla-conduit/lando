@@ -1,3 +1,5 @@
+import base64
+import binascii
 import datetime
 import logging
 from io import StringIO
@@ -178,6 +180,42 @@ class AddCommitAction(Schema):
         return True
 
 
+class AddCommitBase64Action(Schema):
+    """Create a new commit from the given base64 patch content."""
+
+    action: Literal["add-commit-base64"]
+    content: str
+
+    def process(
+        self, job: AutomationJob, repo: Repo, scm: AbstractSCM, index: int
+    ) -> bool:
+        """Apply the base64 encoded `git format-patch` to the repo."""
+        try:
+            patch_bytes = base64.b64decode(self.content)
+        except binascii.Error as exc:
+            message = (
+                f"Aborting, could not decode patch from base64 in `add-commit-base64`, "
+                f"action #{index}."
+                f"\n{exc}"
+            )
+            raise AutomationActionException(
+                message=message, job_action=JobAction.FAIL, is_fatal=True
+            )
+
+        try:
+            scm.apply_patch_bytes(patch_bytes)
+        except Exception as exc:
+            message = (
+                f"Aborting, could not apply patch in `add-commit-base64` action #{index}."
+                f"\n{exc}"
+            )
+            raise AutomationActionException(
+                message=message, job_action=JobAction.FAIL, is_fatal=True
+            )
+
+        return True
+
+
 class CreateCommitAction(Schema):
     """Create a new commit from a diff and metadata."""
 
@@ -286,7 +324,12 @@ class AddBranchAction(Schema):
 
 
 Action = Union[
-    AddCommitAction, CreateCommitAction, MergeOntoAction, AddBranchAction, TagAction
+    AddCommitAction,
+    AddCommitBase64Action,
+    CreateCommitAction,
+    MergeOntoAction,
+    AddBranchAction,
+    TagAction,
 ]
 
 ActionAdapter = TypeAdapter(Action)
