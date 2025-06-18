@@ -1023,6 +1023,7 @@ def test_format_patch_no_landoini(
 @pytest.mark.django_db
 def test_landing_job_revisions_sorting(
     create_patch_revision,
+    repo_mc,
 ):
     revisions = [
         create_patch_revision(1),
@@ -1032,7 +1033,7 @@ def test_landing_job_revisions_sorting(
     job_params = {
         "status": JobStatus.SUBMITTED,
         "requester_email": "test@example.com",
-        "repository_name": "mozilla-central",
+        "target_repo": repo_mc(scm_type=SCM_TYPE_HG),
         "attempts": 1,
     }
     job = add_job_with_revisions(revisions, **job_params)

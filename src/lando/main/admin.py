@@ -78,8 +78,6 @@ class LandingJobAdmin(admin.ModelAdmin):
         "formatted_replacements",
         "landed_commit_id",
         "priority",
-        "repository_name",
-        "repository_url",
         "requester_email",
         "target_commit_hash",
         "target_repo",

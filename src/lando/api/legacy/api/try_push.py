@@ -128,8 +128,7 @@ def post_patches(request: HttpRequest, data: dict):  # noqa: ANN201
     revisions = parse_revisions_from_request(patches, patch_format, try_repo)
     job = add_job_with_revisions(
         revisions,
-        repository_name=try_repo.short_name,
-        repository_url=try_repo.url,
+        target_repo=try_repo,
         requester_email=ldap_username,
         status=JobStatus.SUBMITTED,
         target_commit_hash=base_commit,
