@@ -108,10 +108,6 @@ class LandingJob(BaseModel):
         Revision, through="RevisionLandingJob", related_name="landing_jobs"
     )
 
-    # These are automatically set, deprecated fields, but kept for compatibility.
-    repository_name = models.TextField(default="", blank=True)
-    repository_url = models.TextField(default="", blank=True)
-
     # New field in lieu of deprecated repository fields.
     target_repo = models.ForeignKey("Repo", on_delete=models.SET_NULL, null=True)
 
