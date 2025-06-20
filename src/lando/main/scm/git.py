@@ -216,7 +216,7 @@ class GitSCM(AbstractSCM):
             tmp_file.write(patch_bytes)
             tmp_file.flush()
 
-            self._git_run("am", tmp_file.name, cwd=self.path)
+            self._git_run("am", "--keep-cr", tmp_file.name, cwd=self.path)
 
     def get_patch(self, revision_id: str) -> str | None:
         """Return a complete patch for the given revision, in the git extended diff format.
