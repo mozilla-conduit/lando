@@ -213,7 +213,7 @@ def test__models__CommitMap__fetch_push_data(commit_maps, monkeypatch):
     ).json.return_value = {
         "some_push": {"changesets": ["1" * 40], "git_changesets": ["2" * 40]}
     }
-    monkeypatch.setattr("lando.main.models.commit.requests.get", mock_requests_get)
+    monkeypatch.setattr("lando.main.models.commit_map.requests.get", mock_requests_get)
     CommitMap.fetch_push_data("test_git_repo", fromchangeset=last_hg_node)
     assert CommitMap.objects.all().count() == previous_commit_map_count + 1
     assert CommitMap.find_last_hg_node("test_git_repo") == "1" * 40
@@ -230,7 +230,7 @@ def test__models__CommitMap__fetch_push_data_invalid_response(commit_maps, monke
     ).json.return_value = {
         "some_push": {"changesets": ["1" * 40, "2" * 40], "git_changesets": ["3" * 40]}
     }
-    monkeypatch.setattr("lando.main.models.commit.requests.get", mock_requests_get)
+    monkeypatch.setattr("lando.main.models.commit_map.requests.get", mock_requests_get)
     with pytest.raises(ValueError) as e:
         CommitMap.fetch_push_data("test_git_repo", fromchangeset=last_hg_node)
     assert e.value.args == (

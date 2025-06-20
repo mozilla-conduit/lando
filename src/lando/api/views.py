@@ -9,7 +9,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from lando.main.models.commit import CommitMap
+from lando.main.models import CommitMap
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.main.scm import (
     SCM_TYPE_GIT,
@@ -115,6 +115,8 @@ class LegacyDiffWarningView(View):
 class CommitMapBaseView(View):
     """CommitMap base view to be extended for bidirectional git - hg mapping."""
 
+    scm = None
+
     def get(
         self, request: WSGIRequest, git_repo_name: str, commit_hash: str
     ) -> JsonResponse:
@@ -125,14 +127,17 @@ class CommitMapBaseView(View):
         if not commits.exists():
             CommitMap.catch_up(git_repo_name)
 
-        if commits.count() == 1:
-            commit = commits.first()
-            return JsonResponse(commit.serialize(), status=200)
-        elif commits.count() > 1:
+        count = commits.count()
+
+        if count > 1:
             return JsonResponse(
                 {"error": f"Multiple commits found ({commits.count()})"}, status=400
             )
-        return JsonResponse({"error": "No commits found"}, status=404)
+        elif count == 0:
+            return JsonResponse({"error": "No commits found"}, status=404)
+
+        commit = commits.first()
+        return JsonResponse(commit.serialize(), status=200)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
