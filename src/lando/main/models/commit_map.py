@@ -13,6 +13,10 @@ class CommitMap(BaseModel):
 
     git_hash = models.CharField(default="", unique=True)
     hg_hash = models.CharField(default="", unique=True)
+
+    # NOTE: This value is set because multiple Lando repos can map to a single hg repo.
+    # This is because currently a separate repo object is created for each branch of a
+    # git repo, though those might map to a single hg repo (e.g., mozilla-unified).
     git_repo_name = models.CharField(default="")
 
     @classmethod
@@ -67,13 +71,15 @@ class CommitMap(BaseModel):
         for push in list(push_data.values()):
             hg_changesets = push["changesets"]
             git_changesets = push["git_changesets"]
+
             if len(hg_changesets) != len(git_changesets):
                 raise ValueError(
                     "Number of hg changesets does not match number of git changesets: "
                     f"{len(hg_changesets)} vs {len(git_changesets)}"
                 )
+
             for hg_changeset, git_changeset in zip(
-                hg_changesets, git_changesets, strict=False
+                hg_changesets, git_changesets, strict=True
             ):
                 params = {
                     "hg_hash": hg_changeset,
