@@ -136,6 +136,10 @@ def test_GitSCM_clean_repo(
         strip_non_public_commits != new_file.exists()
     ), f"strip_non_public_commits not honoured for {new_file}"
 
+def remove_git_version_from_patch(patch: str) -> str:
+    """Return a patch with the Git version stripped."""
+    return re.sub(r"\d+(\.\d+)+$", "", patch)
+
 
 def test_GitSCM_apply_get_patch(git_repo: Path, git_patch: Callable):
     scm = GitSCM(str(git_repo))
@@ -161,8 +165,7 @@ def test_GitSCM_apply_get_patch(git_repo: Path, git_patch: Callable):
     assert new_patch, f"Empty patch unexpectedly generated for {commit.hash}"
 
     # The git version stamp varies. Strip it from the output before comparing.
-    remove_git_version_re = r"\d+(\.\d+)+$"
-    no_version_patch = re.sub(remove_git_version_re, "", new_patch)
+    no_version_patch = remove_git_version_from_patch(new_patch)
 
     assert no_version_patch == expected_patch
 
@@ -236,8 +239,7 @@ def test_GitSCM_apply_patch_bytes(git_repo: Path, git_patch: Callable):
     assert new_patch, f"Empty patch unexpectedly generated for {commit.hash}"
 
     # The git version stamp varies. Strip it from the output before comparing.
-    remove_git_version_re = r"\d+(\.\d+)+$"
-    no_version_patch = re.sub(remove_git_version_re, "", new_patch)
+    no_version_patch = remove_git_version_from_patch(new_patch)
 
     assert no_version_patch == expected_patch
 
@@ -259,8 +261,7 @@ def test_GitSCM_apply_patch_bytes_base64(git_repo: Path, git_patch: Callable):
     assert new_patch, f"Empty patch unexpectedly generated for {commit.hash}"
 
     # The git version stamp varies. Strip it from the output before comparing.
-    remove_git_version_re = r"\d+(\.\d+)+$"
-    no_version_patch = re.sub(remove_git_version_re, "", new_patch)
+    no_version_patch = remove_git_version_from_patch(new_patch)
 
     assert no_version_patch == expected_patch
 
