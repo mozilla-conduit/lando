@@ -136,6 +136,7 @@ def test_GitSCM_clean_repo(
         strip_non_public_commits != new_file.exists()
     ), f"strip_non_public_commits not honoured for {new_file}"
 
+
 def remove_git_version_from_patch(patch: str) -> str:
     """Return a patch with the Git version stripped."""
     return re.sub(r"\d+(\.\d+)+$", "", patch)
