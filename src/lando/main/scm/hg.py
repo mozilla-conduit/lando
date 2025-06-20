@@ -289,6 +289,9 @@ class HgSCM(AbstractSCM):
                 + ["--logfile", f_msg.name]
             )
 
+    def apply_patch_bytes(self, patch_bytes: bytes):
+        raise NotImplementedError("`apply_patch_bytes` not implemented for hg.")
+
     def get_patch(self, revision_id: str) -> str | None:
         """Return a complete patch for the given revision, in the git extended diff format."""
         return self.run_hg(["export", "--git", "-r", revision_id]).decode("utf-8")
