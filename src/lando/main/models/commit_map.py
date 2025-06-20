@@ -17,12 +17,12 @@ class CommitMap(BaseModel):
 
     @classmethod
     def get_hg_repo_name(cls, git_repo_name: str) -> str:
-        """Return mapped repo name or  git_repo_name by default."""
+        """Return mapped repo name or `git_repo_name` by default."""
         return dict(cls.REPO_MAPPING).get(git_repo_name, git_repo_name)
 
     @classmethod
     def get_git_repo_name(cls, hg_repo_name: str) -> str:
-        """Return mapped repo name or  hg_repo_name by default."""
+        """Return mapped repo name or `hg_repo_name` by default."""
         return {hg: git for git, hg in cls.REPO_MAPPING}.get(hg_repo_name, hg_repo_name)
 
     @classmethod
@@ -62,20 +62,22 @@ class CommitMap(BaseModel):
         url = cls.get_pushlog_url(git_repo_name)
         push_data = requests.get(url, params=kwargs).json()
 
-        # We don't care about the key, as it is just the build ID.
+        # We don't care about the key, as it is just the push ID.
         # NOTE: multiple changesets may be included in the response.
         for push in list(push_data.values()):
-            changesets = push["changesets"]
+            hg_changesets = push["changesets"]
             git_changesets = push["git_changesets"]
-            if len(changesets) != len(git_changesets):
+            if len(hg_changesets) != len(git_changesets):
                 raise ValueError(
-                    "Number of changesets does not match number of git changesets: "
-                    f"{len(changesets)} vs {len(git_changesets)}"
+                    "Number of hg changesets does not match number of git changesets: "
+                    f"{len(hg_changesets)} vs {len(git_changesets)}"
                 )
-            for i in range(len(changesets)):
+            for hg_changeset, git_changeset in zip(
+                hg_changesets, git_changesets, strict=False
+            ):
                 params = {
-                    "hg_hash": changesets[i],
-                    "git_hash": git_changesets[i],
+                    "hg_hash": hg_changeset,
+                    "git_hash": git_changeset,
                     "git_repo_name": git_repo_name,
                 }
                 if not cls.objects.filter(**params).exists():

@@ -11,7 +11,7 @@ from lando.main.models import CommitMap
 
 
 class Command(BaseCommand):
-    help = "Download and process the git to hg mapping file" ""
+    help = "Download and process the git to hg mapping file"
     file_paths = None
     rows = []
 

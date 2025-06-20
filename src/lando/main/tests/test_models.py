@@ -234,6 +234,6 @@ def test__models__CommitMap__fetch_push_data_invalid_response(commit_maps, monke
     with pytest.raises(ValueError) as e:
         CommitMap.fetch_push_data("test_git_repo", fromchangeset=last_hg_node)
     assert e.value.args == (
-        "Number of changesets does not match number of git changesets: 2 vs 1",
+        "Number of hg changesets does not match number of git changesets: 2 vs 1",
     )
     assert CommitMap.objects.all().count() == previous_commit_map_count
