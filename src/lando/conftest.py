@@ -2,6 +2,7 @@ import pathlib
 import re
 import subprocess
 import time
+import unittest.mock as mock
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
@@ -888,3 +889,25 @@ def assert_same_commit_data():
         assert set(commit.files) == set(scm_commit.files)
 
     return assertion
+
+
+@pytest.fixture
+def mock_landing_worker_phab_repo_update(monkeypatch):
+    mock_trigger_update = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
+        mock_trigger_update,
+    )
+
+    return mock_trigger_update
+
+
+@pytest.fixture
+def mock_automation_worker_phab_repo_update(monkeypatch):
+    mock_trigger_update = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.automation_worker.AutomationWorker.phab_trigger_repo_update",
+        mock_trigger_update,
+    )
+
+    return mock_trigger_update

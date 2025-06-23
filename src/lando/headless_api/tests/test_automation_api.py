@@ -525,7 +525,7 @@ def test_automation_job_add_commit_success_hg(
     treestatusdouble,
     hg_automation_worker,
     repo_mc,
-    monkeypatch,
+    mock_automation_worker_phab_repo_update,
     normal_patch,
     automation_job,
 ):
@@ -550,13 +550,6 @@ def test_automation_job_add_commit_success_hg(
 
     hg_automation_worker.worker_instance.applicable_repos.add(repo)
 
-    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
-    mock_trigger_update = mock.MagicMock()
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.automation_worker.AutomationWorker.phab_trigger_repo_update",
-        mock_trigger_update,
-    )
-
     scm.push = mock.MagicMock()
 
     assert hg_automation_worker.run_automation_job(job)
@@ -574,7 +567,7 @@ def test_automation_job_add_commit_success_git(
     treestatusdouble,
     git_automation_worker,
     repo_mc,
-    monkeypatch,
+    mock_automation_worker_phab_repo_update,
     git_patch,
     automation_job,
 ):
@@ -597,13 +590,6 @@ def test_automation_job_add_commit_success_git(
 
     git_automation_worker.worker_instance.applicable_repos.add(repo)
 
-    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
-    mock_trigger_update = mock.MagicMock()
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.automation_worker.AutomationWorker.phab_trigger_repo_update",
-        mock_trigger_update,
-    )
-
     scm.push = mock.MagicMock()
 
     assert git_automation_worker.run_automation_job(job)
@@ -620,7 +606,7 @@ def test_automation_job_add_commit_base64_success_git(
     treestatusdouble,
     git_automation_worker,
     repo_mc,
-    monkeypatch,
+    mock_automation_worker_phab_repo_update,
     git_patch,
     automation_job,
 ):
@@ -647,13 +633,6 @@ def test_automation_job_add_commit_base64_success_git(
 
     git_automation_worker.worker_instance.applicable_repos.add(repo)
 
-    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
-    mock_trigger_update = mock.MagicMock()
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.automation_worker.AutomationWorker.phab_trigger_repo_update",
-        mock_trigger_update,
-    )
-
     scm.push = mock.MagicMock()
 
     assert git_automation_worker.run_automation_job(job)
@@ -672,7 +651,7 @@ def test_automation_job_add_commit_fail(
     repo_mc,
     treestatusdouble,
     hg_automation_worker,
-    monkeypatch,
+    mock_automation_worker_phab_repo_update,
     automation_job,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
@@ -694,13 +673,6 @@ def test_automation_job_add_commit_fail(
 
     hg_automation_worker.worker_instance.applicable_repos.add(repo)
 
-    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
-    mock_trigger_update = mock.MagicMock()
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.automation_worker.AutomationWorker.phab_trigger_repo_update",
-        mock_trigger_update,
-    )
-
     scm.push = mock.MagicMock()
 
     assert not hg_automation_worker.run_automation_job(job)
@@ -715,7 +687,7 @@ def test_automation_job_create_commit_success(
     repo_mc,
     treestatusdouble,
     get_automation_worker,
-    monkeypatch,
+    mock_automation_worker_phab_repo_update,
     get_failing_check_diff,
     automation_job,
 ):
@@ -741,13 +713,6 @@ def test_automation_job_create_commit_success(
     automation_worker = get_automation_worker(scm_type)
 
     automation_worker.worker_instance.applicable_repos.add(repo)
-
-    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
-    mock_trigger_update = mock.MagicMock()
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.automation_worker.AutomationWorker.phab_trigger_repo_update",
-        mock_trigger_update,
-    )
 
     scm.push = mock.MagicMock()
 
@@ -776,7 +741,7 @@ def test_automation_job_create_commit_failed_check(
     repo_mc,
     treestatusdouble,
     get_automation_worker,
-    monkeypatch,
+    mock_automation_worker_phab_repo_update,
     get_failing_check_action_reason: Callable,
     bad_action_type: str,
     hooks_enabled: bool,
@@ -804,13 +769,6 @@ def test_automation_job_create_commit_failed_check(
     automation_worker = get_automation_worker(scm_type)
 
     automation_worker.worker_instance.applicable_repos.add(repo)
-
-    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
-    mock_trigger_update = mock.MagicMock()
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.automation_worker.AutomationWorker.phab_trigger_repo_update",
-        mock_trigger_update,
-    )
 
     scm.push = mock.MagicMock()
 
@@ -858,7 +816,7 @@ def test_automation_job_create_commit_failed_check_override(
     repo_mc,
     treestatusdouble,
     get_automation_worker,
-    monkeypatch,
+    mock_automation_worker_phab_repo_update,
     get_failing_check_action_reason: Callable,
     get_failing_check_diff,
     automation_job,
@@ -886,13 +844,6 @@ def test_automation_job_create_commit_failed_check_override(
     automation_worker = get_automation_worker(scm_type)
 
     automation_worker.worker_instance.applicable_repos.add(repo)
-
-    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
-    mock_trigger_update = mock.MagicMock()
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.automation_worker.AutomationWorker.phab_trigger_repo_update",
-        mock_trigger_update,
-    )
 
     scm.push = mock.MagicMock()
 
