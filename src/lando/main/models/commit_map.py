@@ -11,13 +11,19 @@ class CommitMap(BaseModel):
     HGMO_PUSHLOG_TEMPLATE = "https://hg.mozilla.org/{}/json-pushes"
     REPO_MAPPING = (("firefox", "mozilla-unified"),)
 
-    git_hash = models.CharField(default="", unique=True)
-    hg_hash = models.CharField(default="", unique=True)
+    git_hash = models.CharField(default="", max_length=40)
+    hg_hash = models.CharField(default="", max_length=40)
 
     # NOTE: This value is set because multiple Lando repos can map to a single hg repo.
     # This is because currently a separate repo object is created for each branch of a
     # git repo, though those might map to a single hg repo (e.g., mozilla-unified).
     git_repo_name = models.CharField(default="")
+
+    class Meta:
+        unique_together = (
+            ("git_repo_name", "git_hash"),
+            ("git_repo_name", "hg_hash"),
+        )
 
     @classmethod
     def get_hg_repo_name(cls, git_repo_name: str) -> str:
