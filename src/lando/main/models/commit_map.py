@@ -74,9 +74,11 @@ class CommitMap(BaseModel):
 
         # We don't care about the key, as it is just the push ID.
         # NOTE: multiple changesets may be included in the response.
-        for push in list(push_data.values()):
-            hg_changesets = push["changesets"]
-            git_changesets = push["git_changesets"]
+
+        pushes = sorted(push_data.keys())
+        for push_id in pushes:
+            hg_changesets = push_data[push_id]["changesets"]
+            git_changesets = push_data[push_id]["git_changesets"]
 
             if len(hg_changesets) != len(git_changesets):
                 raise ValueError(
