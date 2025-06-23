@@ -29,10 +29,12 @@ from lando.pushlog.models import Push
 
 
 @pytest.fixture
-def automation_job():
+def automation_job() -> Callable:
     """Create an automation job from the specified actions."""
 
-    def create_automation_job(actions: list[dict], **job_args):
+    def create_automation_job(
+        actions: list[dict], **job_args
+    ) -> tuple[AutomationJob, list[AutomationAction]]:
         job = AutomationJob.objects.create(**job_args)
 
         automation_actions = []
