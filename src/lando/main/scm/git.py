@@ -210,6 +210,14 @@ class GitSCM(AbstractSCM):
 
                     raise exc
 
+    def apply_patch_bytes(self, patch_bytes: bytes):
+        """Apply the given `git format-patch` to the repo directly."""
+        with tempfile.NamedTemporaryFile(mode="wb", suffix=".patch") as tmp_file:
+            tmp_file.write(patch_bytes)
+            tmp_file.flush()
+
+            self._git_run("am", "--keep-cr", tmp_file.name, cwd=self.path)
+
     def get_patch(self, revision_id: str) -> str | None:
         """Return a complete patch for the given revision, in the git extended diff format.
 
