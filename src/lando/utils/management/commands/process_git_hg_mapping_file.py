@@ -15,35 +15,38 @@ class Command(BaseCommand):
     file_paths = None
     rows = []
 
-    def _prepare_rows(self):
-        # See bug 1888169.
-        # Download original git2hg mapping file and extract it.
-        filename = "git2hg.csv"
-        url = f"https://archive.mozilla.org/pub/vcs-archive/{filename}.zip"
-        zip_file_path = Path("/tmp") / f"{filename}.zip"
-        file_path = Path("/tmp") / filename
-
-        with zip_file_path.open("wb") as f:
-            self.stdout.write(f"Downloading {url}...")
-            f.write(requests.get(url).content)
-
-        with ZipFile(zip_file_path, "r") as f:
-            self.stdout.write(f"Extracting {zip_file_path}...")
-            f.extractall(Path("/tmp"))
-
-        with file_path.open("r") as f:
-            self.rows += list(csv.DictReader(f))
-
-        # Download second (remainder) backup file.
-        url = (
-            "https://gist.github.com/zzzeid/8442141e8b12dfdede1f325a42b7d0f7/"
-            "raw/4672ef4820b401a3157f28be277b70398cb057a6/git2hg_2.csv"
+    def add_arguments(self, parser):  # noqa: ANN001
+        parser.add_argument(
+            "--url",
+            default="",
+            help="URL for additional csv file",
         )
-        content = requests.get(url).text
-        self.rows += list(csv.DictReader(StringIO(content)))
+
+    def _prepare_rows(self, **options):
+        if not options["url"]:
+            filename = "git2hg.csv"
+            url = f"https://archive.mozilla.org/pub/vcs-archive/{filename}.zip"
+            zip_file_path = Path("/tmp") / f"{filename}.zip"
+            file_path = Path("/tmp") / filename
+
+            with zip_file_path.open("wb") as f:
+                self.stdout.write(f"Downloading {url}...")
+                f.write(requests.get(url).content)
+
+            with ZipFile(zip_file_path, "r") as f:
+                self.stdout.write(f"Extracting {zip_file_path}...")
+                f.extractall(Path("/tmp"))
+
+            with file_path.open("r") as f:
+                self.rows += list(csv.DictReader(f))
+        else:
+            # Download second (remainder) backup file.
+            url = options["url"]
+            content = requests.get(url).text
+            self.rows += list(csv.DictReader(StringIO(content)))
 
     def handle(self, *args, **options):
-        self._prepare_rows()
+        self._prepare_rows(**options)
         count = 0
         skipped_count = 0
 
