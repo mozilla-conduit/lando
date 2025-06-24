@@ -1777,8 +1777,8 @@ urllib3==2.5.0 \
     # via
     #   requests
     #   sentry-sdk
-uwsgi==2.0.29 \
-    --hash=sha256:6bd150ae60d0d9947429ea7dc8e5f868de027e5eb38355fb613b9413732c432f
+uwsgi==2.0.30 \
+    --hash=sha256:c12aa652124f062ac216077da59f6d247bd7ef938234445881552e58afb1eb5f
     # via lando (pyproject.toml)
 vine==5.1.0 \
     --hash=sha256:40fdf3c48b2cfe1c38a49e9ae2da6fda88e4794c810050a728bd7413811fb1dc \
