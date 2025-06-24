@@ -16,10 +16,14 @@ Including another URLconf
 """
 
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
 
 from lando.api.legacy.api import landing_jobs
-from lando.api.views import LegacyDiffWarningView
+from lando.api.views import (
+    LegacyDiffWarningView,
+    git2hgCommitMapView,
+    hg2gitCommitMapView,
+)
 from lando.headless_api.api import (
     api as headless_api,
 )
@@ -44,6 +48,16 @@ urlpatterns += [
         "api/diff_warnings/<int:diff_warning_id>/",
         LegacyDiffWarningView.as_view(),
         name="diff-warnings",
+    ),
+    re_path(
+        r"api/git2hg/(?P<git_repo_name>.*)/(?P<commit_hash>[0-9a-f]{40})",
+        git2hgCommitMapView.as_view(),
+        name="git2hg",
+    ),
+    re_path(
+        r"api/hg2git/(?P<git_repo_name>.*)/(?P<commit_hash>[0-9a-f]{40})",
+        hg2gitCommitMapView.as_view(),
+        name="hg2git",
     ),
 ]
 
