@@ -263,7 +263,7 @@ aDd oNe mOrE LiNe
 def test_integrated_execute_job(
     repo_mc,
     treestatusdouble,
-    monkeypatch,
+    mock_landing_worker_phab_repo_update,
     create_patch_revision,
     repo_type: str,
     revisions_params,
@@ -284,13 +284,6 @@ def test_integrated_execute_job(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
-    mock_trigger_update = mock.MagicMock()
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
-        mock_trigger_update,
-    )
-
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
 
@@ -304,7 +297,7 @@ def test_integrated_execute_job(
     assert job.status == JobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40
     assert (
-        mock_trigger_update.call_count == 1
+        mock_landing_worker_phab_repo_update.call_count == 1
     ), "Successful landing should trigger Phab repo update."
 
 
@@ -319,7 +312,7 @@ def test_integrated_execute_job(
 def test_integrated_execute_job_with_force_push(
     repo_mc,
     treestatusdouble,
-    monkeypatch,
+    mock_landing_worker_phab_repo_update,
     create_patch_revision,
     get_landing_worker,
     repo_type: str,
@@ -335,13 +328,6 @@ def test_integrated_execute_job_with_force_push(
         "attempts": 1,
     }
     job = add_job_with_revisions([create_patch_revision(1)], **job_params)
-
-    # We don't care about repo update in this test, however if we don't mock
-    # this, the test will fail since there is no celery instance.
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
-        mock.MagicMock(),
-    )
 
     scm.push = mock.MagicMock()
 
@@ -369,7 +355,7 @@ def test_integrated_execute_job_with_force_push(
 def test_integrated_execute_job_with_bookmark(
     repo_mc,
     treestatusdouble,
-    monkeypatch,
+    mock_landing_worker_phab_repo_update,
     create_patch_revision,
     get_landing_worker,
     repo_type: str,
@@ -385,13 +371,6 @@ def test_integrated_execute_job_with_bookmark(
         "attempts": 1,
     }
     job = add_job_with_revisions([create_patch_revision(1)], **job_params)
-
-    # We don't care about repo update in this test, however if we don't mock
-    # this, the test will fail since there is no celery instance.
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
-        mock.MagicMock(),
-    )
 
     scm.push = mock.MagicMock()
     worker = get_landing_worker(repo_type)
@@ -496,7 +475,7 @@ def test_lose_push_race(
 def test_merge_conflict(
     repo_mc,
     treestatusdouble,
-    monkeypatch,
+    mock_landing_worker_phab_repo_update,
     create_patch_revision,
     caplog,
     get_landing_worker,
@@ -518,13 +497,6 @@ def test_merge_conflict(
             create_patch_revision(1, patch=PATCH_FORMATTED_2),
         ],
         **job_params,
-    )
-
-    # We don't care about repo update in this test, however if we don't mock
-    # this, the test will fail since there is no celery instance.
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
-        mock.MagicMock(),
     )
 
     worker = get_landing_worker(repo_type)
@@ -681,7 +653,7 @@ def test_failed_landing_job_notification(
 def test_format_patch_success_unchanged(
     repo_mc,
     treestatusdouble,
-    monkeypatch,
+    mock_landing_worker_phab_repo_update,
     create_patch_revision,
     normal_patch,
     get_landing_worker,
@@ -703,13 +675,6 @@ def test_format_patch_success_unchanged(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
-    mock_trigger_update = mock.MagicMock()
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
-        mock_trigger_update,
-    )
-
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
 
@@ -724,7 +689,7 @@ def test_format_patch_success_unchanged(
         job.status == JobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
     assert (
-        mock_trigger_update.call_count == 1
+        mock_landing_worker_phab_repo_update.call_count == 1
     ), "Successful landing should trigger Phab repo update."
     assert (
         job.formatted_replacements is None
@@ -742,7 +707,7 @@ def test_format_patch_success_unchanged(
 def test_format_single_success_changed(
     repo_mc,
     treestatusdouble,
-    monkeypatch,
+    mock_landing_worker_phab_repo_update,
     create_patch_revision,
     get_landing_worker,
     repo_type: str,
@@ -775,13 +740,6 @@ def test_format_single_success_changed(
         [create_patch_revision(2, patch=PATCH_FORMATTED_1)], **job_params
     )
 
-    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
-    mock_trigger_update = mock.MagicMock()
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
-        mock_trigger_update,
-    )
-
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job), "`run_job` should return `True` on a successful run."
 
@@ -796,7 +754,7 @@ def test_format_single_success_changed(
         job.status == JobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
     assert (
-        mock_trigger_update.call_count == 1
+        mock_landing_worker_phab_repo_update.call_count == 1
     ), "Successful landing should trigger Phab repo update."
 
     with scm.for_push(job.requester_email):
@@ -832,7 +790,7 @@ def test_format_single_success_changed(
 def test_format_stack_success_changed(
     repo_mc,
     treestatusdouble,
-    monkeypatch,
+    mock_landing_worker_phab_repo_update,
     create_patch_revision,
     get_landing_worker,
     repo_type: str,
@@ -855,13 +813,6 @@ def test_format_stack_success_changed(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
-    mock_trigger_update = mock.MagicMock()
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
-        mock_trigger_update,
-    )
-
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job), "`run_job` should return `True` on a successful run."
 
@@ -876,7 +827,7 @@ def test_format_stack_success_changed(
         job.status == JobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
     assert (
-        mock_trigger_update.call_count == 1
+        mock_landing_worker_phab_repo_update.call_count == 1
     ), "Successful landing should trigger Phab repo update."
 
     with scm.for_push(job.requester_email):
@@ -971,6 +922,7 @@ def test_format_patch_no_landoini(
     repo_mc,
     treestatusdouble,
     monkeypatch,
+    mock_landing_worker_phab_repo_update,
     create_patch_revision,
     get_landing_worker,
     repo_type: str,
@@ -993,13 +945,6 @@ def test_format_patch_no_landoini(
     }
     job = add_job_with_revisions(revisions, **job_params)
 
-    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
-    mock_trigger_update = mock.MagicMock()
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
-        mock_trigger_update,
-    )
-
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
     monkeypatch.setattr(
@@ -1016,7 +961,7 @@ def test_format_patch_no_landoini(
         mock_notify.call_count == 0
     ), "Should not notify user of landing failure due to `.lando.ini` missing."
     assert (
-        mock_trigger_update.call_count == 1
+        mock_landing_worker_phab_repo_update.call_count == 1
     ), "Successful landing should trigger Phab repo update."
 
 
