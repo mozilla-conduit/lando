@@ -2,6 +2,7 @@ import pathlib
 import re
 import subprocess
 import time
+import unittest.mock as mock
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
@@ -904,3 +905,24 @@ def commit_maps():
             git_repo_name="test_git_repo",
         )
     return list(CommitMap.objects.all().order_by("id"))
+
+
+def mock_landing_worker_phab_repo_update(monkeypatch):
+    mock_trigger_update = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
+        mock_trigger_update,
+    )
+
+    return mock_trigger_update
+
+
+@pytest.fixture
+def mock_automation_worker_phab_repo_update(monkeypatch):
+    mock_trigger_update = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.automation_worker.AutomationWorker.phab_trigger_repo_update",
+        mock_trigger_update,
+    )
+
+    return mock_trigger_update
