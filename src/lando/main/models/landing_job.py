@@ -358,8 +358,10 @@ def add_job_with_revisions(
 ) -> LandingJob:
     """Creates a new job and associates provided revisions with it."""
     job = LandingJob(**params)
+    # We need to save the job prior to adding revisions, so the PKs can be linked.
     job.save()
     add_revisions_to_job(revisions, job)
+    job.save()
     return job
 
 
