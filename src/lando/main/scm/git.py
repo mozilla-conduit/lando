@@ -433,7 +433,7 @@ class GitSCM(AbstractSCM):
     def format_stack_amend(self) -> Optional[list[str]]:
         """Amend the top commit in the patch stack with changes from formatting."""
         self._git_run("commit", "--all", "--amend", "--no-edit", cwd=self.path)
-        return [self.get_current_node()]
+        return [self.head_ref()]
 
     def format_stack_tip(self, commit_message: str) -> Optional[list[str]]:
         """Add an autoformat commit to the top of the patch stack."""
@@ -444,11 +444,7 @@ class GitSCM(AbstractSCM):
                 return []
             else:
                 raise exc
-        return [self.get_current_node()]
-
-    def get_current_node(self) -> str:
-        """Return the commit_id of the tip of the current branch."""
-        return self._git_run("rev-parse", "HEAD", cwd=self.path)
+        return [self.head_ref()]
 
     @property
     def repo_is_initialized(self) -> bool:
@@ -577,7 +573,7 @@ class GitSCM(AbstractSCM):
                 cwd=self.path,
             )
 
-            new_merge_commit = self.get_current_node()
+            new_merge_commit = self.head_ref()
 
             # Move the original branch to point to the merge commit
             self._git_run(
@@ -599,7 +595,7 @@ class GitSCM(AbstractSCM):
             cwd=self.path,
         )
 
-        return self.get_current_node()
+        return self.head_ref()
 
     def tag(self, name: str, target: str | None):
         """Create a new tag called `name` on the `target` commit.

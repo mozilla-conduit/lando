@@ -502,7 +502,7 @@ class HgSCM(AbstractSCM):
             # Amend the current commit, using `--no-edit` to keep the existing commit message.
             self.run_hg(["commit", "--amend", "--no-edit", "--landing_system", "lando"])
 
-            return [self.get_current_node().decode("utf-8")]
+            return [self.head_ref()]
         except HgCommandError as exc:
             if "nothing changed" in exc.out:
                 # If nothing changed after formatting we can just return.
@@ -523,7 +523,7 @@ class HgSCM(AbstractSCM):
                 + ["--landing_system", "lando"]
             )
 
-            return [self.get_current_node().decode("utf-8")]
+            return [self.head_ref()]
 
         except HgCommandError as exc:
             if "nothing changed" in exc.out:
@@ -531,10 +531,6 @@ class HgSCM(AbstractSCM):
                 return
 
             raise exc
-
-    def get_current_node(self) -> bytes:
-        """Return the currently checked out node."""
-        return self.run_hg(["identify", "-r", ".", "-i"])
 
     def clone(self, source: str):
         """Clone a repository from a source."""
@@ -717,7 +713,7 @@ class HgSCM(AbstractSCM):
 
         self.run_hg(["commit", "-m", commit_message, "--landing_system", "lando"])
 
-        return self.get_current_node().decode("utf-8")
+        return self.head_ref()
 
     def tag(self, name: str, target: str | None):
         """Create a new tag called `name` on the `target` commit.
