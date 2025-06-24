@@ -907,6 +907,7 @@ def commit_maps():
     return list(CommitMap.objects.all().order_by("id"))
 
 
+@pytest.fixture
 def mock_landing_worker_phab_repo_update(monkeypatch):
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
