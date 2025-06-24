@@ -745,9 +745,9 @@ frozenlist==1.7.0 \
     # via
     #   aiohttp
     #   aiosignal
-google-api-core==2.25.0rc1 \
-    --hash=sha256:9826900d88358ad3ac8978ad324e46793ad8137efe6d48ec51e259c0c40e3000 \
-    --hash=sha256:ec279085923652b0d2e4c72fd6bb926ee17e9c960f0b8a472df146a42493957e
+google-api-core==2.25.1 \
+    --hash=sha256:8a2a56c1fef82987a524371f99f3bd0143702fecc670c72e600c1cda6bf8dbb7 \
+    --hash=sha256:d2aaa0b13c78c61cb3f4282c464c046e45fbd75755683c9c525e6e8f7ed0a5e8
     # via
     #   google-cloud-core
     #   google-cloud-storage
