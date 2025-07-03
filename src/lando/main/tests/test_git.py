@@ -267,6 +267,46 @@ def test_GitSCM_apply_patch_bytes_base64(git_repo: Path, git_patch: Callable):
     assert no_version_patch == expected_patch
 
 
+def test_GitSCM_apply_patch_bytes_aborts_on_failure(
+    git_repo: Path,
+    git_patch: Callable,
+):
+    scm = GitSCM(str(git_repo))
+
+    rebase_apply = Path(git_repo) / ".git" / "rebase-apply"
+
+    # Ensure the repo is clean.
+    assert not rebase_apply.exists()
+
+    # Apply a bad patch.
+    with pytest.raises(SCMException):
+        scm.apply_patch_bytes(b"blah")
+
+    # Ensure the `rebase-apply` directory is gone.
+    assert (
+        not rebase_apply.exists()
+    ), "`rebase-apply` dir was not cleaned up after failed git am"
+
+    # Create `rebase-apply` directory.
+    rebase_apply.mkdir()
+
+    # Create a good patch.
+    good_patch_str = git_patch()
+    good_patch_b64 = base64.b64encode(good_patch_str.encode("utf-8")).decode("ascii")
+    good_patch_bytes = base64.b64decode(good_patch_b64)
+
+    # Apply a good patch with failed `git am` state present.
+    scm.apply_patch_bytes(good_patch_bytes)
+
+    # Ensure the `rebase-apply` directory is gone.
+    assert (
+        not rebase_apply.exists()
+    ), "`rebase-apply` dir was not cleaned up after failed git am"
+
+    commit = scm.describe_commit()
+    assert commit.hash, "Valid patch did not land after recovering from failure"
+
+
 DIFF_WITH_IGNORED_JSON = """\
 diff --git a/ignored.json b/ignored.json
 new file mode 100644

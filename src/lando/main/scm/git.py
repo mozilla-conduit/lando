@@ -212,11 +212,31 @@ class GitSCM(AbstractSCM):
 
     def apply_patch_bytes(self, patch_bytes: bytes):
         """Apply the given `git format-patch` to the repo directly."""
+        try:
+            # Clean up existing failed `git am`.
+            self._git_run("am", "--abort", cwd=self.path)
+        except SCMException as exc:
+            # Command will return exit code 1 if there is no failed `git am` in progress.
+            # Look for the expected error message and ignore the exception.
+            if "Resolve operation not in progress" not in exc.err:
+                # Real error, re-raise the exception.
+                raise exc
+
         with tempfile.NamedTemporaryFile(mode="wb", suffix=".patch") as tmp_file:
             tmp_file.write(patch_bytes)
             tmp_file.flush()
 
-            self._git_run("am", "--keep-cr", tmp_file.name, cwd=self.path)
+            try:
+                self._git_run("am", "--keep-cr", tmp_file.name, cwd=self.path)
+            except SCMException as exc:
+                try:
+                    # Clean up failed `git am`.
+                    self._git_run("am", "--abort", cwd=self.path)
+                except SCMException:
+                    pass
+
+                # Re-raise the exception from the failed `git am`.
+                raise exc
 
     def get_patch(self, revision_id: str) -> str | None:
         """Return a complete patch for the given revision, in the git extended diff format.
