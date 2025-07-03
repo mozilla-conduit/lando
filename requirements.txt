@@ -940,9 +940,9 @@ mercurial==6.1.4 \
     --hash=sha256:eb4bb33a3760072a794b8862c594d461a1a4feefa9989de533e63d428ce99bdd \
     --hash=sha256:f361f9802b36e357ac019ceb712ca11de8332b07deadeed8dfa904f05bf7ca78
     # via lando (pyproject.toml)
-mots==0.13.2 \
-    --hash=sha256:39dc2eddef877d922b4bd71660975ee514f893c9465428aff5364bbcc7fdc357 \
-    --hash=sha256:c433bf5fae7e3b8897b353ef37ac0e19871addee3b391355ea2e11c73c597bd8
+mots==0.13.3 \
+    --hash=sha256:36bd000b451e221807fa8e87dcdff79ea14eaa3a18c912b01483f0419f34a492 \
+    --hash=sha256:acf4ce623de29666f8bf2fb3b4bcc4799f2ccfc28242a233fe7626dedf26d3bb
     # via lando (pyproject.toml)
 mozilla-django-oidc==4.0.1 \
     --hash=sha256:04ef58759be69f22cdc402d082480aaebf193466cad385dc9e4f8df2a0b187ca \
