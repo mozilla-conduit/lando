@@ -55,7 +55,7 @@ lando = "lando.manage:main"
 requires = [
     "setuptools>=64",
     "setuptools_scm>=8",
-    "pip<25.1",  # see https://github.com/jazzband/pip-tools/issues/2176.
+    "pip<25.1",  # see bug 1975463, https://github.com/jazzband/pip-tools/issues/2176.
     "pip-tools",
     "wheel",
 ]
