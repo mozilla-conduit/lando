@@ -117,10 +117,20 @@
         </button>
       {% endif %}
       {% if can_uplift_revision %}
-        <button class="button uplift-request-open is-normal">
-            <span class="icon"><i class="fa fa-arrow-circle-up"></i></span>
-            <div class="StackPage-actions-headline">Request Uplift</span>
-        </button>
+        {% if uplift_stack_too_large %}
+            <button class="button uplift-request-open is-normal">
+                <span class="icon"><i class="fa fa-arrow-circle-up"></i></span>
+                <div class="StackPage-actions-headline">Request Uplift</span>
+            </button>
+        {% else %}
+            <button class="button is-danger" disabled>
+              <span class="icon"><i class="fa fa-ban"></i></span>
+              <div class="StackPage-actions-headline">Uplift blocked: stack has > {{ MAX_UPLIFT_STACK_SIZE }} revisions</div>
+              <div class="StackPage-actions-subtitle">
+                Please use <code>moz-phab uplift</code> for larger stacks.
+              </div>
+            </button>
+        {% endif %}
       {% endif %}
   </div>
 

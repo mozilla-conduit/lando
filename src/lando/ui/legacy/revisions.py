@@ -7,6 +7,7 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 
 from lando.api.legacy import api as legacy_api
+from lando.api.legacy.uplift import MAX_UPLIFT_STACK_SIZE
 from lando.main.auth import force_auth_refresh
 from lando.main.models import Repo
 from lando.ui.legacy.forms import (
@@ -164,6 +165,9 @@ class Revision(LandoView):
         else:
             existing_flags = {}
 
+        # Check if the stack is larger than our maximum upliftable stack size.
+        uplift_stack_too_large = series and len(series) > MAX_UPLIFT_STACK_SIZE
+
         context = {
             "revision_id": "D{}".format(revision_id),
             "series": series,
@@ -181,6 +185,8 @@ class Revision(LandoView):
             "flags": target_repo.commit_flags if target_repo else [],
             "existing_flags": existing_flags,
             "uplift_request_form": uplift_request_form,
+            "uplift_stack_too_large": uplift_stack_too_large,
+            "max_uplift_stack_size": MAX_UPLIFT_STACK_SIZE,
         }
 
         return TemplateResponse(
