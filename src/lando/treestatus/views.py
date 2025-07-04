@@ -1,26 +1,24 @@
-# This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 import functools
 import logging
-from dataclasses import (
-    asdict,
-    dataclass,
-)
-from enum import Enum
+from datetime import datetime
 from typing import (
     Any,
     Callable,
+    Generic,
     Optional,
+    TypeVar,
 )
 
-import sqlalchemy as sa
-from connexion import ProblemException
-from flask import g
-from landoapi import auth
-from landoapi.cache import cache
-from landoapi.models.treestatus import (
+from django.core.cache import cache
+from django.core.handlers.wsgi import WSGIRequest
+from django.db.models import OuterRef, Subquery
+from django.db.utils import IntegrityError
+from ninja import NinjaAPI, Schema
+from ninja.responses import Response
+from pydantic import Field
+
+from lando.treestatus.models import (
+    CombinedTree,
     Log,
     StatusChange,
     StatusChangeTree,
@@ -30,31 +28,121 @@ from landoapi.models.treestatus import (
     get_default_tree,
     load_last_state,
 )
-from landoapi.storage import db
 
 logger = logging.getLogger(__name__)
 
+treestatus_api = NinjaAPI(auth=None, urls_namespace="treestatus-api")
 
 TREE_SUMMARY_LOG_LIMIT = 5
 
+T = TypeVar("T")
 
-@dataclass
-class CombinedTree:
-    tree: str
-    message_of_the_day: str
-    tags: list[str]
-    status: TreeStatus
-    reason: str
-    category: TreeCategory
+
+class ProblemDetail(Schema):
+    """RFC 7807-style JSON response on error."""
+
+    title: str
+    status: int
+    detail: str
+    type: Optional[str] = Field(default="about:blank")
+
+
+class ProblemException(Exception):
+    """Exception thrown when a ProblemDetail should be returned."""
+
+    def __init__(
+        self,
+        *,
+        type: str = "about:blank",
+        title: str,
+        detail: str,
+        status: int = 400,
+    ):
+        self.problem = ProblemDetail(
+            type=type,
+            title=title,
+            status=status,
+            detail=detail,
+        )
+
+        # Needed by Ninja exception handler.
+        self.status_code = status
+
+    def to_response(self) -> dict:
+        """Convert the `ProblemException` into a JSON-serializable dict."""
+        return self.problem.dict()
+
+
+@treestatus_api.exception_handler(ProblemException)
+def problem_exception_handler(request: WSGIRequest, exc: ProblemException) -> Response:
+    """Convert a thrown `ProblemException` to a response."""
+    return Response(
+        exc.to_response(),
+        status=exc.status_code,
+        content_type="application/problem+json",
+    )
+
+
+class Result(Schema, Generic[T]):
+    """Result wrapper for API responses."""
+
+    result: T
+
+
+class TreeData(Schema):
+    """Expected schema of a tree."""
+
+    category: Optional[str]
     log_id: Optional[int]
-    model: Tree
+    message_of_the_day: str
+    reason: str
+    status: TreeStatus
+    tags: list[str]
+    tree: str
 
-    def to_dict(self) -> dict:
-        return {
-            field: (value.value if isinstance(value, Enum) else value)
-            for field, value in asdict(self).items()
-            if field != "model"
-        }
+
+class LogEntry(Schema):
+    """Expected schema of a log entry."""
+
+    id: int
+    reason: str
+    status: str
+    tags: list[str]
+    tree: str
+    when: datetime
+    who: str
+
+
+class LastState(Schema):
+    """Expected schema for a "last state" object."""
+
+    log_id: Optional[int]
+    reason: str
+    status: str
+    tags: list[str]
+    current_log_id: Optional[int]
+    current_reason: str
+    current_status: str
+    current_tags: list[str]
+
+
+class TreesEntry(Schema):
+    """Expected schema for a "trees" entry in the stack."""
+
+    id: int
+    last_state: LastState
+    tree: str
+
+
+class StackEntry(Schema):
+    """Expected schema of a stack entry."""
+
+    id: int
+    reason: str
+    status: str
+    trees: list[TreesEntry]
+    when: datetime
+    who: str
 
 
 def get_combined_tree(
@@ -88,17 +176,17 @@ def get_combined_tree(
     return CombinedTree(**result)
 
 
-def result_object_wrap(f: Callable) -> Callable:
+def result_object_wrap(func: Callable) -> Callable:
     """Wrap the value returned from `f` in a result dict.
 
     Return a result wrapped in a dict with a `result` key, like so:
         {"result": ...}
     """
 
-    @functools.wraps(f)
-    def wrap_output(*args, **kwargs) -> tuple[dict[str, Any], int]:
-        result = f(*args, **kwargs)
-        return {"result": result}, 200
+    @functools.wraps(func)
+    def wrap_output(*args, **kwargs) -> Result:
+        result = func(*args, **kwargs)
+        return Result(result=result)
 
     return wrap_output
 
@@ -123,31 +211,80 @@ def serialize_last_state(old_tree: dict, new_tree: CombinedTree) -> dict[str, An
     }
 
 
-@cache.memoize()
-def get_tree_by_name(tree: str) -> Optional[CombinedTree]:
+def is_open(tree_name: str) -> bool:
+    """Return `True` if the tree is considered open for landing.
+
+    The tree is open for landing when it is `open` or `approval required`.
+    If the tree cannot be found in Treestatus it is considered open.
+    """
+    tree = get_tree_by_name(tree_name)
+    if not tree:
+        # We assume missing trees are open.
+        return True
+
+    return tree.status.is_open()
+
+
+def tree_cache_key(tree_name: str) -> str:
+    """Return the cache key for this tree name."""
+    return f"tree-cache-{tree_name}"
+
+
+def cache_get_tree_by_name(func: Callable) -> Callable:
+    """Cache results of `get_tree_by_name`."""
+
+    @functools.wraps(func)
+    def wrapper(tree_name: str) -> Optional[CombinedTree]:
+        key = tree_cache_key(tree_name)
+
+        # Return cached value if available.
+        if cache.has_key(key):
+            return cache.get(key)
+
+        # Calculate the tree state and save to the cache if applicable.
+        result = func(tree_name)
+        if result:
+            cache.set(key, result)
+
+        return result
+
+    return wrapper
+
+
+@cache_get_tree_by_name
+def get_tree_by_name(tree_name: str) -> Optional[CombinedTree]:
     """Retrieve a `CombinedTree` representation of a tree by name.
 
     Returns `None` if no tree can be found.
     """
-    query = (
-        Tree.query.distinct(Tree.tree)
-        .add_columns(
-            Log.tags,
-            Log.status,
-            Log.reason,
-            Log.id,
+    latest_log = Log.objects.filter(tree=OuterRef("tree")).order_by("-created_at")
+
+    # Create a `Tree` object annotated with `Log` values.
+    tree = (
+        Tree.objects.filter(tree=tree_name)
+        .annotate(
+            log_tags=Subquery(latest_log.values("tags")[:1]),
+            log_status=Subquery(latest_log.values("status")[:1]),
+            log_reason=Subquery(latest_log.values("reason")[:1]),
+            log_id=Subquery(latest_log.values("id")[:1]),
         )
-        .outerjoin(
-            Log,
-            Log.tree == Tree.tree,
-        )
-        .order_by(Tree.tree.desc(), Log.created_at.desc())
-        .filter(Tree.tree == tree)
+        .first()
     )
 
-    result = query.one_or_none()
-    if result:
-        return get_combined_tree(*result)
+    if not tree:
+        return None
+
+    return CombinedTree(
+        tree=tree.tree,
+        message_of_the_day=tree.message_of_the_day,
+        tags=tree.log_tags or [],
+        # Force to a `TreeStatus` since `log_status` is just a `str`.
+        status=TreeStatus(tree.log_status or tree.status),
+        reason=tree.log_reason or tree.reason,
+        category=tree.category,
+        log_id=tree.log_id,
+        model=tree,
+    )
 
 
 def remove_tree_by_name(tree_name: str):
@@ -155,20 +292,19 @@ def remove_tree_by_name(tree_name: str):
 
     Note: this function commits the session.
     """
-    tree = Tree.query.filter_by(tree=tree_name).one_or_none()
+    tree = Tree.objects.filter(tree=tree_name).first()
     if not tree:
         raise ProblemException(
-            404,
-            f"No tree {tree_name} found.",
-            "The tree does not exist.",
+            status=404,
+            title=f"No tree {tree_name} found.",
+            detail="The tree does not exist.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
-    db.session.delete(tree)
+    tree.delete()
 
-    # Delete from change stack.
-    StatusChangeTree.query.filter_by(tree=tree_name).delete()
-    db.session.commit()
-    cache.delete_memoized(get_tree_by_name, tree_name)
+    StatusChangeTree.objects.filter(tree=tree_name).delete()
+
+    cache.delete(tree_cache_key(tree_name))
 
 
 def update_tree_log(
@@ -178,13 +314,13 @@ def update_tree_log(
     if tags is None and reason is None:
         return
 
-    log = Log.query.get(id)
-
-    if log is None:
+    try:
+        log = Log.objects.get(id=id)
+    except Log.DoesNotExist:
         raise ProblemException(
-            404,
-            f"No tree log for id {id} found."
-            f"The tree log does not exist for id {id}.",
+            status=404,
+            title=f"No tree log for id {id} found.",
+            detail=f"The tree log does not exist for id {id}.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
@@ -193,50 +329,48 @@ def update_tree_log(
     if reason is not None:
         log.reason = reason
 
+    log.save()
 
-def get_combined_trees(trees: Optional[list[Tree]] = None) -> list[CombinedTree]:
+
+def get_combined_trees(trees: Optional[list[str]] = None) -> list[CombinedTree]:
     """Return a `CombinedTree` representation of trees.
 
     If `trees` is set, return the `CombinedTree` for those trees, otherwise
     return all known trees.
     """
-    query = (
-        Tree.query.distinct(Tree.tree)
-        .add_columns(
-            Log.tags,
-            Log.status,
-            Log.reason,
-            Log.id,
-        )
-        .outerjoin(
-            Log,
-            Log.tree == Tree.tree,
-        )
-        .order_by(Tree.tree.desc(), Log.created_at.desc())
+    latest_log = Log.objects.filter(tree=OuterRef("tree")).order_by("-created_at")
+
+    qs = Tree.objects.annotate(
+        log_tags=Subquery(latest_log.values("tags")[:1]),
+        log_status=Subquery(latest_log.values("status")[:1]),
+        log_reason=Subquery(latest_log.values("reason")[:1]),
+        log_id=Subquery(latest_log.values("id")[:1]),
     )
 
     if trees:
-        query = query.filter(Tree.tree.in_(trees))
+        qs = qs.filter(tree__in=trees)
 
-    return [get_combined_tree(*result) for result in query.all()]
+    return [
+        get_combined_tree(
+            tree, tree.log_tags, tree.log_status, tree.log_reason, tree.log_id
+        )
+        for tree in qs
+    ]
 
 
-def update_tree_status(
-    session: sa.orm.Session,
+def apply_tree_update_to_model(
     tree: Tree,
-    status: Optional[TreeStatus] = None,
+    user_id: str,
+    status: Optional[str] = None,
     reason: Optional[str] = None,
     tags: Optional[list[str]] = None,
     message_of_the_day: Optional[str] = None,
 ):
-    """Update the given tree's status.
-
-    Note that this does not commit the session.
-    """
+    """Update the given tree's status."""
     tags = tags or []
 
     if status is not None:
-        tree.status = status
+        tree.status = TreeStatus(status)
 
     if reason is not None:
         tree.reason = reason
@@ -244,301 +378,243 @@ def update_tree_status(
     if message_of_the_day is not None:
         tree.message_of_the_day = message_of_the_day
 
-    # Create a log entry if the reason or status has changed.
+    tree.save()
+
     if status or reason:
-        if status is None:
-            status = "no change"
-        if reason is None:
-            reason = "no change"
-        log = Log(
-            tree=tree.tree,
-            changed_by=g.auth0_user.user_id(),
-            status=TreeStatus(status),
-            reason=reason,
+        Log.objects.create(
+            tree=tree,
+            changed_by=user_id,
+            status=TreeStatus(status) if status else tree.status,
+            reason=reason or tree.reason,
             tags=tags,
         )
-        session.add(log)
 
-    cache.delete_memoized(get_tree_by_name, tree.tree)
+    cache.delete(tree_cache_key(tree.tree))
 
 
+@treestatus_api.get("/stack", response={200: Result[list[StackEntry]]})
 @result_object_wrap
-def get_stack() -> list[dict]:
+def api_get_stack(request: WSGIRequest) -> list[dict]:
     """Handler for `GET /stack`."""
-    return [
-        status_change.to_dict()
-        for status_change in StatusChange.query.order_by(StatusChange.created_at.desc())
-    ]
+    return StatusChange.get_stack()
 
 
-@auth.require_auth0(
-    groups=(auth.TREESTATUS_USERS,), scopes=("lando", "profile", "email"), userinfo=True
-)
-def update_stack(id: int, body: dict) -> tuple[dict, int]:
-    """Handler for `PATCH /stack/{id}`."""
-    change = StatusChange.query.get(id)
+def apply_status_change_update(
+    id: int, tags: list[str] | None = None, reason: str | None = None
+):
+    """Update the tags and reason for a StatusChange and update associated logs."""
+    change = StatusChange.objects.get(id=id)
     if not change:
         raise ProblemException(
-            404,
-            f"No stack {id} found.",
-            "The change stack does not exist.",
+            status=404,
+            title=f"No stack {id} found.",
+            detail="The change stack does not exist.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
-    for tree in change.trees:
+    for tree in change.trees.all():
         last_state = load_last_state(tree.last_state)
-        last_state["current_tags"] = body.get("tags", last_state["current_tags"])
-        last_state["current_reason"] = body.get("reason", last_state["current_reason"])
+        last_state["current_tags"] = tags
+        last_state["current_reason"] = reason
+
         update_tree_log(
             last_state["current_log_id"],
-            last_state["current_tags"],
-            last_state["current_reason"],
+            tags,
+            reason,
         )
         tree.last_state = last_state
+        tree.save()
 
-    change.reason = body.get("reason", change.reason)
-
-    db.session.commit()
-
-    return {
-        "id": change.id,
-        "tags": body.get("tags"),
-        "reason": body.get("reason"),
-    }, 200
+    change.reason = reason
+    change.save()
 
 
-def revert_change(id: int, revert: bool = False) -> tuple[dict, int]:
+def revert_status_change(id: int, user_id: str, revert: bool = False):
     """Revert the status change with the given ID.
 
     If `revert` is passed, also revert the updated trees statuses to their
     previous values.
     """
-    status_change = StatusChange.query.get(id)
-    if not status_change:
+    try:
+        status_change = StatusChange.objects.get(id=id)
+    except StatusChange.DoesNotExist:
         raise ProblemException(
-            404,
-            f"No change {id} found.",
-            "The change could not be found.",
+            status=404,
+            title=f"No change {id} found.",
+            detail="The change could not be found.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
     if revert:
-        for changed_tree in status_change.trees:
-            tree = get_tree_by_name(changed_tree.tree)
-
-            if tree is None:
-                # If there's no tree to update we just continue.
-                continue
-
+        for changed_tree in status_change.trees.all():
             last_state = load_last_state(changed_tree.last_state)
-            update_tree_status(
-                db.session,
-                tree.model,
-                status=TreeStatus(last_state["status"]),
+            apply_tree_update_to_model(
+                tree=changed_tree.tree,
+                user_id=user_id,
+                status=last_state["status"],
                 reason=last_state["reason"],
                 tags=last_state.get("tags", []),
             )
 
-    db.session.delete(status_change)
-    db.session.commit()
-
-    return {"id": status_change.id, "reverted": revert}, 200
+    status_change.delete()
 
 
-@auth.require_auth0(
-    groups=(auth.TREESTATUS_USERS,), scopes=("lando", "profile", "email"), userinfo=True
-)
-def delete_stack(id: int, revert: Optional[int] = None):  # noqa: ANN201
-    """Handler for `DELETE /stack/{id}`."""
-    if revert not in {0, 1, None}:
-        raise ProblemException(
-            400,
-            "Unexpected value for `revert`.",
-            "Unexpected value for `revert`.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
-        )
-
-    return revert_change(id, revert=bool(revert))
-
-
+@treestatus_api.get("/trees", response={200: Result[dict[str, TreeData]]})
 @result_object_wrap
-def get_trees() -> dict:
+def api_get_trees(request: WSGIRequest) -> dict:
     """Handler for `GET /trees`."""
     return {tree.tree: tree.to_dict() for tree in get_combined_trees()}
 
 
-@auth.require_auth0(
-    groups=(auth.TREESTATUS_USERS,), scopes=("lando", "profile", "email"), userinfo=True
-)
-def update_trees(body: dict):  # noqa: ANN201
-    """Handler for `PATCH /trees`."""
-    # Fetch all trees.
-    trees = get_combined_trees(body["trees"])
+def apply_tree_updates(
+    user_id: str,
+    trees: list[str],
+    status: Optional[TreeStatus] = None,
+    reason: Optional[str] = None,
+    tags: Optional[list[str]] = None,
+    remember: bool = False,
+    message_of_the_day: Optional[str] = None,
+) -> list[dict]:
+    """Update a list of trees and optionally remember the change in a stack."""
+    combined_trees = get_combined_trees(trees)
 
-    # Check that we fetched all the trees.
-    if len(trees) != len(body["trees"]):
-        trees_diff = set(body["trees"]) - {tree.tree for tree in trees}
+    if len(trees) != len(combined_trees):
+        trees_diff = set(trees) - {tree.tree for tree in combined_trees}
+        missing_trees = ", ".join(trees_diff)
         raise ProblemException(
-            404,
-            f"Could not fetch the following trees: {trees_diff}"
-            "Could not fetch all the requested trees.",
+            status=404,
+            detail="Could not fetch all the requested trees.",
+            title=f"Could not fetch the following trees: {missing_trees}",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
-    # Check for other constraints.
-    if "tags" not in body and body.get("status") == "closed":
+    if not tags and status == TreeStatus.CLOSED:
         raise ProblemException(
-            400,
-            "Tags are required when closing a tree.",
-            "Tags are required when closing a tree.",
+            status=400,
+            detail="Tags are required when closing a tree.",
+            title="Tags are required when closing a tree.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
-    if (
-        "remember" in body
-        and body["remember"] is True
-        and any(field not in body for field in {"status", "reason", "tags"})
-    ):
+    if remember is True and any(field is None for field in (status, reason, tags)):
         raise ProblemException(
-            400,
-            "Must specify status, reason and tags to remember the change.",
-            "Must specify status, reason and tags to remember the change.",
+            status=400,
+            title="Must specify status, reason and tags to remember the change.",
+            detail="Must specify status, reason and tags to remember the change.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
-
-    # Update the trees as requested.
-    new_status = TreeStatus(body["status"]) if "status" in body else None
-    new_reason = body.get("reason")
-    new_motd = body.get("message_of_the_day")
-    new_tags = body.get("tags", [])
 
     old_trees = {}
 
-    for tree in trees:
-        old_trees[tree.tree] = {}
-        old_trees[tree.tree]["status"] = TreeStatus(tree.status)
-        old_trees[tree.tree]["reason"] = tree.reason
-        old_trees[tree.tree]["tags"] = tree.tags
-        old_trees[tree.tree]["log_id"] = tree.log_id
+    for tree in combined_trees:
+        old_trees[tree.tree] = {
+            "status": TreeStatus(tree.status),
+            "reason": tree.reason,
+            "tags": tree.tags,
+            "log_id": tree.log_id,
+        }
 
-        update_tree_status(
-            db.session,
+        apply_tree_update_to_model(
             tree.model,
-            status=new_status,
-            reason=new_reason,
-            message_of_the_day=new_motd,
-            tags=new_tags,
+            user_id=user_id,
+            status=status.value if status else None,
+            reason=reason,
+            message_of_the_day=message_of_the_day,
+            tags=tags,
         )
 
-    if "remember" in body and body["remember"] is True:
-        # Add a new stack entry with the new and existing states.
-        status_change = StatusChange(
-            changed_by=g.auth0_user.user_id(),
-            reason=body["reason"],
-            status=TreeStatus(body["status"]),
+    if remember:
+        status_change = StatusChange.objects.create(
+            changed_by=user_id,
+            reason=reason or "",
+            status=status or TreeStatus.OPEN,
         )
 
-        # Re-fetch new updated trees.
-        new_trees = get_combined_trees(body["trees"])
+        new_trees = get_combined_trees([tree.tree for tree in combined_trees])
         for tree in new_trees:
-            status_change_tree = StatusChangeTree(
-                tree=tree.tree,
+            StatusChangeTree.objects.create(
+                stack=status_change,
+                tree=tree.model,
                 last_state=serialize_last_state(old_trees[tree.tree], tree),
             )
-            status_change.trees.append(status_change_tree)
-
-        db.session.add(status_change)
-
-    db.session.commit()
 
     return [
         {
             "tree": tree.tree,
-            "status": new_status.value,
-            "reason": new_reason,
-            "message_of_the_day": new_motd,
+            "status": status.value if status else tree.status,
+            "reason": reason,
+            "message_of_the_day": message_of_the_day,
         }
-        for tree in trees
-    ], 200
+        for tree in combined_trees
+    ]
 
 
+@treestatus_api.get("/trees/{tree}", response={200: Result[TreeData]})
 @result_object_wrap
-def get_tree(tree: str) -> dict:
+def api_get_tree(request: WSGIRequest, tree: str) -> dict:
     """Handler for `GET /trees/{tree}`."""
     result = get_tree_by_name(tree)
     if result is None:
         raise ProblemException(
-            404,
-            f"No tree {tree} found.",
-            "The tree does not exist.",
+            status=404,
+            title=f"No tree {tree} found.",
+            detail="The tree does not exist.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
     return result.to_dict()
 
 
-@auth.require_auth0(
-    groups=(auth.TREESTATUS_ADMIN,), scopes=("lando", "profile", "email"), userinfo=True
-)
-def make_tree(tree: str, body: dict):  # noqa: ANN201
-    """Handler for `PUT /trees/{tree}`."""
-    if body["tree"] != tree:
-        raise ProblemException(
-            400,
-            f"Tree names must match, {tree} from url and {body['tree']} from body do not.",
-            "Tree names must match.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
-        )
-
-    new_tree = Tree(
-        tree=tree,
-        status=TreeStatus(body["status"]),
-        reason=body["reason"],
-        message_of_the_day=body["message_of_the_day"],
-        category=TreeCategory(body["category"]),
-    )
+def create_new_tree(
+    user_id: str,
+    tree: str,
+    status: TreeStatus = TreeStatus.OPEN,
+    reason: str = "Initial tree creation",
+    message_of_the_day: str = "",
+    category: TreeCategory = TreeCategory.OTHER,
+) -> Tree:
+    """Create a new `Tree` with the given fields."""
     try:
-        db.session.add(new_tree)
-        db.session.commit()
-    except (sa.exc.IntegrityError, sa.exc.ProgrammingError):
+        new_tree = Tree.objects.create(
+            tree=tree,
+            status=status,
+            reason=reason,
+            message_of_the_day=message_of_the_day,
+            category=category,
+        )
+    except IntegrityError:
         raise ProblemException(
-            400,
-            f"Tree {tree} already exists.",
-            "Tree already exists.",
+            status=400,
+            detail=f"Tree {tree} already exists.",
+            title=f"Tree {tree} already exists.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
-    return new_tree.to_json(), 201
+    # Create an initial log entry for the tree.
+    Log.objects.create(
+        tree=new_tree,
+        changed_by=user_id,
+        status=new_tree.status,
+        reason=reason,
+        tags=[],
+    )
+
+    return new_tree
 
 
-@auth.require_auth0(
-    groups=(auth.TREESTATUS_ADMIN,), scopes=("lando", "profile", "email"), userinfo=True
-)
-def delete_tree(tree: str) -> tuple[dict, int]:
-    """Handler for `DELETE /trees/{tree}`."""
-    remove_tree_by_name(tree)
-    return {"removed": tree}, 200
-
-
-@auth.require_auth0(
-    groups=(auth.TREESTATUS_USERS,), scopes=("lando", "profile", "email"), userinfo=True
-)
-def update_log(id: int, body: dict):  # noqa: ANN201
-    """Handler for `PATCH /log/{id}`."""
-    tags = body.get("tags")
-    reason = body.get("reason")
-
+def apply_log_and_stack_update(
+    log_id: int, tags: list[str] | None = None, reason: str | None = None
+):
+    """Update the details of a log entry."""
     if tags is None and reason is None:
         return
 
     # Update the log table.
-    update_tree_log(id, tags, reason)
+    update_tree_log(log_id, tags, reason)
 
-    # Iterate over all stack.
-    for status_change in StatusChange.query.all():
-        for tree in status_change.trees:
+    for change in StatusChange.objects.prefetch_related("trees"):
+        for tree in change.trees.all():
             last_state = load_last_state(tree.last_state)
-
-            if last_state["current_log_id"] != id:
+            if last_state["current_log_id"] != log_id:
                 continue
 
             if reason:
@@ -547,47 +623,47 @@ def update_log(id: int, body: dict):  # noqa: ANN201
                 last_state["current_tags"] = tags
 
             tree.last_state = last_state
-
-    db.session.commit()
-
-    return {"tags": tags, "reason": reason}, 200
+            tree.save()
 
 
-def get_logs_for_tree(tree_name: str, limit_logs: bool = True) -> list[dict]:
+def get_tree_logs_by_name(tree_name: str, limit_logs: bool = True) -> list[dict]:
     """Return a list of Log entries as dicts.
 
     If `limit_logs` is `True`, limit the number of returned logs to the log limit.
     """
     # Verify the tree exists first.
-    tree = Tree.query.filter_by(tree=tree_name).one_or_none()
+    tree = Tree.objects.filter(tree=tree_name).first()
     if not tree:
         raise ProblemException(
-            404,
-            f"No tree {tree_name} found.",
-            f"Could not find the requested tree {tree_name}.",
+            status=404,
+            title=f"No tree {tree_name} found.",
+            detail=f"Could not find the requested tree {tree_name}.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
-    query = Log.query.filter_by(tree=tree_name).order_by(Log.created_at.desc())
+    query = Log.objects.filter(tree=tree_name).order_by("-created_at")
     if limit_logs:
-        query = query.limit(TREE_SUMMARY_LOG_LIMIT)
+        query = query[:TREE_SUMMARY_LOG_LIMIT]
 
     return [log.to_dict() for log in query]
 
 
+@treestatus_api.get("/trees/{tree}/logs_all", response={200: Result[list[LogEntry]]})
 @result_object_wrap
-def get_logs_all(tree: str) -> list[dict]:
+def api_get_logs_all(request: WSGIRequest, tree: str) -> list[dict]:
     """Handler for `GET /trees/{tree}/logs_all`."""
-    return get_logs_for_tree(tree, limit_logs=False)
+    return get_tree_logs_by_name(tree, limit_logs=False)
 
 
+@treestatus_api.get("/trees/{tree}/logs", response={200: Result[list[LogEntry]]})
 @result_object_wrap
-def get_logs(tree: str) -> list[dict]:
+def api_get_logs(request: WSGIRequest, tree: str) -> list[dict]:
     """Handler for `GET /trees/{tree}/logs`."""
-    return get_logs_for_tree(tree, limit_logs=True)
+    return get_tree_logs_by_name(tree, limit_logs=True)
 
 
+@treestatus_api.get("/trees2", response={200: Result[list[TreeData]]})
 @result_object_wrap
-def get_trees2() -> list[dict]:
+def api_get_trees2(request: WSGIRequest) -> list[dict]:
     """Handler for `GET /trees2`."""
     return [tree.to_dict() for tree in get_combined_trees()]
