@@ -188,6 +188,18 @@
         <section class="modal-card-body">
           <input type="hidden" name="revision_id" value="{{ revision_id }}" />
 
+          {% if uplift_stack_too_large %}
+            <article class="message is-danger">
+              <div class="message-header">
+                <p>Uplift Blocked</p>
+              </div>
+              <div class="message-body">
+                This stack contains {{ series|length }} revisions, which exceeds the maximum allowed for web-based uplift ({{ max_uplift_stack_size }}).
+                Please use the <code>moz-phab uplift</code> command-line tool instead.
+              </div>
+            </article>
+          {% endif %}
+
           <p class="block">
             Select the repository you wish to uplift this revision to.
             Once you submit the request, you will be redirected to the new uplift revision on Phabricator.
@@ -215,11 +227,12 @@
         </section>
 
         <footer class="modal-card-foot">
-          <button
-            class="button is-success"
-            title="Create Phabricator review requests for the selected patch stack to land in the specified uplift train." >
-            Create uplift request
-          </button>
+            <button
+              class="button is-success"
+              {% if uplift_stack_too_large %}disabled{% endif %}
+              title="{% if uplift_stack_too_large %}Stack too large for web-based uplift. Use `moz-phab uplift` instead.{% else %}Create Phabricator review requests for the selected patch stack to land in the specified uplift train.{% endif %}">
+              Create uplift request
+            </button>
         </footer>
 
         </form>
