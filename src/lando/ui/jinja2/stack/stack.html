@@ -194,7 +194,7 @@
                 <p>Uplift Blocked</p>
               </div>
               <div class="message-body">
-                This stack contains {{ stack_size }} revisions, which exceeds the maximum allowed for web-based uplift ({{ max_uplift_stack_size }}).
+                This stack contains {{ series|length }} revisions, which exceeds the maximum allowed for web-based uplift ({{ max_uplift_stack_size }}).
                 Please use the <code>moz-phab uplift</code> command-line tool instead.
               </div>
             </article>
