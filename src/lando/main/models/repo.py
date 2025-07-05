@@ -208,7 +208,7 @@ class Repo(BaseModel):
             self.system_path = self.get_system_path()
 
         if not self.push_path or not self.pull_path:
-            url = urllib.parse.urlparse(self.url)
+            url = self.parsed_url
             if not self.push_path:
                 self.push_path = f"ssh://{url.netloc}{url.path}"
             if not self.pull_path:
@@ -223,7 +223,50 @@ class Repo(BaseModel):
         if not self.scm_type:
             self.scm_type = self._find_supporting_scm(self.pull_path)
 
+        self.url = self.url.removesuffix("/")
+
+        if self.is_github and not self.url.endswith(".git"):
+            self.url += ".git"
+
         super().save(*args, **kwargs)
+
+    @property
+    def parsed_url(self) -> urllib.parse.ParseResult:
+        """Return the result of parsing the repo URL with urllib.parse.urlparse."""
+        return urllib.parse.urlparse(self.url)
+
+    @property
+    def is_github(self) -> bool:
+        """Return `True` if repo URL is a GitHub URL."""
+        return (
+            self.is_git
+            and self.parsed_url.hostname
+            and self.parsed_url.hostname.endswith("github.com")
+        )
+
+    @property
+    def normalized_url(self) -> str:
+        """Return GitHub URL without `.git` suffix, or the original URL.
+
+        For repos hosted on GitHub, remove the `.git` suffix from the URL. This allows the URL
+        to be used as a base URL for other paths, e.g. specific commits. For non-GitHub repos,
+        return the original URL.
+        """
+        if self.is_github:
+            return self._github_repo_url
+        return self.url
+
+    @property
+    def _github_repo_url(self) -> Optional[str]:
+        if self.is_github:
+            return self.url.removesuffix(".git")
+
+    @property
+    def _github_repo_name(self) -> str:
+        """Return the GitHub repo name without the `.git` suffix."""
+        if self.is_github:
+            return self.parsed_url.path.split("/")[-1].removesuffix(".git")
+        return ""
 
     def _find_supporting_scm(self, pull_path: str) -> str:
         """Loop through the supported SCM_IMPLEMENTATIONS and return a key representing

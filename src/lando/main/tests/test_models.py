@@ -99,6 +99,83 @@ def test__models__Repo__system_path_validator(path, expected_exception):
 
 
 @pytest.mark.parametrize(
+    "scm_type, url, expected_url, expected_normalized_url,",
+    [
+        (
+            SCM_TYPE_GIT,
+            "https://github.com/mozilla-conduit/test-repo.git/",
+            "https://github.com/mozilla-conduit/test-repo.git",
+            "https://github.com/mozilla-conduit/test-repo",
+        ),
+        (
+            SCM_TYPE_GIT,
+            "https://github.com/mozilla-conduit/test-repo.git",
+            "https://github.com/mozilla-conduit/test-repo.git",
+            "https://github.com/mozilla-conduit/test-repo",
+        ),
+        (
+            SCM_TYPE_GIT,
+            "https://github.com/mozilla-conduit/test-repo",
+            "https://github.com/mozilla-conduit/test-repo.git",
+            "https://github.com/mozilla-conduit/test-repo",
+        ),
+        (
+            SCM_TYPE_HG,
+            "https://hg.mozilla.org/conduit-testing/test-repo/",
+            "https://hg.mozilla.org/conduit-testing/test-repo",
+            "https://hg.mozilla.org/conduit-testing/test-repo",
+        ),
+        (
+            SCM_TYPE_HG,
+            "https://hg.mozilla.org/conduit-testing/test-repo",
+            "https://hg.mozilla.org/conduit-testing/test-repo",
+            "https://hg.mozilla.org/conduit-testing/test-repo",
+        ),
+    ],
+)
+@pytest.mark.django_db(transaction=True)
+def test__models__Repo__normalized_url(
+    scm_type, url, expected_url, expected_normalized_url, monkeypatch
+):
+    mock__find_supporting_scm = mock.MagicMock()
+    mock__find_supporting_scm.return_value = scm_type
+    monkeypatch.setattr(Repo, "_find_supporting_scm", mock__find_supporting_scm)
+    repo = Repo(url=url)
+    repo.save()
+
+    assert repo.url == expected_url
+    assert repo.normalized_url == expected_normalized_url
+
+
+@pytest.mark.parametrize(
+    "scm_type, url, expected__github_repo_name,",
+    [
+        (
+            SCM_TYPE_GIT,
+            "https://github.com/mozilla-conduit/test-repo.git/",
+            "test-repo",
+        ),
+        (
+            SCM_TYPE_HG,
+            "https://hg.mozilla.org/conduit-testing/test-repo/",
+            "",
+        ),
+    ],
+)
+@pytest.mark.django_db(transaction=True)
+def test__models__Repo___github_repo_name(
+    scm_type, url, expected__github_repo_name, monkeypatch
+):
+    mock__find_supporting_scm = mock.MagicMock()
+    mock__find_supporting_scm.return_value = scm_type
+    monkeypatch.setattr(Repo, "_find_supporting_scm", mock__find_supporting_scm)
+    repo = Repo(url=url)
+    repo.save()
+
+    assert repo._github_repo_name == expected__github_repo_name
+
+
+@pytest.mark.parametrize(
     "author, expected",
     [
         (
