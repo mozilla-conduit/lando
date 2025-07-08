@@ -271,7 +271,7 @@ class GitSCM(AbstractSCM):
 
     def process_merge_conflict(
         self,
-        pull_path: str,
+        normalized_url: str,
         revision_id: int,
         error_message: str,
     ) -> dict[str, Any]:
@@ -295,10 +295,7 @@ class GitSCM(AbstractSCM):
         breakdown["failed_paths"] = [
             {
                 "path": path,
-                # GitHub's /tree/ redirects to (HTML) /blob/ as needed.
-                # XXX: This doesn't work for CGit in our test environment,
-                # which would need f"{pull_path}/tree/{path}?id={revision}".
-                "url": f"{pull_path}/tree/{revision}/{path}",
+                "url": f"{normalized_url}/tree/{revision}/{path}",
                 "changeset_id": revision,
             }
             for (path, revision) in failed_path_commits

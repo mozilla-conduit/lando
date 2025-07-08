@@ -220,9 +220,7 @@ def linkify_transplant_details(text: str, landing_job: LandingJob) -> str:
     if landing_job.target_repo.scm_type == SCM_TYPE_GIT:
         link_template = r'<a href="{repo_url}/commit/\g<1>">{repo_url}/commit/\g<1></a>'
 
-    replace = link_template.format(
-        repo_url=landing_job.target_repo.url.removesuffix(".git")
-    )
+    replace = link_template.format(repo_url=landing_job.target_repo.normalized_url)
     return re.sub(search, replace, str(text))  # This is case sensitive
 
 
@@ -275,11 +273,11 @@ def repo_branch_url(repo: Repo) -> str:
     if not repo.is_git:
         return repo.url
 
-    if "git.test" in repo.url:
+    if "git.test" in repo.normalized_url:
         # For some local testing repos, there is a different URL pattern.
-        template = "{repo.url}/log/?h={repo.default_branch}"
+        template = "{repo.normalized_url}/log/?h={repo.default_branch}"
     else:
-        template = "{repo.url}/tree/{repo.default_branch}"
+        template = "{repo.normalized_url}/tree/{repo.default_branch}"
     return template.format(repo=repo)
 
 
