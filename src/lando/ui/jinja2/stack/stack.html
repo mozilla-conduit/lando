@@ -98,8 +98,6 @@
   {% endif %}
   </div>
 
-  {% set can_uplift_revision = user_is_authenticated and user_has_phabricator_token %}
-
   <div class="StackPage-actions">
       {% if not user_is_authenticated %}
         <button disabled>
@@ -115,8 +113,6 @@
         <button class="StackPage-preview-button">
           <div class="StackPage-actions-headline">Preview Landing</div>
         </button>
-      {% endif %}
-      {% if can_uplift_revision %}
         <button class="button uplift-request-open is-normal">
             <span class="icon"><i class="fa fa-arrow-circle-up"></i></span>
             <div class="StackPage-actions-headline">Request Uplift</span>
@@ -171,7 +167,7 @@
     </div>
   </div>
 
-  {% if can_uplift_revision %}
+  {% if user_is_authenticated %}
   <div class="uplift-request-modal modal">
     <form action="{{ url("uplift-page") }}" method="post">
 
@@ -188,10 +184,22 @@
         <section class="modal-card-body">
           <input type="hidden" name="revision_id" value="{{ revision_id }}" />
 
+          {% if not user_has_phabricator_token %}
+            <article class="message is-danger">
+              <div class="message-header">
+                <p>Phabricator API Key Required</p>
+              </div>
+              <div class="message-body">
+                You must set a Phabricator API key in your user settings before requesting an uplift.
+                Click on your username in the navbar above to open your user settings.
+              </div>
+            </article>
+          {% endif %}
+
           {% if uplift_stack_too_large %}
             <article class="message is-danger">
               <div class="message-header">
-                <p>Uplift Blocked</p>
+                <p>Uplift Stack Too Large</p>
               </div>
               <div class="message-body">
                 This stack contains {{ series|length }} revisions, which exceeds the maximum allowed for web-based uplift ({{ max_uplift_stack_size }}).
@@ -226,11 +234,12 @@
           </div>
         </section>
 
+        {% set can_uplift_revision = user_is_authenticated and user_has_phabricator_token and not uplift_stack_too_large %}
         <footer class="modal-card-foot">
             <button
               class="button is-success"
-              {% if uplift_stack_too_large %}disabled{% endif %}
-              title="{% if uplift_stack_too_large %}Stack too large for web-based uplift. Use `moz-phab uplift` instead.{% else %}Create Phabricator review requests for the selected patch stack to land in the specified uplift train.{% endif %}">
+              {% if not can_uplift_revision %}disabled{% endif %}
+              title="{% if not can_uplift_revision %}Requesting uplift is blocked. See the error messages above for more detail.{% else %}Create Phabricator review requests for the selected patch stack to land in the specified uplift train.{% endif %}">
               Create uplift request
             </button>
         </footer>
