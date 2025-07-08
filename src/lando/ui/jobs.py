@@ -1,3 +1,5 @@
+import logging
+
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -10,9 +12,10 @@ from lando.api.legacy.treestatus import (
 from lando.headless_api.models.automation_job import AutomationJob
 from lando.main.models.landing_job import JobStatus, LandingJob
 from lando.main.models.worker import Worker, WorkerType
-from lando.main.scm import SCM_TYPE_HG
 from lando.ui.views import LandoView
 from lando.utils import treestatus
+
+logger = logging.getLogger(__name__)  # noqa: F821
 
 
 class JobView(LandoView):
@@ -93,12 +96,6 @@ class LandingJobView(JobView):
                 if landing_job in queue:
                     queue = queue[: queue.index(landing_job)]
             context["queue"] = queue
-        else:
-            # XXX: Only works for Hg repos, waiting for bug 1963822.
-            if landing_job.target_repo.scm_type == SCM_TYPE_HG:
-                context["treeherder"] = {
-                    "job_url": f"{settings.TREEHERDER_URL}/jobs?revision={landing_job.landed_commit_id}"
-                }
 
         return TemplateResponse(
             request=request,

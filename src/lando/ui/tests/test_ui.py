@@ -23,35 +23,65 @@ def test_queued_landing_job_view(
         make_landing_job(target_repo=repo, status=JobStatus.SUBMITTED) for _ in range(3)
     ]
 
-    def get_job_view(job: LandingJob) -> str:
-        phab_id = f"D{job.revisions[0].revision_id}"
-        response = client.get(
-            f"/{phab_id}/landings/{job.id}/",
-        )
-        assert response.status_code == 200, "Job view should render correctly"
-        page_html = response.text
-
-        assert f"Landing Job {job.id}" in page_html, "Missing title in job view"
-        assert (
-            f"{settings.PHABRICATOR_URL}/{phab_id}" in page_html
-        ), "Missing Phabricator information in job view"
-        assert re.search(
-            f"Tree Status for.*{repo.name}.*closed", page_html
-        ), "Missing TreeStatus information in job view"
-
-        return page_html
-
-    page_html = get_job_view(jobs[0])
+    page_html = _fetch_job_view(client, jobs[0])
     assert "ahead in the queue" not in page_html, "Unexpected queue state in job view"
+    assert re.search(
+        f"Tree Status for.*{repo.name}.*closed", page_html
+    ), "Missing TreeStatus information in job view"
 
-    page_html = get_job_view(jobs[1])
+    page_html = _fetch_job_view(client, jobs[1])
     assert (
         "There is 1 job ahead in the queue" in page_html
     ), "Unexpected queue state in job view"
-    page_html = get_job_view(jobs[2])
+    page_html = _fetch_job_view(client, jobs[2])
     assert (
         "There are 2 jobs ahead in the queue" in page_html
     ), "Unexpected queue state in job view"
+
+
+@pytest.mark.django_db
+def test_landed_landing_job_view(
+    client,
+    repo_mc,
+    treestatusdouble,
+    landing_worker_instance,
+    make_landing_job,
+    commit_maps,
+):
+    cmap = commit_maps[0]
+
+    repo = repo_mc(SCM_TYPE_GIT, name=cmap.git_repo_name)
+    treestatusdouble.close_tree(repo.name)
+
+    # We need a landing worker to exist so the queue can be built, but we don't use it
+    # directly in the test.
+    landing_worker_instance(scm.SCM_TYPE_GIT)
+
+    job = make_landing_job(
+        target_repo=repo, status=JobStatus.LANDED, landed_commit_id=cmap.git_hash
+    )
+
+    page_html = _fetch_job_view(client, job)
+    assert (
+        "ahead in the queue" not in page_html
+    ), "Unexpected queue state in landed job view"
+    assert f"{settings.TREEHERDER_URL}/jobs?revision={cmap.hg_hash}" in page_html
+
+
+def _fetch_job_view(client, job: LandingJob) -> str:
+    phab_id = f"D{job.revisions[0].revision_id}"
+    response = client.get(
+        f"/{phab_id}/landings/{job.id}/",
+    )
+    assert response.status_code == 200, "Job view should render correctly"
+    page_html = response.text
+
+    assert f"Landing Job {job.id}" in page_html, "Missing title in job view"
+    assert (
+        f"{settings.PHABRICATOR_URL}/{phab_id}" in page_html
+    ), "Missing Phabricator information in job view"
+
+    return page_html
 
 
 @pytest.mark.django_db

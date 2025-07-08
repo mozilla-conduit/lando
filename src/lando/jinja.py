@@ -223,6 +223,17 @@ def linkify_transplant_details(text: str, landing_job: LandingJob) -> str:
     return re.sub(search, replace, str(text))  # This is case sensitive
 
 
+def treeherder_link(treeherder_revision: str, label: str = "") -> str:
+    """Builds a TreeHerder link for a given revision."""
+
+    if not treeherder_revision:
+        return treeherder_revision
+
+    label = label or treeherder_revision
+
+    return f'<a href="{settings.TREEHERDER_URL}/jobs?revision={treeherder_revision}">{label}</a>'
+
+
 def linkify_faq(text: str) -> str:
     search = r"\b(FAQ)\b"
     replace = r'<a href="{faq_url}">\g<1></a>'.format(faq_url=FAQ_URL)
@@ -362,6 +373,7 @@ def environment(**options):  # noqa: ANN201
             "get_messages": messages.get_messages,
             "graph_height": graph_height,
             "is_treestatus_user": is_treestatus_user,
+            "treeherder_link": treeherder_link,
             "new_settings_form": UserSettingsForm,
             "static_url": settings.STATIC_URL,
             "url": reverse,
