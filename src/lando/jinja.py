@@ -22,9 +22,7 @@ from lando.treestatus.forms import (
 from lando.ui.legacy.forms import UserSettingsForm
 
 FAQ_URL = "https://wiki.mozilla.org/Phabricator/FAQ#Lando"
-SEC_BUG_DOCS = (
-    "https://firefox-source-docs.mozilla.org/bug-mgmt/processes/security-approval.html"  # noqa: E501
-)
+SEC_BUG_DOCS = "https://firefox-source-docs.mozilla.org/bug-mgmt/processes/security-approval.html"  # noqa: E501
 
 logger = logging.getLogger(__name__)
 
@@ -217,9 +215,9 @@ def linkify_transplant_details(text: str, landing_job: LandingJob) -> str:
 
     # We assume HG by default (legacy path), but use a Github-like path if 'git' is
     # present in the netloc.
-    link_template = r'<a href="{repo_url}/rev/\g<1>">\g<1></a> (Hg)'
+    link_template = r'<a href="{repo_url}/rev/\g<1>">\g<1></a>'
     if landing_job.target_repo.scm_type == SCM_TYPE_GIT:
-        link_template = r'<a href="{repo_url}/commit/\g<1>">\g<1></a> (Git)'
+        link_template = r'<a href="{repo_url}/commit/\g<1>">\g<1></a>'
 
     replace = link_template.format(repo_url=landing_job.target_repo.normalized_url)
     return re.sub(search, replace, str(text))  # This is case sensitive
