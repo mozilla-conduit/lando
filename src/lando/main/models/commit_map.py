@@ -1,3 +1,4 @@
+import logging
 from typing import Self
 
 import requests
@@ -6,6 +7,8 @@ from django.db import models
 from lando.main.models import BaseModel
 from lando.main.models.repo import Repo
 from lando.main.scm.consts import SCM_TYPE_GIT, SCM_TYPE_HG
+
+logger = logging.getLogger(__name__)
 
 
 class CommitMap(BaseModel):
@@ -111,7 +114,14 @@ class CommitMap(BaseModel):
     def fetch_push_data(cls, git_repo_name: str, **kwargs) -> dict:
         """Query the pushlog and create corresponding CommitMap objects."""
         url = cls.get_pushlog_url(git_repo_name)
-        push_data = requests.get(url, params=kwargs).json()
+        response = requests.get(url, params=kwargs)
+        try:
+            response.raise_for_status()
+        except Exception as e:
+            logger.warning(f"Cannot fetch pushlog data from {url}: {e}")
+            return {}
+
+        push_data = response.json()
 
         # We don't care about the key, as it is just the push ID.
         # NOTE: multiple changesets may be included in the response.
