@@ -457,11 +457,13 @@ def hg_repo_mc(
     *,
     approval_required: bool = False,
     autoformat_enabled: bool = False,
-    force_push: bool = False,
-    push_target: str = "",
     automation_enabled: bool = True,
+    force_push: bool = False,
+    name: str = "",
+    push_target: str = "",
 ) -> Repo:
     params = {
+        "name": name or "mozilla-central-hg",
         "required_permission": SCM_LEVEL_3,
         "url": hg_server,
         "push_path": hg_server,
@@ -476,7 +478,6 @@ def hg_repo_mc(
     }
     repo = Repo.objects.create(
         scm_type=SCM_TYPE_HG,
-        name="mozilla-central-hg",
         **params,
     )
     repo.save()
@@ -490,14 +491,16 @@ def git_repo_mc(
     *,
     approval_required: bool = False,
     autoformat_enabled: bool = False,
-    force_push: bool = False,
-    push_target: str = "",
     automation_enabled: bool = True,
+    force_push: bool = False,
+    name: str = "",
+    push_target: str = "",
 ) -> Repo:
     repos_dir = tmp_path / "repos"
     repos_dir.mkdir()
 
     params = {
+        "name": name or "mozilla-central-git",
         "required_permission": SCM_LEVEL_3,
         "url": str(git_repo),
         "push_path": str(git_repo),
@@ -513,7 +516,6 @@ def git_repo_mc(
 
     repo = Repo.objects.create(
         scm_type=SCM_TYPE_GIT,
-        name="mozilla-central-git",
         **params,
     )
     repo.save()
@@ -535,16 +537,18 @@ def repo_mc(
         *,
         approval_required: bool = False,
         autoformat_enabled: bool = False,
-        force_push: bool = False,
-        push_target: str = "",
         automation_enabled: bool = True,
+        force_push: bool = False,
+        name: str = "",
+        push_target: str = "",
     ) -> Repo:
         params = {
             "approval_required": approval_required,
             "autoformat_enabled": autoformat_enabled,
-            "force_push": force_push,
-            "push_target": push_target,
             "automation_enabled": automation_enabled,
+            "force_push": force_push,
+            "name": name,
+            "push_target": push_target,
         }
 
         if scm_type == SCM_TYPE_GIT:
