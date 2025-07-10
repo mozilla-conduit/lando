@@ -11,7 +11,6 @@ from unittest import mock
 
 import pytest
 
-from lando.api.legacy.hgexports import HgPatchHelper
 from lando.main.scm import (
     REQUEST_USER_ENV_VAR,
     HgCommandError,
@@ -25,6 +24,7 @@ from lando.main.scm import (
     TreeClosed,
     hglib,
 )
+from lando.main.scm.helpers import HgPatchHelper
 
 
 def test_integrated_hgrepo_clean_repo(hg_clone):

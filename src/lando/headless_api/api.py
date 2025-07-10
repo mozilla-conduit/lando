@@ -15,10 +15,6 @@ from ninja.responses import codes_4xx
 from ninja.security import HttpBearer
 from pydantic import Field, TypeAdapter
 
-from lando.api.legacy.hgexports import (
-    PATCH_HELPER_MAPPING,
-    PatchFormat,
-)
 from lando.headless_api.models.automation_job import (
     AutomationAction,
     AutomationJob,
@@ -30,6 +26,10 @@ from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.consts import MergeStrategy
 from lando.main.scm.exceptions import (
     PatchConflict,
+)
+from lando.main.scm.helpers import (
+    PATCH_HELPER_MAPPING,
+    PatchFormat,
 )
 
 logger = logging.getLogger(__name__)

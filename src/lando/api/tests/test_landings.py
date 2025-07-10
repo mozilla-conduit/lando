@@ -6,7 +6,6 @@ from typing import Callable
 
 import pytest
 
-from lando.api.legacy.hgexports import HgPatchHelper
 from lando.api.legacy.workers.landing_worker import (
     AUTOFORMAT_COMMIT_MESSAGE,
 )
@@ -18,6 +17,7 @@ from lando.main.models.landing_job import (
     add_job_with_revisions,
 )
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
+from lando.main.scm.helpers import HgPatchHelper
 from lando.main.scm.hg import LostPushRace
 from lando.pushlog.models.commit import Commit
 from lando.pushlog.models.push import Push
