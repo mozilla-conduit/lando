@@ -4,7 +4,7 @@ from lando.api.legacy.treestatus import TreeStatus
 from lando.version import version
 
 
-def getTreestatusClient() -> TreeStatus:
+def get_treestatus_client() -> TreeStatus:
     """Returns a TreeStatus client configured for use by Lando."""
     treestatus_client = TreeStatus(url=settings.TREESTATUS_URL)
     treestatus_client.session.headers.update(
