@@ -165,7 +165,11 @@ class LandingJob(BaseModel):
 
     @property
     def landed_treeherder_revision(self) -> str | None:
-        """Return a revision suitable for use with TreeStatus."""
+        """Return a revision suitable for use with TreeStatus.
+
+        At the moment (2025-07-10), TreeHerder only supports HgMO as a source of truth,
+        so we translate Git commits to their equivalent in HgMO.
+        """
         if not self.landed_commit_id:
             return None
 
