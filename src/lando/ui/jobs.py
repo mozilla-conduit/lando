@@ -63,7 +63,7 @@ class LandingJobView(JobView):
 
         ts_data = {"repo": landing_job.target_repo.short_name}
 
-        ts_client = treestatus.getTreestatusClient()
+        ts_client = treestatus.get_treestatus_client()
         try:
             ts_data.update(ts_client.get_trees(ts_data["repo"])["result"])
         except (TreeStatusCommunicationException, TreeStatusError) as exc:
