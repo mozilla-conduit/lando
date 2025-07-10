@@ -62,6 +62,7 @@ class JobStatus(models.TextChoices):
 
     @classmethod
     def pending(cls) -> list[tuple[str, str]]:
+        """Group of Job statuses that will change in the future."""
         return [cls.SUBMITTED, cls.IN_PROGRESS, cls.DEFERRED]
 
     @classmethod
