@@ -38,12 +38,17 @@ class JobStatus(models.TextChoices):
 
     @classmethod
     def ordering(cls) -> Case[Self]:
-        # For `JobStatus.SUBMITTED` jobs, higher priority items come first
-        # and then we order by creation time (older first).
-        # Any `JobStatus.IN_PROGRESS` job are second and there should
-        # be a maximum of one (per repository). With the assumption of a single worker
-        # instance, a worker picking up an IN_PROGRESS job would mean that the job
-        # previously crashed, and that the worker needs to restart processing.
+        """Method for ordering QuerySet by job states.
+
+        For `JobStatus.SUBMITTED` jobs, higher priority items come first
+        and then we order by creation time (older first).
+
+        Any `JobStatus.IN_PROGRESS` job are second and there should
+        be a maximum of one (per repository). With the assumption of a single worker
+        instance, a worker picking up an IN_PROGRESS job would mean that the job
+        previously crashed, and that the worker needs to restart processing.
+
+        """
         return Case(
             When(status=cls.SUBMITTED, then=1),
             When(status=cls.IN_PROGRESS, then=2),
