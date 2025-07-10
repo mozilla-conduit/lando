@@ -39,16 +39,15 @@ class JobStatus(models.TextChoices):
 
     @classmethod
     def ordering(cls) -> Case[Self]:
-        """Method for ordering QuerySet by job states.
+        """Method for ordering QuerySets by job states.
 
         For `JobStatus.SUBMITTED` jobs, higher priority items come first
         and then we order by creation time (older first).
 
-        Any `JobStatus.IN_PROGRESS` job are second and there should
-        be a maximum of one (per repository). With the assumption of a single worker
+        Any `JobStatus.IN_PROGRESS` jobs are second. As there should
+        be a maximum of one (per repository), and with the assumption of a single worker
         instance, a worker picking up an IN_PROGRESS job would mean that the job
         previously crashed, and that the worker needs to restart processing.
-
         """
         return Case(
             When(status=cls.SUBMITTED, then=1),
@@ -405,7 +404,8 @@ class LandingJob(BaseModel):
 
 
 def add_job_with_revisions(
-    revisions: list[Revision], **params: Any  # noqa: ANN401
+    revisions: list[Revision],
+    **params: Any,  # noqa: ANN401
 ) -> LandingJob:
     """Creates a new job and associates provided revisions with it."""
     job = LandingJob(**params)
