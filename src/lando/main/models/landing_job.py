@@ -173,7 +173,6 @@ class LandingJob(BaseModel):
         if not self.landed_commit_id:
             return None
 
-        th_revision = None
         if self.target_repo.scm_type == SCM_TYPE_HG:
             th_revision = self.landed_commit_id
         elif self.target_repo.scm_type == SCM_TYPE_GIT:
