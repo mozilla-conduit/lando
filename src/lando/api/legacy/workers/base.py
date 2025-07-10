@@ -39,7 +39,7 @@ class Worker:
         # `self.refresh_active_repos`.
         self.active_repos = []
 
-        self.treestatus_client = lando.utils.treestatus.getTreestatusClient()
+        self.treestatus_client = lando.utils.treestatus.get_treestatus_client()
         if not self.treestatus_client.ping():
             raise ConnectionError("Could not connect to Treestatus")
 
