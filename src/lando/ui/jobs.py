@@ -83,7 +83,7 @@ class LandingJobView(LandoView):
         )
 
 
-class AutomationJobView(JobView):
+class AutomationJobView(LandoView):
     def get(self, request: HttpRequest, automation_job_id: int) -> HttpResponse:
         automation_job = AutomationJob.objects.get(id=automation_job_id)
 
