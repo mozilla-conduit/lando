@@ -21,7 +21,7 @@ from mots.directory import Directory
 from lando.main.models.base import BaseModel
 from lando.main.models.commit_map import CommitMap
 from lando.main.models.revision import Revision, RevisionLandingJob
-from lando.main.scm.consts import SCM_TYPE_GIT, SCM_TYPE_HG
+from lando.main.scm.consts import SCM_TYPE_HG
 
 logger = logging.getLogger(__name__)
 
