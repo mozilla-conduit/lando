@@ -12,6 +12,7 @@ from typing import (
     Self,
 )
 
+from django.conf import settings
 from django.db import models
 from django.db.models import Case, IntegerField, Q, QuerySet, When
 from django.utils.translation import gettext_lazy
@@ -244,6 +245,26 @@ class LandingJob(BaseModel):
             Q(unsorted_revisions__revision_id__in=revisions)
             | Q(revision_to_diff_id__has_keys=revisions)
         ).distinct()
+
+    @classmethod
+    def queue_jobs(cls) -> list[dict[str, Any]]:
+        """Return an ordered list of queued jobs."""
+        jobs = cls.job_queue_query().all()
+        return [
+            {
+                "created_at": j.created_at,
+                "id": j.id,
+                "url": f"{settings.SITE_URL}/landings/{j.id}",
+                "repository": j.target_repo.short_name,
+                "requester": j.requester_email,
+                "revisions": [
+                    f"{settings.PHABRICATOR_URL}/D{r.revision_id}" for r in j.revisions
+                ],
+                "status": j.status,
+                "updated_at": j.updated_at,
+            }
+            for j in jobs
+        ]
 
     @classmethod
     def job_queue_query(
