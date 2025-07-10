@@ -174,17 +174,15 @@ class LandingJob(BaseModel):
             return None
 
         if self.target_repo.scm_type == SCM_TYPE_HG:
-            th_revision = self.landed_commit_id
-        elif self.target_repo.scm_type == SCM_TYPE_GIT:
-            try:
-                th_revision = CommitMap.git2hg(
-                    self.target_repo.name, self.landed_commit_id
-                )
-            except CommitMap.DoesNotExist:
-                logger.warning(
-                    f"CommitMap not found for {self.landed_commit_id} in {self.target_repo.name}"
-                )
-        return th_revision
+            return self.landed_commit_id
+
+        # SCM_TYPE_GIT
+        try:
+            return CommitMap.git2hg(self.target_repo.name, self.landed_commit_id)
+        except CommitMap.DoesNotExist:
+            logger.warning(
+                f"CommitMap not found for {self.landed_commit_id} in {self.target_repo.name}"
+            )
 
     @property
     def serialized_landing_path(self):  # noqa: ANN201
