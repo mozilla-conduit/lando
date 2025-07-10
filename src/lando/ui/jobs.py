@@ -17,8 +17,9 @@ from lando.utils import treestatus
 logger = logging.getLogger(__name__)  # noqa: F821
 
 
-class JobView(LandoView):
-    pass
+class LandingQueueView(LandoView):
+    def get(self, request: HttpRequest) -> HttpResponse:
+        return JsonResponse({"jobs": LandingJob.queued_jobs()}, safe=False)
 
 
 class LandingQueueView(JobView):
