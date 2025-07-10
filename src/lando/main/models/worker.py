@@ -13,6 +13,8 @@ DEFAULT_GRACE_SECONDS = int(os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2))
 
 
 class WorkerType(models.TextChoices):
+    """A TextChoices allowing to differentiate worker types in models and input."""
+
     LANDING = "LANDING", gettext_lazy("Landing worker")
     AUTOMATION = "AUTOMATION", gettext_lazy("Automation worker")
 
