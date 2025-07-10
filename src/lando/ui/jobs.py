@@ -22,28 +22,7 @@ class LandingQueueView(LandoView):
         return JsonResponse({"jobs": LandingJob.queued_jobs()}, safe=False)
 
 
-class LandingQueueView(JobView):
-    def get(self, request: HttpRequest) -> HttpResponse:
-        jobs = LandingJob.job_queue_query().all()
-        data = [
-            {
-                "created_at": j.created_at,
-                "id": j.id,
-                "url": f"{settings.SITE_URL}/landings/{j.id}",
-                "repository": j.target_repo.short_name,
-                "requester": j.requester_email,
-                "revisions": [
-                    f"{settings.PHABRICATOR_URL}/D{r.revision_id}" for r in j.revisions
-                ],
-                "status": j.status,
-                "updated_at": j.updated_at,
-            }
-            for j in jobs
-        ]
-        return JsonResponse({"jobs": data}, safe=False)
-
-
-class LandingJobView(JobView):
+class LandingJobView(LandoView):
     def get(
         self, request: HttpRequest, landing_job_id: int, revision_id: None | int
     ) -> HttpResponse:
