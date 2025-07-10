@@ -67,6 +67,7 @@ class JobStatus(models.TextChoices):
 
     @classmethod
     def final(cls) -> list[tuple[str, str]]:
+        """Group of Job statuses that will not change without manual intervention."""
         return [cls.FAILED, cls.LANDED, cls.CANCELLED]
 
 
