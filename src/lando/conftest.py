@@ -31,6 +31,8 @@ from lando.main.models import (
     Repo,
     Worker,
 )
+from lando.main.models.landing_job import add_job_with_revisions
+from lando.main.models.revision import Revision
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.scm.commit import CommitData
 from lando.pushlog.models import Commit, File, Push, Tag
@@ -455,11 +457,13 @@ def hg_repo_mc(
     *,
     approval_required: bool = False,
     autoformat_enabled: bool = False,
-    force_push: bool = False,
-    push_target: str = "",
     automation_enabled: bool = True,
+    force_push: bool = False,
+    name: str = "",
+    push_target: str = "",
 ) -> Repo:
     params = {
+        "name": name or "mozilla-central-hg",
         "required_permission": SCM_LEVEL_3,
         "url": hg_server,
         "push_path": hg_server,
@@ -474,7 +478,6 @@ def hg_repo_mc(
     }
     repo = Repo.objects.create(
         scm_type=SCM_TYPE_HG,
-        name="mozilla-central-hg",
         **params,
     )
     repo.save()
@@ -488,14 +491,16 @@ def git_repo_mc(
     *,
     approval_required: bool = False,
     autoformat_enabled: bool = False,
-    force_push: bool = False,
-    push_target: str = "",
     automation_enabled: bool = True,
+    force_push: bool = False,
+    name: str = "",
+    push_target: str = "",
 ) -> Repo:
     repos_dir = tmp_path / "repos"
     repos_dir.mkdir()
 
     params = {
+        "name": name or "mozilla-central-git",
         "required_permission": SCM_LEVEL_3,
         "url": str(git_repo),
         "push_path": str(git_repo),
@@ -511,7 +516,6 @@ def git_repo_mc(
 
     repo = Repo.objects.create(
         scm_type=SCM_TYPE_GIT,
-        name="mozilla-central-git",
         **params,
     )
     repo.save()
@@ -533,16 +537,18 @@ def repo_mc(
         *,
         approval_required: bool = False,
         autoformat_enabled: bool = False,
-        force_push: bool = False,
-        push_target: str = "",
         automation_enabled: bool = True,
+        force_push: bool = False,
+        name: str = "",
+        push_target: str = "",
     ) -> Repo:
         params = {
             "approval_required": approval_required,
             "autoformat_enabled": autoformat_enabled,
-            "force_push": force_push,
-            "push_target": push_target,
             "automation_enabled": automation_enabled,
+            "force_push": force_push,
+            "name": name,
+            "push_target": push_target,
         }
 
         if scm_type == SCM_TYPE_GIT:
@@ -927,3 +933,43 @@ def mock_automation_worker_phab_repo_update(monkeypatch):
     )
 
     return mock_trigger_update
+
+
+@pytest.fixture
+def make_landing_job(repo_mc):
+    def landing_job_factory(
+        *,
+        revisions=None,
+        landing_path=((1, 1),),
+        requester_email="tuser@example.com",
+        status=None,
+        target_repo=None,
+        **kwargs,
+    ):
+        """Create a landing job with revisions.
+
+        If revisions is None, a set of revisions will be built from landing_paths.
+        """
+        if not target_repo:
+            target_repo = repo_mc(SCM_TYPE_GIT)
+
+        job_params = {
+            "requester_email": requester_email,
+            "status": status,
+            "target_repo": target_repo,
+            **kwargs,
+        }
+        if not revisions:
+            revisions = []
+            for revision_id, diff_id in landing_path:
+                revision = Revision.one_or_none(revision_id=revision_id)
+                if not revision:
+                    revision = Revision(revision_id=revision_id)
+                revision.diff_id = diff_id
+                revisions.append(revision)
+            for revision in revisions:
+                revision.save()
+        job = add_job_with_revisions(revisions, **job_params)
+        return job
+
+    return landing_job_factory

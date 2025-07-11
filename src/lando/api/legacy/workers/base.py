@@ -9,11 +9,8 @@ import subprocess
 from time import sleep
 from typing import Optional
 
-from django.conf import settings
-
-from lando.api.legacy.treestatus import TreeStatus
+import lando.utils.treestatus
 from lando.main.models import Worker as WorkerModel
-from lando.version import version
 
 logger = logging.getLogger(__name__)
 
@@ -42,10 +39,7 @@ class Worker:
         # `self.refresh_active_repos`.
         self.active_repos = []
 
-        self.treestatus_client = TreeStatus(url=settings.TREESTATUS_URL)
-        self.treestatus_client.session.headers.update(
-            {"User-Agent": f"landoapi.treestatus.TreeStatus/{version}"}
-        )
+        self.treestatus_client = lando.utils.treestatus.get_treestatus_client()
         if not self.treestatus_client.ping():
             raise ConnectionError("Could not connect to Treestatus")
 

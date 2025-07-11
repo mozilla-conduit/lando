@@ -156,6 +156,16 @@ class RepoAdmin(admin.ModelAdmin):
     )
 
 
+class CommitMapAdmin(admin.ModelAdmin):
+    model = CommitMap
+    list_display = (
+        "git_repo_name",
+        "git_hash",
+        "hg_hash",
+    )
+    list_filter = ["git_repo_name"]
+
+
 class ConfigurationVariableAdmin(admin.ModelAdmin):
     model = ConfigurationVariable
     list_display = (
@@ -164,9 +174,25 @@ class ConfigurationVariableAdmin(admin.ModelAdmin):
     )
 
 
+class WorkerAdmin(admin.ModelAdmin):
+    model = Worker
+    list_display = (
+        "name",
+        "type",
+        "scm",
+        "repo_count",
+        "is_paused",
+        "is_stopped",
+    )
+
+    def repo_count(self, instance: Worker) -> int:
+        """Return the count of repositories associated to the Worker."""
+        return instance.applicable_repos.count()
+
+
 admin.site.register(Repo, RepoAdmin)
 admin.site.register(LandingJob, LandingJobAdmin)
 admin.site.register(Revision, RevisionAdmin)
-admin.site.register(Worker, admin.ModelAdmin)
-admin.site.register(CommitMap, admin.ModelAdmin)
+admin.site.register(Worker, WorkerAdmin)
+admin.site.register(CommitMap, CommitMapAdmin)
 admin.site.register(ConfigurationVariable, ConfigurationVariableAdmin)
