@@ -5,19 +5,19 @@ import logging
 
 from django.http import HttpRequest
 
-from lando.api.legacy.hgexports import (
+from lando.main.auth import require_authenticated_user, require_permission
+from lando.main.models import Repo, Revision
+from lando.main.models.landing_job import (
+    JobStatus,
+    add_job_with_revisions,
+)
+from lando.main.scm.helpers import (
     PATCH_HELPER_MAPPING,
     BugReferencesCheck,
     PatchCollectionAssessor,
     PatchFormat,
     PatchHelper,
     PreventSymlinksCheck,
-)
-from lando.main.auth import require_authenticated_user, require_permission
-from lando.main.models import Repo, Revision
-from lando.main.models.landing_job import (
-    JobStatus,
-    add_job_with_revisions,
 )
 from lando.main.support import LegacyAPIException
 

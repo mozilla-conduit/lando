@@ -5,9 +5,9 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Any, ContextManager, Optional
 
-from lando.api.legacy.hgexports import PatchHelper
 from lando.main.scm.commit import CommitData
 from lando.main.scm.consts import MergeStrategy
+from lando.main.scm.helpers import PatchHelper
 
 logger = logging.getLogger(__name__)
 

@@ -16,13 +16,6 @@ import rs_parsepatch
 from django.contrib.auth.models import User
 from django.core.cache import cache
 
-from lando.api.legacy.hgexports import (
-    DiffAssessor,
-    PreventNSPRNSSCheck,
-    PreventSubmodulesCheck,
-    PreventSymlinksCheck,
-    TryTaskConfigCheck,
-)
 from lando.api.legacy.projects import (
     get_secure_project_phid,
     get_testing_policy_phid,
@@ -52,6 +45,13 @@ from lando.api.legacy.users import user_search
 from lando.main.models import Repo
 from lando.main.models.landing_job import JobStatus, LandingJob
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
+from lando.main.scm.helpers import (
+    DiffAssessor,
+    PreventNSPRNSSCheck,
+    PreventSubmodulesCheck,
+    PreventSymlinksCheck,
+    TryTaskConfigCheck,
+)
 from lando.main.support import LegacyAPIException
 from lando.utils.phabricator import (
     PhabricatorClient,

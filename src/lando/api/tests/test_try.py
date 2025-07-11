@@ -2,12 +2,12 @@ import base64
 
 import pytest
 
-from lando.api.legacy.hgexports import (
+from lando.api.legacy.workers.landing_worker import LandingWorker
+from lando.main.models import SCM_LEVEL_1, JobStatus, LandingJob, Repo
+from lando.main.scm.helpers import (
     get_timestamp_from_git_date_header,
     parse_git_author_information,
 )
-from lando.api.legacy.workers.landing_worker import LandingWorker
-from lando.main.models import SCM_LEVEL_1, JobStatus, LandingJob, Repo
 
 pytest.skip(allow_module_level=True)
 

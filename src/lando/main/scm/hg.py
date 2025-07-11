@@ -21,7 +21,6 @@ from typing import (
 import hglib
 from django.conf import settings
 
-from lando.api.legacy.hgexports import HgPatchHelper, PatchHelper
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.commit import CommitData
 from lando.main.scm.consts import SCM_TYPE_HG, MergeStrategy
@@ -34,6 +33,7 @@ from lando.main.scm.exceptions import (
     TreeApprovalRequired,
     TreeClosed,
 )
+from lando.main.scm.helpers import HgPatchHelper, PatchHelper
 
 logger = logging.getLogger(__name__)
 
