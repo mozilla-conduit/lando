@@ -39,6 +39,7 @@ jobs:
           DEFAULT_DB_HOST: 127.0.0.1
         run: |
           source env/bin/activate
+          lando collectstatic --clear --no-input
           lando migrate
           lando test
           lando tests

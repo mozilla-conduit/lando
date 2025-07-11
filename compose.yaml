@@ -26,7 +26,6 @@ services:
       uwsgi --ini /code/uwsgi.ini:local"
     volumes:
       - ./:/code
-      - ./staticfiles:/staticfiles
       - media:/files/
     env_file:
       - .env
@@ -73,8 +72,6 @@ services:
       - 443:443
     depends_on:
       - lando
-    volumes:
-      - ./staticfiles:/staticfiles
 
   redis:
     image: redis:7.2
