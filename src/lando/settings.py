@@ -164,7 +164,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/dev/howto/static-files/
 
 STATIC_URL = "static/"
-STATIC_ROOT = "/staticfiles"
+STATIC_ROOT = "staticfiles"
 
 # Directories to include in static file collection.
 STATICFILES_DIRS = [
