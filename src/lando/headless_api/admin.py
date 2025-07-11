@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.core.handlers.wsgi import WSGIRequest
 
 from lando.headless_api.models.automation_job import AutomationAction, AutomationJob
 from lando.headless_api.models.tokens import ApiToken
@@ -22,11 +23,15 @@ class AutomationActionJobInline(ReadOnlyInline):
     _target_object = "actions"
     readonly_fields = ("action_type", "data", "order")
 
-    def has_add_permission(self, request, obj=None) -> bool:  # noqa: ANN001
+    def has_add_permission(
+        self, request: WSGIRequest, obj: AutomationAction | None = None
+    ) -> bool:
         """Forbid addition of any action object from the inline interface."""
         return False
 
-    def has_delete_permission(self, request, obj=None) -> bool:  # noqa: ANN001
+    def has_delete_permission(
+        self, request: WSGIRequest, obj: AutomationAction | None = None
+    ) -> bool:
         """Forbid deletion of any action object from the inline interface."""
         return False
 
