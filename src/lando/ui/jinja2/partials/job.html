@@ -64,9 +64,7 @@
 
       {% if job.status.lower() == 'landed' and job.landed_commit_id %}
       <p><strong>Result:</strong> {{ job.landed_commit_id|escape_html|linkify_transplant_details(job)|safe }} on {{ job.target_repo }}</p>
-      {%- if job.landed_treeherder_revision %}
       <p><strong>Links:</strong> {{ treeherder_link(job.landed_treeherder_revision, "TreeHerder")|safe }}</p>
-      {% endif -%}
 
       {% elif job.status.lower() == 'submitted' and treestatus and not embedded %}
       <div>

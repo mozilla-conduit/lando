@@ -227,7 +227,7 @@ def treeherder_link(treeherder_revision: str, label: str = "") -> str:
     """Builds a TreeHerder link for a given revision."""
 
     if not treeherder_revision:
-        return treeherder_revision
+        return "[Failed to determine TreeHerder revision]"
 
     label = label or treeherder_revision
 
