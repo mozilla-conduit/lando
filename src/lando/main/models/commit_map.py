@@ -79,20 +79,15 @@ class CommitMap(BaseModel):
         hash_field = f"{src_scm}_hash"
 
         filters = {hash_field: src_commit_hash, "git_repo_name": git_repo_name}
-        commits = CommitMap.objects.filter(**filters)
+        commit_query = CommitMap.objects.filter(**filters)
 
-        if not commits.exists():
+        if not commit_query.exists():
             cls.catch_up(git_repo_name)
 
-        try:
-            # At the moment, we can only have 0 or 1 hit, but this could be different in the
-            # future if, e.g., we want to allow partial hash prefixes and return all
-            # matching commits.
-            return commits.get()
-        except CommitMap.DoesNotExist:
-            raise cls.DoesNotExist(
-                f"No commit found in {src_scm} for {src_commit_hash} in {git_repo_name}"
-            )
+        # At the moment, we can only have 0 or 1 hit, but this could be different in the
+        # future if, e.g., we want to allow partial hash prefixes and return all
+        # matching commits.
+        return commit_query.get()
 
     def serialize(self) -> dict[str, str]:
         """Return a simple dictionary containing the git and hg hashes."""
