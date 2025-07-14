@@ -2,6 +2,7 @@ import logging
 from typing import Self
 
 import requests
+import sentry_sdk
 from django.db import models
 
 from lando.main.models import BaseModel
@@ -112,8 +113,9 @@ class CommitMap(BaseModel):
         response = requests.get(url, params=kwargs)
         try:
             response.raise_for_status()
-        except Exception as e:
-            logger.warning(f"Cannot fetch pushlog data from {url}: {e}")
+        except Exception as exc:
+            sentry_sdk.capture_exception(exc)
+            logger.warning(f"Cannot fetch pushlog data from {url}: {exc}")
             return {}
 
         push_data = response.json()
