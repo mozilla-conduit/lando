@@ -602,9 +602,9 @@ cryptography==45.0.5 \
     #   lando (pyproject.toml)
     #   mozilla-django-oidc
     #   pyjwt
-datadog==0.51.0 \
-    --hash=sha256:3279534f831ae0b4ae2d8ce42ef038b4ab38e667d7ed6ff7437982d7a0cf5250 \
-    --hash=sha256:a9764f091c96af4e0996d4400b168fc5fba380f911d6d672c9dcd4773e29ea3f
+datadog==0.52.0 \
+    --hash=sha256:00ea908a2d7bf719218ad40116f4242f8accccfb9d6f2724344a10b2d8e46a9a \
+    --hash=sha256:8b99a508bed4879dc81643418dc89317009c6f04263c417ebbfd31e6f3019ef1
     # via lando (pyproject.toml)
 django==5.2.4 \
     --hash=sha256:60c35bd96201b10c6e7a78121bd0da51084733efa303cc19ead021ab179cef5e \
