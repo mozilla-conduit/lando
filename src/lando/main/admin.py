@@ -156,6 +156,16 @@ class RepoAdmin(admin.ModelAdmin):
     )
 
 
+class CommitMapAdmin(admin.ModelAdmin):
+    model = CommitMap
+    list_display = (
+        "git_repo_name",
+        "git_hash",
+        "hg_hash",
+    )
+    list_filter = ["git_repo_name"]
+
+
 class ConfigurationVariableAdmin(admin.ModelAdmin):
     model = ConfigurationVariable
     list_display = (
@@ -168,5 +178,5 @@ admin.site.register(Repo, RepoAdmin)
 admin.site.register(LandingJob, LandingJobAdmin)
 admin.site.register(Revision, RevisionAdmin)
 admin.site.register(Worker, admin.ModelAdmin)
-admin.site.register(CommitMap, admin.ModelAdmin)
+admin.site.register(CommitMap, CommitMapAdmin)
 admin.site.register(ConfigurationVariable, ConfigurationVariableAdmin)
