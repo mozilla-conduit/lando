@@ -2,6 +2,7 @@ import logging
 from typing import Self
 
 import requests
+import sentry_sdk
 from django.db import models
 
 from lando.main.models import BaseModel
@@ -15,7 +16,7 @@ class CommitMap(BaseModel):
     """Map a git hash to an hg hash, based on a specific repo."""
 
     HGMO_PUSHLOG_TEMPLATE = "https://hg.mozilla.org/{}/json-pushes"
-    REPO_MAPPING = [("firefox", "mozilla-unified")]
+    REPO_MAPPING = (("firefox", "mozilla-unified"),)
 
     git_hash = models.CharField(default="", max_length=40)
     hg_hash = models.CharField(default="", max_length=40)
@@ -79,20 +80,15 @@ class CommitMap(BaseModel):
         hash_field = f"{src_scm}_hash"
 
         filters = {hash_field: src_commit_hash, "git_repo_name": git_repo_name}
-        commits = CommitMap.objects.filter(**filters)
+        commit_query = CommitMap.objects.filter(**filters)
 
-        if not commits.exists():
+        if not commit_query.exists():
             cls.catch_up(git_repo_name)
 
-        try:
-            # At the moment, we can only have 0 or 1 hit, but this could be different in the
-            # future if, e.g., we want to allow partial hash prefixes and return all
-            # matching commits.
-            return commits.get()
-        except CommitMap.DoesNotExist:
-            raise cls.DoesNotExist(
-                f"No commit found in {src_scm} for {src_commit_hash} in {git_repo_name}"
-            )
+        # At the moment, we can only have 0 or 1 hit, but this could be different in the
+        # future if, e.g., we want to allow partial hash prefixes and return all
+        # matching commits.
+        return commit_query.get()
 
     def serialize(self) -> dict[str, str]:
         """Return a simple dictionary containing the git and hg hashes."""
@@ -117,8 +113,9 @@ class CommitMap(BaseModel):
         response = requests.get(url, params=kwargs)
         try:
             response.raise_for_status()
-        except Exception as e:
-            logger.warning(f"Cannot fetch pushlog data from {url}: {e}")
+        except Exception as exc:
+            sentry_sdk.capture_exception(exc)
+            logger.warning(f"Cannot fetch pushlog data from {url}: {exc}")
             return {}
 
         push_data = response.json()

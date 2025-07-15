@@ -120,12 +120,12 @@ class CommitMapBaseView(View):
     def get(
         self, request: WSGIRequest, git_repo_name: str, commit_hash: str
     ) -> JsonResponse:
-
         try:
             commit = CommitMap.map_hash_from(self.scm, git_repo_name, commit_hash)
         except CommitMap.DoesNotExist as exc:
+            error_detail = f"No commit found in {self.scm} for {commit_hash} in {git_repo_name}: {exc}"
             return JsonResponse(
-                {"error": "No commits found", "detail": f"{exc}"}, status=404
+                {"error": "No commits found", "detail": error_detail}, status=404
             )
 
         return JsonResponse(commit.serialize(), status=200)
