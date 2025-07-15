@@ -22,7 +22,7 @@ class Command(BaseCommand):
 
     def _pause_workers(self):
         """Pause all workers."""
-        # We explicitely select the `is_paused` field, and defer the others.
+        # We explicitly select the `is_paused` field, and defer the others.
         # This allows a new version of lando to Pause workers during an update, even
         # with pending migrations in the Worker model, that would otherwise result in
         # UndefinedColumn errors if trying to fetch all (expected) fields.
