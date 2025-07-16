@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "compressor",
     "mozilla_django_oidc",
+    "auditlog",
 ]
 
 MIDDLEWARE = [
@@ -87,6 +88,7 @@ MIDDLEWARE = [
     "lando.middleware.ResponseHeadersMiddleware",
     "lando.middleware.MaintenanceModeMiddleware",
     "lando.middleware.cProfileMiddleware",
+    "auditlog.middleware.AuditlogMiddleware",
 ]
 
 ROOT_URLCONF = "lando.urls"
@@ -269,3 +271,16 @@ GITHUB_APP_ID = os.getenv("GITHUB_APP_ID")
 GITHUB_APP_PRIVKEY = os.getenv("GITHUB_APP_PRIVKEY")
 
 HTTP_USER_AGENT = f"Lando/{version} ({ENVIRONMENT})"
+
+AUDITLOG_INCLUDE_ALL_MODELS = True
+AUDITLOG_EXCLUDE_TRACKING_MODELS = (
+    "main.CommitMap",
+    "main.Revision",
+    "pushlog",
+    "headless_api.AutomationAction",
+)
+
+AUDITLOG_EXCLUDE_TRACKING_FIELDS = (
+    "created_at",
+    "updated_at",
+)
