@@ -1,7 +1,7 @@
 import logging
 
 from django.core.handlers.wsgi import WSGIRequest
-from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
+from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
 
@@ -16,11 +16,6 @@ from lando.ui.views import LandoView
 from lando.utils import treestatus
 
 logger = logging.getLogger(__name__)  # noqa: F821
-
-
-class LandingQueueView(LandoView):
-    def get(self, request: WSGIRequest) -> HttpResponse:
-        return JsonResponse({"jobs": LandingJob.queued_jobs()}, safe=False)
 
 
 class LandingJobView(LandoView):
