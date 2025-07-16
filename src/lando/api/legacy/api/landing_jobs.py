@@ -2,7 +2,8 @@ import json
 import logging
 
 from django import forms
-from django.http import HttpRequest, JsonResponse
+from django.core.handlers.wsgi import WSGIRequest
+from django.http import JsonResponse
 
 from lando.main.auth import require_authenticated_user
 from lando.main.models.landing_job import JobAction, JobStatus, LandingJob
@@ -21,7 +22,7 @@ class LandingJobForm(forms.Form):
 
 
 @require_authenticated_user
-def put(request: HttpRequest, landing_job_id: int) -> JsonResponse:
+def put(request: WSGIRequest, landing_job_id: int) -> JsonResponse:
     """Update a landing job.
 
     Checks whether the logged in user is allowed to modify the landing job that is

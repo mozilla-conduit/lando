@@ -1,6 +1,7 @@
 import logging
 
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.core.handlers.wsgi import WSGIRequest
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
 
@@ -18,14 +19,14 @@ logger = logging.getLogger(__name__)  # noqa: F821
 
 
 class LandingQueueView(LandoView):
-    def get(self, request: HttpRequest) -> HttpResponse:
+    def get(self, request: WSGIRequest) -> HttpResponse:
         return JsonResponse({"jobs": LandingJob.queued_jobs()}, safe=False)
 
 
 class LandingJobView(LandoView):
     def get(
-        self, request: HttpRequest, landing_job_id: int, revision_id: None | int
-    ) -> HttpResponse:
+        self, request: WSGIRequest, landing_job_id: int, revision_id: None | int
+    ) -> TemplateResponse | HttpResponseRedirect:
         landing_job = get_object_or_404(LandingJob, id=landing_job_id)
 
         # Redirect to the canonical URL in case the revision is missing or
@@ -84,7 +85,7 @@ class LandingJobView(LandoView):
 
 
 class AutomationJobView(LandoView):
-    def get(self, request: HttpRequest, automation_job_id: int) -> HttpResponse:
+    def get(self, request: WSGIRequest, automation_job_id: int) -> TemplateResponse:
         automation_job = AutomationJob.objects.get(id=automation_job_id)
 
         context = {"job": automation_job}

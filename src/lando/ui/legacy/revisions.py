@@ -2,7 +2,8 @@ import json
 import logging
 
 from django.contrib import messages
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.core.handlers.wsgi import WSGIRequest
+from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 class Uplift(LandoView):
     @force_auth_refresh
-    def post(self, request: HttpRequest) -> HttpResponse:
+    def post(self, request: WSGIRequest) -> HttpResponse:
         """Process the uplift request submission."""
         uplift_request_form = UpliftRequestForm(request.POST)
 
@@ -66,7 +67,7 @@ class Uplift(LandoView):
 
 class Revision(LandoView):
     def get(
-        self, request: HttpRequest, revision_id: int, *args, **kwargs
+        self, request: WSGIRequest, revision_id: int, *args, **kwargs
     ) -> TemplateResponse:
         lando_user = request.user
 
@@ -197,7 +198,7 @@ class Revision(LandoView):
 
     @force_auth_refresh
     def post(
-        self, request: HttpRequest, revision_id: int, *args, **kwargs
+        self, request: WSGIRequest, revision_id: int, *args, **kwargs
     ) -> HttpResponseRedirect:
         form = TransplantRequestForm(request.POST)
         errors = []

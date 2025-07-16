@@ -2,7 +2,8 @@ import logging
 from collections.abc import Callable
 
 from django.conf import settings
-from django.http import HttpRequest, HttpResponse
+from django.core.handlers.wsgi import WSGIRequest
+from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.urls import resolve
 
@@ -14,10 +15,10 @@ logger = logging.getLogger(__name__)
 class ResponseHeadersMiddleware:
     """Add custom response headers for each request."""
 
-    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]):
+    def __init__(self, get_response: Callable[[WSGIRequest], HttpResponse]):
         self.get_response = get_response
 
-    def __call__(self, request: HttpRequest) -> HttpResponse:
+    def __call__(self, request: WSGIRequest) -> HttpResponse:
         # NOTE: These headers were ported from both the legacy UI and API.
         # API specific CSP headers should be implemented as part of bug 1927163.
 
@@ -61,10 +62,10 @@ class ResponseHeadersMiddleware:
 class MaintenanceModeMiddleware:
     """If maintenance mode is enabled, non-admin requests should be redirected."""
 
-    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]):
+    def __init__(self, get_response: Callable[[WSGIRequest], HttpResponse]):
         self.get_response = get_response
 
-    def __call__(self, request: HttpRequest) -> HttpResponse:
+    def __call__(self, request: WSGIRequest) -> HttpResponse:
         if request.user.is_authenticated and request.user.is_superuser:
             return self.get_response(request)
 
