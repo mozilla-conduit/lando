@@ -559,20 +559,20 @@ def test_warning_previously_landed_no_landings(phabdouble, create_state):
 
 
 @pytest.mark.parametrize(
-    "create_landing_job",
+    "make_landing_job_override",
     (None, _create_landing_job_with_no_linked_revisions),
 )
 @pytest.mark.django_db(transaction=True)
 def test_warning_previously_landed_failed_landing(
-    phabdouble, make_landing_job, create_landing_job, create_state, repo_mc
+    phabdouble, make_landing_job, make_landing_job_override, create_state, repo_mc
 ):
-    if not create_landing_job:
-        create_landing_job = make_landing_job
+    if not make_landing_job_override:
+        make_landing_job_override = make_landing_job
 
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
 
-    create_landing_job(
+    make_landing_job_override(
         target_repo=repo_mc(SCM_TYPE_GIT),
         landing_path=[(r["id"], d["id"])],
         status=JobStatus.FAILED,
