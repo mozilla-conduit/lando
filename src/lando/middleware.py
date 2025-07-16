@@ -1,9 +1,13 @@
+import cProfile
 import logging
+import pstats
 from collections.abc import Callable
+from io import StringIO
+from typing import Optional
 
 from django.conf import settings
 from django.core.handlers.wsgi import WSGIRequest
-from django.http import HttpResponse
+from django.http import HttpRequest, HttpResponse
 from django.template.loader import render_to_string
 from django.urls import resolve
 
@@ -105,3 +109,41 @@ class MaintenanceModeMiddleware:
             )
 
         return self.get_response(request)
+
+
+class cProfileMiddleware:
+    """A middleware to profile requests/responses and return the result."""
+
+    @staticmethod
+    def _should_profile(request: WSGIRequest) -> bool:
+        return (
+            ConfigurationVariable.get(ConfigurationKey.PROFILING_ENABLED, False)
+            and request.user.is_staff
+            and "profile" in request.GET
+        )
+
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]):
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        return self.get_response(request)
+
+    def process_view(
+        self,
+        request: WSGIRequest,
+        view_func: callable,
+        view_args: tuple,
+        view_kwargs: dict,
+    ) -> Optional[HttpResponse]:
+        """If profile is requested, run cprofile and generate the output in html format."""
+        if not self._should_profile(request):
+            return
+
+        profiler = cProfile.Profile()
+        profiler.runcall(view_func, request, *view_args, **view_kwargs)
+        profiler.create_stats()
+        out = StringIO()
+        stats = pstats.Stats(profiler, stream=out)
+        stats.strip_dirs().sort_stats(request.GET.get("sort", "cumtime"))
+        stats.print_stats()
+        return HttpResponse(f"<pre>{out.getvalue()}</pre>")
