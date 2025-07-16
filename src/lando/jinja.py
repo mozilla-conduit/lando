@@ -224,10 +224,10 @@ def linkify_transplant_details(text: str, landing_job: LandingJob) -> str:
 
 
 def treeherder_link(treeherder_revision: str, label: str = "") -> str:
-    """Builds a TreeHerder link for a given revision."""
+    """Builds a Treeherder link for a given revision."""
 
     if not treeherder_revision:
-        return "[Failed to determine TreeHerder revision]"
+        return "[Failed to determine Treeherder revision]"
 
     label = label or treeherder_revision
 
