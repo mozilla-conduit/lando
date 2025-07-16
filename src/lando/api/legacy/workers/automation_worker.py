@@ -164,7 +164,7 @@ class AutomationWorker(Worker):
             skip_checks = (
                 job.actions.count() == 1
                 and job.actions.first().action_type == ActionTypeChoices.MERGE_ONTO
-            )
+            ) or (new_commits and "a=release" in new_commits[-1].desc)
 
             if not skip_checks and repo.hooks_enabled:
                 check_errors = self.run_automation_checks(
