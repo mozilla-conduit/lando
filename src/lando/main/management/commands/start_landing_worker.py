@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from argparse import ArgumentParser
 
+import sentry_sdk
 from django.core.management.base import BaseCommand, CommandError
 
 from lando.api.legacy.workers.landing_worker import LandingWorker
@@ -61,7 +62,13 @@ class Command(BaseCommand):
         ]
 
         for repo in repos:
-            worker.run_mach_command(repo.path, command)
+            try:
+                worker.run_mach_command(repo.path, command)
+            except Exception as exc:
+                sentry_sdk.capture_exception(exc)
+                logger.warning(
+                    f"Error running mach bootstrap for repo {repo.name}: {exc}"
+                )
 
     def _handle(self, worker: Worker, repo_type: str):
         self._check_for_unsupported_repos(worker, repo_type)
