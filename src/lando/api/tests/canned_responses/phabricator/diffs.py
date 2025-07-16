@@ -12,9 +12,9 @@ CANNED_DEFAULT_DIFF_CHANGES = [
                 "corpus": (
                     ' {% extends "partials/layout.html" %}\n'
                     "-{% block page_title %}Revision Not "
-                    "Available - Lando - Mozilla{% endblock %}\n"
+                    "Available{% endblock %}\n"
                     "+{% block page_title %}Revision/Diff Not "
-                    "Available - Lando - Mozilla{% endblock %}\n"
+                    "Available{% endblock %}\n"
                     " \n"
                     " {% block main %}\n"
                     ' <main class="NotFoundPage container '
@@ -57,8 +57,8 @@ diff --git a/landoui/templates/revision/404.html b/landoui/templates/revision/40
 +++ b/landoui/templates/revision/404.html
 @@ -1,12 +1,12 @@
  {% extends "partials/layout.html" %}
--{% block page_title %}Revision Not Available - Lando - Mozilla{% endblock %}
-+{% block page_title %}Revision/Diff Not Available - Lando - Mozilla{% endblock %}
+-{% block page_title %}Revision Not Available{% endblock %}
++{% block page_title %}Revision/Diff Not Available{% endblock %}
 
  {% block main %}
  <main class="NotFoundPage container content">
