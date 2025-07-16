@@ -19,11 +19,12 @@
     {% endif %}
     {% if job.revisions %}
     <p><strong>Revisions:</strong>
-      {% for i in job.serialized_landing_path %}{{
-      "" if loop.first else " ← "
-      }}<a href="{{ i['revision_id']|revision_url(diff_id=i['diff_id']) }}">
+      {% for i in job.serialized_landing_path -%}
+      {{- "" if loop.first else " ← " -}}
+      <a href="{{ i['revision_id']|revision_url(diff_id=i['diff_id']) }}">
         {{ i['revision_id'] }} diff {{ i['diff_id'] }}
-      </a>{% endfor %}
+      </a>
+      {%- endfor %}
     </p>
     {% endif %}
     {% if job.error_breakdown %}
