@@ -73,7 +73,7 @@ def _fetch_job_view(client, job: LandingJob) -> str:
     response = client.get(
         f"/{phab_id}/landings/{job.id}/",
     )
-    assert response.status_code == 200, "Job view should render correctly"
+    assert response.status_code == 200, "Job view should return an OK status code"
     page_html = response.text
 
     assert f"Landing Job {job.id}" in page_html, "Missing title in job view"
