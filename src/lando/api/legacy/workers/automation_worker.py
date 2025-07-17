@@ -25,6 +25,7 @@ from lando.headless_api.models.automation_job import (
     AutomationJob,
 )
 from lando.main.models.landing_job import JobAction, JobStatus
+from lando.main.models.worker import WorkerType
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.commit import CommitData
 from lando.main.scm.exceptions import (
@@ -59,6 +60,8 @@ class AutomationWorker(Worker):
     These jobs include a set of actions which are to be run on the repository,
     and then pushed to the destination repo.
     """
+
+    type = WorkerType.AUTOMATION
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

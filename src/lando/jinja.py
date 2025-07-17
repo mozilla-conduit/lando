@@ -211,17 +211,27 @@ def linkify_transplant_details(text: str, landing_job: LandingJob) -> str:
     if landing_job.status != JobStatus.LANDED:
         return text
 
-    commit_id = landing_job.legacy_details
-    search = r"(?=\b)(" + re.escape(commit_id) + r")(?=\b)"
+    search = r"(?=\b)(" + re.escape(landing_job.landed_commit_id) + r")(?=\b)"
 
     # We assume HG by default (legacy path), but use a Github-like path if 'git' is
     # present in the netloc.
-    link_template = r'<a href="{repo_url}/rev/\g<1>">{repo_url}/rev/\g<1></a>'
+    link_template = r'<a href="{repo_url}/rev/\g<1>">\g<1></a>'
     if landing_job.target_repo.scm_type == SCM_TYPE_GIT:
-        link_template = r'<a href="{repo_url}/commit/\g<1>">{repo_url}/commit/\g<1></a>'
+        link_template = r'<a href="{repo_url}/commit/\g<1>">\g<1></a>'
 
     replace = link_template.format(repo_url=landing_job.target_repo.normalized_url)
     return re.sub(search, replace, str(text))  # This is case sensitive
+
+
+def treeherder_link(treeherder_revision: str, label: str = "") -> str:
+    """Builds a Treeherder link for a given revision."""
+
+    if not treeherder_revision:
+        return "[Failed to determine Treeherder revision]"
+
+    label = label or treeherder_revision
+
+    return f'<a href="{settings.TREEHERDER_URL}/jobs?revision={treeherder_revision}">{label}</a>'
 
 
 def linkify_faq(text: str) -> str:
@@ -363,6 +373,7 @@ def environment(**options):  # noqa: ANN201
             "get_messages": messages.get_messages,
             "graph_height": graph_height,
             "is_treestatus_user": is_treestatus_user,
+            "treeherder_link": treeherder_link,
             "new_settings_form": UserSettingsForm,
             "static_url": settings.STATIC_URL,
             "url": reverse,

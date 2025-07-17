@@ -11,7 +11,7 @@
 <head>
   <meta charset="utf-8">
   <meta content="ie=edge" http-equiv="x-ua-compatible">
-  <title>{% block page_title %}{% endblock %}</title>
+  <title>{% block page_title %}{% endblock %}{% if self.page_title() %} - {% endif %}Lando - Mozilla</title>
   <meta content="width=device-width,initial-scale=1" name="viewport">
   <link rel="shortcut icon" href="{{ static_url }}assets/images/logo/bird_64.png">
   <link rel="stylesheet" href="https://code.cdn.mozilla.net/fonts/fira.css">

@@ -9,8 +9,10 @@ from typing import (
     Any,
     Iterable,
     Optional,
+    Self,
 )
 
+from django.conf import settings
 from django.db import models
 from django.db.models import Case, IntegerField, Q, QuerySet, When
 from django.utils.translation import gettext_lazy
@@ -18,7 +20,9 @@ from mots.config import FileConfig
 from mots.directory import Directory
 
 from lando.main.models.base import BaseModel
+from lando.main.models.commit_map import CommitMap
 from lando.main.models.revision import Revision, RevisionLandingJob
+from lando.main.scm.consts import SCM_TYPE_HG
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +36,39 @@ class JobStatus(models.TextChoices):
     FAILED = "FAILED", gettext_lazy("Failed")
     LANDED = "LANDED", gettext_lazy("Landed")
     CANCELLED = "CANCELLED", gettext_lazy("Cancelled")
+
+    @classmethod
+    def ordering(cls) -> Case[Self]:
+        """Method for ordering QuerySets by job states.
+
+        For `JobStatus.SUBMITTED` jobs, higher priority items come first
+        and then we order by creation time (older first).
+
+        Any `JobStatus.IN_PROGRESS` jobs are second. As there should
+        be a maximum of one (per repository), and with the assumption of a single worker
+        instance, a worker picking up an IN_PROGRESS job would mean that the job
+        previously crashed, and that the worker needs to restart processing.
+        """
+        return Case(
+            When(status=cls.SUBMITTED, then=1),
+            When(status=cls.IN_PROGRESS, then=2),
+            When(status=cls.DEFERRED, then=3),
+            When(status=cls.FAILED, then=4),
+            When(status=cls.LANDED, then=5),
+            When(status=cls.CANCELLED, then=6),
+            default=0,
+            output_field=IntegerField(),
+        )
+
+    @classmethod
+    def pending(cls) -> list[tuple[str, str]]:
+        """Group of Job statuses that will change in the future."""
+        return [cls.SUBMITTED, cls.IN_PROGRESS, cls.DEFERRED]
+
+    @classmethod
+    def final(cls) -> list[tuple[str, str]]:
+        """Group of Job statuses that will not change without manual intervention."""
+        return [cls.FAILED, cls.LANDED, cls.CANCELLED]
 
 
 @enum.unique
@@ -64,6 +101,7 @@ class LandingJob(BaseModel):
         default=None,
         null=True,  # TODO: should change this to not-nullable
         blank=True,
+        db_index=True,
     )
 
     # revision_to_diff_id and revision_order are deprecated and kept for historical reasons.
@@ -124,6 +162,27 @@ class LandingJob(BaseModel):
             .values_list("revision__revision_id", "diff_id")
         )
         return dict(revision_landing_jobs)
+
+    @property
+    def landed_treeherder_revision(self) -> str | None:
+        """Return a revision suitable for use with TreeStatus.
+
+        At the moment (2025-07-10), Treeherder only supports HgMO as a source of truth,
+        so we translate Git commits to their equivalent in HgMO.
+        """
+        if not self.landed_commit_id:
+            return None
+
+        if self.target_repo.scm_type == SCM_TYPE_HG:
+            return self.landed_commit_id
+
+        # SCM_TYPE_GIT
+        try:
+            return CommitMap.git2hg(self.target_repo.name, self.landed_commit_id)
+        except CommitMap.DoesNotExist:
+            logger.warning(
+                f"CommitMap not found for {self.landed_commit_id} in {self.target_repo.name}"
+            )
 
     @property
     def serialized_landing_path(self):  # noqa: ANN201
@@ -187,6 +246,26 @@ class LandingJob(BaseModel):
         ).distinct()
 
     @classmethod
+    def queue_jobs(cls) -> list[dict[str, Any]]:
+        """Return an ordered list of queued jobs."""
+        jobs = cls.job_queue_query().all()
+        return [
+            {
+                "created_at": j.created_at,
+                "id": j.id,
+                "url": f"{settings.SITE_URL}/landings/{j.id}",
+                "repository": j.target_repo.short_name,
+                "requester": j.requester_email,
+                "revisions": [
+                    f"{settings.PHABRICATOR_URL}/D{r.revision_id}" for r in j.revisions
+                ],
+                "status": j.status,
+                "updated_at": j.updated_at,
+            }
+            for j in jobs
+        ]
+
+    @classmethod
     def job_queue_query(
         cls,
         repositories: Optional[Iterable[str]] = None,
@@ -200,12 +279,7 @@ class LandingJob(BaseModel):
             grace_seconds (int): Ignore landing jobs that were submitted after this
                 many seconds ago.
         """
-        applicable_statuses = (
-            JobStatus.SUBMITTED,
-            JobStatus.IN_PROGRESS,
-            JobStatus.DEFERRED,
-        )
-        q = cls.objects.filter(status__in=applicable_statuses)
+        q = cls.objects.filter(status__in=JobStatus.pending())
 
         if repositories:
             q = q.filter(target_repo__in=repositories)
@@ -215,22 +289,7 @@ class LandingJob(BaseModel):
             grace_cutoff = now - datetime.timedelta(seconds=grace_seconds)
             q = q.filter(created_at__lt=grace_cutoff)
 
-        # Any `JobStatus.IN_PROGRESS` job is first and there should
-        # be a maximum of one (per repository). For
-        # `JobStatus.SUBMITTED` jobs, higher priority items come first
-        # and then we order by creation time (older first).
-        ordering = Case(
-            When(status=JobStatus.SUBMITTED, then=1),
-            When(status=JobStatus.IN_PROGRESS, then=2),
-            When(status=JobStatus.DEFERRED, then=3),
-            When(status=JobStatus.FAILED, then=4),
-            When(status=JobStatus.LANDED, then=5),
-            When(status=JobStatus.CANCELLED, then=6),
-            default=0,
-            output_field=IntegerField(),
-        )
-
-        q = q.annotate(status_order=ordering).order_by(
+        q = q.annotate(status_order=JobStatus.ordering()).order_by(
             "-status_order", "-priority", "created_at"
         )
 
@@ -343,23 +402,17 @@ class LandingJob(BaseModel):
 
         self.save()
 
-    @property
-    def legacy_details(self) -> str:
-        """Return a string of the landed commit id or the error details."""
-        if self.status in (JobStatus.FAILED, JobStatus.CANCELLED):
-            return self.error
-
-        # In case the job is deferred, there may be an error still associated.
-        return self.landed_commit_id or self.error
-
 
 def add_job_with_revisions(
-    revisions: list[Revision], **params: Any  # noqa: ANN401
+    revisions: list[Revision],
+    **params: Any,  # noqa: ANN401
 ) -> LandingJob:
     """Creates a new job and associates provided revisions with it."""
     job = LandingJob(**params)
+    # We need to save the job prior to adding revisions, so the PKs can be linked.
     job.save()
     add_revisions_to_job(revisions, job)
+    job.save()
     return job
 
 
