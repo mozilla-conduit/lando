@@ -68,6 +68,12 @@ class AutomationWorker(Worker):
         self.last_job_finished = None
         self.refresh_active_repos()
 
+    def skip_checks(self, job: AutomationJob, new_commits: list[CommitData]) -> bool:
+        return (
+            job.has_one_action
+            and job.actions.first().action_type == ActionTypeChoices.MERGE_ONTO
+        ) or (new_commits and "a=release" in new_commits[-1].desc)
+
     def refresh_active_repos(self):
         """Override base functionality by not checking treestatus."""
         self.active_repos = self.enabled_repos
@@ -164,12 +170,7 @@ class AutomationWorker(Worker):
 
             new_commits = scm.describe_local_changes(base_cset=pre_head_ref)
 
-            skip_checks = (
-                job.actions.count() == 1
-                and job.actions.first().action_type == ActionTypeChoices.MERGE_ONTO
-            ) or (new_commits and "a=release" in new_commits[-1].desc)
-
-            if not skip_checks and repo.hooks_enabled:
+            if not self.skip_checks(job, new_commits) and repo.hooks_enabled:
                 check_errors = self.run_automation_checks(
                     scm, job.requester_email, new_commits
                 )

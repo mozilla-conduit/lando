@@ -161,6 +161,10 @@ class AutomationJob(BaseModel):
 
         return target_cset, push_target
 
+    @property
+    def has_one_action(self) -> int:
+        return self.actions.count() == 1
+
 
 class ActionTypeChoices(models.TextChoices):
     """Accepted choices for the types of automation job actions."""
