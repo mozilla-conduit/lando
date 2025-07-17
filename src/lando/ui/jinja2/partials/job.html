@@ -1,0 +1,92 @@
+{% set embedded = embedded|default(True) %}
+
+<div class="StackPage-timeline-item">
+  <div class="StackPage-timeline-itemStatus">
+    <span class="{{ job|tostatusbadgeclass }}">{{ job|tostatusbadgename}}</span>
+  </div>
+
+  <div class="StackPage-timeline-itemDetail">
+    <p>Landing requested on <time data-timestamp="{{ job.created_at }}"></time>, by {{ job.requester_email }}.</p>
+    {% if embedded %}
+    <p><strong>Landing Job:</strong>
+      <a href="{{ url('jobs-page', args=[job.id]) }}">{{ job.id }}</a>
+    </p>
+    {% elif job.revisions %}
+    <p><strong>Lando Stack:</strong>
+      {% set top_revision = job.revisions[0] %}
+      <a href="{{ url('revisions-page', args=[top_revision.revision_id]) }}">D{{ top_revision.revision_id }}</a>
+    </p>
+    {% endif %}
+    {% if job.revisions %}
+    <p><strong>Revisions:</strong>
+      {% for i in job.serialized_landing_path -%}
+      {{- "" if loop.first else " ← " -}}
+      <a href="{{ i['revision_id']|revision_url(diff_id=i['diff_id']) }}">
+        {{ i['revision_id'] }} diff {{ i['diff_id'] }}
+      </a>
+      {%- endfor %}
+    </p>
+    {% endif %}
+    {% if job.error_breakdown %}
+    {% set tree = job.tree|default("!unknown tree!") %}
+    {% set rejects_paths = job.error_breakdown.rejects_paths %}
+    <p>While applying <a href="{{ job.error_breakdown.revision_id|revision_url() }}">revision D{{
+        job.error_breakdown.revision_id }}</a> to {{ tree }}, the following files had
+      conflicts:</p>
+    <p>(Hint: try rebasing your changes on the latest commits from {{ tree }} and re-submitting.)</p>
+    <div class="content">
+      <ul>
+        {% for path in job.error_breakdown.failed_paths if path.path in rejects_paths %}
+        <li><strong>{{ path.path }}</strong> @ <a href="{{ path.url }}">{{ path.changeset_id }}</a></li>
+        {% if path.path not in rejects_paths or content not in rejects_paths[path.path] %}
+        <p>Error parsing error for {{ path.path }}. This is likely due to a conflict when removing a file, see <a
+            href="https://bugzilla.mozilla.org/show_bug.cgi?id=1968636">bug 1968636</a>. See Raw error output below.</p>
+        {% else %}
+        {% set reject_lines = rejects_paths[path.path].content.split("\n") %}
+        {% if reject_lines.__len__() < 3 %} <pre>{{ "\n".join(reject_lines) }}</pre>
+          {% else %}
+          <div>
+            <pre class="snippet">{{ "\n".join(reject_lines[:2]) + "\n...\n" }}<button
+                class="is-small is-light button toggle-content">expand diff</button></pre>
+            <pre class="hidden-content">{{ "\n".join(reject_lines) }}<button
+                class="is-small is-light button toggle-content">collapse diff</button></pre>
+          </div>
+          {% endif %}
+          {% endif %}
+          {% endfor %}
+          </ul>
+    </div>
+    {% endif %}
+    <div>
+      {% if job.duration|default(None) %}
+      <p><strong>Duration:</strong> {{ job.duration }}s</p>
+      {% endif %}
+      <p><strong>Last update:</strong> <time data-timestamp="{{ job.updated_at }}"></time></p>
+
+      {% if job.status.lower() == 'landed' and job.landed_commit_id %}
+      <p><strong>Result:</strong> {{ job.landed_commit_id|escape_html|linkify_transplant_details(job)|safe }} on {{ job.target_repo }}</p>
+      <p><strong>Links:</strong> {{ treeherder_link(job.landed_treeherder_revision, "Treeherder")|safe }}</p>
+
+      {% elif job.status.lower() == 'submitted' and treestatus and not embedded %}
+      <div>
+        <p><strong>Tree Status for <code>{{treestatus.repo}}</code>:</strong> {{ treestatus.status }} ({{treestatus.reason }})</p>
+      </div>
+
+      {% elif job.error%}
+      <div class="StackPage-timeline-item-error">
+        {% if job.error_breakdown %}
+        <div><button type="button" class="is-light button toggle-content">Show raw error output</button></div>
+        <pre class="hidden-content"><strong>Raw error output:</strong>{{ "\n" + job.error}}</pre>
+        {% else %}
+        <pre><strong>Raw error output:</strong>{{ "\n" + job.error}}</pre>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% if job.status in ("SUBMITTED", "DEFERRED") %}
+      <button data-landing_job_id="{{ job.id }}" class="cancel-landing-job button is-small is-danger"
+        data-csrf-token="{{ csrf_token }}">Cancel landing request</button>
+      {% endif %}
+    </div>
+  </div>
+</div>

@@ -1,0 +1,39 @@
+{% extends "partials/layout.html" %}
+{% block page_title %}Landing Job {{job.id}}{% endblock %}
+
+{% block main %}
+<main class="StackPage container fullhd">
+
+  <h1>Landing Job {{job.id}}</h1>
+
+<div class="StackPage-timeline">
+
+  {% set embedded = False %}
+  {% include "partials/job.html" %}
+
+</div>
+
+{% if queue %}
+
+  <h1>Landing Queue</h1>
+
+  {% if queue|length  > 1 %}
+  <p>There are {{ queue|length }} jobs ahead in the queue.</p>
+  {% else %}
+  <p>There is 1 job ahead in the queue.</p>
+  {% endif %}
+
+  <div class="StackPage-landingQueue StackPage-timeline"/>
+
+    {% set main_job = job %}
+    {% for job in queue %}
+      {% if job.id != main_job.id %}
+      {% set embedded =  True %}
+      {% include "partials/job.html" %}
+      {% endif %}
+    {% endfor %}
+
+{% endif %}
+
+</main>
+{% endblock %}

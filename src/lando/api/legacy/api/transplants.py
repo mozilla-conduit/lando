@@ -4,7 +4,7 @@ from datetime import datetime
 
 import kombu
 from django.conf import settings
-from django.http import HttpRequest
+from django.core.handlers.wsgi import WSGIRequest
 
 from lando.api.legacy.api.stacks import HTTP_404_STRING
 from lando.api.legacy.commit_message import format_commit_message
@@ -115,7 +115,7 @@ def _find_stack_from_landing_path(
 
 @require_authenticated_user
 @require_phabricator_api_key(optional=True)
-def dryrun(phab: PhabricatorClient, request: HttpRequest, data: dict):  # noqa: ANN201
+def dryrun(phab: PhabricatorClient, request: WSGIRequest, data: dict):  # noqa: ANN201
     lando_user = request.user
     landing_path = _parse_transplant_request(data)["landing_path"]
 
@@ -153,7 +153,7 @@ def dryrun(phab: PhabricatorClient, request: HttpRequest, data: dict):  # noqa: 
 
 @require_authenticated_user
 @require_phabricator_api_key(optional=True)
-def post(phab: PhabricatorClient, request: HttpRequest, data: dict):  # noqa: ANN201
+def post(phab: PhabricatorClient, request: WSGIRequest, data: dict):  # noqa: ANN201
     lando_user = request.user
     parsed_transplant_request = _parse_transplant_request(data)
     confirmation_token = parsed_transplant_request["confirmation_token"]
@@ -381,7 +381,7 @@ def post(phab: PhabricatorClient, request: HttpRequest, data: dict):  # noqa: AN
 
 @require_phabricator_api_key(optional=True)
 def get_list(
-    phab: PhabricatorClient, request: HttpRequest, stack_revision_id: str
+    phab: PhabricatorClient, request: WSGIRequest, stack_revision_id: str
 ) -> list[LandingJob]:
     """Return a list of landing jobs related to the revision."""
     revision_id_int = revision_id_to_int(stack_revision_id)

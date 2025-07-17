@@ -3,7 +3,7 @@ import json
 import pytest
 
 from lando.main.models import JobStatus, LandingJob, Repo
-from lando.main.scm import SCM_TYPE_HG
+from lando.main.scm import SCM_TYPE_GIT
 
 
 @pytest.mark.django_db
@@ -15,7 +15,7 @@ def landing_job(repo_mc):
             revision_to_diff_id={},
             revision_order=[],
             requester_email=requester_email,
-            target_repo=repo_mc(scm_type=SCM_TYPE_HG),
+            target_repo=repo_mc(scm_type=SCM_TYPE_GIT),
         )
         job.save()
         return job
@@ -137,7 +137,7 @@ def test_cancel_landing_job_fails_bad_input(
 
 @pytest.mark.django_db
 def test_landing_job_acquire_job_job_queue_query(mocked_repo_config):
-    REPO = Repo.objects.create(name="test-repo", scm_type=SCM_TYPE_HG)
+    REPO = Repo.objects.create(name="test-repo", scm_type=SCM_TYPE_GIT)
     jobs = [
         LandingJob(
             status=JobStatus.SUBMITTED,

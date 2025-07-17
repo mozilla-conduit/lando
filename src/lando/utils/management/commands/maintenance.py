@@ -60,8 +60,7 @@ class Command(BaseCommand):
         action = options["action"]
         if action not in actions:
             raise CommandError(
-                f"Action must be one of: {', '.join(actions)}. "
-                f'"{action}" was provided.'
+                f'Action must be one of: {", ".join(actions)}. "{action}" was provided.'
             )
 
         # If there are unapplied migrations, then both the web interface and the

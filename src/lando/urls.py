@@ -27,6 +27,7 @@ from lando.api.views import (
 from lando.headless_api.api import (
     api as headless_api,
 )
+from lando.ui import jobs
 from lando.ui.legacy import pages, revisions, user_settings
 
 urlpatterns = [
@@ -64,8 +65,26 @@ urlpatterns += [
 # "API" endpoints ported from legacy API app.
 urlpatterns += [
     path("landing_jobs/<int:landing_job_id>/", landing_jobs.put, name="landing-jobs"),
+    path(
+        "D<int:revision_id>/landings/<int:landing_job_id>/",
+        jobs.LandingJobView.as_view(),
+        name="revision-jobs-page",
+    ),
+    # Allow to find a landing job by ID only. The page will redirect to the canonical
+    # URL including the revision.
+    path(
+        "landings/<int:landing_job_id>/",
+        jobs.LandingJobView.as_view(),
+        {"revision_id": None},
+        name="jobs-page",
+    ),
 ]
 
 urlpatterns += [
     path("api/", headless_api.urls, name="headless-api"),
+    path(
+        "api/jobs/<int:automation_job_id>/",
+        jobs.AutomationJobView.as_view(),
+        name="api-jobs-page",
+    ),
 ]

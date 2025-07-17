@@ -24,7 +24,6 @@ from lando.main.models import DONTBUILD, SCM_CONDUIT, Repo
 from lando.main.models.landing_job import (
     JobStatus,
     LandingJob,
-    add_job_with_revisions,
 )
 from lando.main.models.revision import Revision
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
@@ -32,33 +31,7 @@ from lando.utils.phabricator import PhabricatorRevisionStatus, ReviewerStatus
 from lando.utils.tasks import admin_remove_phab_project
 
 
-def _create_landing_job(
-    target_repo,
-    *,
-    landing_path=((1, 1),),
-    revisions=None,
-    requester_email="tuser@example.com",
-    status=None,
-):
-    job_params = {
-        "requester_email": requester_email,
-        "status": status,
-        "target_repo": target_repo,
-    }
-    revisions = []
-    for revision_id, diff_id in landing_path:
-        revision = Revision.one_or_none(revision_id=revision_id)
-        if not revision:
-            revision = Revision(revision_id=revision_id)
-        revision.diff_id = diff_id
-        revisions.append(revision)
-    for revision in revisions:
-        revision.save()
-    job = add_job_with_revisions(revisions, **job_params)
-    return job
-
-
-def _create_landing_job_with_no_linked_revisions(
+def _make_landing_job_override_with_no_linked_revisions(
     target_repo,
     *,
     landing_path=((1, 1),),
@@ -244,7 +217,7 @@ def test_dryrun_open_parent(
 def test_dryrun_in_progress_transplant_blocks(
     proxy_client,
     phabdouble,
-    repo_mc,
+    make_landing_job,
     mocked_repo_config,
     mock_permissions,
     release_management_project,
@@ -268,8 +241,7 @@ def test_dryrun_in_progress_transplant_blocks(
 
     # Create am in progress transplant on r2, which should
     # block attempts to land r1.
-    _create_landing_job(
-        target_repo=repo_mc(SCM_TYPE_GIT),
+    make_landing_job(
         landing_path=[(r1["id"], d1["id"])],
         status=JobStatus.SUBMITTED,
     )
@@ -484,7 +456,9 @@ def test_integrated_dryrun_blocks_for_bad_userinfo(
 
 
 @pytest.mark.django_db(transaction=True)
-def test_get_transplants_for_entire_stack(proxy_client, phabdouble, repo_mc):
+def test_get_transplants_for_entire_stack(
+    proxy_client, phabdouble, make_landing_job, repo_mc
+):
     d1a = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1a, repo=phabdouble.repo())
     d1b = phabdouble.diff(revision=r1)
@@ -500,28 +474,28 @@ def test_get_transplants_for_entire_stack(proxy_client, phabdouble, repo_mc):
 
     repo = repo_mc(SCM_TYPE_GIT)
 
-    t1 = _create_landing_job(
+    t1 = make_landing_job(
         target_repo=repo,
         landing_path=[(r1["id"], d1a["id"])],
         status=JobStatus.FAILED,
     )
-    t2 = _create_landing_job(
+    t2 = make_landing_job(
         target_repo=repo,
         landing_path=[(r1["id"], d1b["id"])],
         status=JobStatus.LANDED,
     )
-    t3 = _create_landing_job(
+    t3 = make_landing_job(
         target_repo=repo,
         landing_path=[(r2["id"], d2["id"])],
         status=JobStatus.SUBMITTED,
     )
-    t4 = _create_landing_job(
+    t4 = make_landing_job(
         target_repo=repo,
         landing_path=[(r3["id"], d3["id"])],
         status=JobStatus.LANDED,
     )
 
-    t_not_in_stack = _create_landing_job(
+    t_not_in_stack = make_landing_job(
         target_repo=repo,
         landing_path=[(r_not_in_stack["id"], d_not_in_stack["id"])],
         status=JobStatus.LANDED,
@@ -536,7 +510,9 @@ def test_get_transplants_for_entire_stack(proxy_client, phabdouble, repo_mc):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_get_transplant_from_middle_revision(proxy_client, phabdouble, repo_mc):
+def test_get_transplant_from_middle_revision(
+    proxy_client, phabdouble, make_landing_job
+):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
 
@@ -546,8 +522,7 @@ def test_get_transplant_from_middle_revision(proxy_client, phabdouble, repo_mc):
     d3 = phabdouble.diff()
     r3 = phabdouble.revision(diff=d3, repo=phabdouble.repo(), depends_on=[r1])
 
-    t = _create_landing_job(
-        target_repo=repo_mc(SCM_TYPE_GIT),
+    t = make_landing_job(
         landing_path=[(r1["id"], d1["id"]), (r2["id"], d2["id"]), (r3["id"], d3["id"])],
         status=JobStatus.FAILED,
     )
@@ -559,12 +534,11 @@ def test_get_transplant_from_middle_revision(proxy_client, phabdouble, repo_mc):
 
 @pytest.mark.django_db(transaction=True)
 def test_get_transplant_not_authorized_to_view_revision(
-    proxy_client, phabdouble, repo_mc
+    proxy_client, phabdouble, make_landing_job, repo_mc
 ):
     # Create a transplant pointing at a revision that will not
     # be returned by phabricator.
-    _create_landing_job(
-        target_repo=repo_mc(SCM_TYPE_GIT),
+    make_landing_job(
         landing_path=[(1, 1)],
         status=JobStatus.SUBMITTED,
     )
@@ -585,17 +559,20 @@ def test_warning_previously_landed_no_landings(phabdouble, create_state):
 
 
 @pytest.mark.parametrize(
-    "create_landing_job",
-    (_create_landing_job, _create_landing_job_with_no_linked_revisions),
+    "make_landing_job_override",
+    (None, _make_landing_job_override_with_no_linked_revisions),
 )
 @pytest.mark.django_db(transaction=True)
 def test_warning_previously_landed_failed_landing(
-    phabdouble, repo_mc, create_landing_job, create_state
+    phabdouble, make_landing_job, make_landing_job_override, create_state, repo_mc
 ):
+    if not make_landing_job_override:
+        make_landing_job_override = make_landing_job
+
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
 
-    create_landing_job(
+    make_landing_job_override(
         target_repo=repo_mc(SCM_TYPE_GIT),
         landing_path=[(r["id"], d["id"])],
         status=JobStatus.FAILED,
@@ -612,17 +589,20 @@ def test_warning_previously_landed_failed_landing(
 
 
 @pytest.mark.parametrize(
-    "create_landing_job",
-    (_create_landing_job, _create_landing_job_with_no_linked_revisions),
+    "make_landing_job_override",
+    (None, _make_landing_job_override_with_no_linked_revisions),
 )
 @pytest.mark.django_db(transaction=True)
 def test_warning_previously_landed_landed_landing(
-    phabdouble, repo_mc, create_landing_job, create_state
+    phabdouble, make_landing_job, make_landing_job_override, create_state, repo_mc
 ):
+    if not make_landing_job_override:
+        make_landing_job_override = make_landing_job
+
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
 
-    create_landing_job(
+    make_landing_job_override(
         target_repo=repo_mc(SCM_TYPE_GIT),
         landing_path=[(r["id"], d["id"])],
         status=JobStatus.LANDED,
