@@ -262,11 +262,11 @@ class Repo(BaseModel):
             return self.url.removesuffix(".git")
 
     @property
-    def _github_repo_name(self) -> str:
-        """Return the GitHub repo name without the `.git` suffix."""
-        if self.is_github:
-            return self.parsed_url.path.split("/")[-1].removesuffix(".git")
-        return ""
+    def git_repo_name(self) -> str:
+        """Provide the bare name of the Git repo."""
+        if self.scm_type != SCM_TYPE_GIT:
+            raise ValueError(f"Not a git repo: {self}")
+        return self.url.removesuffix(".git").split("/")[-1]
 
     def _find_supporting_scm(self, pull_path: str) -> str:
         """Loop through the supported SCM_IMPLEMENTATIONS and return a key representing

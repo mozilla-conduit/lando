@@ -148,7 +148,7 @@ def test__models__Repo__normalized_url(
 
 
 @pytest.mark.parametrize(
-    "scm_type, url, expected__github_repo_name,",
+    "scm_type, url, expected_git_repo_name,",
     [
         (
             SCM_TYPE_GIT,
@@ -156,15 +156,20 @@ def test__models__Repo__normalized_url(
             "test-repo",
         ),
         (
+            SCM_TYPE_GIT,
+            "https://github.com/mozilla-firefox/firefox.git/",
+            "firefox",
+        ),
+        (
             SCM_TYPE_HG,
             "https://hg.mozilla.org/conduit-testing/test-repo/",
-            "",
+            None,
         ),
     ],
 )
 @pytest.mark.django_db(transaction=True)
-def test__models__Repo___github_repo_name(
-    scm_type, url, expected__github_repo_name, monkeypatch
+def test__models__Repo__git_repo_name(
+    scm_type, url, expected_git_repo_name, monkeypatch
 ):
     mock__find_supporting_scm = mock.MagicMock()
     mock__find_supporting_scm.return_value = scm_type
@@ -172,7 +177,11 @@ def test__models__Repo___github_repo_name(
     repo = Repo(url=url)
     repo.save()
 
-    assert repo._github_repo_name == expected__github_repo_name
+    if not expected_git_repo_name:
+        with pytest.raises(ValueError):
+            assert repo.git_repo_name == expected_git_repo_name
+    else:
+        assert repo.git_repo_name == expected_git_repo_name
 
 
 @pytest.mark.parametrize(
