@@ -140,7 +140,7 @@ class cProfileMiddleware:
     def process_view(
         self,
         request: WSGIRequest,
-        view_func: callable,
+        view_func: Callable,
         view_args: tuple,
         view_kwargs: dict,
     ) -> Optional[HttpResponse]:
