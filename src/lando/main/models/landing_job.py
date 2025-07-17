@@ -178,7 +178,9 @@ class LandingJob(BaseModel):
 
         # SCM_TYPE_GIT
         try:
-            return CommitMap.git2hg(self.target_repo.name, self.landed_commit_id)
+            return CommitMap.git2hg(
+                self.target_repo.git_repo_name, self.landed_commit_id
+            )
         except CommitMap.DoesNotExist:
             logger.warning(
                 f"CommitMap not found for {self.landed_commit_id} in {self.target_repo.name}"

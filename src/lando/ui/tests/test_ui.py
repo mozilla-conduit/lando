@@ -50,7 +50,8 @@ def test_landed_landing_job_view(
 ):
     cmap = commit_maps[0]
 
-    repo = repo_mc(SCM_TYPE_GIT, name=cmap.git_repo_name)
+    # This test assumes that the URL of the repo_mc matches commit_maps[].git_repo_name.
+    repo = repo_mc(SCM_TYPE_GIT)
     treestatusdouble.close_tree(repo.name)
 
     # We need a landing worker to exist so the queue can be built, but we don't use it

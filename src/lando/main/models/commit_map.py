@@ -16,6 +16,10 @@ class CommitMap(BaseModel):
     """Map a git hash to an hg hash, based on a specific repo."""
 
     HGMO_PUSHLOG_TEMPLATE = "https://hg.mozilla.org/{}/json-pushes"
+    # The REPO_MAPPING is used to determine which HgMO repo to inspect when
+    # looking for new commits for a given Git repo.
+    # Tuples of (Git, HgMO) repository names.
+    # Use what Repo.git_commit_map() would return as the Git name.
     REPO_MAPPING = (("firefox", "mozilla-unified"),)
 
     git_hash = models.CharField(default="", max_length=40)
