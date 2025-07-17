@@ -112,7 +112,16 @@ class MaintenanceModeMiddleware:
 
 
 class cProfileMiddleware:
-    """A middleware to profile requests/responses and return the result."""
+    """A middleware to profile requests/responses and return the result.
+
+    To generate a profile report for a request, the following conditions must be met:
+    - Request must be sent by an authenticated staff user.
+    - The PROFILING_ENABLED configuration variable must be set to True.
+    - The "profile" query parameter must be passed in the URL.
+
+    In addition, the following parameters can be passed to customize the report:
+    - sort (can be set to a column in the report)
+    """
 
     @staticmethod
     def _should_profile(request: WSGIRequest) -> bool:
