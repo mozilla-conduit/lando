@@ -81,6 +81,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # The `MockAuthMiddleware` needs to go after `AuthenticationMiddleware`.
+    "lando.middleware.MockAuthMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "mozilla_django_oidc.middleware.SessionRefresh",
@@ -218,6 +220,8 @@ BUGZILLA_URL = os.getenv("BUGZILLA_URL", "http://bmo.test")
 BUGZILLA_API_KEY = os.getenv("BUGZILLA_API_KEY", "")
 
 AUTHENTICATION_BACKENDS = [
+    # `MockAuthBackend` needs to be loaded first.
+    "lando.middleware.MockAuthBackend",
     "django.contrib.auth.backends.ModelBackend",
     "lando.main.auth.LandoOIDCAuthenticationBackend",
 ]

@@ -6,12 +6,18 @@ from io import StringIO
 from typing import Optional
 
 from django.conf import settings
+from django.contrib.auth import authenticate, get_user_model, login
+from django.contrib.auth.backends import BaseBackend
+from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpRequest, HttpResponse
 from django.template.loader import render_to_string
 from django.urls import resolve
 
 from lando.main.models import ConfigurationKey, ConfigurationVariable
+from lando.main.models.profile import Profile
+from lando.treestatus.models import Tree
 
 logger = logging.getLogger(__name__)
 
@@ -156,3 +162,66 @@ class cProfileMiddleware:
         stats.strip_dirs().sort_stats(request.GET.get("sort", "cumtime"))
         stats.print_stats()
         return HttpResponse(f"<pre>{out.getvalue()}</pre>")
+
+
+class MockAuthBackend(BaseBackend):
+    """Mock backend to unconditionally load an authenticated test user."""
+
+    def authenticate(self, request: WSGIRequest, **kwargs):  # noqa: ANN201
+        User = get_user_model()
+        user, _ = User.objects.get_or_create(
+            username="mockuser",
+            defaults={
+                "email": "mock@example.com",
+                "is_staff": True,
+                "is_superuser": False,
+            },
+        )
+
+        # Ensure user has a `Profile` object.
+        try:
+            profile = user.profile
+        except Profile.DoesNotExist:
+            profile = Profile.objects.create(user=user)
+
+        # Inject minimal userinfo.
+        if not profile.userinfo:
+            profile.userinfo = {
+                "picture": "https://www.gravatar.com/avatar/?d=identicon",
+                "name": "Mock User",
+                "email": user.email,
+            }
+            profile.save()
+
+        # Mock Treestatus permissions.
+        mocked_perms = [Tree, "change_tree"]
+        for model, permission in mocked_perms:
+            content_type = ContentType.objects.get_for_model(model)
+            perm = Permission.objects.get(
+                codename=permission, content_type=content_type
+            )
+            user.user_permissions.add(perm)
+
+        return user
+
+    def get_user(self, user_id: int):  # noqa: ANN201
+        User = get_user_model()
+        try:
+            return User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return None
+
+
+class MockAuthMiddleware:
+    """Mock middleware to create a session for the test user."""
+
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]):
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        if hasattr(request, "session"):
+            user = authenticate(request=request)
+            if user:
+                login(request, user)
+
+        return self.get_response(request)
