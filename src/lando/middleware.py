@@ -120,7 +120,7 @@ class cProfileMiddleware:
     - The "profile" query parameter must be passed in the URL.
 
     In addition, the following parameters can be passed to customize the report:
-    - sort (can be set to a column in the report)
+    - sort (see https://docs.python.org/3/library/profile.html#pstats.Stats.sort_stats for options).
     """
 
     @staticmethod
