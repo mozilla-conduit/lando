@@ -1,6 +1,5 @@
-from django import forms
 from django.contrib import admin
-from django.db import models
+from django.core.handlers.wsgi import WSGIRequest
 
 from lando.headless_api.models.automation_job import AutomationAction, AutomationJob
 from lando.headless_api.models.tokens import ApiToken
@@ -24,18 +23,17 @@ class AutomationActionJobInline(ReadOnlyInline):
     _target_object = "actions"
     readonly_fields = ("action_type", "data", "order")
 
-    def formfield_for_dbfield(self, db_field: models.Field, **kwargs) -> forms.Field:
-        """
-        Forbid alteration of the JobAction list.
-        """
-        formfield = super(ReadOnlyInline, self).formfield_for_dbfield(
-            db_field, **kwargs
-        )
-        if db_field.name == "actions":
-            formfield.widget.can_add_related = False
-            formfield.widget.can_change_related = False
-            formfield.widget.can_delete_related = False
-        return formfield
+    def has_add_permission(
+        self, request: WSGIRequest, obj: AutomationAction | None = None
+    ) -> bool:
+        """Forbid addition of any action object from the inline interface."""
+        return False
+
+    def has_delete_permission(
+        self, request: WSGIRequest, obj: AutomationAction | None = None
+    ) -> bool:
+        """Forbid deletion of any action object from the inline interface."""
+        return False
 
 
 class AutomationJobAdmin(admin.ModelAdmin):
@@ -51,18 +49,16 @@ class AutomationJobAdmin(admin.ModelAdmin):
     )
     list_filter = ("target_repo__name", "requester_email", "created_at")
     inlines = [AutomationActionJobInline]
-
-    def has_add_permission(self, request, obj=None) -> bool:  # noqa: ANN001
-        """Forbid addition of any action object from the inline interface."""
-        return False
-
-    def has_change_permission(self, request, obj=None) -> bool:  # noqa: ANN001
-        """Forbid change of any action object from the inline interface."""
-        return False
-
-    def has_delete_permission(self, request, obj=None) -> bool:  # noqa: ANN001
-        """Forbid deletion of any action object from the inline interface."""
-        return False
+    readonly_fields = (
+        "attempts",
+        "duration_seconds",
+        "error",
+        "landed_commit_id",
+        "requester_email",
+        "relbranch_name",
+        "relbranch_commit_sha",
+        "target_repo",
+    )
 
     def action_types(self, instance: AutomationJob) -> str:
         """Return a summary string of the action types associated to a given job."""

@@ -1,7 +1,12 @@
+import cProfile
 import logging
+import pstats
 from collections.abc import Callable
+from io import StringIO
+from typing import Optional
 
 from django.conf import settings
+from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpRequest, HttpResponse
 from django.template.loader import render_to_string
 from django.urls import resolve
@@ -14,10 +19,10 @@ logger = logging.getLogger(__name__)
 class ResponseHeadersMiddleware:
     """Add custom response headers for each request."""
 
-    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]):
+    def __init__(self, get_response: Callable[[WSGIRequest], HttpResponse]):
         self.get_response = get_response
 
-    def __call__(self, request: HttpRequest) -> HttpResponse:
+    def __call__(self, request: WSGIRequest) -> HttpResponse:
         # NOTE: These headers were ported from both the legacy UI and API.
         # API specific CSP headers should be implemented as part of bug 1927163.
 
@@ -61,10 +66,10 @@ class ResponseHeadersMiddleware:
 class MaintenanceModeMiddleware:
     """If maintenance mode is enabled, non-admin requests should be redirected."""
 
-    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]):
+    def __init__(self, get_response: Callable[[WSGIRequest], HttpResponse]):
         self.get_response = get_response
 
-    def __call__(self, request: HttpRequest) -> HttpResponse:
+    def __call__(self, request: WSGIRequest) -> HttpResponse:
         if request.user.is_authenticated and request.user.is_superuser:
             return self.get_response(request)
 
@@ -104,3 +109,50 @@ class MaintenanceModeMiddleware:
             )
 
         return self.get_response(request)
+
+
+class cProfileMiddleware:
+    """A middleware to profile requests/responses and return the result.
+
+    To generate a profile report for a request, the following conditions must be met:
+    - Request must be sent by an authenticated staff user.
+    - The PROFILING_ENABLED configuration variable must be set to True.
+    - The "profile" query parameter must be passed in the URL.
+
+    In addition, the following parameters can be passed to customize the report:
+    - sort (see https://docs.python.org/3/library/profile.html#pstats.Stats.sort_stats for options).
+    """
+
+    @staticmethod
+    def _should_profile(request: WSGIRequest) -> bool:
+        return (
+            ConfigurationVariable.get(ConfigurationKey.PROFILING_ENABLED, False)
+            and request.user.is_staff
+            and "profile" in request.GET
+        )
+
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]):
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        return self.get_response(request)
+
+    def process_view(
+        self,
+        request: WSGIRequest,
+        view_func: Callable,
+        view_args: tuple,
+        view_kwargs: dict,
+    ) -> Optional[HttpResponse]:
+        """If profile is requested, run cprofile and generate the output in html format."""
+        if not self._should_profile(request):
+            return
+
+        profiler = cProfile.Profile()
+        profiler.runcall(view_func, request, *view_args, **view_kwargs)
+        profiler.create_stats()
+        out = StringIO()
+        stats = pstats.Stats(profiler, stream=out)
+        stats.strip_dirs().sort_stats(request.GET.get("sort", "cumtime"))
+        stats.print_stats()
+        return HttpResponse(f"<pre>{out.getvalue()}</pre>")

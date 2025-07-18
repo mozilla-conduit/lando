@@ -1,14 +1,25 @@
+import logging
+from typing import Self
+
 import requests
+import sentry_sdk
 from django.db import models
 
 from lando.main.models import BaseModel
 from lando.main.models.repo import Repo
+from lando.main.scm.consts import SCM_TYPE_GIT, SCM_TYPE_HG
+
+logger = logging.getLogger(__name__)
 
 
 class CommitMap(BaseModel):
     """Map a git hash to an hg hash, based on a specific repo."""
 
     HGMO_PUSHLOG_TEMPLATE = "https://hg.mozilla.org/{}/json-pushes"
+    # The REPO_MAPPING is used to determine which HgMO repo to inspect when
+    # looking for new commits for a given Git repo.
+    # Tuples of (Git, HgMO) repository names.
+    # Use what Repo.git_commit_map() would return as the Git name.
     REPO_MAPPING = (("firefox", "mozilla-unified"),)
 
     git_hash = models.CharField(default="", max_length=40)
@@ -50,6 +61,39 @@ class CommitMap(BaseModel):
         """Return hg hash of last CommitMap object for given repo."""
         return cls._find_last_node(git_repo_name).hg_hash
 
+    @classmethod
+    def git2hg(cls, git_repo_name: str, commit_hash: str) -> str:
+        """Return Hg hash for the given repo and Git hash."""
+        map = cls.map_hash_from(SCM_TYPE_GIT, git_repo_name, commit_hash)
+        return map.hg_hash
+
+    @classmethod
+    def hg2git(cls, git_repo_name: str, commit_hash: str) -> str:
+        """Return Git hash for the given repo and Hg hash."""
+        map = cls.map_hash_from(SCM_TYPE_HG, git_repo_name, commit_hash)
+        return map.git_hash
+
+    @classmethod
+    def map_hash_from(
+        cls, src_scm: str, git_repo_name: str, src_commit_hash: str
+    ) -> Self:
+        """Return destination hash for the given repo and source (SCM_TYPE_*) hash.
+
+        This method can raise CommitMap.DoesNotExist.
+        """
+        hash_field = f"{src_scm}_hash"
+
+        filters = {hash_field: src_commit_hash, "git_repo_name": git_repo_name}
+        commit_query = CommitMap.objects.filter(**filters)
+
+        if not commit_query.exists():
+            cls.catch_up(git_repo_name)
+
+        # At the moment, we can only have 0 or 1 hit, but this could be different in the
+        # future if, e.g., we want to allow partial hash prefixes and return all
+        # matching commits.
+        return commit_query.get()
+
     def serialize(self) -> dict[str, str]:
         """Return a simple dictionary containing the git and hg hashes."""
         return {
@@ -70,7 +114,15 @@ class CommitMap(BaseModel):
     def fetch_push_data(cls, git_repo_name: str, **kwargs) -> dict:
         """Query the pushlog and create corresponding CommitMap objects."""
         url = cls.get_pushlog_url(git_repo_name)
-        push_data = requests.get(url, params=kwargs).json()
+        response = requests.get(url, params=kwargs)
+        try:
+            response.raise_for_status()
+        except Exception as exc:
+            sentry_sdk.capture_exception(exc)
+            logger.warning(f"Cannot fetch pushlog data from {url}: {exc}")
+            return {}
+
+        push_data = response.json()
 
         # We don't care about the key, as it is just the push ID.
         # NOTE: multiple changesets may be included in the response.

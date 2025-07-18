@@ -115,28 +115,19 @@ class LegacyDiffWarningView(View):
 class CommitMapBaseView(View):
     """CommitMap base view to be extended for bidirectional git - hg mapping."""
 
-    scm = None
+    scm: str
 
     def get(
         self, request: WSGIRequest, git_repo_name: str, commit_hash: str
     ) -> JsonResponse:
-        hash_field = f"{self.scm}_hash"
-        filters = {hash_field: commit_hash, "git_repo_name": git_repo_name}
-        commits = CommitMap.objects.filter(**filters)
-
-        if not commits.exists():
-            CommitMap.catch_up(git_repo_name)
-
-        count = commits.count()
-
-        if count > 1:
+        try:
+            commit = CommitMap.map_hash_from(self.scm, git_repo_name, commit_hash)
+        except CommitMap.DoesNotExist as exc:
+            error_detail = f"No commit found in {self.scm} for {commit_hash} in {git_repo_name}: {exc}"
             return JsonResponse(
-                {"error": f"Multiple commits found ({commits.count()})"}, status=400
+                {"error": "No commits found", "detail": error_detail}, status=404
             )
-        elif count == 0:
-            return JsonResponse({"error": "No commits found"}, status=404)
 
-        commit = commits.first()
         return JsonResponse(commit.serialize(), status=200)
 
 

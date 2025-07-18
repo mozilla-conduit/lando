@@ -86,6 +86,7 @@ MIDDLEWARE = [
     "mozilla_django_oidc.middleware.SessionRefresh",
     "lando.middleware.ResponseHeadersMiddleware",
     "lando.middleware.MaintenanceModeMiddleware",
+    "lando.middleware.cProfileMiddleware",
 ]
 
 ROOT_URLCONF = "lando.urls"
@@ -164,7 +165,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/dev/howto/static-files/
 
 STATIC_URL = "static/"
-STATIC_ROOT = "/staticfiles"
+STATIC_ROOT = "staticfiles"
 
 # Directories to include in static file collection.
 STATICFILES_DIRS = [
@@ -225,6 +226,8 @@ LINT_PATHS = (BASE_DIR,)
 PHABRICATOR_URL = os.getenv("PHABRICATOR_URL", "http://phabricator.test")
 PHABRICATOR_ADMIN_API_KEY = os.getenv("PHABRICATOR_ADMIN_API_KEY", "")
 PHABRICATOR_UNPRIVILEGED_API_KEY = os.getenv("PHABRICATOR_UNPRIVILEGED_API_KEY", "")
+
+TREEHERDER_URL = os.getenv("TREEHERDER_URL", "https://treeherder.mozilla.org")
 
 TREESTATUS_URL = os.getenv("TREESTATUS_URL", "http://treestatus.test")
 

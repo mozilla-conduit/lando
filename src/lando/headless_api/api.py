@@ -5,8 +5,9 @@ import logging
 from io import StringIO
 from typing import Annotated, Literal, Optional, Union
 
+from django.core.handlers.wsgi import WSGIRequest
 from django.db import transaction
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpResponse
 from ninja import (
     NinjaAPI,
     Schema,
@@ -44,7 +45,7 @@ class APIPermissionDenied(PermissionError):
 class HeadlessAPIAuthentication(HttpBearer):
     """Authentication class to verify API token."""
 
-    def authenticate(self, request: HttpRequest, token: str) -> ApiToken:
+    def authenticate(self, request: WSGIRequest, token: str) -> ApiToken:
         user_agent = request.headers.get("User-Agent")
         if not user_agent:
             raise APIPermissionDenied("`User-Agent` header is required.")
@@ -75,7 +76,7 @@ api = NinjaAPI(auth=HeadlessAPIAuthentication())
 
 
 @api.exception_handler(APIPermissionDenied)
-def on_invalid_token(request: HttpRequest, exc: Exception) -> HttpResponse:
+def on_invalid_token(request: WSGIRequest, exc: Exception) -> HttpResponse:
     """Create a JSON response when the API returns a 401."""
     return api.create_response(request, {"details": str(exc)}, status=401)
 
@@ -379,7 +380,7 @@ class JobStatusResponse(Schema):
 
 @api.post("/repo/{repo_name}", response={202: JobStatusResponse, codes_4xx: ApiError})
 def post_repo_actions(
-    request: HttpRequest, repo_name: str, operation: AutomationOperation
+    request: WSGIRequest, repo_name: str, operation: AutomationOperation
 ) -> tuple[int, dict]:
     """API endpoint to handle submission of pushes."""
     # Get the repo object.
@@ -431,7 +432,7 @@ def post_repo_actions(
 
 
 @api.get("/job/{int:job_id}", response={200: JobStatusResponse, codes_4xx: ApiError})
-def get_job_status(request: HttpRequest, job_id: int) -> tuple[int, dict]:
+def get_job_status(request: WSGIRequest, job_id: int) -> tuple[int, dict]:
     """Retrieve the status of a job by ID."""
     try:
         automation_job = AutomationJob.objects.get(id=job_id)
@@ -472,7 +473,7 @@ def strip_app_from_permission(permission_str: str) -> str:
 
 
 @api.get("/repoinfo/{short_name}", response={200: RepoInfoReponse, codes_4xx: ApiError})
-def get_repo_by_short_name(request: HttpRequest, short_name: str) -> tuple[int, dict]:
+def get_repo_by_short_name(request: WSGIRequest, short_name: str) -> tuple[int, dict]:
     """Retrieve repo information by short name.
 
     Used by merge day automation.
