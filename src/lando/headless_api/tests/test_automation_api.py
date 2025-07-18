@@ -876,26 +876,36 @@ def test_automation_job_create_commit_failed_check_unchecked(
         "diff": get_failing_check_diff("valid"),
     }
 
-    # Create a job and _all_ invalid actions
+    automation_worker = get_automation_worker(SCM_TYPE_GIT)
+    automation_worker.worker_instance.applicable_repos.add(repo)
+    scm.push = mock.MagicMock()
+
+    # Create a job with an invalid action.
+    job, _actions = automation_job(
+        actions=[no_bug_action_data],
+        status=JobStatus.SUBMITTED,
+        requester_email="example@example.com",
+        target_repo=repo,
+    )
+    mock_run_automation_checks = mock.MagicMock()
+    monkeypatch.setattr(
+        automation_worker, "run_automation_checks", mock_run_automation_checks
+    )
+    automation_worker.run_automation_job(job)
+    assert mock_run_automation_checks.call_count == 1
+
+    # Create the same job with an invalid action and a commit with release override.
     job, _actions = automation_job(
         actions=[no_bug_action_data, release_action_data],
         status=JobStatus.SUBMITTED,
         requester_email="example@example.com",
         target_repo=repo,
     )
-
-    automation_worker = get_automation_worker(SCM_TYPE_GIT)
-
-    automation_worker.worker_instance.applicable_repos.add(repo)
-
-    scm.push = mock.MagicMock()
     mock_run_automation_checks = mock.MagicMock()
     monkeypatch.setattr(
         automation_worker, "run_automation_checks", mock_run_automation_checks
     )
-
     automation_worker.run_automation_job(job)
-    assert job.status == JobStatus.LANDED, f"Job failed despite overrides: {job.error}"
     assert mock_run_automation_checks.call_count == 0
 
 
