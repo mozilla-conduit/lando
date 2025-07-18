@@ -21,6 +21,7 @@ class ConfigurationKey(enum.Enum):
 
     API_IN_MAINTENANCE = "API_IN_MAINTENANCE"
     MAINTENANCE_MESSAGE = "MAINTENANCE_MESSAGE"
+    PROFILING_ENABLED = "PROFILING_ENABLED"
 
 
 class VariableTypeChoices(models.TextChoices):
