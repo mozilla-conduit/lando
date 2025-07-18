@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from argparse import ArgumentParser
+from subprocess import CalledProcessError
 
 import sentry_sdk
 from django.core.management.base import BaseCommand, CommandError
@@ -64,10 +65,14 @@ class Command(BaseCommand):
         for repo in repos:
             try:
                 worker.run_mach_command(repo.path, command)
+            except CalledProcessError as exc:
+                logger.warning(
+                    f"Error `running mach` bootstrap for repo {repo.name}: {exc}"
+                )
             except Exception as exc:
                 sentry_sdk.capture_exception(exc)
                 logger.warning(
-                    f"Error running mach bootstrap for repo {repo.name}: {exc}"
+                    f"Unexpected error `running mach` bootstrap for repo {repo.name}: {exc}"
                 )
 
     def _handle(self, worker: Worker, repo_type: str):
