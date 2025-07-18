@@ -15,16 +15,6 @@ import kombu
 from django.db import transaction
 
 from lando.api.legacy.commit_message import bug_list_to_commit_string, parse_bugs
-from lando.api.legacy.hgexports import (
-    CommitMessagesCheck,
-    PatchCheck,
-    PatchCollectionAssessor,
-    PatchCollectionCheck,
-    PreventNSPRNSSCheck,
-    PreventSubmodulesCheck,
-    PreventSymlinksCheck,
-    TryTaskConfigCheck,
-)
 from lando.api.legacy.notifications import (
     notify_user_of_bug_update_failure,
     notify_user_of_landing_failure,
@@ -48,6 +38,16 @@ from lando.main.scm.exceptions import (
     SCMPushTimeoutException,
     TreeApprovalRequired,
     TreeClosed,
+)
+from lando.main.scm.helpers import (
+    CommitMessagesCheck,
+    PatchCheck,
+    PatchCollectionAssessor,
+    PatchCollectionCheck,
+    PreventNSPRNSSCheck,
+    PreventSubmodulesCheck,
+    PreventSymlinksCheck,
+    TryTaskConfigCheck,
 )
 from lando.pushlog.pushlog import PushLog, PushLogForRepo
 from lando.utils.config import read_lando_config

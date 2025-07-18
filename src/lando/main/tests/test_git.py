@@ -11,9 +11,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from lando.api.legacy.hgexports import GitPatchHelper
 from lando.main.scm.exceptions import SCMException
 from lando.main.scm.git import GitSCM
+from lando.main.scm.helpers import GitPatchHelper
 
 
 @pytest.mark.parametrize(

@@ -14,13 +14,13 @@ from typing import Any, ContextManager, Optional
 from django.conf import settings
 from simple_github import AppAuth, AppInstallationAuth
 
-from lando.api.legacy.hgexports import GitPatchHelper, PatchHelper
 from lando.main.scm.commit import CommitData
 from lando.main.scm.consts import SCM_TYPE_GIT, MergeStrategy
 from lando.main.scm.exceptions import (
     PatchConflict,
     SCMException,
 )
+from lando.main.scm.helpers import GitPatchHelper, PatchHelper
 from lando.settings import LANDO_USER_EMAIL, LANDO_USER_NAME
 
 from .abstract_scm import AbstractSCM

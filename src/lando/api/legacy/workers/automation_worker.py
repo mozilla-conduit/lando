@@ -4,17 +4,6 @@ from typing import Type
 import kombu
 from django.db import transaction
 
-from lando.api.legacy.hgexports import (
-    CommitMessagesCheck,
-    PatchCheck,
-    PatchCollectionAssessor,
-    PatchCollectionCheck,
-    PreventNSPRNSSCheck,
-    PreventSubmodulesCheck,
-    PreventSymlinksCheck,
-    TryTaskConfigCheck,
-    WPTSyncCheck,
-)
 from lando.api.legacy.workers.base import Worker
 from lando.headless_api.api import (
     AutomationActionException,
@@ -34,6 +23,17 @@ from lando.main.scm.exceptions import (
     SCMPushTimeoutException,
     TreeApprovalRequired,
     TreeClosed,
+)
+from lando.main.scm.helpers import (
+    CommitMessagesCheck,
+    PatchCheck,
+    PatchCollectionAssessor,
+    PatchCollectionCheck,
+    PreventNSPRNSSCheck,
+    PreventSubmodulesCheck,
+    PreventSymlinksCheck,
+    TryTaskConfigCheck,
+    WPTSyncCheck,
 )
 from lando.pushlog.pushlog import PushLogForRepo
 from lando.utils.tasks import phab_trigger_repo_update
