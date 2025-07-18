@@ -2,6 +2,17 @@
 
 from django.db import migrations, models
 
+from lando.main.models.worker import WorkerType
+
+
+def set_worker_type_based_on_name(apps, schema_editor):  # noqa: ANN001
+    """Parse the worker type out of the name"""
+    Worker = apps.get_model("main", "Worker")
+    for worker in Worker.objects.all():
+        if "automation" in worker.name:
+            worker.type = WorkerType.AUTOMATION
+            worker.save()
+
 
 class Migration(migrations.Migration):
 
@@ -40,4 +51,5 @@ class Migration(migrations.Migration):
                 default="LANDING",
             ),
         ),
+        migrations.RunPython(set_worker_type_based_on_name, migrations.RunPython.noop),
     ]

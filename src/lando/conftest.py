@@ -899,16 +899,14 @@ def assert_same_commit_data():
 
 
 @pytest.fixture
-def commit_maps():
+def commit_maps(git_repo):
     for git_hash, hg_hash in (
         ("a" * 40, "b" * 40),
         ("c" * 40, "d" * 40),
         ("e" * 40, "f" * 40),
     ):
         CommitMap.objects.create(
-            git_hash=git_hash,
-            hg_hash=hg_hash,
-            git_repo_name="test_git_repo",
+            git_hash=git_hash, hg_hash=hg_hash, git_repo_name=git_repo.name
         )
     return list(CommitMap.objects.all().order_by("id"))
 
