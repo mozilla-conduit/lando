@@ -207,26 +207,36 @@ class Repo(BaseModel):
         if not self.system_path:
             self.system_path = self.get_system_path()
 
-        if not self.push_path or not self.pull_path:
-            url = self.parsed_url
-            if not self.push_path:
-                self.push_path = f"ssh://{url.netloc}{url.path}"
-            if not self.pull_path:
-                self.pull_path = self.url
+        # Strip trailing slash if present in URL.
+        self.url = self.url.removesuffix("/")
 
+        # Set or reset SCM type.
+        if not self.scm_type:
+            self.scm_type = self._find_supporting_scm(self.url)
+
+        # Set pull path if missing.
+        if not self.pull_path:
+            self.pull_path = self.url
+
+        # Set push path if missing.
+        if not self.push_path:
+            self.push_path = self.url
+
+        # Set short_name (used in Phabricator) if missing. It should match the legacy
+        # tree value, which is equivalent to the repository name.
         if not self.short_name:
             self.short_name = self.tree
 
+        # Set commit flags to an empty list, if not set already.
         if not self.commit_flags:
             self.commit_flags = []
 
-        if not self.scm_type:
-            self.scm_type = self._find_supporting_scm(self.pull_path)
-
-        self.url = self.url.removesuffix("/")
-
+        # Append a ".git" to the URL if this is a GitHub repo and is missing the suffix.
         if self.is_github and not self.url.endswith(".git"):
             self.url += ".git"
+
+        if self.is_git and not self.default_branch:
+            self.default_branch = "main"
 
         super().save(*args, **kwargs)
 
