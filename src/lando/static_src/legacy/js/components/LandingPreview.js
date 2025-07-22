@@ -46,7 +46,11 @@ $.fn.landingPreview = function() {
         $landButton.text('Acknowledge warnings to land');
       } else {
         $landButton.attr({'disabled': false});
-        $landButton.text('Land to ' + $landButton.data('target-repo'));
+        if ($landButton.data('target-scm-type') === "git") {
+            $landButton.text('Land to ' + $landButton.data('target-repo') + "@" + $landButton.data('target-branch'));
+        } else {
+            $landButton.text('Land to ' + $landButton.data('target-repo'));
+        }
       }
     };
 
