@@ -48,8 +48,9 @@ SECURE_SSL_REDIRECT = False
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
-# Set the default upload memory size to 20x the default value (2.5MiB).
-DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("DATA_UPLOAD_MAX_MEMORY_SIZE", "52428800"))
+# Set the default upload memory size to a large value, to support large uploads from
+# lando-cli.
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("DATA_UPLOAD_MAX_MEMORY_SIZE", "104857600"))
 
 # Application definition
 # Order matters if we want to override things like templates
