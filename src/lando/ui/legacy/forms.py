@@ -43,12 +43,13 @@ class UpliftQuestionnaireForm(forms.Form):
 
     is_android_affected = forms.BooleanField(label="Is Android affected?")
 
-    # TODO type hint on clean
     def clean(self):
+        cleaned_data = super().clean()
+
         """Ensure QE reproduction steps are given if manual QE testing is required."""
         if (
-            self.cleaned_data["needs_manual_qe_testing"]
-            and not self.cleaned_data["qe_testing_reproduction_steps"]
+            cleaned_data["needs_manual_qe_testing"]
+            and not cleaned_data["qe_testing_reproduction_steps"]
         ):
             raise forms.ValidationError(
                 "QE testing reproduction steps must be provided if manual testing is required."
