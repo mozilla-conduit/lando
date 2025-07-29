@@ -530,7 +530,7 @@ class LandingWorker(Worker):
         are not committed into version control.
         """
         return self.run_mach_command(
-            path, ["format", "--fix", "--outgoing", "--verbose"]
+            path, ["format", "--fix", "--outgoing", "--verbose", "--skip-android"]
         )
 
     def run_mach_command(self, path: str, args: list[str]) -> str:
