@@ -12,6 +12,49 @@ class TransplantRequestForm(forms.Form):
     flags = forms.JSONField(widget=forms.widgets.HiddenInput, required=False)
 
 
+class UpliftQuestionnaireForm(forms.Form):
+    """Form to process the uplift request questionnaire."""
+
+    user_impact = forms.TextField(
+        widget=forms.Textarea, label="User impact if declined?"
+    )
+
+    covered_by_testing = forms.BooleanField(label="Code covered by automated testing?")
+
+    fix_verified_in_nightly = forms.BooleanField(label="Fix verified in Nightly?")
+
+    needs_manual_qe_testing = forms.BooleanField(label="Needs manual QE testing?")
+
+    qe_testing_reproduction_steps = forms.TextField(
+        required=False, label="Steps to reproduce for manual QE testing"
+    )
+
+    risk_associated_with_patch = forms.TextField(
+        widget=forms.Textarea, label="Risk associated with taking this patch"
+    )
+
+    risk_level_explanation = forms.TextField(
+        widget=forms.Textarea, label="Explanation of risk level"
+    )
+
+    string_changes = forms.TextField(
+        widget=forms.Textarea, label="String changes made/needed?"
+    )
+
+    is_android_affected = forms.BooleanField(label="Is Android affected?")
+
+    # TODO type hint on clean
+    def clean(self):
+        """Ensure QE reproduction steps are given if manual QE testing is required."""
+        if (
+            self.cleaned_data["needs_manual_qe_testing"]
+            and not self.cleaned_data["qe_testing_reproduction_steps"]
+        ):
+            raise forms.ValidationError(
+                "QE testing reproduction steps must be provided if manual testing is required."
+            )
+
+
 class UpliftRequestForm(forms.Form):
     """Form used to request uplift of a stack."""
 
