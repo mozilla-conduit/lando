@@ -10,9 +10,6 @@ class UpliftRequestForm(BaseModel):
     # User who submitted the form.
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
-    # Maps to a Phabricator revision ID, ie `1234` for `D1234`.
-    revision_id = models.IntegerField(blank=True, null=True, unique=True)
-
     # User impact if declined?
     user_impact = models.TextField(blank=False)
 
@@ -39,3 +36,17 @@ class UpliftRequestForm(BaseModel):
 
     # Is Android affected?
     is_android_affected = models.BooleanField(blank=False)
+
+
+class UpliftRevision(BaseModel):
+    """Link an uplift request form to a revision."""
+
+    uplift_request = models.ForeignKey(
+        UpliftRequestForm, on_delete=models.CASCADE, related_name="revisions"
+    )
+
+    # Phabricator revision ID, ie `1234` for `D1234`.
+    revision_id = models.IntegerField(blank=True, null=True, unique=True)
+
+    class Meta:
+        unique_together = ("uplift_request", "revision_id")
