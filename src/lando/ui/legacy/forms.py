@@ -56,7 +56,7 @@ class UpliftQuestionnaireForm(forms.Form):
             )
 
 
-class UpliftRequestForm(forms.Form):
+class UpliftRequestForm(UpliftQuestionnaireForm):
     """Form used to request uplift of a stack."""
 
     revision_id = forms.RegexField(
