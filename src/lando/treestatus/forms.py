@@ -1,264 +1,118 @@
-import enum
-from dataclasses import dataclass
-from typing import Optional
+from typing import Self
+
+from django import forms
+
+from lando.treestatus.models import (
+    ReasonCategory,
+    TreeCategory,
+    TreeStatus,
+)
 
 
-class Status(enum.Enum):
-    """Allowable statuses of a tree."""
+class TreeStatusUpdateTreesForm(forms.Form):
+    """Form used to update the state of a selection of trees."""
 
-    OPEN = "open"
-    CLOSED = "closed"
-    APPROVAL_REQUIRED = "approval required"
+    trees = forms.MultipleChoiceField(label="Trees", required=True)
 
-    @classmethod
-    def to_choices(cls) -> list[tuple[str, str]]:
-        """Return a list of choices for display."""
-        return [(choice.value, choice.value.capitalize()) for choice in list(cls)]
+    status = forms.ChoiceField(label="Status", choices=TreeStatus, required=True)
 
+    reason = forms.CharField(label="Reason", required=False)
 
-class ReasonCategory(enum.Enum):
-    """Allowable reasons for a Tree closure."""
+    reason_category = forms.ChoiceField(
+        label="Reason Category",
+        choices=ReasonCategory,
+        required=False,
+        initial=ReasonCategory.NO_CATEGORY.value,
+    )
 
-    NO_CATEGORY = ""
-    JOB_BACKLOG = "backlog"
-    CHECKIN_COMPILE_FAILURE = "checkin_compilation"
-    CHECKIN_TEST_FAILURE = "checkin_test"
-    PLANNED_CLOSURE = "planned"
-    MERGES = "merges"
-    WAITING_FOR_COVERAGE = "waiting_for_coverage"
-    INFRASTRUCTURE_RELATED = "infra"
-    OTHER = "other"
+    remember = forms.BooleanField(
+        label="Remember this change", required=False, initial=True
+    )
 
-    @classmethod
-    def to_choices(cls) -> list[tuple[str, str]]:
-        """Return a list of choices for display."""
-        return [(choice.value, choice.to_display()) for choice in list(cls)]
-
-    def to_display(self) -> str:
-        """Return a human-readable version of the category."""
-        return {
-            ReasonCategory.NO_CATEGORY: "No Category",
-            ReasonCategory.JOB_BACKLOG: "Job Backlog",
-            ReasonCategory.CHECKIN_COMPILE_FAILURE: "Check-in compilation failure",
-            ReasonCategory.CHECKIN_TEST_FAILURE: "Check-in test failure",
-            ReasonCategory.PLANNED_CLOSURE: "Planned closure",
-            ReasonCategory.MERGES: "Merges",
-            ReasonCategory.WAITING_FOR_COVERAGE: "Waiting for coverage",
-            ReasonCategory.INFRASTRUCTURE_RELATED: "Infrastructure related",
-            ReasonCategory.OTHER: "Other",
-        }[self]
+    message_of_the_day = forms.CharField(label="Message of the day", required=False)
 
     @classmethod
-    def is_valid_for_backend(cls, value) -> bool:  # noqa: ANN001
-        """Return `True` if `value` is a valid `ReasonCategory` to be submitted.
+    def with_tree_names(cls, tree_names: list[str], **kwargs) -> Self:
+        """Construct a `TreeStatusUpdateTreesForm` and populate tree choices.
 
-        All `ReasonCategory` members are valid except for `NO_CATEGORY` as that is
-        implied by an empty `tags` key in the backend.
+        Builds the form from `data` or `initial` arguments and populates choices
+        for the `trees` argument from a list of tree names.
         """
+        form = cls(**kwargs)
+        form.fields["trees"].choices = [
+            (tree_name, tree_name) for tree_name in tree_names
+        ]
+
+        return form
+
+    def clean_status(self) -> TreeStatus:
+        """Verify the `status` field and convert to a `TreeStatus`."""
+        status_input = self.cleaned_data["status"]
+
         try:
-            category = cls(value)
+            return TreeStatus(status_input)
         except ValueError:
-            return False
+            raise forms.ValidationError(f"{status_input} is not a valid tree status.")
 
-        if category == ReasonCategory.NO_CATEGORY:
-            return False
+    def clean_reason_category(self) -> ReasonCategory:
+        """Verify the `reason_category` field and convert to a `ReasonCategory`."""
+        reason_category_input = self.cleaned_data["reason_category"]
 
-        return True
+        try:
+            return ReasonCategory(reason_category_input)
+        except ValueError:
+            raise forms.ValidationError(
+                f"{reason_category_input} is not a valid reason category."
+            )
 
+    def clean(self):
+        """Verify required fields are present when closing trees."""
+        cleaned_data = super().clean()
 
-def build_update_json_body(
-    reason: Optional[str], reason_category: Optional[str]
-) -> dict:
-    """Return a `dict` for use as a JSON body in a log/change update."""
-    json_body = {}
+        status = cleaned_data.get("status")
+        reason = cleaned_data.get("reason")
+        reason_category = cleaned_data.get("reason_category")
 
-    json_body["reason"] = reason
+        if status == TreeStatus.CLOSED:
+            if not reason:
+                self.add_error(
+                    "reason", "Reason description is required to close trees."
+                )
 
-    if reason_category and ReasonCategory.is_valid_for_backend(reason_category):
-        json_body["tags"] = [reason_category]
-
-    return json_body
-
-
-# TODO see bug 1893312.
-# class TreeStatusUpdateTreesForm(forms.Form):
-#     """Form used to update the state of a selection of trees."""
-#
-#     trees = forms.MultipleChoiceField(
-#         "Trees",
-#         required=True,
-#     )
-#
-#     status = forms.ChoiceField(
-#         "Status",
-#         choices=Status.to_choices(),
-#         required=True,
-#     )
-#
-#     reason = forms.CharField("Reason")
-#
-#     reason_category = forms.ChoiceField(
-#         "Reason Category",
-#         choices=ReasonCategory.to_choices(),
-#         default=ReasonCategory.NO_CATEGORY.value,
-#     )
-#
-#     remember = forms.BooleanField(
-#         "Remember this change",
-#         default=True,
-#     )
-#
-#     message_of_the_day = forms.CharField("Message of the day")
-#
-#     def validate_trees(self, field):
-#         """Validate that at least 1 tree was selected."""
-#         if not field.entries:
-#             raise ValidationError(
-#                 "A selection of trees is required to update statuses."
-#             )
-#
-#     def validate_reason(self, field):
-#         """Validate that the reason field is required for non-open statuses."""
-#         reason_is_empty = not field.data
-#
-#         if Status(self.status.data) == Status.CLOSED and reason_is_empty:
-#             raise ValidationError("Reason description is required to close trees.")
-#
-#     def validate_reason_category(self, field):
-#         """Validate that the reason category field is required for non-open statuses."""
-#         try:
-#             category_is_empty = (
-#                 not field.data
-#                 or ReasonCategory(field.data) == ReasonCategory.NO_CATEGORY
-#             )
-#         except ValueError:
-#             raise ValidationError("Reason category is an invalid value.")
-#
-#         if Status(self.status.data) == Status.CLOSED and category_is_empty:
-#             raise ValidationError("Reason category is required to close trees.")
-#
-#     def to_submitted_json(self) -> dict:
-#         """Convert a validated form to JSON for submission to LandoAPI."""
-#         # Avoid setting tags for invalid values.
-#         tags = (
-#             [self.reason_category.data]
-#             if ReasonCategory.is_valid_for_backend(self.reason_category.data)
-#             else []
-#         )
-#
-#         return {
-#             "trees": self.trees.data,
-#             "status": self.status.data,
-#             "reason": self.reason.data,
-#             "message_of_the_day": self.message_of_the_day.data,
-#             "tags": tags,
-#             "remember": self.remember.data,
-#         }
-#
-#
-class TreeCategory(enum.Enum):
-    """Categories of the various trees.
-
-    Note: the definition order is in order of importance for display in the UI.
-    Note: this class also exists in Lando-UI, and should be updated in both places.
-    """
-
-    DEVELOPMENT = "development"
-    RELEASE_STABILIZATION = "release_stabilization"
-    TRY = "try"
-    COMM_REPOS = "comm_repos"
-    OTHER = "other"
-
-    @classmethod
-    def sort_trees(cls, item: dict) -> int:
-        """Key function for sorting tree `dict`s according to category order."""
-        return [choice.value for choice in list(cls)].index(item["category"])
-
-    @classmethod
-    def to_choices(cls) -> list[tuple[str, str]]:
-        """Return a list of choices for display."""
-        return [(choice.value, choice.to_display()) for choice in list(cls)]
-
-    def to_display(self) -> str:
-        """Return a human readable version of the category."""
-        return " ".join(word.capitalize() for word in self.value.split("_"))
+            if not reason_category or reason_category == ReasonCategory.NO_CATEGORY:
+                self.add_error(
+                    "reason_category", "Reason category is required to close trees."
+                )
 
 
-# TODO see bug 1893312.
-# class TreeStatusNewTreeForm(forms.Form):
-#     """Add a new tree to Treestatus."""
-#
-#     tree = forms.CharField(
-#         "Tree",
-#         required=True,
-#     )
-#
-#     category = forms.ChoiceField(
-#         "Tree category",
-#         choices=TreeCategory.to_choices(),
-#         default=TreeCategory.OTHER.value,
-#     )
+class TreeStatusNewTreeForm(forms.Form):
+    """Add a new tree to Treestatus."""
+
+    tree = forms.CharField(label="Tree", required=True)
+
+    category = forms.ChoiceField(
+        label="Tree category",
+        choices=TreeCategory,
+        required=False,
+        initial=TreeCategory.OTHER.value,
+    )
 
 
-@dataclass
-class RecentChangesAction:
-    method: str
-    request_args: dict
-    message: str
+class TreeStatusRecentChangesForm(forms.Form):
+    """Modify a recent status change."""
+
+    reason = forms.CharField(label="Reason", required=False)
+
+    reason_category = forms.ChoiceField(
+        label="Reason Category", choices=ReasonCategory, required=False
+    )
 
 
-# TODO see bug 1893312.
-# class TreeStatusRecentChangesForm(forms.Form):
-#     """Modify a recent status change."""
-#
-#     id = forms.CharField(widget=forms.HiddenInput(), required=True)
-#
-#     reason = forms.CharField(label="Reason", required=False)
-#
-#     reason_category = forms.ChoiceField(
-#         label="Reason Category",
-#         choices=ReasonCategory.to_choices(),
-#         required=False,
-#     )
-#
-#     restore = SubmitField("Restore")
-#
-#     update = SubmitField("Update")
-#
-#     discard = SubmitField("Discard")
-#
-#     def to_action(self) -> RecentChangesAction:
-#         """Return a `RecentChangesAction` describing interaction with Lando-API."""
-#         if self.update.data:
-#             # Update is a PATCH with any changed attributes passed in the body.
-#             return RecentChangesAction(
-#                 method="PATCH",
-#                 request_args={
-#                     "json": build_update_json_body(
-#                         self.reason.data, self.reason_category.data
-#                     )
-#                 },
-#                 message="Status change updated.",
-#             )
-#
-#         revert = 1 if self.restore.data else 0
-#         message = f"Status change {'restored' if self.restore.data else 'discarded'}."
-#
-#         return RecentChangesAction(
-#             method="DELETE",
-#             request_args={"params": {"revert": revert}},
-#             message=message,
-#         )
-#
-#
-# class TreeStatusLogUpdateForm(forms.Form):
-#     """Modify a log entry."""
-#
-#     id = HiddenField("Id")
-#
-#     reason = StringField("Reason")
-#
-#     reason_category = SelectField(
-#         "Reason Category",
-#         choices=ReasonCategory.to_choices(),
-#     )
+class TreeStatusLogUpdateForm(forms.Form):
+    """Modify a log entry."""
+
+    reason = forms.CharField(label="Reason", required=False)
+
+    reason_category = forms.ChoiceField(
+        label="Reason Category", choices=ReasonCategory, required=False
+    )

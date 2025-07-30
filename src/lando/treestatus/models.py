@@ -1,47 +1,26 @@
-# This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
-"""
-This module provides the definitions for Treestatus data.
-"""
-
 import copy
-import enum
+from dataclasses import (
+    asdict,
+    dataclass,
+)
+from enum import Enum
 from typing import (
     Any,
+    Optional,
 )
 
-from landoapi.models.base import (
-    Base,
-    db,
-)
-from sqlalchemy.dialects.postgresql.json import JSONB
-from sqlalchemy.orm import (
-    relationship,
-)
+from django.db import models
+from django.utils.translation import gettext_lazy
+
+from lando.main.models import BaseModel
 
 
-class TreeCategory(enum.Enum):
-    """Categories of the various trees.
-
-    Note: the definition order is in order of importance for display in the UI.
-    Note: this class also exists in Lando-UI, and should be updated in both places.
-    """
-
-    DEVELOPMENT = "development"
-    RELEASE_STABILIZATION = "release_stabilization"
-    TRY = "try"
-    COMM_REPOS = "comm_repos"
-    OTHER = "other"
-
-
-class TreeStatus(enum.Enum):
+class TreeStatus(models.TextChoices):
     """Allowable statuses of a tree."""
 
-    OPEN = "open"
-    CLOSED = "closed"
-    APPROVAL_REQUIRED = "approval required"
+    OPEN = "open", gettext_lazy("Open")
+    CLOSED = "closed", gettext_lazy("Closed")
+    APPROVAL_REQUIRED = "approval required", gettext_lazy("Approval required")
 
     def is_open(self) -> bool:
         """Return `True` if Lando should consider this status as open for landing.
@@ -54,7 +33,27 @@ class TreeStatus(enum.Enum):
         return self in {TreeStatus.OPEN, TreeStatus.APPROVAL_REQUIRED}
 
 
-def get_default_tree():  # noqa: ANN201
+class TreeCategory(models.TextChoices):
+    """Categories of the various trees.
+
+    Note: the definition order is in order of importance for display in the UI.
+    """
+
+    DEVELOPMENT = "development", gettext_lazy("Development")
+    RELEASE_STABILIZATION = "release_stabilization", gettext_lazy(
+        "Release Stabilization"
+    )
+    TRY = "try", gettext_lazy("Try")
+    COMM_REPOS = "comm_repos", gettext_lazy("Comm Repos")
+    OTHER = "other", gettext_lazy("Other")
+
+    @classmethod
+    def sort_trees(cls, item: "CombinedTree") -> int:
+        """Key function for sorting tree `dict`s according to category order."""
+        return [choice.value for choice in list(cls)].index(item.category)
+
+
+def get_default_tree() -> dict[str, Any]:
     return {
         "category": TreeCategory.OTHER,
         "reason": "New tree",
@@ -89,129 +88,188 @@ def load_last_state(last_state_orig: dict) -> dict:
     return last_state
 
 
-class Tree(Base):
+class Tree(BaseModel):
     """A Tree that is managed via Treestatus."""
 
-    # Name of the tree.
-    tree = db.Column(db.String(64), index=True, unique=True, nullable=False)
+    tree = models.CharField(
+        max_length=64, unique=True, db_index=True, null=False, blank=False
+    )
 
-    # The current status of the tree.
-    status = db.Column(db.Enum(TreeStatus), default=TreeStatus.OPEN, nullable=False)
+    status = models.CharField(
+        max_length=20,
+        choices=TreeStatus,
+        default=TreeStatus.OPEN,
+        null=False,
+        blank=False,
+    )
 
-    # A string indicating the reason behind the current tree status.
-    reason = db.Column(db.Text, default="", nullable=False)
+    reason = models.TextField(default="", null=False, blank=True)
 
-    # A temporary message attached to the tree.
-    message_of_the_day = db.Column(db.Text, default="", nullable=False)
+    message_of_the_day = models.TextField(default="", null=False, blank=True)
 
-    # A category assigned to the tree.
-    category = db.Column(
-        db.Enum(TreeCategory), default=TreeCategory.OTHER, nullable=False
+    category = models.CharField(
+        max_length=32,
+        choices=TreeCategory,
+        default=TreeCategory.OTHER,
+        null=False,
+        blank=False,
     )
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert a `Tree` into a `dict`, preserving `Enum` types."""
+        """Convert a `Tree` into a dict."""
         return {
-            "category": self.category,
-            "message_of_the_day": self.message_of_the_day,
-            "reason": self.reason,
+            "tree": self.tree,
             "status": self.status,
-            "tree": self.tree,
-        }
-
-    def to_json(self) -> dict[str, Any]:
-        """Convert a `Tree` into a JSON representation, converting enums to strings."""
-        return {
-            "category": self.category.value,
-            "message_of_the_day": self.message_of_the_day,
             "reason": self.reason,
-            "status": self.status.value,
-            "tree": self.tree,
+            "message_of_the_day": self.message_of_the_day,
+            "category": self.category,
         }
 
+    def __str__(self) -> str:
+        return f"{self.tree} ({self.status})"
 
-class Log(Base):
+
+class Log(BaseModel):
     """A log of changes to a Tree."""
 
-    # The name of the tree which this log entry belongs to.
-    tree = db.Column(
-        db.String(64), db.ForeignKey(Tree.tree), nullable=False, index=True
+    tree = models.ForeignKey(
+        Tree,
+        to_field="tree",
+        db_column="tree",
+        on_delete=models.CASCADE,
+        db_index=True,
     )
 
-    # A string representing the user who updated the tree.
-    changed_by = db.Column(db.Text, nullable=False)
+    changed_by = models.TextField(null=False, blank=False)
 
-    # The status which the tree has been set to.
-    status = db.Column(db.Enum(TreeStatus), nullable=False)
+    status = models.CharField(
+        max_length=20, choices=TreeStatus, null=False, blank=False
+    )
 
-    # A string describing why the status has changed.
-    reason = db.Column(db.Text, nullable=False)
+    reason = models.TextField(null=False, blank=False)
 
-    # A set of tags (strings) which are attached to this log entry.
-    # The field is a JSON-encoded list.
-    tags = db.Column(JSONB, nullable=False, default=list)
+    tags = models.JSONField(default=list, null=False, blank=True)
 
     def to_dict(self) -> dict[str, Any]:
+        """Convert a `Log` to a `dict`."""
         return {
             "id": self.id,
             "reason": self.reason,
-            "status": self.status.value,
+            "status": self.status,
             "tags": self.tags,
-            "tree": self.tree,
-            "when": self.created_at.isoformat(),
+            "tree": self.tree.tree,
+            "when": self.created_at.isoformat() if self.created_at else None,
             "who": self.changed_by,
         }
 
+    def __str__(self) -> str:
+        return f"Log #{self.id} for {self.tree} by {self.changed_by}"
 
-class StatusChange(Base):
+
+class StatusChange(BaseModel):
     """A change of status which applies to trees."""
 
-    # The user who changed the tree status.
-    changed_by = db.Column(db.Text, nullable=False)
+    changed_by = models.TextField(null=False, blank=False)
 
-    # A string describing the reason the tree's status was changed.
-    reason = db.Column(db.Text, nullable=False)
+    reason = models.TextField(null=False, blank=False)
 
-    # The status the trees were changed to.
-    status = db.Column(db.Enum(TreeStatus), nullable=False)
-
-    # A back references to a `StatusChangeTree` list.
-    trees: list["StatusChangeTree"] = relationship(
-        "StatusChangeTree", back_populates="stack"
+    status = models.CharField(
+        max_length=20, choices=TreeStatus, null=False, blank=False
     )
 
+    @classmethod
+    def get_stack(cls) -> list[dict]:
+        """Return the current stack of changes."""
+        return [
+            status_change.to_dict()
+            for status_change in cls.objects.order_by("-created_at")
+        ]
+
     def to_dict(self) -> dict[str, Any]:
+        """Convert the `StatusChange` to a `dict` representation."""
         return {
             "id": self.id,
             "reason": self.reason,
-            "status": self.status.value,
-            "trees": [tree.to_dict() for tree in self.trees],
-            "when": self.created_at.isoformat(),
+            "status": self.status,
+            "trees": [tree.to_dict() for tree in self.trees.all()],
+            "when": self.created_at.isoformat() if self.created_at else None,
             "who": self.changed_by,
         }
 
+    def __str__(self) -> str:
+        return f"StatusChange #{self.id} by {self.changed_by}"
 
-class StatusChangeTree(Base):
-    """A tree (ie a "stack") of status changes."""
 
-    # The StatusChange that corresponds to this tree.
-    stack_id = db.Column(db.Integer, db.ForeignKey(StatusChange.id), index=True)
+class StatusChangeTree(BaseModel):
+    """A tree (i.e., a 'stack') of status changes."""
 
-    # The name of the tree this StatusChange applies to.
-    tree = db.Column(
-        db.String(64), db.ForeignKey(Tree.tree), nullable=False, index=True
+    stack = models.ForeignKey(
+        StatusChange, related_name="trees", on_delete=models.CASCADE, db_index=True
     )
 
-    # A JSON object containing the previous state of the tree before
-    # applying this change.
-    last_state = db.Column(JSONB, nullable=False)
+    tree = models.ForeignKey(
+        Tree,
+        to_field="tree",
+        db_column="tree",
+        on_delete=models.CASCADE,
+        db_index=True,
+    )
 
-    # A backreference to the `StatusChange` model.
-    stack: "StatusChange" = relationship("StatusChange", back_populates="trees")
+    last_state = models.JSONField(null=False, blank=False)
 
     def to_dict(self) -> dict[str, Any]:
+        """Convert the `StatusChangeTree` to a `dict`."""
         return {
             "id": self.id,
             "last_state": load_last_state(self.last_state),
-            "tree": self.tree,
+            "tree": self.tree.tree,
+        }
+
+    def __str__(self) -> str:
+        return f"StatusChangeTree #{self.id} for {self.tree}"
+
+
+class ReasonCategory(models.TextChoices):
+    """Allowable reasons for a Tree closure."""
+
+    NO_CATEGORY = "", gettext_lazy("No Category")
+    JOB_BACKLOG = "backlog", gettext_lazy("Job Backlog")
+    CHECKIN_COMPILE_FAILURE = "checkin_compilation", gettext_lazy(
+        "Check-in compilation failure"
+    )
+    CHECKIN_TEST_FAILURE = "checkin_test", gettext_lazy("Check-in test failure")
+    PLANNED_CLOSURE = "planned", gettext_lazy("Planned closure")
+    MERGES = "merges", gettext_lazy("Merges")
+    WAITING_FOR_COVERAGE = "waiting_for_coverage", gettext_lazy("Waiting for coverage")
+    INFRASTRUCTURE_RELATED = "infra", gettext_lazy("Infrastructure related")
+    OTHER = "other", gettext_lazy("Other")
+
+
+@dataclass
+class CombinedTree:
+    """Combined view of a `Tree` with values from the most recent `Log`."""
+
+    tree: str
+    message_of_the_day: str
+    tags: list[str]
+    status: TreeStatus
+    reason: str
+    category: TreeCategory
+    log_id: Optional[int]
+    model: Tree
+
+    @property
+    def reason_category(self) -> ReasonCategory:
+        """Return the tags as a `ReasonCategory`."""
+        try:
+            return ReasonCategory(self.tags[0])
+        except (IndexError, ValueError):
+            return ReasonCategory.NO_CATEGORY
+
+    def to_dict(self) -> dict:
+        """Convert the `CombinedTree` to a `dict`."""
+        return {
+            field: (value.value if isinstance(value, Enum) else value)
+            for field, value in asdict(self).items()
+            if field != "model"
         }
