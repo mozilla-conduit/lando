@@ -1600,9 +1600,9 @@ rcssmin==1.1.2 \
     --hash=sha256:f363c9d242e1afce4fafbbf6bed52452464b19199e66075bed606764f31ca329 \
     --hash=sha256:fdffd58868a752cac0400249ce21bddf55e00d3206f8885d4a3aca1dab487070
     # via django-compressor
-redis==6.2.0 \
-    --hash=sha256:c8ddf316ee0aab65f04a11229e94a64b2618451dab7a67cb2f77eb799d872d5e \
-    --hash=sha256:e821f129b75dde6cb99dd35e5c76e8c49512a5a0d8dfdc560b2fbd44b85ca977
+redis==6.3.0 \
+    --hash=sha256:3000dbe532babfb0999cdab7b3e5744bcb23e51923febcfaeb52c8cfb29632ef \
+    --hash=sha256:92f079d656ded871535e099080f70fab8e75273c0236797126ac60242d638e9b
     # via lando (pyproject.toml)
 requests==2.32.4 \
     --hash=sha256:27babd3cda2a6d50b30443204ee89830707d396671944c998b5975b031ac2b2c \
@@ -1722,9 +1722,9 @@ sentry-sdk==2.34.1 \
     --hash=sha256:69274eb8c5c38562a544c3e9f68b5be0a43be4b697f5fd385bf98e4fbe672687 \
     --hash=sha256:b7a072e1cdc5abc48101d5146e1ae680fa81fe886d8d95aaa25a0b450c818d32
     # via lando (pyproject.toml)
-setuptools-scm==8.3.1 \
-    --hash=sha256:332ca0d43791b818b841213e76b1971b7711a960761c5bea5fc5cdb5196fbce3 \
-    --hash=sha256:3d555e92b75dacd037d32bafdf94f97af51ea29ae8c7b234cf94b7a5bd242a63
+setuptools-scm==9.0.1 \
+    --hash=sha256:46e1cf7e8a09652b613f9ba4fe9b55f2f496e7a233e4e00d25a7cb41f94c3c0b \
+    --hash=sha256:9c2dd7c4f274203f82b7737d7bb4f902ea0216974abbe4625db6e42f1d61bc0e
     # via
     #   lando (pyproject.toml)
     #   lando (pyproject.toml::build-system.requires)
@@ -1750,6 +1750,7 @@ typing-extensions==4.14.1 \
     --hash=sha256:38b39f4aeeab64884ce9f74c94263ef78f3c22467c8724005483154c26648d36 \
     --hash=sha256:d1e1e3b58374dc93031d6eda2420a48ea44a36c2b4766a4fdeb3710755731d76
     # via
+    #   aiosignal
     #   anyio
     #   pydantic
     #   pydantic-core
@@ -1898,9 +1899,9 @@ yarl==1.20.1 \
     #   gql
 
 # The following packages are considered to be unsafe in a requirements file:
-pip==25.0.1 \
-    --hash=sha256:88f96547ea48b940a3a385494e181e29fb8637898f88d88737c5049780f196ea \
-    --hash=sha256:c46efd13b6aa8279f33f2864459c8ce587ea6a1a59ee20de055868d8f7688f7f
+pip==25.2 \
+    --hash=sha256:578283f006390f85bb6282dffb876454593d637f5d1be494b5202ce4877e71f2 \
+    --hash=sha256:6d67a2b4e7f14d8b31b8b52648866fa717f45a1eb70e83002f4331d07e953717
     # via
     #   lando (pyproject.toml::build-system.requires)
     #   pip-tools
