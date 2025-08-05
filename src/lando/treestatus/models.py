@@ -10,7 +10,6 @@ from typing import (
 )
 
 from django.db import models
-from django.utils.translation import gettext_lazy
 
 from lando.main.models import BaseModel
 
@@ -18,9 +17,9 @@ from lando.main.models import BaseModel
 class TreeStatus(models.TextChoices):
     """Allowable statuses of a tree."""
 
-    OPEN = "open", gettext_lazy("Open")
-    CLOSED = "closed", gettext_lazy("Closed")
-    APPROVAL_REQUIRED = "approval required", gettext_lazy("Approval required")
+    OPEN = "open", "Open"
+    CLOSED = "closed", "Closed"
+    APPROVAL_REQUIRED = "approval required", "Approval required"
 
     def is_open(self) -> bool:
         """Return `True` if Lando should consider this status as open for landing.
@@ -39,13 +38,11 @@ class TreeCategory(models.TextChoices):
     Note: the definition order is in order of importance for display in the UI.
     """
 
-    DEVELOPMENT = "development", gettext_lazy("Development")
-    RELEASE_STABILIZATION = "release_stabilization", gettext_lazy(
-        "Release Stabilization"
-    )
-    TRY = "try", gettext_lazy("Try")
-    COMM_REPOS = "comm_repos", gettext_lazy("Comm Repos")
-    OTHER = "other", gettext_lazy("Other")
+    DEVELOPMENT = "development", "Development"
+    RELEASE_STABILIZATION = "release_stabilization", "Release Stabilization"
+    TRY = "try", "Try"
+    COMM_REPOS = "comm_repos", "Comm Repos"
+    OTHER = "other", "Other"
 
     @classmethod
     def sort_trees(cls, item: "CombinedTree") -> int:
@@ -232,17 +229,15 @@ class StatusChangeTree(BaseModel):
 class ReasonCategory(models.TextChoices):
     """Allowable reasons for a Tree closure."""
 
-    NO_CATEGORY = "", gettext_lazy("No Category")
-    JOB_BACKLOG = "backlog", gettext_lazy("Job Backlog")
-    CHECKIN_COMPILE_FAILURE = "checkin_compilation", gettext_lazy(
-        "Check-in compilation failure"
-    )
-    CHECKIN_TEST_FAILURE = "checkin_test", gettext_lazy("Check-in test failure")
-    PLANNED_CLOSURE = "planned", gettext_lazy("Planned closure")
-    MERGES = "merges", gettext_lazy("Merges")
-    WAITING_FOR_COVERAGE = "waiting_for_coverage", gettext_lazy("Waiting for coverage")
-    INFRASTRUCTURE_RELATED = "infra", gettext_lazy("Infrastructure related")
-    OTHER = "other", gettext_lazy("Other")
+    NO_CATEGORY = "", "No Category"
+    JOB_BACKLOG = "backlog", "Job Backlog"
+    CHECKIN_COMPILE_FAILURE = "checkin_compilation", "Check-in compilation failure"
+    CHECKIN_TEST_FAILURE = "checkin_test", "Check-in test failure"
+    PLANNED_CLOSURE = "planned", "Planned closure"
+    MERGES = "merges", "Merges"
+    WAITING_FOR_COVERAGE = "waiting_for_coverage", "Waiting for coverage"
+    INFRASTRUCTURE_RELATED = "infra", "Infrastructure related"
+    OTHER = "other", "Other"
 
 
 @dataclass
