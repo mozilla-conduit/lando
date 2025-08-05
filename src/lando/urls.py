@@ -27,6 +27,7 @@ from lando.api.views import (
 from lando.headless_api.api import (
     api as headless_api,
 )
+from lando.treestatus.views.api import treestatus_api
 from lando.treestatus.views.ui import (
     handle_update_change,
     handle_update_log,
@@ -34,7 +35,6 @@ from lando.treestatus.views.ui import (
     view_tree_logs,
     view_treestatus_dashboard,
 )
-from lando.treestatus.views.api import treestatus_api
 from lando.ui import jobs
 from lando.ui.legacy import pages, revisions, user_settings
 
