@@ -73,7 +73,7 @@ def test_get_combined_tree(new_treestatus_tree):
         category=TreeCategory.OTHER,
         log_id=None,
         message_of_the_day="message",
-        model=tree,
+        instance=tree,
         reason="reason",
         status=TreeStatus.OPEN,
         tags=[],

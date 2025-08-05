@@ -251,7 +251,7 @@ class CombinedTree:
     reason: str
     category: TreeCategory
     log_id: Optional[int]
-    model: Tree
+    instance: Tree
 
     @property
     def reason_category(self) -> ReasonCategory:

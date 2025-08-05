@@ -284,7 +284,7 @@ def get_tree_by_name(tree_name: str) -> Optional[CombinedTree]:
         reason=tree.log_reason or tree.reason,
         category=tree.category,
         log_id=tree.log_id,
-        model=tree,
+        instance=tree,
     )
 
 
@@ -516,7 +516,7 @@ def apply_tree_updates(
         }
 
         apply_tree_update_to_model(
-            tree.model,
+            tree.instance,
             user_id=user_id,
             status=status.value if status else None,
             reason=reason,
@@ -535,7 +535,7 @@ def apply_tree_updates(
         for tree in new_trees:
             StatusChangeTree.objects.create(
                 stack=status_change,
-                tree=tree.model,
+                tree=tree.instance,
                 last_state=serialize_last_state(old_trees[tree.tree], tree),
             )
 
