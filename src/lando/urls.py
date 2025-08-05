@@ -27,7 +27,7 @@ from lando.api.views import (
 from lando.headless_api.api import (
     api as headless_api,
 )
-from lando.treestatus.treestatus_ui import (
+from lando.treestatus.views.ui import (
     handle_update_change,
     handle_update_log,
     view_new_tree,
