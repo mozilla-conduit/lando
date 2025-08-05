@@ -3,7 +3,7 @@ import datetime
 import pytest
 
 from lando.treestatus.models import CombinedTree, TreeCategory, TreeStatus
-from lando.treestatus.views import (
+from lando.treestatus.views.api import (
     LogEntry,
     ProblemException,
     StackEntry,

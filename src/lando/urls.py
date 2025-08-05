@@ -34,7 +34,7 @@ from lando.treestatus.treestatus_ui import (
     view_tree_logs,
     view_treestatus_dashboard,
 )
-from lando.treestatus.views import treestatus_api
+from lando.treestatus.views.api import treestatus_api
 from lando.ui import jobs
 from lando.ui.legacy import pages, revisions, user_settings
 

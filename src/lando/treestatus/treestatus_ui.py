@@ -20,7 +20,7 @@ from lando.treestatus.models import (
     TreeCategory,
     TreeStatus,
 )
-from lando.treestatus.views import (
+from lando.treestatus.views.api import (
     ProblemException,
     apply_log_and_stack_update,
     apply_status_change_update,
