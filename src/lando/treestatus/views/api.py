@@ -35,8 +35,6 @@ treestatus_api = NinjaAPI(auth=None, urls_namespace="treestatus-api")
 
 TREE_SUMMARY_LOG_LIMIT = 5
 
-T = TypeVar("T")
-
 
 class ProblemDetail(Schema):
     """RFC 7807-style JSON response on error."""
@@ -81,6 +79,13 @@ def problem_exception_handler(request: WSGIRequest, exc: ProblemException) -> Re
         status=exc.status_code,
         content_type="application/problem+json",
     )
+
+
+# Generic type variable for the data contained in a result field.
+# This allows `Result[T]` to wrap any response schema. For example,
+# `Result[list[TreeData]]` meaning a list of `TreeData` responses
+# wrapped in a `result` object.
+T = TypeVar("T")
 
 
 class Result(Schema, Generic[T]):
