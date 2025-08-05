@@ -218,11 +218,7 @@ def is_open(tree_name: str) -> bool:
     If the tree cannot be found in Treestatus it is considered open.
     """
     tree = get_tree_by_name(tree_name)
-    if not tree:
-        # We assume missing trees are open.
-        return True
-
-    return tree.status.is_open()
+    return not tree or tree.status.is_open()
 
 
 def tree_cache_key(tree_name: str) -> str:
