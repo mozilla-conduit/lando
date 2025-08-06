@@ -176,7 +176,7 @@ def get_combined_tree(
     if log_id is not None:
         result["log_id"] = log_id
 
-    result["model"] = tree
+    result["instance"] = tree
 
     return CombinedTree(**result)
 
