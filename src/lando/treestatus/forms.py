@@ -45,34 +45,36 @@ class TreeStatusUpdateTreesForm(forms.Form):
 
         return form
 
-    def clean_status(self) -> TreeStatus:
-        """Verify the `status` field and convert to a `TreeStatus`."""
-        status_input = self.cleaned_data["status"]
-
-        try:
-            return TreeStatus(status_input)
-        except ValueError:
-            raise forms.ValidationError(f"{status_input} is not a valid tree status.")
-
-    def clean_reason_category(self) -> ReasonCategory:
-        """Verify the `reason_category` field and convert to a `ReasonCategory`."""
-        reason_category_input = self.cleaned_data["reason_category"]
-
-        try:
-            return ReasonCategory(reason_category_input)
-        except ValueError:
-            raise forms.ValidationError(
-                f"{reason_category_input} is not a valid reason category."
-            )
-
     def clean(self):
         """Verify required fields are present when closing trees."""
         cleaned_data = super().clean()
 
-        status = cleaned_data.get("status")
-        reason = cleaned_data.get("reason")
-        reason_category = cleaned_data.get("reason_category")
+        # Convert `status` to a `TreeStatus`.
+        status_str = cleaned_data.get("status")
+        try:
+            status = TreeStatus(status_str)
+        except ValueError:
+            self.add_error("status", f"{status_str} is not a valid tree status.")
+            status = None
+        else:
+            cleaned_data["status"] = status
 
+        # Convert `reason_category` to a `ReasonCategory`.
+        reason_category_str = cleaned_data.get("reason_category")
+        try:
+            reason_category = ReasonCategory(reason_category_str)
+        except ValueError:
+            self.add_error(
+                "reason_category",
+                f"{reason_category_str} is not a valid reason category.",
+            )
+            reason_category = None
+        else:
+            cleaned_data["reason_category"] = reason_category
+
+        reason = cleaned_data.get("reason")
+
+        # Confirm closing the trees includes a reason and reason category.
         if status == TreeStatus.CLOSED:
             if not reason:
                 self.add_error(
@@ -83,6 +85,8 @@ class TreeStatusUpdateTreesForm(forms.Form):
                 self.add_error(
                     "reason_category", "Reason category is required to close trees."
                 )
+
+        return cleaned_data
 
 
 class TreeStatusNewTreeForm(forms.Form):
