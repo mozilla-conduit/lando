@@ -632,6 +632,7 @@ django==5.2.4 \
     --hash=sha256:a1228c384f8fa13eebc015196db7b3e08722c5058d4758d20cb287503a540d8f
     # via
     #   django-appconf
+    #   django-auditlog
     #   django-compressor
     #   django-ninja
     #   django-storages
@@ -641,6 +642,10 @@ django-appconf==1.1.0 \
     --hash=sha256:7abd5a163ff57557f216e84d3ce9dac36c37ffce1ab9a044d3d53b7c943dd10f \
     --hash=sha256:9fcead372f82a0f21ee189434e7ae9c007cbb29af1118c18251720f3d06243e4
     # via django-compressor
+django-auditlog==3.2.1 \
+    --hash=sha256:63a4c9f7793e94eed804bc31a04d9b0b58244b1d280e2ed273c8b406bff1f779 \
+    --hash=sha256:99603ca9d015f7e9b062b1c34f3e0826a3ce6ae6e5950c81bb7e663f7802a899
+    # via lando (pyproject.toml)
 django-compressor==4.5.1 \
     --hash=sha256:87741edee4e7f24f3e0b8072d94a990cfb010cb2ca7cc443944da8e193cdea65 \
     --hash=sha256:c1d8a48a2ee4d8b7f23c411eb9c97e2d88db18a18ba1c9e8178d5f5b8366a822
@@ -1543,7 +1548,9 @@ pytest-django==4.11.1 \
 python-dateutil==2.9.0.post0 \
     --hash=sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3 \
     --hash=sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427
-    # via celery
+    # via
+    #   celery
+    #   django-auditlog
 python-hglib==2.6.2 \
     --hash=sha256:b18bd1ed53c90ee57d5714d66ad6bb72b64e930d4aeca9830892c08bb28da608
     # via lando (pyproject.toml)
