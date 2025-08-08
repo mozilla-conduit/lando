@@ -27,6 +27,9 @@ from lando.api.views import (
 from lando.headless_api.api import (
     api as headless_api,
 )
+from lando.try_api.api import (
+    api as try_api,
+)
 from lando.ui import jobs
 from lando.ui.legacy import pages, revisions, user_settings
 
@@ -88,3 +91,6 @@ urlpatterns += [
         name="api-jobs-page",
     ),
 ]
+
+# Try endpoints.
+urlpatterns += [path("try/", try_api.urls)]
