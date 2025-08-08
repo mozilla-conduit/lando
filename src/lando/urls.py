@@ -27,6 +27,14 @@ from lando.api.views import (
 from lando.headless_api.api import (
     api as headless_api,
 )
+from lando.treestatus.treestatus_ui import (
+    handle_update_change,
+    handle_update_log,
+    view_new_tree,
+    view_tree_logs,
+    view_treestatus_dashboard,
+)
+from lando.treestatus.views import treestatus_api
 from lando.ui import jobs
 from lando.ui.legacy import pages, revisions, user_settings
 
@@ -87,4 +95,18 @@ urlpatterns += [
         jobs.AutomationJobView.as_view(),
         name="api-jobs-page",
     ),
+]
+
+# Treestatus URLs.
+urlpatterns += [
+    path("", treestatus_api.urls, name="treestatus-api"),
+    path("treestatus/", view_treestatus_dashboard, name="treestatus-dashboard"),
+    path("treestatus/new_tree/", view_new_tree, name="treestatus-new-tree"),
+    path("treestatus/<str:tree>/logs", view_tree_logs, name="treestatus-tree-logs"),
+    path(
+        "treestatus/stack/<int:id>",
+        handle_update_change,
+        name="treestatus-update-change",
+    ),
+    path("treestatus/log/<int:id>", handle_update_log, name="treestatus-update-log"),
 ]

@@ -1,17 +1,11 @@
-{#
-    This Source Code Form is subject to the terms of the Mozilla Public
-    License, v. 2.0. If a copy of the MPL was not distributed with this
-    file, You can obtain one at https://mozilla.org/MPL/2.0/.
-#}
-
 {# Only render the recent changes header if there are any changes available. #}
 {% if recent_changes_stack and user_is_authenticated %}
 <h1>Recent changes</h1>
 <div class="container">
     {% for status_change_form, status_change_data in recent_changes_stack %}
     <div class="box">
-        <form class="recent-changes-form" action="{{ url_for("treestatus.update_change", id=status_change_data.id) }}" method="post">
-            {{ status_change_form.csrf_token }}
+        <form class="recent-changes-form" action="{{ url("treestatus-update-change", args=[status_change_data.id]) }}" method="post">
+            {{ csrf_input }}
 
             <div class="columns">
                 <div class="column">
@@ -31,8 +25,8 @@
                         </ul>
                     </div>
                     <div class="recent-changes-update-visible">
-                        <p>{{ status_change_form.reason.label }}: <b>{{ status_change_form.reason.data }}</b></p>
-                        <p>{{ status_change_form.reason_category.label }}: <b>{{ status_change_form.reason_category.data | reason_category_to_display }}</b></p>
+                        <p>{{ status_change_form.reason.label }}: <b>{{ status_change_form.reason.value() }}</b></p>
+                        <p>{{ status_change_form.reason_category.label }}: <b>{{ status_change_form.reason_category.value() | reason_category_to_display }}</b></p>
                     </div>
                     <div class="recent-changes-update-hidden">
                         <div class="field">
@@ -47,13 +41,13 @@
                 </div>
                 <div class="column is-narrow">
                     <div class="recent-changes-update-visible">
-                        {{ status_change_form.restore(class_="button is-success is-small") }}
+                        <button class="button is-success is-small" type="submit" name="action" value="restore">Restore</button>
                         <button class="button is-info is-small recent-changes-edit" type="button">Edit</button>
-                        {{ status_change_form.discard(class_="button is-danger is-small") }}
+                        <button class="button is-danger is-small" type="submit" name="action" value="discard">Discard</button>
                     </div>
                     <div class="recent-changes-update-hidden">
                         <button class="button delete is-normal recent-changes-edit" type="button"></button>
-                        {{ status_change_form.update(class_="button is-info is-small") }}
+                        <button class="button is-info is-small" type="submit" name="action" value="update">Update</button>
                     </div>
                 </div>
             </div>

@@ -36,6 +36,7 @@ from lando.main.models.revision import Revision
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.scm.commit import CommitData
 from lando.pushlog.models import Commit, File, Push, Tag
+from lando.treestatus.models import Tree, TreeStatus
 
 # The name of the Phabricator project used to tag revisions requiring data classification.
 NEEDS_DATA_CLASSIFICATION_SLUG = "needs-data-classification"
@@ -971,3 +972,24 @@ def make_landing_job(repo_mc):
         return job
 
     return landing_job_factory
+
+
+@pytest.fixture
+def new_treestatus_tree():
+    """Create a new tree in the test db."""
+
+    def _new_tree(
+        tree: str = "",
+        status: TreeStatus = TreeStatus.OPEN,
+        reason: str = "",
+        motd: str = "",
+    ):
+        new_tree = Tree.objects.create(
+            tree=tree,
+            status=status,
+            reason=reason,
+            message_of_the_day=motd,
+        )
+        return new_tree
+
+    return _new_tree

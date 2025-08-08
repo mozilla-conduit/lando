@@ -72,7 +72,7 @@ class HeadlessAPIAuthentication(HttpBearer):
         return api_key
 
 
-api = NinjaAPI(auth=HeadlessAPIAuthentication())
+api = NinjaAPI(auth=HeadlessAPIAuthentication(), urls_namespace="headless-api")
 
 
 @api.exception_handler(APIPermissionDenied)
