@@ -142,9 +142,14 @@
           {{ form.flags }}
           <button
               class="StackPage-landingPreview-land button"
-              data-target-repo="{{ target_repo['url']|repo_path }}"
+              data-target-repo="{{ target_repo.url|repo_path }}"
+              data-target-scm-type="{{ target_repo.scm_type }}"
+              data-target-branch="{{ target_repo.default_branch }}"
               disabled>
-            Land to {{ target_repo['url']|repo_path }}
+              Land to {{ target_repo.url|repo_path }}
+              {% if target_repo.is_git %}
+              @{{ target_repo.default_branch }}
+              {% endif %}
           </button>
           <button class="StackPage-landingPreview-close button">Cancel</button>
         </form>

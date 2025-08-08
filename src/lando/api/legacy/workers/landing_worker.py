@@ -102,7 +102,6 @@ def job_processing(job: LandingJob):
 
 
 class LandingWorker(Worker):
-
     type = WorkerType.LANDING
 
     def __init__(self, *args, **kwargs):
@@ -217,6 +216,7 @@ class LandingWorker(Worker):
             try:
                 bug_ids, commit_id = self.apply_and_push(job, repo, scm, pushlog)
             except PermanentFailureException:
+                self.notify_user_of_landing_failure(job)
                 return True
             except TemporaryFailureException:
                 return False
@@ -288,7 +288,6 @@ class LandingWorker(Worker):
                 JobAction.FAIL,
                 message=message + f"\n{e}",
             )
-            self.notify_user_of_landing_failure(job)
             raise PermanentFailureException(message) from e
 
         # Run through the patches one by one and try to apply them.
@@ -315,7 +314,6 @@ class LandingWorker(Worker):
                     JobAction.FAIL,
                     message=message,
                 )
-                self.notify_user_of_landing_failure(job)
                 raise PermanentFailureException(message) from exc
 
             except PatchConflict as exc:
@@ -330,7 +328,6 @@ class LandingWorker(Worker):
                 )
                 logger.exception(message)
                 job.transition_status(JobAction.FAIL, message=message)
-                self.notify_user_of_landing_failure(job)
                 raise PermanentFailureException(message) from exc
             except Exception as exc:
                 message = (
@@ -342,7 +339,6 @@ class LandingWorker(Worker):
                     JobAction.FAIL,
                     message=message,
                 )
-                self.notify_user_of_landing_failure(job)
                 raise PermanentFailureException(message) from exc
             else:
                 new_commit = scm.describe_commit()
@@ -413,7 +409,6 @@ class LandingWorker(Worker):
                 JobAction.FAIL,
                 message=message,
             )
-            self.notify_user_of_landing_failure(job)
             raise PermanentFailureException(message) from exc
         else:
             pushlog.confirm()
@@ -530,7 +525,7 @@ class LandingWorker(Worker):
         are not committed into version control.
         """
         return self.run_mach_command(
-            path, ["format", "--fix", "--outgoing", "--verbose"]
+            path, ["format", "--fix", "--outgoing", "--verbose", "--skip-android"]
         )
 
     def run_mach_command(self, path: str, args: list[str]) -> str:
