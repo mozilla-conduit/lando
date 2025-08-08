@@ -158,7 +158,7 @@ def handle_treestatus_update_post(
     else:
         message = "Tree statuses updated successfully."
         logger.info(message)
-        messages.add_message(request, messages.INFO, message)
+        messages.add_message(request, messages.SUCCESS, message)
 
     return redirect("treestatus-dashboard")
 
@@ -232,7 +232,7 @@ def handle_new_tree_form(
 
     message = f"New tree {tree} created successfully."
     logger.info(message)
-    messages.add_message(request, messages.INFO, message)
+    messages.add_message(request, messages.SUCCESS, message)
 
     return redirect("treestatus-dashboard")
 
@@ -330,7 +330,7 @@ def handle_update_change(request: WSGIRequest, id: int) -> HttpResponse:
             messages.add_message(request, messages.ERROR, exc.problem.detail)
             logger.exception(exc.problem.detail)
         else:
-            messages.add_message(request, messages.INFO, "Stack entry updated.")
+            messages.add_message(request, messages.SUCCESS, "Stack entry updated.")
 
         return redirect("treestatus-dashboard")
 
@@ -353,7 +353,7 @@ def handle_update_change(request: WSGIRequest, id: int) -> HttpResponse:
     else:
         message = f"Stack entry {id} updated."
         logger.info(message)
-        messages.add_message(request, messages.INFO, message)
+        messages.add_message(request, messages.SUCCESS, message)
 
     return redirect("treestatus-dashboard")
 
@@ -408,6 +408,6 @@ def handle_update_log(request: WSGIRequest, id: int) -> HttpResponse:
         )
     else:
         logger.info(f"Log entry {id} updated.")
-        messages.add_message(request, messages.INFO, "Log entry updated.")
+        messages.add_message(request, messages.SUCCESS, "Log entry updated.")
 
     return redirect("treestatus-dashboard")
