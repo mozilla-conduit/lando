@@ -28,6 +28,7 @@ from lando.treestatus.models import (
     get_default_tree,
     load_last_state,
 )
+from lando.utils.cache import django_cache_method
 
 logger = logging.getLogger(__name__)
 
@@ -233,28 +234,7 @@ def tree_cache_key(tree_name: str) -> str:
     return f"tree-cache-{tree_name}"
 
 
-def cache_get_tree_by_name(func: Callable) -> Callable:
-    """Cache results of `get_tree_by_name`."""
-
-    @functools.wraps(func)
-    def wrapper(tree_name: str) -> Optional[CombinedTree]:
-        key = tree_cache_key(tree_name)
-
-        # Return cached value if available.
-        if cache.has_key(key):
-            return cache.get(key)
-
-        # Calculate the tree state and save to the cache if applicable.
-        result = func(tree_name)
-        if result:
-            cache.set(key, result)
-
-        return result
-
-    return wrapper
-
-
-@cache_get_tree_by_name
+@django_cache_method(tree_cache_key)
 def get_tree_by_name(tree_name: str) -> Optional[CombinedTree]:
     """Retrieve a `CombinedTree` representation of a tree by name.
 
