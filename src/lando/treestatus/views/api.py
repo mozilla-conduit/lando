@@ -299,13 +299,13 @@ def update_tree_log(
 
     try:
         log = Log.objects.get(id=id)
-    except Log.DoesNotExist:
+    except Log.DoesNotExist as exc:
         raise ProblemException(
             status=404,
             title=f"No tree log for id {id} found.",
             detail=f"The tree log does not exist for id {id}.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
-        )
+        ) from exc
 
     if tags is not None:
         log.tags = tags
@@ -420,13 +420,13 @@ def revert_status_change(id: int, user_id: str, revert: bool = False):
     """
     try:
         status_change = StatusChange.objects.get(id=id)
-    except StatusChange.DoesNotExist:
+    except StatusChange.DoesNotExist as exc:
         raise ProblemException(
             status=404,
             title=f"No change {id} found.",
             detail="The change could not be found.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
-        )
+        ) from exc
 
     if revert:
         for changed_tree in status_change.trees.all():
@@ -564,13 +564,13 @@ def create_new_tree(
             message_of_the_day=message_of_the_day,
             category=category,
         )
-    except IntegrityError:
+    except IntegrityError as exc:
         raise ProblemException(
             status=400,
             detail=f"Tree {tree} already exists.",
             title=f"Tree {tree} already exists.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
-        )
+        ) from exc
 
     # Create an initial log entry for the tree.
     Log.objects.create(
