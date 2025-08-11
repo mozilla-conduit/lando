@@ -26,11 +26,14 @@ class UpliftQuestionnaireForm(forms.Form):
     needs_manual_qe_testing = forms.BooleanField(label="Needs manual QE testing?")
 
     qe_testing_reproduction_steps = forms.TextField(
-        required=False, label="Steps to reproduce for manual QE testing"
+        required=False,
+        label="Steps to reproduce for manual QE testing",
+        widget=forms.Textarea,
     )
 
     risk_associated_with_patch = forms.TextField(
-        widget=forms.Textarea, label="Risk associated with taking this patch"
+        widget=forms.Textarea,
+        label="Risk associated with taking this patch",
     )
 
     risk_level_explanation = forms.TextField(
