@@ -13,7 +13,17 @@ class TransplantRequestForm(forms.Form):
 
 
 class UpliftQuestionnaireForm(forms.Form):
-    """Form to process the uplift request questionnaire."""
+    """Form to process the uplift request questionnaire.
+
+    TODO: 
+        make this form look more like the Bugzilla form.
+        This means we will need to change the `BooleanFields` into `ChoiceField`,
+        to allow for `Yes/No/Unknown` chocies, and "risk to taking this patch" will
+        become "Low/Medium/High".
+
+        Go to https://bugzilla.mozilla.org/show_bug.cgi?id=1753953 and set the beta
+        uplift flag on the attachment to see the implementation there.
+    """
 
     user_impact = forms.CharField(
         widget=forms.Textarea, label="User impact if declined?"
