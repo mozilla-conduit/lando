@@ -47,6 +47,71 @@
             </a>
         </div>
 
+        {# TODO check the rendering on these work as expected. #}
+        <div class="field">
+            <label class="label">{{ uplift_request_form.user_impact.label }}</label>
+            <div class="control">
+                {{ uplift_request_form.user_impact }}
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label">{{ uplift_request_form.covered_by_testing.label }}</label>
+            <div class="control">
+                {{ uplift_request_form.covered_by_testing }}
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label">{{ uplift_request_form.fix_verified_in_nightly.label }}</label>
+            <div class="control">
+                {{ uplift_request_form.fix_verified_in_nightly }}
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label">{{ uplift_request_form.needs_manual_qe_testing.label }}</label>
+            <div class="control">
+                {{ uplift_request_form.needs_manual_qe_testing }}
+            </div>
+        </div>
+
+        {# TODO add JS so this only shows when the above box is checked #}
+        <div class="field">
+            <label class="label">{{ uplift_request_form.qe_testing_reproduction_steps.label }}</label>
+            <div class="control">
+                {{ uplift_request_form.qe_testing_reproduction_steps }}
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label">{{ uplift_request_form.risk_associated_with_this_patch.label }}</label>
+            <div class="control">
+                {{ uplift_request_form.risk_associated_with_this_patch }}
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label">{{ uplift_request_form.risk_level_explanation.label }}</label>
+            <div class="control">
+                {{ uplift_request_form.risk_level_explanation }}
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label">{{ uplift_request_form.string_changes.label }}</label>
+            <div class="control">
+                {{ uplift_request_form.string_changes }}
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="label">{{ uplift_request_form.is_android_affected.label }}</label>
+            <div class="control">
+                {{ uplift_request_form.is_android_affected }}
+            </div>
+        </div>
+
         <div class="field">
             <label class="label">Uplift repository</label>
             <div class="control">
