@@ -1,4 +1,4 @@
-from typing import Self
+from typing import Any, Self
 
 from django import forms
 
@@ -45,7 +45,7 @@ class TreeStatusUpdateTreesForm(forms.Form):
 
         return form
 
-    def clean(self):
+    def clean(self) -> dict[str, Any]:
         """Verify required fields are present when closing trees."""
         cleaned_data = super().clean()
 

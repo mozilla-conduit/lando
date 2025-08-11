@@ -30,9 +30,9 @@ from lando.treestatus.models import (
 from lando.utils.cache import django_cache_method
 from lando.utils.exceptions import (
     BadRequestProblemException,
+    NotFoundProblemException,
     ProblemDetail,
     ProblemException,
-    NotFoundProblemException,
 )
 
 logger = logging.getLogger(__name__)
@@ -522,7 +522,7 @@ def create_new_tree(
         )
     except IntegrityError as exc:
         raise BadRequestProblemException(
-            title=f"Tree already exists.",
+            title="Tree already exists.",
             detail=f"Tree {tree} already exists.",
         ) from exc
 
