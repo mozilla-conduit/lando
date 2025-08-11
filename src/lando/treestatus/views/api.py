@@ -522,8 +522,8 @@ def create_new_tree(
         )
     except IntegrityError as exc:
         raise BadRequestProblemException(
-            title=f"Tree {tree} already exists.",
-            detail=str(exc),
+            title=f"Tree already exists.",
+            detail=f"Tree {tree} already exists.",
         ) from exc
 
     # Create an initial log entry for the tree.

@@ -398,7 +398,7 @@ def test_make_tree(client):
     exc = exc_info.value
 
     assert exc.problem.status == 400
-    assert exc.problem.title == "Tree tree already exists."
+    assert exc.problem.title == "Tree already exists."
     assert exc.problem.detail == "Tree tree already exists."
     assert (
         exc.problem.type
