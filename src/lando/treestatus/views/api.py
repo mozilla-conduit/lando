@@ -14,7 +14,7 @@ from django.core.handlers.wsgi import WSGIRequest
 from django.db.models import OuterRef, Subquery
 from django.db.utils import IntegrityError
 from ninja import NinjaAPI, Schema
-from ninja.responses import Response
+from ninja.responses import Response, codes_4xx
 
 from lando.treestatus.models import (
     CombinedTree,
@@ -30,6 +30,7 @@ from lando.treestatus.models import (
 from lando.utils.cache import django_cache_method
 from lando.utils.exceptions import (
     BadRequestProblemException,
+    ProblemDetail,
     ProblemException,
     NotFoundProblemException,
 )
@@ -340,7 +341,9 @@ def apply_tree_update_to_model(
     cache.delete(tree_cache_key(tree.tree))
 
 
-@treestatus_api.get("/stack", response={200: Result[list[StackEntry]]})
+@treestatus_api.get(
+    "/stack", response={200: Result[list[StackEntry]], codes_4xx: ProblemDetail}
+)
 @result_object_wrap
 def api_get_stack(request: WSGIRequest) -> list[dict]:
     """Handler for `GET /stack`."""
@@ -580,21 +583,29 @@ def get_tree_logs_by_name(tree_name: str, limit_logs: bool = True) -> list[dict]
     return [log.to_dict() for log in query]
 
 
-@treestatus_api.get("/trees/{tree}/logs_all", response={200: Result[list[LogEntry]]})
+@treestatus_api.get(
+    "/trees/{tree}/logs_all",
+    response={200: Result[list[LogEntry]], codes_4xx: ProblemDetail},
+)
 @result_object_wrap
 def api_get_logs_all(request: WSGIRequest, tree: str) -> list[dict]:
     """Handler for `GET /trees/{tree}/logs_all`."""
     return get_tree_logs_by_name(tree, limit_logs=False)
 
 
-@treestatus_api.get("/trees/{tree}/logs", response={200: Result[list[LogEntry]]})
+@treestatus_api.get(
+    "/trees/{tree}/logs",
+    response={200: Result[list[LogEntry]], codes_4xx: ProblemDetail},
+)
 @result_object_wrap
 def api_get_logs(request: WSGIRequest, tree: str) -> list[dict]:
     """Handler for `GET /trees/{tree}/logs`."""
     return get_tree_logs_by_name(tree, limit_logs=True)
 
 
-@treestatus_api.get("/trees2", response={200: Result[list[TreeData]]})
+@treestatus_api.get(
+    "/trees2", response={200: Result[list[TreeData]], codes_4xx: ProblemDetail}
+)
 @result_object_wrap
 def api_get_trees2(request: WSGIRequest) -> list[dict]:
     """Handler for `GET /trees2`."""
