@@ -532,8 +532,8 @@ def create_new_tree(
     except IntegrityError as exc:
         raise ProblemException(
             status=400,
-            detail=f"Tree {tree} already exists.",
             title=f"Tree {tree} already exists.",
+            detail=str(exc),
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         ) from exc
 
