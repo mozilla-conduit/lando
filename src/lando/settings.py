@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "compressor",
     "mozilla_django_oidc",
+    "ninja",
 ]
 
 MIDDLEWARE = [
