@@ -15,7 +15,6 @@ from django.db.models import OuterRef, Subquery
 from django.db.utils import IntegrityError
 from ninja import NinjaAPI, Schema
 from ninja.responses import Response
-from pydantic import Field
 
 from lando.treestatus.models import (
     CombinedTree,
@@ -29,47 +28,13 @@ from lando.treestatus.models import (
     load_last_state,
 )
 from lando.utils.cache import django_cache_method
+from lando.utils.exceptions import ProblemException
 
 logger = logging.getLogger(__name__)
 
 treestatus_api = NinjaAPI(auth=None, urls_namespace="treestatus-api")
 
 TREE_SUMMARY_LOG_LIMIT = 5
-
-
-class ProblemDetail(Schema):
-    """RFC 7807-style JSON response on error."""
-
-    title: str
-    status: int
-    detail: str
-    type: Optional[str] = Field(default="about:blank")
-
-
-class ProblemException(Exception):
-    """Exception thrown when a ProblemDetail should be returned."""
-
-    def __init__(
-        self,
-        *,
-        type: str = "about:blank",
-        title: str,
-        detail: str,
-        status: int = 400,
-    ):
-        self.problem = ProblemDetail(
-            type=type,
-            title=title,
-            status=status,
-            detail=detail,
-        )
-
-        # Needed by Ninja exception handler.
-        self.status_code = status
-
-    def to_response(self) -> dict:
-        """Convert the `ProblemException` into a JSON-serializable dict."""
-        return self.problem.dict()
 
 
 @treestatus_api.exception_handler(ProblemException)

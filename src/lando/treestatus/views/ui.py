@@ -21,7 +21,6 @@ from lando.treestatus.models import (
     TreeStatus,
 )
 from lando.treestatus.views.api import (
-    ProblemException,
     apply_log_and_stack_update,
     apply_status_change_update,
     apply_tree_updates,
@@ -30,6 +29,7 @@ from lando.treestatus.views.api import (
     get_tree_logs_by_name,
     revert_status_change,
 )
+from lando.utils.exceptions import ProblemException
 
 logger = logging.getLogger(__name__)
 

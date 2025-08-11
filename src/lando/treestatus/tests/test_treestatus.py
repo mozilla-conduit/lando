@@ -5,7 +5,6 @@ import pytest
 from lando.treestatus.models import CombinedTree, TreeCategory, TreeStatus
 from lando.treestatus.views.api import (
     LogEntry,
-    ProblemException,
     StackEntry,
     TreeData,
     apply_log_and_stack_update,
@@ -17,6 +16,7 @@ from lando.treestatus.views.api import (
     remove_tree_by_name,
     revert_status_change,
 )
+from lando.utils.exceptions import ProblemException
 
 
 class IncreasingDatetime:
