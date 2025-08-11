@@ -15,7 +15,7 @@ class TransplantRequestForm(forms.Form):
 class UpliftQuestionnaireForm(forms.Form):
     """Form to process the uplift request questionnaire."""
 
-    user_impact = forms.TextField(
+    user_impact = forms.CharField(
         widget=forms.Textarea, label="User impact if declined?"
     )
 
@@ -25,22 +25,22 @@ class UpliftQuestionnaireForm(forms.Form):
 
     needs_manual_qe_testing = forms.BooleanField(label="Needs manual QE testing?")
 
-    qe_testing_reproduction_steps = forms.TextField(
+    qe_testing_reproduction_steps = forms.CharField(
         required=False,
         label="Steps to reproduce for manual QE testing",
         widget=forms.Textarea,
     )
 
-    risk_associated_with_patch = forms.TextField(
+    risk_associated_with_patch = forms.CharField(
         widget=forms.Textarea,
         label="Risk associated with taking this patch",
     )
 
-    risk_level_explanation = forms.TextField(
+    risk_level_explanation = forms.CharField(
         widget=forms.Textarea, label="Explanation of risk level"
     )
 
-    string_changes = forms.TextField(
+    string_changes = forms.CharField(
         widget=forms.Textarea, label="String changes made/needed?"
     )
 
