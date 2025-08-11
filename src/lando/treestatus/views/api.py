@@ -28,7 +28,11 @@ from lando.treestatus.models import (
     load_last_state,
 )
 from lando.utils.cache import django_cache_method
-from lando.utils.exceptions import ProblemException
+from lando.utils.exceptions import (
+    BadRequestProblemException,
+    ProblemException,
+    NotFoundProblemException,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -242,11 +246,9 @@ def remove_tree_by_name(tree_name: str):
     """
     tree = Tree.objects.filter(tree=tree_name).first()
     if not tree:
-        raise ProblemException(
-            status=404,
+        raise NotFoundProblemException(
             title=f"No tree {tree_name} found.",
             detail="The tree does not exist.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
     tree.delete()
 
@@ -265,11 +267,9 @@ def update_tree_log(
     try:
         log = Log.objects.get(id=id)
     except Log.DoesNotExist as exc:
-        raise ProblemException(
-            status=404,
+        raise NotFoundProblemException(
             title=f"No tree log for id {id} found.",
             detail=f"The tree log does not exist for id {id}.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         ) from exc
 
     if tags is not None:
@@ -353,11 +353,9 @@ def apply_status_change_update(
     """Update the tags and reason for a StatusChange and update associated logs."""
     change = StatusChange.objects.get(id=id)
     if not change:
-        raise ProblemException(
-            status=404,
+        raise NotFoundProblemException(
             title=f"No stack {id} found.",
             detail="The change stack does not exist.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
     for tree in change.trees.all():
@@ -386,11 +384,9 @@ def revert_status_change(id: int, user_id: str, revert: bool = False):
     try:
         status_change = StatusChange.objects.get(id=id)
     except StatusChange.DoesNotExist as exc:
-        raise ProblemException(
-            status=404,
+        raise NotFoundProblemException(
             title=f"No change {id} found.",
             detail="The change could not be found.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         ) from exc
 
     if revert:
@@ -429,27 +425,21 @@ def apply_tree_updates(
     if len(trees) != len(combined_trees):
         trees_diff = set(trees) - {tree.tree for tree in combined_trees}
         missing_trees = ", ".join(trees_diff)
-        raise ProblemException(
-            status=404,
+        raise NotFoundProblemException(
             detail="Could not fetch all the requested trees.",
             title=f"Could not fetch the following trees: {missing_trees}",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
     if not tags and status == TreeStatus.CLOSED:
-        raise ProblemException(
-            status=400,
+        raise BadRequestProblemException(
             detail="Tags are required when closing a tree.",
             title="Tags are required when closing a tree.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
     if remember is True and any(field is None for field in (status, reason, tags)):
-        raise ProblemException(
-            status=400,
+        raise BadRequestProblemException(
             title="Must specify status, reason and tags to remember the change.",
             detail="Must specify status, reason and tags to remember the change.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
     old_trees = {}
@@ -503,11 +493,9 @@ def api_get_tree(request: WSGIRequest, tree: str) -> dict:
     """Handler for `GET /trees/{tree}`."""
     result = get_tree_by_name(tree)
     if result is None:
-        raise ProblemException(
-            status=404,
+        raise NotFoundProblemException(
             title=f"No tree {tree} found.",
             detail="The tree does not exist.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
     return result.to_dict()
 
@@ -530,11 +518,9 @@ def create_new_tree(
             category=category,
         )
     except IntegrityError as exc:
-        raise ProblemException(
-            status=400,
+        raise BadRequestProblemException(
             title=f"Tree {tree} already exists.",
             detail=str(exc),
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         ) from exc
 
     # Create an initial log entry for the tree.
@@ -582,11 +568,9 @@ def get_tree_logs_by_name(tree_name: str, limit_logs: bool = True) -> list[dict]
     # Verify the tree exists first.
     tree = Tree.objects.filter(tree=tree_name).first()
     if not tree:
-        raise ProblemException(
-            status=404,
+        raise NotFoundProblemException(
             title=f"No tree {tree_name} found.",
             detail=f"Could not find the requested tree {tree_name}.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
     query = Log.objects.filter(tree=tree_name).order_by("-created_at")

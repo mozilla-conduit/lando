@@ -37,3 +37,27 @@ class ProblemException(Exception):
     def to_response(self) -> dict:
         """Convert the `ProblemException` into a JSON-serializable dict."""
         return self.problem.dict()
+
+
+class BadRequestProblemException(ProblemException):
+    """`ProblemException` subclass for `400 Bad Request` errors."""
+
+    def __init__(self, title: str, detail: str):
+        super().__init__(
+            title=title,
+            detail=detail,
+            status=400,
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+        )
+
+
+class NotFoundProblemException(ProblemException):
+    """`ProblemException` subclass for `404 Not Found` errors."""
+
+    def __init__(self, title: str, detail: str):
+        super().__init__(
+            title=title,
+            detail=detail,
+            status=404,
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        )
