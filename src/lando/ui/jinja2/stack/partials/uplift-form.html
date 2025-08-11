@@ -52,7 +52,7 @@
         <div class="field">
             <label class="label">{{ uplift_request_form.user_impact.label }}</label>
             <div class="control">
-                {{ uplift_request_form.user_impact }}
+                {{ uplift_request_form.user_impact.as_widget(attrs={"class": "textarea"}) }}
             </div>
         </div>
 
@@ -81,28 +81,28 @@
         <div class="field">
             <label class="label">{{ uplift_request_form.qe_testing_reproduction_steps.label }}</label>
             <div class="control">
-                {{ uplift_request_form.qe_testing_reproduction_steps }}
+                {{ uplift_request_form.qe_testing_reproduction_steps.as_widget(attrs={"class": "textarea"}) }}
             </div>
         </div>
 
         <div class="field">
             <label class="label">{{ uplift_request_form.risk_associated_with_this_patch.label }}</label>
             <div class="control">
-                {{ uplift_request_form.risk_associated_with_this_patch }}
+                {{ uplift_request_form.risk_associated_with_patch.as_widget(attrs={"class": "textarea"}) }}
             </div>
         </div>
 
         <div class="field">
             <label class="label">{{ uplift_request_form.risk_level_explanation.label }}</label>
             <div class="control">
-                {{ uplift_request_form.risk_level_explanation }}
+                {{ uplift_request_form.risk_level_explanation.as_widget(attrs={"class": "textarea"}) }}
             </div>
         </div>
 
         <div class="field">
             <label class="label">{{ uplift_request_form.string_changes.label }}</label>
             <div class="control">
-                {{ uplift_request_form.string_changes }}
+                {{ uplift_request_form.string_changes.as_widget(attrs={"class": "textarea"}) }}
             </div>
         </div>
 
