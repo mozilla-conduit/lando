@@ -79,7 +79,7 @@ class UpliftQuestionnaireResponse(BaseModel):
 class UpliftRevision(BaseModel):
     """Link an uplift request form to a revision."""
 
-    uplift_request = models.ForeignKey(
+    questionnaire_response = models.ForeignKey(
         UpliftQuestionnaireResponse, on_delete=models.CASCADE, related_name="revisions"
     )
 
@@ -87,4 +87,4 @@ class UpliftRevision(BaseModel):
     revision_id = models.IntegerField(blank=True, null=True, unique=True)
 
     class Meta:
-        unique_together = ("uplift_request", "revision_id")
+        unique_together = ("questionnaire_response", "revision_id")
