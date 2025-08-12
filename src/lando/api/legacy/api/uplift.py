@@ -24,6 +24,7 @@ def create(phab: PhabricatorClient, request, data: dict) -> dict:  # noqa: ANN00
     repository = data["repository"]
     repo_name = repository.short_name
     revision_id = revision_id_to_int(data["revision_id"])
+    questionnaire_response = data["questionnaire_response"]
 
     try:
         logger.info(
@@ -80,6 +81,10 @@ def create(phab: PhabricatorClient, request, data: dict) -> dict:  # noqa: ANN00
         # Get the parent commit PHID from the stack if available.
         parent_phid = commit_stack[-1]["revision_phid"] if commit_stack else None
 
+        # If the PHID of revision in this iteration is the `revision_phid` the
+        # stack is being created from, it is the tip revision in the stack.
+        is_tip_revision = phid == revision_phid
+
         try:
             # Create the revision.
             rev = create_uplift_revision(
@@ -91,6 +96,10 @@ def create(phab: PhabricatorClient, request, data: dict) -> dict:  # noqa: ANN00
                 parent_phid,
                 base_revision,
                 target_repository,
+                # Pass the questionnaire response if creating the tip of the uplift stack.
+                questionnaire_response=(
+                    questionnaire_response if is_tip_revision else None
+                ),
             )
             commit_stack.append(rev)
         except Exception as e:

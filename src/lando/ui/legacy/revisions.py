@@ -4,6 +4,7 @@ import logging
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.handlers.wsgi import WSGIRequest
+from django.db import transaction
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
@@ -12,6 +13,7 @@ from lando.api.legacy import api as legacy_api
 from lando.api.legacy.uplift import MAX_UPLIFT_STACK_SIZE
 from lando.main.auth import force_auth_refresh
 from lando.main.models import Repo
+from lando.main.models.uplift import UpliftQuestionnaireResponse, UpliftRevision
 from lando.ui.legacy.forms import (
     TransplantRequestForm,
     UpliftRequestForm,
@@ -51,11 +53,21 @@ class Uplift(LandoView):
         revision_id = uplift_request_form.cleaned_data["revision_id"]
         repository = uplift_request_form.cleaned_data["repository"]
 
+        # Create DB rows for the uplift submission.
+        with transaction.atomic():
+            questionnaire_response = UpliftQuestionnaireResponse.from_cleaned_form(
+                request.user, uplift_request_form.cleaned_data
+            )
+            UpliftRevision.objects.create(
+                questionnaire_response=questionnaire_response, revision_id=revision_id
+            )
+
         response = legacy_api.uplift.create(
             request,
             data={
                 "revision_id": revision_id,
                 "repository": repository,
+                "questionnaire_response": questionnaire_response.to_conduit_json(),
             },
         )
 
