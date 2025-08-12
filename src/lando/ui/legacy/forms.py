@@ -26,7 +26,7 @@ class UpliftQuestionnaireForm(forms.Form):
     """
 
     user_impact = forms.CharField(
-        widget=forms.Textarea, label="User impact if declined?"
+        widget=forms.Textarea, label="User impact if declined"
     )
 
     covered_by_testing = forms.BooleanField(label="Code covered by automated testing?")
