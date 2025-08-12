@@ -4,7 +4,7 @@ from django.db import models
 from lando.main.models import BaseModel
 
 
-class UpliftRequestForm(BaseModel):
+class UpliftQuestionnaireResponse(BaseModel):
     """Represents the responses to the uplift request form."""
 
     # User who submitted the form.
@@ -42,7 +42,7 @@ class UpliftRevision(BaseModel):
     """Link an uplift request form to a revision."""
 
     uplift_request = models.ForeignKey(
-        UpliftRequestForm, on_delete=models.CASCADE, related_name="revisions"
+        UpliftQuestionnaireResponse, on_delete=models.CASCADE, related_name="revisions"
     )
 
     # Phabricator revision ID, ie `1234` for `D1234`.
