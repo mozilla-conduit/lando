@@ -46,7 +46,7 @@ class UpliftQuestionnaireForm(forms.Form):
     """Form to process the uplift request questionnaire."""
 
     user_impact = forms.CharField(
-        widget=forms.Textarea, label="User impact if declined"
+        widget=forms.Textarea, label="User impact if declined/Reason for urgency"
     )
 
     covered_by_testing = forms.ChoiceField(
