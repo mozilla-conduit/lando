@@ -1,4 +1,4 @@
-from typing import Self
+from typing import Any, Self
 
 from django.contrib.auth.models import User
 from django.db import models
@@ -92,6 +92,21 @@ class UpliftQuestionnaireResponse(BaseModel):
             string_changes=cleaned_data["string_changes"],
             is_android_affected=cleaned_data["is_android_affected"],
         )
+
+    def to_conduit_json(self) -> dict[str, Any]:
+        """Return the questionnaire in Conduit API JSON format."""
+        return {
+            "User impact if declined": self.user_impact,
+            "Code covered by automated testing": self.covered_by_testing,
+            "Fix verified in Nightly": self.fix_verified_in_nightly,
+            "Needs manual QE test": self.needs_manual_qe_testing,
+            "Steps to reproduce for manual QE testing": self.qe_testing_reproduction_steps,
+            "Risk associated with taking this patch": self.risk_associated_with_patch,
+            "Explanation of risk level": self.risk_level_explanation,
+            "String changes made/needed": self.string_changes,
+            "Is Android affected?": self.is_android_affected,
+        }
+
 
 class UpliftRevision(BaseModel):
     """Link an uplift request form to a revision."""
