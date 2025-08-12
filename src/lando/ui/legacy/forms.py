@@ -102,8 +102,9 @@ class UpliftQuestionnaireForm(forms.Form):
             cleaned_data["needs_manual_qe_testing"]
             and not cleaned_data["qe_testing_reproduction_steps"]
         ):
-            raise forms.ValidationError(
-                "QE testing reproduction steps must be provided if manual testing is required."
+            self.add_error(
+                "qe_testing_reproduction_steps",
+                "QE testing reproduction steps must be provided if manual testing is required.",
             )
 
 
