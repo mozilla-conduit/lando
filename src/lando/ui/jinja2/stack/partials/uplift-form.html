@@ -59,21 +59,33 @@
         <div class="field">
             <label class="label">{{ uplift_request_form.covered_by_testing.label }}</label>
             <div class="control">
-                {{ uplift_request_form.covered_by_testing }}
+                {% for radio in uplift_request_form.covered_by_testing %}
+                    <label class="radio">
+                        {{ radio }}
+                    </label>
+                {% endfor %}
             </div>
         </div>
 
         <div class="field">
             <label class="label">{{ uplift_request_form.fix_verified_in_nightly.label }}</label>
             <div class="control">
-                {{ uplift_request_form.fix_verified_in_nightly }}
+                {% for radio in uplift_request_form.fix_verified_in_nightly %}
+                    <label class="radio">
+                        {{ radio }}
+                    </label>
+                {% endfor %}
             </div>
         </div>
 
         <div class="field">
             <label class="label">{{ uplift_request_form.needs_manual_qe_testing.label }}</label>
             <div class="control">
-                {{ uplift_request_form.needs_manual_qe_testing }}
+                {% for radio in uplift_request_form.needs_manual_qe_testing %}
+                    <label class="radio">
+                        {{ radio }}
+                    </label>
+                {% endfor %}
             </div>
         </div>
 
@@ -88,7 +100,11 @@
         <div class="field">
             <label class="label">{{ uplift_request_form.risk_associated_with_patch.label }}</label>
             <div class="control">
-                {{ uplift_request_form.risk_associated_with_patch }}
+                {% for radio in uplift_request_form.risk_associated_with_patch %}
+                    <label class="radio">
+                        {{ radio }}
+                    </label>
+                {% endfor %}
             </div>
         </div>
 
@@ -109,7 +125,11 @@
         <div class="field">
             <label class="label">{{ uplift_request_form.is_android_affected.label }}</label>
             <div class="control">
-                {{ uplift_request_form.is_android_affected }}
+                {% for radio in uplift_request_form.is_android_affected %}
+                    <label class="radio">
+                        {{ radio }}
+                    </label>
+                {% endfor %}
             </div>
         </div>
 
