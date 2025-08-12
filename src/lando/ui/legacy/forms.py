@@ -1,9 +1,13 @@
 from django import forms
-from django.db import models
 from django.forms.widgets import RadioSelect
 
 from lando.api.legacy.uplift import get_uplift_repositories
 from lando.main.models import Repo
+from lando.main.models.uplift import (
+    LowMediumHighChoices,
+    YesNoChoices,
+    YesNoUnknownChoices,
+)
 
 
 class TransplantRequestForm(forms.Form):
@@ -12,35 +16,6 @@ class TransplantRequestForm(forms.Form):
         widget=forms.widgets.HiddenInput, required=False
     )
     flags = forms.JSONField(widget=forms.widgets.HiddenInput, required=False)
-
-
-# Yes/No constants for re-use in `TextChoices`, since `Enum`
-# can't be subclassed.
-YES = "yes", "Yes"
-NO = "no", "No"
-
-
-class YesNoChoices(models.TextChoices):
-    """A yes/no choice selection."""
-
-    YES = YES
-    NO = NO
-
-
-class YesNoUnknownChoices(models.TextChoices):
-    """A yes/no/unknown choice selection."""
-
-    YES = YES
-    NO = NO
-    UNKNOWN = "unknown", "Unknown"
-
-
-class LowMediumHighChoices(models.TextChoices):
-    """A low/medium/high choice selection."""
-
-    LOW = "low", "Low"
-    MEDIUM = "medium", "Medium"
-    HIGH = "high", "High"
 
 
 class UpliftQuestionnaireForm(forms.Form):
