@@ -1,5 +1,6 @@
 from django import forms
 from django.db import models
+from django.forms.widgets import RadioSelect
 
 from lando.api.legacy.uplift import get_uplift_repositories
 from lando.main.models import Repo
@@ -49,15 +50,21 @@ class UpliftQuestionnaireForm(forms.Form):
     )
 
     covered_by_testing = forms.ChoiceField(
-        label="Code covered by automated testing?", choices=YesNoUnknownChoices.choices
+        label="Code covered by automated testing?",
+        choices=YesNoUnknownChoices.choices,
+        widget=RadioSelect,
     )
 
     fix_verified_in_nightly = forms.ChoiceField(
-        label="Fix verified in Nightly?", choices=YesNoChoices.choices
+        label="Fix verified in Nightly?",
+        choices=YesNoChoices.choices,
+        widget=RadioSelect,
     )
 
     needs_manual_qe_testing = forms.ChoiceField(
-        label="Needs manual QE testing?", choices=YesNoChoices.choices
+        label="Needs manual QE testing?",
+        choices=YesNoChoices.choices,
+        widget=RadioSelect,
     )
 
     qe_testing_reproduction_steps = forms.CharField(
@@ -69,6 +76,7 @@ class UpliftQuestionnaireForm(forms.Form):
     risk_associated_with_patch = forms.ChoiceField(
         label="Risk associated with taking this patch",
         choices=LowMediumHighChoices.choices,
+        widget=RadioSelect,
     )
 
     risk_level_explanation = forms.CharField(
@@ -80,7 +88,9 @@ class UpliftQuestionnaireForm(forms.Form):
     )
 
     is_android_affected = forms.ChoiceField(
-        label="Is Android affected?", choices=YesNoUnknownChoices.choices
+        label="Is Android affected?",
+        choices=YesNoUnknownChoices.choices,
+        widget=RadioSelect,
     )
 
     def clean(self):
