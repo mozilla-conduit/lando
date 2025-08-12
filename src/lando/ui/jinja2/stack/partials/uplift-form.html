@@ -56,21 +56,24 @@
             </div>
         </div>
 
-        <div class="field is-horizontal">
+        <div class="field">
+            <label class="label">{{ uplift_request_form.covered_by_testing.label }}</label>
             <div class="control">
-                <label class="label">{{ uplift_request_form.covered_by_testing.label }} {{ uplift_request_form.covered_by_testing }}</label>
+                {{ uplift_request_form.covered_by_testing }}
             </div>
         </div>
 
         <div class="field">
+            <label class="label">{{ uplift_request_form.fix_verified_in_nightly.label }}</label>
             <div class="control">
-                <label class="label">{{ uplift_request_form.fix_verified_in_nightly.label }} {{ uplift_request_form.fix_verified_in_nightly }}</label>
+                {{ uplift_request_form.fix_verified_in_nightly }}
             </div>
         </div>
 
         <div class="field">
+            <label class="label">{{ uplift_request_form.needs_manual_qe_testing.label }}</label>
             <div class="control">
-                <label class="label">{{ uplift_request_form.needs_manual_qe_testing.label }} {{ uplift_request_form.needs_manual_qe_testing }}</label>
+                {{ uplift_request_form.needs_manual_qe_testing }}
             </div>
         </div>
 
@@ -85,7 +88,7 @@
         <div class="field">
             <label class="label">{{ uplift_request_form.risk_associated_with_patch.label }}</label>
             <div class="control">
-                {{ uplift_request_form.risk_associated_with_patch.as_widget(attrs={"class": "textarea"}) }}
+                {{ uplift_request_form.risk_associated_with_patch.as_widget(attrs={"class": "select"}) }}
             </div>
         </div>
 
@@ -104,8 +107,9 @@
         </div>
 
         <div class="field">
+            <label class="label">{{ uplift_request_form.is_android_affected.label }}</label>
             <div class="control">
-                <label class="label">{{ uplift_request_form.is_android_affected.label }} {{ uplift_request_form.is_android_affected }}</label>
+                {{ uplift_request_form.is_android_affected }}
             </div>
         </div>
 

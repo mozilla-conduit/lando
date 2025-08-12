@@ -1,4 +1,5 @@
 from django import forms
+from django.db import models
 
 from lando.api.legacy.uplift import get_uplift_repositories
 from lando.main.models import Repo
@@ -12,28 +13,51 @@ class TransplantRequestForm(forms.Form):
     flags = forms.JSONField(widget=forms.widgets.HiddenInput, required=False)
 
 
+YES = "yes", "Yes"
+NO = "no", "No"
+
+
+class YesNoChoices(models.TextChoices):
+    """A yes/no choice selection."""
+
+    YES = YES
+    NO = NO
+
+
+class YesNoUnknownChoices(models.TextChoices):
+    """A yes/no/unknown choice selection."""
+
+    YES = YES
+    NO = NO
+    UNKNOWN = "unknown", "Unknown"
+
+
+class LowMediumHighChoices(models.TextChoices):
+    """A low/medium/high choice selection."""
+
+    LOW = "low", "Low"
+    MEDIUM = "medium", "Medium"
+    HIGH = "high", "High"
+
+
 class UpliftQuestionnaireForm(forms.Form):
-    """Form to process the uplift request questionnaire.
-
-    TODO: 
-        make this form look more like the Bugzilla form.
-        This means we will need to change the `BooleanFields` into `ChoiceField`,
-        to allow for `Yes/No/Unknown` chocies, and "risk to taking this patch" will
-        become "Low/Medium/High".
-
-        Go to https://bugzilla.mozilla.org/show_bug.cgi?id=1753953 and set the beta
-        uplift flag on the attachment to see the implementation there.
-    """
+    """Form to process the uplift request questionnaire."""
 
     user_impact = forms.CharField(
         widget=forms.Textarea, label="User impact if declined"
     )
 
-    covered_by_testing = forms.BooleanField(label="Code covered by automated testing?")
+    covered_by_testing = forms.ChoiceField(
+        label="Code covered by automated testing?", choices=YesNoUnknownChoices.choices
+    )
 
-    fix_verified_in_nightly = forms.BooleanField(label="Fix verified in Nightly?")
+    fix_verified_in_nightly = forms.ChoiceField(
+        label="Fix verified in Nightly?", choices=YesNoChoices.choices
+    )
 
-    needs_manual_qe_testing = forms.BooleanField(label="Needs manual QE testing?")
+    needs_manual_qe_testing = forms.ChoiceField(
+        label="Needs manual QE testing?", choices=YesNoChoices.choices
+    )
 
     qe_testing_reproduction_steps = forms.CharField(
         required=False,
@@ -41,9 +65,9 @@ class UpliftQuestionnaireForm(forms.Form):
         widget=forms.Textarea,
     )
 
-    risk_associated_with_patch = forms.CharField(
-        widget=forms.Textarea,
+    risk_associated_with_patch = forms.ChoiceField(
         label="Risk associated with taking this patch",
+        choices=LowMediumHighChoices.choices,
     )
 
     risk_level_explanation = forms.CharField(
@@ -54,7 +78,9 @@ class UpliftQuestionnaireForm(forms.Form):
         widget=forms.Textarea, label="String changes made/needed?"
     )
 
-    is_android_affected = forms.BooleanField(label="Is Android affected?")
+    is_android_affected = forms.ChoiceField(
+        label="Is Android affected?", choices=YesNoUnknownChoices.choices
+    )
 
     def clean(self):
         cleaned_data = super().clean()
