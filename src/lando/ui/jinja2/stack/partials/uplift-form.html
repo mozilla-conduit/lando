@@ -52,6 +52,15 @@
             </a>
         </div>
 
+        <div class="field">
+            <label class="label">Uplift repository</label>
+            <div class="control">
+                <div class="select">
+                    {{ uplift_request_form.repository }}
+                </div>
+            </div>
+        </div>
+
         {# TODO check the rendering on these work as expected. #}
         {# TODO ensure fields are correctly sent in POST. #}
         <div class="field">
@@ -135,15 +144,6 @@
                         {{ radio }}
                     </label>
                 {% endfor %}
-            </div>
-        </div>
-
-        <div class="field">
-            <label class="label">Uplift repository</label>
-            <div class="control">
-                <div class="select">
-                    {{ uplift_request_form.repository }}
-                </div>
             </div>
         </div>
       </section>
