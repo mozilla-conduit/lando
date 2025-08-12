@@ -13,6 +13,7 @@ class TransplantRequestForm(forms.Form):
     flags = forms.JSONField(widget=forms.widgets.HiddenInput, required=False)
 
 
+# Yes/No constants for re-use in `TextChoices`.
 YES = "yes", "Yes"
 NO = "no", "No"
 
