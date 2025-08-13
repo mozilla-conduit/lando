@@ -16,7 +16,8 @@ Including another URLconf
 """
 
 from django.contrib import admin
-from django.urls import include, path, re_path
+from django.urls import include, path, re_path, reverse_lazy
+from django.views.generic.base import RedirectView
 
 from lando.api.legacy.api import landing_jobs
 from lando.api.views import (
@@ -168,4 +169,11 @@ urlpatterns += [
 ]
 
 # Try endpoints.
-urlpatterns += [path("try/", try_api.urls, name="try")]
+urlpatterns += [
+    # Backward compatibility with old Try behaviour, which create a landing_jobs.
+    path(
+        "landing_jobs/<int:landing_job_id>/",
+        RedirectView.as_view(url=reverse_lazy("landing-jobs-redirect"), permanent=True),
+    ),
+    path("try/", try_api.urls, name="try"),
+]
