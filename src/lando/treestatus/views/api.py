@@ -27,7 +27,7 @@ from lando.treestatus.models import (
     get_default_tree,
     load_last_state,
 )
-from lando.utils.cache import django_cache_method
+from lando.utils.cache import cache_method
 from lando.utils.exceptions import (
     BadRequestProblemException,
     NotFoundProblemException,
@@ -204,7 +204,7 @@ def tree_cache_key(tree_name: str) -> str:
     return f"tree-cache-{tree_name}"
 
 
-@django_cache_method(tree_cache_key)
+@cache_method(tree_cache_key)
 def get_tree_by_name(tree_name: str) -> Optional[CombinedTree]:
     """Retrieve a `CombinedTree` representation of a tree by name.
 

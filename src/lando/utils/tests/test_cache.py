@@ -2,7 +2,7 @@ import pytest
 from django.core.cache import cache
 from django.test import override_settings
 
-from lando.utils.cache import django_cache_method
+from lando.utils.cache import cache_method
 
 
 def sample_cache_key(name: str) -> str:
@@ -19,10 +19,10 @@ def sample_cache_key(name: str) -> str:
     }
 )
 @pytest.mark.django_db
-def test_django_cache_method():
+def test_cache_method():
     call_counter = {"count": 0}
 
-    @django_cache_method(sample_cache_key)
+    @cache_method(sample_cache_key)
     def expensive_function(name: str) -> str:
         call_counter["count"] += 1
         return f"Hello, {name}!"

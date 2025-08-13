@@ -10,7 +10,7 @@ from django.core.cache import cache
 T = TypeVar("T")
 
 
-def django_cache_method(
+def cache_method(
     key_fn: Callable[..., str],
 ) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """Cache the method result using the key function.
