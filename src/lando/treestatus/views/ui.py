@@ -1,6 +1,7 @@
 import logging
 
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse
 from django.shortcuts import redirect
@@ -108,12 +109,13 @@ class TreestatusDashboardView(View):
             "treestatus.change_tree"
         )
         if not user_can_update_trees:
+            message = "You do not have permission to update tree statuses."
             messages.add_message(
                 request,
                 messages.ERROR,
-                "You do not have permission to update tree statuses.",
+                message,
             )
-            return redirect("treestatus-dashboard")
+            raise PermissionDenied(message)
 
         combined_trees = get_combined_trees()
         combined_trees_mapping = {tree.tree: tree for tree in combined_trees}
@@ -187,12 +189,13 @@ class TreestatusNewTreeView(View):
             "treestatus.change_tree"
         )
         if not user_can_update_trees:
+            message = "Authentication is required to create new trees."
             messages.add_message(
                 request,
                 messages.ERROR,
-                "Authentication is required to create new trees.",
+                message,
             )
-            return redirect("treestatus-dashboard")
+            raise PermissionDenied(message)
 
         form = TreeStatusNewTreeForm(data=request.POST)
         if not form.is_valid():
@@ -295,12 +298,13 @@ class TreestatusUpdateChangeView(View):
         )
 
         if not user_can_update_trees:
+            message = "Authentication is required to update stack entries."
             messages.add_message(
                 request,
                 messages.ERROR,
-                "Authentication is required to update stack entries.",
+                message,
             )
-            return redirect("treestatus-dashboard")
+            raise PermissionDenied(message)
 
         recent_changes_form = TreeStatusRecentChangesForm(data=request.POST)
 
@@ -369,12 +373,13 @@ class TreestatusLogUpdateView(View):
         )
 
         if not user_can_update_trees:
+            message = "Authentication is required to update log entries."
             messages.add_message(
                 request,
                 messages.ERROR,
-                "Authentication is required to update log entries.",
+                message,
             )
-            return redirect("treestatus-dashboard")
+            raise PermissionDenied(message)
 
         log_update_form = TreeStatusLogUpdateForm(data=request.POST)
 
