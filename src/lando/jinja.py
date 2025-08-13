@@ -362,6 +362,7 @@ def message_type_to_notification_class(flash_message_category: str) -> str:
         levels["INFO"]: "is-info",
         levels["SUCCESS"]: "is-success",
         levels["WARNING"]: "is-warning",
+        levels["ERROR"]: "is-danger",
     }.get(flash_message_category, "is-info")
 
 
