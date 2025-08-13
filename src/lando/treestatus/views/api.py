@@ -279,6 +279,7 @@ def update_tree_log(
         log.reason = reason
 
     log.save()
+    cache.delete(tree_cache_key(log.tree.tree))
 
 
 def get_combined_trees(trees: Optional[list[str]] = None) -> list[CombinedTree]:
