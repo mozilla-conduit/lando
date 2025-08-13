@@ -248,8 +248,8 @@ def remove_tree_by_name(tree_name: str):
     tree = Tree.objects.filter(tree=tree_name).first()
     if not tree:
         raise NotFoundProblemException(
-            title=f"No tree {tree_name} found.",
-            detail="The tree does not exist.",
+            detail=f"No tree {tree_name} found.",
+            title="The tree does not exist.",
         )
     tree.delete()
 
@@ -497,8 +497,8 @@ def api_get_tree(request: WSGIRequest, tree: str) -> dict:
     result = get_tree_by_name(tree)
     if result is None:
         raise NotFoundProblemException(
-            title=f"No tree {tree} found.",
-            detail="The tree does not exist.",
+            detail=f"No tree {tree} found.",
+            title="The tree does not exist.",
         )
     return result.to_dict()
 

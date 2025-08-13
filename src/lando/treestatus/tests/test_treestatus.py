@@ -110,8 +110,8 @@ def test_get_tree_missing(client):
     assert response.status_code == 404
 
     json = response.json()
-    assert json["title"] == "No tree missingtree found."
-    assert json["detail"] == "The tree does not exist."
+    assert json["detail"] == "No tree missingtree found."
+    assert json["title"] == "The tree does not exist."
     assert json["status"] == 404
 
 
@@ -347,9 +347,9 @@ def test_remove_tree_by_name_unknown():
 
     exc = exc_info.value
 
-    assert exc.problem.detail == "The tree does not exist."
+    assert exc.problem.title == "The tree does not exist."
     assert exc.problem.status == 404
-    assert exc.problem.title == "No tree unknowntree found."
+    assert exc.problem.detail == "No tree unknowntree found."
     assert (
         exc.problem.type
         == "https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404"
@@ -414,9 +414,9 @@ def test_api_get_trees_single_not_found(client):
         response.status_code == 404
     ), "Response code for unknown tree should be `404`."
     assert response.json() == {
-        "detail": "The tree does not exist.",
+        "detail": "No tree unknowntree found.",
         "status": 404,
-        "title": "No tree unknowntree found.",
+        "title": "The tree does not exist.",
         "type": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
     }, "Response JSON for missing result should match expected value."
 
