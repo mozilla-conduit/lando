@@ -5,6 +5,7 @@ import logging
 from io import StringIO
 from typing import Annotated, Literal, Optional, Union
 
+from django.core.exceptions import PermissionDenied
 from django.core.handlers.wsgi import WSGIRequest
 from django.db import transaction
 from django.http import HttpResponse
@@ -36,7 +37,7 @@ from lando.main.scm.helpers import (
 logger = logging.getLogger(__name__)
 
 
-class APIPermissionDenied(PermissionError):
+class APIPermissionDenied(PermissionDenied):
     """Custom exception type to allow JSON responses for invalid auth."""
 
     pass

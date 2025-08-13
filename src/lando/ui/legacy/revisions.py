@@ -2,6 +2,7 @@ import json
 import logging
 
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
@@ -31,7 +32,7 @@ class Uplift(LandoView):
         uplift_request_form = UpliftRequestForm(request.POST)
 
         if not request.user.is_authenticated:
-            raise PermissionError()
+            raise PermissionDenied()
 
         if not uplift_request_form.is_valid():
             errors = [
