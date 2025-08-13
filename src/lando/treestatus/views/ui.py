@@ -8,6 +8,7 @@ from django.template.response import TemplateResponse
 from django.views import View
 
 from lando.treestatus.forms import (
+    RecentChangesAction,
     TreeStatusLogUpdateForm,
     TreeStatusNewTreeForm,
     TreeStatusRecentChangesForm,
@@ -311,16 +312,11 @@ class TreestatusUpdateChangeView(View):
                     messages.add_message(request, messages.ERROR, message)
             return redirect("treestatus-dashboard")
 
-        action = request.POST.get("action")
-        if not action or action not in {"discard", "restore", "update"}:
-            message = f"Action was not an expected value: {action}"
-            logger.error(message)
-            messages.add_message(request, messages.ERROR, message)
-            return redirect("treestatus-dashboard")
+        action = RecentChangesAction(recent_changes_form.cleaned_data["action"])
 
         logger.info(f"Requesting {action} stack update for stack id {id}.")
 
-        if action == "update":
+        if action == RecentChangesAction.UPDATE:
             reason = recent_changes_form.cleaned_data["reason"]
             reason_category = recent_changes_form.cleaned_data["reason_category"]
             tags = [reason_category] if reason_category else []
@@ -335,7 +331,7 @@ class TreestatusUpdateChangeView(View):
 
             return redirect("treestatus-dashboard")
 
-        revert = action == "restore"
+        revert = action == RecentChangesAction.RESTORE
 
         try:
             revert_status_change(id, request.user.email, revert=revert)

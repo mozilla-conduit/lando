@@ -1,6 +1,7 @@
 from typing import Any, Self
 
 from django import forms
+from django.db import models
 
 from lando.treestatus.models import (
     ReasonCategory,
@@ -102,6 +103,14 @@ class TreeStatusNewTreeForm(forms.Form):
     )
 
 
+class RecentChangesAction(models.TextChoices):
+    """Actions for the recent changes form."""
+
+    DISCARD = "discard", "Discard"
+    RESTORE = "restore", "Restore"
+    UPDATE = "update", "Update"
+
+
 class TreeStatusRecentChangesForm(forms.Form):
     """Modify a recent status change."""
 
@@ -110,6 +119,8 @@ class TreeStatusRecentChangesForm(forms.Form):
     reason_category = forms.ChoiceField(
         label="Reason Category", choices=ReasonCategory, required=False
     )
+
+    action = forms.ChoiceField(choices=RecentChangesAction, required=True)
 
 
 class TreeStatusLogUpdateForm(forms.Form):
