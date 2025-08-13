@@ -51,7 +51,6 @@ def test_authentication_invalid_token(
     assert response.status_code == 401, "Invalid token should result in 401"
 
 
-@pytest.mark.django_db()
 @override_settings(ENVIRONMENT=Environment("production"))
 @patch("lando.utils.auth.AccessTokenAuth.authenticate")
 def test_userinfo_not_in_prod(mock_authenticate: MagicMock, ninja_api_client: Callable):
