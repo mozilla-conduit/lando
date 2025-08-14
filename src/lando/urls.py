@@ -93,4 +93,4 @@ urlpatterns += [
 ]
 
 # Try endpoints.
-urlpatterns += [path("try/", try_api.urls)]
+urlpatterns += [path("try/", try_api.urls, name="try")]
