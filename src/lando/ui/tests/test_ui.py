@@ -4,8 +4,8 @@ import pytest
 
 from lando import test_settings as settings
 from lando.main import scm
-from lando.main.models.landing_job import JobStatus, LandingJob
-from lando.main.scm.consts import SCM_TYPE_GIT
+from lando.main.models import JobStatus, LandingJob
+from lando.main.scm import SCM_TYPE_GIT
 
 
 @pytest.mark.django_db

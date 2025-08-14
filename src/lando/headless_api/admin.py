@@ -4,6 +4,7 @@ from django.core.handlers.wsgi import WSGIRequest
 from lando.headless_api.models.automation_job import AutomationAction, AutomationJob
 from lando.headless_api.models.tokens import ApiToken
 from lando.main.admin import ReadOnlyInline
+from lando.main.models import JobAdmin
 
 
 class ApiTokenAdmin(admin.ModelAdmin):
@@ -36,25 +37,10 @@ class AutomationActionJobInline(ReadOnlyInline):
         return False
 
 
-class AutomationJobAdmin(admin.ModelAdmin):
+class AutomationJobAdmin(JobAdmin):
     model = AutomationJob
-    list_display = (
-        "id",
-        "status",
-        "target_repo__name",
-        "action_types",
-        "created_at",
-        "requester_email",
-        "duration_seconds",
-    )
-    list_filter = ("target_repo__name", "requester_email", "created_at")
-    inlines = [AutomationActionJobInline]
-    readonly_fields = (
-        "attempts",
-        "duration_seconds",
-        "error",
-        "landed_commit_id",
-        "requester_email",
+    inlines = (AutomationActionJobInline,)
+    readonly_fields = JobAdmin.readonly_fields + (
         "relbranch_name",
         "relbranch_commit_sha",
         "target_repo",

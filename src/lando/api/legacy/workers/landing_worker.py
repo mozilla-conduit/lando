@@ -23,13 +23,11 @@ from lando.api.legacy.uplift import (
     update_bugs_for_uplift,
 )
 from lando.api.legacy.workers.base import Worker
-from lando.main.models.landing_job import JobAction, JobStatus, LandingJob
-from lando.main.models.repo import Repo
-from lando.main.models.worker import WorkerType
-from lando.main.scm.abstract_scm import AbstractSCM
-from lando.main.scm.commit import CommitData
-from lando.main.scm.exceptions import (
+from lando.main.models import JobAction, JobStatus, LandingJob, Repo, WorkerType
+from lando.main.scm import (
+    AbstractSCM,
     AutoformattingException,
+    CommitData,
     NoDiffStartLine,
     PatchConflict,
     SCMException,

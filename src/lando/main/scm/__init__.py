@@ -3,6 +3,7 @@ from lando.main.scm.commit import CommitData
 from lando.main.scm.consts import (
     SCM_TYPE_GIT,
     SCM_TYPE_HG,
+    MergeStrategy,
 )
 from lando.main.scm.exceptions import (
     AutoformattingException,
@@ -41,6 +42,7 @@ __all__ = [
     # consts
     "SCM_TYPE_HG",
     "SCM_TYPE_GIT",
+    "MergeStrategy",
     # consts (built up)
     "SCM_TYPE_CHOICES",
     "SCM_IMPLEMENTATIONS",

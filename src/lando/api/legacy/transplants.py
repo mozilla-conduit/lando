@@ -42,9 +42,13 @@ from lando.api.legacy.stacks import (
 )
 from lando.api.legacy.transactions import get_inline_comments
 from lando.api.legacy.users import user_search
-from lando.main.models import Repo
-from lando.main.models.landing_job import JobStatus, LandingJob
-from lando.main.models.revision import DiffWarning, DiffWarningStatus
+from lando.main.models import (
+    DiffWarning,
+    DiffWarningStatus,
+    JobStatus,
+    LandingJob,
+    Repo,
+)
 from lando.main.scm.helpers import (
     DiffAssessor,
     PreventNSPRNSSCheck,
