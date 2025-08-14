@@ -7,6 +7,7 @@ from django.utils.translation import gettext_lazy
 from lando.main.models import (
     CommitMap,
     ConfigurationVariable,
+    JobAdmin,
     LandingJob,
     Repo,
     Revision,
@@ -59,18 +60,9 @@ class RevisionLandingJobInline(admin.TabularInline):
     fields = ("revision",)
 
 
-class LandingJobAdmin(admin.ModelAdmin):
+class LandingJobAdmin(JobAdmin):
     model = LandingJob
-    inlines = [RevisionLandingJobInline]
-    list_display = (
-        "id",
-        "status",
-        "target_repo__name",
-        "created_at",
-        "requester_email",
-        "duration_seconds",
-    )
-    list_filter = ["target_repo__name", "requester_email", "created_at"]
+    inlines = (RevisionLandingJobInline,)
     fields = (
         "status",
         "attempts",
@@ -83,13 +75,7 @@ class LandingJobAdmin(admin.ModelAdmin):
         "target_commit_hash",
         "target_repo",
     )
-    readonly_fields = [
-        "attempts",
-        "duration_seconds",
-        "error",
-        "formatted_replacements",
-        "landed_commit_id",
-    ]
+    readonly_fields = JobAdmin.readonly_fields + ("formatted_replacements",)
 
 
 class RevisionAdmin(admin.ModelAdmin):

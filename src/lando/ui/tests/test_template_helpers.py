@@ -16,8 +16,7 @@ from lando.jinja import (
     repo_path,
     revision_url,
 )
-from lando.main.models import SCM_TYPE_GIT, SCM_TYPE_HG, Repo
-from lando.main.models.landing_job import JobStatus, LandingJob
+from lando.main.models import SCM_TYPE_GIT, SCM_TYPE_HG, JobStatus, LandingJob, Repo
 
 
 @pytest.mark.parametrize(
