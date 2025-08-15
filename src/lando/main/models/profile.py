@@ -145,3 +145,11 @@ class Profile(BaseModel):
         for codename in permissions:
             if self._has_scm_permission_groups(codename, groups):
                 self.user.user_permissions.add(permissions[codename])
+
+    def has_scm_perm(self, scm_permission: str) -> bool:
+        """Check user's own SCM permissions, ignoring Django roles.
+
+        Permissions must be namespaced (e.g., `main.scm_level_3`).
+        """
+        # XXX: Should we use a Proxy model instead?
+        return scm_permission in self.user.get_user_permissions()

@@ -112,7 +112,11 @@
       {% else %}
         <button class="StackPage-preview-button">
           <div class="StackPage-actions-headline">Preview Landing</div>
+          {% if not request.user.profile.has_scm_perm(target_repo.required_permission)%}
+          <div class="StackPage-actions-subtitle">You do not have permission to land to this repo</div>
+          {% endif %}
         </button>
+
       {% endif %}
 
       {% if user_is_authenticated %}

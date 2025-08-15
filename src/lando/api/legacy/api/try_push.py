@@ -5,7 +5,10 @@ import logging
 
 from django.core.handlers.wsgi import WSGIRequest
 
-from lando.main.auth import require_authenticated_user, require_permission
+from lando.main.auth import (
+    require_authenticated_user,
+    require_scm_permission,
+)
 from lando.main.models import Repo, Revision
 from lando.main.models.landing_job import (
     JobStatus,
@@ -107,7 +110,7 @@ def parse_revisions_from_request(
 
 
 @require_authenticated_user
-@require_permission("scm_level_1")
+@require_scm_permission("scm_level_1")
 def post_patches(request: WSGIRequest, data: dict):  # noqa: ANN201
     # TODO: this endpoint is not currently functional as it will need to
     # have support for token authentication. See bug 1909723.

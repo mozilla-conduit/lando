@@ -636,7 +636,7 @@ def blocker_user_scm_level(
 
     lando_user = stack_state.landing_assessment.lando_user
 
-    if lando_user.has_perm(landing_repo.required_permission):
+    if lando_user.profile.has_scm_perm(landing_repo.required_permission):
         return None
 
     return (

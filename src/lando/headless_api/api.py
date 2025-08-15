@@ -402,6 +402,11 @@ def post_repo_actions(
         )
         return 400, {"details": error}
 
+    if not request.user.has_scm_perm(repo.required_permission):
+        raise APIPermissionDenied(
+            f"User {request.user.email} is does not have {repo.required_permission}."
+        )
+
     with transaction.atomic():
         automation_job = AutomationJob.objects.create(
             status=JobStatus.SUBMITTED,

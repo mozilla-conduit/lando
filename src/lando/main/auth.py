@@ -104,6 +104,34 @@ def force_auth_refresh(f: Callable) -> Callable:
 class require_permission:
     """
     Decorator that raises a PermissionError if a user is missing the given permission.
+
+    For SCM permissions, use require_scm_permission.
+
+    Permissions must be namespaced (e.g., `main.XXX`).
+    """
+
+    def __init__(self, permission):  # noqa: ANN001
+        if permission.starts_with("scm"):
+            raise ValueError(
+                "SCM permissions must be ensured with @auth.require_scm_permission"
+            )
+        self.required_permission = permission
+
+    def __call__(self, f: Callable) -> Callable:
+        def wrapper(request, *args, **kwargs):  # noqa: ANN001
+            if not request.user.has_perm(f"main.{self.required_permission}"):
+                raise PermissionError()
+            return f(request, *args, **kwargs)
+
+
+class require_scm_permission:
+    """
+    Decorator that raises a PermissionError if a user is missing the given SCM permission.
+
+    Unlike require_permission, this requires that the User themselves have the
+    permission, and not through any of their group.
+
+    Permissions must be namespaced (e.g., `main.scm_level_3`).
     """
 
     def __init__(self, permission):  # noqa: ANN001
@@ -111,7 +139,10 @@ class require_permission:
 
     def __call__(self, f: Callable) -> Callable:
         def wrapper(request, *args, **kwargs):  # noqa: ANN001
-            if not request.user.has_perm(f"main.{self.required_permission}"):
+            if (
+                f"main.{self.required_permission}"
+                not in request.user.get_user_permissions()
+            ):
                 raise PermissionError()
             return f(request, *args, **kwargs)
 
