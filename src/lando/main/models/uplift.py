@@ -94,17 +94,27 @@ class UpliftQuestionnaireResponse(BaseModel):
         )
 
     def to_conduit_json(self) -> dict[str, Any]:
-        """Return the questionnaire in Conduit API JSON format."""
+        """Return the questionnaire in Conduit API JSON format.
+
+        Convert some fields from text choices to boolean, until the Phabricator
+        uplift form is removed.
+        """
         return {
             "User impact if declined": self.user_impact,
-            "Code covered by automated testing": self.covered_by_testing,
-            "Fix verified in Nightly": self.fix_verified_in_nightly,
-            "Needs manual QE test": self.needs_manual_qe_testing,
+            "Code covered by automated testing": (
+                self.covered_by_testing == YesNoUnknownChoices.YES
+            ),
+            "Fix verified in Nightly": (
+                self.fix_verified_in_nightly == YesNoChoices.YES,
+            ),
+            "Needs manual QE test": self.needs_manual_qe_testing == YesNoChoices.YES,
             "Steps to reproduce for manual QE testing": self.qe_testing_reproduction_steps,
             "Risk associated with taking this patch": self.risk_associated_with_patch,
             "Explanation of risk level": self.risk_level_explanation,
             "String changes made/needed": self.string_changes,
-            "Is Android affected?": self.is_android_affected,
+            "Is Android affected?": (
+                self.is_android_affected == YesNoUnknownChoices.YES
+            ),
         }
 
 
