@@ -19,6 +19,7 @@ from lando.version import version
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent
 
+LOG_LEVEL = os.getenv("LOG_LEVEL", "WARNING").upper()
 SECRET_KEY = os.getenv(
     "SECRET_KEY",
     "django-insecure-26k#ouat@%d6w5gmuhvo_vc=_@on^6=eh9*g!p-k9ynjvyc#(_",
