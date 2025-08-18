@@ -13,7 +13,7 @@ from lando.main.auth import LandoOIDCAuthenticationBackend
 logger = logging.getLogger(__name__)
 
 
-class GlobalAuth(HttpBearer):
+class AccessTokenAuth(HttpBearer):
     """Bearer token-based authenticator delegating verification to the OIDC backend."""
 
     def authenticate(self, request: WSGIRequest, token: str) -> User:
@@ -24,7 +24,7 @@ class GlobalAuth(HttpBearer):
         return oidc_auth.authenticate(request)
 
 
-api = NinjaAPI(urls_namespace="try", auth=GlobalAuth())
+api = NinjaAPI(urls_namespace="try", auth=AccessTokenAuth())
 
 
 @api.get("/__userinfo__")
