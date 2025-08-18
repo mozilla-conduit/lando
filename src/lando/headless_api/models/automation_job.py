@@ -1,16 +1,14 @@
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Iterable, Optional
+from typing import Any
 
 from django.conf import settings
 from django.db import models
-from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy
 
 from lando.main.models import (
     BaseJob,
     BaseModel,
-    JobStatus,
     Repo,
 )
 
@@ -52,20 +50,6 @@ class AutomationJob(BaseJob):
         job_dict["status_url"] = f"{settings.SITE_URL}/api/job/{self.id}"
 
         return job_dict
-
-    @classmethod
-    def job_queue_query(
-        cls, repositories: Optional[Iterable[str]] = None, **kwargs
-    ) -> QuerySet:
-        """Return a query which selects the queued jobs."""
-        # XXX: If we can include IN_PROGRESS jobs, and sort by status_order, this method
-        # can be deleted in favour of the parent class's.
-        q = cls.objects.filter(status__in=(JobStatus.SUBMITTED, JobStatus.DEFERRED))
-        if repositories:
-            q = q.filter(target_repo__in=repositories)
-
-        q = q.order_by("-priority", "created_at")
-        return q
 
     def resolve_push_target_from_relbranch(self, repo: Repo) -> tuple[str | None, str]:
         """Return (target_cset, push_target) tuple for the `RelBranchSpecifier` if required."""
