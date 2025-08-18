@@ -48,10 +48,11 @@ from lando.api.legacy.validation import (
     revision_id_to_int,
 )
 from lando.main.auth import require_authenticated_user, require_phabricator_api_key
-from lando.main.models import Repo, Revision
-from lando.main.models.landing_job import (
+from lando.main.models import (
     JobStatus,
     LandingJob,
+    Repo,
+    Revision,
     add_revisions_to_job,
 )
 from lando.main.support import LegacyAPIException, problem
