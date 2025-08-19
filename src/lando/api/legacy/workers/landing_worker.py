@@ -363,7 +363,16 @@ class LandingWorker(Worker):
 
         new_commits = scm.describe_local_changes()
 
-        check_errors = self.run_landing_checks(scm, new_commits)
+        try:
+            check_errors = self.run_landing_checks(scm, new_commits)
+        except Exception as exc:
+            message = f"Unexpected error while performing landing checks.\n{exc}"
+            logger.exception(message)
+            job.transition_status(
+                JobAction.FAIL,
+                message=message,
+            )
+            raise PermanentFailureException(message) from exc
 
         if check_errors:
             message = "Some checks failed before attempting to land:\n" + "\n".join(
