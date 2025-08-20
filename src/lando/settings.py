@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     "lando.dockerflow",
     "lando.ui",
     "lando.headless_api",
+    "lando.treestatus",
     # Third-party apps
     "django.contrib.admin",
     "django.contrib.auth",
