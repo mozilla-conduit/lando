@@ -19,6 +19,7 @@ from email.utils import (
 
 import requests
 import rs_parsepatch
+from typing_extensions import override
 
 from lando.api.legacy.bmo import (
     get_status_code_for_bug,
@@ -130,6 +131,16 @@ class PatchHelper(ABC):
 
     headers: dict[str, str]
 
+    @classmethod
+    @abstractmethod
+    def from_string_io(cls, string_io: io.StringIO) -> "PatchHelper":
+        raise NotImplementedError("`from_string_io` not implemented.")
+
+    @classmethod
+    @abstractmethod
+    def from_bytes_io(cls, bytes_io: io.BytesIO) -> "PatchHelper":
+        raise NotImplementedError("`from_bytes_io` not implemented.")
+
     def __init__(self):
         self.headers = {}
 
@@ -192,6 +203,16 @@ class HgPatchHelper(PatchHelper):
     header_end_line_no: int
     diff_start_line: int | None = None
 
+    @classmethod
+    @override
+    def from_string_io(cls, string_io: io.StringIO) -> "HgPatchHelper":
+        return cls(string_io)
+
+    @classmethod
+    @override
+    def from_bytes_io(cls, bytes_io: io.BytesIO) -> "PatchHelper":
+        raise NotImplementedError("`from_bytes_io` not implemented for HgPatchHelper.")
+
     def __init__(self, fileobj: io.StringIO):
         super().__init__()
         self.patch = fileobj
@@ -235,6 +256,7 @@ class HgPatchHelper(PatchHelper):
         if not self.headers:
             raise ValueError("Failed to parse headers from patch.")
 
+    @override
     def get_commit_description(self) -> str:
         """Returns the commit description."""
         commit_desc = []
@@ -259,6 +281,7 @@ class HgPatchHelper(PatchHelper):
         finally:
             self.patch.seek(0)
 
+    @override
     def get_diff(self) -> str:
         """Return the diff for this patch."""
         diff = []
@@ -281,6 +304,7 @@ class HgPatchHelper(PatchHelper):
         finally:
             self.patch.seek(0)
 
+    @override
     def write(self, f: io.StringIO):
         """Writes whole patch to the specified file object."""
         try:
@@ -289,6 +313,7 @@ class HgPatchHelper(PatchHelper):
         finally:
             self.patch.seek(0)
 
+    @override
     def parse_author_information(self) -> tuple[str, str]:
         """Return the author name and email from the patch."""
         user = self.get_header("User")
@@ -299,6 +324,7 @@ class HgPatchHelper(PatchHelper):
 
         return parse_git_author_information(user)
 
+    @override
     def get_timestamp(self) -> str:
         """Return an `hg export` formatted timestamp."""
         date = self.get_header("Date")
@@ -311,23 +337,36 @@ class HgPatchHelper(PatchHelper):
 class GitPatchHelper(PatchHelper):
     """Helper class for parsing Mercurial patches/exports."""
 
-    patch: io.StringIO | None = None
+    patch_bytes: bytes
     message: EmailMessage
     commit_message: str
     diff: str
 
-    def __init__(self, fileobj: io.StringIO):
+    @classmethod
+    @override
+    def from_string_io(cls, string_io: io.StringIO) -> "GitPatchHelper":
+        patch_bytes = string_io.read().encode("utf-8", errors="surrogateescape")
+        return cls(patch_bytes)
+
+    @classmethod
+    @override
+    def from_bytes_io(cls, bytes_io: io.BytesIO) -> "GitPatchHelper":
+        patch_bytes = bytes_io.read()
+        return cls(patch_bytes)
+
+    def __init__(self, patch_bytes: bytes):
         super().__init__()
-        self.patch = fileobj
-        message_bytes = self.patch.read().encode("utf-8")
+        self.patch_bytes = patch_bytes
+
         self.message = email.message_from_bytes(
-            message_bytes, policy=default_email_policy
+            patch_bytes, policy=default_email_policy
         )
         self.message.set_charset("utf-8")
-        self.commit_message, self.diff = self.parse_email_body(
-            self.message.get_content()
-        )
+        body = self.message.get_content(errors="surrogateescape")
 
+        self.commit_message, self.diff = self.parse_email_body(body)
+
+    @override
     def get_header(self, name: bytes | str) -> str | None:
         """Get the headers from the message."""
         if isinstance(name, bytes):
@@ -411,22 +450,27 @@ class GitPatchHelper(PatchHelper):
 
         return commit_message, diff
 
+    @override
     def get_commit_description(self) -> str:
         """Returns the commit description."""
         return self.commit_message
 
+    @override
     def get_diff(self) -> str:
         """Return the patch diff."""
         return self.diff
 
+    @override
+    def get_diff_bytes(self) -> bytes:
+        """Return the patch diff."""
+        return self.diff.encode("utf-8", errors="surrogateescape")
+
+    @override
     def write(self, f: io.StringIO):
         """Writes whole patch to the specified file object."""
-        try:
-            buf = self.patch.read()
-            f.write(buf)
-        finally:
-            self.patch.seek(0)
+        f.write(self.patch_bytes.decode("utf-8", errors="surrogateescape"))
 
+    @override
     def parse_author_information(self) -> tuple[str, str]:
         """Return the author name and email from the patch."""
         from_header = self.get_header("From")
@@ -435,6 +479,7 @@ class GitPatchHelper(PatchHelper):
 
         return parse_git_author_information(from_header)
 
+    @override
     def get_timestamp(self) -> str:
         """Return an `hg export` formatted timestamp."""
         date = self.get_header("Date")

@@ -153,7 +153,7 @@ def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
 
     # Patches with conflicts should raise a proper PatchConflict exception.
     with pytest.raises(PatchConflict), repo.for_pull():
-        ph = HgPatchHelper(io.StringIO(PATCH_WITH_CONFLICT))
+        ph = HgPatchHelper.from_string_io(io.StringIO(PATCH_WITH_CONFLICT))
         repo.apply_patch(
             ph.get_diff(),
             ph.get_commit_description(),
@@ -175,7 +175,7 @@ def test_integrated_hgrepo_patch_success(
     repo = HgSCM(hg_clone.strpath)
 
     with repo.for_pull():
-        ph = HgPatchHelper(io.StringIO(patch))
+        ph = HgPatchHelper.from_string_io(io.StringIO(patch))
         repo.apply_patch(
             ph.get_diff(),
             ph.get_commit_description(),
@@ -212,7 +212,7 @@ def test_integrated_hgrepo_patch_hgimport_fail_success(monkeypatch, hg_clone):
     monkeypatch.setattr(repo, "run_hg", run_hg_conflict_on_import)
 
     with repo.for_pull():
-        ph = HgPatchHelper(io.StringIO(PATCH_NORMAL))
+        ph = HgPatchHelper.from_string_io(io.StringIO(PATCH_NORMAL))
         repo.apply_patch(
             ph.get_diff(),
             ph.get_commit_description(),
@@ -241,7 +241,7 @@ def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
         repo.run_hg_cmds(
             [["add", new_file.strpath], ["commit", "-m", "adding file"], ["push"]]
         )
-        ph = HgPatchHelper(io.StringIO(PATCH_DELETE_NO_NEWLINE_FILE))
+        ph = HgPatchHelper.from_string_io(io.StringIO(PATCH_DELETE_NO_NEWLINE_FILE))
         repo.apply_patch(
             ph.get_diff(),
             ph.get_commit_description(),
@@ -257,7 +257,7 @@ def test_HgSCM_apply_get_patch(hg_clone: Path, normal_patch: Callable):
 
     patch = normal_patch()
 
-    ph = HgPatchHelper(io.StringIO(patch))
+    ph = HgPatchHelper.from_string_io(io.StringIO(patch))
 
     author_name, author_email = ph.parse_author_information()
     author = f"{author_name} <{author_email}>"

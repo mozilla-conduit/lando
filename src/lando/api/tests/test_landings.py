@@ -802,7 +802,7 @@ def test_format_single_success_changed(
 
     # Push the `mach` formatting patch.
     with scm.for_push("test@example.com"):
-        ph = HgPatchHelper(io.StringIO(PATCH_FORMATTING_PATTERN_PASS))
+        ph = HgPatchHelper.from_string_io(io.StringIO(PATCH_FORMATTING_PATTERN_PASS))
         scm.apply_patch(
             ph.get_diff(),
             ph.get_commit_description(),
