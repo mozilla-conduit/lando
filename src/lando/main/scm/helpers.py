@@ -311,18 +311,27 @@ class GitPatchHelper(PatchHelper):
     """Helper class for parsing Mercurial patches/exports."""
 
     patch: io.StringIO | None = None
+    binary_patch: io.BytesIO | None = None
 
-    def __init__(self, fileobj: io.StringIO):
-        super().__init__()
-        self.patch = fileobj
-        message_bytes = self.patch.read().encode("utf-8")
+    def __init__(self, fileobj: io.StringIO | io.BytesIO):
+        if isinstance(fileobj, io.BytesIO):
+            self.binary_patch = fileobj
+            message_bytes = self.binary_patch.read()
+        else:
+            super().__init__()
+            self.patch = fileobj
+            message_bytes = self.patch.read().encode("utf-8")
+
         self.message = email.message_from_bytes(
             message_bytes, policy=default_email_policy
         )
-        self.message.set_charset("utf-8")
-        self.commit_message, self.diff = self.parse_email_body(
-            self.message.get_content()
-        )
+        if self.binary_patch:
+            body = self.message.get_content(errors="surrogateescape")
+        else:
+            self.message.set_charset("utf-8")
+            body = self.message.get_content()
+
+        self.commit_message, self.diff = self.parse_email_body(body)
 
     def get_header(self, name: bytes | str) -> str | None:
         """Get the headers from the message."""
@@ -411,8 +420,10 @@ class GitPatchHelper(PatchHelper):
         """Returns the commit description."""
         return self.commit_message
 
-    def get_diff(self) -> str:
+    def get_diff(self) -> str | bytes:
         """Return the patch diff."""
+        if self.binary_patch:
+            return self.diff.encode("utf-8", errors="surrogateescape")
         return self.diff
 
     def write(self, f: io.StringIO):
