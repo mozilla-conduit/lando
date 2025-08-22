@@ -4,7 +4,6 @@ from typing import Any
 
 from django.conf import settings
 from django.db import models
-from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy
 
 from lando.main.models import (
