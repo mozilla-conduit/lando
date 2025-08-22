@@ -70,7 +70,7 @@ class JobAdmin(admin.ModelAdmin):
         "requester_email",
         "duration_seconds",
     )
-    list_filter = ("target_repo__name", "requester_email", "created_at")
+    list_filter = ("target_repo__name", "created_at")
     readonly_fields = (
         "attempts",
         "duration_seconds",
@@ -78,6 +78,7 @@ class JobAdmin(admin.ModelAdmin):
         "landed_commit_id",
         "requester_email",
     )
+    search_fields = ("requester_email", "landed_commit_id")
 
 
 class LandingJobAdmin(JobAdmin):
@@ -96,6 +97,7 @@ class LandingJobAdmin(JobAdmin):
         "target_repo",
     )
     readonly_fields = JobAdmin.readonly_fields + ("formatted_replacements",)
+    search_fields = JobAdmin.search_fields + ("requester_email",)
 
 
 class RevisionAdmin(admin.ModelAdmin):
@@ -106,6 +108,7 @@ class RevisionAdmin(admin.ModelAdmin):
         "patch_timestamp",
         "author",
     )
+    search_fields = ("revision_id",)
 
     def revision(self, instance: Revision) -> str:
         """Return a Phabricator-like revision identifier."""
@@ -161,6 +164,8 @@ class RepoAdmin(admin.ModelAdmin):
         "scm_type",
     )
 
+    search_fields = ("pull_path", "push_path", "url")
+
 
 class CommitMapAdmin(admin.ModelAdmin):
     model = CommitMap
@@ -169,12 +174,20 @@ class CommitMapAdmin(admin.ModelAdmin):
         "git_hash",
         "hg_hash",
     )
-    list_filter = ["git_repo_name"]
+    list_filter = ("git_repo_name",)
+    search_fields = (
+        "git_hash",
+        "hg_hash",
+    )
 
 
 class ConfigurationVariableAdmin(admin.ModelAdmin):
     model = ConfigurationVariable
     list_display = (
+        "key",
+        "value",
+    )
+    search_fields = (
         "key",
         "value",
     )
@@ -190,6 +203,7 @@ class WorkerAdmin(admin.ModelAdmin):
         "is_paused",
         "is_stopped",
     )
+    search_fields = ("applicable_repos__name",)
 
     def repo_count(self, instance: Worker) -> int:
         """Return the count of repositories associated to the Worker."""

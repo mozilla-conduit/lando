@@ -12,7 +12,12 @@ class ApiTokenAdmin(admin.ModelAdmin):
     # Mark these fields as read-only in the admin.
     readonly_fields = ("token_prefix", "token_hash", "created_at")
 
-    list_filter = ["created_at"]
+    search_fields = (
+        "token_prefix",
+        "user__email",
+    )
+
+    list_filter = ("created_at",)
 
     def user_email(self, instance: ApiToken) -> str:
         return instance.user.email
@@ -38,12 +43,28 @@ class AutomationActionJobInline(ReadOnlyInline):
 
 class AutomationJobAdmin(JobAdmin):
     model = AutomationJob
+    list_display = (
+        "id",
+        "status",
+        "target_repo__name",
+        "action_types",
+        "created_at",
+        "requester_email",
+        "duration_seconds",
+    )
+    list_filter = ("target_repo__name", "created_at")
     inlines = (AutomationActionJobInline,)
-    readonly_fields = JobAdmin.readonly_fields + (
+    readonly_fields = (
+        "attempts",
+        "duration_seconds",
+        "error",
+        "landed_commit_id",
+        "requester_email",
         "relbranch_name",
         "relbranch_commit_sha",
         "target_repo",
     )
+    search_fields = ("requester_email",)
 
     def action_types(self, instance: AutomationJob) -> str:
         """Return a summary string of the action types associated to a given job."""
@@ -56,7 +77,8 @@ class AutomationActionAdmin(admin.ModelAdmin):
         "action_type",
         "job_id",
     )
-    readonly_fields = ["job_id"]
+    readonly_fields = ("job_id",)
+    search_fields = ("data",)
 
 
 admin.site.register(ApiToken, ApiTokenAdmin)

@@ -1,9 +1,3 @@
-{#
-    This Source Code Form is subject to the terms of the Mozilla Public
-    License, v. 2.0. If a copy of the MPL was not distributed with this
-    file, You can obtain one at https://mozilla.org/MPL/2.0/.
-#}
-
 {% extends "partials/layout.html" %}
 {% block page_title %}Treestatus{% endblock %}
 
@@ -15,12 +9,12 @@
     <p>Current status: {{ tree }} is <span class="{{ current_log.status | treestatus_to_status_badge_class }}">{{ current_log.status }}</span></p>
 
     <div class="block">
-        <a href="{{ url_for("treestatus.treestatus") }}"><button class="button">Show All Trees</button></a>
+        <a href="{{ url("treestatus-dashboard") }}"><button class="button">Show All Trees</button></a>
     </div>
     <div class="container">
         {% for log_update_form, log in logs %}
-            <form action="{{ url_for("treestatus.update_log", id=log.id) }}" method="post">
-                {{ log_update_form.csrf_token }}
+            <form action="{{ url("treestatus-update-log", args=[log.id]) }}" method="post">
+                {{ csrf_input }}
 
                 <div class="box log-update-form">
                     <div class="columns">
@@ -34,17 +28,17 @@
                                 {% if log.reason %}
                                     <div class="log-update-visible">
                                         <p>{{ log_update_form.reason.label }}: <b>{{ log.reason }}</b></p>
-                                        <p>{{ log_update_form.reason_category.label }}: <b>{{ log_update_form.reason_category.data | reason_category_to_display }}</b></p>
+                                        <p>{{ log_update_form.reason_category.label }}: <b>{{ log_update_form.reason_category.value() | reason_category_to_display }}</b></p>
                                     </div>
                                 {% endif %}
                                 <div class="log-update-hidden">
                                     <div class="field">
                                         <label class="label">{{ log_update_form.reason.label }}</label>
-                                        {{ log_update_form.reason(id=id_string, class="input") }}
+                                        {{ log_update_form.reason.as_widget(attrs={"id": id_string, "class": "input"}) }}
                                     </div>
                                     <div class="field">
                                         <label class="label">{{ log_update_form.reason_category.label }}</label>
-                                        {{ log_update_form.reason_category(id=id_string, class="select") }}
+                                        {{ log_update_form.reason_category.as_widget(attrs={"id": id_string, "class": "select"}) }}
                                     </div>
                                 </div>
                             </div>

@@ -401,7 +401,6 @@ def test_no_diff_start_line(
     get_landing_worker,
     repo_type: str,
 ):
-
     job_params = {
         "id": 1234,
         "status": JobStatus.IN_PROGRESS,
@@ -594,6 +593,48 @@ def test_failed_landing_job_checks(
     assert worker.run_job(job)
     assert job.status == JobStatus.FAILED
     assert reason in job.error
+
+
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        SCM_TYPE_GIT,
+        SCM_TYPE_HG,
+    ],
+)
+@pytest.mark.django_db
+def test_exception_landing_job_checks(
+    treestatusdouble,
+    monkeypatch: pytest.MonkeyPatch,
+    create_patch_revision,
+    make_landing_job,
+    caplog,
+    get_landing_worker,
+    repo_type: str,
+):
+    job_params = {
+        "id": 1234,
+        "status": JobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "attempts": 1,
+    }
+    job = make_landing_job(
+        revisions=[create_patch_revision(1)],
+        **job_params,
+    )
+    treestatusdouble.open_tree(job.target_repo.name)
+
+    scm = job.target_repo.scm
+
+    exception_message = "Forcing exception when running checks"
+    mock_update_repo = mock.MagicMock()
+    mock_update_repo.side_effect = Exception(exception_message)
+    monkeypatch.setattr(scm, "get_patch_helper", mock_update_repo)
+
+    worker = get_landing_worker(repo_type)
+    assert worker.run_job(job)
+    assert job.status == JobStatus.FAILED
+    assert exception_message in caplog.text
 
 
 @pytest.mark.parametrize(
