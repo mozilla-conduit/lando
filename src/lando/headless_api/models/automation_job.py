@@ -47,9 +47,11 @@ class AutomationJob(BaseJob):
         """Return the job details as API status JSON."""
         job_dict = self.to_dict()
 
-        job_dict["job_id"] = job_dict.pop("id")
-        job_dict["message"] = f"Job is in the {self.status} state."
-        job_dict["status_url"] = f"{settings.SITE_URL}/api/job/{self.id}"
+        # We keep the job_id for backward compatibility with old lando-cli *
+        job_dict["job_id"] = job_dict["id"]
+
+        job_dict["message"] = self.status_message
+        job_dict["status_url"] = self.status_url
 
         return job_dict
 
