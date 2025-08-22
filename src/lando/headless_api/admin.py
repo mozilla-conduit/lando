@@ -3,8 +3,7 @@ from django.core.handlers.wsgi import WSGIRequest
 
 from lando.headless_api.models.automation_job import AutomationAction, AutomationJob
 from lando.headless_api.models.tokens import ApiToken
-from lando.main.admin import ReadOnlyInline
-from lando.main.models import JobAdmin
+from lando.main.admin import JobAdmin, ReadOnlyInline
 
 
 class ApiTokenAdmin(admin.ModelAdmin):
