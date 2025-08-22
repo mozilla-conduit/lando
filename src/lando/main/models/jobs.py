@@ -89,7 +89,7 @@ class BaseJob(BaseModel):
         abstract = True
 
     def __str__(self) -> str:
-        return f"LandingJob {self.id} [{self.status}]"
+        return f"{self.__class__.__name__} {self.id} [{self.status}]"
 
     # Current status of the job.
     status = models.CharField(
