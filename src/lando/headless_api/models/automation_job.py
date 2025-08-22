@@ -9,7 +9,6 @@ from django.utils.translation import gettext_lazy
 from lando.main.models import (
     BaseJob,
     BaseModel,
-    JobStatus,
     Repo,
 )
 
