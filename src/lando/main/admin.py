@@ -61,7 +61,7 @@ class RevisionLandingJobInline(admin.TabularInline):
 
 class LandingJobAdmin(admin.ModelAdmin):
     model = LandingJob
-    inlines = [RevisionLandingJobInline]
+    inlines = (RevisionLandingJobInline,)
     list_display = (
         "id",
         "status",
@@ -70,7 +70,7 @@ class LandingJobAdmin(admin.ModelAdmin):
         "requester_email",
         "duration_seconds",
     )
-    list_filter = ["target_repo__name", "requester_email", "created_at"]
+    list_filter = ("target_repo__name", "created_at")
     fields = (
         "status",
         "attempts",
@@ -83,13 +83,14 @@ class LandingJobAdmin(admin.ModelAdmin):
         "target_commit_hash",
         "target_repo",
     )
-    readonly_fields = [
+    readonly_fields = (
         "attempts",
         "duration_seconds",
         "error",
         "formatted_replacements",
         "landed_commit_id",
-    ]
+    )
+    search_fields = ("requester_email", "unsorted_revisions__revision_id")
 
 
 class RevisionAdmin(admin.ModelAdmin):
@@ -100,6 +101,7 @@ class RevisionAdmin(admin.ModelAdmin):
         "patch_timestamp",
         "author",
     )
+    search_fields = ("revision_id",)
 
     def revision(self, instance: Revision) -> str:
         """Return a Phabricator-like revision identifier."""
@@ -155,6 +157,8 @@ class RepoAdmin(admin.ModelAdmin):
         "scm_type",
     )
 
+    search_fields = ("pull_path", "push_path", "url")
+
 
 class CommitMapAdmin(admin.ModelAdmin):
     model = CommitMap
@@ -163,12 +167,20 @@ class CommitMapAdmin(admin.ModelAdmin):
         "git_hash",
         "hg_hash",
     )
-    list_filter = ["git_repo_name"]
+    list_filter = ("git_repo_name",)
+    search_fields = (
+        "git_hash",
+        "hg_hash",
+    )
 
 
 class ConfigurationVariableAdmin(admin.ModelAdmin):
     model = ConfigurationVariable
     list_display = (
+        "key",
+        "value",
+    )
+    search_fields = (
         "key",
         "value",
     )
@@ -184,6 +196,7 @@ class WorkerAdmin(admin.ModelAdmin):
         "is_paused",
         "is_stopped",
     )
+    search_fields = ("applicable_repos__name",)
 
     def repo_count(self, instance: Worker) -> int:
         """Return the count of repositories associated to the Worker."""
