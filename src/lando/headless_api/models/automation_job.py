@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Iterable, Optional
+from typing import Any
 
 from django.conf import settings
 from django.db import models
