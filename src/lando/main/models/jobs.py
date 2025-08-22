@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class JobStatus(models.TextChoices):
-    """The statuses, and their processing order, that jobs can be in.
+    """The statuses, and their processing order, that jobs can be in."""
 
     """
     SUBMITTED = "SUBMITTED", gettext_lazy("Submitted")
