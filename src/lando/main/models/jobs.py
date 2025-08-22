@@ -254,7 +254,7 @@ class BaseJob(BaseModel):
         }
 
         if self.target_repo:
-            job_dict["repository"] = (self.target_repo.short_name,)
+            job_dict["repository"] = self.target_repo.short_name
 
         return job_dict
 
