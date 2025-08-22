@@ -4,7 +4,6 @@ import enum
 import logging
 from typing import Any, Iterable, Optional, Self
 
-from django.contrib import admin
 from django.db import models
 from django.db.models import Case, IntegerField, QuerySet, When
 from django.utils.translation import gettext_lazy
