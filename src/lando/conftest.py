@@ -460,22 +460,24 @@ def hg_repo_mc(
     autoformat_enabled: bool = False,
     automation_enabled: bool = True,
     force_push: bool = False,
+    hooks_enabled: bool = True,
     name: str = "",
     push_target: str = "",
 ) -> Repo:
     params = {
         "name": name or "mozilla-central-hg",
-        "required_permission": SCM_LEVEL_3,
-        "url": hg_server,
-        "push_path": hg_server,
         "pull_path": hg_server,
+        "push_path": hg_server,
+        "required_permission": SCM_LEVEL_3,
         "system_path": hg_clone.strpath,
+        "url": hg_server,
         # The option below can be overriden in the parameters
         "approval_required": approval_required,
         "autoformat_enabled": autoformat_enabled,
-        "force_push": force_push,
-        "push_target": push_target,
         "automation_enabled": automation_enabled,
+        "force_push": force_push,
+        "hooks_enabled": hooks_enabled,
+        "push_target": push_target,
     }
     repo = Repo.objects.create(
         scm_type=SCM_TYPE_HG,
@@ -494,6 +496,7 @@ def git_repo_mc(
     autoformat_enabled: bool = False,
     automation_enabled: bool = True,
     force_push: bool = False,
+    hooks_enabled: bool = True,
     name: str = "",
     push_target: str = "",
 ) -> Repo:
@@ -502,17 +505,18 @@ def git_repo_mc(
 
     params = {
         "name": name or "mozilla-central-git",
-        "required_permission": SCM_LEVEL_3,
-        "url": str(git_repo),
-        "push_path": str(git_repo),
         "pull_path": str(git_repo),
+        "push_path": str(git_repo),
+        "required_permission": SCM_LEVEL_3,
         "system_path": repos_dir / "git_repo",
+        "url": str(git_repo),
         # The option below can be overriden in the parameters
         "approval_required": approval_required,
         "autoformat_enabled": autoformat_enabled,
-        "force_push": force_push,
-        "push_target": push_target,
         "automation_enabled": automation_enabled,
+        "force_push": force_push,
+        "hooks_enabled": hooks_enabled,
+        "push_target": push_target,
     }
 
     repo = Repo.objects.create(
@@ -537,9 +541,10 @@ def repo_mc(
         scm_type: str,
         *,
         approval_required: bool = False,
-        autoformat_enabled: bool = False,
+        autoformat_enabled: bool = True,
         automation_enabled: bool = True,
         force_push: bool = False,
+        hooks_enabled: bool = True,
         name: str = "",
         push_target: str = "",
     ) -> Repo:
@@ -547,6 +552,7 @@ def repo_mc(
             "approval_required": approval_required,
             "autoformat_enabled": autoformat_enabled,
             "automation_enabled": automation_enabled,
+            "hooks_enabled": hooks_enabled,
             "force_push": force_push,
             "name": name,
             "push_target": push_target,
