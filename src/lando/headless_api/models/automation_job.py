@@ -55,19 +55,13 @@ class AutomationJob(BaseJob):
 
         return job_dict
 
-    @classmethod
-    def job_queue_query(
-        cls, repositories: Optional[Iterable[str]] = None, **kwargs
-    ) -> QuerySet:
-        """Return a query which selects the queued jobs."""
-        # XXX: If we can include IN_PROGRESS jobs, and sort by status_order, this method
-        # can be deleted in favour of the parent class's.
-        q = cls.objects.filter(status__in=(JobStatus.SUBMITTED, JobStatus.DEFERRED))
-        if repositories:
-            q = q.filter(target_repo__in=repositories)
+    @property
+    def status_url(self) -> str:
+        return f"{settings.SITE_URL}/api/job/{self.id}"
 
-        q = q.order_by("-priority", "created_at")
-        return q
+    @property
+    def status_message(self) -> str:
+        return f"Job is in the {self.status} state."
 
     def resolve_push_target_from_relbranch(self, repo: Repo) -> tuple[str | None, str]:
         """Return (target_cset, push_target) tuple for the `RelBranchSpecifier` if required."""
