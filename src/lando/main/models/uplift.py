@@ -105,7 +105,7 @@ class UpliftQuestionnaireResponse(BaseModel):
                 self.covered_by_testing == YesNoUnknownChoices.YES
             ),
             "Fix verified in Nightly": (
-                self.fix_verified_in_nightly == YesNoChoices.YES,
+                self.fix_verified_in_nightly == YesNoChoices.YES
             ),
             "Needs manual QE test": self.needs_manual_qe_testing == YesNoChoices.YES,
             "Steps to reproduce for manual QE testing": self.qe_testing_reproduction_steps,
