@@ -19,11 +19,7 @@ class TransplantRequestForm(forms.Form):
 
 
 class UpliftQuestionnaireForm(forms.Form):
-    """Form to process the uplift request questionnaire.
-
-    TODO:
-        - check the form submits correctly.
-    """
+    """Form to process the uplift request questionnaire."""
 
     user_impact = forms.CharField(
         widget=forms.Textarea, label="User impact if declined/Reason for urgency"
