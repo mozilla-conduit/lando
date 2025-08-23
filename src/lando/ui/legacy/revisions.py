@@ -11,6 +11,7 @@ from django.template.response import TemplateResponse
 
 from lando.api.legacy import api as legacy_api
 from lando.api.legacy.uplift import MAX_UPLIFT_STACK_SIZE
+from lando.api.legacy.validation import revision_id_to_int
 from lando.main.auth import force_auth_refresh
 from lando.main.models import Repo
 from lando.main.models.uplift import UpliftQuestionnaireResponse, UpliftRevision
@@ -50,7 +51,9 @@ class Uplift(LandoView):
             # they will see the flash messages.
             return redirect(request.META.get("HTTP_REFERER"))
 
-        revision_id = uplift_request_form.cleaned_data["revision_id"]
+        revision_id = revision_id_to_int(
+            uplift_request_form.cleaned_data["revision_id"]
+        )
         repository = uplift_request_form.cleaned_data["repository"]
 
         # Create DB rows for the uplift submission.

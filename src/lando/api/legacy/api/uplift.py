@@ -10,7 +10,6 @@ from lando.api.legacy.uplift import (
     get_local_uplift_repo,
     get_uplift_conduit_state,
 )
-from lando.api.legacy.validation import revision_id_to_int
 from lando.main.auth import require_authenticated_user, require_phabricator_api_key
 from lando.utils.phabricator import PhabricatorClient
 
@@ -23,7 +22,7 @@ def create(phab: PhabricatorClient, request, data: dict) -> dict:  # noqa: ANN00
     """Create new uplift requests for requested repository & revision"""
     repository = data["repository"]
     repo_name = repository.short_name
-    revision_id = revision_id_to_int(data["revision_id"])
+    revision_id = data["revision_id"]
     questionnaire_response = data["questionnaire_response"]
 
     try:
