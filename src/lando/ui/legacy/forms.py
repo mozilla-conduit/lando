@@ -74,11 +74,13 @@ class UpliftQuestionnaireForm(forms.Form):
     )
 
     def clean(self):
+        """Ensure QE reproduction steps are given if manual QE testing is required."""
         cleaned_data = super().clean()
 
-        """Ensure QE reproduction steps are given if manual QE testing is required."""
+        needs_manual_qe_testing = YesNoChoices(cleaned_data["needs_manual_qe_testing"])
+
         if (
-            cleaned_data["needs_manual_qe_testing"]
+            needs_manual_qe_testing == YesNoChoices.YES
             and not cleaned_data["qe_testing_reproduction_steps"]
         ):
             self.add_error(
