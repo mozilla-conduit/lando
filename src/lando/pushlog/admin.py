@@ -32,7 +32,7 @@ class PushCommitInline(ReadOnlyInline):
     # Used by ReadOnlyInline._field_getter_factory
     _target_object = "commit"
 
-    readonly_fields = ["hash_short", "desc", "author"]
+    readonly_fields = ("hash_short", "desc", "author")
 
     def hash_short(self, instance: Commit) -> str:
         return instance.commit.hash[:8]
@@ -47,7 +47,7 @@ class PushTagInline(ReadOnlyInline):
     # Used by ReadOnlyInline._field_getter_factory
     _target_object = "tag"
 
-    readonly_fields = ["name", "commit"]
+    readonly_fields = ("name", "commit")
 
 
 class PushAdmin(PushLogAdmin):
@@ -61,9 +61,9 @@ class PushAdmin(PushLogAdmin):
         "datetime",
         "user",
     )
-    inlines = [PushCommitInline, PushTagInline]
-    exclude = ["commits", "tags"]
-    list_display = [
+    inlines = (PushCommitInline, PushTagInline)
+    exclude = ("commits", "tags")
+    list_display = (
         "push_id",
         "notified",
         "repo__name",
@@ -72,8 +72,9 @@ class PushAdmin(PushLogAdmin):
         "tag_summary",
         "datetime",
         "user",
-    ]
-    list_filter = ["repo", "branch", "user", "datetime"]
+    )
+    list_filter = ("repo", "branch", "datetime")
+    search_fields = ("user", "commits__hash", "tags__name")
 
     def commit_summary(self, instance: Push) -> str:
         """Return a summary of commits present in a Push.
@@ -112,13 +113,13 @@ class CommitPushInline(ReadOnlyInline):
     model = Push.commits.through
     _target_object = "push"
 
-    readonly_fields = [
+    readonly_fields = (
         "push_id",
         "repo",
         "branch",
         "datetime",
         "user",
-    ]
+    )
 
 
 class CommitAdmin(PushLogAdmin):
@@ -133,9 +134,11 @@ class CommitAdmin(PushLogAdmin):
         "_files",
         "_parents",
     )
-    list_display = ["hash_short", "repo__name", "desc_first", "datetime", "author"]
-    list_filter = ["repo", "author", "datetime"]
-    inlines = [CommitPushInline]
+    search_fields = ("author", "hash", "desc")
+
+    list_display = ("hash_short", "repo__name", "desc_first", "datetime", "author")
+    list_filter = ("repo", "datetime")
+    inlines = (CommitPushInline,)
 
     def hash_short(self, instance: Commit) -> str:
         return instance.hash[:8]
@@ -149,8 +152,9 @@ class FileAdmin(PushLogAdmin):
         "repo",
         "name",
     )
-    list_display = ["name", "repo__name"]
-    list_filter = ["repo"]
+    search_fields = ("name",)
+    list_display = ("name", "repo__name")
+    list_filter = ("repo",)
 
 
 class TagPushInline(CommitPushInline):
@@ -164,9 +168,10 @@ class TagAdmin(PushLogAdmin):
         "name",
         "commit",
     )
-    list_display = ["name", "commit", "repo__name"]
-    list_filter = ["repo"]
-    inlines = [TagPushInline]
+    search_fields = ("name", "commit__hash")
+    list_display = ("name", "commit", "repo__name")
+    list_filter = ("repo",)
+    inlines = (TagPushInline,)
 
 
 admin.site.register(Push, PushAdmin)

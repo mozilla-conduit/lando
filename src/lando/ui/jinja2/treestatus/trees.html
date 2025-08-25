@@ -32,7 +32,6 @@
         {# Create a namespace to track the current category across the loop iterations. #}
         {% set ns = namespace(current_category="") %}
 
-        
         {% for tree_value, tree_label in treestatus_update_trees_form.fields.trees.choices %}
             {% set tree = trees[tree_value] %}
 

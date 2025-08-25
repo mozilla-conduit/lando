@@ -10,10 +10,11 @@ from lando.api.legacy.workers.landing_worker import (
     AUTOFORMAT_COMMIT_MESSAGE,
 )
 from lando.conftest import FAILING_CHECK_TYPES
-from lando.main.models import Repo, Revision
-from lando.main.models.landing_job import (
+from lando.main.models import (
     JobStatus,
     LandingJob,
+    Repo,
+    Revision,
 )
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.scm.helpers import HgPatchHelper
