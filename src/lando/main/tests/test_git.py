@@ -513,7 +513,9 @@ def test_GitSCM_update_repo(
     )
     _create_git_commit(request, clone_path)
 
-    scm.update_repo(str(git_repo), target_cs)
+    attributes_override = "some/weird/file diff"
+
+    scm.update_repo(str(git_repo), target_cs, attributes_override=attributes_override)
 
     current_commit = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=str(clone_path), capture_output=True
@@ -530,6 +532,12 @@ def test_GitSCM_update_repo(
     assert current_branch.startswith(
         b"lando-"
     ), f"Not on a work branch after update_repo: {current_branch}"
+
+    gitattributes = clone_path / ".git" / "info" / "attributes"
+    with open(gitattributes, "r") as f:
+        assert f.readline().startswith(
+            attributes_override
+        ), f".gitattributes override not at the beginning of {gitattributes}"
 
 
 @pytest.mark.parametrize(
