@@ -454,8 +454,16 @@ class HgSCM(AbstractSCM):
             .splitlines()
         )
 
-    def update_repo(self, pull_path: str, target_cset: Optional[str] = None) -> str:
-        """Update the repository to the specified changeset."""
+    def update_repo(
+        self,
+        pull_path: str,
+        target_cset: Optional[str] = None,
+        attributes_override: str = "",
+    ) -> str:
+        """Update the repository to the specified changeset.
+
+        `attributes_override` is ignored.
+        """
         source = pull_path
         # Obtain remote tip if not provided. We assume there is only a single head.
         if not target_cset:
@@ -645,8 +653,16 @@ class HgSCM(AbstractSCM):
             logger.exception(e)
         self.hg_repo.close()
 
-    def clean_repo(self, *, strip_non_public_commits: bool = True):
-        """Clean the local working copy from all extraneous files."""
+    def clean_repo(
+        self,
+        *,
+        strip_non_public_commits: bool = True,
+        attributes_override: str | None = None,
+    ):
+        """Clean the local working copy from all extraneous files.
+
+        `attributes_override` is ignored.
+        """
         # Reset rejects directory
         if self._get_rejects_path().is_dir():
             shutil.rmtree(self._get_rejects_path())

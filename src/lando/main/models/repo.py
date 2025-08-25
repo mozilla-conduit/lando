@@ -111,6 +111,14 @@ class Repo(BaseModel):
     milestone_tracking_flag_template = models.CharField(blank=True, default="")
     product_details_url = models.CharField(blank=True, default="")
 
+    # By default, override any attribute forcing files to be displayed as diffs (rather
+    # than binaries).
+    attributes_override = models.TextField(
+        blank=True,
+        default="* !diff\n",
+        help_text="SCM-specific attribute override. For git, this is `.gitattributes` value.",
+    )
+
     # Ideally, we'd like the push_target to be nullable, but Django forms will not
     # honour this, and instead put an empty string when blankable fields are left empty.
     # We handle the case later in the code (namely in HgSCM.push), by treating the empty

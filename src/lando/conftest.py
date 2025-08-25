@@ -113,6 +113,41 @@ index 2a02d41..45e9938 100644
 -- 
 """  # noqa: W291, `git` adds a trailing whitespace after `--`.
 
+PATCH_GIT_BINARY_1 = """\
+From be6df88a1c2c64621ab9dfdf244272748e93c26f Mon Sep 17 00:00:00 2001
+From: Py Test <pytest@lando.example.net>
+Date: Tue, 22 Apr 2025 02:02:55 +0000
+Subject: almost-not-binary: add testcase for Bug 1984942
+
+Differential Revision: http://phabricator.test/D71
+---
+ .gitattributes    |   1 +
+ almost-not-binary | Bin 0 -> 28 bytes
+ 2 files changed, 1 insertion(+)
+ create mode 100644 .gitattributes
+ create mode 100644 almost-not-binary
+
+diff --git a/almost-not-binary b/almost-not-binary
+new file mode 100644
+index 0000000000000000000000000000000000000000..226cdd7b100a1d9e624b8040b5a60cadd93716f1
+GIT binary patch
+literal 28
+jc${NkT%4t)XONnktCyUg%cZ54m{OKmoL{6@Ud#mmcC-k;
+
+literal 0
+Hc$@<O00001
+
+
+
+diff --git a/.gitattributes b/.gitattributes
+new file mode 100644
+--- /dev/null
++++ b/.gitattributes
+@@ -0,0 +1 @@
++almost-not-binary diff
+
+""".lstrip()
+
 
 @pytest.fixture
 def normal_patch():
@@ -133,10 +168,11 @@ def normal_patch():
 def git_patch():
     """Return a factory providing one of several git patches.
 
-    Currently, there's only one patch.
+    The first patch is a normal patch, the second one contains binary weirdness.
     """
     _patches = [
         PATCH_GIT_1,
+        PATCH_GIT_BINARY_1,
     ]
 
     def _patch(number=0):
