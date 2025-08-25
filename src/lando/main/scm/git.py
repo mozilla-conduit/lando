@@ -459,8 +459,11 @@ class GitSCM(AbstractSCM):
         # We need to differentiate between None and "" here, so we know when we were
         # explicitly given an empty string.
         if attributes_override is not None:
+            # $GIT_DIR/info/attributes has the highest precedence.
             with open(f"{self._git_dir}/info/attributes", "w+") as fp:
-                fp.write(attributes_override)
+                if not "\n".join(fp.readlines()).startswith(attributes_override):
+                    fp.seek(0)
+                    fp.write(attributes_override)
 
         self._git_run("clean", "-fdx", cwd=self.path)
 

@@ -79,7 +79,6 @@ class AbstractSCM:
         origin.
 
         `attributes_override` is SCM-dependent.
-
         """
 
     @abstractmethod
