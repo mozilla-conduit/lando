@@ -584,7 +584,14 @@ def test_automation_job_add_commit_success_git(
                 "action": "add-commit",
                 "content": git_patch(),
                 "patch_format": "git-format-patch",
-            }
+            },
+            {
+                "action": "add-commit",
+                "content": git_patch(
+                    1
+                ),  # Patch with non-UTF8 binary in text-like file.
+                "patch_format": "git-format-patch",
+            },
         ],
         status=JobStatus.SUBMITTED,
         requester_email="example@example.com",
@@ -596,12 +603,14 @@ def test_automation_job_add_commit_success_git(
     scm.push = mock.MagicMock()
 
     assert git_automation_worker.run_automation_job(job)
+
+    assert job.status == JobStatus.LANDED, job.error
+    assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
+
     assert scm.push.call_count == 1
     assert len(scm.push.call_args) == 2
     assert len(scm.push.call_args[0]) == 1
     assert scm.push.call_args[1] == {"push_target": "", "force_push": False, "tags": []}
-    assert job.status == JobStatus.LANDED, job.error
-    assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
 
 
 @pytest.mark.django_db

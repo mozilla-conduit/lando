@@ -124,7 +124,11 @@ class AutomationWorker(Worker):
 
             repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
             try:
-                pre_head_ref = scm.update_repo(repo.pull_path, target_cset=target_cset)
+                pre_head_ref = scm.update_repo(
+                    repo.pull_path,
+                    target_cset=target_cset,
+                    attributes_override=repo.attributes_override,
+                )
             except SCMInternalServerError as e:
                 message = (
                     f"Temporary error ({e.__class__}) "
