@@ -59,9 +59,9 @@ class RevisionLandingJobInline(admin.TabularInline):
     fields = ("revision",)
 
 
-class LandingJobAdmin(admin.ModelAdmin):
-    model = LandingJob
-    inlines = (RevisionLandingJobInline,)
+class JobAdmin(admin.ModelAdmin):
+    """A base admin class for jobs."""
+
     list_display = (
         "id",
         "status",
@@ -71,6 +71,19 @@ class LandingJobAdmin(admin.ModelAdmin):
         "duration_seconds",
     )
     list_filter = ("target_repo__name", "created_at")
+    readonly_fields = (
+        "attempts",
+        "duration_seconds",
+        "error",
+        "landed_commit_id",
+        "requester_email",
+    )
+    search_fields = ("requester_email", "landed_commit_id")
+
+
+class LandingJobAdmin(JobAdmin):
+    model = LandingJob
+    inlines = (RevisionLandingJobInline,)
     fields = (
         "status",
         "attempts",
@@ -83,14 +96,8 @@ class LandingJobAdmin(admin.ModelAdmin):
         "target_commit_hash",
         "target_repo",
     )
-    readonly_fields = (
-        "attempts",
-        "duration_seconds",
-        "error",
-        "formatted_replacements",
-        "landed_commit_id",
-    )
-    search_fields = ("requester_email", "unsorted_revisions__revision_id")
+    readonly_fields = JobAdmin.readonly_fields + ("formatted_replacements",)
+    search_fields = JobAdmin.search_fields + ("requester_email",)
 
 
 class RevisionAdmin(admin.ModelAdmin):

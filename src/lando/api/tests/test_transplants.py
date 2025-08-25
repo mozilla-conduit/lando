@@ -20,10 +20,12 @@ from lando.api.legacy.transplants import (
     warning_revision_secure,
     warning_wip_commit_message,
 )
-from lando.main.models import DONTBUILD, SCM_CONDUIT, Repo
-from lando.main.models.landing_job import (
+from lando.main.models import (
+    DONTBUILD,
+    SCM_CONDUIT,
     JobStatus,
     LandingJob,
+    Repo,
 )
 from lando.main.models.revision import Revision
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG

@@ -22,11 +22,10 @@ from lando.headless_api.models.automation_job import (
     AutomationJob,
 )
 from lando.headless_api.models.tokens import ApiToken
-from lando.main.models.landing_job import JobAction, JobStatus
-from lando.main.models.repo import Repo
-from lando.main.scm.abstract_scm import AbstractSCM
-from lando.main.scm.consts import MergeStrategy
-from lando.main.scm.exceptions import (
+from lando.main.models import JobAction, JobStatus, Repo
+from lando.main.scm import (
+    AbstractSCM,
+    MergeStrategy,
     PatchConflict,
 )
 from lando.main.scm.helpers import (

@@ -10,8 +10,7 @@ from lando.api.legacy.treestatus import (
     TreeStatusError,
 )
 from lando.headless_api.models.automation_job import AutomationJob
-from lando.main.models.landing_job import JobStatus, LandingJob
-from lando.main.models.worker import Worker, WorkerType
+from lando.main.models import JobStatus, LandingJob, Worker, WorkerType
 from lando.ui.views import LandoView
 from lando.utils import treestatus
 
