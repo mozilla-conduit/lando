@@ -72,7 +72,7 @@ def test_authentication_invalid_token(
 
 @pytest.mark.django_db()
 @override_settings(ENVIRONMENT=Environment("production"))
-@patch("lando.try_api.api.GlobalAuth.authenticate")
+@patch("lando.try_api.api.AccessTokenAuth.authenticate")
 def test_userinfo_not_in_prod(mock_authenticate: MagicMock, api_client: TestClient):
     mock_authenticate.return_value = User(username="testuser", is_active=True)
     response = api_client.get(
