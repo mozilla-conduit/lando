@@ -9,6 +9,7 @@ from ninja import NinjaAPI, Schema
 from ninja.errors import HttpError
 from pydantic import Field, StringConstraints
 
+from lando.headless_api.api import AutomationOperation, post_repo_actions
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.utils.auth import AccessTokenAuth
 
@@ -51,6 +52,11 @@ Base64Patch = Annotated[
 class PatchesRequest(Schema):
     """Provide the content of the push for submission to Lando."""
 
+    repo: Annotated[
+        str,
+        Field(description="The Try repository to push to, defaults to `firefox-try`"),
+    ] = "firefox-try"
+
     base_commit: Annotated[
         str,
         Field(
@@ -86,6 +92,8 @@ class JobResponse(Schema):
         int, Field(description="The ID of the job created for this submission.")
     ]
 
+    headless_request: AutomationOperation
+
 
 @api.post(
     "/patches",
@@ -102,6 +110,36 @@ class JobResponse(Schema):
         }
     },
 )
-def patches(request: WSGIRequest, data: PatchesRequest) -> JsonResponse:
+def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]:
     """Submit a set of patches to the Try server."""
-    return 201, JobResponse(id=42)
+
+    actions = [
+        {
+            "action": "add-commit-base64",
+            "content": patch,
+            # XXX: limitations:
+            # * data.base_commit_vcs = "git"
+            # * data.patch_format = "git-format-patch
+        }
+        for patch in patches.patches
+    ]
+
+    headless_request = {
+        "actions": actions,
+        "relbranch": {
+            "branch_name": "",
+            "commit_sha": patches.base_commit,
+        },
+    }
+
+    _, automation_job = post_repo_actions(
+        request,
+        repo_name=patches.repo,  # XXX:  make sure we validate and authenticate!
+        operation=AutomationOperation(**headless_request),
+    )
+
+    return 201, JobResponse(
+        id=automation_job["id"],
+        headless_request=headless_request,
+        automation_job=automation_job,
+    )
