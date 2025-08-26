@@ -13,11 +13,10 @@ from lando.headless_api.models.automation_job import (
     ActionTypeChoices,
     AutomationJob,
 )
-from lando.main.models.landing_job import JobAction, JobStatus
-from lando.main.models.worker import WorkerType
-from lando.main.scm.abstract_scm import AbstractSCM
-from lando.main.scm.commit import CommitData
-from lando.main.scm.exceptions import (
+from lando.main.models import JobAction, JobStatus, WorkerType
+from lando.main.scm import (
+    AbstractSCM,
+    CommitData,
     SCMInternalServerError,
     SCMLostPushRace,
     SCMPushTimeoutException,

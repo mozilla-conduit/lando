@@ -5,6 +5,7 @@ import logging
 from io import StringIO
 from typing import Annotated, Literal, Optional, Union
 
+from django.core.exceptions import PermissionDenied
 from django.core.handlers.wsgi import WSGIRequest
 from django.db import transaction
 from django.http import HttpResponse
@@ -21,11 +22,10 @@ from lando.headless_api.models.automation_job import (
     AutomationJob,
 )
 from lando.headless_api.models.tokens import ApiToken
-from lando.main.models.landing_job import JobAction, JobStatus
-from lando.main.models.repo import Repo
-from lando.main.scm.abstract_scm import AbstractSCM
-from lando.main.scm.consts import MergeStrategy
-from lando.main.scm.exceptions import (
+from lando.main.models import JobAction, JobStatus, Repo
+from lando.main.scm import (
+    AbstractSCM,
+    MergeStrategy,
     PatchConflict,
 )
 from lando.main.scm.helpers import (
@@ -36,7 +36,7 @@ from lando.main.scm.helpers import (
 logger = logging.getLogger(__name__)
 
 
-class APIPermissionDenied(PermissionError):
+class APIPermissionDenied(PermissionDenied):
     """Custom exception type to allow JSON responses for invalid auth."""
 
     pass
@@ -72,7 +72,7 @@ class HeadlessAPIAuthentication(HttpBearer):
         return api_key
 
 
-api = NinjaAPI(auth=HeadlessAPIAuthentication())
+api = NinjaAPI(auth=HeadlessAPIAuthentication(), urls_namespace="headless-api")
 
 
 @api.exception_handler(APIPermissionDenied)

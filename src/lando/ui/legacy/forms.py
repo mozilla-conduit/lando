@@ -22,8 +22,13 @@ class UpliftRequestForm(forms.Form):
     )
     repository = forms.ChoiceField(
         widget=forms.Select(),
-        choices=((repo, repo) for repo in get_uplift_repositories()),
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        uplift_repos = get_uplift_repositories()
+        self.fields["repository"].choices = [(repo, repo) for repo in uplift_repos]
 
     def clean_repository(self) -> str:
         repo_short_name = self.cleaned_data["repository"]

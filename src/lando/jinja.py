@@ -12,10 +12,9 @@ from django.urls import reverse
 from django.utils.html import escape
 from jinja2 import Environment
 
-from lando.main.models import Repo
-from lando.main.models.landing_job import JobStatus, LandingJob
-from lando.main.scm.consts import SCM_TYPE_GIT
-from lando.treestatus.forms import (
+from lando.main.models import JobStatus, LandingJob, Repo
+from lando.main.scm import SCM_TYPE_GIT
+from lando.treestatus.models import (
     ReasonCategory,
     TreeCategory,
 )
@@ -30,22 +29,6 @@ logger = logging.getLogger(__name__)
 # TODO: this should be ported once all forms are ported to Django forms.
 # def new_settings_form() -> UserSettingsForm:
 #     return UserSettingsForm()
-
-
-TREESTATUS_USER_GROUPS = {
-    "mozilliansorg_treestatus_admins",
-    "mozilliansorg_treestatus_users",
-}
-
-
-def is_treestatus_user(userinfo: dict) -> bool:
-    # TODO determine if this is correct - bug 1893312.
-    try:
-        groups = userinfo["https://sso.mozilla.com/claim/groups"]
-    except KeyError:
-        return False
-
-    return not TREESTATUS_USER_GROUPS.isdisjoint(groups)
 
 
 def escape_html(text: str) -> str:
@@ -144,7 +127,7 @@ def tostatusbadgename(landing_job: LandingJob) -> str:
 
 def reason_category_to_display(reason_category_str: str) -> str:
     try:
-        return ReasonCategory(reason_category_str).to_display()
+        return ReasonCategory(reason_category_str).label
     except ValueError:
         # Return the bare string, in case of older data.
         return reason_category_str
@@ -152,7 +135,7 @@ def reason_category_to_display(reason_category_str: str) -> str:
 
 def tree_category_to_display(tree_category_str: str) -> str:
     try:
-        return TreeCategory(tree_category_str).to_display()
+        return TreeCategory(tree_category_str).label
     except ValueError:
         return tree_category_str
 
@@ -362,6 +345,7 @@ def message_type_to_notification_class(flash_message_category: str) -> str:
         levels["INFO"]: "is-info",
         levels["SUCCESS"]: "is-success",
         levels["WARNING"]: "is-warning",
+        levels["ERROR"]: "is-danger",
     }.get(flash_message_category, "is-info")
 
 
@@ -372,7 +356,6 @@ def environment(**options):  # noqa: ANN201
             "config": settings,
             "get_messages": messages.get_messages,
             "graph_height": graph_height,
-            "is_treestatus_user": is_treestatus_user,
             "treeherder_link": treeherder_link,
             "new_settings_form": UserSettingsForm,
             "static_url": settings.STATIC_URL,

@@ -6,7 +6,7 @@ from django.core.handlers.wsgi import WSGIRequest
 from django.http import JsonResponse
 
 from lando.main.auth import require_authenticated_user
-from lando.main.models.landing_job import JobAction, JobStatus, LandingJob
+from lando.main.models import JobAction, JobStatus, LandingJob
 
 logger = logging.getLogger(__name__)
 

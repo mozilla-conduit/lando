@@ -6,6 +6,7 @@ from typing import (
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.core.exceptions import PermissionDenied
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse
 from mozilla_django_oidc.auth import OIDCAuthenticationBackend
@@ -66,12 +67,12 @@ def require_authenticated_user(f):  # noqa: ANN001, ANN201
     """
     Decorator which requires a user to be authenticated.
 
-    Raises a PermissionError if a request is by an unauthenticated user.
+    Raises a `PermissionDenied` if a request is by an unauthenticated user.
     """
 
     def wrapper(request, *args, **kwargs):  # noqa: ANN001
         if not request.user.is_authenticated:
-            raise PermissionError("Authentication is required")
+            raise PermissionDenied("Authentication is required")
         return f(request, *args, **kwargs)
 
     return wrapper
@@ -103,7 +104,7 @@ def force_auth_refresh(f: Callable) -> Callable:
 
 class require_permission:
     """
-    Decorator that raises a PermissionError if a user is missing the given permission.
+    Decorator that raises a `PermissionDenied` if a user is missing the given permission.
     """
 
     def __init__(self, permission):  # noqa: ANN001
@@ -112,7 +113,7 @@ class require_permission:
     def __call__(self, f: Callable) -> Callable:
         def wrapper(request, *args, **kwargs):  # noqa: ANN001
             if not request.user.has_perm(f"main.{self.required_permission}"):
-                raise PermissionError()
+                raise PermissionDenied()
             return f(request, *args, **kwargs)
 
 

@@ -72,6 +72,8 @@ services:
       - 443:443
     depends_on:
       - lando
+    volumes:
+      - ./staticfiles:/code/staticfiles
 
   redis:
     image: redis:7.2

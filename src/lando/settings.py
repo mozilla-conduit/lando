@@ -50,7 +50,7 @@ CSRF_COOKIE_SECURE = True
 
 # Set the default upload memory size to a large value, to support large uploads from
 # lando-cli.
-DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("DATA_UPLOAD_MAX_MEMORY_SIZE", "104857600"))
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("DATA_UPLOAD_MAX_MEMORY_SIZE", "524288000"))
 
 # Application definition
 # Order matters if we want to override things like templates
@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     "lando.dockerflow",
     "lando.ui",
     "lando.headless_api",
+    "lando.treestatus",
     # Third-party apps
     "django.contrib.admin",
     "django.contrib.auth",

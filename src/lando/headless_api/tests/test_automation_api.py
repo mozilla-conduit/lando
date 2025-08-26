@@ -20,10 +20,8 @@ from lando.headless_api.api import (
     AutomationJob,
 )
 from lando.headless_api.models.tokens import ApiToken
-from lando.main.models import SCM_LEVEL_3, Repo
-from lando.main.models.landing_job import JobStatus
-from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
-from lando.main.scm.exceptions import PatchConflict
+from lando.main.models import SCM_LEVEL_3, JobStatus, Repo
+from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG, PatchConflict
 from lando.main.tests.test_git import _create_git_commit
 from lando.pushlog.models import Push
 
@@ -459,11 +457,16 @@ def test_get_job_status_not_found(client, headless_user):
     ),
 )
 @pytest.mark.django_db
-def test_get_job_status(status, message, client, headless_user, automation_job):
+def test_get_job_status(
+    status, message, client, headless_user, automation_job, repo_mc
+):
     user, token = headless_user
+    repo = repo_mc(SCM_TYPE_GIT)
 
     # Create a job and actions
-    job, _actions = automation_job(status=status, actions=[{"content": "test"}])
+    job, _actions = automation_job(
+        status=status, actions=[{"content": "test"}], target_repo=repo
+    )
 
     # Fetch job status.
     response = client.get(
