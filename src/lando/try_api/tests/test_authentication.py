@@ -28,7 +28,7 @@ def api_client():
 
 @pytest.mark.django_db()
 @patch("lando.try_api.api.LandoOIDCAuthenticationBackend.authenticate")
-# @patch("lando.try_api.api.GlobalAuth.authenticate")
+# @patch("lando.try_api.api.AccessTokenAuth.authenticate")
 def test_authentication_valid_token(
     mock_authenticate: MagicMock, api_client: TestClient
 ):
