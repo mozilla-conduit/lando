@@ -61,18 +61,22 @@ class Uplift(LandoView):
             questionnaire_response = UpliftQuestionnaireResponse.from_cleaned_form(
                 request.user, uplift_request_form.cleaned_data
             )
-            UpliftRevision.objects.create(
-                questionnaire_response=questionnaire_response, revision_id=revision_id
+
+            response = legacy_api.uplift.create(
+                request,
+                data={
+                    "revision_id": revision_id,
+                    "repository": repository,
+                    "questionnaire_response": questionnaire_response.to_conduit_json(),
+                },
             )
 
-        response = legacy_api.uplift.create(
-            request,
-            data={
-                "revision_id": revision_id,
-                "repository": repository,
-                "questionnaire_response": questionnaire_response.to_conduit_json(),
-            },
-        )
+            tip_revision_id = response["tip_differential"]["revision_id"]
+
+            UpliftRevision.objects.create(
+                questionnaire_response=questionnaire_response,
+                revision_id=tip_revision_id,
+            )
 
         # Redirect to the tip revision's URL.
         # TODO add js for auto-opening the uplift request Phabricator form.
