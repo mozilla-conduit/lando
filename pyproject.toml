@@ -23,7 +23,7 @@ dependencies = [
     "kombu",
     "mercurial==6.1.4",
     "mots",
-    "mozilla_django_oidc@git+https://github.com/shtrom/mozilla-django-oidc@bug1979246/access_token-bearer",
+    "mozilla_django_oidc",
     "networkx",
     "psycopg2-binary",
     "python-hglib==2.6.2",
