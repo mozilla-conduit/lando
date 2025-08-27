@@ -363,8 +363,6 @@ def create_uplift_revision(
 
     # Add the uplift request form if applicable.
     if questionnaire_response:
-        # TODO: can we put this in the main call or does it need to be
-        #       in a separate call?
         transactions.append(
             # The `value` needs to be a string.
             {"type": "uplift.request", "value": json.dumps(questionnaire_response)}
