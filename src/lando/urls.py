@@ -35,6 +35,9 @@ from lando.treestatus.views.ui import (
     TreestatusTreeLogsView,
     TreestatusUpdateChangeView,
 )
+from lando.try_api.api import (
+    api as try_api,
+)
 from lando.ui import jobs
 from lando.ui.legacy import pages, revisions, user_settings
 
@@ -122,3 +125,6 @@ urlpatterns += [
         name="treestatus-update-log",
     ),
 ]
+
+# Try endpoints.
+urlpatterns += [path("try/", try_api.urls, name="try")]
