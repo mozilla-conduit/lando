@@ -44,8 +44,7 @@ class AccessTokenAuth(HttpBearer):
     def authenticate(self, request: WSGIRequest, token: str) -> User:
         """Forward the authenticate request to the LandoOIDCAuthenticationBackend."""
         # The token is extracted in the LandoOIDCAuthenticationBackend, so we don't need
-        # to pass it. But we need to inherit from HttpBearer for Auth to work.
-
+        # to pass it. But we need to inherit from HttpBearer for auth to work with Ninja.
         oidc_auth = AccessTokenLandoOIDCAuthenticationBackend()
 
         # Django-Ninja sets `request.auth` to the verified token, since
