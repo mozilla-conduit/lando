@@ -1,11 +1,15 @@
 #!/usr/bin/env python
 """Django's command-line utility for administrative tasks."""
+import logging
 import os
 import sys
+
+from django.conf import settings
 
 
 def main():
     """Run administrative tasks."""
+    logging.basicConfig(level=settings.LOG_LEVEL)
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "lando.settings")
     try:
         from django.core.management import execute_from_command_line
