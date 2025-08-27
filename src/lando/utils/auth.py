@@ -12,21 +12,12 @@ from lando.main.auth import LandoOIDCAuthenticationBackend
 logger = logging.getLogger(__name__)
 
 
-class AccessTokenAuth(HttpBearer):
-    """Ninja bearer token-based authenticator delegating verification to the OIDC backend."""
+class AccessTokenLandoOIDCAuthenticationBackend(LandoOIDCAuthenticationBackend):
+    """A shim of the LandoOIDCAuthenticationBackend, borrowing code from mozilla-django-oidc#551.
 
-    def authenticate(self, request: WSGIRequest, token: str) -> User:
-        """Forward the authenticate request to the LandoOIDCAuthenticationBackend."""
-        # The token is extracted in the LandoOIDCAuthenticationBackend, so we don't need
-        # to pass it. But we need to inherit from HttpBearer for Auth to work.
+    https://github.com/mozilla/mozilla-django-oidc/pull/551"""
 
-        user = None
-        oidc_auth = LandoOIDCAuthenticationBackend()
-
-        #
-        # BEGIN BORROW FROM https://github.com/mozilla/mozilla-django-oidc/pull/551
-        #
-
+    def authenticate(self, request: WSGIRequest, **kwargs) -> User:
         # If a bearer token is present in the request, use it to authenticate the user.
         if authorization := request.META.get("HTTP_AUTHORIZATION"):
             scheme, token = authorization.split(maxsplit=1)
@@ -35,7 +26,7 @@ class AccessTokenAuth(HttpBearer):
                 # XXX: maybe we only want to _get_ the user, and not create the if they
                 # aren't alrealdy registered.
                 try:
-                    user = oidc_auth.get_or_create_user(token, None, None)
+                    return self.get_or_create_user(token, None, None)
                 except HTTPError as exc:
                     if exc.response.status_code in [401, 403]:
                         logger.warning(
@@ -43,17 +34,22 @@ class AccessTokenAuth(HttpBearer):
                         )
                         return None
                     raise exc
-        #
-        # END BORROW FROM https://github.com/mozilla/mozilla-django-oidc/pull/551
-        #
 
-        if not user:
-            oidc_auth.authenticate(request)
+        return super().authenticate(request, **kwargs)
+
+
+class AccessTokenAuth(HttpBearer):
+    """Ninja bearer token-based authenticator delegating verification to the OIDC backend."""
+
+    def authenticate(self, request: WSGIRequest, token: str) -> User:
+        """Forward the authenticate request to the LandoOIDCAuthenticationBackend."""
+        # The token is extracted in the LandoOIDCAuthenticationBackend, so we don't need
+        # to pass it. But we need to inherit from HttpBearer for Auth to work.
+
+        oidc_auth = AccessTokenLandoOIDCAuthenticationBackend()
 
         # Django-Ninja sets `request.auth` to the verified token, since
         # some APIs may have authentication without user management. Our
         # API tokens always correspond to a specific user, so set that on
         # the request here.
-        request.user = user
-
-        return user
+        return oidc_auth.authenticate(request)
