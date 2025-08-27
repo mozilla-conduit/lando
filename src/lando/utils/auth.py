@@ -51,4 +51,6 @@ class AccessTokenAuth(HttpBearer):
         # some APIs may have authentication without user management. Our
         # access tokens always correspond to a specific user, so set that on
         # the request here.
-        return oidc_auth.authenticate(request)
+        request.user = oidc_auth.authenticate(request)
+
+        return request.user
