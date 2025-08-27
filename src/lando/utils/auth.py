@@ -49,6 +49,6 @@ class AccessTokenAuth(HttpBearer):
 
         # Django-Ninja sets `request.auth` to the verified token, since
         # some APIs may have authentication without user management. Our
-        # API tokens always correspond to a specific user, so set that on
+        # access tokens always correspond to a specific user, so set that on
         # the request here.
         return oidc_auth.authenticate(request)
