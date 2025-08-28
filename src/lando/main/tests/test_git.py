@@ -592,9 +592,9 @@ def test_GitSCM_update_repo(
 
     gitattributes = clone_path / ".git" / "info" / "attributes"
     with open(gitattributes, "r") as f:
-        assert f.readline().startswith(
-            attributes_override
-        ), f".gitattributes override not at the beginning of {gitattributes}"
+        assert (
+            f.read() == attributes_override
+        ), f".gitattributes override not in {gitattributes}"
 
 
 @pytest.mark.parametrize(
