@@ -161,7 +161,7 @@ def test_GitSCM_clean_repo_gitattributes(
     scm.clone(str(git_repo))
     git_setup_user(str(clone_path))
 
-    attributes_file: Path = clone_path / ".git" / "info" / "attributes"
+    attributes_file = clone_path / ".git" / "info" / "attributes"
 
     if current_gitattributes is None:
         attribute_mtime = 0
@@ -169,8 +169,6 @@ def test_GitSCM_clean_repo_gitattributes(
         with open(attributes_file, "w") as file:
             file.write(current_gitattributes)
         attribute_mtime = attributes_file.stat().st_mtime
-        # Wait a bit so the next file modification has a different mtime.
-        # sleep(0.01)
 
     scm.clean_repo(attributes_override=new_gitattributes)
 
