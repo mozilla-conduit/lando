@@ -12,9 +12,8 @@ from django.urls import reverse
 from django.utils.html import escape
 from jinja2 import Environment
 
-from lando.main.models import Repo
-from lando.main.models.landing_job import JobStatus, LandingJob
-from lando.main.scm.consts import SCM_TYPE_GIT
+from lando.main.models import JobStatus, LandingJob, Repo
+from lando.main.scm import SCM_TYPE_GIT
 from lando.treestatus.models import (
     ReasonCategory,
     TreeCategory,

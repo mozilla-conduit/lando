@@ -23,13 +23,11 @@ from lando.api.legacy.uplift import (
     update_bugs_for_uplift,
 )
 from lando.api.legacy.workers.base import Worker
-from lando.main.models.landing_job import JobAction, JobStatus, LandingJob
-from lando.main.models.repo import Repo
-from lando.main.models.worker import WorkerType
-from lando.main.scm.abstract_scm import AbstractSCM
-from lando.main.scm.commit import CommitData
-from lando.main.scm.exceptions import (
+from lando.main.models import JobAction, JobStatus, LandingJob, Repo, WorkerType
+from lando.main.scm import (
+    AbstractSCM,
     AutoformattingException,
+    CommitData,
     NoDiffStartLine,
     PatchConflict,
     SCMException,
@@ -270,7 +268,11 @@ class LandingWorker(Worker):
         # Update local repo.
         repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
         try:
-            scm.update_repo(repo.pull_path, target_cset=job.target_commit_hash)
+            scm.update_repo(
+                repo.pull_path,
+                target_cset=job.target_commit_hash,
+                attributes_override=repo.attributes_override,
+            )
         except SCMInternalServerError as e:
             message = (
                 f"`Temporary error ({e.__class__}) "

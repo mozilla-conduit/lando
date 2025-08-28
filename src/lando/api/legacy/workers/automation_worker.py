@@ -13,11 +13,10 @@ from lando.headless_api.models.automation_job import (
     ActionTypeChoices,
     AutomationJob,
 )
-from lando.main.models.landing_job import JobAction, JobStatus
-from lando.main.models.worker import WorkerType
-from lando.main.scm.abstract_scm import AbstractSCM
-from lando.main.scm.commit import CommitData
-from lando.main.scm.exceptions import (
+from lando.main.models import JobAction, JobStatus, WorkerType
+from lando.main.scm import (
+    AbstractSCM,
+    CommitData,
     SCMInternalServerError,
     SCMLostPushRace,
     SCMPushTimeoutException,
@@ -125,7 +124,11 @@ class AutomationWorker(Worker):
 
             repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
             try:
-                pre_head_ref = scm.update_repo(repo.pull_path, target_cset=target_cset)
+                pre_head_ref = scm.update_repo(
+                    repo.pull_path,
+                    target_cset=target_cset,
+                    attributes_override=repo.attributes_override,
+                )
             except SCMInternalServerError as e:
                 message = (
                     f"Temporary error ({e.__class__}) "

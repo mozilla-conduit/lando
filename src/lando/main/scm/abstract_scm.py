@@ -67,11 +67,20 @@ class AbstractSCM:
         """
 
     @abstractmethod
-    def clean_repo(self, *, strip_non_public_commits: bool = True):
+    def clean_repo(
+        self,
+        *,
+        strip_non_public_commits: bool = True,
+        attributes_override: str | None = None,
+    ):
         """Clean the local working copy from all extraneous files.
 
         If `strip_non_public_commits` is set, also rewind any commit not present on the
-        origin."""
+        origin.
+
+        `attributes_override` is SCM-dependent.
+
+        """
 
     @abstractmethod
     def last_commit_for_path(self, path: str) -> str:
@@ -204,7 +213,12 @@ class AbstractSCM:
         """
 
     @abstractmethod
-    def update_repo(self, pull_path: str, target_cset: Optional[str] = None) -> str:
+    def update_repo(
+        self,
+        pull_path: str,
+        target_cset: Optional[str] = None,
+        attributes_override: str | None = None,
+    ) -> str:
         """Update the repository to the specified changeset.
 
         This method uses the Mercurial command to update the repository
@@ -216,6 +230,7 @@ class AbstractSCM:
         Args:
             pull_path (str): The path to pull from.
             target_cset (str): The target changeset to update the repository to.
+            attributes_override: Arbitrary attributes to override (SCM-dependent).
 
         Returns:
             str: The target changeset
