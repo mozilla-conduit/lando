@@ -212,7 +212,7 @@ def test_GitSCM_apply_get_patch_merge(
 
     # Merge feature into main
     subprocess.run(["git", "switch", main_branch], cwd=str(clone_path), check=True)
-    strategy = "theirs"
+    strategy = MergeStrategy.THEIRS
     commit_msg = f"Merge main into feature with strategy {strategy}"
     merge_commit = scm.merge_onto(commit_msg, target_branch, strategy)
 
@@ -575,7 +575,7 @@ def test_GitSCM_push(
     git_repo: Path,
     git_setup_user: Callable,
     monkeypatch: pytest.MonkeyPatch,
-    push_target: Optional[str],
+    push_target: str | None,
     request: pytest.FixtureRequest,
     tmp_path: Path,
 ):
@@ -689,7 +689,7 @@ def test_GitSCM_merge_onto(
     git_setup_user: Callable,
     request: pytest.FixtureRequest,
     tmp_path: Path,
-    strategy: Optional[str],
+    strategy: str | None,
 ):
     clone_path = tmp_path / request.node.name
     clone_path.mkdir()
