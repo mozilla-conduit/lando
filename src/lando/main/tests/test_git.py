@@ -266,7 +266,7 @@ def test_GitSCM_apply_get_patch_merge(
 
     # Merge feature into main
     subprocess.run(["git", "switch", main_branch], cwd=str(clone_path), check=True)
-    strategy = "theirs"
+    strategy = MergeStrategy.THEIRS
     commit_msg = f"Merge main into feature with strategy {strategy}"
     merge_commit = scm.merge_onto(commit_msg, target_branch, strategy)
 
