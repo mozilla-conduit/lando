@@ -140,7 +140,7 @@ def test_GitSCM_clean_repo(
 @pytest.mark.parametrize(
     "current_gitattributes,new_gitattributes",
     (
-        ("None", "* !diff"),
+        (None, "* !diff"),
         ("* !diff", None),
         ("", "* !diff"),
         ("* !diff", "* !diff"),
