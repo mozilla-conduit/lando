@@ -389,6 +389,27 @@ def test_HgSCM__extract_error_data():
     assert rejects_paths == expected_rejects_paths
 
 
+def test_HgSCM_apply_patch_bytes(hg_clone: Path, git_patch: Callable):
+    scm = HgSCM(str(hg_clone))
+
+    # Get git-format-patch patch content as bytes
+    patch_str = git_patch()
+    patch_bytes = patch_str.encode("utf-8")
+
+    # Apply patch using the new method
+    with scm.for_push("user@example.com"):
+        scm.apply_patch_bytes(patch_bytes)
+
+        commit = scm.describe_commit()
+
+        expected_patch = patch_str
+        new_patch = scm.get_patch(commit.hash)
+
+    assert new_patch, f"Empty patch unexpectedly generated for {commit.hash}"
+
+    assert new_patch == expected_patch
+
+
 def test_HgSCM_describe_commit(hg_clone):
     scm = HgSCM(str(hg_clone))
 
