@@ -116,7 +116,7 @@ class Repo(BaseModel):
     attributes_override = models.TextField(
         blank=True,
         default="* !diff\n",
-        help_text="SCM-specific attribute override. For git, this is `.gitattributes` value.",
+        help_text="SCM-specific attribute override. For git, this is documented in `gitattributes(5)`.",
     )
 
     # Ideally, we'd like the push_target to be nullable, but Django forms will not
