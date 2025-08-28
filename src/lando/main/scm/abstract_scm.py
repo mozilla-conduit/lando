@@ -114,7 +114,7 @@ class AbstractSCM(ABC):
         """Apply the given bytes representing a patch to the current repository.
 
         Args:
-            patch_bytes (bytes): A patch in the concrete SCM's standard format.
+            patch_bytes (bytes): A patch in a format supported by the concrete SCM.
 
         Returns:
             None
