@@ -221,6 +221,7 @@ class Revision(LandoView):
             "landing_jobs": landing_jobs,
             "revisions": revisions,
             "revision_phid": revision_phid,
+            "revision_repo": revision_repo,
             "target_repo": target_repo,
             "errors": errors,
             "form": form,
