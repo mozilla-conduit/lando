@@ -408,6 +408,7 @@ diff --git a/test.txt b/test.txt
 +adding another line
 """
 
+
 def test_HgSCM_apply_patch_bytes(hg_clone: Path, git_patch: Callable):
     scm = HgSCM(str(hg_clone))
 
