@@ -17,6 +17,7 @@ from lando.main.models import Repo
 from lando.main.models.uplift import UpliftQuestionnaireResponse, UpliftRevision
 from lando.ui.legacy.forms import (
     TransplantRequestForm,
+    UpliftQuestionnaireEditForm,
     UpliftRequestForm,
 )
 from lando.ui.legacy.stacks import Edge, draw_stack_graph, sort_stack_topological
@@ -170,12 +171,28 @@ class Revision(LandoView):
         )
         drawing_width, drawing_rows = draw_stack_graph(phids, edges, order)
 
+        # TODO clean up.
+        revision = revisions[revision_phid]
+        revision_id = revision["id"]
+        revision_repo = repositories.get(revision["repo_phid"])
+        if revision_repo and revision_repo.approval_required:
+            uplift_revision = UpliftRevision.objects.get(revision_id=revision_id)
+            uplift_questionnaire = uplift_revision.questionnaire_response
+            uplift_questionnaire_initial = uplift_questionnaire.to_form_dict()
+            uplift_questionnaire_initial["revision_id"] = f"D{revision_id}"
+            uplift_questionnaire_form = UpliftQuestionnaireEditForm(
+                initial=uplift_questionnaire_initial
+            )
+        else:
+            uplift_questionnaire_form = UpliftQuestionnaireEditForm(
+                initial={"revision_id": f"D{revision_id}"}
+            )
+
         # Current implementation requires that all commits have the flags appended.
         # This may change in the future. What we do here is:
         # - if all commits have the flag, then disable the checkbox
         # - if any commits do not have the flag, then enable the checkbox
 
-        uplift_questionnaire = None
         if target_repo:
             existing_flags = {f[0]: False for f in target_repo.commit_flags}
             for flag in existing_flags:
@@ -183,14 +200,6 @@ class Revision(LandoView):
                     flag in r["commit_message"] for r in revisions.values()
                 )
 
-            if target_repo.approval_required:
-                uplift_revision = UpliftRevision.objects.get(revision_id=revision_phid)
-                uplift_questionnaire = uplift_revision.questionnaire_response
-            else:
-                revision_id = revisions[revision_phid]["id"]
-                uplift_questionnaire = UpliftQuestionnaireResponse(
-                    initial={"revision_id": revision_id}
-                )
         else:
             existing_flags = {}
 
@@ -214,7 +223,7 @@ class Revision(LandoView):
             "flags": target_repo.commit_flags if target_repo else [],
             "existing_flags": existing_flags,
             "uplift_request_form": uplift_request_form,
-            "uplift_questionnaire": uplift_questionnaire,
+            "uplift_questionnaire_form": uplift_questionnaire_form,
             "uplift_stack_too_large": uplift_stack_too_large,
             "max_uplift_stack_size": MAX_UPLIFT_STACK_SIZE,
         }
