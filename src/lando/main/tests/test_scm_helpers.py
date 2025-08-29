@@ -177,6 +177,37 @@ Content-Transfer-Encoding: 8bit
 2.46.1
 """
 
+GIT_DIFF_BINARY = b"""\
+diff --git a/mobile/android/android-components/components/lib/publicsuffixlist/src/main/assets/publicsuffixes b/mobile/android/android-components/components/lib/publicsuffixlist/src/main/assets/publicsuffixes
+index 6fbd7cfa64d3a..7b7d3f1f381b3 100644
+--- a/mobile/android/android-components/components/lib/publicsuffixlist/src/main/assets/publicsuffixes
++++ b/mobile/android/android-components/components/lib/publicsuffixlist/src/main/assets/publicsuffixes
+@@ -1,1 +1,1 @@
+-\x00\x01\xa3j*.0emm.com
++\x00\x02\x13\x7f*.001.test.code-builder-stg.platform.salesforce.com
+"""
+
+GIT_FORMATPATCH_BINARY = (
+    b"""\
+From cbe35d45ef715ea5cdf4067fb6b090f0904a41cf Mon Sep 17 00:00:00 2001
+From: Ryan VanderMeulen <rvandermeulen@mozilla.com>
+Date: Tue, 19 Aug 2025 07:16:40 +1000
+Subject: [PATCH] Bug 1944726 - Update Android public suffix list.
+ r=#android-reviewers
+
+Differential Revision: https://phabricator.services.mozilla.com/D260093
+---
+ .../src/main/assets/publicsuffixes            | 2933 +++++++++++------
+ .../publicsuffixlist/PublicSuffixListTest.kt  |    2 +-
+ 2 files changed, 1888 insertions(+), 1047 deletions(-)
+
+"""
+    + GIT_DIFF_BINARY
+    + b"""\
+-- \n2.50.1
+"""
+)
+
 GIT_DIFF = """diff --git a/landoui/errorhandlers.py b/landoui/errorhandlers.py
 index f56ba1c..33391ea 100644
 --- a/landoui/errorhandlers.py
@@ -475,7 +506,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 
 def test_git_formatpatch_helper_parse():
-    patch = GitPatchHelper(io.StringIO(GIT_PATCH))
+    patch = GitPatchHelper.from_string_io(io.StringIO(GIT_PATCH))
     assert (
         patch.get_header("From") == "Connor Sheehan <sheehan@mozilla.com>"
     ), "`From` header should contain author information."
@@ -498,7 +529,7 @@ def test_git_formatpatch_helper_parse():
 
 
 def test_git_formatpatch_helper_empty_commit():
-    patch = GitPatchHelper(io.StringIO(GIT_PATCH_EMPTY))
+    patch = GitPatchHelper.from_string_io(io.StringIO(GIT_PATCH_EMPTY))
     assert (
         patch.get_header("From") == "Connor Sheehan <sheehan@mozilla.com>"
     ), "`From` header should contain author information."
@@ -521,11 +552,19 @@ def test_git_formatpatch_helper_empty_commit():
 
 
 def test_git_formatpatch_helper_utf8():
-    helper = GitPatchHelper(io.StringIO(GIT_FORMATPATCH_UTF8))
+    helper = GitPatchHelper.from_string_io(io.StringIO(GIT_FORMATPATCH_UTF8))
 
     assert (
         helper.get_diff() == GIT_DIFF_UTF8
     ), "`get_diff()` should return unescaped unicode and match the original patch."
+
+
+def test_git_formatpatch_helper_binary():
+    helper = GitPatchHelper.from_bytes_io(io.BytesIO(GIT_FORMATPATCH_BINARY))
+
+    assert (
+        helper.get_diff().encode("utf-8", errors="surrogateescape") == GIT_DIFF_BINARY
+    ), "Re-encoding `get_diff()` should return unescaped bytes and match the original patch."
 
 
 def test_preserves_diff_crlf():
@@ -543,7 +582,7 @@ def test_preserves_diff_crlf():
         hg_helper.get_diff() == "\n" + GIT_DIFF_CRLF
     ), "`get_diff()` should preserve CRLF."
 
-    git_helper = GitPatchHelper(
+    git_helper = GitPatchHelper.from_string_io(
         io.StringIO(
             f"""\
 From: Connor Sheehan <sheehan@mozilla.com>
@@ -817,7 +856,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 def test_check_wptsync_git(
     push_user_email: str, patch: str, return_string: Optional[str], error_message: str
 ):
-    patch_helpers = [GitPatchHelper(io.StringIO(patch))]
+    patch_helpers = [GitPatchHelper.from_string_io(io.StringIO(patch))]
     assessor = PatchCollectionAssessor(
         patch_helpers=patch_helpers, push_user_email=push_user_email
     )

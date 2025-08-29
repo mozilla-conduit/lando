@@ -267,7 +267,7 @@ class GitSCM(AbstractSCM):
     def get_patch_helper(self, revision_id: str) -> PatchHelper | None:
         """Return a PatchHelper containing the patch for the given revision."""
         patch = self.get_patch(revision_id)
-        return GitPatchHelper(io.StringIO(patch)) if patch else None
+        return GitPatchHelper.from_string_io(io.StringIO(patch)) if patch else None
 
     def process_merge_conflict(
         self,
