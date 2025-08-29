@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
+from email.message import EmailMessage
 from email.policy import (
     default as default_email_policy,
 )
@@ -310,8 +311,10 @@ class HgPatchHelper(PatchHelper):
 class GitPatchHelper(PatchHelper):
     """Helper class for parsing Mercurial patches/exports."""
 
-    patch: io.StringIO | None = None
-    binary_patch: io.BytesIO | None = None
+    patch_bytes: bytes
+    message: EmailMessage
+    commit_message: str
+    diff: str
 
     def __init__(self, fileobj: io.StringIO | io.BytesIO):
         if isinstance(fileobj, io.BytesIO):
