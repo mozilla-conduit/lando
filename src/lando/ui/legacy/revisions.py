@@ -173,7 +173,6 @@ class Revision(LandoView):
 
         # TODO clean up.
         revision = revisions[revision_phid]
-        revision_id = revision["id"]
         revision_repo = repositories.get(revision["repo_phid"])
         if revision_repo and revision_repo.approval_required:
             uplift_revision = UpliftRevision.objects.get(revision_id=revision_id)
