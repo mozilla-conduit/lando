@@ -286,13 +286,17 @@ class HgSCM(AbstractSCM):
             f_patch.write(patch_bytes)
             f_patch.flush()
 
-            self._run_hg_patch(import_cmd, f_patch, preserve_date=True)
+            self._run_hg_patch(import_cmd, f_patch, preserve_git_date=True)
 
     def _run_hg_patch(
-        self, import_cmd: list[str], patch_or_diff: IO, *, preserve_date: bool = False
+        self,
+        import_cmd: list[str],
+        patch_or_diff: IO,
+        *,
+        preserve_git_date: bool = False,
     ):
         # Only relevant if patch_or_diff is a patch.
-        if preserve_date:
+        if preserve_git_date:
             patch_or_diff.seek(0)
             patch_str = patch_or_diff.read().decode("utf-8")
             # XXX: use bytes support from GitPatchHelper
