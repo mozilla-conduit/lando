@@ -316,25 +316,26 @@ class GitPatchHelper(PatchHelper):
     commit_message: str
     diff: str
 
-    def __init__(self, fileobj: io.StringIO | io.BytesIO):
-        if isinstance(fileobj, io.BytesIO):
-            self.binary_patch = fileobj
-            message_bytes = self.binary_patch.read()
-        else:
-            super().__init__()
-            self.patch = fileobj
-            message_bytes = self.patch.read().encode("utf-8")
+    def __init__(self, patch_bytes: bytes):
+        super().__init__()
 
         self.message = email.message_from_bytes(
-            message_bytes, policy=default_email_policy
+            patch_bytes, policy=default_email_policy
         )
-        if self.binary_patch:
-            body = self.message.get_content(errors="surrogateescape")
-        else:
-            self.message.set_charset("utf-8")
-            body = self.message.get_content()
+        self.message.set_charset("utf-8")
+        body = self.message.get_content(errors="surrogateescape")
 
         self.commit_message, self.diff = self.parse_email_body(body)
+
+    @classmethod
+    def from_string_io(cls, string_io: io.StringIO, **kwargs) -> "GitPatchHelper":
+        patch_bytes = string_io.read().encode("utf-8", errors="surrogateescape")
+        return cls(patch_bytes, **kwargs)
+
+    @classmethod
+    def from_bytes_io(cls, bytes_io: io.BytesIO, **kwargs) -> "GitPatchHelper":
+        patch_bytes = bytes_io.read()
+        return cls(patch_bytes, **kwargs)
 
     def get_header(self, name: bytes | str) -> str | None:
         """Get the headers from the message."""
@@ -423,19 +424,17 @@ class GitPatchHelper(PatchHelper):
         """Returns the commit description."""
         return self.commit_message
 
-    def get_diff(self) -> str | bytes:
+    def get_diff(self) -> str:
         """Return the patch diff."""
-        if self.binary_patch:
-            return self.diff.encode("utf-8", errors="surrogateescape")
         return self.diff
+
+    def get_diff_bytes(self) -> bytes:
+        """Return the patch diff."""
+        return self.diff.encode("utf-8", errors="surrogateescape")
 
     def write(self, f: io.StringIO):
         """Writes whole patch to the specified file object."""
-        try:
-            buf = self.patch.read()
-            f.write(buf)
-        finally:
-            self.patch.seek(0)
+        f.write(self.patch_bytes.decode("utf-8", errors="surrogateescape"))
 
     def parse_author_information(self) -> tuple[str, str]:
         """Return the author name and email from the patch."""

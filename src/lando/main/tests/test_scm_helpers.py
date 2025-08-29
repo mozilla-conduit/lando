@@ -506,7 +506,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 
 def test_git_formatpatch_helper_parse():
-    patch = GitPatchHelper(io.StringIO(GIT_PATCH))
+    patch = GitPatchHelper.from_string_io(io.StringIO(GIT_PATCH))
     assert (
         patch.get_header("From") == "Connor Sheehan <sheehan@mozilla.com>"
     ), "`From` header should contain author information."
@@ -529,7 +529,7 @@ def test_git_formatpatch_helper_parse():
 
 
 def test_git_formatpatch_helper_empty_commit():
-    patch = GitPatchHelper(io.StringIO(GIT_PATCH_EMPTY))
+    patch = GitPatchHelper.from_string_io(io.StringIO(GIT_PATCH_EMPTY))
     assert (
         patch.get_header("From") == "Connor Sheehan <sheehan@mozilla.com>"
     ), "`From` header should contain author information."
@@ -552,7 +552,7 @@ def test_git_formatpatch_helper_empty_commit():
 
 
 def test_git_formatpatch_helper_utf8():
-    helper = GitPatchHelper(io.StringIO(GIT_FORMATPATCH_UTF8))
+    helper = GitPatchHelper.from_string_io(io.StringIO(GIT_FORMATPATCH_UTF8))
 
     assert (
         helper.get_diff() == GIT_DIFF_UTF8
@@ -582,7 +582,7 @@ def test_preserves_diff_crlf():
         hg_helper.get_diff() == "\n" + GIT_DIFF_CRLF
     ), "`get_diff()` should preserve CRLF."
 
-    git_helper = GitPatchHelper(
+    git_helper = GitPatchHelper.from_string_io(
         io.StringIO(
             f"""\
 From: Connor Sheehan <sheehan@mozilla.com>
@@ -856,7 +856,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 def test_check_wptsync_git(
     push_user_email: str, patch: str, return_string: Optional[str], error_message: str
 ):
-    patch_helpers = [GitPatchHelper(io.StringIO(patch))]
+    patch_helpers = [GitPatchHelper.from_string_io(io.StringIO(patch))]
     assessor = PatchCollectionAssessor(
         patch_helpers=patch_helpers, push_user_email=push_user_email
     )

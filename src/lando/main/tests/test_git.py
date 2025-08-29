@@ -205,7 +205,7 @@ def test_GitSCM_apply_get_patch(git_repo: Path, git_patch: Callable):
     # leading to a spurious test failure when comparing output to expected.
     patch = git_patch()
 
-    ph = GitPatchHelper(io.StringIO(patch))
+    ph = GitPatchHelper.from_string_io(io.StringIO(patch))
 
     author_name, author_email = ph.parse_author_information()
     author = f"{author_name} <{author_email}>"
@@ -258,7 +258,7 @@ def test_GitSCM_apply_get_patch_merge(
     # in the subject that will get stripped on on application and subsequent export,
     # leading to a spurious test failure when comparing output to expected.
     patch = git_patch()
-    ph = GitPatchHelper(io.StringIO(patch))
+    ph = GitPatchHelper.from_string_io(io.StringIO(patch))
     author_name, author_email = ph.parse_author_information()
     author = f"{author_name} <{author_email}>"
     scm.apply_patch(
