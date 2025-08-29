@@ -1,0 +1,67 @@
+{# Render uplift related information related to this revision.
+
+At the moment, this only includes a reference to the uplift request
+questionnaire for the stack, but will include more details in the
+future.
+#}
+<h1>Uplifts</h1>
+
+<div class="block">
+    {% if uplift_questionnaire %}
+        <div class="block">
+            <div class="columns">
+                <div class="column">
+                    <button class="button is-primary edit-questionnaire-open">
+                        <span class="icon is-small">
+                            <i class="fa-solid fa-pen-to-square" />
+                        </span>
+                        Uplift Questionnaire
+                    </button>
+                </div>
+                <div class="column">
+                    Edit responses to this uplift questionnaire.
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    {% else %}
+        <div class="block">
+            <div class="columns">
+                <div class="column">
+                    <button class="button">
+                        <span class="icon is-small">
+                            <i class="fa-solid fa-plus" />
+                            Uplift Questionnaire
+                        </span>
+                    </button>
+                </div>
+                <div class="column">
+                    Add responses to the uplift request questionnaire.
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<div class="modal uplift-questionnaire-edit-modal">
+    <form action="{{ url('TODO') }}" method="post">
+        <div class="modal-background"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Edit Uplift Questionnaire</p>
+            </header>
+
+            <section class="modal-card-body">
+                {{ csrf_input }}
+
+                {% with questionnaire_form = uplift_questionnaire_form %}
+                    {% include "stack/partials/uplift-questionnaire.html" %}
+                {% endwith %}
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-primary" title="Save responses">Update trees</button>
+            </footer>
+        </div>
+        <button class="modal-close is-large uplift-questionnaire-edit-modal-close" aria-label="close" type="button"></button>
+    </form>
+</div>

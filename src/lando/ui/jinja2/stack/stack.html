@@ -17,6 +17,10 @@
   <h1>Landings for Stack Containing {{revisions[revision_phid]['id']}}</h1>
   {% include "stack/partials/timeline.html" %}
 
+  {% if target_repo.approval_required %}
+  {% include "stack/partials/uplift-section.html" %}
+  {% endif %}
+
   <h1>Stack containing revision {{revisions[revision_phid]['id']}}</h1>
   <div class="StackPage-stack">
     <table class="table">

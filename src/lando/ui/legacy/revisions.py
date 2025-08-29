@@ -175,11 +175,21 @@ class Revision(LandoView):
         # - if all commits have the flag, then disable the checkbox
         # - if any commits do not have the flag, then enable the checkbox
 
+        uplift_questionnaire = None
         if target_repo:
             existing_flags = {f[0]: False for f in target_repo.commit_flags}
             for flag in existing_flags:
                 existing_flags[flag] = all(
                     flag in r["commit_message"] for r in revisions.values()
+                )
+
+            if target_repo.approval_required:
+                uplift_revision = UpliftRevision.objects.get(revision_id=revision_phid)
+                uplift_questionnaire = uplift_revision.questionnaire_response
+            else:
+                revision_id = revisions[revision_phid]["id"]
+                uplift_questionnaire = UpliftQuestionnaireResponse(
+                    initial={"revision_id": revision_id}
                 )
         else:
             existing_flags = {}
@@ -204,6 +214,7 @@ class Revision(LandoView):
             "flags": target_repo.commit_flags if target_repo else [],
             "existing_flags": existing_flags,
             "uplift_request_form": uplift_request_form,
+            "uplift_questionnaire": uplift_questionnaire,
             "uplift_stack_too_large": uplift_stack_too_large,
             "max_uplift_stack_size": MAX_UPLIFT_STACK_SIZE,
         }
