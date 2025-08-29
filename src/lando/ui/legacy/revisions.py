@@ -101,12 +101,12 @@ class Revision(LandoView):
         # Build a mapping from phid to revision and identify
         # the data for the revision used to load this page.
 
-        revision = None
+        revision_phid = None
         revisions = {}
         for r in stack["revisions"]:
             revisions[r["phid"]] = r
             if r["id"] == "D{}".format(revision_id):
-                revision = r["phid"]
+                revision_phid = r["phid"]
 
         # Build a mapping from phid to repository.
         repositories = {}
@@ -134,7 +134,7 @@ class Revision(LandoView):
                 landable.add(phid)
 
             try:
-                series = p[: p.index(revision) + 1]
+                series = p[: p.index(revision_phid) + 1]
             except ValueError:
                 pass
 
@@ -197,7 +197,7 @@ class Revision(LandoView):
             "drawing_width": drawing_width,
             "landing_jobs": landing_jobs,
             "revisions": revisions,
-            "revision_phid": revision,
+            "revision_phid": revision_phid,
             "target_repo": target_repo,
             "errors": errors,
             "form": form,
