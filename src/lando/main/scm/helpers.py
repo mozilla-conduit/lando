@@ -130,6 +130,16 @@ class PatchHelper(ABC):
 
     headers: dict[str, str]
 
+    @classmethod
+    @abstractmethod
+    def from_string_io(cls, string_io: io.StringIO) -> "PatchHelper":
+        raise NotImplementedError("`commit_description` not implemented.")
+
+    @classmethod
+    @abstractmethod
+    def from_bytes_io(cls, bytes_io: io.BytesIO) -> "PatchHelper":
+        raise NotImplementedError("`commit_description` not implemented.")
+
     def __init__(self):
         self.headers = {}
 
@@ -191,6 +201,16 @@ class HgPatchHelper(PatchHelper):
     patch: io.StringIO
     header_end_line_no: int
     diff_start_line: int | None = None
+
+    @classmethod
+    def from_string_io(cls, string_io: io.StringIO) -> "HgPatchHelper":
+        return cls(string_io)
+
+    @classmethod
+    def from_bytes_io(cls, bytes_io: io.BytesIO) -> "PatchHelper":
+        raise NotImplementedError(
+            "`commit_description` not implemented for HgPatchHelper."
+        )
 
     def __init__(self, fileobj: io.StringIO):
         super().__init__()
@@ -316,6 +336,16 @@ class GitPatchHelper(PatchHelper):
     commit_message: str
     diff: str
 
+    @classmethod
+    def from_string_io(cls, string_io: io.StringIO) -> "GitPatchHelper":
+        patch_bytes = string_io.read().encode("utf-8", errors="surrogateescape")
+        return cls(patch_bytes)
+
+    @classmethod
+    def from_bytes_io(cls, bytes_io: io.BytesIO) -> "GitPatchHelper":
+        patch_bytes = bytes_io.read()
+        return cls(patch_bytes)
+
     def __init__(self, patch_bytes: bytes):
         super().__init__()
 
@@ -326,16 +356,6 @@ class GitPatchHelper(PatchHelper):
         body = self.message.get_content(errors="surrogateescape")
 
         self.commit_message, self.diff = self.parse_email_body(body)
-
-    @classmethod
-    def from_string_io(cls, string_io: io.StringIO, **kwargs) -> "GitPatchHelper":
-        patch_bytes = string_io.read().encode("utf-8", errors="surrogateescape")
-        return cls(patch_bytes, **kwargs)
-
-    @classmethod
-    def from_bytes_io(cls, bytes_io: io.BytesIO, **kwargs) -> "GitPatchHelper":
-        patch_bytes = bytes_io.read()
-        return cls(patch_bytes, **kwargs)
 
     def get_header(self, name: bytes | str) -> str | None:
         """Get the headers from the message."""
