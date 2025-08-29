@@ -1,5 +1,4 @@
 import io
-from typing import Optional
 from unittest.mock import patch
 
 import pytest
@@ -675,7 +674,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
         ),
     ],
 )
-def test_check_commit_message_valid_message(commit_message, error_message):
+def test_check_commit_message_valid_message(commit_message: str, error_message: str):
     patch_helpers = [
         HgPatchHelper(
             io.StringIO(
@@ -757,7 +756,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
     ],
 )
 def test_check_commit_message_invalid_message(
-    commit_message, return_string, error_message
+    commit_message: str, return_string: str, error_message: str
 ):
     patch_helpers = [
         HgPatchHelper(
@@ -801,7 +800,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
             "wptsync@mozilla.com",
             GIT_PATCH_FILENAME_TEMPLATE.format(filename="somefile.txt"),
             "Revision has WPTSync bot making changes to disallowed "
-            "files `somefile.txt`.",
+            + "files `somefile.txt`.",
             "Non-WPT pushes by WPT user should not be allowed",
         ),
         (
@@ -815,7 +814,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
     ],
 )
 def test_check_wptsync_git(
-    push_user_email: str, patch: str, return_string: Optional[str], error_message: str
+    push_user_email: str, patch: str, return_string: str | None, error_message: str
 ):
     patch_helpers = [GitPatchHelper(io.StringIO(patch))]
     assessor = PatchCollectionAssessor(

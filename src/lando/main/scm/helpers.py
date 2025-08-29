@@ -6,6 +6,7 @@ import io
 import math
 import re
 from abc import abstractmethod
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
 from email.policy import (
@@ -13,11 +14,6 @@ from email.policy import (
 )
 from email.utils import (
     parseaddr,
-)
-from typing import (
-    Iterable,
-    Optional,
-    Type,
 )
 
 import requests
@@ -139,7 +135,7 @@ class PatchHelper:
     def _is_diff_line(line: str) -> bool:
         return DIFF_LINE_RE.search(line) is not None
 
-    def get_header(self, name: bytes | str) -> Optional[str]:
+    def get_header(self, name: bytes | str) -> str | None:
         """Returns value of the specified header, or None if missing."""
         if isinstance(name, bytes):
             name = name.decode("utf-8")
@@ -205,7 +201,7 @@ class HgPatchHelper(PatchHelper):
                 self.diff_start_line = None
 
     @staticmethod
-    def _header_value(line: str, prefix: str) -> Optional[str]:
+    def _header_value(line: str, prefix: str) -> str | None:
         m = re.search(
             r"^#\s+" + re.escape(prefix) + r"\s+(.*)", line, flags=re.IGNORECASE
         )
@@ -311,7 +307,7 @@ class GitPatchHelper(PatchHelper):
             self.message.get_content()
         )
 
-    def get_header(self, name: bytes | str) -> Optional[str]:
+    def get_header(self, name: bytes | str) -> str | None:
         """Get the headers from the message."""
         if isinstance(name, bytes):
             name = name.decode("utf-8")
@@ -434,7 +430,7 @@ def wrap_filenames(filenames: list[str]) -> str:
 
 
 @dataclass
-class PatchCheck:
+class PatchCheck(ABC):
     """Provides an interface to implement patch checks.
 
     When looping over each diff in the patch, `next_diff` is called to give the
@@ -442,16 +438,16 @@ class PatchCheck:
     called to receive the result of the check.
     """
 
-    author: Optional[str] = None
-    email: Optional[str] = None
-    commit_message: Optional[str] = None
+    author: str | None = None
+    email: str | None = None
+    commit_message: str | None = None
 
     @abstractmethod
     def next_diff(self, diff: dict):
         """Pass the next `rs_parsepatch` diff `dict` into the check."""
 
     @abstractmethod
-    def result(self) -> Optional[str]:
+    def result(self) -> str | None:
         """Calcuate and return the result of the check."""
 
 
@@ -470,7 +466,7 @@ class PreventSymlinksCheck(PatchCheck):
         if "new" in modes and modes["new"] == SYMLINK_MODE:
             self.symlinked_files.append(diff["filename"])
 
-    def result(self) -> Optional[str]:
+    def result(self) -> str | None:
         if self.symlinked_files:
             return (
                 "Revision introduces symlinks in the files "
@@ -489,7 +485,7 @@ class TryTaskConfigCheck(PatchCheck):
         if diff["filename"] == "try_task_config.json":
             self.includes_try_task_config = True
 
-    def result(self) -> Optional[str]:
+    def result(self) -> str | None:
         """Return an error if the `try_task_config.json` was found."""
         if self.includes_try_task_config:
             return "Revision introduces the `try_task_config.json` file."
@@ -542,7 +538,7 @@ class PreventNSPRNSSCheck(PatchCheck):
         ):
             self.nspr_disallowed_changes.append(filename)
 
-    def result(self) -> Optional[str]:
+    def result(self) -> str | None:
         """Calcuate and return the result of the check."""
         if not self.nss_disallowed_changes and not self.nspr_disallowed_changes:
             # Return early if no disallowed changes were found.
@@ -562,7 +558,7 @@ class PreventSubmodulesCheck(PatchCheck):
         if diff["filename"] == ".gitmodules":
             self.includes_gitmodules = True
 
-    def result(self) -> Optional[str]:
+    def result(self) -> str | None:
         """Return an error if the `.gitmodules` file was found."""
         if self.includes_gitmodules:
             return "Revision introduces a Git submodule into the repository."
@@ -576,11 +572,11 @@ class DiffAssessor:
     """
 
     parsed_diff: list[dict]
-    author: Optional[str] = None
-    email: Optional[str] = None
-    commit_message: Optional[str] = None
+    author: str | None = None
+    email: str | None = None
+    commit_message: str | None = None
 
-    def run_diff_checks(self, patch_checks: list[Type[PatchCheck]]) -> list[str]:
+    def run_diff_checks(self, patch_checks: list[type[PatchCheck]]) -> list[str]:
         """Execute the set of checks on the diffs."""
         issues = []
 
@@ -607,7 +603,7 @@ class DiffAssessor:
 
 
 @dataclass
-class PatchCollectionCheck:
+class PatchCollectionCheck(ABC):
     """Provides an interface to implement patch collection checks.
 
     When looping over each patch in the collection, `next_diff` is called to give the
@@ -615,14 +611,14 @@ class PatchCollectionCheck:
     called to receive the result of the check.
     """
 
-    push_user_email: Optional[str] = None
+    push_user_email: str | None = None
 
     @abstractmethod
     def next_diff(self, patch_helper: PatchHelper):
         """Pass the next `PatchHelper` into the check."""
 
     @abstractmethod
-    def result(self) -> Optional[str]:
+    def result(self) -> str | None:
         """Calcuate and return the result of the check."""
 
 
@@ -699,7 +695,7 @@ class CommitMessagesCheck(PatchCollectionCheck):
             f"Revision needs 'Bug N' or 'No bug' in the commit message: {commit_message}"
         )
 
-    def result(self) -> Optional[str]:
+    def result(self) -> str | None:
         """Calcuate and return the result of the check."""
         if not self.ignore_bad_commit_message and self.commit_message_issues:
             return ", ".join(self.commit_message_issues)
@@ -722,7 +718,7 @@ class WPTSyncCheck(PatchCollectionCheck):
             if not WPTSYNC_ALLOWED_PATHS_RE.match(filename):
                 self.wpt_disallowed_files.append(filename)
 
-    def result(self) -> Optional[str]:
+    def result(self) -> str | None:
         """Return an error if the WPTSync bot touched disallowed files."""
         if self.wpt_disallowed_files:
             return (
@@ -761,7 +757,7 @@ class BugReferencesCheck(PatchCollectionCheck):
 
         self.bug_ids |= set(parse_bugs(commit_message))
 
-    def result(self) -> Optional[str]:
+    def result(self) -> str | None:
         """Ensure all bug numbers detected in commit messages reference public bugs."""
         if self.skip_check or not self.bug_ids:
             return
@@ -806,12 +802,12 @@ class PatchCollectionAssessor:
     """Assess pushes for landing issues."""
 
     patch_helpers: Iterable[PatchHelper]
-    push_user_email: Optional[str] = None
+    push_user_email: str | None = None
 
     def run_patch_collection_checks(
         self,
-        patch_collection_checks: list[Type[PatchCollectionCheck]],
-        patch_checks: list[Type[PatchCheck]],
+        patch_collection_checks: list[type[PatchCollectionCheck]],
+        patch_checks: list[type[PatchCheck]],
     ) -> list[str]:
         """Execute the set of checks on the diffs, returning a list of issues.
 
