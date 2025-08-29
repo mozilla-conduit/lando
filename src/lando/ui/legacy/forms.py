@@ -84,6 +84,7 @@ class UpliftQuestionnaireForm(forms.Form):
                 "QE testing reproduction steps must be provided if manual testing is required.",
             )
 
+
 class UpliftQuestionnaireEditForm(UpliftQuestionnaireForm):
     """Form used to edit an uplift request form for a patch."""
 
