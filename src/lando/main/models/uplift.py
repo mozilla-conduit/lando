@@ -2,6 +2,7 @@ from typing import Any, Self
 
 from django.contrib.auth.models import User
 from django.db import models
+from django.forms.models import model_to_dict
 
 from lando.main.models import BaseModel
 
@@ -92,6 +93,10 @@ class UpliftQuestionnaireResponse(BaseModel):
             string_changes=cleaned_data["string_changes"],
             is_android_affected=cleaned_data["is_android_affected"],
         )
+
+    def to_form_dict(self) -> dict[str, Any]:
+        """Return the questionnaire as a dict for the `initial` form argument."""
+        return model_to_dict(self, exclude=["id"])
 
     def to_conduit_json(self) -> dict[str, Any]:
         """Return the questionnaire in Conduit API JSON format.
