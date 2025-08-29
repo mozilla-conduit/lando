@@ -563,8 +563,8 @@ def test_git_formatpatch_helper_binary():
     helper = GitPatchHelper.from_bytes_io(io.BytesIO(GIT_FORMATPATCH_BINARY))
 
     assert (
-        helper.get_diff() == GIT_DIFF_BINARY
-    ), "`get_diff()` should return unescaped bytes and match the original patch."
+        helper.get_diff().encode("utf-8", errors="surrogateescape") == GIT_DIFF_BINARY
+    ), "Re-encoding `get_diff()` should return unescaped bytes and match the original patch."
 
 
 def test_preserves_diff_crlf():
