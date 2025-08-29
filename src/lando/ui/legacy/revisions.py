@@ -174,8 +174,13 @@ class Revision(LandoView):
         # TODO clean up.
         revision = revisions[revision_phid]
         revision_repo = repositories.get(revision["repo_phid"])
-        if revision_repo and revision_repo.approval_required:
+
+        try:
             uplift_revision = UpliftRevision.objects.get(revision_id=revision_id)
+        except UpliftRevision.DoesNotExist:
+            uplift_revision = None
+
+        if revision_repo and revision_repo.approval_required and uplift_revision:
             uplift_questionnaire = uplift_revision.questionnaire_response
             uplift_questionnaire_initial = uplift_questionnaire.to_form_dict()
             uplift_questionnaire_initial["revision_id"] = f"D{revision_id}"
