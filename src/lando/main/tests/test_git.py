@@ -137,6 +137,61 @@ def test_GitSCM_clean_repo(
     ), f"strip_non_public_commits not honoured for {new_file}"
 
 
+@pytest.mark.parametrize(
+    "current_gitattributes,new_gitattributes",
+    (
+        (None, "* !diff"),
+        ("* !diff", None),
+        ("", "* !diff"),
+        ("* !diff", "* !diff"),
+        ("* !diff", ""),
+    ),
+)
+def test_GitSCM_clean_repo_gitattributes(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+    current_gitattributes: str | None,
+    new_gitattributes: str | None,
+):
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+
+    attributes_file = clone_path / ".git" / "info" / "attributes"
+
+    if current_gitattributes is None:
+        attribute_mtime = 0
+    else:
+        with open(attributes_file, "w") as file:
+            file.write(current_gitattributes)
+        attribute_mtime = attributes_file.stat().st_mtime
+
+    scm.clean_repo(attributes_override=new_gitattributes)
+
+    new_attribute_mtime = attributes_file.stat().st_mtime
+
+    expected_gitattributes = (
+        # We want to allow empty strings to go through, so we need an explicit
+        # comparison to None.
+        new_gitattributes
+        if new_gitattributes is not None
+        else current_gitattributes
+    )
+    with open(attributes_file, "r") as file:
+        assert (
+            file.read() == expected_gitattributes
+        ), f"{attributes_file} contents does not match expected overrides"
+
+    if new_gitattributes == current_gitattributes or new_gitattributes is None:
+        assert (
+            new_attribute_mtime == attribute_mtime
+        ), f"{attributes_file} with same content should not have been modified"
+
+
 def remove_git_version_from_patch(patch: str) -> str:
     """Return a patch with the Git version stripped."""
     return re.sub(r"\d+(\.\d+)+$", "", patch)
@@ -513,7 +568,9 @@ def test_GitSCM_update_repo(
     )
     _create_git_commit(request, clone_path)
 
-    scm.update_repo(str(git_repo), target_cs)
+    attributes_override = "some/weird/file diff"
+
+    scm.update_repo(str(git_repo), target_cs, attributes_override=attributes_override)
 
     current_commit = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=str(clone_path), capture_output=True
@@ -530,6 +587,12 @@ def test_GitSCM_update_repo(
     assert current_branch.startswith(
         b"lando-"
     ), f"Not on a work branch after update_repo: {current_branch}"
+
+    gitattributes = clone_path / ".git" / "info" / "attributes"
+    with open(gitattributes, "r") as f:
+        assert (
+            f.read() == attributes_override
+        ), f".gitattributes override not in {gitattributes}"
 
 
 @pytest.mark.parametrize(
@@ -595,7 +658,6 @@ def test_GitSCM_push(
 
     mock_git_run = _monkeypatch_scm(monkeypatch, scm, "_git_run")
 
-    # breakpoint()
     scm.push(str(git_repo), push_target)
 
     if not push_target:

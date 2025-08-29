@@ -113,6 +113,41 @@ index 2a02d41..45e9938 100644
 -- 
 """  # noqa: W291, `git` adds a trailing whitespace after `--`.
 
+PATCH_GIT_BINARY_1 = """\
+From be6df88a1c2c64621ab9dfdf244272748e93c26f Mon Sep 17 00:00:00 2001
+From: Py Test <pytest@lando.example.net>
+Date: Tue, 22 Apr 2025 02:02:55 +0000
+Subject: almost-not-binary: add testcase for Bug 1984942
+
+Differential Revision: http://phabricator.test/D71
+---
+ .gitattributes    |   1 +
+ almost-not-binary | Bin 0 -> 28 bytes
+ 2 files changed, 1 insertion(+)
+ create mode 100644 .gitattributes
+ create mode 100644 almost-not-binary
+
+diff --git a/almost-not-binary b/almost-not-binary
+new file mode 100644
+index 0000000000000000000000000000000000000000..226cdd7b100a1d9e624b8040b5a60cadd93716f1
+GIT binary patch
+literal 28
+jc${NkT%4t)XONnktCyUg%cZ54m{OKmoL{6@Ud#mmcC-k;
+
+literal 0
+Hc$@<O00001
+
+
+
+diff --git a/.gitattributes b/.gitattributes
+new file mode 100644
+--- /dev/null
++++ b/.gitattributes
+@@ -0,0 +1 @@
++almost-not-binary diff
+
+""".lstrip()
+
 
 @pytest.fixture
 def normal_patch():
@@ -133,10 +168,11 @@ def normal_patch():
 def git_patch():
     """Return a factory providing one of several git patches.
 
-    Currently, there's only one patch.
+    The first patch is a normal patch, the second one contains binary weirdness.
     """
     _patches = [
         PATCH_GIT_1,
+        PATCH_GIT_BINARY_1,
     ]
 
     def _patch(number=0):
@@ -460,22 +496,24 @@ def hg_repo_mc(
     autoformat_enabled: bool = False,
     automation_enabled: bool = True,
     force_push: bool = False,
+    hooks_enabled: bool = True,
     name: str = "",
     push_target: str = "",
 ) -> Repo:
     params = {
         "name": name or "mozilla-central-hg",
-        "required_permission": SCM_LEVEL_3,
-        "url": hg_server,
-        "push_path": hg_server,
         "pull_path": hg_server,
+        "push_path": hg_server,
+        "required_permission": SCM_LEVEL_3,
         "system_path": hg_clone.strpath,
+        "url": hg_server,
         # The option below can be overriden in the parameters
         "approval_required": approval_required,
         "autoformat_enabled": autoformat_enabled,
-        "force_push": force_push,
-        "push_target": push_target,
         "automation_enabled": automation_enabled,
+        "force_push": force_push,
+        "hooks_enabled": hooks_enabled,
+        "push_target": push_target,
     }
     repo = Repo.objects.create(
         scm_type=SCM_TYPE_HG,
@@ -494,6 +532,7 @@ def git_repo_mc(
     autoformat_enabled: bool = False,
     automation_enabled: bool = True,
     force_push: bool = False,
+    hooks_enabled: bool = True,
     name: str = "",
     push_target: str = "",
 ) -> Repo:
@@ -502,17 +541,18 @@ def git_repo_mc(
 
     params = {
         "name": name or "mozilla-central-git",
-        "required_permission": SCM_LEVEL_3,
-        "url": str(git_repo),
-        "push_path": str(git_repo),
         "pull_path": str(git_repo),
+        "push_path": str(git_repo),
+        "required_permission": SCM_LEVEL_3,
         "system_path": repos_dir / "git_repo",
+        "url": str(git_repo),
         # The option below can be overriden in the parameters
         "approval_required": approval_required,
         "autoformat_enabled": autoformat_enabled,
-        "force_push": force_push,
-        "push_target": push_target,
         "automation_enabled": automation_enabled,
+        "force_push": force_push,
+        "hooks_enabled": hooks_enabled,
+        "push_target": push_target,
     }
 
     repo = Repo.objects.create(
@@ -537,9 +577,10 @@ def repo_mc(
         scm_type: str,
         *,
         approval_required: bool = False,
-        autoformat_enabled: bool = False,
+        autoformat_enabled: bool = True,
         automation_enabled: bool = True,
         force_push: bool = False,
+        hooks_enabled: bool = True,
         name: str = "",
         push_target: str = "",
     ) -> Repo:
@@ -547,6 +588,7 @@ def repo_mc(
             "approval_required": approval_required,
             "autoformat_enabled": autoformat_enabled,
             "automation_enabled": automation_enabled,
+            "hooks_enabled": hooks_enabled,
             "force_push": force_push,
             "name": name,
             "push_target": push_target,

@@ -220,6 +220,37 @@ diff --git a/test.txt b/test.txt
 +add one more line
 """.lstrip()  # noqa: W293
 
+PATCH_BINARY_GITATTRIBUTES = r"""
+# HG changeset patch
+# User Local Dev <local-dev@mozilla.bugs>
+# Date 1756103176 +0000
+# Diff Start Line 8
+almost-not-binary: add testcase for Bug 1984942
+
+Differential Revision: http://phabricator.test/D71
+
+diff --git a/almost-not-binary b/almost-not-binary
+new file mode 100644
+index 0000000000000000000000000000000000000000..226cdd7b100a1d9e624b8040b5a60cadd93716f1
+GIT binary patch
+literal 28
+jc${NkT%4t)XONnktCyUg%cZ54m{OKmoL{6@Ud#mmcC-k;
+
+literal 0
+Hc$@<O00001
+
+
+
+diff --git a/.gitattributes b/.gitattributes
+new file mode 100644
+--- /dev/null
++++ b/.gitattributes
+@@ -0,0 +1 @@
++almost-not-binary diff
+
+""".lstrip()
+
+
 TESTTXT_FORMATTED_1 = b"""
 TeSt
 
@@ -248,6 +279,7 @@ aDd oNe mOrE LiNe
             ],
         ),
         (SCM_TYPE_GIT, [(1, {"patch": LARGE_PATCH})]),
+        (SCM_TYPE_GIT, [(1, {"patch": PATCH_BINARY_GITATTRIBUTES})]),
         # Hg
         (
             SCM_TYPE_HG,
@@ -257,6 +289,7 @@ aDd oNe mOrE LiNe
             ],
         ),
         (SCM_TYPE_HG, [(1, {"patch": LARGE_PATCH})]),
+        (SCM_TYPE_HG, [(1, {"patch": PATCH_BINARY_GITATTRIBUTES})]),
     ],
 )
 @pytest.mark.django_db
@@ -288,6 +321,9 @@ def test_integrated_execute_job(
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
 
+    assert job.status == JobStatus.LANDED, job.error
+    assert len(job.landed_commit_id) == 40
+
     new_commit_count = Commit.objects.filter(repo=repo).count()
     new_push_count = Push.objects.filter(repo=repo).count()
     assert new_commit_count == len(
@@ -295,8 +331,6 @@ def test_integrated_execute_job(
     ), "Incorrect number of additional commits in the PushLog"
     assert new_push_count == 1, "Incorrect number of additional pushes in the PushLog"
 
-    assert job.status == JobStatus.LANDED, job.error
-    assert len(job.landed_commit_id) == 40
     assert (
         mock_landing_worker_phab_repo_update.call_count == 1
     ), "Successful landing should trigger Phab repo update."

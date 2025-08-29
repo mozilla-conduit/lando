@@ -404,7 +404,12 @@ class GitSCM(AbstractSCM):
         command = ["log", "--format=%s", "@{u}.."]
         return self._git_run(*command, cwd=self.path).splitlines()
 
-    def update_repo(self, pull_path: str, target_cset: Optional[str] = None) -> str:
+    def update_repo(
+        self,
+        pull_path: str,
+        target_cset: Optional[str] = None,
+        attributes_override: str = "",
+    ) -> str:
         """Update the repository to the specified changeset.
 
         This method uses the Git commands to update the repository
@@ -415,7 +420,7 @@ class GitSCM(AbstractSCM):
         if not target_cset:
             target_cset = self.default_branch
 
-        self.clean_repo()
+        self.clean_repo(attributes_override=attributes_override)
         # Fetch all refs at the given pull_path, and overwrite the `origin` references.
         self._git_run(
             "fetch",
@@ -439,13 +444,34 @@ class GitSCM(AbstractSCM):
         )
         return self.head_ref()
 
-    def clean_repo(self, *, strip_non_public_commits: bool = True):
+    def clean_repo(
+        self,
+        *,
+        strip_non_public_commits: bool = True,
+        attributes_override: str | None = None,
+    ):
         """Reset the local repository to the origin"""
         if strip_non_public_commits:
             self._git_run(
                 "reset", "--hard", f"origin/{self.default_branch}", cwd=self.path
             )
+
+        # We need to differentiate between None and "" here, so we know when we were
+        # explicitly given an empty string.
+        if attributes_override is not None:
+            # $GIT_DIR/info/attributes has the highest precedence.
+            with open(f"{self._git_dir}/info/attributes", "a+") as fp:
+                fp.seek(0)
+                if not fp.readable() or fp.read() != attributes_override:
+                    fp.seek(0)
+                    fp.truncate()
+                    fp.write(attributes_override)
+
         self._git_run("clean", "-fdx", cwd=self.path)
+
+    @property
+    def _git_dir(self):
+        return self._git_run("rev-parse", "--absolute-git-dir", cwd=self.path)
 
     def format_stack_amend(self) -> Optional[list[str]]:
         """Amend the top commit in the patch stack with changes from formatting."""
