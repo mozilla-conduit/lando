@@ -34,7 +34,7 @@ from lando.main.scm.exceptions import (
     TreeApprovalRequired,
     TreeClosed,
 )
-from lando.main.scm.helpers import HgPatchHelper, PatchHelper
+from lando.main.scm.helpers import GitPatchHelper, HgPatchHelper, PatchHelper
 
 logger = logging.getLogger(__name__)
 
@@ -286,10 +286,22 @@ class HgSCM(AbstractSCM):
             f_patch.write(patch_bytes)
             f_patch.flush()
 
-            self._run_hg_patch(import_cmd, f_patch)
+            self._run_hg_patch(import_cmd, f_patch, preserve_date=True)
 
-    def _run_hg_patch(self, import_cmd: list[str], patch_or_diff: IO):
-        """Apply"""
+    def _run_hg_patch(
+        self, import_cmd: list[str], patch_or_diff: IO, *, preserve_date: bool = False
+    ):
+        # Only relevant if patch_or_diff is a patch.
+        if preserve_date:
+            patch_or_diff.seek(0)
+            patch_str = patch_or_diff.read().decode("utf-8")
+            # XXX: use bytes support from GitPatchHelper
+            patch_iostr = io.StringIO(patch_str)
+            # We don't need to seek to 0 again, because we only use the name of the
+            # patch_or_diff, afterwards
+            patch_helper = GitPatchHelper(patch_iostr)
+            patch_ts = patch_helper.get_timestamp()
+            import_cmd += ["--date", f"{patch_ts} 0"]
         try:
             self.run_hg(import_cmd + [patch_or_diff.name])
         except HgPatchConflict as exc:
