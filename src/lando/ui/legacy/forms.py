@@ -84,6 +84,15 @@ class UpliftQuestionnaireForm(forms.Form):
                 "QE testing reproduction steps must be provided if manual testing is required.",
             )
 
+class UpliftQuestionnaireEditForm(UpliftQuestionnaireForm):
+    """Form used to edit an uplift request form for a patch."""
+
+    revision_id = forms.RegexField(
+        regex="^D[0-9]+$",
+        widget=forms.widgets.HiddenInput,
+        required=False,
+    )
+
 
 class UpliftRequestForm(UpliftQuestionnaireForm):
     """Form used to request uplift of a stack."""
