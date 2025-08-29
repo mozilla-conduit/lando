@@ -46,9 +46,11 @@ future.
     {# TODO set correct URL here. #}
     <form action="{{ url('uplift-page') }}" method="post">
         <div class="modal-background"></div>
+
         <div class="modal-card">
             <header class="modal-card-head">
                 <p class="modal-card-title">Edit Uplift Questionnaire</p>
+                <button class="edit-questionnaire-close delete" aria-label="close" type="button"></button>
             </header>
 
             <section class="modal-card-body">
@@ -58,10 +60,10 @@ future.
                     {% include "stack/partials/uplift-questionnaire.html" %}
                 {% endwith %}
             </section>
+
             <footer class="modal-card-foot">
                 <button class="button is-primary" title="Save responses">Update trees</button>
             </footer>
         </div>
-        <button class="modal-close is-large uplift-questionnaire-edit-modal-close" aria-label="close" type="button"></button>
     </form>
 </div>
