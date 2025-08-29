@@ -5,7 +5,7 @@ import enum
 import io
 import math
 import re
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -124,11 +124,12 @@ def get_timestamp_from_hg_date_header(date_header: str) -> str:
     return date_header.split(" ")[0]
 
 
-class PatchHelper:
+class PatchHelper(ABC):
     """Base class for parsing patches/exports."""
 
-    def __init__(self, fileobj: io.StringIO):
-        self.patch = fileobj
+    headers: dict[str, str]
+
+    def __init__(self):
         self.headers = {}
 
     @staticmethod
@@ -149,10 +150,12 @@ class PatchHelper:
 
         self.headers[name.lower()] = value
 
+    @abstractmethod
     def get_commit_description(self) -> str:
         """Returns the commit description."""
         raise NotImplementedError("`commit_description` not implemented.")
 
+    @abstractmethod
     def get_diff(self) -> str:
         """Return the patch diff."""
         raise NotImplementedError("`get_diff` not implemented.")
@@ -165,18 +168,17 @@ class PatchHelper:
         """Writes the diff to the specified file object."""
         file_obj.write(self.get_diff())
 
+    @abstractmethod
     def write(self, f: io.StringIO):
         """Writes whole patch to the specified file object."""
-        try:
-            buf = self.patch.read()
-            f.write(buf)
-        finally:
-            self.patch.seek(0)
+        raise NotImplementedError("`write` not implemented.")
 
+    @abstractmethod
     def parse_author_information(self) -> tuple[str, str]:
         """Return the author name and email from the patch."""
         raise NotImplementedError("`parse_author_information` is not implemented.")
 
+    @abstractmethod
     def get_timestamp(self) -> str:
         """Return an `hg export` formatted timestamp."""
         raise NotImplementedError("`get_timestamp` is not implemented.")
@@ -185,18 +187,22 @@ class PatchHelper:
 class HgPatchHelper(PatchHelper):
     """Helper class for parsing Mercurial patches/exports."""
 
+    patch: io.StringIO
+    header_end_line_no: int
+    diff_start_line: int | None = None
+
     def __init__(self, fileobj: io.StringIO):
-        super().__init__(fileobj)
+        super().__init__()
+        self.patch = fileobj
         self.header_end_line_no = 0
         self._parse_header()
 
         # "Diff Start Line" is a Lando extension to the hg export
         # format meant to prevent injection of diff hunks using the
         # commit message.
-        self.diff_start_line = self.get_header(b"Diff Start Line")
-        if self.diff_start_line:
+        if diff_start_line := self.get_header(b"Diff Start Line"):
             try:
-                self.diff_start_line = int(self.diff_start_line)
+                self.diff_start_line = int(diff_start_line)
             except ValueError:
                 self.diff_start_line = None
 
@@ -274,6 +280,14 @@ class HgPatchHelper(PatchHelper):
         finally:
             self.patch.seek(0)
 
+    def write(self, f: io.StringIO):
+        """Writes whole patch to the specified file object."""
+        try:
+            buf = self.patch.read()
+            f.write(buf)
+        finally:
+            self.patch.seek(0)
+
     def parse_author_information(self) -> tuple[str, str]:
         """Return the author name and email from the patch."""
         user = self.get_header("User")
@@ -296,8 +310,11 @@ class HgPatchHelper(PatchHelper):
 class GitPatchHelper(PatchHelper):
     """Helper class for parsing Mercurial patches/exports."""
 
+    patch: io.StringIO | None = None
+
     def __init__(self, fileobj: io.StringIO):
-        super().__init__(fileobj)
+        super().__init__()
+        self.patch = fileobj
         message_bytes = self.patch.read().encode("utf-8")
         self.message = email.message_from_bytes(
             message_bytes, policy=default_email_policy
@@ -397,6 +414,14 @@ class GitPatchHelper(PatchHelper):
     def get_diff(self) -> str:
         """Return the patch diff."""
         return self.diff
+
+    def write(self, f: io.StringIO):
+        """Writes whole patch to the specified file object."""
+        try:
+            buf = self.patch.read()
+            f.write(buf)
+        finally:
+            self.patch.seek(0)
 
     def parse_author_information(self) -> tuple[str, str]:
         """Return the author name and email from the patch."""
