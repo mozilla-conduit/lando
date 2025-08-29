@@ -560,7 +560,7 @@ def test_git_formatpatch_helper_utf8():
 
 
 def test_git_formatpatch_helper_binary():
-    helper = GitPatchHelper(io.BytesIO(GIT_FORMATPATCH_BINARY))
+    helper = GitPatchHelper.from_bytes_io(io.BytesIO(GIT_FORMATPATCH_BINARY))
 
     assert (
         helper.get_diff() == GIT_DIFF_BINARY
