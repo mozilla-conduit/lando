@@ -61,8 +61,7 @@
             </div>
         </div>
 
-        {% with %}
-            {% set questionnaire_form = uplift_request_form %}
+        {% with questionnaire_form = uplift_request_form %}
             {% include "stack/partials/uplift-questionnaire.html" %}
         {% endwith %}
 
