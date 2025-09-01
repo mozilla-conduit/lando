@@ -80,6 +80,7 @@ class ActionTypeChoices(models.TextChoices):
     CREATE_COMMIT = "create-commit", gettext_lazy("Create commit")
     TAG = "tag", gettext_lazy("Tag")
     MERGE_ONTO = "merge-onto", gettext_lazy("Merge onto")
+    MERGE_REMOTE = "merge-remote", gettext_lazy("Merge commit from remote repository")
 
 
 class AutomationAction(BaseModel):
