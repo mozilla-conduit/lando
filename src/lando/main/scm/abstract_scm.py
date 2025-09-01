@@ -292,3 +292,12 @@ class AbstractSCM(ABC):
 
         If `target` is `None`, use the currently checked out commit.
         """
+
+    @abstractmethod
+    def merge_remote(
+        self, commit_message: str, remote: str, commit: str, allow_unrelated: bool
+    ) -> str:
+        """Merge changes from the referenced remote and commit.
+
+        Return the SHA of the newly created merge commit.
+        """
