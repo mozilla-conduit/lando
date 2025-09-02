@@ -298,8 +298,8 @@ def test_build_patch():
         ("diff file", False),
     ],
 )
-def test_patchhelper_is_diff_line(line, expected):
-    assert bool(HgPatchHelper._is_diff_line(line)) is expected
+def test_patchhelper_is_diff_line(line: str, expected: str):
+    assert bool(HgPatchHelper.is_diff_line(line)) is expected
 
 
 def test_patchhelper_vanilla_export():

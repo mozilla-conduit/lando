@@ -134,7 +134,7 @@ class PatchHelper(ABC):
         self.headers = {}
 
     @staticmethod
-    def _is_diff_line(line: str) -> bool:
+    def is_diff_line(line: str) -> bool:
         return DIFF_LINE_RE.search(line) is not None
 
     def get_header(self, name: bytes | str) -> str | None:
@@ -249,7 +249,7 @@ class HgPatchHelper(PatchHelper):
                 # If there was no `Diff Start Line` header, iterate through each line until
                 # we find a `diff` line, then break as we have parsed the commit description.
                 if (self.diff_start_line and i == self.diff_start_line) or (
-                    not self.diff_start_line and self._is_diff_line(line)
+                    not self.diff_start_line and self.is_diff_line(line)
                 ):
                     break
 
@@ -268,7 +268,7 @@ class HgPatchHelper(PatchHelper):
                 # If we found a `Diff Start Line` header, parse the diff until that line.
                 # If there was no `Diff Start Line` header, iterate through each line until
                 # we find a `diff` line.
-                if (not self.diff_start_line and self._is_diff_line(line)) or (
+                if (not self.diff_start_line and self.is_diff_line(line)) or (
                     self.diff_start_line and i == self.diff_start_line
                 ):
                     diff.append(line)
@@ -396,7 +396,7 @@ class GitPatchHelper(PatchHelper):
         # Add the diff start line to the diff.
         diff_lines = []
         for line in line_iterator:
-            if GitPatchHelper._is_diff_line(line):
+            if GitPatchHelper.is_diff_line(line):
                 diff_lines.append(line)
                 break
         else:
