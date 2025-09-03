@@ -17,5 +17,13 @@ $.fn.stack = function() {
     $('.uplift-request-close').on("click", function () {
         $('.uplift-request-modal').removeClass("is-active");
     });
+
+    // Show the assessment edit form modal when the "Request Uplift" button is clicked.
+    $('.edit-assessment-open').on("click", function () {
+        $('.uplift-assessment-edit-modal').addClass("is-active");
+    });
+    $('.edit-assessment-close').on("click", function () {
+        $('.uplift-assessment-edit-modal').removeClass("is-active");
+    });
   });
 };

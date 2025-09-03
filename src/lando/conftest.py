@@ -734,7 +734,12 @@ def landing_worker_instance(mocked_repo_config):
 
 
 @pytest.fixture
-def user(user_plaintext_password, conduit_permissions):
+def user_phab_api_key():
+    return "api-123456789012345678901234567x"
+
+
+@pytest.fixture
+def user(user_plaintext_password, conduit_permissions, user_phab_api_key):
     user = User.objects.create_user(
         username="test_user",
         password=user_plaintext_password,
@@ -745,6 +750,8 @@ def user(user_plaintext_password, conduit_permissions):
 
     for permission in conduit_permissions:
         user.user_permissions.add(permission)
+
+    user.profile.save_phabricator_api_key(user_phab_api_key)
 
     user.save()
     user.profile.save()

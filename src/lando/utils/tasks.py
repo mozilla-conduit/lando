@@ -163,3 +163,34 @@ def phab_trigger_repo_update(repo_identifier: str):
         settings.PHABRICATOR_ADMIN_API_KEY,
     )
     phab.call_conduit("diffusion.looksoon", repositories=[repo_identifier])
+
+
+@celery_app.task(
+    autoretry_for=(IOError, PhabricatorCommunicationException),
+    default_retry_delay=20,
+    acks_late=True,
+    ignore_result=True,
+    # Retry 3 times every 2 seconds.
+    max_retries=3 * 20,
+)
+def set_uplift_request_form_on_revision(
+    revision_id: int, uplift_form_str: str, phab_api_key: str
+):
+    """Send the contents of an uplift request form to Phabricator.
+
+    Update the uplift request form on revision `D<revision_id>` to
+    the value `uplift_form_str`, using the `phab_api_key` for the
+    user.
+    """
+    # Create a `PhabricatorClient` using the user's API key.
+    phab = PhabricatorClient(
+        settings.PHABRICATOR_URL,
+        phab_api_key,
+    )
+
+    phab.call_conduit(
+        "differential.revision.edit",
+        # `objectIdentifier` accepts revision ID numbers as well as PHIDs.
+        objectIdentifier=revision_id,
+        transactions=[{"type": "uplift.request", "value": uplift_form_str}],
+    )

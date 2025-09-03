@@ -10,7 +10,6 @@ from lando.api.legacy.uplift import (
     get_local_uplift_repo,
     get_uplift_conduit_state,
 )
-from lando.api.legacy.validation import revision_id_to_int
 from lando.main.auth import require_authenticated_user, require_phabricator_api_key
 from lando.utils.phabricator import PhabricatorClient
 
@@ -23,7 +22,8 @@ def create(phab: PhabricatorClient, request, data: dict) -> dict:  # noqa: ANN00
     """Create new uplift requests for requested repository & revision"""
     repository = data["repository"]
     repo_name = repository.short_name
-    revision_id = revision_id_to_int(data["revision_id"])
+    revision_id = data["revision_id"]
+    assessment_str = data["assessment_str"]
 
     try:
         logger.info(
@@ -80,6 +80,10 @@ def create(phab: PhabricatorClient, request, data: dict) -> dict:  # noqa: ANN00
         # Get the parent commit PHID from the stack if available.
         parent_phid = commit_stack[-1]["revision_phid"] if commit_stack else None
 
+        # If the PHID of revision in this iteration is the `revision_phid` the
+        # stack is being created from, it is the tip revision in the stack.
+        is_tip_revision = phid == revision_phid
+
         try:
             # Create the revision.
             rev = create_uplift_revision(
@@ -91,6 +95,8 @@ def create(phab: PhabricatorClient, request, data: dict) -> dict:  # noqa: ANN00
                 parent_phid,
                 base_revision,
                 target_repository,
+                # Pass the assessment response if creating the tip of the uplift stack.
+                assessment_str=(assessment_str if is_tip_revision else None),
             )
             commit_stack.append(rev)
         except Exception as e:

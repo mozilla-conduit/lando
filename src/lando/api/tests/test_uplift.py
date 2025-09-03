@@ -1,4 +1,6 @@
 import pytest
+from django.contrib.messages import get_messages
+from django.urls import reverse
 from packaging.version import (
     Version,
 )
@@ -13,6 +15,16 @@ from lando.api.legacy.uplift import (
     get_revisions_without_bugs,
     parse_milestone_version,
     strip_depends_on_from_commit_message,
+)
+from lando.main.models.uplift import (
+    LowMediumHighChoices,
+    UpliftAssessment,
+    UpliftRevision,
+    YesNoChoices,
+    YesNoUnknownChoices,
+)
+from lando.ui.legacy.forms import (
+    UpliftAssessmentEditForm,
 )
 from lando.utils.phabricator import (
     PhabricatorClient,
@@ -407,3 +419,209 @@ def test_get_latest_non_commit_diff():
     assert (
         diff["creationMethod"] != "commit"
     ), "Diffs with a `creationMethod` of `commit` should be skipped."
+
+
+@pytest.mark.django_db
+def test_from_cleaned_form_creates_response(user):
+    cleaned_data = {
+        "user_impact": "High urgency due to crash.",
+        "covered_by_testing": YesNoUnknownChoices.YES,
+        "fix_verified_in_nightly": YesNoChoices.NO,
+        "needs_manual_qe_testing": YesNoChoices.YES,
+        "qe_testing_reproduction_steps": "1. Open app\n2. Click button\n3. Crash",
+        "risk_associated_with_patch": LowMediumHighChoices.HIGH,
+        "risk_level_explanation": "Touches security-sensitive code.",
+        "string_changes": "Added one string for error handling.",
+        "is_android_affected": YesNoUnknownChoices.NO,
+    }
+
+    response = UpliftAssessment.from_cleaned_form(user, cleaned_data)
+
+    assert response.pk is not None
+    assert response.user == user
+    assert response.user_impact == "High urgency due to crash."
+    assert response.qe_testing_reproduction_steps.startswith("1. Open app")
+
+
+@pytest.mark.django_db
+def test_to_conduit_json_transforms_fields(user):
+    instance = UpliftAssessment.objects.create(
+        user=user,
+        user_impact="Impact",
+        covered_by_testing=YesNoUnknownChoices.YES,
+        fix_verified_in_nightly=YesNoChoices.NO,
+        needs_manual_qe_testing=YesNoChoices.YES,
+        qe_testing_reproduction_steps="Steps",
+        risk_associated_with_patch=LowMediumHighChoices.HIGH,
+        risk_level_explanation="Explanation",
+        string_changes="Changes",
+        is_android_affected=YesNoUnknownChoices.UNKNOWN,
+    )
+
+    conduit_dict = instance.to_conduit_json()
+    assert isinstance(conduit_dict, dict), "`to_conduit_json` should return a `dict`."
+    assert (
+        conduit_dict["User impact if declined"] == "Impact"
+    ), "`user_impact` field should not be transformed."
+    assert (
+        conduit_dict["Code covered by automated testing"] is True
+    ), "`No` should be converted to `False`."
+    assert (
+        conduit_dict["Fix verified in Nightly"] is False
+    ), "`No` should be converted to `False`."
+    assert (
+        conduit_dict["Needs manual QE test"] is True
+    ), "`Yes` should be converted to `True`."
+    assert (
+        conduit_dict["Is Android affected?"] is False
+    ), "`Unknown` should be converted to `False`."
+    assert (
+        conduit_dict["Risk associated with taking this patch"] == "high"
+    ), "Text choice should be converted to `str`."
+
+    conduit_str = instance.to_conduit_json_str()
+
+    assert (
+        conduit_str
+        == '{"User impact if declined": "Impact", "Code covered by automated testing": true, "Fix verified in Nightly": false, "Needs manual QE test": true, "Steps to reproduce for manual QE testing": "Steps", "Risk associated with taking this patch": "high", "Explanation of risk level": "Explanation", "String changes made/needed": "Changes", "Is Android affected?": false}'
+    ), "`to_conduit_json_str` should return dict as a string."
+
+
+@pytest.mark.django_db
+def test_to_form_dict_returns_expected_fields(user):
+    instance = UpliftAssessment.objects.create(
+        user=user,
+        user_impact="Impact",
+        covered_by_testing=YesNoUnknownChoices.NO,
+        fix_verified_in_nightly=YesNoChoices.YES,
+        needs_manual_qe_testing=YesNoChoices.NO,
+        qe_testing_reproduction_steps="Steps",
+        risk_associated_with_patch=LowMediumHighChoices.LOW,
+        risk_level_explanation="Low risk",
+        string_changes="None",
+        is_android_affected=YesNoUnknownChoices.UNKNOWN,
+    )
+
+    form_data = instance.to_form_dict()
+
+    assert isinstance(form_data, dict)
+    assert form_data["user_impact"] == "Impact"
+    assert "id" not in form_data
+    assert form_data["covered_by_testing"] == YesNoUnknownChoices.NO
+
+
+CREATE_FORM_DATA = {
+    "revision_id": "D1234",
+    "user_impact": "Initial impact description.",
+    "covered_by_testing": "yes",
+    "fix_verified_in_nightly": "no",
+    "needs_manual_qe_testing": "no",
+    "qe_testing_reproduction_steps": "",
+    "risk_associated_with_patch": "low",
+    "risk_level_explanation": "Low risk because it's well-tested.",
+    "string_changes": "No changes.",
+    "is_android_affected": "no",
+}
+
+UPDATED_FORM_DATA = {
+    "revision_id": "D1234",
+    "user_impact": "Updated impact after more testing.",
+    "covered_by_testing": "no",
+    "fix_verified_in_nightly": "yes",
+    "needs_manual_qe_testing": "yes",
+    "qe_testing_reproduction_steps": "Steps go here.",
+    "risk_associated_with_patch": "medium",
+    "risk_level_explanation": "Medium risk due to timing.",
+    "string_changes": "Yes, minor updates.",
+    "is_android_affected": "yes",
+}
+
+
+@pytest.mark.django_db
+def test_patch_assessment_creates_and_updates(authenticated_client, user, phabdouble):
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
+    url = reverse("uplift-assessment-page")
+
+    form = UpliftAssessmentEditForm(data=CREATE_FORM_DATA)
+    assert form.is_valid(), f"Form was invalid: {form.errors.as_json()}"
+
+    # Submit the form for an revision.
+    response = authenticated_client.post(
+        url, data=CREATE_FORM_DATA, HTTP_REFERER="/D1234"
+    )
+    assert response.status_code == 302, "Patch should redirect back to referrer."
+
+    # Check that a new response was created
+    responses = UpliftAssessment.objects.all()
+    assert responses.count() == 1, "Updating a form should result in a single form."
+
+    response_obj = responses.first()
+    assert (
+        response_obj.user_impact == CREATE_FORM_DATA["user_impact"]
+    ), "`user_impact` field should match the initial value."
+
+    revision = UpliftRevision.objects.get()
+    assert revision.revision_id == 1234, "Revision ID should match initial value."
+    assert (
+        revision.assessment == response_obj
+    ), "Response object for the revision should match the queried model."
+
+    # Submit the form for a revision which already has a completed form.
+    response = authenticated_client.post(
+        url, data=UPDATED_FORM_DATA, HTTP_REFERER="/D1234"
+    )
+    assert response.status_code == 302, "Patch should redirect back to referrer."
+
+    # Check that a new response was created
+    responses = UpliftAssessment.objects.all()
+    assert responses.count() == 1, "Updating a form should result in a single form."
+
+    updated_response_obj = responses.first()
+    assert (
+        updated_response_obj.user_impact == UPDATED_FORM_DATA["user_impact"]
+    ), "User impact should be updated to a new value."
+
+    revision.refresh_from_db()
+    assert (
+        revision.assessment == updated_response_obj
+    ), "Revision should point to the new response."
+
+
+@pytest.mark.django_db
+def test_patch_assessment_form_invalid(authenticated_client, user, phabdouble):
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
+    url = reverse("uplift-assessment-page")
+
+    # Form is invalid because required fields are missing or invalid
+    invalid_data = {
+        "revision_id": "D1234",
+        # Required field left empty.
+        "user_impact": "",
+        "covered_by_testing": "yes",
+        "fix_verified_in_nightly": "no",
+        "needs_manual_qe_testing": "yes",
+        # Required as `needs_manual_qe_testing` is `yes`.
+        "qe_testing_reproduction_steps": "",
+        "risk_associated_with_patch": "low",
+        "risk_level_explanation": "Low risk because it's well-tested.",
+        "string_changes": "No changes.",
+        "is_android_affected": "no",
+    }
+
+    response = authenticated_client.post(url, data=invalid_data, HTTP_REFERER="/D1234")
+
+    assert response.status_code == 302, "Submission should redirect on error."
+    assert (
+        UpliftAssessment.objects.count() == 0
+    ), "Assessment should not be saved on error."
+    assert (
+        UpliftRevision.objects.count() == 0
+    ), "Assessment should not be associated with a revision."
+
+    messages = [str(message) for message in get_messages(response.wsgi_request)]
+    for bad_field in ("qe_testing_reproduction_steps", "user_impact"):
+        assert any(
+            bad_field in message for message in messages
+        ), f"Validation message not sent for `{bad_field}`."

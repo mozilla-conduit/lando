@@ -4,20 +4,26 @@ import logging
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.handlers.wsgi import WSGIRequest
+from django.db import transaction
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
+from django.utils.decorators import method_decorator
 
 from lando.api.legacy import api as legacy_api
 from lando.api.legacy.uplift import MAX_UPLIFT_STACK_SIZE
-from lando.main.auth import force_auth_refresh
+from lando.api.legacy.validation import revision_id_to_int
+from lando.main.auth import force_auth_refresh, require_phabricator_api_key
 from lando.main.models import Repo
+from lando.main.models.uplift import UpliftAssessment, UpliftRevision
 from lando.ui.legacy.forms import (
     TransplantRequestForm,
+    UpliftAssessmentEditForm,
     UpliftRequestForm,
 )
 from lando.ui.legacy.stacks import Edge, draw_stack_graph, sort_stack_topological
 from lando.ui.views import LandoView
+from lando.utils.tasks import set_uplift_request_form_on_revision
 
 logger = logging.getLogger(__name__)
 
@@ -48,22 +54,109 @@ class Uplift(LandoView):
             # they will see the flash messages.
             return redirect(request.META.get("HTTP_REFERER"))
 
-        revision_id = uplift_request_form.cleaned_data["revision_id"]
+        revision_id = revision_id_to_int(
+            uplift_request_form.cleaned_data["revision_id"]
+        )
         repository = uplift_request_form.cleaned_data["repository"]
 
-        response = legacy_api.uplift.create(
-            request,
-            data={
-                "revision_id": revision_id,
-                "repository": repository,
-            },
-        )
+        # Create DB rows for the uplift submission.
+        with transaction.atomic():
+            assessment = UpliftAssessment.from_cleaned_form(
+                request.user, uplift_request_form.cleaned_data
+            )
+
+            response = legacy_api.uplift.create(
+                request,
+                data={
+                    "revision_id": revision_id,
+                    "repository": repository,
+                    "assessment_str": (assessment.to_conduit_json_str()),
+                },
+            )
+
+            tip_revision_id = response["tip_differential"]["revision_id"]
+
+            UpliftRevision.objects.create(
+                assessment=assessment,
+                revision_id=tip_revision_id,
+            )
 
         # Redirect to the tip revision's URL.
-        # TODO add js for auto-opening the uplift request Phabricator form.
-        # See https://bugzilla.mozilla.org/show_bug.cgi?id=1810257.
         tip_differential = response["tip_differential"]["url"]
         return redirect(tip_differential)
+
+
+class UpliftAssessmentEditView(LandoView):
+    """Update and create uplift request assessment forms."""
+
+    @force_auth_refresh
+    @method_decorator(require_phabricator_api_key(optional=False, provide_client=False))
+    def post(self, request: WSGIRequest) -> HttpResponse:
+        """Update an uplift request assessment."""
+        uplift_assessment_form = UpliftAssessmentEditForm(request.POST)
+
+        if not uplift_assessment_form.is_valid():
+            errors = [
+                f"{field}: {', '.join(field_errors)}"
+                for field, field_errors in uplift_assessment_form.errors.items()
+            ]
+
+            for error in errors:
+                messages.add_message(request, messages.ERROR, error)
+
+            return redirect(request.META.get("HTTP_REFERER"))
+
+        revision_id = revision_id_to_int(
+            uplift_assessment_form.cleaned_data["revision_id"]
+        )
+
+        try:
+            uplift_revision = UpliftRevision.objects.get(revision_id=revision_id)
+        except UpliftRevision.DoesNotExist:
+            # No existing assessment for this revision, so we create one.
+            with transaction.atomic():
+                assessment = UpliftAssessment.from_cleaned_form(
+                    cleaned_data=uplift_assessment_form.cleaned_data,
+                    user=request.user,
+                )
+                UpliftRevision.objects.create(
+                    assessment=assessment,
+                    revision_id=revision_id,
+                )
+
+            messages.add_message(
+                request, messages.SUCCESS, "Uplift assessment created."
+            )
+        else:
+            old_assessment = uplift_revision.assessment
+
+            revisions = old_assessment.revisions.all()
+
+            # Store uplift request assessment response.
+            with transaction.atomic():
+                assessment = UpliftAssessment.from_cleaned_form(
+                    cleaned_data=uplift_assessment_form.cleaned_data,
+                    user=request.user,
+                )
+
+                for revision in revisions:
+                    revision.assessment = assessment
+                    revision.save()
+
+                old_assessment.delete()
+
+            messages.add_message(request, messages.SUCCESS, "Uplift assessment saved.")
+
+        # Trigger a Celery task to update the form on Phabricator.
+        set_uplift_request_form_on_revision.apply_async(
+            args=(
+                revision_id,
+                assessment.to_conduit_json_str(),
+                request.user.profile.phabricator_api_key,
+            )
+        )
+
+        return redirect(request.META.get("HTTP_REFERER"))
 
 
 class Revision(LandoView):
@@ -84,12 +177,12 @@ class Revision(LandoView):
         # Build a mapping from phid to revision and identify
         # the data for the revision used to load this page.
 
-        revision = None
+        revision_phid = None
         revisions = {}
         for r in stack["revisions"]:
             revisions[r["phid"]] = r
             if r["id"] == "D{}".format(revision_id):
-                revision = r["phid"]
+                revision_phid = r["phid"]
 
         # Build a mapping from phid to repository.
         repositories = {}
@@ -117,7 +210,7 @@ class Revision(LandoView):
                 landable.add(phid)
 
             try:
-                series = p[: p.index(revision) + 1]
+                series = p[: p.index(revision_phid) + 1]
             except ValueError:
                 pass
 
@@ -153,6 +246,30 @@ class Revision(LandoView):
         )
         drawing_width, drawing_rows = draw_stack_graph(phids, edges, order)
 
+        # Get the `Repo` object for the current revision.
+        revision = revisions[revision_phid]
+        revision_repo = repositories.get(revision["repo_phid"])
+
+        # Look for an existing `UpliftRevision` for this revision.
+        try:
+            uplift_revision = UpliftRevision.objects.get(revision_id=revision_id)
+        except UpliftRevision.DoesNotExist:
+            uplift_revision = None
+
+        if revision_repo and revision_repo.approval_required and uplift_revision:
+            # If an existing form is present, pre-populate the edit form.
+            assessment = uplift_revision.assessment
+            uplift_assessment_initial = assessment.to_form_dict()
+            uplift_assessment_initial["revision_id"] = f"D{revision_id}"
+            uplift_assessment_edit_form = UpliftAssessmentEditForm(
+                initial=uplift_assessment_initial
+            )
+        else:
+            # Use an empty edit form with `revision_id` pre-populated.
+            uplift_assessment_edit_form = UpliftAssessmentEditForm(
+                initial={"revision_id": f"D{revision_id}"}
+            )
+
         # Current implementation requires that all commits have the flags appended.
         # This may change in the future. What we do here is:
         # - if all commits have the flag, then disable the checkbox
@@ -164,6 +281,7 @@ class Revision(LandoView):
                 existing_flags[flag] = all(
                     flag in r["commit_message"] for r in revisions.values()
                 )
+
         else:
             existing_flags = {}
 
@@ -180,13 +298,15 @@ class Revision(LandoView):
             "drawing_width": drawing_width,
             "landing_jobs": landing_jobs,
             "revisions": revisions,
-            "revision_phid": revision,
+            "revision_phid": revision_phid,
+            "revision_repo": revision_repo,
             "target_repo": target_repo,
             "errors": errors,
             "form": form,
             "flags": target_repo.commit_flags if target_repo else [],
             "existing_flags": existing_flags,
             "uplift_request_form": uplift_request_form,
+            "uplift_assessment_form": uplift_assessment_edit_form,
             "uplift_stack_too_large": uplift_stack_too_large,
             "max_uplift_stack_size": MAX_UPLIFT_STACK_SIZE,
         }
