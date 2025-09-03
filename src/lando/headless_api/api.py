@@ -3,7 +3,7 @@ import binascii
 import datetime
 import logging
 from io import StringIO
-from typing import Annotated, Literal, Optional, Union
+from typing import Annotated, Literal
 
 from django.core.exceptions import PermissionDenied
 from django.core.handlers.wsgi import WSGIRequest
@@ -264,7 +264,7 @@ class MergeOntoAction(Schema):
 
     action: Literal["merge-onto"]
     commit_message: str
-    strategy: Optional[MergeStrategy]
+    strategy: MergeStrategy | None
     target: str
 
     def process(
@@ -324,14 +324,14 @@ class AddBranchAction(Schema):
         raise NotImplementedError()
 
 
-Action = Union[
-    AddCommitAction,
-    AddCommitBase64Action,
-    CreateCommitAction,
-    MergeOntoAction,
-    AddBranchAction,
-    TagAction,
-]
+Action = (
+    AddCommitAction
+    | AddCommitBase64Action
+    | CreateCommitAction
+    | MergeOntoAction
+    | AddBranchAction
+    | TagAction
+)
 
 ActionAdapter = TypeAdapter(Action)
 
