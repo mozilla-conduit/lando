@@ -9,10 +9,11 @@ import uuid
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, ContextManager, Optional
+from typing import Any
 
 from django.conf import settings
 from simple_github import AppAuth, AppInstallationAuth
+from typing_extensions import override
 
 from lando.main.scm.commit import CommitData
 from lando.main.scm.consts import SCM_TYPE_GIT, MergeStrategy
@@ -68,15 +69,18 @@ class GitSCM(AbstractSCM):
         super().__init__(path)
 
     @classmethod
-    def scm_type(cls):  # noqa: ANN206
+    @override
+    def scm_type(cls) -> str:  # noqa: ANN206
         """Return a string identifying the supported SCM."""
         return SCM_TYPE_GIT
 
     @classmethod
+    @override
     def scm_name(cls) -> str:
         """Return a _human-friendly_ string identifying the supported SCM."""
         return "Git"
 
+    @override
     def clone(self, source: str):
         """Clone a repository from a source."""
         # When cloning, self.path doesn't exist yet, so we need to use another CWD.
@@ -89,10 +93,11 @@ class GitSCM(AbstractSCM):
         self._git_run("config", "user.name", LANDO_USER_NAME, cwd=self.path)
         self._git_run("config", "user.email", LANDO_USER_EMAIL, cwd=self.path)
 
+    @override
     def push(
         self,
         push_path: str,
-        push_target: Optional[str] = None,
+        push_target: str | None = None,
         force_push: bool = False,
         tags: list[str] | None = None,
     ):
@@ -138,7 +143,7 @@ class GitSCM(AbstractSCM):
         self._git_run(*push_command, cwd=self.path)
 
     @staticmethod
-    def _get_github_token(repo_owner: str, repo_name: str) -> Optional[str]:
+    def _get_github_token(repo_owner: str, repo_name: str) -> str | None:
         """Obtain a fresh GitHub token to push to the specified repo.
 
         This relies on GITHUB_APP_ID and GITHUB_APP_PRIVKEY to be set in the
@@ -172,6 +177,7 @@ class GitSCM(AbstractSCM):
         command = ["log", "--max-count=1", "--format=%H", "--", path]
         return self._git_run(*command, cwd=self.path)
 
+    @override
     def apply_patch(
         self, diff: str, commit_description: str, commit_author: str, commit_date: str
     ):
@@ -210,6 +216,7 @@ class GitSCM(AbstractSCM):
 
                     raise exc
 
+    @override
     def apply_patch_bytes(self, patch_bytes: bytes):
         """Apply the given `git format-patch` to the repo directly."""
         try:
@@ -238,6 +245,7 @@ class GitSCM(AbstractSCM):
                 # Re-raise the exception from the failed `git am`.
                 raise exc
 
+    @override
     def get_patch(self, revision_id: str) -> str | None:
         """Return a complete patch for the given revision, in the git extended diff format.
 
@@ -264,14 +272,16 @@ class GitSCM(AbstractSCM):
             return None
         return patch
 
+    @override
     def get_patch_helper(self, revision_id: str) -> PatchHelper | None:
         """Return a PatchHelper containing the patch for the given revision."""
         patch = self.get_patch(revision_id)
         return GitPatchHelper.from_string_io(io.StringIO(patch)) if patch else None
 
+    @override
     def process_merge_conflict(
         self,
-        normalized_url: str,
+        pull_path: str,
         revision_id: int,
         error_message: str,
     ) -> dict[str, Any]:
@@ -295,7 +305,7 @@ class GitSCM(AbstractSCM):
         breakdown["failed_paths"] = [
             {
                 "path": path,
-                "url": f"{normalized_url}/tree/{revision}/{path}",
+                "url": f"{pull_path}/tree/{revision}/{path}",
                 "changeset_id": revision,
             }
             for (path, revision) in failed_path_commits
@@ -313,10 +323,12 @@ class GitSCM(AbstractSCM):
 
         return breakdown
 
+    @override
     def describe_commit(self, revision_id: str = "HEAD") -> CommitData:
         """Return Commit metadata."""
         return self._describe_commits(revision_id)[0]
 
+    @override
     def describe_local_changes(self, base_cset: str = "@{u}") -> list[CommitData]:
         """Return a list of the Commits only present on this branch.
 
@@ -373,12 +385,14 @@ class GitSCM(AbstractSCM):
         return commits
 
     @contextmanager
-    def for_pull(self) -> ContextManager:
+    @override
+    def for_pull(self):
         """Context manager to prepare the repo with the correct environment variables set for pulling."""
         yield self
 
     @contextmanager
-    def for_push(self, requester_email: str) -> ContextManager:
+    @override
+    def for_push(self, requester_email: str):
         """Context manager to prepare the repo with the correct environment variables set for pushing."""
         # We set the committer name to the requester's _email_ as this is the only piece
         # of information about the user that we are comfortable making public. Names in
@@ -395,19 +409,22 @@ class GitSCM(AbstractSCM):
             del os.environ[ENV_COMMITTER_NAME]
             del os.environ[ENV_COMMITTER_EMAIL]
 
+    @override
     def head_ref(self) -> str:
         """Get the current revision_id"""
         return self._git_run("rev-parse", "HEAD", cwd=self.path)
 
+    @override
     def changeset_descriptions(self) -> list[str]:
         """Retrieve the descriptions of commits in the repository."""
         command = ["log", "--format=%s", "@{u}.."]
         return self._git_run(*command, cwd=self.path).splitlines()
 
+    @override
     def update_repo(
         self,
         pull_path: str,
-        target_cset: Optional[str] = None,
+        target_cset: str | None = None,
         attributes_override: str = "",
     ) -> str:
         """Update the repository to the specified changeset.
@@ -444,6 +461,7 @@ class GitSCM(AbstractSCM):
         )
         return self.head_ref()
 
+    @override
     def clean_repo(
         self,
         *,
@@ -473,12 +491,14 @@ class GitSCM(AbstractSCM):
     def _git_dir(self):
         return self._git_run("rev-parse", "--absolute-git-dir", cwd=self.path)
 
-    def format_stack_amend(self) -> Optional[list[str]]:
+    @override
+    def format_stack_amend(self) -> list[str | None]:
         """Amend the top commit in the patch stack with changes from formatting."""
         self._git_run("commit", "--all", "--amend", "--no-edit", cwd=self.path)
         return [self.head_ref()]
 
-    def format_stack_tip(self, commit_message: str) -> Optional[list[str]]:
+    @override
+    def format_stack_tip(self, commit_message: str) -> list[str | None]:
         """Add an autoformat commit to the top of the patch stack."""
         try:
             self._git_run("commit", "--all", "--message", commit_message, cwd=self.path)
@@ -490,6 +510,7 @@ class GitSCM(AbstractSCM):
         return [self.head_ref()]
 
     @property
+    @override
     def repo_is_initialized(self) -> bool:
         """Determine whether the target repository is initialised."""
         if not Path(self.path).exists():
@@ -503,6 +524,7 @@ class GitSCM(AbstractSCM):
         return result.strip() == "true"
 
     @classmethod
+    @override
     def repo_is_supported(cls, path: str) -> bool:
         """Determine wether the target repository is supported by this concrete implementation."""
         try:
@@ -513,7 +535,7 @@ class GitSCM(AbstractSCM):
         return True
 
     @classmethod
-    def _git_run(cls, *args, cwd: Optional[str] = None) -> str:
+    def _git_run(cls, *args, cwd: str | None = None) -> str:
         """Run a git command and return full output.
 
         Parameters:
@@ -580,8 +602,9 @@ class GitSCM(AbstractSCM):
         """Return the currently active branch."""
         return self._git_run("branch", "--show-current", cwd=self.path)
 
+    @override
     def merge_onto(
-        self, commit_message: str, target: str, strategy: Optional[MergeStrategy]
+        self, commit_message: str, target: str, strategy: MergeStrategy | None
     ) -> str:
         """Create a merge commit on the specified repo.
 
@@ -640,6 +663,7 @@ class GitSCM(AbstractSCM):
 
         return self.head_ref()
 
+    @override
     def tag(self, name: str, target: str | None):
         """Create a new tag called `name` on the `target` commit.
 
@@ -652,6 +676,7 @@ class GitSCM(AbstractSCM):
 
         self._git_run(*tag_command, cwd=self.path)
 
+    @override
     def push_tag(self, tag: str, remote: str):
         """Push the tag with name `tag` to `remote`."""
         self._git_run("push", remote, f"refs/tags/{tag}", cwd=self.path)

@@ -23,7 +23,6 @@ from lando.main.scm.hg import (
     HgCommandError,
     HgException,
     HgSCM,
-    hglib,
 )
 
 # These can only be determined when all the subclasses of the AbstractSCM have been defined.
@@ -60,7 +59,6 @@ __all__ = [
     # git
     "GitSCM",
     # hg
-    "hglib",
     "HgException",
     "HgCommandError",
     "HgSCM",
