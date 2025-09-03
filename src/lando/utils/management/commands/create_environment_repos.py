@@ -100,6 +100,21 @@ REPOS = {
             "default_branch": "test-repo",
             "required_permission": SCM_LEVEL_1,
         },
+        #
+        # try
+        #
+        {
+            "name": "try",
+            "url": "http://hg.test/try",
+            "required_permission": SCM_LEVEL_1,
+            "push_path": "ssh://autoland.hg//repos/try",
+            "pull_path": "http://hg.test/try",
+            "short_name": "try",
+            "is_phabricator_repo": False,
+            "force_push": True,
+            "automation_enabled": True,
+            "hooks_enabled": True,
+        },
     ],
     Environment.development: [
         {
@@ -134,14 +149,14 @@ REPOS = {
         },
         # Use real `try` for testing since `try` is a testing environment anyway.
         {
-            "name": "try",
+            "name": "firefox-try",
             "url": "https://hg.mozilla.org/try",
             "push_path": "ssh://hg.mozilla.org/try",
             "pull_path": "https://hg.mozilla.org/mozilla-unified",
             "required_permission": SCM_LEVEL_1,
-            "short_name": "try",
+            "short_name": "firefox-try",
             "is_phabricator_repo": False,
-            "force_push": True,
+            "try_enabled": True,
         },
     ],
     Environment.staging: [
