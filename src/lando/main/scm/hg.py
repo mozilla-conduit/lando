@@ -611,10 +611,13 @@ class HgSCM(AbstractSCM):
     def _run_hg(self, args: list[str]) -> bytes:
         """Use hglib to run a Mercurial command, and return its output."""
         correlation_id = str(uuid.uuid4())
+        command_string = " ".join(["hg"] + [shlex.quote(str(arg)) for arg in args])
         logger.info(
-            "running hg command",
+            "running hg command#%s: %s",
+            correlation_id,
+            command_string,
             extra={
-                "command": ["hg"] + [shlex.quote(str(arg)) for arg in args],
+                "command": command_string,
                 "command_id": correlation_id,
                 "path": self.path,
                 "hg_pid": self.hg_repo.server.pid,
@@ -636,13 +639,16 @@ class HgSCM(AbstractSCM):
         out = out.getvalue()
         err = err.getvalue()
         if out:
+            out_string = (out.rstrip().decode(self.ENCODING, errors="replace"),)
             logger.info(
-                "output from hg command",
+                "output from hg command#%s: %s",
+                correlation_id,
+                out_string,
                 extra={
                     "command_id": correlation_id,
                     "path": self.path,
                     "hg_pid": self.hg_repo.server.pid,
-                    "output": out.rstrip().decode(self.ENCODING, errors="replace"),
+                    "output": out_string,
                 },
             )
 
