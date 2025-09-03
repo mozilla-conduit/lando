@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import enum
 import logging
-from typing import Any, Iterable, Optional, Self
+from collections.abc import Iterable
+from typing import Any
 
 from django.db import models
 from django.db.models import Case, IntegerField, QuerySet, When
@@ -27,7 +28,7 @@ class JobStatus(models.TextChoices):
     CANCELLED = "CANCELLED", gettext_lazy("Cancelled")
 
     @classmethod
-    def ordering(cls) -> Case[Self]:
+    def ordering(cls) -> Case:
         """Method for ordering QuerySets by job states.
 
         For `JobStatus.SUBMITTED` jobs, higher priority items come first
@@ -50,7 +51,7 @@ class JobStatus(models.TextChoices):
         )
 
     @classmethod
-    def pending(cls) -> list[tuple[str, str]]:
+    def pending(cls) -> list[JobStatus]:
         """Group of Job statuses that may change in the future.
 
         This includes IN_PROGRESS jobs. See doc for ordering().
@@ -58,7 +59,7 @@ class JobStatus(models.TextChoices):
         return [cls.SUBMITTED, cls.IN_PROGRESS, cls.DEFERRED]
 
     @classmethod
-    def final(cls) -> list[tuple[str, str]]:
+    def final(cls) -> list[JobStatus]:
         """Group of Job statuses that will not change without manual intervention."""
         return [cls.FAILED, cls.LANDED, cls.CANCELLED]
 
@@ -198,7 +199,7 @@ class BaseJob(BaseModel):
     @classmethod
     def next_job(
         cls,
-        repositories: Optional[Iterable[str]] = None,
+        repositories: Iterable[str | None] = None,
         **kwargs,
     ) -> QuerySet:
         """Return a query which selects the next job and locks the row."""
@@ -217,7 +218,7 @@ class BaseJob(BaseModel):
 
     @classmethod
     def job_queue_query(
-        cls, repositories: Optional[Iterable[str]] = None, **kwargs
+        cls, repositories: Iterable[str | None] = None, **kwargs
     ) -> QuerySet:
         """Return a query which selects the queued jobs.
 
