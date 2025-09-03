@@ -12,7 +12,9 @@ from lando.main.models import (
     SCM_LEVEL_3,
     Repo,
 )
+from lando.main.models.repo import get_default_hooks
 from lando.main.scm import GitSCM
+from lando.utils.landing_checks import BugReferencesCheck, TryTaskConfigCheck
 
 ENVIRONMENTS = [e for e in Environment if not e.is_test and e.is_lower]
 
@@ -103,6 +105,27 @@ REPOS = {
             "default_branch": "test-repo",
             "required_permission": SCM_LEVEL_1,
         },
+        #
+        # try
+        #
+        {
+            "name": "try",
+            "url": "http://hg.test/try",
+            "required_permission": SCM_LEVEL_1,
+            "push_path": "ssh://autoland.hg//repos/try",
+            "pull_path": "http://hg.test/try",
+            "short_name": "try",
+            "is_phabricator_repo": False,
+            "force_push": True,
+            "automation_enabled": False,
+            "try_enabled": True,
+            "hooks_enabled": True,
+            # Set difference takes precedence over set union.
+            "hooks": list(
+                set(get_default_hooks()) - {TryTaskConfigCheck.name()}
+                | {BugReferencesCheck.name()}
+            ),
+        },
     ],
     Environment.development: [
         {
@@ -144,7 +167,13 @@ REPOS = {
             "required_permission": SCM_LEVEL_1,
             "short_name": "try",
             "is_phabricator_repo": False,
-            "force_push": True,
+            "try_enabled": True,
+            "hooks_enabled": True,
+            # Set difference takes precedence over set union.
+            "hooks": list(
+                set(get_default_hooks()) - {TryTaskConfigCheck.name()}
+                | {BugReferencesCheck.name()}
+            ),
         },
     ],
     Environment.staging: [
