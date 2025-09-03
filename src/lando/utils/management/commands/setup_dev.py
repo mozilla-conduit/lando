@@ -22,6 +22,7 @@ class Command(BaseCommand):
             },
             SCM_TYPE_HG: {
                 WorkerType.LANDING: "",
+                WorkerType.AUTOMATION: "-automation-worker",
             },
         }
 

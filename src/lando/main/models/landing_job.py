@@ -3,12 +3,9 @@ from __future__ import annotations
 import datetime
 import logging
 import os
+from collections.abc import Iterable
 from pathlib import Path
-from typing import (
-    Any,
-    Iterable,
-    Optional,
-)
+from typing import Any
 
 from django.conf import settings
 from django.db import models
@@ -26,6 +23,8 @@ DEFAULT_GRACE_SECONDS = int(os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2))
 
 class LandingJob(BaseJob):
     """A landing job for Phabricator revisions."""
+
+    type: str = "Landing"
 
     # revision_to_diff_id and revision_order are deprecated and kept for historical reasons.
     revision_to_diff_id = models.JSONField(null=True, blank=True, default=dict)
@@ -138,7 +137,7 @@ class LandingJob(BaseJob):
     @classmethod
     def job_queue_query(
         cls,
-        repositories: Optional[Iterable[str]] = None,
+        repositories: Iterable[str | None] = None,
         grace_seconds: int = DEFAULT_GRACE_SECONDS,
         **kwargs,
     ) -> QuerySet:

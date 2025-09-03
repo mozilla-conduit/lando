@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Callable
 from unittest import mock
 
+import hglib
 import pytest
 
 from lando.main.scm import (
@@ -22,7 +23,6 @@ from lando.main.scm import (
     SCMPushTimeoutException,
     TreeApprovalRequired,
     TreeClosed,
-    hglib,
 )
 from lando.main.scm.helpers import HgPatchHelper
 
@@ -387,6 +387,46 @@ def test_HgSCM__extract_error_data():
     failed_paths, rejects_paths = HgSCM._extract_error_data(exception_message)
     assert failed_paths == expected_failed_paths
     assert rejects_paths == expected_rejects_paths
+
+
+# The equivalent of PATCH_GIT_1 (from the git_patch() fixture), as applied to the base
+# commit of the hg_clone fixture (0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4).
+PATCH_HG_PATCH_GIT_1 = """\
+# HG changeset patch
+# User Py Test <pytest@lando.example.net>
+# Date 1745287375 0
+#      Tue Apr 22 02:02:55 2025 +0000
+# Node ID faad7b7b7cf985b39d4e731e511c5b796d1c0479
+# Parent  0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4
+No bug: add another line
+
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,2 @@
+ TEST
++adding another line
+"""
+
+
+def test_HgSCM_apply_patch_bytes(hg_clone: Path, git_patch: Callable):
+    scm = HgSCM(str(hg_clone))
+
+    # Get git-format-patch patch content as bytes
+    patch_str = git_patch()
+    patch_bytes = patch_str.encode("utf-8")
+
+    # Apply patch using the new method
+    with scm.for_push("user@example.com"):
+        scm.apply_patch_bytes(patch_bytes)
+
+        commit = scm.describe_commit()
+
+        new_patch = scm.get_patch(commit.hash)
+
+    assert new_patch, f"Empty patch unexpectedly generated for {commit.hash}"
+
+    assert new_patch == PATCH_HG_PATCH_GIT_1
 
 
 def test_HgSCM_describe_commit(hg_clone):
