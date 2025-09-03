@@ -3,12 +3,9 @@ from __future__ import annotations
 import datetime
 import logging
 import os
+from collections.abc import Iterable
 from pathlib import Path
-from typing import (
-    Any,
-    Iterable,
-    Optional,
-)
+from typing import Any
 
 from django.conf import settings
 from django.db import models
@@ -138,7 +135,7 @@ class LandingJob(BaseJob):
     @classmethod
     def job_queue_query(
         cls,
-        repositories: Optional[Iterable[str]] = None,
+        repositories: Iterable[str | None] = None,
         grace_seconds: int = DEFAULT_GRACE_SECONDS,
         **kwargs,
     ) -> QuerySet:
