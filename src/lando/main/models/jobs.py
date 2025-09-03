@@ -89,6 +89,10 @@ class BaseJob(BaseModel):
     class Meta:
         abstract = True
 
+    # A human-friendly name of this type of job.
+    # To be overriden by subclasses.
+    type: str = "undefined"
+
     def __str__(self) -> str:
         return f"{self.__class__.__name__} {self.id} [{self.status}]"
 
