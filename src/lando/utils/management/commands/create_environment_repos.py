@@ -100,6 +100,21 @@ REPOS = {
             "default_branch": "test-repo",
             "required_permission": SCM_LEVEL_1,
         },
+        #
+        # try
+        #
+        {
+            "name": "try",
+            "url": "http://hg.test/try",
+            "required_permission": SCM_LEVEL_1,
+            "push_path": "ssh://autoland.hg//repos/try",
+            "pull_path": "http://hg.test/try",
+            "short_name": "try",
+            "is_phabricator_repo": False,
+            "force_push": True,
+            "automation_enabled": True,
+            "hooks_enabled": True,
+        },
     ],
     Environment.development: [
         {
