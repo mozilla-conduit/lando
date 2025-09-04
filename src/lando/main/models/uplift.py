@@ -1,9 +1,8 @@
 import json
-from typing import Any, Self
+from typing import Any
 
 from django.contrib.auth.models import User
 from django.db import models
-from django.forms.models import model_to_dict
 
 from lando.main.models import BaseModel
 
@@ -78,26 +77,6 @@ class UpliftAssessment(BaseModel):
     is_android_affected = models.CharField(
         blank=False, choices=YesNoUnknownChoices.choices, max_length=8
     )
-
-    @classmethod
-    def from_cleaned_form(cls, user: User, cleaned_data: dict[str, str]) -> Self:
-        """Create an `UpliftAssessment` from cleaned form data."""
-        return cls.objects.create(
-            user=user,
-            user_impact=cleaned_data["user_impact"],
-            covered_by_testing=cleaned_data["covered_by_testing"],
-            fix_verified_in_nightly=cleaned_data["fix_verified_in_nightly"],
-            needs_manual_qe_testing=cleaned_data["needs_manual_qe_testing"],
-            qe_testing_reproduction_steps=cleaned_data["qe_testing_reproduction_steps"],
-            risk_associated_with_patch=cleaned_data["risk_associated_with_patch"],
-            risk_level_explanation=cleaned_data["risk_level_explanation"],
-            string_changes=cleaned_data["string_changes"],
-            is_android_affected=cleaned_data["is_android_affected"],
-        )
-
-    def to_form_dict(self) -> dict[str, Any]:
-        """Return the assessment as a dict for the `initial` form argument."""
-        return model_to_dict(self, exclude=["id"])
 
     def to_conduit_json(self) -> dict[str, Any]:
         """Return the assessment in Conduit API JSON format.

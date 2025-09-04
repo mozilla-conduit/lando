@@ -422,28 +422,6 @@ def test_get_latest_non_commit_diff():
 
 
 @pytest.mark.django_db
-def test_from_cleaned_form_creates_response(user):
-    cleaned_data = {
-        "user_impact": "High urgency due to crash.",
-        "covered_by_testing": YesNoUnknownChoices.YES,
-        "fix_verified_in_nightly": YesNoChoices.NO,
-        "needs_manual_qe_testing": YesNoChoices.YES,
-        "qe_testing_reproduction_steps": "1. Open app\n2. Click button\n3. Crash",
-        "risk_associated_with_patch": LowMediumHighChoices.HIGH,
-        "risk_level_explanation": "Touches security-sensitive code.",
-        "string_changes": "Added one string for error handling.",
-        "is_android_affected": YesNoUnknownChoices.NO,
-    }
-
-    response = UpliftAssessment.from_cleaned_form(user, cleaned_data)
-
-    assert response.pk is not None
-    assert response.user == user
-    assert response.user_impact == "High urgency due to crash."
-    assert response.qe_testing_reproduction_steps.startswith("1. Open app")
-
-
-@pytest.mark.django_db
 def test_to_conduit_json_transforms_fields(user):
     instance = UpliftAssessment.objects.create(
         user=user,
@@ -485,29 +463,6 @@ def test_to_conduit_json_transforms_fields(user):
         conduit_str
         == '{"User impact if declined": "Impact", "Code covered by automated testing": true, "Fix verified in Nightly": false, "Needs manual QE test": true, "Steps to reproduce for manual QE testing": "Steps", "Risk associated with taking this patch": "high", "Explanation of risk level": "Explanation", "String changes made/needed": "Changes", "Is Android affected?": false}'
     ), "`to_conduit_json_str` should return dict as a string."
-
-
-@pytest.mark.django_db
-def test_to_form_dict_returns_expected_fields(user):
-    instance = UpliftAssessment.objects.create(
-        user=user,
-        user_impact="Impact",
-        covered_by_testing=YesNoUnknownChoices.NO,
-        fix_verified_in_nightly=YesNoChoices.YES,
-        needs_manual_qe_testing=YesNoChoices.NO,
-        qe_testing_reproduction_steps="Steps",
-        risk_associated_with_patch=LowMediumHighChoices.LOW,
-        risk_level_explanation="Low risk",
-        string_changes="None",
-        is_android_affected=YesNoUnknownChoices.UNKNOWN,
-    )
-
-    form_data = instance.to_form_dict()
-
-    assert isinstance(form_data, dict)
-    assert form_data["user_impact"] == "Impact"
-    assert "id" not in form_data
-    assert form_data["covered_by_testing"] == YesNoUnknownChoices.NO
 
 
 CREATE_FORM_DATA = {

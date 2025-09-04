@@ -5,6 +5,7 @@ from lando.api.legacy.uplift import get_uplift_repositories
 from lando.main.models import Repo
 from lando.main.models.uplift import (
     LowMediumHighChoices,
+    UpliftAssessment,
     YesNoChoices,
     YesNoUnknownChoices,
 )
@@ -18,7 +19,7 @@ class TransplantRequestForm(forms.Form):
     flags = forms.JSONField(widget=forms.widgets.HiddenInput, required=False)
 
 
-class UpliftAssessmentForm(forms.Form):
+class UpliftAssessmentForm(forms.ModelForm):
     """Form to process the uplift request assessment."""
 
     user_impact = forms.CharField(
@@ -82,6 +83,32 @@ class UpliftAssessmentForm(forms.Form):
                 "qe_testing_reproduction_steps",
                 "QE testing reproduction steps must be provided if manual testing is required.",
             )
+
+    class Meta:
+        model = UpliftAssessment
+        exclude = ["id", "user"]
+        widgets = {
+            "user_impact": forms.Textarea,
+            "qe_testing_reproduction_steps": forms.Textarea,
+            "risk_level_explanation": forms.Textarea,
+            "string_changes": forms.Textarea,
+            "covered_by_testing": RadioSelect,
+            "fix_verified_in_nightly": RadioSelect,
+            "needs_manual_qe_testing": RadioSelect,
+            "risk_associated_with_patch": RadioSelect,
+            "is_android_affected": RadioSelect,
+        }
+        labels = {
+            "user_impact": "User impact if declined/Reason for urgency",
+            "covered_by_testing": "Code covered by automated testing?",
+            "fix_verified_in_nightly": "Fix verified in Nightly?",
+            "needs_manual_qe_testing": "Needs manual QE testing?",
+            "qe_testing_reproduction_steps": "Steps to reproduce for manual QE testing",
+            "risk_associated_with_patch": "Risk associated with taking this patch",
+            "risk_level_explanation": "Explanation of risk level",
+            "string_changes": "String changes made/needed?",
+            "is_android_affected": "Is Android affected?",
+        }
 
 
 class UpliftAssessmentEditForm(UpliftAssessmentForm):

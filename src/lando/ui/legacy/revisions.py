@@ -15,7 +15,7 @@ from lando.api.legacy.uplift import MAX_UPLIFT_STACK_SIZE
 from lando.api.legacy.validation import revision_id_to_int
 from lando.main.auth import force_auth_refresh, require_phabricator_api_key
 from lando.main.models import Repo
-from lando.main.models.uplift import UpliftAssessment, UpliftRevision
+from lando.main.models.uplift import UpliftRevision
 from lando.ui.legacy.forms import (
     TransplantRequestForm,
     UpliftAssessmentEditForm,
@@ -61,9 +61,9 @@ class Uplift(LandoView):
 
         # Create DB rows for the uplift submission.
         with transaction.atomic():
-            assessment = UpliftAssessment.from_cleaned_form(
-                request.user, uplift_request_form.cleaned_data
-            )
+            assessment = uplift_request_form.save(commit=False)
+            assessment.user = request.user
+            assessment.save()
 
             response = legacy_api.uplift.create(
                 request,
@@ -115,10 +115,10 @@ class UpliftAssessmentEditView(LandoView):
         except UpliftRevision.DoesNotExist:
             # No existing assessment for this revision, so we create one.
             with transaction.atomic():
-                assessment = UpliftAssessment.from_cleaned_form(
-                    cleaned_data=uplift_assessment_form.cleaned_data,
-                    user=request.user,
-                )
+                assessment = uplift_assessment_form.save(commit=False)
+                assessment.user = request.user
+                assessment.save()
+
                 UpliftRevision.objects.create(
                     assessment=assessment,
                     revision_id=revision_id,
@@ -134,10 +134,9 @@ class UpliftAssessmentEditView(LandoView):
 
             # Store uplift request assessment response.
             with transaction.atomic():
-                assessment = UpliftAssessment.from_cleaned_form(
-                    cleaned_data=uplift_assessment_form.cleaned_data,
-                    user=request.user,
-                )
+                assessment = uplift_assessment_form.save(commit=False)
+                assessment.user = request.user
+                assessment.save()
 
                 for revision in revisions:
                     revision.assessment = assessment
@@ -256,10 +255,10 @@ class Revision(LandoView):
         if revision_repo and revision_repo.approval_required and uplift_revision:
             # If an existing form is present, pre-populate the edit form.
             assessment = uplift_revision.assessment
-            uplift_assessment_initial = assessment.to_form_dict()
-            uplift_assessment_initial["revision_id"] = f"D{revision_id}"
             uplift_assessment_edit_form = UpliftAssessmentEditForm(
-                initial=uplift_assessment_initial
+                # Using `initial` will only apply to values not in the instance.
+                initial={"revision_id": f"D{revision_id}"},
+                instance=assessment,
             )
         else:
             # Use an empty edit form with `revision_id` pre-populated.
