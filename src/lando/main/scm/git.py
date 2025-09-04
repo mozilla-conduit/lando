@@ -492,7 +492,7 @@ class GitSCM(AbstractSCM):
         return self._git_run("rev-parse", "--absolute-git-dir", cwd=self.path)
 
     @override
-    def format_stack_amend(self) -> list[str | None]:
+    def format_stack_amend(self) -> list[str]:
         """Amend the top commit in the patch stack with changes from formatting."""
         self._git_run("commit", "--all", "--amend", "--no-edit", cwd=self.path)
         return [self.head_ref()]
