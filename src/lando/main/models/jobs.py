@@ -218,7 +218,7 @@ class BaseJob(BaseModel):
 
     @classmethod
     def job_queue_query(
-        cls, repositories: Iterable[str | None] = None, **kwargs
+        cls, repositories: Iterable[str] | None = None, **kwargs
     ) -> QuerySet:
         """Return a query which selects the queued jobs.
 
