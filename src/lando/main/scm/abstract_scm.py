@@ -254,7 +254,7 @@ class AbstractSCM(ABC):
         """Determine wether the target repository is supported by this concrete implementation."""
 
     @abstractmethod
-    def format_stack_amend(self) -> list[str | None]:
+    def format_stack_amend(self) -> list[str] | None:
         """Amend the top commit in the patch stack with changes from formatting.
 
         Returns a list containing a single string representing the ID of the amended commit.
