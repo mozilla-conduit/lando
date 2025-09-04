@@ -96,7 +96,7 @@ class UpliftAssessmentEditForm(UpliftAssessmentForm):
 class UpliftRequestForm(UpliftAssessmentForm):
     """Form used to request uplift of a stack."""
 
-    revision_id = forms.RegexField(
+    source_revision_id = forms.RegexField(
         regex="^D[0-9]+$",
         widget=forms.widgets.HiddenInput,
         required=False,

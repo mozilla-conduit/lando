@@ -54,8 +54,8 @@ class Uplift(LandoView):
             # they will see the flash messages.
             return redirect(request.META.get("HTTP_REFERER"))
 
-        revision_id = revision_id_to_int(
-            uplift_request_form.cleaned_data["revision_id"]
+        source_revision_id = revision_id_to_int(
+            uplift_request_form.cleaned_data["source_revision_id"]
         )
         repository = uplift_request_form.cleaned_data["repository"]
 
@@ -68,7 +68,7 @@ class Uplift(LandoView):
             response = legacy_api.uplift.create(
                 request,
                 data={
-                    "revision_id": revision_id,
+                    "revision_id": source_revision_id,
                     "repository": repository,
                     "assessment_str": (assessment.to_conduit_json_str()),
                 },
@@ -172,7 +172,7 @@ class Revision(LandoView):
         errors = []
 
         uplift_request_form = UpliftRequestForm()
-        uplift_request_form.fields["revision_id"].initial = f"D{revision_id}"
+        uplift_request_form.fields["source_revision_id"].initial = f"D{revision_id}"
 
         # Build a mapping from phid to revision and identify
         # the data for the revision used to load this page.

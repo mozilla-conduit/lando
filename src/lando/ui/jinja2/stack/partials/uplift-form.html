@@ -12,7 +12,7 @@
       </header>
 
       <section class="modal-card-body">
-        <input type="hidden" name="revision_id" value="{{ revision_id }}" />
+        {{ uplift_request_form.source_revision_id }}
 
         {% if not user_has_phabricator_token %}
           <article class="message is-danger">
