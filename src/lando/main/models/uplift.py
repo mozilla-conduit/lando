@@ -40,7 +40,7 @@ class UpliftAssessment(BaseModel):
     """Represents the responses to the uplift request form."""
 
     # User who submitted the form.
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
 
     # User impact if declined?
     user_impact = models.TextField(blank=False)
