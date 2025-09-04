@@ -199,7 +199,7 @@ class BaseJob(BaseModel):
     @classmethod
     def next_job(
         cls,
-        repositories: Iterable[str | None] = None,
+        repositories: Iterable[str] | None = None,
         **kwargs,
     ) -> QuerySet:
         """Return a query which selects the next job and locks the row."""
