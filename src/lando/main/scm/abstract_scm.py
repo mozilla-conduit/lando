@@ -61,7 +61,7 @@ class AbstractSCM(ABC):
             will remain unspecified if None or empty string.
             target (str | None): The target branch or reference to push to. Defaults to None.
             force_push (bool): If True, force the push even if it results in a non-fast-forward update. Defaults to False.
-            tags (list[str | None]): List of tags to push, if applicable.
+            tags (list[str] | None): List of tags to push, if applicable.
 
         Returns:
             None
