@@ -251,10 +251,7 @@ class Revision(LandoView):
         revision_repo = repositories.get(revision["repo_phid"])
 
         # Look for an existing `UpliftRevision` for this revision.
-        try:
-            uplift_revision = UpliftRevision.objects.get(revision_id=revision_id)
-        except UpliftRevision.DoesNotExist:
-            uplift_revision = None
+        uplift_revision = UpliftRevision.one_or_none(revision_id=revision_id)
 
         if revision_repo and revision_repo.approval_required and uplift_revision:
             # If an existing form is present, pre-populate the edit form.
