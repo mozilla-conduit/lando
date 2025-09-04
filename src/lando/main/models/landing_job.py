@@ -135,7 +135,7 @@ class LandingJob(BaseJob):
     @classmethod
     def job_queue_query(
         cls,
-        repositories: Iterable[str | None] = None,
+        repositories: Iterable[str] | None = None,
         grace_seconds: int = DEFAULT_GRACE_SECONDS,
         **kwargs,
     ) -> QuerySet:
