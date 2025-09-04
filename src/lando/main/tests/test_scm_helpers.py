@@ -1,5 +1,4 @@
 import io
-from typing import Optional
 from unittest.mock import patch
 
 import pytest
@@ -76,21 +75,46 @@ diff --git a/hello.c b/hello.c
  }
 """
 
-GIT_PATCH = r"""
+#
+# GIT_PATCH CONSTANT AND COMPONENTS
+#
+
+GIT_PATCH_HEADER = r"""
 From 0f5a3c99e12c1e9b0e81bed245fe537961f89e57 Mon Sep 17 00:00:00 2001
 From: Connor Sheehan <sheehan@mozilla.com>
 Date: Wed, 6 Jul 2022 16:36:09 -0400
-Subject: [PATCH] errors: add a maintenance-mode specific title to serverside
+""".lstrip()
+
+GIT_PATCH_COMMIT_DESC = """
+errors: add a maintenance-mode specific title to serverside
  error handlers (Bug 1724769)
 
 Adds a conditional to the Lando-API exception handlers that
 shows a maintenance-mode specific title when a 503 error is
 returned from Lando. This should inform users that Lando is
 unavailable at the moment and is not broken.
+""".strip()
+
+# Patches in email-formatted messages will flow long lines. When parsing the patch, the
+# commit message gets unflowed. We keep the unflowed version here, too, for comparison
+# purposes.
+GIT_PATCH_COMMIT_DESC_UNFLOWED = """
+errors: add a maintenance-mode specific title to serverside error handlers (Bug 1724769)
+
+Adds a conditional to the Lando-API exception handlers that
+shows a maintenance-mode specific title when a 503 error is
+returned from Lando. This should inform users that Lando is
+unavailable at the moment and is not broken.
+""".strip()
+
+GIT_PATCH_STATS = """
 ---
  landoui/errorhandlers.py | 8 +++++++-
  1 file changed, 7 insertions(+), 1 deletion(-)
 
+""".lstrip()
+
+GIT_PATCH_DIFF = """
 diff --git a/landoui/errorhandlers.py b/landoui/errorhandlers.py
 index f56ba1c..33391ea 100644
 --- a/landoui/errorhandlers.py
@@ -113,11 +137,13 @@ index f56ba1c..33391ea 100644
              message=str(e),
          ),
          500,
---
-2.31.1
-
-
 """.lstrip()
+
+GIT_PATCH = f"{GIT_PATCH_HEADER}Subject: [PATCH] {GIT_PATCH_COMMIT_DESC}\n{GIT_PATCH_STATS}\n{GIT_PATCH_DIFF}-- 2.31.1\n"
+
+#
+# END GIT_PATCH CONSTANT AND COMPONENTS
+#
 
 GIT_DIFF_UTF8 = """\
 diff --git a/testing/web-platform/tests/html/dom/elements/global-attributes/dir-auto-dynamic-simple-textContent.html b/testing/web-platform/tests/html/dom/elements/global-attributes/dir-auto-dynamic-simple-textContent.html
@@ -176,6 +202,37 @@ Content-Transfer-Encoding: 8bit
 {GIT_DIFF_UTF8}--
 2.46.1
 """
+
+GIT_DIFF_BINARY = b"""\
+diff --git a/mobile/android/android-components/components/lib/publicsuffixlist/src/main/assets/publicsuffixes b/mobile/android/android-components/components/lib/publicsuffixlist/src/main/assets/publicsuffixes
+index 6fbd7cfa64d3a..7b7d3f1f381b3 100644
+--- a/mobile/android/android-components/components/lib/publicsuffixlist/src/main/assets/publicsuffixes
++++ b/mobile/android/android-components/components/lib/publicsuffixlist/src/main/assets/publicsuffixes
+@@ -1,1 +1,1 @@
+-\x00\x01\xa3j*.0emm.com
++\x00\x02\x13\x7f*.001.test.code-builder-stg.platform.salesforce.com
+"""
+
+GIT_FORMATPATCH_BINARY = (
+    b"""\
+From cbe35d45ef715ea5cdf4067fb6b090f0904a41cf Mon Sep 17 00:00:00 2001
+From: Ryan VanderMeulen <rvandermeulen@mozilla.com>
+Date: Tue, 19 Aug 2025 07:16:40 +1000
+Subject: [PATCH] Bug 1944726 - Update Android public suffix list.
+ r=#android-reviewers
+
+Differential Revision: https://phabricator.services.mozilla.com/D260093
+---
+ .../src/main/assets/publicsuffixes            | 2933 +++++++++++------
+ .../publicsuffixlist/PublicSuffixListTest.kt  |    2 +-
+ 2 files changed, 1888 insertions(+), 1047 deletions(-)
+
+"""
+    + GIT_DIFF_BINARY
+    + b"""\
+-- \n2.50.1
+"""
+)
 
 GIT_DIFF = """diff --git a/landoui/errorhandlers.py b/landoui/errorhandlers.py
 index f56ba1c..33391ea 100644
@@ -268,12 +325,12 @@ def test_build_patch():
         ("diff file", False),
     ],
 )
-def test_patchhelper_is_diff_line(line, expected):
-    assert bool(HgPatchHelper._is_diff_line(line)) is expected
+def test_patchhelper_is_diff_line(line: str, expected: str):
+    assert bool(HgPatchHelper.is_diff_line(line)) is expected
 
 
 def test_patchhelper_vanilla_export():
-    patch = HgPatchHelper(
+    patch = HgPatchHelper.from_string_io(
         io.StringIO(
             """
 # HG changeset patch
@@ -301,7 +358,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 
 def test_patchhelper_start_line():
-    patch = HgPatchHelper(
+    patch = HgPatchHelper.from_string_io(
         io.StringIO(
             """
 # HG changeset patch
@@ -327,7 +384,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 
 def test_patchhelper_no_header():
-    patch = HgPatchHelper(
+    patch = HgPatchHelper.from_string_io(
         io.StringIO(
             """
 # Date 1523427125 -28800
@@ -347,7 +404,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 
 def test_patchhelper_diff_injection_no_start_line():
-    patch = HgPatchHelper(
+    patch = HgPatchHelper.from_string_io(
         io.StringIO(
             """
 # HG changeset patch
@@ -375,7 +432,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 
 def test_patchhelper_diff_injection_start_line():
-    patch = HgPatchHelper(
+    patch = HgPatchHelper.from_string_io(
         io.StringIO(
             """
 # HG changeset patch
@@ -430,7 +487,8 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 # instead of passing the url to 'hg import' to make
 ...
 """.strip()
-    patch = HgPatchHelper(io.StringIO("%s\n%s\n\n%s" % (header, commit_desc, diff)))
+    patch_text = "%s\n%s\n\n%s" % (header, commit_desc, diff)
+    patch = HgPatchHelper.from_string_io(io.StringIO(patch_text))
 
     buf = io.StringIO("")
     patch.write_commit_description(buf)
@@ -439,6 +497,10 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
     buf = io.StringIO("")
     patch.write_diff(buf)
     assert buf.getvalue() == diff
+
+    buf = io.StringIO("")
+    patch.write(buf)
+    assert buf.getvalue() == patch_text
 
 
 def test_patchhelper_write_no_start_line():
@@ -461,7 +523,9 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 # instead of passing the url to 'hg import' to make
 ...
 """.strip()
-    patch = HgPatchHelper(io.StringIO(f"{header}\n{commit_desc}\n\n{diff}"))
+    patch = HgPatchHelper.from_string_io(
+        io.StringIO(f"{header}\n{commit_desc}\n\n{diff}")
+    )
 
     buf = io.StringIO("")
     patch.write_commit_description(buf)
@@ -475,7 +539,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 
 def test_git_formatpatch_helper_parse():
-    patch = GitPatchHelper(io.StringIO(GIT_PATCH))
+    patch = GitPatchHelper.from_string_io(io.StringIO(GIT_PATCH))
     assert (
         patch.get_header("From") == "Connor Sheehan <sheehan@mozilla.com>"
     ), "`From` header should contain author information."
@@ -497,8 +561,24 @@ def test_git_formatpatch_helper_parse():
     assert patch.get_diff() == GIT_DIFF, "`get_diff()` should return the full diff."
 
 
+def test_git_formatpatch_helper_write():
+    patch = GitPatchHelper.from_string_io(io.StringIO(GIT_PATCH))
+
+    buf = io.StringIO("")
+    patch.write_commit_description(buf)
+    assert buf.getvalue() == GIT_PATCH_COMMIT_DESC_UNFLOWED
+
+    buf = io.StringIO("")
+    patch.write_diff(buf)
+    assert buf.getvalue() == GIT_PATCH_DIFF
+
+    buf = io.StringIO("")
+    patch.write(buf)
+    assert buf.getvalue() == GIT_PATCH
+
+
 def test_git_formatpatch_helper_empty_commit():
-    patch = GitPatchHelper(io.StringIO(GIT_PATCH_EMPTY))
+    patch = GitPatchHelper.from_string_io(io.StringIO(GIT_PATCH_EMPTY))
     assert (
         patch.get_header("From") == "Connor Sheehan <sheehan@mozilla.com>"
     ), "`From` header should contain author information."
@@ -521,11 +601,19 @@ def test_git_formatpatch_helper_empty_commit():
 
 
 def test_git_formatpatch_helper_utf8():
-    helper = GitPatchHelper(io.StringIO(GIT_FORMATPATCH_UTF8))
+    helper = GitPatchHelper.from_string_io(io.StringIO(GIT_FORMATPATCH_UTF8))
 
     assert (
         helper.get_diff() == GIT_DIFF_UTF8
     ), "`get_diff()` should return unescaped unicode and match the original patch."
+
+
+def test_git_formatpatch_helper_binary():
+    helper = GitPatchHelper.from_bytes_io(io.BytesIO(GIT_FORMATPATCH_BINARY))
+
+    assert (
+        helper.get_diff_bytes() == GIT_DIFF_BINARY
+    ), "`get_diff_bytes()` did not return the original binary contents."
 
 
 def test_preserves_diff_crlf():
@@ -537,13 +625,13 @@ def test_preserves_diff_crlf():
         "1496239141",
     )
 
-    hg_helper = HgPatchHelper(io.StringIO(hg_patch))
+    hg_helper = HgPatchHelper.from_string_io(io.StringIO(hg_patch))
 
     assert (
         hg_helper.get_diff() == "\n" + GIT_DIFF_CRLF
     ), "`get_diff()` should preserve CRLF."
 
-    git_helper = GitPatchHelper(
+    git_helper = GitPatchHelper.from_string_io(
         io.StringIO(
             f"""\
 From: Connor Sheehan <sheehan@mozilla.com>
@@ -577,7 +665,7 @@ def test_strip_git_version_info_lines():
 
 def test_check_commit_message_merge_automation_empty_message():
     patch_helpers = [
-        HgPatchHelper(
+        HgPatchHelper.from_string_io(
             io.StringIO(
                 """
 # HG changeset patch
@@ -609,7 +697,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 def test_check_commit_message_merge_automation_bad_message():
     patch_helpers = [
-        HgPatchHelper(
+        HgPatchHelper.from_string_io(
             io.StringIO(
                 """
 # HG changeset patch
@@ -675,9 +763,9 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
         ),
     ],
 )
-def test_check_commit_message_valid_message(commit_message, error_message):
+def test_check_commit_message_valid_message(commit_message: str, error_message: str):
     patch_helpers = [
-        HgPatchHelper(
+        HgPatchHelper.from_string_io(
             io.StringIO(
                 f"""
 # HG changeset patch
@@ -757,10 +845,10 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
     ],
 )
 def test_check_commit_message_invalid_message(
-    commit_message, return_string, error_message
+    commit_message: str, return_string: str, error_message: str
 ):
     patch_helpers = [
-        HgPatchHelper(
+        HgPatchHelper.from_string_io(
             io.StringIO(
                 f"""
 # HG changeset patch
@@ -801,7 +889,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
             "wptsync@mozilla.com",
             GIT_PATCH_FILENAME_TEMPLATE.format(filename="somefile.txt"),
             "Revision has WPTSync bot making changes to disallowed "
-            "files `somefile.txt`.",
+            + "files `somefile.txt`.",
             "Non-WPT pushes by WPT user should not be allowed",
         ),
         (
@@ -815,9 +903,9 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
     ],
 )
 def test_check_wptsync_git(
-    push_user_email: str, patch: str, return_string: Optional[str], error_message: str
+    push_user_email: str, patch: str, return_string: str | None, error_message: str
 ):
-    patch_helpers = [GitPatchHelper(io.StringIO(patch))]
+    patch_helpers = [GitPatchHelper.from_string_io(io.StringIO(patch))]
     assessor = PatchCollectionAssessor(
         patch_helpers=patch_helpers, push_user_email=push_user_email
     )
@@ -974,7 +1062,7 @@ def test_check_prevent_submodules():
 
 
 def test_check_bug_references_public_bugs():
-    patch_helper = HgPatchHelper(
+    patch_helper = HgPatchHelper.from_string_io(
         io.StringIO(
             """
 # HG changeset patch
@@ -1019,7 +1107,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 def test_check_bug_references_private_bugs():
     # Simulate a patch that references a private bug.
-    patch_helper = HgPatchHelper(
+    patch_helper = HgPatchHelper.from_string_io(
         io.StringIO(
             """
 # HG changeset patch
@@ -1058,7 +1146,7 @@ Bug 999999: Fix issue with feature X
 
 def test_check_bug_references_skip_check():
     # Simulate a patch with SKIP_BMO_CHECK in the commit message.
-    patch_helper = HgPatchHelper(
+    patch_helper = HgPatchHelper.from_string_io(
         io.StringIO(
             """
 # HG changeset patch
@@ -1097,7 +1185,7 @@ SKIP_BMO_CHECK
 
 def test_check_bug_references_bmo_error():
     # Simulate a patch that references a bug.
-    patch_helper = HgPatchHelper(
+    patch_helper = HgPatchHelper.from_string_io(
         io.StringIO(
             """
 # HG changeset patch

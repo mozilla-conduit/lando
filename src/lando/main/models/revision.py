@@ -188,7 +188,7 @@ class Revision(BaseModel):
     def patch_helper(self) -> HgPatchHelper:
         """Create and cache an HgPatchHelper to parse the raw patch with Hg metadata."""
         if not self._patch_helper:
-            self._patch_helper = HgPatchHelper(StringIO(self.patch))
+            self._patch_helper = HgPatchHelper.from_string_io(StringIO(self.patch))
             if not self._patch_helper.diff_start_line:
                 raise NoDiffStartLine
 
