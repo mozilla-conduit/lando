@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Callable
 from unittest import mock
 
+import hglib
 import pytest
 
 from lando.main.scm import (
@@ -22,7 +23,6 @@ from lando.main.scm import (
     SCMPushTimeoutException,
     TreeApprovalRequired,
     TreeClosed,
-    hglib,
 )
 from lando.main.scm.helpers import HgPatchHelper
 

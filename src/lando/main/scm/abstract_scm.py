@@ -1,9 +1,10 @@
 import logging
 import random
 import string
-from abc import abstractmethod
+from abc import ABC, abstractmethod
+from contextlib import AbstractContextManager
 from pathlib import Path
-from typing import Any, ContextManager, Optional
+from typing import Any
 
 from lando.main.scm.commit import CommitData
 from lando.main.scm.consts import MergeStrategy
@@ -12,7 +13,7 @@ from lando.main.scm.helpers import PatchHelper
 logger = logging.getLogger(__name__)
 
 
-class AbstractSCM:
+class AbstractSCM(ABC):
     """An abstract class defining the interface an SCM needs to expose use by the Repo and LandingWorkers."""
 
     # The path to the repository.
@@ -49,7 +50,7 @@ class AbstractSCM:
     def push(
         self,
         push_path: str,
-        push_target: Optional[str] = None,
+        push_target: str | None = None,
         force_push: bool = False,
         tags: list[str] | None = None,
     ):
@@ -58,9 +59,9 @@ class AbstractSCM:
         Parameters:
             push_path (str): The path to the repository where changes will be pushed. It
             will remain unspecified if None or empty string.
-            target (Optional[str]): The target branch or reference to push to. Defaults to None.
+            target (str | None): The target branch or reference to push to. Defaults to None.
             force_push (bool): If True, force the push even if it results in a non-fast-forward update. Defaults to False.
-            tags (Optional[list[str]]): List of tags to push, if applicable.
+            tags (list[str] | None): List of tags to push, if applicable.
 
         Returns:
             None
@@ -178,11 +179,11 @@ class AbstractSCM:
         """
 
     @abstractmethod
-    def for_pull(self) -> ContextManager:
+    def for_pull(self) -> AbstractContextManager:
         """Context manager to prepare the repo with the correct environment variables set for pulling."""
 
     @abstractmethod
-    def for_push(self, requester_email: str) -> ContextManager:
+    def for_push(self, requester_email: str) -> AbstractContextManager:
         """Context manager to prepare the repo with the correct environment variables set for pushing.
 
         Args:
@@ -215,7 +216,7 @@ class AbstractSCM:
     def update_repo(
         self,
         pull_path: str,
-        target_cset: Optional[str] = None,
+        target_cset: str | None = None,
         attributes_override: str | None = None,
     ) -> str:
         """Update the repository to the specified changeset.
@@ -235,7 +236,6 @@ class AbstractSCM:
             str: The target changeset
         """
 
-    @abstractmethod
     def prepare_repo(self, pull_path: str):
         """Either clone or update the repo."""
         if not self.repo_is_initialized:
@@ -254,14 +254,14 @@ class AbstractSCM:
         """Determine wether the target repository is supported by this concrete implementation."""
 
     @abstractmethod
-    def format_stack_amend(self) -> Optional[list[str]]:
+    def format_stack_amend(self) -> list[str] | None:
         """Amend the top commit in the patch stack with changes from formatting.
 
         Returns a list containing a single string representing the ID of the amended commit.
         """
 
     @abstractmethod
-    def format_stack_tip(self, commit_message: str) -> Optional[list[str]]:
+    def format_stack_tip(self, commit_message: str) -> list[str] | None:
         """Add an autoformat commit to the top of the patch stack.
 
         Returns a list containing a single string representing the ID of the newly created commit.
@@ -276,7 +276,7 @@ class AbstractSCM:
 
     @abstractmethod
     def merge_onto(
-        self, commit_message: str, target: str, strategy: Optional[MergeStrategy]
+        self, commit_message: str, target: str, strategy: MergeStrategy | None
     ) -> str:
         """Create a merge commit on the specified repo.
 

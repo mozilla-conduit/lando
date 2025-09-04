@@ -13,13 +13,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import (
     Any,
-    ContextManager,
-    Optional,
     Self,
 )
 
 import hglib
 from django.conf import settings
+from typing_extensions import override
 
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.commit import CommitData
@@ -170,11 +169,8 @@ class HgSCM(AbstractSCM):
 
     hg_repo: hglib.client.hgclient
 
-    def __init__(self, path: str, config: Optional[dict] = None, **kwargs):
+    def __init__(self, path: str, config: dict | None = None, **kwargs):
         self.config = copy.copy(self.DEFAULT_CONFIGS)
-
-        # Somewhere to store patch headers for testing.
-        self.patch_header = None
 
         if config:
             self.config.update(config)
@@ -182,19 +178,22 @@ class HgSCM(AbstractSCM):
         super().__init__(path)
 
     @classmethod
+    @override
     def scm_type(cls):  # noqa: ANN206
         """Return a string identifying the supported SCM."""
         return SCM_TYPE_HG
 
     @classmethod
+    @override
     def scm_name(cls) -> str:
         """Return a _human-friendly_ string identifying the supported SCM."""
         return "Mercurial"
 
+    @override
     def push(
         self,
         push_path: str,
-        push_target: Optional[str] = None,
+        push_target: str | None = None,
         force_push: bool = False,
         tags: list[str] | None = None,
     ) -> None:
@@ -232,6 +231,7 @@ class HgSCM(AbstractSCM):
             ]
         ).decode()
 
+    @override
     def apply_patch(
         self, diff: str, commit_description: str, commit_author: str, commit_date: str
     ):
@@ -289,18 +289,22 @@ class HgSCM(AbstractSCM):
                 + ["--logfile", f_msg.name]
             )
 
+    @override
     def apply_patch_bytes(self, patch_bytes: bytes):
         raise NotImplementedError("`apply_patch_bytes` not implemented for hg.")
 
+    @override
     def get_patch(self, revision_id: str) -> str | None:
         """Return a complete patch for the given revision, in the git extended diff format."""
         return self.run_hg(["export", "--git", "-r", revision_id]).decode("utf-8")
 
+    @override
     def get_patch_helper(self, revision_id: str) -> PatchHelper | None:
         """Return a PatchHelper containing the patch for the given revision."""
         patch = self.get_patch(revision_id)
         return HgPatchHelper.from_string_io(io.StringIO(patch)) if patch else None
 
+    @override
     def process_merge_conflict(
         self,
         pull_path: str,
@@ -342,10 +346,12 @@ class HgSCM(AbstractSCM):
             breakdown["rejects_paths"][path[:-4]] = reject
         return breakdown
 
+    @override
     def describe_commit(self, revision_id: str = ".") -> CommitData:
         """Return Commit metadata."""
         return self._describe_revisions(revision_id)[0]
 
+    @override
     def describe_local_changes(self, base_cset: str = "") -> list[CommitData]:
         """Return a list of the Commits only present on this branch."""
         return list(self._describe_revisions(f"{base_cset}::. and draft()"))
@@ -414,6 +420,7 @@ class HgSCM(AbstractSCM):
         return failed_paths, rejects_paths
 
     @contextmanager
+    @override
     def for_push(self, requester_email: str):
         """Prepare the repo with the correct environment variables set for pushing.
 
@@ -430,7 +437,8 @@ class HgSCM(AbstractSCM):
             self._clean_and_close()
 
     @contextmanager
-    def for_pull(self) -> ContextManager:
+    @override
+    def for_pull(self):
         """Prepare the repo without setting any custom environment variables.
 
         The repo's `push` method will not function inside this context manager, as the
@@ -442,10 +450,12 @@ class HgSCM(AbstractSCM):
         finally:
             self._clean_and_close()
 
+    @override
     def head_ref(self) -> str:
         """Get the current revision_id."""
         return self.run_hg(["log", "-r", ".", "-T", "{node}"]).decode("utf-8")
 
+    @override
     def changeset_descriptions(self) -> list[str]:
         """Get a description for all the patches to be applied."""
         return (
@@ -454,10 +464,11 @@ class HgSCM(AbstractSCM):
             .splitlines()
         )
 
+    @override
     def update_repo(
         self,
         pull_path: str,
-        target_cset: Optional[str] = None,
+        target_cset: str | None = None,
         attributes_override: str = "",
     ) -> str:
         """Update the repository to the specified changeset.
@@ -501,7 +512,8 @@ class HgSCM(AbstractSCM):
         assert len(cset) == 12, cset
         return cset
 
-    def format_stack_amend(self) -> Optional[list[str]]:
+    @override
+    def format_stack_amend(self) -> list[str] | None:
         """Amend the top commit in the patch stack with changes from formatting.
 
         Returns a list containing a single string representing the ID of the amended commit.
@@ -518,7 +530,8 @@ class HgSCM(AbstractSCM):
 
             raise exc
 
-    def format_stack_tip(self, commit_message: str) -> Optional[list[str]]:
+    @override
+    def format_stack_tip(self, commit_message: str) -> list[str] | None:
         """Add an autoformat commit to the top of the patch stack."""
         try:
             # Create a new commit.
@@ -540,6 +553,7 @@ class HgSCM(AbstractSCM):
 
             raise exc
 
+    @override
     def clone(self, source: str):
         """Clone a repository from a source."""
         # Use of robustcheckout here would work, but is probably not worth
@@ -554,6 +568,7 @@ class HgSCM(AbstractSCM):
         )
 
     @property
+    @override
     def repo_is_initialized(self) -> bool:
         """Returns True if hglib is able to open the repo, otherwise returns False."""
         try:
@@ -565,6 +580,7 @@ class HgSCM(AbstractSCM):
             return True
 
     @classmethod
+    @override
     def repo_is_supported(cls, path: str) -> bool:
         """Determine wether the target repository is supported by this concrete implementation"""
         # We don't rely on HGLib for this method as we don't have a configured repository yet.
@@ -653,6 +669,7 @@ class HgSCM(AbstractSCM):
             logger.exception(e)
         self.hg_repo.close()
 
+    @override
     def clean_repo(
         self,
         *,
@@ -696,8 +713,9 @@ class HgSCM(AbstractSCM):
             except HgException:
                 pass
 
+    @override
     def merge_onto(
-        self, commit_message: str, target: str, strategy: Optional[MergeStrategy]
+        self, commit_message: str, target: str, strategy: MergeStrategy | None
     ) -> str:
         """Create a merge commit on the specified repo.
 
@@ -731,6 +749,7 @@ class HgSCM(AbstractSCM):
 
         return self.head_ref()
 
+    @override
     def tag(self, name: str, target: str | None):
         """Create a new tag called `name` on the `target` commit.
 
