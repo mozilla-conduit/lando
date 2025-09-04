@@ -1,10 +1,12 @@
+{% set job_type = job.type|default(Landing) %}
+
 {% extends "partials/layout.html" %}
-{% block page_title %}Landing Job {{job.id}}{% endblock %}
+{% block page_title %}{{job_type}} Job {{job.id}}{% endblock %}
 
 {% block main %}
 <main class="StackPage container fullhd">
 
-  <h1>Landing Job {{job.id}}</h1>
+  <h1>{{job_type}} Job {{job.id}}</h1>
 
 <div class="StackPage-timeline">
 
@@ -15,7 +17,7 @@
 
 {% if queue %}
 
-  <h1>Landing Queue</h1>
+  <h1>{{job_type}} Queue</h1>
 
   {% if queue|length  > 1 %}
   <p>There are {{ queue|length }} jobs ahead in the queue.</p>

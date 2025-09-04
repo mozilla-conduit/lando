@@ -27,6 +27,8 @@ DEFAULT_GRACE_SECONDS = int(os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2))
 class LandingJob(BaseJob):
     """A landing job for Phabricator revisions."""
 
+    type: str = "Landing"
+
     # revision_to_diff_id and revision_order are deprecated and kept for historical reasons.
     revision_to_diff_id = models.JSONField(null=True, blank=True, default=dict)
     revision_order = models.JSONField(null=True, blank=True, default=dict)
