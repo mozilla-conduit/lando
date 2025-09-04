@@ -498,7 +498,7 @@ class GitSCM(AbstractSCM):
         return [self.head_ref()]
 
     @override
-    def format_stack_tip(self, commit_message: str) -> list[str | None]:
+    def format_stack_tip(self, commit_message: str) -> list[str]:
         """Add an autoformat commit to the top of the patch stack."""
         try:
             self._git_run("commit", "--all", "--message", commit_message, cwd=self.path)
