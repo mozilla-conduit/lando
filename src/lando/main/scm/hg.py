@@ -531,7 +531,7 @@ class HgSCM(AbstractSCM):
             raise exc
 
     @override
-    def format_stack_tip(self, commit_message: str) -> list[str | None]:
+    def format_stack_tip(self, commit_message: str) -> list[str] | None:
         """Add an autoformat commit to the top of the patch stack."""
         try:
             # Create a new commit.
