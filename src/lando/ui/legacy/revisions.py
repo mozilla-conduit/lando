@@ -152,7 +152,7 @@ class UpliftAssessmentEditView(LandoView):
             args=(
                 revision_id,
                 assessment.to_conduit_json_str(),
-                request.user.profile.phabricator_api_key,
+                request.user.id,
             )
         )
 

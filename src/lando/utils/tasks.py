@@ -4,6 +4,7 @@ import ssl
 from typing import Optional
 
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.core import mail
 
 from lando.api.legacy.email import make_failure_email
@@ -174,7 +175,7 @@ def phab_trigger_repo_update(repo_identifier: str):
     max_retries=3 * 20,
 )
 def set_uplift_request_form_on_revision(
-    revision_id: int, uplift_form_str: str, phab_api_key: str
+    revision_id: int, uplift_form_str: str, user_id: int
 ):
     """Send the contents of an uplift request form to Phabricator.
 
@@ -182,10 +183,15 @@ def set_uplift_request_form_on_revision(
     the value `uplift_form_str`, using the `phab_api_key` for the
     user.
     """
+    try:
+        user = User.objects.select_related("profile").get(pk=user_id)
+    except User.NotFoundError as exc:
+        raise RuntimeError(f"User {user_id} does not exist.") from exc
+
     # Create a `PhabricatorClient` using the user's API key.
     phab = PhabricatorClient(
         settings.PHABRICATOR_URL,
-        phab_api_key,
+        user.profile.phabricator_api_key,
     )
 
     phab.call_conduit(
