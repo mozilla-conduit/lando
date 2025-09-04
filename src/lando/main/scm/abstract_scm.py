@@ -261,7 +261,7 @@ class AbstractSCM(ABC):
         """
 
     @abstractmethod
-    def format_stack_tip(self, commit_message: str) -> list[str | None]:
+    def format_stack_tip(self, commit_message: str) -> list[str] | None:
         """Add an autoformat commit to the top of the patch stack.
 
         Returns a list containing a single string representing the ID of the newly created commit.
