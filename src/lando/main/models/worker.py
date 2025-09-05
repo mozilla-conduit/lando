@@ -4,7 +4,8 @@ import os
 from django.db import models
 from django.utils.translation import gettext_lazy
 
-from lando.main.models import BaseModel, Repo
+from lando.main.models.base import BaseModel
+from lando.main.models.repo import Repo
 from lando.main.scm import SCM_TYPE_CHOICES, SCM_TYPE_HG
 
 logger = logging.getLogger(__name__)
