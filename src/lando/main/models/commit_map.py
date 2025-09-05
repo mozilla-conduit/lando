@@ -5,7 +5,7 @@ import requests
 import sentry_sdk
 from django.db import models
 
-from lando.main.models import BaseModel
+from lando.main.models.base import BaseModel
 from lando.main.models.repo import Repo
 from lando.main.scm.consts import SCM_TYPE_GIT, SCM_TYPE_HG
 

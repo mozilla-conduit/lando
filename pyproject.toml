@@ -47,6 +47,10 @@ testing = [
   "pytest-django",
   "requests-mock"
 ]
+typing = [
+  "celery-types",
+  "django-stubs",
+]
 
 [project.scripts]
 lando = "lando.manage:main"

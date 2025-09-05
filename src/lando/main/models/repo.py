@@ -2,14 +2,13 @@ import logging
 import os
 import urllib
 from pathlib import Path
-from typing import Optional
 
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from lando.main.models import BaseModel
+from lando.main.models.base import BaseModel
 from lando.main.scm import (
     SCM_IMPLEMENTATIONS,
     SCM_TYPE_CHOICES,
@@ -50,7 +49,7 @@ class RepoError(Exception):
 class Repo(BaseModel):
     """Represents the configuration of a particular repo."""
 
-    _scm: Optional[AbstractSCM] = None
+    _scm: AbstractSCM | None = None
 
     @property
     def path(self) -> str:
@@ -275,7 +274,7 @@ class Repo(BaseModel):
         return self.url
 
     @property
-    def _github_repo_url(self) -> Optional[str]:
+    def _github_repo_url(self) -> str | None:
         if self.is_github:
             return self.url.removesuffix(".git")
 
