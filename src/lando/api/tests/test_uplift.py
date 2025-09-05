@@ -501,7 +501,7 @@ def test_patch_assessment_creates_and_updates(authenticated_client, user, phabdo
     form = UpliftAssessmentEditForm(data=CREATE_FORM_DATA)
     assert form.is_valid(), f"Form was invalid: {form.errors.as_json()}"
 
-    # Submit the form for an revision.
+    # Submit the form for a revision.
     response = authenticated_client.post(
         url, data=CREATE_FORM_DATA, HTTP_REFERER="/D1234"
     )
