@@ -9,7 +9,7 @@ from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from lando.main.models import BaseModel
+from lando.main.models.base import BaseModel
 from lando.main.scm import (
     SCM_IMPLEMENTATIONS,
     SCM_TYPE_CHOICES,
