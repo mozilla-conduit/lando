@@ -1,5 +1,4 @@
 from ninja import Schema
-from pydantic import Field
 
 
 class ProblemDetail(Schema):
@@ -8,7 +7,22 @@ class ProblemDetail(Schema):
     title: str
     status: int
     detail: str
-    type: str | None = Field(default="about:blank")
+    type: str
+
+    def __init__(self, **kwargs):
+        if not kwargs.get("type"):
+            match kwargs.get("status"):
+                case 400:
+                    kwargs["type"] = (
+                        "https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400"
+                    )
+                case 404:
+                    kwargs["type"] = (
+                        "https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404"
+                    )
+                case _:
+                    kwargs["type"] = "about:blank"
+        super().__init__(**kwargs)
 
 
 class ProblemException(Exception):
@@ -17,7 +31,7 @@ class ProblemException(Exception):
     def __init__(
         self,
         *,
-        type: str = "about:blank",
+        type: str | None = None,
         title: str,
         detail: str,
         status: int = 400,
@@ -46,7 +60,6 @@ class BadRequestProblemException(ProblemException):
             title=title,
             detail=detail,
             status=400,
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
 
@@ -58,5 +71,4 @@ class NotFoundProblemException(ProblemException):
             title=title,
             detail=detail,
             status=404,
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
