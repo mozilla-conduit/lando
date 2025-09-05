@@ -204,7 +204,7 @@ class AddCommitBase64Action(Schema):
             )
 
         try:
-            scm.apply_patch_bytes(patch_bytes)
+            scm.apply_patch_git(patch_bytes)
         except Exception as exc:
             message = (
                 f"Aborting, could not apply patch in `add-commit-base64` action #{index}."

@@ -277,7 +277,7 @@ def test_GitSCM_apply_get_patch_merge(
     assert merge_patch_helper is None
 
 
-def test_GitSCM_apply_patch_bytes(git_repo: Path, git_patch: Callable):
+def test_GitSCM_apply_patch_git(git_repo: Path, git_patch: Callable):
     scm = GitSCM(str(git_repo))
 
     # Get patch content as bytes
@@ -285,7 +285,7 @@ def test_GitSCM_apply_patch_bytes(git_repo: Path, git_patch: Callable):
     patch_bytes = patch_str.encode("utf-8")
 
     # Apply patch using the new method
-    scm.apply_patch_bytes(patch_bytes)
+    scm.apply_patch_git(patch_bytes)
 
     commit = scm.describe_commit()
 
@@ -300,14 +300,14 @@ def test_GitSCM_apply_patch_bytes(git_repo: Path, git_patch: Callable):
     assert no_version_patch == expected_patch
 
 
-def test_GitSCM_apply_patch_bytes_base64(git_repo: Path, git_patch: Callable):
+def test_GitSCM_apply_patch_git_base64(git_repo: Path, git_patch: Callable):
     scm = GitSCM(str(git_repo))
 
     patch_str = git_patch()
     patch_b64 = base64.b64encode(patch_str.encode("utf-8")).decode("ascii")
 
     patch_bytes = base64.b64decode(patch_b64)
-    scm.apply_patch_bytes(patch_bytes)
+    scm.apply_patch_git(patch_bytes)
 
     commit = scm.describe_commit()
 
@@ -322,7 +322,7 @@ def test_GitSCM_apply_patch_bytes_base64(git_repo: Path, git_patch: Callable):
     assert no_version_patch == expected_patch
 
 
-def test_GitSCM_apply_patch_bytes_aborts_on_failure(
+def test_GitSCM_apply_patch_git_aborts_on_failure(
     git_repo: Path,
     git_patch: Callable,
 ):
@@ -335,7 +335,7 @@ def test_GitSCM_apply_patch_bytes_aborts_on_failure(
 
     # Apply a bad patch.
     with pytest.raises(SCMException):
-        scm.apply_patch_bytes(b"blah")
+        scm.apply_patch_git(b"blah")
 
     # Ensure the `rebase-apply` directory is gone.
     assert (
@@ -351,7 +351,7 @@ def test_GitSCM_apply_patch_bytes_aborts_on_failure(
     good_patch_bytes = base64.b64decode(good_patch_b64)
 
     # Apply a good patch with failed `git am` state present.
-    scm.apply_patch_bytes(good_patch_bytes)
+    scm.apply_patch_git(good_patch_bytes)
 
     # Ensure the `rebase-apply` directory is gone.
     assert (
