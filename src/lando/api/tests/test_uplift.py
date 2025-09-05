@@ -1,3 +1,5 @@
+from unittest import mock
+
 import pytest
 from django.contrib.messages import get_messages
 from django.urls import reverse
@@ -492,8 +494,11 @@ UPDATED_FORM_DATA = {
 }
 
 
+@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
 @pytest.mark.django_db
-def test_patch_assessment_creates_and_updates(authenticated_client, user, phabdouble):
+def test_patch_assessment_creates_and_updates(
+    mock_apply_async, authenticated_client, user, phabdouble
+):
     phabdouble.user(api_key=user.profile.phabricator_api_key)
 
     url = reverse("uplift-assessment-page")
@@ -524,6 +529,23 @@ def test_patch_assessment_creates_and_updates(authenticated_client, user, phabdo
         revision.assessment == response_obj
     ), "Response object for the revision should match the queried model."
 
+    # Assert Celery task was called
+    assert (
+        mock_apply_async.call_count == 1
+    ), "`set_uplift_request_form_on_revision` should be called."
+    _, kwargs = mock_apply_async.call_args
+    revision_id, conduit_json_str, user_id = kwargs["args"]
+
+    assert (
+        revision_id == 1234
+    ), "Revision ID for `set_uplift_request_form_on_revision` should match expected."
+    assert isinstance(
+        conduit_json_str, str
+    ), "Uplift form be JSON string from `to_conduit_json_str()`."
+    assert (
+        user_id == user.id
+    ), "User ID for `set_uplift_request_form_on_revision` should match expected."
+
     # Submit the form for a revision which already has a completed form.
     response = authenticated_client.post(
         url, data=UPDATED_FORM_DATA, HTTP_REFERER="/D1234"
@@ -546,9 +568,29 @@ def test_patch_assessment_creates_and_updates(authenticated_client, user, phabdo
         revision.assessment == updated_response_obj
     ), "Revision should point to the new response."
 
+    # Assert Celery task was called again.
+    assert (
+        mock_apply_async.call_count == 2
+    ), "`set_uplift_request_form_on_revision` should be called."
+    _, kwargs = mock_apply_async.call_args
+    revision_id, conduit_json_str, user_id = kwargs["args"]
 
+    assert (
+        revision_id == 1234
+    ), "Revision ID for `set_uplift_request_form_on_revision` should match expected."
+    assert isinstance(
+        conduit_json_str, str
+    ), "Uplift form be JSON string from `to_conduit_json_str()`."
+    assert (
+        user_id == user.id
+    ), "User ID for `set_uplift_request_form_on_revision` should match expected."
+
+
+@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
 @pytest.mark.django_db
-def test_patch_assessment_form_invalid(authenticated_client, user, phabdouble):
+def test_patch_assessment_form_invalid(
+    mock_apply_async, authenticated_client, user, phabdouble
+):
     phabdouble.user(api_key=user.profile.phabricator_api_key)
 
     url = reverse("uplift-assessment-page")
@@ -584,3 +626,5 @@ def test_patch_assessment_form_invalid(authenticated_client, user, phabdouble):
         assert any(
             bad_field in message for message in messages
         ), f"Validation message not sent for `{bad_field}`."
+
+    assert mock_apply_async.call_count == 0, "Uplift form task should not be called."
