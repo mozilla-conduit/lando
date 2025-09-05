@@ -188,6 +188,8 @@ def set_uplift_request_form_on_revision(
     except User.NotFoundError as exc:
         raise RuntimeError(f"User {user_id} does not exist.") from exc
 
+    logging.info(f"Sending uplift request form update to {revision_id=}.")
+
     # Create a `PhabricatorClient` using the user's API key.
     phab = PhabricatorClient(
         settings.PHABRICATOR_URL,
@@ -199,4 +201,8 @@ def set_uplift_request_form_on_revision(
         # `objectIdentifier` accepts revision ID numbers as well as PHIDs.
         objectIdentifier=revision_id,
         transactions=[{"type": "uplift.request", "value": uplift_form_str}],
+    )
+
+    logging.info(
+        f"Uplift request assessment updated on Phabricator by {user.email} for {revision_id=}."
     )
