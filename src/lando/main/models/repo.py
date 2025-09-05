@@ -2,7 +2,6 @@ import logging
 import os
 import urllib
 from pathlib import Path
-from typing import Optional
 
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
@@ -50,7 +49,7 @@ class RepoError(Exception):
 class Repo(BaseModel):
     """Represents the configuration of a particular repo."""
 
-    _scm: Optional[AbstractSCM] = None
+    _scm: AbstractSCM | None = None
 
     @property
     def path(self) -> str:
@@ -275,7 +274,7 @@ class Repo(BaseModel):
         return self.url
 
     @property
-    def _github_repo_url(self) -> Optional[str]:
+    def _github_repo_url(self) -> str | None:
         if self.is_github:
             return self.url.removesuffix(".git")
 
