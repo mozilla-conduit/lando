@@ -505,7 +505,9 @@ def test_patch_assessment_creates_and_updates(authenticated_client, user, phabdo
     response = authenticated_client.post(
         url, data=CREATE_FORM_DATA, HTTP_REFERER="/D1234"
     )
-    assert response.status_code == 302, "Patch should redirect back to referrer."
+    assert (
+        response.status_code == 302
+    ), "Updating assessment form should redirect back to referrer."
 
     # Check that a new response was created
     responses = UpliftAssessment.objects.all()
@@ -526,7 +528,9 @@ def test_patch_assessment_creates_and_updates(authenticated_client, user, phabdo
     response = authenticated_client.post(
         url, data=UPDATED_FORM_DATA, HTTP_REFERER="/D1234"
     )
-    assert response.status_code == 302, "Patch should redirect back to referrer."
+    assert (
+        response.status_code == 302
+    ), "Updating assessment form should redirect back to referrer."
 
     # Check that a new response was created
     responses = UpliftAssessment.objects.all()
