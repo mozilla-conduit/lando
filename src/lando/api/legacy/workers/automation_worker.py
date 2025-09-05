@@ -1,5 +1,4 @@
 import logging
-from typing import Type
 
 import kombu
 from django.db import transaction
@@ -39,14 +38,14 @@ from lando.utils.tasks import phab_trigger_repo_update
 
 logger = logging.getLogger(__name__)
 
-COMMIT_CHECKS: list[Type[PatchCheck]] = [
+COMMIT_CHECKS: list[type[PatchCheck]] = [
     PreventSymlinksCheck,
     TryTaskConfigCheck,
     PreventNSPRNSSCheck,
     PreventSubmodulesCheck,
 ]
 
-STACK_CHECKS: list[Type[PatchCollectionCheck]] = [
+STACK_CHECKS: list[type[PatchCollectionCheck]] = [
     CommitMessagesCheck,
     WPTSyncCheck,
 ]
@@ -121,7 +120,6 @@ class AutomationWorker(Worker):
             scm.for_push(job.requester_email),
             PushLogForRepo(repo, job.requester_email, branch=push_target) as pushlog,
         ):
-
             repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
             try:
                 pre_head_ref = scm.update_repo(
