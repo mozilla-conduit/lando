@@ -443,7 +443,7 @@ def test_to_conduit_json_transforms_fields(user):
     ), "`user_impact` field should not be transformed."
     assert (
         conduit_dict["Code covered by automated testing"] is True
-    ), "`No` should be converted to `False`."
+    ), "`Yes` should be converted to `True`."
     assert (
         conduit_dict["Fix verified in Nightly"] is False
     ), "`No` should be converted to `False`."
