@@ -409,7 +409,7 @@ diff --git a/test.txt b/test.txt
 """
 
 
-def test_HgSCM_apply_patch_bytes(hg_clone: Path, git_patch: Callable):
+def test_HgSCM_apply_patch_git(hg_clone: Path, git_patch: Callable):
     scm = HgSCM(str(hg_clone))
 
     # Get git-format-patch patch content as bytes
@@ -418,7 +418,7 @@ def test_HgSCM_apply_patch_bytes(hg_clone: Path, git_patch: Callable):
 
     # Apply patch using the new method
     with scm.for_push("user@example.com"):
-        scm.apply_patch_bytes(patch_bytes)
+        scm.apply_patch_git(patch_bytes)
 
         commit = scm.describe_commit()
 

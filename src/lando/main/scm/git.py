@@ -215,8 +215,8 @@ class GitSCM(AbstractSCM):
                     raise exc
 
     @override
-    def apply_patch_bytes(self, patch_bytes: bytes):
-        """Apply the given `git format-patch` to the repo directly."""
+    def apply_patch_git(self, patch_bytes: bytes):
+        """Apply the Git patch, provided as undecoded bytes."""
         try:
             # Clean up existing failed `git am`.
             self._git_run("am", "--abort", cwd=self.path)

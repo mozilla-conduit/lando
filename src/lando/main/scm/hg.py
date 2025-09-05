@@ -275,11 +275,8 @@ class HgSCM(AbstractSCM):
             )
 
     @override
-    def apply_patch_bytes(self, patch_bytes: bytes):
-        """Apply the given bytes representing a patch to the current repository.
-
-        As `hg import` supports git-formatted patches, so does this method.
-        """
+    def apply_patch_git(self, patch_bytes: bytes):
+        """Apply the Git patch, provided as undecoded bytes."""
         f_patch = tempfile.NamedTemporaryFile(mode="w+b", suffix=".patch")
         import_cmd = ["import", "-s", "95"]
 
@@ -287,6 +284,7 @@ class HgSCM(AbstractSCM):
             f_patch.write(patch_bytes)
             f_patch.flush()
 
+            # `hg import` supports git-formatted patches natively.
             self._run_hg_patch(import_cmd, f_patch, preserve_git_date=True)
 
     def _run_hg_patch(
