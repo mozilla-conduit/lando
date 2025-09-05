@@ -1,5 +1,3 @@
-from typing import Optional
-
 from ninja import Schema
 from pydantic import Field
 
@@ -10,7 +8,7 @@ class ProblemDetail(Schema):
     title: str
     status: int
     detail: str
-    type: Optional[str] = Field(default="about:blank")
+    type: str | None = Field(default="about:blank")
 
 
 class ProblemException(Exception):
@@ -30,6 +28,7 @@ class ProblemException(Exception):
             status=status,
             detail=detail,
         )
+        super().__init__(f"{title}: {detail}")
 
         # Needed by Ninja exception handler.
         self.status_code = status
