@@ -113,6 +113,10 @@ class UpliftAssessmentEditView(LandoView):
         try:
             uplift_revision = UpliftRevision.objects.get(revision_id=revision_id)
         except UpliftRevision.DoesNotExist:
+            logger.info(
+                f"No existing assessment for {revision_id=}, creating a new instance."
+            )
+
             # No existing assessment for this revision, so we create one.
             with transaction.atomic():
                 assessment = uplift_assessment_form.save(commit=False)
@@ -128,6 +132,10 @@ class UpliftAssessmentEditView(LandoView):
                 request, messages.SUCCESS, "Uplift assessment created."
             )
         else:
+            logging.info(
+                f"Updating assessment for {revision_id=} and associated revisions."
+            )
+
             old_assessment = uplift_revision.assessment
 
             revisions = old_assessment.revisions.all()
