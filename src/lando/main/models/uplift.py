@@ -46,17 +46,29 @@ class UpliftAssessment(BaseModel):
 
     # Code covered by automated testing?
     covered_by_testing = models.CharField(
-        blank=False, choices=YesNoUnknownChoices.choices, max_length=8
+        blank=False,
+        choices=YesNoUnknownChoices.choices,
+        max_length=8,
+        # Default selection in the associated form.
+        default=YesNoUnknownChoices.YES,
     )
 
     # Fix verified in Nightly.
     fix_verified_in_nightly = models.CharField(
-        blank=False, choices=YesNoChoices.choices, max_length=3
+        blank=False,
+        choices=YesNoChoices.choices,
+        max_length=3,
+        # Default selection in the associated form.
+        default=YesNoChoices.YES,
     )
 
     # Needs manual QE test.
     needs_manual_qe_testing = models.CharField(
-        blank=False, choices=YesNoChoices.choices, max_length=3
+        blank=False,
+        choices=YesNoChoices.choices,
+        max_length=3,
+        # Default selection in the associated form.
+        default=YesNoChoices.YES,
     )
 
     # Steps to reproduce for manual QE testing.
@@ -64,7 +76,11 @@ class UpliftAssessment(BaseModel):
 
     # Risk associated with taking this patch.
     risk_associated_with_patch = models.CharField(
-        blank=False, choices=LowMediumHighChoices.choices, max_length=6
+        blank=False,
+        choices=LowMediumHighChoices.choices,
+        max_length=6,
+        # Default selection in the associated form.
+        default=LowMediumHighChoices.LOW,
     )
 
     # Explanation of risk level.
@@ -75,7 +91,11 @@ class UpliftAssessment(BaseModel):
 
     # Is Android affected?
     is_android_affected = models.CharField(
-        blank=False, choices=YesNoUnknownChoices.choices, max_length=8
+        blank=False,
+        choices=YesNoUnknownChoices.choices,
+        max_length=8,
+        # Default selection in the associated form.
+        default=YesNoUnknownChoices.YES,
     )
 
     def to_conduit_json(self) -> dict[str, Any]:
