@@ -10,8 +10,10 @@ from ninja.errors import HttpError
 from pydantic import Field, StringConstraints
 
 from lando.headless_api.api import AutomationOperation, post_repo_actions
+from lando.main.models import Repo
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.utils.auth import AccessTokenAuth
+from lando.utils.exceptions import ProblemDetail
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +100,7 @@ class JobResponse(Schema):
 @api.post(
     "/patches",
     summary="Submit a set of patches to the Try server.",
-    response={201: JobResponse},
+    response={201: JobResponse, 400: ProblemDetail, 404: ProblemDetail},
     openapi_extra={
         "responses": {
             200: {
@@ -107,11 +109,44 @@ class JobResponse(Schema):
                 "content": {},
             },
             201: {"description": "Push was submitted successfully."},
+            400: {
+                "description": "Invalid request.",
+                # "content": {"application/problem+json": {"schema": ProblemDetail}},
+            },
+            404: {
+                "description": "Repository not found.",
+                # "content": {"application/problem+json": {"schema": ProblemDetail}},
+            },
         }
     },
 )
 def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]:
     """Submit a set of patches to the Try server."""
+    # Get the repo object.
+    repo_name = patches.repo
+    try:
+        repo = Repo.objects.get(name=repo_name)
+    except Repo.DoesNotExist:
+        status = 404
+        error = f"Repo {repo_name} does not exist."
+        logger.info(
+            error,
+            extra={"user": request.user.email, "token": request.auth.token_prefix},
+        )
+        return status, ProblemDetail(
+            title="Repository not found", detail=error, status=status
+        )
+
+    if not repo.automation_enabled:
+        status = 400
+        error = f"Repo {repo_name} is not a Try repository."
+        logger.info(
+            error,
+            extra={"user": request.user.email, "token": request.auth.token_prefix},
+        )
+        return status, ProblemDetail(
+            title="Not a Try repository", detail=error, status=status
+        )
 
     actions = [
         {
