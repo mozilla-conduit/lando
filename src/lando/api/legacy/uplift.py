@@ -278,6 +278,7 @@ def create_uplift_revision(
     parent_phid: Optional[str],
     base_revision: str,
     target_repository: dict,
+    assessment_str: str | None = None,
 ) -> dict[str, str]:
     """Create a new revision on a repository, cloning a diff from another repo.
 
@@ -359,6 +360,13 @@ def create_uplift_revision(
             "value": phab.expect(source_revision, "fields", "bugzilla.bug-id"),
         },
     ]
+
+    # Add the uplift request form if applicable.
+    if assessment_str:
+        transactions.append(
+            # The `value` needs to be a string.
+            {"type": "uplift.request", "value": assessment_str}
+        )
 
     # Finally create the revision to link all the pieces.
     new_rev = phab.call_conduit(

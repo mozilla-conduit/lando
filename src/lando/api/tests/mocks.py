@@ -352,7 +352,7 @@ class PhabricatorDouble:
 
         return revision
 
-    def user(self, *, username="imadueme_admin", email=None):
+    def user(self, *, username="imadueme_admin", email=None, api_key=None):
         """Return a Phabricator User."""
         users = [u for u in self._users if u["userName"] == username]
         if users:
@@ -362,12 +362,16 @@ class PhabricatorDouble:
         fullname = "{} Name".format(username)
         if not email:
             email = "{}@example.com".format(username)
+
+        if not api_key:
+            api_key = "api-{}".format(
+                hashlib.sha256(email.encode("utf-8")).hexdigest()[:12]
+            )
+
         uri = "http://phabricator.test/p/{}".format(username)
         user = {
             "id": self._new_id(self._users),
-            "apiKey": "api-{}".format(
-                hashlib.sha256(email.encode("utf-8")).hexdigest()[:12]
-            ),
+            "apiKey": api_key,
             "type": "USER",
             "phid": phid,
             "email": email,
