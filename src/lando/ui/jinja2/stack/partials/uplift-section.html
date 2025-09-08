@@ -1,0 +1,55 @@
+{# Render uplift related information related to this revision.
+
+At the moment, this only includes a reference to the uplift request
+assessment for the stack, but will include more details in the
+future.
+#}
+<h1>Uplifts</h1>
+
+<div class="block">
+    <div class="block">
+        <div class="columns">
+            <div class="column is-narrow">
+                <button class="button is-primary edit-assessment-open">
+                    <span class="icon is-small">
+                        <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
+                    </span>
+                    <span>
+                    Uplift Assessment
+                    </span>
+                </button>
+            </div>
+            <div class="column">
+                Please respond to the uplift assessment form to help Release Management assess this uplift.
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="uplift-assessment-edit-modal modal">
+    <form action="{{ url('uplift-assessment-page') }}" method="post">
+        <div class="modal-background"></div>
+
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Edit Assessment</p>
+                <button class="edit-assessment-close delete" aria-label="close" type="button"></button>
+            </header>
+
+            <section class="modal-card-body">
+                {{ csrf_input }}
+
+                {# Revision ID is a hidden field for now. #}
+                {{ uplift_assessment_form.revision_id }}
+
+                {% with assessment_form = uplift_assessment_form %}
+                    {% include "stack/partials/uplift-assessment.html" %}
+                {% endwith %}
+            </section>
+
+            <footer class="modal-card-foot">
+                <button class="button is-primary" title="Save responses">Update assessment form</button>
+            </footer>
+        </div>
+    </form>
+</div>

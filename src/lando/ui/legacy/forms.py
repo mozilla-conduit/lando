@@ -1,7 +1,12 @@
 from django import forms
+from django.forms.widgets import RadioSelect
 
 from lando.api.legacy.uplift import get_uplift_repositories
 from lando.main.models import Repo
+from lando.main.models.uplift import (
+    UpliftAssessment,
+    YesNoChoices,
+)
 
 
 class TransplantRequestForm(forms.Form):
@@ -12,10 +17,63 @@ class TransplantRequestForm(forms.Form):
     flags = forms.JSONField(widget=forms.widgets.HiddenInput, required=False)
 
 
-class UpliftRequestForm(forms.Form):
-    """Form used to request uplift of a stack."""
+class UpliftAssessmentForm(forms.ModelForm):
+    """Form to process the uplift request assessment."""
+
+    class Meta:
+        model = UpliftAssessment
+        exclude = ["id", "user"]
+        widgets = {
+            "user_impact": forms.Textarea,
+            "qe_testing_reproduction_steps": forms.Textarea,
+            "risk_level_explanation": forms.Textarea,
+            "string_changes": forms.Textarea,
+            "covered_by_testing": RadioSelect,
+            "fix_verified_in_nightly": RadioSelect,
+            "needs_manual_qe_testing": RadioSelect,
+            "risk_associated_with_patch": RadioSelect,
+            "is_android_affected": RadioSelect,
+        }
+        labels = {
+            "user_impact": "User impact if declined/Reason for urgency",
+            "covered_by_testing": "Code covered by automated testing?",
+            "fix_verified_in_nightly": "Fix verified in Nightly?",
+            "needs_manual_qe_testing": "Needs manual QE testing?",
+            "qe_testing_reproduction_steps": "Steps to reproduce for manual QE testing",
+            "risk_associated_with_patch": "Risk associated with taking this patch",
+            "risk_level_explanation": "Explanation of risk level",
+            "string_changes": "String changes made/needed?",
+            "is_android_affected": "Is Android affected?",
+        }
+
+    def clean(self):
+        """Ensure QE reproduction steps are given if manual QE testing is required."""
+        cleaned_data = super().clean()
+
+        needs_manual_qe_testing = cleaned_data.get("needs_manual_qe_testing")
+
+        if needs_manual_qe_testing == YesNoChoices.YES and not cleaned_data.get(
+            "qe_testing_reproduction_steps"
+        ):
+            self.add_error(
+                "qe_testing_reproduction_steps",
+                "QE testing reproduction steps must be provided if manual testing is required.",
+            )
+
+
+class UpliftAssessmentEditForm(UpliftAssessmentForm):
+    """Form used to edit an uplift assessment form for a patch."""
 
     revision_id = forms.RegexField(
+        regex="^D[0-9]+$",
+        widget=forms.widgets.HiddenInput,
+    )
+
+
+class UpliftRequestForm(UpliftAssessmentForm):
+    """Form used to request uplift of a stack."""
+
+    source_revision_id = forms.RegexField(
         regex="^D[0-9]+$",
         widget=forms.widgets.HiddenInput,
         required=False,

@@ -52,6 +52,11 @@ urlpatterns += [
     path("D<int:revision_id>/", revisions.Revision.as_view(), name="revisions-page"),
     path("manage_api_key/", user_settings.manage_api_key, name="user-settings"),
     path("uplift/", revisions.Uplift.as_view(), name="uplift-page"),
+    path(
+        "uplift/assessment/",
+        revisions.UpliftAssessmentEditView.as_view(),
+        name="uplift-assessment-page",
+    ),
 ]
 
 urlpatterns += [
