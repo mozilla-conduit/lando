@@ -37,7 +37,7 @@ __all__ = [
     # abstract_scm
     "AbstractSCM",
     # commit
-    CommitData,
+    "CommitData",
     # consts
     "SCM_TYPE_HG",
     "SCM_TYPE_GIT",
