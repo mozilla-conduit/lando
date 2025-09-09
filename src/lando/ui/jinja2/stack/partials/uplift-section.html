@@ -39,6 +39,8 @@ future.
             <section class="modal-card-body">
                 {{ csrf_input }}
 
+                {% include "stack/partials/uplift-phab-api-key-warning.html" %}
+
                 {# Revision ID is a hidden field for now. #}
                 {{ uplift_assessment_form.revision_id }}
 
@@ -47,8 +49,14 @@ future.
                 {% endwith %}
             </section>
 
+            {% set can_edit_assessment = user_is_authenticated and user_has_phabricator_token %}
             <footer class="modal-card-foot">
-                <button class="button is-primary" title="Save responses">Update assessment form</button>
+                <button
+                    class="button is-primary"
+                    {% if not can_edit_assessment %}disabled{% endif %}
+                    title="{% if not can_edit_assessment %}Editing the assessment is blocked. See the error messages above for more detail.{% else %}Save responses{% endif %}">
+                    Update assessment form
+                </button>
             </footer>
         </div>
     </form>
