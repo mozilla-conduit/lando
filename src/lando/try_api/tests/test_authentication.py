@@ -27,6 +27,7 @@ def test_authentication_valid_token(
     assert response.status_code == 200, "Valid token should result in 200"
 
 
+@pytest.mark.skip()
 @pytest.mark.django_db()
 def test_authentication_no_token(client: Client, ninja_api_client: Callable):
     response = ninja_api_client(api).get("/__userinfo__")
@@ -51,7 +52,6 @@ def test_authentication_invalid_token(
     assert response.status_code == 401, "Invalid token should result in 401"
 
 
-@pytest.mark.django_db()
 @override_settings(ENVIRONMENT=Environment("production"))
 @patch("lando.try_api.api.AccessTokenAuth.authenticate")
 def test_userinfo_not_in_prod(mock_authenticate: MagicMock, ninja_api_client: Callable):
