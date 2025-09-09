@@ -709,7 +709,7 @@ def hg_server(hg_test_bundle, tmpdir):
 
 @pytest.fixture
 def to_permissions() -> Callable:
-    """ Convert a list of un-namespaced permissions strings to a list of Permissions. """
+    """Convert a list of un-namespaced permissions strings to a list of Permissions."""
 
     def to_permissions(permissions: list[str]) -> list[Permission]:
         all_perms = Profile.get_all_scm_permissions()
@@ -748,7 +748,7 @@ def landing_worker_instance(mocked_repo_config):
 @pytest.fixture
 def scm_user() -> Callable:
     def scm_user(perms: list[Permission], password: str = "password") -> User:
-        """ Return a user with the selected Permissions and password. """
+        """Return a user with the selected Permissions and password."""
         user = User.objects.create_user(
             username="test_user",
             password=password,
@@ -769,8 +769,10 @@ def scm_user() -> Callable:
 
 
 @pytest.fixture
-def user(scm_user: Callable, user_plaintext_password: str, conduit_permissions: list[str]) -> User:
-    """ A User with all SCM permissions levels. """
+def user(
+    scm_user: Callable, user_plaintext_password: str, conduit_permissions: list[str]
+) -> User:
+    """A User with all SCM permissions levels."""
     return scm_user(conduit_permissions, user_plaintext_password)
 
 
@@ -1062,6 +1064,7 @@ def new_treestatus_tree():
 @pytest.fixture()
 def api_client() -> Callable:
     """Fixture to create a test client for the API."""
+
     # XXX If we pass the API directly, we get an error if we want to use this client
     # more than once (regardless of the scope of the fixture), as follows:
     #
