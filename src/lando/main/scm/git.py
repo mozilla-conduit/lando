@@ -20,6 +20,7 @@ from lando.main.scm.consts import SCM_TYPE_GIT, MergeStrategy
 from lando.main.scm.exceptions import (
     PatchConflict,
     SCMException,
+    SCMInternalServerError,
 )
 from lando.main.scm.helpers import GitPatchHelper, PatchHelper
 from lando.settings import LANDO_USER_EMAIL, LANDO_USER_NAME
@@ -564,7 +565,7 @@ class GitSCM(AbstractSCM):
 
         if result.returncode:
             redacted_stderr = cls._redact_url_userinfo(result.stderr)
-            raise SCMException(
+            raise SCMInternalServerError(
                 f"Error running git command; {sanitised_command=}, {path=}, {redacted_stderr}",
                 cls._redact_url_userinfo(result.stdout),
                 redacted_stderr,
