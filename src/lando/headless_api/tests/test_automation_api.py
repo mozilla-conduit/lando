@@ -22,6 +22,7 @@ from lando.headless_api.api import (
 from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import SCM_LEVEL_3, JobStatus, Repo
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG, PatchConflict
+from lando.main.scm.exceptions import SCMInternalServerError
 from lando.main.tests.test_git import _create_git_commit
 from lando.pushlog.models import Push
 
@@ -1243,6 +1244,77 @@ def test_automation_job_tag_success_git_tip_commit(
 
     assert automation_worker.run_automation_job(job)
     assert job.status == JobStatus.LANDED
+
+    # Tag should be on the most recent commit.
+    expected_commit = scm.head_ref()
+
+    # now compare to the tag
+    tag_commit = subprocess.run(
+        ["git", "rev-list", "-n", "1", tag_name],
+        cwd=repo.system_path,
+        capture_output=True,
+        check=True,
+        text=True,
+    ).stdout.strip()
+
+    assert tag_commit == expected_commit
+
+
+@pytest.mark.django_db
+def test_automation_job_tag_retag_success_git(
+    repo_mc: Callable,
+    active_mock: Callable,
+    get_automation_worker: Callable,
+    request: pytest.FixtureRequest,
+    automation_job: Callable,
+):
+    repo = repo_mc(SCM_TYPE_GIT)
+    scm = repo.scm
+
+    active_mock(scm, "push")
+    scm.push.side_effect = [
+        SCMInternalServerError("Some Github error", "403"),
+        scm.push.side_effect,
+    ]
+
+    head_ref = scm.head_ref()
+
+    # Create a new commit that will be tagged
+    _create_git_commit(request, Path(repo.system_path))
+
+    tag_name = "v-tagtest-git"
+
+    job, _actions = automation_job(
+        actions=[
+            {
+                "action": "tag",
+                "name": tag_name,
+                "target": head_ref,
+            }
+        ],
+        status=JobStatus.SUBMITTED,
+        requester_email="test@example.com",
+        target_repo=repo,
+    )
+
+    automation_worker = get_automation_worker(SCM_TYPE_GIT)
+    automation_worker.worker_instance.applicable_repos.add(repo)
+
+    assert not automation_worker.run_automation_job(
+        job
+    ), "The automation job should not have succeeded the first time."
+    assert (
+        job.status == JobStatus.DEFERRED
+    ), "Job should have been deferred on first push exception."
+
+    # This is an test for the current internal behaviour that a tags remains after a
+    # failure, which the deferral should be able to work around.
+    assert scm._git_run(
+        "tag", "-l", tag_name, cwd=scm.path
+    ), f"Though the job has failed, we would have expected a stray {tag_name} tag to still be present."
+
+    assert automation_worker.run_automation_job(job)
+    assert job.status == JobStatus.LANDED, "Job should have landed on second run."
 
     # Tag should be on the most recent commit.
     expected_commit = scm.head_ref()
