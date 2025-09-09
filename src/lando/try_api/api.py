@@ -10,7 +10,9 @@ from ninja.errors import HttpError
 from pydantic import Field, StringConstraints
 
 from lando.headless_api.api import AutomationOperation, post_repo_actions
+from lando.main.auth import require_authenticated_user, require_permission
 from lando.main.models import Repo
+from lando.main.models.profile import SCM_LEVEL_1
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.utils.auth import AccessTokenAuth
 from lando.utils.exceptions import ProblemDetail
@@ -97,6 +99,8 @@ class JobResponse(Schema):
     headless_request: AutomationOperation
 
 
+@require_authenticated_user
+@require_permission(SCM_LEVEL_1)
 @api.post(
     "/patches",
     summary="Submit a set of patches to the Try server.",
