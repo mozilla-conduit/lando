@@ -708,16 +708,26 @@ def hg_server(hg_test_bundle, tmpdir):
 
 
 @pytest.fixture
-def conduit_permissions():
+def to_permissions() -> Callable:
+    """ Convert a list of un-namespaced permissions strings to a list of Permissions. """
+
+    def to_permissions(permissions: list[str]) -> list[Permission]:
+        all_perms = Profile.get_all_scm_permissions()
+
+        return [all_perms[p] for p in permissions]
+
+    return to_permissions
+
+
+@pytest.fixture
+def conduit_permissions(to_permissions: Callable) -> list[Permission]:
     permissions = (
         "scm_level_1",
         "scm_level_2",
         "scm_level_3",
         "scm_conduit",
     )
-    all_perms = Profile.get_all_scm_permissions()
-
-    return [all_perms[p] for p in permissions]
+    return to_permissions(permissions)
 
 
 @pytest.fixture
@@ -736,22 +746,32 @@ def landing_worker_instance(mocked_repo_config):
 
 
 @pytest.fixture
-def user(user_plaintext_password, conduit_permissions):
-    user = User.objects.create_user(
-        username="test_user",
-        password=user_plaintext_password,
-        email="testuser@example.org",
-    )
+def scm_user() -> Callable:
+    def scm_user(perms: list[Permission], password: str = "password") -> User:
+        """ Return a user with the selected Permissions and password. """
+        user = User.objects.create_user(
+            username="test_user",
+            password=password,
+            email="testuser@example.org",
+        )
 
-    user.profile = Profile(user=user, userinfo={"name": "test user"})
+        user.profile = Profile(user=user, userinfo={"name": "test user"})
 
-    for permission in conduit_permissions:
-        user.user_permissions.add(permission)
+        for permission in perms:
+            user.user_permissions.add(permission)
 
-    user.save()
-    user.profile.save()
+        user.save()
+        user.profile.save()
 
-    return user
+        return user
+
+    return scm_user
+
+
+@pytest.fixture
+def user(scm_user: Callable, user_plaintext_password: str, conduit_permissions: list[str]) -> User:
+    """ A User with all SCM permissions levels. """
+    return scm_user(conduit_permissions, user_plaintext_password)
 
 
 @pytest.fixture
