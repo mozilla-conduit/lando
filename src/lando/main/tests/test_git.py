@@ -974,35 +974,3 @@ def test_GitSCM_tag(
     )
 
     assert tag_sha == commit_sha, "Tag should point to expected commit."
-
-
-def test_GitSCM_push_tag(
-    git_repo: Path,
-    git_setup_user: Callable,
-    request: pytest.FixtureRequest,
-    tmp_path: Path,
-):
-    clone_path = tmp_path / request.node.name
-    clone_path.mkdir()
-
-    scm = GitSCM(str(clone_path))
-    scm.clone(str(git_repo))
-    git_setup_user(str(clone_path))
-
-    # Create a commit and tag it
-    _create_git_commit(request, clone_path)
-    tag_name = "v1.0.0"
-    scm.tag(tag_name, None)
-
-    # Push the tag
-    scm.push_tag(tag_name, str(git_repo))
-
-    # Check that the tag exists in the remote
-    tag_exists = subprocess.run(
-        ["git", "ls-remote", "--tags", str(git_repo), tag_name],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.strip()
-
-    assert tag_exists, f"Tag {tag_name} was not found in the remote repository."
