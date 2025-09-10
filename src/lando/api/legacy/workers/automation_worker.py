@@ -130,7 +130,7 @@ class AutomationWorker(Worker):
             except SCMInternalServerError as e:
                 message = (
                     f"Temporary error ({e.__class__}) "
-                    f"encountered while pulling from {repo_pull_info}"
+                    f"encountered while pulling from {repo_pull_info}: {e}"
                 )
                 logger.exception(message)
                 job.transition_status(JobAction.DEFER, message=message)
@@ -216,7 +216,7 @@ class AutomationWorker(Worker):
             ) as e:
                 message = (
                     f"Temporary error ({e.__class__}) "
-                    f"encountered while pushing to {repo_push_info}"
+                    f"encountered while pushing to {repo_push_info}: {e}"
                 )
                 logger.exception(message)
                 job.transition_status(JobAction.DEFER, message=message)

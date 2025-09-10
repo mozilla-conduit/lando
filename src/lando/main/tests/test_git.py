@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from lando.main.scm.exceptions import SCMException
+from lando.main.scm.exceptions import SCMException, TagAlreadyPresentException
 from lando.main.scm.git import GitSCM
 from lando.main.scm.helpers import GitPatchHelper
 
@@ -976,11 +976,12 @@ def test_GitSCM_tag(
     assert tag_sha == commit_sha, "Tag should point to expected commit."
 
 
-def test_GitSCM_push_tag(
+def test_GitSCM_tag_retag(
     git_repo: Path,
     git_setup_user: Callable,
     request: pytest.FixtureRequest,
     tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
 ):
     clone_path = tmp_path / request.node.name
     clone_path.mkdir()
@@ -989,20 +990,19 @@ def test_GitSCM_push_tag(
     scm.clone(str(git_repo))
     git_setup_user(str(clone_path))
 
-    # Create a commit and tag it
+    old_commit = scm.head_ref()
+
+    # Create a new commit and get its SHA
     _create_git_commit(request, clone_path)
-    tag_name = "v1.0.0"
+
+    # Tag the current commit
+    tag_name = "v1.0"
     scm.tag(tag_name, None)
 
-    # Push the tag
-    scm.push_tag(tag_name, str(git_repo))
+    scm.tag(tag_name, "HEAD")
+    assert (
+        "already exists, but points to the desired target" in caplog.text
+    ), "No warning that the tag was already present."
 
-    # Check that the tag exists in the remote
-    tag_exists = subprocess.run(
-        ["git", "ls-remote", "--tags", str(git_repo), tag_name],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.strip()
-
-    assert tag_exists, f"Tag {tag_name} was not found in the remote repository."
+    with pytest.raises(TagAlreadyPresentException):
+        scm.tag(tag_name, old_commit)

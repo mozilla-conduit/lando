@@ -503,6 +503,7 @@ def test_integrated_execute_job_with_scm_internal_error(
     assert (
         job.status == JobStatus.DEFERRED
     ), "Job should have been deferred on first push exception."
+    assert "Some SCM error" in job.error
 
     assert worker.run_job(job)
     assert job.status == JobStatus.LANDED, "Job should have landed on second run."

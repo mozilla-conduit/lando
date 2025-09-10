@@ -57,3 +57,11 @@ class TreeApprovalRequired(SCMException):
 
 class TreeClosed(SCMException):
     """Exception when pushing failed due to a closed tree."""
+
+
+# This is not an SCM Exception, as this error does not result from running the SCM, but
+# checking its state.
+class TagAlreadyPresentException(Exception):
+    """Exception when a tag already exists, and differs from the requested tag to create."""
+
+    pass

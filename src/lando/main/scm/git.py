@@ -21,6 +21,7 @@ from lando.main.scm.exceptions import (
     PatchConflict,
     SCMException,
     SCMInternalServerError,
+    TagAlreadyPresentException,
 )
 from lando.main.scm.helpers import GitPatchHelper, PatchHelper
 from lando.settings import LANDO_USER_EMAIL, LANDO_USER_NAME
@@ -671,9 +672,24 @@ class GitSCM(AbstractSCM):
         if target:
             tag_command.append(target)
 
-        self._git_run(*tag_command, cwd=self.path)
+        try:
+            self._git_run(*tag_command, cwd=self.path)
+        except SCMInternalServerError as exc:
+            if self._git_run("tag", "-l", name, cwd=self.path):
+                desired_tag_target = self._git_run(
+                    "rev-parse", target or "HEAD", cwd=self.path
+                )
+                current_tag_target = self._git_run(
+                    "rev-parse", f"refs/tags/{name}", cwd=self.path
+                )
+                if current_tag_target != desired_tag_target:
+                    raise TagAlreadyPresentException(
+                        f"Tag {name} already exists, and points to different target {current_tag_target}"
+                    ) from exc
+                logger.warning(
+                    f"Tag {name} already exists, but points to the desired target {current_tag_target}. Skipping retagging ..."
+                )
+                return
 
-    @override
-    def push_tag(self, tag: str, remote: str):
-        """Push the tag with name `tag` to `remote`."""
-        self._git_run("push", remote, f"refs/tags/{tag}", cwd=self.path)
+            # If the tag did not already exist, bubble up the exception.
+            raise exc
