@@ -667,25 +667,30 @@ class GitSCM(AbstractSCM):
 
         If `target` is `None`, use the currently checked out commit.
         """
-        if self._git_run("tag", "-l", name, cwd=self.path):
-            desired_tag_target = self._git_run(
-                "rev-parse", target or "HEAD", cwd=self.path
-            )
-            current_tag_target = self._git_run(
-                "rev-parse", f"refs/tags/{name}", cwd=self.path
-            )
-            if current_tag_target != desired_tag_target:
-                raise TagAlreadyPresentException(
-                    f"Tag {name} already exists, and points to different target {current_tag_target}"
-                )
-            logger.warning(
-                f"Tag {name} already exists, but points to the desired target {current_tag_target}. Skipping retagging ..."
-            )
-            return
 
         tag_command = ["tag", name]
 
         if target:
             tag_command.append(target)
 
-        self._git_run(*tag_command, cwd=self.path)
+        try:
+            self._git_run(*tag_command, cwd=self.path)
+        except SCMInternalServerError as exc:
+            if self._git_run("tag", "-l", name, cwd=self.path):
+                desired_tag_target = self._git_run(
+                    "rev-parse", target or "HEAD", cwd=self.path
+                )
+                current_tag_target = self._git_run(
+                    "rev-parse", f"refs/tags/{name}", cwd=self.path
+                )
+                if current_tag_target != desired_tag_target:
+                    raise TagAlreadyPresentException(
+                        f"Tag {name} already exists, and points to different target {current_tag_target}"
+                    )
+                logger.warning(
+                    f"Tag {name} already exists, but points to the desired target {current_tag_target}. Skipping retagging ..."
+                )
+                return
+
+            # If the tag did not already exist, bubble up the exception.
+            raise exc
