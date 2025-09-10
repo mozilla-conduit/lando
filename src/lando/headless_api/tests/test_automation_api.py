@@ -528,7 +528,7 @@ def test_automation_job_add_commit_success_hg(
     treestatusdouble,
     hg_automation_worker,
     repo_mc,
-    mock_automation_worker_phab_repo_update,
+    mock_phab_trigger_repo_update_apply_async,
     normal_patch,
     automation_job,
 ):
@@ -555,7 +555,7 @@ def test_automation_job_add_commit_success_hg(
 
     scm.push = mock.MagicMock()
 
-    assert hg_automation_worker.run_automation_job(job)
+    assert hg_automation_worker.run_job(job)
     assert scm.push.call_count == 1
     assert len(scm.push.call_args) == 2
     assert len(scm.push.call_args[0]) == 1
@@ -570,7 +570,7 @@ def test_automation_job_add_commit_success_git(
     treestatusdouble,
     git_automation_worker,
     repo_mc,
-    mock_automation_worker_phab_repo_update,
+    mock_phab_trigger_repo_update_apply_async,
     git_patch,
     automation_job,
 ):
@@ -602,7 +602,7 @@ def test_automation_job_add_commit_success_git(
 
     scm.push = mock.MagicMock()
 
-    assert git_automation_worker.run_automation_job(job)
+    assert git_automation_worker.run_job(job)
 
     assert job.status == JobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
@@ -618,7 +618,7 @@ def test_automation_job_add_commit_base64_success_git(
     treestatusdouble,
     git_automation_worker,
     repo_mc,
-    mock_automation_worker_phab_repo_update,
+    mock_phab_trigger_repo_update_apply_async,
     git_patch,
     automation_job,
 ):
@@ -647,7 +647,7 @@ def test_automation_job_add_commit_base64_success_git(
 
     scm.push = mock.MagicMock()
 
-    assert git_automation_worker.run_automation_job(job)
+    assert git_automation_worker.run_job(job)
     assert scm.push.call_count == 1
     assert len(scm.push.call_args) == 2
     assert len(scm.push.call_args[0]) == 1
@@ -663,7 +663,7 @@ def test_automation_job_add_commit_fail(
     repo_mc,
     treestatusdouble,
     hg_automation_worker,
-    mock_automation_worker_phab_repo_update,
+    mock_phab_trigger_repo_update_apply_async,
     automation_job,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
@@ -687,7 +687,7 @@ def test_automation_job_add_commit_fail(
 
     scm.push = mock.MagicMock()
 
-    assert not hg_automation_worker.run_automation_job(job)
+    assert not hg_automation_worker.run_job(job)
     assert job.status == JobStatus.FAILED, "Automation job should fail."
     assert scm.push.call_count == 0
 
@@ -699,7 +699,7 @@ def test_automation_job_create_commit_success(
     repo_mc,
     treestatusdouble,
     get_automation_worker,
-    mock_automation_worker_phab_repo_update,
+    mock_phab_trigger_repo_update_apply_async,
     get_failing_check_diff,
     automation_job,
 ):
@@ -728,7 +728,7 @@ def test_automation_job_create_commit_success(
 
     scm.push = mock.MagicMock()
 
-    assert automation_worker.run_automation_job(job)
+    assert automation_worker.run_job(job)
     assert scm.push.call_count == 1
     assert len(scm.push.call_args) == 2
     assert len(scm.push.call_args[0]) == 1
@@ -753,7 +753,7 @@ def test_automation_job_create_commit_failed_check(
     repo_mc,
     treestatusdouble,
     get_automation_worker,
-    mock_automation_worker_phab_repo_update,
+    mock_phab_trigger_repo_update_apply_async,
     get_failing_check_action_reason: Callable,
     bad_action_type: str,
     hooks_enabled: bool,
@@ -784,9 +784,7 @@ def test_automation_job_create_commit_failed_check(
 
     scm.push = mock.MagicMock()
 
-    assert automation_worker.run_automation_job(
-        job
-    ), "Job indicated that it should be retried"
+    assert automation_worker.run_job(job), "Job indicated that it should be retried"
 
     if hooks_enabled:
         assert (
@@ -828,7 +826,7 @@ def test_automation_job_create_commit_failed_check_override(
     repo_mc,
     treestatusdouble,
     get_automation_worker,
-    mock_automation_worker_phab_repo_update,
+    mock_phab_trigger_repo_update_apply_async: mock.Mock,
     get_failing_check_action_reason: Callable,
     get_failing_check_diff,
     automation_job,
@@ -859,9 +857,7 @@ def test_automation_job_create_commit_failed_check_override(
 
     scm.push = mock.MagicMock()
 
-    assert automation_worker.run_automation_job(
-        job
-    ), "Job indicated that it should be retried"
+    assert automation_worker.run_job(job), "Job indicated that it should be retried"
     assert job.status == JobStatus.LANDED, f"Job failed despite overrides: {job.error}"
 
 
@@ -870,7 +866,7 @@ def test_automation_job_create_commit_failed_check_unchecked(
     repo_mc,
     treestatusdouble,
     get_automation_worker,
-    mock_automation_worker_phab_repo_update,
+    mock_phab_trigger_repo_update_apply_async: mock.Mock,
     get_failing_check_action_reason: Callable,
     get_failing_check_diff,
     automation_job,
@@ -903,7 +899,7 @@ def test_automation_job_create_commit_failed_check_unchecked(
     monkeypatch.setattr(
         automation_worker, "run_automation_checks", mock_run_automation_checks
     )
-    automation_worker.run_automation_job(job)
+    automation_worker.run_job(job)
     assert mock_run_automation_checks.call_count == 1
 
     # Create the same job with an invalid action and a commit with release override.
@@ -917,7 +913,7 @@ def test_automation_job_create_commit_failed_check_unchecked(
     monkeypatch.setattr(
         automation_worker, "run_automation_checks", mock_run_automation_checks
     )
-    automation_worker.run_automation_job(job)
+    automation_worker.run_job(job)
     assert mock_run_automation_checks.call_count == 0
 
 
@@ -957,7 +953,7 @@ def test_automation_job_create_commit_patch_conflict(
 
     monkeypatch.setattr(repo.scm, "apply_patch", raise_conflict)
 
-    assert not automation_worker.run_automation_job(job)
+    assert not automation_worker.run_job(job)
 
     assert "Merge conflict while creating commit" in job.error
     job.refresh_from_db()
@@ -1018,7 +1014,7 @@ def test_automation_job_merge_onto_success_git(
 
     git_automation_worker.worker_instance.applicable_repos.add(repo)
 
-    assert git_automation_worker.run_automation_job(job)
+    assert git_automation_worker.run_job(job)
     assert job.status == JobStatus.LANDED, f"Job unexpectedly failed: {job.error}"
     assert scm.push.called
     assert len(job.landed_commit_id) == 40
@@ -1071,7 +1067,7 @@ def test_automation_job_merge_onto_fast_forward_git(
     monkeypatch.setattr(
         git_automation_worker, "run_automation_checks", mock_run_automation_checks
     )
-    assert git_automation_worker.run_automation_job(job)
+    assert git_automation_worker.run_job(job)
     assert mock_run_automation_checks.call_count == 0
     assert job.status == JobStatus.LANDED
 
@@ -1163,7 +1159,7 @@ def test_automation_job_merge_onto_success_hg(
 
     hg_automation_worker.worker_instance.applicable_repos.add(repo)
 
-    assert hg_automation_worker.run_automation_job(job)
+    assert hg_automation_worker.run_job(job)
     assert job.status == JobStatus.LANDED
     assert scm.push.called
     assert len(job.landed_commit_id) == 40
@@ -1198,9 +1194,7 @@ def test_automation_job_merge_onto_fail(
     automation_worker = get_automation_worker(scm_type)
     automation_worker.worker_instance.applicable_repos.add(repo)
 
-    assert not automation_worker.run_automation_job(
-        job
-    ), f"Job should fail for SCM: {scm_type}"
+    assert not automation_worker.run_job(job), f"Job should fail for SCM: {scm_type}"
     assert job.status == JobStatus.FAILED
     assert "Aborting, could not perform `merge-onto`" in job.error
 
@@ -1241,7 +1235,7 @@ def test_automation_job_tag_success_git_tip_commit(
     automation_worker = get_automation_worker(SCM_TYPE_GIT)
     automation_worker.worker_instance.applicable_repos.add(repo)
 
-    assert automation_worker.run_automation_job(job)
+    assert automation_worker.run_job(job)
     assert job.status == JobStatus.LANDED
 
     # Tag should be on the most recent commit.
@@ -1300,7 +1294,7 @@ def test_automation_job_tag_success_git_new_commit(
     monkeypatch.setattr(
         automation_worker, "run_automation_checks", mock_run_automation_checks
     )
-    assert automation_worker.run_automation_job(job)
+    assert automation_worker.run_job(job)
     assert mock_run_automation_checks.call_count == 1
     assert job.status == JobStatus.LANDED
 
@@ -1353,7 +1347,7 @@ def test_automation_job_tag_failure_git(
     automation_worker = get_automation_worker(SCM_TYPE_GIT)
     automation_worker.worker_instance.applicable_repos.add(repo)
 
-    assert not automation_worker.run_automation_job(job)
+    assert not automation_worker.run_job(job)
     job.refresh_from_db()
     assert job.status == JobStatus.FAILED
     assert "Aborting, could not perform `tag`, action #1" in job.error
@@ -1401,7 +1395,7 @@ def test_automation_job_tag_success_hg(
     automation_worker = get_automation_worker(SCM_TYPE_HG)
     automation_worker.worker_instance.applicable_repos.add(repo)
 
-    assert automation_worker.run_automation_job(job)
+    assert automation_worker.run_job(job)
     assert job.status == JobStatus.LANDED, job.error
 
     # Verify the created commit is the one with the tag.
@@ -1490,7 +1484,7 @@ def test_create_and_push_to_new_relbranch(
     job = AutomationJob.objects.get(id=job_id)
 
     git_automation_worker.worker_instance.applicable_repos.add(repo)
-    assert git_automation_worker.run_automation_job(job)
+    assert git_automation_worker.run_job(job)
 
     assert job.status == JobStatus.LANDED
     assert job.landed_commit_id is not None
@@ -1620,7 +1614,7 @@ def test_push_to_existing_relbranch(
     job = AutomationJob.objects.get(id=job_id)
 
     git_automation_worker.worker_instance.applicable_repos.add(repo)
-    assert git_automation_worker.run_automation_job(job)
+    assert git_automation_worker.run_job(job)
 
     assert job.status == JobStatus.LANDED
     assert job.landed_commit_id is not None
