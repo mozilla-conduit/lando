@@ -20,6 +20,7 @@ from lando.main.scm.consts import SCM_TYPE_GIT, MergeStrategy
 from lando.main.scm.exceptions import (
     PatchConflict,
     SCMException,
+    SCMInternalServerError,
 )
 from lando.main.scm.helpers import GitPatchHelper, PatchHelper
 from lando.settings import LANDO_USER_EMAIL, LANDO_USER_NAME
@@ -147,7 +148,7 @@ class GitSCM(AbstractSCM):
         """Obtain a fresh GitHub token to push to the specified repo.
 
         This relies on GITHUB_APP_ID and GITHUB_APP_PRIVKEY to be set in the
-        environment. Returns None if those are missing.
+        settings. Returns None if those are missing.
 
         The app with ID GITHUB_APP_ID needs to be enabled for the target repo.
 
@@ -157,11 +158,7 @@ class GitSCM(AbstractSCM):
 
         if not app_id or not private_key:
             logger.warning(
-                "Missing GITHUB_APP_ID or GITHUB_APP_PRIVKEY to authenticate against GitHub",
-                extra={
-                    "repo_name": repo_name,
-                    "repo_owner": repo_owner,
-                },
+                f"Missing GITHUB_APP_ID or GITHUB_APP_PRIVKEY to authenticate against GitHub repo {repo_owner}/{repo_name}",
             )
             return None
 
@@ -568,7 +565,7 @@ class GitSCM(AbstractSCM):
 
         if result.returncode:
             redacted_stderr = cls._redact_url_userinfo(result.stderr)
-            raise SCMException(
+            raise SCMInternalServerError(
                 f"Error running git command; {sanitised_command=}, {path=}, {redacted_stderr}",
                 cls._redact_url_userinfo(result.stdout),
                 redacted_stderr,

@@ -1042,3 +1042,16 @@ def new_treestatus_tree():
         return new_tree
 
     return _new_tree
+
+
+@pytest.fixture
+def active_mock() -> Callable:
+    def _active_mock(obj: object, method: str) -> mock.MagicMock:
+        """Mock a method without preventing its side-effect from happening."""
+        original = getattr(obj, method)
+        mock_method = mock.MagicMock()
+        mock_method.side_effect = original
+        setattr(obj, method, mock_method)
+        return mock_method
+
+    return _active_mock

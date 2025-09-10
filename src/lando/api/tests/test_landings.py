@@ -9,6 +9,7 @@ import pytest
 from lando.api.legacy.workers.landing_worker import (
     AUTOFORMAT_COMMIT_MESSAGE,
 )
+from lando.api.tests.mocks import TreeStatusDouble
 from lando.conftest import FAILING_CHECK_TYPES
 from lando.main.models import (
     JobStatus,
@@ -17,6 +18,7 @@ from lando.main.models import (
     Revision,
 )
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
+from lando.main.scm.exceptions import SCMInternalServerError
 from lando.main.scm.helpers import HgPatchHelper
 from lando.main.scm.hg import LostPushRace
 from lando.pushlog.models.commit import Commit
@@ -458,6 +460,52 @@ def test_integrated_execute_job_with_bookmark(
     assert len(scm.push.call_args[0]) == 1
     assert scm.push.call_args[0][0] == repo.url
     assert scm.push.call_args[1] == {"push_target": "@", "force_push": False}
+
+
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        SCM_TYPE_GIT,
+        SCM_TYPE_HG,
+    ],
+)
+@pytest.mark.django_db
+def test_integrated_execute_job_with_scm_internal_error(
+    active_mock: Callable,
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,  # pyright: ignore[reportUnusedParameter] Mock with side-effect
+    mock_landing_worker_phab_repo_update: mock.Mock,  # pyright: ignore[reportUnusedParameter] Mock with side-effect
+    create_patch_revision: Callable,
+    make_landing_job: Callable,
+    get_landing_worker: Callable,
+    repo_type: str,
+):
+    repo = repo_mc(repo_type, force_push=True)
+    scm = repo.scm
+
+    job_params = {
+        "status": JobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "target_repo": repo,
+        "attempts": 1,
+    }
+    job = make_landing_job(revisions=[create_patch_revision(1)], **job_params)
+
+    active_mock(scm, "push")
+    scm.push.side_effect = [
+        SCMInternalServerError("Some SCM error", "403"),
+        scm.push.side_effect,
+    ]
+
+    worker = get_landing_worker(repo_type)
+
+    assert not worker.run_job(job)
+    assert (
+        job.status == JobStatus.DEFERRED
+    ), "Job should have been deferred on first push exception."
+
+    assert worker.run_job(job)
+    assert job.status == JobStatus.LANDED, "Job should have landed on second run."
 
 
 @pytest.mark.parametrize(
