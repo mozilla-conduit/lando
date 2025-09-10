@@ -962,21 +962,10 @@ def commit_maps(git_repo):
 
 
 @pytest.fixture
-def mock_landing_worker_phab_repo_update(monkeypatch):
+def mock_phab_trigger_repo_update_apply_async(monkeypatch: pytest.MonkeyPatch):
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
-        mock_trigger_update,
-    )
-
-    return mock_trigger_update
-
-
-@pytest.fixture
-def mock_automation_worker_phab_repo_update(monkeypatch):
-    mock_trigger_update = mock.MagicMock()
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.automation_worker.AutomationWorker.phab_trigger_repo_update",
+        "lando.utils.tasks.phab_trigger_repo_update.apply_async",
         mock_trigger_update,
     )
 

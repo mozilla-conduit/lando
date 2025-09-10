@@ -6,20 +6,59 @@ import logging
 import os
 import re
 import subprocess
+from abc import ABC, abstractmethod
 from time import sleep
 
+from celery import Task
+from django.db import transaction
+from kombu.exceptions import OperationalError
+
 import lando.utils.treestatus
+from lando.api.legacy.treestatus import TreeStatus
 from lando.main.models import Worker as WorkerModel
+from lando.main.models.jobs import BaseJob, JobStatus
+from lando.main.models.repo import Repo
+from lando.main.models.worker import WorkerType
 
 logger = logging.getLogger(__name__)
 
 
-class Worker:
+class Worker(ABC):
     """A base class for repository workers."""
 
     SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
 
+    @property
+    @abstractmethod
+    def job_type(self) -> type[BaseJob]:
+        """Type of this Job that this worker can process.
+
+        This should be overridden by concrete implementations."""
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def type(self) -> WorkerType:
+        """Type of this Worker.
+
+        This should be overridden by concrete implementations."""
+        raise NotImplementedError()
+
+    @abstractmethod
+    def run_job(self, job: BaseJob) -> bool:
+        raise NotImplementedError()
+
+    worker_instance: WorkerModel
+
     ssh_private_key: str | None
+
+    treestatus_client: TreeStatus
+
+    # The list of all repos that have open trees; refreshed when needed via
+    # `self.refresh_active_repos`.
+    active_repos: list[Repo]
+
+    last_job_finished: bool | None = None
 
     def __str__(self) -> str:
         return f"Worker {self.worker_instance}"
@@ -31,16 +70,11 @@ class Worker:
     ):
         self.worker_instance = worker_instance
 
-        # The list of all repos that are enabled for this worker
-        self.enabled_repos = self.worker_instance.enabled_repos
-
-        # The list of all repos that have open trees; refreshed when needed via
-        # `self.refresh_active_repos`.
-        self.active_repos = []
-
         self.treestatus_client = lando.utils.treestatus.get_treestatus_client()
         if not self.treestatus_client.ping():
             raise ConnectionError("Could not connect to Treestatus")
+
+        self.refresh_active_repos()
 
         if with_ssh:
             # Fetch ssh private key from the environment. Note that this key should be
@@ -137,6 +171,35 @@ class Worker:
 
         logger.info(f"{self} exited after {loops} loops.")
 
+    def loop(self):
+        logger.debug(f"{len(self.enabled_repos)} enabled repos: {self.enabled_repos}")
+
+        # Refresh repos if there is a mismatch in active vs. enabled repos.
+        if len(self.active_repos) != len(self.enabled_repos):
+            self.refresh_active_repos()
+
+        if self.last_job_finished is False:
+            logger.info("Last job did not complete, sleeping.")
+            self.throttle(self.worker_instance.sleep_seconds)
+            self.refresh_active_repos()
+
+        with transaction.atomic():
+            job = self.job_type.next_job(repositories=self.active_repos).first()
+
+        if job is None:
+            self.throttle(self.worker_instance.sleep_seconds)
+            return
+
+        with job.processing():
+            job.status = JobStatus.IN_PROGRESS
+            job.attempts += 1
+            job.save()
+
+            # Make sure the status and attempt count are updated in the database
+            logger.info(f"Starting {self.job_type}", extra={"id": job.id})
+            self.last_job_finished = self.run_job(job)
+            logger.info(f"Finished processing {self.job_type}", extra={"id": job.id})
+
     @property
     def throttle_seconds(self) -> int:
         """The duration to pause for when the worker is being throttled."""
@@ -145,6 +208,11 @@ class Worker:
     def throttle(self, seconds: int | None = None):
         """Sleep for a given number of seconds."""
         sleep(seconds if seconds is not None else self.throttle_seconds)
+
+    @property
+    def enabled_repos(self) -> list[Repo]:
+        """The list of all repos that are enabled for this worker."""
+        return self.worker_instance.enabled_repos
 
     def refresh_active_repos(self):
         """Refresh the list of repositories based on treestatus."""
@@ -161,6 +229,19 @@ class Worker:
         self._setup()
         self._start(max_loops=max_loops)
 
-    def loop(self, *args, **kwargs):
-        """The main event loop."""
-        raise NotImplementedError()
+    @staticmethod
+    def call_task(task: Task, *args):
+        """Exception-absorbing wrapper to call asynchronous Celery tasks.
+
+        Args:
+            task: celery.Task to call
+            *args: list of argurents for the Task
+        """
+        try:
+            # Send a task to Celery.
+            task.apply_async(args=args)
+        except OperationalError as e:
+            # Log the exception but continue gracefully.
+            # The repo will eventually update.
+            logger.exception(f"Failed sending {task.__name__} task to Celery.")
+            logger.exception(e)

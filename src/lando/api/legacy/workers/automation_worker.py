@@ -1,7 +1,6 @@
 import logging
 
-import kombu
-from django.db import transaction
+from typing_extensions import override
 
 from lando.api.legacy.workers.base import Worker
 from lando.headless_api.api import (
@@ -12,7 +11,8 @@ from lando.headless_api.models.automation_job import (
     ActionTypeChoices,
     AutomationJob,
 )
-from lando.main.models import JobAction, JobStatus, WorkerType
+from lando.main.models import JobAction, WorkerType
+from lando.main.models.jobs import BaseJob
 from lando.main.scm import (
     AbstractSCM,
     CommitData,
@@ -59,12 +59,15 @@ class AutomationWorker(Worker):
     and then pushed to the destination repo.
     """
 
-    type = WorkerType.AUTOMATION
+    @property
+    @override
+    def job_type(self) -> type[BaseJob]:
+        return AutomationJob
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.last_job_finished = None
-        self.refresh_active_repos()
+    @property
+    @override
+    def type(self) -> WorkerType:
+        return WorkerType.AUTOMATION
 
     def skip_checks(self, job: AutomationJob, new_commits: list[CommitData]) -> bool:
         return (
@@ -72,43 +75,13 @@ class AutomationWorker(Worker):
             and job.actions.first().action_type == ActionTypeChoices.MERGE_ONTO
         ) or (new_commits and "a=release" in new_commits[-1].desc)
 
+    @override
     def refresh_active_repos(self):
         """Override base functionality by not checking treestatus."""
         self.active_repos = self.enabled_repos
 
-    def loop(self):
-        logger.debug(
-            f"{len(self.worker_instance.enabled_repos)} "
-            f"enabled repos: {self.worker_instance.enabled_repos}"
-        )
-
-        # Refresh repos if there is a mismatch in active vs. enabled repos.
-        if len(self.active_repos) != len(self.enabled_repos):
-            self.refresh_active_repos()
-
-        if self.last_job_finished is False:
-            logger.info("Last job did not complete, sleeping.")
-            self.throttle(self.worker_instance.sleep_seconds)
-            self.refresh_active_repos()
-
-        with transaction.atomic():
-            job = AutomationJob.next_job(repositories=self.active_repos).first()
-
-        if job is None:
-            self.throttle(self.worker_instance.sleep_seconds)
-            return
-
-        with job.processing():
-            job.status = JobStatus.IN_PROGRESS
-            job.attempts += 1
-            job.save()
-
-            # Make sure the status and attempt count are updated in the database
-            logger.info("Starting automation job", extra={"id": job.id})
-            self.last_job_finished = self.run_automation_job(job)
-            logger.info("Finished processing automation job", extra={"id": job.id})
-
-    def run_automation_job(self, job: AutomationJob) -> bool:
+    @override
+    def run_job(self, job: AutomationJob) -> bool:
         """Run an automation job."""
         repo = job.target_repo
         scm = repo.scm
@@ -240,7 +213,7 @@ class AutomationWorker(Worker):
         # Trigger update of repo in Phabricator so patches are closed quicker.
         # Especially useful on low-traffic repositories.
         if repo.phab_identifier:
-            self.phab_trigger_repo_update(repo.phab_identifier)
+            self.call_task(phab_trigger_repo_update, repo.phab_identifier)
 
         return True
 
@@ -263,20 +236,3 @@ class AutomationWorker(Worker):
         return assessor.run_patch_collection_checks(
             patch_collection_checks=STACK_CHECKS, patch_checks=COMMIT_CHECKS
         )
-
-    @staticmethod
-    def phab_trigger_repo_update(phab_identifier: str):
-        """Wrapper around `phab_trigger_repo_update` for convenience.
-
-        Args:
-            phab_identifier: `str` to be passed to Phabricator to identify
-            repo.
-        """
-        try:
-            # Send a Phab repo update task to Celery.
-            phab_trigger_repo_update.apply_async(args=(phab_identifier,))
-        except kombu.exceptions.OperationalError as e:
-            # Log the exception but continue gracefully.
-            # The repo will eventually update.
-            logger.exception("Failed sending repo update task to Celery.")
-            logger.exception(e)
