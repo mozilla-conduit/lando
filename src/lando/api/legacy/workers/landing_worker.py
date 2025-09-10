@@ -4,10 +4,6 @@ import configparser
 import logging
 import subprocess
 from pathlib import Path
-from typing import (
-    Optional,
-    Type,
-)
 
 import kombu
 from django.db import transaction
@@ -52,14 +48,14 @@ from lando.utils.tasks import phab_trigger_repo_update
 
 logger = logging.getLogger(__name__)
 
-COMMIT_CHECKS: list[Type[PatchCheck]] = [
+COMMIT_CHECKS: list[type[PatchCheck]] = [
     PreventSymlinksCheck,
     TryTaskConfigCheck,
     PreventNSPRNSSCheck,
     PreventSubmodulesCheck,
 ]
 
-STACK_CHECKS: list[Type[PatchCollectionCheck]] = [
+STACK_CHECKS: list[type[PatchCollectionCheck]] = [
     CommitMessagesCheck,
     # We don't include the WPT check here, as wptsyncbot cannot be the push user for a landing from Phabricator.
 ]
@@ -403,13 +399,13 @@ class LandingWorker(Worker):
         scm: AbstractSCM,
         bug_ids: list[str],
         changeset_titles: list[str],
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Determine and apply the repo's autoformatting rules.
 
         If no `.lando.ini` configuration can be found in the repo, autoformatting is skipped with a warning, but returns a success status.
 
-        Returns: Optional[str]
+        Returns: str | None
             None: no error
             str: error message
         """
@@ -452,10 +448,10 @@ class LandingWorker(Worker):
     def apply_autoformatting(
         self,
         scm: AbstractSCM,
-        landoini_config: Optional[configparser.ConfigParser],
+        landoini_config: configparser.ConfigParser | None,
         bug_ids: list[str],
         changeset_titles: list[str],
-    ) -> Optional[list[str]]:
+    ) -> list[str] | None:
         try:
             self.format_stack(landoini_config, scm.path)
         except AutoformattingException as exc:
@@ -551,7 +547,7 @@ class LandingWorker(Worker):
 
             raise exc
 
-    def mach_path(self, path: str) -> Optional[Path]:
+    def mach_path(self, path: str) -> Path | None:
         """Return the `Path` to `mach`, if it exists."""
         mach_path = Path(path) / "mach"
         if mach_path.exists():
@@ -559,7 +555,7 @@ class LandingWorker(Worker):
 
     def commit_autoformatting_changes(
         self, scm: AbstractSCM, stack_size: int, bug_ids: list[str]
-    ) -> Optional[list[str]]:
+    ) -> list[str] | None:
         """Call the SCM implementation to commit pending autoformatting changes.
 
         If the `stack_size` is 1, the tip commit will get amended. Otherwise, a new

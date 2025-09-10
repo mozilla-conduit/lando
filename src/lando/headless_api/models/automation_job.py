@@ -68,7 +68,7 @@ class AutomationJob(BaseJob):
         return target_cset, push_target
 
     @property
-    def has_one_action(self) -> int:
+    def has_one_action(self) -> bool:
         return self.actions.count() == 1
 
 
