@@ -3,8 +3,6 @@ from __future__ import annotations
 import configparser
 import logging
 import subprocess
-from contextlib import contextmanager
-from datetime import datetime
 from pathlib import Path
 from typing import (
     Optional,
@@ -24,6 +22,7 @@ from lando.api.legacy.uplift import (
 )
 from lando.api.legacy.workers.base import Worker
 from lando.main.models import JobAction, JobStatus, LandingJob, Repo, WorkerType
+from lando.main.models.jobs import PermanentFailureException, TemporaryFailureException
 from lando.main.scm import (
     AbstractSCM,
     AutoformattingException,
@@ -71,34 +70,6 @@ AUTOFORMAT_COMMIT_MESSAGE = """
 """.strip()
 
 
-# XXX: those should be handled in the job_processing context and moved to the job as
-# part of bug 1946594
-class TemporaryFailureException(Exception):
-    """Signal an error that should be retried"""
-
-
-class PermanentFailureException(Exception):
-    """Signal an error that should not be retried"""
-
-
-@contextmanager
-def job_processing(job: LandingJob):
-    """Mutex-like context manager that manages job processing miscellany.
-
-    This context manager facilitates graceful worker shutdown, tracks the duration of
-    the current job, and commits changes to the DB at the very end.
-
-    Args:
-        job: the job currently being processed
-    """
-    start_time = datetime.now()
-    try:
-        yield
-    finally:
-        job.duration_seconds = (datetime.now() - start_time).seconds
-        job.save()
-
-
 class LandingWorker(Worker):
     type = WorkerType.LANDING
 
@@ -129,7 +100,7 @@ class LandingWorker(Worker):
             self.throttle(self.worker_instance.sleep_seconds)
             return
 
-        with job_processing(job):
+        with job.processing():
             job.status = JobStatus.IN_PROGRESS
             job.attempts += 1
             job.save()
