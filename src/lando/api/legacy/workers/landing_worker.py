@@ -408,7 +408,7 @@ class LandingWorker(Worker):
         ) as e:
             message = (
                 f"`Temporary error ({e.__class__}) "
-                f"encountered while pulling from {repo_push_info}: {e}"
+                f"encountered while pushing to {repo_push_info}: {e}"
             )
             logger.exception(message)
             job.transition_status(JobAction.DEFER, message=message)
