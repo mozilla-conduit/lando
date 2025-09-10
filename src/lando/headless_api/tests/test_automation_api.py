@@ -1308,6 +1308,7 @@ def test_automation_job_tag_retag_success_git(
     assert (
         job.status == JobStatus.DEFERRED
     ), "Job should have been deferred on first push exception."
+    assert "Some Github error" in job.error
 
     # This is an test for the current internal behaviour that a tags remains after a
     # failure, which the deferral should be able to work around.
