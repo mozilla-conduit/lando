@@ -474,7 +474,7 @@ def test_integrated_execute_job_with_scm_internal_error(
     active_mock: Callable,
     repo_mc: Callable,
     treestatusdouble: TreeStatusDouble,  # pyright: ignore[reportUnusedParameter] Mock with side-effect
-    mock_landing_worker_phab_repo_update: mock.Mock,  # pyright: ignore[reportUnusedParameter] Mock with side-effect
+    mock_phab_trigger_repo_update_apply_async,
     create_patch_revision: Callable,
     make_landing_job: Callable,
     get_landing_worker: Callable,
