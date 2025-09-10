@@ -7,7 +7,6 @@ import os
 import re
 import subprocess
 from time import sleep
-from typing import Optional
 
 import lando.utils.treestatus
 from lando.main.models import Worker as WorkerModel
@@ -20,7 +19,7 @@ class Worker:
 
     SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
 
-    ssh_private_key: Optional[str]
+    ssh_private_key: str | None
 
     def __str__(self) -> str:
         return f"Worker {self.worker_instance}"
