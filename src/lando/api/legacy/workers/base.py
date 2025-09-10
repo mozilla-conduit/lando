@@ -15,10 +15,13 @@ from kombu.exceptions import OperationalError
 
 import lando.utils.treestatus
 from lando.api.legacy.treestatus import TreeStatus
+from lando.main.models import (
+    BaseJob,
+    JobStatus,
+    Repo,
+    WorkerType,
+)
 from lando.main.models import Worker as WorkerModel
-from lando.main.models.jobs import BaseJob, JobStatus
-from lando.main.models.repo import Repo
-from lando.main.models.worker import WorkerType
 
 logger = logging.getLogger(__name__)
 

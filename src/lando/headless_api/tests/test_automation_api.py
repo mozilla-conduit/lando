@@ -1296,7 +1296,7 @@ def test_automation_job_tag_retag_success_git(
     automation_worker = get_automation_worker(SCM_TYPE_GIT)
     automation_worker.worker_instance.applicable_repos.add(repo)
 
-    assert not automation_worker.run_automation_job(
+    assert not automation_worker.run_job(
         job
     ), "The automation job should not have succeeded the first time."
     assert (
@@ -1310,7 +1310,7 @@ def test_automation_job_tag_retag_success_git(
         "tag", "-l", tag_name, cwd=scm.path
     ), f"Though the job has failed, we would have expected a stray {tag_name} tag to still be present."
 
-    assert automation_worker.run_automation_job(job)
+    assert automation_worker.run_job(job)
     assert job.status == JobStatus.LANDED, "Job should have landed on second run."
 
     # Tag should be on the most recent commit.

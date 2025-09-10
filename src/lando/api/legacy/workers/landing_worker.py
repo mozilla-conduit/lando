@@ -16,11 +16,14 @@ from lando.api.legacy.uplift import (
     update_bugs_for_uplift,
 )
 from lando.api.legacy.workers.base import Worker
-from lando.main.models import JobAction, LandingJob, Repo, WorkerType
-from lando.main.models.jobs import (
+from lando.main.models import (
     BaseJob,
+    JobAction,
+    LandingJob,
     PermanentFailureException,
+    Repo,
     TemporaryFailureException,
+    WorkerType,
 )
 from lando.main.scm import (
     AbstractSCM,

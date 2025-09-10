@@ -11,8 +11,7 @@ from lando.headless_api.models.automation_job import (
     ActionTypeChoices,
     AutomationJob,
 )
-from lando.main.models import JobAction, WorkerType
-from lando.main.models.jobs import BaseJob
+from lando.main.models import BaseJob, JobAction, WorkerType
 from lando.main.scm import (
     AbstractSCM,
     CommitData,
