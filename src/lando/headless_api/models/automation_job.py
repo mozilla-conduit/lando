@@ -1,5 +1,3 @@
-from contextlib import contextmanager
-from datetime import datetime
 from typing import Any
 
 from django.conf import settings
@@ -28,20 +26,6 @@ class AutomationJob(BaseJob):
 
     # SHA to create RelBranch from, if passed.
     relbranch_commit_sha = models.CharField(null=True, blank=True)
-
-    @contextmanager
-    def processing(self):
-        """Mutex-like context manager that manages job processing miscellany.
-
-        This context manager facilitates graceful worker shutdown and
-        tracks the duration of the current job.
-        """
-        start_time = datetime.now()
-        try:
-            yield
-        finally:
-            self.duration_seconds = (datetime.now() - start_time).seconds
-            self.save()
 
     def to_api_status(self) -> dict[str, Any]:
         """Return the job details as API status JSON."""

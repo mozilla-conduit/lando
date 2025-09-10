@@ -3,6 +3,8 @@ from __future__ import annotations
 import enum
 import logging
 from collections.abc import Iterable
+from contextlib import contextmanager
+from datetime import datetime
 from typing import Any
 
 from django.db import models
@@ -15,6 +17,14 @@ from lando.main.models.repo import Repo
 from lando.main.scm.consts import SCM_TYPE_HG
 
 logger = logging.getLogger(__name__)
+
+
+class TemporaryFailureException(Exception):
+    """Signal an error that should be retried"""
+
+
+class PermanentFailureException(Exception):
+    """Signal an error that should not be retried"""
 
 
 class JobStatus(models.TextChoices):
@@ -126,6 +136,20 @@ class BaseJob(BaseModel):
 
     # Reference to the target repo.
     target_repo = models.ForeignKey(Repo, on_delete=models.SET_NULL, null=True)
+
+    @contextmanager
+    def processing(self):
+        """Mutex-like context manager that manages job processing miscellany.
+
+        This context manager facilitates graceful worker shutdown, tracks the duration of
+        the current job, and commits changes to the DB at the very end.
+        """
+        start_time = datetime.now()
+        try:
+            yield
+        finally:
+            self.duration_seconds = (datetime.now() - start_time).seconds
+            self.save()
 
     def transition_status(
         self,
