@@ -686,7 +686,7 @@ class GitSCM(AbstractSCM):
                 if current_tag_target != desired_tag_target:
                     raise TagAlreadyPresentException(
                         f"Tag {name} already exists, and points to different target {current_tag_target}"
-                    )
+                    ) from exc
                 logger.warning(
                     f"Tag {name} already exists, but points to the desired target {current_tag_target}. Skipping retagging ..."
                 )
