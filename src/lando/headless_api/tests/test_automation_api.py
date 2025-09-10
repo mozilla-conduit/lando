@@ -13,6 +13,7 @@ import pytest
 from django.contrib.auth.hashers import check_password
 
 from lando.api.legacy.workers.automation_worker import AutomationWorker
+from lando.api.tests.mocks import TreeStatusDouble
 from lando.api.tests.test_hg import _create_hg_commit
 from lando.conftest import FAILING_CHECK_TYPES
 from lando.headless_api.api import (
@@ -1263,6 +1264,7 @@ def test_automation_job_tag_success_git_tip_commit(
 @pytest.mark.django_db
 def test_automation_job_tag_retag_success_git(
     repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,  # pyright: ignore[reportUnusedParameter] Mock with side-effect
     active_mock: Callable,
     get_automation_worker: Callable,
     request: pytest.FixtureRequest,
