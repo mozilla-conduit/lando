@@ -667,7 +667,6 @@ class GitSCM(AbstractSCM):
 
         If `target` is `None`, use the currently checked out commit.
         """
-
         tag_command = ["tag", name]
 
         if target:
