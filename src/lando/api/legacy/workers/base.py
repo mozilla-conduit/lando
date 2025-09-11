@@ -58,7 +58,7 @@ class Worker(ABC):
     last_job_finished: bool | None = None
 
     def __str__(self) -> str:
-        return f"Worker {self.worker_instance}"
+        return f"{self.__class__.__name__} {self.worker_instance}"
 
     def __init__(
         self,
