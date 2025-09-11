@@ -53,27 +53,6 @@ class Command(BaseCommand):
                 logger.info(f"Repo {repo} not prepared, preparing...")
                 repo.scm.prepare_repo(repo.pull_path)
 
-    def _bootstrap_repos(self, worker: LandingWorker):
-        repos = worker.worker_instance.enabled_repos.filter(autoformat_enabled=True)
-        command = [
-            "bootstrap",
-            "--no-system-changes",
-            "--application-choice",
-            "browser",
-        ]
-
-        for repo in repos:
-            try:
-                worker.run_mach_command(repo.path, command)
-            except CalledProcessError as exc:
-                logger.warning(
-                    f"Error `running mach` bootstrap for repo {repo.name}: {exc}"
-                )
-            except Exception as exc:
-                sentry_sdk.capture_exception(exc)
-                logger.warning(
-                    f"Unexpected error `running mach` bootstrap for repo {repo.name}: {exc}"
-                )
 
     def _handle(self, worker: Worker, repo_type: str):
         self._check_for_unsupported_repos(worker, repo_type)
@@ -102,8 +81,7 @@ class Command(BaseCommand):
         except ConnectionError as e:
             raise CommandError(e)
 
-        logger.info("Bootstrapping applicable repos...")
-        self._bootstrap_repos(landing_worker)
+        landing_worker.bootstrap_repos()
 
         logger.info(f"Starting {worker}...")
         try:
