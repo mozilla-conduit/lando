@@ -43,6 +43,10 @@ class Worker(ABC):
     def run_job(self, job: BaseJob) -> bool:
         raise NotImplementedError()
 
+    def bootstrap_repos(self):
+        """Optional method to bootstrap repositories in the the work directory."""
+        return
+
     ssh_private_key: str | None
 
     treestatus_client: TreeStatus
@@ -54,7 +58,7 @@ class Worker(ABC):
     last_job_finished: bool | None = None
 
     def __str__(self) -> str:
-        return f"Worker {self.worker_instance}"
+        return f"{self.__class__.__name__} {self.worker_instance}"
 
     def __init__(
         self,
