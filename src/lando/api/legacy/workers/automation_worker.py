@@ -11,7 +11,7 @@ from lando.headless_api.models.automation_job import (
     ActionTypeChoices,
     AutomationJob,
 )
-from lando.main.models import BaseJob, JobAction, WorkerType
+from lando.main.models import JobAction, WorkerType
 from lando.main.scm import (
     AbstractSCM,
     CommitData,
@@ -58,15 +58,9 @@ class AutomationWorker(Worker):
     and then pushed to the destination repo.
     """
 
-    @property
-    @override
-    def job_type(self) -> type[BaseJob]:
-        return AutomationJob
+    job_type = AutomationJob
 
-    @property
-    @override
-    def type(self) -> WorkerType:
-        return WorkerType.AUTOMATION
+    worker_type = WorkerType.AUTOMATION
 
     def skip_checks(self, job: AutomationJob, new_commits: list[CommitData]) -> bool:
         return (
