@@ -15,7 +15,6 @@ from lando.main.auth import require_authenticated_user, require_permission
 from lando.main.models import Repo
 from lando.main.models.profile import SCM_LEVEL_1
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
-from lando.try_api.models.job import TryJob
 from lando.utils.auth import AccessTokenAuth
 from lando.utils.exceptions import ProblemDetail
 
@@ -186,9 +185,10 @@ def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]
         automation_job=automation_job,
     )
 
+
 @api.get(
     "/jobs/<int:try_job_id>/",
 )
 def get_job(try_job_id: int) -> JsonResponse:
-    job = AutomationJob.objects.get(id = try_job_id)
+    job = AutomationJob.objects.get(id=try_job_id)
     return JsonResponse(job.to_dict())
