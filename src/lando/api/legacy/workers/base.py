@@ -31,27 +31,17 @@ class Worker(ABC):
 
     SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
 
-    @property
-    @abstractmethod
-    def job_type(self) -> type[BaseJob]:
-        """Type of this Job that this worker can process.
+    # Type of this Job that this worker can process.
+    job_type: type[BaseJob]
 
-        This should be overridden by concrete implementations."""
-        raise NotImplementedError()
+    # Type of the worker implementation.
+    worker_type: WorkerType
 
-    @property
-    @abstractmethod
-    def type(self) -> WorkerType:
-        """Type of this Worker.
-
-        This should be overridden by concrete implementations."""
-        raise NotImplementedError()
+    worker_instance: WorkerModel
 
     @abstractmethod
     def run_job(self, job: BaseJob) -> bool:
         raise NotImplementedError()
-
-    worker_instance: WorkerModel
 
     ssh_private_key: str | None
 
@@ -245,6 +235,5 @@ class Worker(ABC):
             task.apply_async(args=args)
         except OperationalError as e:
             # Log the exception but continue gracefully.
-            # The repo will eventually update.
             logger.exception(f"Failed sending {task.__name__} task to Celery.")
             logger.exception(e)

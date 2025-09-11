@@ -10,7 +10,7 @@ def set_worker_type_based_on_name(apps, schema_editor):  # noqa: ANN001
     Worker = apps.get_model("main", "Worker")
     for worker in Worker.objects.all():
         if "automation" in worker.name:
-            worker.type = WorkerType.AUTOMATION
+            worker.worker_type = WorkerType.AUTOMATION
             worker.save()
 
 

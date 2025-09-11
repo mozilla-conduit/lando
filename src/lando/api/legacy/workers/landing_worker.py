@@ -17,7 +17,6 @@ from lando.api.legacy.uplift import (
 )
 from lando.api.legacy.workers.base import Worker
 from lando.main.models import (
-    BaseJob,
     JobAction,
     LandingJob,
     PermanentFailureException,
@@ -73,15 +72,9 @@ AUTOFORMAT_COMMIT_MESSAGE = """
 
 
 class LandingWorker(Worker):
-    @property
-    @override
-    def job_type(self) -> type[BaseJob]:
-        return LandingJob
+    job_type = LandingJob
 
-    @property
-    @override
-    def type(self) -> WorkerType:
-        return WorkerType.LANDING
+    worker_type = WorkerType.LANDING
 
     @staticmethod
     def notify_user_of_landing_failure(job: LandingJob):
