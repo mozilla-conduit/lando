@@ -4,13 +4,8 @@ import configparser
 import logging
 import subprocess
 from pathlib import Path
-from typing import (
-    Optional,
-    Type,
-)
 
-import kombu
-from django.db import transaction
+from typing_extensions import override
 
 from lando.api.legacy.commit_message import bug_list_to_commit_string, parse_bugs
 from lando.api.legacy.notifications import (
@@ -21,8 +16,14 @@ from lando.api.legacy.uplift import (
     update_bugs_for_uplift,
 )
 from lando.api.legacy.workers.base import Worker
-from lando.main.models import JobAction, JobStatus, LandingJob, Repo, WorkerType
-from lando.main.models.jobs import PermanentFailureException, TemporaryFailureException
+from lando.main.models import (
+    JobAction,
+    LandingJob,
+    PermanentFailureException,
+    Repo,
+    TemporaryFailureException,
+    WorkerType,
+)
 from lando.main.scm import (
     AbstractSCM,
     AutoformattingException,
@@ -52,14 +53,14 @@ from lando.utils.tasks import phab_trigger_repo_update
 
 logger = logging.getLogger(__name__)
 
-COMMIT_CHECKS: list[Type[PatchCheck]] = [
+COMMIT_CHECKS: list[type[PatchCheck]] = [
     PreventSymlinksCheck,
     TryTaskConfigCheck,
     PreventNSPRNSSCheck,
     PreventSubmodulesCheck,
 ]
 
-STACK_CHECKS: list[Type[PatchCollectionCheck]] = [
+STACK_CHECKS: list[type[PatchCollectionCheck]] = [
     CommitMessagesCheck,
     # We don't include the WPT check here, as wptsyncbot cannot be the push user for a landing from Phabricator.
 ]
@@ -71,44 +72,9 @@ AUTOFORMAT_COMMIT_MESSAGE = """
 
 
 class LandingWorker(Worker):
-    type = WorkerType.LANDING
+    job_type = LandingJob
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.last_job_finished = None
-        self.refresh_active_repos()
-
-    def loop(self):
-        logger.debug(
-            f"{len(self.worker_instance.enabled_repos)} "
-            f"enabled repos: {self.worker_instance.enabled_repos}"
-        )
-
-        # Refresh repos if there is a mismatch in active vs. enabled repos.
-        if len(self.active_repos) != len(self.enabled_repos):
-            self.refresh_active_repos()
-
-        if self.last_job_finished is False:
-            logger.info("Last job did not complete, sleeping.")
-            self.throttle(self.worker_instance.sleep_seconds)
-            self.refresh_active_repos()
-
-        with transaction.atomic():
-            job = LandingJob.next_job(repositories=self.active_repos).first()
-
-        if job is None:
-            self.throttle(self.worker_instance.sleep_seconds)
-            return
-
-        with job.processing():
-            job.status = JobStatus.IN_PROGRESS
-            job.attempts += 1
-            job.save()
-
-            # Make sure the status and attempt count are updated in the database
-            logger.info("Starting landing job", extra={"id": job.id})
-            self.last_job_finished = self.run_job(job)
-            logger.info("Finished processing landing job", extra={"id": job.id})
+    worker_type = WorkerType.LANDING
 
     @staticmethod
     def notify_user_of_landing_failure(job: LandingJob):
@@ -137,23 +103,7 @@ class LandingWorker(Worker):
             job.id,
         )
 
-    @staticmethod
-    def phab_trigger_repo_update(phab_identifier: str):
-        """Wrapper around `phab_trigger_repo_update` for convenience.
-
-        Args:
-            phab_identifier: `str` to be passed to Phabricator to identify
-            repo.
-        """
-        try:
-            # Send a Phab repo update task to Celery.
-            phab_trigger_repo_update.apply_async(args=(phab_identifier,))
-        except kombu.exceptions.OperationalError as e:
-            # Log the exception but continue gracefully.
-            # The repo will eventually update.
-            logger.exception("Failed sending repo update task to Celery.")
-            logger.exception(e)
-
+    @override
     def run_job(self, job: LandingJob) -> bool:
         """Run a given LandingJob and return appropriate boolean state.
 
@@ -221,7 +171,7 @@ class LandingWorker(Worker):
         # Trigger update of repo in Phabricator so patches are closed quicker.
         # Especially useful on low-traffic repositories.
         if repo.phab_identifier:
-            self.phab_trigger_repo_update(repo.phab_identifier)
+            self.call_task(phab_trigger_repo_update, repo.phab_identifier)
 
         return True
 
@@ -403,13 +353,13 @@ class LandingWorker(Worker):
         scm: AbstractSCM,
         bug_ids: list[str],
         changeset_titles: list[str],
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Determine and apply the repo's autoformatting rules.
 
         If no `.lando.ini` configuration can be found in the repo, autoformatting is skipped with a warning, but returns a success status.
 
-        Returns: Optional[str]
+        Returns: str | None
             None: no error
             str: error message
         """
@@ -452,10 +402,10 @@ class LandingWorker(Worker):
     def apply_autoformatting(
         self,
         scm: AbstractSCM,
-        landoini_config: Optional[configparser.ConfigParser],
+        landoini_config: configparser.ConfigParser | None,
         bug_ids: list[str],
         changeset_titles: list[str],
-    ) -> Optional[list[str]]:
+    ) -> list[str] | None:
         try:
             self.format_stack(landoini_config, scm.path)
         except AutoformattingException as exc:
@@ -551,7 +501,7 @@ class LandingWorker(Worker):
 
             raise exc
 
-    def mach_path(self, path: str) -> Optional[Path]:
+    def mach_path(self, path: str) -> Path | None:
         """Return the `Path` to `mach`, if it exists."""
         mach_path = Path(path) / "mach"
         if mach_path.exists():
@@ -559,7 +509,7 @@ class LandingWorker(Worker):
 
     def commit_autoformatting_changes(
         self, scm: AbstractSCM, stack_size: int, bug_ids: list[str]
-    ) -> Optional[list[str]]:
+    ) -> list[str] | None:
         """Call the SCM implementation to commit pending autoformatting changes.
 
         If the `stack_size` is 1, the tip commit will get amended. Otherwise, a new
