@@ -10,19 +10,21 @@ from ninja.errors import HttpError
 from pydantic import Field, StringConstraints
 
 from lando.headless_api.api import AutomationOperation, post_repo_actions
+from lando.headless_api.models.automation_job import AutomationJob
 from lando.main.auth import require_authenticated_user, require_permission
 from lando.main.models import Repo
 from lando.main.models.profile import SCM_LEVEL_1
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
+from lando.try_api.models.job import TryJob
 from lando.utils.auth import AccessTokenAuth
 from lando.utils.exceptions import ProblemDetail
 
 logger = logging.getLogger(__name__)
 
-api = NinjaAPI(urls_namespace="try", auth=AccessTokenAuth())
+api = NinjaAPI(urls_namespace="try")
 
 
-@api.get("/__userinfo__")
+@api.get("/__userinfo__", auth=AccessTokenAuth())
 def userinfo(request: WSGIRequest) -> JsonResponse:
     """Test endpoint to check token verification.
 
@@ -123,6 +125,7 @@ class JobResponse(Schema):
             },
         }
     },
+    auth=AccessTokenAuth(),
 )
 def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]:
     """Submit a set of patches to the Try server."""
@@ -182,3 +185,10 @@ def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]
         headless_request=headless_request,
         automation_job=automation_job,
     )
+
+@api.get(
+    "/jobs/<int:try_job_id>/",
+)
+def get_job(try_job_id: int) -> JsonResponse:
+    job = AutomationJob.objects.get(id = try_job_id)
+    return JsonResponse(job.to_dict())
