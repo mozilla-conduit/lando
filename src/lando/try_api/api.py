@@ -141,7 +141,7 @@ def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]
             title="Repository not found", detail=error, status=status
         )
 
-    if not repo.automation_enabled:
+    if not repo.try_enabled:
         status = 400
         error = f"Repo {repo_name} is not a Try repository."
         logger.info(
