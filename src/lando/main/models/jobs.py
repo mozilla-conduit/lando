@@ -285,4 +285,7 @@ class BaseJob(BaseModel):
         if self.target_repo:
             job_dict["repository"] = self.target_repo.short_name
 
+        if self.landed_commit_id:
+            job_dict["commit_id"] = self.landed_commit_id
+
         return job_dict
