@@ -18,6 +18,7 @@ class WorkerType(models.TextChoices):
 
     LANDING = "LANDING", gettext_lazy("Landing worker")
     AUTOMATION = "AUTOMATION", gettext_lazy("Automation worker")
+    TRY = "TRY", gettext_lazy("Try worker")
 
 
 class Worker(BaseModel):
