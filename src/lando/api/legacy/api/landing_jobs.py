@@ -7,6 +7,7 @@ from django.http import JsonResponse
 
 from lando.main.auth import require_authenticated_user
 from lando.main.models import JobAction, JobStatus, LandingJob
+from lando.utils.exceptions import NotFoundProblemException
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,34 @@ class LandingJobForm(forms.Form):
     # as part of bug 1870097.
     landing_job_id = forms.IntegerField()
     status = forms.CharField()
+
+
+def get_put(request: WSGIRequest, job_id: int) -> JsonResponse:
+    """Entrypoint to get or update a landing job.
+
+    Routes the request as needed.
+    """
+    if request.method == "PUT":
+        return put(request, job_id)
+
+    return get(request, job_id)
+
+
+def get(request: WSGIRequest, job_id: int) -> JsonResponse:
+    """Get a landing job description as JSON."""
+    try:
+        job = LandingJob.objects.get(id=job_id)
+    except LandingJob.DoesNotExist:
+        # We should raise the NotFoundProblemException from exc, but for
+        # the time being, we format the response the exception ourselves,
+        # as there's nothing doing it further up.
+        exc = NotFoundProblemException(
+            title="Landing job not found",
+            detail=f"A landing job with ID {job_id} was not found.",
+        )
+        return JsonResponse(exc.to_response(), status=404)
+
+    return JsonResponse(job.to_dict())
 
 
 @require_authenticated_user

@@ -419,10 +419,12 @@ def proxy_client(monkeypatch, fake_request):
                 json=json.loads(json.dumps(json_response)), status_code=status_code
             )
 
-        def _handle__put__landing_jobs__id(self, path, **kwargs):
+        def _handle__get__put__landing_jobs__ids__id(self, path, **kwargs):
             job_id = int(path.removeprefix("/landing_jobs/"))
-            response = legacy_api_landing_jobs.put(self.request, job_id)
-            return MockResponse(json=json.loads(response.content))
+            response = legacy_api_landing_jobs.get_put(self.request, job_id)
+            return MockResponse(
+                json=json.loads(response.content), status_code=response.status_code
+            )
 
         def get(self, path, *args, **kwargs):
             """Handle various get endpoints."""
@@ -431,6 +433,9 @@ def proxy_client(monkeypatch, fake_request):
 
             if path.startswith("/transplants?"):
                 return self._handle__get__transplants__id(path)
+
+            if path.startswith("/landing_jobs/"):
+                return self._handle__get__put__landing_jobs__ids__id(path, **kwargs)
 
         def post(self, path, **kwargs):
             """Handle various post endpoints."""
@@ -456,7 +461,7 @@ def proxy_client(monkeypatch, fake_request):
             self.request = fake_request(method="PUT", **request_dict)
 
             if path.startswith("/landing_jobs/"):
-                return self._handle__put__landing_jobs__id(path, **kwargs)
+                return self._handle__get__put__landing_jobs__ids__id(path, **kwargs)
 
     return ProxyClient()
 

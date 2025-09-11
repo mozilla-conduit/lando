@@ -962,6 +962,25 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     assert approved_by == [[101], [102]]
 
     assert hg_landing_worker.run_job(job)
+    assert job.landed_commit_id
+
+    # Fetch Job data.
+    response = proxy_client.get(
+        f"/landing_jobs/{job.id}",
+    )
+    assert (
+        response.status_code == 200
+    ), f"Invalid status code from GET /landing_jobs/{job.id}"
+    assert (
+        response.json["id"] == job.id
+    ), f"Invalid id in GET /landing_jobs/{job.id} response"
+    assert (
+        response.json["status"] == JobStatus.LANDED
+    ), f"Invalid status in GET /landing_jobs/{job.id} response"
+    assert (
+        response.json["commit_id"] == job.landed_commit_id
+    ), f"Invalid commit_id in GET /landing_jobs/{job.id} response"
+
     assert job.status == JobStatus.LANDED
     for revision in job.revisions.all():
         if revision.revision_id == 1:
@@ -1019,6 +1038,20 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     assert job.status == JobStatus.SUBMITTED
     assert job.landed_revisions == {r1["id"]: d1a["id"]}
 
+    # Fetch JSON data.
+    response = proxy_client.get(
+        f"/landing_jobs/{job.id}",
+    )
+    assert (
+        response.status_code == 200
+    ), f"Invalid status code from GET /landing_jobs/{job.id}"
+    assert (
+        response.json["id"] == job.id
+    ), f"Invalid id in GET /landing_jobs/{job.id} response"
+    assert (
+        response.json["status"] == JobStatus.SUBMITTED
+    ), f"Invalid status in GET /landing_jobs/{job.id} response"
+
     # Cancel job.
     response = proxy_client.put(
         f"/landing_jobs/{job.id}",
@@ -1065,6 +1098,19 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
 
     assert job_1.landed_revisions == {r1["id"]: d1a["id"]}
     assert job_2.landed_revisions == {r1["id"]: d1b["id"]}
+
+
+@pytest.mark.django_db(transaction=True)
+def test_get_landing_jobs_404(proxy_client):
+    # Fetch JSON data.
+    response = proxy_client.get(
+        "/landing_jobs/20000",
+    )
+    assert (
+        response.status_code == 404
+    ), "Incorrect status code from GET /landing_jobs/ for non-existent job"
+    assert response.json["title"] == "Landing job not found"
+    assert response.json["detail"] == "A landing job with ID 20000 was not found."
 
 
 @pytest.mark.django_db(transaction=True)
