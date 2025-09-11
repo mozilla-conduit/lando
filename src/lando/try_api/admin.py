@@ -1,9 +1,9 @@
-
 from django.contrib import admin
 from django.core.handlers.wsgi import WSGIRequest
 
 from lando.main.admin import JobAdmin, ReadOnlyInline
 from lando.try_api.models.job import TryAction, TryJob
+
 
 class TryActionJobInline(ReadOnlyInline):
     model = TryAction
@@ -22,9 +22,11 @@ class TryActionJobInline(ReadOnlyInline):
         """Forbid deletion of any action object from the inline interface."""
         return False
 
+
 class TryJobAdmin(JobAdmin):
     model = TryJob
     inlines = (TryActionJobInline,)
+
 
 admin.site.register(TryJob, TryJobAdmin)
 admin.site.register(TryAction, admin.ModelAdmin)  # noqa: F821
