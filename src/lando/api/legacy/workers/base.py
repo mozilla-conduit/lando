@@ -31,10 +31,10 @@ class Worker(ABC):
 
     SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
 
-    # Type of this Job that this worker can process.
+    # Type of Job that this worker can process.
     job_type: type[BaseJob]
 
-    # Type of the worker implementation.
+    # Type of the Worker implementation.
     worker_type: WorkerType
 
     worker_instance: WorkerModel
