@@ -12,7 +12,8 @@
       </header>
 
       <section class="modal-card-body">
-        {{ uplift_request_form.source_revision_id }}
+        {# TODO-sh confirm this renders properly #}
+        {{ uplift_request_form.source_revision_ids }}
 
         {% if not user_has_phabricator_token %}
             {% include "stack/partials/uplift-phab-api-key-warning.html" %}
@@ -60,9 +61,12 @@
         <div class="field">
             <label class="label">Uplift repository</label>
             <div class="control">
-                <div class="select">
-                    {{ uplift_request_form.repository }}
-                </div>
+                {# TODO-sh check this is rendering properly #}
+                {% for checkbox in uplift_request_form.repositories %}
+                    <label class="checkbox">
+                        {{ checkbox }}
+                    </label>
+                {% endfor %}
             </div>
         </div>
 

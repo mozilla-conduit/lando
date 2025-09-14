@@ -27,8 +27,13 @@ from lando.main.models.jobs import (
     PermanentFailureException,
     TemporaryFailureException,
 )
+from lando.main.models.revision import Revision
 from lando.main.scm.abstract_scm import AbstractSCM
-from lando.main.scm.exceptions import SCMInternalServerError
+from lando.main.scm.exceptions import (
+    NoDiffStartLine,
+    PatchConflict,
+    SCMInternalServerError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -307,6 +312,59 @@ class Worker(ABC):
                 message=message + f"\n{e}",
             )
             raise PermanentFailureException(message) from e
+
+    def apply_patch(
+        self,
+        repo: Repo,
+        job: BaseJob,
+        scm: AbstractSCM,
+        revision: Revision,
+    ) -> None:
+        """Apply patches to repo with job status handling."""
+        try:
+            scm.apply_patch(
+                revision.diff,
+                revision.commit_message,
+                revision.author,
+                revision.timestamp,
+            )
+        except NoDiffStartLine as exc:
+            message = (
+                "Lando encountered a malformed patch, please try again. "
+                "If this error persists please file a bug: "
+                "Patch without a diff start line."
+            )
+            logger.error(message)
+            job.transition_status(
+                JobAction.FAIL,
+                message=message,
+            )
+            raise PermanentFailureException(message) from exc
+
+        except PatchConflict as exc:
+            breakdown = scm.process_merge_conflict(
+                repo.normalized_url, revision.revision_id, str(exc)
+            )
+            job.error_breakdown = breakdown
+
+            message = (
+                f"Problem while applying patch in revision {revision.revision_id}:\n\n"
+                f"{str(exc)}"
+            )
+            logger.exception(message)
+            job.transition_status(JobAction.FAIL, message=message)
+            raise PermanentFailureException(message) from exc
+        except Exception as exc:
+            message = (
+                f"Aborting, could not apply patch buffer for {revision.revision_id}."
+                f"\n{exc}"
+            )
+            logger.exception(message)
+            job.transition_status(
+                JobAction.FAIL,
+                message=message,
+            )
+            raise PermanentFailureException(message) from exc
 
     def start(self, max_loops: int | None = None):
         """Run setup sequence and start the event loop."""

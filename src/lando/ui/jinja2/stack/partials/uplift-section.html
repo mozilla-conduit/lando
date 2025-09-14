@@ -6,6 +6,7 @@ future.
 #}
 <h1>Uplifts</h1>
 
+{% if revision_repo and revision_repo.approval_required %}
 <div class="block">
     <div class="block">
         <div class="columns">
@@ -63,3 +64,106 @@ future.
         </div>
     </form>
 </div>
+{% endif %}
+
+{# TODO-sh: test how this looks #}
+{% if uplift_requests %}
+    {% for uplift_request in uplift_requests %}
+    <div class="box">
+        <!-- Header -->
+        <div class="level is-mobile">
+          <div class="level-left">
+            <div class="level-item">
+              <div>
+                <div class="is-size-6 has-text-weight-semibold">Uplift request</div>
+                <div class="is-size-7 has-text-grey">
+                  Requested by {{ uplift_request.user.email }} •
+                  {{ uplift_request.created_at|date:"Y-m-d H:i" }}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="level-right">
+            <div class="level-item">
+              <div class="tags">
+                {% for rev_id in uplift_request.requested_revisions %}
+                  <a class="tag is-link is-light"
+                     href="{{ settings.PHABRICATOR_URL }}/D{{ rev_id }}">D{{ rev_id }}</a>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Jobs list -->
+        <div class="content mt-3">
+          {% for job in uplift_request.uplift_jobs.all %}
+            <article class="media py-3" style="border-top: 1px solid #f0f0f0;">
+              <figure class="media-left">
+                <span class="icon has-text-grey">
+                  <i class="fa fa-code-fork" aria-hidden="true"></i>
+                </span>
+              </figure>
+              <div class="media-content">
+                <div class="is-flex is-justify-content-space-between is-align-items-center is-flex-wrap-wrap">
+                  <div class="mb-1">
+                    <div class="is-size-6 has-text-weight-semibold">
+                      {{ job.target_repo.name }}
+                    </div>
+                    <div class="is-size-7 has-text-grey">
+                      Job #{{ job.id }}
+                    </div>
+                  </div>
+
+                  <div class="mb-1">
+                    {% set s = job.status %}
+                    {% if s == "LANDED" or s == "SUCCESS" %}
+                      <span class="tag is-success">{{ s }}</span>
+                    {% elif s == "FAILED" %}
+                      <span class="tag is-danger">{{ s }}</span>
+                    {% elif s == "IN_PROGRESS" %}
+                      <span class="tag is-info">{{ s }}</span>
+                    {% elif s == "DEFERRED" %}
+                      <span class="tag is-warning">{{ s }}</span>
+                    {% else %}
+                      <span class="tag is-light">{{ s }}</span>
+                    {% endif %}
+                  </div>
+
+                  <div class="mb-1">
+                      {% if job.created_revision_ids and job.created_revision_ids|length > 0 %}
+                        <div class="tags">
+                          {% for rev_id in job.created_revision_ids %}
+                            <a class="tag is-link"
+                               href="{{ settings.PHABRICATOR_URL }}/D{{ rev_id }}">
+                              Uplifted to D{{ rev_id }}
+                            </a>
+                          {% endfor %}
+                        </div>
+                    {% else %}
+                      <span class="tag is-light">No new revision yet</span>
+                    {% endif %}
+                  </div>
+
+                  <div class="mb-1">
+                    <a class="button is-small is-light"
+                       href="{{ settings.SITE_URL }}/jobs/{{ job.id }}">
+                      View job
+                    </a>
+                  </div>
+                </div>
+
+                {% if job.error %}
+                  <p class="mt-2 is-size-7 has-text-danger">
+                    {{ job.error }}
+                  </p>
+                {% endif %}
+              </div>
+            </article>
+          {% empty %}
+            <p class="has-text-grey">No jobs found for this request.</p>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+{% endif %}
