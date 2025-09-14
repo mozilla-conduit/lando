@@ -5,6 +5,8 @@ from django.contrib.auth.models import User
 from django.db import models
 
 from lando.main.models import BaseModel
+from lando.main.models.jobs import BaseJob
+from lando.main.models.revision import Revision
 
 # Yes/No constants for re-use in `TextChoices`, since `Enum`
 # can't be subclassed.
@@ -139,3 +141,72 @@ class UpliftRevision(BaseModel):
 
     class Meta:
         unique_together = ("assessment", "revision_id")
+
+
+class MultiTrainUpliftRequest(BaseModel):
+    """Represents a single uplift request submission.
+
+    Ties together all associated uplift jobs and the uplift request
+    assessment form.
+    """
+
+    # User who requested the uplift.
+    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+
+    # The revision IDs to be uplifted.
+    requested_revisions = models.JSONField(default=list)
+
+    assessment = models.ForeignKey(
+        UpliftAssessment,
+        on_delete=models.PROTECT,
+        related_name="uplift_request",
+    )
+
+
+class RevisionUpliftJob(BaseModel):
+    """Through model to map revisions to uplift jobs."""
+
+    uplift_job = models.ForeignKey("UpliftJob", on_delete=models.SET_NULL, null=True)
+    revision = models.ForeignKey(Revision, on_delete=models.SET_NULL, null=True)
+    index = models.IntegerField(null=True, blank=True)
+
+
+class UpliftJob(BaseJob):
+    """Represents an uplift job against a single train.
+
+    Most of the data is derived from `BaseJob`, with the extra content
+    residing in the `MultiTrainUpliftRequest`.
+    """
+
+    type: str = "Uplift"
+
+    # Store the created revision ID for the job on success.
+    created_revision_ids = models.JSONField(default=list, blank=True)
+
+    multi_request = models.ForeignKey(
+        MultiTrainUpliftRequest, on_delete=models.DO_NOTHING, related_name="uplift_jobs"
+    )
+
+    unsorted_revisions = models.ManyToManyField(
+        Revision, through=RevisionUpliftJob, related_name="uplift_jobs"
+    )
+
+    def add_revisions(self, revisions: list[Revision]):
+        """Associate a list of revisions with job."""
+        for revision in revisions:
+            self.unsorted_revisions.add(revision)
+
+    def sort_revisions(self, revisions: list[Revision]):
+        """Sort the associated revisions based on provided list."""
+        if len(revisions) != len(self.unsorted_revisions.all()):
+            raise ValueError("List of revisions does not match associated revisions")
+
+        # Update association table records with correct index values.
+        for index, revision in enumerate(revisions):
+            RevisionUpliftJob.objects.filter(revision=revision, uplift_job=self).update(
+                index=index
+            )
+
+    @property
+    def revisions(self) -> models.QuerySet:
+        return self.unsorted_revisions.all().order_by("revisionupliftjob__index")

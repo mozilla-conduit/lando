@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.handlers.wsgi import WSGIRequest
 from django.db import transaction
+from django.db.models import Prefetch, QuerySet
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
@@ -15,7 +16,7 @@ from lando.api.legacy.uplift import MAX_UPLIFT_STACK_SIZE
 from lando.api.legacy.validation import revision_id_to_int
 from lando.main.auth import force_auth_refresh, require_phabricator_api_key
 from lando.main.models import Repo
-from lando.main.models.uplift import UpliftRevision
+from lando.main.models.uplift import MultiTrainUpliftRequest, UpliftJob, UpliftRevision
 from lando.ui.legacy.forms import (
     TransplantRequestForm,
     UpliftAssessmentEditForm,
@@ -54,36 +55,40 @@ class UpliftRequestView(LandoView):
             # they will see the flash messages.
             return redirect(request.META.get("HTTP_REFERER"))
 
-        source_revision_id = revision_id_to_int(
-            uplift_request_form.cleaned_data["source_revision_id"]
-        )
-        repository = uplift_request_form.cleaned_data["repository"]
+        source_revisions = uplift_request_form.cleaned_data["source_revision_ids"]
+        repositories = uplift_request_form.cleaned_data["repositories"]
 
         # Create DB rows for the uplift submission.
         with transaction.atomic():
+            # Create the assessment form.
             assessment = uplift_request_form.save(commit=False)
             assessment.user = request.user
             assessment.save()
 
-            response = legacy_api.uplift.create(
-                request,
-                data={
-                    "revision_id": source_revision_id,
-                    "repository": repository,
-                    "assessment_str": (assessment.to_conduit_json_str()),
-                },
-            )
-
-            tip_revision_id = response["tip_differential"]["revision_id"]
-
-            UpliftRevision.objects.create(
+            # Create the `MultiTrainUpliftRequest` to represent this
+            # form submission and tie jobs together.
+            uplift_request = MultiTrainUpliftRequest.objects.create(
+                user=request.user,
                 assessment=assessment,
-                revision_id=tip_revision_id,
+                requested_revisions=[
+                    revision.revision_id for revision in source_revisions
+                ],
             )
 
-        # Redirect to the tip revision's URL.
-        tip_differential = response["tip_differential"]["url"]
-        return redirect(tip_differential)
+            # Create `UpliftJob`s and associate with this request.
+            for repo in repositories:
+                job = UpliftJob.objects.create(
+                    multi_request=uplift_request,
+                    target_repo=repo,
+                    requester_email=request.user.email,
+                )
+                job.add_revisions(source_revisions)
+                job.sort_revisions(source_revisions)
+                job.save()
+
+        messages.add_message(request, messages.SUCCESS, "Uplift request queued.")
+
+        return redirect(request.META.get("HTTP_REFERER"))
 
 
 class UpliftAssessmentEditView(LandoView):
@@ -166,6 +171,31 @@ class UpliftAssessmentEditView(LandoView):
         return redirect(request.META.get("HTTP_REFERER"))
 
 
+def uplift_context_for_revision(revision_id: int) -> QuerySet:
+    """Return all MultiTrainUpliftRequest objects relevant to this revision.
+
+    Relevant if:
+      - this revision was originally requested (in requested_revisions)
+      - this revision was created by an uplift job (UpliftRevision -> assessment).
+    """
+    base_qs = MultiTrainUpliftRequest.objects.select_related(
+        "assessment", "user"
+    ).prefetch_related(
+        Prefetch(
+            "uplift_jobs",
+            queryset=UpliftJob.objects.select_related("target_repo").order_by("id"),
+        )
+    )
+
+    # Original side: the revision was requested (e.g. D123 in requested_revisions).
+    original_qs = base_qs.filter(requested_revisions__contains=[revision_id])
+
+    # Uplifted side: the revision is one of the newly created uplift revisions.
+    uplifted_qs = base_qs.filter(assessment__revisions__revision_id=revision_id)
+
+    return (original_qs | uplifted_qs).distinct()
+
+
 class RevisionView(LandoView):
     def get(
         self, request: WSGIRequest, revision_id: int, *args, **kwargs
@@ -178,8 +208,13 @@ class RevisionView(LandoView):
         form = TransplantRequestForm()
         errors = []
 
-        uplift_request_form = UpliftRequestForm()
-        uplift_request_form.fields["source_revision_id"].initial = f"D{revision_id}"
+        # TODO-sh: test if this is working.
+        source_revision_ids = [
+            revision["id"] for revision in stack["stack"].iter_stack_from_root()
+        ]
+        uplift_request_form = UpliftRequestForm(
+            initial={"source_revision_ids": source_revision_ids}
+        )
 
         # Build a mapping from phid to revision and identify
         # the data for the revision used to load this page.
@@ -274,6 +309,8 @@ class RevisionView(LandoView):
                 initial={"revision_id": f"D{revision_id}"}
             )
 
+        uplift_requests = uplift_context_for_revision(revision_id)
+
         # Current implementation requires that all commits have the flags appended.
         # This may change in the future. What we do here is:
         # - if all commits have the flag, then disable the checkbox
@@ -310,6 +347,7 @@ class RevisionView(LandoView):
             "flags": target_repo.commit_flags if target_repo else [],
             "existing_flags": existing_flags,
             "uplift_request_form": uplift_request_form,
+            "uplift_requests": uplift_requests,
             "uplift_assessment_form": uplift_assessment_edit_form,
             "uplift_stack_too_large": uplift_stack_too_large,
             "max_uplift_stack_size": MAX_UPLIFT_STACK_SIZE,
