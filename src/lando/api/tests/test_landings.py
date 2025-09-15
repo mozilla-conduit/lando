@@ -340,7 +340,7 @@ aDd oNe mOrE LiNe
 def test_integrated_execute_job(
     repo_mc,
     treestatusdouble,
-    mock_landing_worker_phab_repo_update,
+    mock_phab_trigger_repo_update_apply_async,
     create_patch_revision,
     make_landing_job,
     repo_type: str,
@@ -368,7 +368,7 @@ def test_integrated_execute_job(
     assert job.status == JobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40
     assert (
-        mock_landing_worker_phab_repo_update.call_count == 1
+        mock_phab_trigger_repo_update_apply_async.call_count == 1
     ), "Successful landing should trigger Phab repo update."
 
     new_commit_count = Commit.objects.filter(repo=repo).count()
@@ -390,7 +390,7 @@ def test_integrated_execute_job(
 def test_integrated_execute_job_with_force_push(
     repo_mc,
     treestatusdouble,
-    mock_landing_worker_phab_repo_update,
+    mock_phab_trigger_repo_update_apply_async,
     create_patch_revision,
     make_landing_job,
     get_landing_worker,
@@ -434,7 +434,7 @@ def test_integrated_execute_job_with_force_push(
 def test_integrated_execute_job_with_bookmark(
     repo_mc,
     treestatusdouble,
-    mock_landing_worker_phab_repo_update,
+    mock_phab_trigger_repo_update_apply_async,
     create_patch_revision,
     make_landing_job,
     get_landing_worker,
@@ -474,7 +474,7 @@ def test_integrated_execute_job_with_scm_internal_error(
     active_mock: Callable,
     repo_mc: Callable,
     treestatusdouble: TreeStatusDouble,  # pyright: ignore[reportUnusedParameter] Mock with side-effect
-    mock_landing_worker_phab_repo_update: mock.Mock,  # pyright: ignore[reportUnusedParameter] Mock with side-effect
+    mock_phab_trigger_repo_update_apply_async,
     create_patch_revision: Callable,
     make_landing_job: Callable,
     get_landing_worker: Callable,
@@ -601,7 +601,7 @@ def test_lose_push_race(
 def test_merge_conflict(
     repo_mc,
     treestatusdouble,
-    mock_landing_worker_phab_repo_update,
+    mock_phab_trigger_repo_update_apply_async,
     create_patch_revision,
     make_landing_job,
     caplog,
@@ -824,7 +824,7 @@ def test_failed_landing_job_notification(
 def test_format_patch_success_unchanged(
     repo_mc,
     treestatusdouble,
-    mock_landing_worker_phab_repo_update,
+    mock_phab_trigger_repo_update_apply_async,
     create_patch_revision,
     make_landing_job,
     normal_patch,
@@ -861,7 +861,7 @@ def test_format_patch_success_unchanged(
         job.status == JobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
     assert (
-        mock_landing_worker_phab_repo_update.call_count == 1
+        mock_phab_trigger_repo_update_apply_async.call_count == 1
     ), "Successful landing should trigger Phab repo update."
     assert (
         job.formatted_replacements is None
@@ -879,7 +879,7 @@ def test_format_patch_success_unchanged(
 def test_format_single_success_changed(
     repo_mc,
     treestatusdouble,
-    mock_landing_worker_phab_repo_update,
+    mock_phab_trigger_repo_update_apply_async,
     create_patch_revision,
     make_landing_job,
     get_landing_worker,
@@ -927,7 +927,7 @@ def test_format_single_success_changed(
         job.status == JobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
     assert (
-        mock_landing_worker_phab_repo_update.call_count == 1
+        mock_phab_trigger_repo_update_apply_async.call_count == 1
     ), "Successful landing should trigger Phab repo update."
 
     with scm.for_push(job.requester_email):
@@ -963,7 +963,7 @@ def test_format_single_success_changed(
 def test_format_stack_success_changed(
     repo_mc,
     treestatusdouble,
-    mock_landing_worker_phab_repo_update,
+    mock_phab_trigger_repo_update_apply_async,
     create_patch_revision,
     make_landing_job,
     get_landing_worker,
@@ -1001,7 +1001,7 @@ def test_format_stack_success_changed(
         job.status == JobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
     assert (
-        mock_landing_worker_phab_repo_update.call_count == 1
+        mock_phab_trigger_repo_update_apply_async.call_count == 1
     ), "Successful landing should trigger Phab repo update."
 
     with scm.for_push(job.requester_email):
@@ -1097,7 +1097,7 @@ def test_format_patch_no_landoini(
     repo_mc,
     treestatusdouble,
     monkeypatch,
-    mock_landing_worker_phab_repo_update,
+    mock_phab_trigger_repo_update_apply_async,
     create_patch_revision,
     make_landing_job,
     get_landing_worker,
@@ -1137,7 +1137,7 @@ def test_format_patch_no_landoini(
         mock_notify.call_count == 0
     ), "Should not notify user of landing failure due to `.lando.ini` missing."
     assert (
-        mock_landing_worker_phab_repo_update.call_count == 1
+        mock_phab_trigger_repo_update_apply_async.call_count == 1
     ), "Successful landing should trigger Phab repo update."
 
 
