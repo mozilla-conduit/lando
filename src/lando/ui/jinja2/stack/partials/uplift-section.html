@@ -39,7 +39,9 @@ future.
             <section class="modal-card-body">
                 {{ csrf_input }}
 
-                {% include "stack/partials/uplift-phab-api-key-warning.html" %}
+                {% if not user_has_phabricator_token %}
+                    {% include "stack/partials/uplift-phab-api-key-warning.html" %}
+                {% endif %}
 
                 {# Revision ID is a hidden field for now. #}
                 {{ uplift_assessment_form.revision_id }}

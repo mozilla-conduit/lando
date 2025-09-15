@@ -14,7 +14,9 @@
       <section class="modal-card-body">
         {{ uplift_request_form.source_revision_id }}
 
-        {% include "stack/partials/uplift-phab-api-key-warning.html" %}
+        {% if not user_has_phabricator_token %}
+            {% include "stack/partials/uplift-phab-api-key-warning.html" %}
+        {% endif %}
 
         {% if uplift_stack_too_large %}
           <article class="message is-danger">
