@@ -5,6 +5,7 @@ import logging
 import subprocess
 from pathlib import Path
 
+import sentry_sdk
 from typing_extensions import override
 
 from lando.api.legacy.commit_message import bug_list_to_commit_string, parse_bugs
@@ -540,3 +541,27 @@ class LandingWorker(Worker):
         return assessor.run_patch_collection_checks(
             patch_collection_checks=STACK_CHECKS, patch_checks=COMMIT_CHECKS
         )
+
+    def bootstrap_repos(self):
+        """Optional method to bootstrap repositories in the the work directory."""
+        logger.info("Bootstrapping applicable repos...")
+        repos = self.worker_instance.enabled_repos.filter(autoformat_enabled=True)
+        command = [
+            "bootstrap",
+            "--no-system-changes",
+            "--application-choice",
+            "browser",
+        ]
+
+        for repo in repos:
+            try:
+                self.run_mach_command(repo.path, command)
+            except subprocess.CalledProcessError as exc:
+                logger.warning(
+                    f"Error `running mach` bootstrap for repo {repo.name}: {exc}"
+                )
+            except Exception as exc:
+                sentry_sdk.capture_exception(exc)
+                logger.warning(
+                    f"Unexpected error `running mach` bootstrap for repo {repo.name}: {exc}"
+                )
