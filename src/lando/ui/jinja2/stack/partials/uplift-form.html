@@ -15,15 +15,7 @@
         {{ uplift_request_form.source_revision_id }}
 
         {% if not user_has_phabricator_token %}
-          <article class="message is-danger">
-            <div class="message-header">
-              <p>Phabricator API Key Required</p>
-            </div>
-            <div class="message-body">
-              You must set a Phabricator API key in your user settings before requesting an uplift.
-              Click on your username in the navbar above to open your user settings.
-            </div>
-          </article>
+            {% include "stack/partials/uplift-phab-api-key-warning.html" %}
         {% endif %}
 
         {% if uplift_stack_too_large %}
