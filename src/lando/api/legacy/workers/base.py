@@ -224,14 +224,14 @@ class Worker(ABC):
                 job.transition_status(JobAction.DEFER, message=str(exc))
                 self.last_job_finished = False
                 logger.warning(
-                    f"Temporary failure for {job}",
+                    f"Temporary failure for {job}: {exc}",
                     extra={"id": job.id},
                 )
             except PermanentFailureException as exc:
                 job.transition_status(JobAction.FAIL, message=str(exc))
                 self.last_job_finished = False
                 logger.warning(
-                    f"Permanent failure for {job}",
+                    f"Permanent failure for {job}: {exc}",
                     extra={"id": job.id},
                 )
             except Exception as exc:
