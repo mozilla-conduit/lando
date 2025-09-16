@@ -272,8 +272,27 @@ def test__models__CommitMap__find_last_hg_node(commit_maps, monkeypatch):
 
 
 @pytest.mark.django_db(transaction=True)
+def test__models__CommitMap__catch_up_no_data(
+    commit_maps: list[CommitMap], monkeypatch: pytest.MonkeyPatch
+):
+    mock_find_last_hg_node = MagicMock()
+    mock_find_last_hg_node.side_effect = CommitMap.DoesNotExist()
+
+    monkeypatch.setattr(CommitMap, "find_last_hg_node", mock_find_last_hg_node)
+
+    with pytest.raises(CommitMap.DoesNotExist) as exc:
+        CommitMap.catch_up("git_repo")
+
+    assert mock_find_last_hg_node.call_count == 1
+    assert mock_find_last_hg_node.call_args[0] == ("git_repo",)
+    assert "No commit map entry found" in str(exc.value)
+
+
+@pytest.mark.django_db(transaction=True)
 def test__models__CommitMap__catch_up(commit_maps, monkeypatch):
     mock_find_last_hg_node = MagicMock()
+    mock_find_last_hg_node.return_value = "1" * 40
+
     mock_fetch_push_data = MagicMock()
     monkeypatch.setattr(CommitMap, "find_last_hg_node", mock_find_last_hg_node)
     monkeypatch.setattr(CommitMap, "fetch_push_data", mock_fetch_push_data)
@@ -284,7 +303,7 @@ def test__models__CommitMap__catch_up(commit_maps, monkeypatch):
     assert mock_find_last_hg_node.call_args[0] == ("git_repo",)
     assert mock_fetch_push_data.call_args[1] == {
         "git_repo_name": "git_repo",
-        "fromchangeset": mock_find_last_hg_node("git_repo"),
+        "fromchangeset": mock_find_last_hg_node.return_value,
     }
 
 
