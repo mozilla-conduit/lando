@@ -1,6 +1,7 @@
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.commit import CommitData
 from lando.main.scm.consts import (
+    COMMIT_ID_HEX_LENGTH,
     SCM_TYPE_GIT,
     SCM_TYPE_HG,
     MergeStrategy,
@@ -39,6 +40,7 @@ __all__ = [
     # commit
     "CommitData",
     # consts
+    "COMMIT_ID_HEX_LENGTH",
     "SCM_TYPE_HG",
     "SCM_TYPE_GIT",
     "MergeStrategy",
