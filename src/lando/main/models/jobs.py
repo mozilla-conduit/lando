@@ -121,7 +121,7 @@ class BaseJob(BaseModel):
     landed_commit_id = models.TextField(blank=True, default="")
 
     # LDAP email of the user who created the job.
-    requester_email = models.CharField(blank=True, default="", max_length=255)
+    requester_email = models.CharField(default="", max_length=255)
 
     # Number of attempts made to complete the job.
     attempts = models.IntegerField(default=0)
