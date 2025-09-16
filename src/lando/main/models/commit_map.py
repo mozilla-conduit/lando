@@ -6,7 +6,6 @@ import sentry_sdk
 from django.db import models
 
 from lando.main.models.base import BaseModel
-from lando.main.models.repo import Repo
 from lando.main.scm.consts import SCM_TYPE_GIT, SCM_TYPE_HG
 
 logger = logging.getLogger(__name__)
@@ -57,7 +56,7 @@ class CommitMap(BaseModel):
         return cls.objects.filter(git_repo_name=git_repo_name).latest("created_at")
 
     @classmethod
-    def find_last_hg_node(cls, git_repo_name: Repo) -> str:
+    def find_last_hg_node(cls, git_repo_name: str) -> str:
         """Return hg hash of last CommitMap object for given repo."""
         return cls._find_last_node(git_repo_name).hg_hash
 
@@ -104,11 +103,15 @@ class CommitMap(BaseModel):
     @classmethod
     def catch_up(cls, git_repo_name: str):
         """Find the last stored commit hash and query the pushlog."""
-        commit_hash = cls.find_last_hg_node(git_repo_name)
-        cls.fetch_push_data(
-            git_repo_name=git_repo_name,
-            fromchangeset=commit_hash,
-        )
+        params = {}
+        try:
+            params["fromchangeset"] = cls.find_last_hg_node(git_repo_name)
+        except cls.DoesNotExist as exc:
+            raise cls.DoesNotExist(
+                f"No commit map entry found for {git_repo_name}, use `lando process_git_hg_mapping_file` to bootstrap"
+            ) from exc
+
+        cls.fetch_push_data(git_repo_name=git_repo_name, **params)
 
     @classmethod
     def fetch_push_data(cls, git_repo_name: str, **kwargs) -> dict:
