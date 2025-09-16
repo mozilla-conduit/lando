@@ -22,6 +22,11 @@ from lando.main.models import (
     WorkerType,
 )
 from lando.main.models import Worker as WorkerModel
+from lando.main.models.jobs import (
+    JobAction,
+    PermanentFailureException,
+    TemporaryFailureException,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +46,14 @@ class Worker(ABC):
 
     @abstractmethod
     def run_job(self, job: BaseJob) -> bool:
-        raise NotImplementedError()
+        """Process a job as needed.
+
+        Implementors may raise TemporaryFailureException or PermanentFailureException to
+        use the basic error handling, or use a more specific approach as needed.
+
+        Returns:
+            bool: Whether the job succeeded.
+        """
 
     def bootstrap_repos(self):
         """Optional method to bootstrap repositories in the the work directory."""
@@ -169,6 +181,15 @@ class Worker(ABC):
         logger.info(f"{self} exited after {loops} loops.")
 
     def loop(self):
+        """Fetch jobs and processes them.
+
+        Jobs are found using the first entity from the `job_type.next_job()` method.
+        They are then processed through the concrete implementation's `run_job()`.
+
+        Basic error-handling and job-status managemeng is performed for temporary,
+        permanent, and unexpected exceptions not handled by the concrete implementation's
+        `run_job()`.
+        """
         logger.debug(f"{len(self.enabled_repos)} enabled repos: {self.enabled_repos}")
 
         # Refresh repos if there is a mismatch in active vs. enabled repos.
@@ -178,7 +199,6 @@ class Worker(ABC):
         if self.last_job_finished is False:
             logger.info("Last job did not complete, sleeping.")
             self.throttle(self.worker_instance.sleep_seconds)
-            self.refresh_active_repos()
 
         with transaction.atomic():
             job = self.job_type.next_job(repositories=self.active_repos).first()
@@ -188,14 +208,50 @@ class Worker(ABC):
             return
 
         with job.processing():
+            logger.info(f"Starting {job}", extra={"id": job.id})
+
+            if job.status not in [JobStatus.SUBMITTED, JobStatus.DEFERRED]:
+                logger.warning(f"Unexpected status for {job}")
+
             job.status = JobStatus.IN_PROGRESS
             job.attempts += 1
+            # Make sure the status and attempt count are updated in the database
             job.save()
 
-            # Make sure the status and attempt count are updated in the database
-            logger.info(f"Starting {self.job_type}", extra={"id": job.id})
-            self.last_job_finished = self.run_job(job)
-            logger.info(f"Finished processing {self.job_type}", extra={"id": job.id})
+            try:
+                self.last_job_finished = self.run_job(job)
+            except TemporaryFailureException as exc:
+                job.transition_status(JobAction.DEFER, message=str(exc))
+                self.last_job_finished = False
+                logger.warning(
+                    f"Temporary failure for {job}",
+                    extra={"id": job.id},
+                )
+            except PermanentFailureException as exc:
+                job.transition_status(JobAction.FAIL, message=str(exc))
+                self.last_job_finished = False
+                logger.warning(
+                    f"Permanent failure for {job}",
+                    extra={"id": job.id},
+                )
+            except Exception as exc:
+                job.transition_status(
+                    JobAction.FAIL,
+                    message=(
+                        "Unhandled exception: "
+                        + repr(exc.with_traceback(exc.__traceback__))
+                    ),
+                )
+                self.last_job_finished = False
+                logger.exception(
+                    f"Unhandled exception for {job}",
+                    extra={"id": job.id},
+                )
+            else:
+                logger.info(
+                    f"Finished processing {job}",
+                    extra={"id": job.id},
+                )
 
     @property
     def throttle_seconds(self) -> int:
