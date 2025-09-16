@@ -111,9 +111,7 @@ class BaseJob(BaseModel):
     status = models.CharField(
         max_length=32,
         choices=JobStatus,
-        default=None,
-        null=True,  # TODO: should change this to not-nullable
-        blank=True,
+        default=JobStatus.SUBMITTED,
         db_index=True,
     )
     # Text describing errors when status != LANDED.
