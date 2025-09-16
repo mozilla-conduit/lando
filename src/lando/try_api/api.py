@@ -4,13 +4,15 @@ from typing import Annotated
 
 from django.conf import settings
 from django.core.handlers.wsgi import WSGIRequest
-from django.http import JsonResponse
+from django.http import HttpResponsePermanentRedirect, JsonResponse
+from django.shortcuts import redirect
 from ninja import NinjaAPI, Schema
 from ninja.errors import HttpError
 from pydantic import Field, StringConstraints
 
 from lando.main.auth import require_authenticated_user, require_permission
 from lando.main.models import Repo
+from lando.main.models.jobs import JobStatus
 from lando.main.models.profile import SCM_LEVEL_1
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.try_api.models.job import TryJob
@@ -92,8 +94,9 @@ class JobResponse(Schema):
 @require_authenticated_user
 @require_permission(SCM_LEVEL_1)
 @api.post(
-    "/patches",
+    "/api/patches",
     summary="Submit a set of patches to the Try server.",
+    url_name="api-patches",
     response={201: JobResponse, 400: ProblemDetail, 404: ProblemDetail},
     openapi_extra={
         "responses": {
@@ -143,15 +146,14 @@ def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]
             title="Not a Try repository", detail=error, status=status
         )
 
-    logger.info(f"{patches.patches}")
-
     try_job = TryJob.objects.create(
         target_repo=repo,
-        # requester_email=request.user.email,
+        requester_email=request.user.email,
         base_commit_vcs=patches.base_commit_vcs,
         target_commit_hash=patches.base_commit,
         patch_format=patches.patch_format,
         patches=patches.patches,
+        status=JobStatus.SUBMITTED,
     )
 
     return 201, JobResponse(
@@ -159,9 +161,16 @@ def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]
     )
 
 
-@api.get(
-    "/jobs/{int:try_job_id}/",
+@api.post(
+    "/patches",
+    deprecated=True,
+    summary="Backward-compatible redirection to /try/api/patches.",
 )
-def get_job(request: WSGIRequest, try_job_id: int) -> JsonResponse:
+def redirect_to_api_patches(request: WSGIRequest) -> HttpResponsePermanentRedirect:
+    return redirect("try:api-patches", permanent=True, preserve_request=True)
+
+
+@api.get("/api/jobs/{int:try_job_id}/", url_name="api-job")
+def get_job_json(request: WSGIRequest, try_job_id: int) -> JsonResponse:
     job = TryJob.objects.get(id=try_job_id)
     return JsonResponse(job.to_dict())

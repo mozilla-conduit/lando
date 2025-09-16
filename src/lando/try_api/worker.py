@@ -7,8 +7,11 @@ from lando.main.models import (
     WorkerType,
 )
 from lando.main.models.commit_map import CommitMap
-from lando.main.models.jobs import TemporaryFailureException
+from lando.main.models.jobs import JobAction, TemporaryFailureException
+from lando.main.models.repo import Repo
+from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.consts import SCM_TYPE_HG
+from lando.main.scm.exceptions import SCMInternalServerError
 from lando.pushlog.pushlog import PushLogForRepo
 from lando.try_api.models.job import TryJob
 
@@ -43,13 +46,36 @@ class TryWorker(Worker):
                     f"Failed determining equivalent base commit for {target_commit_hash} in {repo.scm_type} for {mapping_repo}: {exc}"
                 ) from exc
 
+        try:
+            commit_id = self._run_job(
+                repo,
+                scm,
+                push_target,
+                job.requester_email,
+                target_commit_hash,
+                job.patches,
+            )
+        except SCMInternalServerError as exc:
+            raise TemporaryFailureException(exc) from exc
+
+        job.transition_status(JobAction.LAND, commit_id=commit_id)
+
+    def _run_job(
+        self,
+        repo: Repo,
+        scm: AbstractSCM,
+        push_target: str,
+        requester_email: str,
+        target_commit_hash: str,
+        patches: list[str],
+    ) -> str:
         with (
-            scm.for_push(job.requester_email),
-            PushLogForRepo(repo, job.requester_email) as pushlog,
+            scm.for_push(requester_email),
+            PushLogForRepo(repo, requester_email) as pushlog,
         ):
             scm.update_repo(repo.pull_path, target_commit_hash)
 
-            for patch_b64 in job.patches:
+            for patch_b64 in patches:
                 patch_bytes = base64.b64decode(patch_b64)
                 scm.apply_patch_git(patch_bytes)
 
@@ -57,10 +83,14 @@ class TryWorker(Worker):
             for commit in new_commits:
                 pushlog.add_commit(commit)
 
+            tip_commit = new_commits[-1].hash
+
             scm.push(
                 repo.push_path,
                 push_target=push_target,
                 force_push=repo.force_push,
             )
 
-        return True
+            # XXX: delete the local branch
+
+        return tip_commit
