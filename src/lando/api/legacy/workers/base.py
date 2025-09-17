@@ -199,6 +199,8 @@ class Worker(ABC):
         if self.last_job_finished is False:
             logger.info("Last job did not complete, sleeping.")
             self.throttle(self.worker_instance.sleep_seconds)
+            # We refresh again after a throttle, in case trees were closed or re-opened.
+            self.refresh_active_repos()
 
         with transaction.atomic():
             job = self.job_type.next_job(repositories=self.active_repos).first()
@@ -234,15 +236,13 @@ class Worker(ABC):
                     f"Permanent failure for {job}: {exc}",
                     extra={"id": job.id},
                 )
-            except Exception as exc:
+            except Exception:
                 job.transition_status(
                     JobAction.FAIL,
-                    message=(
-                        "Unhandled exception: "
-                        + repr(exc.with_traceback(exc.__traceback__))
-                    ),
+                    message=("Unhandled exception, check logs and Sentry."),
                 )
                 self.last_job_finished = False
+                # This will report the exception to Sentry.
                 logger.exception(
                     f"Unhandled exception for {job}",
                     extra={"id": job.id},
