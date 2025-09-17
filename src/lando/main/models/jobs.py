@@ -30,6 +30,9 @@ class PermanentFailureException(Exception):
 class JobStatus(models.TextChoices):
     """The statuses, and their processing order, that jobs can be in."""
 
+    # Jobs may need to be created in the DB in multiple steps.
+    # They should only be set as submitted when ready to be processed.
+    CREATED = "CREATED", gettext_lazy("Created")
     SUBMITTED = "SUBMITTED", gettext_lazy("Submitted")
     IN_PROGRESS = "IN_PROGRESS", gettext_lazy("In progress")
     DEFERRED = "DEFERRED", gettext_lazy("Deferred")
@@ -56,6 +59,7 @@ class JobStatus(models.TextChoices):
             When(status=cls.FAILED, then=4),
             When(status=cls.LANDED, then=5),
             When(status=cls.CANCELLED, then=6),
+            When(status=cls.CREATED, then=7),
             default=0,
             output_field=IntegerField(),
         )
@@ -111,7 +115,7 @@ class BaseJob(BaseModel):
     status = models.CharField(
         max_length=32,
         choices=JobStatus,
-        default=JobStatus.SUBMITTED,
+        default=JobStatus.CREATED,
         db_index=True,
     )
     # Text describing errors when status != LANDED.
