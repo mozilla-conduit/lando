@@ -19,6 +19,7 @@ dependencies = [
     "django-ninja",
     "django-storages[google]",
     "django_compressor",
+    "django-debug-toolbar",
     "jinja2",
     "kombu",
     "mercurial==6.1.4",
