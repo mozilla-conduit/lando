@@ -186,7 +186,7 @@ class Worker(ABC):
         Jobs are found using the first entity from the `job_type.next_job()` method.
         They are then processed through the concrete implementation's `run_job()`.
 
-        Basic error-handling and job-status managemeng is performed for temporary,
+        Basic error-handling and job-status management is performed for temporary,
         permanent, and unexpected exceptions not handled by the concrete implementation's
         `run_job()`.
         """
