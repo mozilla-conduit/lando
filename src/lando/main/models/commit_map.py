@@ -105,7 +105,7 @@ class CommitMap(BaseModel):
         """Find the last stored commit hash and query the pushlog."""
         params = {}
         try:
-            params["fromchangeset"] = cls.find_last_hg_node(git_repo_name)
+            params["fromchange"] = cls.find_last_hg_node(git_repo_name)
         except cls.DoesNotExist as exc:
             raise cls.DoesNotExist(
                 f"No commit map entry found for {git_repo_name}, use `lando process_git_hg_mapping_file` to bootstrap"
