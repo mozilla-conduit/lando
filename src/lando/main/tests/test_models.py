@@ -303,7 +303,7 @@ def test__models__CommitMap__catch_up(commit_maps, monkeypatch):
     assert mock_find_last_hg_node.call_args[0] == ("git_repo",)
     assert mock_fetch_push_data.call_args[1] == {
         "git_repo_name": "git_repo",
-        "fromchangeset": mock_find_last_hg_node.return_value,
+        "fromchange": mock_find_last_hg_node.return_value,
     }
 
 
@@ -314,12 +314,12 @@ def test__models__CommitMap__fetch_push_data(commit_maps, monkeypatch):
     mock_requests_get = MagicMock()
     mock_requests_get(
         "https://hg.mozilla.org/git_repo/json-pushes",
-        params={"fromchangeset": last_hg_node},
+        params={"fromchange": last_hg_node},
     ).json.return_value = {
         "some_push": {"changesets": ["1" * 40], "git_changesets": ["2" * 40]}
     }
     monkeypatch.setattr("lando.main.models.commit_map.requests.get", mock_requests_get)
-    CommitMap.fetch_push_data("git_repo", fromchangeset=last_hg_node)
+    CommitMap.fetch_push_data("git_repo", fromchange=last_hg_node)
     assert CommitMap.objects.all().count() == previous_commit_map_count + 1
     assert CommitMap.find_last_hg_node("git_repo") == "1" * 40
 
@@ -331,13 +331,13 @@ def test__models__CommitMap__fetch_push_data_invalid_response(commit_maps, monke
     mock_requests_get = MagicMock()
     mock_requests_get(
         "https://hg.mozilla.org/git_repo/json-pushes",
-        params={"fromchangeset": last_hg_node},
+        params={"fromchange": last_hg_node},
     ).json.return_value = {
         "some_push": {"changesets": ["1" * 40, "2" * 40], "git_changesets": ["3" * 40]}
     }
     monkeypatch.setattr("lando.main.models.commit_map.requests.get", mock_requests_get)
     with pytest.raises(ValueError) as e:
-        CommitMap.fetch_push_data("git_repo", fromchangeset=last_hg_node)
+        CommitMap.fetch_push_data("git_repo", fromchange=last_hg_node)
     assert e.value.args == (
         "Number of hg changesets does not match number of git changesets: 2 vs 1",
     )
