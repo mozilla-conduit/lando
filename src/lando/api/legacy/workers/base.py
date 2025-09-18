@@ -239,7 +239,9 @@ class Worker(ABC):
             except Exception:
                 job.transition_status(
                     JobAction.FAIL,
-                    message=("Unhandled exception, check logs and Sentry."),
+                    message=(
+                        "An unexpected error occurred. This has been logged. Feel free to follow up on matrix #conduit:mozilla.org."
+                    ),
                 )
                 self.last_job_finished = False
                 # This will report the exception to Sentry.
