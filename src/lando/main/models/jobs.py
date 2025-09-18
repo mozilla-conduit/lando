@@ -275,12 +275,15 @@ class BaseJob(BaseModel):
         """Return the job details as a dict."""
         job_dict = {
             "created_at": self.created_at,
-            "error": self.error,
+            "error": None,
             "id": self.id,
             "requester": self.requester_email,
             "status": self.status,
             "updated_at": self.updated_at,
         }
+
+        if self.status in [JobStatus.FAILED, JobStatus.DEFERRED]:
+            job_dict["error"] = self.error
 
         if self.target_repo:
             job_dict["repository"] = self.target_repo.short_name
