@@ -13,8 +13,7 @@ from lando.api.legacy.treestatus import (
 from lando.headless_api.models.automation_job import AutomationJob
 from lando.main.models import JobStatus, LandingJob, Worker, WorkerType
 from lando.main.models.jobs import BaseJob
-
-# from lando.try_api import TryJob, TryWorker
+from lando.try_api.models.job import TryJob
 from lando.ui.views import LandoView
 from lando.utils import treestatus
 
@@ -126,3 +125,8 @@ class LandingJobView(LandoView):
 class AutomationJobView(BaseJobView):
     job_type = AutomationJob
     worker_type = WorkerType.AUTOMATION
+
+
+class TryJobView(BaseJobView):
+    job_type = TryJob
+    worker_type = WorkerType.TRY
