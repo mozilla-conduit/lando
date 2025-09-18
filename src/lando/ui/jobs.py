@@ -127,3 +127,8 @@ class LandingJobView(LandoView):
 class AutomationJobView(BaseJobView):
     job_type = AutomationJob
     worker_type = WorkerType.AUTOMATION
+
+
+class TryJobView(BaseJobView):
+    job_type = TryJob
+    worker_type = WorkerType.TRY

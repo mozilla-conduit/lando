@@ -136,8 +136,15 @@ urlpatterns += [
 # Try endpoints.
 urlpatterns += [
     # Backward compatibility with old Try behaviour, which create a landing_jobs.
-    path("landing_jobs/<int:landing_job_id>/",
-         RedirectView.as_view(url=reverse_lazy('my_named_pattern'), permanent=True)),
+    path(
+        "landing_jobs/<int:landing_job_id>/",
+        RedirectView.as_view(url=reverse_lazy("my_named_pattern"), permanent=True),
+    ),
+    path(
+        "try/jobs/<int:job_id>/",
+        jobs.TryJobView.as_view(),
+        name="try-jobs-page",
+    ),
     path("try/", try_api.urls, name="try"),
 ]
 
