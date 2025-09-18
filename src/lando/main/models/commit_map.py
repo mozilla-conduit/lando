@@ -3,7 +3,7 @@ from typing import Self
 
 import requests
 import sentry_sdk
-from django.db import models
+from django.db import IntegrityError, models
 
 from lando.main.models.base import BaseModel
 from lando.main.scm.consts import SCM_TYPE_GIT, SCM_TYPE_HG
@@ -150,4 +150,12 @@ class CommitMap(BaseModel):
                     "git_repo_name": git_repo_name,
                 }
                 if not cls.objects.filter(**params).exists():
-                    cls.objects.create(**params)
+                    try:
+                        cls.objects.create(**params)
+                    except IntegrityError as exc:
+                        # We don't want the whole exception in the logs, but it's worth
+                        # capturing in Sentry.
+                        sentry_sdk.capture_exception(exc)
+                        logger.warning(
+                            f"Could not create complete CommitMap entry for {params}, skipping ..."
+                        )
