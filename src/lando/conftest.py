@@ -537,7 +537,7 @@ def git_repo_mc(
     push_target: str = "",
 ) -> Repo:
     repos_dir = tmp_path / "repos"
-    repos_dir.mkdir()
+    repos_dir.mkdir(exist_ok=True)
 
     params = {
         "name": name or "mozilla-central-git",
