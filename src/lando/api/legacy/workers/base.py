@@ -27,6 +27,8 @@ from lando.main.models.jobs import (
     PermanentFailureException,
     TemporaryFailureException,
 )
+from lando.main.scm.abstract_scm import AbstractSCM
+from lando.main.scm.exceptions import SCMInternalServerError
 
 logger = logging.getLogger(__name__)
 
@@ -275,6 +277,36 @@ class Worker(ABC):
             r for r in self.enabled_repos if self.treestatus_client.is_open(r.tree)
         ]
         logger.info(f"{len(self.active_repos)} enabled repos: {self.active_repos}")
+
+    def update_repo(
+        self, repo: Repo, job: BaseJob, scm: AbstractSCM, target_cset: str | None
+    ) -> str:
+        """Update repository with job status handling."""
+        repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
+        try:
+            return scm.update_repo(
+                repo.pull_path,
+                target_cset=target_cset,
+                attributes_override=repo.attributes_override,
+            )
+        except SCMInternalServerError as e:
+            message = (
+                f"`Temporary error ({e.__class__}) "
+                f"encountered while pulling from {repo_pull_info}: {e}"
+            )
+            logger.exception(message)
+            job.transition_status(JobAction.DEFER, message=message)
+
+            # Try again, this is a temporary failure.
+            raise TemporaryFailureException(message) from e
+        except Exception as e:
+            message = f"Unexpected error while fetching repo from {repo.name}."
+            logger.exception(message)
+            job.transition_status(
+                JobAction.FAIL,
+                message=message + f"\n{e}",
+            )
+            raise PermanentFailureException(message) from e
 
     def start(self, max_loops: int | None = None):
         """Run setup sequence and start the event loop."""
