@@ -10,7 +10,6 @@ from typing import (
 )
 
 import requests
-from django.core.cache import cache
 from packaging.version import (
     InvalidVersion,
     Version,
@@ -25,9 +24,7 @@ from lando.api.legacy.stacks import (
 )
 from lando.main.models import Repo
 from lando.utils.phabricator import (
-    PhabricatorAPIException,
     PhabricatorClient,
-    get_phabricator_client,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,27 +54,6 @@ def parse_milestone_version(milestone_contents: str) -> Version:
         raise ValueError(
             f"`config/milestone.txt` is not in the expected format:\n{milestone_contents}"
         ) from e
-
-
-def get_uplift_repositories() -> list[str]:
-    """Returns repo "shortnames" tagged with "uplift" from Phabricator."""
-    CACHE_KEY = "uplift-repos"
-    repos = cache.get(CACHE_KEY)
-    if not repos:
-        phab = get_phabricator_client()
-        try:
-            repos = phab.call_conduit(
-                "diffusion.repository.search",
-                constraints={"projects": ["uplift"]},
-            )
-        except PhabricatorAPIException as e:
-            logger.exception(e)
-            repos = []
-        else:
-            repos = phab.expect(repos, "data")
-            repos = [phab.expect(repo, "fields", "shortName") for repo in repos]
-            cache.set(CACHE_KEY, repos)
-    return repos
 
 
 def get_revisions_without_bugs(phab: PhabricatorClient, revisions: dict) -> set[str]:
