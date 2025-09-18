@@ -99,7 +99,7 @@ urlpatterns += [
 urlpatterns += [
     path("api/", headless_api.urls, name="headless-api"),
     path(
-        "api/jobs/<int:automation_job_id>/",
+        "api/jobs/<int:job_id>/",
         jobs.AutomationJobView.as_view(),
         name="api-jobs-page",
     ),

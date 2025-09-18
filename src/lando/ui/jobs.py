@@ -1,4 +1,5 @@
 import logging
+from abc import ABC
 
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponseRedirect
@@ -11,10 +12,52 @@ from lando.api.legacy.treestatus import (
 )
 from lando.headless_api.models.automation_job import AutomationJob
 from lando.main.models import JobStatus, LandingJob, Worker, WorkerType
+from lando.main.models.jobs import BaseJob
 from lando.ui.views import LandoView
 from lando.utils import treestatus
 
 logger = logging.getLogger(__name__)  # noqa: F821
+
+
+class BaseJobView(LandoView, ABC):
+    # Type of Job that this view can show.
+    job_type: type[BaseJob]
+
+    # Type of the Worker implementation (for accurate queue display).
+    worker_type: WorkerType
+
+    def get(self, request: WSGIRequest, job_id: int) -> TemplateResponse:
+        job = self.job_type.objects.get(id=job_id)
+
+        context = {"job": job}
+
+        if job.status not in JobStatus.final():
+            try:
+                worker = Worker.objects.get(
+                    applicable_repos=job.target_repo,
+                    type=self.worker_type,
+                )
+            except Worker.DoesNotExist:
+                queue = []
+            else:
+                queue_query = self.job_type.job_queue_query(
+                    repositories=worker.applicable_repos.all(),
+                    # We set the grace_seconds to 0, so all current jobs are shown, including
+                    # those in the grace period, so they don't appear unannounced later.
+                    grace_seconds=0,
+                )
+                queue = list(queue_query.all())
+                # Only include jobs before the current landing_job in the queue
+                # I'd rather do this DB-side, but I couldn't work out how.
+                if job in queue:
+                    queue = queue[: queue.index(job)]
+            context["queue"] = queue
+
+        return TemplateResponse(
+            request=request,
+            template="jobs/job.html",
+            context=context,
+        )
 
 
 class LandingJobView(LandoView):
@@ -78,37 +121,6 @@ class LandingJobView(LandoView):
         )
 
 
-class AutomationJobView(LandoView):
-    def get(self, request: WSGIRequest, automation_job_id: int) -> TemplateResponse:
-        automation_job = AutomationJob.objects.get(id=automation_job_id)
-
-        context = {"job": automation_job}
-
-        if automation_job.status not in JobStatus.final():
-            # There's only one Automation/Try worker for each HG repo.
-            try:
-                automation_worker = Worker.objects.get(
-                    applicable_repos=automation_job.target_repo,
-                    type=WorkerType.AUTOMATION,
-                )
-            except Worker.DoesNotExist:
-                queue = []
-            else:
-                queue_query = AutomationJob.job_queue_query(
-                    repositories=automation_worker.applicable_repos.all(),
-                    # We set the grace_seconds to 0, so all current jobs are shown, including
-                    # those in the grace period, so they don't appear unannounced later.
-                    grace_seconds=0,
-                )
-                queue = list(queue_query.all())
-                # Only include jobs before the current landing_job in the queue
-                # I'd rather do this DB-side, but I couldn't work out how.
-                if automation_job in queue:
-                    queue = queue[: queue.index(automation_job)]
-            context["queue"] = queue
-
-        return TemplateResponse(
-            request=request,
-            template="jobs/job.html",
-            context=context,
-        )
+class AutomationJobView(BaseJobView):
+    job_type = AutomationJob
+    worker_type = WorkerType.AUTOMATION
