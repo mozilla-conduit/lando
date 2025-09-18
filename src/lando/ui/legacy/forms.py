@@ -1,7 +1,6 @@
 from django import forms
 from django.forms.widgets import RadioSelect
 
-from lando.api.legacy.uplift import get_uplift_repositories
 from lando.main.models import Repo
 from lando.main.models.uplift import (
     UpliftAssessment,
@@ -85,8 +84,10 @@ class UpliftRequestForm(UpliftAssessmentForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        uplift_repos = get_uplift_repositories()
-        self.fields["repository"].choices = [(repo, repo) for repo in uplift_repos]
+        uplift_repos = Repo.objects.filter(approval_required=True).all()
+        self.fields["repository"].choices = [
+            (repo.name, repo.name) for repo in uplift_repos
+        ]
 
     def clean_repository(self) -> str:
         repo_short_name = self.cleaned_data["repository"]
