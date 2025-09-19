@@ -137,7 +137,10 @@ class RevisionAdmin(admin.ModelAdmin):
 
     def revision(self, instance: Revision) -> str:
         """Return a Phabricator-like revision identifier."""
-        return f"D{instance.revision_id}"
+        if instance.revision_id:
+            return f"D{instance.revision_id}"
+
+        return f"{instance.id}"
 
     def patch_timestamp(self, instance: Revision) -> datetime | None:
         """Return a datetime based on the timestamp from the patch data."""
