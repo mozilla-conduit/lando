@@ -82,16 +82,16 @@ urlpatterns += [
 
 # "API" endpoints ported from legacy API app.
 urlpatterns += [
-    path("landing_jobs/<int:landing_job_id>/", landing_jobs.put, name="landing-jobs"),
+    path("landing_jobs/<int:job_id>/", landing_jobs.put, name="landing-jobs"),
     path(
-        "D<int:revision_id>/landings/<int:landing_job_id>/",
+        "D<int:revision_id>/landings/<int:job_id>/",
         jobs.LandingJobView.as_view(),
         name="revision-jobs-page",
     ),
     # Allow to find a landing job by ID only. The page will redirect to the canonical
     # URL including the revision.
     path(
-        "landings/<int:landing_job_id>/",
+        "landings/<int:job_id>/",
         jobs.LandingJobView.as_view(),
         {"revision_id": None},
         name="jobs-page",
@@ -137,7 +137,7 @@ urlpatterns += [
 urlpatterns += [
     # Backward compatibility with old Try behaviour, which create a landing_jobs.
     path(
-        "landing_jobs/<int:landing_job_id>/",
+        "landing_jobs/<int:job_id>/",
         RedirectView.as_view(url=reverse_lazy("my_named_pattern"), permanent=True),
     ),
     path(
