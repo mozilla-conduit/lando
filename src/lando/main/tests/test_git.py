@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from lando.main.scm.consts import MergeStrategy
 from lando.main.scm.exceptions import SCMException
 from lando.main.scm.git import GitSCM
 from lando.main.scm.helpers import GitPatchHelper
