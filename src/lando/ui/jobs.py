@@ -62,19 +62,19 @@ class BaseJobView(LandoView, ABC):
 
 class LandingJobView(LandoView):
     def get(
-        self, request: WSGIRequest, landing_job_id: int, revision_id: None | int
+        self, request: WSGIRequest, job_id: int, revision_id: int | None
     ) -> TemplateResponse | HttpResponseRedirect:
-        landing_job = get_object_or_404(LandingJob, id=landing_job_id)
+        landing_job = get_object_or_404(LandingJob, id=job_id)
 
         # Redirect to the canonical URL in case the revision is missing or
         # incorrect.
-        if not revision_id or (
-            not landing_job.revisions.filter(revision_id=revision_id)
-        ):
-            revision_id = landing_job.revisions[0].revision_id
+        if (
+            not revision_id
+            or (not landing_job.revisions.filter(revision_id=revision_id))
+        ) and (revision_id := landing_job.revisions[0].revision_id):
             return redirect(
                 "revision-jobs-page",
-                landing_job_id=landing_job_id,
+                job_id=job_id,
                 revision_id=revision_id,
             )
 
