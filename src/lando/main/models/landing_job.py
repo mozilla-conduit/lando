@@ -65,16 +65,40 @@ class LandingJob(BaseJob):
         return dict(revision_landing_jobs)
 
     @property
+    def landed_revisions(self) -> dict:
+        """Return revision and diff ID mapping associated with the landing job."""
+        revision_ids = [revision.id for revision in self.unsorted_revisions.all()]
+        revision_landing_jobs = (
+            RevisionLandingJob.objects.filter(
+                revision__id__in=revision_ids,
+                landing_job=self,
+            )
+            .order_by("index")
+            .values_list("revision_id", "diff_id")
+        )
+        return dict(revision_landing_jobs)
+
+    @property
     def serialized_landing_path(self) -> list[dict]:
         """Return landing path based on associated revisions or legacy fields."""
         if self.unsorted_revisions:
-            return [
-                {
-                    "revision_id": "D{}".format(revision_id),
-                    "diff_id": diff_id,
-                }
-                for revision_id, diff_id in self.landed_phabricator_revisions.items()
-            ]
+            if self.unsorted_revisions.first().revision_id:
+                # We have Phabricator revisions.
+                return [
+                    {
+                        "revision_id": "D{}".format(revision_id),
+                        "diff_id": diff_id,
+                    }
+                    for revision_id, diff_id in self.landed_phabricator_revisions.items()
+                ]
+            else:
+                return [
+                    {
+                        "revision_id": "{}".format(revision_id),
+                        "diff_id": diff_id,
+                    }
+                    for revision_id, diff_id in self.landed_revisions.items()
+                ]
         else:
             return [
                 {"revision_id": "D{}".format(r), "diff_id": self.revision_to_diff_id[r]}
