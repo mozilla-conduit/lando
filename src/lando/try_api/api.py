@@ -1,3 +1,4 @@
+import base64
 import enum
 import logging
 from typing import Annotated
@@ -15,7 +16,9 @@ from lando.main.models import Repo
 from lando.main.models.jobs import JobStatus
 from lando.main.models.landing_job import LandingJob
 from lando.main.models.profile import SCM_LEVEL_1
+from lando.main.models.revision import Revision
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
+from lando.main.scm.helpers import PATCH_HELPER_MAPPING, PatchFormat
 from lando.try_api.models.job import TryJob
 from lando.utils.auth import AccessTokenAuth
 from lando.utils.exceptions import ProblemDetail
@@ -77,7 +80,7 @@ class PatchesRequest(Schema):
         ),
     ]
     patch_format: Annotated[
-        TryJob.PatchFormat,
+        PatchFormat,
         Field(
             description="The format of the encoded patches in `patches`. Either `hgexport` or `git-format-patch` are accepted."
         ),
@@ -150,12 +153,27 @@ def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]
     try_job = TryJob.objects.create(
         target_repo=repo,
         requester_email=request.user.email,
-        base_commit_vcs=patches.base_commit_vcs,
-        target_commit_hash=patches.base_commit,
-        patch_format=patches.patch_format,
-        patches=patches.patches,
+        target_commit_hash=target_commit_hash,
         status=JobStatus.SUBMITTED,
+        priority=-10,
     )
+
+    # Create Revision objects from patches and associate them with the job
+    revisions = []
+    for i, patch_data in enumerate(patches.patches):
+        revision = Revision.new_from_patch(
+            raw_diff=base64.b64decode(patch_data).decode("utf-8"),
+            patch_data={
+                "author_name": f"Try User {request.user.email}",
+                "author_email": request.user.email,
+                "commit_message": f"Try patch {i + 1}",
+                "timestamp": str(int(time.time())),
+            },
+        )
+        revisions.append(revision)
+
+    try_job.add_revisions(revisions)
+    try_job.sort_revisions(revisions)
 
     return 201, JobResponse(
         id=try_job.id,
