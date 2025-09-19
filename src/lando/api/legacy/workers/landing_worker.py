@@ -187,32 +187,7 @@ class LandingWorker(Worker):
 
         Returns a tuple of bug_ids and tip commit_id.
         """
-        # Update local repo.
-        repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
-        try:
-            scm.update_repo(
-                repo.pull_path,
-                target_cset=job.target_commit_hash,
-                attributes_override=repo.attributes_override,
-            )
-        except SCMInternalServerError as e:
-            message = (
-                f"`Temporary error ({e.__class__}) "
-                f"encountered while pulling from {repo_pull_info}: {e}"
-            )
-            logger.exception(message)
-            job.transition_status(JobAction.DEFER, message=message)
-
-            # Try again, this is a temporary failure.
-            raise TemporaryFailureException(message) from e
-        except Exception as e:
-            message = f"Unexpected error while fetching repo from {repo.name}."
-            logger.exception(message)
-            job.transition_status(
-                JobAction.FAIL,
-                message=message + f"\n{e}",
-            )
-            raise PermanentFailureException(message) from e
+        self.update_repo(repo, job, scm, job.target_commit_hash)
 
         # Run through the patches one by one and try to apply them.
         logger.debug(

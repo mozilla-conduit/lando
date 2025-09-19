@@ -11,7 +11,12 @@ from lando.headless_api.models.automation_job import (
     ActionTypeChoices,
     AutomationJob,
 )
-from lando.main.models import JobAction, WorkerType
+from lando.main.models import (
+    JobAction,
+    PermanentFailureException,
+    TemporaryFailureException,
+    WorkerType,
+)
 from lando.main.scm import (
     AbstractSCM,
     CommitData,
@@ -86,31 +91,12 @@ class AutomationWorker(Worker):
             scm.for_push(job.requester_email),
             PushLogForRepo(repo, job.requester_email, branch=push_target) as pushlog,
         ):
-            repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
             try:
-                pre_head_ref = scm.update_repo(
-                    repo.pull_path,
-                    target_cset=target_cset,
-                    attributes_override=repo.attributes_override,
-                )
-            except SCMInternalServerError as e:
-                message = (
-                    f"Temporary error ({e.__class__}) "
-                    f"encountered while pulling from {repo_pull_info}: {e}"
-                )
-                logger.exception(message)
-                job.transition_status(JobAction.DEFER, message=message)
-
-                # Try again, this is a temporary failure.
-                return False
-            except Exception as e:
-                message = f"Unexpected error while fetching repo from {repo.pull_path}."
-                logger.exception(message)
-                job.transition_status(
-                    JobAction.FAIL,
-                    message=message + f"\n{e}",
-                )
+                pre_head_ref = self.update_repo(repo, job, scm, target_cset=target_cset)
+            except PermanentFailureException:
                 return True
+            except TemporaryFailureException:
+                return False
 
             # Record any created tags.
             created_tags = []
