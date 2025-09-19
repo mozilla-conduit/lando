@@ -83,6 +83,15 @@ class JobAdmin(admin.ModelAdmin):
 
 class LandingJobAdmin(JobAdmin):
     model = LandingJob
+    list_display = (
+        "id",
+        "revisions",
+        "status",
+        "target_repo__name",
+        "created_at",
+        "requester_email",
+        "duration_seconds",
+    )
     inlines = (RevisionLandingJobInline,)
     fields = (
         "status",
@@ -98,6 +107,22 @@ class LandingJobAdmin(JobAdmin):
     )
     readonly_fields = JobAdmin.readonly_fields + ("formatted_replacements",)
     search_fields = JobAdmin.search_fields + ("requester_email",)
+
+    def revisions(self, instance: LandingJob) -> str:
+        """Return a summary of revisions present in a LandingJob
+
+        The summary is the str of the last revision, and a count of all the other
+        revisions present in the Landing Job.
+        """
+        last_revision = instance.unsorted_revisions.order_by("-id").last()
+        nrevisions = instance.unsorted_revisions.count()
+        summary = "(no revision)"
+        if last_revision:
+            summary = str(last_revision)
+            if (nrevisions := nrevisions - 1) > 0:
+                summary = f"{summary} and {nrevisions} other{'s' if nrevisions else ''}"
+
+        return summary
 
 
 class RevisionAdmin(admin.ModelAdmin):
