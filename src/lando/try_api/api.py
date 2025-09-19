@@ -14,6 +14,7 @@ from pydantic import Field, StringConstraints
 
 from lando.main.auth import require_authenticated_user, require_permission
 from lando.main.models import Repo
+from lando.main.models.commit_map import CommitMap
 from lando.main.models.jobs import JobStatus
 from lando.main.models.landing_job import LandingJob
 from lando.main.models.profile import SCM_LEVEL_1
@@ -150,6 +151,31 @@ def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]
         return status, ProblemDetail(
             title="Not a Try repository", detail=error, status=status
         )
+
+    # XXX: We'll need a more flexible way to set this.
+    mapping_repo = "firefox"
+
+    target_commit_hash = patches.base_commit
+    if patches.base_commit_vcs != repo.scm_type:
+        try:
+            if repo.scm_type == SCM_TYPE_HG:
+                target_commit_hash = CommitMap.git2hg(mapping_repo, target_commit_hash)
+            else:
+                target_commit_hash = CommitMap.hg2git(mapping_repo, target_commit_hash)
+        except CommitMap.DoesNotExist:
+            status = 400
+            error = (
+                f"Could not determine the equivalent base commit for {target_commit_hash} in {repo.scm_type} for {mapping_repo}. Please try again later.",
+            )
+            logger.warning(
+                error,
+                extra={"user": request.user.email, "token": request.auth},
+            )
+            return status, ProblemDetail(
+                title="Error converting VCS commit IDs",
+                detail=f"Could not determine the equivalent base commit for {target_commit_hash} in {repo.scm_type} for {mapping_repo}. Please try again later.",
+                status=status,
+            )
 
     try_job = TryJob.objects.create(
         target_repo=repo,
