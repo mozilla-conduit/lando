@@ -7,6 +7,7 @@ from lando.main.models import (
 from lando.main.models.commit_map import CommitMap
 from lando.main.models.jobs import JobAction, TemporaryFailureException
 from lando.main.models.repo import Repo
+from lando.main.models.revision import Revision
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.consts import SCM_TYPE_HG
 from lando.main.scm.exceptions import SCMInternalServerError
@@ -51,7 +52,7 @@ class TryWorker(Worker):
                 push_target,
                 job.requester_email,
                 target_commit_hash,
-                job.patches,
+                job.revisions.all(),
             )
         except SCMInternalServerError as exc:
             raise TemporaryFailureException(exc) from exc
@@ -65,7 +66,7 @@ class TryWorker(Worker):
         push_target: str,
         requester_email: str,
         target_commit_hash: str,
-        patches: list[str],
+        revisions: list[Revision],
     ) -> str:
         with (
             scm.for_push(requester_email),
@@ -73,8 +74,8 @@ class TryWorker(Worker):
         ):
             scm.update_repo(repo.pull_path, target_commit_hash)
 
-            for patch_b64 in patches:
-                patch_bytes = base64.b64decode(patch_b64)
+            for revision in revisions:
+                patch_bytes = revision.patch_bytes
                 scm.apply_patch_git(patch_bytes)
 
             new_commits = scm.describe_local_changes(base_cset=target_commit_hash)
