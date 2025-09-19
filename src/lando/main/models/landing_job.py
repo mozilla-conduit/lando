@@ -51,7 +51,7 @@ class LandingJob(BaseJob):
     )
 
     @property
-    def landed_revisions(self) -> dict:
+    def landed_phabricator_revisions(self) -> dict:
         """Return revision and diff ID mapping associated with the landing job."""
         revision_ids = [revision.id for revision in self.unsorted_revisions.all()]
         revision_landing_jobs = (
@@ -73,7 +73,7 @@ class LandingJob(BaseJob):
                     "revision_id": "D{}".format(revision_id),
                     "diff_id": diff_id,
                 }
-                for revision_id, diff_id in self.landed_revisions.items()
+                for revision_id, diff_id in self.landed_phabricator_revisions.items()
             ]
         else:
             return [
