@@ -279,6 +279,11 @@ class Repo(BaseModel):
             return self.url.removesuffix(".git")
 
     @property
+    def _github_repo_org(self) -> str | None:
+        if self.is_github:
+            return self._github_repo_url.split("/")[-2]
+
+    @property
     def git_repo_name(self) -> str:
         """Provide the bare name of the Git repo."""
         if self.scm_type != SCM_TYPE_GIT:
