@@ -1,5 +1,3 @@
-import base64
-
 from typing_extensions import override
 
 from lando.api.legacy.workers.base import Worker
