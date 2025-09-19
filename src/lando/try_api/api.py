@@ -19,7 +19,7 @@ from lando.main.models.jobs import JobStatus
 from lando.main.models.profile import SCM_LEVEL_1
 from lando.main.models.revision import Revision
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
-from lando.main.scm.helpers import PATCH_HELPER_MAPPING
+from lando.main.scm.helpers import PATCH_HELPER_MAPPING, PatchFormat
 from lando.try_api.models.job import TryJob
 from lando.utils.auth import AccessTokenAuth
 from lando.utils.exceptions import ProblemDetail
@@ -81,7 +81,7 @@ class PatchesRequest(Schema):
         ),
     ]
     patch_format: Annotated[
-        TryJob.PatchFormat,
+        PatchFormat,
         Field(
             description="The format of the encoded patches in `patches`. Either `hgexport` or `git-format-patch` are accepted."
         ),
@@ -179,10 +179,9 @@ def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]
     try_job = TryJob.objects.create(
         target_repo=repo,
         requester_email=request.user.email,
-        base_commit_vcs=patches.base_commit_vcs,
         target_commit_hash=target_commit_hash,
-        patch_format=patches.patch_format,
         status=JobStatus.SUBMITTED,
+        priority=-10,
     )
 
     # Create Revision objects from patches and associate them with the job
