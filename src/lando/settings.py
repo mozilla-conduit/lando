@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/dev/ref/settings/
 import os
 from pathlib import Path
 
+# from debug_toolbar import middleware
 from lando.environments import Environment
 from lando.version import version
 
@@ -76,9 +77,11 @@ INSTALLED_APPS = [
     "compressor",
     "mozilla_django_oidc",
     "ninja",
+    "debug_toolbar",
 ]
 
 MIDDLEWARE = [
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -272,3 +275,7 @@ GITHUB_APP_ID = os.getenv("GITHUB_APP_ID")
 GITHUB_APP_PRIVKEY = os.getenv("GITHUB_APP_PRIVKEY")
 
 HTTP_USER_AGENT = f"Lando/{version} ({ENVIRONMENT})"
+
+# SHOW_TOOLBAR_CALLBACK = "debug_toolbar.middleware.show_toolbar_with_docker"
+
+INTERNAL_IPS = ["172.18.0.1", "172.18.0.11", "172.18.0.29"]
