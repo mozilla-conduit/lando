@@ -1,5 +1,6 @@
 import base64
 import enum
+import io
 import logging
 from typing import Annotated
 
@@ -17,6 +18,7 @@ from lando.main.models.jobs import JobStatus
 from lando.main.models.profile import SCM_LEVEL_1
 from lando.main.models.revision import Revision
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
+from lando.main.scm.helpers import PATCH_HELPER_MAPPING
 from lando.try_api.models.job import TryJob
 from lando.utils.auth import AccessTokenAuth
 from lando.utils.exceptions import ProblemDetail
@@ -159,15 +161,30 @@ def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]
 
     # Create Revision objects from patches and associate them with the job
     revisions = []
-    for i, patch_data in enumerate(patches.patches):
+    patch_helper_class = PATCH_HELPER_MAPPING[patches.patch_format]
+
+    for patch_data in patches.patches:
+        # Decode the base64 patch data to bytes
+        decoded_patch_bytes = base64.b64decode(patch_data)
+
+        # Create PatchHelper instance to parse the patch
+        patch_io = io.BytesIO(decoded_patch_bytes)
+        patch_helper = patch_helper_class.from_bytes_io(patch_io)
+
+        # Extract patch information using PatchHelper
+        author_name, author_email = patch_helper.parse_author_information()
+        commit_message = patch_helper.get_commit_description()
+        timestamp = patch_helper.get_timestamp()
+        diff = patch_helper.get_diff()
+
         revision = Revision.new_from_patch(
-            raw_diff=base64.b64decode(patch_data).decode('utf-8'),
+            raw_diff=diff,
             patch_data={
-                "author_name": f"Try User {request.user.email}",
-                "author_email": request.user.email,
-                "commit_message": f"Try patch {i+1}",
-                "timestamp": str(int(time.time())),
-            }
+                "author_name": author_name,
+                "author_email": author_email,
+                "commit_message": commit_message,
+                "timestamp": timestamp,
+            },
         )
         revisions.append(revision)
 
