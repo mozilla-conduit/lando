@@ -63,7 +63,12 @@ class Revision(BaseModel):
     _patch_helper: Optional[HgPatchHelper] = None
 
     def __str__(self) -> str:
-        return f"Revision {self.revision_id} Diff {self.diff_id}"
+        if self.revision_id:
+            return f"D{self.revision_id} (diff {self.diff_id})"
+        s = f"Revision {self.id}"
+        if desc := self.patch_data.get("commit_message"):
+            s = f"{s} ({desc})"
+        return s
 
     def __repr__(self) -> str:
         """Return a human-readable representation of the instance."""
