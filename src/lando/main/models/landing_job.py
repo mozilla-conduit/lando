@@ -127,9 +127,7 @@ class LandingJob(BaseJob):
 
     def to_dict(self) -> dict[str, Any]:
         job_dict = super().to_dict()
-        job_dict["revisions"] = [
-            f"{settings.PHABRICATOR_URL}/D{r.revision_id}" for r in self.revisions
-        ]
+        job_dict["revisions"] = [r.url() for r in self.revisions]
         job_dict["url"] = f"{settings.SITE_URL}/landings/{self.id}"
 
         return job_dict
