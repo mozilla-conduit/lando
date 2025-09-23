@@ -120,7 +120,9 @@ class LandingJobAdmin(JobAdmin):
         if last_revision:
             summary = str(last_revision)
             if (nrevisions := nrevisions - 1) > 0:
-                summary = f"{summary} and {nrevisions} other{'s' if nrevisions else ''}"
+                summary = (
+                    f"{summary} and {nrevisions} other{'s' if nrevisions > 1 else ''}"
+                )
 
         return summary
 
