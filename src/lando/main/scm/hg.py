@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import (
+    IO,
     Any,
     Self,
 )
@@ -32,7 +33,7 @@ from lando.main.scm.exceptions import (
     TreeApprovalRequired,
     TreeClosed,
 )
-from lando.main.scm.helpers import HgPatchHelper, PatchHelper
+from lando.main.scm.helpers import GitPatchHelper, HgPatchHelper, PatchHelper
 
 logger = logging.getLogger(__name__)
 
@@ -251,31 +252,15 @@ class HgSCM(AbstractSCM):
             # TODO: Using `hg import` here is less than ideal because
             # it does not use a 3-way merge. It would be better
             # to use `hg import --exact` then `hg rebase`, however we
-            # aren't guaranteed to have the patche's parent changeset
+            # aren't guaranteed to have the patch's parent changeset
             # in the local repo.
             # Also, Apply the patch, with file rename detection (similarity).
             # Using 95 as the similarity to match automv's default.
             import_cmd = ["import", "--no-commit"] + similarity_args
 
-            try:
-                self.run_hg(import_cmd + [f_diff.name])
-            except HgPatchConflict as exc:
-                # Try again using 'patch' instead of hg's internal patch utility.
-                # But first reset to a clean working directory as hg's attempt
-                # might have partially applied the patch.
-                logger.info("import failed, retrying with 'patch'", exc_info=exc)
-                import_cmd += ["--config", "ui.patch=patch"]
-                self.clean_repo(strip_non_public_commits=False)
+            self._run_hg_patch(import_cmd, f_diff)
 
-                # When using an external patch util mercurial won't
-                # automatically handle add/remove/renames.
-                try:
-                    self.run_hg(import_cmd + [f_diff.name])
-                    self.run_hg(["addremove"] + similarity_args)
-                except HgException:
-                    # Use the original exception from import with the built-in
-                    # patcher since both attempts failed.
-                    raise exc
+            self.run_hg(["addremove"] + similarity_args)
 
             if re.match("^[0-9]+$", commit_date):
                 # If the commit_date is a unix timestamp, convert to Hg internal format.
@@ -290,8 +275,54 @@ class HgSCM(AbstractSCM):
             )
 
     @override
-    def apply_patch_bytes(self, patch_bytes: bytes):
-        raise NotImplementedError("`apply_patch_bytes` not implemented for hg.")
+    def apply_patch_git(self, patch_bytes: bytes):
+        """Apply the Git patch, provided as undecoded bytes."""
+        f_patch = tempfile.NamedTemporaryFile(mode="w+b", suffix=".patch")
+        import_cmd = ["import", "-s", "95"]
+
+        with f_patch:
+            f_patch.write(patch_bytes)
+            f_patch.flush()
+
+            # `hg import` supports git-formatted patches natively.
+            self._run_hg_patch(import_cmd, f_patch, preserve_git_date=True)
+
+    def _run_hg_patch(
+        self,
+        import_cmd: list[str],
+        patch_or_diff: IO,
+        *,
+        preserve_git_date: bool = False,
+    ):
+        # Only relevant if patch_or_diff is a patch.
+        if preserve_git_date:
+            patch_or_diff.seek(0)
+            patch_str = patch_or_diff.read().decode("utf-8")
+            # XXX: use bytes support from GitPatchHelper
+            patch_iostr = io.StringIO(patch_str)
+            # We don't need to seek to 0 again, because we only use the name of the
+            # patch_or_diff, afterwards
+            patch_helper = GitPatchHelper.from_string_io(patch_iostr)
+            patch_ts = patch_helper.get_timestamp()
+            import_cmd += ["--date", f"{patch_ts} 0"]
+        try:
+            self.run_hg(import_cmd + [patch_or_diff.name])
+        except HgPatchConflict as exc:
+            # Try again using 'patch' instead of hg's internal patch utility.
+            # But first reset to a clean working directory as hg's attempt
+            # might have partially applied the patch.
+            logger.info("import failed, retrying with 'patch'", exc_info=exc)
+            import_cmd += ["--config", "ui.patch=patch"]
+            self.clean_repo(strip_non_public_commits=False)
+
+            # When using an external patch util mercurial won't
+            # automatically handle add/remove/renames.
+            try:
+                self.run_hg(import_cmd + [patch_or_diff.name])
+            except HgException:
+                # Use the original exception from import with the built-in
+                # patcher since both attempts failed.
+                raise exc
 
     @override
     def get_patch(self, revision_id: str) -> str | None:
@@ -611,10 +642,13 @@ class HgSCM(AbstractSCM):
     def _run_hg(self, args: list[str]) -> bytes:
         """Use hglib to run a Mercurial command, and return its output."""
         correlation_id = str(uuid.uuid4())
+        command_string = " ".join(["hg"] + [shlex.quote(str(arg)) for arg in args])
         logger.info(
-            "running hg command",
+            "running hg command#%s: %s",
+            correlation_id,
+            command_string,
             extra={
-                "command": ["hg"] + [shlex.quote(str(arg)) for arg in args],
+                "command": command_string,
                 "command_id": correlation_id,
                 "path": self.path,
                 "hg_pid": self.hg_repo.server.pid,
@@ -636,13 +670,16 @@ class HgSCM(AbstractSCM):
         out = out.getvalue()
         err = err.getvalue()
         if out:
+            out_string = (out.rstrip().decode(self.ENCODING, errors="replace"),)
             logger.info(
-                "output from hg command",
+                "output from hg command#%s: %s",
+                correlation_id,
+                out_string,
                 extra={
                     "command_id": correlation_id,
                     "path": self.path,
                     "hg_pid": self.hg_repo.server.pid,
-                    "output": out.rstrip().decode(self.ENCODING, errors="replace"),
+                    "output": out_string,
                 },
             )
 

@@ -15,8 +15,10 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
+from debug_toolbar.toolbar import debug_toolbar_urls
 from django.contrib import admin
-from django.urls import include, path, re_path
+from django.urls import include, path, re_path, reverse_lazy
+from django.views.generic.base import RedirectView
 
 from lando.api.legacy.api import landing_jobs
 from lando.api.views import (
@@ -80,16 +82,16 @@ urlpatterns += [
 
 # "API" endpoints ported from legacy API app.
 urlpatterns += [
-    path("landing_jobs/<int:landing_job_id>/", landing_jobs.put, name="landing-jobs"),
+    path("landing_jobs/<int:job_id>/", landing_jobs.get_put, name="landing-jobs"),
     path(
-        "D<int:revision_id>/landings/<int:landing_job_id>/",
+        "D<int:revision_id>/landings/<int:job_id>/",
         jobs.LandingJobView.as_view(),
         name="revision-jobs-page",
     ),
     # Allow to find a landing job by ID only. The page will redirect to the canonical
     # URL including the revision.
     path(
-        "landings/<int:landing_job_id>/",
+        "landings/<int:job_id>/",
         jobs.LandingJobView.as_view(),
         {"revision_id": None},
         name="jobs-page",
@@ -99,7 +101,7 @@ urlpatterns += [
 urlpatterns += [
     path("api/", headless_api.urls, name="headless-api"),
     path(
-        "api/jobs/<int:automation_job_id>/",
+        "api/jobs/<int:job_id>/",
         jobs.AutomationJobView.as_view(),
         name="api-jobs-page",
     ),
@@ -132,4 +134,19 @@ urlpatterns += [
 ]
 
 # Try endpoints.
-urlpatterns += [path("try/", try_api.urls, name="try")]
+urlpatterns += [
+    # Backward compatibility with old Try behaviour, which create a landing_jobs.
+    path(
+        "landing_jobs/<int:landing_job_id>/",
+        RedirectView.as_view(url=reverse_lazy("my_named_pattern"), permanent=True),
+    ),
+    path(
+        "try/jobs/<int:job_id>/",
+        jobs.TryJobView.as_view(),
+        name="try-jobs-page",
+    ),
+    path("try/", try_api.urls, name="try"),
+]
+
+
+urlpatterns += debug_toolbar_urls()

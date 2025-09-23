@@ -12,6 +12,7 @@ import re
 from io import StringIO
 from typing import Any, Optional
 
+from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy
 
@@ -63,7 +64,12 @@ class Revision(BaseModel):
     _patch_helper: Optional[HgPatchHelper] = None
 
     def __str__(self) -> str:
-        return f"Revision {self.revision_id} Diff {self.diff_id}"
+        if self.revision_id:
+            return f"D{self.revision_id} (diff {self.diff_id})"
+        s = f"Revision {self.id}"
+        if desc := self.patch_data.get("commit_message"):
+            s = f"{s} ({desc})"
+        return s
 
     def __repr__(self) -> str:
         """Return a human-readable representation of the instance."""
@@ -72,6 +78,17 @@ class Revision(BaseModel):
             f" [D{self.revision_id}-{self.diff_id}]>" if self.revision_id else ""
         )
         return f"<{self.__class__.__name__}: {self.id}{phab_identifier}>"
+
+    def url(self) -> str:
+        """Return a public URL for the Revision."""
+        if self.revision_id:
+            return f"{settings.PHABRICATOR_URL}/D{self.revision_id}"
+
+        if job := self.landing_jobs.first():
+            return f"{settings.SITE_URL}/landings/{job.id}#r{self.id}"
+
+        # This is not a functional URL, but this is last resort.
+        return f"{settings.SITE_URL}/#{self.id}"
 
     @property
     def patch_bytes(self) -> bytes:
