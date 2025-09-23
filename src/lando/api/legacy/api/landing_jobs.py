@@ -69,7 +69,6 @@ def put(request: WSGIRequest, job_id: int) -> JsonResponse:
             updated (for example, when trying to cancel a job that is already in
             progress).
     """
-
     data = json.loads(request.body)
     data["landing_job_id"] = job_id
     form = LandingJobForm(data)
