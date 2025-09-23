@@ -106,7 +106,10 @@ class LandingJobAdmin(JobAdmin):
         "target_repo",
     )
     readonly_fields = JobAdmin.readonly_fields + ("formatted_replacements",)
-    search_fields = JobAdmin.search_fields + ("requester_email",)
+    search_fields = JobAdmin.search_fields + (
+        "unsorted_revisions__revision_id",
+        "requester_email",
+    )
 
     def revisions(self, instance: LandingJob) -> str:
         """Return a summary of revisions present in a LandingJob
