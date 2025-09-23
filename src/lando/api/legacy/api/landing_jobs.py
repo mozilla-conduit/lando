@@ -22,8 +22,36 @@ class LandingJobForm(forms.Form):
     status = forms.CharField()
 
 
-@require_authenticated_user
 def get_put(request: WSGIRequest, job_id: int) -> JsonResponse:
+    """Entrypoint to get or update a landing job.
+
+    Routes the request as needed.
+    """
+    if request.method == "PUT":
+        return put(request, job_id)
+
+    return get(request, job_id)
+
+
+def get(request: WSGIRequest, job_id: int) -> JsonResponse:
+    """Get a landing job. description as JSON."""
+    try:
+        job = LandingJob.objects.get(id=job_id)
+    except LandingJob.DoesNotExist:
+        # We should raise the NotFoundProblemException from exc, but for
+        # the time being, we format the response the exception ourselves,
+        # as there's nothing doing it further up.
+        exc = NotFoundProblemException(
+            title="Landing job not found",
+            detail=f"A landing job with ID {job_id} was not found.",
+        )
+        return JsonResponse(exc.to_response(), status=404)
+
+    return JsonResponse(job.to_dict())
+
+
+@require_authenticated_user
+def put(request: WSGIRequest, job_id: int) -> JsonResponse:
     """Update a landing job.
 
     Checks whether the logged in user is allowed to modify the landing job that is
@@ -41,20 +69,6 @@ def get_put(request: WSGIRequest, job_id: int) -> JsonResponse:
             updated (for example, when trying to cancel a job that is already in
             progress).
     """
-    if request.method == "GET":
-        try:
-            job = LandingJob.objects.get(id=job_id)
-        except LandingJob.DoesNotExist:
-            # We should raise the NotFoundProblemException from exc, but for
-            # the time being, we format the response the exception ourselves,
-            # as there's nothing doing it further up.
-            exc = NotFoundProblemException(
-                title="Landing job not found",
-                detail=f"A landing job with ID {job_id} was not found.",
-            )
-            return JsonResponse(exc.to_response(), status=404)
-
-        return JsonResponse(job.to_dict())
 
     data = json.loads(request.body)
     data["landing_job_id"] = job_id
