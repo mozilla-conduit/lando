@@ -325,6 +325,7 @@ def fake_request():
             self.body = "{}"
             if "body" in kwargs:
                 self.body = kwargs.pop("body")
+            self.method = kwargs.pop("method", "GET")
             self.user = FakeUser(*args, **kwargs)
 
     return FakeRequest
@@ -445,13 +446,14 @@ def proxy_client(monkeypatch, fake_request):
         def put(self, path, **kwargs):
             """Handle put endpoint."""
             request_dict = {}
+
             if "permissions" in kwargs:
                 request_dict["permissions"] = kwargs["permissions"]
 
             if "json" in kwargs:
                 request_dict["body"] = json.dumps(kwargs["json"])
 
-            self.request = fake_request(**request_dict)
+            self.request = fake_request(method="PUT", **request_dict)
 
             if path.startswith("/landing_jobs/"):
                 return self._handle__put__landing_jobs__id(path, **kwargs)
