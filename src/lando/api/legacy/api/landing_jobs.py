@@ -34,7 +34,7 @@ def get_put(request: WSGIRequest, job_id: int) -> JsonResponse:
 
 
 def get(request: WSGIRequest, job_id: int) -> JsonResponse:
-    """Get a landing job. description as JSON."""
+    """Get a landing job description as JSON."""
     try:
         job = LandingJob.objects.get(id=job_id)
     except LandingJob.DoesNotExist:
