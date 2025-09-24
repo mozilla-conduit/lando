@@ -166,7 +166,7 @@ class AbstractSCM(ABC):
         """
 
     @abstractmethod
-    def describe_commit(self, revision_id: str) -> CommitData:
+    def describe_commit(self, revision_id: str = "") -> CommitData:
         """Return Commit metadata."""
 
     @abstractmethod
