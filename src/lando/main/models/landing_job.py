@@ -52,7 +52,7 @@ class LandingJob(BaseJob):
 
     @property
     def landed_phabricator_revisions(self) -> dict:
-        """Return revision and diff ID mapping associated with the landing job."""
+        """Return a mapping associating Phabricator revision IDs with the ID of the landed Diff."""
         revision_ids = [revision.id for revision in self.unsorted_revisions.all()]
         revision_landing_jobs = (
             RevisionLandingJob.objects.filter(
@@ -66,7 +66,12 @@ class LandingJob(BaseJob):
 
     @property
     def landed_revisions(self) -> dict:
-        """Return revision and diff ID mapping associated with the landing job."""
+        """Return a mapping associating internal revision IDs with the ID of the landed Diff.
+
+        Note that the concept of a landed Diff is only relevant to Phabricator
+        transplants, and may therefore be None for other types of revisions.
+
+        """
         revision_ids = [revision.id for revision in self.unsorted_revisions.all()]
         revision_landing_jobs = (
             RevisionLandingJob.objects.filter(
@@ -80,30 +85,36 @@ class LandingJob(BaseJob):
 
     @property
     def serialized_landing_path(self) -> list[dict]:
-        """Return landing path based on associated revisions or legacy fields."""
-        if self.unsorted_revisions:
-            if self.unsorted_revisions.first().revision_id:
-                # We have Phabricator revisions.
-                return [
-                    {
-                        "revision_id": "D{}".format(revision_id),
-                        "diff_id": diff_id,
-                    }
-                    for revision_id, diff_id in self.landed_phabricator_revisions.items()
-                ]
-            else:
-                return [
-                    {
-                        "revision_id": "{}".format(revision_id),
-                        "diff_id": diff_id,
-                    }
-                    for revision_id, diff_id in self.landed_revisions.items()
-                ]
-        else:
+        """Return landing path based on associated revisions or legacy fields.
+
+        If the first revision in the list has a Phabricator revision ID, the whole stack
+        is assumed to be a Phabricator stack, and those IDs are returned. Otherwise,
+        internal IDs are returned as the revision_id.
+        """
+        if not self.unsorted_revisions:
+            # Legacy revisions.
             return [
                 {"revision_id": "D{}".format(r), "diff_id": self.revision_to_diff_id[r]}
                 for r in self.revision_order
             ]
+
+        if self.unsorted_revisions.first().revision_id:
+            # We have Phabricator revisions.
+            return [
+                {
+                    "revision_id": "D{}".format(revision_id),
+                    "diff_id": diff_id,
+                }
+                for revision_id, diff_id in self.landed_phabricator_revisions.items()
+            ]
+
+        return [
+            {
+                "revision_id": "{}".format(revision_id),
+                "diff_id": diff_id,
+            }
+            for revision_id, diff_id in self.landed_revisions.items()
+        ]
 
     @property
     def landing_job_identifier(self) -> str:

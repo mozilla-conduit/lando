@@ -27,6 +27,8 @@ class RevisionLandingJob(BaseModel):
     landing_job = models.ForeignKey("LandingJob", on_delete=models.SET_NULL, null=True)
     revision = models.ForeignKey("Revision", on_delete=models.SET_NULL, null=True)
     index = models.IntegerField(null=True, blank=True)
+    # This is only set when a LandingJob is updated via a Phabricator transplant.
+    # See also: LandingJob.set_landed_revision_diffs, called by transplants.post.
     diff_id = models.IntegerField(null=True, blank=True)
 
 
