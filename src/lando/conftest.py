@@ -1,3 +1,4 @@
+import os
 import pathlib
 import re
 import subprocess
@@ -7,7 +8,6 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
-import py
 import pytest
 import requests
 from django.conf import settings
@@ -490,7 +490,7 @@ def git_repo(
 @pytest.mark.django_db
 def hg_repo_mc(
     hg_server: str,
-    hg_clone: py.path,
+    hg_clone: os.PathLike,
     *,
     approval_required: bool = False,
     autoformat_enabled: bool = False,
@@ -571,7 +571,7 @@ def repo_mc(
     tmp_path: pathlib.Path,
     # Hg
     hg_server: str,
-    hg_clone: py.path,
+    hg_clone: os.PathLike,
 ) -> Callable:
     def factory(
         scm_type: str,
@@ -657,19 +657,20 @@ def mocked_repo_config(mock_repo_config):
 
 
 @pytest.fixture
-def hg_clone(hg_server, tmpdir):
+def hg_clone(hg_server: str, tmpdir: os.PathLike) -> os.PathLike:
     clone_dir = tmpdir.join("hg_clone")
     subprocess.run(["hg", "clone", hg_server, clone_dir.strpath], check=True)
     return clone_dir
 
 
 @pytest.fixture
-def hg_test_bundle():
+def hg_test_bundle() -> pathlib.Path:
     return settings.BASE_DIR / "api" / "tests" / "data" / "test-repo.bundle"
 
 
 @pytest.fixture
-def hg_server(hg_test_bundle, tmpdir):
+def hg_server(hg_test_bundle: pathlib.Path, tmpdir: os.PathLike):
+
     # TODO: Select open port.
     port = "8000"
     hg_url = "http://localhost:" + port
