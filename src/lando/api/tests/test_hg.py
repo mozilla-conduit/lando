@@ -438,6 +438,48 @@ def test_HgSCM_apply_patch_git(hg_clone: Path, git_patch: Callable):
     assert new_patch == PATCH_HG_PATCH_GIT_1
 
 
+def test_HgSCM_apply_patch_git_conflict(
+    hg_clone: os.PathLike, git_patch: Callable, monkeypatch: pytest.MonkeyPatch
+):
+    scm = HgSCM(str(hg_clone))
+
+    # Mock the internal method, so the public method can do exception conversion.
+    original_run_hg = scm._run_hg
+
+    def run_hg_conflict_on_import(*args):
+        # Fail the native import, but not the one using `patch`
+        if args[0][0] == "import" and "ui.patch=patch" not in args[0]:
+            raise hglib.error.CommandError(
+                (),
+                1,
+                b"",
+                b"forced fail: hunk FAILED -- saving rejects to file",
+            )
+        return original_run_hg(*args)
+
+    run_hg = mock.MagicMock()
+    run_hg.side_effect = run_hg_conflict_on_import
+    monkeypatch.setattr(scm, "_run_hg", run_hg)
+
+    # Get git-format-patch patch content as bytes
+    patch_str = git_patch()
+    patch_bytes = patch_str.encode("utf-8")
+
+    # Apply patch using the new method
+    with scm.for_push("user@example.com"):
+        scm.apply_patch_git(patch_bytes)
+
+        commit = scm.describe_commit()
+
+        new_patch = scm.get_patch(commit.hash)
+
+    assert new_patch, f"Empty patch unexpectedly generated for {commit.hash}"
+
+    assert new_patch == PATCH_HG_PATCH_GIT_1
+
+    assert run_hg.mock_calls
+
+
 def test_HgSCM_describe_commit(hg_clone):
     scm = HgSCM(str(hg_clone))
 
