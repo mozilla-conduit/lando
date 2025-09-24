@@ -256,11 +256,9 @@ class HgSCM(AbstractSCM):
             # in the local repo.
             # Also, Apply the patch, with file rename detection (similarity).
             # Using 95 as the similarity to match automv's default.
-            import_cmd = ["import", "--no-commit"] + similarity_args
+            import_cmd = ["import", "--no-commit"]
 
-            self._run_hg_patch(import_cmd, f_diff)
-
-            self.run_hg(["addremove"] + similarity_args)
+            self._run_hg_patch(import_cmd, f_diff, similarity_args=similarity_args)
 
             if re.match("^[0-9]+$", commit_date):
                 # If the commit_date is a unix timestamp, convert to Hg internal format.
@@ -285,13 +283,19 @@ class HgSCM(AbstractSCM):
             f_patch.flush()
 
             # `hg import` supports git-formatted patches natively.
-            self._run_hg_patch(import_cmd, f_patch, preserve_git_date=True)
+            self._run_hg_patch(
+                import_cmd,
+                f_patch,
+                similarity_args=["-s", "95"],
+                preserve_git_date=True,
+            )
 
     def _run_hg_patch(
         self,
         import_cmd: list[str],
         patch_or_diff: IO,
         *,
+        similarity_args: list | None = None,
         preserve_git_date: bool = False,
     ):
         # Only relevant if patch_or_diff is a patch.
@@ -305,8 +309,11 @@ class HgSCM(AbstractSCM):
             patch_helper = GitPatchHelper.from_string_io(patch_iostr)
             patch_ts = patch_helper.get_timestamp()
             import_cmd += ["--date", f"{patch_ts} 0"]
+            if similarity_args:
+                import_cmd += similarity_args
         try:
             self.run_hg(import_cmd + [patch_or_diff.name])
+            self.run_hg(["addremove"] + (similarity_args or []))
         except HgPatchConflict as exc:
             # Try again using 'patch' instead of hg's internal patch utility.
             # But first reset to a clean working directory as hg's attempt
