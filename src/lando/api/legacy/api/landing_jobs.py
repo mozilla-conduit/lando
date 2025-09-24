@@ -22,7 +22,7 @@ class LandingJobForm(forms.Form):
 
 
 @require_authenticated_user
-def put(request: WSGIRequest, landing_job_id: int) -> JsonResponse:
+def put(request: WSGIRequest, job_id: int) -> JsonResponse:
     """Update a landing job.
 
     Checks whether the logged in user is allowed to modify the landing job that is
@@ -30,18 +30,18 @@ def put(request: WSGIRequest, landing_job_id: int) -> JsonResponse:
     instance accordingly.
 
     Args:
-        landing_job_id (int): The unique ID of the LandingJob object.
+        job_id (int): The unique ID of the LandingJob object.
         data (dict): A dictionary containing the cleaned data payload from the request.
 
     Raises:
-        LegacyAPIException: If a LandingJob object corresponding to the landing_job_id
+        LegacyAPIException: If a LandingJob object corresponding to the job_id
             is not found, if a user is not authorized to access said LandingJob object,
             if an invalid status is provided, or if a LandingJob object can not be
             updated (for example, when trying to cancel a job that is already in
             progress).
     """
     data = json.loads(request.body)
-    data["landing_job_id"] = landing_job_id
+    data["landing_job_id"] = job_id
     form = LandingJobForm(data)
 
     if not form.is_valid():
@@ -53,22 +53,22 @@ def put(request: WSGIRequest, landing_job_id: int) -> JsonResponse:
         }
         return JsonResponse(data, status=400)
 
-    landing_job_id = form.cleaned_data["landing_job_id"]
+    job_id = form.cleaned_data["landing_job_id"]
     status = form.cleaned_data["status"]
 
     with LandingJob.lock_table:
         try:
-            landing_job = LandingJob.objects.get(pk=landing_job_id)
+            landing_job = LandingJob.objects.get(pk=job_id)
         except LandingJob.DoesNotExist:
             return JsonResponse(
-                {"detail": f"A landing job with ID {landing_job_id} was not found."},
+                {"detail": f"A landing job with ID {job_id} was not found."},
                 status=404,
             )
 
     ldap_username = request.user.email
     if landing_job.requester_email != ldap_username:
         return JsonResponse(
-            {"detail": f"User not authorized to update landing job {landing_job_id}"},
+            {"detail": f"User not authorized to update landing job {job_id}"},
             status=403,
         )
 
