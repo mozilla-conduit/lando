@@ -192,13 +192,19 @@ def test_integrated_hgrepo_patch_success(
         assert expected_log in log_output.decode("utf-8")
 
 
-def test_integrated_hgrepo_patch_hgimport_fail_success(monkeypatch, hg_clone):
-    repo = HgSCM(hg_clone.strpath)
+def test_integrated_hgrepo_patch_hgimport_fail_success(
+    monkeypatch: pytest.MonkeyPatch, hg_clone: os.PathLike
+):
+    """Test the re-application of a patch with `patch` if the Hg-internal method
+    failed."""
+    scm = HgSCM(hg_clone.strpath)
 
-    original_run_hg = repo.run_hg
+    # Mock the internal method, so the public method can do exception conversion.
+    original_run_hg = scm._run_hg
 
     def run_hg_conflict_on_import(*args):
-        if args[0] == "import":
+        # Fail the native import, but not the one using `patch`
+        if args[0][0] == "import" and "ui.patch=patch" not in args[0]:
             raise hglib.error.CommandError(
                 (),
                 1,
@@ -209,20 +215,23 @@ def test_integrated_hgrepo_patch_hgimport_fail_success(monkeypatch, hg_clone):
 
     run_hg = mock.MagicMock()
     run_hg.side_effect = run_hg_conflict_on_import
-    monkeypatch.setattr(repo, "run_hg", run_hg_conflict_on_import)
+    monkeypatch.setattr(scm, "_run_hg", run_hg)
 
-    with repo.for_pull():
+    with scm.for_pull():
         ph = HgPatchHelper.from_string_io(io.StringIO(PATCH_NORMAL))
-        repo.apply_patch(
+        scm.apply_patch(
             ph.get_diff(),
             ph.get_commit_description(),
             ph.get_header("User"),
             ph.get_header("Date"),
         )
+
         # Commit created.
-        assert repo.run_hg(
+        assert scm.run_hg(
             ["outgoing"]
         ), "No outgoing commit after non-hg importable patch has been applied"
+
+    assert run_hg.mock_calls
 
 
 def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
