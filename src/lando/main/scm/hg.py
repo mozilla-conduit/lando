@@ -298,6 +298,11 @@ class HgSCM(AbstractSCM):
         similarity_args: list | None = None,
         preserve_git_date: bool = False,
     ):
+        """Run an `hg import` command, with fallback on using external `patch`.
+
+        Due to the nature of `hg import`, this supports both native HG patches, as well
+        as git-format-patch output.
+        """
         # Only relevant if patch_or_diff is a patch.
         if preserve_git_date:
             patch_or_diff.seek(0)
@@ -326,10 +331,11 @@ class HgSCM(AbstractSCM):
             try:
                 self.run_hg(import_cmd + [patch_or_diff.name])
                 self.run_hg(["addremove"] + (similarity_args or []))
-            except HgException:
-                # Use the original exception from import with the built-in
+            except HgException as exc2:
+                # Convert to a PatchConflict exception, and provide
+                # the original exception from import with the built-in
                 # patcher since both attempts failed.
-                raise exc
+                raise PatchConflict(exc2) from exc
 
     @override
     def get_patch(self, revision_id: str) -> str | None:
