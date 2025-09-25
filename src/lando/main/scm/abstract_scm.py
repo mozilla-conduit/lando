@@ -111,7 +111,7 @@ class AbstractSCM(ABC):
 
     @abstractmethod
     def apply_patch_git(self, patch_bytes: bytes):
-        """Apply the Git patch, provided as undecoded bytes.
+        """Apply the Git patch, provided as encoded bytes.
 
         Args:
             patch_bytes (bytes): A patch in the git-format-patch format.
