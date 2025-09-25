@@ -161,8 +161,6 @@ class HgSCM(AbstractSCM):
         "extensions.purge": "",
         "extensions.strip": "",
         "extensions.rebase": "",
-        "extensions.set_landing_system": settings.BASE_DIR
-        / "api/legacy/hgext/set_landing_system.py",
     }
 
     config: dict
@@ -285,7 +283,6 @@ class HgSCM(AbstractSCM):
                 ["commit"]
                 + ["--date", commit_date]
                 + ["--user", commit_author]
-                + ["--landing_system", "lando"]
                 + ["--logfile", f_msg.name]
             )
 
@@ -520,7 +517,7 @@ class HgSCM(AbstractSCM):
         """
         try:
             # Amend the current commit, using `--no-edit` to keep the existing commit message.
-            self.run_hg(["commit", "--amend", "--no-edit", "--landing_system", "lando"])
+            self.run_hg(["commit", "--amend", "--no-edit"])
 
             return [self.head_ref()]
         except HgCommandError as exc:
@@ -536,12 +533,11 @@ class HgSCM(AbstractSCM):
         try:
             # Create a new commit.
             self.run_hg(
-                ["commit"]
-                + [
+                [
+                    "commit",
                     "--message",
                     commit_message,
                 ]
-                + ["--landing_system", "lando"]
             )
 
             return [self.head_ref()]
@@ -745,7 +741,7 @@ class HgSCM(AbstractSCM):
                     f"Unresolved merge conflicts in files: {', '.join(unresolved_files)}",
                 )
 
-        self.run_hg(["commit", "-m", commit_message, "--landing_system", "lando"])
+        self.run_hg(["commit", "-m", commit_message])
 
         return self.head_ref()
 
