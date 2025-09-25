@@ -313,7 +313,6 @@ class HgSCM(AbstractSCM):
                 import_cmd += similarity_args
         try:
             self.run_hg(import_cmd + [patch_or_diff.name])
-            self.run_hg(["addremove"] + (similarity_args or []))
         except HgPatchConflict as exc:
             # Try again using 'patch' instead of hg's internal patch utility.
             # But first reset to a clean working directory as hg's attempt
@@ -326,6 +325,7 @@ class HgSCM(AbstractSCM):
             # automatically handle add/remove/renames.
             try:
                 self.run_hg(import_cmd + [patch_or_diff.name])
+                self.run_hg(["addremove"] + (similarity_args or []))
             except HgException:
                 # Use the original exception from import with the built-in
                 # patcher since both attempts failed.
