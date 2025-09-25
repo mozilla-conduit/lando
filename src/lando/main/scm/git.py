@@ -1,4 +1,3 @@
-import asyncio
 import io
 import logging
 import os
@@ -11,8 +10,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from django.conf import settings
-from simple_github import AppAuth, AppInstallationAuth
 from typing_extensions import override
 
 from lando.main.scm.commit import CommitData
@@ -104,6 +101,8 @@ class GitSCM(AbstractSCM):
         tags: list[str] | None = None,
     ):
         """Push local code to the remote repository."""
+        from lando.utils.github import GitHubAPI
+
         push_command = ["push"]
 
         if force_push:
@@ -126,7 +125,8 @@ class GitSCM(AbstractSCM):
                 repo = match["repo"]
                 repo_name = repo.removesuffix(".git")
 
-                token = self._get_github_token(owner, repo_name)
+                token = GitHubAPI._get_token(owner, repo_name)
+
                 if token:
                     push_path = f"https://git:{token}@github.com/{owner}/{repo}"
 
@@ -143,32 +143,6 @@ class GitSCM(AbstractSCM):
                 push_command += [f"refs/tags/{tag}"]
 
         self._git_run(*push_command, cwd=self.path)
-
-    @staticmethod
-    def _get_github_token(repo_owner: str, repo_name: str) -> str | None:
-        """Obtain a fresh GitHub token to push to the specified repo.
-
-        This relies on GITHUB_APP_ID and GITHUB_APP_PRIVKEY to be set in the
-        settings. Returns None if those are missing.
-
-        The app with ID GITHUB_APP_ID needs to be enabled for the target repo.
-
-        """
-        app_id = settings.GITHUB_APP_ID
-        private_key = settings.GITHUB_APP_PRIVKEY
-
-        if not app_id or not private_key:
-            logger.warning(
-                f"Missing GITHUB_APP_ID or GITHUB_APP_PRIVKEY to authenticate against GitHub repo {repo_owner}/{repo_name}",
-            )
-            return None
-
-        app_auth = AppAuth(
-            app_id,
-            private_key,
-        )
-        session = AppInstallationAuth(app_auth, repo_owner, repositories=[repo_name])
-        return asyncio.run(session.get_token())
 
     def last_commit_for_path(self, path: str) -> str:
         """Find last commit to touch a path."""
