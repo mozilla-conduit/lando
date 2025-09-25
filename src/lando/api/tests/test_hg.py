@@ -123,14 +123,21 @@ PATCH_NORMAL = r"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add another file.
+add another file and line.
+
 diff --git a/test.txt b/test.txt
 --- a/test.txt
 +++ b/test.txt
 @@ -1,1 +1,2 @@
  TEST
 +adding another line
-""".strip()
+diff --git a/test2.txt b/test2.txt
+new file mode 100644
+--- /dev/null
++++ b/test2.txt
+@@ -0,0 +1,1 @@
++a
+""".lstrip()
 
 PATCH_UNICODE = r"""
 # HG changeset patch
@@ -217,8 +224,10 @@ def test_integrated_hgrepo_patch_hgimport_fail_success(
     run_hg.side_effect = run_hg_conflict_on_import
     monkeypatch.setattr(scm, "_run_hg", run_hg)
 
+    patch_str = PATCH_NORMAL
+
     with scm.for_pull():
-        ph = HgPatchHelper.from_string_io(io.StringIO(PATCH_NORMAL))
+        ph = HgPatchHelper.from_string_io(io.StringIO(patch_str))
         scm.apply_patch(
             ph.get_diff(),
             ph.get_commit_description(),
@@ -230,6 +239,14 @@ def test_integrated_hgrepo_patch_hgimport_fail_success(
         assert scm.run_hg(
             ["outgoing"]
         ), "No outgoing commit after non-hg importable patch has been applied"
+
+        commit = scm.describe_commit()
+
+        new_patch = scm.get_patch(commit.hash)
+
+    assert _trim_variable_patch_parts(new_patch) == _trim_variable_patch_parts(
+        patch_str
+    )
 
     assert run_hg.mock_calls
 
@@ -282,10 +299,8 @@ def test_HgSCM_apply_get_patch(hg_clone: Path, normal_patch: Callable):
 
         new_patch = scm.get_patch(commit.hash)
 
-    # Trim Diff Start Line, Node ID, and Parent.
-    trim_known_diffs = r"# (Diff Start Line|Node ID|Parent)[^\n]+\n"
-    expected_patch = re.sub(trim_known_diffs, "", patch)
-    new_patch = re.sub(trim_known_diffs, "", new_patch)
+    expected_patch = _trim_variable_patch_parts(patch)
+    new_patch = _trim_variable_patch_parts(new_patch)
 
     # `hg export` adds a non-meaningful newline after the commit message.
     new_patch = re.sub("\n\ndiff --git", "\ndiff --git", new_patch)
@@ -405,9 +420,9 @@ PATCH_HG_PATCH_GIT_1 = """\
 # User Py Test <pytest@lando.example.net>
 # Date 1745287375 0
 #      Tue Apr 22 02:02:55 2025 +0000
-# Node ID faad7b7b7cf985b39d4e731e511c5b796d1c0479
+# Node ID cb0b5d6a9c9ec8768206ec25d51cc0029c84fadc
 # Parent  0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4
-No bug: add another line
+No bug: add another file and line
 
 diff --git a/test.txt b/test.txt
 --- a/test.txt
@@ -415,6 +430,12 @@ diff --git a/test.txt b/test.txt
 @@ -1,1 +1,2 @@
  TEST
 +adding another line
+diff --git a/test2.txt b/test2.txt
+new file mode 100644
+--- /dev/null
++++ b/test2.txt
+@@ -0,0 +1,1 @@
++a
 """
 
 
@@ -475,7 +496,9 @@ def test_HgSCM_apply_patch_git_conflict(
 
     assert new_patch, f"Empty patch unexpectedly generated for {commit.hash}"
 
-    assert new_patch == PATCH_HG_PATCH_GIT_1
+    assert _trim_variable_patch_parts(new_patch) == _trim_variable_patch_parts(
+        PATCH_HG_PATCH_GIT_1
+    )
 
     assert run_hg.mock_calls
 
@@ -675,3 +698,9 @@ def test_HgSCM_tag(hg_clone, request: pytest.FixtureRequest):
         )
 
         assert commit_sha.startswith(tagged_sha) or tagged_sha.startswith(commit_sha)
+
+
+def _trim_variable_patch_parts(patch: str):
+    # Trim Diff Start Line, Node ID, and Parent.
+    trim_known_diffs = r"# (Diff Start Line|Node ID|Parent)[^\n]+\n"
+    return re.sub(trim_known_diffs, "", patch)

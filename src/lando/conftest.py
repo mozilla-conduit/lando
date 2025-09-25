@@ -94,14 +94,16 @@ new file mode 100644
 """.lstrip()
 
 PATCH_GIT_1 = """\
-From be6df88a1c2c64621ab9dfdf244272748e93c26f Mon Sep 17 00:00:00 2001
+From 2f33b4dd9a71dcac6b48b586ae88f58e74eb868a Mon Sep 17 00:00:00 2001
 From: Py Test <pytest@lando.example.net>
 Date: Tue, 22 Apr 2025 02:02:55 +0000
-Subject: No bug: add another line
+Subject: [PATCH] No bug: add another file and line
 
 ---
- test.txt | 1 +
- 1 file changed, 1 insertion(+)
+ test.txt  | 1 +
+ test2.txt | 1 +
+ 2 files changed, 2 insertions(+)
+ create mode 100644 test2.txt
 
 diff --git a/test.txt b/test.txt
 index 2a02d41..45e9938 100644
@@ -110,7 +112,14 @@ index 2a02d41..45e9938 100644
 @@ -1 +1,2 @@
  TEST
 +adding another line
--- 
+diff --git a/test2.txt b/test2.txt
+new file mode 100644
+index 0000000..7898192
+--- /dev/null
++++ b/test2.txt
+@@ -0,0 +1 @@
++a
+--
 """  # noqa: W291, `git` adds a trailing whitespace after `--`.
 
 PATCH_GIT_BINARY_1 = """\
