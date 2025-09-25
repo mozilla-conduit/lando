@@ -216,7 +216,7 @@ class GitSCM(AbstractSCM):
 
     @override
     def apply_patch_git(self, patch_bytes: bytes):
-        """Apply the Git patch, provided as undecoded bytes."""
+        """Apply the Git patch, provided as encoded bytes."""
         try:
             # Clean up existing failed `git am`.
             self._git_run("am", "--abort", cwd=self.path)
