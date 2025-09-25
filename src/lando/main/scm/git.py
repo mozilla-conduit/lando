@@ -552,7 +552,7 @@ class GitSCM(AbstractSCM):
         command = ["git"] + list(args)
         sanitised_command = [cls._redact_url_userinfo(a) for a in command]
         logger.info(
-            "running git command#%s: %s",
+            "running git command #%s: %s",
             correlation_id,
             sanitised_command,
             extra={
