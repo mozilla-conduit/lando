@@ -18,6 +18,19 @@
             {% include "stack/partials/uplift-phab-api-key-warning.html" %}
         {% endif %}
 
+        {% if revision_repo and revision_repo.approval_required %}
+        <article class="message is-warning">
+          <div class="message-header">
+            <p>Action Creates New Phabricator Revisions</p>
+          </div>
+          <div class="message-body">
+            Using the Request Uplift button will generate new Phabricator uplift
+            revisions. If you only want to complete the uplift assessment form for
+            this revision, please use the "Edit Uplift Assessment" button instead.
+          </div>
+        </article>
+        {% endif %}
+
         {% if uplift_stack_too_large %}
           <article class="message is-danger">
             <div class="message-header">
