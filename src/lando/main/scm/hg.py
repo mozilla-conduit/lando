@@ -334,8 +334,9 @@ class HgSCM(AbstractSCM):
             except HgException as exc2:
                 # Re-raise the original exception from import with the built-in
                 # patcher since both attempts failed.
-                # NOTE: the order of the from is inverted here, so we retain the
-                # exception with the conflict information first.
+                # NOTE: the order of the `raise ... from` is inverted here, so we retain the
+                # exception with the conflict information at the top of the exception
+                # chain.
                 raise exc from exc2
 
     @override
