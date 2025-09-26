@@ -98,8 +98,7 @@ class LandingJob(BaseJob):
                 for r in self.revision_order
             ]
 
-        if self.unsorted_revisions.first().revision_id:
-            # We have Phabricator revisions.
+        if self.has_phabricator_revisions:
             return [
                 {
                     "revision_id": "D{}".format(revision_id),
@@ -115,6 +114,11 @@ class LandingJob(BaseJob):
             }
             for revision_id, diff_id in self.landed_revisions.items()
         ]
+
+    @property
+    def has_phabricator_revisions(self) -> bool:
+        """Indicate if this job has Phabricator revisions by checking the first in the stack."""
+        return self.unsorted_revisions.first().is_phabricator_revision
 
     @property
     def landing_job_identifier(self) -> str:

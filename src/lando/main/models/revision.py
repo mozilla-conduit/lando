@@ -66,7 +66,7 @@ class Revision(BaseModel):
     _patch_helper: Optional[HgPatchHelper] = None
 
     def __str__(self) -> str:
-        if self.revision_id:
+        if self.is_phabricator_revision:
             return f"D{self.revision_id} (diff {self.diff_id})"
         s = f"Revision {self.id}"
         if desc := self.patch_data.get("commit_message"):
@@ -77,20 +77,27 @@ class Revision(BaseModel):
         """Return a human-readable representation of the instance."""
         # Add an identifier for the Phabricator revision if it exists.
         phab_identifier = (
-            f" [D{self.revision_id}-{self.diff_id}]>" if self.revision_id else ""
+            f" [D{self.revision_id}-{self.diff_id}]>"
+            if self.is_phabricator_revision
+            else ""
         )
         return f"<{self.__class__.__name__}: {self.id}{phab_identifier}>"
 
     def url(self) -> str:
         """Return a public URL for the Revision."""
-        if self.revision_id:
+        if self.is_phabricator_revision:
             return f"{settings.PHABRICATOR_URL}/D{self.revision_id}"
 
         if job := self.landing_jobs.first():
             return f"{settings.SITE_URL}/landings/{job.id}#r{self.id}"
 
         # This is not a functional URL, but this is last resort.
-        return f"{settings.SITE_URL}/#{self.id}"
+        return f"No URL for Revision #{self.id}"
+
+    @property
+    def is_phabricator_revision(self) -> bool:
+        """Indicate if this revision is tied to Phabricator."""
+        return self.revision_id is not None
 
     @property
     def patch_bytes(self) -> bytes:
