@@ -16,6 +16,7 @@ from lando.main.scm import (
     SCM_TYPE_HG,
     AbstractSCM,
 )
+from lando.main.scm.helpers import ALL_CHECKS
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,18 @@ class RepoError(Exception):
     """An exception that is raised when there is a fatal repository related issue."""
 
     pass
+
+
+# Dict of hook names to docstring, suitable as human-friendly choices.
+HOOKS_CHOICES = {chk.__name__: chk.__doc__ or chk.__name__ for chk in ALL_CHECKS}
+
+
+def get_default_hooks() -> list[str]:
+    """Returns a list of all known hook names, suitable as a default value.
+
+    In doubt, we enable everything. An admin can then decide to disable irrelevant
+    hooks."""
+    return list(HOOKS_CHOICES)
 
 
 class Repo(BaseModel):
@@ -153,6 +166,20 @@ class Repo(BaseModel):
 
     # Use this field to enable/disable pre-landing hooks for a repo.
     hooks_enabled = models.BooleanField(default=True)
+
+    # Bring the HOOKS_CHOICES into this namespace for external reference.
+    HOOKS_CHOICES = HOOKS_CHOICES
+
+    # WARNING: Due to this binding, whenever checks are added or removed, a database
+    # migration is needed.
+    hooks = ArrayField(
+        models.CharField(
+            max_length=255, blank=False, null=False, choices=HOOKS_CHOICES
+        ),
+        blank=True,
+        null=True,
+        default=get_default_hooks,
+    )
 
     @property
     def is_legacy(self):  # noqa: ANN201
