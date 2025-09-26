@@ -1,3 +1,4 @@
+import os
 import pathlib
 import re
 import subprocess
@@ -7,7 +8,6 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
-import py
 import pytest
 import requests
 from django.conf import settings
@@ -94,14 +94,16 @@ new file mode 100644
 """.lstrip()
 
 PATCH_GIT_1 = """\
-From be6df88a1c2c64621ab9dfdf244272748e93c26f Mon Sep 17 00:00:00 2001
+From dd187015cd85d59c2a65a3a18c67b2b05e7739b9 Mon Sep 17 00:00:00 2001
 From: Py Test <pytest@lando.example.net>
 Date: Tue, 22 Apr 2025 02:02:55 +0000
-Subject: No bug: add another line
+Subject: No bug: add another file and line
 
 ---
- test.txt | 1 +
- 1 file changed, 1 insertion(+)
+ test.txt  | 1 +
+ test2.txt | 1 +
+ 2 files changed, 2 insertions(+)
+ create mode 100644 test2.txt
 
 diff --git a/test.txt b/test.txt
 index 2a02d41..45e9938 100644
@@ -110,6 +112,13 @@ index 2a02d41..45e9938 100644
 @@ -1 +1,2 @@
  TEST
 +adding another line
+diff --git a/test2.txt b/test2.txt
+new file mode 100644
+index 0000000..7898192
+--- /dev/null
++++ b/test2.txt
+@@ -0,0 +1 @@
++a
 -- 
 """  # noqa: W291, `git` adds a trailing whitespace after `--`.
 
@@ -490,7 +499,7 @@ def git_repo(
 @pytest.mark.django_db
 def hg_repo_mc(
     hg_server: str,
-    hg_clone: py.path,
+    hg_clone: os.PathLike,
     *,
     approval_required: bool = False,
     autoformat_enabled: bool = False,
@@ -571,7 +580,7 @@ def repo_mc(
     tmp_path: pathlib.Path,
     # Hg
     hg_server: str,
-    hg_clone: py.path,
+    hg_clone: os.PathLike,
 ) -> Callable:
     def factory(
         scm_type: str,
@@ -657,19 +666,20 @@ def mocked_repo_config(mock_repo_config):
 
 
 @pytest.fixture
-def hg_clone(hg_server, tmpdir):
+def hg_clone(hg_server: str, tmpdir: os.PathLike) -> os.PathLike:
     clone_dir = tmpdir.join("hg_clone")
     subprocess.run(["hg", "clone", hg_server, clone_dir.strpath], check=True)
     return clone_dir
 
 
 @pytest.fixture
-def hg_test_bundle():
+def hg_test_bundle() -> pathlib.Path:
     return settings.BASE_DIR / "api" / "tests" / "data" / "test-repo.bundle"
 
 
 @pytest.fixture
-def hg_server(hg_test_bundle, tmpdir):
+def hg_server(hg_test_bundle: pathlib.Path, tmpdir: os.PathLike):
+
     # TODO: Select open port.
     port = "8000"
     hg_url = "http://localhost:" + port
