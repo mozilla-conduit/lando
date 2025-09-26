@@ -561,18 +561,23 @@ class GitSCM(AbstractSCM):
         )
 
         result = subprocess.run(
-            command, cwd=path, capture_output=True, text=True, env=cls._git_env()
+            command, cwd=path, capture_output=True, env=cls._git_env()
         )
 
+        try:
+            # Try decoding with utf-8 first.
+            out = result.stdout.decode("utf-8").strip()
+        except UnicodeDecodeError:
+            # Try again with latin-1.
+            out = result.stdout.decode("latin-1").strip()
+
         if result.returncode:
-            redacted_stderr = cls._redact_url_userinfo(result.stderr)
+            redacted_stderr = cls._redact_url_userinfo(result.stderr.decode("utf-8"))
             raise SCMInternalServerError(
                 f"Error running git command; {sanitised_command=}, {path=}, {redacted_stderr}",
-                cls._redact_url_userinfo(result.stdout),
+                cls._redact_url_userinfo(out),
                 redacted_stderr,
             )
-
-        out = result.stdout.strip()
 
         if out:
             logger.info(
