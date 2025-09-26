@@ -332,8 +332,7 @@ class HgSCM(AbstractSCM):
                 # automatically handle add/remove/renames.
                 self.run_hg(["addremove"] + (similarity_args or []))
             except HgException as exc2:
-                # Convert to a PatchConflict exception, and provide
-                # the original exception from import with the built-in
+                # Re-raise the original exception from import with the built-in
                 # patcher since both attempts failed.
                 # NOTE: the order of the from is inverted here, so we retain the
                 # exception with the conflict information first.
