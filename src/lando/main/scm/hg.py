@@ -659,7 +659,7 @@ class HgSCM(AbstractSCM):
         correlation_id = str(uuid.uuid4())
         command_string = " ".join(["hg"] + [shlex.quote(str(arg)) for arg in args])
         logger.info(
-            "running hg command#%s: %s",
+            "running hg command #%s: %s",
             correlation_id,
             command_string,
             extra={
@@ -687,7 +687,7 @@ class HgSCM(AbstractSCM):
         if out:
             out_string = (out.rstrip().decode(self.ENCODING, errors="replace"),)
             logger.info(
-                "output from hg command#%s: %s",
+                "output from hg command #%s: %s",
                 correlation_id,
                 out_string,
                 extra={

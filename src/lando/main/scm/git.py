@@ -578,7 +578,7 @@ class GitSCM(AbstractSCM):
 
         if out:
             logger.info(
-                "output from git command#%s: %s",
+                "output from git command #%s: %s",
                 correlation_id,
                 out,
                 extra={
