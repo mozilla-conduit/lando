@@ -276,7 +276,7 @@ class HgSCM(AbstractSCM):
     def apply_patch_git(self, patch_bytes: bytes):
         """Apply the Git patch, provided as encoded bytes."""
         f_patch = tempfile.NamedTemporaryFile(mode="w+b", suffix=".patch")
-        import_cmd = ["import", "-s", "95"]
+        import_cmd = ["import"]
 
         with f_patch:
             f_patch.write(patch_bytes)
