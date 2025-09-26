@@ -2,7 +2,28 @@ from datetime import datetime
 from typing import Callable, Self
 
 from django.contrib import admin
+from django.contrib.postgres.fields import ArrayField
+from django.forms import CheckboxSelectMultiple, MultipleChoiceField
 from django.utils.translation import gettext_lazy
+
+
+class ArrayFieldMultipleChoiceField(MultipleChoiceField):
+    """Custom form field for ArrayField with choices that shows all available options."""
+
+    def __init__(self, base_field=None, **kwargs):
+        # Remove ArrayField-specific arguments that MultipleChoiceField doesn't accept
+        kwargs.pop('base_field', None)
+        kwargs.pop('max_length', None)
+        kwargs.pop('size', None)
+        super().__init__(**kwargs)
+
+    def prepare_value(self, value):
+        """Convert ArrayField value to format expected by MultipleChoiceField."""
+        if isinstance(value, list):
+            return value
+        if value is None:
+            return []
+        return value
 
 from lando.main.models import (
     CommitMap,
@@ -165,6 +186,14 @@ class RepoAdmin(admin.ModelAdmin):
     )
 
     search_fields = ("pull_path", "push_path", "url")
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == "hooks":
+            kwargs["form_class"] = ArrayFieldMultipleChoiceField
+            kwargs["widget"] = CheckboxSelectMultiple
+            kwargs["choices"] = list(Repo.HOOKS_CHOICES.items())
+            return db_field.formfield(**kwargs)
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
 
 
 class CommitMapAdmin(admin.ModelAdmin):

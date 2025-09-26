@@ -16,6 +16,7 @@ from lando.main.scm import (
     SCM_TYPE_HG,
     AbstractSCM,
 )
+from lando.main.scm.helpers import ALL_CHECKS
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +154,19 @@ class Repo(BaseModel):
 
     # Use this field to enable/disable pre-landing hooks for a repo.
     hooks_enabled = models.BooleanField(default=True)
+
+    HOOKS_CHOICES = {chk.__name__: chk.__doc__ or chk.__name__ for chk in ALL_CHECKS}
+
+    hooks = ArrayField(
+        models.CharField(
+            max_length=255, blank=False, null=False, choices=HOOKS_CHOICES
+        ),
+        blank=True,
+        null=True,
+        # XXX: it would be better if this were a callable, but it seems Django's
+        # migration then eats it anyway.
+        default=list(HOOKS_CHOICES),
+    )
 
     @property
     def is_legacy(self):  # noqa: ANN201
