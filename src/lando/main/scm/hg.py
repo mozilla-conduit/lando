@@ -327,7 +327,7 @@ class HgSCM(AbstractSCM):
             self.clean_repo(strip_non_public_commits=False)
 
             try:
-                self.run_hg(import_cmd + [patch_or_diff.name])
+                self.run_hg(import_cmd + similarity_args + [patch_or_diff.name])
                 # When using an external patch util mercurial won't
                 # automatically handle add/remove/renames.
                 self.run_hg(["addremove"] + (similarity_args or []))
