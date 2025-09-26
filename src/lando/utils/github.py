@@ -81,3 +81,58 @@ class GitHubAPIClient:
 
     def get_pull_request(self, pull_number: int) -> dict:
         return self._get(f"{self.repo_base_url}/pulls/{pull_number}")
+
+    def get_diff(self, url: str) -> str:
+        pass
+
+
+class PullRequest:
+    def __repr__(self) -> str:
+        return f"Pull request #{self.number} ({self.head_repo_git_url})"
+
+    def __init__(self, data: dict):
+        self.url = data["url"]
+        self.base_ref = data["base"]["ref"]  # "source" branch name
+        self.base_sha = data["base"]["sha"]  # "source" branch sha
+        self.base_user_login = data["base"]["user"]["login"]
+        self.base_user_id = data["base"]["user"]["id"]
+        self.created_at = data["created_at"]
+        self.updated_at = data["updated_at"]
+        self.closed_at = data["closed_at"]
+        self.merged_at = data["merged_at"]
+        self.diff_url = data["diff_url"]
+        self.patch_url = data["patch_url"]
+        self.body = data["body"]  # description
+        self.is_draft = data["draft"]
+        self.comments_url = data["comments_url"]
+        self.commits_url = data["commits_url"]
+
+        self.head_ref = data["head"]["ref"]  # "destination" branch name
+        self.head_sha = data["head"]["sha"]
+        self.head_repo_git_url = data["head"]["repo"][
+            "git_url"
+        ]  # e.g., git://github.com/mozilla-conduit/test-repo.git
+        self.html_url = data["html_url"]
+        self.id = data["id"]
+        self.number = data["number"]
+        self.requested_reviewers = [
+            {"id": r["id"], "html_url": r["html_url"], "login": r["login"]}
+            for r in data["requested_reviewers"]
+        ]
+        self.requested_teams = [
+            {
+                "id": r["id"],
+                "html_url": r["html_url"],
+                "name": r["name"],
+                "slug": r["slug"],
+                "description": r["description"],
+            }
+            for r in data["requested_teams"]
+        ]
+
+        self.state = data["state"]  # e.g., "open"
+        self.title = data["title"]
+
+        self.user_id = data["user"]["id"]
+        self.user_html_url = data["user"]["html_url"]
+        self.user_login = data["user"]["login"]
