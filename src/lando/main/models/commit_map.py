@@ -80,7 +80,7 @@ class CommitMap(BaseModel):
 
         This method can raise CommitMap.DoesNotExist.
         """
-        hash_field = f"{src_scm}_hash"
+        hash_field = f"{src_scm}_hash__startswith"
 
         filters = {hash_field: src_commit_hash, "git_repo_name": git_repo_name}
         commit_query = CommitMap.objects.filter(**filters)
@@ -88,9 +88,6 @@ class CommitMap(BaseModel):
         if not commit_query.exists():
             cls.catch_up(git_repo_name)
 
-        # At the moment, we can only have 0 or 1 hit, but this could be different in the
-        # future if, e.g., we want to allow partial hash prefixes and return all
-        # matching commits.
         return commit_query.get()
 
     def serialize(self) -> dict[str, str]:
