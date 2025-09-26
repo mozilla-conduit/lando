@@ -293,7 +293,11 @@ class HgSCM(AbstractSCM):
     @override
     def get_patch(self, revision_id: str) -> str | None:
         """Return a complete patch for the given revision, in the git extended diff format."""
-        return self.run_hg(["export", "--git", "-r", revision_id]).decode("utf-8")
+        out = self.run_hg(["export", "--git", "-r", revision_id])
+        try:
+            return out.decode("utf-8")
+        except UnicodeDecodeError:
+            return out.decode("latin-1")
 
     @override
     def get_patch_helper(self, revision_id: str) -> PatchHelper | None:
