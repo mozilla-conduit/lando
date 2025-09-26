@@ -38,7 +38,7 @@ from lando.treestatus.views.ui import (
 from lando.try_api.api import (
     api as try_api,
 )
-from lando.ui import jobs
+from lando.ui import jobs, pull_requests
 from lando.ui.legacy import pages, revisions, user_settings
 
 urlpatterns = [
@@ -51,6 +51,11 @@ urlpatterns += [
     path("", pages.IndexView.as_view()),
     path(
         "D<int:revision_id>/", revisions.RevisionView.as_view(), name="revisions-page"
+    ),
+    path(
+        "pulls/<str:repo_name>/<int:number>/",
+        pull_requests.PullRequestView.as_view(),
+        name="pull-request",
     ),
     path("manage_api_key/", user_settings.manage_api_key, name="user-settings"),
     path("uplift/", revisions.UpliftRequestView.as_view(), name="uplift-page"),
