@@ -935,3 +935,7 @@ PATCH_HELPER_MAPPING = {
     PatchFormat.GitFormatPatch: GitPatchHelper,
     PatchFormat.HgExport: HgPatchHelper,
 }
+
+ALL_STACK_CHECKS = PatchCollectionCheck.__subclasses__()
+ALL_COMMIT_CHECKS = PatchCheck.__subclasses__()
+ALL_CHECKS = ALL_COMMIT_CHECKS + ALL_STACK_CHECKS
