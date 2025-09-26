@@ -951,6 +951,7 @@ def assert_same_commit_data():
 @pytest.fixture
 def commit_maps(git_repo):
     for git_hash, hg_hash in (
+        ("a" * 39 + "b", "b" * 39 + "c"),
         ("a" * 40, "b" * 40),
         ("c" * 40, "d" * 40),
         ("e" * 40, "f" * 40),

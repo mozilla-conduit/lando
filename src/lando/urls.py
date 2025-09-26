@@ -67,7 +67,7 @@ urlpatterns += [
         name="diff-warnings",
     ),
     re_path(
-        r"api/git2hg/(?P<git_repo_name>.*)/(?P<commit_hash>[0-9a-f]{40})",
+        r"api/git2hg/(?P<git_repo_name>.*)/(?P<commit_hash>[0-9a-f]{7,40})",
         git2hgCommitMapView.as_view(),
         name="git2hg",
     ),
