@@ -335,7 +335,9 @@ class HgSCM(AbstractSCM):
                 # Convert to a PatchConflict exception, and provide
                 # the original exception from import with the built-in
                 # patcher since both attempts failed.
-                raise PatchConflict(exc2) from exc
+                # NOTE: the order of the from is inverted here, so we retain the
+                # exception with the conflict information first.
+                raise exc from exc2
 
     @override
     def get_patch(self, revision_id: str) -> str | None:
