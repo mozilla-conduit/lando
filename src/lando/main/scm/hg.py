@@ -326,10 +326,10 @@ class HgSCM(AbstractSCM):
             import_cmd += ["--config", "ui.patch=patch"]
             self.clean_repo(strip_non_public_commits=False)
 
-            # When using an external patch util mercurial won't
-            # automatically handle add/remove/renames.
             try:
                 self.run_hg(import_cmd + [patch_or_diff.name])
+                # When using an external patch util mercurial won't
+                # automatically handle add/remove/renames.
                 self.run_hg(["addremove"] + (similarity_args or []))
             except HgException as exc2:
                 # Convert to a PatchConflict exception, and provide
