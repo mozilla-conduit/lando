@@ -202,8 +202,14 @@ def test_integrated_hgrepo_patch_success(
 def test_integrated_hgrepo_patch_hgimport_fail_success(
     monkeypatch: pytest.MonkeyPatch, hg_clone: os.PathLike
 ):
-    """Test the re-application of a patch with `patch` if the Hg-internal method
-    failed."""
+    """Test the re-application of a patch with `patch` if the Hg-internal method failed.
+
+    XXX: Due to making the first import fail artificially, rather than with a genuine
+    patch that would fail to import, we don't fully test all aspects of the failover
+    code. Most notably the use of `addremove` isn't adequately tested. Hg
+    successfully applies the supplied patch the second time round, and is able to detect
+    file additions without the need for `addremove`.
+    """
     scm = HgSCM(hg_clone.strpath)
 
     # Mock the internal method, so the public method can do exception conversion.
