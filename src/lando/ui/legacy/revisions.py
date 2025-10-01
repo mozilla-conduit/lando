@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # revisions.before_request(set_last_local_referrer)
 
 
-class Uplift(LandoView):
+class UpliftRequestView(LandoView):
     @force_auth_refresh
     def post(self, request: WSGIRequest) -> HttpResponse:
         """Process the uplift request submission."""
@@ -166,7 +166,7 @@ class UpliftAssessmentEditView(LandoView):
         return redirect(request.META.get("HTTP_REFERER"))
 
 
-class Revision(LandoView):
+class RevisionView(LandoView):
     def get(
         self, request: WSGIRequest, revision_id: int, *args, **kwargs
     ) -> TemplateResponse:

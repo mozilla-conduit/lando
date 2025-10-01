@@ -48,10 +48,12 @@ urlpatterns = [
 ]
 
 urlpatterns += [
-    path("", pages.Index.as_view()),
-    path("D<int:revision_id>/", revisions.Revision.as_view(), name="revisions-page"),
+    path("", pages.IndexView.as_view()),
+    path(
+        "D<int:revision_id>/", revisions.RevisionView.as_view(), name="revisions-page"
+    ),
     path("manage_api_key/", user_settings.manage_api_key, name="user-settings"),
-    path("uplift/", revisions.Uplift.as_view(), name="uplift-page"),
+    path("uplift/", revisions.UpliftRequestView.as_view(), name="uplift-page"),
     path(
         "uplift/assessment/",
         revisions.UpliftAssessmentEditView.as_view(),

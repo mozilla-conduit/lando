@@ -7,6 +7,6 @@ from lando.ui.views import LandoView
 logger = logging.getLogger(__name__)
 
 
-class Index(LandoView):
+class IndexView(LandoView):
     def get(self, request):  # noqa: ANN001, ANN201
         return TemplateResponse(request=request, template="home.html")
