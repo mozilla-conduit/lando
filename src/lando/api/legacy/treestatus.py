@@ -36,6 +36,9 @@ class TreeStatus:
 
             # We assume missing trees are open.
             return True
+        except TreeStatusCommunicationException:
+            # Assume closed, and let the caller try again later
+            return False
 
         try:
             return resp["result"]["status"] in TreeStatus.OPEN_STATUSES

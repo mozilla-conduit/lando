@@ -108,3 +108,14 @@ def test_is_open_for_approval_required_tree(treestatusdouble):
     ts = treestatusdouble.get_treestatus_client()
     treestatusdouble.set_tree("mozilla-central", status="approval required")
     assert ts.is_open("mozilla-central")
+
+
+def test_is_open_assumes_false_on_error(treestatusdouble, monkeypatch):
+    ts = treestatusdouble.get_treestatus_client()
+
+    def fake_get_trees(*args, **kwargs):
+        raise TreeStatusCommunicationException()
+
+    monkeypatch.setattr(ts, "get_trees", fake_get_trees)
+
+    assert not ts.is_open("mozilla-central")
