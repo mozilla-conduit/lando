@@ -51,3 +51,9 @@ def test_CommitMap_get_git_repo_name():
 def test_CommitMap_get_hg_repo_name():
     repo_map = CommitMap.REPO_MAPPING[0]
     assert CommitMap.get_hg_repo_name(repo_map[0]) == repo_map[1]
+
+
+@pytest.mark.django_db(transaction=True)
+def test_CommitMap_git2hg_multiple(commit_maps):
+    with pytest.raises(CommitMap.MultipleObjectsReturned):
+        assert CommitMap.git2hg(commit_maps[0].git_repo_name, "aaaaa")
