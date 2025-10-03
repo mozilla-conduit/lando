@@ -406,7 +406,7 @@ def warning_previously_landed(  # noqa: ANN201
     if job is None:
         return None
 
-    revision_to_diff_id = job.landed_revisions
+    revision_to_diff_id = job.landed_phabricator_revisions
     if job.revision_to_diff_id:
         legacy_data = {
             int(legacy_revision_id): int(legacy_diff_id)
