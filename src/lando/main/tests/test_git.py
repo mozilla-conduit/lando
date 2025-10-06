@@ -6,11 +6,11 @@ import subprocess
 import uuid
 from collections.abc import Callable
 from pathlib import Path
-from typing import Optional
 from unittest.mock import MagicMock
 
 import pytest
 
+from lando.main.scm.consts import MergeStrategy
 from lando.main.scm.exceptions import SCMException, TagAlreadyPresentException
 from lando.main.scm.git import GitSCM
 from lando.main.scm.helpers import GitPatchHelper
@@ -267,7 +267,7 @@ def test_GitSCM_apply_get_patch_merge(
 
     # Merge feature into main
     subprocess.run(["git", "switch", main_branch], cwd=str(clone_path), check=True)
-    strategy = "theirs"
+    strategy = MergeStrategy.THEIRS
     commit_msg = f"Merge main into feature with strategy {strategy}"
     merge_commit = scm.merge_onto(commit_msg, target_branch, strategy)
 
@@ -277,7 +277,7 @@ def test_GitSCM_apply_get_patch_merge(
     assert merge_patch_helper is None
 
 
-def test_GitSCM_apply_patch_bytes(git_repo: Path, git_patch: Callable):
+def test_GitSCM_apply_patch_git(git_repo: Path, git_patch: Callable):
     scm = GitSCM(str(git_repo))
 
     # Get patch content as bytes
@@ -285,7 +285,7 @@ def test_GitSCM_apply_patch_bytes(git_repo: Path, git_patch: Callable):
     patch_bytes = patch_str.encode("utf-8")
 
     # Apply patch using the new method
-    scm.apply_patch_bytes(patch_bytes)
+    scm.apply_patch_git(patch_bytes)
 
     commit = scm.describe_commit()
 
@@ -300,14 +300,14 @@ def test_GitSCM_apply_patch_bytes(git_repo: Path, git_patch: Callable):
     assert no_version_patch == expected_patch
 
 
-def test_GitSCM_apply_patch_bytes_base64(git_repo: Path, git_patch: Callable):
+def test_GitSCM_apply_patch_git_base64(git_repo: Path, git_patch: Callable):
     scm = GitSCM(str(git_repo))
 
     patch_str = git_patch()
     patch_b64 = base64.b64encode(patch_str.encode("utf-8")).decode("ascii")
 
     patch_bytes = base64.b64decode(patch_b64)
-    scm.apply_patch_bytes(patch_bytes)
+    scm.apply_patch_git(patch_bytes)
 
     commit = scm.describe_commit()
 
@@ -322,7 +322,7 @@ def test_GitSCM_apply_patch_bytes_base64(git_repo: Path, git_patch: Callable):
     assert no_version_patch == expected_patch
 
 
-def test_GitSCM_apply_patch_bytes_aborts_on_failure(
+def test_GitSCM_apply_patch_git_aborts_on_failure(
     git_repo: Path,
     git_patch: Callable,
 ):
@@ -335,7 +335,7 @@ def test_GitSCM_apply_patch_bytes_aborts_on_failure(
 
     # Apply a bad patch.
     with pytest.raises(SCMException):
-        scm.apply_patch_bytes(b"blah")
+        scm.apply_patch_git(b"blah")
 
     # Ensure the `rebase-apply` directory is gone.
     assert (
@@ -351,7 +351,7 @@ def test_GitSCM_apply_patch_bytes_aborts_on_failure(
     good_patch_bytes = base64.b64decode(good_patch_b64)
 
     # Apply a good patch with failed `git am` state present.
-    scm.apply_patch_bytes(good_patch_bytes)
+    scm.apply_patch_git(good_patch_bytes)
 
     # Ensure the `rebase-apply` directory is gone.
     assert (
@@ -638,7 +638,7 @@ def test_GitSCM_push(
     git_repo: Path,
     git_setup_user: Callable,
     monkeypatch: pytest.MonkeyPatch,
-    push_target: Optional[str],
+    push_target: str | None,
     request: pytest.FixtureRequest,
     tmp_path: Path,
 ):
@@ -751,7 +751,7 @@ def test_GitSCM_merge_onto(
     git_setup_user: Callable,
     request: pytest.FixtureRequest,
     tmp_path: Path,
-    strategy: Optional[str],
+    strategy: str | None,
 ):
     clone_path = tmp_path / request.node.name
     clone_path.mkdir()
