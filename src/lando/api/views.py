@@ -9,13 +9,18 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from lando.main.models import CommitMap
+from lando.main.models import CommitMap, Repo
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.main.scm import (
     SCM_TYPE_GIT,
     SCM_TYPE_HG,
 )
+from lando.utils.github import GitHubAPIClient, PullRequest
 from lando.utils.phabricator import get_phabricator_client
+
+
+class APIView(View):
+    pass
 
 
 def phabricator_api_key_required(func: callable) -> Callable:
@@ -143,3 +148,16 @@ class hg2gitCommitMapView(CommitMapBaseView):
     """Return corresponding CommitMap given an hg hash."""
 
     scm = SCM_TYPE_HG
+
+
+class PullRequestAPIView(APIView):
+    def get(self, request: WSGIRequest, repo_name: str, number: int):
+        target_repo = Repo.objects.get(name=repo_name)
+        client = GitHubAPIClient(target_repo)
+        pull_request = PullRequest(client.get_pull_request(number))
+        return JsonResponse(pull_request.serialize(), status=200)
+
+
+class LandingJob(View):
+    def post(self, request: WSGIRequest, *args, **kwargs):  # noqa: ANN201
+        pass
