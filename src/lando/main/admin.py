@@ -83,6 +83,15 @@ class JobAdmin(admin.ModelAdmin):
 
 class LandingJobAdmin(JobAdmin):
     model = LandingJob
+    list_display = (
+        "id",
+        "revisions",
+        "status",
+        "target_repo__name",
+        "created_at",
+        "requester_email",
+        "duration_seconds",
+    )
     inlines = (RevisionLandingJobInline,)
     fields = (
         "status",
@@ -97,7 +106,28 @@ class LandingJobAdmin(JobAdmin):
         "target_repo",
     )
     readonly_fields = JobAdmin.readonly_fields + ("formatted_replacements",)
-    search_fields = JobAdmin.search_fields + ("requester_email",)
+    search_fields = JobAdmin.search_fields + (
+        "unsorted_revisions__revision_id",
+        "requester_email",
+    )
+
+    def revisions(self, instance: LandingJob) -> str:
+        """Return a summary of revisions present in a LandingJob
+
+        The summary is the str of the last revision, and a count of all the other
+        revisions present in the Landing Job.
+        """
+        last_revision = instance.unsorted_revisions.order_by("-id").last()
+        nrevisions = instance.unsorted_revisions.count()
+        summary = "(no revision)"
+        if last_revision:
+            summary = str(last_revision)
+            if (nrevisions := nrevisions - 1) > 0:
+                summary = (
+                    f"{summary} and {nrevisions} other{'s' if nrevisions > 1 else ''}"
+                )
+
+        return summary
 
 
 class RevisionAdmin(admin.ModelAdmin):
@@ -112,7 +142,12 @@ class RevisionAdmin(admin.ModelAdmin):
 
     def revision(self, instance: Revision) -> str:
         """Return a Phabricator-like revision identifier."""
-        return f"D{instance.revision_id}"
+        idstr = f"{instance.id}"
+
+        if instance.is_phabricator_revision:
+            return f"D{instance.revision_id} ({idstr})"
+
+        return idstr
 
     def patch_timestamp(self, instance: Revision) -> datetime | None:
         """Return a datetime based on the timestamp from the patch data."""

@@ -371,6 +371,11 @@ def test_integrated_execute_job(
         mock_phab_trigger_repo_update_apply_async.call_count == 1
     ), "Successful landing should trigger Phab repo update."
 
+    # The diff_id is not set for landings not created from Phabricator transplants.
+    assert job.landed_revisions == {
+        r.id: None for r in revisions
+    }, "Incorrect mapping of internal revision IDs to diff ID"
+
     new_commit_count = Commit.objects.filter(repo=repo).count()
     new_push_count = Push.objects.filter(repo=repo).count()
     assert new_commit_count == len(

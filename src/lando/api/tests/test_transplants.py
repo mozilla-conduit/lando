@@ -831,7 +831,7 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
         (r3["id"], d3["id"]),
     ]
     assert job.status == JobStatus.SUBMITTED
-    assert job.landed_revisions == {1: 1, 2: 2, 3: 3}
+    assert job.landed_phabricator_revisions == {1: 1, 2: 2, 3: 3}
 
 
 @pytest.mark.django_db(transaction=True)
@@ -884,7 +884,7 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
         (r2["id"], d2["id"]),
     ]
     assert job.status == JobStatus.SUBMITTED
-    assert job.landed_revisions == {1: 1, 2: 2}
+    assert job.landed_phabricator_revisions == {1: 1, 2: 2}
 
 
 @pytest.mark.django_db
@@ -957,7 +957,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
         (r2["id"], d2["id"]),
     ]
     assert job.status == JobStatus.SUBMITTED
-    assert job.landed_revisions == {1: 1, 2: 2}
+    assert job.landed_phabricator_revisions == {1: 1, 2: 2}
     approved_by = [revision.data["approved_by"] for revision in job.revisions.all()]
     assert approved_by == [[101], [102]]
 
@@ -990,7 +990,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
 
 
 @pytest.mark.django_db(transaction=True)
-def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
+def test_integrated_transplant_updated_diff_id_reflected_in_landed_phabricator_revisions(
     proxy_client,
     phabdouble,
     release_management_project,
@@ -1036,7 +1036,7 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
         (r1["id"], d1a["id"]),
     ]
     assert job.status == JobStatus.SUBMITTED
-    assert job.landed_revisions == {r1["id"]: d1a["id"]}
+    assert job.landed_phabricator_revisions == {r1["id"]: d1a["id"]}
 
     # Fetch JSON data.
     response = proxy_client.get(
@@ -1096,8 +1096,8 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     assert job_1.status == JobStatus.CANCELLED
     assert job_2.status == JobStatus.SUBMITTED
 
-    assert job_1.landed_revisions == {r1["id"]: d1a["id"]}
-    assert job_2.landed_revisions == {r1["id"]: d1b["id"]}
+    assert job_1.landed_phabricator_revisions == {r1["id"]: d1a["id"]}
+    assert job_2.landed_phabricator_revisions == {r1["id"]: d1b["id"]}
 
 
 @pytest.mark.django_db(transaction=True)
@@ -2079,4 +2079,4 @@ def test_transplant_on_linked_legacy_repo(
     ]
     assert job.status == JobStatus.SUBMITTED
     assert job.target_repo == new_repo
-    assert job.landed_revisions == {1: 1, 2: 2, 3: 3}
+    assert job.landed_phabricator_revisions == {1: 1, 2: 2, 3: 3}
