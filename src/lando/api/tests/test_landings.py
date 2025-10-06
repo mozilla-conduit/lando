@@ -78,29 +78,11 @@ No bug: add a binary file
 
 diff --git a/binary b/binary
 new file mode 100644
-index 0000000000000000000000000000000000000000..9b188c02440f750acbc76cdb5c29825a7686e32a
+index 0000000000000000000000000000000000000000..0a4a1abd1fe6031fedcd6c37a8ae159b4815dbf1
 GIT binary patch
-literal 1024
-zc$@(M1poW7dD8JtJ1iH;E>hS@A6;!Nfo73I;}xn+TX*1+SuI7&UO|ADkWM3k1Sy+~
-zj#DY!i46xI%7bedr(1y&&PgU+b0ROSU&GE!O;_)4vr6PiB!h<NlM;gOY;1(E4Apxy
-zk8Kp(jH;SY5q6;s4ppgHYa}-V-jf3fP-9`%C6FtX0*hRwNMO;OUnJu@74^}m=2L*B
-z5u73}*E@jlR@N+F8WF%PSVSv48qy>V(l*k`c~#ZtE0S=EKb)@0$n+!C&QJ*HR->_s
-z@GJfKW#lfE{*8hU9R#0ywtGB5Da#8gN$~t`Dw+R!zf1B!!mjCMsl_?OQbT1iKrp3o
-z+pSuk-|#uW0O;LSMb1yl5LozN2Ogoyy(<$G%-4dI*v2#YJm930WRvn5TBXyCcaw`q
-zrCmg2s1mm(i*~rXD_g+!5vo6C)b*&bRVMc^JDA-rXBWz%t~(!r=1HX6Qn+si4G;}c
-zlEr7+WB>pQ49z|)tcdbK?Ep<FjG<5{+%?li{2&*c-87~uzueI|&nw%{fa&5bsFO~Y
-z>YS{Y)C?++#E*-kl@mxz>--dwS?+fB{-@nlYwC!Ltlsr+Hf!+Dxg%8kiOdNL9lW*Z
-zhGCZ{jHN^hr4nCy>_dhrB?g|0;JioasfaJwSdJ(dFl#JhYwQrE#7BwH9AFIk1hzTz
-zK7G+A*OPA5O((WLuCIWc$(Jos8UjlUUSdArLvD*Dy6=tAO81l(4A|0YN_JV0a<6S$
-z>c8?r@sXEU6B%VRrJ7)6meAjMdfq#gq7&V^K)0FTQhb;{@IX^4&mbsA5gK5>uT}*C
-zwZgv&oX27=?W4qX{Ue>K4YM)8^qH5#+o^S|j{;|O>X7ll>Hr}C$N=F^ZIv@GKa&-2
-za^hyA689+g9l8YtLJjq#Pk3>+Wd__enxQ7N)Qe1G<Z76;M<=6I;T7tNT3}x+Kiqzj
-z)bfNmSS>|}&|LBLS3vx-UB2CH&%mM_0vMnU{d$z@XZy%c=L{X+%!jPYl61M0;IQ^<
-zEI+AIS|(Q2Iv}7U9n76JWB+Qw@okX*ZeLRgdtj1nT1Br2R$-+lFtBTTC!wl!Q?`OY
-z2y}ALa9=?X5(<~L#Mhw*CA|38h9qZP^T7F<{-R#3IKbC;Wa7=9!o}01C5T+ko0!F3
-zJUF57(greNJI}q`6s6B=^w~q8U}YW9_Ukia#;LOb>A<)3`jhq12L6M5uqUDoa`Kj$
-zNNEs_SB|G5lY)TC@()``uB5LBr4Zgry$mPG+|Bz#W3pVw^NLsTy{%z*cEe+-@LPs|
-uZ02$~FEIv7g})v&&=Sm9n&rk(iK7)mNzfs&J%C^7kW0unJUAZQA!LWK68NhC
+literal 68
+zc$@)50K5MhMc<=BLKstkXJsT7RIY2HuAtX}0dvKNfMp^@U!h!sfdYnwR$o?7IN*n{
+af&r|$f$<+hwsrnO@__&U{{;X4B>w*ZZ6WCZ
 
 literal 0
 Hc$@<O00001
