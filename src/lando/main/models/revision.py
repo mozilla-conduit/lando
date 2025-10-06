@@ -88,10 +88,6 @@ class Revision(BaseModel):
         if self.is_phabricator_revision:
             return f"{settings.PHABRICATOR_URL}/D{self.revision_id}"
 
-        if job := self.landing_jobs.first():
-            return f"{settings.SITE_URL}/landings/{job.id}#r{self.id}"
-
-        # This is not a functional URL, but this is last resort.
         return f"No URL for Revision #{self.id}"
 
     @property
