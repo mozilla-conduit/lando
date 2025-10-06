@@ -274,6 +274,7 @@ class BaseJob(BaseModel):
     def to_dict(self) -> dict[str, Any]:
         """Return the job details as a dict."""
         job_dict = {
+            "commit_id": self.landed_commit_id,
             "created_at": self.created_at,
             "error": None,
             "id": self.id,
@@ -287,8 +288,5 @@ class BaseJob(BaseModel):
 
         if self.target_repo:
             job_dict["repository"] = self.target_repo.short_name
-
-        if self.landed_commit_id:
-            job_dict["commit_id"] = self.landed_commit_id
 
         return job_dict
