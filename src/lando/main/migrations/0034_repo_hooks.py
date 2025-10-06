@@ -7,9 +7,8 @@ import lando.main.models.repo
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ("main", "0031_alter_landingjob_requester_email"),
+        ("main", "0033_alter_worker_type"),
     ]
 
     operations = [
