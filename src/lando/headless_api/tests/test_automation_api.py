@@ -16,7 +16,7 @@ from lando.api.legacy.workers.automation_worker import AutomationWorker
 from lando.api.tests.mocks import TreeStatusDouble
 from lando.api.tests.test_hg import _create_hg_commit
 from lando.conftest import FAILING_CHECK_TYPES
-from lando.headless_api.api import (
+from lando.headless_api.models.automation_job import (
     AutomationAction,
     AutomationJob,
 )
@@ -863,16 +863,25 @@ def test_automation_job_create_commit_failed_check_override(
     assert job.status == JobStatus.LANDED, f"Job failed despite overrides: {job.error}"
 
 
+@pytest.fixture
+def mock_landing_checks_run(monkeypatch: pytest.MonkeyPatch):
+    mock_run = mock.MagicMock()
+    mock_run.return_value = []
+    monkeypatch.setattr("lando.utils.landing_checks.LandingChecks.run", mock_run)
+    return mock_run
+
+
 @pytest.mark.django_db
 def test_automation_job_create_commit_failed_check_unchecked(
-    repo_mc,
-    treestatusdouble,
-    get_automation_worker,
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    get_automation_worker: Callable,
     mock_phab_trigger_repo_update_apply_async: mock.Mock,
+    mock_landing_checks_run: mock.Mock,
     get_failing_check_action_reason: Callable,
-    get_failing_check_diff,
-    automation_job,
-    monkeypatch,
+    get_failing_check_diff: Callable,
+    automation_job: Callable,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     repo = repo_mc(SCM_TYPE_HG)
     scm = repo.scm
@@ -897,26 +906,19 @@ def test_automation_job_create_commit_failed_check_unchecked(
         requester_email="example@example.com",
         target_repo=repo,
     )
-    mock_run_automation_checks = mock.MagicMock()
-    monkeypatch.setattr(
-        automation_worker, "run_automation_checks", mock_run_automation_checks
-    )
     automation_worker.run_job(job)
-    assert mock_run_automation_checks.call_count == 1
+    assert mock_landing_checks_run.call_count == 1
 
     # Create the same job with an invalid action and a commit with release override.
+    mock_landing_checks_run.reset_mock()
     job, _actions = automation_job(
         actions=[no_bug_action_data, release_action_data],
         status=JobStatus.SUBMITTED,
         requester_email="example@example.com",
         target_repo=repo,
     )
-    mock_run_automation_checks = mock.MagicMock()
-    monkeypatch.setattr(
-        automation_worker, "run_automation_checks", mock_run_automation_checks
-    )
     automation_worker.run_job(job)
-    assert mock_run_automation_checks.call_count == 0
+    assert mock_landing_checks_run.call_count == 0
 
 
 @pytest.mark.parametrize("scm_type", (SCM_TYPE_HG, SCM_TYPE_GIT))
@@ -1024,12 +1026,12 @@ def test_automation_job_merge_onto_success_git(
 
 @pytest.mark.django_db
 def test_automation_job_merge_onto_fast_forward_git(
-    repo_mc,
-    treestatusdouble,
-    git_automation_worker,
-    request,
-    monkeypatch,
-    automation_job,
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    mock_landing_checks_run: mock.Mock,
+    git_automation_worker: AutomationWorker,
+    request: pytest.FixtureRequest,
+    automation_job: Callable,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
     scm = repo.scm
@@ -1065,12 +1067,8 @@ def test_automation_job_merge_onto_fast_forward_git(
 
     git_automation_worker.worker_instance.applicable_repos.add(repo)
 
-    mock_run_automation_checks = mock.MagicMock()
-    monkeypatch.setattr(
-        git_automation_worker, "run_automation_checks", mock_run_automation_checks
-    )
     assert git_automation_worker.run_job(job)
-    assert mock_run_automation_checks.call_count == 0
+    assert mock_landing_checks_run.call_count == 0
     assert job.status == JobStatus.LANDED
 
     head_ref = scm.head_ref()
@@ -1330,13 +1328,14 @@ def test_automation_job_tag_retag_success_git(
 
 @pytest.mark.django_db
 def test_automation_job_tag_success_git_new_commit(
-    repo_mc,
-    treestatusdouble,
-    get_automation_worker,
-    request,
-    monkeypatch,
-    git_patch,
-    automation_job,
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    mock_landing_checks_run: mock.Mock,
+    get_automation_worker: Callable,
+    request: pytest.FixtureRequest,
+    monkeypatch: pytest.MonkeyPatch,
+    git_patch: Callable,
+    automation_job: Callable,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
     scm = repo.scm
@@ -1363,14 +1362,8 @@ def test_automation_job_tag_success_git_new_commit(
     automation_worker = get_automation_worker(SCM_TYPE_GIT)
     automation_worker.worker_instance.applicable_repos.add(repo)
 
-    mock_run_automation_checks = mock.Mock(
-        wraps=automation_worker.run_automation_checks
-    )
-    monkeypatch.setattr(
-        automation_worker, "run_automation_checks", mock_run_automation_checks
-    )
     assert automation_worker.run_job(job)
-    assert mock_run_automation_checks.call_count == 1
+    assert mock_landing_checks_run.call_count == 1
     assert job.status == JobStatus.LANDED
 
     # Tag should be on the most recent commit.
