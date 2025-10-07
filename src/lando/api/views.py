@@ -127,6 +127,11 @@ class CommitMapBaseView(View):
             return JsonResponse(
                 {"error": "No commits found", "detail": error_detail}, status=404
             )
+        except CommitMap.MultipleObjectsReturned as exc:
+            error_detail = f"Multiple commits found in {self.scm} for {commit_hash} in {git_repo_name}: {exc}"
+            return JsonResponse(
+                {"error": "Multiple commits found", "detail": error_detail}, status=400
+            )
 
         return JsonResponse(commit.serialize(), status=200)
 
