@@ -37,9 +37,9 @@ from lando.main.scm import (
     TreeApprovalRequired,
     TreeClosed,
 )
-from lando.main.scm.helpers import LandingChecks
 from lando.pushlog.pushlog import PushLog, PushLogForRepo
 from lando.utils.config import read_lando_config
+from lando.utils.landing_checks import LandingChecks
 from lando.utils.tasks import phab_trigger_repo_update
 
 logger = logging.getLogger(__name__)

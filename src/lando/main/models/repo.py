@@ -16,7 +16,7 @@ from lando.main.scm import (
     SCM_TYPE_HG,
     AbstractSCM,
 )
-from lando.main.scm.helpers import ALL_CHECKS
+from lando.utils.landing_checks import ALL_CHECKS
 
 logger = logging.getLogger(__name__)
 
