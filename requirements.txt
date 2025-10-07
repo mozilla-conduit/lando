@@ -1786,9 +1786,9 @@ ruff==0.13.3 \
     --hash=sha256:f14e0d1fe6460f07814d03c6e32e815bff411505178a1f539a38f6097d3e8ee3 \
     --hash=sha256:fc6fa4637284708d6ed4e5e970d52fc3b76a557d7b4e85a53013d9d201d93286
     # via lando (pyproject.toml)
-sentry-sdk==2.39.0 \
-    --hash=sha256:8c185854d111f47f329ab6bc35993f28f7a6b7114db64aa426b326998cfa14e9 \
-    --hash=sha256:ba655ca5e57b41569b18e2a5552cb3375209760a5d332cdd87c6c3f28f729602
+sentry-sdk==2.40.0 \
+    --hash=sha256:b9c4672fb2cafabcc28586ab8fd0ceeff9b2352afcf2b936e13d5ba06d141b9f \
+    --hash=sha256:d5f6ae0f27ea73e7b09c70ad7d42242326eb44765e87a15d8c5aab96b80013e6
     # via lando (pyproject.toml)
 setuptools-scm==9.2.0 \
     --hash=sha256:6662c9b9497b6c9bf13bead9d7a9084756f68238302c5ed089fb4dbd29d102d7 \
