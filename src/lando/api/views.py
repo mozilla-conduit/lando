@@ -15,8 +15,9 @@ from lando.main.scm import (
     SCM_TYPE_GIT,
     SCM_TYPE_HG,
 )
-from lando.main.scm.helpers import GitPatchHelper
+from lando.main.scm.helpers import CommitMessagesCheck, GitPatchHelper
 from lando.utils.github import GitHubAPIClient, PullRequest
+from lando.utils.landing_checks import ALL_CHECKS, LandingChecks
 from lando.utils.phabricator import get_phabricator_client
 
 
@@ -169,7 +170,17 @@ class PullRequestBlockersWarningAPIView(APIView):
 
         patch_helper = GitPatchHelper(patch.encode())
 
-        return JsonResponse({"patch": patch})
+        landing_checks = LandingChecks(f"{pull_request.user_login}@github-pr")
+        blockers = landing_checks.run(
+            [
+                chk.__name__
+                for chk in ALL_CHECKS
+                if chk.__name__ != CommitMessagesCheck.__name__
+            ],
+            [patch_helper],
+        )
+
+        return JsonResponse({"blockers": blockers, "diff": patch_helper.diff})
 
 
 class LandingJob(View):
