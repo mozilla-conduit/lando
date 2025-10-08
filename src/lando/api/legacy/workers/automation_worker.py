@@ -101,9 +101,12 @@ class AutomationWorker(Worker):
             new_commits = scm.describe_local_changes(base_cset=pre_head_ref)
 
             if not self.skip_checks(job, new_commits) and repo.hooks_enabled:
-                landing_checks = LandingChecks(repo.scm, job.requester_email)
+                patch_helpers = [
+                    repo.scm.get_patch_helper(commit.hash) for commit in new_commits
+                ]
+                landing_checks = LandingChecks(job.requester_email)
                 try:
-                    check_errors = landing_checks.run(repo.hooks, new_commits)
+                    check_errors = landing_checks.run(repo.hooks, patch_helpers)
                 except Exception as exc:
                     message = "Unexpected error while performing landing checks."
                     logger.exception(message)
