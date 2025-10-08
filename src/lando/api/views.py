@@ -25,6 +25,7 @@ from lando.main.scm import (
     SCM_TYPE_GIT,
     SCM_TYPE_HG,
 )
+from lando.main.scm.helpers import GitPatchHelper
 from lando.utils.github import GitHubAPIClient, PullRequest
 from lando.utils.phabricator import get_phabricator_client
 
@@ -237,4 +238,13 @@ class LandingJobPullRequestAPIView(View):
         job.status = JobStatus.SUBMITTED
         job.save()
 
-        return JsonResponse({"id": job.id}, status=201)
+
+class PullRequestChecksAPIView(APIView):
+    def get(self, request: WSGIRequest, repo_name: str, number: int) -> JsonResponse:
+        target_repo = Repo.objects.get(name=repo_name)
+        client = GitHubAPIClient(target_repo)
+        pull_request = PullRequest(client.get_pull_request(number))
+
+        patch = pull_request.get_patch(client)
+
+        return JsonResponse({"patch": patch})
