@@ -13,6 +13,8 @@ import requests
 from django.conf import settings
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
+from ninja import NinjaAPI
+from ninja.testing import TestClient
 
 from lando.api.legacy.stacks import (
     RevisionStack,
@@ -506,6 +508,8 @@ def hg_repo_mc(
     automation_enabled: bool = True,
     force_push: bool = False,
     hooks_enabled: bool = True,
+    hooks: list[str] | None = None,
+    hooks_to_disable: list[str] | None = None,
     name: str = "",
     push_target: str = "",
 ) -> Repo:
@@ -522,12 +526,19 @@ def hg_repo_mc(
         "automation_enabled": automation_enabled,
         "force_push": force_push,
         "hooks_enabled": hooks_enabled,
+        # We only set "hooks" below, if not empty.
         "push_target": push_target,
     }
+    if hooks:
+        params["hooks"] = hooks
+
     repo = Repo.objects.create(
         scm_type=SCM_TYPE_HG,
         **params,
     )
+    if hooks_to_disable:
+        repo.hooks = [h for h in repo.hooks if h not in hooks_to_disable]
+
     repo.save()
     return repo
 
@@ -542,6 +553,8 @@ def git_repo_mc(
     automation_enabled: bool = True,
     force_push: bool = False,
     hooks_enabled: bool = True,
+    hooks: list[str] | None = None,
+    hooks_to_disable: list[str] | None = None,
     name: str = "",
     push_target: str = "",
 ) -> Repo:
@@ -561,13 +574,19 @@ def git_repo_mc(
         "automation_enabled": automation_enabled,
         "force_push": force_push,
         "hooks_enabled": hooks_enabled,
+        # We only set "hooks" below, if not empty.
         "push_target": push_target,
     }
+    if hooks:
+        params["hooks"] = hooks
 
     repo = Repo.objects.create(
         scm_type=SCM_TYPE_GIT,
         **params,
     )
+    if hooks_to_disable:
+        repo.hooks = [h for h in repo.hooks if h not in hooks_to_disable]
+
     repo.save()
     repo.scm.prepare_repo(repo.pull_path)
     return repo
@@ -590,14 +609,24 @@ def repo_mc(
         automation_enabled: bool = True,
         force_push: bool = False,
         hooks_enabled: bool = True,
+        hooks: list[str] | None = None,
+        hooks_to_disable: list[str] | None = None,
         name: str = "",
         push_target: str = "",
     ) -> Repo:
+
+        # The BMO reference check 1) requires access to a BMO instance to test with and
+        # 2) is only needed for Try. We disable it here to be closer to a normal MC
+        # repo.
+        default_hooks_to_disable = ["BugReferencesCheck"]
+
         params = {
             "approval_required": approval_required,
             "autoformat_enabled": autoformat_enabled,
             "automation_enabled": automation_enabled,
             "hooks_enabled": hooks_enabled,
+            "hooks": hooks or [],
+            "hooks_to_disable": hooks_to_disable or default_hooks_to_disable,
             "force_push": force_push,
             "name": name,
             "push_target": push_target,
@@ -716,16 +745,26 @@ def hg_server(hg_test_bundle: pathlib.Path, tmpdir: os.PathLike):
 
 
 @pytest.fixture
-def conduit_permissions():
+def to_permissions() -> Callable:
+    """Convert a list of un-namespaced permissions strings to a list of Permissions."""
+
+    def to_permissions(permissions: list[str]) -> list[Permission]:
+        all_perms = Profile.get_all_scm_permissions()
+
+        return [all_perms[p] for p in permissions]
+
+    return to_permissions
+
+
+@pytest.fixture
+def conduit_permissions(to_permissions: Callable) -> list[Permission]:
     permissions = (
         "scm_level_1",
         "scm_level_2",
         "scm_level_3",
         "scm_conduit",
     )
-    all_perms = Profile.get_all_scm_permissions()
-
-    return [all_perms[p] for p in permissions]
+    return to_permissions(permissions)
 
 
 @pytest.fixture
@@ -744,23 +783,42 @@ def landing_worker_instance(mocked_repo_config):
 
 
 @pytest.fixture
+def scm_user() -> Callable:
+    def scm_user(perms: list[Permission], password: str = "password") -> User:
+        """Return a user with the selected Permissions and password."""
+        user = User.objects.create_user(
+            username="test_user",
+            password=password,
+            email="testuser@example.org",
+        )
+
+        user.profile = Profile(user=user, userinfo={"name": "test user"})
+
+        for permission in perms:
+            user.user_permissions.add(permission)
+
+        user.save()
+        user.profile.save()
+
+        return user
+
+    return scm_user
+
+
+@pytest.fixture
 def user_phab_api_key():
     return "api-123456789012345678901234567x"
 
 
 @pytest.fixture
-def user(user_plaintext_password, conduit_permissions, user_phab_api_key):
-    user = User.objects.create_user(
-        username="test_user",
-        password=user_plaintext_password,
-        email="testuser@example.org",
-    )
-
-    user.profile = Profile(user=user, userinfo={"name": "test user"})
-
-    for permission in conduit_permissions:
-        user.user_permissions.add(permission)
-
+def user(
+    scm_user: Callable,
+    user_plaintext_password: str,
+    conduit_permissions: list[str],
+    user_phab_api_key: str,
+) -> User:
+    """A User with all SCM permissions levels."""
+    user = scm_user(conduit_permissions, user_plaintext_password)
     user.profile.save_phabricator_api_key(user_phab_api_key)
 
     user.save()
@@ -1055,3 +1113,24 @@ def active_mock() -> Callable:
         return mock_method
 
     return _active_mock
+
+
+@pytest.fixture()
+def api_client() -> Callable:
+    """Fixture to create a test client for the API."""
+
+    # XXX If we pass the API directly, we get an error if we want to use this client
+    # more than once (regardless of the scope of the fixture), as follows:
+    #
+    #    Looks like you created multiple NinjaAPIs or TestClients
+    #    To let ninja distinguish them you need to set either unique version or urls_namespace
+    #     - NinjaAPI(..., version='2.0.0')
+    #     - NinjaAPI(..., urls_namespace='otherapi')
+    #
+    # Passing the pre-existing router to the TestClient instead, works. However, getting the
+    # router is not golden-path.
+    #
+    def api_client(api: NinjaAPI) -> TestClient:
+        return TestClient(api.default_router)
+
+    return api_client

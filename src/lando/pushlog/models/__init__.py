@@ -7,9 +7,9 @@ from .push import Push
 
 __all__ = [
     # commits
-    Commit,
-    File,
-    Tag,
+    "Commit",
+    "File",
+    "Tag",
     # push
-    Push,
+    "Push",
 ]
