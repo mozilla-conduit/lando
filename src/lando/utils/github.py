@@ -63,7 +63,10 @@ class GitHubAPI:
 
 
 class GitHubAPIClient:
-    client = None
+    client: GitHubAPI
+
+    repo: Repo
+    repo_base_url: str
 
     def __init__(self, repo: Repo):
         self.client = GitHubAPI(repo)
@@ -75,6 +78,11 @@ class GitHubAPIClient:
     def _get(self, path: str, *args, **kwargs):
         result = self.client.get(path, *args, **kwargs)
         return result.json()
+
+    @property
+    def session(self) -> requests.Session:
+        """Return the underlying HTTP session."""
+        return self.client.session
 
     def list_pull_requests(self) -> list:
         return self._get(f"{self.repo_base_url}/pulls")
@@ -168,3 +176,15 @@ class PullRequest:
             "user_html_url": self.user_html_url,
             "user_login": self.user_login,
         }
+
+    def get_patch(self, client: GitHubAPIClient) -> str:
+        """Return a series of patches from the PR's commits.
+
+        Patches from each commit are concatenated into a single string.
+
+        This includes binary content, unlike `get_diff`.
+        """
+        response = client.session.get(self.patch_url)
+        response.raise_for_status()
+
+        return response.text

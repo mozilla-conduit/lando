@@ -22,6 +22,7 @@ from lando.api.legacy.api import landing_jobs
 from lando.api.views import (
     LegacyDiffWarningView,
     PullRequestAPIView,
+    PullRequestBlockersWarningAPIView,
     git2hgCommitMapView,
     hg2gitCommitMapView,
 )
@@ -89,6 +90,11 @@ urlpatterns += [
         "api/pulls/<str:repo_name>/<int:number>",
         PullRequestAPIView.as_view(),
         name="api-pull-request",
+    ),
+    path(
+        "api/pulls/blocker_warnings/<str:repo_name>/<int:number>",
+        PullRequestBlockersWarningAPIView.as_view(),
+        name="api-pull-request-diff-warnings",
     ),
 ]
 
