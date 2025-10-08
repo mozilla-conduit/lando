@@ -15,6 +15,7 @@ from lando.main.scm import (
     SCM_TYPE_GIT,
     SCM_TYPE_HG,
 )
+from lando.main.scm.helpers import GitPatchHelper
 from lando.utils.github import GitHubAPIClient, PullRequest
 from lando.utils.phabricator import get_phabricator_client
 
@@ -151,11 +152,24 @@ class hg2gitCommitMapView(CommitMapBaseView):
 
 
 class PullRequestAPIView(APIView):
-    def get(self, request: WSGIRequest, repo_name: str, number: int):
+    def get(self, request: WSGIRequest, repo_name: str, number: int) -> JsonResponse:
         target_repo = Repo.objects.get(name=repo_name)
         client = GitHubAPIClient(target_repo)
         pull_request = PullRequest(client.get_pull_request(number))
         return JsonResponse(pull_request.serialize(), status=200)
+
+
+class PullRequestBlockersWarningAPIView(APIView):
+    def get(self, request: WSGIRequest, repo_name: str, number: int) -> JsonResponse:
+        target_repo = Repo.objects.get(name=repo_name)
+        client = GitHubAPIClient(target_repo)
+        pull_request = PullRequest(client.get_pull_request(number))
+
+        patch = pull_request.get_patch(client)
+
+        patch_helper = GitPatchHelper(patch.encode())
+
+        return JsonResponse({"patch": patch})
 
 
 class LandingJob(View):
