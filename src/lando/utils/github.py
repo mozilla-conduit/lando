@@ -3,7 +3,6 @@ import io
 import logging
 import math
 from datetime import datetime
-from enum import Enum
 
 import requests
 from django.conf import settings
@@ -75,7 +74,10 @@ class GitHubAPI:
 class GitHubAPIClient:
     """A convenience client that provides various methods to interact with the GitHub API."""
 
-    client = None
+    client: GitHubAPI
+
+    repo: Repo
+    repo_base_url: str
 
     def __init__(self, repo: Repo):
         self.client = GitHubAPI(repo)
@@ -98,6 +100,11 @@ class GitHubAPIClient:
         result = self.client.get(f"{self.repo_base_url}/{path}", *args, **kwargs)
         result.raise_for_status()
         return result.json()
+
+    @property
+    def session(self) -> requests.Session:
+        """Return the underlying HTTP session."""
+        return self.client.session
 
     def list_pull_requests(self) -> list:
         """List all pull requests in the repo."""
