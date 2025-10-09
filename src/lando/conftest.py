@@ -506,6 +506,8 @@ def hg_repo_mc(
     automation_enabled: bool = True,
     force_push: bool = False,
     hooks_enabled: bool = True,
+    hooks: list[str] | None = None,
+    hooks_to_disable: list[str] | None = None,
     name: str = "",
     push_target: str = "",
 ) -> Repo:
@@ -522,12 +524,19 @@ def hg_repo_mc(
         "automation_enabled": automation_enabled,
         "force_push": force_push,
         "hooks_enabled": hooks_enabled,
+        # We only set "hooks" below, if not empty.
         "push_target": push_target,
     }
+    if hooks:
+        params["hooks"] = hooks
+
     repo = Repo.objects.create(
         scm_type=SCM_TYPE_HG,
         **params,
     )
+    if hooks_to_disable:
+        repo.hooks = [h for h in repo.hooks if h not in hooks_to_disable]
+
     repo.save()
     return repo
 
@@ -542,6 +551,8 @@ def git_repo_mc(
     automation_enabled: bool = True,
     force_push: bool = False,
     hooks_enabled: bool = True,
+    hooks: list[str] | None = None,
+    hooks_to_disable: list[str] | None = None,
     name: str = "",
     push_target: str = "",
 ) -> Repo:
@@ -561,13 +572,19 @@ def git_repo_mc(
         "automation_enabled": automation_enabled,
         "force_push": force_push,
         "hooks_enabled": hooks_enabled,
+        # We only set "hooks" below, if not empty.
         "push_target": push_target,
     }
+    if hooks:
+        params["hooks"] = hooks
 
     repo = Repo.objects.create(
         scm_type=SCM_TYPE_GIT,
         **params,
     )
+    if hooks_to_disable:
+        repo.hooks = [h for h in repo.hooks if h not in hooks_to_disable]
+
     repo.save()
     repo.scm.prepare_repo(repo.pull_path)
     return repo
@@ -590,14 +607,24 @@ def repo_mc(
         automation_enabled: bool = True,
         force_push: bool = False,
         hooks_enabled: bool = True,
+        hooks: list[str] | None = None,
+        hooks_to_disable: list[str] | None = None,
         name: str = "",
         push_target: str = "",
     ) -> Repo:
+
+        # The BMO reference check 1) requires access to a BMO instance to test with and
+        # 2) is only needed for Try. We disable it here to be closer to a normal MC
+        # repo.
+        default_hooks_to_disable = ["BugReferencesCheck"]
+
         params = {
             "approval_required": approval_required,
             "autoformat_enabled": autoformat_enabled,
             "automation_enabled": automation_enabled,
             "hooks_enabled": hooks_enabled,
+            "hooks": hooks or [],
+            "hooks_to_disable": hooks_to_disable or default_hooks_to_disable,
             "force_push": force_push,
             "name": name,
             "push_target": push_target,
