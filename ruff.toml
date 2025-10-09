@@ -12,10 +12,9 @@ lint.ignore = [
 
 ]
 exclude = [
+    ".cache",
     ".git",
-    "__pycache__",
     ".hg",
-    ".git",
     "__pycache__",
 ]
 
