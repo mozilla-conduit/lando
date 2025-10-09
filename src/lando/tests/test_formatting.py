@@ -4,7 +4,7 @@ Code Style Tests.
 
 import subprocess
 
-from lando.settings import LINT_PATHS
+from lando.settings import LINT_PATHS, RUFF_TARGET_VERSION
 
 
 def test_black():
@@ -17,7 +17,9 @@ def test_ruff():
     passed = []
     for lint_path in LINT_PATHS:
         passed.append(
-            subprocess.call(("ruff", "check", lint_path, "--target-version", "py311"))
+            subprocess.call(
+                ("ruff", "check", lint_path, "--target-version", RUFF_TARGET_VERSION)
+            )
             == 0
         )
     assert all(passed), "ruff did not run cleanly."
