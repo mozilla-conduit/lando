@@ -16,10 +16,5 @@ def test_black():
 def test_ruff():
     passed = []
     for lint_path in LINT_PATHS:
-        passed.append(
-            subprocess.call(
-                ("ruff", "check", lint_path)
-            )
-            == 0
-        )
+        passed.append(subprocess.call(("ruff", "check", lint_path)) == 0)
     assert all(passed), "ruff did not run cleanly."
