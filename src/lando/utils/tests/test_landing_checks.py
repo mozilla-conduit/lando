@@ -10,8 +10,10 @@ from lando.main.scm.helpers import (
     HgPatchHelper,
 )
 from lando.utils.landing_checks import (
+    ALL_CHECKS,
     BugReferencesCheck,
     CommitMessagesCheck,
+    LandingChecks,
     PatchCollectionAssessor,
     PreventNSPRNSSCheck,
     PreventSubmodulesCheck,
@@ -611,3 +613,31 @@ Bug 123456: Fix issue with feature Y
             and "Could not contact BMO to check for security bugs referenced in commit message."
             in issues[0]
         )
+
+
+def test_landing_checks_run():
+    landing_checks = LandingChecks("user@example.com")
+
+    # CommitMessagesCheck will get triggered as neither commits conform.
+    patch_helpers = [
+        GitPatchHelper.from_string_io(
+            io.StringIO(
+                # TryTaskConfigCheck will get triggered.
+                GIT_PATCH_FILENAME_TEMPLATE.format(filename="try_task_config.json"),
+            )
+        ),
+        GitPatchHelper.from_string_io(
+            io.StringIO(
+                # PreventNSPRNSSCheck will get triggered.
+                GIT_PATCH_FILENAME_TEMPLATE.format(filename="nsprpub/testfile.txt"),
+            )
+        ),
+    ]
+
+    all_checks_run = landing_checks.run(ALL_CHECKS, patch_helpers)
+    names_run = landing_checks.run([chk.__name__ for chk in ALL_CHECKS], patch_helpers)
+
+    # Ensure that we get the same, non-empty, result with both types.
+    assert len(all_checks_run) == 3
+    assert len(names_run) == 3
+    assert all_checks_run == names_run
