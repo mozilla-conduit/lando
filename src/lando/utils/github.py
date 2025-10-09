@@ -10,7 +10,7 @@ from django.conf import settings
 from simple_github import AppAuth, AppInstallationAuth
 from typing_extensions import override
 
-from lando.main.models.repo import Repo
+# from lando.main.models.repo import Repo
 from lando.main.scm.helpers import PatchHelper
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class GitHubAPI:
     GITHUB_BASE_URL = "https://api.github.com"
 
-    def __init__(self, repo: Repo):
+    def __init__(self, repo: "Repo"):
         repo_owner = repo._github_repo_org
         repo_name = repo.git_repo_name
 
@@ -71,10 +71,10 @@ class GitHubAPI:
 class GitHubAPIClient:
     client: GitHubAPI
 
-    repo: Repo
+    # repo: "Repo"
     repo_base_url: str
 
-    def __init__(self, repo: Repo):
+    def __init__(self, repo: "Repo"):
         self.client = GitHubAPI(repo)
         self.repo = repo
         self.repo_base_url = (
