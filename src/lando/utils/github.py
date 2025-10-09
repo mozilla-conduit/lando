@@ -1,11 +1,17 @@
 import asyncio
+import io
 import logging
+import math
+from datetime import datetime
+from enum import Enum
 
 import requests
 from django.conf import settings
 from simple_github import AppAuth, AppInstallationAuth
+from typing_extensions import override
 
 from lando.main.models.repo import Repo
+from lando.main.scm.helpers import PatchHelper
 
 logger = logging.getLogger(__name__)
 
@@ -190,3 +196,101 @@ class PullRequest:
             "user_html_url": self.user_html_url,
             "user_login": self.user_login,
         }
+
+    def get_diff(self, client: GitHubAPIClient) -> str:
+        """Return a single diff of the latest state for the PR.
+
+        WARNING: The returned diff doesn't include any binary data.
+
+        If Binary data is desired, the `get_patch` method should be used instead.
+        """
+        response = client.session.get(self.diff_url)
+        response.raise_for_status()
+
+        return response.text
+
+    def get_patch(self, client: GitHubAPIClient) -> str:
+        """Return a series of patches from the PR's commits.
+
+        Patches from each commit are concatenated into a single string.
+
+        This includes binary content, unlike `get_diff`.
+        """
+        response = client.session.get(self.patch_url)
+        response.raise_for_status()
+
+        return response.text
+
+
+class PullRequestPatchHelper(PatchHelper):
+    """A PatchHelper-like wrapper for GitHub pull requests.
+
+    Due to the nature of pull requests, it only implement the data-getting
+    functionality, and  doesn't implement the input and output
+    methods.
+    """
+
+    _diff: str
+
+    def __init__(self, client: GitHubAPIClient, pr: PullRequest):
+        super().__init__()
+
+        self._diff = pr.get_diff(client)
+
+        user = f"{pr.user_login}@github-pr"
+        # Consider the committer of the first patch to be the author.
+        patch = pr.get_patch(client)
+        for line in patch.splitlines():
+            if match := self.USERNAME_RE.match(line):
+                user = match["user"]
+                break
+
+        self.headers = {
+            "date": self._get_timestamp_from_github_timestamp(pr.updated_at),
+            "from": user,
+            "subject": pr.body.splitlines()[0] if pr.body else "",
+        }
+
+    @classmethod
+    def _get_timestamp_from_github_timestamp(cls, timestamp: str) -> str:
+        timestamp_datetime = datetime.fromisoformat(timestamp)
+        return str(math.floor(timestamp_datetime.timestamp()))
+
+    @classmethod
+    def from_string_io(cls, string_io: io.StringIO) -> "PatchHelper":
+        """Implement the PatchHelper interface; not relevant for GitHub PRs."""
+        raise NotImplementedError("`from_string_io` not implemented.")
+
+    @classmethod
+    def from_bytes_io(cls, bytes_io: io.BytesIO) -> "PatchHelper":
+        """Implement the PatchHelper interface; not relevant for GitHub PRs."""
+        raise NotImplementedError("`from_bytes_io` not implemented.")
+
+    def get_commit_description(self) -> str:
+        """Returns the commit description."""
+        return self.get_header("subject")
+
+    @override
+    def get_diff(self) -> str:
+        """Return the patch diff.
+
+        WARNING: As of 2025-10-13, this doesn't include any binary data.
+        """
+        return self._diff
+
+    @override
+    def write(self, f: io.StringIO):
+        """Implement the PatchHelper interface; not relevant for GitHub PRs."""
+        raise NotImplementedError("`from_bytes_io` not implemented.")
+
+    @override
+    def parse_author_information(self) -> tuple[str, str]:
+        """Return the author name and email from the patch."""
+        line = f"From: {self.get_header('from')}"
+        match = self.USERNAME_RE.match(line)
+        return (match["name"], match["email"])
+
+    @override
+    def get_timestamp(self) -> str:
+        """Return an `hg export` formatted timestamp."""
+        return self.get_header("date")
