@@ -17,6 +17,7 @@ from lando.utils.landing_checks import (
     PatchCollectionAssessor,
     PreventNSPRNSSCheck,
     PreventSubmodulesCheck,
+    TryTaskConfigCheck,
     WPTSyncCheck,
 )
 
@@ -613,6 +614,31 @@ Bug 123456: Fix issue with feature Y
             and "Could not contact BMO to check for security bugs referenced in commit message."
             in issues[0]
         )
+
+
+def test_check_try_task_config():
+    parsed_diff = rs_parsepatch.get_diffs(
+        GIT_DIFF_FILENAME_TEMPLATE.format(filename="security/nss/testfile.txt")
+    )
+    try_task_config_check = TryTaskConfigCheck()
+    for diff in parsed_diff:
+        try_task_config_check.next_diff(diff)
+
+    assert (
+        try_task_config_check.result() is None
+    ), "Check should pass when no try_task_config.json is introduced."
+
+    parsed_diff = rs_parsepatch.get_diffs(
+        GIT_DIFF_FILENAME_TEMPLATE.format(filename="try_task_config.json")
+    )
+    try_task_config_check = TryTaskConfigCheck()
+    for diff in parsed_diff:
+        try_task_config_check.next_diff(diff)
+
+    assert (
+        try_task_config_check.result()
+        == "Revision introduces the `try_task_config.json` file."
+    ), "Check should prevent revisions from adding try_task_config.json."
 
 
 def test_landing_checks_run():
