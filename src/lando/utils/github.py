@@ -1,11 +1,16 @@
 import asyncio
+import io
 import logging
+import math
+from datetime import datetime
 
 import requests
 from django.conf import settings
 from simple_github import AppAuth, AppInstallationAuth
+from typing_extensions import override
 
-from lando.main.models.repo import Repo
+# from lando.main.models.repo import Repo
+from lando.main.scm.helpers import PatchHelper
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +18,7 @@ logger = logging.getLogger(__name__)
 class GitHubAPI:
     GITHUB_BASE_URL = "https://api.github.com"
 
-    def __init__(self, repo: Repo):
+    def __init__(self, repo: "Repo"):
         repo_owner = repo._github_repo_org
         repo_name = repo.git_repo_name
 
@@ -63,9 +68,12 @@ class GitHubAPI:
 
 
 class GitHubAPIClient:
-    client = None
+    client: GitHubAPI
 
-    def __init__(self, repo: Repo):
+    # repo: "Repo"
+    repo_base_url: str
+
+    def __init__(self, repo: "Repo"):
         self.client = GitHubAPI(repo)
         self.repo = repo
         self.repo_base_url = (
@@ -75,6 +83,11 @@ class GitHubAPIClient:
     def _get(self, path: str, *args, **kwargs):
         result = self.client.get(path, *args, **kwargs)
         return result.json()
+
+    @property
+    def session(self) -> requests.Session:
+        """Return the underlying HTTP session."""
+        return self.client.session
 
     def list_pull_requests(self) -> list:
         return self._get(f"{self.repo_base_url}/pulls")
@@ -168,3 +181,86 @@ class PullRequest:
             "user_html_url": self.user_html_url,
             "user_login": self.user_login,
         }
+
+    def get_patch(self, client: GitHubAPIClient) -> str:
+        response = client.session.get(self.patch_url)
+        response.raise_for_status()
+
+        return response.text
+
+    def get_diff(self, client: GitHubAPIClient) -> str:
+        response = client.session.get(self.diff_url)
+        response.raise_for_status()
+
+        return response.text
+
+
+class PullRequestPatchHelper(PatchHelper):
+    """A PatchHelper-like wrapper for GitHub pull requests.
+
+    Due to the nature of pull requests, it only implement the data-getting
+    functionality, and  doesn't implement the input and output
+    methods.
+    """
+
+    _diff: str
+
+    def __init__(self, client: GitHubAPIClient, pr: PullRequest):
+        super().__init__()
+
+        self._diff = pr.get_diff(client)
+
+        user = f"{pr.user_login}@github-pr"
+        # Consider the committer of the first patch to be the author.
+        patch = pr.get_patch(client)
+        for line in patch.splitlines():
+            if match := self.USERNAME_RE.match(line):
+                user = match["user"]
+                break
+
+        self.headers = {
+            "date": self._get_timestamp_from_github_timestamp(pr.updated_at),
+            "from": user,
+            "subject": pr.body.splitlines()[0],
+        }
+
+    @classmethod
+    def _get_timestamp_from_github_timestamp(cls, timestamp: str) -> str:
+        timestamp_datetime = datetime.fromisoformat(timestamp)
+        return str(math.floor(timestamp_datetime.timestamp()))
+
+    @classmethod
+    def from_string_io(cls, string_io: io.StringIO) -> "PatchHelper":
+        """Implement the PatchHelper interface; not relevant for GitHub PRs."""
+        raise NotImplementedError("`from_string_io` not implemented.")
+
+    @classmethod
+    def from_bytes_io(cls, bytes_io: io.BytesIO) -> "PatchHelper":
+        """Implement the PatchHelper interface; not relevant for GitHub PRs."""
+        raise NotImplementedError("`from_bytes_io` not implemented.")
+
+    def get_commit_description(self) -> str:
+        """Returns the commit description."""
+        return self.get_header("subject")
+
+    @override
+    def get_diff(self) -> str:
+        """Return the patch diff."""
+        return self._diff
+
+    @override
+    def write(self, f: io.StringIO):
+        """Implement the PatchHelper interface; not relevant for GitHub PRs."""
+        raise NotImplementedError("`from_bytes_io` not implemented.")
+
+    @override
+    def parse_author_information(self) -> tuple[str, str]:
+        """Return the author name and email from the patch."""
+        line = f"From: {self.get_header('from')}"
+        match = self.USERNAME_RE.match(line)
+        return (match["name"], match["email"])
+
+    @override
+    def get_timestamp(self) -> str:
+        """Return an `hg export` formatted timestamp."""
+        return self.get_header("date")

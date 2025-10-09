@@ -15,7 +15,9 @@ from lando.main.scm import (
     SCM_TYPE_GIT,
     SCM_TYPE_HG,
 )
-from lando.utils.github import GitHubAPIClient, PullRequest
+from lando.main.scm.helpers import BugReferencesCheck
+from lando.utils.github import GitHubAPIClient, PullRequest, PullRequestPatchHelper
+from lando.utils.landing_checks import ALL_CHECKS, LandingChecks
 from lando.utils.phabricator import get_phabricator_client
 
 
@@ -151,11 +153,35 @@ class hg2gitCommitMapView(CommitMapBaseView):
 
 
 class PullRequestAPIView(APIView):
-    def get(self, request: WSGIRequest, repo_name: str, number: int):
+    def get(self, request: WSGIRequest, repo_name: str, number: int) -> JsonResponse:
         target_repo = Repo.objects.get(name=repo_name)
         client = GitHubAPIClient(target_repo)
         pull_request = PullRequest(client.get_pull_request(number))
         return JsonResponse(pull_request.serialize(), status=200)
+
+
+class PullRequestBlockersWarningAPIView(APIView):
+    def get(self, request: WSGIRequest, repo_name: str, number: int) -> JsonResponse:
+        target_repo = Repo.objects.get(name=repo_name)
+        client = GitHubAPIClient(target_repo)
+        pull_request = PullRequest(client.get_pull_request(number))
+
+        patch_helper = PullRequestPatchHelper(client, pull_request)
+
+        landing_checks = LandingChecks(f"{pull_request.user_login}@github-pr")
+        checks = [
+            chk.__name__
+            for chk in ALL_CHECKS
+            if chk.__name__ != BugReferencesCheck.__name__
+        ]
+        blockers = landing_checks.run(
+            ALL_CHECKS,
+            [patch_helper],
+        )
+
+        return JsonResponse(
+            {"blockers": blockers, "diff": patch_helper.get_diff(), "checks": checks}
+        )
 
 
 class LandingJob(View):

@@ -86,4 +86,5 @@ testpaths = [
     "src/lando/treestatus/tests",
     "src/lando/try_api/tests",
     "src/lando/ui/tests",
+    "src/lando/utils/tests",
 ]
