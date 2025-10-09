@@ -19,6 +19,8 @@ exclude = [
     "__pycache__",
 ]
 
+target-version = "py311"
+
 [lint.isort]
 split-on-trailing-comma = true
 
