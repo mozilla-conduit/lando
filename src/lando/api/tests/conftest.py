@@ -342,7 +342,7 @@ def mock_permissions():
 
 
 @pytest.fixture
-def proxy_client(monkeypatch, fake_request):
+def proxy_client(monkeypatch, fake_request, mock_response):
     """A client that bridges tests designed to work with the API.
 
     Most tests that use the API no longer need to access those endpoints through
@@ -353,18 +353,6 @@ def proxy_client(monkeypatch, fake_request):
     This client should be removed and all the tests that depend on it should be
     reimplemented to not need a response or response-like object.
     """
-
-    class MockResponse:
-        """Mock response class to satisfy some requirements of tests."""
-
-        # NOTE: The methods tested that rely on this class should be reimplemented
-        # to no longer need the structure of a response to function.
-        def __init__(self, status_code=200, json=None):
-            self.json = json or {}
-            self.status_code = status_code
-            self.content_type = (
-                "application/json" if status_code < 400 else "application/problem+json"
-            )
 
     class ProxyClient:
         request = fake_request()
@@ -377,7 +365,7 @@ def proxy_client(monkeypatch, fake_request):
                 return json_response
             # In other cases, just the data is returned, and it should be
             # mapped to a response.
-            return MockResponse(json=json.loads(json.dumps(json_response)))
+            return mock_response(json_dict=json.loads(json.dumps(json_response)))
 
         def _handle__get__transplants__id(self, path):
             stack_revision_id = path.removeprefix("/transplants?stack_revision_id=")
@@ -388,8 +376,8 @@ def proxy_client(monkeypatch, fake_request):
                 # For these endpoints, some responses contain different status codes
                 # which are represented as the second item in a tuple.
                 json_response, status_code = result
-                return MockResponse(
-                    json=json.loads(json.dumps(json_response)),
+                return mock_response(
+                    json_dict=json.loads(json.dumps(json_response)),
                     status_code=status_code,
                 )
             # In the rest of the cases, the returned result is a response object.
@@ -397,7 +385,7 @@ def proxy_client(monkeypatch, fake_request):
 
         def _handle__post__transplants__dryrun(self, **kwargs):
             json_response = legacy_api_transplants.dryrun(self.request, kwargs["json"])
-            return MockResponse(json=json.loads(json.dumps(json_response)))
+            return mock_response(json_dict=json.loads(json.dumps(json_response)))
 
         def _handle__post__transplants(self, path, **kwargs):
             try:
@@ -407,23 +395,23 @@ def proxy_client(monkeypatch, fake_request):
             except LegacyAPIException as e:
                 # Handle exceptions and pass along the status code to the response object.
                 if e.extra:
-                    return MockResponse(json=e.extra, status_code=e.status)
+                    return mock_response(json_dict=e.extra, status_code=e.status)
                 if e.json_detail:
-                    return MockResponse(json=e.json_detail, status_code=e.status)
-                return MockResponse(json=e.args, status_code=e.status)
+                    return mock_response(json_dict=e.json_detail, status_code=e.status)
+                return mock_response(json_dict=e.args, status_code=e.status)
             except Exception as e:
                 # TODO: double check that this is a thing in legacy?
                 # Added this due to a validation error (test_transplant_wrong_landing_path_format)
-                return MockResponse(json=[f"error ({e})"], status_code=400)
-            return MockResponse(
-                json=json.loads(json.dumps(json_response)), status_code=status_code
+                return mock_response(json_dict=[f"error ({e})"], status_code=400)
+            return mock_response(
+                json_dict=json.loads(json.dumps(json_response)), status_code=status_code
             )
 
         def _handle__put__landing_jobs__id(self, path, **kwargs):
             job_id = int(path.removeprefix("/landing_jobs/"))
             landing_job_api = LandingJobApiView()
             response = landing_job_api.put(self.request, job_id)
-            return MockResponse(json=json.loads(response.content))
+            return mock_response(json_dict=json.loads(response.content))
 
         def get(self, path, *args, **kwargs):
             """Handle various get endpoints."""
