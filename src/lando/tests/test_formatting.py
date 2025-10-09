@@ -4,7 +4,7 @@ Code Style Tests.
 
 import subprocess
 
-from lando.settings import LINT_PATHS, RUFF_TARGET_VERSION
+from lando.settings import LINT_PATHS
 
 
 def test_black():
@@ -18,7 +18,7 @@ def test_ruff():
     for lint_path in LINT_PATHS:
         passed.append(
             subprocess.call(
-                ("ruff", "check", lint_path, "--target-version", RUFF_TARGET_VERSION)
+                ("ruff", "check", lint_path)
             )
             == 0
         )

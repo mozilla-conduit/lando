@@ -225,7 +225,6 @@ AUTHENTICATION_BACKENDS = [
     "lando.main.auth.LandoOIDCAuthenticationBackend",
 ]
 
-RUFF_TARGET_VERSION = "py311"
 LINT_PATHS = (BASE_DIR,)
 PHABRICATOR_URL = os.getenv("PHABRICATOR_URL", "http://phabricator.test")
 PHABRICATOR_ADMIN_API_KEY = os.getenv("PHABRICATOR_ADMIN_API_KEY", "")

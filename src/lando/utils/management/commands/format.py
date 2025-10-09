@@ -2,7 +2,7 @@ import subprocess
 
 from django.core.management.base import BaseCommand
 
-from lando.settings import LINT_PATHS, RUFF_TARGET_VERSION
+from lando.settings import LINT_PATHS
 
 
 class Command(BaseCommand):
@@ -15,8 +15,6 @@ class Command(BaseCommand):
                     "ruff",
                     "check",
                     "--fix",
-                    "--target-version",
-                    RUFF_TARGET_VERSION,
                     lint_path,
                 )
             )
