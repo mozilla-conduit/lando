@@ -15,8 +15,8 @@ from lando.main.scm import (
     SCM_TYPE_GIT,
     SCM_TYPE_HG,
 )
-from lando.main.scm.helpers import CommitMessagesCheck, GitPatchHelper
-from lando.utils.github import GitHubAPIClient, PullRequest
+from lando.main.scm.helpers import BugReferencesCheck
+from lando.utils.github import GitHubAPIClient, PullRequest, PullRequestPatchHelper
 from lando.utils.landing_checks import ALL_CHECKS, LandingChecks
 from lando.utils.phabricator import get_phabricator_client
 
@@ -166,21 +166,25 @@ class PullRequestBlockersWarningAPIView(APIView):
         client = GitHubAPIClient(target_repo)
         pull_request = PullRequest(client.get_pull_request(number))
 
-        patch = pull_request.get_patch(client)
-
-        patch_helper = GitPatchHelper(patch.encode())
+        patch_helper = PullRequestPatchHelper(client, pull_request)
 
         landing_checks = LandingChecks(f"{pull_request.user_login}@github-pr")
+        checks = [
+            chk.__name__
+            for chk in ALL_CHECKS
+            if chk.__name__ != BugReferencesCheck.__name__
+        ]
         blockers = landing_checks.run(
-            [
-                chk.__name__
-                for chk in ALL_CHECKS
-                if chk.__name__ != CommitMessagesCheck.__name__
-            ],
+            ALL_CHECKS,
             [patch_helper],
         )
 
-        return JsonResponse({"blockers": blockers, "diff": patch_helper.diff})
+        # PullRequestPatchHelper.get_diff doesn't include binary changes.
+        # This is not considered an issue for checks at the moment, but may need to be kept in
+        # mind for the future.
+        return JsonResponse(
+            {"blockers": blockers, "diff": patch_helper.get_diff(), "checks": checks}
+        )
 
 
 class LandingJob(View):
