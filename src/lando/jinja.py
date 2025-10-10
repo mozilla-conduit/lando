@@ -25,11 +25,6 @@ SEC_BUG_DOCS = "https://firefox-source-docs.mozilla.org/bug-mgmt/processes/secur
 logger = logging.getLogger(__name__)
 
 
-# TODO: this should be ported once all forms are ported to Django forms.
-# def new_settings_form() -> UserSettingsForm:
-#     return UserSettingsForm()
-
-
 def escape_html(text: str) -> str:
     return escape(text)
 
