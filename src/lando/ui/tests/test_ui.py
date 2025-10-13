@@ -1,16 +1,24 @@
 import re
+from typing import Callable
 
 import pytest
+from django.test import Client
 
 from lando import test_settings as settings
+from lando.api.tests.mocks import TreeStatusDouble
 from lando.main import scm
 from lando.main.models import JobStatus, LandingJob
+from lando.main.models.commit_map import CommitMap
 from lando.main.scm import SCM_TYPE_GIT
 
 
 @pytest.mark.django_db
 def test_queued_landing_job_view(
-    client, repo_mc, treestatusdouble, landing_worker_instance, make_landing_job
+    client: Client,
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    landing_worker_instance: Callable,
+    make_landing_job: Callable,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
     treestatusdouble.close_tree(repo.name)
@@ -41,12 +49,12 @@ def test_queued_landing_job_view(
 
 @pytest.mark.django_db
 def test_landed_landing_job_view(
-    client,
-    repo_mc,
-    treestatusdouble,
-    landing_worker_instance,
-    make_landing_job,
-    commit_maps,
+    client: Client,
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    landing_worker_instance: Callable,
+    make_landing_job: Callable,
+    commit_maps: list[CommitMap],
 ):
     cmap = commit_maps[0]
 
@@ -86,7 +94,11 @@ def _fetch_job_view(client, job: LandingJob) -> str:
 
 
 @pytest.mark.django_db
-def test_landing_revision_redirect(client, repo_mc, make_landing_job):
+def test_landing_revision_redirect(
+    client: Client,
+    repo_mc: Callable,
+    make_landing_job: Callable,
+):
     # Create a job and actions
     repo = repo_mc(SCM_TYPE_GIT)
     jobs = [make_landing_job(target_repo=repo, status=JobStatus.SUBMITTED)]
