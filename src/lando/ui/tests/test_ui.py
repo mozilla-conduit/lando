@@ -1,3 +1,4 @@
+import itertools
 import re
 from typing import Callable
 
@@ -75,6 +76,95 @@ def test_landed_landing_job_view(
         "ahead in the queue" not in page_html
     ), "Unexpected queue state in landed job view"
     assert f"{settings.TREEHERDER_URL}/jobs?revision={cmap.hg_hash}" in page_html
+
+
+@pytest.mark.parametrize(
+    "error,error_breakdown",
+    itertools.product(
+        (
+            (
+                'Problem while applying patch in revision 264890:\n\nChecking patch browser/components/preferences/widgets/setting-group/setting-group.mjs...\nHunk #1 succeeded at 43 (offset 16 lines).\nHunk #2 succeeded at 114 (offset 19 lines).\nChecking patch browser/components/preferences/widgets/setting-control/setting-control.mjs...\nHunk #1 succeeded at 178 (offset -10 lines).\nerror: while searching for:\n      }\n      this.#lastSetting = this.setting;\n      this.setValue();\n      this.setting.on("change", this.onSettingChange);\n    }\n    this.hidden = !this.setting.visible;\n  }\n\n  updated() {\n    this.controlRef?.value?.requestUpdate();\n  }\n\n  /**\n\nerror: patch failed: browser/components/preferences/widgets/setting-control/setting-control.mjs:209\nChecking patch browser/components/preferences/tests/chrome/test_setting_group.html...\nChecking patch browser/components/preferences/main.js...\nHunk #1 succeeded at 404 (offset 185 lines).\nApplied patch browser/components/preferences/widgets/setting-group/setting-group.mjs cleanly.\nApplying patch browser/components/preferences/widgets/setting-control/setting-control.mjs with 1 reject...\nHunk #1 applied cleanly.\nRejected hunk #2.\nApplied patch browser/components/preferences/tests/chrome/test_setting_group.html cleanly.\nApplied patch browser/components/preferences/main.js cleanly.\n',
+            )
+        ),
+        (
+            None,
+            {
+                "revision_id": 264890,
+                "failed_paths": [
+                    {
+                        "url": "https://github.com/mozilla-firefox/firefox/tree/9d7faf035e9590310b3f6c86171a06aa30c29132/browser/components/preferences/widgets/setting-control/setting-control.mjs",
+                        "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs",
+                        "changeset_id": "9d7faf035e9590310b3f6c86171a06aa30c29132",
+                    }
+                ],
+                "rejects_paths": {
+                    "browser/components/preferences/widgets/setting-control/setting-control.mjs": {
+                        "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs.rej",
+                        "content": 'diff a/browser/components/preferences/widgets/setting-control/setting-control.mjs b/browser/components/preferences/widgets/setting-control/setting-control.mjs\t(rejected hunks)\n@@ -209,13 +209,20 @@\n       }\n       this.#lastSetting = this.setting;\n       this.setValue();\n       this.setting.on("change", this.onSettingChange);\n     }\n+    let prevHidden = this.hidden;\n     this.hidden = !this.setting.visible;\n+    if (prevHidden != this.hidden) {\n+      this.dispatchEvent(new Event("visibility-change", { bubbles: true }));\n+    }\n   }\n \n+  /**\n+   * @type {MozLitElement[\'updated\']}\n+   */\n   updated() {\n     this.controlRef?.value?.requestUpdate();\n   }\n \n   /**\n',
+                    }
+                },
+            },
+            {
+                "revision_id": 264890,
+                "failed_paths": [
+                    {
+                        "url": "https://github.com/mozilla-firefox/firefox/tree/9d7faf035e9590310b3f6c86171a06aa30c29132/browser/components/preferences/widgets/setting-control/setting-control.mjs",
+                        "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs",
+                        "changeset_id": "9d7faf035e9590310b3f6c86171a06aa30c29132",
+                    }
+                ],
+                "rejects_paths": {
+                    "browser/components/preferences/widgets/setting-control/setting-control.mjs": {
+                        "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs.rej",
+                        # content removed
+                    }
+                },
+            },
+        ),
+    ),
+)
+@pytest.mark.django_db
+def test_error_landing_job_view(
+    client: Client,
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    make_landing_job: Callable,
+    error: str,
+    error_breakdown: str,
+):
+    repo = repo_mc(SCM_TYPE_GIT)
+    treestatusdouble.close_tree(repo.name)
+
+    job = make_landing_job(
+        target_repo=repo,
+        status=JobStatus.FAILED,
+        error=error,
+        error_breakdown=error_breakdown,
+    )
+
+    page_html = _fetch_job_view(client, job)
+    if error_breakdown:
+        # When present, the raw error is hidden behind a button.
+        assert "Show raw error output" in page_html
+        # XXX: We should always show this message, but we currently don't.
+        assert (
+            f"try rebasing your changes on the latest commits from {job.target_repo.short_name}"
+            in page_html
+        )
+    else:
+        assert "Raw error output" in page_html
+
+    if error_breakdown:
+        # When present, the raw error is hidden behind a button.
+        assert "Show raw error output" in page_html
+        path = (
+            "browser/components/preferences/widgets/setting-control/setting-control.mjs"
+        )
+        if "content" not in error_breakdown["rejects_paths"][path]:
+            assert f"Error parsing error for {path}." in page_html
+
+    else:
+        assert "Raw error output" in page_html
 
 
 def _fetch_job_view(client, job: LandingJob) -> str:
