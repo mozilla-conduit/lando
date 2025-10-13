@@ -317,6 +317,7 @@ class GitSCM(AbstractSCM):
                     reject["content"] = r.read()
             except Exception as e:
                 logger.exception(e)
+                reject["content"] = f"rejects file {reject['path']} not readable"
             breakdown["rejects_paths"][path] = reject
 
         return breakdown
