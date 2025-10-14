@@ -1,5 +1,4 @@
 import logging
-import os
 
 from django.db import models
 from django.utils.translation import gettext_lazy
@@ -9,8 +8,6 @@ from lando.main.models.repo import Repo
 from lando.main.scm import SCM_TYPE_CHOICES, SCM_TYPE_HG
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_GRACE_SECONDS = int(os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2))
 
 
 class WorkerType(models.TextChoices):
