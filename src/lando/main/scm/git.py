@@ -22,6 +22,7 @@ from lando.main.scm.exceptions import (
 )
 from lando.main.scm.helpers import GitPatchHelper, PatchHelper
 from lando.settings import LANDO_USER_EMAIL, LANDO_USER_NAME
+from lando.utils.github import GitHubAPI
 
 from .abstract_scm import AbstractSCM
 
@@ -46,9 +47,6 @@ ENV_COMMITTER_EMAIL = "GIT_COMMITTER_EMAIL"
 URL_USERINFO_RE = re.compile(
     "(?P<userinfo>[-A-Za-z0-9:._~%!$&'*()*+;=]*:[-A-Za-z0-9:._~%!$&'*()*+;=]*@)",
     flags=re.MULTILINE,
-)
-GITHUB_URL_RE = re.compile(
-    f"https://{URL_USERINFO_RE.pattern}?github.com/(?P<owner>[-A-Za-z0-9]+)/(?P<repo>[^/]+)"
 )
 
 
@@ -109,34 +107,14 @@ class GitSCM(AbstractSCM):
         tags: list[str] | None = None,
     ):
         """Push local code to the remote repository."""
-        from lando.utils.github import GitHubAPI
 
         push_command = ["push"]
 
         if force_push:
             push_command += ["--force"]
 
-        if match := re.match(GITHUB_URL_RE, push_path):
-            # We only fetch a token if no authentication is explicitly specified in
-            # the push_url.
-            if not match["userinfo"]:
-                logger.info(
-                    "Obtaining fresh GitHub token repo",
-                    extra={
-                        "push_path": push_path,
-                        "repo_name": match["repo"],
-                        "repo_owner": match["owner"],
-                    },
-                )
-
-                owner = match["owner"]
-                repo = match["repo"]
-                repo_name = repo.removesuffix(".git")
-
-                token = GitHubAPI._get_token(owner, repo_name)
-
-                if token:
-                    push_path = f"https://git:{token}@github.com/{owner}/{repo}"
+        if GitHubAPI.is_github_url(push_path):
+            push_path = GitHubAPI(push_path).authenticated_url
 
         push_command += [push_path]
 
