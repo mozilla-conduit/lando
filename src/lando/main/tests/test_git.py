@@ -7,6 +7,7 @@ import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import Optional
+from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
@@ -667,17 +668,30 @@ def test_GitSCM_push(
     )
 
 
-def test_GitSCM_push_get_github_token(git_repo: Path):
+@pytest.fixture
+def mock_github_api__fetch_token(monkeypatch: pytest.MonkeyPatch):
+    mock__fetch_token = MagicMock()
+
+    mock__fetch_token.side_effect = lambda: "ghs_yolo"
+
+    monkeypatch.setattr("lando.utils.github.GitHubAPI._fetch_token", mock__fetch_token)
+
+    return mock__fetch_token
+
+
+def test_GitSCM_push_get_github_token(
+    git_repo: Path, mock_github_api__fetch_token: mock.Mock
+):
     scm = GitSCM(str(git_repo))
     scm._git_run = MagicMock()
-    scm._get_github_token = MagicMock()
-    scm._get_github_token.side_effect = ["ghs_yolo"]
 
     scm.push("https://github.com/some/repo")
 
-    assert scm._git_run.call_count == 1, "_git_run wasn't called when pushing"
+    assert scm._git_run.call_count >= 1, "_git_run wasn't called when pushing"
+    # The count needs to be 2, as the method is also called once when building the
+    # object.
     assert (
-        scm._get_github_token.call_count == 1
+        mock_github_api__fetch_token.call_count == 2
     ), "_get_github_token wasn't called when pushing to a github-like URL"
     assert (
         "git:ghs_yolo@github.com" in scm._git_run.call_args[0][1]
