@@ -286,7 +286,13 @@ class GitSCM(AbstractSCM):
         """Process merge conflict information captured in a PatchConflict, and return a
         parsed structure."""
 
-        failed_re = re.compile(r"patch failed: (.*):\d+", re.MULTILINE)
+        # XXX: The `(?:while searching for)` assertion would be better as `(?!patch
+        # failed)`, but this sort of negative assertion with lookahead prevents the
+        # non-matching group to be captured.
+        failed_re = re.compile(
+            r"(?:error: ((?:while searching for):\n(?:.*\n)*?))?error: patch failed: ([^:\n]+):\d+",
+            re.MULTILINE,
+        )
 
         breakdown = {
             "failed_paths": [],
@@ -294,10 +300,11 @@ class GitSCM(AbstractSCM):
             "revision_id": revision_id,
         }
 
-        failed_paths = failed_re.findall(error_message)
+        failed_paths = failed_re.findall(error_message, re.MULTILINE)
 
         failed_path_commits = [
-            (path, self.last_commit_for_path(path)) for path in failed_paths
+            (path, self.last_commit_for_path(path), path_error)
+            for path_error, path in failed_paths
         ]
 
         breakdown["failed_paths"] = [
@@ -306,10 +313,10 @@ class GitSCM(AbstractSCM):
                 "url": f"{pull_path}/tree/{revision}/{path}",
                 "changeset_id": revision,
             }
-            for (path, revision) in failed_path_commits
+            for (path, revision, _) in failed_path_commits
         ]
 
-        for path in failed_paths:
+        for path_error, path in failed_paths:
             reject = {"path": f"{path}.rej"}
 
             try:
@@ -317,7 +324,13 @@ class GitSCM(AbstractSCM):
                     reject["content"] = r.read()
             except Exception as e:
                 logger.exception(e)
-                reject["content"] = f"rejects file {reject['path']} not readable"
+                reject["content"] = f"error reading rejects file {reject['path']}"
+
+            if path_error:
+                reject[
+                    "content"
+                ] += f"\nin addition, Git reported this error: {path_error}"
+
             breakdown["rejects_paths"][path] = reject
 
         return breakdown
