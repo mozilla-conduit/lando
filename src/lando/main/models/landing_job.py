@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import datetime
 import logging
-import os
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
@@ -17,8 +16,6 @@ from lando.main.models.jobs import BaseJob
 from lando.main.models.revision import Revision, RevisionLandingJob
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_GRACE_SECONDS = int(os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2))
 
 
 class LandingJob(BaseJob):
@@ -175,7 +172,7 @@ class LandingJob(BaseJob):
     def job_queue_query(
         cls,
         repositories: Iterable[str] | None = None,
-        grace_seconds: int = DEFAULT_GRACE_SECONDS,
+        grace_seconds: int = settings.LANDING_WORKER_DEFAULT_GRACE_SECONDS,
         **kwargs,
     ) -> QuerySet:
         """Return a query which selects the queued jobs.

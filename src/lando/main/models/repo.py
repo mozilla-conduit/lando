@@ -1,5 +1,4 @@
 import logging
-import os
 import urllib
 from pathlib import Path
 
@@ -18,8 +17,6 @@ from lando.main.scm import (
 )
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_GRACE_SECONDS = int(os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2))
 
 # DONTBUILD flag and help text.
 DONTBUILD = (
