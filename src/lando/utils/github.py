@@ -59,11 +59,11 @@ class GitHubAPI:
         session = AppInstallationAuth(app_auth, repo_owner, repositories=[repo_name])
         return asyncio.run(session.get_token())
 
-    def get(self, path: str, *args, **kwargs) -> dict:
+    def get(self, path: str, *args, **kwargs) -> requests.Response:
         url = f"{self.GITHUB_BASE_URL}/{path}"
         return self.session.get(url, *args, **kwargs)
 
-    def post(self, path: str, *args, **kwargs) -> dict:
+    def post(self, path: str, *args, **kwargs) -> requests.Response:
         url = f"self.GITHUB_BASE_URL/{path}"
         return self.session.post(url, *args, **kwargs)
 
@@ -81,8 +81,19 @@ class GitHubAPIClient:
             f"repos/{self.repo._github_repo_org}/{self.repo.git_repo_name}"
         )
 
-    def _get(self, path: str, *args, **kwargs):
-        result = self.client.get(path, *args, **kwargs)
+    def get(self, path: str, *args, **kwargs) -> dict | list:
+        """Get API endpoint scoped to the repo_base_url.
+
+        Parameters:
+
+        path: str
+            Relative path without leading `/`.
+
+        Return:
+            dist | list: decoded JSON from the response
+        """
+        result = self.client.get(f"{self.repo_base_url}/{path}", *args, **kwargs)
+        result.raise_for_status()
         return result.json()
 
     @property
@@ -91,10 +102,10 @@ class GitHubAPIClient:
         return self.client.session
 
     def list_pull_requests(self) -> list:
-        return self._get(f"{self.repo_base_url}/pulls")
+        return self.get("pulls")
 
     def get_pull_request(self, pull_number: int) -> dict:
-        return self._get(f"{self.repo_base_url}/pulls/{pull_number}")
+        return self.get(f"pulls/{pull_number}")
 
     def get_diff(self, url: str) -> str:
         pass
