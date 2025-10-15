@@ -40,7 +40,7 @@ class PullRequestNotAcceptedWarning(PullRequestWarning):
         reviews = pull_request.get_reviews(client)
 
         if any(review["state"] == "APPROVED" for review in reviews):
-            return []
+            return None
 
         return cls.__doc__
 
@@ -49,9 +49,17 @@ class PullRequestReviewsNotCurrentWarning(PullRequestWarning):
     """No reviewer has accepted the current diff."""
 
     @override
-    @staticmethod
-    def run(client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
-        raise NotImplementedError
+    @classmethod
+    def run(cls, client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
+
+        reviews = pull_request.get_reviews(client)
+
+        if pull_request.head_sha in [
+            review["commit_id"] for review in reviews if review["state"] == "APPROVED"
+        ]:
+            return None
+
+        return cls.__doc__
 
 
 class PullRequestSecureRevisionWarning(PullRequestWarning):
