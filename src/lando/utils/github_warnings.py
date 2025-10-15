@@ -35,9 +35,14 @@ class PullRequestNotAcceptedWarning(PullRequestWarning):
     """Is not Accepted."""
 
     @override
-    @staticmethod
-    def run(client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
-        raise NotImplementedError
+    @classmethod
+    def run(cls, client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
+        reviews = pull_request.get_reviews(client)
+
+        if any(review["state"] == "APPROVED" for review in reviews):
+            return []
+
+        return cls.__doc__
 
 
 class PullRequestReviewsNotCurrentWarning(PullRequestWarning):
