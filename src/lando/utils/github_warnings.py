@@ -28,7 +28,10 @@ class PullRequestPreviouslyLandedWarning(PullRequestWarning):
     @override
     @classmethod
     def run(cls, client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
-        return parse_multiline_adjlist.__doc__
+        if not pull_request.merged_at:
+            return None
+
+        return cls.__doc__
 
 
 class PullRequestNotAcceptedWarning(PullRequestWarning):
