@@ -230,7 +230,7 @@ class PullRequest:
 
         return response.text
 
-    # XXX: we need to cache this for the lifetime of this object by pr.updated_at.
+    # XXX: we need to cache this for the lifetime of this object by pr.id+pr.updated_at.
     # NOTE: updated_at changes when:
     #  * a new comment is made on the PR
     def get_reviews(self, client: GitHubAPIClient) -> dict:
@@ -247,6 +247,28 @@ class PullRequest:
             )
 
         return reviews
+
+    def get_commits(self, client: GitHubAPIClient) -> dict:
+        """Return a list of commits for the PR."""
+        commits = client.get(f"pulls/{self.number}/commits")
+
+        if commits[-1]["sha"] != self.head_sha:
+            raise self.StaleMetadataException(
+                "Head commit changed while collecting PR information."
+            )
+
+        # XXX: What happens if a commit has been committed in the past, but has only
+        # been pushed now?
+        if any(
+            client.convert_timestamp_from_github(commit["commit"]["committer"]["date"])
+            > client.convert_timestamp_from_github(self.updated_at)
+            for commit in commits
+        ):
+            raise self.StaleMetadataException(
+                "Commits were added while collecting PR information."
+            )
+
+        return commits
 
 
 
