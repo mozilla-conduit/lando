@@ -11,6 +11,7 @@ from typing_extensions import override
 
 # from lando.main.models.repo import Repo
 from lando.main.scm.helpers import PatchHelper
+from lando.utils.cache import cache_method
 
 logger = logging.getLogger(__name__)
 
@@ -229,9 +230,7 @@ class PullRequest:
 
         return response.text
 
-    # XXX: we need to cache this for the lifetime of this object by pr.id+pr.updated_at.
-    # NOTE: updated_at changes when:
-    #  * a new comment is made on the PR
+    @cache_method(pr_cache_key)
     def get_reviews(self, client: GitHubAPIClient) -> dict:
         """Return a list of reviews for the PR."""
         reviews = client.get(f"pulls/{self.number}/reviews")
@@ -247,6 +246,7 @@ class PullRequest:
 
         return reviews
 
+    @cache_method(pr_cache_key)
     def get_commits(self, client: GitHubAPIClient) -> dict:
         """Return a list of commits for the PR."""
         commits = client.get(f"pulls/{self.number}/commits")
