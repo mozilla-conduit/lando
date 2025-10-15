@@ -16,7 +16,7 @@ class PullRequestView(LandoView):
     ) -> TemplateResponse:
         target_repo = Repo.objects.get(name=repo_name)
         client = GitHubAPIClient(target_repo)
-        pull_request = PullRequest(client.get_pull_request(number))
+        pull_request = PullRequest(client.get_pull_request(number), target_repo)
 
         context = {
             "dryrun": None,

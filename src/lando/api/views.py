@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from functools import wraps
 from typing import Callable
 
@@ -9,7 +10,14 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from lando.main.models import CommitMap, Repo
+from lando.main.models import (
+    CommitMap,
+    JobStatus,
+    LandingJob,
+    Repo,
+    Revision,
+    add_revisions_to_job,
+)
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.main.scm import (
     SCM_TYPE_GIT,
@@ -150,14 +158,89 @@ class hg2gitCommitMapView(CommitMapBaseView):
     scm = SCM_TYPE_HG
 
 
+# TODO: move all these to `lando.api.views.pull_requests`.
 class PullRequestAPIView(APIView):
     def get(self, request: WSGIRequest, repo_name: str, number: int):
         target_repo = Repo.objects.get(name=repo_name)
         client = GitHubAPIClient(target_repo)
-        pull_request = PullRequest(client.get_pull_request(number))
+        pull_request = PullRequest(client.get_pull_request(number), target_repo)
+        patch = client.get_patch(number)
+        diff = client.get_diff(number)
+        return JsonResponse({"diff": diff, "patch": patch}, status=200)
         return JsonResponse(pull_request.serialize(), status=200)
 
 
-class LandingJob(View):
-    def post(self, request: WSGIRequest, *args, **kwargs):  # noqa: ANN201
-        pass
+class LandingJobPullRequestAPIView(View):
+    def get(self, request: WSGIRequest, repo_name: int, pull_number: int):
+        """Return list of landing job ids by status."""
+        from collections import defaultdict
+
+        target_repo = Repo.objects.get(name=repo_name)
+        client = GitHubAPIClient(target_repo)
+        pull_request = PullRequest(client.get_pull_request(pull_number), target_repo)
+        landing_jobs = defaultdict(list)
+        for landing_job in pull_request.landing_jobs:
+            landing_jobs[landing_job.status].append(landing_job.id)
+
+        if len(landing_jobs[JobStatus.LANDED]):
+            status = "landed"
+        elif len(landing_jobs[JobStatus.CREATED]):
+            status = "created"
+        elif len(landing_jobs[JobStatus.SUBMITTED]):
+            status = "submitted"
+        elif len(landing_jobs[JobStatus.IN_PROGRESS]):
+            status = "in progress"
+        elif len(landing_jobs[JobStatus.FAILED]):
+            status = "failed"
+        else:
+            status = "unknown"
+        return JsonResponse({"status": status}, status=200)
+
+    def post(self, request: WSGIRequest, repo_name: int, pull_number: int):
+        class Form(forms.Form):
+            """Simple form to get clean some fields."""
+
+            head_sha = forms.CharField()
+            # base_ref = forms.CharField()
+
+        # Create a new landing job for a GitHub pull request.
+        # To do this, verify that the given hash matches the most recent hash
+        # in the pull request. So we first refetch the pull request.
+
+        target_repo = Repo.objects.get(name=repo_name)
+        client = GitHubAPIClient(target_repo)
+        ldap_username = request.user.email
+        pull_request = PullRequest(client.get_pull_request(pull_number), target_repo)
+        form = Form(json.loads(request.body))
+
+        if not form.is_valid():
+            return JsonResponse(form.errors, 400)
+
+        # TODO, use these for verification.
+        # target_repo = form.cleaned_data["target_repo"]
+        # base_ref = form.cleaned_data["base_ref"]
+
+        # TODO: validate that the target repo and base_ref match what is in the PR.
+        # For now, we will just fetch the patch and apply it as-is.
+
+        # TODO: this does not work with binary data, must use patch instead.
+        diff = client.get_diff(pull_number)
+
+        job = LandingJob(target_repo=target_repo, requester_email=ldap_username)
+        job.save()
+
+        revision = Revision.objects.create(pull_number=pull_request.number)
+        patch_data = {
+            # These should be parsed from the patch, but for now, use logged in user.
+            "author_name": "Author Name",
+            "author_email": "Author Email <email@example.org>",
+            "commit_message": pull_request.title,
+            "timestamp": int(datetime.now().timestamp()),
+        }
+        revision.set_patch(diff, patch_data)
+        revision.save()
+        add_revisions_to_job([revision], job)
+        job.status = JobStatus.SUBMITTED
+        job.save()
+
+        return JsonResponse({"id": job.id}, status=201)
