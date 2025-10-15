@@ -98,7 +98,10 @@ class PullRequestWIPWarning(PullRequestWarning):
     @override
     @classmethod
     def run(cls, client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
-        raise NotImplementedError
+        if pull_request.title.lower().startswith("wip:"):
+            return cls.__doc__
+
+        return None
 
 
 class PullRequestCodeFreezeWarning(PullRequestWarning):
