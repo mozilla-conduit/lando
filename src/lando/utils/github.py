@@ -59,7 +59,7 @@ class GitHubAPI:
         return self.session.get(url, *args, **kwargs)
 
     def post(self, path: str, *args, **kwargs) -> dict:
-        url = f"self.GITHUB_BASE_URL/{path}"
+        url = f"{self.GITHUB_BASE_URL}/{path}"
         return self.session.post(url, *args, **kwargs)
 
 
@@ -83,6 +83,10 @@ class GitHubAPIClient:
         elif content_type == "application/vnd.github.diff; charset=utf-8":
             return result.text
 
+    def _post(self, path: str, *args, **kwargs):
+        result = self.client.post(path, *args, **kwargs)
+        return result.json()
+
     def list_pull_requests(self) -> list:
         return self._get(f"{self.repo_base_url}/pulls")
 
@@ -99,6 +103,18 @@ class GitHubAPIClient:
         return self._get(
             f"{self.repo_base_url}/pulls/{pull_number}",
             headers={"Accept": "application/vnd.github.patch"},
+        )
+
+    def open_pull_request(self, pull_number: int) -> dict:
+        return self._post(f"{self.repo_base_url}/pulls/{pull_number}", json={"state": "open"})
+
+    def close_pull_request(self, pull_number: int) -> dict:
+        return self._post(f"{self.repo_base_url}/pulls/{pull_number}", json={"state": "closed"})
+
+    def add_comment_to_pull_request(self, pull_number: int, comment: str) -> dict:
+        return self._post(
+            f"{self.repo_base_url}/issues/{pull_number}/comments",
+            json={"body": comment},
         )
 
 
