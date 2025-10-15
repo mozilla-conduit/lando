@@ -183,14 +183,14 @@ class PullRequest:
             "user_login": self.user_login,
         }
 
-    def get_patch(self, client: GitHubAPIClient) -> str:
-        """Return a series of patches from the PR's commits.
+    def get_diff(self, client: GitHubAPIClient) -> str:
+        """Return a single diff of the latest state for the PR.
 
-        Patches from each commit are concatenated into a single string.
+        WARNING: The returned diff doesn't include any binary data.
 
-        This includes binary content, unlike `get_diff`.
+        If Binary data is desired, the `get_patch` method should be used instead.
         """
-        response = client.session.get(self.patch_url)
+        response = client.session.get(self.diff_url)
         response.raise_for_status()
 
         return response.text
