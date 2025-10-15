@@ -128,7 +128,13 @@ class PullRequestMultipleAuthorsWarning(PullRequestWarning):
     @override
     @classmethod
     def run(cls, client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
-        raise NotImplementedError
+        if (
+            len({commit["author"]["id"] for commit in pull_request.get_commits(client)})
+            == 1
+        ):
+            return ""
+
+        return cls.__doc__
 
 
 class PullRequestWarningChecks:
