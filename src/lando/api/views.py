@@ -201,6 +201,7 @@ class PullRequestBlockersWarningAPIView(APIView):
                 ],
                 "pr": pull_request.serialize(),
                 "reviews": pull_request.get_reviews(client),
+                "commits": pull_request.get_commits(client),
             }
         )
 
