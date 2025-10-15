@@ -111,7 +111,19 @@ class GitHubAPIClient:
         pass
 
 
+def pr_cache_key(self: "PullRequest", *args, **kwargs) -> str:
+    """Provide a cache key for PR methods that fetch data from GitHub.
+
+    This method-like function cannot be part of the PullRequest, as it is used by method
+    decorators when declaring the class.
+    """
+    return f"{self.id}{self.updated_at}"
+
+
 class PullRequest:
+    class StaleMetadataException(Exception):
+        pass
+
     def __repr__(self) -> str:
         return f"Pull request #{self.number} ({self.head_repo_git_url})"
 
@@ -217,6 +229,24 @@ class PullRequest:
         response.raise_for_status()
 
         return response.text
+
+    # XXX: we need to cache this for the lifetime of this object by pr.updated_at.
+    # NOTE: updated_at changes when:
+    #  * a new comment is made on the PR
+    def get_reviews(self, client: GitHubAPIClient) -> dict:
+        """Return a list of reviews for the PR."""
+        reviews = client.get(f"pulls/{self.number}/reviews")
+
+        if any(
+            client.convert_timestamp_from_github(review["submitted_at"])
+            > client.convert_timestamp_from_github(self.updated_at)
+            for review in reviews
+        ):
+            raise self.StaleMetadataException(
+                "Reviews were added while collecting PR information."
+            )
+
+        return reviews
 
 
 
