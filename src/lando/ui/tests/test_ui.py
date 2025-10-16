@@ -147,7 +147,7 @@ def test_error_landing_job_view(
         # When present, the raw error is hidden behind a button.
         assert "Show raw error output" in page_html
         assert (
-            f"try rebasing your changes on the latest commits from {job.target_repo.short_name}"
+            f"try rebasing your changes on the latest commits from <code>{job.target_repo.short_name}</code>"
             in page_html
         )
     else:
