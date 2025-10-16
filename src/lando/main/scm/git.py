@@ -64,6 +64,14 @@ class GitSCM(AbstractSCM):
         ),
     }
 
+    # XXX: The `(?:while searching for)` assertion would be better as `(?!patch
+    # failed)`, but this sort of negative assertion with lookahead prevents the
+    # non-matching group to be captured.
+    FAILED_RE = re.compile(
+        r"(?:error: ((?:while searching for):\n(?:.*\n)*?))?error: patch failed: ([^:\n]+):\d+",
+        re.MULTILINE,
+    )
+
     default_branch: str
 
     def __init__(self, path: str, default_branch: str = "main", **kwargs):
