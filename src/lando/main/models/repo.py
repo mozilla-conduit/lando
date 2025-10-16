@@ -90,7 +90,7 @@ class Repo(BaseModel):
     short_name = models.CharField(
         blank=True,
         unique=True,
-        help_text="Repository name on other systems: Phabricator (`shortname`), and Treestatus.",
+        help_text="Should match the shortname field on Phabricator for this repo.",
     )
     url = models.CharField()
 
