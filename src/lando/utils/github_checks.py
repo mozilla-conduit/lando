@@ -5,12 +5,29 @@ from typing_extensions import override
 from lando.utils.github import GitHubAPIClient, PullRequest
 
 
-class PullRequestWarning(ABC):
-
+class PullRequestCheck(ABC):
     @classmethod
     @abstractmethod
     def run(cls, client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
-        """Inspect the PR for on issue, and return a warning string if present."""
+        """Inspect the PR for on issue, and return a message string if present."""
+
+
+#
+# BLOCKERS
+#
+
+
+class PullRequestBlocker(PullRequestCheck, ABC):
+    """Parent class for blocker checks."""
+
+
+#
+# WARNINGS
+#
+
+
+class PullRequestWarning(PullRequestCheck, ABC):
+    """Parent class for warning checks."""
 
 
 class PullRequestBlockingReviewsWarning(PullRequestWarning):
@@ -54,7 +71,6 @@ class PullRequestReviewsNotCurrentWarning(PullRequestWarning):
     @override
     @classmethod
     def run(cls, client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
-
         reviews = pull_request.get_reviews(client)
 
         if pull_request.head_sha in [
@@ -137,7 +153,7 @@ class PullRequestMultipleAuthorsWarning(PullRequestWarning):
         return cls.__doc__
 
 
-class PullRequestWarningChecks:
+class PullRequestChecks:
     """Utility class to check a GitHub pull request for a given list of issues."""
 
     _client: GitHubAPIClient
@@ -146,21 +162,22 @@ class PullRequestWarningChecks:
         self._client = client
 
     def run(
-        self, warnings_list: list[PullRequestWarning], pull_request: PullRequest
+        self, checks_list: list[type[PullRequestCheck]], pull_request: PullRequest
     ) -> list[str]:
-        warnings = []
+        messages = []
 
-        for wrn in warnings_list:
+        for check in checks_list:
             try:
-                if outcome := wrn.run(self._client, pull_request):
-                    warnings.append(outcome)
+                if outcome := check.run(self._client, pull_request):
+                    messages.append(outcome)
             except NotImplementedError:
-                warnings.append(f"{wrn.__name__} is not implemented")
+                messages.append(f"{check.__name__} is not implemented")
 
             except Exception as exc:
-                warnings.append(f"{wrn.__name__} failed to run with error: {exc}")
+                messages.append(f"{check.__name__} failed to run with error: {exc}")
 
-        return warnings
+        return messages
 
 
+ALL_PULLREQUEST_BLOCKERS = PullRequestBlocker.__subclasses__()
 ALL_PULLREQUEST_WARNINGS = PullRequestWarning.__subclasses__()

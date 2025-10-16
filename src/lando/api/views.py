@@ -17,9 +17,10 @@ from lando.main.scm import (
 )
 from lando.main.scm.helpers import BugReferencesCheck
 from lando.utils.github import GitHubAPIClient, PullRequest, PullRequestPatchHelper
-from lando.utils.github_warnings import (
+from lando.utils.github_checks import (
+    ALL_PULLREQUEST_BLOCKERS,
     ALL_PULLREQUEST_WARNINGS,
-    PullRequestWarningChecks,
+    PullRequestChecks,
 )
 from lando.utils.landing_checks import ALL_CHECKS, LandingChecks
 from lando.utils.phabricator import get_phabricator_client
@@ -183,8 +184,11 @@ class PullRequestBlockersWarningAPIView(APIView):
             [patch_helper],
         )
 
-        pr_warning_checker = PullRequestWarningChecks(client)
-        warnings = pr_warning_checker.run(ALL_PULLREQUEST_WARNINGS, pull_request)
+        pr_checks = PullRequestChecks(client)
+
+        blockers += pr_checks.run(ALL_PULLREQUEST_BLOCKERS, pull_request)
+
+        warnings = pr_checks.run(ALL_PULLREQUEST_WARNINGS, pull_request)
 
         # PullRequestPatchHelper.get_diff doesn't include binary changes.
         # This is not considered an issue for checks at the moment, but may need to be kept in
@@ -197,7 +201,7 @@ class PullRequestBlockersWarningAPIView(APIView):
                 "checks": checks
                 + [
                     pr_check.__name__
-                    for pr_check in ALL_PULLREQUEST_WARNINGS
+                    for pr_check in ALL_PULLREQUEST_BLOCKERS + ALL_PULLREQUEST_WARNINGS
                 ],
                 "pr": pull_request.serialize(),
                 "reviews": pull_request.get_reviews(client),
