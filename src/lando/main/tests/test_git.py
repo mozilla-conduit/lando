@@ -1058,4 +1058,4 @@ Rejected hunk #1. """
     assert (
         "error reading rejects file"
         in error_breakdown["rejects_paths"]["that-other-file.txt"]["content"]
-    ), "Missing `content` in rejects_paths for test.txt"
+    ), "Missing default message from `content` in rejects_paths for that-other-file.txt"
