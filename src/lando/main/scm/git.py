@@ -286,14 +286,6 @@ class GitSCM(AbstractSCM):
         """Process merge conflict information captured in a PatchConflict, and return a
         parsed structure."""
 
-        # XXX: The `(?:while searching for)` assertion would be better as `(?!patch
-        # failed)`, but this sort of negative assertion with lookahead prevents the
-        # non-matching group to be captured.
-        failed_re = re.compile(
-            r"(?:error: ((?:while searching for):\n(?:.*\n)*?))?error: patch failed: ([^:\n]+):\d+",
-            re.MULTILINE,
-        )
-
         breakdown = {
             "failed_paths": [],
             "rejects_paths": {},
