@@ -146,18 +146,24 @@ def test_error_landing_job_view(
     if error_breakdown:
         # When present, the raw error is hidden behind a button.
         assert "Show raw error output" in page_html
+        assert (
+            f"try rebasing your changes on the latest commits from {job.target_repo.short_name}"
+            in page_html
+        )
+    else:
+        assert "Raw error output" in page_html
+
+    if error_breakdown:
+        # When present, the raw error is hidden behind a button.
+        assert "Show raw error output" in page_html
         path = (
             "browser/components/preferences/widgets/setting-control/setting-control.mjs"
         )
         if "content" not in error_breakdown["rejects_paths"][path]:
             assert f"Error parsing error for {path}." in page_html
+
     else:
         assert "Raw error output" in page_html
-
-    assert (
-        f"try rebasing your changes on the latest commits from {job.target_repo.short_name}"
-        in page_html
-    )
 
 
 def _fetch_job_view(client, job: LandingJob) -> str:
