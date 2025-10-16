@@ -1054,7 +1054,7 @@ Rejected hunk #1. """
     assert (
         "while searching for:"
         in error_breakdown["rejects_paths"]["test.txt"]["content"]
-    ), "Missing `content` in rejects_paths for test.txt"
+    ), "Missing details from `content` in rejects_paths for test.txt"
     assert (
         "error reading rejects file"
         in error_breakdown["rejects_paths"]["that-other-file.txt"]["content"]
