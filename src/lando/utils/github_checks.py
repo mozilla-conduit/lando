@@ -21,6 +21,101 @@ class PullRequestBlocker(PullRequestCheck, ABC):
     """Parent class for blocker checks."""
 
 
+class PullRequestClosedBlocker(PullRequestBlocker):
+    """Revision is closed."""
+
+    @override
+    @classmethod
+    def run(cls, client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
+        reviews = pull_request.get_reviews(client)
+
+        if pull_request.state == "closed":
+            return cls.__doc__
+
+        return None
+
+
+class PullRequestUserSCMLevelBlocker(PullRequestBlocker):
+    """You have insufficient permissions to land or your access has expired."""
+
+    @override
+    @classmethod
+    def run(cls, client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
+        raise NotImplementedError
+
+
+class PullRequestUnsupportedRepoBlocker(PullRequestBlocker):
+    """Repository is not supported by Lando."""
+
+    @override
+    @classmethod
+    def run(cls, client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
+        raise NotImplementedError
+
+
+class PullRequestOpenParentsBlocker(PullRequestBlocker):
+    """Depends on multiple open parents."""
+
+    @override
+    @classmethod
+    def run(cls, client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
+        raise NotImplementedError
+
+
+class PullRequestLatestDiffsBlocker(PullRequestBlocker):
+    """A requested diff is not the latest."""
+
+    @override
+    @classmethod
+    def run(cls, client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
+        raise NotImplementedError
+
+
+class PullRequestAuthorPlannedChangesBlocker(PullRequestBlocker):
+    """The author has indicated they are planning changes to this revision."""
+
+    @override
+    @classmethod
+    def run(cls, client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
+        raise NotImplementedError
+
+
+class PullRequestDiffAuthorIsKnownBlocker(PullRequestBlocker):
+    """Diff author is unknown."""
+
+    @override
+    @classmethod
+    def run(cls, client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
+        raise NotImplementedError
+
+
+class PullRequestUpliftApprovalBlocker(PullRequestBlocker):
+    """The release-managers group did not accept the stack."""
+
+    @override
+    @classmethod
+    def run(cls, client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
+        raise NotImplementedError
+
+
+class PullRequestRevisionDataClassificationBlocker(PullRequestBlocker):
+    """Revision makes changes to data collection and should have its data classification assessed before landing."""
+
+    @override
+    @classmethod
+    def run(cls, client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
+        raise NotImplementedError
+
+
+class PullRequestOpenAncestorBlocker(PullRequestBlocker):
+    """Has an open ancestor revision that is blocked."""
+
+    @override
+    @classmethod
+    def run(cls, client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
+        raise NotImplementedError
+
+
 #
 # WARNINGS
 #
