@@ -92,7 +92,7 @@ class LandingJobApi(View):
                 status=403,
             )
 
-        if status != "CANCELLED":
+        if status != JobStatus.CANCELLED:
             data = {"errors": [f"The provided status {status} is not allowed."]}
             return JsonResponse(data, status=400)
 
