@@ -300,7 +300,7 @@ class GitSCM(AbstractSCM):
             "revision_id": revision_id,
         }
 
-        failed_paths = self.FAILED_RE.findall(error_message, re.MULTILINE)
+        failed_paths = self.FAILED_RE.findall(error_message)
 
         failed_path_commits = [
             (path, self.last_commit_for_path(path), path_error)
