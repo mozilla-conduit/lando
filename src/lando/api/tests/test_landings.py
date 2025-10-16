@@ -244,6 +244,21 @@ diff --git a/test.txt b/test.txt
 +add one more line
 """.lstrip()  # noqa: W293
 
+PATCH_CHANGE_MISSING_CONTENT = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,1 @@
+-LINE THAT IS NOT HERE
++adding different line
+""".lstrip()  # noqa: W293
+
 PATCH_BINARY_GITATTRIBUTES = r"""
 # HG changeset patch
 # User Local Dev <local-dev@mozilla.bugs>
@@ -578,23 +593,33 @@ def test_lose_push_race(
 
 
 @pytest.mark.parametrize(
-    "repo_type, expected_error_log",
-    [
-        (SCM_TYPE_GIT, "Rejected hunk"),
-        (SCM_TYPE_HG, "hunks FAILED"),
-    ],
+    "repo_type, expected_error_log, patch",
+    # Can't use itertools.product without similar overhead as this,
+    # as we have more than one element in the first set.
+    (
+        scm + (patch,)
+        for scm in (
+            (SCM_TYPE_GIT, "Rejected hunk"),
+            (SCM_TYPE_HG, "hunks FAILED"),
+        )
+        for patch in (
+            PATCH_FORMATTED_2,
+            PATCH_CHANGE_MISSING_CONTENT,
+        )
+    ),
 )
 @pytest.mark.django_db
 def test_merge_conflict(
-    repo_mc,
-    treestatusdouble,
-    mock_phab_trigger_repo_update_apply_async,
-    create_patch_revision,
-    make_landing_job,
-    caplog,
-    get_landing_worker,
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    mock_phab_trigger_repo_update_apply_async: mock.Mock,
+    create_patch_revision: Callable,
+    make_landing_job: Callable,
+    caplog: pytest.LogCaptureFixture,
+    get_landing_worker: Callable,
     repo_type: str,
     expected_error_log: str,
+    patch: str,
 ):
     repo = repo_mc(repo_type)
     treestatusdouble.open_tree(repo.name)
@@ -608,7 +633,7 @@ def test_merge_conflict(
     }
     job = make_landing_job(
         revisions=[
-            create_patch_revision(1, patch=PATCH_FORMATTED_2),
+            create_patch_revision(1, patch=patch),
         ],
         **job_params,
     )
