@@ -19,6 +19,15 @@ from lando.version import version
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent
 
+# Syntax: redis://[username:password@]127.0.0.1:6379
+if lando_cache_redis := os.getenv("LANDO_CACHE_REDIS"):
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": lando_cache_redis,
+        }
+    }
+
 SECRET_KEY = os.getenv(
     "SECRET_KEY",
     "django-insecure-26k#ouat@%d6w5gmuhvo_vc=_@on^6=eh9*g!p-k9ynjvyc#(_",
