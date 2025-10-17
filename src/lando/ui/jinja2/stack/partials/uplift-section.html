@@ -97,7 +97,7 @@ future.
 
         <!-- Jobs list -->
         <div class="content mt-3">
-          {% for job in uplift_request.uplift_jobs.all %}
+          {% for job in uplift_request.uplift_jobs.all() %}
             <article class="media py-3" style="border-top: 1px solid #f0f0f0;">
               <figure class="media-left">
                 <span class="icon has-text-grey">
