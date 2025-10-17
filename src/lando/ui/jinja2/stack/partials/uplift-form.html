@@ -25,9 +25,10 @@
             <p>Action Creates New Phabricator Revisions</p>
           </div>
           <div class="message-body">
-            Using the Request Uplift button will generate new Phabricator uplift
-            revisions. If you only want to complete the uplift assessment form for
-            this revision, please use the "Edit Uplift Assessment" button instead.
+            Submitting this uplift request queues jobs for every selected repository
+            and creates the corresponding uplift revisions automatically. If you
+            only need to update the assessment form for this revision, use the
+            "Edit Uplift Assessment" button instead.
           </div>
         </article>
         {% endif %}
@@ -45,8 +46,9 @@
         {% endif %}
 
         <p class="block">
-          Select the repository you wish to uplift this revision to and complete the form below.
-          Your revision will be reviewed and landed by a release manager.
+          Select one or more repositories to uplift this revision stack to, then
+          complete the form below. Each selected repository will receive a separate
+          uplift job reviewed and landed by Release Management.
         </p>
 
         <div class="block">
@@ -59,7 +61,7 @@
         </div>
 
         <div class="field">
-            <label class="label">Uplift repository</label>
+            <label class="label">Uplift repositories</label>
             <div class="control">
                 {# TODO-sh check this is rendering properly #}
                 {% for checkbox in uplift_request_form.repositories %}
@@ -68,6 +70,9 @@
                     </label>
                 {% endfor %}
             </div>
+            <p class="help">
+              Uplift jobs will be created for every repository you select here.
+            </p>
         </div>
 
         {% with assessment_form = uplift_request_form %}
