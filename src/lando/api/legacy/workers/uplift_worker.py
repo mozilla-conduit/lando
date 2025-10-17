@@ -54,11 +54,14 @@ class UpliftWorker(Worker):
         created_revision_ids = [int(commit["rev_id"]) for commit in commits]
         tip_revision_id = created_revision_ids[-1]
 
-        # On success: associate assessment with new revision.
-        UpliftRevision.objects.create(
+        _, created = UpliftRevision.objects.get_or_create(
             revision_id=tip_revision_id,
-            assessment=multi_request.assessment,
+            defaults={"assessment": multi_request.assessment},
         )
+        if not created:
+            UpliftRevision.objects.filter(revision_id=tip_revision_id).update(
+                assessment=multi_request.assessment
+            )
 
         job.created_revision_ids = created_revision_ids
         job.transition_status(JobAction.SUCCESS)
