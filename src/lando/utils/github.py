@@ -96,6 +96,11 @@ class GitHubAPIClient:
         result.raise_for_status()
         return result.json()
 
+    @classmethod
+    def convert_timestamp_from_github(cls, timestamp: str) -> str:
+        timestamp_datetime = datetime.fromisoformat(timestamp)
+        return str(math.floor(timestamp_datetime.timestamp()))
+
     @property
     def session(self) -> requests.Session:
         """Return the underlying HTTP session."""
@@ -295,15 +300,10 @@ class PullRequestPatchHelper(PatchHelper):
                 break
 
         self.headers = {
-            "date": self._get_timestamp_from_github_timestamp(pr.updated_at),
+            "date": client.convert_timestamp_from_github(pr.updated_at),
             "from": user,
             "subject": pr.body.splitlines()[0],
         }
-
-    @classmethod
-    def _get_timestamp_from_github_timestamp(cls, timestamp: str) -> str:
-        timestamp_datetime = datetime.fromisoformat(timestamp)
-        return str(math.floor(timestamp_datetime.timestamp()))
 
     @classmethod
     def from_string_io(cls, string_io: io.StringIO) -> "PatchHelper":
