@@ -6,6 +6,7 @@ import subprocess
 import uuid
 from collections.abc import Callable
 from pathlib import Path
+from textwrap import dedent
 from unittest.mock import MagicMock
 
 import pytest
@@ -1006,3 +1007,59 @@ def test_GitSCM_tag_retag(
 
     with pytest.raises(TagAlreadyPresentException):
         scm.tag(tag_name, old_commit)
+
+
+def test_GitSCM_process_merge_conflict_no_reject(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+):
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+
+    conflict_message = dedent(
+        """\
+        Problem while applying patch in revision 264890:
+
+        Checking patch test.txt...
+        Hunk #1 succeeded at 178 (offset -10 lines).
+        error: while searching for:
+              }
+              this.#lastSetting = this.setting;
+              this.setValue();
+              this.setting.on("change", this.onSettingChange);
+            }
+            this.hidden = !this.setting.visible;
+          }
+
+          updated() {
+            this.controlRef?.value?.requestUpdate();
+          }
+
+          /**
+
+        error: patch failed: test.txt:209
+        Hunk #1 succeeded at 404 (offset 185 lines).
+        Applying patch test.txt with 1 reject...
+        Hunk #1 applied cleanly.
+        Rejected hunk #2.
+        error: patch failed: that-other-file.txt:209
+        Rejected hunk #1."""
+    ).strip()
+
+    error_breakdown = scm.process_merge_conflict("wherever", 42, conflict_message)
+
+    assert (
+        "while searching for:"
+        in error_breakdown["rejects_paths"]["test.txt"]["content"]
+    ), "Missing details from `content` in rejects_paths for test.txt"
+    assert (
+        "error reading rejects file"
+        in error_breakdown["rejects_paths"]["that-other-file.txt"]["content"]
+    ), "Missing default message from `content` in rejects_paths for that-other-file.txt"
