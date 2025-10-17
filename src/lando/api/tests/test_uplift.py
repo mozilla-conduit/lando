@@ -654,9 +654,10 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     assert uplift_worker.run_job(job), "Re-running job should still succeed."
 
     job.refresh_from_db()
-    assert (
-        job.created_revision_ids == [4567, 4568]
-    ), "Re-running job should leave created_revision_ids unchanged."
+    assert job.created_revision_ids == [
+        4567,
+        4568,
+    ], "Re-running job should leave created_revision_ids unchanged."
     assert (
         UpliftRevision.objects.count() == 1
     ), "Re-running job should not duplicate UpliftRevision records."
