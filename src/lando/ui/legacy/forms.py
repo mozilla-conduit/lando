@@ -95,7 +95,7 @@ class UpliftRequestForm(UpliftAssessmentForm):
         cleaned_repositories = []
         for repo in repositories:
             try:
-                repository = Repo.objects.get(short_name=repo)
+                repository = Repo.objects.get(name=repo)
             except Repo.DoesNotExist:
                 raise forms.ValidationError(
                     f"Repository {repositories} is not a repository known to Lando. "
