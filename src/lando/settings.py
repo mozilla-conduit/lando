@@ -20,11 +20,11 @@ from lando.version import version
 BASE_DIR = Path(__file__).resolve().parent
 
 # Syntax: redis://[username:password@]127.0.0.1:6379
-if lando_redis := os.getenv("LANDO_REDIS"):
+if lando_cache_redis := os.getenv("LANDO_CACHE_REDIS"):
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
-            "LOCATION": lando_redis,
+            "LOCATION": lando_cache_redis,
         }
     }
 
