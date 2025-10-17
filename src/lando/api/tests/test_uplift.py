@@ -125,7 +125,7 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
     url = reverse("uplift-page")
     form_data = {
         "source_revision_ids": [123, 456],
-        "repositories": [repo_a.name, repo_b.name],
+        "repositories": [repo_a.short_name, repo_b.short_name],
     }
     form_data |= CREATE_FORM_DATA
 
@@ -208,7 +208,7 @@ def test_uplift_creation_fails_when_revisions_missing(authenticated_client, repo
 
     form_data = {
         "source_revision_ids": [123, 456],
-        "repositories": [repo_a.name, repo_b.name],
+        "repositories": [repo_a.short_name, repo_b.short_name],
     }
     form_data |= CREATE_FORM_DATA
 
@@ -719,6 +719,39 @@ def test_moz_phab_uplift_invokes_cli_and_returns_response(
     assert (
         fake_run.call_args.kwargs["env"]["MOZPHAB_PHABRICATOR_API_KEY"] == api_key
     ), "`moz_phab_uplift` should set the API key in the environment."
+
+
+@pytest.mark.django_db
+def test_moz_phab_uplift_invalid_json_marks_job_failed(
+    repo_mc, user, uplift_worker, create_patch_revision, normal_patch, monkeypatch
+):
+    repo = repo_mc(SCM_TYPE_GIT, name="firefox-release", approval_required=True)
+    revisions = [
+        create_patch_revision(0, patch=normal_patch(0)),
+        create_patch_revision(1, patch=normal_patch(1)),
+    ]
+    job = _make_uplift_job_with_revisions(repo, user, revisions)
+
+    api_key = user.profile.phabricator_api_key
+
+    fake_run = mock.MagicMock()
+
+    def _write_bad_output(
+        cmd, capture_output=None, check=None, cwd=None, encoding=None, env=None
+    ):
+        output_file = cmd[cmd.index("--output-file") + 1]
+        with open(output_file, "w", encoding=encoding) as fh:
+            fh.write("not-json")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    fake_run.side_effect = _write_bad_output
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    with pytest.raises(PermanentFailureException):
+        uplift_worker.moz_phab_uplift(job, api_key, "abcd1234")
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.FAILED, "Invalid JSON output should fail the job."
 
 
 @pytest.mark.django_db
