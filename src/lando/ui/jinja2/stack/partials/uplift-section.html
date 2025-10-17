@@ -88,7 +88,7 @@ future.
               <div class="tags">
                 {% for rev_id in uplift_request.requested_revisions %}
                   <a class="tag is-link is-light"
-                     href="{{ settings.PHABRICATOR_URL }}/D{{ rev_id }}">D{{ rev_id }}</a>
+                     href="{{ rev_id|revision_url }}">D{{ rev_id }}</a>
                 {% endfor %}
               </div>
             </div>
@@ -135,7 +135,7 @@ future.
                         <div class="tags">
                           {% for rev_id in job.created_revision_ids %}
                             <a class="tag is-link"
-                               href="{{ settings.PHABRICATOR_URL }}/D{{ rev_id }}">
+                               href="{{ rev_id|revision_url }}">
                               Uplifted to D{{ rev_id }}
                             </a>
                           {% endfor %}
@@ -147,7 +147,7 @@ future.
 
                   <div class="mb-1">
                     <a class="button is-small is-light"
-                       href="{{ settings.SITE_URL }}/jobs/{{ job.id }}">
+                       href="{{ url('jobs-page', args=[job.id]) }}">
                       View job
                     </a>
                   </div>
