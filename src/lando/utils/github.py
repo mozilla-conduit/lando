@@ -275,6 +275,38 @@ class PullRequest:
 
         return commits
 
+    @cache_method(pr_cache_key)
+    def get_comments(self, client: GitHubAPIClient) -> dict:
+        """Return a list of comments on the whole PR."""
+        # `issues` is correct here, using `pull` instead would return comments on diffs.
+        comments = client.get(f"issues/{self.number}/comments")
+
+        if any(
+            client.convert_timestamp_from_github(comment["updated_at"])
+            > client.convert_timestamp_from_github(self.updated_at)
+            for comment in comments
+        ):
+            raise self.StaleMetadataException(
+                "Comments were changed while collecting PR information."
+            )
+
+        return comments
+
+    @cache_method(pr_cache_key)
+    def get_diff_comments(self, client: GitHubAPIClient) -> dict:
+        """Return a list of comments on specific changes of the PR."""
+        comments = client.get(f"pull/{self.number}/comments")
+
+        if any(
+            client.convert_timestamp_from_github(comment["updated_at"])
+            > client.convert_timestamp_from_github(self.updated_at)
+            for comment in comments
+        ):
+            raise self.StaleMetadataException(
+                "Comments were changed while collecting PR information."
+            )
+
+        return comments
 
 
 class PullRequestPatchHelper(PatchHelper):
