@@ -208,14 +208,6 @@ class RevisionView(LandoView):
         form = TransplantRequestForm()
         errors = []
 
-        # TODO-sh: test if this is working.
-        source_revision_ids = [
-            revision["id"] for revision in stack["stack"].iter_stack_from_root()
-        ]
-        uplift_request_form = UpliftRequestForm(
-            initial={"source_revision_ids": source_revision_ids}
-        )
-
         # Build a mapping from phid to revision and identify
         # the data for the revision used to load this page.
 
@@ -225,6 +217,15 @@ class RevisionView(LandoView):
             revisions[r["phid"]] = r
             if r["id"] == "D{}".format(revision_id):
                 revision_phid = r["phid"]
+
+        # TODO-sh: test if this is working.
+        source_revision_ids = [
+            revision["id"]
+            for revision in stack["stack"].iter_stack_from_root(dest=revision_phid)
+        ]
+        uplift_request_form = UpliftRequestForm(
+            initial={"source_revision_ids": source_revision_ids}
+        )
 
         # Build a mapping from phid to repository.
         repositories = {}
