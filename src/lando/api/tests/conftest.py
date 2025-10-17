@@ -12,9 +12,9 @@ from django.http import HttpResponse
 from django.http import JsonResponse as JSONResponse
 from django.test import Client
 
-import lando.api.legacy.api.landing_jobs as legacy_api_landing_jobs
 import lando.api.legacy.api.stacks as legacy_api_stacks
 import lando.api.legacy.api.transplants as legacy_api_transplants
+from lando.api.legacy.api.landing_jobs import LandingJobApiView
 from lando.api.legacy.projects import (
     CHECKIN_PROJ_SLUG,
     RELMAN_PROJECT_SLUG,
@@ -325,6 +325,7 @@ def fake_request():
             self.body = "{}"
             if "body" in kwargs:
                 self.body = kwargs.pop("body")
+            self.method = kwargs.pop("method", "GET")
             self.user = FakeUser(*args, **kwargs)
 
     return FakeRequest
@@ -420,7 +421,8 @@ def proxy_client(monkeypatch, fake_request):
 
         def _handle__put__landing_jobs__id(self, path, **kwargs):
             job_id = int(path.removeprefix("/landing_jobs/"))
-            response = legacy_api_landing_jobs.put(self.request, job_id)
+            landing_job_api = LandingJobApiView()
+            response = landing_job_api.put(self.request, job_id)
             return MockResponse(json=json.loads(response.content))
 
         def get(self, path, *args, **kwargs):
@@ -445,13 +447,14 @@ def proxy_client(monkeypatch, fake_request):
         def put(self, path, **kwargs):
             """Handle put endpoint."""
             request_dict = {}
+
             if "permissions" in kwargs:
                 request_dict["permissions"] = kwargs["permissions"]
 
             if "json" in kwargs:
                 request_dict["body"] = json.dumps(kwargs["json"])
 
-            self.request = fake_request(**request_dict)
+            self.request = fake_request(method="PUT", **request_dict)
 
             if path.startswith("/landing_jobs/"):
                 return self._handle__put__landing_jobs__id(path, **kwargs)
