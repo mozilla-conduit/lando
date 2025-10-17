@@ -2,13 +2,16 @@ from abc import ABC, abstractmethod
 
 from typing_extensions import override
 
+from lando.main.models.repo import Repo
 from lando.utils.github import GitHubAPIClient, PullRequest
 
 
 class PullRequestCheck(ABC):
     @classmethod
     @abstractmethod
-    def run(cls, client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
+    def run(
+        cls, client: GitHubAPIClient, pull_request: PullRequest, target_repo: Repo
+    ) -> str | None:
         """Inspect the PR for on issue, and return a message string if present."""
 
 
@@ -238,23 +241,27 @@ class PullRequestMultipleAuthorsWarning(PullRequestWarning):
 
     @override
     @classmethod
-    def run(cls, client: GitHubAPIClient, pull_request: PullRequest) -> str | None:
+    def run(
+        cls, client: GitHubAPIClient, pull_request: PullRequest, target_repo: Repo
+    ) -> list[str]:
         if (
             len({commit["author"]["id"] for commit in pull_request.get_commits(client)})
             == 1
         ):
-            return ""
+            return [cls.__doc__ + " " + (", ".join(authors))]
 
-        return cls.__doc__
+        return []
 
 
 class PullRequestChecks:
     """Utility class to check a GitHub pull request for a given list of issues."""
 
     _client: GitHubAPIClient
+    _target_repo: Repo
 
-    def __init__(self, client: GitHubAPIClient):
+    def __init__(self, client: GitHubAPIClient, target_repo: Repo):
         self._client = client
+        self._target_repo = target_repo
 
     def run(
         self, checks_list: list[type[PullRequestCheck]], pull_request: PullRequest
