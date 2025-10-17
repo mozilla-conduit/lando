@@ -47,6 +47,14 @@ class LandingJob(BaseJob):
         Revision, through="RevisionLandingJob", related_name="landing_jobs"
     )
 
+    def is_pull_request_job(self) -> bool:
+        """Return True if the landing job has one revision that has a pull_number set."""
+        # TODO: RE: stack support, this will need to be modified.
+        return (
+            self.revisions.count() == 1
+            and self.revisions.first().pull_number is not None
+        )
+
     @property
     def landed_phabricator_revisions(self) -> dict:
         """Return a mapping associating Phabricator revision IDs with the ID of the landed Diff."""
