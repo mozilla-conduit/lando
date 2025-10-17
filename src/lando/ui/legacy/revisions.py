@@ -220,8 +220,8 @@ class RevisionView(LandoView):
 
         # TODO-sh: test if this is working.
         source_revision_ids = [
-            revision["id"]
-            for revision in stack["stack"].iter_stack_from_root(dest=revision_phid)
+            revisions[revision_phid]["id"]
+            for revision_phid in stack["stack"].iter_stack_from_root(dest=revision_phid)
         ]
         uplift_request_form = UpliftRequestForm(
             initial={"source_revision_ids": source_revision_ids}
