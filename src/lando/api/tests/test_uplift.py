@@ -125,7 +125,7 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
     url = reverse("uplift-page")
     form_data = {
         "source_revision_ids": [123, 456],
-        "repositories": [repo_a.short_name, repo_b.short_name],
+        "repositories": [repo_a.name, repo_b.name],
     }
     form_data |= CREATE_FORM_DATA
 
@@ -208,7 +208,7 @@ def test_uplift_creation_fails_when_revisions_missing(authenticated_client, repo
 
     form_data = {
         "source_revision_ids": [123, 456],
-        "repositories": [repo_a.short_name, repo_b.short_name],
+        "repositories": [repo_a.name, repo_b.name],
     }
     form_data |= CREATE_FORM_DATA
 
@@ -710,7 +710,7 @@ def test_moz_phab_uplift_invokes_cli_and_returns_response(
     ], "`moz_phab_uplift` should call moz-phab uplift with an output file."
     assert called_cmd[4:] == [
         "--target-train",
-        repo.short_name,
+        repo.name,
         base_revision,
         "HEAD",
     ], "Called `moz-phab` command should match expected."
