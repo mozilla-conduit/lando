@@ -16,7 +16,7 @@ from lando.main.scm import (
     SCM_TYPE_HG,
     AbstractSCM,
 )
-from lando.utils.landing_checks import ALL_CHECKS
+from lando.utils.landing_checks import ALL_CHECKS, BugReferencesCheck
 
 logger = logging.getLogger(__name__)
 
@@ -54,9 +54,9 @@ HOOKS_CHOICES = {chk.__name__: chk.__doc__ or chk.__name__ for chk in ALL_CHECKS
 def get_default_hooks() -> list[str]:
     """Returns a list of all known hook names, suitable as a default value.
 
-    In doubt, we enable everything. An admin can then decide to disable irrelevant
-    hooks."""
-    return list(HOOKS_CHOICES)
+    Assuming a normal repository, we enable everything but the BugReferencesCheck, which
+    is only relevant for Try-type repos."""
+    return [hook for hook in HOOKS_CHOICES if hook != BugReferencesCheck]
 
 
 class Repo(BaseModel):
