@@ -102,10 +102,11 @@ class UpliftWorker(Worker):
                 job.transition_status(JobAction.FAIL, message=message)
                 raise PermanentFailureException(message) from exc
 
+            f_output.seek(0)
+
             try:
-                f_output.seek(0)
                 return json.load(f_output)
-            except json.JSONDecodeError as exc:  # pragma: no cover
+            except json.JSONDecodeError as exc:
                 message = "`moz-phab uplift` produced invalid JSON output."
                 logger.exception(message)
                 job.transition_status(JobAction.FAIL, message=message)
