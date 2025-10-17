@@ -14,6 +14,33 @@
       <section class="modal-card-body">
         {# TODO-sh confirm this renders properly #}
         {{ uplift_request_form.source_revision_ids }}
+        {% set requested_revision_ids = uplift_request_form.source_revision_ids.value %}
+        {% if requested_revision_ids %}
+        <div class="field">
+          <label class="label">Revisions to uplift</label>
+          <div class="control">
+            <ul class="content">
+              {% set revision_ns = namespace(display_id="") %}
+              {% for revision_id in requested_revision_ids %}
+                {% set revision_ns.display_id = revision_id|string %}
+                {% if not revision_ns.display_id.startswith("D") %}
+                  {% set revision_ns.display_id = "D" ~ revision_ns.display_id %}
+                {% endif %}
+                {% set revision = revisions.values() | selectattr("id", "equalto", revision_ns.display_id) | first %}
+                <li>
+                  <strong>{{ revision_ns.display_id }}</strong>
+                  {% if revision %}
+                    — {{ revision.title }}
+                  {% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+          <p class="help">
+            These revisions will be cloned into new uplift revisions for every selected repository.
+          </p>
+        </div>
+        {% endif %}
 
         {% if not user_has_phabricator_token %}
             {% include "stack/partials/uplift-phab-api-key-warning.html" %}
