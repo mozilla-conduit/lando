@@ -1,11 +1,17 @@
 import asyncio
+import io
 import logging
+import math
+from datetime import datetime
 
 import requests
 from django.conf import settings
 from simple_github import AppAuth, AppInstallationAuth
+from typing_extensions import override
 
-from lando.main.models.repo import Repo
+# from lando.main.models.repo import Repo
+from lando.main.scm.helpers import PatchHelper
+from lando.utils.cache import cache_method
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +19,7 @@ logger = logging.getLogger(__name__)
 class GitHubAPI:
     GITHUB_BASE_URL = "https://api.github.com"
 
-    def __init__(self, repo: Repo):
+    def __init__(self, repo: "Repo"):
         repo_owner = repo._github_repo_org
         repo_name = repo.git_repo_name
 
@@ -53,40 +59,76 @@ class GitHubAPI:
         session = AppInstallationAuth(app_auth, repo_owner, repositories=[repo_name])
         return asyncio.run(session.get_token())
 
-    def get(self, path: str, *args, **kwargs) -> dict:
+    def get(self, path: str, *args, **kwargs) -> requests.Response:
         url = f"{self.GITHUB_BASE_URL}/{path}"
         return self.session.get(url, *args, **kwargs)
 
-    def post(self, path: str, *args, **kwargs) -> dict:
+    def post(self, path: str, *args, **kwargs) -> requests.Response:
         url = f"self.GITHUB_BASE_URL/{path}"
         return self.session.post(url, *args, **kwargs)
 
 
 class GitHubAPIClient:
-    client = None
+    client: GitHubAPI
 
-    def __init__(self, repo: Repo):
+    # repo: "Repo"
+    repo_base_url: str
+
+    def __init__(self, repo: "Repo"):
         self.client = GitHubAPI(repo)
         self.repo = repo
         self.repo_base_url = (
             f"repos/{self.repo._github_repo_org}/{self.repo.git_repo_name}"
         )
 
-    def _get(self, path: str, *args, **kwargs):
-        result = self.client.get(path, *args, **kwargs)
+    def get(self, path: str, *args, **kwargs) -> dict | list:
+        """Get API endpoint scoped to the repo_base_url.
+
+        Parameters:
+
+        path: str
+            Relative path without leading `/`.
+
+        Return:
+            dist | list: decoded JSON from the response
+        """
+        result = self.client.get(f"{self.repo_base_url}/{path}", *args, **kwargs)
+        result.raise_for_status()
         return result.json()
 
+    @classmethod
+    def convert_timestamp_from_github(cls, timestamp: str) -> str:
+        timestamp_datetime = datetime.fromisoformat(timestamp)
+        return str(math.floor(timestamp_datetime.timestamp()))
+
+    @property
+    def session(self) -> requests.Session:
+        """Return the underlying HTTP session."""
+        return self.client.session
+
     def list_pull_requests(self) -> list:
-        return self._get(f"{self.repo_base_url}/pulls")
+        return self.get("pulls")
 
     def get_pull_request(self, pull_number: int) -> dict:
-        return self._get(f"{self.repo_base_url}/pulls/{pull_number}")
+        return self.get(f"pulls/{pull_number}")
 
     def get_diff(self, url: str) -> str:
         pass
 
 
+def pr_cache_key(self: "PullRequest", *args, **kwargs) -> str:
+    """Provide a cache key for PR methods that fetch data from GitHub.
+
+    This method-like function cannot be part of the PullRequest, as it is used by method
+    decorators when declaring the class.
+    """
+    return f"{self.id}{self.updated_at}"
+
+
 class PullRequest:
+    class StaleMetadataException(Exception):
+        pass
+
     def __repr__(self) -> str:
         return f"Pull request #{self.number} ({self.head_repo_git_url})"
 
@@ -168,3 +210,168 @@ class PullRequest:
             "user_html_url": self.user_html_url,
             "user_login": self.user_login,
         }
+
+    def get_diff(self, client: GitHubAPIClient) -> str:
+        """Return a single diff of the latest state for the PR.
+
+        WARNING: The returned diff doesn't include any binary data.
+
+        If Binary data is desired, the `get_patch` method should be used instead.
+        """
+        response = client.session.get(self.diff_url)
+        response.raise_for_status()
+
+        return response.text
+
+    def get_patch(self, client: GitHubAPIClient) -> str:
+        """Return a series of patches from the PR's commits.
+
+        Patches from each commit are concatenated into a single string.
+
+        This includes binary content, unlike `get_diff`.
+        """
+        response = client.session.get(self.patch_url)
+        response.raise_for_status()
+
+        return response.text
+
+    @cache_method(pr_cache_key)
+    def get_reviews(self, client: GitHubAPIClient) -> dict:
+        """Return a list of reviews for the PR."""
+        reviews = client.get(f"pulls/{self.number}/reviews")
+
+        if any(
+            client.convert_timestamp_from_github(review["submitted_at"])
+            > client.convert_timestamp_from_github(self.updated_at)
+            for review in reviews
+        ):
+            raise self.StaleMetadataException(
+                "Reviews were added while collecting PR information."
+            )
+
+        return reviews
+
+    @cache_method(pr_cache_key)
+    def get_commits(self, client: GitHubAPIClient) -> dict:
+        """Return a list of commits for the PR."""
+        commits = client.get(f"pulls/{self.number}/commits")
+
+        if commits[-1]["sha"] != self.head_sha:
+            raise self.StaleMetadataException(
+                "Head commit changed while collecting PR information."
+            )
+
+        # XXX: What happens if a commit has been committed in the past, but has only
+        # been pushed now?
+        if any(
+            client.convert_timestamp_from_github(commit["commit"]["committer"]["date"])
+            > client.convert_timestamp_from_github(self.updated_at)
+            for commit in commits
+        ):
+            raise self.StaleMetadataException(
+                "Commits were added while collecting PR information."
+            )
+
+        return commits
+
+    @cache_method(pr_cache_key)
+    def get_comments(self, client: GitHubAPIClient) -> dict:
+        """Return a list of comments on the whole PR."""
+        # `issues` is correct here, using `pull` instead would return comments on diffs.
+        comments = client.get(f"issues/{self.number}/comments")
+
+        if any(
+            client.convert_timestamp_from_github(comment["updated_at"])
+            > client.convert_timestamp_from_github(self.updated_at)
+            for comment in comments
+        ):
+            raise self.StaleMetadataException(
+                "Comments were changed while collecting PR information."
+            )
+
+        return comments
+
+    @cache_method(pr_cache_key)
+    def get_diff_comments(self, client: GitHubAPIClient) -> dict:
+        """Return a list of comments on specific changes of the PR."""
+        comments = client.get(f"pull/{self.number}/comments")
+
+        if any(
+            client.convert_timestamp_from_github(comment["updated_at"])
+            > client.convert_timestamp_from_github(self.updated_at)
+            for comment in comments
+        ):
+            raise self.StaleMetadataException(
+                "Comments were changed while collecting PR information."
+            )
+
+        return comments
+
+
+class PullRequestPatchHelper(PatchHelper):
+    """A PatchHelper-like wrapper for GitHub pull requests.
+
+    Due to the nature of pull requests, it only implement the data-getting
+    functionality, and  doesn't implement the input and output
+    methods.
+    """
+
+    _diff: str
+
+    def __init__(self, client: GitHubAPIClient, pr: PullRequest):
+        super().__init__()
+
+        self._diff = pr.get_diff(client)
+
+        user = f"{pr.user_login}@github-pr"
+        # Consider the committer of the first patch to be the author.
+        patch = pr.get_patch(client)
+        for line in patch.splitlines():
+            if match := self.USERNAME_RE.match(line):
+                user = match["user"]
+                break
+
+        self.headers = {
+            "date": client.convert_timestamp_from_github(pr.updated_at),
+            "from": user,
+            "subject": pr.body.splitlines()[0],
+        }
+
+    @classmethod
+    def from_string_io(cls, string_io: io.StringIO) -> "PatchHelper":
+        """Implement the PatchHelper interface; not relevant for GitHub PRs."""
+        raise NotImplementedError("`from_string_io` not implemented.")
+
+    @classmethod
+    def from_bytes_io(cls, bytes_io: io.BytesIO) -> "PatchHelper":
+        """Implement the PatchHelper interface; not relevant for GitHub PRs."""
+        raise NotImplementedError("`from_bytes_io` not implemented.")
+
+    def get_commit_description(self) -> str:
+        """Returns the commit description."""
+        return self.get_header("subject")
+
+    @override
+    def get_diff(self) -> str:
+        """Return the patch diff.
+
+        WARNING: As of 2025-10-13, this doesn't include any binary data.
+        """
+        return self._diff
+
+    @override
+    def write(self, f: io.StringIO):
+        """Implement the PatchHelper interface; not relevant for GitHub PRs."""
+        raise NotImplementedError("`from_bytes_io` not implemented.")
+
+    @override
+    def parse_author_information(self) -> tuple[str, str]:
+        """Return the author name and email from the patch."""
+        line = f"From: {self.get_header('from')}"
+        match = self.USERNAME_RE.match(line)
+        return (match["name"], match["email"])
+
+    @override
+    def get_timestamp(self) -> str:
+        """Return an `hg export` formatted timestamp."""
+        return self.get_header("date")
