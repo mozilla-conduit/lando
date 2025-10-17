@@ -2,6 +2,10 @@ from datetime import datetime
 from typing import Callable, Self
 
 from django.contrib import admin
+from django.db.models import Field as DbField
+from django.db.models import Field as FormField
+from django.forms import CheckboxSelectMultiple, MultipleChoiceField
+from django.http import HttpRequest
 from django.utils.translation import gettext_lazy
 
 from lando.main.models import (
@@ -17,6 +21,25 @@ from lando.main.models import (
 admin.site.site_title = gettext_lazy("Lando Admin")
 admin.site.site_header = gettext_lazy("Lando Administration")
 admin.site.index_title = gettext_lazy("Lando administration")
+
+
+class ArrayFieldMultipleChoiceField(MultipleChoiceField):
+    """Custom form field for ArrayField with choices that shows all available options."""
+
+    def __init__(self, **kwargs):
+        # Remove ArrayField-specific arguments that MultipleChoiceField doesn't accept.
+        kwargs.pop("base_field", None)
+        kwargs.pop("max_length", None)
+        kwargs.pop("size", None)
+        super().__init__(**kwargs)
+
+    def prepare_value(self, value) -> list:  # noqa: ANN001
+        """Convert ArrayField value to format expected by MultipleChoiceField."""
+        if isinstance(value, list):
+            return value
+        if value is None:
+            return []
+        return list(value)
 
 
 class ReadOnlyInline(admin.TabularInline):
@@ -200,6 +223,16 @@ class RepoAdmin(admin.ModelAdmin):
     )
 
     search_fields = ("pull_path", "push_path", "url")
+
+    def formfield_for_dbfield(
+        self, db_field: DbField, request: HttpRequest, **kwargs
+    ) -> FormField:
+        if db_field.name == "hooks":
+            kwargs["form_class"] = ArrayFieldMultipleChoiceField
+            kwargs["widget"] = CheckboxSelectMultiple
+            kwargs["choices"] = list(Repo.HOOKS_CHOICES.items())
+            return db_field.formfield(**kwargs)
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
 
 
 class CommitMapAdmin(admin.ModelAdmin):
