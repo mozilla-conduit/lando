@@ -98,13 +98,13 @@ class UpliftRequestForm(UpliftAssessmentForm):
                 repository = Repo.objects.get(name=repo)
             except Repo.DoesNotExist:
                 raise forms.ValidationError(
-                    f"Repository {repositories} is not a repository known to Lando. "
+                    f"Repository {repo} is not a repository known to Lando. "
                     "Please select an uplift repository to create the uplift request."
                 )
 
             if not repository.approval_required:
                 raise forms.ValidationError(
-                    f"Repository {repositories} is not an uplift repository. "
+                    f"Repository {repo} is not an uplift repository. "
                     "Please select an uplift repository to create the uplift request."
                 )
 
