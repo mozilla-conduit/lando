@@ -14,7 +14,7 @@ from django.test import Client
 
 import lando.api.legacy.api.stacks as legacy_api_stacks
 import lando.api.legacy.api.transplants as legacy_api_transplants
-from lando.api.legacy.api.landing_jobs import LandingJobApi
+from lando.api.legacy.api.landing_jobs import LandingJobApiView
 from lando.api.legacy.projects import (
     CHECKIN_PROJ_SLUG,
     RELMAN_PROJECT_SLUG,
@@ -421,7 +421,7 @@ def proxy_client(monkeypatch, fake_request):
 
         def _handle__put__landing_jobs__id(self, path, **kwargs):
             job_id = int(path.removeprefix("/landing_jobs/"))
-            landing_job_api = LandingJobApi()
+            landing_job_api = LandingJobApiView()
             response = landing_job_api.put(self.request, job_id)
             return MockResponse(json=json.loads(response.content))
 

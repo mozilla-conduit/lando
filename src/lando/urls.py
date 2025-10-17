@@ -82,7 +82,7 @@ urlpatterns += [
 urlpatterns += [
     path(
         "landing_jobs/<int:job_id>/",
-        landing_jobs.LandingJobApi.as_view(),
+        landing_jobs.LandingJobApiView.as_view(),
         name="landing-jobs",
     ),
     path(

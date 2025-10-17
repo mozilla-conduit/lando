@@ -24,7 +24,7 @@ class LandingJobForm(forms.Form):
     status = forms.CharField()
 
 
-class LandingJobApi(View):
+class LandingJobApiView(View):
     def get(self, request: WSGIRequest, job_id: int) -> JsonResponse:
         """Get a landing job description as JSON."""
         try:
