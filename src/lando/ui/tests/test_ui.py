@@ -1,5 +1,6 @@
 import itertools
 import re
+from textwrap import dedent
 from typing import Callable
 
 import pytest
@@ -83,7 +84,42 @@ def test_landed_landing_job_view(
     itertools.product(
         (
             (
-                'Problem while applying patch in revision 264890:\n\nChecking patch browser/components/preferences/widgets/setting-group/setting-group.mjs...\nHunk #1 succeeded at 43 (offset 16 lines).\nHunk #2 succeeded at 114 (offset 19 lines).\nChecking patch browser/components/preferences/widgets/setting-control/setting-control.mjs...\nHunk #1 succeeded at 178 (offset -10 lines).\nerror: while searching for:\n      }\n      this.#lastSetting = this.setting;\n      this.setValue();\n      this.setting.on("change", this.onSettingChange);\n    }\n    this.hidden = !this.setting.visible;\n  }\n\n  updated() {\n    this.controlRef?.value?.requestUpdate();\n  }\n\n  /**\n\nerror: patch failed: browser/components/preferences/widgets/setting-control/setting-control.mjs:209\nChecking patch browser/components/preferences/tests/chrome/test_setting_group.html...\nChecking patch browser/components/preferences/main.js...\nHunk #1 succeeded at 404 (offset 185 lines).\nApplied patch browser/components/preferences/widgets/setting-group/setting-group.mjs cleanly.\nApplying patch browser/components/preferences/widgets/setting-control/setting-control.mjs with 1 reject...\nHunk #1 applied cleanly.\nRejected hunk #2.\nApplied patch browser/components/preferences/tests/chrome/test_setting_group.html cleanly.\nApplied patch browser/components/preferences/main.js cleanly.\n',
+                dedent(
+                    """\
+                    Problem while applying patch in revision 264890:
+
+                    Checking patch browser/components/preferences/widgets/setting-group/setting-group.mjs...
+                    Hunk #1 succeeded at 43 (offset 16 lines).
+                    Hunk #2 succeeded at 114 (offset 19 lines).
+                    Checking patch browser/components/preferences/widgets/setting-control/setting-control.mjs...
+                    Hunk #1 succeeded at 178 (offset -10 lines).
+                    error: while searching for:
+                          }
+                          this.#lastSetting = this.setting;
+                          this.setValue();
+                          this.setting.on("change", this.onSettingChange);
+                        }
+                        this.hidden = !this.setting.visible;
+                      }
+
+                      updated() {
+                        this.controlRef?.value?.requestUpdate();
+                      }
+
+                      /**
+
+                    error: patch failed: browser/components/preferences/widgets/setting-control/setting-control.mjs:209
+                    Checking patch browser/components/preferences/tests/chrome/test_setting_group.html...
+                    Checking patch browser/components/preferences/main.js...
+                    Hunk #1 succeeded at 404 (offset 185 lines).
+                    Applied patch browser/components/preferences/widgets/setting-group/setting-group.mjs cleanly.
+                    Applying patch browser/components/preferences/widgets/setting-control/setting-control.mjs with 1 reject...
+                    Hunk #1 applied cleanly.
+                    Rejected hunk #2.
+                    Applied patch browser/components/preferences/tests/chrome/test_setting_group.html cleanly.
+                    Applied patch browser/components/preferences/main.js cleanly.
+                """
+                ).strip(),
             )
         ),
         (
@@ -100,7 +136,33 @@ def test_landed_landing_job_view(
                 "rejects_paths": {
                     "browser/components/preferences/widgets/setting-control/setting-control.mjs": {
                         "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs.rej",
-                        "content": 'diff a/browser/components/preferences/widgets/setting-control/setting-control.mjs b/browser/components/preferences/widgets/setting-control/setting-control.mjs\t(rejected hunks)\n@@ -209,13 +209,20 @@\n       }\n       this.#lastSetting = this.setting;\n       this.setValue();\n       this.setting.on("change", this.onSettingChange);\n     }\n+    let prevHidden = this.hidden;\n     this.hidden = !this.setting.visible;\n+    if (prevHidden != this.hidden) {\n+      this.dispatchEvent(new Event("visibility-change", { bubbles: true }));\n+    }\n   }\n \n+  /**\n+   * @type {MozLitElement[\'updated\']}\n+   */\n   updated() {\n     this.controlRef?.value?.requestUpdate();\n   }\n \n   /**\n',
+                        "content": dedent(
+                            """\
+                            diff a/browser/components/preferences/widgets/setting-control/setting-control.mjs b/browser/components/preferences/widgets/setting-control/setting-control.mjs\t(rejected hunks)
+                            @@ -209,13 +209,20 @@
+                                   }
+                                   this.#lastSetting = this.setting;
+                                   this.setValue();
+                                   this.setting.on("change", this.onSettingChange);
+                                 }
+                            +    let prevHidden = this.hidden;
+                                 this.hidden = !this.setting.visible;
+                            +    if (prevHidden != this.hidden) {
+                            +      this.dispatchEvent(new Event("visibility-change", { bubbles: true }));
+                            +    }
+                               }
+
+                            +  /**
+                            +   * @type {MozLitElement[\'updated\']}
+                            +   */
+                               updated() {
+                                 this.controlRef?.value?.requestUpdate();
+                               }
+
+                               /**
+
+                                """
+                        ).strip(),
                     }
                 },
             },
