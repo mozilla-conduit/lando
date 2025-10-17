@@ -51,6 +51,11 @@ class LandingJob(BaseJob):
     )
 
     @property
+    def is_pull_request_job(self):
+        # TODO: RE: stack support, this will need to be modified.
+        return self.revisions.count() == 1 and self.revisions.first().pull_number is not None
+
+    @property
     def landed_revisions(self) -> dict:
         """Return revision and diff ID mapping associated with the landing job."""
         revision_ids = [revision.id for revision in self.unsorted_revisions.all()]
