@@ -11,7 +11,7 @@ class PullRequestCheck(ABC):
     @abstractmethod
     def run(
         cls, client: GitHubAPIClient, pull_request: PullRequest, target_repo: Repo
-    ) -> str | None:
+    ) -> list[str]:
         """Inspect the PR for on issue, and return a message string if present."""
 
 
@@ -270,8 +270,8 @@ class PullRequestChecks:
 
         for check in checks_list:
             try:
-                if outcome := check.run(self._client, pull_request):
-                    messages.append(outcome)
+                if outcome := check.run(self._client, pull_request, self._target_repo):
+                    messages.extend(outcome)
             except NotImplementedError:
                 messages.append(f"{check.__name__} is not implemented")
 
