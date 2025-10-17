@@ -85,25 +85,25 @@ class LandingJobApiView(View):
                     status=404,
                 )
 
-        ldap_username = request.user.email
-        if landing_job.requester_email != ldap_username:
-            return JsonResponse(
-                {"detail": f"User not authorized to update landing job {job_id}"},
-                status=403,
-            )
+            ldap_username = request.user.email
+            if landing_job.requester_email != ldap_username:
+                return JsonResponse(
+                    {"detail": f"User not authorized to update landing job {job_id}"},
+                    status=403,
+                )
 
-        if status != JobStatus.CANCELLED:
-            data = {"errors": [f"The provided status {status} is not allowed."]}
-            return JsonResponse(data, status=400)
+            if status != JobStatus.CANCELLED:
+                data = {"errors": [f"The provided status {status} is not allowed."]}
+                return JsonResponse(data, status=400)
 
-        if landing_job.status in (JobStatus.SUBMITTED, JobStatus.DEFERRED):
-            landing_job.transition_status(JobAction.CANCEL)
-            landing_job.save()
-            return JsonResponse({"id": landing_job.id})
-        else:
-            data = {
-                "errors": [
-                    f"Landing job status ({landing_job.status}) does not allow cancelling."
-                ]
-            }
-            return JsonResponse(data, status=400)
+            if landing_job.status in (JobStatus.SUBMITTED, JobStatus.DEFERRED):
+                landing_job.transition_status(JobAction.CANCEL)
+                landing_job.save()
+                return JsonResponse({"id": landing_job.id})
+            else:
+                data = {
+                    "errors": [
+                        f"Landing job status ({landing_job.status}) does not allow cancelling."
+                    ]
+                }
+                return JsonResponse(data, status=400)
