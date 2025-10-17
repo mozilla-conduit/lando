@@ -276,15 +276,12 @@ class BaseJob(BaseModel):
         job_dict = {
             "commit_id": self.landed_commit_id,
             "created_at": self.created_at,
-            "error": None,
+            "error": self.error,
             "id": self.id,
             "requester": self.requester_email,
             "status": self.status,
             "updated_at": self.updated_at,
         }
-
-        if self.status in [JobStatus.FAILED, JobStatus.DEFERRED]:
-            job_dict["error"] = self.error
 
         if self.target_repo:
             job_dict["repository"] = self.target_repo.short_name
