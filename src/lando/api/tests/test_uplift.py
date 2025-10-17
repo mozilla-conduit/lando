@@ -647,6 +647,20 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         ur.assessment_id == job.multi_request.assessment_id
     ), "Created UpliftRevision should link back to the original assessment."
 
+    job.refresh_from_db()
+    job.status = JobStatus.SUBMITTED
+    job.save(update_fields=["status"])
+
+    assert uplift_worker.run_job(job), "Re-running job should still succeed."
+
+    job.refresh_from_db()
+    assert (
+        job.created_revision_ids == [4567, 4568]
+    ), "Re-running job should leave created_revision_ids unchanged."
+    assert (
+        UpliftRevision.objects.count() == 1
+    ), "Re-running job should not duplicate UpliftRevision records."
+
 
 @pytest.mark.django_db
 def test_moz_phab_uplift_invokes_cli_and_returns_response(
