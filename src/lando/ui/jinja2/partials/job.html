@@ -30,7 +30,7 @@
     </p>
     {% endif %}
     {% if job.error_breakdown %}
-    {% set tree = job.target_repo.short_name|default("!unknown tree!") %}
+    {% set tree = job.target_repo.short_name|default("Repo" + job.target_repo.name) %}
     {% set rejects_paths = job.error_breakdown.rejects_paths %}
     <p>While applying <a href="{{ job.error_breakdown.revision_id|revision_url() }}">revision D{{
       job.error_breakdown.revision_id }}</a> to <code>{{ tree }}</code>, the following files had
