@@ -274,6 +274,7 @@ class BaseJob(BaseModel):
     def to_dict(self) -> dict[str, Any]:
         """Return the job details as a dict."""
         job_dict = {
+            "commit_id": self.landed_commit_id,
             "created_at": self.created_at,
             "error": self.error,
             "id": self.id,

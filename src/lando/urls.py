@@ -82,7 +82,11 @@ urlpatterns += [
 
 # "API" endpoints ported from legacy API app.
 urlpatterns += [
-    path("landing_jobs/<int:job_id>/", landing_jobs.put, name="landing-jobs"),
+    path(
+        "landing_jobs/<int:job_id>/",
+        landing_jobs.LandingJobApiView.as_view(),
+        name="landing-jobs",
+    ),
     path(
         "D<int:revision_id>/landings/<int:job_id>/",
         jobs.LandingJobView.as_view(),
