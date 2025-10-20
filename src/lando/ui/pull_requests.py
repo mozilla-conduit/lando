@@ -21,9 +21,11 @@ class PullRequestView(LandoView):
         client = GitHubAPIClient(target_repo)
         pull_request = PullRequest(client.get_pull_request(number))
 
+        # NOTE: landing_jobs added for template compatibility.
         context = {
             "target_repo": target_repo,
             "pull_request": pull_request,
+            "landing_jobs": pull_request.landing_jobs,
         }
 
         return TemplateResponse(

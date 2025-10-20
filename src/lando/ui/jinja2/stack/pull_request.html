@@ -3,40 +3,30 @@
 
 {% block main %}
 <main class="StackPage container fullhd">
-  <h1><a href="{{ pull_request.html_url }}">{{ pull_request.title }}</a></h1>
+    <h1><a href="{{ pull_request.html_url }}">{{ pull_request.title }}</a> #{{ pull_request.number }} ({{ target_repo.name }}@{{ target_repo.default_branch }})</h1>
+    <p>
+        <button
+            class="button is-large is-loading post-landing-job"
+            disabled
+            data-pull-number="{{ pull_request.number }}"
+            data-head-sha="{{ pull_request.head_sha }}"
+            data-repo-name="{{ target_repo.name }}"
+            data-csrf-token="{{ csrf_token }}">
+        Loading</button>
+    </p>
   <div class="StackPage-stack">
       <table>
           <tr>
-              <th>Actions</th>
-              <td>
-                  <button
-                      class="button is-loading post-landing-job"
-                      disabled
-                      data-pull-number="{{ pull_request.number }}"
-                      data-head-sha="{{ pull_request.head_sha }}"
-                      data-repo-name="{{ target_repo.name }}"
-                      data-csrf-token="{{ csrf_token }}">
-                   Loading</button>
-              </td>
+              <th>Branches</th>
+              <td>{{ pull_request.head_ref }} -&gt; {{ pull_request.base_ref }}</td>
           </tr>
           <tr>
-              <th>Pull request</th>
-              <td>{{ pull_request.number }}</td>
-          </tr>
-          <tr>
-              <th>Target Lando Repo</th>
-              <td>{{ target_repo }} ({{ pull_request.head_repo_git_url }})</td>
+              <th>Repo</th>
+              <td>{{ target_repo}} ({{ pull_request.head_repo_git_url }})</td>
           </tr>
           <tr>
               <th>Author</th>
               <td>{{ pull_request.user_login }}</td>
-          </tr>
-              <th>Working branch</th>
-              <td>{{ pull_request.head_ref }} ({{ pull_request.head_sha }})</td>
-          </tr>
-          <tr>
-              <th>Target branch</th>
-              <td>{{ pull_request.base_ref }} ({{ pull_request.base_sha }})</td>
           </tr>
           <tr>
               <th>State</th>
@@ -52,5 +42,7 @@
           </tr>
       </table>
   </div>
+  <h1>Landings</h1>
+  {% include "stack/partials/timeline.html" %}
 </main>
 {% endblock %}
