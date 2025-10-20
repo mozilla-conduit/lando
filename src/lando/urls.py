@@ -92,9 +92,9 @@ urlpatterns += [
         name="api-pull-request",
     ),
     path(
-        "api/pulls/blockers_warnings/<str:repo_name>/<int:number>",
+        "api/pulls/<str:repo_name>/<int:number>/checks",
         PullRequestBlockersWarningAPIView.as_view(),
-        name="api-pull-request-diff-warnings",
+        name="api-pull-request-checks",
     ),
 ]
 
