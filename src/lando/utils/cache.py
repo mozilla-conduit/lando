@@ -22,7 +22,7 @@ def cache_method(
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> T:
-            key = key_fn(*args, **kwargs)
+            key = f"cache_method_{func.__qualname__}_" + key_fn(*args, **kwargs)
 
             if cache.has_key(key):
                 return cache.get(key)
