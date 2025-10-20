@@ -281,6 +281,13 @@ class PullRequest:
         return comments
 
     @cache_method(pr_cache_key)
+    def get_labels(self, client: GitHubAPIClient) -> list:
+        """Return a list of labels for the PR."""
+        # `issues` is correct here
+        labels = client.get(f"issues/{self.number}/labels")
+
+        return labels
+
     def get_patch(self, client: GitHubAPIClient) -> str:
         """Return a series of patches from the PR's commits.
 
