@@ -212,48 +212,25 @@ class PullRequest:
             "user_login": self.user_login,
         }
 
-    def get_diff(self, client: GitHubAPIClient) -> str:
-        """Return a single diff of the latest state for the PR.
-
-        WARNING: The returned diff doesn't include any binary data.
-
-        If Binary data is desired, the `get_patch` method should be used instead.
-        """
-        response = client.session.get(self.diff_url)
-        response.raise_for_status()
-
-        return response.text
-
-    def get_patch(self, client: GitHubAPIClient) -> str:
-        """Return a series of patches from the PR's commits.
-
-        Patches from each commit are concatenated into a single string.
-
-        This includes binary content, unlike `get_diff`.
-        """
-        response = client.session.get(self.patch_url)
-        response.raise_for_status()
-
-        return response.text
-
     @cache_method(pr_cache_key)
-    def get_reviews(self, client: GitHubAPIClient) -> dict:
-        """Return a list of reviews for the PR."""
-        reviews = client.get(f"pulls/{self.number}/reviews")
+    def get_comments(self, client: GitHubAPIClient) -> list:
+        """Return a list of comments on the whole PR."""
+        # `issues` is correct here, using `pull` instead would return comments on diffs.
+        comments = client.get(f"issues/{self.number}/comments")
 
         if any(
-            client.convert_timestamp_from_github(review["submitted_at"])
+            client.convert_timestamp_from_github(comment["updated_at"])
             > client.convert_timestamp_from_github(self.updated_at)
-            for review in reviews
+            for comment in comments
         ):
             raise self.StaleMetadataException(
-                "Reviews were added while collecting PR information."
+                "Comments were changed while collecting PR information."
             )
 
-        return reviews
+        return comments
 
     @cache_method(pr_cache_key)
-    def get_commits(self, client: GitHubAPIClient) -> list:
+    def get_commits(self, client: GitHubAPIClient) -> dict:
         """Return a list of commits for the PR."""
         commits = client.get(f"pulls/{self.number}/commits")
 
@@ -275,22 +252,17 @@ class PullRequest:
 
         return commits
 
-    @cache_method(pr_cache_key)
-    def get_comments(self, client: GitHubAPIClient) -> dict:
-        """Return a list of comments on the whole PR."""
-        # `issues` is correct here, using `pull` instead would return comments on diffs.
-        comments = client.get(f"issues/{self.number}/comments")
+    def get_diff(self, client: GitHubAPIClient) -> str:
+        """Return a single diff of the latest state for the PR.
 
-        if any(
-            client.convert_timestamp_from_github(comment["updated_at"])
-            > client.convert_timestamp_from_github(self.updated_at)
-            for comment in comments
-        ):
-            raise self.StaleMetadataException(
-                "Comments were changed while collecting PR information."
-            )
+        WARNING: The returned diff doesn't include any binary data.
 
-        return comments
+        If Binary data is desired, the `get_patch` method should be used instead.
+        """
+        response = client.session.get(self.diff_url)
+        response.raise_for_status()
+
+        return response.text
 
     @cache_method(pr_cache_key)
     def get_diff_comments(self, client: GitHubAPIClient) -> dict:
@@ -307,6 +279,35 @@ class PullRequest:
             )
 
         return comments
+
+    @cache_method(pr_cache_key)
+    def get_patch(self, client: GitHubAPIClient) -> str:
+        """Return a series of patches from the PR's commits.
+
+        Patches from each commit are concatenated into a single string.
+
+        This includes binary content, unlike `get_diff`.
+        """
+        response = client.session.get(self.patch_url)
+        response.raise_for_status()
+
+        return response.text
+
+    @cache_method(pr_cache_key)
+    def get_reviews(self, client: GitHubAPIClient) -> list:
+        """Return a list of reviews for the PR."""
+        reviews = client.get(f"pulls/{self.number}/reviews")
+
+        if any(
+            client.convert_timestamp_from_github(review["submitted_at"])
+            > client.convert_timestamp_from_github(self.updated_at)
+            for review in reviews
+        ):
+            raise self.StaleMetadataException(
+                "Reviews were added while collecting PR information."
+            )
+
+        return reviews
 
 
 class PullRequestPatchHelper(PatchHelper):
