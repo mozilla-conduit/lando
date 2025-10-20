@@ -1967,9 +1967,9 @@ sentry-sdk==2.42.0 \
     --hash=sha256:1a7986e638306ff158f52dd47d9480a4055e6c289388caa90628acb2563fe7bd \
     --hash=sha256:91c69c9372fb5fb4df0ac39456ccf7286f0428b3ee1cdd389f9dd36c04e0f5c9
     # via lando (pyproject.toml)
-setuptools-scm==9.2.1 \
-    --hash=sha256:2f5b21e45205e47ed3976e58bc29c38f49bb9b6f07c625c7fd2823871694b244 \
-    --hash=sha256:84c9b3f39ffb77ba00dd92a06e025e4f66dc69ab8df1c2a225a0678e76311f8d
+setuptools-scm==9.2.2 \
+    --hash=sha256:1c674ab4665686a0887d7e24c03ab25f24201c213e82ea689d2f3e169ef7ef57 \
+    --hash=sha256:30e8f84d2ab1ba7cb0e653429b179395d0c33775d54807fc5f1dd6671801aef7
     # via
     #   lando (pyproject.toml)
     #   lando (pyproject.toml::build-system.requires)
