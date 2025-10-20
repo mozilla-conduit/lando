@@ -130,6 +130,15 @@ class PullRequest:
     class StaleMetadataException(Exception):
         pass
 
+    class State(str, Enum):
+        OPEN = "open"
+        CLOSED = "closed"
+
+    class Review(str, Enum):
+        APPROVED = "APPROVED"
+        CHANGES_REQUESTED = "CHANGES_REQUESTED"
+        DISMISSED = "DISMISSED"
+
     def __repr__(self) -> str:
         return f"Pull request #{self.number} ({self.head_repo_git_url})"
 
