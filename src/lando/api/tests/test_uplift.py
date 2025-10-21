@@ -167,6 +167,9 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
         UpliftJob.objects.select_related("target_repo").filter(multi_request=multi)
     )
     assert len(jobs) == 2, "Two uplift jobs should be created."
+    assert all(
+        job.status == JobStatus.SUBMITTED for job in jobs
+    ), "Newly created uplift jobs should be submitted for processing."
     repo_names = sorted(job.target_repo.name for job in jobs)
     assert repo_names == [
         repo_a.name,
