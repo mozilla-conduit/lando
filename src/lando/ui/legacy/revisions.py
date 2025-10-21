@@ -16,6 +16,7 @@ from lando.api.legacy.uplift import MAX_UPLIFT_STACK_SIZE
 from lando.api.legacy.validation import revision_id_to_int
 from lando.main.auth import force_auth_refresh, require_phabricator_api_key
 from lando.main.models import Repo
+from lando.main.models.jobs import JobStatus
 from lando.main.models.uplift import MultiTrainUpliftRequest, UpliftJob, UpliftRevision
 from lando.ui.legacy.forms import (
     TransplantRequestForm,
@@ -79,8 +80,9 @@ class UpliftRequestView(LandoView):
             for repo in repositories:
                 job = UpliftJob.objects.create(
                     multi_request=uplift_request,
-                    target_repo=repo,
                     requester_email=request.user.email,
+                    status=JobStatus.SUBMITTED,
+                    target_repo=repo,
                 )
                 job.add_revisions(source_revisions)
                 job.sort_revisions(source_revisions)
