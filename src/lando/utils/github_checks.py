@@ -426,7 +426,14 @@ class PullRequestUnresolvedCommentsWarning(PullRequestWarning):
         pull_request: PullRequest,
         target_repo: Repo,
     ) -> list[str]:
-        raise NotImplementedError
+        commit_comments = pull_request.get_commit_comments(client)
+        messages = []
+
+        for comment in commit_comments:
+            if not comment["is_resolved"]:
+                messages.append(f"{cls.__doc__} {comment['body']} ({comment['url']})")
+
+        return messages
 
 
 class PullRequestMultipleAuthorsWarning(PullRequestWarning):
