@@ -83,6 +83,11 @@ class UpliftWorker(Worker):
                     [
                         "moz-phab",
                         "uplift",
+                        # Use `--yes` to avoid confirmation prompts.
+                        "--yes",
+                        # Use `--no-rebase` as Lando has already applied
+                        # patches to the tip of the target train.
+                        "--no-rebase",
                         "--output-file",
                         f_output.name,
                         "--train",

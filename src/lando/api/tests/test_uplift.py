@@ -706,17 +706,20 @@ def test_moz_phab_uplift_invokes_cli_and_returns_response(
     ), "`moz_phab_uplift` should invoke `subprocess.run` exactly once."
 
     called_cmd = fake_run.call_args.args[0]
-    assert called_cmd[:3] == [
+    assert called_cmd[:5] == [
         "moz-phab",
         "uplift",
+        "--yes",
+        "--no-rebase",
         "--output-file",
-    ], "`moz_phab_uplift` should call moz-phab uplift with an output file."
-    assert called_cmd[4:] == [
+    ], "`moz_phab_uplift` should call moz-phab uplift with no prompts or rebase."
+    expected_repo_identifier = repo.short_name or repo.name
+    assert called_cmd[6:] == [
         "--train",
-        repo.name,
+        expected_repo_identifier,
         base_revision,
         "HEAD",
-    ], "Called `moz-phab` command should match expected."
+    ], "Called `moz-phab uplift` command should include repo and revisions."
     assert (
         fake_run.call_args.kwargs["cwd"] == repo.system_path
     ), "`moz_phab_uplift` should use the repo path as the cwd."
@@ -775,7 +778,10 @@ def test_uplift_worker_mozphab_failure_marks_failed(
     # Allow real update_repo/apply_patch; make `moz-phab uplift` throw.
     def _boom(*args, **kwargs):
         raise subprocess.CalledProcessError(
-            returncode=2, cmd=["moz-phab", "uplift"], output="", stderr="boom"
+            returncode=2,
+            cmd=["moz-phab", "uplift", "--yes", "--no-rebase"],
+            output="",
+            stderr="boom",
         )
 
     # Patch subprocess.run inside the worker's `moz_phab_uplift`.
