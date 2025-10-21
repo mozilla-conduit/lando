@@ -133,6 +133,14 @@ class PullRequest:
     class UpstreamError(Exception):
         pass
 
+    class Mergeability(str, Enum):
+        CLEAN = "clean"
+        DIRTY = "dirty"  # conflicts
+        UNSTABLE = "unstable"  # checks failing
+        BLOCKED = "blocked"  # blocking rule not satisfied
+        UNKNOWN = "unknown"
+        DRAFT = "draft"
+
     class State(str, Enum):
         OPEN = "open"
         CLOSED = "closed"
@@ -169,6 +177,7 @@ class PullRequest:
         ]  # e.g., git://github.com/mozilla-conduit/test-repo.git
         self.html_url = data["html_url"]
         self.id = data["id"]
+        self.mergeable_state = data["mergeable_state"]
         self.number = data["number"]
         self.requested_reviewers = [
             {"id": r["id"], "html_url": r["html_url"], "login": r["login"]}
@@ -214,6 +223,7 @@ class PullRequest:
             "head_repo_git_url": self.head_repo_git_url,
             "html_url": self.html_url,
             "id": self.id,
+            "mergeable_state": self.mergeable_state,
             "number": self.number,
             "requested_reviewers": self.requested_reviewers,
             "requested_teams": self.requested_teams,
