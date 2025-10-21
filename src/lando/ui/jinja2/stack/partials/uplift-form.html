@@ -14,7 +14,7 @@
       <section class="modal-card-body">
         {# TODO-sh confirm this renders properly #}
         {{ uplift_request_form.source_revision_ids }}
-        {% set requested_revision_ids = uplift_request_form.source_revision_ids.value %}
+        {% set requested_revision_ids = uplift_request_form.source_revision_ids.value() or [] %}
         {% if requested_revision_ids %}
         <div class="field">
           <label class="label">Revisions to uplift</label>
