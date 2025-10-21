@@ -85,37 +85,43 @@ future.
           </div>
           <div class="level-right">
             <div class="level-item">
-              <div class="tags">
-                {% for rev_id in uplift_request.requested_revisions %}
-                  <a class="tag is-link is-light"
-                     href="{{ rev_id|revision_url }}">D{{ rev_id }}</a>
-                {% endfor %}
+              <div class="has-text-right">
+                <p class="is-size-7 has-text-grey">Requested revisions</p>
+                <div class="tags is-right">
+                  {% for rev_id in uplift_request.requested_revisions %}
+                    <a class="tag is-link is-light"
+                       href="{{ rev_id|revision_url }}">D{{ rev_id }}</a>
+                  {% endfor %}
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         <!-- Jobs list -->
-        <div class="content mt-3">
+        <div class="content">
           {% for job in uplift_request.uplift_jobs.all() %}
-            <article class="media py-3" style="border-top: 1px solid #f0f0f0;">
+            {% if not loop.first %}
+              <hr>
+            {% endif %}
+            <article class="media">
               <figure class="media-left">
                 <span class="icon has-text-grey">
                   <i class="fa fa-code-fork" aria-hidden="true"></i>
                 </span>
               </figure>
               <div class="media-content">
-                <div class="is-flex is-justify-content-space-between is-align-items-center is-flex-wrap-wrap">
-                  <div class="mb-1">
+                <div class="columns is-mobile is-vcentered is-multiline">
+                  <div class="column">
                     <div class="is-size-6 has-text-weight-semibold">
                       {{ job.target_repo.name }}
                     </div>
-                    <div class="is-size-7 has-text-grey">
+                    <p class="is-size-7 has-text-grey">
                       Job #{{ job.id }}
-                    </div>
+                    </p>
                   </div>
 
-                  <div class="mb-1">
+                  <div class="column is-narrow">
                     {% set s = job.status %}
                     {% if s == "LANDED" or s == "SUCCESS" %}
                       <span class="tag is-success">{{ s }}</span>
@@ -130,22 +136,7 @@ future.
                     {% endif %}
                   </div>
 
-                  <div class="mb-1">
-                      {% if job.created_revision_ids and job.created_revision_ids|length > 0 %}
-                        <div class="tags">
-                          {% for rev_id in job.created_revision_ids %}
-                            <a class="tag is-link"
-                               href="{{ rev_id|revision_url }}">
-                              Uplifted to D{{ rev_id }}
-                            </a>
-                          {% endfor %}
-                        </div>
-                    {% else %}
-                      <span class="tag is-light">No new revision yet</span>
-                    {% endif %}
-                  </div>
-
-                  <div class="mb-1">
+                  <div class="column is-narrow has-text-right">
                     <a class="button is-small is-light"
                        href="{{ url('jobs-page', args=[job.id]) }}">
                       View job
@@ -154,9 +145,19 @@ future.
                 </div>
 
                 {% if job.error %}
-                  <p class="mt-2 is-size-7 has-text-danger">
+                  <p class="is-size-7 has-text-danger">
                     {{ job.error }}
                   </p>
+                {% endif %}
+                {% if job.status in ["LANDED", "SUCCESS"] and job.created_revision_ids %}
+                  <div class="tags">
+                    {% for rev_id in job.created_revision_ids %}
+                      <a class="tag is-link"
+                         href="{{ rev_id|revision_url }}">
+                        Uplifted to D{{ rev_id }}
+                      </a>
+                    {% endfor %}
+                  </div>
                 {% endif %}
               </div>
             </article>
