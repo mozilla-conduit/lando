@@ -233,6 +233,27 @@ class PullRequestConflictWithBaseBranch(PullRequestBlocker):
         return []
 
 
+class PullRequestFailingCheck(PullRequestBlocker):
+    """This Pull Request has has some failing checks."""
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        client: GitHubAPIClient,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        # If we need more details on which tests are failing, we could use the commit
+        # statuses endpoint instead [0].
+        #
+        # [0] https://docs.github.com/en/rest/commits/statuses?apiVersion=2022-11-28
+        if pull_request.mergeable_state == pull_request.Mergeability.UNSTABLE:
+            return [cls.__doc__]
+
+        return []
+
 
 #
 # WARNINGS
