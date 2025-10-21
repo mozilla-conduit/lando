@@ -227,7 +227,10 @@ class PullRequestConflictWithBaseBranch(PullRequestBlocker):
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
-        raise NotImplementedError
+        if pull_request.mergeable_state == pull_request.Mergeability.DIRTY:
+            return [cls.__doc__]
+
+        return []
 
 
 
