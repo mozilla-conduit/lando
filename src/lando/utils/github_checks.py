@@ -203,6 +203,21 @@ class PullRequestBaseBranchDoesntMatchTree(PullRequestBlocker):
         return []
 
 
+class PullRequestConflictWithBaseBranch(PullRequestBlocker):
+    """This Pull Request has conflicts that must be resolved."""
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        client: GitHubAPIClient,
+        pull_request: PullRequest,
+        target_repo: Repo,
+    ) -> list[str]:
+        raise NotImplementedError
+
+
+
 #
 # WARNINGS
 #
