@@ -724,7 +724,7 @@ def test_moz_phab_uplift_invokes_cli_and_returns_response(
         fake_run.call_args.kwargs["cwd"] == repo.system_path
     ), "`moz_phab_uplift` should use the repo path as the cwd."
     assert (
-        fake_run.call_args.kwargs["env"]["MOZPHAB_PHABRICATOR_API_KEY"] == api_key
+        fake_run.call_args.kwargs["env"]["MOZPHAB_PHABRICATOR_API_TOKEN"] == api_key
     ), "`moz_phab_uplift` should set the API key in the environment."
 
 

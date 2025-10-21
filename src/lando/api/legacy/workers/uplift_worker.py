@@ -73,7 +73,7 @@ class UpliftWorker(Worker):
         target_repo = job.target_repo
 
         env = os.environ.copy()
-        env["MOZPHAB_PHABRICATOR_API_KEY"] = api_key
+        env["MOZPHAB_PHABRICATOR_API_TOKEN"] = api_key
 
         with tempfile.NamedTemporaryFile(
             encoding="utf-8", mode="w+", suffix="json"
