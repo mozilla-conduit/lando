@@ -44,10 +44,14 @@ class PullRequestUserSCMLevelBlocker(PullRequestBlocker):
         client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
+        request: HttpRequest,
     ) -> list[str]:
-        raise Exception(
-            "This check should be at the lando level, as the API is not authenticated"
-        )
+        # We specifically check the direct user permissions, rather than the union of
+        # those that could have been inherited from group or other roles (e.g., admin).
+        if target_repo.required_permission in request.user.get_user_permissions():
+            return []
+
+        return [cls.__doc__]
 
 
 # XXX: Irrelevant.
