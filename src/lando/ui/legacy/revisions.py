@@ -180,13 +180,15 @@ def uplift_context_for_revision(revision_id: int) -> QuerySet:
       - this revision was originally requested (in requested_revisions)
       - this revision was created by an uplift job (UpliftRevision -> assessment).
     """
-    base_qs = MultiTrainUpliftRequest.objects.select_related(
-        "assessment", "user"
-    ).prefetch_related(
-        Prefetch(
-            "uplift_jobs",
-            queryset=UpliftJob.objects.select_related("target_repo").order_by("id"),
+    base_qs = (
+        MultiTrainUpliftRequest.objects.select_related("assessment", "user")
+        .prefetch_related(
+            Prefetch(
+                "uplift_jobs",
+                queryset=UpliftJob.objects.select_related("target_repo").order_by("id"),
+            )
         )
+        .order_by("-created_at")
     )
 
     # Original side: the revision was requested (e.g. D123 in requested_revisions).
