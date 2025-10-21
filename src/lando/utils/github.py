@@ -3,6 +3,7 @@ import io
 import logging
 import math
 from datetime import datetime
+from enum import Enum
 
 import requests
 from django.conf import settings
@@ -11,6 +12,7 @@ from typing_extensions import override
 
 # from lando.main.models.repo import Repo
 from lando.main.scm.helpers import PatchHelper
+from lando.utils.cache import cache_method
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +103,11 @@ class GitHubAPIClient:
         result.raise_for_status()
         return result.json()
 
+    @classmethod
+    def convert_timestamp_from_github(cls, timestamp: str) -> str:
+        timestamp_datetime = datetime.fromisoformat(timestamp)
+        return str(math.floor(timestamp_datetime.timestamp()))
+
     @property
     def session(self) -> requests.Session:
         """Return the underlying HTTP session."""
@@ -118,8 +125,40 @@ class GitHubAPIClient:
         pass
 
 
+def pr_cache_key(self: "PullRequest", *args, **kwargs) -> str:
+    """Provide a cache key for PR methods that fetch data from GitHub.
+
+    This method-like function cannot be part of the PullRequest, as it is used by method
+    decorators when declaring the class.
+    """
+    return f"{self.id}{self.updated_at}"
+
+
 class PullRequest:
     """A class that parses data returned from the GitHub API for pull requests."""
+
+    class StaleMetadataException(Exception):
+        pass
+
+    class UpstreamError(Exception):
+        pass
+
+    class Mergeability(str, Enum):
+        CLEAN = "clean"
+        DIRTY = "dirty"  # conflicts
+        UNSTABLE = "unstable"  # checks failing
+        BLOCKED = "blocked"  # blocking rule not satisfied
+        UNKNOWN = "unknown"
+        DRAFT = "draft"
+
+    class State(str, Enum):
+        OPEN = "open"
+        CLOSED = "closed"
+
+    class Review(str, Enum):
+        APPROVED = "APPROVED"
+        CHANGES_REQUESTED = "CHANGES_REQUESTED"
+        DISMISSED = "DISMISSED"
 
     def __repr__(self) -> str:
         return f"Pull request #{self.number} ({self.head_repo_git_url})"
@@ -148,6 +187,7 @@ class PullRequest:
         ]  # e.g., git://github.com/mozilla-conduit/test-repo.git
         self.html_url = data["html_url"]
         self.id = data["id"]
+        self.mergeable_state = data["mergeable_state"]
         self.number = data["number"]
         self.requested_reviewers = [
             {"id": r["id"], "html_url": r["html_url"], "login": r["login"]}
@@ -194,6 +234,7 @@ class PullRequest:
             "head_repo_git_url": self.head_repo_git_url,
             "html_url": self.html_url,
             "id": self.id,
+            "mergeable_state": self.mergeable_state,
             "number": self.number,
             "requested_reviewers": self.requested_reviewers,
             "requested_teams": self.requested_teams,
@@ -203,6 +244,126 @@ class PullRequest:
             "user_html_url": self.user_html_url,
             "user_login": self.user_login,
         }
+
+    @cache_method(pr_cache_key)
+    def get_comments(self, client: GitHubAPIClient) -> list:
+        """Return a list of comments on the whole PR."""
+        # `issues` is correct here, using `pull` instead would return comments on diffs.
+        comments = client.get(f"issues/{self.number}/comments")
+
+        if any(
+            client.convert_timestamp_from_github(comment["updated_at"])
+            > client.convert_timestamp_from_github(self.updated_at)
+            for comment in comments
+        ):
+            raise self.StaleMetadataException(
+                "Comments were changed while collecting PR information."
+            )
+
+        return comments
+
+    @cache_method(pr_cache_key)
+    def get_commits(self, client: GitHubAPIClient) -> dict:
+        """Return a list of commits for the PR."""
+        commits = client.get(f"pulls/{self.number}/commits")
+
+        if commits[-1]["sha"] != self.head_sha:
+            raise self.StaleMetadataException(
+                "Head commit changed while collecting PR information."
+            )
+
+        # XXX: What happens if a commit has been committed in the past, but has only
+        # been pushed now?
+        if any(
+            client.convert_timestamp_from_github(commit["commit"]["committer"]["date"])
+            > client.convert_timestamp_from_github(self.updated_at)
+            for commit in commits
+        ):
+            raise self.StaleMetadataException(
+                "Commits were added while collecting PR information."
+            )
+
+        return commits
+
+    @cache_method(pr_cache_key)
+    def get_commit_comments(self, client: GitHubAPIClient) -> list:
+        """Return a list of comments on specific changes of the PR."""
+        # NOTE: We use the GraphQL API for this on, as the comment-resolution
+        # information is not available via the REST API [0].
+        #
+        # NOTE: While there are many comment fields accessible. It seems the only one
+        # that reliably return data is pullRequest.reviews[].comments[] [1]. Most
+        # notably, pullRequest.commits[].comments[] seems to always be empty. But that's not what
+        # we need anyway. What we're after is reviewThreads, which are resolvable.
+        #
+        # [0] https://github.com/orgs/community/discussions/9175#discussioncomment-9008230
+        # [1] https://github.com/orgs/community/discussions/24666#discussioncomment-3244969
+        #
+        comments_query = """
+          query($owner: String!, $repo: String!, $number: Int!) {
+            repository(owner: $owner, name: $repo) {
+              pullRequest(number: $number) {
+                reviewThreads(first: 100) {
+                  nodes {
+                    comments(first: 1) {
+                      nodes {
+                        id
+                        body
+                        url
+                        updatedAt
+                      }
+                    }
+                    isResolved
+                  }
+                }
+                updatedAt
+              }
+            }
+          }
+          """
+        comments_response = client.session.post(
+            "https://api.github.com/graphql",
+            json={
+                "query": comments_query,
+                "variables": {
+                    "owner": client.repo._github_repo_org,
+                    "repo": client.repo.git_repo_name,
+                    "number": self.number,
+                },
+            },
+        )
+        comments_response.raise_for_status()
+        comments_response_json = comments_response.json()
+        if "errors" in comments_response_json:
+            raise self.UpstreamError(
+                f"Error from GitHub GraphQL: {comments_response_json}"
+            )
+
+        comments_dict = comments_response_json["data"]["repository"]["pullRequest"][
+            "reviewThreads"
+        ]["nodes"]
+
+        comments = []
+
+        for thread in comments_dict:
+            # We only grab the first comment of each thread.
+            comment = thread["comments"]["nodes"][0]
+            comment["updated_at"] = comment["updatedAt"]
+            del comment["updatedAt"]
+            comment["is_resolved"] = thread["isResolved"]
+
+            comments.append(comment)
+
+        if any(
+            client.convert_timestamp_from_github(comment["updated_at"])
+            > client.convert_timestamp_from_github(self.updated_at)
+            for comment in comments
+        ):
+            raise self.StaleMetadataException(
+                "Comments were changed while collecting PR information."
+            )
+
+        return comments
 
     def get_diff(self, client: GitHubAPIClient) -> str:
         """Return a single diff of the latest state for the PR.
@@ -216,6 +377,14 @@ class PullRequest:
 
         return response.text
 
+    @cache_method(pr_cache_key)
+    def get_labels(self, client: GitHubAPIClient) -> list:
+        """Return a list of labels for the PR."""
+        # `issues` is correct here
+        labels = client.get(f"issues/{self.number}/labels")
+
+        return labels
+
     def get_patch(self, client: GitHubAPIClient) -> str:
         """Return a series of patches from the PR's commits.
 
@@ -227,6 +396,22 @@ class PullRequest:
         response.raise_for_status()
 
         return response.text
+
+    @cache_method(pr_cache_key)
+    def get_reviews(self, client: GitHubAPIClient) -> list:
+        """Return a list of reviews for the PR."""
+        reviews = client.get(f"pulls/{self.number}/reviews")
+
+        if any(
+            client.convert_timestamp_from_github(review["submitted_at"])
+            > client.convert_timestamp_from_github(self.updated_at)
+            for review in reviews
+        ):
+            raise self.StaleMetadataException(
+                "Reviews were added while collecting PR information."
+            )
+
+        return reviews
 
 
 class PullRequestPatchHelper(PatchHelper):
@@ -253,15 +438,10 @@ class PullRequestPatchHelper(PatchHelper):
                 break
 
         self.headers = {
-            "date": self._get_timestamp_from_github_timestamp(pr.updated_at),
+            "date": client.convert_timestamp_from_github(pr.updated_at),
             "from": user,
             "subject": pr.body.splitlines()[0] if pr.body else "",
         }
-
-    @classmethod
-    def _get_timestamp_from_github_timestamp(cls, timestamp: str) -> str:
-        timestamp_datetime = datetime.fromisoformat(timestamp)
-        return str(math.floor(timestamp_datetime.timestamp()))
 
     @classmethod
     def from_string_io(cls, string_io: io.StringIO) -> "PatchHelper":
