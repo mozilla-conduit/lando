@@ -9,6 +9,7 @@ from typing_extensions import override
 from lando.api.legacy.workers.base import Worker
 from lando.main.models import JobAction, PermanentFailureException, WorkerType
 from lando.main.models.uplift import UpliftJob, UpliftRevision
+from lando.utils.tasks import set_uplift_request_form_on_revision
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,15 @@ class UpliftWorker(Worker):
             UpliftRevision.objects.filter(revision_id=tip_revision_id).update(
                 assessment=multi_request.assessment
             )
+
+        # Trigger a Celery task to update the form on Phabricator.
+        set_uplift_request_form_on_revision.apply_async(
+            args=(
+                tip_revision_id,
+                multi_request.assessment.to_conduit_json_str(),
+                user.id,
+            )
+        )
 
         job.created_revision_ids = created_revision_ids
         job.transition_status(JobAction.SUCCESS)

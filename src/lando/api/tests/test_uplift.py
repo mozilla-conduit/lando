@@ -605,6 +605,11 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
 
     # Two small valid patches
     job = _make_uplift_job_with_revisions(repo, user, revisions)
+    mock_task = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.uplift_worker.set_uplift_request_form_on_revision",
+        mock_task,
+    )
 
     # Let update_repo/apply_patch run for real; only mock moz-phab uplift to return new tip D-ids
     monkeypatch.setattr(
@@ -624,6 +629,12 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     assert uplift_worker.run_job(job), "Job should have completed successfully."
 
     job.refresh_from_db()
+    expected_task_args = (
+        job.created_revision_ids[-1],
+        job.multi_request.assessment.to_conduit_json_str(),
+        user.id,
+    )
+    mock_task.apply_async.assert_called_once_with(args=expected_task_args)
     assert (
         job.status == JobStatus.LANDED
     ), "Successful uplift job should transition to LANDED."
@@ -655,6 +666,12 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     job.save(update_fields=["status"])
 
     assert uplift_worker.run_job(job), "Re-running job should still succeed."
+    assert (
+        mock_task.apply_async.call_count == 2
+    ), "Celery task should be dispatched on each successful run."
+    assert mock_task.apply_async.call_args_list[-1].kwargs == {
+        "args": expected_task_args
+    }, "Celery task should be called with latest revision metadata."
 
     job.refresh_from_db()
     assert job.created_revision_ids == [
