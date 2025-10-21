@@ -1,6 +1,8 @@
 import logging
 from abc import ABC, abstractmethod
+from datetime import datetime, timezone
 
+import requests
 from django.http import HttpRequest
 from typing_extensions import override
 
@@ -192,6 +194,277 @@ class PullRequestRevisionDataClassificationBlocker(PullRequestBlocker):
 #         raise NotImplementedError
 
 
+#
+# WARNINGS
+#
+
+
+class PullRequestWarning(PullRequestCheck, ABC):
+    """Parent class for warning checks."""
+
+
+class PullRequestBlockingReviewsWarning(PullRequestWarning):
+    """Has a review intended to block landing."""
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        client: GitHubAPIClient,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        reviews = pull_request.get_reviews(client)
+
+        messages = []
+
+        for review in reviews:
+            if review["state"] == pull_request.Review.CHANGES_REQUESTED:
+                messages.append(
+                    f"{cls.__doc__} {review['body'].splitlines()[0]}… {review['html_url']})"
+                )
+
+        return messages
+
+
+class PullRequestPreviouslyLandedWarning(PullRequestWarning):
+    """Has previously landed."""
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        client: GitHubAPIClient,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        if not pull_request.merged_at:
+            return []
+
+        return [cls.__doc__]
+
+
+class PullRequestNotAcceptedWarning(PullRequestWarning):
+    """Is not Accepted."""
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        client: GitHubAPIClient,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        reviews = pull_request.get_reviews(client)
+
+        if any(review["state"] == pull_request.Review.APPROVED for review in reviews):
+            return []
+
+        return [cls.__doc__]
+
+
+class PullRequestReviewsNotCurrentWarning(PullRequestWarning):
+    """No reviewer has accepted the current diff."""
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        client: GitHubAPIClient,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        reviews = pull_request.get_reviews(client)
+
+        if pull_request.head_sha in [
+            review["commit_id"]
+            for review in reviews
+            if review["state"] == pull_request.Review.APPROVED
+        ]:
+            return []
+
+        return [cls.__doc__]
+
+
+class PullRequestSecureRevisionWarning(PullRequestWarning):
+    """Is a secure pull request and should follow the Security Bug Approval Process."""
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        client: GitHubAPIClient,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        raise NotImplementedError
+
+
+class PullRequestMissingTestingTagWarning(PullRequestWarning):
+    """Pull request is missing a Testing Policy Project Tag."""
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        client: GitHubAPIClient,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        # Only allow a single testing tag.
+        if (
+            len(
+                [
+                    label["name"]
+                    for label in pull_request.get_labels(client)
+                    if label["name"].startswith("testing")
+                ]
+            )
+            != 1
+        ):
+            return [cls.__doc__]
+
+        return []
+
+
+class PullRequestDiffWarning(PullRequestWarning):
+    """Pull request has a diff warning."""
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        client: GitHubAPIClient,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        raise NotImplementedError
+
+
+class PullRequestWIPWarning(PullRequestWarning):
+    """Pull request is marked as WIP."""
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        client: GitHubAPIClient,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        if pull_request.title.lower().startswith("wip:"):
+            return [cls.__doc__]
+
+        return []
+
+
+class PullRequestCodeFreezeWarning(PullRequestWarning):
+    """Repository is under a soft code freeze."""
+
+    # The code freeze dates generally correspond to PST work days.
+    CODE_FREEZE_OFFSET = "-0800"
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        client: GitHubAPIClient,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        if not target_repo.product_details_url:
+            return []
+
+        try:
+            product_details = requests.get(target_repo.product_details_url).json()
+        except requests.exceptions.RequestException as e:
+            logger.exception(e)
+            return ["Could not retrieve repository's code freeze status."]
+
+        freeze_date_str = product_details.get("NEXT_SOFTFREEZE_DATE")
+        merge_date_str = product_details.get("NEXT_MERGE_DATE")
+        # If the JSON doesn't have these keys, this warning isn't applicable
+        if not freeze_date_str or not merge_date_str:
+            return []
+
+        today = datetime.now(tz=timezone.utc)
+        freeze_date = datetime.strptime(
+            f"{freeze_date_str} {cls.CODE_FREEZE_OFFSET}",
+            "%Y-%m-%d %z",
+        ).replace(tzinfo=timezone.utc)
+        if today < freeze_date:
+            return []
+
+        merge_date = datetime.strptime(
+            f"{merge_date_str} {cls.CODE_FREEZE_OFFSET}",
+            "%Y-%m-%d %z",
+        ).replace(tzinfo=timezone.utc)
+
+        if freeze_date <= today <= merge_date:
+            return [f"Repository is under a soft code freeze (ends {merge_date_str})."]
+
+        return []
+
+
+class PullRequestUnresolvedCommentsWarning(PullRequestWarning):
+    """Pull request has unresolved comments."""
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        client: GitHubAPIClient,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        commit_comments = pull_request.get_commit_comments(client)
+        messages = []
+
+        for comment in commit_comments:
+            if not comment["is_resolved"]:
+                messages.append(f"{cls.__doc__} {comment['body']} ({comment['url']})")
+
+        return messages
+
+
+class PullRequestMultipleAuthorsWarning(PullRequestWarning):
+    """Pull request has multiple authors."""
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        client: GitHubAPIClient,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        if (
+            len(
+                authors :=
+                # Note: this is a set comprehension, so each element is unique.
+                {
+                    f"{commit['commit']['author']['name']} <{commit['commit']['author']['email']}>"
+                    for commit in pull_request.get_commits(client)
+                }
+            )
+            != 1
+        ):
+            return [cls.__doc__ + " " + (", ".join(authors))]
+
+        return []
+
+
 class PullRequestChecks:
     """Utility class to check a GitHub pull request for a given list of issues."""
 
@@ -231,3 +504,4 @@ class PullRequestChecks:
 
 
 ALL_PULLREQUEST_BLOCKERS = PullRequestBlocker.__subclasses__()
+ALL_PULLREQUEST_WARNINGS = PullRequestWarning.__subclasses__()

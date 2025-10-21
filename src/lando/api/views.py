@@ -19,6 +19,7 @@ from lando.main.scm.helpers import BugReferencesCheck
 from lando.utils.github import GitHubAPIClient, PullRequest, PullRequestPatchHelper
 from lando.utils.github_checks import (
     ALL_PULLREQUEST_BLOCKERS,
+    ALL_PULLREQUEST_WARNINGS,
     PullRequestChecks,
 )
 from lando.utils.landing_checks import ALL_CHECKS, LandingChecks
@@ -198,7 +199,17 @@ class PullRequestChecksAPIView(APIView):
 
         blockers += pr_checks.run(ALL_PULLREQUEST_BLOCKERS, pull_request)
 
-        return JsonResponse({"blockers": blockers, "warnings": []})
+        warnings = pr_checks.run(ALL_PULLREQUEST_WARNINGS, pull_request)
+
+        # PullRequestPatchHelper.get_diff doesn't include binary changes.
+        # This is not considered an issue for checks at the moment, but may need to be kept in
+        # mind for the future.
+        return JsonResponse(
+            {
+                "blockers": blockers,
+                "warnings": warnings,
+            }
+        )
 
 
 class LandingJobAPIView(View):
