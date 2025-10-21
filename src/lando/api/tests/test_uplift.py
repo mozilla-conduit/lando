@@ -712,7 +712,7 @@ def test_moz_phab_uplift_invokes_cli_and_returns_response(
         "--output-file",
     ], "`moz_phab_uplift` should call moz-phab uplift with an output file."
     assert called_cmd[4:] == [
-        "--target-train",
+        "--train",
         repo.name,
         base_revision,
         "HEAD",

@@ -85,7 +85,7 @@ class UpliftWorker(Worker):
                         "uplift",
                         "--output-file",
                         f_output.name,
-                        "--target-train",
+                        "--train",
                         target_repo.short_name,
                         base_revision,
                         "HEAD",
