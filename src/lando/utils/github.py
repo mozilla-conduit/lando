@@ -130,6 +130,9 @@ class PullRequest:
     class StaleMetadataException(Exception):
         pass
 
+    class UpstreamError(Exception):
+        pass
+
     class State(str, Enum):
         OPEN = "open"
         CLOSED = "closed"
@@ -261,22 +264,74 @@ class PullRequest:
 
         return commits
 
-    def get_diff(self, client: GitHubAPIClient) -> str:
-        """Return a single diff of the latest state for the PR.
-
-        WARNING: The returned diff doesn't include any binary data.
-
-        If Binary data is desired, the `get_patch` method should be used instead.
-        """
-        response = client.session.get(self.diff_url)
-        response.raise_for_status()
-
-        return response.text
-
     @cache_method(pr_cache_key)
-    def get_diff_comments(self, client: GitHubAPIClient) -> dict:
+    def get_commit_comments(self, client: GitHubAPIClient) -> list:
         """Return a list of comments on specific changes of the PR."""
-        comments = client.get(f"pull/{self.number}/comments")
+        # NOTE: We use the GraphQL API for this on, as the comment-resolution
+        # information is not available via the REST API [0].
+        #
+        # NOTE: While there are many comment fields accessible. It seems the only one
+        # that reliably return data is pullRequest.reviews[].comments[] [1]. Most
+        # notably, pullRequest.commits[].comments[] seems to always be empty. But that's not what
+        # we need anyway. What we're after is reviewThreads, which are resolvable.
+        #
+        # [0] https://github.com/orgs/community/discussions/9175#discussioncomment-9008230
+        # [1] https://github.com/orgs/community/discussions/24666#discussioncomment-3244969
+        #
+        comments_query = """
+          query($owner: String!, $repo: String!, $number: Int!) {
+            repository(owner: $owner, name: $repo) {
+              pullRequest(number: $number) {
+                reviewThreads(first: 100) {
+                  nodes {
+                    comments(first: 1) {
+                      nodes {
+                        id
+                        body
+                        url
+                        updatedAt
+                      }
+                    }
+                    isResolved
+                  }
+                }
+                updatedAt
+              }
+            }
+          }
+          """
+        comments_response = client.session.post(
+            "https://api.github.com/graphql",
+            json={
+                "query": comments_query,
+                "variables": {
+                    "owner": client.repo._github_repo_org,
+                    "repo": client.repo.git_repo_name,
+                    "number": self.number,
+                },
+            },
+        )
+        comments_response.raise_for_status()
+        comments_response_json = comments_response.json()
+        if "errors" in comments_response_json:
+            raise self.UpstreamError(
+                f"Error from GitHub GraphQL: {comments_response_json}"
+            )
+
+        comments_dict = comments_response_json["data"]["repository"]["pullRequest"][
+            "reviewThreads"
+        ]["nodes"]
+
+        comments = []
+
+        for thread in comments_dict:
+            # We only grab the first comment of each thread.
+            comment = thread["comments"]["nodes"][0]
+            comment["updated_at"] = comment["updatedAt"]
+            del comment["updatedAt"]
+            comment["is_resolved"] = thread["isResolved"]
+
+            comments.append(comment)
 
         if any(
             client.convert_timestamp_from_github(comment["updated_at"])
@@ -288,6 +343,18 @@ class PullRequest:
             )
 
         return comments
+
+    def get_diff(self, client: GitHubAPIClient) -> str:
+        """Return a single diff of the latest state for the PR.
+
+        WARNING: The returned diff doesn't include any binary data.
+
+        If Binary data is desired, the `get_patch` method should be used instead.
+        """
+        response = client.session.get(self.diff_url)
+        response.raise_for_status()
+
+        return response.text
 
     @cache_method(pr_cache_key)
     def get_labels(self, client: GitHubAPIClient) -> list:
