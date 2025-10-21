@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 
 import requests
+from django.http import HttpRequest
 from typing_extensions import override
 
 from lando.main.models.repo import Repo
@@ -19,6 +20,7 @@ class PullRequestCheck(ABC):
         client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
+        request: HttpRequest,
     ) -> list[str]:
         """Inspect the PR for on issue, and return a message string if present."""
 
@@ -54,7 +56,7 @@ class PullRequestUserSCMLevelBlocker(PullRequestBlocker):
 #
 #     @override
 #     @classmethod
-#     def run(cls, client: GitHubAPIClient, pull_request: PullRequest, target_repo: Repo, request: HttpRequest) -> list[str]:
+#     def run(cls, client: GitHubAPIClient, pull_request: PullRequest, target_repo: Repo, request: HttpRequest, request: HttpRequest) -> list[str]:
 #         raise NotImplementedError
 
 
@@ -64,7 +66,7 @@ class PullRequestUserSCMLevelBlocker(PullRequestBlocker):
 #
 #     @override
 #     @classmethod
-#     def run(cls, client: GitHubAPIClient, pull_request: PullRequest, target_repo: Repo, request: HttpRequest) -> list[str]:
+#     def run(cls, client: GitHubAPIClient, pull_request: PullRequest, target_repo: Repo, request: HttpRequest, request: HttpRequest) -> list[str]:
 #         raise NotImplementedError
 
 
@@ -78,6 +80,7 @@ class PullRequestClosedBlocker(PullRequestBlocker):
         client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
+        request: HttpRequest,
     ) -> list[str]:
         if pull_request.state == pull_request.State.CLOSED:
             return [cls.__doc__]
@@ -91,7 +94,7 @@ class PullRequestClosedBlocker(PullRequestBlocker):
 #
 #     @override
 #     @classmethod
-#     def run(cls, client: GitHubAPIClient, pull_request: PullRequest, target_repo: Repo, request: HttpRequest) -> list[str]:
+#     def run(cls, client: GitHubAPIClient, pull_request: PullRequest, target_repo: Repo, request: HttpRequest, request: HttpRequest) -> list[str]:
 #         raise NotImplementedError
 
 
@@ -106,6 +109,7 @@ class PullRequestDiffAuthorIsKnownBlocker(PullRequestBlocker):
         client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
+        request: HttpRequest,
     ) -> list[str]:
         commits = pull_request.get_commits(client)
 
@@ -133,6 +137,7 @@ class PullRequestAuthorPlannedChangesBlocker(PullRequestBlocker):
         client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
+        request: HttpRequest,
     ) -> list[str]:
         if pull_request.is_draft:
             return [cls.__doc__]
@@ -150,6 +155,7 @@ class PullRequestUpliftApprovalBlocker(PullRequestBlocker):
         client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
+        request: HttpRequest,
     ) -> list[str]:
         raise Exception("This check should be at the lando level")
 
@@ -164,6 +170,7 @@ class PullRequestRevisionDataClassificationBlocker(PullRequestBlocker):
         client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
+        request: HttpRequest,
     ) -> list[str]:
         if "needs-data-classification" in [
             label["name"] for label in pull_request.get_labels(client)
@@ -179,7 +186,7 @@ class PullRequestRevisionDataClassificationBlocker(PullRequestBlocker):
 #
 #     @override
 #     @classmethod
-#     def run(cls, client: GitHubAPIClient, pull_request: PullRequest, target_repo: Repo, request: HttpRequest) -> list[str]:
+#     def run(cls, client: GitHubAPIClient, pull_request: PullRequest, target_repo: Repo, request: HttpRequest, request: HttpRequest) -> list[str]:
 #         raise NotImplementedError
 
 # GITHUB-SPECIFIC CHECKS
@@ -196,6 +203,7 @@ class PullRequestBaseBranchDoesntMatchTree(PullRequestBlocker):
         client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
+        request: HttpRequest,
     ) -> list[str]:
         if pull_request.base_ref != target_repo.default_branch:
             return [cls.__doc__]
@@ -213,6 +221,7 @@ class PullRequestConflictWithBaseBranch(PullRequestBlocker):
         client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
+        request: HttpRequest,
     ) -> list[str]:
         raise NotImplementedError
 
@@ -237,6 +246,7 @@ class PullRequestBlockingReviewsWarning(PullRequestWarning):
         client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
+        request: HttpRequest,
     ) -> list[str]:
         reviews = pull_request.get_reviews(client)
 
@@ -261,6 +271,7 @@ class PullRequestPreviouslyLandedWarning(PullRequestWarning):
         client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
+        request: HttpRequest,
     ) -> list[str]:
         if not pull_request.merged_at:
             return []
@@ -278,6 +289,7 @@ class PullRequestNotAcceptedWarning(PullRequestWarning):
         client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
+        request: HttpRequest,
     ) -> list[str]:
         reviews = pull_request.get_reviews(client)
 
@@ -297,6 +309,7 @@ class PullRequestReviewsNotCurrentWarning(PullRequestWarning):
         client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
+        request: HttpRequest,
     ) -> list[str]:
         reviews = pull_request.get_reviews(client)
 
@@ -320,6 +333,7 @@ class PullRequestSecureRevisionWarning(PullRequestWarning):
         client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
+        request: HttpRequest,
     ) -> list[str]:
         raise NotImplementedError
 
@@ -334,6 +348,7 @@ class PullRequestMissingTestingTagWarning(PullRequestWarning):
         client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
+        request: HttpRequest,
     ) -> list[str]:
         # Only allow a single testing tag.
         if (
@@ -361,6 +376,7 @@ class PullRequestDiffWarning(PullRequestWarning):
         client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
+        request: HttpRequest,
     ) -> list[str]:
         raise NotImplementedError
 
@@ -375,6 +391,7 @@ class PullRequestWIPWarning(PullRequestWarning):
         client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
+        request: HttpRequest,
     ) -> list[str]:
         if pull_request.title.lower().startswith("wip:"):
             return [cls.__doc__]
@@ -395,6 +412,7 @@ class PullRequestCodeFreezeWarning(PullRequestWarning):
         client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
+        request: HttpRequest,
     ) -> list[str]:
         if not target_repo.product_details_url:
             return []
@@ -440,6 +458,7 @@ class PullRequestUnresolvedCommentsWarning(PullRequestWarning):
         client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
+        request: HttpRequest,
     ) -> list[str]:
         commit_comments = pull_request.get_commit_comments(client)
         messages = []
@@ -461,6 +480,7 @@ class PullRequestMultipleAuthorsWarning(PullRequestWarning):
         client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
+        request: HttpRequest,
     ) -> list[str]:
         if (
             len(
@@ -482,11 +502,18 @@ class PullRequestChecks:
     """Utility class to check a GitHub pull request for a given list of issues."""
 
     _client: GitHubAPIClient
+    _request: HttpRequest
     _target_repo: Repo
 
-    def __init__(self, client: GitHubAPIClient, target_repo: Repo):
+    def __init__(
+        self,
+        client: GitHubAPIClient,
+        target_repo: Repo,
+        request: HttpRequest,
+    ):
         self._client = client
         self._target_repo = target_repo
+        self._request = request
 
     def run(
         self, checks_list: list[type[PullRequestCheck]], pull_request: PullRequest
@@ -495,7 +522,9 @@ class PullRequestChecks:
 
         for check in checks_list:
             try:
-                if outcome := check.run(self._client, pull_request, self._target_repo):
+                if outcome := check.run(
+                    self._client, pull_request, self._target_repo, self._request
+                ):
                     messages.extend(outcome)
             except NotImplementedError:
                 messages.append(f"{check.__name__} is not implemented")

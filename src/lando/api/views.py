@@ -184,7 +184,7 @@ class PullRequestBlockersWarningAPIView(APIView):
             [patch_helper],
         )
 
-        pr_checks = PullRequestChecks(client, target_repo)
+        pr_checks = PullRequestChecks(client, target_repo, request)
 
         blockers += pr_checks.run(ALL_PULLREQUEST_BLOCKERS, pull_request)
 
