@@ -150,13 +150,16 @@ future.
                   </p>
                 {% endif %}
                 {% if job.status in ["LANDED", "SUCCESS"] and job.created_revision_ids %}
-                  <div class="tags">
-                    {% for rev_id in job.created_revision_ids %}
-                      <a class="tag is-link"
-                         href="{{ rev_id|revision_url }}">
-                        Uplifted to D{{ rev_id }}
-                      </a>
-                    {% endfor %}
+                  <div class="content">
+                    <p><strong>Uplifted to</strong></p>
+                    <div class="tags">
+                      {% for rev_id in job.created_revision_ids %}
+                        <a class="tag is-link"
+                           href="{{ rev_id|revision_url }}">
+                          D{{ rev_id }}
+                        </a>
+                      {% endfor %}
+                    </div>
                   </div>
                 {% endif %}
               </div>
