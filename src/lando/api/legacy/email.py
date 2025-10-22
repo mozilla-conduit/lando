@@ -88,7 +88,8 @@ Thank you for keeping the uplift train moving!
 """.strip()
 
 
-def _build_conflict_summary(conflict_sections: list[dict[str, str]]) -> str:
+def build_uplift_conflict_summary(conflict_sections: list[dict[str, str]]) -> str:
+    """Build a conflict summary for display in the uplift failure email."""
     formatted = []
     for section in conflict_sections:
         path = section.get("path", "Unknown file")
@@ -114,7 +115,7 @@ def make_uplift_failure_email(
     conflict_sections: list[dict[str, str]] | None = None,
 ) -> EmailMessage:
     if conflict_sections:
-        conflict_summary = _build_conflict_summary(conflict_sections)
+        conflict_summary = build_uplift_conflict_summary(conflict_sections)
         resolution_instructions = UPLIFT_CONFLICT_INSTRUCTIONS_TEMPLATE.format(
             repo_name=repo_name,
             conflict_summary=conflict_summary,
