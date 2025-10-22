@@ -1,0 +1,40 @@
+{% extends "partials/layout.html" %}
+{% block page_title %}{{pull_request}}{% endblock %}
+
+{% block main %}
+<main class="StackPage container fullhd">
+  <h1>Pull request {{ pull_request.number }}</h1>
+  <div class="StackPage-stack">
+      <table>
+          <tr>
+              <th>Pull request</th>
+              <td>{{ pull_request.number }}</td>
+          </tr>
+          <tr>
+              <th>Target Lando Repo</th>
+              <td>{{ target_repo }}</td>
+          </tr>
+          <tr>
+              <th>GitHub repo</th>
+              <td>{{ pull_request.head_repo_git_url }}</td>
+          </tr>
+          <tr>
+              <th>Author</th>
+              <td>{{ pull_request.user_login }}</td>
+          </tr>
+          <tr>
+              <th>State</th>
+              <td>{{ pull_request.state}}</td>
+          </tr>
+          <tr>
+              <th>Title</th>
+              <td><a href="{{ pull_request.html_url }}">{{ pull_request.title }}</a></td>
+          </tr>
+          <tr>
+              <th>Description</th>
+              <td>{{ pull_request.body }}</td>
+          </tr>
+      </table>
+  </div>
+</main>
+{% endblock %}
