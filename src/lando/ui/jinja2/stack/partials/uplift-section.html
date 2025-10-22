@@ -144,9 +144,15 @@ future.
                 </div>
 
                 {% if job.error %}
-                  <p class="is-size-7 has-text-danger">
-                    {{ job.error }}
-                  </p>
+                  <div class="content">
+                    <div>
+                      <button type="button" class="button is-small is-light toggle-content">
+                        Show error details
+                      </button>
+                    </div>
+                    <pre class="hidden-content">{{ job.error }}
+<button type="button" class="button is-small is-light toggle-content">Hide error details</button></pre>
+                  </div>
                 {% endif %}
                 {% if job.status in ["LANDED", "SUCCESS"] and job.created_revision_ids %}
                   <div class="content">
