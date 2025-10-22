@@ -12,7 +12,6 @@ from django.template.response import TemplateResponse
 from django.utils.decorators import method_decorator
 
 from lando.api.legacy import api as legacy_api
-from lando.api.legacy.uplift import MAX_UPLIFT_STACK_SIZE
 from lando.api.legacy.validation import revision_id_to_int
 from lando.main.auth import force_auth_refresh, require_phabricator_api_key
 from lando.main.models import Repo
@@ -330,9 +329,6 @@ class RevisionView(LandoView):
         else:
             existing_flags = {}
 
-        # Check if the stack is larger than our maximum upliftable stack size.
-        uplift_stack_too_large = series and len(series) > MAX_UPLIFT_STACK_SIZE
-
         context = {
             "revision_id": "D{}".format(revision_id),
             "series": series,
@@ -353,8 +349,6 @@ class RevisionView(LandoView):
             "uplift_request_form": uplift_request_form,
             "uplift_requests": uplift_requests,
             "uplift_assessment_form": uplift_assessment_edit_form,
-            "uplift_stack_too_large": uplift_stack_too_large,
-            "max_uplift_stack_size": MAX_UPLIFT_STACK_SIZE,
         }
 
         return TemplateResponse(

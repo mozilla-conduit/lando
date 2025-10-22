@@ -29,9 +29,6 @@ from lando.utils.phabricator import (
 
 logger = logging.getLogger(__name__)
 
-# Maximum number of revisions allowable in a stack to be auto-uplifted.
-MAX_UPLIFT_STACK_SIZE = 5
-
 UPLIFT_BUG_UPDATE_RETRIES = 3
 
 
@@ -124,11 +121,6 @@ def get_uplift_conduit_state(
     nodes, edges = build_stack_graph(revision)
 
     stack_data = request_extended_revision_data(phab, list(nodes))
-
-    if len(stack_data.revisions) > MAX_UPLIFT_STACK_SIZE:
-        raise ValueError(
-            f"Cannot create uplift for stack > {MAX_UPLIFT_STACK_SIZE} revisions."
-        )
 
     missing_bugs = get_revisions_without_bugs(phab, stack_data.revisions.values())
     if missing_bugs:
