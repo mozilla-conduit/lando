@@ -183,6 +183,13 @@ class UpliftJob(BaseJob):
     # Store the created revision ID for the job on success.
     created_revision_ids = models.JSONField(default=list, blank=True)
 
+    # Error details in a dictionary format, listing failed merges, etc...
+    # E.g. {
+    #    "failed_paths": [{"path": "...", "url": "..."}],
+    #    "rejects_paths": [{"path": "...", "content": "..."}]
+    # }
+    error_breakdown = models.JSONField(null=True, blank=True, default=dict)
+
     multi_request = models.ForeignKey(
         MultiTrainUpliftRequest, on_delete=models.DO_NOTHING, related_name="uplift_jobs"
     )
