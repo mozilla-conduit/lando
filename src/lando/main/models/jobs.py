@@ -37,6 +37,7 @@ class JobStatus(models.TextChoices):
     IN_PROGRESS = "IN_PROGRESS", gettext_lazy("In progress")
     DEFERRED = "DEFERRED", gettext_lazy("Deferred")
     FAILED = "FAILED", gettext_lazy("Failed")
+    # TODO(sheehan): rename this to SUCCCEEDED or similar.
     LANDED = "LANDED", gettext_lazy("Landed")
     CANCELLED = "CANCELLED", gettext_lazy("Cancelled")
 

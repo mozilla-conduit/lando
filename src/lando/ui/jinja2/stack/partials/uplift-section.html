@@ -123,6 +123,7 @@ future.
 
                   <div class="column is-narrow">
                     {% set s = job.status %}
+                    {# TODO(sheehan) use better term here #}
                     {% if s == "LANDED" or s == "SUCCESS" %}
                       <span class="tag is-success">{{ s }}</span>
                     {% elif s == "FAILED" %}
