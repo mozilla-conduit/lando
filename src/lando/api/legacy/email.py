@@ -114,6 +114,7 @@ def make_uplift_failure_email(
     reason: str,
     conflict_sections: list[dict[str, str]] | None = None,
 ) -> EmailMessage:
+    """Build an uplift failure email."""
     if conflict_sections:
         conflict_summary = build_uplift_conflict_summary(conflict_sections)
         resolution_instructions = UPLIFT_CONFLICT_INSTRUCTIONS_TEMPLATE.format(
@@ -144,6 +145,7 @@ def make_uplift_success_email(
     job_url: str,
     created_revision_ids: list[str],
 ) -> EmailMessage:
+    """Build an uplift success email."""
     revision_lines = "\n".join(f"- {rev_id}" for rev_id in created_revision_ids)
     body = UPLIFT_SUCCESS_EMAIL_TEMPLATE.format(
         repo_name=repo_name,
