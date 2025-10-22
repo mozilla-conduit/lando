@@ -61,7 +61,10 @@ Reason:
 """.strip()
 
 UPLIFT_CONFLICT_INSTRUCTIONS_TEMPLATE = """
-Lando detected merge conflicts while applying your stack. Please pull the latest changes for {repo_name}, resolve the conflicts locally, update your Phabricator revisions, and submit a new uplift request once the conflicts are cleared.
+Lando detected merge conflicts while applying your stack.
+Please pull the latest changes for {repo_name}, resolve the conflicts locally,
+update your Phabricator revisions, and submit a new uplift request
+using `moz-phab uplift` once the conflicts are cleared.
 
 Conflict markers were reported in:
 {conflict_summary}
