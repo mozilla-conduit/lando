@@ -5,6 +5,7 @@ import logging
 from io import StringIO
 from typing import Annotated, Literal
 
+from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.core.handlers.wsgi import WSGIRequest
 from django.db import transaction
@@ -337,6 +338,12 @@ class MergeRemoteAction(Schema):
     def process(
         self, job: AutomationJob, repo: Repo, scm: AbstractSCM, index: int
     ) -> bool:
+        if self.repo not in settings.ALLOWED_MERGE_REMOTE_REPOS:
+            raise AutomationActionException(
+                message=f"Merges from {repo} not allowed",
+                job_action=JobAction.FAIL,
+                is_fatal=True,
+            )
         try:
             scm.merge_remote(
                 commit_message=self.commit_message,

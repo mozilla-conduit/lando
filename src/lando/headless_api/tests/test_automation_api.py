@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
+from django.conf import settings
 from django.contrib.auth.hashers import check_password
 
 from lando.api.legacy.workers.automation_worker import AutomationWorker
@@ -1942,6 +1943,8 @@ def test_automation_job_merge_remote_success_git(
     repo = repo_mc(SCM_TYPE_GIT)
     scm = repo.scm
     scm.push = mock.MagicMock()
+
+    settings.ALLOWED_MERGE_REMOTE_REPOS = [repo.path]
 
     # Create a repo with diverging history
     main_commit, main_file, feature_commit, feature_file = (
