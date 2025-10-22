@@ -22,7 +22,7 @@ from lando.main.scm.exceptions import (
 )
 from lando.main.scm.helpers import GitPatchHelper, PatchHelper
 from lando.settings import LANDO_USER_EMAIL, LANDO_USER_NAME
-from lando.utils.github import GitHubAPI
+from lando.utils.github import GitHub
 
 from .abstract_scm import AbstractSCM
 
@@ -113,8 +113,8 @@ class GitSCM(AbstractSCM):
         if force_push:
             push_command += ["--force"]
 
-        if GitHubAPI.is_github_url(push_path):
-            push_path = GitHubAPI(push_path).authenticated_url
+        if GitHub.is_supported_url(push_path):
+            push_path = GitHub(push_path).authenticated_url
 
         push_command += [push_path]
 

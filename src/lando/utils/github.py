@@ -16,27 +16,23 @@ URL_USERINFO_RE = re.compile(
 )
 
 
-class GitHubAPI:
-    """A simple wrapper that authenticates with and communicates with the GitHub API."""
+class GitHub:
+    """Work with authentication to GitHub repositories."""
 
-    GITHUB_BASE_URL = "https://api.github.com"
-
-    repo_url: str
-    repo_owner: str
-    repo_name: str
-    userinfo: str
-    session: requests.Session
-
-    GITHUB_BASE_URL = "https://api.github.com"
     # NOTE: This RE takes care of removing the '.git' suffix, to provide normalised URLs.
     GITHUB_URL_RE = re.compile(
         f"https://{URL_USERINFO_RE.pattern}?github.com/(?P<owner>[-A-Za-z0-9]+)/(?P<repo>[^/]+)(.git)?"
     )
 
+    repo_url: str
+    repo_owner: str
+    repo_name: str
+    userinfo: str
+
     def __init__(self, repo_url: str):
         self.repo_url = repo_url
 
-        parsed_url = self.parse_github_url(repo_url)
+        parsed_url = self.parse_url(repo_url)
 
         if parsed_url is None:
             raise ValueError(f"Cannot parse URL as GitHub repo: {repo_url}")
@@ -45,22 +41,12 @@ class GitHubAPI:
         self.repo_name = parsed_url["repo"]
         self.userinfo = parsed_url["userinfo"]
 
-        self.session = requests.Session()
-        self.session.headers.update(
-            {
-                "Authorization": f"Bearer {self._fetch_token()}",
-                "User-Agent": settings.HTTP_USER_AGENT,
-                "Accept": "application/vnd.github+json",
-                "X-GitHub-Api-Version": "2022-11-28",
-            }
-        )
+    @classmethod
+    def is_supported_url(cls, url: str) -> bool:
+        return cls.parse_url(url) is not None
 
     @classmethod
-    def is_github_url(cls, url: str) -> bool:
-        return cls.parse_github_url(url) is not None
-
-    @classmethod
-    def parse_github_url(cls, url: str) -> re.Match[str] | None:
+    def parse_url(cls, url: str) -> re.Match[str] | None:
         """Parse GitHub data from URL, or return None if not Github."""
         return re.match(cls.GITHUB_URL_RE, url)
 
@@ -111,6 +97,27 @@ class GitHubAPI:
             app_auth, self.repo_owner, repositories=[self.repo_name]
         )
         return asyncio.run(session.get_token())
+
+
+class GitHubAPI(GitHub):
+    """A simple wrapper that authenticates with and communicates with the GitHub API."""
+
+    session: requests.Session
+
+    GITHUB_BASE_URL = "https://api.github.com"
+
+    def __init__(self, repo_url: str):
+        super().__init__(repo_url)
+
+        self.session = requests.Session()
+        self.session.headers.update(
+            {
+                "Authorization": f"Bearer {self._fetch_token()}",
+                "User-Agent": settings.HTTP_USER_AGENT,
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+            }
+        )
 
     def get(self, path: str, *args, **kwargs) -> dict:
         """Send a GET request to the GitHub API with given args and kwargs."""
