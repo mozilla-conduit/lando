@@ -53,13 +53,13 @@ class UpliftWorker(Worker):
         try:
             created_revision_ids = self.apply_and_uplift(job)
         except TemporaryFailureException:
-            raise
+            return False
         except PermanentFailureException as exc:
             self._notify_failure(job, repo.name, job_url, user.email, str(exc))
-            raise
+            return False
         except Exception as exc:  # pragma: no cover - defensive catch
             self._notify_failure(job, repo.name, job_url, user.email, str(exc))
-            raise
+            return False
 
         self._notify_success(
             repo.name,
