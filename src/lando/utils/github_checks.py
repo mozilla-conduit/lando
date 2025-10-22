@@ -193,6 +193,66 @@ class PullRequestRevisionDataClassificationBlocker(PullRequestBlocker):
 #     def run(cls, client: GitHubAPIClient, pull_request: PullRequest, target_repo: Repo, request: HttpRequest, request: HttpRequest) -> list[str]:
 #         raise NotImplementedError
 
+# GITHUB-SPECIFIC CHECKS
+
+
+class PullRequestBaseBranchDoesntMatchTree(PullRequestBlocker):
+    """The base branch for this PR doesn't match this Tree."""
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        client: GitHubAPIClient,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        if pull_request.base_ref != target_repo.default_branch:
+            return [cls.__doc__]
+
+        return []
+
+
+class PullRequestConflictWithBaseBranch(PullRequestBlocker):
+    """This Pull Request has conflicts that must be resolved."""
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        client: GitHubAPIClient,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        if pull_request.mergeable_state == pull_request.Mergeability.DIRTY:
+            return [cls.__doc__]
+
+        return []
+
+
+class PullRequestFailingCheck(PullRequestBlocker):
+    """This Pull Request has has some failing checks."""
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        client: GitHubAPIClient,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        # If we need more details on which tests are failing, we could use the commit
+        # statuses endpoint instead [0].
+        #
+        # [0] https://docs.github.com/en/rest/commits/statuses?apiVersion=2022-11-28
+        if pull_request.mergeable_state == pull_request.Mergeability.UNSTABLE:
+            return [cls.__doc__]
+
+        return []
+
 
 #
 # WARNINGS
