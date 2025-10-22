@@ -834,8 +834,7 @@ def test_uplift_worker_mozphab_failure_marks_failed(
     # Patch subprocess.run inside the worker's `moz_phab_uplift`.
     monkeypatch.setattr(subprocess, "run", _boom)
 
-    with pytest.raises(PermanentFailureException):
-        uplift_worker.run_job(job)
+    assert not uplift_worker.run_job(job), "Job should not complete successfully."
 
     job.refresh_from_db()
     assert (
@@ -877,8 +876,7 @@ def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
         uplift_worker, "moz_phab_uplift", lambda *a, **k: {"commits": [{"rev_id": 999}]}
     )
 
-    with pytest.raises(PermanentFailureException):
-        uplift_worker.run_job(job)
+    assert not uplift_worker.run_job(job), "Job should not complete successfully."
 
     job.refresh_from_db()
     assert (
@@ -890,8 +888,10 @@ def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
     assert (
         job.created_revision_ids == []
     ), "Apply-patch failure should leave created_revision_ids empty."
+
     mock_failure_task.apply_async.assert_called_once()
     mock_success_task.apply_async.assert_not_called()
+
     failure_args = mock_failure_task.apply_async.call_args[1]["args"]
     assert failure_args[0] == user.email
     assert failure_args[1] == (repo.short_name or repo.name)
