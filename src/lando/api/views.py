@@ -196,15 +196,15 @@ class LandingJobPullRequestAPIView(View):
         for landing_job in pull_request.landing_jobs:
             landing_jobs[landing_job.status].append(landing_job.id)
 
-        if len(landing_jobs[JobStatus.LANDED]):
+        if landing_jobs[JobStatus.LANDED]:
             status = "landed"
-        elif len(landing_jobs[JobStatus.CREATED]):
+        elif landing_jobs[JobStatus.CREATED]:
             status = "created"
-        elif len(landing_jobs[JobStatus.SUBMITTED]):
+        elif landing_jobs[JobStatus.SUBMITTED]:
             status = "submitted"
-        elif len(landing_jobs[JobStatus.IN_PROGRESS]):
+        elif landing_jobs[JobStatus.IN_PROGRESS]:
             status = "in progress"
-        elif len(landing_jobs[JobStatus.FAILED]):
+        elif landing_jobs[JobStatus.FAILED]:
             status = "failed"
         else:
             status = "unknown"
@@ -249,7 +249,7 @@ class LandingJobPullRequestAPIView(View):
 
         revision = Revision.objects.create(pull_number=pull_request.number)
         patch_data = {
-            # These should be parsed from the patch, but for now, use logged in user.
+            # These should be parsed from the patch, but for now, use a placeholder.
             "author_name": "Author Name",
             "author_email": "Author Email <email@example.org>",
             "commit_message": pull_request.title,
