@@ -76,10 +76,9 @@ future.
             <div class="level-item">
               <div>
                 <div class="is-size-6 has-text-weight-semibold">Uplift request</div>
-                <div class="is-size-7 has-text-grey">
-                  Requested by {{ uplift_request.user.email }} •
-                  {{ uplift_request.created_at }}
-                </div>
+                <p class="is-size-7 has-text-grey">
+                  Uplift requested on <time data-timestamp="{{ uplift_request.created_at }}"></time>, by {{ uplift_request.user.email }}.
+                </p>
               </div>
             </div>
           </div>
