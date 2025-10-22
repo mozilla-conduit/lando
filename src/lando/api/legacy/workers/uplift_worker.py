@@ -48,17 +48,17 @@ class UpliftWorker(Worker):
         """Run an uplift job."""
         repo = job.target_repo
         user = job.multi_request.user
-        job_url = self._job_url(job)
+        job_url = self.job_url(job)
 
         try:
             created_revision_ids = self.apply_and_uplift(job)
         except TemporaryFailureException:
             return False
         except PermanentFailureException as exc:
-            self._notify_failure(job, repo.name, job_url, user.email, str(exc))
+            self.notify_uplift_failure(job, repo.name, job_url, user.email, str(exc))
             return False
         except Exception as exc:  # pragma: no cover - defensive catch
-            self._notify_failure(job, repo.name, job_url, user.email, str(exc))
+            self.notify_uplift_failure(job, repo.name, job_url, user.email, str(exc))
             return False
 
         self._notify_success(
@@ -137,7 +137,7 @@ class UpliftWorker(Worker):
             revision_labels,
         )
 
-    def _notify_failure(
+    def notify_uplift_failure(
         self,
         job: UpliftJob,
         repo_label: str,
@@ -148,7 +148,7 @@ class UpliftWorker(Worker):
         if not recipient_email:
             return
 
-        conflict_sections = self._conflict_sections(job)
+        conflict_sections = self.conflict_sections(job)
         failure_reason = job.error or reason
         self.call_task(
             send_uplift_failure_email,
@@ -159,7 +159,7 @@ class UpliftWorker(Worker):
             conflict_sections if conflict_sections else None,
         )
 
-    def _conflict_sections(self, job: UpliftJob) -> list[dict[str, str]]:
+    def conflict_sections(self, job: UpliftJob) -> list[dict[str, str]]:
         breakdown = getattr(job, "error_breakdown", None)
         if not breakdown:
             return []
@@ -176,7 +176,7 @@ class UpliftWorker(Worker):
             sections.append({"path": path, "snippet": snippet})
         return sections
 
-    def _job_url(self, job: UpliftJob) -> str:
+    def job_url(self, job: UpliftJob) -> str:
         base = settings.SITE_URL.rstrip("/") + "/"
         return urljoin(base, reverse("uplift-jobs-page", args=[job.id]))
 
