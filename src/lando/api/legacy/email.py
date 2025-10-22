@@ -76,7 +76,8 @@ UPLIFT_CONFLICT_SECTION_TEMPLATE = """
 """.strip()
 
 UPLIFT_GENERIC_RESOLUTION = """
-Review the job details linked above, address the failure in your patch stack, and resubmit the uplift request when ready. If you are unsure how to proceed, you can reply to this email for assistance.
+Review the job details linked above, address the failure in
+your patch stack, and resubmit the uplift request when ready.
 """.strip()
 
 UPLIFT_SUCCESS_EMAIL_TEMPLATE = """
