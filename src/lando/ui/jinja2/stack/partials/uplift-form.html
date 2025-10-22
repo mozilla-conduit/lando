@@ -12,7 +12,6 @@
       </header>
 
       <section class="modal-card-body">
-        {# TODO-sh confirm this renders properly #}
         {{ uplift_request_form.source_revision_ids }}
         {% set requested_revision_ids = uplift_request_form.source_revision_ids.value() or [] %}
         {% if requested_revision_ids %}
@@ -90,7 +89,6 @@
         <div class="field">
             <label class="label">Uplift repositories</label>
             <div class="control">
-                {# TODO-sh check this is rendering properly #}
                 {% for checkbox in uplift_request_form.repositories %}
                     <label class="checkbox">
                         {{ checkbox }}

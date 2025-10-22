@@ -222,7 +222,6 @@ class RevisionView(LandoView):
             if r["id"] == "D{}".format(revision_id):
                 revision_phid = r["phid"]
 
-        # TODO-sh: test if this is working.
         source_revision_ids = [
             revision_id_to_int(revisions[revision_phid]["id"])
             for revision_phid in stack["stack"].iter_stack_from_root(dest=revision_phid)
