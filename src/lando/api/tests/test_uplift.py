@@ -20,6 +20,7 @@ from lando.api.legacy.uplift import (
 from lando.api.legacy.workers.uplift_worker import (
     UpliftWorker,
 )
+from lando.api.tests.test_landings import PATCH_CHANGE_MISSING_CONTENT
 from lando.main.models import JobStatus, PermanentFailureException
 from lando.main.models.revision import Revision
 from lando.main.models.uplift import (
@@ -856,7 +857,7 @@ def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
     # Create a job where one revision has a bad patch.
     revisions = [
         create_patch_revision(0, patch=normal_patch(0)),
-        create_patch_revision(1, patch="asdf"),
+        create_patch_revision(1, patch=PATCH_CHANGE_MISSING_CONTENT),
     ]
     job = _make_uplift_job_with_revisions(repo, user, revisions)
 
