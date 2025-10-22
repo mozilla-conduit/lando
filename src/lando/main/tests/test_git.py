@@ -6,6 +6,7 @@ import subprocess
 from collections.abc import Callable
 from pathlib import Path
 from textwrap import dedent
+from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
@@ -674,17 +675,27 @@ def test_GitSCM_push(
     )
 
 
-def test_GitSCM_push_get_github_token(git_repo: Path):
+@pytest.fixture
+def mock_github_api_get_token(monkeypatch: pytest.MonkeyPatch):
+    mock_get_token = MagicMock()
+    mock_get_token.side_effect = ["ghs_yolo"]
+
+    monkeypatch.setattr("lando.utils.github.GitHubAPI._get_token", mock_get_token)
+
+    return mock_get_token
+
+
+def test_GitSCM_push_get_github_token(
+    git_repo: Path, mock_github_api_get_token: mock.Mock
+):
     scm = GitSCM(str(git_repo))
     scm._git_run = MagicMock()
-    scm._get_github_token = MagicMock()
-    scm._get_github_token.side_effect = ["ghs_yolo"]
 
     scm.push("https://github.com/some/repo")
 
     assert scm._git_run.call_count == 1, "_git_run wasn't called when pushing"
     assert (
-        scm._get_github_token.call_count == 1
+        mock_github_api_get_token.call_count == 1
     ), "_get_github_token wasn't called when pushing to a github-like URL"
     assert (
         "git:ghs_yolo@github.com" in scm._git_run.call_args[0][1]
