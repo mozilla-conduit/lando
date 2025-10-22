@@ -5,6 +5,9 @@ $.fn.stack = function() {
     let $stack = $(this);
     let $radio = $stack.find('.StackPage-revision-land-radio');
 
+    // Format timestamps
+    $stack.find('time[data-timestamp]').formatTime();
+
     $radio.on('click', (e) => {
       window.location.href = '/' + e.target.id;
       $radio.attr({'disabled': true});
