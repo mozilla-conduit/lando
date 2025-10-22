@@ -146,3 +146,36 @@ class PullRequest:
         self.user_id = data["user"]["id"]
         self.user_html_url = data["user"]["html_url"]
         self.user_login = data["user"]["login"]
+
+    def serialize(self) -> dict[str, str]:
+        """Return a dictionary with various pull request data."""
+        return {
+            "url": self.url,
+            "base_ref": self.base_ref,
+            "base_sha": self.base_sha,
+            "base_user_login": self.base_user_login,
+            "base_user_id": self.base_user_id,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "closed_at": self.closed_at,
+            "merged_at": self.merged_at,
+            "diff_url": self.diff_url,
+            "patch_url": self.patch_url,
+            "body": self.body,
+            "is_draft": self.is_draft,
+            "comments_url": self.comments_url,
+            "commits_url": self.commits_url,
+            "head_ref": self.head_ref,
+            "head_sha": self.head_sha,
+            "head_repo_git_url": self.head_repo_git_url,
+            "html_url": self.html_url,
+            "id": self.id,
+            "number": self.number,
+            "requested_reviewers": self.requested_reviewers,
+            "requested_teams": self.requested_teams,
+            "state": self.state,
+            "title": self.title,
+            "user_id": self.user_id,
+            "user_html_url": self.user_html_url,
+            "user_login": self.user_login,
+        }

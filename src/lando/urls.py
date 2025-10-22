@@ -21,6 +21,7 @@ from django.urls import include, path, re_path
 from lando.api.legacy.api import landing_jobs
 from lando.api.views import (
     LegacyDiffWarningView,
+    PullRequestAPIView,
     git2hgCommitMapView,
     hg2gitCommitMapView,
 )
@@ -87,6 +88,14 @@ urlpatterns += [
         r"api/hg2git/(?P<git_repo_name>.*)/(?P<commit_hash>[0-9a-f]{40})",
         hg2gitCommitMapView.as_view(),
         name="hg2git",
+    ),
+]
+
+urlpatterns += [
+    path(
+        "api/pulls/<str:repo_name>/<int:number>",
+        PullRequestAPIView.as_view(),
+        name="api-pull-request",
     ),
 ]
 
