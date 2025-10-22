@@ -606,11 +606,11 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     mock_success_task = mock.MagicMock()
     mock_failure_task = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.utils.tasks.send_uplift_success_email",
+        "lando.api.legacy.workers.uplift_worker.send_uplift_success_email",
         mock_success_task,
     )
     monkeypatch.setattr(
-        "lando.utils.tasks.send_uplift_failure_email",
+        "lando.api.legacy.workers.uplift_worker.send_uplift_failure_email",
         mock_failure_task,
     )
 
@@ -677,8 +677,10 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     job.save(update_fields=["status"])
 
     assert uplift_worker.run_job(job), "Re-running job should still succeed."
+
     mock_success_task.apply_async.assert_called()
     mock_failure_task.apply_async.assert_not_called()
+
     args = mock_success_task.apply_async.call_args[1]["args"]
     assert args[0] == user.email
     assert args[1] == (repo.short_name or repo.name)
@@ -812,11 +814,11 @@ def test_uplift_worker_mozphab_failure_marks_failed(
     mock_success_task = mock.MagicMock()
     mock_failure_task = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.utils.tasks.send_uplift_success_email",
+        "lando.api.legacy.workers.uplift_worker.send_uplift_success_email",
         mock_success_task,
     )
     monkeypatch.setattr(
-        "lando.utils.tasks.send_uplift_failure_email",
+        "lando.api.legacy.workers.uplift_worker.send_uplift_failure_email",
         mock_failure_task,
     )
 
@@ -862,11 +864,11 @@ def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
     mock_success_task = mock.MagicMock()
     mock_failure_task = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.utils.tasks.send_uplift_success_email",
+        "lando.api.legacy.workers.uplift_worker.send_uplift_success_email",
         mock_success_task,
     )
     monkeypatch.setattr(
-        "lando.utils.tasks.send_uplift_failure_email",
+        "lando.api.legacy.workers.uplift_worker.send_uplift_failure_email",
         mock_failure_task,
     )
 
