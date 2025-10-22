@@ -4,6 +4,9 @@ $.fn.timeline = function() {
   return this.each(function() {
     let $timeline = $(this);
 
+    // Format timestamps
+    $timeline.find('time[data-timestamp]').formatTime();
+
     $('button.cancel-landing-job').on('click', function(e) {
       var button = $(this);
       var landing_job_id = this.dataset.landing_job_id;
