@@ -106,12 +106,11 @@ class UpliftWorker(Worker):
             )
 
         # Trigger a Celery task to update the form on Phabricator.
-        set_uplift_request_form_on_revision.apply_async(
-            args=(
-                tip_revision_id,
-                multi_request.assessment.to_conduit_json_str(),
-                user.id,
-            )
+        self.call_task(
+            set_uplift_request_form_on_revision,
+            tip_revision_id,
+            multi_request.assessment.to_conduit_json_str(),
+            user.id,
         )
 
         job.created_revision_ids = created_revision_ids
