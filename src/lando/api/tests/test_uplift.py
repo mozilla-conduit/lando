@@ -10,12 +10,8 @@ from packaging.version import (
 )
 
 from lando.api.legacy.uplift import (
-    add_original_revision_line_if_needed,
     create_uplift_bug_update_payload,
-    get_latest_non_commit_diff,
-    get_revisions_without_bugs,
     parse_milestone_version,
-    strip_depends_on_from_commit_message,
 )
 from lando.api.legacy.workers.uplift_worker import (
     UpliftWorker,
@@ -84,27 +80,6 @@ def test_parse_milestone_version():
     bad_milestone_contents = "blahblahblah"
     with pytest.raises(ValueError, match=bad_milestone_contents):
         parse_milestone_version(bad_milestone_contents)
-
-
-DEPENDS_ON_MESSAGE = """
-bug 123: testing r?sheehan
-
-Something something Depends on D1234
-
-Differential Revision: http://phab.test/D234
-
-Depends on D567
-""".strip()
-
-
-def test_strip_depends_on_from_commit_message():
-    assert strip_depends_on_from_commit_message(DEPENDS_ON_MESSAGE) == (
-        "bug 123: testing r?sheehan\n"
-        "\n"
-        "Something something Depends on D1234\n"
-        "\n"
-        "Differential Revision: http://phab.test/D234\n"
-    ), "`Depends on` line should be stripped from commit message."
 
 
 @pytest.mark.django_db
@@ -272,70 +247,6 @@ def test_create_uplift_bug_update_payload():
     assert (
         "cf_status_firefox100" not in payload
     ), "Status should not have been set with `leave-open` keyword on bug."
-
-
-def test_add_original_revision_line_if_needed():
-    uri = "http://phabricator.test/D123"
-
-    summary_no_original = "Bug 123: test summary r?sheehan"
-    summary_with_original = (
-        "Bug 123: test summary r?sheehan\n"
-        "\n"
-        "Original Revision: http://phabricator.test/D123"
-    )
-
-    assert (
-        add_original_revision_line_if_needed(summary_no_original, uri)
-        == summary_with_original
-    ), "Passing summary without `Original Revision` should return with line added."
-
-    assert (
-        add_original_revision_line_if_needed(summary_with_original, uri)
-        == summary_with_original
-    ), "Passing summary with `Original Revision` should return the input."
-
-
-def test_get_revisions_without_bugs(phabdouble):
-    phab = phabdouble.get_phabricator_client()
-
-    rev1 = phabdouble.revision(bug_id=123)
-    revs = phabdouble.differential_revision_search(
-        constraints={"phids": [rev1["phid"]]},
-    )
-    revisions = phab.expect(revs, "data")
-
-    assert (
-        get_revisions_without_bugs(phab, revisions) == set()
-    ), "Empty set should be returned if all revisions have bugs."
-
-    rev2 = phabdouble.revision()
-    revs = phabdouble.differential_revision_search(
-        constraints={"phids": [rev1["phid"], rev2["phid"]]},
-    )
-    revisions = phab.expect(revs, "data")
-
-    assert get_revisions_without_bugs(phab, revisions) == {
-        rev2["id"]
-    }, "Revision without associated bug should be returned."
-
-
-def test_get_latest_non_commit_diff():
-    test_data = [
-        {"creationMethod": "commit", "id": 3},
-        {"creationMethod": "moz-phab-hg", "id": 1},
-        {"creationMethod": "commit", "id": 4},
-        {"creationMethod": "moz-phab-hg", "id": 2},
-        {"creationMethod": "commit", "id": 5},
-    ]
-
-    diff = get_latest_non_commit_diff(test_data)
-
-    assert (
-        diff["id"] == 2
-    ), "Returned diff should have the highest diff ID without `commit`."
-    assert (
-        diff["creationMethod"] != "commit"
-    ), "Diffs with a `creationMethod` of `commit` should be skipped."
 
 
 @pytest.mark.django_db
