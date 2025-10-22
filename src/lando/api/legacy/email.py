@@ -94,16 +94,12 @@ def build_uplift_conflict_summary(conflict_sections: list[dict[str, str]]) -> st
     for section in conflict_sections:
         path = section.get("path", "Unknown file")
         snippet = section.get("snippet", "").strip()
-        if snippet:
-            formatted.append(
-                UPLIFT_CONFLICT_SECTION_TEMPLATE.format(path=path, snippet=snippet)
-            )
-        else:
-            formatted.append(
-                UPLIFT_CONFLICT_SECTION_TEMPLATE.format(
-                    path=path, snippet="(No conflict markers were captured.)"
-                )
-            )
+        snippet = snippet or "(No conflict markers were captured.)"
+
+        formatted.append(
+            UPLIFT_CONFLICT_SECTION_TEMPLATE.format(path=path, snippet=snippet)
+        )
+
     return "\n\n".join(formatted)
 
 
