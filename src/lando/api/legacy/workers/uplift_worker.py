@@ -61,7 +61,7 @@ class UpliftWorker(Worker):
             self.notify_uplift_failure(job, repo.name, job_url, user.email, str(exc))
             return False
 
-        self._notify_success(
+        self.notify_success(
             repo.name,
             job_url,
             user.email,
@@ -118,7 +118,7 @@ class UpliftWorker(Worker):
 
         return created_revision_ids
 
-    def _notify_success(
+    def notify_success(
         self,
         repo_label: str,
         job_url: str,
