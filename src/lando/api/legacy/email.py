@@ -47,3 +47,112 @@ def make_failure_email(
         to=[recipient_email],
     )
     return msg
+
+
+UPLIFT_FAILURE_EMAIL_TEMPLATE = """
+Your uplift request for {repo_name} did not complete successfully.
+
+Job details: {job_url}
+
+Reason:
+{reason}
+
+{resolution_instructions}
+""".strip()
+
+UPLIFT_CONFLICT_INSTRUCTIONS_TEMPLATE = """
+Lando detected merge conflicts while applying your stack. Please pull the latest changes for {repo_name}, resolve the conflicts locally, update your Phabricator revisions, and submit a new uplift request once the conflicts are cleared.
+
+Conflict markers were reported in:
+{conflict_summary}
+""".strip()
+
+UPLIFT_CONFLICT_SECTION_TEMPLATE = """
+- {path}
+{snippet}
+""".strip()
+
+UPLIFT_GENERIC_RESOLUTION = """
+Review the job details linked above, address the failure in your patch stack, and resubmit the uplift request when ready. If you are unsure how to proceed, you can reply to this email for assistance.
+""".strip()
+
+UPLIFT_SUCCESS_EMAIL_TEMPLATE = """
+Your uplift request for {repo_name} finished successfully.
+
+Lando created the following revisions:
+{revision_lines}
+
+You can review the full job details at {job_url}.
+
+Thank you for keeping the uplift train moving!
+""".strip()
+
+
+def _build_conflict_summary(conflict_sections: list[dict[str, str]]) -> str:
+    formatted = []
+    for section in conflict_sections:
+        path = section.get("path", "Unknown file")
+        snippet = section.get("snippet", "").strip()
+        if snippet:
+            formatted.append(
+                UPLIFT_CONFLICT_SECTION_TEMPLATE.format(path=path, snippet=snippet)
+            )
+        else:
+            formatted.append(
+                UPLIFT_CONFLICT_SECTION_TEMPLATE.format(
+                    path=path, snippet="(No conflict markers were captured.)"
+                )
+            )
+    return "\n\n".join(formatted)
+
+
+def make_uplift_failure_email(
+    recipient_email: str,
+    repo_name: str,
+    job_url: str,
+    reason: str,
+    conflict_sections: list[dict[str, str]] | None = None,
+) -> EmailMessage:
+    if conflict_sections:
+        conflict_summary = _build_conflict_summary(conflict_sections)
+        resolution_instructions = UPLIFT_CONFLICT_INSTRUCTIONS_TEMPLATE.format(
+            repo_name=repo_name,
+            conflict_summary=conflict_summary,
+        )
+    else:
+        resolution_instructions = UPLIFT_GENERIC_RESOLUTION
+
+    body = UPLIFT_FAILURE_EMAIL_TEMPLATE.format(
+        repo_name=repo_name,
+        job_url=job_url,
+        reason=reason,
+        resolution_instructions=resolution_instructions,
+    )
+
+    msg = EmailMessage(
+        subject=f"Lando: Uplift for {repo_name} failed",
+        body=body,
+        to=[recipient_email],
+    )
+    return msg
+
+
+def make_uplift_success_email(
+    recipient_email: str,
+    repo_name: str,
+    job_url: str,
+    created_revision_ids: list[str],
+) -> EmailMessage:
+    revision_lines = "\n".join(f"- {rev_id}" for rev_id in created_revision_ids)
+    body = UPLIFT_SUCCESS_EMAIL_TEMPLATE.format(
+        repo_name=repo_name,
+        job_url=job_url,
+        revision_lines=revision_lines,
+    )
+
+    msg = EmailMessage(
+        subject=f"Lando: Uplift for {repo_name} succeeded",
+        body=body,
+        to=[recipient_email],
+    )
+    return msg

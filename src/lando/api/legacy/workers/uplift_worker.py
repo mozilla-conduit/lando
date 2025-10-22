@@ -3,13 +3,25 @@ import logging
 import os
 import subprocess
 import tempfile
+from urllib.parse import urljoin
 
+from django.conf import settings
+from django.urls import reverse
 from typing_extensions import override
 
 from lando.api.legacy.workers.base import Worker
-from lando.main.models import JobAction, PermanentFailureException, WorkerType
+from lando.main.models import (
+    JobAction,
+    PermanentFailureException,
+    TemporaryFailureException,
+    WorkerType,
+)
 from lando.main.models.uplift import UpliftJob, UpliftRevision
-from lando.utils.tasks import set_uplift_request_form_on_revision
+from lando.utils.tasks import (
+    send_uplift_failure_email,
+    send_uplift_success_email,
+    set_uplift_request_form_on_revision,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,45 +50,124 @@ class UpliftWorker(Worker):
         scm = repo.scm
         multi_request = job.multi_request
         user = multi_request.user
+        repo_label = repo.short_name or repo.name
+        job_url = self._job_url(job)
 
-        # Update to the latest commit in the target train.
-        base_revision = self.update_repo(repo, job, scm, target_cset=None)
+        try:
+            # Update to the latest commit in the target train.
+            base_revision = self.update_repo(repo, job, scm, target_cset=None)
 
-        # Apply patches to the tip of the target train.
-        for uplift_revision in job.revisions.all():
-            self.apply_patch(repo, job, scm, uplift_revision)
+            # Apply patches to the tip of the target train.
+            for uplift_revision in job.revisions.all():
+                self.apply_patch(repo, job, scm, uplift_revision)
 
-        # On success: create patches.
-        response = self.moz_phab_uplift(
-            job, user.profile.phabricator_api_key, base_revision
-        )
-
-        commits = response["commits"]
-        created_revision_ids = [int(commit["rev_id"]) for commit in commits]
-        tip_revision_id = created_revision_ids[-1]
-
-        _, created = UpliftRevision.objects.get_or_create(
-            revision_id=tip_revision_id,
-            defaults={"assessment": multi_request.assessment},
-        )
-        if not created:
-            UpliftRevision.objects.filter(revision_id=tip_revision_id).update(
-                assessment=multi_request.assessment
+            # On success: create patches.
+            response = self.moz_phab_uplift(
+                job, user.profile.phabricator_api_key, base_revision
             )
 
-        # Trigger a Celery task to update the form on Phabricator.
-        set_uplift_request_form_on_revision.apply_async(
-            args=(
-                tip_revision_id,
-                multi_request.assessment.to_conduit_json_str(),
-                user.id,
+            # Retrieve created revision IDs and tip revision ID.
+            commits = response["commits"]
+            created_revision_ids = [int(commit["rev_id"]) for commit in commits]
+            tip_revision_id = created_revision_ids[-1]
+
+            _, created = UpliftRevision.objects.get_or_create(
+                revision_id=tip_revision_id,
+                defaults={"assessment": multi_request.assessment},
             )
+            if not created:
+                UpliftRevision.objects.filter(revision_id=tip_revision_id).update(
+                    assessment=multi_request.assessment
+                )
+
+            # Trigger a Celery task to update the form on Phabricator.
+            set_uplift_request_form_on_revision.apply_async(
+                args=(
+                    tip_revision_id,
+                    multi_request.assessment.to_conduit_json_str(),
+                    user.id,
+                )
+            )
+
+            job.created_revision_ids = created_revision_ids
+            job.transition_status(JobAction.SUCCESS)
+        except TemporaryFailureException:
+            raise
+        except PermanentFailureException as exc:
+            self._notify_failure(job, repo_label, job_url, user.email, str(exc))
+            raise
+        except Exception as exc:  # pragma: no cover - defensive catch
+            self._notify_failure(job, repo_label, job_url, user.email, str(exc))
+            raise
+        else:
+            self._notify_success(
+                repo_label,
+                job_url,
+                user.email,
+                created_revision_ids,
+            )
+            return True
+
+    def _notify_success(
+        self,
+        repo_label: str,
+        job_url: str,
+        recipient_email: str,
+        created_revision_ids: list[int],
+    ) -> None:
+        if not recipient_email:
+            return
+        revision_labels = [f"D{rev_id}" for rev_id in created_revision_ids]
+        self.call_task(
+            send_uplift_success_email,
+            recipient_email,
+            repo_label,
+            job_url,
+            revision_labels,
         )
 
-        job.created_revision_ids = created_revision_ids
-        job.transition_status(JobAction.SUCCESS)
+    def _notify_failure(
+        self,
+        job: UpliftJob,
+        repo_label: str,
+        job_url: str,
+        recipient_email: str,
+        reason: str,
+    ) -> None:
+        if not recipient_email:
+            return
 
-        return True
+        conflict_sections = self._conflict_sections(job)
+        failure_reason = job.error or reason
+        self.call_task(
+            send_uplift_failure_email,
+            recipient_email,
+            repo_label,
+            job_url,
+            failure_reason,
+            conflict_sections if conflict_sections else None,
+        )
+
+    def _conflict_sections(self, job: UpliftJob) -> list[dict[str, str]]:
+        breakdown = getattr(job, "error_breakdown", None)
+        if not breakdown:
+            return []
+
+        rejects = breakdown.get("rejects_paths") or {}
+        sections: list[dict[str, str]] = []
+        for path, data in rejects.items():
+            snippet = ""
+            if isinstance(data, dict):
+                content = data.get("content")
+                if content:
+                    lines = content.splitlines()
+                    snippet = "\n".join(lines[:20])
+            sections.append({"path": path, "snippet": snippet})
+        return sections
+
+    def _job_url(self, job: UpliftJob) -> str:
+        base = settings.SITE_URL.rstrip("/") + "/"
+        return urljoin(base, reverse("uplift-jobs-page", args=[job.id]))
 
     def moz_phab_uplift(self, job: UpliftJob, api_key: str, base_revision: str) -> dict:
         """Run `moz-phab uplift` on the repo."""

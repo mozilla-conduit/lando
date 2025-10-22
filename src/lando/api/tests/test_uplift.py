@@ -603,6 +603,22 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         create_patch_revision(1, patch=normal_patch(1)),
     ]
 
+    class DummyTask:
+        def __init__(self, name: str):
+            self.__name__ = name
+            self.apply_async = mock.MagicMock()
+
+    success_task = DummyTask("send_uplift_success_email")
+    failure_task = DummyTask("send_uplift_failure_email")
+    monkeypatch.setattr(
+        "lando.utils.tasks.send_uplift_success_email",
+        success_task,
+    )
+    monkeypatch.setattr(
+        "lando.utils.tasks.send_uplift_failure_email",
+        failure_task,
+    )
+
     # Two small valid patches
     job = _make_uplift_job_with_revisions(repo, user, revisions)
     mock_task = mock.MagicMock()
@@ -666,6 +682,12 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     job.save(update_fields=["status"])
 
     assert uplift_worker.run_job(job), "Re-running job should still succeed."
+    success_task.apply_async.assert_called()
+    failure_task.apply_async.assert_not_called()
+    args = success_task.apply_async.call_args[1]["args"]
+    assert args[0] == user.email
+    assert args[1] == (repo.short_name or repo.name)
+    assert args[3] == ["D4567", "D4568"], "Revision identifiers should be formatted."
     assert (
         mock_task.apply_async.call_count == 2
     ), "Celery task should be dispatched on each successful run."
@@ -792,6 +814,22 @@ def test_uplift_worker_mozphab_failure_marks_failed(
     # Two small valid patches.
     job = _make_uplift_job_with_revisions(repo, user, revisions)
 
+    class DummyTask:
+        def __init__(self, name: str):
+            self.__name__ = name
+            self.apply_async = mock.MagicMock()
+
+    success_task = DummyTask("send_uplift_success_email")
+    failure_task = DummyTask("send_uplift_failure_email")
+    monkeypatch.setattr(
+        "lando.utils.tasks.send_uplift_success_email",
+        success_task,
+    )
+    monkeypatch.setattr(
+        "lando.utils.tasks.send_uplift_failure_email",
+        failure_task,
+    )
+
     # Allow real update_repo/apply_patch; make `moz-phab uplift` throw.
     def _boom(*args, **kwargs):
         raise subprocess.CalledProcessError(
@@ -814,6 +852,8 @@ def test_uplift_worker_mozphab_failure_marks_failed(
     assert (
         UpliftRevision.objects.count() == 0
     ), "No UpliftRevision should be created on failure."
+    failure_task.apply_async.assert_called_once()
+    success_task.apply_async.assert_not_called()
 
 
 @pytest.mark.django_db
@@ -828,6 +868,22 @@ def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
         create_patch_revision(1, patch="asdf"),
     ]
     job = _make_uplift_job_with_revisions(repo, user, revisions)
+
+    class DummyTask:
+        def __init__(self, name: str):
+            self.__name__ = name
+            self.apply_async = mock.MagicMock()
+
+    success_task = DummyTask("send_uplift_success_email")
+    failure_task = DummyTask("send_uplift_failure_email")
+    monkeypatch.setattr(
+        "lando.utils.tasks.send_uplift_success_email",
+        success_task,
+    )
+    monkeypatch.setattr(
+        "lando.utils.tasks.send_uplift_failure_email",
+        failure_task,
+    )
 
     # Ensure moz_phab_uplift won't be called if apply_patch fails.
     monkeypatch.setattr(
@@ -847,6 +903,12 @@ def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
     assert (
         job.created_revision_ids == []
     ), "Apply-patch failure should leave created_revision_ids empty."
+    failure_task.apply_async.assert_called_once()
+    success_task.apply_async.assert_not_called()
+    failure_args = failure_task.apply_async.call_args[1]["args"]
+    assert failure_args[0] == user.email
+    assert failure_args[1] == (repo.short_name or repo.name)
+    assert failure_args[4], "Conflict details should be included for patch failures."
 
 
 @pytest.mark.django_db
