@@ -47,66 +47,77 @@ class UpliftWorker(Worker):
     def run_job(self, job: UpliftJob) -> bool:
         """Run an uplift job."""
         repo = job.target_repo
-        scm = repo.scm
-        multi_request = job.multi_request
-        user = multi_request.user
-        repo_label = repo.short_name or repo.name
+        user = job.multi_request.user
         job_url = self._job_url(job)
 
         try:
-            # Update to the latest commit in the target train.
-            base_revision = self.update_repo(repo, job, scm, target_cset=None)
-
-            # Apply patches to the tip of the target train.
-            for uplift_revision in job.revisions.all():
-                self.apply_patch(repo, job, scm, uplift_revision)
-
-            # On success: create patches.
-            response = self.moz_phab_uplift(
-                job, user.profile.phabricator_api_key, base_revision
-            )
-
-            # Retrieve created revision IDs and tip revision ID.
-            commits = response["commits"]
-            created_revision_ids = [int(commit["rev_id"]) for commit in commits]
-            tip_revision_id = created_revision_ids[-1]
-
-            _, created = UpliftRevision.objects.get_or_create(
-                revision_id=tip_revision_id,
-                defaults={"assessment": multi_request.assessment},
-            )
-            if not created:
-                UpliftRevision.objects.filter(revision_id=tip_revision_id).update(
-                    assessment=multi_request.assessment
-                )
-
-            # Trigger a Celery task to update the form on Phabricator.
-            set_uplift_request_form_on_revision.apply_async(
-                args=(
-                    tip_revision_id,
-                    multi_request.assessment.to_conduit_json_str(),
-                    user.id,
-                )
-            )
-
-            job.created_revision_ids = created_revision_ids
-            job.transition_status(JobAction.SUCCESS)
+            created_revision_ids = self.apply_and_uplift(job)
         except TemporaryFailureException:
             raise
         except PermanentFailureException as exc:
-            self._notify_failure(job, repo_label, job_url, user.email, str(exc))
+            self._notify_failure(job, repo.name, job_url, user.email, str(exc))
             raise
         except Exception as exc:  # pragma: no cover - defensive catch
-            self._notify_failure(job, repo_label, job_url, user.email, str(exc))
+            self._notify_failure(job, repo.name, job_url, user.email, str(exc))
             raise
-        else:
-            self._notify_success(
-                repo_label,
-                job_url,
-                user.email,
-                created_revision_ids,
+
+        self._notify_success(
+            repo.name,
+            job_url,
+            user.email,
+            created_revision_ids,
+        )
+        return True
+
+    def apply_and_uplift(self, job: UpliftJob) -> list[int]:
+        """Apply uplift patches to the repo and create new revisions.
+
+        Returns an ordered list of created revision IDs.
+        """
+        repo = job.target_repo
+        multi_request = job.multi_request
+        user = multi_request.user
+        scm = repo.scm
+
+        # Update to the latest commit in the target train.
+        base_revision = self.update_repo(repo, job, scm, target_cset=None)
+
+        # Apply patches to the tip of the target train.
+        for uplift_revision in job.revisions.all():
+            self.apply_patch(repo, job, scm, uplift_revision)
+
+        # On success: create patches.
+        response = self.moz_phab_uplift(
+            job, user.profile.phabricator_api_key, base_revision
+        )
+
+        # Retrieve created revision IDs and tip revision ID.
+        commits = response["commits"]
+        created_revision_ids = [int(commit["rev_id"]) for commit in commits]
+        tip_revision_id = created_revision_ids[-1]
+
+        _, created = UpliftRevision.objects.get_or_create(
+            revision_id=tip_revision_id,
+            defaults={"assessment": multi_request.assessment},
+        )
+        if not created:
+            UpliftRevision.objects.filter(revision_id=tip_revision_id).update(
+                assessment=multi_request.assessment
             )
-            return True
+
+        # Trigger a Celery task to update the form on Phabricator.
+        set_uplift_request_form_on_revision.apply_async(
+            args=(
+                tip_revision_id,
+                multi_request.assessment.to_conduit_json_str(),
+                user.id,
+            )
+        )
+
+        job.created_revision_ids = created_revision_ids
+        job.transition_status(JobAction.SUCCESS)
+
+        return created_revision_ids
 
     def _notify_success(
         self,
