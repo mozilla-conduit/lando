@@ -12,6 +12,30 @@
       </header>
 
       <section class="modal-card-body">
+        {% if not user_has_phabricator_token %}
+            {% include "stack/partials/uplift-phab-api-key-warning.html" %}
+        {% endif %}
+
+        {% if revision_repo and revision_repo.approval_required %}
+        <article class="message is-warning">
+          <div class="message-header">
+            <p>Action Creates New Phabricator Revisions</p>
+          </div>
+          <div class="message-body">
+            Submitting this uplift request queues jobs for every selected repository
+            and creates the corresponding uplift revisions automatically. If you
+            only need to update the assessment form for this revision, use the
+            "Edit Uplift Assessment" button instead.
+          </div>
+        </article>
+        {% endif %}
+
+        <p class="block">
+          Select one or more repositories to uplift this revision stack to, then
+          complete the form below. Each selected repository will receive a separate
+          uplift job reviewed and landed by Release Management.
+        </p>
+
         {{ uplift_request_form.source_revision_ids }}
         {% set requested_revision_ids = uplift_request_form.source_revision_ids.value() or [] %}
         {% if requested_revision_ids %}
@@ -40,30 +64,6 @@
           </p>
         </div>
         {% endif %}
-
-        {% if not user_has_phabricator_token %}
-            {% include "stack/partials/uplift-phab-api-key-warning.html" %}
-        {% endif %}
-
-        {% if revision_repo and revision_repo.approval_required %}
-        <article class="message is-warning">
-          <div class="message-header">
-            <p>Action Creates New Phabricator Revisions</p>
-          </div>
-          <div class="message-body">
-            Submitting this uplift request queues jobs for every selected repository
-            and creates the corresponding uplift revisions automatically. If you
-            only need to update the assessment form for this revision, use the
-            "Edit Uplift Assessment" button instead.
-          </div>
-        </article>
-        {% endif %}
-
-        <p class="block">
-          Select one or more repositories to uplift this revision stack to, then
-          complete the form below. Each selected repository will receive a separate
-          uplift job reviewed and landed by Release Management.
-        </p>
 
         <div class="block">
             <a class="button" target="_blank" type="button" href="https://wiki.mozilla.org/index.php?title=Release_Management/Requesting_an_Uplift">
