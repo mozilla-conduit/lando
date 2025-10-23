@@ -36,6 +36,15 @@
           uplift job reviewed and landed by Release Management.
         </p>
 
+        <div class="block">
+            <a class="button" target="_blank" type="button" href="https://wiki.mozilla.org/index.php?title=Release_Management/Requesting_an_Uplift">
+              <span class="icon">
+                <i class="fa fa-question-circle"></i>
+              </span>
+              <span>Uplift request documentation</span>
+            </a>
+        </div>
+
         {{ uplift_request_form.source_revision_ids }}
         {% set requested_revision_ids = uplift_request_form.source_revision_ids.value() or [] %}
         {% if requested_revision_ids %}
@@ -64,15 +73,6 @@
           </p>
         </div>
         {% endif %}
-
-        <div class="block">
-            <a class="button" target="_blank" type="button" href="https://wiki.mozilla.org/index.php?title=Release_Management/Requesting_an_Uplift">
-              <span class="icon">
-                <i class="fa fa-question-circle"></i>
-              </span>
-              <span>Uplift request documentation</span>
-            </a>
-        </div>
 
         <div class="field">
             <label class="label">Uplift repositories</label>
