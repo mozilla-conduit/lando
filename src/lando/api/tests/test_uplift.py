@@ -84,9 +84,11 @@ def test_parse_milestone_version():
 
 @pytest.mark.django_db
 def test_uplift_creation_uses_existing_revisions_and_links_jobs(
-    authenticated_client, user, repo_mc, create_patch_revision, normal_patch
+    authenticated_client, user, repo_mc, create_patch_revision, normal_patch, phabdouble
 ):
     """Uplift creation endpoint happy-path test."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
     # Create two target repos.
     repo_a = repo_mc(scm_type=SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
     repo_b = repo_mc(
@@ -174,8 +176,10 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
 
 
 @pytest.mark.django_db
-def test_uplift_creation_fails_when_revisions_missing(authenticated_client, repo_mc):
+def test_uplift_creation_fails_when_revisions_missing(authenticated_client, repo_mc, user, phabdouble):
     """Test uplift creation endpoint behaviour without previous landing."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
     repo_a = repo_mc(scm_type=SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
     repo_b = repo_mc(
         scm_type=SCM_TYPE_GIT, name="firefox-release", approval_required=True
