@@ -34,12 +34,10 @@ logger = logging.getLogger(__name__)
 
 class UpliftRequestView(LandoView):
     @force_auth_refresh
+    @method_decorator(require_phabricator_api_key(optional=False, provide_client=False))
     def post(self, request: WSGIRequest) -> HttpResponse:
         """Process the uplift request submission."""
         uplift_request_form = UpliftRequestForm(request.POST)
-
-        if not request.user.is_authenticated:
-            raise PermissionDenied()
 
         if not uplift_request_form.is_valid():
             errors = [
