@@ -222,7 +222,6 @@ class LandingJob(BaseJob):
 
     def set_landed_commit_ids(self):
         """Assign `commit_id`, if available, to each association row."""
-        # Update association table records with current diff_id values.
         for revision in self.unsorted_revisions.all():
             RevisionLandingJob.objects.filter(
                 revision=revision, landing_job=self
