@@ -120,16 +120,29 @@ future.
                     {% set status = job.status %}
                     {# TODO(sheehan) use better term here #}
                     {% if status == "LANDED" or status == "SUCCESS" %}
-                      <span class="tag is-success">{{ status.label }}</span>
+                      {% set tag_class = "is-success" %}
+                      {% set icon_class = "fa fa-check" %}
                     {% elif status == "FAILED" %}
-                      <span class="tag is-danger">{{ status.label }}</span>
+                      {% set tag_class = "is-danger" %}
+                      {% set icon_class = "fa fa-times" %}
                     {% elif status == "IN_PROGRESS" %}
-                      <span class="tag is-info">{{ status.label }}</span>
+                      {% set tag_class = "is-info" %}
+                      {% set icon_class = "fa fa-clock-o" %}
                     {% elif status == "DEFERRED" %}
-                      <span class="tag is-warning">{{ status.label }}</span>
+                      {% set tag_class = "is-warning" %}
+                      {% set icon_class = "fa fa-history" %}
                     {% else %}
-                      <span class="tag is-light">{{ status.label }}</span>
+                      {% set tag_class = "is-light" %}
+                      {% set icon_class = None %}
                     {% endif %}
+                    <span class="tag {{ tag_class }}">
+                      {% if icon_class %}
+                        <span class="icon is-small">
+                          <i class="{{ icon_class }}" aria-hidden="true"></i>
+                        </span>
+                      {% endif %}
+                      <span>{{ status.label }}</span>
+                    </span>
                   </div>
 
                   <div class="column is-narrow has-text-right">
