@@ -158,6 +158,7 @@ class UpliftWorker(Worker):
             conflict_sections if conflict_sections else None,
         )
 
+    # TODO(sheehan): look at this
     def conflict_sections(self, job: UpliftJob) -> list[dict[str, str]]:
         breakdown = getattr(job, "error_breakdown", None)
         if not breakdown:
@@ -175,6 +176,7 @@ class UpliftWorker(Worker):
             sections.append({"path": path, "snippet": snippet})
         return sections
 
+    # TODO(sheehan): look at this
     def job_url(self, job: UpliftJob) -> str:
         base = settings.SITE_URL.rstrip("/") + "/"
         return urljoin(base, reverse("uplift-jobs-page", args=[job.id]))
