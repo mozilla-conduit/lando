@@ -114,11 +114,6 @@ urlpatterns += [
         jobs.AutomationJobView.as_view(),
         name="api-jobs-page",
     ),
-    path(
-        "uplift/jobs/<int:job_id>/",
-        jobs.UpliftJobView.as_view(),
-        name="uplift-jobs-page",
-    ),
 ]
 
 # Treestatus URLs.
