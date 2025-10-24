@@ -85,7 +85,7 @@ class JobAction(enum.Enum):
     Actions affect the status and other fields on the LandingJob object.
     """
 
-    # Land a job (i.e. success!)
+    # Complete the job and land a revision in a repository.
     LAND = "LAND"
 
     # Defer landing to a later time (i.e. temporarily failed)
@@ -96,6 +96,9 @@ class JobAction(enum.Enum):
 
     # A user has requested a cancellation
     CANCEL = "CANCEL"
+
+    # Complete the job.
+    SUCCESS = "SUCCESS"
 
 
 class BaseJob(BaseModel):
@@ -182,6 +185,10 @@ class BaseJob(BaseModel):
             JobAction.CANCEL: {
                 "required_params": [],
                 "status": JobStatus.CANCELLED,
+            },
+            JobAction.SUCCESS: {
+                "required_params": [],
+                "status": JobStatus.LANDED,
             },
         }
 

@@ -11,7 +11,7 @@ from django.urls import reverse
 from django.utils.html import escape
 from jinja2 import Environment
 
-from lando.main.models import JobStatus, LandingJob, Repo
+from lando.main.models import JobStatus, LandingJob, Repo, UpliftJob
 from lando.main.scm import SCM_TYPE_GIT
 from lando.treestatus.models import (
     ReasonCategory,
@@ -100,6 +100,52 @@ def tostatusbadgename(landing_job: LandingJob) -> str:
         "failed": "Failed to land",
     }
     return mapping.get(landing_job.status.lower(), landing_job.status.capitalize())
+
+
+def uplift_status_tag_class(job: UpliftJob) -> str:
+    try:
+        status = JobStatus(job.status)
+    except ValueError:
+        status = None
+
+    if status == JobStatus.LANDED:
+        return "is-success"
+    if status == JobStatus.FAILED:
+        return "is-danger"
+    if status == JobStatus.IN_PROGRESS:
+        return "is-info"
+    if status == JobStatus.DEFERRED:
+        return "is-warning"
+    return "is-light"
+
+
+def uplift_status_icon_class(job: UpliftJob) -> str:
+    try:
+        status = JobStatus(job.status)
+    except ValueError:
+        status = None
+
+    if status == JobStatus.LANDED:
+        return "fa fa-check"
+    if status == JobStatus.FAILED:
+        return "fa fa-times"
+    if status == JobStatus.IN_PROGRESS:
+        return "fa fa-clock-o"
+    if status == JobStatus.DEFERRED:
+        return "fa fa-history"
+    return ""
+
+
+def uplift_status_label(job: UpliftJob) -> str:
+    try:
+        status = JobStatus(job.status)
+    except ValueError:
+        return ""
+
+    if status == JobStatus.LANDED:
+        return "Uplift applied and created successfully"
+
+    return status.label
 
 
 def reason_category_to_display(reason_category_str: str) -> str:
@@ -366,6 +412,9 @@ def environment(**options):  # noqa: ANN201
             "static": static,
             "tostatusbadgeclass": tostatusbadgeclass,
             "tostatusbadgename": tostatusbadgename,
+            "uplift_status_icon_class": uplift_status_icon_class,
+            "uplift_status_label": uplift_status_label,
+            "uplift_status_tag_class": uplift_status_tag_class,
             "tree_category_to_display": tree_category_to_display,
             "treestatus_to_status_badge_class": treestatus_to_status_badge_class,
         }

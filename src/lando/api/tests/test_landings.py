@@ -15,7 +15,6 @@ from lando.main.models import (
     JobStatus,
     LandingJob,
     Repo,
-    Revision,
 )
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.scm.exceptions import SCMInternalServerError
@@ -23,32 +22,6 @@ from lando.main.scm.helpers import HgPatchHelper
 from lando.main.scm.hg import LostPushRace
 from lando.pushlog.models.commit import Commit
 from lando.pushlog.models.push import Push
-
-
-@pytest.fixture
-@pytest.mark.django_db
-def create_patch_revision(normal_patch):
-    """A fixture that fake uploads a patch"""
-
-    normal_patch_0 = normal_patch(0)
-
-    def _create_patch_revision(number, patch=normal_patch_0):
-        """Create revision number `number`, with patch text `patch`.
-
-        `patch` will default to the first normal patch fixture if unspecified. However,
-        if explicitly set to None, the `normal_patch` fixture will be used to get
-        normal patch number `number-1`."""
-        if not patch:
-            patch = normal_patch(number - 1)
-        revision = Revision()
-        revision.revision_id = number
-        revision.diff_id = number
-        revision.patch = patch
-        revision.save()
-        return revision
-
-    return _create_patch_revision
-
 
 LARGE_UTF8_THING = "😁" * 1000000
 

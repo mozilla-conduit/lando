@@ -13,6 +13,7 @@ from lando.api.legacy.treestatus import (
 from lando.headless_api.models.automation_job import AutomationJob
 from lando.main.models import JobStatus, LandingJob, Worker, WorkerType
 from lando.main.models.jobs import BaseJob
+from lando.main.models.uplift import UpliftJob
 from lando.ui.views import LandoView
 from lando.utils import treestatus
 
@@ -124,3 +125,8 @@ class LandingJobView(LandoView):
 class AutomationJobView(BaseJobView):
     job_type = AutomationJob
     worker_type = WorkerType.AUTOMATION
+
+
+class UpliftJobView(BaseJobView):
+    job_type = UpliftJob
+    worker_type = WorkerType.UPLIFT

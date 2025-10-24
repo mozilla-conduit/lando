@@ -1,3 +1,5 @@
+import json
+import subprocess
 from unittest import mock
 
 import pytest
@@ -7,30 +9,31 @@ from packaging.version import (
     Version,
 )
 
-from lando.api.legacy.stacks import (
-    build_stack_graph,
-)
 from lando.api.legacy.uplift import (
-    add_original_revision_line_if_needed,
     create_uplift_bug_update_payload,
-    get_latest_non_commit_diff,
-    get_revisions_without_bugs,
     parse_milestone_version,
-    strip_depends_on_from_commit_message,
 )
+from lando.api.legacy.workers.uplift_worker import (
+    UpliftWorker,
+)
+from lando.api.tests.test_landings import PATCH_CHANGE_MISSING_CONTENT
+from lando.main.models import JobStatus, PermanentFailureException
+from lando.main.models.revision import Revision
 from lando.main.models.uplift import (
     LowMediumHighChoices,
+    MultiTrainUpliftRequest,
+    RevisionUpliftJob,
     UpliftAssessment,
+    UpliftJob,
     UpliftRevision,
     YesNoChoices,
     YesNoUnknownChoices,
 )
+from lando.main.scm import SCM_TYPE_GIT
 from lando.ui.legacy.forms import (
     UpliftAssessmentForm,
 )
-from lando.utils.phabricator import (
-    PhabricatorClient,
-)
+from lando.ui.legacy.revisions import uplift_context_for_revision
 
 MILESTONE_TEST_CONTENTS_1 = """
 # Holds the current milestone.
@@ -79,250 +82,147 @@ def test_parse_milestone_version():
         parse_milestone_version(bad_milestone_contents)
 
 
-DEPENDS_ON_MESSAGE = """
-bug 123: testing r?sheehan
-
-Something something Depends on D1234
-
-Differential Revision: http://phab.test/D234
-
-Depends on D567
-""".strip()
-
-
-def test_strip_depends_on_from_commit_message():
-    assert strip_depends_on_from_commit_message(DEPENDS_ON_MESSAGE) == (
-        "bug 123: testing r?sheehan\n"
-        "\n"
-        "Something something Depends on D1234\n"
-        "\n"
-        "Differential Revision: http://phab.test/D234\n"
-    ), "`Depends on` line should be stripped from commit message."
-
-
-@pytest.mark.xfail(strict=True)
-def test_uplift_creation(
-    db,
-    monkeypatch,
-    phabdouble,
-    client,
-    mock_permissions,
-    mock_repo_config,
-    release_management_project,
-    needs_data_classification_project,
+@pytest.mark.django_db
+def test_uplift_creation_uses_existing_revisions_and_links_jobs(
+    authenticated_client, user, repo_mc, create_patch_revision, normal_patch, phabdouble
 ):
-    def _call_conduit(client, method, **kwargs):
-        if method == "differential.revision.edit":
-            # Load transactions
-            transactions = kwargs.get("transactions")
-            assert transactions is not None
-            transactions = {t["type"]: t["value"] for t in transactions}
+    """Uplift creation endpoint happy-path test."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
 
-            # Check the state of the added transactions is valid for the first uplift.
-            if transactions["update"] == "PHID-DIFF-1":
-                # Check the expected transactions
-                expected = {
-                    "update": "PHID-DIFF-1",
-                    "title": "Add feature XXX",
-                    "summary": (
-                        "some really complex stuff\n"
-                        "\n"
-                        "Original Revision: http://phabricator.test/D1"
-                    ),
-                    "bugzilla.bug-id": "",
-                    "reviewers.add": ["blocking(PHID-PROJ-0)"],
-                }
-                for key in expected:
-                    assert (
-                        transactions[key] == expected[key]
-                    ), f"key does not match: {key}"
-
-            depends_on = []
-            if "parents.set" in transactions:
-                depends_on.append({"phid": transactions["parents.set"][0]})
-
-            # Create a new revision
-            new_rev = phabdouble.revision(
-                title=transactions["title"],
-                summary=transactions["summary"],
-                depends_on=depends_on,
-            )
-            return {
-                "object": {"id": new_rev["id"], "phid": new_rev["phid"]},
-                "transactions": [
-                    {"phid": "PHID-XACT-DREV-fakeplaceholder"} for t in transactions
-                ],
-            }
-
-        else:
-            # Every other request fall back in phabdouble
-            return phabdouble.call_conduit(method, **kwargs)
-
-    # Intercept the revision creation to avoid transactions support in phabdouble
-    monkeypatch.setattr(PhabricatorClient, "call_conduit", _call_conduit)
-
-    diff = phabdouble.diff()
-    revision = phabdouble.revision(
-        title="Add feature XXX",
-        summary=(
-            "some really complex stuff\n"
-            "\n"
-            "Differential Revision: http://phabricator.test/D1"
-        ),
-        diff=diff,
-    )
-    repo_mc = phabdouble.repo()
-    user = phabdouble.user(username="JohnDoe")
-    repo_uplift = phabdouble.repo(name="mozilla-uplift")
-
-    payload = {
-        "landing_path": [
-            {"revision_id": f"D{revision['id']}", "diff_id": diff["id"]},
-        ],
-        "repository": repo_mc["shortName"],
-    }
-
-    # No auth
-    response = client.post("/uplift", json=payload)
-    assert response.json["title"] == "X-Phabricator-API-Key Required"
-    assert response.status_code == 401
-
-    # API key but no auth0
-    headers = {"X-Phabricator-API-Key": user["apiKey"]}
-    response = client.post("/uplift", json=payload, headers=headers)
-    assert response.status_code == 401
-    assert response.json["title"] == "Authorization Header Required"
-
-    # Invalid repository (not uplift)
-    response = client.post(
-        "/uplift", json=payload, headers=headers, permissions=mock_permissions
-    )
-    assert response.status_code == 400
-    assert (
-        response.json["title"]
-        == "Repository mozilla-central is not an uplift repository."
+    # Create two target repos.
+    repo_a = repo_mc(scm_type=SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
+    repo_b = repo_mc(
+        scm_type=SCM_TYPE_GIT, name="firefox-release", approval_required=True
     )
 
-    # Only one revision at first
-    assert len(phabdouble._revisions) == 1
-
-    # Valid uplift repository
-    payload["repository"] = repo_uplift["shortName"]
-    response = client.post("/uplift", json=payload, headers=headers)
-    assert response.status_code == 201
-    assert response.json == {
-        "PHID-DREV-1": {
-            "mode": "uplift",
-            "repository": "mozilla-uplift",
-            "diff_id": 2,
-            "diff_phid": "PHID-DIFF-1",
-            "revision_id": 2,
-            "revision_phid": "PHID-DREV-1",
-            "url": "http://phabricator.test/D2",
-        },
-        "tip_differential": {
-            "mode": "uplift",
-            "repository": "mozilla-uplift",
-            "diff_id": 2,
-            "diff_phid": "PHID-DIFF-1",
-            "revision_id": 2,
-            "revision_phid": "PHID-DREV-1",
-            "url": "http://phabricator.test/D2",
-        },
-    }
-
-    # Now we have a new uplift revision on Phabricator
-    assert len(phabdouble._revisions) == 2
-    new_rev = phabdouble._revisions[-1]
-    assert new_rev["title"] == "Add feature XXX"
-    assert (
-        new_rev["summary"]
-        == "some really complex stuff\n\nOriginal Revision: http://phabricator.test/D1"
-    )
-
-    # Add some more revisions to test uplifting a stack.
-    diff2 = phabdouble.diff()
-    rev2 = phabdouble.revision(
-        title="bug 1: xxx r?reviewer",
-        summary=("summary info.\n\nDifferential Revision: http://phabricator.test/D3"),
-        diff=diff2,
-    )
-    diff3 = phabdouble.diff()
-    rev3 = phabdouble.revision(
-        title="bug 1: yyy r?reviewer",
-        summary=("summary two.\n\nDifferential Revision: http://phabricator.test/D4"),
-        depends_on=[rev2],
-        diff=diff3,
-    )
-    diff4 = phabdouble.diff()
-    rev4 = phabdouble.revision(
-        title="bug 1: yyy r?reviewer",
-        summary=("summary two.\n\nDifferential Revision: http://phabricator.test/D4"),
-        depends_on=[rev3],
-        diff=diff4,
-    )
-
-    # Send an uplift request for a stack.
-    payload["landing_path"] = [
-        {"revision_id": f"D{rev2['id']}", "diff_id": diff2["id"]},
-        {"revision_id": f"D{rev3['id']}", "diff_id": diff3["id"]},
-        {"revision_id": f"D{rev4['id']}", "diff_id": diff4["id"]},
+    # Create the revisions with `456` before `123` to ensure the passed
+    # ordering in `source_revision_ids` is preserved instead of the
+    # default queryset ordering.
+    revisions_created = [
+        create_patch_revision(456, patch=normal_patch(1)),
+        create_patch_revision(123, patch=normal_patch(0)),
     ]
-    response = client.post("/uplift", json=payload, headers=headers)
-    assert response.status_code == 201, "Response should have status code 201."
-    assert len(response.json) == 4, "API call should have created 3 revisions."
-    assert response.json == {
-        "PHID-DREV-5": {
-            "mode": "uplift",
-            "repository": "mozilla-uplift",
-            "diff_id": 7,
-            "diff_phid": "PHID-DIFF-6",
-            "revision_id": 6,
-            "revision_phid": "PHID-DREV-5",
-            "url": "http://phabricator.test/D6",
-        },
-        "PHID-DREV-6": {
-            "mode": "uplift",
-            "repository": "mozilla-uplift",
-            "diff_id": 9,
-            "diff_phid": "PHID-DIFF-8",
-            "revision_id": 7,
-            "revision_phid": "PHID-DREV-6",
-            "url": "http://phabricator.test/D7",
-        },
-        "PHID-DREV-7": {
-            "mode": "uplift",
-            "repository": "mozilla-uplift",
-            "diff_id": 11,
-            "diff_phid": "PHID-DIFF-10",
-            "revision_id": 8,
-            "revision_phid": "PHID-DREV-7",
-            "url": "http://phabricator.test/D8",
-        },
-        "tip_differential": {
-            "mode": "uplift",
-            "repository": "mozilla-uplift",
-            "diff_id": 11,
-            "diff_phid": "PHID-DIFF-10",
-            "revision_id": 8,
-            "revision_phid": "PHID-DREV-7",
-            "url": "http://phabricator.test/D8",
-        },
-    }, "Response JSON does not match expected."
+    revisions_ordered = reversed(revisions_created)
 
-    # Check that parent-child relationships are preserved.
-    phab = phabdouble.get_phabricator_client()
-    last_phid = response.json["tip_differential"]["revision_phid"]
-    _nodes, edges = build_stack_graph(phab, last_phid)
+    url = reverse("uplift-page")
+    form_data = {
+        "source_revision_ids": [revision.revision_id for revision in revisions_ordered],
+        "repositories": [repo_a.name, repo_b.name],
+    }
+    form_data |= CREATE_FORM_DATA
 
-    assert edges == {
-        ("PHID-DREV-7", "PHID-DREV-6"),
-        ("PHID-DREV-6", "PHID-DREV-5"),
-    }, "Uplift does not preserve parent/child relationships."
-    # We still have the same revision
-    assert len(phabdouble._revisions) == 1
-    new_rev = phabdouble._revisions[0]
-    assert new_rev["title"] == "no bug: my test revision title"
+    # POST form to Lando. Use D456 as the referrer since it is the tip.
+    response = authenticated_client.post(url, data=form_data, HTTP_REFERER="/D456")
+
+    # Redirect + success message.
+    assert response.status_code == 302, "Successful creation should return 302."
+    assert (
+        response["Location"] == "/D456"
+    ), "Successful creation should redirect to tip revision."
+    messages = list(get_messages(response.wsgi_request))
+    assert any(
+        "Uplift request queued." in str(message) for message in messages
+    ), f"Successful creation should flash success: {messages=}"
+
+    # Assessment created and owned by the requester.
+    assert (
+        UpliftAssessment.objects.count() == 1
+    ), "A new `UpliftAssessment` should be created."
+    assessment = UpliftAssessment.objects.get()
+    assert assessment.user_id == user.id, "New assessment should belong to the user."
+
+    # Parent request created and linked to assessment.
+    assert (
+        MultiTrainUpliftRequest.objects.count() == 1
+    ), "New uplift request should be created."
+    multi = MultiTrainUpliftRequest.objects.select_related("assessment", "user").get()
+    assert (
+        multi.assessment_id == assessment.id
+    ), "Uplift request should be associated with assessment."
+    assert multi.user_id == user.id, "Uplift request should belong to the user."
+    assert multi.requested_revisions == [
+        123,
+        456,
+    ], "Both requested revisions should be tracked in uplift request."
+
+    jobs = list(
+        UpliftJob.objects.select_related("target_repo").filter(multi_request=multi)
+    )
+    assert len(jobs) == 2, "Two uplift jobs should be created."
+    assert all(
+        job.status == JobStatus.SUBMITTED for job in jobs
+    ), "Newly created uplift jobs should be submitted for processing."
+    repo_names = sorted(job.target_repo.name for job in jobs)
+    assert repo_names == [
+        repo_a.name,
+        repo_b.name,
+    ], "Both requested repos should have an uplift job."
+
+    assert (
+        list(
+            multi.uplift_jobs.order_by("target_repo__name").values_list(
+                "target_repo__name", flat=True
+            )
+        )
+        == repo_names
+    ), "Querying uplift request for jobs should show one for each repo."
+
+    for job in jobs:
+        job_rev_ids = list(job.revisions.values_list("revision_id", flat=True))
+        assert job_rev_ids == [
+            123,
+            456,
+        ], "Each job should reference the requested Revision."
+
+        for idx, revision in enumerate(revisions_ordered):
+            thru = RevisionUpliftJob.objects.get(uplift_job=job, revision=revision)
+            assert thru.index == idx, "Single-item stack should be indexed."
+
+
+@pytest.mark.django_db
+def test_uplift_creation_fails_when_revisions_missing(
+    authenticated_client, repo_mc, user, phabdouble
+):
+    """Test uplift creation endpoint behaviour without previous landing."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
+    repo_a = repo_mc(scm_type=SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
+    repo_b = repo_mc(
+        scm_type=SCM_TYPE_GIT, name="firefox-release", approval_required=True
+    )
+
+    url = reverse("uplift-page")
+
+    # NOTE: We intentionally DO NOT create a Revision(revision_id=1234) here.
+
+    form_data = {
+        "source_revision_ids": [123, 456],
+        "repositories": [repo_a.name, repo_b.name],
+    }
+    form_data |= CREATE_FORM_DATA
+
+    response = authenticated_client.post(url, data=form_data, HTTP_REFERER="/D1234")
+
+    assert (
+        response.status_code == 302
+    ), "Submission missing requested revisions should redirect with error."
+    messages = list(get_messages(response.wsgi_request))
+    assert any(
+        "is not one of the available choices" in str(message) for message in messages
+    ), f"Should reject with message about no previous landing: {messages=}"
+
+    assert (
+        UpliftAssessment.objects.count() == 0
+    ), "Failed submission should not create an assessment."
+    assert (
+        MultiTrainUpliftRequest.objects.count() == 0
+    ), "Failed submission should not create a multi-request."
+    assert (
+        UpliftJob.objects.count() == 0
+    ), "Failed submission should not enqueue uplift jobs."
+    assert (
+        RevisionUpliftJob.objects.count() == 0
+    ), "Failed submission should not populate through rows."
 
 
 def test_create_uplift_bug_update_payload():
@@ -357,70 +257,6 @@ def test_create_uplift_bug_update_payload():
     assert (
         "cf_status_firefox100" not in payload
     ), "Status should not have been set with `leave-open` keyword on bug."
-
-
-def test_add_original_revision_line_if_needed():
-    uri = "http://phabricator.test/D123"
-
-    summary_no_original = "Bug 123: test summary r?sheehan"
-    summary_with_original = (
-        "Bug 123: test summary r?sheehan\n"
-        "\n"
-        "Original Revision: http://phabricator.test/D123"
-    )
-
-    assert (
-        add_original_revision_line_if_needed(summary_no_original, uri)
-        == summary_with_original
-    ), "Passing summary without `Original Revision` should return with line added."
-
-    assert (
-        add_original_revision_line_if_needed(summary_with_original, uri)
-        == summary_with_original
-    ), "Passing summary with `Original Revision` should return the input."
-
-
-def test_get_revisions_without_bugs(phabdouble):
-    phab = phabdouble.get_phabricator_client()
-
-    rev1 = phabdouble.revision(bug_id=123)
-    revs = phabdouble.differential_revision_search(
-        constraints={"phids": [rev1["phid"]]},
-    )
-    revisions = phab.expect(revs, "data")
-
-    assert (
-        get_revisions_without_bugs(phab, revisions) == set()
-    ), "Empty set should be returned if all revisions have bugs."
-
-    rev2 = phabdouble.revision()
-    revs = phabdouble.differential_revision_search(
-        constraints={"phids": [rev1["phid"], rev2["phid"]]},
-    )
-    revisions = phab.expect(revs, "data")
-
-    assert get_revisions_without_bugs(phab, revisions) == {
-        rev2["id"]
-    }, "Revision without associated bug should be returned."
-
-
-def test_get_latest_non_commit_diff():
-    test_data = [
-        {"creationMethod": "commit", "id": 3},
-        {"creationMethod": "moz-phab-hg", "id": 1},
-        {"creationMethod": "commit", "id": 4},
-        {"creationMethod": "moz-phab-hg", "id": 2},
-        {"creationMethod": "commit", "id": 5},
-    ]
-
-    diff = get_latest_non_commit_diff(test_data)
-
-    assert (
-        diff["id"] == 2
-    ), "Returned diff should have the highest diff ID without `commit`."
-    assert (
-        diff["creationMethod"] != "commit"
-    ), "Diffs with a `creationMethod` of `commit` should be skipped."
 
 
 @pytest.mark.django_db
@@ -655,6 +491,396 @@ def test_patch_assessment_form_invalid(
     for bad_field in ("qe_testing_reproduction_steps", "user_impact"):
         assert any(
             bad_field in message for message in messages
-        ), f"Validation message not sent for `{bad_field}`."
+        ), f"Validation message not sent for `{bad_field}`: {messages=}"
 
     assert mock_apply_async.call_count == 0, "Uplift form task should not be called."
+
+
+@pytest.fixture
+def uplift_worker(landing_worker_instance):
+    worker = landing_worker_instance(
+        name="uplift-worker-git",
+        scm=SCM_TYPE_GIT,
+    )
+    return UpliftWorker(worker)
+
+
+def make_uplift_job_with_revisions(repo, user, revisions: list[Revision]) -> UpliftJob:
+    """Create assessment, multi-request, revisions, and a single UpliftJob associated to them."""
+    # 1) Assessment
+    assessment = UpliftAssessment.objects.create(
+        user=user,
+        user_impact="Medium",
+        covered_by_testing="yes",
+        fix_verified_in_nightly="yes",
+        needs_manual_qe_testing="no",
+        qe_testing_reproduction_steps="",
+        risk_associated_with_patch="low",
+        risk_level_explanation="low risk",
+        string_changes="none",
+        is_android_affected="no",
+    )
+
+    # 2) Multi-request holding the ordered D-IDs
+    multi = MultiTrainUpliftRequest.objects.create(
+        user=user,
+        assessment=assessment,
+        requested_revisions=[revision.revision_id for revision in revisions],
+    )
+
+    # 3) One job for the target repo
+    job = UpliftJob.objects.create(
+        status=JobStatus.SUBMITTED,
+        requester_email=user.email,
+        target_repo=repo,
+        multi_request=multi,
+        attempts=1,
+    )
+
+    # 4) Attach and order revisions via through table
+    for idx, revision in enumerate(revisions):
+        RevisionUpliftJob.objects.create(uplift_job=job, revision=revision, index=idx)
+
+    return job
+
+
+@pytest.mark.django_db
+def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
+    repo_mc, user, uplift_worker, create_patch_revision, normal_patch, monkeypatch
+):
+    repo = repo_mc(SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
+
+    revisions = [
+        create_patch_revision(0, patch=normal_patch(0)),
+        create_patch_revision(1, patch=normal_patch(1)),
+    ]
+
+    mock_success_task = mock.MagicMock()
+    mock_failure_task = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.uplift_worker.send_uplift_success_email",
+        mock_success_task,
+    )
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.uplift_worker.send_uplift_failure_email",
+        mock_failure_task,
+    )
+
+    # Two small valid patches
+    job = make_uplift_job_with_revisions(repo, user, revisions)
+    mock_task = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.uplift_worker.set_uplift_request_form_on_revision",
+        mock_task,
+    )
+
+    # Let update_repo/apply_patch run for real; only mock moz-phab uplift to return new tip D-ids
+    monkeypatch.setattr(
+        uplift_worker,
+        "moz_phab_uplift",
+        lambda job, api, base: {
+            "commits": [
+                {"rev_id": 4567},
+                {"rev_id": 4568},
+            ]
+        },
+    )
+
+    # Capture current HEAD to validate it advanced
+    old_head = repo.scm.head_ref()
+
+    assert uplift_worker.run_job(job), "Job should have completed successfully."
+
+    job.refresh_from_db()
+    expected_task_args = (
+        job.created_revision_ids[-1],
+        job.multi_request.assessment.to_conduit_json_str(),
+        user.id,
+    )
+    mock_task.apply_async.assert_called_once_with(args=expected_task_args)
+    assert (
+        job.status == JobStatus.LANDED
+    ), "Successful uplift job should transition to LANDED."
+    assert job.created_revision_ids == [
+        4567,
+        4568,
+    ], "Successful uplift job should store all created revision IDs."
+
+    # Validate HEAD changed after applying patches locally
+    new_head = repo.scm.head_ref()
+    assert (
+        new_head != old_head
+    ), "Repository HEAD should have advanced after applying patches."
+
+    # Validate UpliftRevision created and linked
+    assert (
+        UpliftRevision.objects.count() == 1
+    ), "Successful uplift job should create a single UpliftRevision link."
+    ur = UpliftRevision.objects.get()
+    assert (
+        ur.revision_id == 4568
+    ), "Created UpliftRevision should point to the latest revision ID."
+    assert (
+        ur.assessment_id == job.multi_request.assessment_id
+    ), "Created UpliftRevision should link back to the original assessment."
+
+    job.refresh_from_db()
+    job.status = JobStatus.SUBMITTED
+    job.save(update_fields=["status"])
+
+    assert uplift_worker.run_job(job), "Re-running job should still succeed."
+
+    mock_success_task.apply_async.assert_called()
+    mock_failure_task.apply_async.assert_not_called()
+
+    args = mock_success_task.apply_async.call_args[1]["args"]
+    assert args[0] == user.email
+    assert args[1] == (repo.short_name or repo.name)
+    assert args[3] == ["D4567", "D4568"], "Revision identifiers should be formatted."
+    assert (
+        mock_task.apply_async.call_count == 2
+    ), "Celery task should be dispatched on each successful run."
+    assert mock_task.apply_async.call_args_list[-1].kwargs == {
+        "args": expected_task_args
+    }, "Celery task should be called with latest revision metadata."
+
+    job.refresh_from_db()
+    assert job.created_revision_ids == [
+        4567,
+        4568,
+    ], "Re-running job should leave created_revision_ids unchanged."
+    assert (
+        UpliftRevision.objects.count() == 1
+    ), "Re-running job should not duplicate UpliftRevision records."
+
+
+@pytest.mark.django_db
+def test_moz_phab_uplift_invokes_cli_and_returns_response(
+    repo_mc, user, uplift_worker, create_patch_revision, normal_patch, monkeypatch
+):
+    repo = repo_mc(SCM_TYPE_GIT, name="firefox-release", approval_required=True)
+
+    revisions = [
+        create_patch_revision(0, patch=normal_patch(0)),
+        create_patch_revision(1, patch=normal_patch(1)),
+    ]
+    job = make_uplift_job_with_revisions(repo, user, revisions)
+
+    api_key = user.profile.phabricator_api_key
+    base_revision = "abcd1234"
+
+    expected_response = {"commits": [{"rev_id": 9001}]}
+
+    fake_run = mock.MagicMock()
+
+    def _write_output(
+        cmd, capture_output=None, check=None, cwd=None, encoding=None, env=None
+    ):
+        output_file = cmd[cmd.index("--output-file") + 1]
+        with open(output_file, "w", encoding=encoding) as fh:
+            json.dump(expected_response, fh)
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    fake_run.side_effect = _write_output
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    response = uplift_worker.moz_phab_uplift(job, api_key, base_revision)
+
+    assert (
+        response == expected_response
+    ), "`moz_phab_uplift` should return the JSON read from the output file."
+    assert (
+        fake_run.call_count == 1
+    ), "`moz_phab_uplift` should invoke `subprocess.run` exactly once."
+
+    called_cmd = fake_run.call_args.args[0]
+    assert called_cmd[:5] == [
+        "moz-phab",
+        "uplift",
+        "--yes",
+        "--no-rebase",
+        "--output-file",
+    ], "`moz_phab_uplift` should call moz-phab uplift with no prompts or rebase."
+    expected_repo_identifier = repo.short_name or repo.name
+    assert called_cmd[6:] == [
+        "--train",
+        expected_repo_identifier,
+        base_revision,
+        "HEAD",
+    ], "Called `moz-phab uplift` command should include repo and revisions."
+    assert (
+        fake_run.call_args.kwargs["cwd"] == repo.system_path
+    ), "`moz_phab_uplift` should use the repo path as the cwd."
+    assert (
+        fake_run.call_args.kwargs["env"]["MOZPHAB_PHABRICATOR_API_TOKEN"] == api_key
+    ), "`moz_phab_uplift` should set the API key in the environment."
+
+
+@pytest.mark.django_db
+def test_moz_phab_uplift_invalid_json_marks_job_failed(
+    repo_mc, user, uplift_worker, create_patch_revision, normal_patch, monkeypatch
+):
+    repo = repo_mc(SCM_TYPE_GIT, name="firefox-release", approval_required=True)
+    revisions = [
+        create_patch_revision(0, patch=normal_patch(0)),
+        create_patch_revision(1, patch=normal_patch(1)),
+    ]
+    job = make_uplift_job_with_revisions(repo, user, revisions)
+
+    api_key = user.profile.phabricator_api_key
+
+    fake_run = mock.MagicMock()
+
+    def _write_bad_output(
+        cmd, capture_output=None, check=None, cwd=None, encoding=None, env=None
+    ):
+        output_file = cmd[cmd.index("--output-file") + 1]
+        with open(output_file, "w", encoding=encoding) as fh:
+            fh.write("not-json")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    fake_run.side_effect = _write_bad_output
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    with pytest.raises(PermanentFailureException):
+        uplift_worker.moz_phab_uplift(job, api_key, "abcd1234")
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.FAILED, "Invalid JSON output should fail the job."
+
+
+@pytest.mark.django_db
+def test_uplift_worker_mozphab_failure_marks_failed(
+    repo_mc, user, uplift_worker, create_patch_revision, normal_patch, monkeypatch
+):
+    repo = repo_mc(SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
+
+    revisions = [
+        create_patch_revision(0, patch=normal_patch(0)),
+        create_patch_revision(1, patch=normal_patch(1)),
+    ]
+
+    # Two small valid patches.
+    job = make_uplift_job_with_revisions(repo, user, revisions)
+
+    mock_success_task = mock.MagicMock()
+    mock_failure_task = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.uplift_worker.send_uplift_success_email",
+        mock_success_task,
+    )
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.uplift_worker.send_uplift_failure_email",
+        mock_failure_task,
+    )
+
+    # Allow real update_repo/apply_patch; make `moz-phab uplift` throw.
+    def _uplift_fail(*args, **kwargs):
+        raise subprocess.CalledProcessError(
+            returncode=2,
+            cmd=["moz-phab", "uplift", "--yes", "--no-rebase"],
+            output="",
+            stderr="boom",
+        )
+
+    # Patch subprocess.run inside the worker's `moz_phab_uplift`.
+    monkeypatch.setattr(subprocess, "run", _uplift_fail)
+
+    assert not uplift_worker.run_job(job), "Job should not complete successfully."
+
+    job.refresh_from_db()
+    assert (
+        job.status == JobStatus.FAILED
+    ), "Job should be marked FAILED on moz-phab error."
+    assert (
+        UpliftRevision.objects.count() == 0
+    ), "No UpliftRevision should be created on failure."
+    mock_failure_task.apply_async.assert_called_once()
+    mock_success_task.apply_async.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
+    repo_mc, user, uplift_worker, create_patch_revision, normal_patch, monkeypatch
+):
+    repo = repo_mc(SCM_TYPE_GIT, name="firefox-esr", approval_required=True)
+
+    # Create a job where one revision has a bad patch.
+    revisions = [
+        create_patch_revision(0, patch=normal_patch(0)),
+        create_patch_revision(1, patch=PATCH_CHANGE_MISSING_CONTENT),
+    ]
+    job = make_uplift_job_with_revisions(repo, user, revisions)
+
+    mock_success_task = mock.MagicMock()
+    mock_failure_task = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.uplift_worker.send_uplift_success_email",
+        mock_success_task,
+    )
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.uplift_worker.send_uplift_failure_email",
+        mock_failure_task,
+    )
+
+    # Ensure moz_phab_uplift won't be called if apply_patch fails.
+    monkeypatch.setattr(
+        uplift_worker, "moz_phab_uplift", lambda *a, **k: {"commits": [{"rev_id": 999}]}
+    )
+
+    assert not uplift_worker.run_job(job), "Job should not complete successfully."
+
+    job.refresh_from_db()
+    assert (
+        job.status != JobStatus.LANDED
+    ), "Job must not be LANDED when apply_patch fails."
+    assert (
+        UpliftRevision.objects.count() == 0
+    ), "Apply-patch failure should not create UpliftRevision records."
+    assert (
+        job.created_revision_ids == []
+    ), "Apply-patch failure should leave created_revision_ids empty."
+
+    mock_failure_task.apply_async.assert_called_once()
+    mock_success_task.apply_async.assert_not_called()
+
+    failure_args = mock_failure_task.apply_async.call_args[1]["args"]
+    assert failure_args[0] == user.email
+    assert failure_args[1] == (repo.short_name or repo.name)
+    assert failure_args[4], "Conflict details should be included for patch failures."
+
+
+@pytest.mark.django_db
+def test_uplift_context_for_revision_returns_original_and_uplifted_requests(
+    repo_mc, user, create_patch_revision, normal_patch
+):
+    repo = repo_mc(SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
+
+    revisions = [
+        create_patch_revision(0, patch=normal_patch(0)),
+        create_patch_revision(1, patch=normal_patch(1)),
+    ]
+    job = make_uplift_job_with_revisions(repo, user, revisions)
+    multi = job.multi_request
+
+    original_revision_id = revisions[0].revision_id
+    uplifted_revision_id = 9876
+
+    UpliftRevision.objects.create(
+        assessment=multi.assessment,
+        revision_id=uplifted_revision_id,
+    )
+
+    other_repo = repo_mc(SCM_TYPE_GIT, name="firefox-esr", approval_required=True)
+    other_revision = create_patch_revision(2, patch=normal_patch(2))
+    make_uplift_job_with_revisions(other_repo, user, [other_revision])
+
+    requested_qs = uplift_context_for_revision(original_revision_id)
+    uplifted_qs = uplift_context_for_revision(uplifted_revision_id)
+
+    assert list(requested_qs) == [
+        multi
+    ], "Querying with original revision ID should find the uplift request."
+    assert list(uplifted_qs) == [
+        multi
+    ], "Querying with uplifted revision ID should find the uplift request."
