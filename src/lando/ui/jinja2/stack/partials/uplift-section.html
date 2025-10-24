@@ -116,7 +116,7 @@ future.
                     </div>
                     <div>
                       {% set status = job.status %}
-                      {% set status_label = job.get_status_display %}
+                      {% set status_label = job.get_status_display() %}
                       {# TODO(sheehan) use a filter? #}
                       {% if status == "LANDED" or status == "SUCCESS" %}
                         {% set tag_class = "is-success" %}
