@@ -220,6 +220,13 @@ class LandingJob(BaseJob):
                 revision=revision, landing_job=self
             ).update(diff_id=revision.diff_id)
 
+    def set_landed_commit_ids(self):
+        """Assign `commit_id`, if available, to each association row."""
+        for revision in self.unsorted_revisions.all():
+            RevisionLandingJob.objects.filter(
+                revision=revision, landing_job=self
+            ).update(commit_id=revision.commit_id)
+
     def set_landed_reviewers(self, path: Path):
         """Set approving peers and owners at time of landing."""
         directory = Directory(FileConfig(path))
