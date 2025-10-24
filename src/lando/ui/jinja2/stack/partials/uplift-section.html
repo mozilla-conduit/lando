@@ -118,10 +118,12 @@ future.
 
                   <div class="column is-narrow">
                     {% set status = job.status %}
-                    {# TODO(sheehan) use better term here #}
+                    {% set status_label = status.label %}
+                    {# TODO(sheehan) use a filter? #}
                     {% if status == "LANDED" or status == "SUCCESS" %}
                       {% set tag_class = "is-success" %}
                       {% set icon_class = "fa fa-check" %}
+                      {% set status_label = "Uplift applied and created successfully" %}
                     {% elif status == "FAILED" %}
                       {% set tag_class = "is-danger" %}
                       {% set icon_class = "fa fa-times" %}
@@ -141,7 +143,7 @@ future.
                           <i class="{{ icon_class }}" aria-hidden="true"></i>
                         </span>
                       {% endif %}
-                      <span>{{ status.label }}</span>
+                      <span>{{ status_label }}</span>
                     </span>
                   </div>
 
