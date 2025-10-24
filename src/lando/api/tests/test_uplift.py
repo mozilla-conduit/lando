@@ -176,7 +176,9 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
 
 
 @pytest.mark.django_db
-def test_uplift_creation_fails_when_revisions_missing(authenticated_client, repo_mc, user, phabdouble):
+def test_uplift_creation_fails_when_revisions_missing(
+    authenticated_client, repo_mc, user, phabdouble
+):
     """Test uplift creation endpoint behaviour without previous landing."""
     phabdouble.user(api_key=user.profile.phabricator_api_key)
 

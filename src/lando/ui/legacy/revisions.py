@@ -2,7 +2,6 @@ import json
 import logging
 
 from django.contrib import messages
-from django.core.exceptions import PermissionDenied
 from django.core.handlers.wsgi import WSGIRequest
 from django.db import transaction
 from django.db.models import Prefetch, QuerySet
