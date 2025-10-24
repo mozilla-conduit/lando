@@ -55,7 +55,7 @@ urlpatterns += [
     path("manage_api_key/", user_settings.manage_api_key, name="user-settings"),
     path("uplift/", revisions.UpliftRequestView.as_view(), name="uplift-page"),
     path(
-        "uplift/assessment/",
+        "uplift/<int:revision_id>/assessment/",
         revisions.UpliftAssessmentEditView.as_view(),
         name="uplift-assessment-page",
     ),

@@ -18,7 +18,7 @@ from lando.main.models import Repo
 from lando.main.models.uplift import UpliftRevision
 from lando.ui.legacy.forms import (
     TransplantRequestForm,
-    UpliftAssessmentEditForm,
+    UpliftAssessmentForm,
     UpliftRequestForm,
 )
 from lando.ui.legacy.stacks import Edge, draw_stack_graph, sort_stack_topological
@@ -91,9 +91,16 @@ class UpliftAssessmentEditView(LandoView):
 
     @force_auth_refresh
     @method_decorator(require_phabricator_api_key(optional=False, provide_client=False))
-    def post(self, request: WSGIRequest) -> HttpResponse:
+    def post(self, request: WSGIRequest, revision_id: int) -> HttpResponse:
         """Update an uplift request assessment."""
-        uplift_assessment_form = UpliftAssessmentEditForm(request.POST)
+
+        uplift_revision = UpliftRevision.one_or_none(revision_id=revision_id)
+        existing_assessment = uplift_revision.assessment if uplift_revision else None
+
+        uplift_assessment_form = UpliftAssessmentForm(
+            request.POST,
+            instance=existing_assessment,
+        )
 
         if not uplift_assessment_form.is_valid():
             errors = [
@@ -106,13 +113,7 @@ class UpliftAssessmentEditView(LandoView):
 
             return redirect(request.META.get("HTTP_REFERER"))
 
-        revision_id = revision_id_to_int(
-            uplift_assessment_form.cleaned_data["revision_id"]
-        )
-
-        try:
-            uplift_revision = UpliftRevision.objects.get(revision_id=revision_id)
-        except UpliftRevision.DoesNotExist:
+        if uplift_revision is None:
             logger.info(
                 f"No existing assessment for {revision_id=}, creating a new instance."
             )
@@ -132,25 +133,12 @@ class UpliftAssessmentEditView(LandoView):
                 request, messages.SUCCESS, "Uplift assessment created."
             )
         else:
-            logging.info(
-                f"Updating assessment for {revision_id=} and associated revisions."
-            )
+            logging.info(f"Updating assessment for {revision_id=}.")
 
-            old_assessment = uplift_revision.assessment
-
-            revisions = old_assessment.revisions.all()
-
-            # Store uplift request assessment response.
             with transaction.atomic():
                 assessment = uplift_assessment_form.save(commit=False)
                 assessment.user = request.user
                 assessment.save()
-
-                for revision in revisions:
-                    revision.assessment = assessment
-                    revision.save()
-
-                old_assessment.delete()
 
             messages.add_message(request, messages.SUCCESS, "Uplift assessment saved.")
 
@@ -261,18 +249,10 @@ class RevisionView(LandoView):
         uplift_revision = UpliftRevision.one_or_none(revision_id=revision_id)
 
         if revision_repo and revision_repo.approval_required and uplift_revision:
-            # If an existing form is present, pre-populate the edit form.
             assessment = uplift_revision.assessment
-            uplift_assessment_edit_form = UpliftAssessmentEditForm(
-                # Using `initial` will only apply to values not in the instance.
-                initial={"revision_id": f"D{revision_id}"},
-                instance=assessment,
-            )
+            uplift_assessment_edit_form = UpliftAssessmentForm(instance=assessment)
         else:
-            # Use an empty edit form with `revision_id` pre-populated.
-            uplift_assessment_edit_form = UpliftAssessmentEditForm(
-                initial={"revision_id": f"D{revision_id}"}
-            )
+            uplift_assessment_edit_form = UpliftAssessmentForm()
 
         # Current implementation requires that all commits have the flags appended.
         # This may change in the future. What we do here is:
@@ -294,6 +274,7 @@ class RevisionView(LandoView):
 
         context = {
             "revision_id": "D{}".format(revision_id),
+            "revision_id_int": revision_id,
             "series": series,
             "landable": landable,
             "dryrun": dryrun,
