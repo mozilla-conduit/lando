@@ -77,40 +77,18 @@ class UpliftRequestForm(UpliftAssessmentForm):
         to_field_name="revision_id",
         widget=forms.widgets.MultipleHiddenInput(),
     )
-    repositories = forms.MultipleChoiceField(
+    repositories = forms.ModelMultipleChoiceField(
+        queryset=Repo.objects.none(),
         widget=forms.CheckboxSelectMultiple(),
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        uplift_repos = Repo.objects.filter(approval_required=True).all()
-        self.fields["repositories"].choices = [
-            (repo.name, repo.name) for repo in uplift_repos
-        ]
-
-    def clean_repositories(self) -> list[Repo]:
-        repositories = self.cleaned_data.get("repositories")
-
-        cleaned_repositories = []
-        for repo in repositories:
-            try:
-                repository = Repo.objects.get(name=repo)
-            except Repo.DoesNotExist:
-                raise forms.ValidationError(
-                    f"Repository {repo} is not a repository known to Lando. "
-                    "Please select an uplift repository to create the uplift request."
-                )
-
-            if not repository.approval_required:
-                raise forms.ValidationError(
-                    f"Repository {repo} is not an uplift repository. "
-                    "Please select an uplift repository to create the uplift request."
-                )
-
-            cleaned_repositories.append(repository)
-
-        return cleaned_repositories
+        uplift_repos = Repo.objects.filter(approval_required=True)
+        repositories_field = self.fields["repositories"]
+        repositories_field.queryset = uplift_repos
+        repositories_field.label_from_instance = lambda repo: repo.name
 
 
 class UserSettingsForm(forms.Form):
