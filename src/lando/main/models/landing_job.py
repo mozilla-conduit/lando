@@ -48,12 +48,8 @@ class LandingJob(BaseJob):
     )
 
     def is_pull_request_job(self) -> bool:
-        """Return True if the landing job has one revision that has a pull_number set."""
-        # TODO: RE: stack support, this will need to be modified.
-        return (
-            self.revisions.count() == 1
-            and self.revisions.first().pull_number is not None
-        )
+        """Return True if all revisions in the landing job have a pull_number set."""
+        return not self.revisions.filter(pull_number__isnull=True).exists()
 
     @property
     def landed_phabricator_revisions(self) -> dict:
