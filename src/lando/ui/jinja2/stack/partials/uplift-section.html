@@ -121,30 +121,30 @@ future.
                     <div class="is-size-6 has-text-weight-semibold">
                       {{ job.target_repo.name }}
                     </div>
-                    {% if job.error %}
-                      <div class="content">
-                        <div>
-                          <button type="button" class="button is-small is-light toggle-content">
-                            Show error details
-                          </button>
-                        </div>
-                        <pre class="hidden-content has-text-left">{{ job.error }}
-<button type="button" class="button is-small is-light toggle-content">Hide error details</button></pre>
-                      </div>
-                    {% endif %}
-                    {% if job.status in ["LANDED", "SUCCESS"] and job.created_revision_ids %}
-                      <div class="content">
+                    <div class="content">
                         <p><strong>{{ status_label }}</strong></p>
-                        <div class="tags">
-                          {% for rev_id in job.created_revision_ids %}
-                            <a class="tag is-link"
-                               href="{{ rev_id|revision_url }}">
-                              D{{ rev_id }}
-                            </a>
-                          {% endfor %}
-                        </div>
-                      </div>
-                    {% endif %}
+                        {% if job.error %}
+                            <div>
+                              <button type="button" class="button is-small is-light toggle-content">
+                                Show error details
+                              </button>
+                            </div>
+                            <pre class="hidden-content has-text-left">{{ job.error }}
+    <button type="button" class="button is-small is-light toggle-content">Hide error details</button></pre>
+                        {% endif %}
+                        {% if job.status in ["LANDED", "SUCCESS"] and job.created_revision_ids %}
+                          <div class="content">
+                            <div class="tags">
+                              {% for rev_id in job.created_revision_ids %}
+                                <a class="tag is-link"
+                                   href="{{ rev_id|revision_url }}">
+                                  D{{ rev_id }}
+                                </a>
+                              {% endfor %}
+                            </div>
+                          </div>
+                        {% endif %}
+                    </div>
                   </div>
 
                   <div class="column is-narrow has-text-right">
