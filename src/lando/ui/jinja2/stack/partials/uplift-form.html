@@ -31,9 +31,11 @@
         {% endif %}
 
         <p class="block">
-          Select one or more repositories to uplift this revision stack to, then
-          complete the form below. Each selected repository will receive a separate
-          uplift job reviewed and landed by Release Management.
+            Select the repositories you wish to uplift to and complete the assessment
+            form below. Lando will check your patch for merge conflicts and create new
+            uplift revisions in Phabricator if they apply cleanly. You will be notified
+            of merge conflicts which must be resolved manually and submitted with
+            <code>moz-phab</code>.
         </p>
 
         <div class="block">
