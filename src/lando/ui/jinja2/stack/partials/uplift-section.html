@@ -154,20 +154,20 @@ future.
                 </div>
 
                 {% if job.error %}
-                  <div class="content">
+                  <div class="content has-text-right">
                     <div>
                       <button type="button" class="button is-small is-light toggle-content">
                         Show error details
                       </button>
                     </div>
-                    <pre class="hidden-content">{{ job.error }}
+                    <pre class="hidden-content has-text-left">{{ job.error }}
 <button type="button" class="button is-small is-light toggle-content">Hide error details</button></pre>
                   </div>
                 {% endif %}
                 {% if job.status in ["LANDED", "SUCCESS"] and job.created_revision_ids %}
-                  <div class="content">
+                  <div class="content has-text-right">
                     <p><strong>Uplifted to</strong></p>
-                    <div class="tags">
+                    <div class="tags is-right">
                       {% for rev_id in job.created_revision_ids %}
                         <a class="tag is-link"
                            href="{{ rev_id|revision_url }}">
