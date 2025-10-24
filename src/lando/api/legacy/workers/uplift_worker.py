@@ -147,7 +147,8 @@ class UpliftWorker(Worker):
         if not recipient_email:
             return
 
-        conflict_sections = self.conflict_sections(job)
+        has_conflicts = bool(job.error_breakdown)
+        conflict_sections = self.conflict_sections(job) if has_conflicts else None
         failure_reason = job.error or reason
         self.call_task(
             send_uplift_failure_email,
@@ -155,12 +156,12 @@ class UpliftWorker(Worker):
             repo_label,
             job_url,
             failure_reason,
-            conflict_sections if conflict_sections else None,
+            conflict_sections,
         )
 
     # TODO(sheehan): look at this
     def conflict_sections(self, job: UpliftJob) -> list[dict[str, str]]:
-        breakdown = getattr(job, "error_breakdown", None)
+        breakdown = job.error_breakdown
         if not breakdown:
             return []
 
@@ -168,11 +169,10 @@ class UpliftWorker(Worker):
         sections: list[dict[str, str]] = []
         for path, data in rejects.items():
             snippet = ""
-            if isinstance(data, dict):
-                content = data.get("content")
-                if content:
-                    lines = content.splitlines()
-                    snippet = "\n".join(lines[:20])
+            content = data.get("content")
+            if content:
+                lines = content.splitlines()
+                snippet = "\n".join(lines[:20])
             sections.append({"path": path, "snippet": snippet})
         return sections
 

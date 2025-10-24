@@ -61,10 +61,15 @@ Reason:
 """.strip()
 
 UPLIFT_CONFLICT_INSTRUCTIONS_TEMPLATE = """
-Lando detected merge conflicts while applying your stack.
-Please pull the latest changes for {repo_name}, resolve the conflicts locally,
-update your Phabricator revisions, and submit a new uplift request
-using `moz-phab uplift` once the conflicts are cleared.
+Lando detected merge conflicts while applying your stack. This
+means your patch cannot be uplifted without manually resolving
+the merge conflicts and re-submitting. Please pull the latest
+changes for {repo_name}, resolve the conflicts locally,
+and submit a new uplift request using `moz-phab uplift`
+once the conflicts are cleared.
+
+See https://wiki.mozilla.org/index.php?title=Release_Management/Requesting_an_Uplift
+for step-by-step instructions.
 
 Conflict markers were reported in:
 {conflict_summary}
@@ -115,7 +120,7 @@ def make_uplift_failure_email(
     conflict_sections: list[dict[str, str]] | None = None,
 ) -> EmailMessage:
     """Build an uplift failure email."""
-    if conflict_sections:
+    if conflict_sections is not None:
         conflict_summary = build_uplift_conflict_summary(conflict_sections)
         resolution_instructions = UPLIFT_CONFLICT_INSTRUCTIONS_TEMPLATE.format(
             repo_name=repo_name,
