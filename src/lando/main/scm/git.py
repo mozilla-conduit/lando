@@ -716,3 +716,14 @@ class GitSCM(AbstractSCM):
 
             # If the tag did not already exist, bubble up the exception.
             raise exc
+
+    def merge_remote(
+        self, commit_message: str, remote: str, commit: str, allow_unrelated: bool
+    ) -> str:
+        self._git_run("fetch", remote, commit, cwd=self.path)
+        merge_args = ["--no-ff", "-m", commit_message]
+        if allow_unrelated:
+            merge_args.append("--allow-unrelated-histories")
+        self._git_run("merge", *merge_args, commit, cwd=self.path)
+
+        return self.head_ref()
