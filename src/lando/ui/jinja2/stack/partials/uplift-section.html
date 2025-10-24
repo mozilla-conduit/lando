@@ -103,9 +103,34 @@ future.
               <hr>
             {% endif %}
             <article class="media">
+              {% set status = job.status %}
+              {% set status_label = status.label %}
+              {# TODO(sheehan) use a filter? #}
+              {% if status == "LANDED" or status == "SUCCESS" %}
+                {% set tag_class = "is-success" %}
+                {% set icon_class = "fa fa-check" %}
+                {% set status_label = "Uplift applied and created successfully" %}
+              {% elif status == "FAILED" %}
+                {% set tag_class = "is-danger" %}
+                {% set icon_class = "fa fa-times" %}
+              {% elif status == "IN_PROGRESS" %}
+                {% set tag_class = "is-info" %}
+                {% set icon_class = "fa fa-clock-o" %}
+              {% elif status == "DEFERRED" %}
+                {% set tag_class = "is-warning" %}
+                {% set icon_class = "fa fa-history" %}
+              {% else %}
+                {% set tag_class = "is-light" %}
+                {% set icon_class = None %}
+              {% endif %}
               <figure class="media-left">
-                <span class="icon has-text-grey">
-                  <i class="fa fa-code-fork" aria-hidden="true"></i>
+                <span class="tag {{ tag_class }}">
+                  {% if icon_class %}
+                    <span class="icon is-small">
+                      <i class="{{ icon_class }}" aria-hidden="true"></i>
+                    </span>
+                  {% endif %}
+                  <span>{{ status_label }}</span>
                 </span>
               </figure>
               <div class="media-content">
@@ -113,36 +138,6 @@ future.
                   <div class="column">
                     <div class="is-size-6 has-text-weight-semibold">
                       {{ job.target_repo.name }}
-                    </div>
-                    <div>
-                      {% set status = job.status %}
-                      {% set status_label = job.get_status_display() %}
-                      {# TODO(sheehan) use a filter? #}
-                      {% if status == "LANDED" or status == "SUCCESS" %}
-                        {% set tag_class = "is-success" %}
-                        {% set icon_class = "fa fa-check" %}
-                        {% set status_label = "Uplift applied and created successfully" %}
-                      {% elif status == "FAILED" %}
-                        {% set tag_class = "is-danger" %}
-                        {% set icon_class = "fa fa-times" %}
-                      {% elif status == "IN_PROGRESS" %}
-                        {% set tag_class = "is-info" %}
-                        {% set icon_class = "fa fa-clock-o" %}
-                      {% elif status == "DEFERRED" %}
-                        {% set tag_class = "is-warning" %}
-                        {% set icon_class = "fa fa-history" %}
-                      {% else %}
-                        {% set tag_class = "is-light" %}
-                        {% set icon_class = None %}
-                      {% endif %}
-                      <span class="tag {{ tag_class }}">
-                        {% if icon_class %}
-                          <span class="icon is-small">
-                            <i class="{{ icon_class }}" aria-hidden="true"></i>
-                          </span>
-                        {% endif %}
-                        <span>{{ status_label }}</span>
-                      </span>
                     </div>
                     {% if job.error %}
                       <div class="content">
@@ -157,7 +152,7 @@ future.
                     {% endif %}
                     {% if job.status in ["LANDED", "SUCCESS"] and job.created_revision_ids %}
                       <div class="content">
-                        <p><strong>Uplifted to</strong></p>
+                        <p><strong>{{ status_label }}</strong></p>
                         <div class="tags">
                           {% for rev_id in job.created_revision_ids %}
                             <a class="tag is-link"
