@@ -114,37 +114,60 @@ future.
                     <div class="is-size-6 has-text-weight-semibold">
                       {{ job.target_repo.name }}
                     </div>
-                  </div>
-
-                  <div class="column is-narrow">
-                    {% set status = job.status %}
-                    {% set status_label = status.label %}
-                    {# TODO(sheehan) use a filter? #}
-                    {% if status == "LANDED" or status == "SUCCESS" %}
-                      {% set tag_class = "is-success" %}
-                      {% set icon_class = "fa fa-check" %}
-                      {% set status_label = "Uplift applied and created successfully" %}
-                    {% elif status == "FAILED" %}
-                      {% set tag_class = "is-danger" %}
-                      {% set icon_class = "fa fa-times" %}
-                    {% elif status == "IN_PROGRESS" %}
-                      {% set tag_class = "is-info" %}
-                      {% set icon_class = "fa fa-clock-o" %}
-                    {% elif status == "DEFERRED" %}
-                      {% set tag_class = "is-warning" %}
-                      {% set icon_class = "fa fa-history" %}
-                    {% else %}
-                      {% set tag_class = "is-light" %}
-                      {% set icon_class = None %}
-                    {% endif %}
-                    <span class="tag {{ tag_class }}">
-                      {% if icon_class %}
-                        <span class="icon is-small">
-                          <i class="{{ icon_class }}" aria-hidden="true"></i>
-                        </span>
+                    <div>
+                      {% set status = job.status %}
+                      {% set status_label = status.label %}
+                      {# TODO(sheehan) use a filter? #}
+                      {% if status == "LANDED" or status == "SUCCESS" %}
+                        {% set tag_class = "is-success" %}
+                        {% set icon_class = "fa fa-check" %}
+                        {% set status_label = "Uplift applied and created successfully" %}
+                      {% elif status == "FAILED" %}
+                        {% set tag_class = "is-danger" %}
+                        {% set icon_class = "fa fa-times" %}
+                      {% elif status == "IN_PROGRESS" %}
+                        {% set tag_class = "is-info" %}
+                        {% set icon_class = "fa fa-clock-o" %}
+                      {% elif status == "DEFERRED" %}
+                        {% set tag_class = "is-warning" %}
+                        {% set icon_class = "fa fa-history" %}
+                      {% else %}
+                        {% set tag_class = "is-light" %}
+                        {% set icon_class = None %}
                       {% endif %}
-                      <span>{{ status_label }}</span>
-                    </span>
+                      <span class="tag {{ tag_class }}">
+                        {% if icon_class %}
+                          <span class="icon is-small">
+                            <i class="{{ icon_class }}" aria-hidden="true"></i>
+                          </span>
+                        {% endif %}
+                        <span>{{ status_label }}</span>
+                      </span>
+                    </div>
+                    {% if job.error %}
+                      <div class="content">
+                        <div>
+                          <button type="button" class="button is-small is-light toggle-content">
+                            Show error details
+                          </button>
+                        </div>
+                        <pre class="hidden-content has-text-left">{{ job.error }}
+<button type="button" class="button is-small is-light toggle-content">Hide error details</button></pre>
+                      </div>
+                    {% endif %}
+                    {% if job.status in ["LANDED", "SUCCESS"] and job.created_revision_ids %}
+                      <div class="content">
+                        <p><strong>Uplifted to</strong></p>
+                        <div class="tags">
+                          {% for rev_id in job.created_revision_ids %}
+                            <a class="tag is-link"
+                               href="{{ rev_id|revision_url }}">
+                              D{{ rev_id }}
+                            </a>
+                          {% endfor %}
+                        </div>
+                      </div>
+                    {% endif %}
                   </div>
 
                   <div class="column is-narrow has-text-right">
@@ -154,31 +177,6 @@ future.
                     </a>
                   </div>
                 </div>
-
-                {% if job.error %}
-                  <div class="content has-text-right">
-                    <div>
-                      <button type="button" class="button is-small is-light toggle-content">
-                        Show error details
-                      </button>
-                    </div>
-                    <pre class="hidden-content has-text-left">{{ job.error }}
-<button type="button" class="button is-small is-light toggle-content">Hide error details</button></pre>
-                  </div>
-                {% endif %}
-                {% if job.status in ["LANDED", "SUCCESS"] and job.created_revision_ids %}
-                  <div class="content has-text-right">
-                    <p><strong>Uplifted to</strong></p>
-                    <div class="tags is-right">
-                      {% for rev_id in job.created_revision_ids %}
-                        <a class="tag is-link"
-                           href="{{ rev_id|revision_url }}">
-                          D{{ rev_id }}
-                        </a>
-                      {% endfor %}
-                    </div>
-                  </div>
-                {% endif %}
               </div>
             </article>
           {% else %}
