@@ -117,18 +117,18 @@ future.
                   </div>
 
                   <div class="column is-narrow">
-                    {% set s = job.status %}
+                    {% set status = job.status %}
                     {# TODO(sheehan) use better term here #}
-                    {% if s == "LANDED" or s == "SUCCESS" %}
-                      <span class="tag is-success">{{ s }}</span>
-                    {% elif s == "FAILED" %}
-                      <span class="tag is-danger">{{ s }}</span>
-                    {% elif s == "IN_PROGRESS" %}
-                      <span class="tag is-info">{{ s }}</span>
-                    {% elif s == "DEFERRED" %}
-                      <span class="tag is-warning">{{ s }}</span>
+                    {% if status == "LANDED" or status == "SUCCESS" %}
+                      <span class="tag is-success">{{ status.label }}</span>
+                    {% elif status == "FAILED" %}
+                      <span class="tag is-danger">{{ status.label }}</span>
+                    {% elif status == "IN_PROGRESS" %}
+                      <span class="tag is-info">{{ status.label }}</span>
+                    {% elif status == "DEFERRED" %}
+                      <span class="tag is-warning">{{ status.label }}</span>
                     {% else %}
-                      <span class="tag is-light">{{ s }}</span>
+                      <span class="tag is-light">{{ status.label }}</span>
                     {% endif %}
                   </div>
 
