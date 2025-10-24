@@ -61,10 +61,15 @@ Job details: https://lando/jobs/99
 Reason:
 Patch conflicts
 
-Lando detected merge conflicts while applying your stack.
-Please pull the latest changes for firefox-release, resolve the conflicts locally,
-update your Phabricator revisions, and submit a new uplift request
-using `moz-phab uplift` once the conflicts are cleared.
+Lando detected merge conflicts while applying your stack. This
+means your patch cannot be uplifted without manually resolving
+the merge conflicts and re-submitting. Please pull the latest
+changes for firefox-release, resolve the conflicts locally,
+and submit a new uplift request using `moz-phab uplift`
+once the conflicts are cleared.
+
+See https://wiki.mozilla.org/index.php?title=Release_Management/Requesting_an_Uplift
+for step-by-step instructions.
 
 Conflict markers were reported in:
 - browser/app.cpp
