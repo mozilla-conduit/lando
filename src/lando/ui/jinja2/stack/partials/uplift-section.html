@@ -103,26 +103,9 @@ future.
               <hr>
             {% endif %}
             <article class="media">
-              {% set status = job.status %}
-              {% set status_label = job.get_status_display() %}
-              {# TODO(sheehan) use a filter? #}
-              {% if status == "LANDED" or status == "SUCCESS" %}
-                {% set tag_class = "is-success" %}
-                {% set icon_class = "fa fa-check" %}
-                {% set status_label = "Uplift applied and created successfully" %}
-              {% elif status == "FAILED" %}
-                {% set tag_class = "is-danger" %}
-                {% set icon_class = "fa fa-times" %}
-              {% elif status == "IN_PROGRESS" %}
-                {% set tag_class = "is-info" %}
-                {% set icon_class = "fa fa-clock-o" %}
-              {% elif status == "DEFERRED" %}
-                {% set tag_class = "is-warning" %}
-                {% set icon_class = "fa fa-history" %}
-              {% else %}
-                {% set tag_class = "is-light" %}
-                {% set icon_class = None %}
-              {% endif %}
+              {% set tag_class = job|uplift_status_tag_class %}
+              {% set icon_class = job|uplift_status_icon_class %}
+              {% set status_label = job|uplift_status_label %}
               <figure class="media-left">
                 <span class="tag {{ tag_class }}">
                   {% if icon_class %}
