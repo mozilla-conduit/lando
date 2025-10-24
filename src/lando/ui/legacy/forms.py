@@ -83,6 +83,13 @@ class UpliftRequestForm(UpliftAssessmentForm):
         to_field_name="name",
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Set the rendered value of the repository to the
+        # name, instead of the default `__str__` representation.
+        self.fields["repositories"].label_from_instance = lambda repo: repo.name
+
 
 class UserSettingsForm(forms.Form):
     """Form used to provide the Phabricator API Token."""
