@@ -78,17 +78,10 @@ class UpliftRequestForm(UpliftAssessmentForm):
         widget=forms.widgets.MultipleHiddenInput(),
     )
     repositories = forms.ModelMultipleChoiceField(
-        queryset=Repo.objects.none(),
+        queryset=Repo.objects.filter(approval_required=True),
         widget=forms.CheckboxSelectMultiple(),
+        to_field_name="name",
     )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        uplift_repos = Repo.objects.filter(approval_required=True)
-        repositories_field = self.fields["repositories"]
-        repositories_field.queryset = uplift_repos
-        repositories_field.label_from_instance = lambda repo: repo.name
 
 
 class UserSettingsForm(forms.Form):
