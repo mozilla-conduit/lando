@@ -3,10 +3,7 @@ import logging
 import os
 import subprocess
 import tempfile
-from urllib.parse import urljoin
 
-from django.conf import settings
-from django.urls import reverse
 from typing_extensions import override
 
 from lando.api.legacy.workers.base import Worker
@@ -48,7 +45,7 @@ class UpliftWorker(Worker):
         """Run an uplift job."""
         repo = job.target_repo
         user = job.multi_request.user
-        job_url = self.job_url(job)
+        job_url = job.url()
 
         try:
             created_revision_ids = self.apply_and_uplift(job)
@@ -175,11 +172,6 @@ class UpliftWorker(Worker):
                 snippet = "\n".join(lines[:20])
             sections.append({"path": path, "snippet": snippet})
         return sections
-
-    # TODO(sheehan): look at this
-    def job_url(self, job: UpliftJob) -> str:
-        base = settings.SITE_URL.rstrip("/") + "/"
-        return urljoin(base, reverse("uplift-jobs-page", args=[job.id]))
 
     def moz_phab_uplift(self, job: UpliftJob, api_key: str, base_revision: str) -> dict:
         """Run `moz-phab uplift` on the repo."""

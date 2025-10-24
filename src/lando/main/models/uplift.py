@@ -1,8 +1,11 @@
 import json
 from typing import Any
+from urllib.parse import urljoin
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import models
+from django.urls import reverse
 
 from lando.main.models import BaseModel
 from lando.main.models.jobs import BaseJob
@@ -217,3 +220,7 @@ class UpliftJob(BaseJob):
     @property
     def revisions(self) -> models.QuerySet:
         return self.unsorted_revisions.all().order_by("revisionupliftjob__index")
+
+    def url(self) -> str:
+        """Return a URL for this job."""
+        return urljoin(settings.SITE_URL, reverse("uplift-jobs-page", args=[self.id]))
