@@ -113,34 +113,23 @@ class UpliftAssessmentEditView(LandoView):
 
             return redirect(request.META.get("HTTP_REFERER"))
 
-        if uplift_revision is None:
-            logger.info(
-                f"No existing assessment for {revision_id=}, creating a new instance."
-            )
+        with transaction.atomic():
+            assessment = uplift_assessment_form.save(commit=False)
+            assessment.user = request.user
+            assessment.save()
 
-            # No existing assessment for this revision, so we create one.
-            with transaction.atomic():
-                assessment = uplift_assessment_form.save(commit=False)
-                assessment.user = request.user
-                assessment.save()
-
+            message = "Uplift assessment updated."
+            if uplift_revision is None:
+                logger.info(
+                    f"No existing assessment for {revision_id=}, creating a new instance."
+                )
                 UpliftRevision.objects.create(
                     assessment=assessment,
                     revision_id=revision_id,
                 )
+                message = "Uplift assessment created."
 
-            messages.add_message(
-                request, messages.SUCCESS, "Uplift assessment created."
-            )
-        else:
-            logging.info(f"Updating assessment for {revision_id=}.")
-
-            with transaction.atomic():
-                assessment = uplift_assessment_form.save(commit=False)
-                assessment.user = request.user
-                assessment.save()
-
-            messages.add_message(request, messages.SUCCESS, "Uplift assessment saved.")
+        messages.add_message(request, messages.SUCCESS, message)
 
         # Trigger a Celery task to update the form on Phabricator.
         set_uplift_request_form_on_revision.apply_async(
