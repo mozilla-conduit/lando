@@ -26,7 +26,7 @@ from lando.main.models.uplift import (
     YesNoUnknownChoices,
 )
 from lando.ui.legacy.forms import (
-    UpliftAssessmentEditForm,
+    UpliftAssessmentForm,
 )
 from lando.utils.phabricator import (
     PhabricatorClient,
@@ -468,7 +468,6 @@ def test_to_conduit_json_transforms_fields(user):
 
 
 CREATE_FORM_DATA = {
-    "revision_id": "D1234",
     "user_impact": "Initial impact description.",
     "covered_by_testing": "yes",
     "fix_verified_in_nightly": "no",
@@ -481,7 +480,6 @@ CREATE_FORM_DATA = {
 }
 
 UPDATED_FORM_DATA = {
-    "revision_id": "D1234",
     "user_impact": "Updated impact after more testing.",
     "covered_by_testing": "no",
     "fix_verified_in_nightly": "yes",
@@ -501,9 +499,9 @@ def test_patch_assessment_creates_and_updates(
 ):
     phabdouble.user(api_key=user.profile.phabricator_api_key)
 
-    url = reverse("uplift-assessment-page")
+    url = reverse("uplift-assessment-page", args=[1234])
 
-    form = UpliftAssessmentEditForm(data=CREATE_FORM_DATA)
+    form = UpliftAssessmentForm(data=CREATE_FORM_DATA)
     assert form.is_valid(), f"Form was invalid: {form.errors.as_json()}"
 
     # Submit the form for a revision.
@@ -588,16 +586,48 @@ def test_patch_assessment_creates_and_updates(
 
 @mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
 @pytest.mark.django_db
+def test_patch_assessment_updates_in_place(
+    mock_apply_async, authenticated_client, user, phabdouble
+):
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
+    url = reverse("uplift-assessment-page", args=[1234])
+
+    authenticated_client.post(url, data=CREATE_FORM_DATA, HTTP_REFERER="/D1234")
+    original_assessment = UpliftAssessment.objects.get()
+    original_pk = original_assessment.pk
+
+    response = authenticated_client.post(
+        url, data=UPDATED_FORM_DATA, HTTP_REFERER="/D1234"
+    )
+
+    assert response.status_code == 302, "Update should redirect to referrer."
+    assert (
+        UpliftAssessment.objects.count() == 1
+    ), "Assessment update should not create additional rows."
+
+    updated_assessment = UpliftAssessment.objects.get()
+    assert (
+        updated_assessment.pk == original_pk
+    ), "Assessment should be updated in place, not replaced."
+    assert (
+        updated_assessment.user_impact == UPDATED_FORM_DATA["user_impact"]
+    ), "Updated assessment should reflect new values."
+
+    mock_apply_async.assert_called()
+
+
+@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@pytest.mark.django_db
 def test_patch_assessment_form_invalid(
     mock_apply_async, authenticated_client, user, phabdouble
 ):
     phabdouble.user(api_key=user.profile.phabricator_api_key)
 
-    url = reverse("uplift-assessment-page")
+    url = reverse("uplift-assessment-page", args=[1234])
 
     # Form is invalid because required fields are missing or invalid
     invalid_data = {
-        "revision_id": "D1234",
         # Required field left empty.
         "user_impact": "",
         "covered_by_testing": "yes",
