@@ -21,6 +21,15 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
 # See: rust-lang.org/tools/install (Configuring the PATH environment variable).
 ENV PATH="/root/.cargo/bin:${PATH}"
 
+# Install `moz-phab` via `pipx`.
+ARG MOZ_PHAB_VERSION=2.7.0
+ENV PIPX_HOME=/opt/pipx
+ENV PIPX_BIN_DIR=/usr/local/bin
+RUN python -m pip install --no-cache-dir pipx \
+  && PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install --python python "MozPhab==${MOZ_PHAB_VERSION}" \
+  && chmod -R a+rX /opt/pipx \
+  && moz-phab --version
+
 # Upgrade `setuptools`.
 RUN pip install --upgrade pip setuptools
 
@@ -36,8 +45,11 @@ COPY ./ /code
 RUN mkdir -p /code/.ruff_cache
 RUN chown -R app /code/.ruff_cache
 
+RUN cp /code/.moz-phab-config /app/.moz-phab-config && chown app:app /app/.moz-phab-config
+
 
 RUN pip install -e /code
+
 USER app
 
 WORKDIR /code

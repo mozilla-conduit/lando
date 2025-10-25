@@ -377,6 +377,11 @@ def proxy_client(monkeypatch, fake_request):
                 return json_response
             # In other cases, just the data is returned, and it should be
             # mapped to a response.
+
+            # Remove the `stack` field as it isn't JSON serializable
+            # and isn't required in the proxy client tests.
+            json_response.pop("stack")
+
             return MockResponse(json=json.loads(json.dumps(json_response)))
 
         def _handle__get__transplants__id(self, path):
