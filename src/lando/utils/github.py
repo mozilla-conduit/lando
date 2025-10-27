@@ -3,11 +3,8 @@ import logging
 
 import requests
 from django.conf import settings
-from django.db.models.query import QuerySet
 from simple_github import AppAuth, AppInstallationAuth
 
-from lando.main.models import LandingJob, Revision
-from lando.main.models.jobs import JobStatus
 from lando.main.models.repo import Repo
 
 logger = logging.getLogger(__name__)
@@ -119,30 +116,6 @@ class PullRequest:
 
     def __repr__(self) -> str:
         return f"Pull request #{self.number} ({self.head_repo_git_url})"
-
-    @property
-    def is_landing(self) -> bool:
-        """Return True if there are any active landing jobs for this pull request."""
-        return self.landing_jobs.filter(
-            status__in=(JobStatus.CREATED, JobStatus.SUBMITTED, JobStatus.IN_PROGRESS)
-        ).exists()
-
-    @property
-    def is_landed(self) -> bool:
-        """Return True if there are any landed jobs for this pull request."""
-        return self.landing_jobs.filter(status=JobStatus.LANDED).exists()
-
-    @property
-    def landing_jobs(self) -> QuerySet:
-        """Return a queryset of landing jobs for this pull request."""
-        revisions = Revision.objects.filter(
-            landing_jobs__target_repo__id=self.repo.id, pull_number=self.number
-        )
-        landing_jobs = LandingJob.objects.filter(
-            unsorted_revisions__in=revisions
-        ).order_by("-created_at")
-
-        return landing_jobs
 
     def __init__(self, data: dict, repo: Repo):
         self.repo = repo
