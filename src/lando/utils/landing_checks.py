@@ -44,6 +44,8 @@ class Check(ABC):
     @abstractmethod
     def name(cls) -> str:
         """Human-friendly name for this check."""
+        # XXX: Ideally, this should be a class properties, but Python>3.11 deprecates
+        # them.
 
     @classmethod
     @abstractmethod
