@@ -287,6 +287,16 @@ class PatchCollectionCheck(Check, ABC):
 class CommitMessagesCheck(PatchCollectionCheck):
     """Check the format of the passed commit message for issues."""
 
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "CommitMessagesCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Check the format of the passed commit message for issues."
+
     ignore_bad_commit_message: bool = False
     commit_message_issues: list[str] = field(default_factory=list)
 
