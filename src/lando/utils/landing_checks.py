@@ -377,10 +377,12 @@ class WPTSyncCheck(PatchCollectionCheck):
     """Check the WPTSync bot is only pushing changes to relevant subset of the tree."""
 
     @override
+    @classmethod
     def name(cls) -> str:
         return "WPTSyncCheck"
 
     @override
+    @classmethod
     def description(cls) -> str:
         return "Check the WPTSync bot is only pushing changes to relevant subset of the tree."
 
