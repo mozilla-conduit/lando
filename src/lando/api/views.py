@@ -166,21 +166,6 @@ class hg2gitCommitMapView(CommitMapBaseView):
     scm = SCM_TYPE_HG
 
 
-# TODO: move all these to `lando.api.views.pull_requests`.
-class PullRequestAPIView(APIView):
-    """Handle pull requests in the API."""
-
-    def get(self, request: WSGIRequest, repo_name: str, number: int) -> JsonResponse:
-        """Return a serialized JSON representation of a pull request."""
-        target_repo = Repo.objects.get(name=repo_name)
-        client = GitHubAPIClient(target_repo)
-        pull_request = PullRequest(client.get_pull_request(number), target_repo)
-        patch = client.get_patch(number)
-        diff = client.get_diff(number)
-        return JsonResponse({"diff": diff, "patch": patch}, status=200)
-        return JsonResponse(pull_request.serialize(), status=200)
-
-
 class LandingJobPullRequestAPIView(View):
     """Handle pull request landing jobs in the API."""
 
@@ -234,14 +219,12 @@ class LandingJobPullRequestAPIView(View):
         if not form.is_valid():
             return JsonResponse(form.errors, 400)
 
-        # TODO, use these for verification.
+        # TODO, use these for verification. See bug 1996571.
         # target_repo = form.cleaned_data["target_repo"]
         # base_ref = form.cleaned_data["base_ref"]
 
-        # TODO: validate that the target repo and base_ref match what is in the PR.
-        # For now, we will just fetch the patch and apply it as-is.
-
         # TODO: this does not work with binary data, must use patch instead.
+        # See bug 1993047.
         diff = client.get_diff(pull_number)
 
         job = LandingJob(target_repo=target_repo, requester_email=ldap_username)
@@ -250,6 +233,7 @@ class LandingJobPullRequestAPIView(View):
         revision = Revision.objects.create(pull_number=pull_request.number)
         patch_data = {
             # These should be parsed from the patch, but for now, use a placeholder.
+            # See bug 1995006.
             "author_name": "Author Name",
             "author_email": "Author Email <email@example.org>",
             "commit_message": pull_request.title,
