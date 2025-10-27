@@ -136,6 +136,16 @@ class TryTaskConfigCheck(PatchCheck):
 class PreventNSPRNSSCheck(PatchCheck):
     """Prevent changes to vendored NSPR directories."""
 
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PreventNSPRNSSCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Prevent changes to vendored NSPR directories."
+
     nss_disallowed_changes: list[str] = field(default_factory=list)
     nspr_disallowed_changes: list[str] = field(default_factory=list)
 
