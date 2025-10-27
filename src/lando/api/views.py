@@ -197,7 +197,7 @@ class LandingJobPullRequestAPIView(View):
             JobStatus.FAILED,
         ]:
             if landing_jobs_by_status[_status]:
-                status = str(_status)
+                status = str(_status).lower()
                 break
 
         return JsonResponse({"status": status}, status=200)
