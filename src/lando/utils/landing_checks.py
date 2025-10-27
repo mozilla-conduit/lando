@@ -552,8 +552,8 @@ class LandingChecks:
 
     def run(
         self,
-        hooks: list[str] | list[type[PatchCheck] | type[PatchCollectionCheck]],
-        patches: list[PatchHelper],
+        hook_names: Iterable[str],
+        patches: Iterable[PatchHelper],
     ) -> list[str]:
         """Run landing checks on a stack of patches.
 
