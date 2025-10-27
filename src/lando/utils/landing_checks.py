@@ -376,6 +376,14 @@ class CommitMessagesCheck(PatchCollectionCheck):
 class WPTSyncCheck(PatchCollectionCheck):
     """Check the WPTSync bot is only pushing changes to relevant subset of the tree."""
 
+    @override
+    def name(cls) -> str:
+        return "WPTSyncCheck"
+
+    @override
+    def description(cls) -> str:
+        return "Check the WPTSync bot is only pushing changes to relevant subset of the tree."
+
     wpt_disallowed_files: list[str] = field(default_factory=list)
 
     def next_diff(self, patch_helper: PatchHelper):
