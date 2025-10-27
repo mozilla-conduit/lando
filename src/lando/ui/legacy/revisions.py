@@ -86,7 +86,7 @@ class UpliftRequestView(LandoView):
         return redirect(tip_differential)
 
 
-class UpliftAssessmentEditView(LandoView):
+class UpliftAssessmentCreateOrEditView(LandoView):
     """Update and create uplift request assessment forms."""
 
     @force_auth_refresh
