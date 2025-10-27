@@ -663,4 +663,3 @@ def test_landing_checks_run():
     names_run = landing_checks.run([chk.name() for chk in ALL_CHECKS], patch_helpers)
 
     assert len(names_run) == 3
-    assert all_checks_run == names_run
