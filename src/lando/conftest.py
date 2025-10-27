@@ -528,6 +528,8 @@ def hg_repo_mc(
         "push_target": push_target,
     }
     if hooks:
+        # There's a sane default in the fixture we call, so we don't want to override it
+        # with None if nothing explicit it given.
         params["hooks"] = hooks
 
     repo = Repo.objects.create(
