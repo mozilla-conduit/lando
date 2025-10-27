@@ -55,7 +55,6 @@ $.fn.stack = function() {
                 } else if (["created", "submitted", "in progress"].includes(result.status)) {
                     pull_request_button.prop("disabled", true);
                     pull_request_button.removeClass("is-loading");
-                    // TODO: allow cancelling job in this case.
                     pull_request_button.html("Landing job submitted");
                 } else {
                     pull_request_button.prop("disabled", false);
@@ -63,7 +62,7 @@ $.fn.stack = function() {
                     pull_request_button.html("Request landing");
                 }
             } else {
-                // TODO: handle this case.
+                // TODO: handle this case. See bug 1996000.
             }
         });
 
