@@ -264,7 +264,7 @@ class DiffAssessor:
 
 
 @dataclass
-class PatchCollectionCheck(ABC):
+class PatchCollectionCheck(Check, ABC):
     """Provides an interface to implement patch collection checks.
 
     When looping over each patch in the collection, `next_diff` is called to give the
