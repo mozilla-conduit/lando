@@ -50,15 +50,6 @@
               <th>Description</th>
               <td>{{ pull_request.body }}</td>
           </tr>
-          <tr>
-              <th>Landing attempts</th>
-              <td>
-                  {% for landing_job in pull_request.landing_jobs %}
-                  {{ landing_job }}<br>
-                  {% endfor %}
-              </td>
-          </tr>
-          </tr>
       </table>
   </div>
 </main>

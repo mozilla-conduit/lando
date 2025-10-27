@@ -22,7 +22,6 @@ class PullRequestView(LandoView):
         pull_request = PullRequest(client.get_pull_request(number), target_repo)
 
         context = {
-            "dryrun": None,
             "target_repo": target_repo,
             "pull_request": pull_request,
         }
