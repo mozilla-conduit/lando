@@ -109,6 +109,16 @@ class PreventSymlinksCheck(PatchCheck):
 class TryTaskConfigCheck(PatchCheck):
     """Check for `try_task_config.json` introduced in the diff."""
 
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "TryTaskConfigCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Check for `try_task_config.json` introduced in the diff."
+
     includes_try_task_config: bool = False
 
     def next_diff(self, diff: dict):
