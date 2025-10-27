@@ -47,6 +47,7 @@ class LandingJob(BaseJob):
         Revision, through="RevisionLandingJob", related_name="landing_jobs"
     )
 
+    @property
     def is_pull_request_job(self) -> bool:
         """Return True if all revisions in the landing job have a pull_number set."""
         return not self.revisions.filter(pull_number__isnull=True).exists()
