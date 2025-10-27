@@ -16,7 +16,7 @@ from lando.main.scm import (
     SCM_TYPE_HG,
     AbstractSCM,
 )
-from lando.utils.landing_checks import ALL_CHECKS, BugReferencesCheck
+from lando.utils.landing_checks import BugReferencesCheck
 
 logger = logging.getLogger(__name__)
 
@@ -47,19 +47,15 @@ class RepoError(Exception):
     pass
 
 
-# Dict of hook names to docstring, suitable as human-friendly choices.
-HOOKS_CHOICES: dict[str, str] = {hook.name(): hook.description() for hook in ALL_CHECKS}
-
-
 def get_default_hooks() -> list[str]:
     """Returns a list of all known hook names, suitable as a default value.
 
     Assuming a normal repository, we enable everything but the BugReferencesCheck, which
     is only relevant for Try-type repos."""
     return [
-        hook_name
-        for hook_name in HOOKS_CHOICES
-        if hook_name != BugReferencesCheck.name()
+        hook.name
+        for hook in Repo.HooksChoices
+        if hook.name != BugReferencesCheck.name()
     ]
 
 
@@ -67,6 +63,38 @@ class Repo(BaseModel):
     """Represents the configuration of a particular repo."""
 
     _scm: AbstractSCM | None = None
+
+    class HooksChoices(models.TextChoices):
+        """Allowable statuses of a tree."""
+
+        PreventSymlinksCheck = (
+            "PreventSymlinksCheck",
+            "Check for symlinks introduced in the diff.",
+        )
+        TryTaskConfigCheck = (
+            "TryTaskConfigCheck",
+            "Check for `try_task_config.json` introduced in the diff.",
+        )
+        PreventNSPRNSSCheck = (
+            "PreventNSPRNSSCheck",
+            "Prevent changes to vendored NSPR directories.",
+        )
+        PreventSubmodulesCheck = (
+            "PreventSubmodulesCheck",
+            "Prevent introduction of Git submodules into the repository.",
+        )
+        CommitMessagesCheck = (
+            "CommitMessagesCheck",
+            "Check the format of the passed commit message for issues.",
+        )
+        WPTSyncCheck = (
+            "WPTSyncCheck",
+            "Check the WPTSync bot is only pushing changes to relevant subset of the tree.",
+        )
+        BugReferencesCheck = (
+            "BugReferencesCheck",
+            "Prevent commit messages referencing non-public bugs from try.",
+        )
 
     @property
     def path(self) -> str:
@@ -171,15 +199,10 @@ class Repo(BaseModel):
     # Use this field to enable/disable pre-landing hooks for a repo.
     hooks_enabled = models.BooleanField(default=True)
 
-    # Bring the HOOKS_CHOICES into this namespace for external reference.
-    HOOKS_CHOICES = HOOKS_CHOICES
-
     # WARNING: Due to this binding, whenever checks are added or removed, a database
     # migration is needed.
     hooks = ArrayField(
-        models.CharField(
-            max_length=255, blank=False, null=False, choices=HOOKS_CHOICES
-        ),
+        models.CharField(max_length=255, blank=False, null=False, choices=HooksChoices),
         blank=True,
         null=True,
         default=get_default_hooks,
