@@ -202,6 +202,16 @@ class PreventNSPRNSSCheck(PatchCheck):
 class PreventSubmodulesCheck(PatchCheck):
     """Prevent introduction of Git submodules into the repository."""
 
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PreventSubmodulesCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Prevent introduction of Git submodules into the repository."
+
     includes_gitmodules: bool = False
 
     def next_diff(self, diff: dict):
