@@ -166,48 +166,40 @@ class hg2gitCommitMapView(CommitMapBaseView):
     scm = SCM_TYPE_HG
 
 
-# TODO: move all these to `lando.api.views.pull_requests`.
-class PullRequestAPIView(APIView):
-    """Handle pull requests in the API."""
-
-    def get(self, request: WSGIRequest, repo_name: str, number: int) -> JsonResponse:
-        """Return a serialized JSON representation of a pull request."""
-        target_repo = Repo.objects.get(name=repo_name)
-        client = GitHubAPIClient(target_repo)
-        pull_request = PullRequest(client.get_pull_request(number), target_repo)
-        patch = client.get_patch(number)
-        diff = client.get_diff(number)
-        return JsonResponse({"diff": diff, "patch": patch}, status=200)
-        return JsonResponse(pull_request.serialize(), status=200)
-
-
 class LandingJobPullRequestAPIView(View):
     """Handle pull request landing jobs in the API."""
 
     def get(
         self, request: WSGIRequest, repo_name: int, pull_number: int
     ) -> JsonResponse:
-        """Return list of landing job ids by status."""
+        """Return the status of a pull request based on landing job counts."""
 
         target_repo = Repo.objects.get(name=repo_name)
-        client = GitHubAPIClient(target_repo)
-        pull_request = PullRequest(client.get_pull_request(pull_number), target_repo)
-        landing_jobs = defaultdict(list)
-        for landing_job in pull_request.landing_jobs:
-            landing_jobs[landing_job.status].append(landing_job.id)
+        landing_jobs_by_status = defaultdict(list)
 
-        if len(landing_jobs[JobStatus.LANDED]):
-            status = "landed"
-        elif len(landing_jobs[JobStatus.CREATED]):
-            status = "created"
-        elif len(landing_jobs[JobStatus.SUBMITTED]):
-            status = "submitted"
-        elif len(landing_jobs[JobStatus.IN_PROGRESS]):
-            status = "in progress"
-        elif len(landing_jobs[JobStatus.FAILED]):
-            status = "failed"
-        else:
-            status = "unknown"
+        revisions = Revision.objects.filter(
+            landing_jobs__target_repo=target_repo, pull_number=pull_number
+        )
+        landing_jobs = LandingJob.objects.filter(
+            unsorted_revisions__in=revisions
+        ).order_by("-created_at")
+
+        for landing_job in landing_jobs:
+            landing_jobs_by_status[landing_job.status].append(landing_job.id)
+
+        status = None
+        # Return the first encountered status in this list.
+        for _status in [
+            JobStatus.LANDED,
+            JobStatus.CREATED,
+            JobStatus.SUBMITTED,
+            JobStatus.IN_PROGRESS,
+            JobStatus.FAILED,
+        ]:
+            if landing_jobs_by_status[_status]:
+                status = str(_status).lower()
+                break
+
         return JsonResponse({"status": status}, status=200)
 
     def post(
@@ -219,11 +211,8 @@ class LandingJobPullRequestAPIView(View):
             """Simple form to get clean some fields."""
 
             head_sha = forms.CharField()
+            # TODO: use this for verification later, see bug 1996571.
             # base_ref = forms.CharField()
-
-        # Create a new landing job for a GitHub pull request.
-        # To do this, verify that the given hash matches the most recent hash
-        # in the pull request. So we first refetch the pull request.
 
         target_repo = Repo.objects.get(name=repo_name)
         client = GitHubAPIClient(target_repo)
@@ -234,22 +223,15 @@ class LandingJobPullRequestAPIView(View):
         if not form.is_valid():
             return JsonResponse(form.errors, 400)
 
-        # TODO, use these for verification.
-        # target_repo = form.cleaned_data["target_repo"]
-        # base_ref = form.cleaned_data["base_ref"]
-
-        # TODO: validate that the target repo and base_ref match what is in the PR.
-        # For now, we will just fetch the patch and apply it as-is.
-
         # TODO: this does not work with binary data, must use patch instead.
+        # See bug 1993047.
         diff = client.get_diff(pull_number)
-
-        job = LandingJob(target_repo=target_repo, requester_email=ldap_username)
-        job.save()
-
+        job = LandingJob.objects.create(
+            target_repo=target_repo, requester_email=ldap_username
+        )
         revision = Revision.objects.create(pull_number=pull_request.number)
         patch_data = {
-            # These should be parsed from the patch, but for now, use logged in user.
+            # See bug 1995006 (to actually parse authorship info). Use placeholder for now.
             "author_name": "Author Name",
             "author_email": "Author Email <email@example.org>",
             "commit_message": pull_request.title,
