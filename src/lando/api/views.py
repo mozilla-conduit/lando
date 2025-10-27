@@ -175,11 +175,17 @@ class LandingJobPullRequestAPIView(View):
         """Return the status of a pull request based on landing job counts."""
 
         target_repo = Repo.objects.get(name=repo_name)
-        client = GitHubAPIClient(target_repo)
-        pull_request = PullRequest(client.get_pull_request(pull_number), target_repo)
-        landing_jobs = defaultdict(list)
-        for landing_job in pull_request.landing_jobs:
-            landing_jobs[landing_job.status].append(landing_job.id)
+        landing_jobs_by_status = defaultdict(list)
+
+        revisions = Revision.objects.filter(
+            landing_jobs__target_repo=target_repo, pull_number=pull_number
+        )
+        landing_jobs = LandingJob.objects.filter(
+            unsorted_revisions__in=revisions
+        ).order_by("-created_at")
+
+        for landing_job in landing_jobs:
+            landing_jobs_by_status[landing_job.status].append(landing_job.id)
 
         status = None
         # Return the first encountered status in this list.
@@ -190,7 +196,7 @@ class LandingJobPullRequestAPIView(View):
             JobStatus.IN_PROGRESS,
             JobStatus.FAILED,
         ]:
-            if landing_jobs[_status]:
+            if landing_jobs_by_status[_status]:
                 status = str(_status)
                 break
 
