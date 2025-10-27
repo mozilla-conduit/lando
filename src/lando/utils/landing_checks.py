@@ -51,7 +51,7 @@ class Check(ABC):
 
 
 @dataclass
-class PatchCheck(ABC):
+class PatchCheck(Check, ABC):
     """Provides an interface to implement patch checks.
 
     When looping over each diff in the patch, `next_diff` is called to give the
