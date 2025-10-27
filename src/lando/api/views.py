@@ -181,18 +181,18 @@ class LandingJobPullRequestAPIView(View):
         for landing_job in pull_request.landing_jobs:
             landing_jobs[landing_job.status].append(landing_job.id)
 
-        if landing_jobs[JobStatus.LANDED]:
-            status = "landed"
-        elif landing_jobs[JobStatus.CREATED]:
-            status = "created"
-        elif landing_jobs[JobStatus.SUBMITTED]:
-            status = "submitted"
-        elif landing_jobs[JobStatus.IN_PROGRESS]:
-            status = "in progress"
-        elif landing_jobs[JobStatus.FAILED]:
-            status = "failed"
-        else:
-            status = "unknown"
+        status = None
+        # Return the first encountered status in this list.
+        for _status in [
+            JobStatus.LANDED,
+            JobStatus.CREATED,
+            JobStatus.SUBMITTED,
+            JobStatus.IN_PROGRESS,
+            JobStatus.FAILED,
+        ]:
+            if landing_jobs[_status]:
+                status = str(_status)
+                break
 
         return JsonResponse({"status": status}, status=200)
 
@@ -205,11 +205,8 @@ class LandingJobPullRequestAPIView(View):
             """Simple form to get clean some fields."""
 
             head_sha = forms.CharField()
+            # TODO: use this for verification later, see bug 1996571.
             # base_ref = forms.CharField()
-
-        # Create a new landing job for a GitHub pull request.
-        # To do this, verify that the given hash matches the most recent hash
-        # in the pull request. So we first refetch the pull request.
 
         target_repo = Repo.objects.get(name=repo_name)
         client = GitHubAPIClient(target_repo)
@@ -220,21 +217,15 @@ class LandingJobPullRequestAPIView(View):
         if not form.is_valid():
             return JsonResponse(form.errors, 400)
 
-        # TODO, use these for verification. See bug 1996571.
-        # target_repo = form.cleaned_data["target_repo"]
-        # base_ref = form.cleaned_data["base_ref"]
-
         # TODO: this does not work with binary data, must use patch instead.
         # See bug 1993047.
         diff = client.get_diff(pull_number)
-
-        job = LandingJob(target_repo=target_repo, requester_email=ldap_username)
-        job.save()
-
+        job = LandingJob.objects.create(
+            target_repo=target_repo, requester_email=ldap_username
+        )
         revision = Revision.objects.create(pull_number=pull_request.number)
         patch_data = {
-            # These should be parsed from the patch, but for now, use a placeholder.
-            # See bug 1995006.
+            # See bug 1995006 (to actually parse authorship info). Use placeholder for now.
             "author_name": "Author Name",
             "author_email": "Author Email <email@example.org>",
             "commit_message": pull_request.title,
