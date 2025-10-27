@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 
 import requests
 import rs_parsepatch
+from typing_extensions import override
 
 from lando.api.legacy.bmo import (
     get_status_code_for_bug,
