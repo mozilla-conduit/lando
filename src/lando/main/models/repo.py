@@ -48,8 +48,7 @@ class RepoError(Exception):
 
 
 # Dict of hook names to docstring, suitable as human-friendly choices.
-HOOKS_CHOICES = {chk.__name__: chk.__doc__ or chk.__name__ for chk in ALL_CHECKS}
-
+HOOKS_CHOICES: dict[str, str] = {hook.name(): hook.description() for hook in ALL_CHECKS}
 
 def get_default_hooks() -> list[str]:
     """Returns a list of all known hook names, suitable as a default value.
