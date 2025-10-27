@@ -36,6 +36,21 @@ def wrap_filenames(filenames: list[str]) -> str:
 
 
 @dataclass
+class Check(ABC):
+    """A base class for check, providing human-friendly identification attributes."""
+
+    @classmethod
+    @abstractmethod
+    def name(cls) -> str:
+        """Human-friendly name for this check."""
+
+    @classmethod
+    @abstractmethod
+    def description(cls) -> str:
+        """Human-friendly description for this check."""
+
+
+@dataclass
 class PatchCheck(ABC):
     """Provides an interface to implement patch checks.
 
