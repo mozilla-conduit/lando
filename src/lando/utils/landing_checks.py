@@ -76,6 +76,16 @@ class PatchCheck(Check, ABC):
 class PreventSymlinksCheck(PatchCheck):
     """Check for symlinks introduced in the diff."""
 
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PreventSymlinksCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Check for symlinks introduced in the diff."
+
     symlinked_files: list[str] = field(default_factory=list)
 
     def next_diff(self, diff: dict):
