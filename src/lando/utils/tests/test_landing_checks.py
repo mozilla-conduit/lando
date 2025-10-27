@@ -662,7 +662,5 @@ def test_landing_checks_run():
 
     names_run = landing_checks.run([chk.name() for chk in ALL_CHECKS], patch_helpers)
 
-    # Ensure that we get the same, non-empty, result with both types.
-    assert len(all_checks_run) == 3
     assert len(names_run) == 3
     assert all_checks_run == names_run
