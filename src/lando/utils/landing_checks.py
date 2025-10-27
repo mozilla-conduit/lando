@@ -421,10 +421,12 @@ class BugReferencesCheck(PatchCollectionCheck):
     """Prevent commit messages referencing non-public bugs from try."""
 
     @override
+    @classmethod
     def name(cls) -> str:
         return "BugReferencesCheck"
 
     @override
+    @classmethod
     def description(cls) -> str:
         return "Prevent commit messages referencing non-public bugs from try."
 
