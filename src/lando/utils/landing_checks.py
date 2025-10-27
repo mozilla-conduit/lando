@@ -559,8 +559,10 @@ class LandingChecks:
 
         Parameters:
 
-        hooks: list[str]
-            a list of strings of check names
+        hooks: list[str] | list[type[PatchCheck] | type[PatchCollectionCheck]]
+            Either
+                - a list of strings of check names, or
+                - a list of check types (e.g., ALL_STACK_CHECKS or ALL_COMMIT_CHECKS).
 
         patches: list[PatchHelper]
             a list of patches to check
