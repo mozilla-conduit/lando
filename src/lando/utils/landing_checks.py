@@ -570,8 +570,11 @@ class LandingChecks:
         Returns:
             list[str]: a list of error messages.
         """
-        commit_checks = [chk for chk in ALL_COMMIT_CHECKS if chk.name in hook_names]
-        stack_checks = [chk for chk in ALL_STACK_CHECKS if chk.name in hook_names]
+        # Flatten the list of hooks to name strings.
+        hook_names = [chk if isinstance(chk, str) else chk.__name__ for chk in hooks]
+
+        commit_checks = [chk for chk in ALL_COMMIT_CHECKS if chk.__name__ in hook_names]
+        stack_checks = [chk for chk in ALL_STACK_CHECKS if chk.__name__ in hook_names]
 
         assessor = PatchCollectionAssessor(
             patches, push_user_email=self.requester_email
