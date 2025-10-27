@@ -172,7 +172,7 @@ class LandingJobPullRequestAPIView(View):
     def get(
         self, request: WSGIRequest, repo_name: int, pull_number: int
     ) -> JsonResponse:
-        """Return list of landing job ids by status."""
+        """Return the status of a pull request based on landing job counts."""
 
         target_repo = Repo.objects.get(name=repo_name)
         client = GitHubAPIClient(target_repo)
@@ -193,6 +193,7 @@ class LandingJobPullRequestAPIView(View):
             status = "failed"
         else:
             status = "unknown"
+
         return JsonResponse({"status": status}, status=200)
 
     def post(
