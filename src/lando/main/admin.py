@@ -4,6 +4,7 @@ from typing import Callable, Self
 from django.contrib import admin
 from django.db.models import Field as DbField
 from django.forms import CheckboxSelectMultiple, MultipleChoiceField
+from django.forms import Field as FormField
 from django.http import HttpRequest
 from django.utils.translation import gettext_lazy
 
