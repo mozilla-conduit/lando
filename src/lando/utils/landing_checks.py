@@ -420,6 +420,14 @@ BUG_REFERENCES_BMO_ERROR_TEMPLATE = (
 class BugReferencesCheck(PatchCollectionCheck):
     """Prevent commit messages referencing non-public bugs from try."""
 
+    @override
+    def name(cls) -> str:
+        return "BugReferencesCheck"
+
+    @override
+    def description(cls) -> str:
+        return "Prevent commit messages referencing non-public bugs from try."
+
     bug_ids: set[int] = field(default_factory=set)
     skip_check: bool = False
 
