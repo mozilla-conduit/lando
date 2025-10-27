@@ -56,7 +56,7 @@ def get_default_hooks() -> list[str]:
 
     Assuming a normal repository, we enable everything but the BugReferencesCheck, which
     is only relevant for Try-type repos."""
-    return [hook for hook in HOOKS_CHOICES if hook != BugReferencesCheck]
+    return [hook_name for hook_name in HOOKS_CHOICES if hook_name != BugReferencesCheck.name]
 
 
 class Repo(BaseModel):
