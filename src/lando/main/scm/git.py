@@ -22,6 +22,7 @@ from lando.main.scm.exceptions import (
 )
 from lando.main.scm.helpers import GitPatchHelper, PatchHelper
 from lando.settings import LANDO_USER_EMAIL, LANDO_USER_NAME
+from lando.utils.const import URL_USERINFO_RE
 from lando.utils.github import GitHub
 
 from .abstract_scm import AbstractSCM
@@ -33,21 +34,6 @@ ISO8601_TIMESTAMP_BASIC = "%Y-%m-%dT%H%M%S%Z"
 
 ENV_COMMITTER_NAME = "GIT_COMMITTER_NAME"
 ENV_COMMITTER_EMAIL = "GIT_COMMITTER_EMAIL"
-
-# From RFC-3986 [0]:
-#
-#     userinfo    = *( unreserved / pct-encoded / sub-delims / ":" )
-#
-#     unreserved  = ALPHA / DIGIT / "-" / "." / "_" / "~"
-#     pct-encoded   = "%" HEXDIG HEXDIG
-#     sub-delims  = "!" / "$" / "&" / "'" / "(" / ")"
-#                 / "*" / "+" / "," / ";" / "=
-#
-# [0] https://www.rfc-editor.org/rfc/rfc3986
-URL_USERINFO_RE = re.compile(
-    "(?P<userinfo>[-A-Za-z0-9:._~%!$&'*()*+;=]*:[-A-Za-z0-9:._~%!$&'*()*+;=]*@)",
-    flags=re.MULTILINE,
-)
 
 
 class GitSCM(AbstractSCM):

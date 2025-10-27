@@ -6,14 +6,9 @@ import requests
 from django.conf import settings
 from simple_github import AppAuth, AppInstallationAuth
 
-logger = logging.getLogger(__name__)
+from lando.utils.const import URL_USERINFO_RE
 
-# From RFC-3986.
-# XXX: Duplicated from GitSCM to avoid circular import.
-URL_USERINFO_RE = re.compile(
-    "(?P<userinfo>[-A-Za-z0-9:._~%!$&'*()*+;=]*:[-A-Za-z0-9:._~%!$&'*()*+;=]*@)",
-    flags=re.MULTILINE,
-)
+logger = logging.getLogger(__name__)
 
 
 class GitHub:
