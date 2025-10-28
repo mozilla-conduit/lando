@@ -46,6 +46,9 @@ class Revision(BaseModel):
     # does not track all diffs.
     diff_id = models.IntegerField(blank=True, null=True)
 
+    # GitHub pull request number, if this is a pull request.
+    pull_number = models.IntegerField(blank=True, null=True)
+
     # The actual patch with Mercurial metadata format.
     patch = models.TextField(blank=True, default="")
 
