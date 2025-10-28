@@ -15,6 +15,7 @@ from lando.main.models import (
     JobStatus,
     LandingJob,
     Repo,
+    RevisionLandingJob,
 )
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.scm.exceptions import SCMInternalServerError
@@ -352,6 +353,104 @@ def test_integrated_execute_job(
         revisions
     ), "Incorrect number of additional commits in the PushLog"
     assert new_push_count == 1, "Incorrect number of additional pushes in the PushLog"
+
+
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        SCM_TYPE_GIT,
+        SCM_TYPE_HG,
+    ],
+)
+@pytest.mark.django_db
+def test_revisionlandingjob_commit_ids_updated_on_success(
+    repo_mc,
+    treestatusdouble,
+    mock_phab_trigger_repo_update_apply_async,
+    create_patch_revision,
+    make_landing_job,
+    get_landing_worker,
+    repo_type: str,
+):
+    """Ensure landed commit SHAs are copied onto RevisionLandingJob rows."""
+    repo = repo_mc(repo_type)
+    treestatusdouble.open_tree(repo.name)
+
+    revisions = [
+        create_patch_revision(1, patch=None),
+        create_patch_revision(2, patch=None),
+    ]
+    job_params = {
+        "status": JobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "target_repo": repo,
+        "attempts": 1,
+    }
+    job = make_landing_job(revisions=revisions, **job_params)
+
+    worker = get_landing_worker(repo_type)
+    assert worker.run_job(job)
+    assert job.status == JobStatus.LANDED
+
+    revision_jobs = list(
+        RevisionLandingJob.objects.filter(landing_job=job).order_by("index")
+    )
+    assert len(revision_jobs) == len(revisions)
+
+    ordered_revisions = list(job.revisions)
+    for revision, revision_job in zip(ordered_revisions, revision_jobs, strict=False):
+        assert revision.commit_id, "`commit_id` should be set on `Revision` object."
+        assert (
+            revision_job.commit_id
+        ), "`commit_id` should be set on `RevisionLandingJob` object."
+
+
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        SCM_TYPE_GIT,
+        SCM_TYPE_HG,
+    ],
+)
+@pytest.mark.django_db
+def test_revisionlandingjob_commit_ids_unset_without_landing(
+    repo_mc,
+    treestatusdouble,
+    mock_phab_trigger_repo_update_apply_async,
+    create_patch_revision,
+    make_landing_job,
+    get_landing_worker,
+    repo_type: str,
+):
+    """Ensure `commit_id` is not tracked for incomplete job."""
+    repo = repo_mc(repo_type)
+    treestatusdouble.open_tree(repo.name)
+    scm = repo.scm
+
+    job_params = {
+        "status": JobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "target_repo": repo,
+        "attempts": 1,
+    }
+    job = make_landing_job(revisions=[create_patch_revision(1)], **job_params)
+
+    scm.push = mock.MagicMock(side_effect=SCMInternalServerError("push failed", "500"))
+
+    worker = get_landing_worker(repo_type)
+    assert not worker.run_job(job)
+    assert job.status == JobStatus.DEFERRED
+
+    revision_jobs = list(
+        RevisionLandingJob.objects.filter(landing_job=job).order_by("index")
+    )
+    assert len(revision_jobs) == 1
+
+    revision = job.revisions.first()
+    assert revision.commit_id, "`commit_id` should still be set on `Revision` object."
+    assert (
+        revision_jobs[0].commit_id is None
+    ), "`commit_id` should not be set for un-landed job."
 
 
 @pytest.mark.parametrize(

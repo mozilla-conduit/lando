@@ -22,6 +22,7 @@ from lando.main.models import (
     LandingJob,
     PermanentFailureException,
     Repo,
+    Revision,
     TemporaryFailureException,
     WorkerType,
 )
@@ -139,6 +140,7 @@ class LandingWorker(Worker):
             except TemporaryFailureException:
                 return False
 
+        job.set_landed_commit_ids()
         job.transition_status(JobAction.LAND, commit_id=commit_id)
 
         mots_path = Path(repo.path) / "mots.yaml"
@@ -187,15 +189,28 @@ class LandingWorker(Worker):
         """
         self.update_repo(repo, job, scm, job.target_commit_hash)
 
+        def apply_patch(revision: Revision):
+            logger.debug(f"Landing {revision} ...")
+            scm.apply_patch(
+                revision.diff,
+                revision.commit_message,
+                revision.author,
+                revision.timestamp,
+            )
+
         # Run through the patches one by one and try to apply them.
         logger.debug(
             f"About to land {job.revisions.count()} revisions: {job.revisions.all()} ..."
         )
         for revision in job.revisions.all():
-            logger.debug(f"Landing {revision} ...")
-            self.apply_patch(repo, job, scm, revision)
+            self.handle_new_commit_failures(apply_patch, repo, job, scm, revision)
+
             new_commit = scm.describe_commit()
             logger.debug(f"Created new commit {new_commit}")
+
+            # Record the commit ID on the revision object.
+            revision.commit_id = new_commit.hash
+            revision.save()
 
         # Get the changeset titles for the stack.
         changeset_titles = scm.changeset_descriptions()

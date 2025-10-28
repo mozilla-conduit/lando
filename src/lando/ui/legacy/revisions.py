@@ -89,7 +89,7 @@ class UpliftRequestView(LandoView):
         return redirect(request.META.get("HTTP_REFERER"))
 
 
-class UpliftAssessmentEditView(LandoView):
+class UpliftAssessmentCreateOrEditView(LandoView):
     """Update and create uplift request assessment forms."""
 
     @force_auth_refresh
