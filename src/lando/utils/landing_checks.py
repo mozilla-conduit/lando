@@ -38,7 +38,7 @@ def wrap_filenames(filenames: list[str]) -> str:
 
 @dataclass
 class Check(ABC):
-    """A base class for check, providing human-friendly identification attributes."""
+    """A base class for checks, providing human-friendly identification attributes."""
 
     @classmethod
     @abstractmethod
