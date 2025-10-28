@@ -189,21 +189,20 @@ class LandingWorker(Worker):
         """
         self.update_repo(repo, job, scm, job.target_commit_hash)
 
+        def apply_patch(revision: Revision):
+            logger.debug(f"Landing {revision} ...")
+            scm.apply_patch(
+                revision.diff,
+                revision.commit_message,
+                revision.author,
+                revision.timestamp,
+            )
+
         # Run through the patches one by one and try to apply them.
         logger.debug(
             f"About to land {job.revisions.count()} revisions: {job.revisions.all()} ..."
         )
         for revision in job.revisions.all():
-
-            def apply_patch(revision: Revision):
-                logger.debug(f"Landing {revision} ...")
-                scm.apply_patch(
-                    revision.diff,
-                    revision.commit_message,
-                    revision.author,
-                    revision.timestamp,
-                )
-
             self.handle_new_commit_failures(apply_patch, repo, job, scm, revision)
 
             new_commit = scm.describe_commit()
