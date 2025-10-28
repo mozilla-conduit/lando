@@ -199,8 +199,6 @@ class Repo(BaseModel):
     # Use this field to enable/disable pre-landing hooks for a repo.
     hooks_enabled = models.BooleanField(default=True)
 
-    # WARNING: Due to this binding, whenever checks are added or removed, a database
-    # migration is needed.
     hooks = ArrayField(
         models.CharField(max_length=255, blank=False, null=False, choices=HooksChoices),
         blank=True,
