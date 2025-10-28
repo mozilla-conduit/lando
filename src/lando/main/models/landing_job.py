@@ -11,6 +11,7 @@ from mots.config import FileConfig
 from mots.directory import Directory
 
 from lando.main.models.jobs import BaseJob
+from lando.main.models.repo import Repo
 from lando.main.models.revision import Revision, RevisionLandingJob
 
 logger = logging.getLogger(__name__)
@@ -268,3 +269,13 @@ def add_revisions_to_job(revisions: list[Revision], job: LandingJob):
     """Given an existing job, add and sort provided revisions."""
     job.add_revisions(revisions)
     job.sort_revisions(revisions)
+
+
+def get_jobs_for_pull(target_repo: Repo, pull_number: int) -> QuerySet[LandingJob]:
+    """Given a target repo and a pull number, return all landing jobs."""
+    revisions = Revision.objects.filter(
+        landing_jobs__target_repo=target_repo, pull_number=pull_number
+    )
+    return LandingJob.objects.filter(unsorted_revisions__in=revisions).order_by(
+        "-created_at"
+    )
