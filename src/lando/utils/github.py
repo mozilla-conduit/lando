@@ -78,7 +78,7 @@ class GitHubAPIClient:
             f"repos/{self.repo._github_repo_org}/{self.repo.git_repo_name}"
         )
 
-    def _get(self, path: str, *args, **kwargs) -> dict:
+    def _get(self, path: str, *args, **kwargs) -> dict | list | str:
         result = self.client.get(path, *args, **kwargs)
         content_type = result.headers["content-type"]
         if content_type == "application/json; charset=utf-8":
@@ -198,6 +198,14 @@ class PullRequest:
         self.user_id = data["user"]["id"]
         self.user_html_url = data["user"]["html_url"]
         self.user_login = data["user"]["login"]
+
+    @property
+    def diff(self) -> str:
+        return self._client.get_diff(self.diff_url)
+
+    @property
+    def patch(self) -> str:
+        return self._client.get_patch(self.patch_url)
 
     def serialize(self) -> dict[str, str]:
         """Return a dictionary with various pull request data."""
