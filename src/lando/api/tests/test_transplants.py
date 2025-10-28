@@ -831,7 +831,7 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
         (r3["id"], d3["id"]),
     ]
     assert job.status == JobStatus.SUBMITTED
-    assert job.landed_revisions == {1: 1, 2: 2, 3: 3}
+    assert job.landed_phabricator_revisions == {1: 1, 2: 2, 3: 3}
 
 
 @pytest.mark.django_db(transaction=True)
@@ -884,12 +884,13 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
         (r2["id"], d2["id"]),
     ]
     assert job.status == JobStatus.SUBMITTED
-    assert job.landed_revisions == {1: 1, 2: 2}
+    assert job.landed_phabricator_revisions == {1: 1, 2: 2}
 
 
 @pytest.mark.django_db
 def test_integrated_transplant_records_approvers_peers_and_owners(
     proxy_client,
+    authenticated_client,
     treestatusdouble,
     hg_server,
     hg_clone,
@@ -957,11 +958,31 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
         (r2["id"], d2["id"]),
     ]
     assert job.status == JobStatus.SUBMITTED
-    assert job.landed_revisions == {1: 1, 2: 2}
+    assert job.landed_phabricator_revisions == {1: 1, 2: 2}
     approved_by = [revision.data["approved_by"] for revision in job.revisions.all()]
     assert approved_by == [[101], [102]]
 
     assert hg_landing_worker.run_job(job)
+    assert job.landed_commit_id
+
+    # Fetch Job data.
+    response = authenticated_client.get(
+        f"/landing_jobs/{job.id}",
+        follow=True,
+    )
+    assert (
+        response.status_code == 200
+    ), f"Invalid status code from GET /landing_jobs/{job.id}"
+    assert (
+        response.json()["id"] == job.id
+    ), f"Invalid id in GET /landing_jobs/{job.id} response"
+    assert (
+        response.json()["status"] == JobStatus.LANDED
+    ), f"Invalid status in GET /landing_jobs/{job.id} response"
+    assert (
+        response.json()["commit_id"] == job.landed_commit_id
+    ), f"Invalid commit_id in GET /landing_jobs/{job.id} response"
+
     assert job.status == JobStatus.LANDED
     for revision in job.revisions.all():
         if revision.revision_id == 1:
@@ -971,8 +992,9 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
 
 
 @pytest.mark.django_db(transaction=True)
-def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
+def test_integrated_transplant_updated_diff_id_reflected_in_landed_phabricator_revisions(
     proxy_client,
+    authenticated_client,
     phabdouble,
     release_management_project,
     needs_data_classification_project,
@@ -1017,7 +1039,22 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
         (r1["id"], d1a["id"]),
     ]
     assert job.status == JobStatus.SUBMITTED
-    assert job.landed_revisions == {r1["id"]: d1a["id"]}
+    assert job.landed_phabricator_revisions == {r1["id"]: d1a["id"]}
+
+    # Fetch JSON data.
+    response = authenticated_client.get(
+        f"/landing_jobs/{job.id}",
+        follow=True,
+    )
+    assert (
+        response.status_code == 200
+    ), f"Invalid status code from GET /landing_jobs/{job.id}"
+    assert (
+        response.json()["id"] == job.id
+    ), f"Invalid id in GET /landing_jobs/{job.id} response"
+    assert (
+        response.json()["status"] == JobStatus.SUBMITTED
+    ), f"Invalid status in GET /landing_jobs/{job.id} response"
 
     # Cancel job.
     response = proxy_client.put(
@@ -1063,8 +1100,22 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     assert job_1.status == JobStatus.CANCELLED
     assert job_2.status == JobStatus.SUBMITTED
 
-    assert job_1.landed_revisions == {r1["id"]: d1a["id"]}
-    assert job_2.landed_revisions == {r1["id"]: d1b["id"]}
+    assert job_1.landed_phabricator_revisions == {r1["id"]: d1a["id"]}
+    assert job_2.landed_phabricator_revisions == {r1["id"]: d1b["id"]}
+
+
+@pytest.mark.django_db(transaction=True)
+def test_get_landing_jobs_404(authenticated_client):
+    # Fetch JSON data.
+    response = authenticated_client.get(
+        "/landing_jobs/20000",
+        follow=True,
+    )
+    assert (
+        response.status_code == 404
+    ), "Incorrect status code from GET /landing_jobs/ for non-existent job"
+    assert response.json()["title"] == "Landing job not found"
+    assert response.json()["detail"] == "A landing job with ID 20000 was not found."
 
 
 @pytest.mark.django_db(transaction=True)
@@ -2033,4 +2084,4 @@ def test_transplant_on_linked_legacy_repo(
     ]
     assert job.status == JobStatus.SUBMITTED
     assert job.target_repo == new_repo
-    assert job.landed_revisions == {1: 1, 2: 2, 3: 3}
+    assert job.landed_phabricator_revisions == {1: 1, 2: 2, 3: 3}

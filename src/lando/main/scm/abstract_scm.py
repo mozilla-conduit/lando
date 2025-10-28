@@ -110,11 +110,11 @@ class AbstractSCM(ABC):
         """
 
     @abstractmethod
-    def apply_patch_bytes(self, patch_bytes: bytes):
-        """Apply the given bytes representing a patch to the current repository.
+    def apply_patch_git(self, patch_bytes: bytes):
+        """Apply the Git patch, provided as encoded bytes.
 
         Args:
-            patch_bytes (bytes): A patch in the concrete SCM's standard format.
+            patch_bytes (bytes): A patch in the git-format-patch format.
 
         Returns:
             None

@@ -88,7 +88,9 @@ class PushAdmin(PushLogAdmin):
         if last_commit:
             summary = last_commit.hash[:8]
             if (ncommits := ncommits - 1) > 0:
-                summary = f"{summary} and {ncommits} commit{'s' if ncommits else ''}"
+                summary = (
+                    f"{summary} and {ncommits} commit{'s' if ncommits > 1 else ''}"
+                )
 
         return summary
 

@@ -322,6 +322,7 @@ class Worker(ABC):
     ) -> None:
         """Apply patches to repo with job status handling."""
         try:
+            logger.debug(f"Landing {revision} ...")
             scm.apply_patch(
                 revision.diff,
                 revision.commit_message,

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import datetime
 import logging
-import os
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
@@ -17,8 +16,6 @@ from lando.main.models.jobs import BaseJob
 from lando.main.models.revision import Revision, RevisionLandingJob
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_GRACE_SECONDS = int(os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2))
 
 
 class LandingJob(BaseJob):
@@ -51,8 +48,8 @@ class LandingJob(BaseJob):
     )
 
     @property
-    def landed_revisions(self) -> dict:
-        """Return revision and diff ID mapping associated with the landing job."""
+    def landed_phabricator_revisions(self) -> dict:
+        """Return a mapping associating Phabricator revision IDs with the ID of the landed Diff."""
         revision_ids = [revision.id for revision in self.unsorted_revisions.all()]
         revision_landing_jobs = (
             RevisionLandingJob.objects.filter(
@@ -65,21 +62,60 @@ class LandingJob(BaseJob):
         return dict(revision_landing_jobs)
 
     @property
+    def landed_revisions(self) -> dict:
+        """Return a mapping associating internal revision IDs with the ID of the landed Diff.
+
+        Note that the concept of a landed Diff is only relevant to Phabricator
+        transplants, and may therefore be None for other types of revisions.
+
+        """
+        revision_ids = [revision.id for revision in self.unsorted_revisions.all()]
+        revision_landing_jobs = (
+            RevisionLandingJob.objects.filter(
+                revision__id__in=revision_ids,
+                landing_job=self,
+            )
+            .order_by("index")
+            .values_list("revision_id", "diff_id")
+        )
+        return dict(revision_landing_jobs)
+
+    @property
     def serialized_landing_path(self) -> list[dict]:
-        """Return landing path based on associated revisions or legacy fields."""
-        if self.unsorted_revisions:
+        """Return landing path based on associated revisions or legacy fields.
+
+        If the first revision in the list has a Phabricator revision ID, the whole stack
+        is assumed to be a Phabricator stack, and those IDs are returned. Otherwise,
+        internal IDs are returned as the revision_id.
+        """
+        if not self.unsorted_revisions:
+            # Legacy revisions.
+            return [
+                {"revision_id": "D{}".format(r), "diff_id": self.revision_to_diff_id[r]}
+                for r in self.revision_order
+            ]
+
+        if self.has_phabricator_revisions:
             return [
                 {
                     "revision_id": "D{}".format(revision_id),
                     "diff_id": diff_id,
                 }
-                for revision_id, diff_id in self.landed_revisions.items()
+                for revision_id, diff_id in self.landed_phabricator_revisions.items()
             ]
-        else:
-            return [
-                {"revision_id": "D{}".format(r), "diff_id": self.revision_to_diff_id[r]}
-                for r in self.revision_order
-            ]
+
+        return [
+            {
+                "revision_id": "{}".format(revision_id),
+                "diff_id": diff_id,
+            }
+            for revision_id, diff_id in self.landed_revisions.items()
+        ]
+
+    @property
+    def has_phabricator_revisions(self) -> bool:
+        """Indicate if this job has Phabricator revisions by checking the first in the stack."""
+        return self.unsorted_revisions.first().is_phabricator_revision
 
     @property
     def landing_job_identifier(self) -> str:
@@ -127,9 +163,7 @@ class LandingJob(BaseJob):
 
     def to_dict(self) -> dict[str, Any]:
         job_dict = super().to_dict()
-        job_dict["revisions"] = [
-            f"{settings.PHABRICATOR_URL}/D{r.revision_id}" for r in self.revisions
-        ]
+        job_dict["revisions"] = [r.url() for r in self.revisions]
         job_dict["url"] = f"{settings.SITE_URL}/landings/{self.id}"
 
         return job_dict
@@ -138,7 +172,7 @@ class LandingJob(BaseJob):
     def job_queue_query(
         cls,
         repositories: Iterable[str] | None = None,
-        grace_seconds: int = DEFAULT_GRACE_SECONDS,
+        grace_seconds: int = settings.LANDING_WORKER_DEFAULT_GRACE_SECONDS,
         **kwargs,
     ) -> QuerySet:
         """Return a query which selects the queued jobs.
@@ -185,6 +219,13 @@ class LandingJob(BaseJob):
             RevisionLandingJob.objects.filter(
                 revision=revision, landing_job=self
             ).update(diff_id=revision.diff_id)
+
+    def set_landed_commit_ids(self):
+        """Assign `commit_id`, if available, to each association row."""
+        for revision in self.unsorted_revisions.all():
+            RevisionLandingJob.objects.filter(
+                revision=revision, landing_job=self
+            ).update(commit_id=revision.commit_id)
 
     def set_landed_reviewers(self, path: Path):
         """Set approving peers and owners at time of landing."""

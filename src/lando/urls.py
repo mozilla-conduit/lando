@@ -48,13 +48,15 @@ urlpatterns = [
 ]
 
 urlpatterns += [
-    path("", pages.Index.as_view()),
-    path("D<int:revision_id>/", revisions.Revision.as_view(), name="revisions-page"),
-    path("manage_api_key/", user_settings.manage_api_key, name="user-settings"),
-    path("uplift/", revisions.Uplift.as_view(), name="uplift-page"),
+    path("", pages.IndexView.as_view()),
     path(
-        "uplift/assessment/",
-        revisions.UpliftAssessmentEditView.as_view(),
+        "D<int:revision_id>/", revisions.RevisionView.as_view(), name="revisions-page"
+    ),
+    path("manage_api_key/", user_settings.manage_api_key, name="user-settings"),
+    path("uplift/", revisions.UpliftRequestView.as_view(), name="uplift-page"),
+    path(
+        "uplift/<int:revision_id>/assessment/",
+        revisions.UpliftAssessmentCreateOrEditView.as_view(),
         name="uplift-assessment-page",
     ),
 ]
@@ -67,7 +69,7 @@ urlpatterns += [
         name="diff-warnings",
     ),
     re_path(
-        r"api/git2hg/(?P<git_repo_name>.*)/(?P<commit_hash>[0-9a-f]{40})",
+        r"api/git2hg/(?P<git_repo_name>.*)/(?P<commit_hash>[0-9a-f]{7,40})",
         git2hgCommitMapView.as_view(),
         name="git2hg",
     ),
@@ -80,7 +82,11 @@ urlpatterns += [
 
 # "API" endpoints ported from legacy API app.
 urlpatterns += [
-    path("landing_jobs/<int:job_id>/", landing_jobs.put, name="landing-jobs"),
+    path(
+        "landing_jobs/<int:job_id>/",
+        landing_jobs.LandingJobApiView.as_view(),
+        name="landing-jobs",
+    ),
     path(
         "D<int:revision_id>/landings/<int:job_id>/",
         jobs.LandingJobView.as_view(),

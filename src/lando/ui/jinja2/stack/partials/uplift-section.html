@@ -15,7 +15,7 @@ future.
                         <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
                     </span>
                     <span>
-                    Uplift Assessment
+                    Edit Uplift Assessment
                     </span>
                 </button>
             </div>
@@ -27,7 +27,7 @@ future.
 </div>
 
 <div class="uplift-assessment-edit-modal modal">
-    <form action="{{ url('uplift-assessment-page') }}" method="post">
+    <form action="{{ url('uplift-assessment-page', args=[revision_id_int]) }}" method="post">
         <div class="modal-background"></div>
 
         <div class="modal-card">
@@ -42,9 +42,6 @@ future.
                 {% if not user_has_phabricator_token %}
                     {% include "stack/partials/uplift-phab-api-key-warning.html" %}
                 {% endif %}
-
-                {# Revision ID is a hidden field for now. #}
-                {{ uplift_assessment_form.revision_id }}
 
                 {% with assessment_form = uplift_assessment_form %}
                     {% include "stack/partials/uplift-assessment.html" %}

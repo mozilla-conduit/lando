@@ -12,35 +12,36 @@
       <a href="{{ url('jobs-page', args=[job.id]) }}">{{ job.id }}</a>
     </p>
     {% elif job.revisions %}
-    <p><strong>Lando Stack:</strong>
       {% set top_revision = job.revisions[0] %}
-      <a href="{{ url('revisions-page', args=[top_revision.revision_id]) }}">D{{ top_revision.revision_id }}</a>
-    </p>
+      {% if top_revision.revision_id %}
+      <p><strong>Stack:</strong>
+        <a href="{{ url('revisions-page', args=[top_revision.revision_id]) }}">D{{ top_revision.revision_id }}</a>
+      </p>
+      {% endif %}
     {% endif %}
     {% if job.revisions %}
     <p><strong>Revisions:</strong>
       {% for i in job.serialized_landing_path -%}
       {{- "" if loop.first else " ← " -}}
       <a href="{{ i['revision_id']|revision_url(diff_id=i['diff_id']) }}">
-        {{ i['revision_id'] }} diff {{ i['diff_id'] }}
+        {{ i['revision_id'] }}{% if i['diff_id'] %} diff {{ i['diff_id'] }}{% endif %}
       </a>
       {%- endfor %}
     </p>
     {% endif %}
     {% if job.error_breakdown %}
-    {% set tree = job.tree|default("!unknown tree!") %}
+    {% set tree = job.target_repo.short_name|default("Repo " + job.target_repo.name) %}
     {% set rejects_paths = job.error_breakdown.rejects_paths %}
     <p>While applying <a href="{{ job.error_breakdown.revision_id|revision_url() }}">revision D{{
-        job.error_breakdown.revision_id }}</a> to {{ tree }}, the following files had
+      job.error_breakdown.revision_id }}</a> to <code>{{ tree }}</code>, the following files had
       conflicts:</p>
-    <p>(Hint: try rebasing your changes on the latest commits from {{ tree }} and re-submitting.)</p>
+    <p>(Hint: try rebasing your changes on the latest commits from <code>{{ tree }}</code> and re-submitting.)</p>
     <div class="content">
       <ul>
         {% for path in job.error_breakdown.failed_paths if path.path in rejects_paths %}
         <li><strong>{{ path.path }}</strong> @ <a href="{{ path.url }}">{{ path.changeset_id }}</a></li>
-        {% if path.path not in rejects_paths or content not in rejects_paths[path.path] %}
-        <p>Error parsing error for {{ path.path }}. This is likely due to a conflict when removing a file, see <a
-            href="https://bugzilla.mozilla.org/show_bug.cgi?id=1968636">bug 1968636</a>. See Raw error output below.</p>
+        {% if "content" not in rejects_paths[path.path] %}
+        <p>Error parsing error for {{ path.path }}. See Raw error output below.</p>
         {% else %}
         {% set reject_lines = rejects_paths[path.path].content.split("\n") %}
         {% if reject_lines.__len__() < 3 %} <pre>{{ "\n".join(reject_lines) }}</pre>

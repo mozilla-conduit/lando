@@ -13,15 +13,6 @@ RUN addgroup --gid 10001 app \
         --gecos "app,,," \
         app
 
-RUN mkdir /code
-COPY ./ /code
-
-RUN mkdir -p /code/.ruff_cache
-RUN chown -R app /code/.ruff_cache
-
-RUN pip install --upgrade pip setuptools
-
-
 # Install the Rust toolchain. Some packages do not have pre-built wheels (e.g.
 # rs-parsepatch) and require this in order to compile.
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
@@ -30,7 +21,22 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
 # See: rust-lang.org/tools/install (Configuring the PATH environment variable).
 ENV PATH="/root/.cargo/bin:${PATH}"
 
+# Upgrade `setuptools`.
+RUN pip install --upgrade pip setuptools
+
+# Install requirements first, so they are only re-installed when
+# `requirements.txt` changes.
+WORKDIR /code
+COPY requirements.txt /code/requirements.txt
 RUN pip install -r /code/requirements.txt
+
+# Copy code into the container.
+COPY ./ /code
+
+RUN mkdir -p /code/.ruff_cache
+RUN chown -R app /code/.ruff_cache
+
+
 RUN pip install -e /code
 USER app
 

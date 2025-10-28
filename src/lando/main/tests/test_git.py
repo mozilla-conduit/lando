@@ -6,11 +6,12 @@ import subprocess
 import uuid
 from collections.abc import Callable
 from pathlib import Path
-from typing import Optional
+from textwrap import dedent
 from unittest.mock import MagicMock
 
 import pytest
 
+from lando.main.scm.consts import MergeStrategy
 from lando.main.scm.exceptions import SCMException, TagAlreadyPresentException
 from lando.main.scm.git import GitSCM
 from lando.main.scm.helpers import GitPatchHelper
@@ -267,7 +268,7 @@ def test_GitSCM_apply_get_patch_merge(
 
     # Merge feature into main
     subprocess.run(["git", "switch", main_branch], cwd=str(clone_path), check=True)
-    strategy = "theirs"
+    strategy = MergeStrategy.THEIRS
     commit_msg = f"Merge main into feature with strategy {strategy}"
     merge_commit = scm.merge_onto(commit_msg, target_branch, strategy)
 
@@ -277,7 +278,7 @@ def test_GitSCM_apply_get_patch_merge(
     assert merge_patch_helper is None
 
 
-def test_GitSCM_apply_patch_bytes(git_repo: Path, git_patch: Callable):
+def test_GitSCM_apply_patch_git(git_repo: Path, git_patch: Callable):
     scm = GitSCM(str(git_repo))
 
     # Get patch content as bytes
@@ -285,7 +286,7 @@ def test_GitSCM_apply_patch_bytes(git_repo: Path, git_patch: Callable):
     patch_bytes = patch_str.encode("utf-8")
 
     # Apply patch using the new method
-    scm.apply_patch_bytes(patch_bytes)
+    scm.apply_patch_git(patch_bytes)
 
     commit = scm.describe_commit()
 
@@ -300,14 +301,14 @@ def test_GitSCM_apply_patch_bytes(git_repo: Path, git_patch: Callable):
     assert no_version_patch == expected_patch
 
 
-def test_GitSCM_apply_patch_bytes_base64(git_repo: Path, git_patch: Callable):
+def test_GitSCM_apply_patch_git_base64(git_repo: Path, git_patch: Callable):
     scm = GitSCM(str(git_repo))
 
     patch_str = git_patch()
     patch_b64 = base64.b64encode(patch_str.encode("utf-8")).decode("ascii")
 
     patch_bytes = base64.b64decode(patch_b64)
-    scm.apply_patch_bytes(patch_bytes)
+    scm.apply_patch_git(patch_bytes)
 
     commit = scm.describe_commit()
 
@@ -322,7 +323,7 @@ def test_GitSCM_apply_patch_bytes_base64(git_repo: Path, git_patch: Callable):
     assert no_version_patch == expected_patch
 
 
-def test_GitSCM_apply_patch_bytes_aborts_on_failure(
+def test_GitSCM_apply_patch_git_aborts_on_failure(
     git_repo: Path,
     git_patch: Callable,
 ):
@@ -335,7 +336,7 @@ def test_GitSCM_apply_patch_bytes_aborts_on_failure(
 
     # Apply a bad patch.
     with pytest.raises(SCMException):
-        scm.apply_patch_bytes(b"blah")
+        scm.apply_patch_git(b"blah")
 
     # Ensure the `rebase-apply` directory is gone.
     assert (
@@ -351,7 +352,7 @@ def test_GitSCM_apply_patch_bytes_aborts_on_failure(
     good_patch_bytes = base64.b64decode(good_patch_b64)
 
     # Apply a good patch with failed `git am` state present.
-    scm.apply_patch_bytes(good_patch_bytes)
+    scm.apply_patch_git(good_patch_bytes)
 
     # Ensure the `rebase-apply` directory is gone.
     assert (
@@ -638,7 +639,7 @@ def test_GitSCM_push(
     git_repo: Path,
     git_setup_user: Callable,
     monkeypatch: pytest.MonkeyPatch,
-    push_target: Optional[str],
+    push_target: str | None,
     request: pytest.FixtureRequest,
     tmp_path: Path,
 ):
@@ -751,7 +752,7 @@ def test_GitSCM_merge_onto(
     git_setup_user: Callable,
     request: pytest.FixtureRequest,
     tmp_path: Path,
-    strategy: Optional[str],
+    strategy: str | None,
 ):
     clone_path = tmp_path / request.node.name
     clone_path.mkdir()
@@ -1006,3 +1007,59 @@ def test_GitSCM_tag_retag(
 
     with pytest.raises(TagAlreadyPresentException):
         scm.tag(tag_name, old_commit)
+
+
+def test_GitSCM_process_merge_conflict_no_reject(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+):
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+
+    conflict_message = dedent(
+        """\
+        Problem while applying patch in revision 264890:
+
+        Checking patch test.txt...
+        Hunk #1 succeeded at 178 (offset -10 lines).
+        error: while searching for:
+              }
+              this.#lastSetting = this.setting;
+              this.setValue();
+              this.setting.on("change", this.onSettingChange);
+            }
+            this.hidden = !this.setting.visible;
+          }
+
+          updated() {
+            this.controlRef?.value?.requestUpdate();
+          }
+
+          /**
+
+        error: patch failed: test.txt:209
+        Hunk #1 succeeded at 404 (offset 185 lines).
+        Applying patch test.txt with 1 reject...
+        Hunk #1 applied cleanly.
+        Rejected hunk #2.
+        error: patch failed: that-other-file.txt:209
+        Rejected hunk #1."""
+    ).strip()
+
+    error_breakdown = scm.process_merge_conflict("wherever", 42, conflict_message)
+
+    assert (
+        "while searching for:"
+        in error_breakdown["rejects_paths"]["test.txt"]["content"]
+    ), "Missing details from `content` in rejects_paths for test.txt"
+    assert (
+        "error reading rejects file"
+        in error_breakdown["rejects_paths"]["that-other-file.txt"]["content"]
+    ), "Missing default message from `content` in rejects_paths for that-other-file.txt"

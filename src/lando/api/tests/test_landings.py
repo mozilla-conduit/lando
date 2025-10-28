@@ -16,6 +16,7 @@ from lando.main.models import (
     LandingJob,
     Repo,
     Revision,
+    RevisionLandingJob,
 )
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.scm.exceptions import SCMInternalServerError
@@ -78,29 +79,11 @@ No bug: add a binary file
 
 diff --git a/binary b/binary
 new file mode 100644
-index 0000000000000000000000000000000000000000..9b188c02440f750acbc76cdb5c29825a7686e32a
+index 0000000000000000000000000000000000000000..0a4a1abd1fe6031fedcd6c37a8ae159b4815dbf1
 GIT binary patch
-literal 1024
-zc$@(M1poW7dD8JtJ1iH;E>hS@A6;!Nfo73I;}xn+TX*1+SuI7&UO|ADkWM3k1Sy+~
-zj#DY!i46xI%7bedr(1y&&PgU+b0ROSU&GE!O;_)4vr6PiB!h<NlM;gOY;1(E4Apxy
-zk8Kp(jH;SY5q6;s4ppgHYa}-V-jf3fP-9`%C6FtX0*hRwNMO;OUnJu@74^}m=2L*B
-z5u73}*E@jlR@N+F8WF%PSVSv48qy>V(l*k`c~#ZtE0S=EKb)@0$n+!C&QJ*HR->_s
-z@GJfKW#lfE{*8hU9R#0ywtGB5Da#8gN$~t`Dw+R!zf1B!!mjCMsl_?OQbT1iKrp3o
-z+pSuk-|#uW0O;LSMb1yl5LozN2Ogoyy(<$G%-4dI*v2#YJm930WRvn5TBXyCcaw`q
-zrCmg2s1mm(i*~rXD_g+!5vo6C)b*&bRVMc^JDA-rXBWz%t~(!r=1HX6Qn+si4G;}c
-zlEr7+WB>pQ49z|)tcdbK?Ep<FjG<5{+%?li{2&*c-87~uzueI|&nw%{fa&5bsFO~Y
-z>YS{Y)C?++#E*-kl@mxz>--dwS?+fB{-@nlYwC!Ltlsr+Hf!+Dxg%8kiOdNL9lW*Z
-zhGCZ{jHN^hr4nCy>_dhrB?g|0;JioasfaJwSdJ(dFl#JhYwQrE#7BwH9AFIk1hzTz
-zK7G+A*OPA5O((WLuCIWc$(Jos8UjlUUSdArLvD*Dy6=tAO81l(4A|0YN_JV0a<6S$
-z>c8?r@sXEU6B%VRrJ7)6meAjMdfq#gq7&V^K)0FTQhb;{@IX^4&mbsA5gK5>uT}*C
-zwZgv&oX27=?W4qX{Ue>K4YM)8^qH5#+o^S|j{;|O>X7ll>Hr}C$N=F^ZIv@GKa&-2
-za^hyA689+g9l8YtLJjq#Pk3>+Wd__enxQ7N)Qe1G<Z76;M<=6I;T7tNT3}x+Kiqzj
-z)bfNmSS>|}&|LBLS3vx-UB2CH&%mM_0vMnU{d$z@XZy%c=L{X+%!jPYl61M0;IQ^<
-zEI+AIS|(Q2Iv}7U9n76JWB+Qw@okX*ZeLRgdtj1nT1Br2R$-+lFtBTTC!wl!Q?`OY
-z2y}ALa9=?X5(<~L#Mhw*CA|38h9qZP^T7F<{-R#3IKbC;Wa7=9!o}01C5T+ko0!F3
-zJUF57(greNJI}q`6s6B=^w~q8U}YW9_Ukia#;LOb>A<)3`jhq12L6M5uqUDoa`Kj$
-zNNEs_SB|G5lY)TC@()``uB5LBr4Zgry$mPG+|Bz#W3pVw^NLsTy{%z*cEe+-@LPs|
-uZ02$~FEIv7g})v&&=Sm9n&rk(iK7)mNzfs&J%C^7kW0unJUAZQA!LWK68NhC
+literal 68
+zc$@)50K5MhMc<=BLKstkXJsT7RIY2HuAtX}0dvKNfMp^@U!h!sfdYnwR$o?7IN*n{
+af&r|$f$<+hwsrnO@__&U{{;X4B>w*ZZ6WCZ
 
 literal 0
 Hc$@<O00001
@@ -262,6 +245,21 @@ diff --git a/test.txt b/test.txt
 +add one more line
 """.lstrip()  # noqa: W293
 
+PATCH_CHANGE_MISSING_CONTENT = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,1 @@
+-LINE THAT IS NOT HERE
++adding different line
+""".lstrip()  # noqa: W293
+
 PATCH_BINARY_GITATTRIBUTES = r"""
 # HG changeset patch
 # User Local Dev <local-dev@mozilla.bugs>
@@ -371,12 +369,115 @@ def test_integrated_execute_job(
         mock_phab_trigger_repo_update_apply_async.call_count == 1
     ), "Successful landing should trigger Phab repo update."
 
+    # The diff_id is not set for landings not created from Phabricator transplants.
+    assert job.landed_revisions == {
+        r.id: None for r in revisions
+    }, "Incorrect mapping of internal revision IDs to diff ID"
+
     new_commit_count = Commit.objects.filter(repo=repo).count()
     new_push_count = Push.objects.filter(repo=repo).count()
     assert new_commit_count == len(
         revisions
     ), "Incorrect number of additional commits in the PushLog"
     assert new_push_count == 1, "Incorrect number of additional pushes in the PushLog"
+
+
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        SCM_TYPE_GIT,
+        SCM_TYPE_HG,
+    ],
+)
+@pytest.mark.django_db
+def test_revisionlandingjob_commit_ids_updated_on_success(
+    repo_mc,
+    treestatusdouble,
+    mock_phab_trigger_repo_update_apply_async,
+    create_patch_revision,
+    make_landing_job,
+    get_landing_worker,
+    repo_type: str,
+):
+    """Ensure landed commit SHAs are copied onto RevisionLandingJob rows."""
+    repo = repo_mc(repo_type)
+    treestatusdouble.open_tree(repo.name)
+
+    revisions = [
+        create_patch_revision(1, patch=None),
+        create_patch_revision(2, patch=None),
+    ]
+    job_params = {
+        "status": JobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "target_repo": repo,
+        "attempts": 1,
+    }
+    job = make_landing_job(revisions=revisions, **job_params)
+
+    worker = get_landing_worker(repo_type)
+    assert worker.run_job(job)
+    assert job.status == JobStatus.LANDED
+
+    revision_jobs = list(
+        RevisionLandingJob.objects.filter(landing_job=job).order_by("index")
+    )
+    assert len(revision_jobs) == len(revisions)
+
+    ordered_revisions = list(job.revisions)
+    for revision, revision_job in zip(ordered_revisions, revision_jobs, strict=False):
+        assert revision.commit_id, "`commit_id` should be set on `Revision` object."
+        assert (
+            revision_job.commit_id
+        ), "`commit_id` should be set on `RevisionLandingJob` object."
+
+
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        SCM_TYPE_GIT,
+        SCM_TYPE_HG,
+    ],
+)
+@pytest.mark.django_db
+def test_revisionlandingjob_commit_ids_unset_without_landing(
+    repo_mc,
+    treestatusdouble,
+    mock_phab_trigger_repo_update_apply_async,
+    create_patch_revision,
+    make_landing_job,
+    get_landing_worker,
+    repo_type: str,
+):
+    """Ensure `commit_id` is not tracked for incomplete job."""
+    repo = repo_mc(repo_type)
+    treestatusdouble.open_tree(repo.name)
+    scm = repo.scm
+
+    job_params = {
+        "status": JobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "target_repo": repo,
+        "attempts": 1,
+    }
+    job = make_landing_job(revisions=[create_patch_revision(1)], **job_params)
+
+    scm.push = mock.MagicMock(side_effect=SCMInternalServerError("push failed", "500"))
+
+    worker = get_landing_worker(repo_type)
+    assert not worker.run_job(job)
+    assert job.status == JobStatus.DEFERRED
+
+    revision_jobs = list(
+        RevisionLandingJob.objects.filter(landing_job=job).order_by("index")
+    )
+    assert len(revision_jobs) == 1
+
+    revision = job.revisions.first()
+    assert revision.commit_id, "`commit_id` should still be set on `Revision` object."
+    assert (
+        revision_jobs[0].commit_id is None
+    ), "`commit_id` should not be set for un-landed job."
 
 
 @pytest.mark.parametrize(
@@ -591,23 +692,33 @@ def test_lose_push_race(
 
 
 @pytest.mark.parametrize(
-    "repo_type, expected_error_log",
-    [
-        (SCM_TYPE_GIT, "Rejected hunk"),
-        (SCM_TYPE_HG, "hunks FAILED"),
-    ],
+    "repo_type, expected_error_log, patch",
+    # Can't use itertools.product without similar overhead as this,
+    # as we have more than one element in the first set.
+    (
+        scm + (patch,)
+        for scm in (
+            (SCM_TYPE_GIT, "Rejected hunk"),
+            (SCM_TYPE_HG, "hunks FAILED"),
+        )
+        for patch in (
+            PATCH_FORMATTED_2,
+            PATCH_CHANGE_MISSING_CONTENT,
+        )
+    ),
 )
 @pytest.mark.django_db
 def test_merge_conflict(
-    repo_mc,
-    treestatusdouble,
-    mock_phab_trigger_repo_update_apply_async,
-    create_patch_revision,
-    make_landing_job,
-    caplog,
-    get_landing_worker,
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    mock_phab_trigger_repo_update_apply_async: mock.Mock,
+    create_patch_revision: Callable,
+    make_landing_job: Callable,
+    caplog: pytest.LogCaptureFixture,
+    get_landing_worker: Callable,
     repo_type: str,
     expected_error_log: str,
+    patch: str,
 ):
     repo = repo_mc(repo_type)
     treestatusdouble.open_tree(repo.name)
@@ -621,7 +732,7 @@ def test_merge_conflict(
     }
     job = make_landing_job(
         revisions=[
-            create_patch_revision(1, patch=PATCH_FORMATTED_2),
+            create_patch_revision(1, patch=patch),
         ],
         **job_params,
     )

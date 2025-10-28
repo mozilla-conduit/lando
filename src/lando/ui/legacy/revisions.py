@@ -18,7 +18,7 @@ from lando.main.models import Repo
 from lando.main.models.uplift import UpliftRevision
 from lando.ui.legacy.forms import (
     TransplantRequestForm,
-    UpliftAssessmentEditForm,
+    UpliftAssessmentForm,
     UpliftRequestForm,
 )
 from lando.ui.legacy.stacks import Edge, draw_stack_graph, sort_stack_topological
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # revisions.before_request(set_last_local_referrer)
 
 
-class Uplift(LandoView):
+class UpliftRequestView(LandoView):
     @force_auth_refresh
     def post(self, request: WSGIRequest) -> HttpResponse:
         """Process the uplift request submission."""
@@ -86,14 +86,21 @@ class Uplift(LandoView):
         return redirect(tip_differential)
 
 
-class UpliftAssessmentEditView(LandoView):
+class UpliftAssessmentCreateOrEditView(LandoView):
     """Update and create uplift request assessment forms."""
 
     @force_auth_refresh
     @method_decorator(require_phabricator_api_key(optional=False, provide_client=False))
-    def post(self, request: WSGIRequest) -> HttpResponse:
+    def post(self, request: WSGIRequest, revision_id: int) -> HttpResponse:
         """Update an uplift request assessment."""
-        uplift_assessment_form = UpliftAssessmentEditForm(request.POST)
+
+        uplift_revision = UpliftRevision.one_or_none(revision_id=revision_id)
+        existing_assessment = uplift_revision.assessment if uplift_revision else None
+
+        uplift_assessment_form = UpliftAssessmentForm(
+            request.POST,
+            instance=existing_assessment,
+        )
 
         if not uplift_assessment_form.is_valid():
             errors = [
@@ -106,53 +113,23 @@ class UpliftAssessmentEditView(LandoView):
 
             return redirect(request.META.get("HTTP_REFERER"))
 
-        revision_id = revision_id_to_int(
-            uplift_assessment_form.cleaned_data["revision_id"]
-        )
+        with transaction.atomic():
+            assessment = uplift_assessment_form.save(commit=False)
+            assessment.user = request.user
+            assessment.save()
 
-        try:
-            uplift_revision = UpliftRevision.objects.get(revision_id=revision_id)
-        except UpliftRevision.DoesNotExist:
-            logger.info(
-                f"No existing assessment for {revision_id=}, creating a new instance."
-            )
-
-            # No existing assessment for this revision, so we create one.
-            with transaction.atomic():
-                assessment = uplift_assessment_form.save(commit=False)
-                assessment.user = request.user
-                assessment.save()
-
+            message = "Uplift assessment updated."
+            if uplift_revision is None:
+                logger.info(
+                    f"No existing assessment for {revision_id=}, creating a new instance."
+                )
                 UpliftRevision.objects.create(
                     assessment=assessment,
                     revision_id=revision_id,
                 )
+                message = "Uplift assessment created."
 
-            messages.add_message(
-                request, messages.SUCCESS, "Uplift assessment created."
-            )
-        else:
-            logging.info(
-                f"Updating assessment for {revision_id=} and associated revisions."
-            )
-
-            old_assessment = uplift_revision.assessment
-
-            revisions = old_assessment.revisions.all()
-
-            # Store uplift request assessment response.
-            with transaction.atomic():
-                assessment = uplift_assessment_form.save(commit=False)
-                assessment.user = request.user
-                assessment.save()
-
-                for revision in revisions:
-                    revision.assessment = assessment
-                    revision.save()
-
-                old_assessment.delete()
-
-            messages.add_message(request, messages.SUCCESS, "Uplift assessment saved.")
+        messages.add_message(request, messages.SUCCESS, message)
 
         # Trigger a Celery task to update the form on Phabricator.
         set_uplift_request_form_on_revision.apply_async(
@@ -166,7 +143,7 @@ class UpliftAssessmentEditView(LandoView):
         return redirect(request.META.get("HTTP_REFERER"))
 
 
-class Revision(LandoView):
+class RevisionView(LandoView):
     def get(
         self, request: WSGIRequest, revision_id: int, *args, **kwargs
     ) -> TemplateResponse:
@@ -261,18 +238,10 @@ class Revision(LandoView):
         uplift_revision = UpliftRevision.one_or_none(revision_id=revision_id)
 
         if revision_repo and revision_repo.approval_required and uplift_revision:
-            # If an existing form is present, pre-populate the edit form.
             assessment = uplift_revision.assessment
-            uplift_assessment_edit_form = UpliftAssessmentEditForm(
-                # Using `initial` will only apply to values not in the instance.
-                initial={"revision_id": f"D{revision_id}"},
-                instance=assessment,
-            )
+            uplift_assessment_edit_form = UpliftAssessmentForm(instance=assessment)
         else:
-            # Use an empty edit form with `revision_id` pre-populated.
-            uplift_assessment_edit_form = UpliftAssessmentEditForm(
-                initial={"revision_id": f"D{revision_id}"}
-            )
+            uplift_assessment_edit_form = UpliftAssessmentForm()
 
         # Current implementation requires that all commits have the flags appended.
         # This may change in the future. What we do here is:
@@ -294,6 +263,7 @@ class Revision(LandoView):
 
         context = {
             "revision_id": "D{}".format(revision_id),
+            "revision_id_int": revision_id,
             "series": series,
             "landable": landable,
             "dryrun": dryrun,

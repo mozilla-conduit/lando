@@ -64,6 +64,14 @@ class GitSCM(AbstractSCM):
         ),
     }
 
+    # XXX: The `(?:while searching for)` assertion would be better as `(?!patch
+    # failed)`, but this sort of negative assertion with lookahead prevents the
+    # non-matching group to be captured.
+    FAILED_RE = re.compile(
+        r"(?:error: ((?:while searching for):\n(?:.*\n)*?))?error: patch failed: ([^:\n]+):\d+",
+        re.MULTILINE,
+    )
+
     default_branch: str
 
     def __init__(self, path: str, default_branch: str = "main", **kwargs):
@@ -215,8 +223,8 @@ class GitSCM(AbstractSCM):
                     raise exc
 
     @override
-    def apply_patch_bytes(self, patch_bytes: bytes):
-        """Apply the given `git format-patch` to the repo directly."""
+    def apply_patch_git(self, patch_bytes: bytes):
+        """Apply the Git patch, provided as encoded bytes."""
         try:
             # Clean up existing failed `git am`.
             self._git_run("am", "--abort", cwd=self.path)
@@ -286,18 +294,17 @@ class GitSCM(AbstractSCM):
         """Process merge conflict information captured in a PatchConflict, and return a
         parsed structure."""
 
-        failed_re = re.compile(r"patch failed: (.*):\d+", re.MULTILINE)
-
         breakdown = {
             "failed_paths": [],
             "rejects_paths": {},
             "revision_id": revision_id,
         }
 
-        failed_paths = failed_re.findall(error_message)
+        failed_paths = self.FAILED_RE.findall(error_message)
 
         failed_path_commits = [
-            (path, self.last_commit_for_path(path)) for path in failed_paths
+            (path, self.last_commit_for_path(path), path_error)
+            for path_error, path in failed_paths
         ]
 
         breakdown["failed_paths"] = [
@@ -306,10 +313,10 @@ class GitSCM(AbstractSCM):
                 "url": f"{pull_path}/tree/{revision}/{path}",
                 "changeset_id": revision,
             }
-            for (path, revision) in failed_path_commits
+            for (path, revision, _) in failed_path_commits
         ]
 
-        for path in failed_paths:
+        for path_error, path in failed_paths:
             reject = {"path": f"{path}.rej"}
 
             try:
@@ -317,6 +324,13 @@ class GitSCM(AbstractSCM):
                     reject["content"] = r.read()
             except Exception as e:
                 logger.exception(e)
+                reject["content"] = f"error reading rejects file {reject['path']}"
+
+            if path_error:
+                reject[
+                    "content"
+                ] += f"\nin addition, Git reported this error: {path_error}"
+
             breakdown["rejects_paths"][path] = reject
 
         return breakdown
@@ -552,7 +566,9 @@ class GitSCM(AbstractSCM):
         command = ["git"] + list(args)
         sanitised_command = [cls._redact_url_userinfo(a) for a in command]
         logger.info(
-            "running git command",
+            "running git command #%s: %s",
+            correlation_id,
+            sanitised_command,
             extra={
                 "command": sanitised_command,
                 "command_id": correlation_id,
@@ -561,22 +577,29 @@ class GitSCM(AbstractSCM):
         )
 
         result = subprocess.run(
-            command, cwd=path, capture_output=True, text=True, env=cls._git_env()
+            command, cwd=path, capture_output=True, env=cls._git_env()
         )
 
+        try:
+            # Try decoding with utf-8 first.
+            out = result.stdout.decode("utf-8").strip()
+        except UnicodeDecodeError:
+            # Try again with latin-1.
+            out = result.stdout.decode("latin-1").strip()
+
         if result.returncode:
-            redacted_stderr = cls._redact_url_userinfo(result.stderr)
+            redacted_stderr = cls._redact_url_userinfo(result.stderr.decode("utf-8"))
             raise SCMInternalServerError(
                 f"Error running git command; {sanitised_command=}, {path=}, {redacted_stderr}",
-                cls._redact_url_userinfo(result.stdout),
+                cls._redact_url_userinfo(out),
                 redacted_stderr,
             )
 
-        out = result.stdout.strip()
-
         if out:
             logger.info(
-                "output from git command",
+                "output from git command #%s: %s",
+                correlation_id,
+                out,
                 extra={
                     "command_id": correlation_id,
                     "output": out,
