@@ -142,6 +142,7 @@ class LandingWorker(Worker):
             except TemporaryFailureException:
                 return False
 
+        job.set_landed_commit_ids()
         job.transition_status(JobAction.LAND, commit_id=commit_id)
 
         if job.is_pull_request_job:
@@ -251,6 +252,11 @@ class LandingWorker(Worker):
                 raise PermanentFailureException(message) from exc
             else:
                 new_commit = scm.describe_commit()
+
+                # Record the commit ID on the revision object.
+                revision.commit_id = new_commit.hash
+                revision.save()
+
                 logger.debug(f"Created new commit {new_commit}")
 
         # Get the changeset titles for the stack.

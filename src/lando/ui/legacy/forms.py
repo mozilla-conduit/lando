@@ -60,15 +60,6 @@ class UpliftAssessmentForm(forms.ModelForm):
             )
 
 
-class UpliftAssessmentEditForm(UpliftAssessmentForm):
-    """Form used to edit an uplift assessment form for a patch."""
-
-    revision_id = forms.RegexField(
-        regex="^D[0-9]+$",
-        widget=forms.widgets.HiddenInput,
-    )
-
-
 class UpliftRequestForm(UpliftAssessmentForm):
     """Form used to request uplift of a stack."""
 
