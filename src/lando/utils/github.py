@@ -117,8 +117,7 @@ class PullRequest:
     def __repr__(self) -> str:
         return f"Pull request #{self.number} ({self.head_repo_git_url})"
 
-    def __init__(self, data: dict, repo: Repo):
-        self.repo = repo
+    def __init__(self, data: dict):
         self.url = data["url"]
         self.base_ref = data["base"]["ref"]  # "target" branch name
         self.base_sha = data["base"]["sha"]  # "target" branch sha

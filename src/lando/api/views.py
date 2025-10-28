@@ -217,7 +217,7 @@ class LandingJobPullRequestAPIView(View):
         target_repo = Repo.objects.get(name=repo_name)
         client = GitHubAPIClient(target_repo)
         ldap_username = request.user.email
-        pull_request = PullRequest(client.get_pull_request(pull_number), target_repo)
+        pull_request = PullRequest(client.get_pull_request(pull_number))
         form = Form(json.loads(request.body))
 
         if not form.is_valid():
