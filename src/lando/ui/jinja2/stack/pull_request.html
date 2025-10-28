@@ -3,24 +3,40 @@
 
 {% block main %}
 <main class="StackPage container fullhd">
-  <h1>Pull request {{ pull_request.number }}</h1>
+  <h1><a href="{{ pull_request.html_url }}">{{ pull_request.title }}</a></h1>
   <div class="StackPage-stack">
       <table>
+          <tr>
+              <th>Actions</th>
+              <td>
+                  <button
+                      class="button is-loading post-landing-job"
+                      disabled
+                      data-pull-number="{{ pull_request.number }}"
+                      data-head-sha="{{ pull_request.head_sha }}"
+                      data-repo-name="{{ target_repo.name }}"
+                      data-csrf-token="{{ csrf_token }}">
+                   Loading</button>
+              </td>
+          </tr>
           <tr>
               <th>Pull request</th>
               <td>{{ pull_request.number }}</td>
           </tr>
           <tr>
               <th>Target Lando Repo</th>
-              <td>{{ target_repo }}</td>
-          </tr>
-          <tr>
-              <th>GitHub repo</th>
-              <td>{{ pull_request.head_repo_git_url }}</td>
+              <td>{{ target_repo }} ({{ pull_request.head_repo_git_url }})</td>
           </tr>
           <tr>
               <th>Author</th>
               <td>{{ pull_request.user_login }}</td>
+          </tr>
+              <th>Working branch</th>
+              <td>{{ pull_request.head_ref }} ({{ pull_request.head_sha }})</td>
+          </tr>
+          <tr>
+              <th>Target branch</th>
+              <td>{{ pull_request.base_ref }} ({{ pull_request.base_sha }})</td>
           </tr>
           <tr>
               <th>State</th>
@@ -28,7 +44,7 @@
           </tr>
           <tr>
               <th>Title</th>
-              <td><a href="{{ pull_request.html_url }}">{{ pull_request.title }}</a></td>
+              <td>{{ pull_request.title }}</td>
           </tr>
           <tr>
               <th>Description</th>
