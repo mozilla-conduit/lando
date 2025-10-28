@@ -22,6 +22,7 @@ from lando.main.models import (
     LandingJob,
     PermanentFailureException,
     Repo,
+    Revision,
     TemporaryFailureException,
     WorkerType,
 )
@@ -193,8 +194,17 @@ class LandingWorker(Worker):
             f"About to land {job.revisions.count()} revisions: {job.revisions.all()} ..."
         )
         for revision in job.revisions.all():
-            logger.debug(f"Landing {revision} ...")
-            self.apply_patch(repo, job, scm, revision)
+
+            def apply_patch(revision: Revision):
+                logger.debug(f"Landing {revision} ...")
+                scm.apply_patch(
+                    revision.diff,
+                    revision.commit_message,
+                    revision.author,
+                    revision.timestamp,
+                )
+
+            self.handle_new_commit_failures(apply_patch, repo, job, scm, revision)
 
             new_commit = scm.describe_commit()
             logger.debug(f"Created new commit {new_commit}")

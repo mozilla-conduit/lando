@@ -8,6 +8,7 @@ import re
 import subprocess
 from abc import ABC, abstractmethod
 from time import sleep
+from typing import Callable
 
 from celery import Task
 from django.db import transaction
@@ -313,22 +314,17 @@ class Worker(ABC):
             )
             raise PermanentFailureException(message) from e
 
-    def apply_patch(
+    def handle_new_commit_failures(
         self,
+        revision_creation: Callable[[Revision], None],
         repo: Repo,
         job: BaseJob,
         scm: AbstractSCM,
         revision: Revision,
     ) -> None:
-        """Apply patches to repo with job status handling."""
+        """Create revisions with job status handling."""
         try:
-            logger.debug(f"Landing {revision} ...")
-            scm.apply_patch(
-                revision.diff,
-                revision.commit_message,
-                revision.author,
-                revision.timestamp,
-            )
+            revision_creation(revision)
         except NoDiffStartLine as exc:
             message = (
                 "Lando encountered a malformed patch, please try again. "
