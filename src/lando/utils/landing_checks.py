@@ -555,27 +555,22 @@ class LandingChecks:
 
     def run(
         self,
-        hooks: list[str],
-        patches: list[PatchHelper],
+        hook_names: Iterable[str],
+        patches: Iterable[PatchHelper],
     ) -> list[str]:
         """Run landing checks on a stack of patches.
 
         Parameters:
 
-        hooks: list[str] | list[type[PatchCheck] | type[PatchCollectionCheck]]
-            Either
-                - a list of strings of check names, or
-                - a list of check types (e.g., ALL_STACK_CHECKS or ALL_COMMIT_CHECKS).
+        hook_names: Iterable[str]
+            a list of strings of check names
 
-        patches: list[PatchHelper]
+        patches: Iterable[PatchHelper]
             a list of patches to check
 
         Returns:
             list[str]: a list of error messages.
         """
-        # Flatten the list of hooks to name strings.
-        hook_names = [chk if isinstance(chk, str) else chk.__name__ for chk in hooks]
-
         commit_checks = [chk for chk in ALL_COMMIT_CHECKS if chk.__name__ in hook_names]
         stack_checks = [chk for chk in ALL_STACK_CHECKS if chk.__name__ in hook_names]
 
