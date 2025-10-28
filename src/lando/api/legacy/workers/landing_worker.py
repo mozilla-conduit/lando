@@ -36,6 +36,7 @@ from lando.main.scm import (
 )
 from lando.pushlog.pushlog import PushLog, PushLogForRepo
 from lando.utils.config import read_lando_config
+from lando.utils.github import GitHubAPIClient
 from lando.utils.landing_checks import LandingChecks
 from lando.utils.tasks import phab_trigger_repo_update
 
@@ -119,6 +120,15 @@ class LandingWorker(Worker):
 
         job.set_landed_commit_ids()
         job.transition_status(JobAction.LAND, commit_id=commit_id)
+
+        if job.is_pull_request_job:
+            # TODO: move this to different method, and retry if needed.
+            # NOTE: This may need to happen on the revision-level when stack support is added.
+            pull_number = job.revisions.first().pull_number
+            message = f"Pull request closed by commit {commit_id}"
+            client = GitHubAPIClient(job.target_repo)
+            client.add_comment_to_pull_request(pull_number, message)
+            client.close_pull_request(pull_number)
 
         mots_path = Path(repo.path) / "mots.yaml"
         if mots_path.exists():
