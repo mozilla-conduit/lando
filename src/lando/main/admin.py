@@ -24,22 +24,13 @@ admin.site.index_title = gettext_lazy("Lando administration")
 
 
 class ArrayFieldMultipleChoiceField(MultipleChoiceField):
-    """Custom form field for ArrayField with choices that shows all available options."""
+    """Custom MultipleChoiceField adapter for ArrayField."""
 
     def __init__(self, **kwargs):
         # Remove ArrayField-specific arguments that MultipleChoiceField doesn't accept.
-        kwargs.pop("base_field", None)
-        kwargs.pop("max_length", None)
-        kwargs.pop("size", None)
+        del kwargs["base_field"]
+        del kwargs["max_length"]
         super().__init__(**kwargs)
-
-    def prepare_value(self, value) -> list:  # noqa: ANN001
-        """Convert ArrayField value to format expected by MultipleChoiceField."""
-        if isinstance(value, list):
-            return value
-        if value is None:
-            return []
-        return list(value)
 
 
 class ReadOnlyInline(admin.TabularInline):
@@ -226,12 +217,13 @@ class RepoAdmin(admin.ModelAdmin):
 
     def formfield_for_dbfield(
         self, db_field: DbField, request: HttpRequest, **kwargs
-    ) -> FormField:
+    ) -> FormField | None:
         if db_field.name == "hooks":
-            kwargs["form_class"] = ArrayFieldMultipleChoiceField
-            kwargs["widget"] = CheckboxSelectMultiple
-            kwargs["choices"] = list(Repo.HOOKS_CHOICES.items())
-            return db_field.formfield(**kwargs)
+            return db_field.formfield(
+                form_class=ArrayFieldMultipleChoiceField,
+                widget=CheckboxSelectMultiple,
+                choices=Repo.HooksChoices,
+            )
         return super().formfield_for_dbfield(db_field, request, **kwargs)
 
 
