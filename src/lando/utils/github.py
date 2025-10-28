@@ -80,7 +80,13 @@ class GitHubAPIClient:
 
     def _get(self, path: str, *args, **kwargs) -> dict:
         result = self.client.get(path, *args, **kwargs)
-        return result.json()
+        content_type = result.headers["content-type"]
+        if content_type == "application/json; charset=utf-8":
+            return result.json()
+        elif content_type == "application/vnd.github.patch; charset=utf-8":
+            return result.text
+        elif content_type == "application/vnd.github.diff; charset=utf-8":
+            return result.text
 
     def list_pull_requests(self) -> list:
         """List all pull requests in the repo."""
@@ -90,8 +96,19 @@ class GitHubAPIClient:
         """Get a specific pull request from the repo."""
         return self._get(f"{self.repo_base_url}/pulls/{pull_number}")
 
-    def get_diff(self, url: str) -> str:
-        pass
+    def get_diff(self, pull_number: int) -> str:
+        """Fetch a diff, given a pull request number."""
+        return self._get(
+            f"{self.repo_base_url}/pulls/{pull_number}",
+            headers={"Accept": "application/vnd.github.diff"},
+        )
+
+    def get_patch(self, pull_number: int) -> str:
+        """Fetch a patch, given a pull request number."""
+        return self._get(
+            f"{self.repo_base_url}/pulls/{pull_number}",
+            headers={"Accept": "application/vnd.github.patch"},
+        )
 
 
 class PullRequest:
@@ -102,8 +119,11 @@ class PullRequest:
 
     def __init__(self, data: dict):
         self.url = data["url"]
-        self.base_ref = data["base"]["ref"]  # "source" branch name
-        self.base_sha = data["base"]["sha"]  # "source" branch sha
+        self.base_ref = data["base"]["ref"]  # "target" branch name
+        self.base_sha = data["base"]["sha"]  # "target" branch sha
+        self.head_ref = data["head"]["ref"]  # "working" branch name
+        self.head_sha = data["head"]["sha"]  # "working" branch sha
+
         self.base_user_login = data["base"]["user"]["login"]
         self.base_user_id = data["base"]["user"]["id"]
         self.created_at = data["created_at"]
@@ -117,8 +137,6 @@ class PullRequest:
         self.comments_url = data["comments_url"]
         self.commits_url = data["commits_url"]
 
-        self.head_ref = data["head"]["ref"]  # "destination" branch name
-        self.head_sha = data["head"]["sha"]
         self.head_repo_git_url = data["head"]["repo"][
             "git_url"
         ]  # e.g., git://github.com/mozilla-conduit/test-repo.git
