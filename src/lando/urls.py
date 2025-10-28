@@ -20,8 +20,8 @@ from django.urls import include, path, re_path
 
 from lando.api.legacy.api import landing_jobs
 from lando.api.views import (
+    LandingJobPullRequestAPIView,
     LegacyDiffWarningView,
-    PullRequestAPIView,
     git2hgCommitMapView,
     hg2gitCommitMapView,
 )
@@ -93,9 +93,9 @@ urlpatterns += [
 
 urlpatterns += [
     path(
-        "api/pulls/<str:repo_name>/<int:number>",
-        PullRequestAPIView.as_view(),
-        name="api-pull-request",
+        "api/pulls/<str:repo_name>/<int:pull_number>/landing_jobs",
+        LandingJobPullRequestAPIView.as_view(),
+        name="api-landing-job-pull-request",
     ),
 ]
 
