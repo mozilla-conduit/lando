@@ -497,7 +497,7 @@ def test_patch_assessment_form_invalid(
 
 
 @pytest.fixture
-def uplift_worker(landing_worker_instance):
+def uplift_worker(landing_worker_instance, treestatusdouble):
     worker = landing_worker_instance(
         name="uplift-worker-git",
         scm=SCM_TYPE_GIT,
