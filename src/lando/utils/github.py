@@ -92,6 +92,13 @@ class GitHubAPIClient:
         result = self.client.post(path, *args, **kwargs)
         return result.json()
 
+    def build_pull_request(self, pull_number: int) -> "PullRequest":
+        """Build a PullRequest object.
+
+        This does the necessary network requests to collect the data."""
+        data = self.get_pull_request(pull_number)
+        return PullRequest(self, data)
+
     def list_pull_requests(self) -> list:
         """List all pull requests in the repo."""
         return self._get(f"{self.repo_base_url}/pulls")
@@ -137,10 +144,14 @@ class GitHubAPIClient:
 class PullRequest:
     """A class that parses data returned from the GitHub API for pull requests."""
 
+    _client: GitHubAPIClient
+
     def __repr__(self) -> str:
         return f"Pull request #{self.number} ({self.head_repo_git_url})"
 
-    def __init__(self, data: dict):
+    def __init__(self, client: GitHubAPIClient, data: dict):
+        self._client = client
+
         self.url = data["url"]
         self.base_ref = data["base"]["ref"]  # "target" branch name
         self.base_sha = data["base"]["sha"]  # "target" branch sha
