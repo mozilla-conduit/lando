@@ -46,6 +46,11 @@ class LandingJob(BaseJob):
     )
 
     @property
+    def is_pull_request_job(self) -> bool:
+        """Return True if all revisions in the landing job have a pull_number set."""
+        return not self.revisions.filter(pull_number__isnull=True).exists()
+
+    @property
     def landed_phabricator_revisions(self) -> dict:
         """Return a mapping associating Phabricator revision IDs with the ID of the landed Diff."""
         revision_ids = [revision.id for revision in self.unsorted_revisions.all()]
