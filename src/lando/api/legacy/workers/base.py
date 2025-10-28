@@ -316,7 +316,7 @@ class Worker(ABC):
 
     def handle_new_commit_failures(
         self,
-        revision_creation: Callable[[Revision], None],
+        create_revision_callable: Callable[[Revision], None],
         repo: Repo,
         job: BaseJob,
         scm: AbstractSCM,
@@ -324,7 +324,7 @@ class Worker(ABC):
     ) -> None:
         """Create revisions with job status handling."""
         try:
-            revision_creation(revision)
+            create_revision_callable(revision)
         except NoDiffStartLine as exc:
             message = (
                 "Lando encountered a malformed patch, please try again. "
