@@ -19,7 +19,7 @@
       </p>
       {% endif %}
     {% endif %}
-    {% if job.revisions %}
+    {% if job.revisions and not job.is_pull_request_job %}
     <p><strong>Revisions:</strong>
       {% for i in job.serialized_landing_path -%}
       {{- "" if loop.first else " ← " -}}

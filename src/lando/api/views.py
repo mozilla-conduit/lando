@@ -19,6 +19,7 @@ from lando.main.models import (
     Revision,
     add_revisions_to_job,
 )
+from lando.main.models.landing_job import get_jobs_for_pull
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.main.scm import (
     SCM_TYPE_GIT,
@@ -175,15 +176,8 @@ class LandingJobPullRequestAPIView(View):
         """Return the status of a pull request based on landing job counts."""
 
         target_repo = Repo.objects.get(name=repo_name)
+        landing_jobs = get_jobs_for_pull(target_repo, pull_number)
         landing_jobs_by_status = defaultdict(list)
-
-        revisions = Revision.objects.filter(
-            landing_jobs__target_repo=target_repo, pull_number=pull_number
-        )
-        landing_jobs = LandingJob.objects.filter(
-            unsorted_revisions__in=revisions
-        ).order_by("-created_at")
-
         for landing_job in landing_jobs:
             landing_jobs_by_status[landing_job.status].append(landing_job.id)
 
