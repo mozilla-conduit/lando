@@ -13,9 +13,6 @@ from lando.api.legacy.uplift import (
     create_uplift_bug_update_payload,
     parse_milestone_version,
 )
-from lando.api.legacy.workers.uplift_worker import (
-    UpliftWorker,
-)
 from lando.api.tests.test_landings import PATCH_CHANGE_MISSING_CONTENT
 from lando.main.models import JobStatus, PermanentFailureException
 from lando.main.models.revision import Revision
@@ -494,15 +491,6 @@ def test_patch_assessment_form_invalid(
         ), f"Validation message not sent for `{bad_field}`: {messages=}"
 
     assert mock_apply_async.call_count == 0, "Uplift form task should not be called."
-
-
-@pytest.fixture
-def uplift_worker(landing_worker_instance, treestatusdouble):
-    worker = landing_worker_instance(
-        name="uplift-worker-git",
-        scm=SCM_TYPE_GIT,
-    )
-    return UpliftWorker(worker)
 
 
 def make_uplift_job_with_revisions(repo, user, revisions: list[Revision]) -> UpliftJob:

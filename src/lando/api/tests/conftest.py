@@ -23,6 +23,9 @@ from lando.api.legacy.projects import (
 )
 from lando.api.legacy.transplants import CODE_FREEZE_OFFSET
 from lando.api.legacy.workers.landing_worker import LandingWorker
+from lando.api.legacy.workers.uplift_worker import (
+    UpliftWorker,
+)
 from lando.api.tests.mocks import PhabricatorDouble
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.support import LegacyAPIException
@@ -222,6 +225,15 @@ def get_landing_worker(hg_landing_worker, git_landing_worker):
         return workers[scm_type]
 
     return _get_landing_worker
+
+
+@pytest.fixture
+def uplift_worker(landing_worker_instance, treestatusdouble):
+    worker = landing_worker_instance(
+        name="uplift-worker-git",
+        scm=SCM_TYPE_GIT,
+    )
+    return UpliftWorker(worker)
 
 
 @pytest.fixture
