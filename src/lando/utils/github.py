@@ -103,6 +103,7 @@ class GitHubAPIClient:
 
     def _post(self, path: str, *args, **kwargs):
         result = self._api.post(path, *args, **kwargs)
+        return result
 
     def list_pull_requests(self) -> list:
         """List all pull requests in the repo."""
