@@ -133,6 +133,12 @@ def uplift_status_icon_class(job: UpliftJob) -> str:
         return "fa fa-clock-o"
     if status == JobStatus.DEFERRED:
         return "fa fa-history"
+    if status == JobStatus.CREATED:
+        return "fa fa-file-o"
+    if status == JobStatus.SUBMITTED:
+        return "fa fa-hourglass-start"
+    if status == JobStatus.CANCELLED:
+        return "fa fa-ban"
     return ""
 
 
