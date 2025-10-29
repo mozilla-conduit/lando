@@ -45,5 +45,15 @@ def test_cache_method():
     assert call_counter["count"] == 2
 
     # Confirm cache has both keys stored
-    assert cache.get("test-cache-Alice") == "Hello, Alice!"
-    assert cache.get("test-cache-Bob") == "Hello, Bob!"
+    assert (
+        cache.get(
+            "cache_method_test_cache_method.<locals>.expensive_function_test-cache-Alice"
+        )
+        == "Hello, Alice!"
+    )
+    assert (
+        cache.get(
+            "cache_method_test_cache_method.<locals>.expensive_function_test-cache-Bob"
+        )
+        == "Hello, Bob!"
+    )

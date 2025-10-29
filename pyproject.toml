@@ -74,16 +74,3 @@ where = ["src"]
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "lando.test_settings"
 addopts = "--cov --cov-report html"
-
-testpaths = [
-    "src/lando/api",
-    "src/lando/dockerflow",
-    "src/lando/headless_api",
-    "src/lando/main/tests",
-    "src/lando/pulse/tests",
-    "src/lando/pushlog/tests",
-    "src/lando/tests",
-    "src/lando/treestatus/tests",
-    "src/lando/try_api/tests",
-    "src/lando/ui/tests",
-]

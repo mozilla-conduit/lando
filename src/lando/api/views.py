@@ -25,7 +25,9 @@ from lando.main.scm import (
     SCM_TYPE_GIT,
     SCM_TYPE_HG,
 )
-from lando.utils.github import GitHubAPIClient, PullRequest
+from lando.main.scm.helpers import BugReferencesCheck
+from lando.utils.github import GitHubAPIClient, PullRequestPatchHelper
+from lando.utils.landing_checks import ALL_CHECKS, LandingChecks
 from lando.utils.phabricator import get_phabricator_client
 
 
@@ -211,7 +213,7 @@ class LandingJobPullRequestAPIView(View):
         target_repo = Repo.objects.get(name=repo_name)
         client = GitHubAPIClient(target_repo)
         ldap_username = request.user.email
-        pull_request = PullRequest(client.get_pull_request(pull_number))
+        pull_request = client.build_pull_request(pull_number)
         form = Form(json.loads(request.body))
 
         if not form.is_valid():
@@ -237,4 +239,25 @@ class LandingJobPullRequestAPIView(View):
         job.status = JobStatus.SUBMITTED
         job.save()
 
-        return JsonResponse({"id": job.id}, status=201)
+
+class PullRequestChecksAPIView(APIView):
+    def get(self, request: WSGIRequest, repo_name: str, number: int) -> JsonResponse:
+        target_repo = Repo.objects.get(name=repo_name)
+        client = GitHubAPIClient(target_repo)
+        pull_request = client.build_pull_request(number)
+
+        patch_helper = PullRequestPatchHelper(client, pull_request)
+
+        landing_checks = LandingChecks(f"{pull_request.user_login}@github-pr")
+        checks = [
+            chk.__name__
+            for chk in ALL_CHECKS
+            # This is checking for secure revisions in BMO. We skip this for now.
+            if chk.__name__ != BugReferencesCheck.__name__
+        ]
+        blockers = landing_checks.run(
+            checks,
+            [patch_helper],
+        )
+
+        return JsonResponse({"blockers": blockers, "warnings": []})
