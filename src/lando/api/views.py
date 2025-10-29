@@ -26,7 +26,7 @@ from lando.main.scm import (
     SCM_TYPE_HG,
 )
 from lando.main.scm.helpers import BugReferencesCheck
-from lando.utils.github import GitHubAPIClient, PullRequest, PullRequestPatchHelper
+from lando.utils.github import GitHubAPIClient, PullRequestPatchHelper
 from lando.utils.landing_checks import ALL_CHECKS, LandingChecks
 from lando.utils.phabricator import get_phabricator_client
 
@@ -213,7 +213,7 @@ class LandingJobPullRequestAPIView(View):
         target_repo = Repo.objects.get(name=repo_name)
         client = GitHubAPIClient(target_repo)
         ldap_username = request.user.email
-        pull_request = PullRequest(client.get_pull_request(pull_number))
+        pull_request = client.build_pull_request(pull_number)
         form = Form(json.loads(request.body))
 
         if not form.is_valid():
@@ -244,7 +244,7 @@ class PullRequestChecksAPIView(APIView):
     def get(self, request: WSGIRequest, repo_name: str, number: int) -> JsonResponse:
         target_repo = Repo.objects.get(name=repo_name)
         client = GitHubAPIClient(target_repo)
-        pull_request = PullRequest(client.get_pull_request(number))
+        pull_request = client.build_pull_request(number)
 
         patch_helper = PullRequestPatchHelper(client, pull_request)
 

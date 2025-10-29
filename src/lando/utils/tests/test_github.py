@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 
-from lando.utils.github import PullRequest, PullRequestPatchHelper
+from lando.utils.github import GitHubAPIClient, PullRequest, PullRequestPatchHelper
 
 
 @pytest.fixture
@@ -204,6 +204,36 @@ index 0000000..e69de29
 """.lstrip()
 
 
+def test_api_client_build_pr(
+    github_pr_response: dict, github_pr_diff: str, github_pr_patch: str
+):
+    repo = mock.Mock
+    repo._github_repo_org = "mozilla-conduit"
+    repo.git_repo_name = "test-repo "
+
+    api_client = GitHubAPIClient(repo)
+
+    api_client.get_pull_request = mock.MagicMock()
+    api_client.get_pull_request.return_value = github_pr_response
+
+    api_client.get_diff = mock.MagicMock()
+    api_client.get_diff.return_value = github_pr_diff
+
+    api_client.get_patch = mock.MagicMock()
+    api_client.get_patch.return_value = github_pr_patch
+
+    pr = api_client.build_pull_request(1)
+
+    assert api_client.get_pull_request.call_count == 1
+    assert pr.number == 1
+
+    assert pr.diff == github_pr_diff
+    assert api_client.get_diff.call_count == 1
+
+    assert pr.patch == github_pr_patch
+    assert api_client.get_patch.call_count == 1
+
+
 @pytest.fixture
 def github_api_client_pr(
     github_api_client: Callable,
@@ -223,7 +253,8 @@ def test_PullRequestPatchHelper(github_api_client_pr: mock.Mock):
     pr_url = "https://api.github.com/repos/mozilla-conduit/test-repo/pulls/1"
 
     # PR
-    pr = PullRequest(github_api_client_pr.get_pull_request(1))
+    # pr = PullRequest(github_api_client_pr, github_api_client_pr.get_pull_request(1))
+    pr = github_api_client_pr.build_pull_request(1)
 
     assert pr.url == pr_url
 
