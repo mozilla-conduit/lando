@@ -847,7 +847,8 @@ def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
     failure_args = mock_failure_task.apply_async.call_args[1]["args"]
     assert failure_args[0] == user.email
     assert failure_args[1] == (repo.short_name or repo.name)
-    assert failure_args[4], "Conflict details should be included for patch failures."
+    assert failure_args[2], "Job URL should be included for patch failures."
+    assert failure_args[3], "Failure reason should be included for patch failures."
 
 
 @pytest.mark.django_db

@@ -127,7 +127,6 @@ def send_uplift_failure_email(
     repo_name: str,
     job_url: str,
     reason: str,
-    conflict_sections: list[dict[str, str]] | None = None,
 ):
     """Notify a user that an uplift job failed."""
 
@@ -143,7 +142,6 @@ def send_uplift_failure_email(
                     repo_name,
                     job_url,
                     reason,
-                    conflict_sections,
                 )
             ]
         )

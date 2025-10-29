@@ -158,8 +158,6 @@ class UpliftWorker(Worker):
         if not recipient_email:
             return
 
-        has_conflicts = bool(job.error_breakdown)
-        conflict_sections = self.conflict_sections(job) if has_conflicts else None
         failure_reason = job.error or reason
         self.call_task(
             send_uplift_failure_email,
@@ -167,25 +165,7 @@ class UpliftWorker(Worker):
             repo_label,
             job_url,
             failure_reason,
-            conflict_sections,
         )
-
-    # TODO(sheehan): look at this
-    def conflict_sections(self, job: UpliftJob) -> list[dict[str, str]]:
-        breakdown = job.error_breakdown
-        if not breakdown:
-            return []
-
-        rejects = breakdown.get("rejects_paths") or {}
-        sections: list[dict[str, str]] = []
-        for path, data in rejects.items():
-            snippet = ""
-            content = data.get("content")
-            if content:
-                lines = content.splitlines()
-                snippet = "\n".join(lines[:20])
-            sections.append({"path": path, "snippet": snippet})
-        return sections
 
     def moz_phab_uplift(self, job: UpliftJob, api_key: str, base_revision: str) -> dict:
         """Run `moz-phab uplift` on the repo."""
