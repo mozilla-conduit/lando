@@ -88,9 +88,7 @@ class UpliftRequestForm(UpliftAssessmentForm):
             if rev_id in revisions_by_id
         ]
 
-        if ordered_revisions:
-            return ordered_revisions
-        return list(revisions_qs)
+        return ordered_revisions
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
