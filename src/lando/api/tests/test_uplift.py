@@ -15,7 +15,6 @@ from lando.api.legacy.uplift import (
 )
 from lando.api.tests.test_landings import PATCH_CHANGE_MISSING_CONTENT
 from lando.main.models import JobStatus, PermanentFailureException
-from lando.main.models.revision import Revision
 from lando.main.models.uplift import (
     LowMediumHighChoices,
     MultiTrainUpliftRequest,
@@ -493,48 +492,15 @@ def test_patch_assessment_form_invalid(
     assert mock_apply_async.call_count == 0, "Uplift form task should not be called."
 
 
-def make_uplift_job_with_revisions(repo, user, revisions: list[Revision]) -> UpliftJob:
-    """Create assessment, multi-request, revisions, and a single UpliftJob associated to them."""
-    # 1) Assessment
-    assessment = UpliftAssessment.objects.create(
-        user=user,
-        user_impact="Medium",
-        covered_by_testing="yes",
-        fix_verified_in_nightly="yes",
-        needs_manual_qe_testing="no",
-        qe_testing_reproduction_steps="",
-        risk_associated_with_patch="low",
-        risk_level_explanation="low risk",
-        string_changes="none",
-        is_android_affected="no",
-    )
-
-    # 2) Multi-request holding the ordered D-IDs
-    multi = MultiTrainUpliftRequest.objects.create(
-        user=user,
-        assessment=assessment,
-        requested_revisions=[revision.revision_id for revision in revisions],
-    )
-
-    # 3) One job for the target repo
-    job = UpliftJob.objects.create(
-        status=JobStatus.SUBMITTED,
-        requester_email=user.email,
-        target_repo=repo,
-        multi_request=multi,
-        attempts=1,
-    )
-
-    # 4) Attach and order revisions via through table
-    for idx, revision in enumerate(revisions):
-        RevisionUpliftJob.objects.create(uplift_job=job, revision=revision, index=idx)
-
-    return job
-
-
 @pytest.mark.django_db
 def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
-    repo_mc, user, uplift_worker, create_patch_revision, normal_patch, monkeypatch
+    repo_mc,
+    user,
+    uplift_worker,
+    create_patch_revision,
+    normal_patch,
+    monkeypatch,
+    make_uplift_job_with_revisions,
 ):
     repo = repo_mc(SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
 
@@ -644,7 +610,13 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
 
 @pytest.mark.django_db
 def test_moz_phab_uplift_invokes_cli_and_returns_response(
-    repo_mc, user, uplift_worker, create_patch_revision, normal_patch, monkeypatch
+    repo_mc,
+    user,
+    uplift_worker,
+    create_patch_revision,
+    normal_patch,
+    monkeypatch,
+    make_uplift_job_with_revisions,
 ):
     repo = repo_mc(SCM_TYPE_GIT, name="firefox-release", approval_required=True)
 
@@ -706,7 +678,13 @@ def test_moz_phab_uplift_invokes_cli_and_returns_response(
 
 @pytest.mark.django_db
 def test_moz_phab_uplift_invalid_json_marks_job_failed(
-    repo_mc, user, uplift_worker, create_patch_revision, normal_patch, monkeypatch
+    repo_mc,
+    user,
+    uplift_worker,
+    create_patch_revision,
+    normal_patch,
+    monkeypatch,
+    make_uplift_job_with_revisions,
 ):
     repo = repo_mc(SCM_TYPE_GIT, name="firefox-release", approval_required=True)
     revisions = [
@@ -739,7 +717,13 @@ def test_moz_phab_uplift_invalid_json_marks_job_failed(
 
 @pytest.mark.django_db
 def test_uplift_worker_mozphab_failure_marks_failed(
-    repo_mc, user, uplift_worker, create_patch_revision, normal_patch, monkeypatch
+    repo_mc,
+    user,
+    uplift_worker,
+    create_patch_revision,
+    normal_patch,
+    monkeypatch,
+    make_uplift_job_with_revisions,
 ):
     repo = repo_mc(SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
 
@@ -789,7 +773,13 @@ def test_uplift_worker_mozphab_failure_marks_failed(
 
 @pytest.mark.django_db
 def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
-    repo_mc, user, uplift_worker, create_patch_revision, normal_patch, monkeypatch
+    repo_mc,
+    user,
+    uplift_worker,
+    create_patch_revision,
+    normal_patch,
+    monkeypatch,
+    make_uplift_job_with_revisions,
 ):
     repo = repo_mc(SCM_TYPE_GIT, name="firefox-esr", approval_required=True)
 
@@ -841,7 +831,7 @@ def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
 
 @pytest.mark.django_db
 def test_uplift_context_for_revision_returns_original_and_uplifted_requests(
-    repo_mc, user, create_patch_revision, normal_patch
+    repo_mc, user, create_patch_revision, normal_patch, make_uplift_job_with_revisions
 ):
     repo = repo_mc(SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
 

@@ -27,6 +27,13 @@ from lando.api.legacy.workers.uplift_worker import (
     UpliftWorker,
 )
 from lando.api.tests.mocks import PhabricatorDouble
+from lando.main.models import JobStatus
+from lando.main.models.uplift import (
+    MultiTrainUpliftRequest,
+    RevisionUpliftJob,
+    UpliftAssessment,
+    UpliftJob,
+)
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.support import LegacyAPIException
 from lando.utils.phabricator import PhabricatorClient
@@ -483,3 +490,49 @@ def proxy_client(monkeypatch, fake_request):
 def authenticated_client(user, user_plaintext_password, client):
     client.login(username=user.username, password=user_plaintext_password)
     return client
+
+
+@pytest.fixture
+def make_uplift_job_with_revisions():
+    """Create assessment, multi-request, revisions, and a single UpliftJob associated to them."""
+
+    def _make_uplift_job_with_revisions(repo, user, revisions):
+        # 1) Assessment
+        assessment = UpliftAssessment.objects.create(
+            user=user,
+            user_impact="Medium",
+            covered_by_testing="yes",
+            fix_verified_in_nightly="yes",
+            needs_manual_qe_testing="no",
+            qe_testing_reproduction_steps="",
+            risk_associated_with_patch="low",
+            risk_level_explanation="low risk",
+            string_changes="none",
+            is_android_affected="no",
+        )
+
+        # 2) Multi-request holding the ordered D-IDs
+        multi = MultiTrainUpliftRequest.objects.create(
+            user=user,
+            assessment=assessment,
+            requested_revisions=[revision.revision_id for revision in revisions],
+        )
+
+        # 3) One job for the target repo
+        job = UpliftJob.objects.create(
+            status=JobStatus.SUBMITTED,
+            requester_email=user.email,
+            target_repo=repo,
+            multi_request=multi,
+            attempts=1,
+        )
+
+        # 4) Attach and order revisions via through table
+        for idx, revision in enumerate(revisions):
+            RevisionUpliftJob.objects.create(
+                uplift_job=job, revision=revision, index=idx
+            )
+
+        return job
+
+    return _make_uplift_job_with_revisions
