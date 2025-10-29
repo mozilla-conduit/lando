@@ -168,7 +168,7 @@ class UpliftWorker(Worker):
         )
 
     def moz_phab_uplift(self, job: UpliftJob, api_key: str, base_revision: str) -> dict:
-        """Run `moz-phab uplift` on the repo."""
+        """Create Phabricator uplift revisions using `moz-phab uplift`."""
         target_repo = job.target_repo
 
         env = os.environ.copy()
