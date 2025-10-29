@@ -196,7 +196,7 @@ class PullRequestRevisionDataClassificationBlocker(PullRequestBlocker):
 # GITHUB-SPECIFIC CHECKS
 
 
-class PullRequestBaseBranchDoesntMatchTree(PullRequestBlocker):
+class PullRequestBaseBranchDoesNotMatchTree(PullRequestBlocker):
     """The base branch for this PR doesn't match this Tree."""
 
     @override
