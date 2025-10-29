@@ -13,6 +13,7 @@ from mots.config import FileConfig
 from mots.directory import Directory
 
 from lando.main.models.jobs import BaseJob
+from lando.main.models.repo import Repo
 from lando.main.models.revision import Revision, RevisionLandingJob
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,11 @@ class LandingJob(BaseJob):
     unsorted_revisions = models.ManyToManyField(
         Revision, through="RevisionLandingJob", related_name="landing_jobs"
     )
+
+    @property
+    def is_pull_request_job(self) -> bool:
+        """Return True if all revisions in the landing job have a pull_number set."""
+        return not self.revisions.filter(pull_number__isnull=True).exists()
 
     @property
     def landed_phabricator_revisions(self) -> dict:
@@ -220,6 +226,13 @@ class LandingJob(BaseJob):
                 revision=revision, landing_job=self
             ).update(diff_id=revision.diff_id)
 
+    def set_landed_commit_ids(self):
+        """Assign `commit_id`, if available, to each association row."""
+        for revision in self.unsorted_revisions.all():
+            RevisionLandingJob.objects.filter(
+                revision=revision, landing_job=self
+            ).update(commit_id=revision.commit_id)
+
     def set_landed_reviewers(self, path: Path):
         """Set approving peers and owners at time of landing."""
         directory = Directory(FileConfig(path))
@@ -258,3 +271,13 @@ def add_revisions_to_job(revisions: list[Revision], job: LandingJob):
     """Given an existing job, add and sort provided revisions."""
     job.add_revisions(revisions)
     job.sort_revisions(revisions)
+
+
+def get_jobs_for_pull(target_repo: Repo, pull_number: int) -> QuerySet[LandingJob]:
+    """Given a target repo and a pull number, return all landing jobs."""
+    revisions = Revision.objects.filter(
+        landing_jobs__target_repo=target_repo, pull_number=pull_number
+    )
+    return LandingJob.objects.filter(unsorted_revisions__in=revisions).order_by(
+        "-created_at"
+    )

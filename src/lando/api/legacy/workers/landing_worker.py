@@ -22,6 +22,7 @@ from lando.main.models import (
     LandingJob,
     PermanentFailureException,
     Repo,
+    Revision,
     TemporaryFailureException,
     WorkerType,
 )
@@ -29,8 +30,6 @@ from lando.main.scm import (
     AbstractSCM,
     AutoformattingException,
     CommitData,
-    NoDiffStartLine,
-    PatchConflict,
     SCMException,
     SCMInternalServerError,
     SCMLostPushRace,
@@ -50,6 +49,7 @@ from lando.main.scm.helpers import (
 )
 from lando.pushlog.pushlog import PushLog, PushLogForRepo
 from lando.utils.config import read_lando_config
+from lando.utils.github import GitHubAPIClient
 from lando.utils.tasks import phab_trigger_repo_update
 
 logger = logging.getLogger(__name__)
@@ -141,7 +141,17 @@ class LandingWorker(Worker):
             except TemporaryFailureException:
                 return False
 
+        job.set_landed_commit_ids()
         job.transition_status(JobAction.LAND, commit_id=commit_id)
+
+        if job.is_pull_request_job:
+            # TODO: move this to different method, and retry if needed.
+            # NOTE: This may need to happen on the revision-level when stack support is added.
+            pull_number = job.revisions.first().pull_number
+            message = f"Pull request closed by commit {commit_id}"
+            client = GitHubAPIClient(job.target_repo)
+            client.add_comment_to_pull_request(pull_number, message)
+            client.close_pull_request(pull_number)
 
         mots_path = Path(repo.path) / "mots.yaml"
         if mots_path.exists():
@@ -189,59 +199,28 @@ class LandingWorker(Worker):
         """
         self.update_repo(repo, job, scm, job.target_commit_hash)
 
+        def apply_patch(revision: Revision):
+            logger.debug(f"Landing {revision} ...")
+            scm.apply_patch(
+                revision.diff,
+                revision.commit_message,
+                revision.author,
+                revision.timestamp,
+            )
+
         # Run through the patches one by one and try to apply them.
         logger.debug(
             f"About to land {job.revisions.count()} revisions: {job.revisions.all()} ..."
         )
         for revision in job.revisions.all():
-            try:
-                logger.debug(f"Landing {revision} ...")
-                scm.apply_patch(
-                    revision.diff,
-                    revision.commit_message,
-                    revision.author,
-                    revision.timestamp,
-                )
-            except NoDiffStartLine as exc:
-                message = (
-                    "Lando encountered a malformed patch, please try again. "
-                    "If this error persists please file a bug: "
-                    "Patch without a diff start line."
-                )
-                logger.error(message)
-                job.transition_status(
-                    JobAction.FAIL,
-                    message=message,
-                )
-                raise PermanentFailureException(message) from exc
+            self.handle_new_commit_failures(apply_patch, repo, job, scm, revision)
 
-            except PatchConflict as exc:
-                breakdown = scm.process_merge_conflict(
-                    repo.normalized_url, revision.revision_id, str(exc)
-                )
-                job.error_breakdown = breakdown
+            new_commit = scm.describe_commit()
+            logger.debug(f"Created new commit {new_commit}")
 
-                message = (
-                    f"Problem while applying patch in revision {revision.revision_id}:\n\n"
-                    f"{str(exc)}"
-                )
-                logger.exception(message)
-                job.transition_status(JobAction.FAIL, message=message)
-                raise PermanentFailureException(message) from exc
-            except Exception as exc:
-                message = (
-                    f"Aborting, could not apply patch buffer for {revision.revision_id}."
-                    f"\n{exc}"
-                )
-                logger.exception(message)
-                job.transition_status(
-                    JobAction.FAIL,
-                    message=message,
-                )
-                raise PermanentFailureException(message) from exc
-            else:
-                new_commit = scm.describe_commit()
-                logger.debug(f"Created new commit {new_commit}")
+            # Record the commit ID on the revision object.
+            revision.commit_id = new_commit.hash
+            revision.save()
 
         # Get the changeset titles for the stack.
         changeset_titles = scm.changeset_descriptions()
