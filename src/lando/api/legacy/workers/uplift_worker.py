@@ -98,12 +98,12 @@ class UpliftWorker(Worker):
             logger.debug(f"Created new commit {new_commit}")
 
         # On success: create patches.
-        response = self.moz_phab_uplift(
+        result = self.moz_phab_uplift(
             job, user.profile.phabricator_api_key, base_revision
         )
 
         # Retrieve created revision IDs and tip revision ID.
-        commits = response["commits"]
+        commits = result["commits"]
         created_revision_ids = [int(commit["rev_id"]) for commit in commits]
         tip_revision_id = created_revision_ids[-1]
 
