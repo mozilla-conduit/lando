@@ -126,8 +126,11 @@ future.
                                 Show error details
                               </button>
                             </div>
-                            <pre class="hidden-content has-text-left">{{ job.error }}
-    <button type="button" class="button is-small is-light toggle-content">Hide error details</button></pre>
+                            <div class="hidden-content has-text-left">
+                              {% include "partials/error-breakdown.html" %}
+                              <pre><strong>Raw error output:</strong>{{ "\n" + job.error }}</pre>
+                              <button type="button" class="button is-small is-light toggle-content">Hide error details</button>
+                            </div>
                         {% endif %}
                         {% if job.status in ["LANDED", "SUCCESS"] and job.created_revision_ids %}
                           <div class="content">
