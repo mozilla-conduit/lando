@@ -5,12 +5,10 @@ The `DiffWarning` model provides a warning that is associated with a particular
 Phabricator diff that is associated with a particular revision.
 """
 
-from __future__ import annotations
-
 import logging
 import re
 from io import StringIO
-from typing import Any, Optional
+from typing import Any, Optional, Self
 
 from django.conf import settings
 from django.db import models
@@ -106,13 +104,13 @@ class Revision(BaseModel):
         return self.patch.encode("utf-8")
 
     @classmethod
-    def get_from_revision_id(cls, revision_id: int) -> "Revision" | None:
+    def get_from_revision_id(cls, revision_id: int) -> Self | None:
         """Return a Revision object from a given ID."""
         if cls.objects.filter(revision_id=revision_id).exists():
             return cls.objects.get(revision_id=revision_id)
 
     @classmethod
-    def new_from_patch(cls, raw_diff: str, patch_data: dict[str, str]) -> Revision:
+    def new_from_patch(cls, raw_diff: str, patch_data: dict[str, str]) -> Self:
         """Construct a new Revision from patch data.
 
         `patch_data` is expected to contain the following keys:

@@ -1,7 +1,5 @@
 """This module contains the abstract repo worker implementation."""
 
-from __future__ import annotations
-
 import logging
 import os
 import re
