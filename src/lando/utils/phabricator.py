@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 import logging
 from datetime import (
@@ -15,6 +13,7 @@ from typing import (
     Any,
     Iterable,
     Optional,
+    Self,
 )
 
 import requests
@@ -42,7 +41,7 @@ class PhabricatorRevisionStatus(Enum):
     UNEXPECTED_STATUS = None
 
     @classmethod
-    def from_status(cls, value: str) -> PhabricatorRevisionStatus:
+    def from_status(cls, value: str) -> Self:
         try:
             return cls(value)
         except ValueError:
@@ -130,7 +129,7 @@ class ReviewerStatus(Enum):
     UNEXPECTED_STATUS = None
 
     @classmethod
-    def from_status(cls, value: str) -> ReviewerStatus:
+    def from_status(cls, value: str) -> Self:
         try:
             return cls(value)
         except ValueError:
