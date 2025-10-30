@@ -14,9 +14,8 @@ logger = logging.getLogger(__name__)
 class GitHub:
     """Work with authentication to GitHub repositories."""
 
-    # NOTE: This RE takes care of removing the '.git' suffix, to provide normalised URLs.
     GITHUB_URL_RE = re.compile(
-        f"https://{URL_USERINFO_RE.pattern}?github.com/(?P<owner>[-A-Za-z0-9]+)/(?P<repo>[^/]+)(.git)?"
+        f"https://{URL_USERINFO_RE.pattern}?github.com/(?P<owner>[-A-Za-z0-9]+)/(?P<repo>[^/]+)(.git)?/?"
     )
 
     repo_url: str
@@ -25,9 +24,11 @@ class GitHub:
     userinfo: str
 
     def __init__(self, repo_url: str):
-        self.repo_url = repo_url
+        # GitHub doesn't allow '.git' to be at the end of a repository name, so we
+        # normalise it out to be sure. This include first removing any trailing /
+        self.repo_url = repo_url.removesuffix("/").removesuffix(".git")
 
-        parsed_url = self.parse_url(repo_url)
+        parsed_url = self.parse_url(self.repo_url)
 
         if parsed_url is None:
             raise ValueError(f"Cannot parse URL as GitHub repo: {repo_url}")
@@ -42,12 +43,18 @@ class GitHub:
 
     @classmethod
     def parse_url(cls, url: str) -> re.Match[str] | None:
-        """Parse GitHub data from URL, or return None if not Github."""
+        """Parse GitHub data from URL, or return None if not Github.
+
+        Note: no normalisation is performed on the URL
+        """
         return re.match(cls.GITHUB_URL_RE, url)
 
     @property
     def authenticated_url(self) -> str:
-        """Return an authenticated URL, suitable for use with `git` to push and pull."""
+        """Return an authenticated URL, suitable for use with `git` to push and pull.
+
+        Note: any '.git' or trailing '/' will be normalised out.
+        """
         if self.userinfo:
             # We only fetch a token if no authentication is explicitly specified in
             # the repo_url.
@@ -130,9 +137,8 @@ class GitHubAPIClient:
 
     _api: GitHubAPI
 
-    def __init__(self, repo: Repo):
-        self._api = GitHubAPI(repo)
-        self.repo = repo
+    def __init__(self, repo_url: str):
+        self._api = GitHubAPI(repo_url)
         self.repo_base_url = f"repos/{self._api.repo_owner}/{self._api.repo_name}"
 
     def _repo_get(self, subpath: str, *args, **kwargs) -> dict | list:
