@@ -201,11 +201,11 @@ class PullRequest:
 
     @property
     def diff(self) -> str:
-        return self.client.get_diff(self.diff_url)
+        return self.client.get_diff(self.number)
 
     @property
     def patch(self) -> str:
-        return self.client.get_patch(self.patch_url)
+        return self.client.get_patch(self.number)
 
     def serialize(self) -> dict[str, str]:
         """Return a dictionary with various pull request data."""

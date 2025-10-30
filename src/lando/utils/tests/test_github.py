@@ -1,5 +1,6 @@
 import json
 from textwrap import dedent
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -200,11 +201,19 @@ def test_api_client_build_pr(
     api_client.get_pull_request = mock.MagicMock()
     api_client.get_pull_request.return_value = json.loads(github_pr_response)
 
+    def expect_int_argument(return_value: Any):
+        def closure(arg: Any):
+            if isinstance(arg, int):
+                return return_value
+            raise ValueError(f"int argument expected; got {arg}")
+
+        return closure
+
     api_client.get_diff = mock.MagicMock()
-    api_client.get_diff.return_value = github_pr_diff
+    api_client.get_diff.side_effect = expect_int_argument(github_pr_diff)
 
     api_client.get_patch = mock.MagicMock()
-    api_client.get_patch.return_value = github_pr_patch
+    api_client.get_patch.side_effect = expect_int_argument(github_pr_patch)
 
     pr = api_client.build_pull_request(1)
 
