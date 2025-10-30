@@ -139,7 +139,7 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
     assert multi.requested_revisions == [
         123,
         456,
-    ], "Both requested revisions should be tracked in uplift request."
+    ], "Both revisions should be tracked, in the correct order, in uplift request."
 
     jobs = list(
         UpliftJob.objects.select_related("target_repo").filter(multi_request=multi)
