@@ -114,12 +114,12 @@ class GitHubAPI(GitHub):
             }
         )
 
-    def get(self, path: str, *args, **kwargs) -> dict:
+    def get(self, path: str, *args, **kwargs) -> requests.Response:
         """Send a GET request to the GitHub API with given args and kwargs."""
         url = f"{self.GITHUB_BASE_URL}/{path}"
         return self.session.get(url, *args, **kwargs)
 
-    def post(self, path: str, *args, **kwargs) -> dict:
+    def post(self, path: str, *args, **kwargs) -> requests.Response:
         """Send a POST request to the GitHub API with given args and kwargs."""
         url = f"{self.GITHUB_BASE_URL}/{path}"
         return self.session.post(url, *args, **kwargs)
@@ -128,15 +128,28 @@ class GitHubAPI(GitHub):
 class GitHubAPIClient:
     """A convenience client that provides various methods to interact with the GitHub API."""
 
-    client = None
+    _api: GitHubAPI
 
-    def __init__(self, repo_url: str):
-        self.client = GitHubAPI(repo_url)
-        self.repo = repo_url
-        self.repo_base_url = f"repos/{self.client.repo_owner}/{self.client.repo_name}"
+    def __init__(self, repo: Repo):
+        self._api = GitHubAPI(repo)
+        self.repo = repo
+        self.repo_base_url = f"repos/{self._api.repo_owner}/{self._api.repo_name}"
 
-    def _get(self, path: str, *args, **kwargs) -> dict:
-        result = self.client.get(path, *args, **kwargs)
+    def _repo_get(self, subpath: str, *args, **kwargs) -> dict | list:
+        """Get API endpoint scoped to the repo_base_url.
+
+        Parameters:
+
+        subpath: str
+            Relative path without leading `/`.
+
+        Return:
+            dist | list: decoded JSON from the response
+        """
+        return self._get(f"{self.repo_base_url}/{subpath}", *args, **kwargs)
+
+    def _get(self, path: str, *args, **kwargs) -> dict | list | str | None:
+        result = self._api.get(path, *args, **kwargs)
         content_type = result.headers["content-type"]
         if content_type == "application/json; charset=utf-8":
             return result.json()
@@ -146,16 +159,16 @@ class GitHubAPIClient:
             return result.text
 
     def _post(self, path: str, *args, **kwargs):
-        result = self.client.post(path, *args, **kwargs)
+        result = self._api.post(path, *args, **kwargs)
         return result.json()
 
     def list_pull_requests(self) -> list:
         """List all pull requests in the repo."""
-        return self._get(f"{self.repo_base_url}/pulls")
+        return self._repo_get("pulls")
 
     def get_pull_request(self, pull_number: int) -> dict:
         """Get a specific pull request from the repo."""
-        return self._get(f"{self.repo_base_url}/pulls/{pull_number}")
+        return self._repo_get(f"pulls/{pull_number}")
 
     def get_diff(self, pull_number: int) -> str:
         """Fetch a diff, given a pull request number."""
