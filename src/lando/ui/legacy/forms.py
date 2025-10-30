@@ -74,6 +74,13 @@ class UpliftRequestForm(UpliftAssessmentForm):
         to_field_name="name",
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Set the rendered value of the repository to the
+        # name, instead of the default `__str__` representation.
+        self.fields["repositories"].label_from_instance = lambda repo: repo.name
+
     def clean_source_revision_ids(self) -> list[Revision]:
         """Return source revisions in the same order they were submitted."""
         revisions_qs = self.cleaned_data["source_revision_ids"]
@@ -89,13 +96,6 @@ class UpliftRequestForm(UpliftAssessmentForm):
         ]
 
         return ordered_revisions
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # Set the rendered value of the repository to the
-        # name, instead of the default `__str__` representation.
-        self.fields["repositories"].label_from_instance = lambda repo: repo.name
 
 
 class UserSettingsForm(forms.Form):
