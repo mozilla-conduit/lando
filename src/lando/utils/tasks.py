@@ -127,9 +127,17 @@ def send_uplift_failure_email(
     repo_name: str,
     job_url: str,
     reason: str,
+    requested_revision_ids: list[int],
 ):
-    """Notify a user that an uplift job failed."""
+    """Notify a user that an uplift job failed.
 
+    Args:
+        recipient_email: Email address to send the notification to.
+        repo_name: Name of the target repository.
+        job_url: URL to view the job details.
+        reason: Error message describing why the uplift failed.
+        requested_revision_ids: List of Phabricator revision IDs that were being uplifted.
+    """
     if not recipient_email:
         logger.info("Skipping uplift failure email because recipient email is empty")
         return
@@ -142,6 +150,7 @@ def send_uplift_failure_email(
                     repo_name,
                     job_url,
                     reason,
+                    requested_revision_ids,
                 )
             ]
         )

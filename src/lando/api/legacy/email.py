@@ -90,16 +90,30 @@ def make_uplift_failure_email(
     repo_name: str,
     job_url: str,
     reason: str,
+    requested_revision_ids: list[int],
 ) -> EmailMessage:
-    """Build an uplift failure email."""
+    """Build an uplift failure email.
+
+    Args:
+        recipient_email: Email address to send the failure notification to.
+        repo_name: Name of the target repository (e.g., "firefox-beta").
+        job_url: URL to view the job details.
+        reason: Error message describing why the uplift failed.
+        requested_revision_ids: Optional list of original revision IDs that were being uplifted.
+    """
     body = UPLIFT_FAILURE_EMAIL_TEMPLATE.format(
         job_url=job_url,
         reason=reason,
         repo_name=repo_name,
     )
 
+    # Get the tip revision for the subject line
+    subject_suffix = ""
+    if requested_revision_ids:
+        subject_suffix = f" (D{requested_revision_ids[-1]})"
+
     msg = EmailMessage(
-        subject=f"Lando: Uplift for {repo_name} failed",
+        subject=f"Lando: Uplift for {repo_name} failed{subject_suffix}",
         body=body,
         to=[recipient_email],
     )

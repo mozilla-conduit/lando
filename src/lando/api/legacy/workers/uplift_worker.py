@@ -48,18 +48,22 @@ class UpliftWorker(Worker):
         user = job.multi_request.user
         job_url = job.url()
 
+        requested_revision_ids = job.multi_request.requested_revisions
+
         try:
             created_revision_ids = self.apply_and_uplift(job)
         except TemporaryFailureException:
             return False
         except PermanentFailureException as exc:
-            self.notify_uplift_failure(job, repo.name, job_url, user.email, str(exc))
+            self.notify_uplift_failure(
+                job, repo.name, job_url, user.email, str(exc), requested_revision_ids
+            )
             return False
         except Exception as exc:  # pragma: no cover - defensive catch
-            self.notify_uplift_failure(job, repo.name, job_url, user.email, str(exc))
+            self.notify_uplift_failure(
+                job, repo.name, job_url, user.email, str(exc), requested_revision_ids
+            )
             return False
-
-        requested_revision_ids = job.multi_request.requested_revisions
         self.notify_uplift_success(
             repo.name,
             job_url,
@@ -158,7 +162,18 @@ class UpliftWorker(Worker):
         job_url: str,
         recipient_email: str,
         reason: str,
+        requested_revision_ids: list[int],
     ) -> None:
+        """Send an uplift failure notification email.
+
+        Args:
+            job: The uplift job that failed.
+            repo_label: Human-readable repository name.
+            job_url: URL to view job details.
+            recipient_email: Email address to send notification to.
+            reason: Error message describing the failure.
+            requested_revision_ids: List of Phabricator revision IDs that were being uplifted.
+        """
         if not recipient_email:
             return
 
@@ -169,6 +184,7 @@ class UpliftWorker(Worker):
             repo_label,
             job_url,
             failure_reason,
+            requested_revision_ids,
         )
 
     def create_uplift_revisions(

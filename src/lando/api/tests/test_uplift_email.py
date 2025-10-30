@@ -31,9 +31,10 @@ def test_make_uplift_failure_email():
         "firefox-beta",
         "https://lando/jobs/1",
         "moz-phab uplift exited with code 2",
+        [123, 456],
     )
 
-    assert email.subject == "Lando: Uplift for firefox-beta failed"
+    assert email.subject == "Lando: Uplift for firefox-beta failed (D456)"
     assert email.body == FAILURE_EXPECTED_BODY
 
 
