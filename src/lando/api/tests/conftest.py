@@ -2,11 +2,13 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable
 
 import pytest
 import redis
 import requests_mock
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.http import HttpResponse
 from django.http import JsonResponse as JSONResponse
@@ -27,7 +29,7 @@ from lando.api.legacy.workers.uplift_worker import (
     UpliftWorker,
 )
 from lando.api.tests.mocks import PhabricatorDouble
-from lando.main.models import JobStatus
+from lando.main.models import JobStatus, Repo, Revision
 from lando.main.models.uplift import (
     MultiTrainUpliftRequest,
     RevisionUpliftJob,
@@ -493,10 +495,14 @@ def authenticated_client(user, user_plaintext_password, client):
 
 
 @pytest.fixture
-def make_uplift_job_with_revisions():
+def make_uplift_job_with_revisions() -> (
+    Callable[[Repo, User, list[Revision]], UpliftJob]
+):
     """Create assessment, multi-request, revisions, and a single UpliftJob associated to them."""
 
-    def _make_uplift_job_with_revisions(repo, user, revisions):
+    def _make_uplift_job_with_revisions(
+        repo: Repo, user: User, revisions: list[Revision]
+    ) -> UpliftJob:
         # 1) Assessment
         assessment = UpliftAssessment.objects.create(
             user=user,
