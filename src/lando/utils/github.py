@@ -144,13 +144,13 @@ class GitHubAPIClient:
 class PullRequest:
     """A class that parses data returned from the GitHub API for pull requests."""
 
-    _client: GitHubAPIClient
+    client: GitHubAPIClient
 
     def __repr__(self) -> str:
         return f"Pull request #{self.number} ({self.head_repo_git_url})"
 
     def __init__(self, client: GitHubAPIClient, data: dict):
-        self._client = client
+        self.client = client
 
         self.url = data["url"]
         self.base_ref = data["base"]["ref"]  # "target" branch name
@@ -201,11 +201,11 @@ class PullRequest:
 
     @property
     def diff(self) -> str:
-        return self._client.get_diff(self.diff_url)
+        return self.client.get_diff(self.diff_url)
 
     @property
     def patch(self) -> str:
-        return self._client.get_patch(self.patch_url)
+        return self.client.get_patch(self.patch_url)
 
     def serialize(self) -> dict[str, str]:
         """Return a dictionary with various pull request data."""
