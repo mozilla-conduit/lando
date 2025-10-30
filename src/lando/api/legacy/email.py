@@ -73,8 +73,11 @@ for step-by-step instructions.
 UPLIFT_SUCCESS_EMAIL_TEMPLATE = """
 Your uplift request for {repo_name} finished successfully.
 
+Requested revisions:
+{requested_revision_lines}
+
 Lando created the following revisions:
-{revision_lines}
+{created_revision_lines}
 
 You can review the full job details at {job_url}.
 
@@ -107,19 +110,33 @@ def make_uplift_success_email(
     recipient_email: str,
     repo_name: str,
     job_url: str,
-    created_revision_ids: list[str],
+    created_revision_ids: list[int],
+    requested_revision_ids: list[int],
 ) -> EmailMessage:
     """Build an uplift success email."""
-    revision_lines = "\n".join(f"- {rev_id}" for rev_id in created_revision_ids)
+    requested_revision_lines = format_revision_id_lines(requested_revision_ids)
+    created_revision_lines = format_revision_id_lines(created_revision_ids)
+
+    # Get the tip revision for the subject line
+    subject_suffix = (
+        f" (D{requested_revision_ids[-1]})" if requested_revision_ids else ""
+    )
+
     body = UPLIFT_SUCCESS_EMAIL_TEMPLATE.format(
         repo_name=repo_name,
         job_url=job_url,
-        revision_lines=revision_lines,
+        created_revision_lines=created_revision_lines,
+        requested_revision_lines=requested_revision_lines,
     )
 
     msg = EmailMessage(
-        subject=f"Lando: Uplift for {repo_name} succeeded",
+        subject=f"Lando: Uplift for {repo_name} succeeded{subject_suffix}",
         body=body,
         to=[recipient_email],
     )
     return msg
+
+
+def format_revision_id_lines(revision_ids: list[int]) -> str:
+    """Format revision IDs as a list for email."""
+    return "\n".join(f"- D{rev_id}" for rev_id in revision_ids)

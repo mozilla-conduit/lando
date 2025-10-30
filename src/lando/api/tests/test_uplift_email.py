@@ -40,6 +40,10 @@ def test_make_uplift_failure_email():
 SUCCESS_EXPECTED_BODY = """
 Your uplift request for firefox-esr finished successfully.
 
+Requested revisions:
+- D123
+- D456
+
 Lando created the following revisions:
 - D1234
 - D5678
@@ -55,8 +59,9 @@ def test_make_uplift_success_email():
         "user@example.com",
         "firefox-esr",
         "https://lando/jobs/123",
-        ["D1234", "D5678"],
+        [1234, 5678],
+        [123, 456],
     )
 
-    assert email.subject == "Lando: Uplift for firefox-esr succeeded"
+    assert email.subject == "Lando: Uplift for firefox-esr succeeded (D456)"
     assert email.body == SUCCESS_EXPECTED_BODY

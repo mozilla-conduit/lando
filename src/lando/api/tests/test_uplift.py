@@ -590,7 +590,10 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     args = mock_success_task.apply_async.call_args[1]["args"]
     assert args[0] == user.email
     assert args[1] == (repo.short_name or repo.name)
-    assert args[3] == ["D4567", "D4568"], "Revision identifiers should be formatted."
+    assert args[3] == [
+        4567,
+        4568,
+    ], "Revision identifiers should be in the correct order."
     assert (
         mock_task.apply_async.call_count == 2
     ), "Celery task should be dispatched on each successful run."

@@ -59,11 +59,13 @@ class UpliftWorker(Worker):
             self.notify_uplift_failure(job, repo.name, job_url, user.email, str(exc))
             return False
 
+        requested_revision_ids = job.multi_request.requested_revisions
         self.notify_uplift_success(
             repo.name,
             job_url,
             user.email,
             created_revision_ids,
+            requested_revision_ids,
         )
         return True
 
@@ -135,16 +137,18 @@ class UpliftWorker(Worker):
         job_url: str,
         recipient_email: str,
         created_revision_ids: list[int],
+        requested_revision_ids: list[int],
     ) -> None:
+        """Send an uplift success notification email."""
         if not recipient_email:
             return
-        revision_labels = [f"D{rev_id}" for rev_id in created_revision_ids]
         self.call_task(
             send_uplift_success_email,
             recipient_email,
             repo_label,
             job_url,
-            revision_labels,
+            created_revision_ids,
+            requested_revision_ids,
         )
 
     def notify_uplift_failure(

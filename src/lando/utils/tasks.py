@@ -160,10 +160,10 @@ def send_uplift_success_email(
     recipient_email: str,
     repo_name: str,
     job_url: str,
-    created_revision_ids: list[str],
+    created_revision_ids: list[int],
+    requested_revision_ids: list[int],
 ):
     """Notify a user that an uplift job succeeded."""
-
     if not recipient_email:
         logger.info("Skipping uplift success email because recipient email is empty")
         return
@@ -176,6 +176,7 @@ def send_uplift_success_email(
                     repo_name,
                     job_url,
                     created_revision_ids,
+                    requested_revision_ids,
                 )
             ]
         )
