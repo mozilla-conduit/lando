@@ -98,7 +98,7 @@ class UpliftWorker(Worker):
             logger.debug(f"Created new commit {new_commit}")
 
         # On success: create patches.
-        result = self.moz_phab_uplift(
+        result = self.create_uplift_revisions(
             job, user.profile.phabricator_api_key, base_revision
         )
 
@@ -167,7 +167,9 @@ class UpliftWorker(Worker):
             failure_reason,
         )
 
-    def moz_phab_uplift(self, job: UpliftJob, api_key: str, base_revision: str) -> dict:
+    def create_uplift_revisions(
+        self, job: UpliftJob, api_key: str, base_revision: str
+    ) -> dict:
         """Create Phabricator uplift revisions using `moz-phab uplift`."""
         target_repo = job.target_repo
 

@@ -531,7 +531,7 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     # Let update_repo/apply_patch run for real; only mock moz-phab uplift to return new tip D-ids
     monkeypatch.setattr(
         uplift_worker,
-        "moz_phab_uplift",
+        "create_uplift_revisions",
         lambda job, api, base: {
             "commits": [
                 {"rev_id": 4567},
@@ -609,7 +609,7 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
 
 
 @pytest.mark.django_db
-def test_moz_phab_uplift_invokes_cli_and_returns_response(
+def test_create_uplift_revisions_invokes_cli_and_returns_response(
     repo_mc,
     user,
     uplift_worker,
@@ -644,14 +644,14 @@ def test_moz_phab_uplift_invokes_cli_and_returns_response(
     fake_run.side_effect = _write_output
     monkeypatch.setattr(subprocess, "run", fake_run)
 
-    response = uplift_worker.moz_phab_uplift(job, api_key, base_revision)
+    response = uplift_worker.create_uplift_revisions(job, api_key, base_revision)
 
     assert (
         response == expected_response
-    ), "`moz_phab_uplift` should return the JSON read from the output file."
+    ), "`create_uplift_revisions` should return the JSON read from the output file."
     assert (
         fake_run.call_count == 1
-    ), "`moz_phab_uplift` should invoke `subprocess.run` exactly once."
+    ), "`create_uplift_revisions` should invoke `subprocess.run` exactly once."
 
     called_cmd = fake_run.call_args.args[0]
     assert called_cmd[:5] == [
@@ -660,7 +660,7 @@ def test_moz_phab_uplift_invokes_cli_and_returns_response(
         "--yes",
         "--no-rebase",
         "--output-file",
-    ], "`moz_phab_uplift` should call moz-phab uplift with no prompts or rebase."
+    ], "`create_uplift_revisions` should call moz-phab uplift with no prompts or rebase."
     expected_repo_identifier = repo.short_name or repo.name
     assert called_cmd[6:] == [
         "--train",
@@ -670,14 +670,14 @@ def test_moz_phab_uplift_invokes_cli_and_returns_response(
     ], "Called `moz-phab uplift` command should include repo and revisions."
     assert (
         fake_run.call_args.kwargs["cwd"] == repo.system_path
-    ), "`moz_phab_uplift` should use the repo path as the cwd."
+    ), "`create_uplift_revisions` should use the repo path as the cwd."
     assert (
         fake_run.call_args.kwargs["env"]["MOZPHAB_PHABRICATOR_API_TOKEN"] == api_key
-    ), "`moz_phab_uplift` should set the API key in the environment."
+    ), "`create_uplift_revisions` should set the API key in the environment."
 
 
 @pytest.mark.django_db
-def test_moz_phab_uplift_invalid_json_marks_job_failed(
+def test_create_uplift_revisions_invalid_json_marks_job_failed(
     repo_mc,
     user,
     uplift_worker,
@@ -709,7 +709,7 @@ def test_moz_phab_uplift_invalid_json_marks_job_failed(
     monkeypatch.setattr(subprocess, "run", fake_run)
 
     with pytest.raises(PermanentFailureException):
-        uplift_worker.moz_phab_uplift(job, api_key, "abcd1234")
+        uplift_worker.create_uplift_revisions(job, api_key, "abcd1234")
 
     job.refresh_from_db()
     assert job.status == JobStatus.FAILED, "Invalid JSON output should fail the job."
@@ -755,7 +755,7 @@ def test_uplift_worker_mozphab_failure_marks_failed(
             stderr="boom",
         )
 
-    # Patch subprocess.run inside the worker's `moz_phab_uplift`.
+    # Patch subprocess.run inside the worker's `create_uplift_revisions`.
     monkeypatch.setattr(subprocess, "run", _uplift_fail)
 
     assert not uplift_worker.run_job(job), "Job should not complete successfully."
@@ -801,9 +801,11 @@ def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
         mock_failure_task,
     )
 
-    # Ensure moz_phab_uplift won't be called if apply_patch fails.
+    # Ensure create_uplift_revisions won't be called if apply_patch fails.
     monkeypatch.setattr(
-        uplift_worker, "moz_phab_uplift", lambda *a, **k: {"commits": [{"rev_id": 999}]}
+        uplift_worker,
+        "create_uplift_revisions",
+        lambda *a, **k: {"commits": [{"rev_id": 999}]},
     )
 
     assert not uplift_worker.run_job(job), "Job should not complete successfully."
