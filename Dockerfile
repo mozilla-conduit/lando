@@ -45,8 +45,6 @@ COPY ./ /code
 RUN mkdir -p /code/.ruff_cache
 RUN chown -R app /code/.ruff_cache
 
-RUN cp /code/.moz-phab-config /app/.moz-phab-config && chown app:app /app/.moz-phab-config
-
 
 RUN pip install -e /code
 
