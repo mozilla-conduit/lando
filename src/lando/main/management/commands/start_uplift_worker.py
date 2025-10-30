@@ -19,9 +19,7 @@ class Command(StartWorkerCommand):
 
     def setup_moz_phab_config(self):
         """Copy the moz-phab config file to the user's home directory."""
-        source_config = (
-            settings.BASE_DIR / "src/api/legacy/workers/config/moz-phab-config"
-        )
+        source_config = settings.BASE_DIR / "api/legacy/workers/config/moz-phab-config"
 
         home_dir = Path.home()
         dest_config = home_dir / ".moz-phab-config"
@@ -29,7 +27,8 @@ class Command(StartWorkerCommand):
         if not source_config.exists():
             raise CommandError(
                 f"moz-phab config file not found at {source_config}. "
-                "The uplift worker requires this configuration file."
+                f"The uplift worker requires this configuration file "
+                f"to be loaded at {dest_config}."
             )
 
         logger.info(f"Setting up moz-phab config: {source_config} -> {dest_config}.")
