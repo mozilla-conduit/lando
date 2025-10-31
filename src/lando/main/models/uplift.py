@@ -8,7 +8,7 @@ from django.db import models
 from django.urls import reverse
 
 from lando.main.models import BaseModel
-from lando.main.models.jobs import BaseJob, JobStatus
+from lando.main.models.jobs import BaseJob
 from lando.main.models.revision import Revision
 
 # Yes/No constants for re-use in `TextChoices`, since `Enum`
