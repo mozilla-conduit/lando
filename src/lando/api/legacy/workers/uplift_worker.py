@@ -144,8 +144,6 @@ class UpliftWorker(Worker):
         requested_revision_ids: list[int],
     ) -> None:
         """Send an uplift success notification email."""
-        if not recipient_email:
-            return
         self.call_task(
             send_uplift_success_email,
             recipient_email,
@@ -174,9 +172,6 @@ class UpliftWorker(Worker):
             reason: Error message describing the failure.
             requested_revision_ids: List of Phabricator revision IDs that were being uplifted.
         """
-        if not recipient_email:
-            return
-
         failure_reason = job.error or reason
         self.call_task(
             send_uplift_failure_email,
