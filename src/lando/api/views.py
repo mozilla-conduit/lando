@@ -1,4 +1,6 @@
 import json
+from collections import defaultdict
+from datetime import datetime
 from functools import wraps
 from typing import Callable
 
@@ -9,13 +11,28 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from lando.main.models import CommitMap
+from lando.main.models import (
+    CommitMap,
+    JobStatus,
+    LandingJob,
+    Repo,
+    Revision,
+    add_revisions_to_job,
+)
+from lando.main.models.landing_job import get_jobs_for_pull
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.main.scm import (
     SCM_TYPE_GIT,
     SCM_TYPE_HG,
 )
+from lando.utils.github import GitHubAPIClient, PullRequest
 from lando.utils.phabricator import get_phabricator_client
+
+
+class APIView(View):
+    """A base class for API views."""
+
+    pass
 
 
 def phabricator_api_key_required(func: callable) -> Callable:
@@ -148,3 +165,76 @@ class hg2gitCommitMapView(CommitMapBaseView):
     """Return corresponding CommitMap given an hg hash."""
 
     scm = SCM_TYPE_HG
+
+
+class LandingJobPullRequestAPIView(View):
+    """Handle pull request landing jobs in the API."""
+
+    def get(
+        self, request: WSGIRequest, repo_name: int, pull_number: int
+    ) -> JsonResponse:
+        """Return the status of a pull request based on landing job counts."""
+
+        target_repo = Repo.objects.get(name=repo_name)
+        landing_jobs = get_jobs_for_pull(target_repo, pull_number)
+        landing_jobs_by_status = defaultdict(list)
+        for landing_job in landing_jobs:
+            landing_jobs_by_status[landing_job.status].append(landing_job.id)
+
+        status = None
+        # Return the first encountered status in this list.
+        for _status in [
+            JobStatus.LANDED,
+            JobStatus.CREATED,
+            JobStatus.SUBMITTED,
+            JobStatus.IN_PROGRESS,
+            JobStatus.FAILED,
+        ]:
+            if landing_jobs_by_status[_status]:
+                status = str(_status).lower()
+                break
+
+        return JsonResponse({"status": status}, status=200)
+
+    def post(
+        self, request: WSGIRequest, repo_name: int, pull_number: int
+    ) -> JsonResponse:
+        """Create a new landing job for a pull request."""
+
+        class Form(forms.Form):
+            """Simple form to get clean some fields."""
+
+            head_sha = forms.CharField()
+            # TODO: use this for verification later, see bug 1996571.
+            # base_ref = forms.CharField()
+
+        target_repo = Repo.objects.get(name=repo_name)
+        client = GitHubAPIClient(target_repo)
+        ldap_username = request.user.email
+        pull_request = PullRequest(client.get_pull_request(pull_number))
+        form = Form(json.loads(request.body))
+
+        if not form.is_valid():
+            return JsonResponse(form.errors, 400)
+
+        # TODO: this does not work with binary data, must use patch instead.
+        # See bug 1993047.
+        diff = client.get_diff(pull_number)
+        job = LandingJob.objects.create(
+            target_repo=target_repo, requester_email=ldap_username
+        )
+        revision = Revision.objects.create(pull_number=pull_request.number)
+        patch_data = {
+            # See bug 1995006 (to actually parse authorship info). Use placeholder for now.
+            "author_name": "Author Name",
+            "author_email": "Author Email <email@example.org>",
+            "commit_message": pull_request.title,
+            "timestamp": int(datetime.now().timestamp()),
+        }
+        revision.set_patch(diff, patch_data)
+        revision.save()
+        add_revisions_to_job([revision], job)
+        job.status = JobStatus.SUBMITTED
+        job.save()
+
+        return JsonResponse({"id": job.id}, status=201)
