@@ -1,4 +1,3 @@
-import datetime
 import logging
 import re
 import urllib.parse
@@ -33,28 +32,6 @@ logger = logging.getLogger(__name__)
 
 def escape_html(text: str) -> str:
     return escape(text)
-
-
-def calculate_duration(start: str, end: Optional[str] = None) -> dict[str, int]:
-    """Calculates the duration between the two iso8061 timestamps.
-
-    If end is None then the current time in UTC will be used.
-    Returns a dict with the minutes and seconds as integers.
-    """
-    if not end:
-        utc_tz = datetime.timezone.utc
-        end = datetime.datetime.utcnow().replace(tzinfo=utc_tz).isoformat()
-
-    # Work around for ':' in timezone until we upgrade to Python 3.7.
-    # https://bugs.python.org/issue24954
-    start = start[:-3] + start[-2:]
-    end = end[:-3] + end[-2:]
-
-    time_start = datetime.datetime.strptime(start, "%Y-%m-%dT%H:%M:%S.%f%z")
-    time_end = datetime.datetime.strptime(end, "%Y-%m-%dT%H:%M:%S.%f%z")
-    elapsedTime = time_end - time_start
-    result = divmod(elapsedTime.total_seconds(), 60)
-    return {"minutes": int(result[0]), "seconds": int(result[1])}
 
 
 def tostatusbadgeclass(landing_job: LandingJob) -> str:
@@ -366,7 +343,6 @@ def environment(**options):  # noqa: ANN201
         {
             "avatar_url": avatar_url,
             "bug_url": bug_url,
-            "calculate_duration": calculate_duration,
             "escape_html": escape_html,
             "graph_above_path": graph_above_path,
             "graph_below_path": graph_below_path,

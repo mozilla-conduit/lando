@@ -5,7 +5,6 @@ import pytest
 
 from lando.jinja import (
     avatar_url,
-    calculate_duration,
     linkify_bug_numbers,
     linkify_faq,
     linkify_revision_ids,
@@ -273,25 +272,6 @@ def test_repo_path(repo_url, path):
 )
 def test_repo_branch_url(repo, path):
     assert path == repo_branch_url(repo)
-
-
-@pytest.mark.parametrize(
-    "start,end,duration",
-    [
-        (
-            "2019-10-08T06:42:12.000000+00:00",
-            "2019-10-08T06:58:32.000000+00:00",
-            {"minutes": 16, "seconds": 20},
-        ),
-        (
-            "2019-10-10T12:42:34.012340+00:00",
-            "2019-10-10T12:42:41.045670+00:00",
-            {"minutes": 0, "seconds": 7},
-        ),
-    ],
-)
-def test_calculate_duration(start, end, duration):
-    assert duration == calculate_duration(start, end)
 
 
 def test_revision_url__integer():

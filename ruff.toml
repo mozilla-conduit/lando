@@ -12,12 +12,13 @@ lint.ignore = [
 
 ]
 exclude = [
+    ".cache",
     ".git",
-    "__pycache__",
     ".hg",
-    ".git",
     "__pycache__",
 ]
+
+target-version = "py311"
 
 [lint.isort]
 split-on-trailing-comma = true

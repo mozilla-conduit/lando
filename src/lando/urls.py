@@ -55,8 +55,8 @@ urlpatterns += [
     path("manage_api_key/", user_settings.manage_api_key, name="user-settings"),
     path("uplift/", revisions.UpliftRequestView.as_view(), name="uplift-page"),
     path(
-        "uplift/assessment/",
-        revisions.UpliftAssessmentEditView.as_view(),
+        "uplift/<int:revision_id>/assessment/",
+        revisions.UpliftAssessmentCreateOrEditView.as_view(),
         name="uplift-assessment-page",
     ),
 ]
@@ -82,7 +82,11 @@ urlpatterns += [
 
 # "API" endpoints ported from legacy API app.
 urlpatterns += [
-    path("landing_jobs/<int:job_id>/", landing_jobs.put, name="landing-jobs"),
+    path(
+        "landing_jobs/<int:job_id>/",
+        landing_jobs.LandingJobApiView.as_view(),
+        name="landing-jobs",
+    ),
     path(
         "D<int:revision_id>/landings/<int:job_id>/",
         jobs.LandingJobView.as_view(),

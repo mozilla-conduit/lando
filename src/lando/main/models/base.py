@@ -1,14 +1,9 @@
-from __future__ import annotations
-
 import logging
-import os
 from contextlib import ContextDecorator
 
 from django.db import connection, models, transaction
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_GRACE_SECONDS = int(os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2))
 
 
 class LockTableContextManager(ContextDecorator):

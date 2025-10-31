@@ -1,11 +1,9 @@
-from __future__ import annotations
-
 import enum
 import logging
 from collections.abc import Iterable
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any
+from typing import Any, Self
 
 from django.db import models
 from django.db.models import Case, IntegerField, QuerySet, When
@@ -65,7 +63,7 @@ class JobStatus(models.TextChoices):
         )
 
     @classmethod
-    def pending(cls) -> list[JobStatus]:
+    def pending(cls) -> list[Self]:
         """Group of Job statuses that may change in the future.
 
         This includes IN_PROGRESS jobs. See doc for ordering().
@@ -73,7 +71,7 @@ class JobStatus(models.TextChoices):
         return [cls.SUBMITTED, cls.IN_PROGRESS, cls.DEFERRED]
 
     @classmethod
-    def final(cls) -> list[JobStatus]:
+    def final(cls) -> list[Self]:
         """Group of Job statuses that will not change without manual intervention."""
         return [cls.FAILED, cls.LANDED, cls.CANCELLED]
 
@@ -274,6 +272,7 @@ class BaseJob(BaseModel):
     def to_dict(self) -> dict[str, Any]:
         """Return the job details as a dict."""
         job_dict = {
+            "commit_id": self.landed_commit_id,
             "created_at": self.created_at,
             "error": self.error,
             "id": self.id,

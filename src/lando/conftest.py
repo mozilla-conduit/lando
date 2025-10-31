@@ -7,6 +7,7 @@ import unittest.mock as mock
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Iterable
 
 import pytest
 import requests
@@ -31,7 +32,7 @@ from lando.main.models import (
     Repo,
     Worker,
 )
-from lando.main.models.landing_job import add_job_with_revisions
+from lando.main.models.landing_job import LandingJob, add_job_with_revisions
 from lando.main.models.revision import Revision
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.scm.commit import CommitData
@@ -765,8 +766,8 @@ def user_plaintext_password():
 
 
 @pytest.fixture
-def landing_worker_instance(mocked_repo_config):
-    def _instance(scm, **kwargs):
+def landing_worker_instance(mocked_repo_config) -> Callable:
+    def _instance(scm, **kwargs) -> Worker:
         worker = Worker.objects.create(sleep_seconds=0.1, scm=scm, **kwargs)
         worker.applicable_repos.set(Repo.objects.filter(scm_type=scm))
         return worker
@@ -990,7 +991,7 @@ def assert_same_commit_data():
 
 
 @pytest.fixture
-def commit_maps(git_repo):
+def commit_maps(git_repo) -> list[CommitMap]:
     for git_hash, hg_hash in (
         ("a" * 39 + "b", "b" * 39 + "c"),
         ("a" * 40, "b" * 40),
@@ -1015,16 +1016,16 @@ def mock_phab_trigger_repo_update_apply_async(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture
-def make_landing_job(repo_mc):
+def make_landing_job(repo_mc: Repo) -> Callable:
     def landing_job_factory(
         *,
-        revisions=None,
-        landing_path=((1, 1),),
-        requester_email="tuser@example.com",
-        status=None,
-        target_repo=None,
+        revisions: list[Revision] | None = None,
+        landing_path: Iterable[tuple[int, int]] = ((1, 1),),
+        requester_email: str = "tuser@example.com",
+        status: str | None = None,
+        target_repo: str | None = None,
         **kwargs,
-    ):
+    ) -> LandingJob:
         """Create a landing job with revisions.
 
         If revisions is None, a set of revisions will be built from landing_paths.

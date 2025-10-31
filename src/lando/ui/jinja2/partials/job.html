@@ -30,19 +30,18 @@
     </p>
     {% endif %}
     {% if job.error_breakdown %}
-    {% set tree = job.tree|default("!unknown tree!") %}
+    {% set tree = job.target_repo.short_name|default("Repo " + job.target_repo.name) %}
     {% set rejects_paths = job.error_breakdown.rejects_paths %}
     <p>While applying <a href="{{ job.error_breakdown.revision_id|revision_url() }}">revision D{{
-        job.error_breakdown.revision_id }}</a> to {{ tree }}, the following files had
+      job.error_breakdown.revision_id }}</a> to <code>{{ tree }}</code>, the following files had
       conflicts:</p>
-    <p>(Hint: try rebasing your changes on the latest commits from {{ tree }} and re-submitting.)</p>
+    <p>(Hint: try rebasing your changes on the latest commits from <code>{{ tree }}</code> and re-submitting.)</p>
     <div class="content">
       <ul>
         {% for path in job.error_breakdown.failed_paths if path.path in rejects_paths %}
         <li><strong>{{ path.path }}</strong> @ <a href="{{ path.url }}">{{ path.changeset_id }}</a></li>
-        {% if path.path not in rejects_paths or content not in rejects_paths[path.path] %}
-        <p>Error parsing error for {{ path.path }}. This is likely due to a conflict when removing a file, see <a
-            href="https://bugzilla.mozilla.org/show_bug.cgi?id=1968636">bug 1968636</a>. See Raw error output below.</p>
+        {% if "content" not in rejects_paths[path.path] %}
+        <p>Error parsing error for {{ path.path }}. See Raw error output below.</p>
         {% else %}
         {% set reject_lines = rejects_paths[path.path].content.split("\n") %}
         {% if reject_lines.__len__() < 3 %} <pre>{{ "\n".join(reject_lines) }}</pre>

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import configparser
 import logging
 import subprocess
@@ -22,14 +20,13 @@ from lando.main.models import (
     LandingJob,
     PermanentFailureException,
     Repo,
+    Revision,
     TemporaryFailureException,
     WorkerType,
 )
 from lando.main.scm import (
     AbstractSCM,
     AutoformattingException,
-    NoDiffStartLine,
-    PatchConflict,
     SCMException,
     SCMInternalServerError,
     SCMLostPushRace,
@@ -169,64 +166,28 @@ class LandingWorker(Worker):
         """
         self.update_repo(repo, job, scm, job.target_commit_hash)
 
+        def apply_patch(revision: Revision):
+            logger.debug(f"Landing {revision} ...")
+            scm.apply_patch(
+                revision.diff,
+                revision.commit_message,
+                revision.author,
+                revision.timestamp,
+            )
+
         # Run through the patches one by one and try to apply them.
         logger.debug(
             f"About to land {job.revisions.count()} revisions: {job.revisions.all()} ..."
         )
         for revision in job.revisions.all():
-            try:
-                logger.debug(f"Landing {revision} ...")
-                scm.apply_patch(
-                    revision.diff,
-                    revision.commit_message,
-                    revision.author,
-                    revision.timestamp,
-                )
-            except NoDiffStartLine as exc:
-                message = (
-                    "Lando encountered a malformed patch, please try again. "
-                    "If this error persists please file a bug: "
-                    "Patch without a diff start line."
-                )
-                logger.error(message)
-                job.transition_status(
-                    JobAction.FAIL,
-                    message=message,
-                )
-                raise PermanentFailureException(message) from exc
+            self.handle_new_commit_failures(apply_patch, repo, job, scm, revision)
 
-            except PatchConflict as exc:
-                breakdown = scm.process_merge_conflict(
-                    repo.normalized_url, revision.revision_id, str(exc)
-                )
-                job.error_breakdown = breakdown
+            new_commit = scm.describe_commit()
+            logger.debug(f"Created new commit {new_commit}")
 
-                message = (
-                    f"Problem while applying patch in revision {revision.revision_id}:\n\n"
-                    f"{str(exc)}"
-                )
-                logger.exception(message)
-                job.transition_status(JobAction.FAIL, message=message)
-                raise PermanentFailureException(message) from exc
-            except Exception as exc:
-                message = (
-                    f"Aborting, could not apply patch buffer for {revision.revision_id}."
-                    f"\n{exc}"
-                )
-                logger.exception(message)
-                job.transition_status(
-                    JobAction.FAIL,
-                    message=message,
-                )
-                raise PermanentFailureException(message) from exc
-            else:
-                new_commit = scm.describe_commit()
-
-                # Record the commit ID on the revision object.
-                revision.commit_id = new_commit.hash
-                revision.save()
-
-                logger.debug(f"Created new commit {new_commit}")
+            # Record the commit ID on the revision object.
+            revision.commit_id = new_commit.hash
+            revision.save()
 
         # Get the changeset titles for the stack.
         changeset_titles = scm.changeset_descriptions()
