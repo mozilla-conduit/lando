@@ -621,6 +621,14 @@ def test_create_uplift_revisions_invokes_cli_and_returns_response(
     monkeypatch,
     make_uplift_job_with_revisions,
 ):
+    def _write_output(
+        cmd, capture_output=None, check=None, cwd=None, encoding=None, env=None
+    ):
+        output_file = cmd[cmd.index("--output-file") + 1]
+        with open(output_file, "w", encoding=encoding) as fh:
+            json.dump(expected_response, fh)
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
     repo = repo_mc(SCM_TYPE_GIT, name="firefox-release", approval_required=True)
 
     revisions = [
@@ -635,14 +643,6 @@ def test_create_uplift_revisions_invokes_cli_and_returns_response(
     expected_response = {"commits": [{"rev_id": 9001}]}
 
     fake_run = mock.MagicMock()
-
-    def _write_output(
-        cmd, capture_output=None, check=None, cwd=None, encoding=None, env=None
-    ):
-        output_file = cmd[cmd.index("--output-file") + 1]
-        with open(output_file, "w", encoding=encoding) as fh:
-            json.dump(expected_response, fh)
-        return subprocess.CompletedProcess(cmd, 0, "", "")
 
     fake_run.side_effect = _write_output
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -689,6 +689,14 @@ def test_create_uplift_revisions_invalid_json_marks_job_failed(
     monkeypatch,
     make_uplift_job_with_revisions,
 ):
+    def _write_bad_output(
+        cmd, capture_output=None, check=None, cwd=None, encoding=None, env=None
+    ):
+        output_file = cmd[cmd.index("--output-file") + 1]
+        with open(output_file, "w", encoding=encoding) as fh:
+            fh.write("not-json")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
     repo = repo_mc(SCM_TYPE_GIT, name="firefox-release", approval_required=True)
     revisions = [
         create_patch_revision(0, patch=normal_patch(0)),
@@ -699,14 +707,6 @@ def test_create_uplift_revisions_invalid_json_marks_job_failed(
     api_key = user.profile.phabricator_api_key
 
     fake_run = mock.MagicMock()
-
-    def _write_bad_output(
-        cmd, capture_output=None, check=None, cwd=None, encoding=None, env=None
-    ):
-        output_file = cmd[cmd.index("--output-file") + 1]
-        with open(output_file, "w", encoding=encoding) as fh:
-            fh.write("not-json")
-        return subprocess.CompletedProcess(cmd, 0, "", "")
 
     fake_run.side_effect = _write_bad_output
     monkeypatch.setattr(subprocess, "run", fake_run)
