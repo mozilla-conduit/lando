@@ -136,7 +136,7 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
         multi.assessment_id == assessment.id
     ), "Uplift request should be associated with assessment."
     assert multi.user_id == user.id, "Uplift request should belong to the user."
-    assert multi.requested_revisions == [
+    assert multi.requested_revision_ids == [
         123,
         456,
     ], "Both revisions should be tracked, in the correct order, in uplift request."

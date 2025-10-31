@@ -8,7 +8,7 @@ from django.db import models
 from django.urls import reverse
 
 from lando.main.models import BaseModel
-from lando.main.models.jobs import BaseJob
+from lando.main.models.jobs import BaseJob, JobStatus
 from lando.main.models.revision import Revision
 
 # Yes/No constants for re-use in `TextChoices`, since `Enum`
@@ -156,8 +156,8 @@ class MultiTrainUpliftRequest(BaseModel):
     # User who requested the uplift.
     user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
 
-    # The revision IDs to be uplifted.
-    requested_revisions = models.JSONField(default=list)
+    # The revision Phabricator IDs to be uplifted.
+    requested_revision_ids = models.JSONField(default=list)
 
     assessment = models.ForeignKey(
         UpliftAssessment,

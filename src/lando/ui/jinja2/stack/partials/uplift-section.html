@@ -83,7 +83,7 @@ future.
               <div class="has-text-right">
                 <p class="is-size-7 has-text-grey">Requested revisions</p>
                 <div class="tags is-right">
-                  {% for rev_id in uplift_request.requested_revisions %}
+                  {% for rev_id in uplift_request.requested_revision_ids %}
                     <a class="tag is-link is-light"
                        href="{{ rev_id|revision_url }}">D{{ rev_id }}</a>
                   {% endfor %}

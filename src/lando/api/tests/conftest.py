@@ -537,7 +537,7 @@ def make_uplift_job_with_revisions() -> (
         multi = MultiTrainUpliftRequest.objects.create(
             user=user,
             assessment=assessment,
-            requested_revisions=[revision.revision_id for revision in revisions],
+            requested_revision_ids=[revision.revision_id for revision in revisions],
         )
 
         # 3) One job for the target repo

@@ -49,7 +49,7 @@ class UpliftWorker(Worker):
         user = job.multi_request.user
         job_url = job.url()
 
-        requested_revision_ids = job.multi_request.requested_revisions
+        requested_revision_ids = job.multi_request.requested_revision_ids
 
         try:
             created_revision_ids = self.apply_and_uplift(job)

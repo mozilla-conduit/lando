@@ -67,7 +67,7 @@ class UpliftRequestView(LandoView):
             uplift_request = MultiTrainUpliftRequest.objects.create(
                 user=request.user,
                 assessment=assessment,
-                requested_revisions=[
+                requested_revision_ids=[
                     revision.revision_id for revision in source_revisions
                 ],
             )
@@ -150,7 +150,7 @@ def uplift_context_for_revision(revision_id: int) -> QuerySet:
     """Return all MultiTrainUpliftRequest objects relevant to this revision.
 
     Relevant if:
-      - this revision was originally requested (in requested_revisions)
+      - this revision was originally requested (in requested_revision_ids)
       - this revision was created by an uplift job (UpliftRevision -> assessment).
     """
     base_qs = (
@@ -164,8 +164,8 @@ def uplift_context_for_revision(revision_id: int) -> QuerySet:
         .order_by("-created_at")
     )
 
-    # Original side: the revision was requested (e.g. D123 in requested_revisions).
-    original_qs = base_qs.filter(requested_revisions__contains=[revision_id])
+    # Original side: the revision was requested (e.g. D123 in requested_revision_ids).
+    original_qs = base_qs.filter(requested_revision_ids__contains=[revision_id])
 
     # Uplifted side: the revision is one of the newly created uplift revisions.
     uplifted_qs = base_qs.filter(assessment__revisions__revision_id=revision_id)

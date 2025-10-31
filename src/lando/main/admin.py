@@ -402,7 +402,7 @@ class MultiTrainUpliftRequestAdmin(admin.ModelAdmin):
         "updated_at",
     )
     list_filter = ("created_at",)
-    search_fields = ("user__email", "requested_revisions")
+    search_fields = ("user__email", "requested_revision_ids")
     readonly_fields = ("created_at", "updated_at")
     inlines = (UpliftJobInline,)
 
@@ -412,7 +412,7 @@ class MultiTrainUpliftRequestAdmin(admin.ModelAdmin):
 
     @admin.display(description="Requested revisions")
     def requested_revision_summary(self, instance: MultiTrainUpliftRequest) -> str:
-        revisions = [f"D{rev}" for rev in instance.requested_revisions or []]
+        revisions = [f"D{rev}" for rev in instance.requested_revision_ids or []]
         if not revisions:
             return "-"
         preview = ", ".join(revisions[:3])
