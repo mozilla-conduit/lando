@@ -149,7 +149,7 @@ def uplift_status_label(job: UpliftJob) -> str:
         return ""
 
     if status == JobStatus.LANDED:
-        return "Uplift applied and created successfully"
+        return "Requested revisions apply cleanly to uplift branch; uplift revisions created"
 
     return status.label
 
