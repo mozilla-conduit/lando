@@ -87,7 +87,7 @@ class UpliftWorker(Worker):
         base_revision = self.update_repo(repo, job, scm, target_cset=None)
 
         # Apply patches to the tip of the target train.
-        def apply_patch(revision: Revision):
+        def log_apply_patch(revision: Revision):
             logger.debug(f"Landing {revision} ...")
             scm.apply_patch(
                 revision.diff,
@@ -98,7 +98,7 @@ class UpliftWorker(Worker):
 
         for uplift_revision in job.revisions.all():
             self.handle_new_commit_failures(
-                apply_patch, repo, job, scm, uplift_revision
+                log_apply_patch, repo, job, scm, uplift_revision
             )
             new_commit = scm.describe_commit()
             logger.debug(f"Created new commit {new_commit}")
