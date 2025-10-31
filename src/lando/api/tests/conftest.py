@@ -535,7 +535,7 @@ def make_uplift_job_with_revisions() -> (
 
         # 2) Multi-request holding the ordered D-IDs
         multi = MultiTrainUpliftRequest.objects.create(
-            user=user,
+            requested_by=user,
             assessment=assessment,
             requested_revision_ids=[revision.revision_id for revision in revisions],
         )

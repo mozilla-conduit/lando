@@ -157,7 +157,7 @@ class UpliftJobAdmin(JobAdmin):
         "requester_email",
         "duration_seconds",
     )
-    list_filter = ("status", "target_repo__name", "multi_request__user")
+    list_filter = ("status", "target_repo__name", "multi_request__requested_by")
     inlines = (RevisionUpliftJobInline,)
     fields = (
         "status",
@@ -180,15 +180,15 @@ class UpliftJobAdmin(JobAdmin):
         "updated_at",
     )
     search_fields = JobAdmin.search_fields + (
-        "multi_request__user__email",
+        "multi_request__requested_by__email",
         "unsorted_revisions__revision_id",
         "created_revision_ids",
     )
 
-    @admin.display(description="Requester", ordering="multi_request__user__email")
+    @admin.display(description="Requester", ordering="multi_request__requested_by__email")
     def multi_request_user(self, instance: UpliftJob) -> str:
         """Return the email address of the uplift request submitter."""
-        return instance.multi_request.user.email
+        return instance.multi_request.requested_by.email
 
     @admin.display(description="Revisions")
     def revisions_summary(self, instance: UpliftJob) -> str:
@@ -402,13 +402,13 @@ class MultiTrainUpliftRequestAdmin(admin.ModelAdmin):
         "updated_at",
     )
     list_filter = ("created_at",)
-    search_fields = ("user__email", "requested_revision_ids")
+    search_fields = ("requested_by__email", "requested_revision_ids")
     readonly_fields = ("created_at", "updated_at")
     inlines = (UpliftJobInline,)
 
-    @admin.display(description="Requester", ordering="user__email")
+    @admin.display(description="Requester", ordering="requested_by__email")
     def user_email(self, instance: MultiTrainUpliftRequest) -> str:
-        return instance.user.email
+        return instance.requested_by.email
 
     @admin.display(description="Requested revisions")
     def requested_revision_summary(self, instance: MultiTrainUpliftRequest) -> str:

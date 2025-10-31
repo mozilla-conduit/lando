@@ -46,7 +46,7 @@ class UpliftWorker(Worker):
     def run_job(self, job: UpliftJob) -> bool:
         """Run an uplift job."""
         repo = job.target_repo
-        user = job.multi_request.user
+        user = job.multi_request.requested_by
         job_url = job.url()
 
         requested_revision_ids = job.multi_request.requested_revision_ids
@@ -93,7 +93,7 @@ class UpliftWorker(Worker):
 
         repo = job.target_repo
         multi_request = job.multi_request
-        user = multi_request.user
+        user = multi_request.requested_by
         scm = repo.scm
 
         # Update to the latest commit in the target train.

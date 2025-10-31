@@ -154,7 +154,7 @@ class MultiTrainUpliftRequest(BaseModel):
     """
 
     # User who requested the uplift.
-    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    requested_by = models.ForeignKey(User, on_delete=models.DO_NOTHING)
 
     # The revision Phabricator IDs to be uplifted.
     requested_revision_ids = models.JSONField(default=list)

@@ -65,7 +65,7 @@ class UpliftRequestView(LandoView):
             # Create the `MultiTrainUpliftRequest` to represent this
             # form submission and tie jobs together.
             uplift_request = MultiTrainUpliftRequest.objects.create(
-                user=request.user,
+                requested_by=request.user,
                 assessment=assessment,
                 requested_revision_ids=[
                     revision.revision_id for revision in source_revisions
@@ -154,7 +154,7 @@ def uplift_context_for_revision(revision_id: int) -> QuerySet:
       - this revision was created by an uplift job (UpliftRevision -> assessment).
     """
     base_qs = (
-        MultiTrainUpliftRequest.objects.select_related("assessment", "user")
+        MultiTrainUpliftRequest.objects.select_related("assessment", "requested_by")
         .prefetch_related(
             Prefetch(
                 "uplift_jobs",
