@@ -55,11 +55,19 @@ def mock_github_fetch_token(monkeypatch: pytest.MonkeyPatch) -> mock.Mock:
     (
         (
             "https://github.com/mozilla-firefox/firefox/",
-            "https://git:token@github.com/mozilla-firefox/firefox",
+            "https://git:token@github.com/mozilla-firefox/firefox/",
+        ),
+        (
+            "https://github.com/mozilla-firefox/firefox.git/",
+            "https://git:token@github.com/mozilla-firefox/firefox.git/",
+        ),
+        (
+            "https://github.com/mozilla-firefox/firefox.git/some?other#path",
+            "https://git:token@github.com/mozilla-firefox/firefox.git/some?other#path",
         ),
         (
             "https://someuser:somepass@github.com/owner/repo.git/",
-            "https://someuser:somepass@github.com/owner/repo",
+            "https://someuser:somepass@github.com/owner/repo.git/",
         ),
     ),
 )
@@ -76,7 +84,7 @@ def test_github_authenticated_url_no_token(
 
     url = "https://github.com/mozilla-firefox/firefox/"
 
-    assert GitHub(url).authenticated_url == url.removesuffix("/")
+    assert GitHub(url).authenticated_url == url
     assert "Couldn't obtain a token" in caplog.text
 
 

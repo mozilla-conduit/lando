@@ -15,7 +15,7 @@ class GitHub:
     """Work with authentication to GitHub repositories."""
 
     GITHUB_URL_RE = re.compile(
-        f"https://{URL_USERINFO_RE.pattern}?github.com/(?P<owner>[-A-Za-z0-9]+)/(?P<repo>[^/]+)(.git)?/?"
+        rf"https://{URL_USERINFO_RE.pattern}?github.com/(?P<owner>[-A-Za-z0-9]+)/(?P<repo>[^/]+?)(?:\.git)?(?:/|$)"
     )
 
     repo_url: str
@@ -24,9 +24,7 @@ class GitHub:
     userinfo: str
 
     def __init__(self, repo_url: str):
-        # GitHub doesn't allow '.git' to be at the end of a repository name, so we
-        # normalise it out to be sure. This include first removing any trailing /
-        self.repo_url = repo_url.removesuffix("/").removesuffix(".git")
+        self.repo_url = repo_url
 
         parsed_url_data = self.parse_url(self.repo_url)
 
@@ -39,6 +37,7 @@ class GitHub:
 
     @classmethod
     def is_supported_url(cls, url: str) -> bool:
+        """Determine whether the passed URL is a supported GitHub URL."""
         return cls.parse_url(url) is not None
 
     @classmethod
@@ -53,7 +52,9 @@ class GitHub:
     def authenticated_url(self) -> str:
         """Return an authenticated URL, suitable for use with `git` to push and pull.
 
-        Note: any '.git' or trailing '/' will be normalised out.
+        If the URL already has authentication parameters, it is returned verbatim. If
+        not, a token is fetched by the GitHub app, and inserted into the USERINFO part of
+        the URL, without any other changes (e.g., in the REST path or Query String).
         """
         if self.userinfo:
             # We only fetch a token if no authentication is explicitly specified in
@@ -67,7 +68,9 @@ class GitHub:
         token = self._fetch_token()
 
         if token:
-            return f"https://git:{token}@github.com/{self.repo_owner}/{self.repo_name}"
+            return self.repo_url.replace(
+                "https://github.com", f"https://git:{token}@github.com"
+            )
 
         # We didn't get a token
         logger.warning(f"Couldn't obtain a token for GitHub repo at {self.repo_url}")
