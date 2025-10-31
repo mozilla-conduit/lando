@@ -108,9 +108,9 @@ def make_uplift_failure_email(
     )
 
     # Get the tip revision for the subject line
-    subject_suffix = ""
-    if requested_revision_ids:
-        subject_suffix = f" (D{requested_revision_ids[-1]})"
+    subject_suffix = (
+        f" (D{requested_revision_ids[-1]})" if requested_revision_ids else ""
+    )
 
     msg = EmailMessage(
         subject=f"Lando: Uplift for {repo_name} failed{subject_suffix}",
