@@ -189,57 +189,13 @@ class UpliftWorker(Worker):
         self, job: UpliftJob, api_key: str, base_revision: str
     ) -> dict:
         """Create Phabricator uplift revisions using `moz-phab uplift`."""
-        target_repo = job.target_repo
-
         env = os.environ.copy()
         env["MOZPHAB_PHABRICATOR_API_TOKEN"] = api_key
 
         with tempfile.NamedTemporaryFile(
             encoding="utf-8", mode="w+", suffix="json"
         ) as f_output:
-            try:
-                subprocess.run(
-                    [
-                        "moz-phab",
-                        "uplift",
-                        # Use `--yes` to avoid confirmation prompts.
-                        "--yes",
-                        # Use `--no-rebase` as Lando has already applied
-                        # patches to the tip of the target train.
-                        "--no-rebase",
-                        "--output-file",
-                        f_output.name,
-                        "--train",
-                        target_repo.short_name,
-                        base_revision,
-                        "HEAD",
-                    ],
-                    capture_output=True,
-                    check=True,
-                    cwd=target_repo.system_path,
-                    encoding="utf-8",
-                    env=env,
-                )
-            except subprocess.CalledProcessError as exc:
-                stdout = exc.stdout or ""
-                stderr = exc.stderr or ""
-                message = "`moz-phab uplift` did not complete successfully."
-                details = [
-                    f"Return code: {exc.returncode}",
-                    f"Command: {' '.join(exc.cmd)}",
-                ]
-                if stdout:
-                    details.append(f"stdout:\n{stdout}")
-                if stderr:
-                    details.append(f"stderr:\n{stderr}")
-                message = f"{message}\n" + "\n".join(details)
-                logger.exception(message)
-                if stdout:
-                    logger.error("`moz-phab uplift` stdout:\n%s", stdout)
-                if stderr:
-                    logger.error("`moz-phab uplift` stderr:\n%s", stderr)
-                job.transition_status(JobAction.FAIL, message=message)
-                raise PermanentFailureException(message) from exc
+            self.run_moz_phab_uplift(job, base_revision, env, f_output.name)
 
             f_output.seek(0)
 
@@ -253,3 +209,56 @@ class UpliftWorker(Worker):
                 logger.exception(message)
                 job.transition_status(JobAction.FAIL, message=message)
                 raise PermanentFailureException(message) from exc
+
+    def run_moz_phab_uplift(
+        self,
+        job: UpliftJob,
+        base_revision: str,
+        env: dict[str, str],
+        output_path: str,
+    ) -> None:
+        """Invoke `moz-phab uplift` for the given job and capture the output."""
+        target_repo = job.target_repo
+        try:
+            subprocess.run(
+                [
+                    "moz-phab",
+                    "uplift",
+                    # Use `--yes` to avoid confirmation prompts.
+                    "--yes",
+                    # Use `--no-rebase` as Lando has already applied
+                    # patches to the tip of the target train.
+                    "--no-rebase",
+                    "--output-file",
+                    output_path,
+                    "--train",
+                    target_repo.short_name,
+                    base_revision,
+                    "HEAD",
+                ],
+                capture_output=True,
+                check=True,
+                cwd=target_repo.system_path,
+                encoding="utf-8",
+                env=env,
+            )
+        except subprocess.CalledProcessError as exc:
+            stdout = exc.stdout or ""
+            stderr = exc.stderr or ""
+            message = "`moz-phab uplift` did not complete successfully."
+            details = [
+                f"Return code: {exc.returncode}",
+                f"Command: {' '.join(exc.cmd)}",
+            ]
+            if stdout:
+                details.append(f"stdout:\n{stdout}")
+            if stderr:
+                details.append(f"stderr:\n{stderr}")
+            message = f"{message}\n" + "\n".join(details)
+            logger.exception(message)
+            if stdout:
+                logger.error("`moz-phab uplift` stdout:\n%s", stdout)
+            if stderr:
+                logger.error("`moz-phab uplift` stderr:\n%s", stderr)
+            job.transition_status(JobAction.FAIL, message=message)
+            raise PermanentFailureException(message) from exc
