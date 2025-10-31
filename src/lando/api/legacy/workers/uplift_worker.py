@@ -54,14 +54,14 @@ class UpliftWorker(Worker):
             created_revision_ids = self.apply_and_uplift(job)
         except TemporaryFailureException:
             return False
-        except PermanentFailureException as exc:
+        except PermanentFailureException:
             self.notify_uplift_failure(
-                job, repo.name, job_url, user.email, str(exc), requested_revision_ids
+                job, repo.name, job_url, user.email, requested_revision_ids
             )
             return False
-        except Exception as exc:  # pragma: no cover - defensive catch
+        except Exception:  # pragma: no cover - defensive catch
             self.notify_uplift_failure(
-                job, repo.name, job_url, user.email, str(exc), requested_revision_ids
+                job, repo.name, job_url, user.email, requested_revision_ids
             )
             return False
 
@@ -79,6 +79,7 @@ class UpliftWorker(Worker):
 
         Returns an ordered list of created revision IDs.
         """
+
         def log_apply_patch(revision: Revision):
             """Apply patches to the tip of the target train."""
             logger.debug(f"Landing {revision} ...")
@@ -160,7 +161,6 @@ class UpliftWorker(Worker):
         repo_label: str,
         job_url: str,
         recipient_email: str,
-        reason: str,
         requested_revision_ids: list[int],
     ) -> None:
         """Send an uplift failure notification email.
@@ -173,13 +173,12 @@ class UpliftWorker(Worker):
             reason: Error message describing the failure.
             requested_revision_ids: List of Phabricator revision IDs that were being uplifted.
         """
-        failure_reason = job.error or reason
         self.call_task(
             send_uplift_failure_email,
             recipient_email,
             repo_label,
             job_url,
-            failure_reason,
+            job.error,
             requested_revision_ids,
         )
 
