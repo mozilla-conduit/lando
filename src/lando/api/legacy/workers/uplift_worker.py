@@ -64,6 +64,7 @@ class UpliftWorker(Worker):
                 job, repo.name, job_url, user.email, str(exc), requested_revision_ids
             )
             return False
+
         self.notify_uplift_success(
             repo.name,
             job_url,
