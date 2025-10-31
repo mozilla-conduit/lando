@@ -503,6 +503,18 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     make_uplift_job_with_revisions,
     mock_uplift_email_tasks,
 ):
+    def mock_write_update_commits(commits):
+        def _write_uplift_commits(job_arg, base_rev, env, output_path):
+            with open(output_path, "w", encoding="utf-8") as fh:
+                json.dump(
+                    {
+                        "commits": commits,
+                    },
+                    fh,
+                )
+
+        return _write_uplift_commits
+
     repo = repo_mc(SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
 
     revisions = [
@@ -521,19 +533,16 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     )
 
     # Let update_repo/apply_patch run for real; only mock moz-phab uplift to return new tip D-ids
-    def _write_uplift_commits(job_arg, base_rev, env, output_path):
-        with open(output_path, "w", encoding="utf-8") as fh:
-            json.dump(
-                {
-                    "commits": [
-                        {"rev_id": 4567},
-                        {"rev_id": 4568},
-                    ]
-                },
-                fh,
-            )
-
-    monkeypatch.setattr(uplift_worker, "run_moz_phab_uplift", _write_uplift_commits)
+    monkeypatch.setattr(
+        uplift_worker,
+        "run_moz_phab_uplift",
+        mock_write_update_commits(
+            [
+                {"rev_id": 4567},
+                {"rev_id": 4568},
+            ]
+        ),
+    )
 
     # Capture current HEAD to validate it advanced
     old_head = repo.scm.head_ref()
@@ -573,6 +582,18 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         ur.assessment_id == job.multi_request.assessment_id
     ), "Created UpliftRevision should link back to the original assessment."
 
+    # Mock `moz-phab uplift` again with new created commits.
+    monkeypatch.setattr(
+        uplift_worker,
+        "run_moz_phab_uplift",
+        mock_write_update_commits(
+            [
+                {"rev_id": 5000},
+                {"rev_id": 5001},
+            ]
+        ),
+    )
+
     job.refresh_from_db()
     job.status = JobStatus.SUBMITTED
     job.save(update_fields=["status"])
@@ -586,24 +607,30 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     assert args[0] == user.email
     assert args[1] == (repo.short_name or repo.name)
     assert args[3] == [
-        4567,
-        4568,
+        5000,
+        5001,
     ], "Revision identifiers should be in the correct order."
     assert (
         mock_task.apply_async.call_count == 2
     ), "Celery task should be dispatched on each successful run."
+
+    expected_task_args = (
+        job.created_revision_ids[-1],
+        job.multi_request.assessment.to_conduit_json_str(),
+        user.id,
+    )
     assert mock_task.apply_async.call_args_list[-1].kwargs == {
         "args": expected_task_args
     }, "Celery task should be called with latest revision metadata."
 
     job.refresh_from_db()
     assert job.created_revision_ids == [
-        4567,
-        4568,
+        5000,
+        5001,
     ], "Re-running job should leave created_revision_ids unchanged."
     assert (
-        UpliftRevision.objects.count() == 1
-    ), "Re-running job should not duplicate UpliftRevision records."
+        UpliftRevision.objects.count() == 2
+    ), "Re-running job should create a second UpliftRevision record."
 
 
 @pytest.mark.django_db
