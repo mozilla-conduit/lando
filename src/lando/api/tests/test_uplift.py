@@ -521,16 +521,19 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     )
 
     # Let update_repo/apply_patch run for real; only mock moz-phab uplift to return new tip D-ids
-    monkeypatch.setattr(
-        uplift_worker,
-        "create_uplift_revisions",
-        lambda job, api, base: {
-            "commits": [
-                {"rev_id": 4567},
-                {"rev_id": 4568},
-            ]
-        },
-    )
+    def _write_uplift_commits(job_arg, base_rev, env, output_path):
+        with open(output_path, "w", encoding="utf-8") as fh:
+            json.dump(
+                {
+                    "commits": [
+                        {"rev_id": 4567},
+                        {"rev_id": 4568},
+                    ]
+                },
+                fh,
+            )
+
+    monkeypatch.setattr(uplift_worker, "run_moz_phab_uplift", _write_uplift_commits)
 
     # Capture current HEAD to validate it advanced
     old_head = repo.scm.head_ref()
@@ -613,14 +616,6 @@ def test_create_uplift_revisions_invokes_cli_and_returns_response(
     monkeypatch,
     make_uplift_job_with_revisions,
 ):
-    def _write_output(
-        cmd, capture_output=None, check=None, cwd=None, encoding=None, env=None
-    ):
-        output_file = cmd[cmd.index("--output-file") + 1]
-        with open(output_file, "w", encoding=encoding) as fh:
-            json.dump(expected_response, fh)
-        return subprocess.CompletedProcess(cmd, 0, "", "")
-
     repo = repo_mc(SCM_TYPE_GIT, name="firefox-release", approval_required=True)
 
     revisions = [
@@ -634,10 +629,17 @@ def test_create_uplift_revisions_invokes_cli_and_returns_response(
 
     expected_response = {"commits": [{"rev_id": 9001}]}
 
-    fake_run = mock.MagicMock()
+    captured_call = {}
 
-    fake_run.side_effect = _write_output
-    monkeypatch.setattr(subprocess, "run", fake_run)
+    def _capture_run(job_arg, base_rev_arg, env_arg, output_path_arg):
+        captured_call["job"] = job_arg
+        captured_call["base_revision"] = base_rev_arg
+        captured_call["env"] = env_arg
+        captured_call["output_path"] = output_path_arg
+        with open(output_path_arg, "w", encoding="utf-8") as fh:
+            json.dump(expected_response, fh)
+
+    monkeypatch.setattr(uplift_worker, "run_moz_phab_uplift", _capture_run)
 
     response = uplift_worker.create_uplift_revisions(job, api_key, base_revision)
 
@@ -645,30 +647,17 @@ def test_create_uplift_revisions_invokes_cli_and_returns_response(
         response == expected_response
     ), "`create_uplift_revisions` should return the JSON read from the output file."
     assert (
-        fake_run.call_count == 1
-    ), "`create_uplift_revisions` should invoke `subprocess.run` exactly once."
-
-    called_cmd = fake_run.call_args.args[0]
-    assert called_cmd[:5] == [
-        "moz-phab",
-        "uplift",
-        "--yes",
-        "--no-rebase",
-        "--output-file",
-    ], "`create_uplift_revisions` should call moz-phab uplift with no prompts or rebase."
-    expected_repo_identifier = repo.short_name or repo.name
-    assert called_cmd[6:] == [
-        "--train",
-        expected_repo_identifier,
-        base_revision,
-        "HEAD",
-    ], "Called `moz-phab uplift` command should include repo and revisions."
+        captured_call
+    ), "`create_uplift_revisions` should invoke `run_moz_phab_uplift`."
     assert (
-        fake_run.call_args.kwargs["cwd"] == repo.system_path
-    ), "`create_uplift_revisions` should use the repo path as the cwd."
+        captured_call["job"] == job
+    ), "`run_moz_phab_uplift` should be called with the uplift job."
     assert (
-        fake_run.call_args.kwargs["env"]["MOZPHAB_PHABRICATOR_API_TOKEN"] == api_key
-    ), "`create_uplift_revisions` should set the API key in the environment."
+        captured_call["base_revision"] == base_revision
+    ), "`run_moz_phab_uplift` should receive the base revision."
+    assert (
+        captured_call["env"]["MOZPHAB_PHABRICATOR_API_TOKEN"] == api_key
+    ), "`run_moz_phab_uplift` should set the API key in the environment."
 
 
 @pytest.mark.django_db
@@ -681,14 +670,6 @@ def test_create_uplift_revisions_invalid_json_marks_job_failed(
     monkeypatch,
     make_uplift_job_with_revisions,
 ):
-    def _write_bad_output(
-        cmd, capture_output=None, check=None, cwd=None, encoding=None, env=None
-    ):
-        output_file = cmd[cmd.index("--output-file") + 1]
-        with open(output_file, "w", encoding=encoding) as fh:
-            fh.write("not-json")
-        return subprocess.CompletedProcess(cmd, 0, "", "")
-
     repo = repo_mc(SCM_TYPE_GIT, name="firefox-release", approval_required=True)
     revisions = [
         create_patch_revision(0, patch=normal_patch(0)),
@@ -698,16 +679,76 @@ def test_create_uplift_revisions_invalid_json_marks_job_failed(
 
     api_key = user.profile.phabricator_api_key
 
-    fake_run = mock.MagicMock()
+    def _write_invalid_json(job_arg, base_rev_arg, env_arg, output_path_arg):
+        with open(output_path_arg, "w", encoding="utf-8") as fh:
+            fh.write("not-json")
 
-    fake_run.side_effect = _write_bad_output
-    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(uplift_worker, "run_moz_phab_uplift", _write_invalid_json)
 
     with pytest.raises(PermanentFailureException):
         uplift_worker.create_uplift_revisions(job, api_key, "abcd1234")
 
     job.refresh_from_db()
     assert job.status == JobStatus.FAILED, "Invalid JSON output should fail the job."
+
+
+@pytest.mark.django_db
+def test_run_moz_phab_uplift_invokes_subprocess_with_expected_args(
+    repo_mc,
+    user,
+    uplift_worker,
+    create_patch_revision,
+    normal_patch,
+    make_uplift_job_with_revisions,
+    monkeypatch,
+    tmp_path,
+):
+    repo = repo_mc(SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
+    revisions = [
+        create_patch_revision(0, patch=normal_patch(0)),
+        create_patch_revision(1, patch=normal_patch(1)),
+    ]
+    job = make_uplift_job_with_revisions(repo, user, revisions)
+
+    env = {"MOZPHAB_PHABRICATOR_API_TOKEN": user.profile.phabricator_api_key}
+    output_path = tmp_path / "uplift.json"
+    base_revision = "abcd1234"
+
+    fake_run = mock.MagicMock(return_value=subprocess.CompletedProcess([], 0, "", ""))
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    uplift_worker.run_moz_phab_uplift(
+        job,
+        base_revision,
+        env,
+        str(output_path),
+    )
+
+    fake_run.assert_called_once()
+    called_cmd = fake_run.call_args.args[0]
+    assert called_cmd[:5] == [
+        "moz-phab",
+        "uplift",
+        "--yes",
+        "--no-rebase",
+        "--output-file",
+    ], "`run_moz_phab_uplift` should call moz-phab uplift with no prompts or rebase."
+    expected_repo_identifier = repo.short_name or repo.name
+    assert called_cmd[6:] == [
+        "--train",
+        expected_repo_identifier,
+        base_revision,
+        "HEAD",
+    ], "`run_moz_phab_uplift` should include repo and revisions in the command."
+    assert (
+        fake_run.call_args.kwargs["cwd"] == repo.system_path
+    ), "`run_moz_phab_uplift` should use the repo path as the cwd."
+    assert (
+        fake_run.call_args.kwargs["env"] == env
+    ), "`run_moz_phab_uplift` should forward the prepared environment."
+    assert (
+        fake_run.call_args.kwargs["encoding"] == "utf-8"
+    ), "`run_moz_phab_uplift` should request UTF-8 encoding."
 
 
 @pytest.mark.django_db
@@ -742,7 +783,7 @@ def test_uplift_worker_mozphab_failure_marks_failed(
             stderr="boom",
         )
 
-    # Patch subprocess.run inside the worker's `create_uplift_revisions`.
+    # Patch subprocess.run inside the worker's `run_moz_phab_uplift`.
     monkeypatch.setattr(subprocess, "run", _uplift_fail)
 
     assert not uplift_worker.run_job(job), "Job should not complete successfully."
@@ -780,12 +821,9 @@ def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
 
     mock_success_task, mock_failure_task = mock_uplift_email_tasks
 
-    # Ensure create_uplift_revisions won't be called if apply_patch fails.
-    monkeypatch.setattr(
-        uplift_worker,
-        "create_uplift_revisions",
-        lambda *a, **k: {"commits": [{"rev_id": 999}]},
-    )
+    # Ensure run_moz_phab_uplift won't be triggered if apply_patch fails.
+    mocked_run_moz = mock.MagicMock()
+    monkeypatch.setattr(uplift_worker, "run_moz_phab_uplift", mocked_run_moz)
 
     assert not uplift_worker.run_job(job), "Job should not complete successfully."
 
@@ -802,6 +840,7 @@ def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
 
     mock_failure_task.apply_async.assert_called_once()
     mock_success_task.apply_async.assert_not_called()
+    mocked_run_moz.assert_not_called()
 
     failure_args = mock_failure_task.apply_async.call_args[1]["args"]
     assert failure_args[0] == user.email
