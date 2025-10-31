@@ -8,7 +8,6 @@ from lando.main.models import (
     CommitMap,
     ConfigurationVariable,
     LandingJob,
-    MultiTrainUpliftRequest,
     Repo,
     Revision,
     RevisionLandingJob,
@@ -16,6 +15,7 @@ from lando.main.models import (
     UpliftAssessment,
     UpliftJob,
     UpliftRevision,
+    UpliftSubmission,
     Worker,
 )
 
@@ -152,12 +152,12 @@ class UpliftJobAdmin(JobAdmin):
         "revisions_summary",
         "status",
         "target_repo__name",
-        "multi_request_user",
+        "submission_user",
         "created_at",
         "requester_email",
         "duration_seconds",
     )
-    list_filter = ("status", "target_repo__name", "multi_request__requested_by")
+    list_filter = ("status", "target_repo__name", "submission__requested_by")
     inlines = (RevisionUpliftJobInline,)
     fields = (
         "status",
@@ -166,7 +166,7 @@ class UpliftJobAdmin(JobAdmin):
         "error",
         "priority",
         "requester_email",
-        "multi_request",
+        "submission",
         "target_repo",
         "created_revision_ids",
         "landed_commit_id",
@@ -174,23 +174,21 @@ class UpliftJobAdmin(JobAdmin):
         "updated_at",
     )
     readonly_fields = JobAdmin.readonly_fields + (
-        "multi_request",
+        "submission",
         "created_revision_ids",
         "created_at",
         "updated_at",
     )
     search_fields = JobAdmin.search_fields + (
-        "multi_request__requested_by__email",
+        "submission__requested_by__email",
         "unsorted_revisions__revision_id",
         "created_revision_ids",
     )
 
-    @admin.display(
-        description="Requester", ordering="multi_request__requested_by__email"
-    )
-    def multi_request_user(self, instance: UpliftJob) -> str:
+    @admin.display(description="Requester", ordering="submission__requested_by__email")
+    def submission_user(self, instance: UpliftJob) -> str:
         """Return the email address of the uplift request submitter."""
-        return instance.multi_request.requested_by.email
+        return instance.submission.requested_by.email
 
     @admin.display(description="Revisions")
     def revisions_summary(self, instance: UpliftJob) -> str:
@@ -393,8 +391,8 @@ class UpliftJobInline(admin.TabularInline):
         return preview
 
 
-class MultiTrainUpliftRequestAdmin(admin.ModelAdmin):
-    model = MultiTrainUpliftRequest
+class UpliftSubmissionAdmin(admin.ModelAdmin):
+    model = UpliftSubmission
     list_display = (
         "id",
         "user_email",
@@ -409,11 +407,11 @@ class MultiTrainUpliftRequestAdmin(admin.ModelAdmin):
     inlines = (UpliftJobInline,)
 
     @admin.display(description="Requester", ordering="requested_by__email")
-    def user_email(self, instance: MultiTrainUpliftRequest) -> str:
+    def user_email(self, instance: UpliftSubmission) -> str:
         return instance.requested_by.email
 
     @admin.display(description="Requested revisions")
-    def requested_revision_summary(self, instance: MultiTrainUpliftRequest) -> str:
+    def requested_revision_summary(self, instance: UpliftSubmission) -> str:
         revisions = [f"D{rev}" for rev in instance.requested_revision_ids or []]
         if not revisions:
             return "-"
@@ -424,7 +422,7 @@ class MultiTrainUpliftRequestAdmin(admin.ModelAdmin):
         return preview
 
     @admin.display(description="Jobs")
-    def job_count(self, instance: MultiTrainUpliftRequest) -> int:
+    def job_count(self, instance: UpliftSubmission) -> int:
         return instance.uplift_jobs.count()
 
 
@@ -437,4 +435,4 @@ admin.site.register(CommitMap, CommitMapAdmin)
 admin.site.register(ConfigurationVariable, ConfigurationVariableAdmin)
 admin.site.register(UpliftAssessment, UpliftAssessmentAdmin)
 admin.site.register(UpliftRevision, UpliftRevisionAdmin)
-admin.site.register(MultiTrainUpliftRequest, MultiTrainUpliftRequestAdmin)
+admin.site.register(UpliftSubmission, UpliftSubmissionAdmin)

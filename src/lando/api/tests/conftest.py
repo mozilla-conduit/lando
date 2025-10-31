@@ -32,10 +32,10 @@ from lando.api.legacy.workers.uplift_worker import (
 from lando.api.tests.mocks import PhabricatorDouble
 from lando.main.models import JobStatus, Repo, Revision
 from lando.main.models.uplift import (
-    MultiTrainUpliftRequest,
     RevisionUpliftJob,
     UpliftAssessment,
     UpliftJob,
+    UpliftSubmission,
 )
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.support import LegacyAPIException
@@ -533,8 +533,8 @@ def make_uplift_job_with_revisions() -> (
             is_android_affected="no",
         )
 
-        # 2) Multi-request holding the ordered D-IDs
-        multi = MultiTrainUpliftRequest.objects.create(
+        # 2) Submission holding the ordered D-IDs
+        submission = UpliftSubmission.objects.create(
             requested_by=user,
             assessment=assessment,
             requested_revision_ids=[revision.revision_id for revision in revisions],
@@ -545,7 +545,7 @@ def make_uplift_job_with_revisions() -> (
             status=JobStatus.SUBMITTED,
             requester_email=user.email,
             target_repo=repo,
-            multi_request=multi,
+            submission=submission,
             attempts=1,
         )
 

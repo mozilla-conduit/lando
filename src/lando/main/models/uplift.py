@@ -8,7 +8,7 @@ from django.db import models
 from django.urls import reverse
 
 from lando.main.models import BaseModel
-from lando.main.models.jobs import BaseJob
+from lando.main.models.jobs import BaseJob, JobStatus
 from lando.main.models.revision import Revision
 
 # Yes/No constants for re-use in `TextChoices`, since `Enum`
@@ -146,11 +146,10 @@ class UpliftRevision(BaseModel):
         unique_together = ("assessment", "revision_id")
 
 
-class MultiTrainUpliftRequest(BaseModel):
-    """Represents a single uplift request submission.
+class UpliftSubmission(BaseModel):
+    """Represents a single uplift submission.
 
-    Ties together all associated uplift jobs and the uplift request
-    assessment form.
+    Ties together all associated uplift jobs and the uplift request assessment form.
     """
 
     # User who requested the uplift.
@@ -162,7 +161,7 @@ class MultiTrainUpliftRequest(BaseModel):
     assessment = models.ForeignKey(
         UpliftAssessment,
         on_delete=models.PROTECT,
-        related_name="uplift_request",
+        related_name="uplift_submission",
     )
 
 
@@ -177,8 +176,8 @@ class RevisionUpliftJob(BaseModel):
 class UpliftJob(BaseJob):
     """Represents an uplift job against a single train.
 
-    Most of the data is derived from `BaseJob`, with the extra content
-    residing in the `MultiTrainUpliftRequest`.
+    Most of the data is derived from `BaseJob`, with the extra content residing in
+    the associated `UpliftSubmission`.
     """
 
     type: str = "Uplift"
@@ -193,8 +192,8 @@ class UpliftJob(BaseJob):
     # }
     error_breakdown = models.JSONField(null=True, blank=True, default=dict)
 
-    multi_request = models.ForeignKey(
-        MultiTrainUpliftRequest, on_delete=models.DO_NOTHING, related_name="uplift_jobs"
+    submission = models.ForeignKey(
+        UpliftSubmission, on_delete=models.DO_NOTHING, related_name="uplift_jobs"
     )
 
     unsorted_revisions = models.ManyToManyField(
@@ -225,3 +224,12 @@ class UpliftJob(BaseJob):
     def url(self) -> str:
         """Return a URL for this job."""
         return urljoin(settings.SITE_URL, reverse("uplift-jobs-page", args=[self.id]))
+
+    @property
+    def has_created_revisions(self) -> bool:
+        """Return True when the job landed and recorded created revisions."""
+        try:
+            status = JobStatus(self.status)
+        except ValueError:
+            return False
+        return status == JobStatus.LANDED and bool(self.created_revision_ids)

@@ -46,10 +46,11 @@ class UpliftWorker(Worker):
     def run_job(self, job: UpliftJob) -> bool:
         """Run an uplift job."""
         repo = job.target_repo
-        user = job.multi_request.requested_by
+        submission = job.submission
+        user = submission.requested_by
         job_url = job.url()
 
-        requested_revision_ids = job.multi_request.requested_revision_ids
+        requested_revision_ids = submission.requested_revision_ids
 
         try:
             created_revision_ids = self.apply_and_uplift(job)
@@ -92,8 +93,8 @@ class UpliftWorker(Worker):
             )
 
         repo = job.target_repo
-        multi_request = job.multi_request
-        user = multi_request.requested_by
+        submission = job.submission
+        user = submission.requested_by
         scm = repo.scm
 
         # Update to the latest commit in the target train.
@@ -118,14 +119,14 @@ class UpliftWorker(Worker):
 
         UpliftRevision.objects.create(
             revision_id=tip_revision_id,
-            assessment=multi_request.assessment,
+            assessment=submission.assessment,
         )
 
         # Trigger a Celery task to update the form on Phabricator.
         self.call_task(
             set_uplift_request_form_on_revision,
             tip_revision_id,
-            multi_request.assessment.to_conduit_json_str(),
+            submission.assessment.to_conduit_json_str(),
             user.id,
         )
 

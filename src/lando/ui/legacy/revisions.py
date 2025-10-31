@@ -15,7 +15,7 @@ from lando.api.legacy.validation import revision_id_to_int
 from lando.main.auth import force_auth_refresh, require_phabricator_api_key
 from lando.main.models import Repo
 from lando.main.models.jobs import JobStatus
-from lando.main.models.uplift import MultiTrainUpliftRequest, UpliftJob, UpliftRevision
+from lando.main.models.uplift import UpliftJob, UpliftRevision, UpliftSubmission
 from lando.ui.legacy.forms import (
     TransplantRequestForm,
     UpliftAssessmentForm,
@@ -62,9 +62,9 @@ class UpliftRequestView(LandoView):
             assessment.user = request.user
             assessment.save()
 
-            # Create the `MultiTrainUpliftRequest` to represent this
+            # Create the `UpliftSubmission` to represent this
             # form submission and tie jobs together.
-            uplift_request = MultiTrainUpliftRequest.objects.create(
+            uplift_request = UpliftSubmission.objects.create(
                 requested_by=request.user,
                 assessment=assessment,
                 requested_revision_ids=[
@@ -75,7 +75,7 @@ class UpliftRequestView(LandoView):
             # Create `UpliftJob`s and associate with this request.
             for repo in repositories:
                 job = UpliftJob.objects.create(
-                    multi_request=uplift_request,
+                    submission=uplift_request,
                     requester_email=request.user.email,
                     status=JobStatus.SUBMITTED,
                     target_repo=repo,
@@ -147,14 +147,14 @@ class UpliftAssessmentCreateOrEditView(LandoView):
 
 
 def uplift_context_for_revision(revision_id: int) -> QuerySet:
-    """Return all MultiTrainUpliftRequest objects relevant to this revision.
+    """Return all UpliftSubmission objects relevant to this revision.
 
     Relevant if:
       - this revision was originally requested (in requested_revision_ids)
       - this revision was created by an uplift job (UpliftRevision -> assessment).
     """
     base_qs = (
-        MultiTrainUpliftRequest.objects.select_related("assessment", "requested_by")
+        UpliftSubmission.objects.select_related("assessment", "requested_by")
         .prefetch_related(
             Prefetch(
                 "uplift_jobs",

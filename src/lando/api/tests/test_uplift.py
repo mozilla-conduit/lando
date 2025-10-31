@@ -17,11 +17,11 @@ from lando.api.tests.test_landings import PATCH_CHANGE_MISSING_CONTENT
 from lando.main.models import JobStatus, PermanentFailureException
 from lando.main.models.uplift import (
     LowMediumHighChoices,
-    MultiTrainUpliftRequest,
     RevisionUpliftJob,
     UpliftAssessment,
     UpliftJob,
     UpliftRevision,
+    UpliftSubmission,
     YesNoChoices,
     YesNoUnknownChoices,
 )
@@ -129,22 +129,24 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
 
     # Parent request created and linked to assessment.
     assert (
-        MultiTrainUpliftRequest.objects.count() == 1
+        UpliftSubmission.objects.count() == 1
     ), "New uplift request should be created."
-    multi = MultiTrainUpliftRequest.objects.select_related(
+    submission = UpliftSubmission.objects.select_related(
         "assessment", "requested_by"
     ).get()
     assert (
-        multi.assessment_id == assessment.id
+        submission.assessment_id == assessment.id
     ), "Uplift request should be associated with assessment."
-    assert multi.requested_by_id == user.id, "Uplift request should belong to the user."
-    assert multi.requested_revision_ids == [
+    assert (
+        submission.requested_by_id == user.id
+    ), "Uplift request should belong to the user."
+    assert submission.requested_revision_ids == [
         123,
         456,
     ], "Both revisions should be tracked, in the correct order, in uplift request."
 
     jobs = list(
-        UpliftJob.objects.select_related("target_repo").filter(multi_request=multi)
+        UpliftJob.objects.select_related("target_repo").filter(submission=submission)
     )
     assert len(jobs) == 2, "Two uplift jobs should be created."
     assert all(
@@ -158,7 +160,7 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
 
     assert (
         list(
-            multi.uplift_jobs.order_by("target_repo__name").values_list(
+            submission.uplift_jobs.order_by("target_repo__name").values_list(
                 "target_repo__name", flat=True
             )
         )
@@ -213,8 +215,8 @@ def test_uplift_creation_fails_when_revisions_missing(
         UpliftAssessment.objects.count() == 0
     ), "Failed submission should not create an assessment."
     assert (
-        MultiTrainUpliftRequest.objects.count() == 0
-    ), "Failed submission should not create a multi-request."
+        UpliftSubmission.objects.count() == 0
+    ), "Failed submission should not create an uplift submission."
     assert (
         UpliftJob.objects.count() == 0
     ), "Failed submission should not enqueue uplift jobs."
@@ -554,7 +556,7 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     job.refresh_from_db()
     expected_task_args = (
         job.created_revision_ids[-1],
-        job.multi_request.assessment.to_conduit_json_str(),
+        job.submission.assessment.to_conduit_json_str(),
         user.id,
     )
     mock_task.apply_async.assert_called_once_with(args=expected_task_args)
@@ -581,7 +583,7 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         ur.revision_id == 4568
     ), "Created UpliftRevision should point to the latest revision ID."
     assert (
-        ur.assessment_id == job.multi_request.assessment_id
+        ur.assessment_id == job.submission.assessment_id
     ), "Created UpliftRevision should link back to the original assessment."
 
     # Mock `moz-phab uplift` again with new created commits.
@@ -618,7 +620,7 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
 
     expected_task_args = (
         job.created_revision_ids[-1],
-        job.multi_request.assessment.to_conduit_json_str(),
+        job.submission.assessment.to_conduit_json_str(),
         user.id,
     )
     assert mock_task.apply_async.call_args_list[-1].kwargs == {
@@ -889,13 +891,13 @@ def test_uplift_context_for_revision_returns_original_and_uplifted_requests(
         create_patch_revision(1, patch=normal_patch(1)),
     ]
     job = make_uplift_job_with_revisions(repo, user, revisions)
-    multi = job.multi_request
+    submission = job.submission
 
     original_revision_id = revisions[0].revision_id
     uplifted_revision_id = 9876
 
     UpliftRevision.objects.create(
-        assessment=multi.assessment,
+        assessment=submission.assessment,
         revision_id=uplifted_revision_id,
     )
 
@@ -907,8 +909,8 @@ def test_uplift_context_for_revision_returns_original_and_uplifted_requests(
     uplifted_qs = uplift_context_for_revision(uplifted_revision_id)
 
     assert list(requested_qs) == [
-        multi
+        submission
     ], "Querying with original revision ID should find the uplift request."
     assert list(uplifted_qs) == [
-        multi
+        submission
     ], "Querying with uplifted revision ID should find the uplift request."
