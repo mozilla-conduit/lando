@@ -28,7 +28,7 @@ class GitHub:
         # normalise it out to be sure. This include first removing any trailing /
         self.repo_url = repo_url.removesuffix("/").removesuffix(".git")
 
-        parsed_url = self.parse_url(self.repo_url)
+        parsed_url_data = self.parse_url(self.repo_url)
 
         if parsed_url is None:
             raise ValueError(f"Cannot parse URL as GitHub repo: {repo_url}")
