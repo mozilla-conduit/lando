@@ -78,16 +78,8 @@ class UpliftWorker(Worker):
 
         Returns an ordered list of created revision IDs.
         """
-        repo = job.target_repo
-        multi_request = job.multi_request
-        user = multi_request.user
-        scm = repo.scm
-
-        # Update to the latest commit in the target train.
-        base_revision = self.update_repo(repo, job, scm, target_cset=None)
-
-        # Apply patches to the tip of the target train.
         def log_apply_patch(revision: Revision):
+            """Apply patches to the tip of the target train."""
             logger.debug(f"Landing {revision} ...")
             scm.apply_patch(
                 revision.diff,
@@ -95,6 +87,14 @@ class UpliftWorker(Worker):
                 revision.author,
                 revision.timestamp,
             )
+
+        repo = job.target_repo
+        multi_request = job.multi_request
+        user = multi_request.user
+        scm = repo.scm
+
+        # Update to the latest commit in the target train.
+        base_revision = self.update_repo(repo, job, scm, target_cset=None)
 
         for uplift_revision in job.revisions.all():
             self.handle_new_commit_failures(
