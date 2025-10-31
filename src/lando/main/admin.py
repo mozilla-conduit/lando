@@ -56,7 +56,7 @@ class ReadOnlyInline(admin.TabularInline):
 
 class RevisionLandingJobInline(admin.TabularInline):
     model = RevisionLandingJob
-    fields = ("revision",)
+    fields = ("revision", "commit_id")
 
 
 class JobAdmin(admin.ModelAdmin):
@@ -77,6 +77,8 @@ class JobAdmin(admin.ModelAdmin):
         "error",
         "landed_commit_id",
         "requester_email",
+        "created_at",
+        "updated_at",
     )
     search_fields = ("requester_email", "landed_commit_id")
 
@@ -104,6 +106,8 @@ class LandingJobAdmin(JobAdmin):
         "requester_email",
         "target_commit_hash",
         "target_repo",
+        "created_at",
+        "updated_at",
     )
     readonly_fields = JobAdmin.readonly_fields + ("formatted_replacements",)
     search_fields = JobAdmin.search_fields + (
@@ -137,6 +141,12 @@ class RevisionAdmin(admin.ModelAdmin):
         "desc",
         "patch_timestamp",
         "author",
+        "created_at",
+        "updated_at",
+    )
+    readonly_fields = (
+        "created_at",
+        "updated_at",
     )
     search_fields = ("revision_id",)
 
@@ -191,12 +201,16 @@ class RepoAdmin(admin.ModelAdmin):
         "required_permission",
         "short_name",
         "url",
+        "created_at",
+        "updated_at",
     )
 
     readonly_fields = (
         "commit_flags",
         "system_path",
         "scm_type",
+        "created_at",
+        "updated_at",
     )
 
     search_fields = ("pull_path", "push_path", "url")
@@ -208,6 +222,12 @@ class CommitMapAdmin(admin.ModelAdmin):
         "git_repo_name",
         "git_hash",
         "hg_hash",
+        "created_at",
+        "updated_at",
+    )
+    readonly_fields = (
+        "created_at",
+        "updated_at",
     )
     list_filter = ("git_repo_name",)
     search_fields = (
@@ -221,6 +241,12 @@ class ConfigurationVariableAdmin(admin.ModelAdmin):
     list_display = (
         "key",
         "value",
+        "created_at",
+        "updated_at",
+    )
+    readonly_fields = (
+        "created_at",
+        "updated_at",
     )
     search_fields = (
         "key",
@@ -237,6 +263,12 @@ class WorkerAdmin(admin.ModelAdmin):
         "repo_count",
         "is_paused",
         "is_stopped",
+        "created_at",
+        "updated_at",
+    )
+    readonly_fields = (
+        "created_at",
+        "updated_at",
     )
     search_fields = ("applicable_repos__name",)
 

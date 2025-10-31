@@ -30,12 +30,12 @@ class GitHub:
 
         parsed_url_data = self.parse_url(self.repo_url)
 
-        if parsed_url is None:
+        if parsed_url_data is None:
             raise ValueError(f"Cannot parse URL as GitHub repo: {repo_url}")
 
-        self.repo_owner = parsed_url["owner"]
-        self.repo_name = parsed_url["repo"]
-        self.userinfo = parsed_url["userinfo"]
+        self.repo_owner = parsed_url_data["owner"]
+        self.repo_name = parsed_url_data["repo"]
+        self.userinfo = parsed_url_data["userinfo"]
 
     @classmethod
     def is_supported_url(cls, url: str) -> bool:
