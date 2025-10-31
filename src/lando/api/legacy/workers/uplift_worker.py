@@ -199,10 +199,18 @@ class UpliftWorker(Worker):
                 return json.load(f_output)
             except json.JSONDecodeError as exc:
                 message = (
-                    f"`moz-phab uplift` produced invalid JSON output: {exc.msg}"
-                    f"\n\n{exc.doc}"
+                    "`moz-phab uplift` may have produced revisions on Phabricator but "
+                    "failed while returning results. Please check Phabricator for any "
+                    "new revisions."
                 )
-                logger.exception(message)
+                logger.exception(
+                    message,
+                    extra={
+                        "moz_phab_json_error": exc.msg,
+                        "moz_phab_json_position": exc.pos,
+                        "moz_phab_json_raw": exc.doc,
+                    },
+                )
                 job.transition_status(JobAction.FAIL, message=message)
                 raise PermanentFailureException(message) from exc
 
