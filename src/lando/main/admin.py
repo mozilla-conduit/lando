@@ -2,6 +2,10 @@ from datetime import datetime
 from typing import Callable, Self
 
 from django.contrib import admin
+from django.db.models import Field as DbField
+from django.forms import CheckboxSelectMultiple, MultipleChoiceField
+from django.forms import Field as FormField
+from django.http import HttpRequest
 from django.utils.translation import gettext_lazy
 
 from lando.main.models import (
@@ -17,6 +21,16 @@ from lando.main.models import (
 admin.site.site_title = gettext_lazy("Lando Admin")
 admin.site.site_header = gettext_lazy("Lando Administration")
 admin.site.index_title = gettext_lazy("Lando administration")
+
+
+class ArrayFieldMultipleChoiceField(MultipleChoiceField):
+    """Custom MultipleChoiceField adapter for ArrayField."""
+
+    def __init__(self, **kwargs):
+        # Remove ArrayField-specific arguments that MultipleChoiceField doesn't accept.
+        del kwargs["base_field"]
+        del kwargs["max_length"]
+        super().__init__(**kwargs)
 
 
 class ReadOnlyInline(admin.TabularInline):
@@ -214,6 +228,17 @@ class RepoAdmin(admin.ModelAdmin):
     )
 
     search_fields = ("pull_path", "push_path", "url")
+
+    def formfield_for_dbfield(
+        self, db_field: DbField, request: HttpRequest, **kwargs
+    ) -> FormField | None:
+        if db_field.name == "hooks":
+            return db_field.formfield(
+                form_class=ArrayFieldMultipleChoiceField,
+                widget=CheckboxSelectMultiple,
+                choices=Repo.HooksChoices,
+            )
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
 
 
 class CommitMapAdmin(admin.ModelAdmin):

@@ -47,14 +47,14 @@ from lando.main.models import (
     LandingJob,
     Repo,
 )
-from lando.main.scm.helpers import (
+from lando.main.support import LegacyAPIException
+from lando.utils.landing_checks import (
     DiffAssessor,
     PreventNSPRNSSCheck,
     PreventSubmodulesCheck,
     PreventSymlinksCheck,
     TryTaskConfigCheck,
 )
-from lando.main.support import LegacyAPIException
 from lando.utils.phabricator import (
     PhabricatorClient,
     PhabricatorRevisionStatus,
