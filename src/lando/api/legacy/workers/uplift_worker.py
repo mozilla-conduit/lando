@@ -9,6 +9,7 @@ from typing_extensions import override
 from lando.api.legacy.workers.base import Worker
 from lando.main.models import (
     JobAction,
+    JobStatus,
     PermanentFailureException,
     Revision,
     TemporaryFailureException,
@@ -133,7 +134,9 @@ class UpliftWorker(Worker):
         )
 
         job.created_revision_ids = created_revision_ids
-        job.transition_status(JobAction.SUCCESS)
+        # `LANDED` is the same as "success".
+        job.status = JobStatus.LANDED
+        job.save()
 
         return created_revision_ids
 

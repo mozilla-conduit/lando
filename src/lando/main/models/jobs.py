@@ -186,10 +186,6 @@ class BaseJob(BaseModel):
                 "required_params": [],
                 "status": JobStatus.CANCELLED,
             },
-            JobAction.SUCCESS: {
-                "required_params": [],
-                "status": JobStatus.LANDED,
-            },
         }
 
         if action not in actions:
