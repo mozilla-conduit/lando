@@ -239,22 +239,15 @@ class UpliftWorker(Worker):
                 env=env,
             )
         except subprocess.CalledProcessError as exc:
-            stdout = exc.stdout or ""
-            stderr = exc.stderr or ""
             message = "`moz-phab uplift` did not complete successfully."
-            details = [
-                f"Return code: {exc.returncode}",
-                f"Command: {' '.join(exc.cmd)}",
-            ]
-            if stdout:
-                details.append(f"stdout:\n{stdout}")
-            if stderr:
-                details.append(f"stderr:\n{stderr}")
-            message = f"{message}\n" + "\n".join(details)
-            logger.exception(message)
-            if stdout:
-                logger.error("`moz-phab uplift` stdout:\n%s", stdout)
-            if stderr:
-                logger.error("`moz-phab uplift` stderr:\n%s", stderr)
+            logger.exception(
+                message,
+                extra={
+                    "returncode": exc.returncode,
+                    "command": exc.cmd,
+                    "stdout": exc.stdout or "",
+                    "stderr": exc.stderr or "",
+                },
+            )
             job.transition_status(JobAction.FAIL, message=message)
             raise PermanentFailureException(message) from exc
