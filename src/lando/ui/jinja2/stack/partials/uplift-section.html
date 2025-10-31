@@ -132,7 +132,7 @@ future.
                               <button type="button" class="button is-small is-light toggle-content">Hide error details</button>
                             </div>
                         {% endif %}
-                        {% if job.status in ["LANDED", "SUCCESS"] and job.created_revision_ids %}
+                        {% if job.created_revision_ids %}
                           <div class="content">
                             <div class="tags">
                               {% for rev_id in job.created_revision_ids %}
