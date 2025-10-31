@@ -171,6 +171,13 @@ class GitHubAPIClient:
         result = self._api.post(path, *args, **kwargs)
         return result.json()
 
+    def build_pull_request(self, pull_number: int) -> "PullRequest":
+        """Build a PullRequest object.
+
+        This does the necessary network requests to collect the data."""
+        data = self.get_pull_request(pull_number)
+        return PullRequest(self, data)
+
     def list_pull_requests(self) -> list:
         """List all pull requests in the repo."""
         return self._repo_get("pulls")
@@ -216,10 +223,14 @@ class GitHubAPIClient:
 class PullRequest:
     """A class that parses data returned from the GitHub API for pull requests."""
 
+    client: GitHubAPIClient
+
     def __repr__(self) -> str:
         return f"Pull request #{self.number} ({self.head_repo_git_url})"
 
-    def __init__(self, data: dict):
+    def __init__(self, client: GitHubAPIClient, data: dict):
+        self.client = client
+
         self.url = data["url"]
         self.base_ref = data["base"]["ref"]  # "target" branch name
         self.base_sha = data["base"]["sha"]  # "target" branch sha
@@ -266,6 +277,14 @@ class PullRequest:
         self.user_id = data["user"]["id"]
         self.user_html_url = data["user"]["html_url"]
         self.user_login = data["user"]["login"]
+
+    @property
+    def diff(self) -> str:
+        return self.client.get_diff(self.number)
+
+    @property
+    def patch(self) -> str:
+        return self.client.get_patch(self.number)
 
     def serialize(self) -> dict[str, str]:
         """Return a dictionary with various pull request data."""
