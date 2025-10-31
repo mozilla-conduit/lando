@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
+from unittest import mock
 
 import pytest
 import redis
@@ -155,6 +156,21 @@ def phabdouble(monkeypatch):
         attachments={"members": {"members": [{"phid": "PHID-USER-1"}]}},
     )
     yield phabdouble
+
+
+@pytest.fixture
+def mock_uplift_email_tasks(monkeypatch):
+    success_task = mock.MagicMock()
+    failure_task = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.uplift_worker.send_uplift_success_email",
+        success_task,
+    )
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.uplift_worker.send_uplift_failure_email",
+        failure_task,
+    )
+    return success_task, failure_task
 
 
 @pytest.fixture

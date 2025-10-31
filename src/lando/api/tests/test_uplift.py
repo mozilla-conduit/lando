@@ -501,6 +501,7 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     normal_patch,
     monkeypatch,
     make_uplift_job_with_revisions,
+    mock_uplift_email_tasks,
 ):
     repo = repo_mc(SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
 
@@ -509,16 +510,7 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         create_patch_revision(1, patch=normal_patch(1)),
     ]
 
-    mock_success_task = mock.MagicMock()
-    mock_failure_task = mock.MagicMock()
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.uplift_worker.send_uplift_success_email",
-        mock_success_task,
-    )
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.uplift_worker.send_uplift_failure_email",
-        mock_failure_task,
-    )
+    mock_success_task, mock_failure_task = mock_uplift_email_tasks
 
     # Two small valid patches
     job = make_uplift_job_with_revisions(repo, user, revisions)
@@ -727,6 +719,7 @@ def test_uplift_worker_mozphab_failure_marks_failed(
     normal_patch,
     monkeypatch,
     make_uplift_job_with_revisions,
+    mock_uplift_email_tasks,
 ):
     repo = repo_mc(SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
 
@@ -738,16 +731,7 @@ def test_uplift_worker_mozphab_failure_marks_failed(
     # Two small valid patches.
     job = make_uplift_job_with_revisions(repo, user, revisions)
 
-    mock_success_task = mock.MagicMock()
-    mock_failure_task = mock.MagicMock()
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.uplift_worker.send_uplift_success_email",
-        mock_success_task,
-    )
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.uplift_worker.send_uplift_failure_email",
-        mock_failure_task,
-    )
+    mock_success_task, mock_failure_task = mock_uplift_email_tasks
 
     # Allow real update_repo/apply_patch; make `moz-phab uplift` throw.
     def _uplift_fail(*args, **kwargs):
@@ -783,6 +767,7 @@ def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
     normal_patch,
     monkeypatch,
     make_uplift_job_with_revisions,
+    mock_uplift_email_tasks,
 ):
     repo = repo_mc(SCM_TYPE_GIT, name="firefox-esr", approval_required=True)
 
@@ -793,16 +778,7 @@ def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
     ]
     job = make_uplift_job_with_revisions(repo, user, revisions)
 
-    mock_success_task = mock.MagicMock()
-    mock_failure_task = mock.MagicMock()
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.uplift_worker.send_uplift_success_email",
-        mock_success_task,
-    )
-    monkeypatch.setattr(
-        "lando.api.legacy.workers.uplift_worker.send_uplift_failure_email",
-        mock_failure_task,
-    )
+    mock_success_task, mock_failure_task = mock_uplift_email_tasks
 
     # Ensure create_uplift_revisions won't be called if apply_patch fails.
     monkeypatch.setattr(
