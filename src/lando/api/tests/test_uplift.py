@@ -131,11 +131,13 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
     assert (
         MultiTrainUpliftRequest.objects.count() == 1
     ), "New uplift request should be created."
-    multi = MultiTrainUpliftRequest.objects.select_related("assessment", "user").get()
+    multi = MultiTrainUpliftRequest.objects.select_related(
+        "assessment", "requested_by"
+    ).get()
     assert (
         multi.assessment_id == assessment.id
     ), "Uplift request should be associated with assessment."
-    assert multi.user_id == user.id, "Uplift request should belong to the user."
+    assert multi.requested_by_id == user.id, "Uplift request should belong to the user."
     assert multi.requested_revision_ids == [
         123,
         456,

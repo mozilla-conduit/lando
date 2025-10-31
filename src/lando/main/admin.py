@@ -185,7 +185,9 @@ class UpliftJobAdmin(JobAdmin):
         "created_revision_ids",
     )
 
-    @admin.display(description="Requester", ordering="multi_request__requested_by__email")
+    @admin.display(
+        description="Requester", ordering="multi_request__requested_by__email"
+    )
     def multi_request_user(self, instance: UpliftJob) -> str:
         """Return the email address of the uplift request submitter."""
         return instance.multi_request.requested_by.email
