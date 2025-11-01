@@ -2,11 +2,14 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable
+from unittest import mock
 
 import pytest
 import redis
 import requests_mock
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.http import HttpResponse
 from django.http import JsonResponse as JSONResponse
@@ -23,7 +26,17 @@ from lando.api.legacy.projects import (
 )
 from lando.api.legacy.transplants import CODE_FREEZE_OFFSET
 from lando.api.legacy.workers.landing_worker import LandingWorker
+from lando.api.legacy.workers.uplift_worker import (
+    UpliftWorker,
+)
 from lando.api.tests.mocks import PhabricatorDouble
+from lando.main.models import JobStatus, Repo, Revision
+from lando.main.models.uplift import (
+    RevisionUpliftJob,
+    UpliftAssessment,
+    UpliftJob,
+    UpliftSubmission,
+)
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.support import LegacyAPIException
 from lando.utils.phabricator import PhabricatorClient
@@ -146,6 +159,21 @@ def phabdouble(monkeypatch):
 
 
 @pytest.fixture
+def mock_uplift_email_tasks(monkeypatch):
+    success_task = mock.MagicMock()
+    failure_task = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.uplift_worker.send_uplift_success_email",
+        success_task,
+    )
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.uplift_worker.send_uplift_failure_email",
+        failure_task,
+    )
+    return success_task, failure_task
+
+
+@pytest.fixture
 def secure_project(phabdouble):
     return phabdouble.project(SEC_PROJ_SLUG)
 
@@ -222,6 +250,15 @@ def get_landing_worker(hg_landing_worker, git_landing_worker):
         return workers[scm_type]
 
     return _get_landing_worker
+
+
+@pytest.fixture
+def uplift_worker(landing_worker_instance, treestatusdouble):
+    worker = landing_worker_instance(
+        name="uplift-worker-git",
+        scm=SCM_TYPE_GIT,
+    )
+    return UpliftWorker(worker)
 
 
 @pytest.fixture
@@ -377,6 +414,11 @@ def proxy_client(monkeypatch, fake_request):
                 return json_response
             # In other cases, just the data is returned, and it should be
             # mapped to a response.
+
+            # Remove the `stack` field as it isn't JSON serializable
+            # and isn't required in the proxy client tests.
+            json_response.pop("stack")
+
             return MockResponse(json=json.loads(json.dumps(json_response)))
 
         def _handle__get__transplants__id(self, path):
@@ -466,3 +508,53 @@ def proxy_client(monkeypatch, fake_request):
 def authenticated_client(user, user_plaintext_password, client):
     client.login(username=user.username, password=user_plaintext_password)
     return client
+
+
+@pytest.fixture
+def make_uplift_job_with_revisions() -> (
+    Callable[[Repo, User, list[Revision]], UpliftJob]
+):
+    """Create assessment, multi-request, revisions, and a single UpliftJob associated to them."""
+
+    def _make_uplift_job_with_revisions(
+        repo: Repo, user: User, revisions: list[Revision]
+    ) -> UpliftJob:
+        # 1) Assessment
+        assessment = UpliftAssessment.objects.create(
+            user=user,
+            user_impact="Medium",
+            covered_by_testing="yes",
+            fix_verified_in_nightly="yes",
+            needs_manual_qe_testing="no",
+            qe_testing_reproduction_steps="",
+            risk_associated_with_patch="low",
+            risk_level_explanation="low risk",
+            string_changes="none",
+            is_android_affected="no",
+        )
+
+        # 2) Submission holding the ordered D-IDs
+        submission = UpliftSubmission.objects.create(
+            requested_by=user,
+            assessment=assessment,
+            requested_revision_ids=[revision.revision_id for revision in revisions],
+        )
+
+        # 3) One job for the target repo
+        job = UpliftJob.objects.create(
+            status=JobStatus.SUBMITTED,
+            requester_email=user.email,
+            target_repo=repo,
+            submission=submission,
+            attempts=1,
+        )
+
+        # 4) Attach and order revisions via through table
+        for idx, revision in enumerate(revisions):
+            RevisionUpliftJob.objects.create(
+                uplift_job=job, revision=revision, index=idx
+            )
+
+        return job
+
+    return _make_uplift_job_with_revisions

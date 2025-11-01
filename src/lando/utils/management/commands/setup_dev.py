@@ -19,6 +19,7 @@ class Command(BaseCommand):
             SCM_TYPE_GIT: {
                 WorkerType.LANDING: "",
                 WorkerType.AUTOMATION: "-automation-worker",
+                WorkerType.UPLIFT: "-uplift-worker",
             },
             SCM_TYPE_HG: {
                 WorkerType.LANDING: "",
