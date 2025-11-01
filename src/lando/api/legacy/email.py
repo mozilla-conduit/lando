@@ -107,7 +107,7 @@ def make_uplift_failure_email(
         repo_name=repo_name,
     )
 
-    # Get the tip revision for the subject line
+    # Get the tip revision for the subject line.
     subject_suffix = (
         f" (D{requested_revision_ids[-1]})" if requested_revision_ids else ""
     )
@@ -131,7 +131,7 @@ def make_uplift_success_email(
     requested_revision_lines = format_revision_id_lines(requested_revision_ids)
     created_revision_lines = format_revision_id_lines(created_revision_ids)
 
-    # Get the tip revision for the subject line
+    # Get the tip revision for the subject line.
     subject_suffix = (
         f" (D{requested_revision_ids[-1]})" if requested_revision_ids else ""
     )

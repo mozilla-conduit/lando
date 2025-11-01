@@ -348,7 +348,7 @@ def test_patch_assessment_creates_and_updates(
         response.status_code == 302
     ), "Updating assessment form should redirect back to referrer."
 
-    # Check that a new response was created
+    # Check that a new response was created.
     responses = UpliftAssessment.objects.all()
     assert responses.count() == 1, "Updating a form should result in a single form."
 
@@ -363,7 +363,7 @@ def test_patch_assessment_creates_and_updates(
         revision.assessment == response_obj
     ), "Response object for the revision should match the queried model."
 
-    # Assert Celery task was called
+    # Assert Celery task was called.
     assert (
         mock_apply_async.call_count == 1
     ), "`set_uplift_request_form_on_revision` should be called."
@@ -388,7 +388,7 @@ def test_patch_assessment_creates_and_updates(
         response.status_code == 302
     ), "Updating assessment form should redirect back to referrer."
 
-    # Check that a new response was created
+    # Check that a new response was created.
     responses = UpliftAssessment.objects.all()
     assert responses.count() == 1, "Updating a form should result in a single form."
 
@@ -462,7 +462,7 @@ def test_patch_assessment_form_invalid(
 
     url = reverse("uplift-assessment-page", args=[1234])
 
-    # Form is invalid because required fields are missing or invalid
+    # Form is invalid because required fields are missing or invalid.
     invalid_data = {
         # Required field left empty.
         "user_impact": "",
@@ -528,7 +528,7 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
 
     mock_success_task, mock_failure_task = mock_uplift_email_tasks
 
-    # Two small valid patches
+    # Two small valid patches.
     job = make_uplift_job_with_revisions(repo, user, revisions)
     mock_task = mock.MagicMock()
     monkeypatch.setattr(
@@ -536,7 +536,7 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         mock_task,
     )
 
-    # Let update_repo/apply_patch run for real; only mock moz-phab uplift to return new tip D-ids
+    # Let update_repo/apply_patch run for real and only mock moz-phab uplift to return new tip D-IDs.
     monkeypatch.setattr(
         uplift_worker,
         "run_moz_phab_uplift",
@@ -548,7 +548,7 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         ),
     )
 
-    # Capture current HEAD to validate it advanced
+    # Capture the current HEAD to validate it advanced.
     old_head = repo.scm.head_ref()
 
     assert uplift_worker.run_job(job), "Job should have completed successfully."
@@ -568,13 +568,13 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         4568,
     ], "Successful uplift job should store all created revision IDs."
 
-    # Validate HEAD changed after applying patches locally
+    # Validate that HEAD changed after applying patches locally.
     new_head = repo.scm.head_ref()
     assert (
         new_head != old_head
     ), "Repository HEAD should have advanced after applying patches."
 
-    # Validate UpliftRevision created and linked
+    # Validate that UpliftRevision objects are created and linked.
     assert (
         UpliftRevision.objects.count() == 1
     ), "Successful uplift job should create a single UpliftRevision link."

@@ -1,7 +1,7 @@
 {# Reusable component for rendering job error breakdown with merge conflicts.
 
 Expected variables:
-- job: The job object with error_breakdown field
+- job: The job object with an error_breakdown field.
 #}
 {% if job.error_breakdown %}
 {% set tree = job.target_repo.short_name|default("Repo " + job.target_repo.name) %}
