@@ -19,7 +19,7 @@ class PullRequestView(LandoView):
     ) -> TemplateResponse:
         """Handle the GET request for the pull request view."""
         target_repo = Repo.objects.get(name=repo_name)
-        client = GitHubAPIClient(target_repo)
+        client = GitHubAPIClient(target_repo.url)
         pull_request = PullRequest(client.get_pull_request(number))
         landing_jobs = get_jobs_for_pull(target_repo, number)
 
