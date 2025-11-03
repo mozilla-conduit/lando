@@ -23,8 +23,8 @@ from lando.headless_api.models.automation_job import (
 from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import SCM_LEVEL_3, JobStatus, Repo
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG, PatchConflict
+from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.exceptions import SCMInternalServerError
-from lando.main.tests.test_git import _create_git_commit
 from lando.pushlog.models import Push
 
 
@@ -965,16 +965,21 @@ def test_automation_job_create_commit_patch_conflict(
 
 
 def _create_split_branches_for_merge(
-    request, scm, repo_path, main_branch="main", feature_branch="feature"
+    request: pytest.FixtureRequest,
+    scm: AbstractSCM,
+    create_git_commit: Callable,
+    repo_path: str,
+    main_branch: str = "main",
+    feature_branch: str = "feature",
 ):
     subprocess.run(["git", "switch", main_branch], cwd=repo_path, check=True)
-    main_file = _create_git_commit(request, repo_path)
+    main_file = create_git_commit(request, repo_path)
     main_commit = scm.head_ref()
 
     subprocess.run(
         ["git", "switch", "-c", feature_branch, "HEAD^"], cwd=repo_path, check=True
     )
-    feature_file = _create_git_commit(request, repo_path)
+    feature_file = create_git_commit(request, repo_path)
     feature_commit = scm.head_ref()
 
     subprocess.run(["git", "switch", main_branch], cwd=repo_path, check=True)
@@ -985,13 +990,13 @@ def _create_split_branches_for_merge(
 @pytest.mark.parametrize("strategy", [None, "ours", "theirs"])
 @pytest.mark.django_db
 def test_automation_job_merge_onto_success_git(
-    strategy,
-    repo_mc,
-    treestatusdouble,
-    git_automation_worker,
-    monkeypatch,
-    request,
-    automation_job,
+    strategy: str | None,
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    git_automation_worker: Callable,
+    request: pytest.FixtureRequest,
+    create_git_commit: Callable,
+    automation_job: Callable,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
     scm = repo.scm
@@ -999,7 +1004,7 @@ def test_automation_job_merge_onto_success_git(
 
     # Create a repo with diverging history
     main_commit, main_file, feature_commit, feature_file = (
-        _create_split_branches_for_merge(request, scm, repo.system_path)
+        _create_split_branches_for_merge(request, create_git_commit, scm, repo.system_path)
     )
 
     job, _actions = automation_job(
@@ -1041,11 +1046,11 @@ def test_automation_job_merge_onto_fast_forward_git(
 
     # Start on main, make a commit.
     subprocess.run(["git", "switch", "main"], cwd=repo_path, check=True)
-    _create_git_commit(request, repo_path)
+    create_git_commit(request, repo_path)
 
     # Create feature branch from main, add another commit.
     subprocess.run(["git", "switch", "-c", "feature"], cwd=repo_path, check=True)
-    _create_git_commit(request, repo_path)
+    create_git_commit(request, repo_path)
     feature_sha = scm.head_ref()
 
     # Return to base (fast-forward target).
@@ -1215,7 +1220,7 @@ def test_automation_job_tag_success_git_tip_commit(
     head_ref = scm.head_ref()
 
     # Create a new commit that will be tagged
-    _create_git_commit(request, Path(repo.system_path))
+    create_git_commit(request, Path(repo.system_path))
 
     tag_name = "v-tagtest-git"
 
@@ -1274,7 +1279,7 @@ def test_automation_job_tag_retag_success_git(
     head_ref = scm.head_ref()
 
     # Create a new commit that will be tagged
-    _create_git_commit(request, Path(repo.system_path))
+    create_git_commit(request, Path(repo.system_path))
 
     tag_name = "v-tagtest-git"
 
@@ -1334,6 +1339,7 @@ def test_automation_job_tag_success_git_new_commit(
     get_automation_worker: Callable,
     request: pytest.FixtureRequest,
     monkeypatch: pytest.MonkeyPatch,
+    create_git_commit: Callable,
     git_patch: Callable,
     automation_job: Callable,
 ):
@@ -1341,7 +1347,7 @@ def test_automation_job_tag_success_git_new_commit(
     scm = repo.scm
 
     # Create a new commit that will be tagged
-    _create_git_commit(request, Path(repo.system_path))
+    create_git_commit(request, Path(repo.system_path))
 
     tag_name = "v-tagtest-git"
 
@@ -1383,18 +1389,19 @@ def test_automation_job_tag_success_git_new_commit(
 
 @pytest.mark.django_db
 def test_automation_job_tag_failure_git(
-    repo_mc,
-    treestatusdouble,
-    get_automation_worker,
-    request,
-    monkeypatch,
-    git_patch,
-    automation_job,
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    get_automation_worker: Callable,
+    request: pytest.FixtureRequest,
+    monkeypatch: pytest.MonkeyPatch,
+    create_git_commit: Callable,
+    git_patch: Callable,
+    automation_job: Callable,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
 
     # Create a new commit that will be tagged
-    _create_git_commit(request, Path(repo.system_path))
+    create_git_commit(request, Path(repo.system_path))
 
     tag_name = "v-tagtest-git"
 

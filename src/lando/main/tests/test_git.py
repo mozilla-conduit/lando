@@ -85,8 +85,9 @@ def test_GitSCM_clean_repo(
     git_setup_user: Callable,
     monkeypatch: pytest.MonkeyPatch,
     request: pytest.FixtureRequest,
-    strip_non_public_commits: bool,
     tmp_path: Path,
+    create_git_commit: Callable,
+    strip_non_public_commits: bool,
 ):
     clone_path = tmp_path / request.node.name
     clone_path.mkdir()
@@ -112,7 +113,7 @@ def test_GitSCM_clean_repo(
         check=True,
     )
     # Those two command should not raise exceptions
-    new_file = _create_git_commit(request, clone_path)
+    new_file = create_git_commit(request, clone_path)
 
     new_untracked_file = clone_path / "new_untracked_file"
     new_untracked_file.write_text("test", encoding="utf-8")
@@ -233,6 +234,7 @@ def test_GitSCM_apply_get_patch_merge(
     git_setup_user: Callable,
     request: pytest.FixtureRequest,
     tmp_path: Path,
+    create_git_commit: Callable,
 ):
     scm = GitSCM(str(git_repo))
 
@@ -246,7 +248,7 @@ def test_GitSCM_apply_get_patch_merge(
     git_setup_user(str(clone_path))
 
     # Create a new commit on a branch for merging
-    _create_git_commit(request, clone_path)
+    create_git_commit(request, clone_path)
     scm.head_ref()
 
     # Switch to target branch and create another commit.
@@ -475,14 +477,15 @@ def test_GitSCM_describe_local_changes(
     git_repo: Path,
     request: pytest.FixtureRequest,
     tmp_path: Path,
+    create_git_commit: Callable,
 ):
     clone_path = tmp_path / request.node.name
     clone_path.mkdir()
     scm = GitSCM(str(clone_path))
     scm.clone(str(git_repo))
 
-    file1 = _create_git_commit(request, clone_path)
-    file2 = _create_git_commit(request, clone_path)
+    file1 = create_git_commit(request, clone_path)
+    file2 = create_git_commit(request, clone_path)
 
     changes = scm.describe_local_changes()
 
@@ -494,6 +497,7 @@ def test_GitSCM_describe_local_changes_with_explicit_target_cset(
     git_repo: Path,
     request: pytest.FixtureRequest,
     tmp_path: Path,
+    create_git_commit: Callable,
 ):
     # Clone the repo into a new directory
     clone_path = tmp_path / request.node.name
@@ -502,12 +506,12 @@ def test_GitSCM_describe_local_changes_with_explicit_target_cset(
     scm.clone(str(git_repo))
 
     # Create a base commit
-    base_commit_file = _create_git_commit(request, clone_path)
+    base_commit_file = create_git_commit(request, clone_path)
     base_commit_sha = scm.head_ref()
 
     # Create two more commits
-    second_commit_file = _create_git_commit(request, clone_path)
-    third_commit_file = _create_git_commit(request, clone_path)
+    second_commit_file = create_git_commit(request, clone_path)
+    third_commit_file = create_git_commit(request, clone_path)
 
     # Now get commits since the base commit explicitly
     commits = scm.describe_local_changes(base_cset=base_commit_sha)
@@ -529,8 +533,9 @@ def test_GitSCM_update_repo(
     git_repo: Path,
     git_setup_user: Callable,
     request: pytest.FixtureRequest,
-    target_cs: str,
     tmp_path: Path,
+    create_git_commit: Callable,
+    target_cs: str,
 ):
     clone_path = tmp_path / request.node.name
     clone_path.mkdir()
@@ -567,7 +572,7 @@ def test_GitSCM_update_repo(
         cwd=str(clone_path),
         check=True,
     )
-    _create_git_commit(request, clone_path)
+    create_git_commit(request, clone_path)
 
     attributes_override = "some/weird/file diff"
 
@@ -611,8 +616,9 @@ def test_GitSCM_changeset_descriptions_on_workbranch(
     git_repo: Path,
     git_setup_user: Callable,
     request: pytest.FixtureRequest,
-    on_parent: str,
     tmp_path: Path,
+    create_git_commit: Callable,
+    on_parent: str,
 ):
     clone_path = tmp_path / request.node.name
     clone_path.mkdir()
@@ -627,7 +633,7 @@ def test_GitSCM_changeset_descriptions_on_workbranch(
 
     scm.update_repo(str(git_repo), target_cs)
 
-    _create_git_commit(request, clone_path)
+    create_git_commit(request, clone_path)
 
     assert (
         len(scm.changeset_descriptions()) == 1
@@ -642,6 +648,7 @@ def test_GitSCM_push(
     push_target: str | None,
     request: pytest.FixtureRequest,
     tmp_path: Path,
+    create_git_commit: Callable,
 ):
     clone_path = tmp_path / request.node.name
     clone_path.mkdir()
@@ -652,7 +659,7 @@ def test_GitSCM_push(
 
     git_setup_user(str(clone_path))
 
-    _create_git_commit(request, clone_path)
+    create_git_commit(request, clone_path)
 
     new_untracked_file = clone_path / "new_untracked_file"
     new_untracked_file.write_text("test", encoding="utf-8")
@@ -710,25 +717,29 @@ def test_GitSCM_git_run_redact_url_userinfo(
         assert "[REDACTED]" not in str(exc.value)
 
 
-def _create_git_commit(request: pytest.FixtureRequest, clone_path: Path):
-    new_file = clone_path / str(uuid.uuid4())
-    new_file.write_text(request.node.name, encoding="utf-8")
+@pytest.fixture
+def create_git_commit() -> Callable:
+    def _create_git_commit(request: pytest.FixtureRequest, clone_path: Path):
+        new_file = clone_path / str(uuid.uuid4())
+        new_file.write_text(request.node.name, encoding="utf-8")
 
-    subprocess.run(["git", "add", new_file.name], cwd=str(clone_path), check=True)
-    subprocess.run(
-        [
-            "git",
-            "commit",
-            "-m",
-            f"No bug: adding {new_file}",
-            "--author",
-            f"{request.node.name} <pytest@lando>",
-        ],
-        cwd=str(clone_path),
-        check=True,
-    )
+        subprocess.run(["git", "add", new_file.name], cwd=str(clone_path), check=True)
+        subprocess.run(
+            [
+                "git",
+                "commit",
+                "-m",
+                f"No bug: adding {new_file}",
+                "--author",
+                f"{request.node.name} <pytest@lando>",
+            ],
+            cwd=str(clone_path),
+            check=True,
+        )
 
-    return new_file
+        return new_file
+
+    return _create_git_commit
 
 
 def _monkeypatch_scm(monkeypatch, scm: GitSCM, method: str) -> MagicMock:
@@ -752,6 +763,7 @@ def test_GitSCM_merge_onto(
     git_setup_user: Callable,
     request: pytest.FixtureRequest,
     tmp_path: Path,
+    create_git_commit: Callable,
     strategy: str | None,
 ):
     clone_path = tmp_path / request.node.name
@@ -764,7 +776,7 @@ def test_GitSCM_merge_onto(
     git_setup_user(str(clone_path))
 
     # Create a new commit on a branch for merging
-    main_commit_file = _create_git_commit(request, clone_path)
+    main_commit_file = create_git_commit(request, clone_path)
     main_commit = scm.head_ref()
 
     # Switch to target branch and create another commit.
@@ -772,7 +784,7 @@ def test_GitSCM_merge_onto(
     subprocess.run(
         ["git", "switch", "-c", target_branch, "HEAD^"], cwd=str(clone_path), check=True
     )
-    target_commit_file = _create_git_commit(request, clone_path)
+    target_commit_file = create_git_commit(request, clone_path)
     target_commit = scm.head_ref()
 
     # Merge feature into main
@@ -865,6 +877,7 @@ def test_GitSCM_merge_onto_fast_forward(
     git_setup_user: Callable,
     request: pytest.FixtureRequest,
     tmp_path: Path,
+    create_git_commit: Callable,
 ):
     clone_path = tmp_path / request.node.name
     clone_path.mkdir()
@@ -874,11 +887,11 @@ def test_GitSCM_merge_onto_fast_forward(
     git_setup_user(str(clone_path))
 
     # Create base commit on main.
-    _create_git_commit(request, clone_path)
+    create_git_commit(request, clone_path)
 
     # Create a feature branch and add a commit.
     subprocess.run(["git", "switch", "-c", "feature"], cwd=clone_path, check=True)
-    _create_git_commit(request, clone_path)
+    create_git_commit(request, clone_path)
     feature_commit = scm.head_ref()
 
     # Switch back to base.
@@ -926,6 +939,7 @@ def test_GitSCM_tag(
     git_setup_user: Callable,
     request: pytest.FixtureRequest,
     tmp_path: Path,
+    create_git_commit: Callable,
 ):
     clone_path = tmp_path / request.node.name
     clone_path.mkdir()
@@ -935,7 +949,7 @@ def test_GitSCM_tag(
     git_setup_user(str(clone_path))
 
     # Create a new commit and get its SHA
-    _create_git_commit(request, clone_path)
+    create_git_commit(request, clone_path)
     commit_sha = (
         subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -982,6 +996,7 @@ def test_GitSCM_tag_retag(
     git_setup_user: Callable,
     request: pytest.FixtureRequest,
     tmp_path: Path,
+    create_git_commit: Callable,
     caplog: pytest.LogCaptureFixture,
 ):
     clone_path = tmp_path / request.node.name
@@ -994,7 +1009,7 @@ def test_GitSCM_tag_retag(
     old_commit = scm.head_ref()
 
     # Create a new commit and get its SHA
-    _create_git_commit(request, clone_path)
+    create_git_commit(request, clone_path)
 
     # Tag the current commit
     tag_name = "v1.0"

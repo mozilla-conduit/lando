@@ -1,7 +1,9 @@
 import io
+from typing import Callable
 
 import pytest
 
+from lando.main.scm.consts import SCM_TYPE_GIT
 from lando.main.scm.helpers import (
     GitPatchHelper,
     HgPatchHelper,
