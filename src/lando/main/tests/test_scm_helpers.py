@@ -1,14 +1,18 @@
 import io
+import os
+from pathlib import Path
 from typing import Callable
 
 import pytest
 
-from lando.main.scm.consts import SCM_TYPE_GIT
+from lando.main.scm.consts import SCM_TYPE_GIT, SCM_TYPE_HG
+from lando.main.scm.git import GitSCM
 from lando.main.scm.helpers import (
     GitPatchHelper,
     HgPatchHelper,
     build_patch_for_revision,
 )
+from lando.main.scm.hg import HgSCM
 
 GIT_DIFF_FROM_REVISION = r"""diff --git a/hello.c b/hello.c
 --- a/hello.c   Fri Aug 26 01:21:28 2005 -0700
@@ -467,6 +471,55 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
     buf = io.StringIO("")
     patch.write(buf)
     assert buf.getvalue() == patch_text
+
+
+@pytest.mark.parametrize("repo_type", (SCM_TYPE_GIT, SCM_TYPE_HG))
+def test_scm_get_patch_helpers_for_commits(
+    tmp_path: Path,
+    git_repo: Path,
+    hg_clone: os.PathLike,
+    request: pytest.FixtureRequest,
+    create_scm_commit: Callable,
+    repo_type: str,
+):
+    if repo_type == SCM_TYPE_GIT:
+        clone_path = tmp_path / request.node.name
+        clone_path.mkdir()
+        scm = GitSCM(str(clone_path))
+        scm.clone(str(git_repo))
+    elif repo_type == SCM_TYPE_HG:
+        clone_path = hg_clone
+        scm = HgSCM(str(hg_clone))
+    else:
+        raise ValueError(f"SCM type {repo_type} not supported")
+
+    with scm.for_push("pushuser@example.net"):
+        base_commit = scm.head_ref()
+
+        create_scm_commit(clone_path)
+        first_commit = scm.head_ref()
+
+        # The SCMs don't have a plain checkout method, but that's what we need here.
+        if repo_type == SCM_TYPE_GIT:
+            scm._git_run("checkout", "-b", "new-branch", "origin/main", cwd=scm.path)
+        elif repo_type == SCM_TYPE_HG:
+            scm.run_hg(["up", base_commit])
+
+        create_scm_commit(clone_path)
+
+        scm.merge_onto("test merge", first_commit, None)
+
+        new_commits = scm.describe_local_changes()
+        assert len(new_commits) == 3, "Unexpected number of commits"
+
+        # Flatten the filter() Iterable, so we can count the number of elements.
+        patch_helpers = list(scm.get_patch_helpers_for_commits(new_commits))
+
+        if repo_type != SCM_TYPE_HG:
+            # See bug 1998051 for an issue with HG.
+            assert (
+                len(patch_helpers) == 2
+            ), "Unexpected number of PatchHelpers: there shouldn't be one for the merge commit."
 
 
 def test_patchhelper_write_no_start_line():

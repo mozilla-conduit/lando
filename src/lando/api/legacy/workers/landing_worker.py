@@ -209,11 +209,7 @@ class LandingWorker(Worker):
         new_commits = scm.describe_local_changes()
 
         if repo.hooks_enabled:
-            patch_helpers = filter(
-                # Filter out Nones (default).
-                None,
-                [repo.scm.get_patch_helper(commit.hash) for commit in new_commits],
-            )
+            patch_helpers = repo.scm.get_patch_helpers_for_commits(new_commits)
             landing_checks = LandingChecks(job.requester_email)
             try:
                 check_errors = landing_checks.run(repo.hooks, patch_helpers)
