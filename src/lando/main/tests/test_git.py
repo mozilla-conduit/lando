@@ -3,7 +3,6 @@ import datetime
 import io
 import re
 import subprocess
-import uuid
 from collections.abc import Callable
 from pathlib import Path
 from textwrap import dedent
@@ -715,31 +714,6 @@ def test_GitSCM_git_run_redact_url_userinfo(
         assert string in str(exc.value)
         assert string in repr(exc.value)
         assert "[REDACTED]" not in str(exc.value)
-
-
-@pytest.fixture
-def create_git_commit() -> Callable:
-    def _create_git_commit(request: pytest.FixtureRequest, clone_path: Path):
-        new_file = clone_path / str(uuid.uuid4())
-        new_file.write_text(request.node.name, encoding="utf-8")
-
-        subprocess.run(["git", "add", new_file.name], cwd=str(clone_path), check=True)
-        subprocess.run(
-            [
-                "git",
-                "commit",
-                "-m",
-                f"No bug: adding {new_file}",
-                "--author",
-                f"{request.node.name} <pytest@lando>",
-            ],
-            cwd=str(clone_path),
-            check=True,
-        )
-
-        return new_file
-
-    return _create_git_commit
 
 
 def _monkeypatch_scm(monkeypatch, scm: GitSCM, method: str) -> MagicMock:

@@ -4,6 +4,7 @@ import re
 import subprocess
 import time
 import unittest.mock as mock
+import uuid
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
@@ -36,6 +37,8 @@ from lando.main.models.landing_job import LandingJob, add_job_with_revisions
 from lando.main.models.revision import Revision
 from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
 from lando.main.scm.commit import CommitData
+from lando.main.scm.git import GitSCM
+from lando.main.scm.hg import HgSCM
 from lando.pushlog.models import Commit, File, Push, Tag
 from lando.treestatus.models import Tree, TreeStatus
 
@@ -745,6 +748,68 @@ def hg_server(hg_test_bundle: pathlib.Path, tmpdir: os.PathLike):
 
     yield hg_url
     serve.kill()
+
+
+@pytest.fixture
+def create_scm_commit(
+    create_git_commit: Callable, create_hg_commit: Callable
+) -> Callable:
+    def _create_commit(clone_path: Path) -> str:
+        if GitSCM.repo_is_supported(str(clone_path)):
+            return create_git_commit(clone_path)
+        if HgSCM.repo_is_supported(str(clone_path)):
+            return create_hg_commit(clone_path)
+        raise ValueError(f"Cannot determine which SCM to use for {clone_path}")
+
+    return _create_commit
+
+
+@pytest.fixture
+def create_git_commit(request: pytest.FixtureRequest) -> Callable:
+    def _create_git_commit(clone_path: Path) -> str:
+        new_file = clone_path / str(uuid.uuid4())
+        new_file.write_text(request.node.name, encoding="utf-8")
+
+        subprocess.run(["git", "add", new_file.name], cwd=str(clone_path), check=True)
+        subprocess.run(
+            [
+                "git",
+                "commit",
+                "-m",
+                f"No bug: adding {new_file}",
+                "--author",
+                f"{request.node.name} <pytest@lando>",
+            ],
+            cwd=str(clone_path),
+            check=True,
+        )
+
+        return new_file
+
+    return _create_git_commit
+
+
+@pytest.fixture
+def create_hg_commit(request: pytest.FixtureRequest) -> Callable:
+    def _create_hg_commit(clone_path: Path) -> str:
+        new_file = clone_path / str(uuid.uuid4())
+        new_file.write_text(request.node.name, encoding="utf-8")
+
+        subprocess.run(["hg", "addremove"], cwd=str(clone_path), check=True)
+        subprocess.run(
+            [
+                "hg",
+                "commit",
+                "-m",
+                f"No bug: adding {new_file}",
+            ],
+            cwd=str(clone_path),
+            check=True,
+        )
+
+        return new_file
+
+    return _create_hg_commit
 
 
 @pytest.fixture
