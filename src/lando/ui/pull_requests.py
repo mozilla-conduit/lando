@@ -6,7 +6,7 @@ from django.template.response import TemplateResponse
 from lando.main.models import Repo
 from lando.main.models.landing_job import get_jobs_for_pull
 from lando.ui.views import LandoView
-from lando.utils.github import GitHubAPIClient, PullRequest
+from lando.utils.github import GitHubAPIClient
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ class PullRequestView(LandoView):
         """Handle the GET request for the pull request view."""
         target_repo = Repo.objects.get(name=repo_name)
         client = GitHubAPIClient(target_repo.url)
-        pull_request = PullRequest(client.get_pull_request(number))
+        pull_request = client.build_pull_request(number)
         landing_jobs = get_jobs_for_pull(target_repo, number)
 
         context = {
