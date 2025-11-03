@@ -62,7 +62,7 @@ class Repo(BaseModel):
     _scm: AbstractSCM | None = None
 
     class HooksChoices(models.TextChoices):
-        """Allowable statuses of a tree."""
+        """List of landing hooks that can be enabled for a repo."""
 
         PreventSymlinksCheck = (
             "PreventSymlinksCheck",
