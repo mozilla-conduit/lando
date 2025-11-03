@@ -25,7 +25,7 @@ from lando.main.scm import (
     SCM_TYPE_GIT,
     SCM_TYPE_HG,
 )
-from lando.utils.github import GitHubAPIClient, PullRequest
+from lando.utils.github import GitHubAPIClient
 from lando.utils.phabricator import get_phabricator_client
 
 
@@ -211,7 +211,7 @@ class LandingJobPullRequestAPIView(View):
         target_repo = Repo.objects.get(name=repo_name)
         client = GitHubAPIClient(target_repo.url)
         ldap_username = request.user.email
-        pull_request = PullRequest(client.get_pull_request(pull_number))
+        pull_request = client.build_pull_request(pull_number)
         form = Form(json.loads(request.body))
 
         if not form.is_valid():
