@@ -182,7 +182,10 @@ class UpliftJob(BaseJob):
 
     type: str = "Uplift"
 
-    # Store the created revision ID for the job on success.
+    # Phabricator uplift revision IDs as an ordered list of integers.
+    # Example: If D1->D2->D3 is requested for uplift to beta, which
+    # creates revisions D4->D5->D6, this field will be set to
+    # `[4, 5, 6]`.
     created_revision_ids = models.JSONField(default=list, blank=True)
 
     # Error details in a dictionary format, listing failed merges, etc...
@@ -196,6 +199,8 @@ class UpliftJob(BaseJob):
         UpliftSubmission, on_delete=models.DO_NOTHING, related_name="uplift_jobs"
     )
 
+    # Unsorted references to the `Revision` objects the job will use
+    # to apply the uplift request to the target.
     unsorted_revisions = models.ManyToManyField(
         Revision, through=RevisionUpliftJob, related_name="uplift_jobs"
     )
