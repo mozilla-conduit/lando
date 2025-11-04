@@ -731,14 +731,14 @@ def _monkeypatch_scm(monkeypatch, scm: GitSCM, method: str) -> MagicMock:
     return mock
 
 
-@pytest.mark.parametrize("strategy", [None, "ours", "theirs"])
+@pytest.mark.parametrize("strategy", [None, MergeStrategy.OURS, MergeStrategy.THEIRS])
 def test_GitSCM_merge_onto(
     git_repo: Path,
     git_setup_user: Callable,
     request: pytest.FixtureRequest,
     tmp_path: Path,
     create_git_commit: Callable,
-    strategy: str | None,
+    strategy: MergeStrategy | None,
 ):
     clone_path = tmp_path / request.node.name
     clone_path.mkdir()
