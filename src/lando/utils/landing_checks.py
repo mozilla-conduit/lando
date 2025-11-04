@@ -43,7 +43,11 @@ class Check(ABC):
     @classmethod
     @abstractmethod
     def name(cls) -> str:
-        """Human-friendly name for this check."""
+        """Human-friendly name for this check.
+
+        This information should be used by other parts of the system to identify a
+        Check. The __class__ or __class__.__name__ MUST NOT be used as a susbstitute.
+        """
         # XXX: Ideally, this should be a class property, but Python>3.11 deprecates
         # them.
 
