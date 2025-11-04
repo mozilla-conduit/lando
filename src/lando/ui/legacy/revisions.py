@@ -52,7 +52,7 @@ class UpliftRequestView(LandoView):
             # they will see the flash messages.
             return redirect(request.META.get("HTTP_REFERER"))
 
-        source_revisions = uplift_request_form.cleaned_data["source_revision_ids"]
+        source_revisions = uplift_request_form.cleaned_data["source_revisions"]
         repositories = uplift_request_form.cleaned_data["repositories"]
 
         # Create DB rows for the uplift submission.
@@ -195,12 +195,12 @@ class RevisionView(LandoView):
             if r["id"] == "D{}".format(revision_id):
                 revision_phid = r["phid"]
 
-        source_revision_ids = [
+        source_revisions = [
             revision_id_to_int(revisions[revision_phid]["id"])
             for revision_phid in stack["stack"].iter_stack_from_root(dest=revision_phid)
         ]
         uplift_request_form = UpliftRequestForm(
-            initial={"source_revision_ids": source_revision_ids}
+            initial={"source_revisions": source_revisions}
         )
 
         # Build a mapping from phid to repository.

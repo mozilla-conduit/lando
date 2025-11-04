@@ -92,7 +92,7 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
     )
 
     # Create the revisions with `456` before `123` to ensure the passed
-    # ordering in `source_revision_ids` is preserved instead of the
+    # ordering in `source_revisions` is preserved instead of the
     # default queryset ordering.
     revisions_created = [
         create_patch_revision(456, patch=normal_patch(1)),
@@ -102,7 +102,7 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
 
     url = reverse("uplift-page")
     form_data = {
-        "source_revision_ids": [revision.revision_id for revision in revisions_ordered],
+        "source_revisions": [revision.revision_id for revision in revisions_ordered],
         "repositories": [repo_a.name, repo_b.name],
     }
     form_data |= CREATE_FORM_DATA
@@ -196,7 +196,7 @@ def test_uplift_creation_fails_when_revisions_missing(
     # NOTE: We intentionally DO NOT create a Revision(revision_id=1234) here.
 
     form_data = {
-        "source_revision_ids": [123, 456],
+        "source_revisions": [123, 456],
         "repositories": [repo_a.name, repo_b.name],
     }
     form_data |= CREATE_FORM_DATA

@@ -47,8 +47,8 @@
             </a>
         </div>
 
-        {{ uplift_request_form.source_revision_ids }}
-        {% set requested_revision_ids = uplift_request_form.source_revision_ids.value() or [] %}
+        {{ uplift_request_form.source_revisions }}
+        {% set requested_revision_ids = uplift_request_form.source_revisions.value() or [] %}
         {% if requested_revision_ids %}
         <div class="field">
           <label class="label">Revisions to uplift</label>

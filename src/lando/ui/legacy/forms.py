@@ -63,7 +63,7 @@ class UpliftAssessmentForm(forms.ModelForm):
 class UpliftRequestForm(UpliftAssessmentForm):
     """Form used to request uplift of a stack."""
 
-    source_revision_ids = forms.ModelMultipleChoiceField(
+    source_revisions = forms.ModelMultipleChoiceField(
         queryset=Revision.objects.all(),
         to_field_name="revision_id",
         widget=forms.widgets.MultipleHiddenInput(),
@@ -81,10 +81,10 @@ class UpliftRequestForm(UpliftAssessmentForm):
         # name, instead of the default `__str__` representation.
         self.fields["repositories"].label_from_instance = lambda repo: repo.name
 
-    def clean_source_revision_ids(self) -> list[Revision]:
+    def clean_source_revisions(self) -> list[Revision]:
         """Return source revisions in the same order they were submitted."""
-        revisions_qs = self.cleaned_data["source_revision_ids"]
-        requested_order = self.data.getlist(self.add_prefix("source_revision_ids"))
+        revisions_qs = self.cleaned_data["source_revisions"]
+        requested_order = self.data.getlist(self.add_prefix("source_revisions"))
 
         revisions_by_id = {
             str(revision.revision_id): revision for revision in revisions_qs
