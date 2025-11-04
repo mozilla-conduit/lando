@@ -112,7 +112,7 @@ def test_GitSCM_clean_repo(
         check=True,
     )
     # Those two command should not raise exceptions
-    new_file = create_git_commit(request, clone_path)
+    new_file = create_git_commit(clone_path)
 
     new_untracked_file = clone_path / "new_untracked_file"
     new_untracked_file.write_text("test", encoding="utf-8")
@@ -247,7 +247,7 @@ def test_GitSCM_apply_get_patch_merge(
     git_setup_user(str(clone_path))
 
     # Create a new commit on a branch for merging
-    create_git_commit(request, clone_path)
+    create_git_commit(clone_path)
     scm.head_ref()
 
     # Switch to target branch and create another commit.
@@ -483,8 +483,8 @@ def test_GitSCM_describe_local_changes(
     scm = GitSCM(str(clone_path))
     scm.clone(str(git_repo))
 
-    file1 = create_git_commit(request, clone_path)
-    file2 = create_git_commit(request, clone_path)
+    file1 = create_git_commit(clone_path)
+    file2 = create_git_commit(clone_path)
 
     changes = scm.describe_local_changes()
 
@@ -505,12 +505,12 @@ def test_GitSCM_describe_local_changes_with_explicit_target_cset(
     scm.clone(str(git_repo))
 
     # Create a base commit
-    base_commit_file = create_git_commit(request, clone_path)
+    base_commit_file = create_git_commit(clone_path)
     base_commit_sha = scm.head_ref()
 
     # Create two more commits
-    second_commit_file = create_git_commit(request, clone_path)
-    third_commit_file = create_git_commit(request, clone_path)
+    second_commit_file = create_git_commit(clone_path)
+    third_commit_file = create_git_commit(clone_path)
 
     # Now get commits since the base commit explicitly
     commits = scm.describe_local_changes(base_cset=base_commit_sha)
@@ -571,7 +571,7 @@ def test_GitSCM_update_repo(
         cwd=str(clone_path),
         check=True,
     )
-    create_git_commit(request, clone_path)
+    create_git_commit(clone_path)
 
     attributes_override = "some/weird/file diff"
 
@@ -632,7 +632,7 @@ def test_GitSCM_changeset_descriptions_on_workbranch(
 
     scm.update_repo(str(git_repo), target_cs)
 
-    create_git_commit(request, clone_path)
+    create_git_commit(clone_path)
 
     assert (
         len(scm.changeset_descriptions()) == 1
@@ -658,7 +658,7 @@ def test_GitSCM_push(
 
     git_setup_user(str(clone_path))
 
-    create_git_commit(request, clone_path)
+    create_git_commit(clone_path)
 
     new_untracked_file = clone_path / "new_untracked_file"
     new_untracked_file.write_text("test", encoding="utf-8")
@@ -750,7 +750,7 @@ def test_GitSCM_merge_onto(
     git_setup_user(str(clone_path))
 
     # Create a new commit on a branch for merging
-    main_commit_file = create_git_commit(request, clone_path)
+    main_commit_file = create_git_commit(clone_path)
     main_commit = scm.head_ref()
 
     # Switch to target branch and create another commit.
@@ -758,7 +758,7 @@ def test_GitSCM_merge_onto(
     subprocess.run(
         ["git", "switch", "-c", target_branch, "HEAD^"], cwd=str(clone_path), check=True
     )
-    target_commit_file = create_git_commit(request, clone_path)
+    target_commit_file = create_git_commit(clone_path)
     target_commit = scm.head_ref()
 
     # Merge feature into main
@@ -861,11 +861,11 @@ def test_GitSCM_merge_onto_fast_forward(
     git_setup_user(str(clone_path))
 
     # Create base commit on main.
-    create_git_commit(request, clone_path)
+    create_git_commit(clone_path)
 
     # Create a feature branch and add a commit.
     subprocess.run(["git", "switch", "-c", "feature"], cwd=clone_path, check=True)
-    create_git_commit(request, clone_path)
+    create_git_commit(clone_path)
     feature_commit = scm.head_ref()
 
     # Switch back to base.
@@ -923,7 +923,7 @@ def test_GitSCM_tag(
     git_setup_user(str(clone_path))
 
     # Create a new commit and get its SHA
-    create_git_commit(request, clone_path)
+    create_git_commit(clone_path)
     commit_sha = (
         subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -983,7 +983,7 @@ def test_GitSCM_tag_retag(
     old_commit = scm.head_ref()
 
     # Create a new commit and get its SHA
-    create_git_commit(request, clone_path)
+    create_git_commit(clone_path)
 
     # Tag the current commit
     tag_name = "v1.0"
@@ -1003,7 +1003,6 @@ def test_GitSCM_process_merge_conflict_no_reject(
     git_setup_user: Callable,
     request: pytest.FixtureRequest,
     tmp_path: Path,
-    caplog: pytest.LogCaptureFixture,
 ):
     clone_path = tmp_path / request.node.name
     clone_path.mkdir()
