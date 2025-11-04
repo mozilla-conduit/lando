@@ -8,7 +8,7 @@ import lando.main.models.repo
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("main", "0032_revisionlandingjob_commit_id"),
+        ("main", "0033_alter_worker_type_revisionupliftjob_upliftjob_and_more"),
     ]
 
     operations = [
