@@ -842,7 +842,7 @@ def test_automation_job_create_commit_failed_check_override(
         "author": "Test User <test@example.com>",
         "commitmsg": "IGNORE BAD COMMIT MESSAGES",
         "date": 0,
-        "diff": get_failing_check_diff("valid"),
+        "diff": get_failing_check_diff("valid2"),
     }
 
     # Create a job and _all_ invalid actions
@@ -883,7 +883,7 @@ def test_automation_job_create_commit_failed_check_unchecked(
         "author": "Test User <test@example.com>",
         "commitmsg": "some commit a=release",
         "date": 0,
-        "diff": get_failing_check_diff("valid"),
+        "diff": get_failing_check_diff("valid2"),
     }
 
     automation_worker = get_automation_worker(SCM_TYPE_GIT)
