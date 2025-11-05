@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+from collections import Counter
 
 import requests
 from django.conf import settings
@@ -200,6 +201,10 @@ class GitHubAPIClient:
             headers={"Accept": "application/vnd.github.patch"},
         )
 
+    def get_pull_request_commits(self, pull_number: int) -> dict:
+        """Get all commits from specific pull request from the repo."""
+        return self._repo_get(f"pulls/{pull_number}/commits")
+
     def open_pull_request(self, pull_number: int) -> dict:
         """Open the given pull request."""
         return self._post(
@@ -278,6 +283,21 @@ class PullRequest:
         self.user_html_url = data["user"]["html_url"]
         self.user_login = data["user"]["login"]
 
+    def _select_commit_author(
+        self, commits: list[dict]
+    ) -> tuple[str | None, str | None]:
+        """Select the most common author in commits."""
+        # This method is ported from lando.api.legacy.revisions.select_diff_author.
+        commits = [commit["commit"] for commit in commits]
+        if not commits:
+            return None, None
+
+        # Below is copied verbatim from the legacy method.
+        authors = [c.get("author", {}) for c in commits]
+        authors = Counter((a.get("name"), a.get("email")) for a in authors)
+        authors = authors.most_common(1)
+        return authors[0][0] if authors else (None, None)
+
     @property
     def diff(self) -> str:
         return self.client.get_diff(self.number)
@@ -285,6 +305,14 @@ class PullRequest:
     @property
     def patch(self) -> str:
         return self.client.get_patch(self.number)
+
+    @property
+    def commits(self) -> str:
+        return self.client.get_pull_request_commits(self.number)
+
+    @property
+    def author(self) -> str:
+        return self._select_commit_author(self.commits)
 
     def serialize(self) -> dict[str, str]:
         """Return a dictionary with various pull request data."""
