@@ -23,7 +23,7 @@ dependencies = [
     "kombu",
     "mercurial==6.1.4",
     "mots",
-    "MozPhab==2.7.0",
+    "MozPhab==2.8.0",
     "mozilla_django_oidc",
     "networkx",
     "psycopg2-binary",
