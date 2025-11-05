@@ -207,8 +207,9 @@ class RevisionAdmin(admin.ModelAdmin):
 class RepoAdmin(admin.ModelAdmin):
     class Media:
         css = {
-            'all': ('css/custom_admin.css',),
+            "all": ("css/custom_admin.css",),
         }
+
     model = Repo
     list_display = (
         "name",
