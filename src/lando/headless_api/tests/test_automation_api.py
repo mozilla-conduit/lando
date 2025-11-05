@@ -1040,7 +1040,7 @@ def test_automation_job_merge_onto_fail(
 
     automation_worker.worker_instance.applicable_repos.add(repo)
 
-    assert not automation_worker.run_job(job), f"Job should not complete."
+    assert not automation_worker.run_job(job), "Job should not complete."
     assert job.status == JobStatus.FAILED
     assert "Aborting, could not perform `merge-onto`" in job.error
 
