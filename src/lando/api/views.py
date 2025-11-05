@@ -211,7 +211,7 @@ class LandingJobPullRequestAPIView(View):
             # base_ref = forms.CharField()
 
         target_repo = Repo.objects.get(name=repo_name)
-        client = GitHubAPIClient(target_repo)
+        client = GitHubAPIClient(target_repo.url)
         ldap_username = request.user.email
         pull_request = client.build_pull_request(pull_number)
         form = Form(json.loads(request.body))
@@ -238,6 +238,8 @@ class LandingJobPullRequestAPIView(View):
         add_revisions_to_job([revision], job)
         job.status = JobStatus.SUBMITTED
         job.save()
+
+        return JsonResponse({"id": job.id}, status=201)
 
 
 class PullRequestChecksAPIView(APIView):

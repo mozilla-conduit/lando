@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import configparser
 import logging
 import subprocess
@@ -149,7 +147,7 @@ class LandingWorker(Worker):
             # NOTE: This may need to happen on the revision-level when stack support is added.
             pull_number = job.revisions.first().pull_number
             message = f"Pull request closed by commit {commit_id}"
-            client = GitHubAPIClient(job.target_repo)
+            client = GitHubAPIClient(job.target_repo.url)
             client.add_comment_to_pull_request(pull_number, message)
             client.close_pull_request(pull_number)
 

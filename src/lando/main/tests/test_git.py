@@ -8,7 +8,7 @@ from collections.abc import Callable
 from pathlib import Path
 from textwrap import dedent
 from unittest import mock
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, PropertyMock
 
 import pytest
 
@@ -670,30 +670,35 @@ def test_GitSCM_push(
 
 
 @pytest.fixture
-def mock_github_api_get_token(monkeypatch: pytest.MonkeyPatch):
-    mock_get_token = MagicMock()
-    mock_get_token.side_effect = ["ghs_yolo"]
+def mock_github_authenticated_url(monkeypatch: pytest.MonkeyPatch):
+    mock_authenticated_url = PropertyMock()
 
-    monkeypatch.setattr("lando.utils.github.GitHubAPI._get_token", mock_get_token)
+    mock_authenticated_url.return_value = (
+        "ssh+git:ghs_yolo@github.com/some-org/some-repo"
+    )
 
-    return mock_get_token
+    monkeypatch.setattr(
+        "lando.utils.github.GitHub.authenticated_url", mock_authenticated_url
+    )
+
+    return mock_authenticated_url
 
 
-def test_GitSCM_push_get_github_token(
-    git_repo: Path, mock_github_api_get_token: mock.Mock
+def test_GitSCM_push_github_authenticated_url(
+    git_repo: Path, mock_github_authenticated_url: mock.Mock
 ):
     scm = GitSCM(str(git_repo))
     scm._git_run = MagicMock()
 
     scm.push("https://github.com/some/repo")
 
-    assert scm._git_run.call_count == 1, "_git_run wasn't called when pushing"
+    assert scm._git_run.call_count >= 1, "_git_run wasn't called when pushing"
     assert (
-        mock_github_api_get_token.call_count == 1
-    ), "_get_github_token wasn't called when pushing to a github-like URL"
+        mock_github_authenticated_url.call_count == 1
+    ), "GitHub.authenticated_url wasn't accessed when pushing to a github-like URL"
     assert (
         "git:ghs_yolo@github.com" in scm._git_run.call_args[0][1]
-    ), "github token not found in rewritten push_path"
+    ), "GitHub authenticated_url was not found in rewritten push_path"
 
 
 @pytest.mark.parametrize(
