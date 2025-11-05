@@ -69,7 +69,7 @@ class UpliftRequestForm(UpliftAssessmentForm):
         widget=forms.widgets.MultipleHiddenInput(),
     )
     repositories = forms.ModelMultipleChoiceField(
-        queryset=Repo.objects.filter(approval_required=True),
+        queryset=Repo.objects.filter(approval_required=True).order_by("name"),
         widget=forms.CheckboxSelectMultiple(),
         to_field_name="name",
     )
