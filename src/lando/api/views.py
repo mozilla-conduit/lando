@@ -224,10 +224,11 @@ class LandingJobPullRequestAPIView(View):
             target_repo=target_repo, requester_email=ldap_username
         )
         revision = Revision.objects.create(pull_number=pull_request.number)
+        author_name, author_email = pull_request.author
         patch_data = {
             # See bug 1995006 (to actually parse authorship info). Use placeholder for now.
-            "author_name": "Author Name",
-            "author_email": "Author Email <email@example.org>",
+            "author_name": author_name,
+            "author_email": author_email,
             "commit_message": pull_request.title,
             "timestamp": int(datetime.now().timestamp()),
         }
