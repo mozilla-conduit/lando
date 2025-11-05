@@ -203,6 +203,16 @@ diff --git a/test.txt b/test.txt
 +adding another line
 """.lstrip()
 
+PATCH_DIFF_2 = """
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,2 +1,3 @@
+ TEST
+ adding another line
++adding one more line
+""".lstrip()
+
 PATCH_SYMLINK_DIFF = """
 diff --git a/blahfile_real b/blahfile_real
 new file mode 100644
@@ -286,6 +296,7 @@ def get_failing_check_diff() -> Callable:
         "symlink": PATCH_SYMLINK_DIFF,
         "try_task_config": PATCH_TRY_TASK_CONFIG_DIFF,
         "valid": PATCH_DIFF,
+        "valid2": PATCH_DIFF_2,
         # WPTCheck verifies that commits from wptsync@mozilla only touch paths in
         # WPT_SYNC_ALLOWED_PATHS_RE (currently a subset of testing/web-platform/).
         "wpt": PATCH_DIFF,
