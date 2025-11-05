@@ -12,20 +12,6 @@ from lando.utils.const import URL_USERINFO_RE
 logger = logging.getLogger(__name__)
 
 
-def select_commit_author(commits: list[dict]) -> tuple[str | None, str | None]:
-    """Select the most common author in commits."""
-    # This method is ported from lando.api.legacy.revisions.select_diff_author.
-    commits = [commit["commit"] for commit in commits]
-    if not commits:
-        return None, None
-
-    # Below is copied verbatim from the legacy method.
-    authors = [c.get("author", {}) for c in commits]
-    authors = Counter((a.get("name"), a.get("email")) for a in authors)
-    authors = authors.most_common(1)
-    return authors[0][0] if authors else (None, None)
-
-
 class GitHub:
     """Work with authentication to GitHub repositories."""
 
@@ -297,6 +283,21 @@ class PullRequest:
         self.user_html_url = data["user"]["html_url"]
         self.user_login = data["user"]["login"]
 
+    def _select_commit_author(
+        self, commits: list[dict]
+    ) -> tuple[str | None, str | None]:
+        """Select the most common author in commits."""
+        # This method is ported from lando.api.legacy.revisions.select_diff_author.
+        commits = [commit["commit"] for commit in commits]
+        if not commits:
+            return None, None
+
+        # Below is copied verbatim from the legacy method.
+        authors = [c.get("author", {}) for c in commits]
+        authors = Counter((a.get("name"), a.get("email")) for a in authors)
+        authors = authors.most_common(1)
+        return authors[0][0] if authors else (None, None)
+
     @property
     def diff(self) -> str:
         return self.client.get_diff(self.number)
@@ -311,7 +312,7 @@ class PullRequest:
 
     @property
     def author(self) -> str:
-        return select_commit_author(self.commits)
+        return self._select_commit_author(self.commits)
 
     def serialize(self) -> dict[str, str]:
         """Return a dictionary with various pull request data."""
