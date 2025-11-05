@@ -14,7 +14,6 @@ from django.contrib.auth.hashers import check_password
 
 from lando.api.legacy.workers.automation_worker import AutomationWorker
 from lando.api.tests.mocks import TreeStatusDouble
-from lando.api.tests.test_hg import _create_hg_commit
 from lando.conftest import FAILING_CHECK_TYPES
 from lando.headless_api.models.automation_job import (
     AutomationAction,
@@ -1105,6 +1104,7 @@ def test_automation_job_merge_onto_success_hg(
     monkeypatch,
     request,
     automation_job,
+    create_hg_commit,
 ):
     repo = repo_mc(SCM_TYPE_HG)
     scm = repo.scm
@@ -1113,9 +1113,9 @@ def test_automation_job_merge_onto_success_hg(
     repo_path = Path(repo.system_path)
 
     # Create commits on a feature branch
-    _create_hg_commit(request, repo_path)
-    _create_hg_commit(request, repo_path)
-    _create_hg_commit(request, repo_path)
+    create_hg_commit(repo_path)
+    create_hg_commit(repo_path)
+    create_hg_commit(repo_path)
     feature_commit = subprocess.run(
         ["hg", "log", "-r", ".", "-T", "{node}"],
         cwd=repo_path,
@@ -1126,9 +1126,9 @@ def test_automation_job_merge_onto_success_hg(
 
     # Return to rev 0 and create mainline commits
     subprocess.run(["hg", "update", "--clean", "-r", "0"], cwd=repo_path, check=True)
-    _create_hg_commit(request, repo_path)
-    _create_hg_commit(request, repo_path)
-    _create_hg_commit(request, repo_path)
+    create_hg_commit(repo_path)
+    create_hg_commit(repo_path)
+    create_hg_commit(repo_path)
     main_commit = subprocess.run(
         ["hg", "log", "-r", ".", "-T", "{node}"],
         cwd=repo_path,
@@ -1428,13 +1428,14 @@ def test_automation_job_tag_success_hg(
     normal_patch,
     request,
     automation_job,
+    create_hg_commit,
 ):
     repo = repo_mc(SCM_TYPE_HG)
 
     repo_path = Path(repo.system_path)
 
     # Create a new commit that will be tagged.
-    _create_hg_commit(request, repo_path)
+    create_hg_commit(repo_path)
     expected_commit = subprocess.run(
         ["hg", "log", "-r", ".", "-T", "{node}"],
         cwd=repo_path,
