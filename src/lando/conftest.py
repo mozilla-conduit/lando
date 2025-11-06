@@ -1060,7 +1060,10 @@ def active_mock() -> Callable:
 
 
 class MockResponse:
-    """Mock response class to satisfy some requirements of tests."""
+    """Mock response class to satisfy some requirements of tests.
+
+    Headers keys will be normalised to all-lowercase.
+    """
 
     def __init__(
         self,
@@ -1068,23 +1071,40 @@ class MockResponse:
         json_dict: dict | None = None,
         text: str | None = None,
         status_code: int = 200,
+        headers: dict | None = None,
     ):
         if json_dict and text:
             raise Exception("MockResponse can't specify json and text at the same time")
 
         self.status_code = status_code
-        self.content_type = (
-            "text/plain"
-            if text
-            else (
-                "application/json" if status_code < 400 else "application/problem+json"
+
+        headers = headers or {}
+        self.headers = {}
+        # Lower case all provided headers.
+        for hkey in headers:
+            self.headers[hkey.lower()] = headers[hkey]
+
+        # Set a reasonable content-type header value.
+        if not self.headers.get("content_type"):
+            self.headers["content_type"] = (
+                "text/plain"
+                if text
+                else (
+                    "application/json"
+                    if status_code < 400
+                    else "application/problem+json"
+                )
             )
-        )
+
         try:
             self.json = json_dict or json.loads(text or "")
         except json.JSONDecodeError:
             pass
         self.text = text or json.dumps(json_dict)
+
+    @property
+    def content_type(self):
+        return self.headers["content_type"]
 
     def raise_for_status(self):
         if self.status_code >= 400:
@@ -1098,7 +1118,10 @@ def mock_response() -> Callable:
         json_dict: dict | None = None,
         text: str | None = None,
         status_code: int = 200,
+        headers: dict | None = None,
     ) -> MockResponse:
-        return MockResponse(json_dict=json_dict, text=text, status_code=status_code)
+        return MockResponse(
+            json_dict=json_dict, text=text, status_code=status_code, headers=headers
+        )
 
     return _mock_response
