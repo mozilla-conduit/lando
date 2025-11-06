@@ -103,6 +103,27 @@ def test_diff_warning_delete(client, diff_warning_data, phab_header):
     assert warning.status == DiffWarningStatus.ARCHIVED
 
 
+@pytest.mark.django_db(transaction=True)
+def test_diff_warning_invalid_token_returns_unauthorized(
+    client, monkeypatch, phabdouble
+):
+    """Ensure that an invalid API token returns a 401 response."""
+    monkeypatch.setattr(
+        "lando.utils.phabricator.PhabricatorClient.verify_api_token",
+        lambda self: False,
+    )
+    user = phabdouble.user(username="invalid-token-user")
+    response = client.get(
+        "/api/diff_warnings/",
+        HTTP_X_Phabricator_API_Key=user["apiKey"],
+    )
+
+    assert response.status_code == 401, "Unexpected response code for invalid token"
+    assert response.json() == {
+        "error": "Invalid Phabricator API token."
+    }, "Unexpected error payload for invalid token"
+
+
 @pytest.mark.django_db(transaction=True, reset_sequences=True)
 def test_diff_warning_get(client, diff_warning_data, phab_header):
     """Ensure that the API returns a properly serialized list of warnings."""

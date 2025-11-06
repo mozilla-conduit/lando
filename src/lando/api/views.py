@@ -32,7 +32,7 @@ def phabricator_api_key_required(func: callable) -> Callable:
         has_valid_token = client.verify_api_token()
 
         if not has_valid_token:
-            return JsonResponse({}, 401)
+            return JsonResponse({"error": "Invalid Phabricator API token."}, status=401)
 
         return func(self, request, *args, **kwargs)
 
