@@ -1,10 +1,15 @@
 import json
 from typing import Any
+from urllib.parse import urljoin
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import models
+from django.urls import reverse
 
 from lando.main.models import BaseModel
+from lando.main.models.jobs import BaseJob, JobStatus
+from lando.main.models.revision import Revision
 
 # Yes/No constants for re-use in `TextChoices`, since `Enum`
 # can't be subclassed.
@@ -139,3 +144,97 @@ class UpliftRevision(BaseModel):
 
     class Meta:
         unique_together = ("assessment", "revision_id")
+
+
+class UpliftSubmission(BaseModel):
+    """Represents a single uplift submission.
+
+    Ties together all associated uplift jobs and the uplift request assessment form.
+    """
+
+    # User who requested the uplift.
+    requested_by = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+
+    # The revision Phabricator IDs to be uplifted.
+    requested_revision_ids = models.JSONField(default=list)
+
+    assessment = models.ForeignKey(
+        UpliftAssessment,
+        on_delete=models.PROTECT,
+        related_name="uplift_submission",
+    )
+
+
+class RevisionUpliftJob(BaseModel):
+    """Through model to map revisions to uplift jobs."""
+
+    uplift_job = models.ForeignKey("UpliftJob", on_delete=models.SET_NULL, null=True)
+    revision = models.ForeignKey(Revision, on_delete=models.SET_NULL, null=True)
+    index = models.IntegerField(null=True, blank=True)
+
+
+class UpliftJob(BaseJob):
+    """Represents an uplift job against a single train.
+
+    Most of the data is derived from `BaseJob`, with the extra content residing in
+    the associated `UpliftSubmission`.
+    """
+
+    type: str = "Uplift"
+
+    # Phabricator uplift revision IDs as an ordered list of integers.
+    # Example: If D1->D2->D3 is requested for uplift to beta, which
+    # creates revisions D4->D5->D6, this field will be set to
+    # `[4, 5, 6]`.
+    created_revision_ids = models.JSONField(default=list, blank=True)
+
+    # Error details in a dictionary format, listing failed merges, etc...
+    # E.g. {
+    #    "failed_paths": [{"path": "...", "url": "..."}],
+    #    "rejects_paths": [{"path": "...", "content": "..."}]
+    # }
+    error_breakdown = models.JSONField(null=True, blank=True, default=dict)
+
+    submission = models.ForeignKey(
+        UpliftSubmission, on_delete=models.DO_NOTHING, related_name="uplift_jobs"
+    )
+
+    # Unsorted references to the `Revision` objects the job will use
+    # to apply the uplift request to the target.
+    unsorted_revisions = models.ManyToManyField(
+        Revision, through=RevisionUpliftJob, related_name="uplift_jobs"
+    )
+
+    def add_revisions(self, revisions: list[Revision]):
+        """Associate a list of revisions with job."""
+        for revision in revisions:
+            self.unsorted_revisions.add(revision)
+
+    def sort_revisions(self, revisions: list[Revision]):
+        """Sort the associated revisions based on provided list."""
+        if len(revisions) != len(self.unsorted_revisions.all()):
+            raise ValueError("List of revisions does not match associated revisions")
+
+        # Update association table records with correct index values.
+        for index, revision in enumerate(revisions):
+            RevisionUpliftJob.objects.filter(revision=revision, uplift_job=self).update(
+                index=index
+            )
+
+    @property
+    def revisions(self) -> models.QuerySet:
+        """Return and ordered list of revisions for this job."""
+        return self.unsorted_revisions.all().order_by("revisionupliftjob__index")
+
+    def url(self) -> str:
+        """Return a URL for this job."""
+        return urljoin(settings.SITE_URL, reverse("uplift-jobs-page", args=[self.id]))
+
+    @property
+    def has_created_revisions(self) -> bool:
+        """Return True when the job landed and recorded created revisions."""
+        try:
+            status = JobStatus(self.status)
+        except ValueError:
+            return False
+        return status == JobStatus.LANDED and bool(self.created_revision_ids)

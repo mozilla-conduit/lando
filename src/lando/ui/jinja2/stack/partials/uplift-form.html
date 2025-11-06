@@ -12,8 +12,6 @@
       </header>
 
       <section class="modal-card-body">
-        {{ uplift_request_form.source_revision_id }}
-
         {% if not user_has_phabricator_token %}
             {% include "stack/partials/uplift-phab-api-key-warning.html" %}
         {% endif %}
@@ -24,28 +22,20 @@
             <p>Action Creates New Phabricator Revisions</p>
           </div>
           <div class="message-body">
-            Using the Request Uplift button will generate new Phabricator uplift
-            revisions. If you only want to complete the uplift assessment form for
-            this revision, please use the "Edit Uplift Assessment" button instead.
+            Submitting this uplift request queues jobs for every selected repository
+            and creates the corresponding uplift revisions automatically. If you
+            only need to update the assessment form for this revision, use the
+            "Edit Uplift Assessment" button instead.
           </div>
         </article>
         {% endif %}
 
-        {% if uplift_stack_too_large %}
-          <article class="message is-danger">
-            <div class="message-header">
-              <p>Uplift Stack Too Large</p>
-            </div>
-            <div class="message-body">
-              This stack contains {{ series|length }} revisions, which exceeds the maximum allowed for web-based uplift ({{ max_uplift_stack_size }}).
-              Please use the <code>moz-phab uplift</code> command-line tool instead.
-            </div>
-          </article>
-        {% endif %}
-
         <p class="block">
-          Select the repository you wish to uplift this revision to and complete the form below.
-          Your revision will be reviewed and landed by a release manager.
+            Select the repositories you wish to uplift to and complete the assessment
+            form below. Lando will check your patch for merge conflicts and create new
+            uplift revisions in Phabricator if they apply cleanly. You will be notified
+            of merge conflicts which must be resolved manually and submitted with
+            <code>moz-phab</code>.
         </p>
 
         <div class="block">
@@ -57,13 +47,44 @@
             </a>
         </div>
 
+        {{ uplift_request_form.source_revisions }}
+        {% set requested_revision_ids = uplift_request_form.source_revisions.value() or [] %}
+        {% if requested_revision_ids %}
         <div class="field">
-            <label class="label">Uplift repository</label>
+          <label class="label">Revisions to uplift</label>
+          <div class="control">
+            <ul class="content">
+              {% set revision_ns = namespace(display_id="") %}
+              {% for revision_id in requested_revision_ids %}
+                {% set revision_ns.display_id = revision_id|string %}
+                {% if not revision_ns.display_id.startswith("D") %}
+                  {% set revision_ns.display_id = "D" ~ revision_ns.display_id %}
+                {% endif %}
+                {% set revision = revisions.values() | selectattr("id", "equalto", revision_ns.display_id) | first %}
+                <li>
+                  <strong>{{ revision_ns.display_id }}</strong>
+                  {% if revision %}
+                    — {{ revision.title }}
+                  {% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="field">
+            <label class="label">Uplift repositories</label>
             <div class="control">
-                <div class="select">
-                    {{ uplift_request_form.repository }}
-                </div>
+                {% for checkbox in uplift_request_form.repositories %}
+                    <label class="checkbox">
+                        {{ checkbox }}
+                    </label>
+                {% endfor %}
             </div>
+            <p class="help">
+              Uplift jobs will be created for every repository you select here.
+            </p>
         </div>
 
         {% with assessment_form = uplift_request_form %}
@@ -72,7 +93,7 @@
 
       </section>
 
-      {% set can_uplift_revision = user_is_authenticated and user_has_phabricator_token and not uplift_stack_too_large %}
+      {% set can_uplift_revision = user_is_authenticated and user_has_phabricator_token %}
       <footer class="modal-card-foot">
           <button
             class="button is-success"
