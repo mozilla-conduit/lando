@@ -134,6 +134,10 @@ def pr_cache_key(self: "PullRequest", *args, **kwargs) -> str:
     return f"{self.id}{self.updated_at}"
 
 
+# Specialised decorator which embeds the PR-specific cache-key builder.
+pr_cache_method = cache_method(pr_cache_key)
+
+
 class PullRequest:
     """A class that parses data returned from the GitHub API for pull requests."""
 
@@ -245,7 +249,7 @@ class PullRequest:
             "user_login": self.user_login,
         }
 
-    @cache_method(pr_cache_key)
+    @pr_cache_method
     def get_comments(self, client: GitHubAPIClient) -> list:
         """Return a list of comments on the whole PR."""
         # `issues` is correct here, using `pull` instead would return comments on diffs.
@@ -262,7 +266,7 @@ class PullRequest:
 
         return comments
 
-    @cache_method(pr_cache_key)
+    @pr_cache_method
     def get_commits(self, client: GitHubAPIClient) -> dict:
         """Return a list of commits for the PR."""
         commits = client.get(f"pulls/{self.number}/commits")
@@ -285,7 +289,7 @@ class PullRequest:
 
         return commits
 
-    @cache_method(pr_cache_key)
+    @pr_cache_method
     def get_commit_comments(self, client: GitHubAPIClient) -> list:
         """Return a list of comments on specific changes of the PR."""
         # NOTE: We use the GraphQL API for this one, as the comment-resolution
@@ -379,7 +383,7 @@ class PullRequest:
 
         return response.text
 
-    @cache_method(pr_cache_key)
+    @pr_cache_method
     def get_labels(self, client: GitHubAPIClient) -> list:
         """Return a list of labels for the PR."""
         # `issues` is correct here
@@ -399,7 +403,7 @@ class PullRequest:
 
         return response.text
 
-    @cache_method(pr_cache_key)
+    @pr_cache_method
     def get_reviews(self, client: GitHubAPIClient) -> list:
         """Return a list of reviews for the PR."""
         reviews = client.get(f"pulls/{self.number}/reviews")
