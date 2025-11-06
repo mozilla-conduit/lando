@@ -288,7 +288,7 @@ class PullRequest:
     @cache_method(pr_cache_key)
     def get_commit_comments(self, client: GitHubAPIClient) -> list:
         """Return a list of comments on specific changes of the PR."""
-        # NOTE: We use the GraphQL API for this on, as the comment-resolution
+        # NOTE: We use the GraphQL API for this one, as the comment-resolution
         # information is not available via the REST API [0].
         #
         # NOTE: While there are many comment fields accessible. It seems the only one
