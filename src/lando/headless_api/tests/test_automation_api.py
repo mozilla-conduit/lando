@@ -15,15 +15,15 @@ from django.contrib.auth.hashers import check_password
 from lando.api.legacy.workers.automation_worker import AutomationWorker
 from lando.api.tests.mocks import TreeStatusDouble
 from lando.conftest import FAILING_CHECK_TYPES
-from lando.headless_api.api import (
+from lando.headless_api.models.automation_job import (
     AutomationAction,
     AutomationJob,
 )
 from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import JobStatus
 from lando.main.scm import SCM_TYPE_GIT, PatchConflict
+from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.exceptions import SCMInternalServerError
-from lando.main.tests.test_git import _create_git_commit
 from lando.pushlog.models import Push
 
 
@@ -787,16 +787,25 @@ def test_automation_job_create_commit_failed_check_override(
     assert job.status == JobStatus.LANDED, f"Job failed despite overrides: {job.error}"
 
 
+@pytest.fixture
+def mock_landing_checks_run(monkeypatch: pytest.MonkeyPatch):
+    mock_run = mock.MagicMock()
+    mock_run.return_value = []
+    monkeypatch.setattr("lando.utils.landing_checks.LandingChecks.run", mock_run)
+    return mock_run
+
+
 @pytest.mark.django_db
 def test_automation_job_create_commit_failed_check_unchecked(
-    repo_mc,
-    treestatusdouble,
-    automation_worker,
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    automation_worker: AutomationWorker,
     mock_phab_trigger_repo_update_apply_async: mock.Mock,
+    mock_landing_checks_run: mock.Mock,
     get_failing_check_action_reason: Callable,
-    get_failing_check_diff,
-    automation_job,
-    monkeypatch,
+    get_failing_check_diff: Callable,
+    automation_job: Callable,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
     scm = repo.scm
@@ -820,26 +829,19 @@ def test_automation_job_create_commit_failed_check_unchecked(
         requester_email="example@example.com",
         target_repo=repo,
     )
-    mock_run_automation_checks = mock.MagicMock()
-    monkeypatch.setattr(
-        automation_worker, "run_automation_checks", mock_run_automation_checks
-    )
     automation_worker.run_job(job)
-    assert mock_run_automation_checks.call_count == 1
+    assert mock_landing_checks_run.call_count == 1
 
     # Create the same job with an invalid action and a commit with release override.
+    mock_landing_checks_run.reset_mock()
     job, _actions = automation_job(
         actions=[no_bug_action_data, release_action_data],
         status=JobStatus.SUBMITTED,
         requester_email="example@example.com",
         target_repo=repo,
     )
-    mock_run_automation_checks = mock.MagicMock()
-    monkeypatch.setattr(
-        automation_worker, "run_automation_checks", mock_run_automation_checks
-    )
     automation_worker.run_job(job)
-    assert mock_run_automation_checks.call_count == 0
+    assert mock_landing_checks_run.call_count == 0
 
 
 @pytest.mark.django_db
@@ -883,16 +885,20 @@ def test_automation_job_create_commit_patch_conflict(
 
 
 def _create_split_branches_for_merge(
-    request, scm, repo_path, main_branch="main", feature_branch="feature"
+    scm: AbstractSCM,
+    create_git_commit: Callable,
+    repo_path: str,
+    main_branch: str = "main",
+    feature_branch: str = "feature",
 ):
     subprocess.run(["git", "switch", main_branch], cwd=repo_path, check=True)
-    main_file = _create_git_commit(request, repo_path)
+    main_file = create_git_commit(repo_path)
     main_commit = scm.head_ref()
 
     subprocess.run(
         ["git", "switch", "-c", feature_branch, "HEAD^"], cwd=repo_path, check=True
     )
-    feature_file = _create_git_commit(request, repo_path)
+    feature_file = create_git_commit(repo_path)
     feature_commit = scm.head_ref()
 
     subprocess.run(["git", "switch", main_branch], cwd=repo_path, check=True)
@@ -903,13 +909,12 @@ def _create_split_branches_for_merge(
 @pytest.mark.parametrize("strategy", [None, "ours", "theirs"])
 @pytest.mark.django_db
 def test_automation_job_merge_onto_success_git(
-    strategy,
-    repo_mc,
-    treestatusdouble,
-    automation_worker,
-    monkeypatch,
-    request,
-    automation_job,
+    strategy: str | None,
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    automation_worker: AutomationWorker,
+    create_git_commit: Callable,
+    automation_job: Callable,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
     scm = repo.scm
@@ -917,7 +922,7 @@ def test_automation_job_merge_onto_success_git(
 
     # Create a repo with diverging history
     main_commit, main_file, feature_commit, feature_file = (
-        _create_split_branches_for_merge(request, scm, repo.system_path)
+        _create_split_branches_for_merge(scm, create_git_commit, repo.system_path)
     )
 
     job, _actions = automation_job(
@@ -944,12 +949,12 @@ def test_automation_job_merge_onto_success_git(
 
 @pytest.mark.django_db
 def test_automation_job_merge_onto_fast_forward_git(
-    repo_mc,
-    treestatusdouble,
-    automation_worker,
-    request,
-    monkeypatch,
-    automation_job,
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    mock_landing_checks_run: mock.Mock,
+    create_git_commit: Callable,
+    automation_worker: AutomationWorker,
+    automation_job: Callable,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
     scm = repo.scm
@@ -959,11 +964,11 @@ def test_automation_job_merge_onto_fast_forward_git(
 
     # Start on main, make a commit.
     subprocess.run(["git", "switch", "main"], cwd=repo_path, check=True)
-    _create_git_commit(request, repo_path)
+    create_git_commit(repo_path)
 
     # Create feature branch from main, add another commit.
     subprocess.run(["git", "switch", "-c", "feature"], cwd=repo_path, check=True)
-    _create_git_commit(request, repo_path)
+    create_git_commit(repo_path)
     feature_sha = scm.head_ref()
 
     # Return to base (fast-forward target).
@@ -985,12 +990,8 @@ def test_automation_job_merge_onto_fast_forward_git(
 
     automation_worker.worker_instance.applicable_repos.add(repo)
 
-    mock_run_automation_checks = mock.MagicMock()
-    monkeypatch.setattr(
-        automation_worker, "run_automation_checks", mock_run_automation_checks
-    )
     assert automation_worker.run_job(job)
-    assert mock_run_automation_checks.call_count == 0
+    assert mock_landing_checks_run.call_count == 0
     assert job.status == JobStatus.LANDED
 
     head_ref = scm.head_ref()
@@ -1047,13 +1048,11 @@ def test_automation_job_merge_onto_fail(
 
 @pytest.mark.django_db
 def test_automation_job_tag_success_git_tip_commit(
-    repo_mc,
-    treestatusdouble,
-    automation_worker,
-    request,
-    monkeypatch,
-    normal_patch,
-    automation_job,
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    automation_worker: AutomationWorker,
+    create_git_commit: Callable,
+    automation_job: Callable,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
     scm = repo.scm
@@ -1061,7 +1060,7 @@ def test_automation_job_tag_success_git_tip_commit(
     head_ref = scm.head_ref()
 
     # Create a new commit that will be tagged
-    _create_git_commit(request, Path(repo.system_path))
+    create_git_commit(Path(repo.system_path))
 
     tag_name = "v-tagtest-git"
 
@@ -1103,8 +1102,8 @@ def test_automation_job_tag_retag_success_git(
     repo_mc: Callable,
     treestatusdouble: TreeStatusDouble,  # pyright: ignore[reportUnusedParameter] Mock with side-effect
     active_mock: Callable,
-    automation_worker: Callable,
-    request: pytest.FixtureRequest,
+    create_git_commit: Callable,
+    automation_worker: AutomationWorker,
     automation_job: Callable,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
@@ -1119,7 +1118,7 @@ def test_automation_job_tag_retag_success_git(
     head_ref = scm.head_ref()
 
     # Create a new commit that will be tagged
-    _create_git_commit(request, Path(repo.system_path))
+    create_git_commit(Path(repo.system_path))
 
     tag_name = "v-tagtest-git"
 
@@ -1172,19 +1171,19 @@ def test_automation_job_tag_retag_success_git(
 
 @pytest.mark.django_db
 def test_automation_job_tag_success_git_new_commit(
-    repo_mc,
-    treestatusdouble,
-    automation_worker,
-    request,
-    monkeypatch,
-    git_patch,
-    automation_job,
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    mock_landing_checks_run: mock.Mock,
+    automation_worker: AutomationWorker,
+    create_git_commit: Callable,
+    git_patch: Callable,
+    automation_job: Callable,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
     scm = repo.scm
 
     # Create a new commit that will be tagged
-    _create_git_commit(request, Path(repo.system_path))
+    create_git_commit(Path(repo.system_path))
 
     tag_name = "v-tagtest-git"
 
@@ -1204,14 +1203,8 @@ def test_automation_job_tag_success_git_new_commit(
 
     automation_worker.worker_instance.applicable_repos.add(repo)
 
-    mock_run_automation_checks = mock.Mock(
-        wraps=automation_worker.run_automation_checks
-    )
-    monkeypatch.setattr(
-        automation_worker, "run_automation_checks", mock_run_automation_checks
-    )
     assert automation_worker.run_job(job)
-    assert mock_run_automation_checks.call_count == 1
+    assert mock_landing_checks_run.call_count == 1
     assert job.status == JobStatus.LANDED
 
     # Tag should be on the most recent commit.
@@ -1231,18 +1224,17 @@ def test_automation_job_tag_success_git_new_commit(
 
 @pytest.mark.django_db
 def test_automation_job_tag_failure_git(
-    repo_mc,
-    treestatusdouble,
-    automation_worker,
-    request,
-    monkeypatch,
-    git_patch,
-    automation_job,
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    automation_worker: AutomationWorker,
+    create_git_commit: Callable,
+    git_patch: Callable,
+    automation_job: Callable,
 ):
     repo = repo_mc(SCM_TYPE_GIT)
 
     # Create a new commit that will be tagged
-    _create_git_commit(request, Path(repo.system_path))
+    create_git_commit(Path(repo.system_path))
 
     tag_name = "v-tagtest-git"
 

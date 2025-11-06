@@ -832,12 +832,12 @@ def test_exception_landing_job_checks(
     )
     treestatusdouble.open_tree(job.target_repo.name)
 
-    scm = job.target_repo.scm
-
     exception_message = "Forcing exception when running checks"
-    mock_update_repo = mock.MagicMock()
-    mock_update_repo.side_effect = Exception(exception_message)
-    monkeypatch.setattr(scm, "get_patch_helper", mock_update_repo)
+    mock_landing_checks_run = mock.MagicMock()
+    mock_landing_checks_run.side_effect = Exception(exception_message)
+    monkeypatch.setattr(
+        "lando.utils.landing_checks.LandingChecks.run", mock_landing_checks_run
+    )
 
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
