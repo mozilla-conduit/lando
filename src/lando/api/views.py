@@ -18,7 +18,7 @@ from lando.main.scm import (
 from lando.main.scm.helpers import BugReferencesCheck
 from lando.utils.github import GitHubAPIClient, PullRequest, PullRequestPatchHelper
 from lando.utils.github_checks import (
-    ALL_PULLREQUEST_BLOCKERS,
+    ALL_PULL_REQUEST_BLOCKERS,
     PullRequestChecks,
 )
 from lando.utils.landing_checks import ALL_CHECKS, LandingChecks
@@ -196,7 +196,7 @@ class PullRequestChecksAPIView(APIView):
 
         pr_checks = PullRequestChecks(client, target_repo, request)
 
-        blockers += pr_checks.run(ALL_PULLREQUEST_BLOCKERS, pull_request)
+        blockers += pr_checks.run(ALL_PULL_REQUEST_BLOCKERS, pull_request)
 
         return JsonResponse({"blockers": blockers, "warnings": []})
 

@@ -230,4 +230,4 @@ class PullRequestChecks:
         return messages
 
 
-ALL_PULLREQUEST_BLOCKERS = PullRequestBlocker.__subclasses__()
+ALL_PULL_REQUEST_BLOCKERS = PullRequestBlocker.__subclasses__()
