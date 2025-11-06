@@ -293,8 +293,10 @@ class PullRequest:
         #
         # NOTE: While there are many comment fields accessible. It seems the only one
         # that reliably return data is pullRequest.reviews[].comments[] [1]. Most
-        # notably, pullRequest.commits[].comments[] seems to always be empty. But that's not what
-        # we need anyway. What we're after is reviewThreads, which are resolvable.
+        # notably, pullRequest.commits[].comments[] seems to always be empty.
+        #
+        # But that's not what we need anyway. What we're after is reviewThreads,
+        # which are resolvable.
         #
         # [0] https://github.com/orgs/community/discussions/9175#discussioncomment-9008230
         # [1] https://github.com/orgs/community/discussions/24666#discussioncomment-3244969
