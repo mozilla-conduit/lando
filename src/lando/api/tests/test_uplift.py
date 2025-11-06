@@ -496,6 +496,117 @@ def test_patch_assessment_form_invalid(
     assert mock_apply_async.call_count == 0, "Uplift form task should not be called."
 
 
+@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@pytest.mark.django_db
+def test_link_assessment_links_existing_form(
+    mock_apply_async, authenticated_client, user, phabdouble
+):
+    """Linking endpoint should tie an existing assessment to a revision."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
+    assessment = UpliftAssessment.objects.create(user=user, **CREATE_FORM_DATA)
+    url = reverse("uplift-assessment-link-page", args=[5678])
+
+    response = authenticated_client.post(
+        url,
+        data={"assessment": assessment.pk},
+        HTTP_REFERER="/D5678",
+    )
+
+    assert response.status_code == 302, "Successful link should redirect to referrer."
+    assert (
+        response["Location"] == "/D5678"
+    ), "Linking should return to the revision page."
+    messages = [str(message) for message in get_messages(response.wsgi_request)]
+    assert any(
+        "Linked existing assessment to this revision." in message
+        for message in messages
+    ), f"Successful link should flash confirmation: {messages=}"
+
+    revision_link = UpliftRevision.objects.get()
+    assert (
+        revision_link.revision_id == 5678
+    ), "Revision link should target the requested revision."
+    assert (
+        revision_link.assessment_id == assessment.id
+    ), "Revision should be associated with the selected assessment."
+
+    assessment.refresh_from_db()
+    assert (
+        assessment.revisions.count() == 1
+    ), "Assessment should now be linked to exactly one revision."
+
+    assert mock_apply_async.call_count == 1, "Celery task should update Phabricator."
+    _, kwargs = mock_apply_async.call_args
+    task_revision_id, conduit_json_str, user_id = kwargs["args"]
+    assert (
+        task_revision_id == 5678
+    ), "Celery task should publish the linked revision ID."
+    assert isinstance(
+        conduit_json_str, str
+    ), "Celery task should receive the serialized assessment payload."
+    assert user_id == user.id, "Celery task should run under the submitting user."
+
+
+@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@pytest.mark.django_db
+def test_link_assessment_replaces_existing_form(
+    mock_apply_async, authenticated_client, user, phabdouble
+):
+    """Link endpoint should flash replacement message when swapping assessments."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
+    previous_assessment = UpliftAssessment.objects.create(user=user, **CREATE_FORM_DATA)
+    replacement_assessment = UpliftAssessment.objects.create(
+        user=user,
+        # Ensure unique data to avoid accidental equality with previous form fields.
+        user_impact="Affects nightly users.",
+        covered_by_testing="no",
+        fix_verified_in_nightly="no",
+        needs_manual_qe_testing="no",
+        qe_testing_reproduction_steps="",
+        risk_associated_with_patch="medium",
+        risk_level_explanation="Moderate risk because coverage incomplete.",
+        string_changes="No string changes.",
+        is_android_affected="yes",
+    )
+
+    # Pre-link the previous assessment to the revision.
+    UpliftRevision.objects.create(
+        revision_id=6789,
+        assessment=previous_assessment,
+    )
+
+    url = reverse("uplift-assessment-link-page", args=[6789])
+    response = authenticated_client.post(
+        url,
+        data={"assessment": replacement_assessment.pk},
+        HTTP_REFERER="/D6789",
+    )
+
+    assert response.status_code == 302, "Successful replacement should redirect."
+    assert response["Location"] == "/D6789", "Replacement should return to revision."
+    messages = [str(message) for message in get_messages(response.wsgi_request)]
+    assert any(
+        "Replaced linked assessment for this revision." in message
+        for message in messages
+    ), f"Replacement action should flash confirmation: {messages=}"
+
+    revision_link = UpliftRevision.objects.get(revision_id=6789)
+    assert (
+        revision_link.assessment_id == replacement_assessment.id
+    ), "Revision should link to the replacement assessment."
+
+    mock_apply_async.assert_called_once()
+    _, kwargs = mock_apply_async.call_args
+    task_revision_id, conduit_json_str, user_id = kwargs["args"]
+    assert task_revision_id == 6789, "Celery task should receive revision ID."
+    assert user_id == user.id, "Celery task should use the requesting user's identity."
+    assert isinstance(
+        conduit_json_str, str
+    ), "Celery task should receive serialized payload."
+
+
 @pytest.mark.django_db
 def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     repo_mc,

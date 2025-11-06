@@ -7,23 +7,63 @@ future.
 <h1>Uplifts</h1>
 
 {% if revision_repo and revision_repo.approval_required %}
+{% set has_uplift_assessment = uplift_assessment_form.instance.pk %}
 <div class="block">
     <div class="block">
-        <div class="columns">
+        <div class="columns is-mobile is-vcentered is-multiline">
             <div class="column is-narrow">
-                <button class="button is-primary edit-assessment-open">
-                    <span class="icon is-small">
-                        <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
-                    </span>
-                    <span>
-                    Edit Uplift Assessment
-                    </span>
-                </button>
+               <button class="button is-primary edit-assessment-open">
+                   <span class="icon is-small">
+                       <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
+                   </span>
+                   <span>
+                       {% if has_uplift_assessment %}
+                           Edit Uplift Assessment
+                       {% else %}
+                           Submit Uplift Assessment
+                       {% endif %}
+                   </span>
+               </button>
             </div>
+            {% if uplift_assessment_link_form and uplift_assessment_link_form.has_assessments %}
+            <div class="column is-narrow">
+               <button class="button is-light link-assessment-open">
+                   <span class="icon is-small">
+                       <i class="fa fa-link" aria-hidden="true"></i>
+                   </span>
+                   <span>
+                       {% if has_uplift_assessment %}
+                           Change Linked Assessment
+                       {% else %}
+                           Link Existing Assessment
+                       {% endif %}
+                   </span>
+               </button>
+            </div>
+            {% endif %}
             <div class="column">
-                Please respond to the uplift assessment form to help Release Management assess this uplift.
+                {% if uplift_assessment_form.instance.pk %}
+                    <span class="has-text-success">
+                        <span class="icon is-small">
+                            <i class="fa fa-check-circle" aria-hidden="true"></i>
+                        </span>
+                        <span>Uplift assessment submitted for this revision.</span>
+                    </span>
+                {% else %}
+                    <span class="has-text-grey">
+                        <span class="icon is-small">
+                            <i class="fa fa-exclamation-circle" aria-hidden="true"></i>
+                        </span>
+                        <span>No uplift assessment submitted yet.</span>
+                    </span>
+                {% endif %}
             </div>
         </div>
+        {% if uplift_assessment_link_form and not uplift_assessment_link_form.has_assessments %}
+        <p class="has-text-grey is-size-7 mt-2">
+            You have no previous uplift assessments to link for this account.
+        </p>
+        {% endif %}
     </div>
 </div>
 
@@ -61,6 +101,49 @@ future.
         </div>
     </form>
 </div>
+{% if uplift_assessment_link_form %}
+<div class="uplift-assessment-link-modal modal">
+    <form action="{{ url('uplift-assessment-link-page', args=[revision_id_int]) }}" method="post">
+        <div class="modal-background"></div>
+
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Link Existing Assessment</p>
+                <button class="link-assessment-close delete" aria-label="close" type="button"></button>
+            </header>
+
+            <section class="modal-card-body">
+                {{ csrf_input }}
+
+                <p class="block">
+                    Link this revision to a previous uplift assessment so you do not have to re-enter the same answers.
+                    Choose the matching assessment you submitted earlier; you can still edit it after linking if details changed.
+                </p>
+
+                <div class="field">
+                    <label class="label" for="{{ uplift_assessment_link_form.assessment.id_for_label }}">Existing uplift assessment</label>
+                    <div class="control">
+                        <div class="select is-fullwidth">
+                            {{ uplift_assessment_link_form.assessment }}
+                        </div>
+                    </div>
+                    {% if uplift_assessment_link_form.assessment.help_text %}
+                        <p class="help">{{ uplift_assessment_link_form.assessment.help_text }}</p>
+                    {% endif %}
+                </div>
+            </section>
+
+            <footer class="modal-card-foot">
+                <button class="button is-primary"
+                        {% if not uplift_assessment_link_form.has_assessments %}disabled{% endif %}>
+                    Link assessment
+                </button>
+                <button class="button link-assessment-close" type="button">Cancel</button>
+            </footer>
+        </div>
+    </form>
+</div>
+{% endif %}
 {% endif %}
 
 {% if uplift_requests %}

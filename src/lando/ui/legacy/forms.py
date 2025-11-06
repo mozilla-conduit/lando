@@ -1,5 +1,7 @@
 from django import forms
+from django.contrib.auth.models import User
 from django.forms.widgets import RadioSelect
+from django.utils import timezone
 
 from lando.main.models import Repo, Revision
 from lando.main.models.uplift import (
@@ -58,6 +60,62 @@ class UpliftAssessmentForm(forms.ModelForm):
                 "qe_testing_reproduction_steps",
                 "QE testing reproduction steps must be provided if manual testing is required.",
             )
+
+
+class LinkUpliftAssessmentForm(forms.Form):
+    """Form to select an existing uplift assessment owned by the user."""
+
+    assessment = forms.ModelChoiceField(
+        label="Existing uplift assessment",
+        queryset=UpliftAssessment.objects.none(),
+        required=True,
+        help_text="Select a previous assessment to link to this revision.",
+    )
+
+    def __init__(self, *args, user: User | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        queryset = UpliftAssessment.objects.none()
+        if user is not None and user.is_authenticated:
+            queryset = (
+                UpliftAssessment.objects.filter(user=user)
+                .order_by("-updated_at")
+                .prefetch_related("revisions")
+            )
+
+        field = self.fields["assessment"]
+        field.queryset = queryset
+        field.label_from_instance = self.assessment_label
+        field.empty_label = "Select an assessment"
+
+        # Set this helper so templates can quickly check if there
+        # are any pre-existing assessments to display.
+        self.has_assessments = queryset.exists()
+
+    @staticmethod
+    def assessment_label(assessment: UpliftAssessment) -> str:
+        """Provide a useful label for the uplift assessments.
+
+        Example: "Tue, 4 November: D1234, D1235 -- reason for urgency"
+        """
+        timestamp = assessment.updated_at or assessment.created_at
+        timestamp_local = timezone.localtime(timestamp)
+
+        date_label = f"{timestamp_local.strftime('%a, %B')} {timestamp_local.day}, {timestamp_local.year}"
+
+        linked_revisions = list(
+            assessment.revisions.values_list("revision_id", flat=True)
+        )
+        if linked_revisions:
+            revisions_note = ", ".join(f"D{rev_id}" for rev_id in linked_revisions)
+        else:
+            revisions_note = "No linked revisions"
+
+        summary = assessment.user_impact.strip().replace("\n", " ")
+        if len(summary) > 80:
+            summary = f"{summary[:77]}..."
+
+        return f"{date_label}: {revisions_note} -- {summary}"
 
 
 class UpliftRequestForm(UpliftAssessmentForm):
