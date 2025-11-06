@@ -280,6 +280,13 @@ class RevisionAdmin(admin.ModelAdmin):
 
 class RepoAdmin(admin.ModelAdmin):
     class Media:
+        # By default, labels in full-width views are limited to a fixed width left
+        # column.
+        # When rendering multiple checkboxes, like we do for the hooks selection,
+        # however, the label for each is in the right column. By default, the
+        # fixed-width will still apply, forcing unecessary line breaks that end up using
+        # more vertical space.
+        # This override returns the width to auto in this situation.
         css = {
             "all": ("css/custom_admin.css",),
         }
