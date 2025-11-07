@@ -249,7 +249,9 @@ class PullRequestChecksAPIView(APIView):
 
         patch_helper = PullRequestPatchHelper(client, pull_request)
 
-        landing_checks = LandingChecks(f"{pull_request.user_login}@github-pr")
+        _, author_email = pull_request.author
+
+        landing_checks = LandingChecks(author_email)
         checks = [
             chk.name()
             for chk in ALL_CHECKS
