@@ -247,7 +247,7 @@ class PullRequestChecksAPIView(APIView):
         client = GitHubAPIClient(target_repo.url)
         pull_request = client.build_pull_request(number)
 
-        patch_helper = PullRequestPatchHelper(client, pull_request)
+        patch_helper = PullRequestPatchHelper(pull_request)
 
         _, author_email = pull_request.author
 
