@@ -57,9 +57,38 @@ $.fn.stack = function() {
                     pull_request_button.removeClass("is-loading");
                     pull_request_button.html("Landing job submitted");
                 } else {
-                    pull_request_button.prop("disabled", false);
-                    pull_request_button.removeClass("is-loading").addClass("is-success");;
-                    pull_request_button.html("Request landing");
+                    fetch(`/api/pulls/${repo_name}/${pull_number}/checks`, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrf_token
+                        },
+                    }).then(async response => {
+                        if (response.status == 200) {
+                            var result = await response.json();
+                            var blockers = result.blockers;
+                            var warnings = result.warnings;
+                            if (blockers.length !== 0) {
+                                pull_request_button.prop("disabled", true);
+                                pull_request_button.removeClass("is-loading").addClass("is-danger");
+                                pull_request_button.html("Landing is blocked");
+                            }
+                            $("#blockers").html("");
+
+                            if (blockers.length === 0) {
+                                $("#blockers").html("None found.");
+                            }
+
+                            for (var blocker of blockers) {
+                                $("#blockers").append(`<li>${blocker}</li>`);
+                            }
+                        } else {
+                            pull_request_button.prop("disabled", false);
+                            pull_request_button.removeClass("is-loading").addClass("is-success");;
+                            pull_request_button.html("Request landing");
+                        }
+                    });
                 }
             } else {
                 // TODO: handle this case. See bug 1996000.
