@@ -65,12 +65,18 @@ def mock_github_api_get(
     monkeypatch: pytest.MonkeyPatch, mock_response: Callable
 ) -> Callable:
     def _github_api_get(
-        repo: str, pr_response: dict, github_pr_patch: str, github_pr_diff: str
+        repo: str,
+        pr_response: dict,
+        pr_commits_response: str,
+        github_pr_patch: str,
+        github_pr_diff: str,
     ) -> mock.Mock:
+        pr_no = "1"
+
         response_map = {
-            pr_response["patch_url"]: mock_response(text=github_pr_patch),
             pr_response["diff_url"]: mock_response(text=github_pr_diff),
-            f"repos/{repo}/pulls/1": {
+            pr_response["patch_url"]: mock_response(text=github_pr_patch),
+            f"repos/{repo}/pulls/{pr_no}": {
                 "application/vnd.github.patch": mock_response(
                     text=github_pr_patch,
                     headers={
@@ -84,6 +90,12 @@ def mock_github_api_get(
                     },
                 ),
             },
+            f"repos/{repo}/pulls/{pr_no}/commits": mock_response(
+                text=pr_commits_response,
+                headers={
+                    "content-type": "application/json; charset=utf-8",
+                },
+            ),
         }
 
         def _mock_api_get(url: str, headers: dict = dict, **kwargs) -> Response:
@@ -93,6 +105,9 @@ def mock_github_api_get(
 
             if isinstance(response, dict) and (content_type := headers.get("Accept")):
                 response = response.get(content_type)
+
+            if "content-type" not in response.headers:
+                response.headers["content-type"] = "application/x-whatever"
 
             return response
 
@@ -168,6 +183,29 @@ def github_pr_response() -> str:
     """
     json_data_path = (
         settings.BASE_DIR / "utils" / "tests" / "data" / "github_api_response_pull.json"
+    )
+    with open(json_data_path) as f:
+        return f.read()
+
+
+@pytest.fixture
+def github_pr_commits_response() -> str:
+    """Return the raw response from a GitHub API request about a PR.
+
+    Data created with
+
+        # curl --user-agent 'shtrom' \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            https://api.github.com/repos/mozilla-conduit/test-repo/pulls/1/commits \
+            > src/lando/utils/tests/data/github_api_response_pull_commits.json
+    """
+    json_data_path = (
+        settings.BASE_DIR
+        / "utils"
+        / "tests"
+        / "data"
+        / "github_api_response_pull_commits.json"
     )
     with open(json_data_path) as f:
         return f.read()
@@ -336,6 +374,7 @@ def github_pr_diff() -> str:
 
 def test_api_client_build_pr(
     github_pr_response: str,
+    github_pr_commits_response: str,
     github_pr_diff: str,
     github_pr_patch: str,
 ):
@@ -373,6 +412,7 @@ def github_api_client(
 ) -> Callable:
     def _github_api_client(
         github_pr_response: str,
+        github_pr_commits_response: str,
         *,
         github_pr_list_response: str = "null",
         github_pr_patch: str = "",
@@ -390,7 +430,13 @@ def github_api_client(
 
         # Prime the GitHub API object to fake network interaction with coherent
         # response.
-        mock_github_api_get(repo, pr_response, github_pr_patch, github_pr_diff)
+        mock_github_api_get(
+            repo,
+            pr_response,
+            github_pr_commits_response,
+            github_pr_patch,
+            github_pr_diff,
+        )
 
         return client_mock
 
@@ -401,11 +447,13 @@ def github_api_client(
 def github_api_client_pr(
     github_api_client: Callable,
     github_pr_response: str,
+    github_pr_commits_response: str,
     github_pr_patch: str,
     github_pr_diff: str,
 ) -> mock.Mock:
     return github_api_client(
         github_pr_response,
+        github_pr_commits_response,
         github_pr_patch=github_pr_patch,
         github_pr_diff=github_pr_diff,
     )
