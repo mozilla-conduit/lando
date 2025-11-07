@@ -3,7 +3,6 @@ import os
 import re
 import subprocess
 import textwrap
-import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
@@ -538,6 +537,7 @@ def test_HgSCM_describe_local_changes(
     # XXX: this is a py.path, but we want to use pathlib.Path moving forwards
     hg_clone,
     request: pytest.FixtureRequest,
+    create_hg_commit,
 ):
     scm = HgSCM(str(hg_clone))
 
@@ -545,8 +545,8 @@ def test_HgSCM_describe_local_changes(
     with scm.for_push(
         f"pytest+{request.node.name}@lando",
     ):
-        file1 = _create_hg_commit(request, Path(hg_clone))
-        file2 = _create_hg_commit(request, Path(hg_clone))
+        file1 = create_hg_commit(Path(hg_clone))
+        file2 = create_hg_commit(Path(hg_clone))
 
         changes = scm.describe_local_changes()
 
@@ -554,30 +554,12 @@ def test_HgSCM_describe_local_changes(
     assert file2.name in changes[1].files
 
 
-def _create_hg_commit(request: pytest.FixtureRequest, clone_path: Path):
-    new_file = clone_path / str(uuid.uuid4())
-    new_file.write_text(request.node.name, encoding="utf-8")
-
-    subprocess.run(["hg", "addremove"], cwd=str(clone_path), check=True)
-    subprocess.run(
-        [
-            "hg",
-            "commit",
-            "-m",
-            f"adding {new_file}",
-        ],
-        cwd=str(clone_path),
-        check=True,
-    )
-
-    return new_file
-
-
 @pytest.mark.parametrize("strategy", [None, "ours", "theirs"])
 def test_HgSCM_merge_onto(
     hg_clone,
     request: pytest.FixtureRequest,
     strategy: str | None,
+    create_hg_commit,
 ):
     scm = HgSCM(hg_clone.strpath)
 
@@ -586,9 +568,9 @@ def test_HgSCM_merge_onto(
         main_start_commit = scm.head_ref()
 
         # Create commits on main branch.
-        main_file = _create_hg_commit(request, Path(hg_clone))
-        _create_hg_commit(request, Path(hg_clone))
-        _create_hg_commit(request, Path(hg_clone))
+        main_file = create_hg_commit(Path(hg_clone))
+        create_hg_commit(Path(hg_clone))
+        create_hg_commit(Path(hg_clone))
         main_commit = scm.head_ref()
 
         # Update to start commit and create separate feature history.
@@ -598,9 +580,9 @@ def test_HgSCM_merge_onto(
             check=True,
         )
 
-        feature_file = _create_hg_commit(request, Path(hg_clone))
-        _create_hg_commit(request, Path(hg_clone))
-        _create_hg_commit(request, Path(hg_clone))
+        feature_file = create_hg_commit(Path(hg_clone))
+        create_hg_commit(Path(hg_clone))
+        create_hg_commit(Path(hg_clone))
         feature_commit = scm.head_ref()
 
         # Update back to main and merge in feature.
@@ -672,12 +654,12 @@ def test_HgSCM_merge_onto(
             ), f"File contents did not match expected for strategy {strategy}"
 
 
-def test_HgSCM_tag(hg_clone, request: pytest.FixtureRequest):
+def test_HgSCM_tag(hg_clone, request: pytest.FixtureRequest, create_hg_commit):
     scm = HgSCM(hg_clone.strpath)
 
     with scm.for_push(f"pytest+{request.node.name}@lando"):
         # Create a new commit and get its SHA
-        _create_hg_commit(request, Path(hg_clone))
+        create_hg_commit(Path(hg_clone))
         commit_sha = scm.head_ref()
 
         # Create the tag

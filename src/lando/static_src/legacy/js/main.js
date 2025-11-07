@@ -8,6 +8,7 @@ $(document).ready(function() {
   let $stack = $('.StackPage-stack');
   let $timeline = $('.StackPage-timeline');
   let $treestatus = $('.Treestatus');
+  let $uplifts = $('.Uplifts');
 
   // Initialize components
   $flashMessages.flashMessages();
@@ -17,4 +18,5 @@ $(document).ready(function() {
   $stack.stack();
   $timeline.timeline();
   $treestatus.treestatus();
+  $uplifts.uplifts();
 });

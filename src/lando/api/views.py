@@ -25,9 +25,8 @@ from lando.main.scm import (
     SCM_TYPE_GIT,
     SCM_TYPE_HG,
 )
-from lando.main.scm.helpers import BugReferencesCheck
 from lando.utils.github import GitHubAPIClient, PullRequestPatchHelper
-from lando.utils.landing_checks import ALL_CHECKS, LandingChecks
+from lando.utils.landing_checks import ALL_CHECKS, BugReferencesCheck, LandingChecks
 from lando.utils.phabricator import get_phabricator_client
 
 
@@ -51,7 +50,7 @@ def phabricator_api_key_required(func: callable) -> Callable:
         has_valid_token = client.verify_api_token()
 
         if not has_valid_token:
-            return JsonResponse({}, 401)
+            return JsonResponse({"error": "Invalid Phabricator API token."}, status=401)
 
         return func(self, request, *args, **kwargs)
 
@@ -226,10 +225,10 @@ class LandingJobPullRequestAPIView(View):
             target_repo=target_repo, requester_email=ldap_username
         )
         revision = Revision.objects.create(pull_number=pull_request.number)
+        author_name, author_email = pull_request.author
         patch_data = {
-            # See bug 1995006 (to actually parse authorship info). Use placeholder for now.
-            "author_name": "Author Name",
-            "author_email": "Author Email <email@example.org>",
+            "author_name": author_name,
+            "author_email": author_email,
             "commit_message": pull_request.title,
             "timestamp": int(datetime.now().timestamp()),
         }
@@ -245,17 +244,17 @@ class LandingJobPullRequestAPIView(View):
 class PullRequestChecksAPIView(APIView):
     def get(self, request: WSGIRequest, repo_name: str, number: int) -> JsonResponse:
         target_repo = Repo.objects.get(name=repo_name)
-        client = GitHubAPIClient(target_repo)
+        client = GitHubAPIClient(target_repo.url)
         pull_request = client.build_pull_request(number)
 
         patch_helper = PullRequestPatchHelper(client, pull_request)
 
         landing_checks = LandingChecks(f"{pull_request.user_login}@github-pr")
         checks = [
-            chk.__name__
+            chk.name()
             for chk in ALL_CHECKS
             # This is checking for secure revisions in BMO. We skip this for now.
-            if chk.__name__ != BugReferencesCheck.__name__
+            if chk.name() != BugReferencesCheck.name()
         ]
         blockers = landing_checks.run(
             checks,

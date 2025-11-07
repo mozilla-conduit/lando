@@ -2,6 +2,10 @@ from datetime import datetime
 from typing import Callable, Self
 
 from django.contrib import admin
+from django.db.models import Field as DbField
+from django.forms import CheckboxSelectMultiple, MultipleChoiceField
+from django.forms import Field as FormField
+from django.http import HttpRequest
 from django.utils.translation import gettext_lazy
 
 from lando.main.models import (
@@ -11,12 +15,27 @@ from lando.main.models import (
     Repo,
     Revision,
     RevisionLandingJob,
+    RevisionUpliftJob,
+    UpliftAssessment,
+    UpliftJob,
+    UpliftRevision,
+    UpliftSubmission,
     Worker,
 )
 
 admin.site.site_title = gettext_lazy("Lando Admin")
 admin.site.site_header = gettext_lazy("Lando Administration")
 admin.site.index_title = gettext_lazy("Lando administration")
+
+
+class ArrayFieldMultipleChoiceField(MultipleChoiceField):
+    """Custom MultipleChoiceField adapter for ArrayField."""
+
+    def __init__(self, **kwargs):
+        # Remove ArrayField-specific arguments that MultipleChoiceField doesn't accept.
+        del kwargs["base_field"]
+        del kwargs["max_length"]
+        super().__init__(**kwargs)
 
 
 class ReadOnlyInline(admin.TabularInline):
@@ -57,6 +76,16 @@ class ReadOnlyInline(admin.TabularInline):
 class RevisionLandingJobInline(admin.TabularInline):
     model = RevisionLandingJob
     fields = ("revision", "commit_id")
+
+
+class RevisionUpliftJobInline(admin.TabularInline):
+    model = RevisionUpliftJob
+    fields = ("index", "revision")
+    readonly_fields = ("index", "revision")
+    extra = 0
+    can_delete = False
+    ordering = ("index",)
+    raw_id_fields = ("revision",)
 
 
 class JobAdmin(admin.ModelAdmin):
@@ -134,6 +163,65 @@ class LandingJobAdmin(JobAdmin):
         return summary
 
 
+class UpliftJobAdmin(JobAdmin):
+    model = UpliftJob
+    list_display = (
+        "id",
+        "revisions_summary",
+        "status",
+        "target_repo__name",
+        "submission_user",
+        "created_at",
+        "requester_email",
+        "duration_seconds",
+    )
+    list_filter = ("status", "target_repo__name", "submission__requested_by")
+    inlines = (RevisionUpliftJobInline,)
+    fields = (
+        "status",
+        "attempts",
+        "duration_seconds",
+        "error",
+        "priority",
+        "requester_email",
+        "submission",
+        "target_repo",
+        "created_revision_ids",
+        "landed_commit_id",
+        "created_at",
+        "updated_at",
+    )
+    readonly_fields = JobAdmin.readonly_fields + (
+        "submission",
+        "created_revision_ids",
+        "created_at",
+        "updated_at",
+    )
+    search_fields = JobAdmin.search_fields + (
+        "submission__requested_by__email",
+        "unsorted_revisions__revision_id",
+        "created_revision_ids",
+    )
+
+    @admin.display(description="Requester", ordering="submission__requested_by__email")
+    def submission_user(self, instance: UpliftJob) -> str:
+        """Return the email address of the uplift request submitter."""
+        return instance.submission.requested_by.email
+
+    @admin.display(description="Revisions")
+    def revisions_summary(self, instance: UpliftJob) -> str:
+        """Return a concise description of revisions processed by the job."""
+        revisions = list(instance.revisions)
+        if not revisions:
+            return "(no revision)"
+        first = revisions[0]
+        remaining = len(revisions) - 1
+        summary = str(first)
+        if remaining > 0:
+            summary = f"{summary} (+{remaining} more)"
+        return summary
+
+
 class RevisionAdmin(admin.ModelAdmin):
     model = Revision
     list_display = (
@@ -191,6 +279,18 @@ class RevisionAdmin(admin.ModelAdmin):
 
 
 class RepoAdmin(admin.ModelAdmin):
+    class Media:
+        # By default, labels in full-width views are limited to a fixed width left
+        # column.
+        # When rendering multiple checkboxes, like we do for the hooks selection,
+        # however, the label for each is in the right column. By default, the
+        # fixed-width will still apply, forcing unecessary line breaks that end up using
+        # more vertical space.
+        # This override returns the width to auto in this situation.
+        css = {
+            "all": ("css/custom_admin.css",),
+        }
+
     model = Repo
     list_display = (
         "name",
@@ -214,6 +314,17 @@ class RepoAdmin(admin.ModelAdmin):
     )
 
     search_fields = ("pull_path", "push_path", "url")
+
+    def formfield_for_dbfield(
+        self, db_field: DbField, request: HttpRequest, **kwargs
+    ) -> FormField | None:
+        if db_field.name == "hooks":
+            return db_field.formfield(
+                form_class=ArrayFieldMultipleChoiceField,
+                widget=CheckboxSelectMultiple,
+                choices=Repo.HooksChoices,
+            )
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
 
 
 class CommitMapAdmin(admin.ModelAdmin):
@@ -277,9 +388,120 @@ class WorkerAdmin(admin.ModelAdmin):
         return instance.applicable_repos.count()
 
 
+class UpliftAssessmentAdmin(admin.ModelAdmin):
+    model = UpliftAssessment
+    list_display = (
+        "id",
+        "user_email",
+        "risk_associated_with_patch",
+        "covered_by_testing",
+        "created_at",
+        "updated_at",
+    )
+    list_filter = ("risk_associated_with_patch", "covered_by_testing", "created_at")
+    search_fields = (
+        "user__email",
+        "user_impact",
+        "risk_level_explanation",
+        "string_changes",
+    )
+    readonly_fields = ("user", "created_at", "updated_at")
+
+    @admin.display(description="Requester", ordering="user__email")
+    def user_email(self, instance: UpliftAssessment) -> str:
+        return instance.user.email
+
+
+class UpliftRevisionAdmin(admin.ModelAdmin):
+    model = UpliftRevision
+    list_display = (
+        "revision_identifier",
+        "assessment_user",
+        "created_at",
+        "updated_at",
+    )
+    search_fields = ("revision_id", "assessment__user__email")
+    readonly_fields = ("assessment", "created_at", "updated_at")
+
+    @admin.display(description="Revision", ordering="revision_id")
+    def revision_identifier(self, instance: UpliftRevision) -> str:
+        return f"D{instance.revision_id}" if instance.revision_id else "-"
+
+    @admin.display(
+        description="Assessment requester", ordering="assessment__user__email"
+    )
+    def assessment_user(self, instance: UpliftRevision) -> str:
+        return instance.assessment.user.email
+
+
+class UpliftJobInline(admin.TabularInline):
+    model = UpliftJob
+    fields = ("id", "status", "target_repo", "created_revision_summary", "created_at")
+    readonly_fields = (
+        "id",
+        "status",
+        "target_repo",
+        "created_revision_summary",
+        "created_at",
+    )
+    extra = 0
+    can_delete = False
+    show_change_link = True
+
+    @admin.display(description="Created revisions")
+    def created_revision_summary(self, instance: UpliftJob) -> str:
+        if not instance.created_revision_ids:
+            return "-"
+        revisions = [f"D{rev}" for rev in instance.created_revision_ids]
+        preview = ", ".join(revisions[:3])
+        remaining = len(revisions) - 3
+        if remaining > 0:
+            preview = f"{preview} (+{remaining} more)"
+        return preview
+
+
+class UpliftSubmissionAdmin(admin.ModelAdmin):
+    model = UpliftSubmission
+    list_display = (
+        "id",
+        "user_email",
+        "requested_revision_summary",
+        "job_count",
+        "created_at",
+        "updated_at",
+    )
+    list_filter = ("created_at",)
+    search_fields = ("requested_by__email", "requested_revision_ids")
+    readonly_fields = ("created_at", "updated_at")
+    inlines = (UpliftJobInline,)
+
+    @admin.display(description="Requester", ordering="requested_by__email")
+    def user_email(self, instance: UpliftSubmission) -> str:
+        return instance.requested_by.email
+
+    @admin.display(description="Requested revisions")
+    def requested_revision_summary(self, instance: UpliftSubmission) -> str:
+        revisions = [f"D{rev}" for rev in instance.requested_revision_ids or []]
+        if not revisions:
+            return "-"
+        preview = ", ".join(revisions[:3])
+        remaining = len(revisions) - 3
+        if remaining > 0:
+            preview = f"{preview} (+{remaining} more)"
+        return preview
+
+    @admin.display(description="Jobs")
+    def job_count(self, instance: UpliftSubmission) -> int:
+        return instance.uplift_jobs.count()
+
+
 admin.site.register(Repo, RepoAdmin)
 admin.site.register(LandingJob, LandingJobAdmin)
+admin.site.register(UpliftJob, UpliftJobAdmin)
 admin.site.register(Revision, RevisionAdmin)
 admin.site.register(Worker, WorkerAdmin)
 admin.site.register(CommitMap, CommitMapAdmin)
 admin.site.register(ConfigurationVariable, ConfigurationVariableAdmin)
+admin.site.register(UpliftAssessment, UpliftAssessmentAdmin)
+admin.site.register(UpliftRevision, UpliftRevisionAdmin)
+admin.site.register(UpliftSubmission, UpliftSubmissionAdmin)

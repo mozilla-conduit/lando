@@ -109,15 +109,15 @@ def mock_github_api_get(
     (
         (
             "https://github.com/mozilla-firefox/firefox/",
-            "https://git:token@github.com/mozilla-firefox/firefox/",
+            "https://git:mock_token@github.com/mozilla-firefox/firefox/",
         ),
         (
             "https://github.com/mozilla-firefox/firefox.git/",
-            "https://git:token@github.com/mozilla-firefox/firefox.git/",
+            "https://git:mock_token@github.com/mozilla-firefox/firefox.git/",
         ),
         (
             "https://github.com/mozilla-firefox/firefox.git/some?other#path",
-            "https://git:token@github.com/mozilla-firefox/firefox.git/some?other#path",
+            "https://git:mock_token@github.com/mozilla-firefox/firefox.git/some?other#path",
         ),
         (
             "https://someuser:somepass@github.com/owner/repo.git/",
@@ -145,7 +145,7 @@ def test_github_authenticated_url_no_token(
 def test_github_api_init(mock_github_fetch_token: mock.Mock):
     api_client = GitHubAPI("https://github.com/o/r")
 
-    assert api_client.session.headers.get("Authorization") == "Bearer token"
+    assert api_client.session.headers.get("Authorization") == "Bearer mock_token"
 
 
 def test_github_api_client_init(mock_github_fetch_token: mock.Mock):

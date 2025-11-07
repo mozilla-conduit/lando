@@ -233,4 +233,5 @@ def get(  # noqa: ANN201
         "edges": list(edges),
         "landable_paths": landable,
         "uplift_repositories": uplift_repos,
+        "stack": stack,
     }

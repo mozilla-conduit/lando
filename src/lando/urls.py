@@ -66,6 +66,11 @@ urlpatterns += [
         revisions.UpliftAssessmentCreateOrEditView.as_view(),
         name="uplift-assessment-page",
     ),
+    path(
+        "uplift/jobs/<int:job_id>/",
+        jobs.UpliftJobView.as_view(),
+        name="uplift-jobs-page",
+    ),
 ]
 
 urlpatterns += [
