@@ -363,22 +363,19 @@ class PullRequestPatchHelper(PatchHelper):
 
     _diff: str
 
+    _author_name: str
+    _author_email: str
+
     def __init__(self, pr: PullRequest):
         super().__init__()
 
         self._diff = pr.diff
 
-        user = f"{pr.user_login}@github-pr"
-        # Consider the committer of the first patch to be the author.
-        patch = pr.patch
-        for line in patch.splitlines():
-            if match := self.USERNAME_RE.match(line):
-                user = match["user"]
-                break
+        self._author_name, self._author_email = pr.author
 
         self.headers = {
             "date": self._get_timestamp_from_github_timestamp(pr.updated_at),
-            "from": user,
+            "from": f"{self._author_name} <{self._author_email}>",
             "subject": pr.body.splitlines()[0] if pr.body else "",
         }
 
@@ -417,9 +414,7 @@ class PullRequestPatchHelper(PatchHelper):
     @override
     def parse_author_information(self) -> tuple[str, str]:
         """Return the author name and email from the patch."""
-        line = f"From: {self.get_header('from')}"
-        match = self.USERNAME_RE.match(line)
-        return (match["name"], match["email"])
+        return (self._author_name, self._author_email)
 
     @override
     def get_timestamp(self) -> str:

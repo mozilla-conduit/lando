@@ -111,9 +111,6 @@ def get_timestamp_from_hg_date_header(date_header: str) -> str:
 class PatchHelper(ABC):
     """Base class for parsing patches/exports."""
 
-    # A handy regex to match a From header containing user details
-    USERNAME_RE = re.compile(r"^From:\s*(?P<user>(?P<name>.*[^\s])?\s*<(?P<email>.*)>)")
-
     # Expected headers (all lowercase!):
     # - date
     # - from
