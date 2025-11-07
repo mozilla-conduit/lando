@@ -567,14 +567,18 @@ class LandingChecks:
         hook_names: Iterable[str]
             a list of strings of check names
 
+            Generally, use something like
+
+                [chk.name() for chk in ALL_CHECKS]
+
         patches: Iterable[PatchHelper]
             a list of patches to check
 
         Returns:
             list[str]: a list of error messages.
         """
-        commit_checks = [chk for chk in ALL_COMMIT_CHECKS if chk.__name__ in hook_names]
-        stack_checks = [chk for chk in ALL_STACK_CHECKS if chk.__name__ in hook_names]
+        commit_checks = [chk for chk in ALL_COMMIT_CHECKS if chk.name() in hook_names]
+        stack_checks = [chk for chk in ALL_STACK_CHECKS if chk.name() in hook_names]
 
         assessor = PatchCollectionAssessor(
             patches, push_user_email=self.requester_email
