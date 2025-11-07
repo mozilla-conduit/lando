@@ -813,3 +813,8 @@ class HgSCM(AbstractSCM):
             tag_command.append(target)
 
         self.run_hg(tag_command)
+
+    def merge_remote(
+        self, commit_message: str, remote: str, commit: str, allow_unrelated: bool
+    ) -> str:
+        raise NotImplementedError("`merge_remote` not implemented for hg.")

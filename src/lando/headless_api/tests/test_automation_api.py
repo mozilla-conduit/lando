@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
+from django.conf import settings
 from django.contrib.auth.hashers import check_password
 
 from lando.api.legacy.workers.automation_worker import AutomationWorker
@@ -1694,3 +1695,45 @@ def test_automation_job_processing(automation_job):
     assert (
         job_from_db.duration_seconds > 0
     ), "`processing` should set and save the job duration."
+
+
+@pytest.mark.django_db
+def test_automation_job_merge_remote_success_git(
+    repo_mc,
+    treestatusdouble,
+    git_automation_worker,
+    monkeypatch,
+    request,
+    automation_job,
+):
+    repo = repo_mc(SCM_TYPE_GIT)
+    scm = repo.scm
+    scm.push = mock.MagicMock()
+
+    settings.ALLOWED_MERGE_REMOTE_REPOS = [repo.path]
+
+    # Create a repo with diverging history
+    main_commit, main_file, feature_commit, feature_file = (
+        _create_split_branches_for_merge(request, scm, repo.system_path)
+    )
+
+    job, _actions = automation_job(
+        actions=[
+            {
+                "action": "merge-remote",
+                "commit_message": "No bug: Remote merge test",
+                "repo": repo.path,
+                "commit": feature_commit,
+            }
+        ],
+        status=JobStatus.SUBMITTED,
+        requester_email="test@example.com",
+        target_repo=repo,
+    )
+
+    git_automation_worker.worker_instance.applicable_repos.add(repo)
+
+    assert git_automation_worker.run_job(job)
+    assert job.status == JobStatus.LANDED, f"Job unexpectedly failed: {job.error}"
+    assert scm.push.called
+    assert len(job.landed_commit_id) == 40

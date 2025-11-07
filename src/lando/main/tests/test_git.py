@@ -1051,3 +1051,238 @@ def test_GitSCM_process_merge_conflict_no_reject(
         "error reading rejects file"
         in error_breakdown["rejects_paths"]["that-other-file.txt"]["content"]
     ), "Missing default message from `content` in rejects_paths for that-other-file.txt"
+
+
+@pytest.mark.parametrize("allow_unrelated", [True, False])
+def test_GitSCM_merge_remote_related(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+    allow_unrelated: bool,
+):
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+
+    main_branch = "main"
+    scm = GitSCM(str(clone_path), default_branch=main_branch)
+    scm.clone(str(git_repo))
+
+    git_setup_user(str(clone_path))
+
+    # Create a new commit on a branch for merging
+    main_commit_file = _create_git_commit(request, clone_path)
+    main_commit = scm.head_ref()
+
+    # Create a new repo
+    remote_repo = tmp_path / "remote"
+    subprocess.run(["git", "clone", str(git_repo), str(remote_repo)], check=True)
+    git_setup_user(str(remote_repo))
+
+    # Create another commit in the "remote" repo.
+    remote_commit_file = _create_git_commit(request, remote_repo)
+    remote_commit = (
+        subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=str(remote_repo), stdout=subprocess.PIPE
+        )
+        .stdout.decode()
+        .strip()
+    )
+
+    # Merge feature into main
+    commit_msg = f"Merge remote repo {remote_repo} into main"
+    merge_commit = scm.merge_remote(
+        commit_msg, str(remote_repo), remote_commit, allow_unrelated
+    )
+
+    # Assert we are on the correct branch.
+    current_branch = (
+        subprocess.run(
+            ["git", "branch", "--show-current"],
+            cwd=str(clone_path),
+            check=True,
+            capture_output=True,
+        )
+        .stdout.decode()
+        .strip()
+    )
+    current_sha = scm.head_ref()
+    assert (
+        current_branch == main_branch
+    ), "`merge_remote` incorrectly changed the current branch."
+    assert (
+        current_sha == merge_commit
+    ), "`merge_remote` did not leave the repo on the merge commit."
+
+    # Confirm the new commit has two parents.
+    parents = (
+        subprocess.run(
+            ["git", "rev-list", "--parents", "-n", "1", merge_commit],
+            cwd=str(clone_path),
+            capture_output=True,
+            check=True,
+        )
+        .stdout.decode()
+        .strip()
+        .split()
+    )
+    # Len is 3 here due to 2 parents + the commit itself.
+    assert len(parents) == 3, f"Expected merge commit with 2 parents, got: {parents}"
+
+    assert (
+        main_commit in parents and remote_commit in parents
+    ), "Unexpected merge parents."
+    assert (
+        commit_msg in scm.changeset_descriptions()
+    ), "Commit message is not found in descriptions."
+
+    for file_to_check, expected_sha in (
+        (remote_commit_file, remote_commit),
+        (main_commit_file, main_commit),
+    ):
+        # Get the contents of the file at the merge commit.
+        merged_file = subprocess.run(
+            ["git", "show", f"{merge_commit}:{file_to_check.name}"],
+            cwd=clone_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+
+        # Get expected content based on strategy.
+        expected_content = subprocess.run(
+            ["git", "show", f"{expected_sha}:{file_to_check.name}"],
+            cwd=clone_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+
+        assert all(
+            {merged_file, expected_content}
+        ), "File contents should be non-empty."
+
+        assert (
+            merged_file == expected_content
+        ), f"File contents of {file_to_check.name} did not match expected"
+
+
+@pytest.mark.parametrize("allow_unrelated", [True, False])
+def test_GitSCM_merge_remote_unrelated(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+    allow_unrelated: bool,
+):
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+
+    main_branch = "main"
+    scm = GitSCM(str(clone_path), default_branch=main_branch)
+    scm.clone(str(git_repo))
+
+    git_setup_user(str(clone_path))
+
+    # Create a new commit on a branch for merging
+    main_commit_file = _create_git_commit(request, clone_path)
+    main_commit = scm.head_ref()
+
+    # Create a new repo
+    remote_repo = tmp_path / "remote"
+    subprocess.run(["git", "init", str(remote_repo)], check=True)
+    git_setup_user(str(remote_repo))
+
+    # Create another commit in the "remote" repo.
+    remote_commit_file = _create_git_commit(request, remote_repo)
+    remote_commit = (
+        subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=str(remote_repo), stdout=subprocess.PIPE
+        )
+        .stdout.decode()
+        .strip()
+    )
+
+    # Merge feature into main
+    commit_msg = f"Merge remote repo {remote_repo} into main"
+    if not allow_unrelated:
+        with pytest.raises(SCMException) as exc:
+            scm.merge_remote(
+                commit_msg, str(remote_repo), remote_commit, allow_unrelated
+            )
+        assert "refusing to merge unrelated histories" in exc.value.err
+        return
+    merge_commit = scm.merge_remote(
+        commit_msg, str(remote_repo), remote_commit, allow_unrelated
+    )
+
+    # Assert we are on the correct branch.
+    current_branch = (
+        subprocess.run(
+            ["git", "branch", "--show-current"],
+            cwd=str(clone_path),
+            check=True,
+            capture_output=True,
+        )
+        .stdout.decode()
+        .strip()
+    )
+    current_sha = scm.head_ref()
+    assert (
+        current_branch == main_branch
+    ), "`merge_remote` incorrectly changed the current branch."
+    assert (
+        current_sha == merge_commit
+    ), "`merge_remote` did not leave the repo on the merge commit."
+
+    # Confirm the new commit has two parents.
+    parents = (
+        subprocess.run(
+            ["git", "rev-list", "--parents", "-n", "1", merge_commit],
+            cwd=str(clone_path),
+            capture_output=True,
+            check=True,
+        )
+        .stdout.decode()
+        .strip()
+        .split()
+    )
+    # Len is 3 here due to 2 parents + the commit itself.
+    assert len(parents) == 3, f"Expected merge commit with 2 parents, got: {parents}"
+
+    assert (
+        main_commit in parents and remote_commit in parents
+    ), "Unexpected merge parents."
+    assert (
+        commit_msg in scm.changeset_descriptions()
+    ), "Commit message is not found in descriptions."
+
+    for file_to_check, expected_sha in (
+        (remote_commit_file, remote_commit),
+        (main_commit_file, main_commit),
+    ):
+        # Get the contents of the file at the merge commit.
+        merged_file = subprocess.run(
+            ["git", "show", f"{merge_commit}:{file_to_check.name}"],
+            cwd=clone_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+
+        # Get expected content based on strategy.
+        expected_content = subprocess.run(
+            ["git", "show", f"{expected_sha}:{file_to_check.name}"],
+            cwd=clone_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+
+        assert all(
+            {merged_file, expected_content}
+        ), "File contents should be non-empty."
+
+        assert (
+            merged_file == expected_content
+        ), f"File contents of {file_to_check.name} did not match expected"

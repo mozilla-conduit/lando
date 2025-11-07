@@ -5,6 +5,7 @@ import logging
 from io import StringIO
 from typing import Annotated, Literal
 
+from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.core.handlers.wsgi import WSGIRequest
 from django.db import transaction
@@ -16,6 +17,7 @@ from ninja import (
 from ninja.responses import codes_4xx
 from ninja.security import HttpBearer
 from pydantic import Field, TypeAdapter
+from pydantic.types import StringConstraints
 
 from lando.headless_api.models.automation_job import (
     AutomationAction,
@@ -324,6 +326,40 @@ class AddBranchAction(Schema):
         raise NotImplementedError()
 
 
+class MergeRemoteAction(Schema):
+    """Merge changes from a remote repository"""
+
+    action: Literal["merge-remote"]
+    commit_message: str
+    repo: str
+    commit: Annotated[str, StringConstraints(pattern="[0-9a-fA-F]{40}")]
+    allow_unrelated: bool = False
+
+    def process(
+        self, job: AutomationJob, repo: Repo, scm: AbstractSCM, index: int
+    ) -> bool:
+        if self.repo not in settings.ALLOWED_MERGE_REMOTE_REPOS:
+            raise AutomationActionException(
+                message=f"Merges from {repo} not allowed",
+                job_action=JobAction.FAIL,
+                is_fatal=True,
+            )
+        try:
+            scm.merge_remote(
+                commit_message=self.commit_message,
+                remote=self.repo,
+                commit=self.commit,
+                allow_unrelated=self.allow_unrelated,
+            )
+        except Exception as exc:
+            message = f"Aborting, could not `merge-remote`, action #{index}.\n{exc}"
+            raise AutomationActionException(
+                message=message, job_action=JobAction.FAIL, is_fatal=True
+            ) from exc
+
+        return True
+
+
 Action = (
     AddCommitAction
     | AddCommitBase64Action
@@ -331,6 +367,7 @@ Action = (
     | MergeOntoAction
     | AddBranchAction
     | TagAction
+    | MergeRemoteAction
 )
 
 ActionAdapter = TypeAdapter(Action)
