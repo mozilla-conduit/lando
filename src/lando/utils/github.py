@@ -357,8 +357,7 @@ class PullRequestPatchHelper(PatchHelper):
     """A PatchHelper-like wrapper for GitHub pull requests.
 
     Due to the nature of pull requests, it only implement the data-getting
-    functionality, and  doesn't implement the input and output
-    methods.
+    functionality, and doesn't implement the input and output methods.
     """
 
     _diff: str
