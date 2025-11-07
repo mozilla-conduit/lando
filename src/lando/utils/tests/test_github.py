@@ -415,8 +415,6 @@ def test_PullRequestPatchHelper(github_api_client_pr: mock.Mock):
     # This should match the github_pr_response fixture.
     pr_url = "https://api.github.com/repos/mozilla-conduit/test-repo/pulls/1"
 
-    # PR
-    # pr = PullRequest(github_api_client_pr, github_api_client_pr.get_pull_request(1))
     pr = github_api_client_pr.build_pull_request(1)
 
     assert pr.url == pr_url
