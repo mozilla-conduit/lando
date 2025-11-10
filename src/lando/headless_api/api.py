@@ -354,8 +354,8 @@ class RelBranchSpecifier(Schema):
 class AutomationOperation(Schema):
     """Represents the body of an automation API operation request."""
 
-    # `Annotated` here to specify `min_items=1`.
-    actions: Annotated[list[Action], Field(min_items=1)]
+    # `Annotated` here to specify `min_length=1`.
+    actions: Annotated[list[Action], Field(min_length=1)]
 
     # Optional field indicating the changes should be pushed to a RelBranch.
     relbranch: RelBranchSpecifier | None = None
