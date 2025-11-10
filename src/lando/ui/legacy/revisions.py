@@ -195,7 +195,6 @@ class UpliftAssessmentLinkView(LandoView):
             return redirect(request.META.get("HTTP_REFERER"))
 
         assessment = link_form.cleaned_data["assessment"]
-        previous_assessment = existing_assessment
 
         with transaction.atomic():
             uplift_revision, created = UpliftRevision.objects.update_or_create(
@@ -203,7 +202,7 @@ class UpliftAssessmentLinkView(LandoView):
                 defaults={"assessment": assessment},
             )
 
-        if previous_assessment and previous_assessment.pk == assessment.pk:
+        if existing_assessment and existing_assessment.pk == assessment.pk:
             messages.add_message(
                 request,
                 messages.INFO,
@@ -218,7 +217,7 @@ class UpliftAssessmentLinkView(LandoView):
                 )
             )
 
-            if created or previous_assessment is None:
+            if created or existing_assessment is None:
                 message = "Linked existing assessment to this revision."
             else:
                 message = "Replaced linked assessment for this revision."
