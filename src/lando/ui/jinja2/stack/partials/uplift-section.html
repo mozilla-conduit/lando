@@ -7,7 +7,7 @@ future.
 <h1>Uplifts</h1>
 
 {% if revision_repo and revision_repo.approval_required %}
-{% set has_uplift_assessment = uplift_assessment_form.instance.pk %}
+{% set has_uplift_assessment = uplift_assessment_form.instance.pk is not none %}
 <div class="block">
     <div class="block">
         <div class="columns is-mobile is-vcentered is-multiline">
