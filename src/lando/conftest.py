@@ -1197,6 +1197,8 @@ class MockResponse:
     Headers keys will be normalised to all-lowercase.
     """
 
+    _json: dict | list | None = None
+
     def __init__(
         self,
         *,
@@ -1229,10 +1231,13 @@ class MockResponse:
             )
 
         try:
-            self.json = json_dict or json.loads(text or "")
+            self._json = json_dict or json.loads(text or "")
         except json.JSONDecodeError:
             pass
         self.text = text or json.dumps(json_dict)
+
+    def json(self) -> dict | list:
+        return self._json
 
     @property
     def content_type(self):
