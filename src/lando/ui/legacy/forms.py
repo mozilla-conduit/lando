@@ -67,7 +67,8 @@ class LinkUpliftAssessmentForm(forms.Form):
 
     assessment = forms.ModelChoiceField(
         label="Existing uplift assessment",
-        queryset=UpliftAssessment.objects.none(),
+        # `queryset` is defined in `__init__` as it depends on the user.
+        queryset=None,
         required=True,
         help_text="Select a previous assessment to link to this revision.",
     )
