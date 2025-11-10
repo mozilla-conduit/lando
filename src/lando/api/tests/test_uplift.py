@@ -1007,10 +1007,8 @@ def test_uplift_context_for_revision_returns_original_and_uplifted_requests(
     original_revision_id = revisions[0].revision_id
     uplifted_revision_id = 9876
 
-    UpliftRevision.objects.create(
-        assessment=submission.assessment,
-        revision_id=uplifted_revision_id,
-    )
+    job.created_revision_ids = [uplifted_revision_id]
+    job.save(update_fields=["created_revision_ids"])
 
     other_repo = repo_mc(SCM_TYPE_GIT, name="firefox-esr", approval_required=True)
     other_revision = create_patch_revision(2, patch=normal_patch(2))

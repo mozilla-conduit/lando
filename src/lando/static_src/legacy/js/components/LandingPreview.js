@@ -19,7 +19,7 @@ $.fn.landingPreview = function() {
 
     // Form currently resides in the footer in its own component, so we
     // need to listen to changes on flags outside of the form and update
-    // form field accordingly. TODO: make this better.
+    // form field accordingly.
     document.querySelectorAll('.flag-checkbox').forEach(item => {
         item.addEventListener('change', event => {
             let flags = [];
