@@ -148,7 +148,7 @@ def uplift_context_for_revision(revision_id: int) -> QuerySet:
 
     Relevant if:
       - this revision was originally requested (in requested_revision_ids)
-      - this revision was created by an uplift job (UpliftRevision -> assessment).
+      - this revision was created by an uplift job (UpliftJob.created_revision_ids).
     """
     base_qs = (
         UpliftSubmission.objects.select_related("assessment", "requested_by")
@@ -164,8 +164,10 @@ def uplift_context_for_revision(revision_id: int) -> QuerySet:
     # Original side: the revision was requested (e.g. D123 in requested_revision_ids).
     original_qs = base_qs.filter(requested_revision_ids__contains=[revision_id])
 
-    # Uplifted side: the revision is one of the newly created uplift revisions.
-    uplifted_qs = base_qs.filter(assessment__revisions__revision_id=revision_id)
+    # Uplifted side: the revision was produced by an uplift job.
+    uplifted_qs = base_qs.filter(
+        uplift_jobs__created_revision_ids__contains=[revision_id]
+    )
 
     return (original_qs | uplifted_qs).distinct()
 
