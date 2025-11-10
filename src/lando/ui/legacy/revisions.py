@@ -27,9 +27,6 @@ from lando.utils.tasks import set_uplift_request_form_on_revision
 
 logger = logging.getLogger(__name__)
 
-# TODO: port this hook once lando-api is merged and hooks are implemented.
-# revisions.before_request(set_last_local_referrer)
-
 
 class UpliftRequestView(LandoView):
     @force_auth_refresh

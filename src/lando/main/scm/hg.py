@@ -247,7 +247,7 @@ class HgSCM(AbstractSCM):
 
             similarity_args = ["-s", "95"]
 
-            # TODO: Using `hg import` here is less than ideal because
+            # NOTE: Using `hg import` here is less than ideal because
             # it does not use a 3-way merge. It would be better
             # to use `hg import --exact` then `hg rebase`, however we
             # aren't guaranteed to have the patch's parent changeset
