@@ -42,7 +42,7 @@ def test_secure_api_flag_on_public_revision_is_false(
 
     response = proxy_client.get("/stacks/D{}".format(revision["id"]))
     assert response.status_code == 200
-    response_revision = response.json["revisions"].pop()
+    response_revision = response.json()["revisions"].pop()
     assert not response_revision["is_secure"]
 
 
@@ -61,7 +61,7 @@ def test_secure_api_flag_on_secure_revision_is_true(
     response = proxy_client.get("/stacks/D{}".format(revision["id"]))
 
     assert response.status_code == 200
-    response_revision = response.json["revisions"].pop()
+    response_revision = response.json()["revisions"].pop()
     assert response_revision["is_secure"]
 
 

@@ -65,8 +65,8 @@ def test_treestatus_exception_handled(db, app, client):
 
     response = client.get("__testing__/treestatus_exception1")
     assert response.status_code == 500
-    assert response.json["title"] == "Tree Status Error"
+    assert response.json()["title"] == "Tree Status Error"
 
     response = client.get("__testing__/treestatus_exception2")
     assert response.status_code == 500
-    assert response.json["title"] == "Tree Status Error"
+    assert response.json()["title"] == "Tree Status Error"

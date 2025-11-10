@@ -22,6 +22,7 @@ from lando.api.legacy.api import landing_jobs
 from lando.api.views import (
     LandingJobPullRequestAPIView,
     LegacyDiffWarningView,
+    PullRequestChecksAPIView,
     git2hgCommitMapView,
     hg2gitCommitMapView,
 )
@@ -96,6 +97,11 @@ urlpatterns += [
         "api/pulls/<str:repo_name>/<int:pull_number>/landing_jobs",
         LandingJobPullRequestAPIView.as_view(),
         name="api-landing-job-pull-request",
+    ),
+    path(
+        "api/pulls/<str:repo_name>/<int:number>/checks",
+        PullRequestChecksAPIView.as_view(),
+        name="api-pull-request-checks",
     ),
 ]
 
