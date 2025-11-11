@@ -17,6 +17,7 @@ from lando.main.models import Repo
 from lando.main.models.jobs import JobStatus
 from lando.main.models.uplift import UpliftJob, UpliftRevision, UpliftSubmission
 from lando.ui.legacy.forms import (
+    LinkUpliftAssessmentForm,
     TransplantRequestForm,
     UpliftAssessmentForm,
     UpliftRequestForm,
@@ -26,6 +27,32 @@ from lando.ui.views import LandoView
 from lando.utils.tasks import set_uplift_request_form_on_revision
 
 logger = logging.getLogger(__name__)
+
+
+def build_uplift_forms(
+    request: WSGIRequest,
+    revision_repo: Repo | None,
+    uplift_revision: UpliftRevision | None,
+) -> tuple[UpliftAssessmentForm, LinkUpliftAssessmentForm | None]:
+    """Return the edit and link forms appropriate for the revision context."""
+
+    uplift_assessment_form = UpliftAssessmentForm()
+    uplift_assessment_link_form: LinkUpliftAssessmentForm | None = None
+
+    can_request_uplift = (
+        request.user.is_authenticated
+        and revision_repo
+        and revision_repo.approval_required
+    )
+
+    if can_request_uplift:
+        if uplift_revision:
+            uplift_assessment_form = UpliftAssessmentForm(
+                instance=uplift_revision.assessment
+            )
+        uplift_assessment_link_form = LinkUpliftAssessmentForm(user=request.user)
+
+    return uplift_assessment_form, uplift_assessment_link_form
 
 
 class UpliftRequestView(LandoView):
@@ -139,6 +166,63 @@ class UpliftAssessmentCreateOrEditView(LandoView):
                 request.user.id,
             )
         )
+
+        return redirect(request.META.get("HTTP_REFERER"))
+
+
+class UpliftAssessmentLinkView(LandoView):
+    """Link an existing uplift assessment to a revision."""
+
+    @force_auth_refresh
+    @method_decorator(require_phabricator_api_key(optional=False, provide_client=False))
+    def post(self, request: WSGIRequest, revision_id: int) -> HttpResponse:
+        """Link an existing uplift assessment to this revision."""
+
+        uplift_revision = UpliftRevision.one_or_none(revision_id=revision_id)
+        existing_assessment = uplift_revision.assessment if uplift_revision else None
+
+        link_form = LinkUpliftAssessmentForm(request.POST, user=request.user)
+
+        if not link_form.is_valid():
+            errors = [
+                f"{field}: {', '.join(field_errors)}"
+                for field, field_errors in link_form.errors.items()
+            ]
+
+            for error in errors:
+                messages.add_message(request, messages.ERROR, error)
+
+            return redirect(request.META.get("HTTP_REFERER"))
+
+        assessment = link_form.cleaned_data["assessment"]
+
+        with transaction.atomic():
+            uplift_revision, created = UpliftRevision.objects.update_or_create(
+                revision_id=revision_id,
+                defaults={"assessment": assessment},
+            )
+
+        if existing_assessment and existing_assessment.pk == assessment.pk:
+            messages.add_message(
+                request,
+                messages.INFO,
+                "This revision is already linked to the selected assessment.",
+            )
+        else:
+            set_uplift_request_form_on_revision.apply_async(
+                args=(
+                    revision_id,
+                    assessment.to_conduit_json_str(),
+                    request.user.id,
+                )
+            )
+
+            if created or existing_assessment is None:
+                message = "Linked existing assessment to this revision."
+            else:
+                message = "Replaced linked assessment for this revision."
+
+            messages.add_message(request, messages.SUCCESS, message)
 
         return redirect(request.META.get("HTTP_REFERER"))
 
@@ -270,12 +354,10 @@ class RevisionView(LandoView):
 
         # Look for an existing `UpliftRevision` for this revision.
         uplift_revision = UpliftRevision.one_or_none(revision_id=revision_id)
-
-        if revision_repo and revision_repo.approval_required and uplift_revision:
-            assessment = uplift_revision.assessment
-            uplift_assessment_edit_form = UpliftAssessmentForm(instance=assessment)
-        else:
-            uplift_assessment_edit_form = UpliftAssessmentForm()
+        (
+            uplift_assessment_edit_form,
+            uplift_assessment_link_form,
+        ) = build_uplift_forms(request, revision_repo, uplift_revision)
 
         uplift_requests = uplift_context_for_revision(revision_id)
 
@@ -315,6 +397,7 @@ class RevisionView(LandoView):
             "uplift_request_form": uplift_request_form,
             "uplift_requests": uplift_requests,
             "uplift_assessment_form": uplift_assessment_edit_form,
+            "uplift_assessment_link_form": uplift_assessment_link_form,
         }
 
         return TemplateResponse(

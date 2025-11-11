@@ -60,6 +60,11 @@ urlpatterns += [
         name="uplift-assessment-page",
     ),
     path(
+        "uplift/<int:revision_id>/assessment/link/",
+        revisions.UpliftAssessmentLinkView.as_view(),
+        name="uplift-assessment-link-page",
+    ),
+    path(
         "uplift/jobs/<int:job_id>/",
         jobs.UpliftJobView.as_view(),
         name="uplift-jobs-page",
