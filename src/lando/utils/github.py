@@ -2,6 +2,8 @@ import asyncio
 import io
 import logging
 import math
+import re
+from collections import Counter
 from datetime import datetime
 from enum import Enum
 
@@ -10,34 +12,79 @@ from django.conf import settings
 from simple_github import AppAuth, AppInstallationAuth
 from typing_extensions import override
 
-# from lando.main.models.repo import Repo
 from lando.main.scm.helpers import PatchHelper
 from lando.utils.cache import cache_method
+from lando.utils.const import URL_USERINFO_RE
 
 logger = logging.getLogger(__name__)
 
 
-class GitHubAPI:
-    """A simple wrapper that authenticates with and communicates with the GitHub API."""
+class GitHub:
+    """Work with authentication to GitHub repositories."""
 
-    GITHUB_BASE_URL = "https://api.github.com"
+    GITHUB_URL_RE = re.compile(
+        rf"https://{URL_USERINFO_RE.pattern}?github.com/(?P<owner>[-A-Za-z0-9]+)/(?P<repo>[^/]+?)(?:\.git)?(?:/|$)"
+    )
 
-    def __init__(self, repo: "Repo"):
-        repo_owner = repo._github_repo_org
-        repo_name = repo.git_repo_name
+    repo_url: str
+    repo_owner: str
+    repo_name: str
+    userinfo: str
 
-        self.session = requests.Session()
-        self.session.headers.update(
-            {
-                "Authorization": f"Bearer {self._get_token(repo_owner, repo_name)}",
-                "User-Agent": settings.HTTP_USER_AGENT,
-                "Accept": "application/vnd.github+json",
-                "X-GitHub-Api-Version": "2022-11-28",
-            }
+    def __init__(self, repo_url: str):
+        self.repo_url = repo_url
+
+        parsed_url_data = self.parse_url(self.repo_url)
+
+        if parsed_url_data is None:
+            raise ValueError(f"Cannot parse URL as GitHub repo: {repo_url}")
+
+        self.repo_owner = parsed_url_data["owner"]
+        self.repo_name = parsed_url_data["repo"]
+        self.userinfo = parsed_url_data["userinfo"]
+
+    @classmethod
+    def is_supported_url(cls, url: str) -> bool:
+        """Determine whether the passed URL is a supported GitHub URL."""
+        return cls.parse_url(url) is not None
+
+    @classmethod
+    def parse_url(cls, url: str) -> re.Match[str] | None:
+        """Parse GitHub data from URL, or return None if not Github.
+
+        Note: no normalisation is performed on the URL
+        """
+        return re.match(cls.GITHUB_URL_RE, url)
+
+    @property
+    def authenticated_url(self) -> str:
+        """Return an authenticated URL, suitable for use with `git` to push and pull.
+
+        If the URL already has authentication parameters, it is returned verbatim. If
+        not, a token is fetched by the GitHub app, and inserted into the USERINFO part of
+        the URL, without any other changes (e.g., in the REST path or Query String).
+        """
+        if self.userinfo:
+            # We only fetch a token if no authentication is explicitly specified in
+            # the repo_url.
+            return self.repo_url
+
+        logger.info(
+            f"Obtaining fresh GitHub token for GitHub repo at {self.repo_url}",
         )
 
-    @staticmethod
-    def _get_token(repo_owner: str, repo_name: str) -> str | None:
+        token = self._fetch_token()
+
+        if token:
+            return self.repo_url.replace(
+                "https://github.com", f"https://git:{token}@github.com"
+            )
+
+        # We didn't get a token
+        logger.warning(f"Couldn't obtain a token for GitHub repo at {self.repo_url}")
+        return self.repo_url
+
+    def _fetch_token(self) -> str | None:
         """Obtain a fresh GitHub token to push to the specified repo.
 
         This relies on GITHUB_APP_ID and GITHUB_APP_PRIVKEY to be set in the
@@ -51,7 +98,7 @@ class GitHubAPI:
 
         if not app_id or not private_key:
             logger.warning(
-                f"Missing GITHUB_APP_ID or GITHUB_APP_PRIVKEY to authenticate against GitHub repo {repo_owner}/{repo_name}",
+                f"Missing GITHUB_APP_ID or GITHUB_APP_PRIVKEY to authenticate against GitHub repo at {self.repo_url}",
             )
             return None
 
@@ -59,8 +106,31 @@ class GitHubAPI:
             app_id,
             private_key,
         )
-        session = AppInstallationAuth(app_auth, repo_owner, repositories=[repo_name])
+        session = AppInstallationAuth(
+            app_auth, self.repo_owner, repositories=[self.repo_name]
+        )
         return asyncio.run(session.get_token())
+
+
+class GitHubAPI(GitHub):
+    """A simple wrapper that authenticates with and communicates with the GitHub API."""
+
+    session: requests.Session
+
+    GITHUB_BASE_URL = "https://api.github.com"
+
+    def __init__(self, repo_url: str):
+        super().__init__(repo_url)
+
+        self.session = requests.Session()
+        self.session.headers.update(
+            {
+                "Authorization": f"Bearer {self._fetch_token()}",
+                "User-Agent": settings.HTTP_USER_AGENT,
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+            }
+        )
 
     def get(self, path: str, *args, **kwargs) -> requests.Response:
         """Send a GET request to the GitHub API with given args and kwargs."""
@@ -69,228 +139,101 @@ class GitHubAPI:
 
     def post(self, path: str, *args, **kwargs) -> requests.Response:
         """Send a POST request to the GitHub API with given args and kwargs."""
-        url = f"self.GITHUB_BASE_URL/{path}"
+        url = f"{self.GITHUB_BASE_URL}/{path}"
         return self.session.post(url, *args, **kwargs)
 
 
 class GitHubAPIClient:
     """A convenience client that provides various methods to interact with the GitHub API."""
 
-    client: GitHubAPI
+    _api: GitHubAPI
 
-    # repo: "Repo"
-    repo_base_url: str
+    class UpstreamError(Exception):
+        pass
 
-    def __init__(self, repo: "Repo"):
-        self.client = GitHubAPI(repo)
-        self.repo = repo
-        self.repo_base_url = (
-            f"repos/{self.repo._github_repo_org}/{self.repo.git_repo_name}"
-        )
+    def __init__(self, repo_url: str):
+        self._api = GitHubAPI(repo_url)
+        self.repo_base_url = f"repos/{self.repo_owner}/{self.repo_name}"
 
-    def get(self, path: str, *args, **kwargs) -> dict | list:
+    @property
+    def session(self) -> requests.Session:
+        """An authenticated requests Session."""
+        return self._api.session
+
+    @property
+    def repo_owner(self) -> str:
+        return self._api.repo_owner
+
+    @property
+    def repo_name(self) -> str:
+        return self._api.repo_name
+
+    def _repo_get(self, subpath: str, *args, **kwargs) -> dict | list:
         """Get API endpoint scoped to the repo_base_url.
 
         Parameters:
 
-        path: str
+        subpath: str
             Relative path without leading `/`.
 
         Return:
             dist | list: decoded JSON from the response
         """
-        result = self.client.get(f"{self.repo_base_url}/{path}", *args, **kwargs)
-        result.raise_for_status()
+        return self._get(f"{self.repo_base_url}/{subpath}", *args, **kwargs)
+
+    def _get(self, path: str, *args, **kwargs) -> dict | list | str | None:
+        result = self._api.get(path, *args, **kwargs)
+        content_type = result.headers["content-type"]
+        if content_type == "application/json; charset=utf-8":
+            return result.json()
+        elif content_type == "application/vnd.github.patch; charset=utf-8":
+            return result.text
+        elif content_type == "application/vnd.github.diff; charset=utf-8":
+            return result.text
+
+    def _post(self, path: str, *args, **kwargs):
+        result = self._api.post(path, *args, **kwargs)
         return result.json()
 
-    @classmethod
-    def convert_timestamp_from_github(cls, timestamp: str) -> str:
-        timestamp_datetime = datetime.fromisoformat(timestamp)
-        return str(math.floor(timestamp_datetime.timestamp()))
+    def build_pull_request(self, pull_number: int) -> "PullRequest":
+        """Build a PullRequest object.
 
-    @property
-    def session(self) -> requests.Session:
-        """Return the underlying HTTP session."""
-        return self.client.session
+        This does the necessary network requests to collect the data."""
+        data = self.get_pull_request(pull_number)
+        return PullRequest(self, data)
 
     def list_pull_requests(self) -> list:
         """List all pull requests in the repo."""
-        return self.get("pulls")
+        return self._repo_get("pulls")
 
     def get_pull_request(self, pull_number: int) -> dict:
         """Get a specific pull request from the repo."""
-        return self.get(f"pulls/{pull_number}")
+        return self._repo_get(f"pulls/{pull_number}")
 
-    def get_diff(self, url: str) -> str:
-        pass
+    def get_diff(self, pull_number: int) -> str:
+        """Fetch a diff, given a pull request number."""
+        return self._get(
+            f"{self.repo_base_url}/pulls/{pull_number}",
+            headers={"Accept": "application/vnd.github.diff"},
+        )
 
+    def get_patch(self, pull_number: int) -> str:
+        """Fetch a patch, given a pull request number."""
+        return self._get(
+            f"{self.repo_base_url}/pulls/{pull_number}",
+            headers={"Accept": "application/vnd.github.patch"},
+        )
 
-def pr_cache_key(self: "PullRequest", *args, **kwargs) -> str:
-    """Provide a cache key for PR methods that fetch data from GitHub.
-
-    This method-like function cannot be part of the PullRequest, as it is used by method
-    decorators when declaring the class.
-    """
-    return f"{self.id}{self.updated_at}"
-
-
-# Specialised decorator which embeds the PR-specific cache-key builder.
-pr_cache_method = cache_method(pr_cache_key)
-
-
-class PullRequest:
-    """A class that parses data returned from the GitHub API for pull requests."""
-
-    class StaleMetadataException(Exception):
-        pass
-
-    class UpstreamError(Exception):
-        pass
-
-    class Mergeability(str, Enum):
-        CLEAN = "clean"
-        DIRTY = "dirty"  # conflicts
-        UNSTABLE = "unstable"  # checks failing
-        BLOCKED = "blocked"  # blocking rule not satisfied
-        UNKNOWN = "unknown"
-        DRAFT = "draft"
-
-    class State(str, Enum):
-        OPEN = "open"
-        CLOSED = "closed"
-
-    class Review(str, Enum):
-        APPROVED = "APPROVED"
-        CHANGES_REQUESTED = "CHANGES_REQUESTED"
-        DISMISSED = "DISMISSED"
-
-    def __repr__(self) -> str:
-        return f"Pull request #{self.number} ({self.head_repo_git_url})"
-
-    def __init__(self, data: dict):
-        self.url = data["url"]
-        self.base_ref = data["base"]["ref"]  # "source" branch name
-        self.base_sha = data["base"]["sha"]  # "source" branch sha
-        self.base_user_login = data["base"]["user"]["login"]
-        self.base_user_id = data["base"]["user"]["id"]
-        self.created_at = data["created_at"]
-        self.updated_at = data["updated_at"]
-        self.closed_at = data["closed_at"]
-        self.merged_at = data["merged_at"]
-        self.diff_url = data["diff_url"]
-        self.patch_url = data["patch_url"]
-        self.body = data["body"]  # description
-        self.is_draft = data["draft"]
-        self.comments_url = data["comments_url"]
-        self.commits_url = data["commits_url"]
-
-        self.head_ref = data["head"]["ref"]  # "destination" branch name
-        self.head_sha = data["head"]["sha"]
-        self.head_repo_git_url = data["head"]["repo"][
-            "git_url"
-        ]  # e.g., git://github.com/mozilla-conduit/test-repo.git
-        self.html_url = data["html_url"]
-        self.id = data["id"]
-        self.mergeable_state = data["mergeable_state"]
-        self.number = data["number"]
-        self.requested_reviewers = [
-            {"id": r["id"], "html_url": r["html_url"], "login": r["login"]}
-            for r in data["requested_reviewers"]
-        ]
-        self.requested_teams = [
-            {
-                "id": r["id"],
-                "html_url": r["html_url"],
-                "name": r["name"],
-                "slug": r["slug"],
-                "description": r["description"],
-            }
-            for r in data["requested_teams"]
-        ]
-
-        self.state = data["state"]  # e.g., "open"
-        self.title = data["title"]
-
-        self.user_id = data["user"]["id"]
-        self.user_html_url = data["user"]["html_url"]
-        self.user_login = data["user"]["login"]
-
-    def serialize(self) -> dict[str, str]:
-        """Return a dictionary with various pull request data."""
-        return {
-            "url": self.url,
-            "base_ref": self.base_ref,
-            "base_sha": self.base_sha,
-            "base_user_login": self.base_user_login,
-            "base_user_id": self.base_user_id,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
-            "closed_at": self.closed_at,
-            "merged_at": self.merged_at,
-            "diff_url": self.diff_url,
-            "patch_url": self.patch_url,
-            "body": self.body,
-            "is_draft": self.is_draft,
-            "comments_url": self.comments_url,
-            "commits_url": self.commits_url,
-            "head_ref": self.head_ref,
-            "head_sha": self.head_sha,
-            "head_repo_git_url": self.head_repo_git_url,
-            "html_url": self.html_url,
-            "id": self.id,
-            "mergeable_state": self.mergeable_state,
-            "number": self.number,
-            "requested_reviewers": self.requested_reviewers,
-            "requested_teams": self.requested_teams,
-            "state": self.state,
-            "title": self.title,
-            "user_id": self.user_id,
-            "user_html_url": self.user_html_url,
-            "user_login": self.user_login,
-        }
-
-    @pr_cache_method
-    def get_comments(self, client: GitHubAPIClient) -> list:
+    def get_pull_request_comments(self, pull_number: int) -> list:
         """Return a list of comments on the whole PR."""
         # `issues` is correct here, using `pull` instead would return comments on diffs.
-        comments = client.get(f"issues/{self.number}/comments")
+        return self._repo_get(f"issues/{pull_number}/comments")
 
-        if any(
-            client.convert_timestamp_from_github(comment["updated_at"])
-            > client.convert_timestamp_from_github(self.updated_at)
-            for comment in comments
-        ):
-            raise self.StaleMetadataException(
-                "Comments were changed while collecting PR information."
-            )
+    def get_pull_request_commits(self, pull_number: int) -> list[dict]:
+        """Get all commits from specific pull request from the repo."""
+        return self._repo_get(f"pulls/{pull_number}/commits")
 
-        return comments
-
-    @pr_cache_method
-    def get_commits(self, client: GitHubAPIClient) -> dict:
-        """Return a list of commits for the PR."""
-        commits = client.get(f"pulls/{self.number}/commits")
-
-        if commits[-1]["sha"] != self.head_sha:
-            raise self.StaleMetadataException(
-                "Head commit changed while collecting PR information."
-            )
-
-        # XXX: What happens if a commit has been committed in the past, but has only
-        # been pushed now?
-        if any(
-            client.convert_timestamp_from_github(commit["commit"]["committer"]["date"])
-            > client.convert_timestamp_from_github(self.updated_at)
-            for commit in commits
-        ):
-            raise self.StaleMetadataException(
-                "Commits were added while collecting PR information."
-            )
-
-        return commits
-
-    @pr_cache_method
-    def get_commit_comments(self, client: GitHubAPIClient) -> list:
+    def get_pull_request_commits_comments(self, pull_number: int) -> list:
         """Return a list of comments on specific changes of the PR."""
         # NOTE: We use the GraphQL API for this one, as the comment-resolution
         # information is not available via the REST API [0].
@@ -327,14 +270,14 @@ class PullRequest:
             }
           }
           """
-        comments_response = client.session.post(
+        comments_response = self.session.post(
             "https://api.github.com/graphql",
             json={
                 "query": comments_query,
                 "variables": {
-                    "owner": client.repo._github_repo_org,
-                    "repo": client.repo.git_repo_name,
-                    "number": self.number,
+                    "owner": self.repo_owner,
+                    "repo": self.repo_name,
+                    "number": pull_number,
                 },
             },
         )
@@ -360,9 +303,166 @@ class PullRequest:
 
             comments.append(comment)
 
+        return comments
+
+    def get_pull_request_labels(self, pull_number: int) -> list:
+        """Return a list of labels for the PR."""
+        # `issues` is correct here
+        labels = self._repo_get(f"issues/{pull_number}/labels")
+
+        return labels
+
+    def get_pull_requests_reviews(self, pull_number: int) -> list:
+        """Return a list of reviews for the PR."""
+        return self.get(f"pulls/{pull_number}/reviews")
+
+    def open_pull_request(self, pull_number: int) -> dict:
+        """Open the given pull request."""
+        return self._post(
+            f"{self.repo_base_url}/pulls/{pull_number}", json={"state": "open"}
+        )
+
+    def close_pull_request(self, pull_number: int) -> dict:
+        """Close the given pull request."""
+        return self._post(
+            f"{self.repo_base_url}/pulls/{pull_number}", json={"state": "closed"}
+        )
+
+    def add_comment_to_pull_request(self, pull_number: int, comment: str) -> dict:
+        """Add a comment to the given pull request."""
+        return self._post(
+            f"{self.repo_base_url}/issues/{pull_number}/comments",
+            json={"body": comment},
+        )
+
+    @classmethod
+    def convert_timestamp_from_github(cls, timestamp: str) -> str:
+        timestamp_datetime = datetime.fromisoformat(timestamp)
+        return str(math.floor(timestamp_datetime.timestamp()))
+
+
+def pr_cache_key(self: "PullRequest", *args, **kwargs) -> str:
+    """Provide a cache key for PR methods that fetch data from GitHub.
+
+    This method-like function cannot be part of the PullRequest, as it is used by method
+    decorators when declaring the class.
+    """
+    return f"{self.id}{self.updated_at}"
+
+
+# Specialised decorator which embeds the PR-specific cache-key builder.
+pr_cache_method = cache_method(pr_cache_key)
+
+
+class PullRequest:
+    """A class that parses data returned from the GitHub API for pull requests."""
+
+    class StaleMetadataException(Exception):
+        pass
+
+    class Mergeability(str, Enum):
+        CLEAN = "clean"
+        DIRTY = "dirty"  # conflicts
+        UNSTABLE = "unstable"  # checks failing
+        BLOCKED = "blocked"  # blocking rule not satisfied
+        UNKNOWN = "unknown"
+        DRAFT = "draft"
+
+    class State(str, Enum):
+        OPEN = "open"
+        CLOSED = "closed"
+
+    class Review(str, Enum):
+        APPROVED = "APPROVED"
+        CHANGES_REQUESTED = "CHANGES_REQUESTED"
+        DISMISSED = "DISMISSED"
+
+    client: GitHubAPIClient
+
+    def __repr__(self) -> str:
+        return f"Pull request #{self.number} ({self.head_repo_git_url})"
+
+    def __init__(self, client: GitHubAPIClient, data: dict):
+        self.client = client
+
+        self.url = data["url"]
+        self.base_ref = data["base"]["ref"]  # "target" branch name
+        self.base_sha = data["base"]["sha"]  # "target" branch sha
+        self.head_ref = data["head"]["ref"]  # "working" branch name
+        self.head_sha = data["head"]["sha"]  # "working" branch sha
+
+        self.base_user_login = data["base"]["user"]["login"]
+        self.base_user_id = data["base"]["user"]["id"]
+        self.created_at = data["created_at"]
+        self.updated_at = data["updated_at"]
+        self.closed_at = data["closed_at"]
+        self.merged_at = data["merged_at"]
+        self.diff_url = data["diff_url"]
+        self.patch_url = data["patch_url"]
+        self.body = data["body"]  # description
+        self.is_draft = data["draft"]
+        self.comments_url = data["comments_url"]
+        self.commits_url = data["commits_url"]
+
+        self.head_repo_git_url = data["head"]["repo"][
+            "git_url"
+        ]  # e.g., git://github.com/mozilla-conduit/test-repo.git
+        self.html_url = data["html_url"]
+        self.id = data["id"]
+        self.mergeable_state = data["mergeable_state"]
+        self.number = data["number"]
+        self.requested_reviewers = [
+            {"id": r["id"], "html_url": r["html_url"], "login": r["login"]}
+            for r in data["requested_reviewers"]
+        ]
+        self.requested_teams = [
+            {
+                "id": r["id"],
+                "html_url": r["html_url"],
+                "name": r["name"],
+                "slug": r["slug"],
+                "description": r["description"],
+            }
+            for r in data["requested_teams"]
+        ]
+
+        self.state = data["state"]  # e.g., "open"
+        self.title = data["title"]
+
+        self.user_id = data["user"]["id"]
+        self.user_html_url = data["user"]["html_url"]
+        self.user_login = data["user"]["login"]
+
+    def _select_commit_author(
+        self, commits: list[dict]
+    ) -> tuple[str | None, str | None]:
+        """Select the most common author in commits."""
+        # This method is ported from lando.api.legacy.revisions.select_diff_author.
+        commits = [commit["commit"] for commit in commits]
+        if not commits:
+            return None, None
+
+        # Below is copied verbatim from the legacy method.
+        authors = [c.get("author", {}) for c in commits]
+        authors = Counter((a.get("name"), a.get("email")) for a in authors)
+        authors = authors.most_common(1)
+        return authors[0][0] if authors else (None, None)
+
+    @property
+    def author(self) -> tuple[str | None, str | None]:
+        return self._select_commit_author(self.commits)
+
+    @property
+    def diff(self) -> str:
+        return self.client.get_diff(self.number)
+
+    @property
+    @pr_cache_method
+    def comments(self) -> list:
+        comments = self.client.get_pull_request_comments(self.number)
         if any(
-            client.convert_timestamp_from_github(comment["updated_at"])
-            > client.convert_timestamp_from_github(self.updated_at)
+            self.client.convert_timestamp_from_github(comment["updated_at"])
+            > self.client.convert_timestamp_from_github(self.updated_at)
             for comment in comments
         ):
             raise self.StaleMetadataException(
@@ -371,46 +471,68 @@ class PullRequest:
 
         return comments
 
-    def get_diff(self, client: GitHubAPIClient) -> str:
-        """Return a single diff of the latest state for the PR.
+    @property
+    @pr_cache_method
+    def commits(self) -> list[dict]:
+        commits = self.client.get_pull_request_commits(self.number)
 
-        WARNING: The returned diff doesn't include any binary data.
+        if commits[-1]["sha"] != self.head_sha:
+            raise self.StaleMetadataException(
+                "Head commit changed while collecting PR information."
+            )
 
-        If Binary data is desired, the `get_patch` method should be used instead.
-        """
-        response = client.session.get(self.diff_url)
-        response.raise_for_status()
+        # XXX: What happens if a commit has been committed in the past, but has only
+        # been pushed now?
+        if any(
+            self.client.convert_timestamp_from_github(
+                commit["commit"]["committer"]["date"]
+            )
+            > self.client.convert_timestamp_from_github(self.updated_at)
+            for commit in commits
+        ):
+            raise self.StaleMetadataException(
+                "Commits were added while collecting PR information."
+            )
 
-        return response.text
+        return commits
 
     @pr_cache_method
-    def get_labels(self, client: GitHubAPIClient) -> list:
+    def get_commit_comments(self) -> list:
+        """Return a list of comments on specific changes of the PR."""
+        commits_comments = self.client.get_pull_request_commits_comments(self.number)
+
+        if any(
+            self.client.convert_timestamp_from_github(comment["updated_at"])
+            > self.client.convert_timestamp_from_github(self.updated_at)
+            for comment in commits_comments
+        ):
+            raise self.StaleMetadataException(
+                "Comments were changed while collecting PR information."
+            )
+
+        return commits_comments
+
+    @property
+    def patch(self) -> str:
+        return self.client.get_patch(self.number)
+
+    @pr_cache_method
+    def labels(self) -> list:
         """Return a list of labels for the PR."""
-        # `issues` is correct here
-        labels = client.get(f"issues/{self.number}/labels")
+        labels = self.client.get_pull_request_labels(self.number)
+
+        # XXXX check for staleness
 
         return labels
 
-    def get_patch(self, client: GitHubAPIClient) -> str:
-        """Return a series of patches from the PR's commits.
-
-        Patches from each commit are concatenated into a single string.
-
-        This includes binary content, unlike `get_diff`.
-        """
-        response = client.session.get(self.patch_url)
-        response.raise_for_status()
-
-        return response.text
-
     @pr_cache_method
-    def get_reviews(self, client: GitHubAPIClient) -> list:
+    def reviews(self) -> list:
         """Return a list of reviews for the PR."""
-        reviews = client.get(f"pulls/{self.number}/reviews")
+        reviews = self.client.get_pull_request_reviews(self.number)
 
         if any(
-            client.convert_timestamp_from_github(review["submitted_at"])
-            > client.convert_timestamp_from_github(self.updated_at)
+            self.client.convert_timestamp_from_github(review["submitted_at"])
+            > self.client.convert_timestamp_from_github(self.updated_at)
             for review in reviews
         ):
             raise self.StaleMetadataException(
@@ -419,35 +541,69 @@ class PullRequest:
 
         return reviews
 
+    def serialize(self) -> dict[str, str]:
+        """Return a dictionary with various pull request data."""
+        return {
+            "url": self.url,
+            "base_ref": self.base_ref,
+            "base_sha": self.base_sha,
+            "base_user_login": self.base_user_login,
+            "base_user_id": self.base_user_id,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "closed_at": self.closed_at,
+            "merged_at": self.merged_at,
+            "diff_url": self.diff_url,
+            "patch_url": self.patch_url,
+            "body": self.body,
+            "is_draft": self.is_draft,
+            "comments_url": self.comments_url,
+            "commits_url": self.commits_url,
+            "head_ref": self.head_ref,
+            "head_sha": self.head_sha,
+            "head_repo_git_url": self.head_repo_git_url,
+            "html_url": self.html_url,
+            "id": self.id,
+            "number": self.number,
+            "requested_reviewers": self.requested_reviewers,
+            "requested_teams": self.requested_teams,
+            "state": self.state,
+            "title": self.title,
+            "user_id": self.user_id,
+            "user_html_url": self.user_html_url,
+            "user_login": self.user_login,
+        }
+
 
 class PullRequestPatchHelper(PatchHelper):
     """A PatchHelper-like wrapper for GitHub pull requests.
 
     Due to the nature of pull requests, it only implement the data-getting
-    functionality, and  doesn't implement the input and output
-    methods.
+    functionality, and doesn't implement the input and output methods.
     """
 
     _diff: str
 
-    def __init__(self, client: GitHubAPIClient, pr: PullRequest):
+    _author_name: str
+    _author_email: str
+
+    def __init__(self, pr: PullRequest):
         super().__init__()
 
-        self._diff = pr.get_diff(client)
+        self._diff = pr.diff
 
-        user = f"{pr.user_login}@github-pr"
-        # Consider the committer of the first patch to be the author.
-        patch = pr.get_patch(client)
-        for line in patch.splitlines():
-            if match := self.USERNAME_RE.match(line):
-                user = match["user"]
-                break
+        self._author_name, self._author_email = pr.author
 
         self.headers = {
-            "date": client.convert_timestamp_from_github(pr.updated_at),
-            "from": user,
+            "date": self._get_timestamp_from_github_timestamp(pr.updated_at),
+            "from": f"{self._author_name} <{self._author_email}>",
             "subject": pr.body.splitlines()[0] if pr.body else "",
         }
+
+    @classmethod
+    def _get_timestamp_from_github_timestamp(cls, timestamp: str) -> str:
+        timestamp_datetime = datetime.fromisoformat(timestamp)
+        return str(math.floor(timestamp_datetime.timestamp()))
 
     @classmethod
     def from_string_io(cls, string_io: io.StringIO) -> "PatchHelper":
@@ -479,9 +635,7 @@ class PullRequestPatchHelper(PatchHelper):
     @override
     def parse_author_information(self) -> tuple[str, str]:
         """Return the author name and email from the patch."""
-        line = f"From: {self.get_header('from')}"
-        match = self.USERNAME_RE.match(line)
-        return (match["name"], match["email"])
+        return (self._author_name, self._author_email)
 
     @override
     def get_timestamp(self) -> str:

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
@@ -7,6 +5,7 @@ from dataclasses import dataclass, field
 
 import requests
 import rs_parsepatch
+from typing_extensions import override
 
 from lando.api.legacy.bmo import (
     get_status_code_for_bug,
@@ -36,7 +35,28 @@ def wrap_filenames(filenames: list[str]) -> str:
 
 
 @dataclass
-class PatchCheck(ABC):
+class Check(ABC):
+    """A base class for checks, providing human-friendly identification attributes."""
+
+    @classmethod
+    @abstractmethod
+    def name(cls) -> str:
+        """Human-friendly name for this check.
+
+        This information should be used by other parts of the system to identify a
+        Check. The __class__ or __class__.__name__ MUST NOT be used as a susbstitute.
+        """
+        # XXX: Ideally, this should be a class property, but Python>3.11 deprecates
+        # them.
+
+    @classmethod
+    @abstractmethod
+    def description(cls) -> str:
+        """Human-friendly description for this check."""
+
+
+@dataclass
+class PatchCheck(Check, ABC):
     """Provides an interface to implement patch checks.
 
     When looping over each diff in the patch, `next_diff` is called to give the
@@ -61,6 +81,16 @@ class PatchCheck(ABC):
 class PreventSymlinksCheck(PatchCheck):
     """Check for symlinks introduced in the diff."""
 
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PreventSymlinksCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Check for symlinks introduced in the diff."
+
     symlinked_files: list[str] = field(default_factory=list)
 
     def next_diff(self, diff: dict):
@@ -84,6 +114,16 @@ class PreventSymlinksCheck(PatchCheck):
 class TryTaskConfigCheck(PatchCheck):
     """Check for `try_task_config.json` introduced in the diff."""
 
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "TryTaskConfigCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Check for `try_task_config.json` introduced in the diff."
+
     includes_try_task_config: bool = False
 
     def next_diff(self, diff: dict):
@@ -100,6 +140,16 @@ class TryTaskConfigCheck(PatchCheck):
 @dataclass
 class PreventNSPRNSSCheck(PatchCheck):
     """Prevent changes to vendored NSPR directories."""
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PreventNSPRNSSCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Prevent changes to vendored NSPR directories."
 
     nss_disallowed_changes: list[str] = field(default_factory=list)
     nspr_disallowed_changes: list[str] = field(default_factory=list)
@@ -157,6 +207,16 @@ class PreventNSPRNSSCheck(PatchCheck):
 class PreventSubmodulesCheck(PatchCheck):
     """Prevent introduction of Git submodules into the repository."""
 
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PreventSubmodulesCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Prevent introduction of Git submodules into the repository."
+
     includes_gitmodules: bool = False
 
     def next_diff(self, diff: dict):
@@ -209,7 +269,7 @@ class DiffAssessor:
 
 
 @dataclass
-class PatchCollectionCheck(ABC):
+class PatchCollectionCheck(Check, ABC):
     """Provides an interface to implement patch collection checks.
 
     When looping over each patch in the collection, `next_diff` is called to give the
@@ -231,6 +291,16 @@ class PatchCollectionCheck(ABC):
 @dataclass
 class CommitMessagesCheck(PatchCollectionCheck):
     """Check the format of the passed commit message for issues."""
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "CommitMessagesCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Check the format of the passed commit message for issues."
 
     ignore_bad_commit_message: bool = False
     commit_message_issues: list[str] = field(default_factory=list)
@@ -311,6 +381,16 @@ class CommitMessagesCheck(PatchCollectionCheck):
 class WPTSyncCheck(PatchCollectionCheck):
     """Check the WPTSync bot is only pushing changes to relevant subset of the tree."""
 
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "WPTSyncCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Check the WPTSync bot is only pushing changes to relevant subset of the tree."
+
     wpt_disallowed_files: list[str] = field(default_factory=list)
 
     def next_diff(self, patch_helper: PatchHelper):
@@ -344,6 +424,16 @@ BUG_REFERENCES_BMO_ERROR_TEMPLATE = (
 @dataclass
 class BugReferencesCheck(PatchCollectionCheck):
     """Prevent commit messages referencing non-public bugs from try."""
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "BugReferencesCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Prevent commit messages referencing non-public bugs from try."
 
     bug_ids: set[int] = field(default_factory=set)
     skip_check: bool = False
@@ -467,29 +557,28 @@ class LandingChecks:
 
     def run(
         self,
-        hooks: list[str] | list[type[PatchCheck] | type[PatchCollectionCheck]],
-        patches: list[PatchHelper],
+        hook_names: Iterable[str],
+        patches: Iterable[PatchHelper],
     ) -> list[str]:
         """Run landing checks on a stack of patches.
 
         Parameters:
 
-        hooks: list[str] | list[type[PatchCheck] | type[PatchCollectionCheck]]
-            Either
-                - a list of strings of check names, or
-                - a list of check types (e.g., ALL_STACK_CHECKS or ALL_COMMIT_CHECKS).
+        hook_names: Iterable[str]
+            a list of strings of check names
 
-        patches: list[PatchHelper]
+            Generally, use something like
+
+                [chk.name() for chk in ALL_CHECKS]
+
+        patches: Iterable[PatchHelper]
             a list of patches to check
 
         Returns:
             list[str]: a list of error messages.
         """
-        # Flatten the list of hooks to name strings.
-        hook_names = [chk if isinstance(chk, str) else chk.__name__ for chk in hooks]
-
-        commit_checks = [chk for chk in ALL_COMMIT_CHECKS if chk.__name__ in hook_names]
-        stack_checks = [chk for chk in ALL_STACK_CHECKS if chk.__name__ in hook_names]
+        commit_checks = [chk for chk in ALL_COMMIT_CHECKS if chk.name() in hook_names]
+        stack_checks = [chk for chk in ALL_STACK_CHECKS if chk.name() in hook_names]
 
         assessor = PatchCollectionAssessor(
             patches, push_user_email=self.requester_email

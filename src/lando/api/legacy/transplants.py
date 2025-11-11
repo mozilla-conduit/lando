@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import copy
 import functools
 import hashlib
@@ -8,7 +6,7 @@ import logging
 from collections import namedtuple
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Self
 
 import networkx as nx
 import requests
@@ -49,14 +47,14 @@ from lando.main.models import (
     LandingJob,
     Repo,
 )
-from lando.main.scm.helpers import (
+from lando.main.support import LegacyAPIException
+from lando.utils.landing_checks import (
     DiffAssessor,
     PreventNSPRNSSCheck,
     PreventSubmodulesCheck,
     PreventSymlinksCheck,
     TryTaskConfigCheck,
 )
-from lando.main.support import LegacyAPIException
 from lando.utils.phabricator import (
     PhabricatorClient,
     PhabricatorRevisionStatus,
@@ -98,7 +96,7 @@ class LandingAssessmentState:
         landing_path: list[tuple[int, int]],
         stack_data: RevisionData,
         lando_user: User,
-    ) -> LandingAssessmentState:
+    ) -> Self:
         landing_path_by_phid = convert_path_id_to_phid(landing_path, stack_data)
 
         to_land = [stack_data.revisions[r_phid] for r_phid, _ in landing_path_by_phid]
@@ -112,7 +110,7 @@ class LandingAssessmentState:
             for revision in to_land
         ]
 
-        return LandingAssessmentState(
+        return cls(
             lando_user=lando_user,
             landing_path_by_phid=landing_path_by_phid,
             to_land=to_land,
@@ -167,7 +165,7 @@ class StackAssessmentState:
         testing_tag_project_phids: list[str],
         testing_policy_phid: str,
         landing_assessment: Optional[LandingAssessmentState] = None,
-    ) -> StackAssessmentState:
+    ) -> Self:
         """Build a `StackAssessmentState` from passed arguments.
 
         Build any fields that are shared between checks but are derived from
@@ -186,7 +184,7 @@ class StackAssessmentState:
             for phid, revision in stack_data.revisions.items()
         }
 
-        return StackAssessmentState(
+        return cls(
             phab=phab,
             stack_data=stack_data,
             stack=stack,

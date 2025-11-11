@@ -1,4 +1,6 @@
 import json
+from collections import defaultdict
+from datetime import datetime
 from functools import wraps
 from typing import Callable
 
@@ -9,19 +11,26 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from lando.main.models import CommitMap, Repo
+from lando.main.models import (
+    CommitMap,
+    JobStatus,
+    LandingJob,
+    Repo,
+    Revision,
+    add_revisions_to_job,
+)
+from lando.main.models.landing_job import get_jobs_for_pull
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.main.scm import (
     SCM_TYPE_GIT,
     SCM_TYPE_HG,
 )
-from lando.main.scm.helpers import BugReferencesCheck
-from lando.utils.github import GitHubAPIClient, PullRequest, PullRequestPatchHelper
+from lando.utils.github import GitHubAPIClient, PullRequestPatchHelper
 from lando.utils.github_checks import (
     ALL_PULL_REQUEST_BLOCKERS,
     PullRequestChecks,
 )
-from lando.utils.landing_checks import ALL_CHECKS, LandingChecks
+from lando.utils.landing_checks import ALL_CHECKS, BugReferencesCheck, LandingChecks
 from lando.utils.phabricator import get_phabricator_client
 
 
@@ -45,7 +54,7 @@ def phabricator_api_key_required(func: callable) -> Callable:
         has_valid_token = client.verify_api_token()
 
         if not has_valid_token:
-            return JsonResponse({}, 401)
+            return JsonResponse({"error": "Invalid Phabricator API token."}, status=401)
 
         return func(self, request, *args, **kwargs)
 
@@ -163,31 +172,95 @@ class hg2gitCommitMapView(CommitMapBaseView):
     scm = SCM_TYPE_HG
 
 
-class PullRequestAPIView(APIView):
-    """Handle pull requests in the API."""
+class LandingJobPullRequestAPIView(View):
+    """Handle pull request landing jobs in the API."""
 
-    def get(self, request: WSGIRequest, repo_name: str, number: int) -> JsonResponse:
-        """Return a serialized JSON representation of a pull request."""
+    def get(
+        self, request: WSGIRequest, repo_name: int, pull_number: int
+    ) -> JsonResponse:
+        """Return the status of a pull request based on landing job counts."""
+
         target_repo = Repo.objects.get(name=repo_name)
-        client = GitHubAPIClient(target_repo)
-        pull_request = PullRequest(client.get_pull_request(number))
-        return JsonResponse(pull_request.serialize(), status=200)
+        landing_jobs = get_jobs_for_pull(target_repo, pull_number)
+        landing_jobs_by_status = defaultdict(list)
+        for landing_job in landing_jobs:
+            landing_jobs_by_status[landing_job.status].append(landing_job.id)
+
+        status = None
+        # Return the first encountered status in this list.
+        for _status in [
+            JobStatus.LANDED,
+            JobStatus.CREATED,
+            JobStatus.SUBMITTED,
+            JobStatus.IN_PROGRESS,
+            JobStatus.FAILED,
+        ]:
+            if landing_jobs_by_status[_status]:
+                status = str(_status).lower()
+                break
+
+        return JsonResponse({"status": status}, status=200)
+
+    def post(
+        self, request: WSGIRequest, repo_name: int, pull_number: int
+    ) -> JsonResponse:
+        """Create a new landing job for a pull request."""
+
+        class Form(forms.Form):
+            """Simple form to get clean some fields."""
+
+            head_sha = forms.CharField()
+            # TODO: use this for verification later, see bug 1996571.
+            # base_ref = forms.CharField()
+
+        target_repo = Repo.objects.get(name=repo_name)
+        client = GitHubAPIClient(target_repo.url)
+        ldap_username = request.user.email
+        pull_request = client.build_pull_request(pull_number)
+        form = Form(json.loads(request.body))
+
+        if not form.is_valid():
+            return JsonResponse(form.errors, 400)
+
+        # TODO: this does not work with binary data, must use patch instead.
+        # See bug 1993047.
+        diff = client.get_diff(pull_number)
+        job = LandingJob.objects.create(
+            target_repo=target_repo, requester_email=ldap_username
+        )
+        revision = Revision.objects.create(pull_number=pull_request.number)
+        author_name, author_email = pull_request.author
+        patch_data = {
+            "author_name": author_name,
+            "author_email": author_email,
+            "commit_message": pull_request.title,
+            "timestamp": int(datetime.now().timestamp()),
+        }
+        revision.set_patch(diff, patch_data)
+        revision.save()
+        add_revisions_to_job([revision], job)
+        job.status = JobStatus.SUBMITTED
+        job.save()
+
+        return JsonResponse({"id": job.id}, status=201)
 
 
 class PullRequestChecksAPIView(APIView):
     def get(self, request: WSGIRequest, repo_name: str, number: int) -> JsonResponse:
         target_repo = Repo.objects.get(name=repo_name)
-        client = GitHubAPIClient(target_repo)
-        pull_request = PullRequest(client.get_pull_request(number))
+        client = GitHubAPIClient(target_repo.url)
+        pull_request = client.build_pull_request(number)
 
-        patch_helper = PullRequestPatchHelper(client, pull_request)
+        patch_helper = PullRequestPatchHelper(pull_request)
 
-        landing_checks = LandingChecks(f"{pull_request.user_login}@github-pr")
+        _, author_email = pull_request.author
+
+        landing_checks = LandingChecks(author_email)
         checks = [
-            chk.__name__
+            chk.name()
             for chk in ALL_CHECKS
             # This is checking for secure revisions in BMO. We skip this for now.
-            if chk.__name__ != BugReferencesCheck.__name__
+            if chk.name() != BugReferencesCheck.name()
         ]
         blockers = landing_checks.run(
             checks,
@@ -195,15 +268,7 @@ class PullRequestChecksAPIView(APIView):
         )
 
         pr_checks = PullRequestChecks(client, target_repo, request)
-
-        blockers += pr_checks.run(ALL_PULL_REQUEST_BLOCKERS, pull_request)
+        pr_blockers = [chk.name() for chk in ALL_PULL_REQUEST_BLOCKERS]
+        blockers += pr_checks.run(pr_blockers, pull_request)
 
         return JsonResponse({"blockers": blockers, "warnings": []})
-
-
-class LandingJobAPIView(View):
-    """Handle landing jobs in the API."""
-
-    def post(self, request: WSGIRequest, *args, **kwargs):  # noqa: ANN201
-        """Placeholder for creating new landing jobs."""
-        pass

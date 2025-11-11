@@ -6,16 +6,16 @@ from typing_extensions import override
 
 from lando.main.models.repo import Repo
 from lando.utils.github import GitHubAPIClient, PullRequest
+from lando.utils.landing_checks import Check
 
 logger = logging.getLogger("__name__")
 
 
-class PullRequestCheck(ABC):
+class PullRequestCheck(Check, ABC):
     @classmethod
     @abstractmethod
     def run(
         cls,
-        client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
         request: HttpRequest,
@@ -37,9 +37,18 @@ class PullRequestUserSCMLevelBlocker(PullRequestBlocker):
 
     @override
     @classmethod
+    def name(cls) -> str:
+        return "PullRequestUserSCMLevelBlocker"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "You have insufficient permissions to land or your access has expired."
+
+    @override
+    @classmethod
     def run(
         cls,
-        client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
         request: HttpRequest,
@@ -77,9 +86,18 @@ class PullRequestClosedBlocker(PullRequestBlocker):
 
     @override
     @classmethod
+    def name(cls) -> str:
+        return "PullRequestClosedBlocker"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Revision is closed."
+
+    @override
+    @classmethod
     def run(
         cls,
-        client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
         request: HttpRequest,
@@ -106,14 +124,23 @@ class PullRequestDiffAuthorIsKnownBlocker(PullRequestBlocker):
 
     @override
     @classmethod
+    def name(cls) -> str:
+        return "PullRequestDiffAuthorIsKnownBlocker"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Commit does not have proper author information."
+
+    @override
+    @classmethod
     def run(
         cls,
-        client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
-        commits = pull_request.get_commits(client)
+        commits = pull_request.commits
 
         messages = []
 
@@ -134,9 +161,18 @@ class PullRequestAuthorPlannedChangesBlocker(PullRequestBlocker):
 
     @override
     @classmethod
+    def name(cls) -> str:
+        return "PullRequestAuthorPlannedChangesBlocker"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "The author has indicated they are planning changes to this revision."
+
+    @override
+    @classmethod
     def run(
         cls,
-        client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
         request: HttpRequest,
@@ -152,9 +188,18 @@ class PullRequestUpliftApprovalBlocker(PullRequestBlocker):
 
     @override
     @classmethod
+    def name(cls) -> str:
+        return "PullRequestUpliftApprovalBlocker"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "The release-managers group did not accept the stack."
+
+    @override
+    @classmethod
     def run(
         cls,
-        client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
         request: HttpRequest,
@@ -167,15 +212,24 @@ class PullRequestRevisionDataClassificationBlocker(PullRequestBlocker):
 
     @override
     @classmethod
+    def name(cls) -> str:
+        return "PullRequestRevisionDataClassificationBlocker"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Revision makes changes to data collection and should have its data classification assessed before landing."
+
+    @override
+    @classmethod
     def run(
         cls,
-        client: GitHubAPIClient,
         pull_request: PullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
         if "needs-data-classification" in [
-            label["name"] for label in pull_request.get_labels(client)
+            label["name"] for label in pull_request.labels()
         ]:
             return [cls.__doc__]
 
@@ -190,6 +244,9 @@ class PullRequestRevisionDataClassificationBlocker(PullRequestBlocker):
 #     @classmethod
 #     def run(cls, client: GitHubAPIClient, pull_request: PullRequest, target_repo: Repo, request: HttpRequest, request: HttpRequest) -> list[str]:
 #         raise NotImplementedError
+
+ALL_PULL_REQUEST_BLOCKERS = PullRequestBlocker.__subclasses__()
+ALL_PULL_REQUEST_CHECKS = ALL_PULL_REQUEST_BLOCKERS
 
 
 class PullRequestChecks:
@@ -209,25 +266,20 @@ class PullRequestChecks:
         self._target_repo = target_repo
         self._request = request
 
-    def run(
-        self, checks_list: list[type[PullRequestCheck]], pull_request: PullRequest
-    ) -> list[str]:
+    def run(self, checks_list: list[str], pull_request: PullRequest) -> list[str]:
         messages = []
 
-        for check in checks_list:
+        for check in [
+            chk for chk in ALL_PULL_REQUEST_CHECKS if chk.name() in checks_list
+        ]:
             try:
-                if outcome := check.run(
-                    self._client, pull_request, self._target_repo, self._request
-                ):
+                if outcome := check.run(pull_request, self._target_repo, self._request):
                     messages.extend(outcome)
             except NotImplementedError:
-                messages.append(f"{check.__name__} is not implemented")
+                messages.append(f"{check.name()} is not implemented")
 
             except Exception as exc:
                 logger.exception(exc)
-                messages.append(f"{check.__name__} failed to run with error: {exc}")
+                messages.append(f"{check.name()} failed to run with error: {exc}")
 
         return messages
-
-
-ALL_PULL_REQUEST_BLOCKERS = PullRequestBlocker.__subclasses__()

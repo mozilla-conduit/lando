@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 
 from lando.api.legacy.workers.automation_worker import AutomationWorker

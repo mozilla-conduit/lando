@@ -12,6 +12,9 @@ from lando.main.scm import (
     SCM_TYPE_GIT,
     SCM_TYPE_HG,
 )
+from lando.utils.landing_checks import (
+    ALL_CHECKS,
+)
 
 DIFF_ONLY = """
 diff --git a/test.txt b/test.txt
@@ -342,3 +345,35 @@ def test__models__CommitMap__fetch_push_data_invalid_response(commit_maps, monke
         "Number of hg changesets does not match number of git changesets: 2 vs 1",
     )
     assert CommitMap.objects.all().count() == previous_commit_map_count
+
+
+def test_hook_choices_all_checks():
+    """Ensure that all existing checks are available as configurable hooks."""
+    # If some checks should not be available as hook choices, list their name here.
+    disabled_checks = [
+        # BugReferencesCheck.name()
+    ]
+
+    missing_hooks = [
+        check.name()
+        for check in ALL_CHECKS
+        if check.name() not in Repo.HooksChoices and check.name() not in disabled_checks
+    ]
+    assert (
+        not missing_hooks
+    ), f"Some landing checks are not available as hook choices: {missing_hooks}"
+
+    missing_checks = [
+        hook.name
+        for hook in Repo.HooksChoices
+        if hook not in ([check.name() for check in ALL_CHECKS] + disabled_checks)
+    ]
+    assert (
+        not missing_checks
+    ), f"Some hook choices refer to non-existent or disabled checks: {missing_checks}"
+
+    check_dict = {check.name(): check.description() for check in ALL_CHECKS}
+    for hook in Repo.HooksChoices:
+        assert (
+            hook.label == check_dict[hook.name]
+        ), f"Hook choice label doesn't match check description for {hook.name}"
