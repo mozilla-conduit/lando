@@ -361,18 +361,34 @@ class PullRequest:
         pass
 
     class Mergeability(str, Enum):
-        CLEAN = "clean"
-        DIRTY = "dirty"  # conflicts
-        UNSTABLE = "unstable"  # checks failing
-        BLOCKED = "blocked"  # blocking rule not satisfied
-        UNKNOWN = "unknown"
-        DRAFT = "draft"
+        """Mergeability of a PR.
+
+        This is not documented for the REST API, but the GraphQL doc has some details
+        [0].
+
+        [0] https://docs.github.com/en/graphql/reference/enums#mergestatestatus
+        """
+
+        BEHIND = "behind"  # The head ref is out of date.
+        BLOCKED = "blocked"  # The merge is blocked.
+        CLEAN = "clean"  # Mergeable and passing commit status.
+        DIRTY = "dirty"  # The merge commit cannot be cleanly created.
+        DRAFT = "draft"  # The merge is blocked due to the pull request being a draft.
+        HAS_HOOKS = (
+            "has_hooks"  # Mergeable with passing commit status and pre-receive hooks.
+        )
+        UNKNOWN = "unknown"  # The state cannot currently be determined.
+        UNSTABLE = "unstable"  # Mergeable with non-passing commit status.
 
     class State(str, Enum):
+        """State of a PR."""
+
         OPEN = "open"
         CLOSED = "closed"
 
     class Review(str, Enum):
+        """Type of a review on a PR."""
+
         APPROVED = "APPROVED"
         CHANGES_REQUESTED = "CHANGES_REQUESTED"
         DISMISSED = "DISMISSED"
