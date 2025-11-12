@@ -1,107 +1,106 @@
 <div class="uplift-request-modal modal">
-  <form action="{{ url('uplift-page') }}" method="post">
-
-  <div class="modal-background"></div>
-
-  <div class="modal-card">
-      {{ csrf_input }}
-
-      <header class="modal-card-head">
-          <p class="modal-card-title">Request uplift</p>
-          <button class="uplift-request-close delete" aria-label="close" type="button"></button>
-      </header>
-
-      <section class="modal-card-body">
-        {% if not user_has_phabricator_token %}
-            {% include "stack/partials/uplift-phab-api-key-warning.html" %}
-        {% endif %}
-
-        {% if revision_repo and revision_repo.approval_required %}
-        <article class="message is-warning">
-          <div class="message-header">
-            <p>Action Creates New Phabricator Revisions</p>
-          </div>
-          <div class="message-body">
-            Submitting this uplift request queues jobs for every selected repository
-            and creates the corresponding uplift revisions automatically. If you
-            only need to update the assessment form for this revision, use the
-            "Edit Uplift Assessment" button instead.
-          </div>
-        </article>
-        {% endif %}
-
-        <p class="block">
-            Select the repositories you wish to uplift to and complete the assessment
-            form below. Lando will check your patch for merge conflicts and create new
-            uplift revisions in Phabricator if they apply cleanly. You will be notified
-            of merge conflicts which must be resolved manually and submitted with
-            <code>moz-phab</code>.
-        </p>
-
-        <div class="block">
-            <a class="button" target="_blank" type="button" href="https://wiki.mozilla.org/index.php?title=Release_Management/Requesting_an_Uplift">
-              <span class="icon">
-                <i class="fa fa-question-circle"></i>
-              </span>
-              <span>Uplift request documentation</span>
-            </a>
+    <form action="{{ url('uplift-page') }}" method="post">
+        <div class="modal-background">
         </div>
-
-        {{ uplift_request_form.source_revisions }}
-        {% set requested_revision_ids = uplift_request_form.source_revisions.value() or [] %}
-        {% if requested_revision_ids %}
-        <div class="field">
-          <label class="label">Revisions to uplift</label>
-          <div class="control">
-            <ul class="content">
-              {% set revision_ns = namespace(display_id="") %}
-              {% for revision_id in requested_revision_ids %}
-                {% set revision_ns.display_id = revision_id|string %}
-                {% if not revision_ns.display_id.startswith("D") %}
-                  {% set revision_ns.display_id = "D" ~ revision_ns.display_id %}
+        <div class="modal-card">
+            {{ csrf_input }}
+            <header class="modal-card-head">
+                <p class="modal-card-title">
+                    Request uplift
+                </p>
+                <button class="uplift-request-close delete" aria-label="close" type="button">
+                </button>
+            </header>
+            <section class="modal-card-body">
+                {% if not user_has_phabricator_token %}
+                    {% include "stack/partials/uplift-phab-api-key-warning.html" %}
                 {% endif %}
-                {% set revision = revisions.values() | selectattr("id", "equalto", revision_ns.display_id) | first %}
-                <li>
-                  <strong>{{ revision_ns.display_id }}</strong>
-                  {% if revision %}
-                    — {{ revision.title }}
-                  {% endif %}
-                </li>
-              {% endfor %}
-            </ul>
-          </div>
-        </div>
-        {% endif %}
-
-        <div class="field">
-            <label class="label">Uplift repositories</label>
-            <div class="control">
-                {% for checkbox in uplift_request_form.repositories %}
-                    <label class="checkbox">
-                        {{ checkbox }}
+                {% if revision_repo and revision_repo.approval_required %}
+                    <article class="message is-warning">
+                        <div class="message-header">
+                            <p>
+                                Action Creates New Phabricator Revisions
+                            </p>
+                        </div>
+                        <div class="message-body">
+                            Submitting this uplift request queues jobs for every selected repository
+                            and creates the corresponding uplift revisions automatically. If you
+                            only need to update the assessment form for this revision, use the
+                            "Edit Uplift Assessment" button instead.
+                        </div>
+                    </article>
+                {% endif %}
+                <p class="block">
+                    Select the repositories you wish to uplift to and complete the assessment
+                    form below. Lando will check your patch for merge conflicts and create new
+                    uplift revisions in Phabricator if they apply cleanly. You will be notified
+                    of merge conflicts which must be resolved manually and submitted with
+                    <code>moz-phab</code>.
+                </p>
+                <div class="block">
+                    <a class="button"
+                       target="_blank"
+                       type="button"
+                       href="https://wiki.mozilla.org/index.php?title=Release_Management/Requesting_an_Uplift">
+                        <span class="icon">
+                            <i class="fa fa-question-circle"></i>
+                        </span>
+                        <span>Uplift request documentation</span>
+                    </a>
+                </div>
+                {{ uplift_request_form.source_revisions }}
+                {% set requested_revision_ids = uplift_request_form.source_revisions.value() or [] %}
+                {% if requested_revision_ids %}
+                    <div class="field">
+                        <label class="label">
+                            Revisions to uplift
+                        </label>
+                        <div class="control">
+                            <ul class="content">
+                                {% set revision_ns = namespace(display_id="") %}
+                                {% for revision_id in requested_revision_ids %}
+                                    {% set revision_ns.display_id = revision_id|string %}
+                                    {% if not revision_ns.display_id.startswith("D") %}
+                                        {% set revision_ns.display_id = "D" ~ revision_ns.display_id %}
+                                    {% endif %}
+                                    {% set revision = revisions.values() | selectattr("id", "equalto", revision_ns.display_id) | first %}
+                                    <li>
+                                        <strong>{{ revision_ns.display_id }}</strong>
+                                        {% if revision %}
+                                            — {{ revision.title }}
+                                        {% endif %}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                {% endif %}
+                <div class="field">
+                    <label class="label">
+                        Uplift repositories
                     </label>
-                {% endfor %}
-            </div>
-            <p class="help">
-              Uplift jobs will be created for every repository you select here.
-            </p>
-        </div>
-
-        {% with assessment_form = uplift_request_form %}
-            {% include "stack/partials/uplift-assessment.html" %}
-        {% endwith %}
-
-      </section>
-
-      {% set can_uplift_revision = user_is_authenticated and user_has_phabricator_token %}
-      <footer class="modal-card-foot">
-          <button
-            class="button is-success"
-            {% if not can_uplift_revision %}disabled{% endif %}
-            title="{% if not can_uplift_revision %}Requesting uplift is blocked. See the error messages above for more detail.{% else %}Create Phabricator review requests for the selected patch stack to land in the specified uplift train.{% endif %}">
-            Create uplift request
-          </button>
-      </footer>
-
-      </form>
-  </div>
+                    <div class="control">
+                        {% for checkbox in uplift_request_form.repositories %}
+                            <label class="checkbox">
+                                {{ checkbox }}
+                            </label>
+                        {% endfor %}
+                    </div>
+                    <p class="help">
+                        Uplift jobs will be created for every repository you select here.
+                    </p>
+                </div>
+                {% with assessment_form = uplift_request_form %}
+                    {% include "stack/partials/uplift-assessment.html" %}
+                {% endwith %}
+            </section>
+            {% set can_uplift_revision = user_is_authenticated and user_has_phabricator_token %}
+            <footer class="modal-card-foot">
+                <button class="button is-success"
+                        {% if not can_uplift_revision %}disabled{% endif %}
+                        title="{% if not can_uplift_revision %}Requesting uplift is blocked. See the error messages above for more detail.{% else %}Create Phabricator review requests for the selected patch stack to land in the specified uplift train.{% endif %}">
+                    Create uplift request
+                </button>
+            </footer>
+        </form>
+    </div>

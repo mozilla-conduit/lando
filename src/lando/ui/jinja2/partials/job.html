@@ -1,65 +1,84 @@
 {% set embedded = embedded|default(True) %}
-
 <div class="StackPage-timeline-item">
-  <div class="StackPage-timeline-itemStatus">
-    <span class="{{ job|tostatusbadgeclass }}">{{ job|tostatusbadgename}}</span>
-  </div>
-
-  <div class="StackPage-timeline-itemDetail">
-    <p>Landing requested on <time data-timestamp="{{ job.created_at }}"></time>, by {{ job.requester_email }}.</p>
-    {% if embedded %}
-    <p><strong>Landing Job:</strong>
-      <a href="{{ url('jobs-page', args=[job.id]) }}">{{ job.id }}</a>
-    </p>
-    {% elif job.revisions %}
-      {% set top_revision = job.revisions[0] %}
-      {% if top_revision.revision_id %}
-      <p><strong>Stack:</strong>
-        <a href="{{ url('revisions-page', args=[top_revision.revision_id]) }}">D{{ top_revision.revision_id }}</a>
-      </p>
-      {% endif %}
-    {% endif %}
-    {% if job.revisions %}
-    <p><strong>Revisions:</strong>
-      {% for i in job.serialized_landing_path -%}
-      {{- "" if loop.first else " ← " -}}
-      <a href="{{ i['revision_id']|revision_url(diff_id=i['diff_id']) }}">
-        {{ i['revision_id'] }}{% if i['diff_id'] %} diff {{ i['diff_id'] }}{% endif %}
-      </a>
-      {%- endfor %}
-    </p>
-    {% endif %}
-    {% include "partials/error-breakdown.html" %}
-    <div>
-      {% if job.duration|default(None) %}
-      <p><strong>Duration:</strong> {{ job.duration }}s</p>
-      {% endif %}
-      <p><strong>Last update:</strong> <time data-timestamp="{{ job.updated_at }}"></time></p>
-
-      {% if job.status.lower() == 'landed' and job.landed_commit_id %}
-      <p><strong>Result:</strong> {{ job.landed_commit_id|escape_html|linkify_transplant_details(job)|safe }} on {{ job.target_repo }}</p>
-      <p><strong>Links:</strong> {{ treeherder_link(job.landed_treeherder_revision, "Treeherder")|safe }}</p>
-
-      {% elif job.status.lower() == 'submitted' and treestatus and not embedded %}
-      <div>
-        <p><strong>Tree Status for <code>{{treestatus.repo}}</code>:</strong> {{ treestatus.status }} ({{treestatus.reason }})</p>
-      </div>
-
-      {% elif job.error%}
-      <div class="StackPage-timeline-item-error">
-        {% if job.error_breakdown %}
-        <div><button type="button" class="is-light button toggle-content">Show raw error output</button></div>
-        <pre class="hidden-content"><strong>Raw error output:</strong>{{ "\n" + job.error}}</pre>
-        {% else %}
-        <pre><strong>Raw error output:</strong>{{ "\n" + job.error}}</pre>
-        {% endif %}
-      </div>
-      {% endif %}
-
-      {% if job.status in ("SUBMITTED", "DEFERRED") %}
-      <button data-landing_job_id="{{ job.id }}" class="cancel-landing-job button is-small is-danger"
-        data-csrf-token="{{ csrf_token }}">Cancel landing request</button>
-      {% endif %}
+    <div class="StackPage-timeline-itemStatus">
+        <span class="{{ job|tostatusbadgeclass }}">{{ job|tostatusbadgename }}</span>
     </div>
-  </div>
+    <div class="StackPage-timeline-itemDetail">
+        <p>
+            Landing requested on <time data-timestamp="{{ job.created_at }}"></time>, by {{ job.requester_email }}.
+        </p>
+        {% if embedded %}
+            <p>
+                <strong>Landing Job:</strong>
+                <a href="{{ url('jobs-page', args=[job.id]) }}">{{ job.id }}</a>
+            </p>
+        {% elif job.revisions %}
+            {% set top_revision = job.revisions[0] %}
+            {% if top_revision.revision_id %}
+                <p>
+                    <strong>Stack:</strong>
+                    <a href="{{ url('revisions-page', args=[top_revision.revision_id]) }}">D{{ top_revision.revision_id }}</a>
+                </p>
+            {% endif %}
+        {% endif %}
+        {% if job.revisions %}
+            <p>
+                <strong>Revisions:</strong>
+                {% for i in job.serialized_landing_path -%}
+                    {{- "" if loop.first else " ← " -}}
+                    <a href="{{ i['revision_id']|revision_url(diff_id=i['diff_id']) }}">
+                        {{ i['revision_id'] }}
+                        {% if i['diff_id'] %}
+                            diff {{ i['diff_id'] }}
+                        {% endif %}
+                    </a>
+                {%- endfor %}
+            </p>
+        {% endif %}
+        {% include "partials/error-breakdown.html" %}
+        <div>
+            {% if job.duration|default(None) %}
+                <p>
+                    <strong>Duration:</strong> {{ job.duration }}s
+                </p>
+            {% endif %}
+            <p>
+                <strong>Last update:</strong> <time data-timestamp="{{ job.updated_at }}"></time>
+            </p>
+            {% if job.status.lower() == 'landed' and job.landed_commit_id %}
+                <p>
+                    <strong>Result:</strong> {{ job.landed_commit_id|escape_html|linkify_transplant_details(job) |safe }} on {{ job.target_repo }}
+                </p>
+                <p>
+                    <strong>Links:</strong> {{ treeherder_link(job.landed_treeherder_revision, "Treeherder") |safe }}
+                </p>
+            {% elif job.status.lower() == 'submitted' and treestatus and not embedded %}
+                <div>
+                    <p>
+                        <strong>Tree Status for <code>{{ treestatus.repo }}</code>:</strong> {{ treestatus.status }} ({{ treestatus.reason }})
+                    </p>
+                </div>
+            {% elif job.error %}
+                <div class="StackPage-timeline-item-error">
+                    {% if job.error_breakdown %}
+                        <div>
+                            <button type="button" class="is-light button toggle-content">
+                                Show raw error output
+                            </button>
+                        </div>
+                        <pre class="hidden-content"><strong>Raw error output:</strong>{{ "\n" + job.error}}</pre>
+                    {% else %}
+                        <pre><strong>Raw error output:</strong>{{ "\n" + job.error}}</pre>
+                    {% endif %}
+                </div>
+            {% endif %}
+            {% if job.status in ("SUBMITTED", "DEFERRED") %}
+                <button data-landing_job_id="{{ job.id }}"
+                        class="cancel-landing-job button is-small is-danger"
+                        data-csrf-token="{{ csrf_token }}">
+                    Cancel landing request
+                </button>
+            {% endif %}
+        </div>
+    </div>
 </div>

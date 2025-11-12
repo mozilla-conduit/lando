@@ -1,121 +1,141 @@
 {% if dryrun is none %}
-  <h3 class="StackPage-landingPreview-sectionLabel">Landing is Blocked</h3>
-  <div class="StackPage-landingPreview-section StackPage-landingPreview-blocker">
-    Reason for blockage is unknown
-  </div>
-{% elif dryrun['blocker'] or dryrun['blockers'] %}
-  {% set blocker = dryrun['blockers'][0] if 'blockers' in dryrun else dryrun['blocker'] %}
-  <h3 class="StackPage-landingPreview-sectionLabel">Landing is Blocked</h3>
-  <div class="StackPage-landingPreview-section StackPage-landingPreview-blocker">
-    {{ blocker|escape_html|linkify_faq|safe }}
-  </div>
-{% elif series %}
-  <h3 class="StackPage-landingPreview-sectionLabel">
-    Landing To: &nbsp;
-    <a class="StackPage-landingPreview-landingTo" href="{{ target_repo|repo_branch_url }}">
-        {{target_repo.name}}
-        {% if target_repo.default_branch %}({{ target_repo.default_branch }}){% endif %}
-    </a>
-  {% if target_repo.legacy_source %}
-  <br>
-    Legacy Source Repo: &nbsp;
-    <a class="StackPage-landingPreview-landingTo" href="{{ target_repo.legacy_source['url'] }}">
-      {{ target_repo.legacy_source['url'] }}
-    </a>
-  {% endif %}
-  </h3>
-
-  <div class="StackPage-landingPreview-sectionHeader">
-    <h3 class="StackPage-landingPreview-sectionLabel">Commits:</h3>
-    <div>
-      <button class="StackPage-landingPreview-expandAll button">Show All</button>
-      <button class="StackPage-landingPreview-collapseAll button">Hide All</button>
+    <h3 class="StackPage-landingPreview-sectionLabel">
+        Landing is Blocked
+    </h3>
+    <div class="StackPage-landingPreview-section StackPage-landingPreview-blocker">
+        Reason for blockage is unknown
     </div>
-  </div>
-  <div class="StackPage-landingPreview-section StackPage-landingPreview-commitList">
-  {% for phid in series %}
-  {% set revision = revisions[phid] %}
-    {% if not loop.first %}<hr>{% endif %}
-    <div class="StackPage-landingPreview-revision">
-      <div class="StackPage-landingPreview-commitDetails">
-        <div>
-          <a href="{{revision['url']}}?id={{revision['diff']['id']}}">
-            {{revision['id']}} Diff {{revision['diff']['id']}}
-          </a>
-          - commit author
-          <strong>
-            {{revision['diff']['author']['name'] or 'Unknown'}}
-            {% if revision['diff']['author']['email'] %}
-              &lt;{{revision['diff']['author']['email']}}&gt;
+{% elif dryrun['blocker'] or dryrun['blockers'] %}
+    {% set blocker = dryrun['blockers'][0] if 'blockers' in dryrun else dryrun['blocker'] %}
+    <h3 class="StackPage-landingPreview-sectionLabel">
+        Landing is Blocked
+    </h3>
+    <div class="StackPage-landingPreview-section StackPage-landingPreview-blocker">
+        {{ blocker|escape_html|linkify_faq|safe }}
+    </div>
+{% elif series %}
+    <h3 class="StackPage-landingPreview-sectionLabel">
+        Landing To: &nbsp;
+        <a class="StackPage-landingPreview-landingTo"
+           href="{{ target_repo|repo_branch_url }}">
+            {{ target_repo.name }}
+            {% if target_repo.default_branch %}
+                ({{ target_repo.default_branch }})
             {% endif %}
-          </strong>
+        </a>
+        {% if target_repo.legacy_source %}
+            <br>
+            Legacy Source Repo: &nbsp;
+            <a class="StackPage-landingPreview-landingTo"
+               href="{{ target_repo.legacy_source['url'] }}">{{ target_repo.legacy_source['url'] }}</a>
+        {% endif %}
+    </h3>
+    <div class="StackPage-landingPreview-sectionHeader">
+        <h3 class="StackPage-landingPreview-sectionLabel">
+            Commits:
+        </h3>
+        <div>
+            <button class="StackPage-landingPreview-expandAll button">
+                Show All
+            </button>
+            <button class="StackPage-landingPreview-collapseAll button">
+                Hide All
+            </button>
         </div>
-        <button class="StackPage-landingPreview-expand button"></button>
-      </div>
-      <div class="StackPage-landingPreview-displayMessagePanel">
-        <pre class="StackPage-landingPreview-commitMessage">{{
+    </div>
+    <div class="StackPage-landingPreview-section StackPage-landingPreview-commitList">
+        {% for phid in series %}
+            {% set revision = revisions[phid] %}
+            {% if not loop.first %}
+                <hr>
+            {% endif %}
+            <div class="StackPage-landingPreview-revision">
+                <div class="StackPage-landingPreview-commitDetails">
+                    <div>
+                        <a href="{{ revision['url'] }}?id={{ revision['diff']['id'] }}">
+                            {{ revision['id'] }} Diff {{ revision['diff']['id'] }}
+                        </a>
+                        - commit author
+                        <strong>
+                            {{ revision['diff']['author']['name'] or 'Unknown' }}
+                            {% if revision['diff']['author']['email'] %}
+                                &lt;{{ revision['diff']['author']['email'] }}&gt;
+                            {% endif %}
+                        </strong>
+                    </div>
+                    <button class="StackPage-landingPreview-expand button">
+                    </button>
+                </div>
+                <div class="StackPage-landingPreview-displayMessagePanel">
+                    <pre class="StackPage-landingPreview-commitMessage">{{
         revision['commit_message']|escape_html|linkify_bug_numbers|linkify_revision_urls|safe
       }}</pre>
-        <div class="StackPage-landingPreview-seeMore"></div>
-      </div>
-    </div>
-  {% endfor %}
-  </div>
-
-  {% if target_repo.commit_flags %}
-  <h3 class="StackPage-landingPreview-sectionLabel">Advanced settings:</h3>
-  <div class="StackPage-landingPreview-section">
-      Flags selected below will be appended to the title of all commit messages in the stack if they are not present already.
-      {% for flag in flags %}
-        <ul>
-            <li>
-                <label class="checkbox">
-                    <input
-                        {% if existing_flags[flag[0]] %}disabled checked{% endif %}
-                        class="flag-checkbox"
-                        data-flag="{{ flag[0] }}"
-                        type="checkbox"
-                        value="{{ flag[0] }}">
-                    <strong>{{ flag[0] }}</strong>: {{ flag[1] }}
-                </label>
-            </li>
-        </ul>
-      {% endfor %}
-  </div>
-  {% endif %}
-
-  <h3 class="StackPage-landingPreview-sectionLabel">Warnings:</h3>
-  <div class="StackPage-landingPreview-section StackPage-landingPreview-warnings">
-    {% if dryrun['warnings'] %}
-    <ul class="StackPage-landingPreview-warningsList">
-      {% for warning in dryrun['warnings'] %}
-        {% if warning.articulated %}
-        {% for w in warning.instances %}
-            {% for dw in w.details %}
-            <li class="StackPage-landingPreview-warning">
-              <label>
-                <input type="checkbox" name="warnings[]" value="1" />
-                {{ dw.message|escape_html|linkify_bug_numbers|linkify_revision_urls|linkify_faq|linkify_sec_bug_docs|safe }}
-                [{{ w.revision_id | linkify_revision_ids | safe }}]
-              </label>
-            </li>
-            {% endfor %}
+                    <div class="StackPage-landingPreview-seeMore">
+                    </div>
+                </div>
+            </div>
         {% endfor %}
-        {% else %}
-        <li class="StackPage-landingPreview-warning">
-          <label>
-            <input type="checkbox" name="warnings[]" value="1" />
-            {{ warning['display']|escape_html|linkify_bug_numbers|linkify_revision_urls|linkify_faq|linkify_sec_bug_docs|safe}}
-            [{% for instance in warning['instances'] %}{{
-              ", " if not loop.first else ""
-            }}{{ instance['revision_id'] | linkify_revision_ids | safe }}{% endfor %}]
-          </label>
-        </li>
-        {% endif %}
-      {% endfor %}
-    </ul>
-    {% else %}
-    There are no landing warnings.
+    </div>
+    {% if target_repo.commit_flags %}
+        <h3 class="StackPage-landingPreview-sectionLabel">
+            Advanced settings:
+        </h3>
+        <div class="StackPage-landingPreview-section">
+            Flags selected below will be appended to the title of all commit messages in the stack if they are not present already.
+            {% for flag in flags %}
+                <ul>
+                    <li>
+                        <label class="checkbox">
+                            <input {% if existing_flags[flag[0]] %}disabled checked{% endif %}
+                                   class="flag-checkbox"
+                                   data-flag="{{ flag[0] }}"
+                                   type="checkbox"
+                                   value="{{ flag[0] }}">
+                            <strong>{{ flag[0] }}</strong>: {{ flag[1] }}
+                        </label>
+                    </li>
+                </ul>
+            {% endfor %}
+        </div>
     {% endif %}
-  </div>
+    <h3 class="StackPage-landingPreview-sectionLabel">
+        Warnings:
+    </h3>
+    <div class="StackPage-landingPreview-section StackPage-landingPreview-warnings">
+        {% if dryrun['warnings'] %}
+            <ul class="StackPage-landingPreview-warningsList">
+                {% for warning in dryrun['warnings'] %}
+                    {% if warning.articulated %}
+                        {% for w in warning.instances %}
+                            {% for dw in w.details %}
+                                <li class="StackPage-landingPreview-warning">
+                                    <label>
+                                        <input type="checkbox" name="warnings[]" value="1" />
+                                        {{ dw.message|escape_html|linkify_bug_numbers|linkify_revision_urls|linkify_faq|linkify_sec_bug_docs|safe }}
+                                        [{{ w.revision_id | linkify_revision_ids | safe }}]
+                                    </label>
+                                </li>
+                            {% endfor %}
+                        {% endfor %}
+                    {% else %}
+                        <li class="StackPage-landingPreview-warning">
+                            <label>
+                                <input type="checkbox" name="warnings[]" value="1" />
+                                {{ warning['display']|escape_html|linkify_bug_numbers|linkify_revision_urls|linkify_faq|linkify_sec_bug_docs|safe }}
+                                [
+                                {% for instance in warning['instances'] %}
+                                    {{
+                                    ", " if not loop.first else ""
+                                    }}{{ instance['revision_id'] | linkify_revision_ids | safe }}
+                                {% endfor %}
+                                ]
+                            </label>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+            </ul>
+        {% else %}
+            There are no landing warnings.
+        {% endif %}
+    </div>
 {% endif %}

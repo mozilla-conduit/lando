@@ -1,16 +1,16 @@
 <div class="StackPage-timeline">
     {% if landing_jobs %}
-    {%- for job in landing_jobs|sort(attribute='updated_at', reverse=True) %}
-    {% include "partials/job.html" %}
-    {% endfor %}
+        {%- for job in landing_jobs|sort(attribute='updated_at', reverse=True) %}
+            {% include "partials/job.html" %}
+        {% endfor %}
     {% else %}
-    <div class="StackPage-timeline-item">
-        <div class="StackPage-timeline-itemStatus">
-            <span class="Badge">Not yet Landed</span>
+        <div class="StackPage-timeline-item">
+            <div class="StackPage-timeline-itemStatus">
+                <span class="Badge">Not yet Landed</span>
+            </div>
+            <div class="StackPage-timeline-itemDetail">
+                There has been no attempt to land revisions in this stack.
+            </div>
         </div>
-        <div class="StackPage-timeline-itemDetail">
-            There has been no attempt to land revisions in this stack.
-        </div>
-    </div>
     {% endif %}
 </div>

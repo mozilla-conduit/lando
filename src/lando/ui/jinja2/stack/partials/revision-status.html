@@ -1,18 +1,18 @@
 {% if revision['blocked_reasons'] or revision['blocked_reason'] %}
-{% set blocked_reason = revision['blocked_reasons'][0] if 'blocked_reasons' in revision else revision['blocked_reason']%}
-<div class="StackPage-blockerReason">
-  <div class="Badge Badge--negative">
-    Blocked
-    <span class="icon is-small">
-      <i class="fa fa-info-circle"></i>
-    </span>
-  </div>
-  <div class="StackPage-blockerReason-tooltip">
-    {{blocked_reason|escape_html|linkify_faq|safe}}
-  </div>
-</div>
+    {% set blocked_reason = revision['blocked_reasons'][0] if 'blocked_reasons' in revision else revision['blocked_reason'] %}
+    <div class="StackPage-blockerReason">
+        <div class="Badge Badge--negative">
+            Blocked
+            <span class="icon is-small">
+                <i class="fa fa-info-circle"></i>
+            </span>
+        </div>
+        <div class="StackPage-blockerReason-tooltip">
+            {{ blocked_reason|escape_html|linkify_faq|safe }}
+        </div>
+    </div>
 {% endif %}
 {% set status = revision['status'] %}
 <div class="{{ status['value']|revision_status_to_badge_class }}">
-  {{ status['display'] }}
+    {{ status['display'] }}
 </div>
