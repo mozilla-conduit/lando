@@ -28,9 +28,7 @@
                     {{- "" if loop.first else " ← " -}}
                     <a href="{{ i['revision_id']|revision_url(diff_id=i['diff_id']) }}">
                         {{ i['revision_id'] }}
-                        {% if i['diff_id'] %}
-                            diff {{ i['diff_id'] }}
-                        {% endif %}
+                        {% if i['diff_id'] %}diff {{ i['diff_id'] }}{% endif %}
                     </a>
                 {%- endfor %}
             </p>
@@ -62,9 +60,7 @@
                 <div class="StackPage-timeline-item-error">
                     {% if job.error_breakdown %}
                         <div>
-                            <button type="button" class="is-light button toggle-content">
-                                Show raw error output
-                            </button>
+                            <button type="button" class="is-light button toggle-content">Show raw error output</button>
                         </div>
                         <pre class="hidden-content"><strong>Raw error output:</strong>{{ "\n" + job.error}}</pre>
                     {% else %}
@@ -75,9 +71,7 @@
             {% if job.status in ("SUBMITTED", "DEFERRED") %}
                 <button data-landing_job_id="{{ job.id }}"
                         class="cancel-landing-job button is-small is-danger"
-                        data-csrf-token="{{ csrf_token }}">
-                    Cancel landing request
-                </button>
+                        data-csrf-token="{{ csrf_token }}">Cancel landing request</button>
             {% endif %}
         </div>
     </div>

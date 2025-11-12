@@ -4,8 +4,7 @@
             <div class="container">
                 {% for message in messages %}
                     <div class="FlashMessages-content notification {{ message.level | message_type_to_notification_class }}">
-                        <button class="FlashMessages-close delete">
-                        </button>
+                        <button class="FlashMessages-close delete"></button>
                         {{ message }}
                     </div>
                 {% endfor %}

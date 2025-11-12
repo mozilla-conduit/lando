@@ -1,15 +1,11 @@
 <div class="uplift-request-modal modal">
     <form action="{{ url('uplift-page') }}" method="post">
-        <div class="modal-background">
-        </div>
+        <div class="modal-background"></div>
         <div class="modal-card">
             {{ csrf_input }}
             <header class="modal-card-head">
-                <p class="modal-card-title">
-                    Request uplift
-                </p>
-                <button class="uplift-request-close delete" aria-label="close" type="button">
-                </button>
+                <p class="modal-card-title">Request uplift</p>
+                <button class="uplift-request-close delete" aria-label="close" type="button"></button>
             </header>
             <section class="modal-card-body">
                 {% if not user_has_phabricator_token %}
@@ -18,9 +14,7 @@
                 {% if revision_repo and revision_repo.approval_required %}
                     <article class="message is-warning">
                         <div class="message-header">
-                            <p>
-                                Action Creates New Phabricator Revisions
-                            </p>
+                            <p>Action Creates New Phabricator Revisions</p>
                         </div>
                         <div class="message-body">
                             Submitting this uplift request queues jobs for every selected repository
@@ -52,9 +46,7 @@
                 {% set requested_revision_ids = uplift_request_form.source_revisions.value() or [] %}
                 {% if requested_revision_ids %}
                     <div class="field">
-                        <label class="label">
-                            Revisions to uplift
-                        </label>
+                        <label class="label">Revisions to uplift</label>
                         <div class="control">
                             <ul class="content">
                                 {% set revision_ns = namespace(display_id="") %}
@@ -66,9 +58,7 @@
                                     {% set revision = revisions.values() | selectattr("id", "equalto", revision_ns.display_id) | first %}
                                     <li>
                                         <strong>{{ revision_ns.display_id }}</strong>
-                                        {% if revision %}
-                                            — {{ revision.title }}
-                                        {% endif %}
+                                        {% if revision %}— {{ revision.title }}{% endif %}
                                     </li>
                                 {% endfor %}
                             </ul>
@@ -76,19 +66,11 @@
                     </div>
                 {% endif %}
                 <div class="field">
-                    <label class="label">
-                        Uplift repositories
-                    </label>
+                    <label class="label">Uplift repositories</label>
                     <div class="control">
-                        {% for checkbox in uplift_request_form.repositories %}
-                            <label class="checkbox">
-                                {{ checkbox }}
-                            </label>
-                        {% endfor %}
+                        {% for checkbox in uplift_request_form.repositories %}<label class="checkbox">{{ checkbox }}</label>{% endfor %}
                     </div>
-                    <p class="help">
-                        Uplift jobs will be created for every repository you select here.
-                    </p>
+                    <p class="help">Uplift jobs will be created for every repository you select here.</p>
                 </div>
                 {% with assessment_form = uplift_request_form %}
                     {% include "stack/partials/uplift-assessment.html" %}

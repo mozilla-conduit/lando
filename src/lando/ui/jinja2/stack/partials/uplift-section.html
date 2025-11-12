@@ -4,9 +4,7 @@ At the moment, this only includes a reference to the uplift request
 assessment for the stack, but will include more details in the
 future.
 #}
-<h1>
-    Uplifts
-</h1>
+<h1>Uplifts</h1>
 {% if revision_repo and revision_repo.approval_required %}
     {% set has_uplift_assessment = uplift_assessment_form.instance.pk is not none %}
     <div class="block">
@@ -61,24 +59,18 @@ future.
                 </div>
             </div>
             {% if uplift_assessment_link_form and not uplift_assessment_link_form.has_assessments %}
-                <p class="has-text-grey is-size-7 mt-2">
-                    You have no previous uplift assessments to link for this account.
-                </p>
+                <p class="has-text-grey is-size-7 mt-2">You have no previous uplift assessments to link for this account.</p>
             {% endif %}
         </div>
     </div>
     <div class="uplift-assessment-edit-modal modal">
         <form action="{{ url('uplift-assessment-page', args=[revision_id_int]) }}"
               method="post">
-            <div class="modal-background">
-            </div>
+            <div class="modal-background"></div>
             <div class="modal-card">
                 <header class="modal-card-head">
-                    <p class="modal-card-title">
-                        Edit Assessment
-                    </p>
-                    <button class="edit-assessment-close delete" aria-label="close" type="button">
-                    </button>
+                    <p class="modal-card-title">Edit Assessment</p>
+                    <button class="edit-assessment-close delete" aria-label="close" type="button"></button>
                 </header>
                 <section class="modal-card-body">
                     {{ csrf_input }}
@@ -104,15 +96,11 @@ future.
         <div class="uplift-assessment-link-modal modal">
             <form action="{{ url('uplift-assessment-link-page', args=[revision_id_int]) }}"
                   method="post">
-                <div class="modal-background">
-                </div>
+                <div class="modal-background"></div>
                 <div class="modal-card">
                     <header class="modal-card-head">
-                        <p class="modal-card-title">
-                            Link Existing Assessment
-                        </p>
-                        <button class="link-assessment-close delete" aria-label="close" type="button">
-                        </button>
+                        <p class="modal-card-title">Link Existing Assessment</p>
+                        <button class="link-assessment-close delete" aria-label="close" type="button"></button>
                     </header>
                     <section class="modal-card-body">
                         {{ csrf_input }}
@@ -126,14 +114,10 @@ future.
                                 Existing uplift assessment
                             </label>
                             <div class="control">
-                                <div class="select is-fullwidth">
-                                    {{ uplift_assessment_link_form.assessment }}
-                                </div>
+                                <div class="select is-fullwidth">{{ uplift_assessment_link_form.assessment }}</div>
                             </div>
                             {% if uplift_assessment_link_form.assessment.help_text %}
-                                <p class="help">
-                                    {{ uplift_assessment_link_form.assessment.help_text }}
-                                </p>
+                                <p class="help">{{ uplift_assessment_link_form.assessment.help_text }}</p>
                             {% endif %}
                         </div>
                     </section>
@@ -142,9 +126,7 @@ future.
                                 {% if not uplift_assessment_link_form.has_assessments %}disabled{% endif %}>
                             Link assessment
                         </button>
-                        <button class="button link-assessment-close" type="button">
-                            Cancel
-                        </button>
+                        <button class="button link-assessment-close" type="button">Cancel</button>
                     </footer>
                 </div>
             </form>
@@ -159,9 +141,7 @@ future.
                     <div class="level-left">
                         <div class="level-item">
                             <div>
-                                <div class="is-size-6 has-text-weight-semibold">
-                                    Uplift request
-                                </div>
+                                <div class="is-size-6 has-text-weight-semibold">Uplift request</div>
                                 <p class="is-size-7 has-text-grey">
                                     <time data-timestamp="{{ uplift_request.created_at }}"></time>, by {{ uplift_request.requested_by.email }}.
                                 </p>
@@ -171,9 +151,7 @@ future.
                     <div class="level-right">
                         <div class="level-item">
                             <div class="has-text-right">
-                                <p class="is-size-7 has-text-grey">
-                                    Requested revisions
-                                </p>
+                                <p class="is-size-7 has-text-grey">Requested revisions</p>
                                 <div class="tags is-right">
                                     {% for rev_id in uplift_request.requested_revision_ids %}
                                         <a class="tag is-link is-light" href="{{ rev_id|revision_url }}">D{{ rev_id }}</a>
@@ -186,9 +164,7 @@ future.
                 {# Jobs list. #}
                 <div class="content">
                     {% for job in uplift_request.uplift_jobs.all() %}
-                        {% if not loop.first %}
-                            <hr>
-                        {% endif %}
+                        {% if not loop.first %}<hr>{% endif %}
                         <article class="media">
                             {% set tag_class = job|uplift_status_tag_class %}
                             {% set icon_class = job|uplift_status_icon_class %}
@@ -205,25 +181,19 @@ future.
                             <div class="media-content">
                                 <div class="columns is-mobile is-vcentered is-multiline">
                                     <div class="column">
-                                        <div class="is-size-6 has-text-weight-semibold">
-                                            {{ job.target_repo.name }}
-                                        </div>
+                                        <div class="is-size-6 has-text-weight-semibold">{{ job.target_repo.name }}</div>
                                         <div class="content">
                                             <p>
                                                 <strong>{{ status_label }}</strong>
                                             </p>
                                             {% if job.error %}
                                                 <div>
-                                                    <button type="button" class="button is-small is-light toggle-content">
-                                                        Show error details
-                                                    </button>
+                                                    <button type="button" class="button is-small is-light toggle-content">Show error details</button>
                                                 </div>
                                                 <div class="hidden-content has-text-left">
                                                     {% include "partials/error-breakdown.html" %}
                                                     <pre><strong>Raw error output:</strong>{{ "\n" + job.error }}</pre>
-                                                    <button type="button" class="button is-small is-light toggle-content">
-                                                        Hide error details
-                                                    </button>
+                                                    <button type="button" class="button is-small is-light toggle-content">Hide error details</button>
                                                 </div>
                                             {% endif %}
                                             {% if job.created_revision_ids %}
@@ -245,9 +215,7 @@ future.
                             </div>
                         </article>
                     {% else %}
-                        <p class="has-text-grey">
-                            No jobs found for this request.
-                        </p>
+                        <p class="has-text-grey">No jobs found for this request.</p>
                     {% endfor %}
                 </div>
             </div>

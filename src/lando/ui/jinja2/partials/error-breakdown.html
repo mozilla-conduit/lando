@@ -21,9 +21,7 @@ Expected variables:
                     <strong>{{ path.path }}</strong> @ <a href="{{ path.url }}">{{ path.changeset_id }}</a>
                 </li>
                 {% if "content" not in rejects_paths[path.path] %}
-                    <p>
-                        Error parsing error for {{ path.path }}. See Raw error output below.
-                    </p>
+                    <p>Error parsing error for {{ path.path }}. See Raw error output below.</p>
                 {% else %}
                     {% set reject_lines = rejects_paths[path.path].content.split("\n") %}
                     {% if reject_lines.__len__() < 3 %}

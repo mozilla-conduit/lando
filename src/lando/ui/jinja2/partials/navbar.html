@@ -91,15 +91,11 @@
     </div>
     {% if user_is_authenticated %}
         <div class="Navbar-modal modal">
-            <div class="modal-background">
-            </div>
+            <div class="modal-background"></div>
             <div class="modal-card">
                 <header class="modal-card-head">
-                    <p class="modal-card-title">
-                        Settings
-                    </p>
-                    <button class="Navbar-modalCancel delete">
-                    </button>
+                    <p class="modal-card-title">Settings</p>
+                    <button class="Navbar-modalCancel delete"></button>
                 </header>
                 <section class="modal-card-body">
                     {% set api_key_is_set = false if request.user.profile.phabricator_api_key == "" else true %}

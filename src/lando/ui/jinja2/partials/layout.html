@@ -12,11 +12,8 @@
         <meta charset="utf-8">
         <meta content="ie=edge" http-equiv="x-ua-compatible">
         <title>
-            {% block page_title %}
-            {% endblock %}
-            {% if self.page_title() %}
-                -
-            {% endif %}
+            {% block page_title %}{% endblock %}
+            {% if self.page_title() %}-{% endif %}
         Lando - Mozilla</title>
         <meta content="width=device-width,initial-scale=1" name="viewport">
         <link rel="shortcut icon"
@@ -108,13 +105,11 @@
         {% include "partials/navbar.html" %}
         <section class="hero is-light is-bold">
             <div class="container">
-                <div class="subtitle">
-                </div>
+                <div class="subtitle"></div>
             </div>
         </section>
         {% include "partials/notifications.html" %}
-        {% block main %}
-        {% endblock %}
+        {% block main %}{% endblock %}
         {% include "partials/footer.html" %}
     </body>
 </html>

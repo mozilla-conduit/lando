@@ -1,21 +1,13 @@
 {% extends "partials/layout.html" %}
-{% block page_title %}
-    Treestatus
-{% endblock %}
+{% block page_title %}Treestatus{% endblock %}
 {% block main %}
     <main class="Treestatus container fullhd">
-        <h1>
-            Treestatus
-        </h1>
-        <p>
-            Current status of Mozilla's version-control repositories.
-        </p>
+        <h1>Treestatus</h1>
+        <p>Current status of Mozilla's version-control repositories.</p>
         {% if is_treestatus_user %}
             {% include "treestatus/recent_changes.html" %}
         {% endif %}
-        <h1>
-            Trees
-        </h1>
+        <h1>Trees</h1>
         {#
         The main Treestatus page is a table that presents the trees.
         Trees can be selected here for updating, or for deletion.
@@ -25,22 +17,14 @@
             {% if is_treestatus_user %}
                 <div class="block">
                     <a href="{{ url('treestatus-new-tree') }}">
-                        <button class="button" title="New Tree" type="button">
-                            New Tree
-                        </button>
+                        <button class="button" title="New Tree" type="button">New Tree</button>
                     </a>
-                    <button class="button select-all-trees" type="button">
-                        Select all trees
-                    </button>
-                    <button class="button unselect-all-trees" type="button">
-                        Unselect all trees
-                    </button>
+                    <button class="button select-all-trees" type="button">Select all trees</button>
+                    <button class="button unselect-all-trees" type="button">Unselect all trees</button>
                     <button class="button is-primary update-trees-button"
                             title="Update Tree"
                             type="button"
-                            disabled="disabled">
-                        Update trees
-                    </button>
+                            disabled="disabled">Update trees</button>
                 </div>
             {% endif %}
             {# Create a namespace to track the current category across the loop iterations. #}
@@ -69,9 +53,7 @@
                         </div>
                         <div class="column">
                             <a href="{{ url('treestatus-tree-logs', args=[tree_value]) }}">
-                                <h2 class="subtitle is-4">
-                                    {{ tree_value }}
-                                </h2>
+                                <h2 class="subtitle is-4">{{ tree_value }}</h2>
                             </a>
                         </div>
                         <div class="column">
@@ -85,9 +67,7 @@
                             {% endif %}
                         </div>
                         <div class="column">
-                            {% if tree.message_of_the_day %}
-                                {{ tree.message_of_the_day }}
-                            {% endif %}
+                            {% if tree.message_of_the_day %}{{ tree.message_of_the_day }}{% endif %}
                         </div>
                     </div>
                 </div>
