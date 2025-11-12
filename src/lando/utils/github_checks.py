@@ -1,6 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
+from typing import Iterable
 
 import requests
 from django.http import HttpRequest
@@ -616,9 +617,13 @@ class PullRequestMultipleAuthorsWarning(PullRequestWarning):
             )
             != 1
         ):
-            return [cls.description() + " " + (", ".join(authors))]
+            return [cls.description() + " " + cls._authors_str(authors)]
 
         return []
+
+    @classmethod
+    def _authors_str(cls, authors: Iterable[str]) -> str:
+        return ", ".join(authors)
 
 
 ALL_PULL_REQUEST_BLOCKERS = PullRequestBlocker.__subclasses__()
