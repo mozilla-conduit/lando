@@ -7,6 +7,8 @@ import requests
 from django.http import HttpRequest
 from typing_extensions import override
 
+from lando.main.models.jobs import JobStatus
+from lando.main.models.landing_job import get_jobs_for_pull
 from lando.main.models.repo import Repo
 from lando.utils.github import GitHubAPIClient, PullRequest
 from lando.utils.landing_checks import Check
@@ -312,10 +314,12 @@ class PullRequestPreviouslyLandedWarning(PullRequestWarning):
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
-        if not pull_request.merged_at:
-            return []
+        jobs = get_jobs_for_pull(target_repo, pull_request.number)
 
-        return [cls.description()]
+        if any(job.status == JobStatus.LANDED for job in jobs):
+            return [cls.description()]
+
+        return []
 
 
 class PullRequestNotAcceptedWarning(PullRequestWarning):
