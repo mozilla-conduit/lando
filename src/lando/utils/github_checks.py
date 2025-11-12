@@ -58,7 +58,7 @@ class PullRequestUserSCMLevelBlocker(PullRequestBlocker):
         if target_repo.required_permission in request.user.get_user_permissions():
             return []
 
-        return [cls.__doc__]
+        return [cls.description()]
 
 
 # XXX: Irrelevant.
@@ -103,7 +103,7 @@ class PullRequestClosedBlocker(PullRequestBlocker):
         request: HttpRequest,
     ) -> list[str]:
         if pull_request.state == pull_request.State.CLOSED:
-            return [cls.__doc__]
+            return [cls.description()]
 
         return []
 
@@ -150,7 +150,7 @@ class PullRequestDiffAuthorIsKnownBlocker(PullRequestBlocker):
                 or not commit["commit"]["author"]["email"]
             ):
                 messages.append(
-                    f"{cls.__doc__} {commit['sha']}: {commit['commit']['message']} ({commit['commit']['url']})"
+                    f"{cls.description()} {commit['sha']}: {commit['commit']['message']} ({commit['commit']['url']})"
                 )
 
         return messages
@@ -178,7 +178,7 @@ class PullRequestAuthorPlannedChangesBlocker(PullRequestBlocker):
         request: HttpRequest,
     ) -> list[str]:
         if pull_request.is_draft:
-            return [cls.__doc__]
+            return [cls.description()]
 
         return []
 
@@ -231,7 +231,7 @@ class PullRequestRevisionDataClassificationBlocker(PullRequestBlocker):
         if "needs-data-classification" in [
             label["name"] for label in pull_request.labels
         ]:
-            return [cls.__doc__]
+            return [cls.description()]
 
         return []
 
