@@ -1,7 +1,7 @@
 from django import forms
 from django.forms.widgets import RadioSelect
 
-from lando.main.models import Repo
+from lando.main.models import Repo, Revision
 from lando.main.models.uplift import (
     UpliftAssessment,
     YesNoChoices,
@@ -60,51 +60,42 @@ class UpliftAssessmentForm(forms.ModelForm):
             )
 
 
-class UpliftAssessmentEditForm(UpliftAssessmentForm):
-    """Form used to edit an uplift assessment form for a patch."""
-
-    revision_id = forms.RegexField(
-        regex="^D[0-9]+$",
-        widget=forms.widgets.HiddenInput,
-    )
-
-
 class UpliftRequestForm(UpliftAssessmentForm):
     """Form used to request uplift of a stack."""
 
-    source_revision_id = forms.RegexField(
-        regex="^D[0-9]+$",
-        widget=forms.widgets.HiddenInput,
-        required=False,
+    source_revisions = forms.ModelMultipleChoiceField(
+        queryset=Revision.objects.all(),
+        to_field_name="revision_id",
+        widget=forms.widgets.MultipleHiddenInput(),
     )
-    repository = forms.ChoiceField(
-        widget=forms.Select(),
+    repositories = forms.ModelMultipleChoiceField(
+        queryset=Repo.objects.filter(approval_required=True).order_by("name"),
+        widget=forms.CheckboxSelectMultiple(),
+        to_field_name="name",
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        uplift_repos = Repo.objects.filter(approval_required=True).all()
-        self.fields["repository"].choices = [
-            (repo.name, repo.name) for repo in uplift_repos
+        # Set the rendered value of the repository to the
+        # name, instead of the default `__str__` representation.
+        self.fields["repositories"].label_from_instance = lambda repo: repo.name
+
+    def clean_source_revisions(self) -> list[Revision]:
+        """Return source revisions in the same order they were submitted."""
+        revisions_qs = self.cleaned_data["source_revisions"]
+        requested_order = self.data.getlist(self.add_prefix("source_revisions"))
+
+        revisions_by_id = {
+            str(revision.revision_id): revision for revision in revisions_qs
+        }
+        ordered_revisions = [
+            revisions_by_id[rev_id]
+            for rev_id in requested_order
+            if rev_id in revisions_by_id
         ]
 
-    def clean_repository(self) -> str:
-        repo_short_name = self.cleaned_data["repository"]
-        try:
-            repository = Repo.objects.get(short_name=repo_short_name)
-        except Repo.DoesNotExist:
-            raise forms.ValidationError(
-                f"Repository {repo_short_name} is not a repository known to Lando. "
-                "Please select an uplift repository to create the uplift request."
-            )
-
-        if not repository.approval_required:
-            raise forms.ValidationError(
-                f"Repository {repo_short_name} is not an uplift repository. "
-                "Please select an uplift repository to create the uplift request."
-            )
-        return repository
+        return ordered_revisions
 
 
 class UserSettingsForm(forms.Form):

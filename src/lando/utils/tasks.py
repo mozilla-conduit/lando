@@ -7,7 +7,11 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core import mail
 
-from lando.api.legacy.email import make_failure_email
+from lando.api.legacy.email import (
+    make_failure_email,
+    make_uplift_failure_email,
+    make_uplift_success_email,
+)
 from lando.utils.celery import app as celery_app
 from lando.utils.phabricator import (
     PhabricatorClient,
@@ -109,6 +113,84 @@ def send_bug_update_failure_email(
         )
 
     logger.info(f"Notification email sent to {recipient_email}")
+
+
+@celery_app.task(
+    autoretry_for=(IOError, smtplib.SMTPException, ssl.SSLError),
+    default_retry_delay=60,
+    max_retries=60 * 24 * 3,
+    ignore_result=True,
+    acks_late=True,
+)
+def send_uplift_failure_email(
+    recipient_email: str,
+    repo_name: str,
+    job_url: str,
+    reason: str,
+    requested_revision_ids: list[int],
+):
+    """Notify a user that an uplift job failed.
+
+    Args:
+        recipient_email: Email address to send the notification to.
+        repo_name: Name of the target repository.
+        job_url: URL to view the job details.
+        reason: Error message describing why the uplift failed.
+        requested_revision_ids: List of Phabricator revision IDs that were being uplifted.
+    """
+    if not recipient_email:
+        logger.info("Skipping uplift failure email because recipient email is empty")
+        return
+
+    with mail.get_connection() as connection:
+        connection.send_messages(
+            [
+                make_uplift_failure_email(
+                    recipient_email,
+                    repo_name,
+                    job_url,
+                    reason,
+                    requested_revision_ids,
+                )
+            ]
+        )
+
+    logger.info("Uplift failure email sent to %s", recipient_email)
+
+
+@celery_app.task(
+    autoretry_for=(IOError, smtplib.SMTPException, ssl.SSLError),
+    default_retry_delay=60,
+    max_retries=60 * 24 * 3,
+    ignore_result=True,
+    acks_late=True,
+)
+def send_uplift_success_email(
+    recipient_email: str,
+    repo_name: str,
+    job_url: str,
+    created_revision_ids: list[int],
+    requested_revision_ids: list[int],
+):
+    """Notify a user that an uplift job succeeded."""
+    if not recipient_email:
+        logger.info("Skipping uplift success email because recipient email is empty")
+        return
+
+    with mail.get_connection() as connection:
+        connection.send_messages(
+            [
+                make_uplift_success_email(
+                    recipient_email,
+                    repo_name,
+                    job_url,
+                    created_revision_ids,
+                    requested_revision_ids,
+                )
+            ]
+        )
+
+    logger.info("Uplift success email sent to %s", recipient_email)
 
 
 @celery_app.task(

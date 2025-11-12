@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from cryptography.fernet import Fernet, MultiFernet
 from django.conf import settings
 from django.contrib.auth.models import Permission, User

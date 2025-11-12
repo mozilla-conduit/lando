@@ -4,7 +4,7 @@ import string
 from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 from lando.main.scm.commit import CommitData
 from lando.main.scm.consts import MergeStrategy
@@ -132,6 +132,24 @@ class AbstractSCM(ABC):
             merge commit).
 
         """
+
+    def get_patch_helpers_for_commits(
+        self, commits: Iterable[CommitData]
+    ) -> Iterable[PatchHelper]:
+        """Return PatchHelpers for the provided Commit Data.
+
+        None values (e.g., for merge commits) are filtered out.
+
+        XXX: Due to the way Hg generates diff, merge commits won't be empty, leading
+        to duplicate PatchHelper content. This is acceptable when the PatchHelpers
+        are used for checks, but could become a problem if they are used to patch code.
+        See bug 1998051.
+        """
+        return filter(
+            # Filter out Nones (default).
+            None,
+            [self.get_patch_helper(commit.hash) for commit in commits],
+        )
 
     @abstractmethod
     def get_patch_helper(self, revision_id: str) -> PatchHelper | None:

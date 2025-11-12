@@ -1,11 +1,9 @@
-from __future__ import annotations
-
 import enum
 import logging
 from collections.abc import Iterable
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any
+from typing import Any, Self
 
 from django.db import models
 from django.db.models import Case, IntegerField, QuerySet, When
@@ -65,7 +63,7 @@ class JobStatus(models.TextChoices):
         )
 
     @classmethod
-    def pending(cls) -> list[JobStatus]:
+    def pending(cls) -> list[Self]:
         """Group of Job statuses that may change in the future.
 
         This includes IN_PROGRESS jobs. See doc for ordering().
@@ -73,7 +71,7 @@ class JobStatus(models.TextChoices):
         return [cls.SUBMITTED, cls.IN_PROGRESS, cls.DEFERRED]
 
     @classmethod
-    def final(cls) -> list[JobStatus]:
+    def final(cls) -> list[Self]:
         """Group of Job statuses that will not change without manual intervention."""
         return [cls.FAILED, cls.LANDED, cls.CANCELLED]
 
@@ -85,7 +83,7 @@ class JobAction(enum.Enum):
     Actions affect the status and other fields on the LandingJob object.
     """
 
-    # Land a job (i.e. success!)
+    # Complete the job and land a revision in a repository.
     LAND = "LAND"
 
     # Defer landing to a later time (i.e. temporarily failed)
@@ -96,6 +94,9 @@ class JobAction(enum.Enum):
 
     # A user has requested a cancellation
     CANCEL = "CANCEL"
+
+    # Complete the job.
+    SUCCESS = "SUCCESS"
 
 
 class BaseJob(BaseModel):
