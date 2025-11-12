@@ -85,6 +85,3 @@ profile = "jinja"
 
 # Avoid templating vendored code and coverage reports.
 extend_exclude = "src/lando/static_src/legacy/vendor/.*|htmlcov/.*"
-
-# Split lines up to make diffs easier to review.
-line_break_after_multiline_tag = true
