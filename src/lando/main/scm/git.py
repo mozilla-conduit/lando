@@ -93,7 +93,6 @@ class GitSCM(AbstractSCM):
         tags: list[str] | None = None,
     ):
         """Push local code to the remote repository."""
-
         push_command = ["push"]
 
         if force_push:

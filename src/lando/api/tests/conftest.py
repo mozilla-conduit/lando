@@ -407,6 +407,7 @@ def proxy_client(monkeypatch, fake_request, mock_response):
             # and isn't required in the proxy client tests.
             json_response.pop("stack")
 
+            # The double encode/decode is to coerce Python tuples to lists.
             return mock_response(json_dict=json.loads(json.dumps(json_response)))
 
         def _handle__get__transplants__id(self, path):
