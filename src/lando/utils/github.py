@@ -312,9 +312,9 @@ class GitHubAPIClient:
 
         return labels
 
-    def get_pull_requests_reviews(self, pull_number: int) -> list:
+    def get_pull_request_reviews(self, pull_number: int) -> list:
         """Return a list of reviews for the PR."""
-        return self.get(f"pulls/{pull_number}/reviews")
+        return self._repo_get(f"pulls/{pull_number}/reviews")
 
     def open_pull_request(self, pull_number: int) -> dict:
         """Open the given pull request."""
@@ -465,6 +465,7 @@ class PullRequest:
         return authors[0][0] if authors else (None, None)
 
     @property
+    @pr_cache_method
     def author(self) -> tuple[str | None, str | None]:
         return self._select_commit_author(self.commits)
 
@@ -512,8 +513,9 @@ class PullRequest:
 
         return commits
 
+    @property
     @pr_cache_method
-    def get_commit_comments(self) -> list:
+    def commit_comments(self) -> list:
         """Return a list of comments on specific changes of the PR."""
         commits_comments = self.client.get_pull_request_commits_comments(self.number)
 
@@ -532,6 +534,7 @@ class PullRequest:
     def patch(self) -> str:
         return self.client.get_patch(self.number)
 
+    @property
     @pr_cache_method
     def labels(self) -> list:
         """Return a list of labels for the PR."""
@@ -541,6 +544,7 @@ class PullRequest:
 
         return labels
 
+    @property
     @pr_cache_method
     def reviews(self) -> list:
         """Return a list of reviews for the PR."""
