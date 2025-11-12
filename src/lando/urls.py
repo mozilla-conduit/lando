@@ -20,8 +20,8 @@ from django.urls import include, path, re_path
 
 from lando.api.legacy.api import landing_jobs
 from lando.api.views import (
+    LandingJobPullRequestAPIView,
     LegacyDiffWarningView,
-    PullRequestAPIView,
     PullRequestChecksAPIView,
     git2hgCommitMapView,
     hg2gitCommitMapView,
@@ -62,9 +62,14 @@ urlpatterns += [
     path("manage_api_key/", user_settings.manage_api_key, name="user-settings"),
     path("uplift/", revisions.UpliftRequestView.as_view(), name="uplift-page"),
     path(
-        "uplift/assessment/",
-        revisions.UpliftAssessmentEditView.as_view(),
+        "uplift/<int:revision_id>/assessment/",
+        revisions.UpliftAssessmentCreateOrEditView.as_view(),
         name="uplift-assessment-page",
+    ),
+    path(
+        "uplift/jobs/<int:job_id>/",
+        jobs.UpliftJobView.as_view(),
+        name="uplift-jobs-page",
     ),
 ]
 
@@ -89,9 +94,9 @@ urlpatterns += [
 
 urlpatterns += [
     path(
-        "api/pulls/<str:repo_name>/<int:number>",
-        PullRequestAPIView.as_view(),
-        name="api-pull-request",
+        "api/pulls/<str:repo_name>/<int:pull_number>/landing_jobs",
+        LandingJobPullRequestAPIView.as_view(),
+        name="api-landing-job-pull-request",
     ),
     path(
         "api/pulls/<str:repo_name>/<int:number>/checks",

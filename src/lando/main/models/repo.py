@@ -15,6 +15,7 @@ from lando.main.scm import (
     SCM_TYPE_HG,
     AbstractSCM,
 )
+from lando.utils.landing_checks import BugReferencesCheck
 
 logger = logging.getLogger(__name__)
 
@@ -43,10 +44,54 @@ class RepoError(Exception):
     pass
 
 
+def get_default_hooks() -> list[str]:
+    """Returns a list of all known hook names, suitable as a default value.
+
+    Assuming a normal repository, we enable everything but the BugReferencesCheck, which
+    is only relevant for Try-type repos."""
+    return [
+        hook.name
+        for hook in Repo.HooksChoices
+        if hook.name != BugReferencesCheck.name()
+    ]
+
+
 class Repo(BaseModel):
     """Represents the configuration of a particular repo."""
 
     _scm: AbstractSCM | None = None
+
+    class HooksChoices(models.TextChoices):
+        """List of landing hooks that can be enabled for a repo."""
+
+        PreventSymlinksCheck = (
+            "PreventSymlinksCheck",
+            "Check for symlinks introduced in the diff.",
+        )
+        TryTaskConfigCheck = (
+            "TryTaskConfigCheck",
+            "Check for `try_task_config.json` introduced in the diff.",
+        )
+        PreventNSPRNSSCheck = (
+            "PreventNSPRNSSCheck",
+            "Prevent changes to vendored NSPR directories.",
+        )
+        PreventSubmodulesCheck = (
+            "PreventSubmodulesCheck",
+            "Prevent introduction of Git submodules into the repository.",
+        )
+        CommitMessagesCheck = (
+            "CommitMessagesCheck",
+            "Check the format of the passed commit message for issues.",
+        )
+        WPTSyncCheck = (
+            "WPTSyncCheck",
+            "Check the WPTSync bot is only pushing changes to relevant subset of the tree.",
+        )
+        BugReferencesCheck = (
+            "BugReferencesCheck",
+            "Prevent commit messages referencing non-public bugs from try.",
+        )
 
     @property
     def path(self) -> str:
@@ -150,6 +195,13 @@ class Repo(BaseModel):
 
     # Use this field to enable/disable pre-landing hooks for a repo.
     hooks_enabled = models.BooleanField(default=True)
+
+    hooks = ArrayField(
+        models.CharField(max_length=255, blank=False, null=False, choices=HooksChoices),
+        blank=True,
+        null=True,
+        default=get_default_hooks,
+    )
 
     @property
     def is_legacy(self):  # noqa: ANN201

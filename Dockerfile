@@ -38,6 +38,7 @@ RUN chown -R app /code/.ruff_cache
 
 
 RUN pip install -e /code
+
 USER app
 
 WORKDIR /code

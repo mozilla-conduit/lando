@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import configparser
 import logging
 import subprocess
@@ -22,15 +20,13 @@ from lando.main.models import (
     LandingJob,
     PermanentFailureException,
     Repo,
+    Revision,
     TemporaryFailureException,
     WorkerType,
 )
 from lando.main.scm import (
     AbstractSCM,
     AutoformattingException,
-    CommitData,
-    NoDiffStartLine,
-    PatchConflict,
     SCMException,
     SCMInternalServerError,
     SCMLostPushRace,
@@ -38,33 +34,14 @@ from lando.main.scm import (
     TreeApprovalRequired,
     TreeClosed,
 )
-from lando.main.scm.helpers import (
-    CommitMessagesCheck,
-    PatchCheck,
-    PatchCollectionAssessor,
-    PatchCollectionCheck,
-    PreventNSPRNSSCheck,
-    PreventSubmodulesCheck,
-    PreventSymlinksCheck,
-    TryTaskConfigCheck,
-)
 from lando.pushlog.pushlog import PushLog, PushLogForRepo
 from lando.utils.config import read_lando_config
+from lando.utils.github import GitHubAPIClient
+from lando.utils.landing_checks import LandingChecks
 from lando.utils.tasks import phab_trigger_repo_update
 
 logger = logging.getLogger(__name__)
 
-COMMIT_CHECKS: list[type[PatchCheck]] = [
-    PreventSymlinksCheck,
-    TryTaskConfigCheck,
-    PreventNSPRNSSCheck,
-    PreventSubmodulesCheck,
-]
-
-STACK_CHECKS: list[type[PatchCollectionCheck]] = [
-    CommitMessagesCheck,
-    # We don't include the WPT check here, as wptsyncbot cannot be the push user for a landing from Phabricator.
-]
 AUTOFORMAT_COMMIT_MESSAGE = """
 {bugs}: apply code formatting via Lando
 
@@ -141,7 +118,17 @@ class LandingWorker(Worker):
             except TemporaryFailureException:
                 return False
 
+        job.set_landed_commit_ids()
         job.transition_status(JobAction.LAND, commit_id=commit_id)
+
+        if job.is_pull_request_job:
+            # TODO: move this to different method, and retry if needed.
+            # NOTE: This may need to happen on the revision-level when stack support is added.
+            pull_number = job.revisions.first().pull_number
+            message = f"Pull request closed by commit {commit_id}"
+            client = GitHubAPIClient(job.target_repo.url)
+            client.add_comment_to_pull_request(pull_number, message)
+            client.close_pull_request(pull_number)
 
         mots_path = Path(repo.path) / "mots.yaml"
         if mots_path.exists():
@@ -189,59 +176,28 @@ class LandingWorker(Worker):
         """
         self.update_repo(repo, job, scm, job.target_commit_hash)
 
+        def apply_patch(revision: Revision):
+            logger.debug(f"Landing {revision} ...")
+            scm.apply_patch(
+                revision.diff,
+                revision.commit_message,
+                revision.author,
+                revision.timestamp,
+            )
+
         # Run through the patches one by one and try to apply them.
         logger.debug(
             f"About to land {job.revisions.count()} revisions: {job.revisions.all()} ..."
         )
         for revision in job.revisions.all():
-            try:
-                logger.debug(f"Landing {revision} ...")
-                scm.apply_patch(
-                    revision.diff,
-                    revision.commit_message,
-                    revision.author,
-                    revision.timestamp,
-                )
-            except NoDiffStartLine as exc:
-                message = (
-                    "Lando encountered a malformed patch, please try again. "
-                    "If this error persists please file a bug: "
-                    "Patch without a diff start line."
-                )
-                logger.error(message)
-                job.transition_status(
-                    JobAction.FAIL,
-                    message=message,
-                )
-                raise PermanentFailureException(message) from exc
+            self.handle_new_commit_failures(apply_patch, repo, job, scm, revision)
 
-            except PatchConflict as exc:
-                breakdown = scm.process_merge_conflict(
-                    repo.normalized_url, revision.revision_id, str(exc)
-                )
-                job.error_breakdown = breakdown
+            new_commit = scm.describe_commit()
+            logger.debug(f"Created new commit {new_commit}")
 
-                message = (
-                    f"Problem while applying patch in revision {revision.revision_id}:\n\n"
-                    f"{str(exc)}"
-                )
-                logger.exception(message)
-                job.transition_status(JobAction.FAIL, message=message)
-                raise PermanentFailureException(message) from exc
-            except Exception as exc:
-                message = (
-                    f"Aborting, could not apply patch buffer for {revision.revision_id}."
-                    f"\n{exc}"
-                )
-                logger.exception(message)
-                job.transition_status(
-                    JobAction.FAIL,
-                    message=message,
-                )
-                raise PermanentFailureException(message) from exc
-            else:
-                new_commit = scm.describe_commit()
-                logger.debug(f"Created new commit {new_commit}")
+            # Record the commit ID on the revision object.
+            revision.commit_id = new_commit.hash
+            revision.save()
 
         # Get the changeset titles for the stack.
         changeset_titles = scm.changeset_descriptions()
@@ -262,27 +218,30 @@ class LandingWorker(Worker):
 
         new_commits = scm.describe_local_changes()
 
-        try:
-            check_errors = self.run_landing_checks(scm, new_commits)
-        except Exception as exc:
-            message = "Unexpected error while performing landing checks."
-            logger.exception(message)
-            job.transition_status(
-                JobAction.FAIL,
-                message=f"{message}\n{exc}",
-            )
-            raise PermanentFailureException(message) from exc
+        if repo.hooks_enabled:
+            patch_helpers = repo.scm.get_patch_helpers_for_commits(new_commits)
+            landing_checks = LandingChecks(job.requester_email)
+            try:
+                check_errors = landing_checks.run(repo.hooks, patch_helpers)
+            except Exception as exc:
+                message = "Unexpected error while performing landing checks."
+                logger.exception(message)
+                job.transition_status(
+                    JobAction.FAIL,
+                    message=f"{message}\n{exc}",
+                )
+                raise PermanentFailureException(message) from exc
 
-        if check_errors:
-            message = "Some checks failed before attempting to land:\n" + "\n".join(
-                check_errors
-            )
-            logger.warning(message)
-            job.transition_status(
-                JobAction.FAIL,
-                message=message,
-            )
-            raise PermanentFailureException(message)
+            if check_errors:
+                message = "Some checks failed before attempting to land:\n" + "\n".join(
+                    check_errors
+                )
+                logger.warning(message)
+                job.transition_status(
+                    JobAction.FAIL,
+                    message=message,
+                )
+                raise PermanentFailureException(message)
 
         # We need to add the commits to the pushlog _before_ pushing, so we can
         # compare the current stack to the last upstream.
@@ -499,23 +458,6 @@ class LandingWorker(Worker):
         # If the stack is more than a single commit, create an autoformat commit.
         bug_string = bug_list_to_commit_string(bug_ids)
         return scm.format_stack_tip(AUTOFORMAT_COMMIT_MESSAGE.format(bugs=bug_string))
-
-    def run_landing_checks(
-        self, scm: AbstractSCM, commits: list[CommitData]
-    ) -> list[str]:
-        """Run landing checks on the stack of commits generated by the job.
-
-        Returns a list of error messages.
-        """
-        patch_helpers = []
-        # Create PatchHelpers from commits
-        for commit in commits:
-            patch_helpers.append(scm.get_patch_helper(commit.hash))
-
-        assessor = PatchCollectionAssessor(patch_helpers)
-        return assessor.run_patch_collection_checks(
-            patch_collection_checks=STACK_CHECKS, patch_checks=COMMIT_CHECKS
-        )
 
     def bootstrap_repos(self):
         """Optional method to bootstrap repositories in the the work directory."""

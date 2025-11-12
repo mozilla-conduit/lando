@@ -6,6 +6,7 @@ future.
 #}
 <h1>Uplifts</h1>
 
+{% if revision_repo and revision_repo.approval_required %}
 <div class="block">
     <div class="block">
         <div class="columns">
@@ -27,7 +28,7 @@ future.
 </div>
 
 <div class="uplift-assessment-edit-modal modal">
-    <form action="{{ url('uplift-assessment-page') }}" method="post">
+    <form action="{{ url('uplift-assessment-page', args=[revision_id_int]) }}" method="post">
         <div class="modal-background"></div>
 
         <div class="modal-card">
@@ -42,9 +43,6 @@ future.
                 {% if not user_has_phabricator_token %}
                     {% include "stack/partials/uplift-phab-api-key-warning.html" %}
                 {% endif %}
-
-                {# Revision ID is a hidden field for now. #}
-                {{ uplift_assessment_form.revision_id }}
 
                 {% with assessment_form = uplift_assessment_form %}
                     {% include "stack/partials/uplift-assessment.html" %}
@@ -63,3 +61,106 @@ future.
         </div>
     </form>
 </div>
+{% endif %}
+
+{% if uplift_requests %}
+  <div class="Uplifts">
+    {% for uplift_request in uplift_requests %}
+    <div class="box">
+        <div class="level is-mobile">
+          <div class="level-left">
+            <div class="level-item">
+              <div>
+                <div class="is-size-6 has-text-weight-semibold">Uplift request</div>
+                <p class="is-size-7 has-text-grey">
+                  <time data-timestamp="{{ uplift_request.created_at }}"></time>, by {{ uplift_request.requested_by.email }}.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="level-right">
+            <div class="level-item">
+              <div class="has-text-right">
+                <p class="is-size-7 has-text-grey">Requested revisions</p>
+                <div class="tags is-right">
+                  {% for rev_id in uplift_request.requested_revision_ids %}
+                    <a class="tag is-link is-light"
+                       href="{{ rev_id|revision_url }}">D{{ rev_id }}</a>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {# Jobs list. #}
+        <div class="content">
+          {% for job in uplift_request.uplift_jobs.all() %}
+            {% if not loop.first %}
+              <hr>
+            {% endif %}
+            <article class="media">
+              {% set tag_class = job|uplift_status_tag_class %}
+              {% set icon_class = job|uplift_status_icon_class %}
+              {% set status_label = job|uplift_status_label %}
+              <figure class="media-left">
+                <span class="tag {{ tag_class }}">
+                  {% if icon_class %}
+                    <span class="icon is-small">
+                      <i class="{{ icon_class }}" aria-hidden="true"></i>
+                    </span>
+                  {% endif %}
+                </span>
+              </figure>
+              <div class="media-content">
+                <div class="columns is-mobile is-vcentered is-multiline">
+                  <div class="column">
+                    <div class="is-size-6 has-text-weight-semibold">
+                      {{ job.target_repo.name }}
+                    </div>
+                    <div class="content">
+                        <p><strong>{{ status_label }}</strong></p>
+                        {% if job.error %}
+                            <div>
+                              <button type="button" class="button is-small is-light toggle-content">
+                                Show error details
+                              </button>
+                            </div>
+                            <div class="hidden-content has-text-left">
+                              {% include "partials/error-breakdown.html" %}
+                              <pre><strong>Raw error output:</strong>{{ "\n" + job.error }}</pre>
+                              <button type="button" class="button is-small is-light toggle-content">Hide error details</button>
+                            </div>
+                        {% endif %}
+                        {% if job.created_revision_ids %}
+                          <div class="content">
+                            <div class="tags">
+                              {% for rev_id in job.created_revision_ids %}
+                                <a class="tag is-link"
+                                   href="{{ rev_id|revision_url }}">
+                                  D{{ rev_id }}
+                                </a>
+                              {% endfor %}
+                            </div>
+                          </div>
+                        {% endif %}
+                    </div>
+                  </div>
+
+                  <div class="column is-narrow has-text-right">
+                    <a class="button is-small is-light"
+                       href="{{ url('uplift-jobs-page', args=[job.id]) }}">
+                      View job
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </article>
+          {% else %}
+            <p class="has-text-grey">No jobs found for this request.</p>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
