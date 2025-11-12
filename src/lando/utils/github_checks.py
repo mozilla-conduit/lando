@@ -229,7 +229,7 @@ class PullRequestRevisionDataClassificationBlocker(PullRequestBlocker):
         request: HttpRequest,
     ) -> list[str]:
         if "needs-data-classification" in [
-            label["name"] for label in pull_request.labels()
+            label["name"] for label in pull_request.labels
         ]:
             return [cls.__doc__]
 
