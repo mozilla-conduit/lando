@@ -153,7 +153,7 @@ class PullRequestDiffAuthorIsKnownBlocker(PullRequestBlocker):
                 or not commit["commit"]["author"]["email"]
             ):
                 messages.append(
-                    f"{cls.description()} {commit['sha']}: {commit['commit']['message']} ({commit['commit']['url']})"
+                    f"{cls.description()} {commit['sha']}: {commit['commit']['message']} ({commit['html_url']})"
                 )
 
         return messages
