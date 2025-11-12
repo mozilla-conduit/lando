@@ -60,7 +60,7 @@ lando = "lando.manage:main"
 requires = [
     "setuptools>=64",
     "setuptools_scm>=8",
-    "pip",
+    "pip<25",
     "pip-tools",
     "wheel",
 ]

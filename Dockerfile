@@ -22,7 +22,7 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Upgrade `setuptools`.
-RUN pip install --upgrade pip setuptools
+RUN pip install --upgrade "pip<25" setuptools
 
 # Install requirements first, so they are only re-installed when
 # `requirements.txt` changes.
