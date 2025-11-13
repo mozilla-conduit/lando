@@ -24,9 +24,11 @@ future.
                         </span>
                     </button>
                 </div>
-                {% if uplift_assessment_link_form and uplift_assessment_link_form.has_assessments %}
+                {% if uplift_assessment_link_form %}
                     <div class="column is-narrow">
-                        <button class="button is-light link-assessment-open">
+                        <button class="button is-light link-assessment-open"
+                                {% if not uplift_assessment_link_form.has_assessments %}disabled{% endif %}
+                                title="{% if not uplift_assessment_link_form.has_assessments %}You have no previous uplift assessments to link{% endif %}">
                             <span class="icon is-small">
                                 <i class="fa fa-link" aria-hidden="true"></i>
                             </span>
