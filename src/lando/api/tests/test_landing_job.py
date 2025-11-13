@@ -6,7 +6,6 @@ from lando.main.models import JobStatus, LandingJob, Repo
 from lando.main.scm import SCM_TYPE_GIT
 
 
-@pytest.mark.django_db
 @pytest.fixture
 def landing_job(repo_mc):
     def _landing_job(status, requester_email="tuser@example.com"):
