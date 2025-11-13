@@ -12,7 +12,7 @@
                 <strong>Landing Job:</strong>
                 <a href="{{ url('jobs-page', args=[job.id]) }}">{{ job.id }}</a>
             </p>
-        {% elif job.revisions %}
+        {% elif job.revisions.exists() %}
             {% set top_revision = job.revisions[0] %}
             {% if top_revision.revision_id %}
                 <p>
@@ -21,7 +21,7 @@
                 </p>
             {% endif %}
         {% endif %}
-        {% if job.revisions %}
+        {% if job.revisions.exists() %}
             <p>
                 <strong>Revisions:</strong>
                 {% for i in job.serialized_landing_path -%}
