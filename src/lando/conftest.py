@@ -15,6 +15,8 @@ import requests
 from django.conf import settings
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
+from ninja import NinjaAPI
+from ninja.testing import TestClient
 
 from lando.api.legacy.stacks import (
     RevisionStack,
@@ -656,7 +658,6 @@ def repo_mc(
         name: str = "",
         push_target: str = "",
     ) -> Repo:
-
         # The BMO reference check 1) requires access to a BMO instance to test with and
         # 2) is only needed for Try. We disable it here to be closer to a normal MC
         # repo.
@@ -750,7 +751,6 @@ def hg_test_bundle() -> pathlib.Path:
 
 @pytest.fixture
 def hg_server(hg_test_bundle: pathlib.Path, tmpdir: os.PathLike):
-
     # TODO: Select open port.
     port = "8000"
     hg_url = "http://localhost:" + port
@@ -849,16 +849,26 @@ def create_hg_commit(request: pytest.FixtureRequest) -> Callable:
 
 
 @pytest.fixture
-def conduit_permissions():
+def to_permissions() -> Callable:
+    """Convert a list of un-namespaced permissions strings to a list of Permissions."""
+
+    def _to_permissions(permissions: list[str]) -> list[Permission]:
+        all_perms = Profile.get_all_scm_permissions()
+
+        return [all_perms[p] for p in permissions]
+
+    return _to_permissions
+
+
+@pytest.fixture
+def conduit_permissions(to_permissions: Callable) -> list[Permission]:
     permissions = (
         "scm_level_1",
         "scm_level_2",
         "scm_level_3",
         "scm_conduit",
     )
-    all_perms = Profile.get_all_scm_permissions()
-
-    return [all_perms[p] for p in permissions]
+    return to_permissions(permissions)
 
 
 @pytest.fixture
@@ -877,23 +887,42 @@ def landing_worker_instance(mocked_repo_config) -> Callable:
 
 
 @pytest.fixture
+def scm_user() -> Callable:
+    def scm_user(perms: list[Permission], password: str = "password") -> User:
+        """Return a user with the selected Permissions and password."""
+        user = User.objects.create_user(
+            username="test_user",
+            password=password,
+            email="testuser@example.org",
+        )
+
+        user.profile = Profile(user=user, userinfo={"name": "test user"})
+
+        for permission in perms:
+            user.user_permissions.add(permission)
+
+        user.save()
+        user.profile.save()
+
+        return user
+
+    return scm_user
+
+
+@pytest.fixture
 def user_phab_api_key():
     return "api-123456789012345678901234567x"
 
 
 @pytest.fixture
-def user(user_plaintext_password, conduit_permissions, user_phab_api_key):
-    user = User.objects.create_user(
-        username="test_user",
-        password=user_plaintext_password,
-        email="testuser@example.org",
-    )
-
-    user.profile = Profile(user=user, userinfo={"name": "test user"})
-
-    for permission in conduit_permissions:
-        user.user_permissions.add(permission)
-
+def user(
+    scm_user: Callable,
+    user_plaintext_password: str,
+    conduit_permissions: list[str],
+    user_phab_api_key: str,
+) -> User:
+    """A User with all SCM permissions levels."""
+    user = scm_user(conduit_permissions, user_plaintext_password)
     user.profile.save_phabricator_api_key(user_phab_api_key)
 
     user.save()
@@ -1188,3 +1217,24 @@ def active_mock() -> Callable:
         return mock_method
 
     return _active_mock
+
+
+@pytest.fixture()
+def api_client() -> Callable:
+    """Fixture to create a test client for the API."""
+
+    # XXX If we pass the API directly, we get an error if we want to use this client
+    # more than once (regardless of the scope of the fixture), as follows:
+    #
+    #    Looks like you created multiple NinjaAPIs or TestClients
+    #    To let ninja distinguish them you need to set either unique version or urls_namespace
+    #     - NinjaAPI(..., version='2.0.0')
+    #     - NinjaAPI(..., urls_namespace='otherapi')
+    #
+    # Passing the pre-existing router to the TestClient instead, works. However, getting the
+    # router is not golden-path.
+    #
+    def api_client(api: NinjaAPI) -> TestClient:
+        return TestClient(api.default_router)
+
+    return api_client
