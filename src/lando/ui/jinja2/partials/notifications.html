@@ -1,14 +1,14 @@
 {% with messages = get_messages(request) %}
-  {% if messages %}
-    <section class="FlashMessages">
-      <div class="container">
-        {% for message in messages %}
-          <div class="FlashMessages-content notification {{ message.level | message_type_to_notification_class }}">
-            <button class="FlashMessages-close delete"></button>
-            {{ message }}
-          </div>
-        {% endfor %}
-      </div>
-    </section>
-  {% endif %}
+    {% if messages %}
+        <section class="FlashMessages">
+            <div class="container">
+                {% for message in messages %}
+                    <div class="FlashMessages-content notification {{ message.level | message_type_to_notification_class }}">
+                        <button class="FlashMessages-close delete"></button>
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
 {% endwith %}

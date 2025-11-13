@@ -1,63 +1,72 @@
 {% extends "partials/layout.html" %}
 {% block page_title %}Treestatus{% endblock %}
-
 {% block main %}
-<main class="Treestatus container fullhd">
-    {% include "treestatus/recent_changes.html" %}
-
-    <h1>Treestatus: {{ tree }}</h1>
-    <p>Current status: {{ tree }} is <span class="{{ current_log.status | treestatus_to_status_badge_class }}">{{ current_log.status }}</span></p>
-
-    <div class="block">
-        <a href="{{ url("treestatus-dashboard") }}"><button class="button">Show All Trees</button></a>
-    </div>
-    <div class="container">
-        {% for log_update_form, log in logs %}
-            <form action="{{ url("treestatus-update-log", args=[log.id]) }}" method="post">
-                {{ csrf_input }}
-
-                <div class="box log-update-form">
-                    <div class="columns">
-                        <div class="column is-2">
-                            <span class="{{ log.status | treestatus_to_status_badge_class }}">{{ log.status }}</span>
-                        </div>
-                        <div class="column is-expanded">
-                            <div class="block"><b>{{ log.when }}</b></div>
-                            <div class="block"><h2 class="subtitle">{{ log.who }}</h2></div>
-                            <div class="block">
-                                {% if log.reason %}
+    <main class="Treestatus container fullhd">
+        {% include "treestatus/recent_changes.html" %}
+        <h1>Treestatus: {{ tree }}</h1>
+        <p>
+            Current status: {{ tree }} is <span class="{{ current_log.status | treestatus_to_status_badge_class }}">{{ current_log.status }}</span>
+        </p>
+        <div class="block">
+            <a href="{{ url('treestatus-dashboard') }}">
+                <button class="button">Show All Trees</button>
+            </a>
+        </div>
+        <div class="container">
+            {% for log_update_form, log in logs %}
+                <form action="{{ url('treestatus-update-log', args=[log.id]) }}"
+                      method="post">
+                    {{ csrf_input }}
+                    <div class="box log-update-form">
+                        <div class="columns">
+                            <div class="column is-2">
+                                <span class="{{ log.status | treestatus_to_status_badge_class }}">{{ log.status }}</span>
+                            </div>
+                            <div class="column is-expanded">
+                                <div class="block">
+                                    <b>{{ log.when }}</b>
+                                </div>
+                                <div class="block">
+                                    <h2 class="subtitle">{{ log.who }}</h2>
+                                </div>
+                                <div class="block">
+                                    {% if log.reason %}
+                                        <div class="log-update-visible">
+                                            <p>
+                                                {{ log_update_form.reason.label }}: <b>{{ log.reason }}</b>
+                                            </p>
+                                            <p>
+                                                {{ log_update_form.reason_category.label }}: <b>{{ log_update_form.reason_category.value() | reason_category_to_display }}</b>
+                                            </p>
+                                        </div>
+                                    {% endif %}
+                                    <div class="log-update-hidden">
+                                        <div class="field">
+                                            <label class="label">{{ log_update_form.reason.label }}</label>
+                                            {{ log_update_form.reason.as_widget(attrs={"id": id_string, "class": "input"}) }}
+                                        </div>
+                                        <div class="field">
+                                            <label class="label">{{ log_update_form.reason_category.label }}</label>
+                                            {{ log_update_form.reason_category.as_widget(attrs={"id": id_string, "class": "select"}) }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="column is-narrow">
+                                {% if user_is_authenticated %}
                                     <div class="log-update-visible">
-                                        <p>{{ log_update_form.reason.label }}: <b>{{ log.reason }}</b></p>
-                                        <p>{{ log_update_form.reason_category.label }}: <b>{{ log_update_form.reason_category.value() | reason_category_to_display }}</b></p>
+                                        <button class="button is-small is-primary log-update-edit" type="button">Edit</button>
                                     </div>
                                 {% endif %}
                                 <div class="log-update-hidden">
-                                    <div class="field">
-                                        <label class="label">{{ log_update_form.reason.label }}</label>
-                                        {{ log_update_form.reason.as_widget(attrs={"id": id_string, "class": "input"}) }}
-                                    </div>
-                                    <div class="field">
-                                        <label class="label">{{ log_update_form.reason_category.label }}</label>
-                                        {{ log_update_form.reason_category.as_widget(attrs={"id": id_string, "class": "select"}) }}
-                                    </div>
+                                    <button class="button delete is-normal log-update-edit" type="button"></button>
+                                    <button class="button is-small is-primary">Update</button>
                                 </div>
-                            </div>
-                        </div>
-                        <div class="column is-narrow">
-                            {% if user_is_authenticated %}
-                                <div class="log-update-visible">
-                                    <button class="button is-small is-primary log-update-edit" type="button">Edit</button>
-                                </div>
-                            {% endif %}
-                            <div class="log-update-hidden">
-                                <button class="button delete is-normal log-update-edit" type="button"></button>
-                                <button class="button is-small is-primary">Update</button>
                             </div>
                         </div>
                     </div>
-                </div>
-            </form>
-        {% endfor %}
-    </div>
-</main>
+                </form>
+            {% endfor %}
+        </div>
+    </main>
 {% endblock %}

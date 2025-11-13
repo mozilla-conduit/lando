@@ -41,7 +41,11 @@ requires-python = ">=3.10"
 dynamic = ["version"]
 
 [project.optional-dependencies]
-code-quality = ["black", "ruff"]
+code-quality = [
+    "black",
+    "djlint",
+    "ruff"
+]
 testing = [
   "pytest",
   "pytest-cov",
@@ -75,3 +79,9 @@ where = ["src"]
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "lando.test_settings"
 addopts = "--cov --cov-report html"
+
+[tool.djlint]
+profile = "jinja"
+
+# Avoid templating vendored code and coverage reports.
+extend_exclude = "src/lando/static_src/legacy/vendor/.*|htmlcov/.*"

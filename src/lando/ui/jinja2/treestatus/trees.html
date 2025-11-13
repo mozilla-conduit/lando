@@ -1,75 +1,78 @@
 {% extends "partials/layout.html" %}
 {% block page_title %}Treestatus{% endblock %}
-
 {% block main %}
-<main class="Treestatus container fullhd">
-    <h1>Treestatus</h1>
-    <p>Current status of Mozilla's version-control repositories.</p>
-
-    {% if is_treestatus_user %}
-    {% include "treestatus/recent_changes.html" %}
-    {% endif %}
-
-    <h1>Trees</h1>
-    {#
+    <main class="Treestatus container fullhd">
+        <h1>Treestatus</h1>
+        <p>Current status of Mozilla's version-control repositories.</p>
+        {% if is_treestatus_user %}
+            {% include "treestatus/recent_changes.html" %}
+        {% endif %}
+        <h1>Trees</h1>
+        {#
         The main Treestatus page is a table that presents the trees.
         Trees can be selected here for updating, or for deletion.
     #}
-    <form method="post">
-        {{ csrf_input }}
-
-        {% if is_treestatus_user %}
-        <div class="block">
-            <a href="{{ url("treestatus-new-tree") }}">
-                <button class="button" title="New Tree" type="button">New Tree</button>
-            </a>
-            <button class="button select-all-trees" type="button">Select all trees</button>
-            <button class="button unselect-all-trees" type="button">Unselect all trees</button>
-            <button class="button is-primary update-trees-button" title="Update Tree" type="button" disabled="disabled">Update trees</button>
-        </div>
-        {% endif %}
-
-        {# Create a namespace to track the current category across the loop iterations. #}
-        {% set ns = namespace(current_category="") %}
-
-        {% for tree_value, tree_label in treestatus_update_trees_form.fields.trees.choices %}
-            {% set tree = trees[tree_value] %}
-
-            {# Check if the category has changed and display a header for new category. #}
-            {% if tree.category != ns.current_category %}
-                {% set ns.current_category = tree.category %}
-                <h4 class="subtitle is-4 tree-category-header">{{ ns.current_category | tree_category_to_display }}</h1>
+        <form method="post">
+            {{ csrf_input }}
+            {% if is_treestatus_user %}
+                <div class="block">
+                    <a href="{{ url('treestatus-new-tree') }}">
+                        <button class="button" title="New Tree" type="button">New Tree</button>
+                    </a>
+                    <button class="button select-all-trees" type="button">Select all trees</button>
+                    <button class="button unselect-all-trees" type="button">Unselect all trees</button>
+                    <button class="button is-primary update-trees-button"
+                            title="Update Tree"
+                            type="button"
+                            disabled="disabled">Update trees</button>
+                </div>
             {% endif %}
-
-            <div class="select-trees-box box">
-                <div class="columns">
-                    {% if is_treestatus_user %}
-                        <div class="column is-1">
-                            <input class="tree-select-checkbox" type="checkbox" name="{{ treestatus_update_trees_form["trees"].name }}" value="{{ tree_value }}">
+            {# Create a namespace to track the current category across the loop iterations. #}
+            {% set ns = namespace(current_category="") %}
+            {% for tree_value, tree_label in treestatus_update_trees_form.fields.trees.choices %}
+                {% set tree = trees[tree_value] %}
+                {# Check if the category has changed and display a header for new category. #}
+                {% if tree.category != ns.current_category %}
+                    {% set ns.current_category = tree.category %}
+                    <h4 class="subtitle is-4 tree-category-header">
+                        {{ ns.current_category | tree_category_to_display }}
+                    </h1>
+                {% endif %}
+                <div class="select-trees-box box">
+                    <div class="columns">
+                        {% if is_treestatus_user %}
+                            <div class="column is-1">
+                                <input class="tree-select-checkbox"
+                                       type="checkbox"
+                                       name="{{ treestatus_update_trees_form["trees"].name }}"
+                                       value="{{ tree_value }}">
+                            </div>
+                        {% endif %}
+                        <div class="column is-2">
+                            <span class="{{ tree.status | treestatus_to_status_badge_class }}">{{ tree.status.value }}</span>
                         </div>
-                    {% endif %}
-                    <div class="column is-2">
-                        <span class="{{ tree.status | treestatus_to_status_badge_class }}">{{ tree.status.value }}</span>
-                    </div>
-                    <div class="column">
-                        <a href="{{ url("treestatus-tree-logs", args=[tree_value]) }}"><h2 class="subtitle is-4">{{ tree_value }}</h2></a>
-                    </div>
-                    <div class="column">
-                        {% if tree.reason %}
-                            <p>Reason: <b>{{ tree.reason }}</b></p>
-                            <p>Reason category: <b>{{ tree.reason_category | reason_category_to_display }}</b></p>
-                        {% endif %}
-                    </div>
-                    <div class="column">
-                        {% if tree.message_of_the_day %}
-                            {{ tree.message_of_the_day }}
-                        {% endif %}
+                        <div class="column">
+                            <a href="{{ url('treestatus-tree-logs', args=[tree_value]) }}">
+                                <h2 class="subtitle is-4">{{ tree_value }}</h2>
+                            </a>
+                        </div>
+                        <div class="column">
+                            {% if tree.reason %}
+                                <p>
+                                    Reason: <b>{{ tree.reason }}</b>
+                                </p>
+                                <p>
+                                    Reason category: <b>{{ tree.reason_category | reason_category_to_display }}</b>
+                                </p>
+                            {% endif %}
+                        </div>
+                        <div class="column">
+                            {% if tree.message_of_the_day %}{{ tree.message_of_the_day }}{% endif %}
+                        </div>
                     </div>
                 </div>
-            </div>
-        {% endfor %}
-
-        {% include "treestatus/update_trees.html" %}
-    </form>
-</main>
+            {% endfor %}
+            {% include "treestatus/update_trees.html" %}
+        </form>
+    </main>
 {% endblock %}

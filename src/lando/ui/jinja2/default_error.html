@@ -1,12 +1,8 @@
 {% extends "partials/layout.html" %}
 {% block page_title %}{{ title }}{% endblock %}
-
 {% block main %}
-<main class="ErrorPage container content">
-
-  <h1>{{ title }}</h1>
-
-  {% block message %}
-  {% endblock %}
-</main>
+    <main class="ErrorPage container content">
+        <h1>{{ title }}</h1>
+        {% block message %}{% endblock %}
+    </main>
 {% endblock %}
