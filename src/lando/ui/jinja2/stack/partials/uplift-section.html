@@ -11,7 +11,6 @@ future.
         <a class="tag is-link" href="{{ url('revisions-page', args=[rev_id]) }}">D{{ rev_id }}</a>
     {% endif %}
 {% endmacro %}
-
 <h1>Uplifts</h1>
 {% if revision_repo and revision_repo.approval_required %}
     {% set has_uplift_assessment = uplift_assessment_form.instance.pk is not none %}
@@ -163,9 +162,7 @@ future.
                             <div class="has-text-right">
                                 <p class="is-size-7 has-text-grey">Requested revisions</p>
                                 <div class="tags is-right">
-                                    {% for rev_id in uplift_request.requested_revision_ids %}
-                                        {{ revision_tag(rev_id, revision_id_int) }}
-                                    {% endfor %}
+                                    {% for rev_id in uplift_request.requested_revision_ids %}{{ revision_tag(rev_id, revision_id_int) }}{% endfor %}
                                 </div>
                             </div>
                         </div>
@@ -209,9 +206,7 @@ future.
                                             {% if job.created_revision_ids %}
                                                 <div class="content">
                                                     <div class="tags">
-                                                        {% for rev_id in job.created_revision_ids %}
-                                                            {{ revision_tag(rev_id, revision_id_int) }}
-                                                        {% endfor %}
+                                                        {% for rev_id in job.created_revision_ids %}{{ revision_tag(rev_id, revision_id_int) }}{% endfor %}
                                                     </div>
                                                 </div>
                                             {% endif %}
