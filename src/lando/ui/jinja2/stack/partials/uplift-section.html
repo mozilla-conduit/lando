@@ -164,7 +164,7 @@ future.
                                 <p class="is-size-7 has-text-grey">Requested revisions</p>
                                 <div class="tags is-right">
                                     {% for rev_id in uplift_request.requested_revision_ids %}
-                                        {{ revision_tag(rev_id, revision_id_int, "is-link is-light") }}
+                                        {{ revision_tag(rev_id, revision_id_int) }}
                                     {% endfor %}
                                 </div>
                             </div>
