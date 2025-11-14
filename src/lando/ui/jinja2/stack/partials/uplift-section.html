@@ -154,7 +154,8 @@ future.
                                 <p class="is-size-7 has-text-grey">Requested revisions</p>
                                 <div class="tags is-right">
                                     {% for rev_id in uplift_request.requested_revision_ids %}
-                                        <a class="tag is-link is-light" href="{{ rev_id|revision_url }}">D{{ rev_id }}</a>
+                                        <a class="tag is-link is-light"
+                                           href="{{ url('revisions-page', args=[rev_id]) }}">D{{ rev_id }}</a>
                                     {% endfor %}
                                 </div>
                             </div>
@@ -200,7 +201,7 @@ future.
                                                 <div class="content">
                                                     <div class="tags">
                                                         {% for rev_id in job.created_revision_ids %}
-                                                            <a class="tag is-link" href="{{ rev_id|revision_url }}">D{{ rev_id }}</a>
+                                                            <a class="tag is-link" href="{{ url('revisions-page', args=[rev_id]) }}">D{{ rev_id }}</a>
                                                         {% endfor %}
                                                     </div>
                                                 </div>
