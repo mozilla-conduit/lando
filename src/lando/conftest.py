@@ -178,7 +178,6 @@ def normal_patch():
 
 
 @pytest.fixture
-@pytest.mark.django_db
 def create_patch_revision(normal_patch):
     """A fixture that fake uploads a patch"""
 
