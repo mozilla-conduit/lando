@@ -2492,9 +2492,9 @@ rsa==4.9.1 \
     # via
     #   google-auth
     #   python-jose
-ruamel-yaml==0.17.21 \
-    --hash=sha256:742b35d3d665023981bd6d16b3d24248ce5df75fdb4e2924e93a05c1f8b61ca7 \
-    --hash=sha256:8b7ce697a2f212752a35c1ac414471dc16c424c9573be4926b56ff3f5d23b7af
+ruamel-yaml==0.18.16 \
+    --hash=sha256:048f26d64245bae57a4f9ef6feb5b552a386830ef7a826f235ffb804c59efbba \
+    --hash=sha256:a6e587512f3c998b2225d68aa1f35111c29fad14aed561a26e73fab729ec5e5a
     # via mots
 ruff==0.14.4 \
     --hash=sha256:1043c6811c2419e39011890f14d0a30470f19d47d197c4858b2787dfa698f6c8 \
