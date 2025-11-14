@@ -20,6 +20,10 @@ re-submitting. Please pull the latest changes for firefox-beta, resolve
 the conflicts locally, and submit a new uplift request using `moz-phab
 uplift` once the conflicts are cleared.
 
+Once you have created a new uplift Phabricator revision, you can use the
+"Link Existing Assessment" button to link your new uplift revision to the
+uplift assessment form you previously submitted.
+
 See https://wiki.mozilla.org/index.php?title=Release_Management/Requesting_an_Uplift
 for step-by-step instructions.
 """.strip()
