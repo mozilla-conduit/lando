@@ -20,14 +20,6 @@ from lando.api.legacy.commit_message import (
 )
 from lando.main.scm.helpers import PatchHelper
 
-# Decimal notation for the `symlink` file mode.
-SYMLINK_MODE = 40960
-
-# WPTSync bot is restricted to paths matching this regex.
-WPTSYNC_ALLOWED_PATHS_RE = re.compile(
-    r"testing/web-platform/(?:moz\.build|meta/.*|tests/.*)$"
-)
-
 
 def wrap_filenames(filenames: list[str]) -> str:
     """Convert a list of filenames to a string with names wrapped in backticks."""
@@ -81,6 +73,9 @@ class PatchCheck(Check, ABC):
 class PreventSymlinksCheck(PatchCheck):
     """Check for symlinks introduced in the diff."""
 
+    # Decimal notation for the `symlink` file mode.
+    SYMLINK_MODE = 40960  # == 0120000
+
     @override
     @classmethod
     def name(cls) -> str:
@@ -99,7 +94,7 @@ class PreventSymlinksCheck(PatchCheck):
         # Check the file mode on each file and ensure the file is not a symlink.
         # `rs_parsepatch` has a `new` and `old` mode key, we are interested in
         # only the newly introduced modes.
-        if "new" in modes and modes["new"] == SYMLINK_MODE:
+        if "new" in modes and modes["new"] == self.SYMLINK_MODE:
             self.symlinked_files.append(diff["filename"])
 
     def result(self) -> str | None:
@@ -381,6 +376,11 @@ class CommitMessagesCheck(PatchCollectionCheck):
 class WPTSyncCheck(PatchCollectionCheck):
     """Check the WPTSync bot is only pushing changes to relevant subset of the tree."""
 
+    # WPTSync bot is restricted to paths matching this regex.
+    WPTSYNC_ALLOWED_PATHS_RE = re.compile(
+        r"testing/web-platform/(?:moz\.build|meta/.*|tests/.*)$"
+    )
+
     @override
     @classmethod
     def name(cls) -> str:
@@ -401,7 +401,7 @@ class WPTSyncCheck(PatchCollectionCheck):
         diffs = rs_parsepatch.get_diffs(patch_helper.get_diff())
         for parsed_diff in diffs:
             filename = parsed_diff["filename"]
-            if not WPTSYNC_ALLOWED_PATHS_RE.match(filename):
+            if not self.WPTSYNC_ALLOWED_PATHS_RE.match(filename):
                 self.wpt_disallowed_files.append(filename)
 
     def result(self) -> str | None:
