@@ -32,6 +32,12 @@ $.fn.stack = function() {
     var is_pull_request_page = Boolean($('button.post-landing-job').length);
     if (is_pull_request_page) {
         var pull_request_button = $('button.post-landing-job');
+        if (pull_request_button.data("anonymous") == 1) {
+            pull_request_button.prop("disabled", true);
+            pull_request_button.removeClass("is-loading").addClass("is-danger");
+            pull_request_button.html("Log in to request landing");
+            return;
+        }
 
         var pull_number = pull_request_button.data("pull-number");
         var head_sha = pull_request_button.data("head-sha");

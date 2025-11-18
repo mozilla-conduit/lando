@@ -8,6 +8,7 @@
         <button
             class="button is-large is-loading post-landing-job"
             disabled
+            data-anonymous="{{ '0' if request.user.is_authenticated else '1' }}"
             data-pull-number="{{ pull_request.number }}"
             data-head-sha="{{ pull_request.head_sha }}"
             data-repo-name="{{ target_repo.name }}"
