@@ -375,7 +375,7 @@ class PullRequestPatchHelper(PatchHelper):
         self.headers = {
             "date": self._get_timestamp_from_github_timestamp(pr.updated_at),
             "from": f"{self._author_name} <{self._author_email}>",
-            "subject": pr.body.splitlines()[0] if pr.body else "",
+            "subject": pr.title,
         }
 
     @classmethod
