@@ -606,18 +606,21 @@ class PullRequestPatchHelper(PatchHelper):
 
     _author_name: str
     _author_email: str
+    _pr: PullRequest
 
     def __init__(self, pr: PullRequest):
         super().__init__()
 
+        self._pr = pr
+
         self._diff = pr.diff
 
-        self._author_name, self._author_email = pr.author
+        author_name, author_email = self._pr.author
 
         self.headers = {
             "date": self._get_timestamp_from_github_timestamp(pr.updated_at),
-            "from": f"{self._author_name} <{self._author_email}>",
-            "subject": pr.body.splitlines()[0] if pr.body else "",
+            "from": f"{author_name} <{author_email}>",
+            "subject": pr.title,
         }
 
     @classmethod
@@ -655,7 +658,7 @@ class PullRequestPatchHelper(PatchHelper):
     @override
     def parse_author_information(self) -> tuple[str, str]:
         """Return the author name and email from the patch."""
-        return (self._author_name, self._author_email)
+        return self._pr.author
 
     @override
     def get_timestamp(self) -> str:
