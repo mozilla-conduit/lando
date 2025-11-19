@@ -90,15 +90,6 @@ class PullRequestClosedBlocker(PullRequestBlocker):
         return []
 
 
-# XXX: Not relevant to PRs.
-# class PullRequestLatestDiffsBlocker(PullRequestBlocker):
-#     """A requested diff is not the latest."""
-#
-#     @override
-#     @classmethod
-#     def run(cls, client: GitHubAPIClient, pull_request: PullRequest, target_repo: Repo, request: HttpRequest, request: HttpRequest) -> list[str]:
-#         raise NotImplementedError
-
 
 class PullRequestDiffAuthorIsKnownBlocker(PullRequestBlocker):
     # """"Diff does not have proper author information in Phabricator."""
