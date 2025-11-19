@@ -236,14 +236,6 @@ class PullRequestRevisionDataClassificationBlocker(PullRequestBlocker):
         return []
 
 
-# XXX: Not currently needed.
-# class PullRequestOpenAncestorBlocker(PullRequestBlocker):
-#     """Has an open ancestor revision that is blocked."""
-#
-#     @override
-#     @classmethod
-#     def run(cls, client: GitHubAPIClient, pull_request: PullRequest, target_repo: Repo, request: HttpRequest, request: HttpRequest) -> list[str]:
-#         raise NotImplementedError
 
 ALL_PULL_REQUEST_BLOCKERS = PullRequestBlocker.__subclasses__()
 ALL_PULL_REQUEST_CHECKS = ALL_PULL_REQUEST_BLOCKERS
