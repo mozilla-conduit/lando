@@ -808,18 +808,18 @@ def test_integrated_stack_endpoint_simple(
     response = proxy_client.get("/stacks/D{}".format(r3["id"]))
     assert response.status_code == 200
 
-    assert len(response.json["edges"]) == 4
-    assert [r2["phid"], r1["phid"]] in response.json["edges"]
-    assert [r3["phid"], r1["phid"]] in response.json["edges"]
-    assert [r4["phid"], r2["phid"]] in response.json["edges"]
-    assert [r4["phid"], r3["phid"]] in response.json["edges"]
+    assert len(response.json()["edges"]) == 4
+    assert [r2["phid"], r1["phid"]] in response.json()["edges"]
+    assert [r3["phid"], r1["phid"]] in response.json()["edges"]
+    assert [r4["phid"], r2["phid"]] in response.json()["edges"]
+    assert [r4["phid"], r3["phid"]] in response.json()["edges"]
 
-    assert len(response.json["landable_paths"]) == 2
-    assert [r1["phid"], r2["phid"]] in response.json["landable_paths"]
-    assert [r1["phid"], r3["phid"]] in response.json["landable_paths"]
+    assert len(response.json()["landable_paths"]) == 2
+    assert [r1["phid"], r2["phid"]] in response.json()["landable_paths"]
+    assert [r1["phid"], r3["phid"]] in response.json()["landable_paths"]
 
-    assert len(response.json["revisions"]) == 4
-    revisions = {r["phid"]: r for r in response.json["revisions"]}
+    assert len(response.json()["revisions"]) == 4
+    revisions = {r["phid"]: r for r in response.json()["revisions"]}
     assert r1["phid"] in revisions
     assert r2["phid"] in revisions
     assert r3["phid"] in revisions
@@ -849,9 +849,9 @@ def test_integrated_stack_endpoint_repos(
     response = proxy_client.get("/stacks/D{}".format(r4["id"]))
     assert response.status_code == 200
 
-    assert len(response.json["repositories"]) == 2
+    assert len(response.json()["repositories"]) == 2
 
-    repositories = {r["phid"]: r for r in response.json["repositories"]}
+    repositories = {r["phid"]: r for r in response.json()["repositories"]}
     assert repo["phid"] in repositories
     assert unsupported_repo["phid"] in repositories
     assert repositories[repo["phid"]]["landing_supported"]
@@ -881,7 +881,7 @@ def test_integrated_stack_has_revision_security_status(
     response = proxy_client.get("/stacks/D{}".format(secure_revision["id"]))
     assert response.status_code == 200
 
-    revisions = {r["phid"]: r for r in response.json["revisions"]}
+    revisions = {r["phid"]: r for r in response.json()["revisions"]}
     assert not revisions[public_revision["phid"]]["is_secure"]
     assert revisions[secure_revision["phid"]]["is_secure"]
 
@@ -905,8 +905,8 @@ def test_integrated_stack_response_mismatch_returns_404(
 
     response = proxy_client.get("/stacks/D{}".format(r1["id"]))
     assert response.status_code == 200
-    assert len(response.json["edges"]) == 1
-    assert len(response.json["revisions"]) == 2
+    assert len(response.json()["edges"]) == 1
+    assert len(response.json()["revisions"]) == 2
 
     # Remove r2 from the response.
     phabdouble._revisions = [
@@ -921,8 +921,8 @@ def test_integrated_stack_response_mismatch_returns_404(
 
     response = proxy_client.get("/stacks/D{}".format(r1["id"]))
     assert response.status_code == 200
-    assert len(response.json["edges"]) == 0
-    assert len(response.json["revisions"]) == 1
+    assert len(response.json()["edges"]) == 0
+    assert len(response.json()["revisions"]) == 1
 
 
 def test_revisionstack_single():

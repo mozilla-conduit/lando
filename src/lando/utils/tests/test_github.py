@@ -1,11 +1,18 @@
 import json
 from textwrap import dedent
+from typing import Callable
 from unittest import mock
 
 import pytest
 from django.conf import settings
+from requests import Response
 
-from lando.utils.github import GitHub, GitHubAPI, GitHubAPIClient
+from lando.utils.github import (
+    GitHub,
+    GitHubAPI,
+    GitHubAPIClient,
+    PullRequestPatchHelper,
+)
 
 
 @pytest.mark.parametrize(
@@ -48,9 +55,68 @@ def test_github_parsed_url_not_github():
 @pytest.fixture
 def mock_github_fetch_token(monkeypatch: pytest.MonkeyPatch) -> mock.Mock:
     mock_fetch_token = mock.MagicMock()
-    mock_fetch_token.return_value = "token"
+    mock_fetch_token.return_value = "mock_token"
     monkeypatch.setattr("lando.utils.github.GitHub._fetch_token", mock_fetch_token)
     return mock_fetch_token
+
+
+@pytest.fixture
+def mock_github_api_get(
+    monkeypatch: pytest.MonkeyPatch, mock_response: Callable
+) -> Callable:
+    def _github_api_get(
+        repo: str,
+        pr_response: dict,
+        pr_commits_response: str,
+        github_pr_patch: str,
+        github_pr_diff: str,
+    ) -> mock.Mock:
+        pr_no = "1"
+
+        response_map = {
+            pr_response["diff_url"]: mock_response(text=github_pr_diff),
+            pr_response["patch_url"]: mock_response(text=github_pr_patch),
+            f"repos/{repo}/pulls/{pr_no}": {
+                "application/vnd.github.patch": mock_response(
+                    text=github_pr_patch,
+                    headers={
+                        "content-type": "application/vnd.github.patch; charset=utf-8"
+                    },
+                ),
+                "application/vnd.github.diff": mock_response(
+                    text=github_pr_diff,
+                    headers={
+                        "content-type": "application/vnd.github.diff; charset=utf-8"
+                    },
+                ),
+            },
+            f"repos/{repo}/pulls/{pr_no}/commits": mock_response(
+                text=pr_commits_response,
+                headers={
+                    "content-type": "application/json; charset=utf-8",
+                },
+            ),
+        }
+
+        def _mock_api_get(url: str, headers: dict = dict, **kwargs) -> Response:
+            # We don't use 'get' here, as we'd rather it failed loudly if something's
+            # missing.
+            response = response_map[url]
+
+            if isinstance(response, dict) and (content_type := headers.get("Accept")):
+                response = response.get(content_type)
+
+            if "content-type" not in response.headers:
+                response.headers["content-type"] = "application/x-whatever"
+
+            return response
+
+        mock_api_get = mock.Mock(side_effect=_mock_api_get)
+        monkeypatch.setattr("lando.utils.github.GitHubAPI.get", mock_api_get)
+
+        return mock_api_get
+
+    return _github_api_get
 
 
 @pytest.mark.parametrize(
@@ -58,15 +124,15 @@ def mock_github_fetch_token(monkeypatch: pytest.MonkeyPatch) -> mock.Mock:
     (
         (
             "https://github.com/mozilla-firefox/firefox/",
-            "https://git:token@github.com/mozilla-firefox/firefox/",
+            "https://git:mock_token@github.com/mozilla-firefox/firefox/",
         ),
         (
             "https://github.com/mozilla-firefox/firefox.git/",
-            "https://git:token@github.com/mozilla-firefox/firefox.git/",
+            "https://git:mock_token@github.com/mozilla-firefox/firefox.git/",
         ),
         (
             "https://github.com/mozilla-firefox/firefox.git/some?other#path",
-            "https://git:token@github.com/mozilla-firefox/firefox.git/some?other#path",
+            "https://git:mock_token@github.com/mozilla-firefox/firefox.git/some?other#path",
         ),
         (
             "https://someuser:somepass@github.com/owner/repo.git/",
@@ -94,7 +160,7 @@ def test_github_authenticated_url_no_token(
 def test_github_api_init(mock_github_fetch_token: mock.Mock):
     api_client = GitHubAPI("https://github.com/o/r")
 
-    assert api_client.session.headers.get("Authorization") == "Bearer token"
+    assert api_client.session.headers.get("Authorization") == "Bearer mock_token"
 
 
 def test_github_api_client_init(mock_github_fetch_token: mock.Mock):
@@ -117,6 +183,29 @@ def github_pr_response() -> str:
     """
     json_data_path = (
         settings.BASE_DIR / "utils" / "tests" / "data" / "github_api_response_pull.json"
+    )
+    with open(json_data_path) as f:
+        return f.read()
+
+
+@pytest.fixture
+def github_pr_commits_response() -> str:
+    """Return the raw response from a GitHub API request about a PR.
+
+    Data created with
+
+        # curl --user-agent 'shtrom' \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            https://api.github.com/repos/mozilla-conduit/test-repo/pulls/1/commits \
+            > src/lando/utils/tests/data/github_api_response_pull_commits.json
+    """
+    json_data_path = (
+        settings.BASE_DIR
+        / "utils"
+        / "tests"
+        / "data"
+        / "github_api_response_pull_commits.json"
     )
     with open(json_data_path) as f:
         return f.read()
@@ -284,7 +373,10 @@ def github_pr_diff() -> str:
 
 
 def test_api_client_build_pr(
-    github_pr_response: str, github_pr_diff: str, github_pr_patch: str
+    github_pr_response: str,
+    github_pr_commits_response: str,
+    github_pr_diff: str,
+    github_pr_patch: str,
 ):
     api_client = GitHubAPIClient("https://github.com/mozilla-conduit/test-repo")
 
@@ -309,3 +401,83 @@ def test_api_client_build_pr(
     assert pr.patch == github_pr_patch
     assert api_client.get_patch.call_count == 1
     assert api_client.get_patch.call_args.args == (1,)
+
+
+@pytest.fixture
+def github_api_client(
+    mock_github_fetch_token: mock.Mock,  # pyright: ignore[reportUnusedParameter]
+    mock_github_api_get: Callable,
+    mock_response: Callable,
+    monkeypatch: pytest.MonkeyPatch,
+) -> Callable:
+    def _github_api_client(
+        github_pr_response: str,
+        github_pr_commits_response: str,
+        *,
+        github_pr_list_response: str = "null",
+        github_pr_patch: str = "",
+        github_pr_diff: str = "",
+    ) -> GitHubAPIClient:
+        repo = "mozilla-conduit/test-repo"
+        client_mock = GitHubAPIClient(f"https://github.com/{repo}/")
+
+        client_mock.list_pull_request = mock.Mock(
+            return_value=json.loads(github_pr_list_response)
+        )
+
+        pr_response = json.loads(github_pr_response)
+        client_mock.get_pull_request = mock.Mock(return_value=pr_response)
+
+        # Prime the GitHub API object to fake network interaction with coherent
+        # response.
+        mock_github_api_get(
+            repo,
+            pr_response,
+            github_pr_commits_response,
+            github_pr_patch,
+            github_pr_diff,
+        )
+
+        return client_mock
+
+    return _github_api_client
+
+
+@pytest.fixture
+def github_api_client_pr(
+    github_api_client: Callable,
+    github_pr_response: str,
+    github_pr_commits_response: str,
+    github_pr_patch: str,
+    github_pr_diff: str,
+) -> mock.Mock:
+    return github_api_client(
+        github_pr_response,
+        github_pr_commits_response,
+        github_pr_patch=github_pr_patch,
+        github_pr_diff=github_pr_diff,
+    )
+
+
+def test_PullRequestPatchHelper(github_api_client_pr: mock.Mock):
+    # This should match the github_pr_response fixture.
+    pr_url = "https://api.github.com/repos/mozilla-conduit/test-repo/pulls/1"
+
+    pr = github_api_client_pr.build_pull_request(1)
+
+    assert pr.url == pr_url
+
+    # Serialisation
+    serialised_pr = pr.serialize()
+
+    assert serialised_pr["url"] == pr_url
+
+    # PatchHelper
+    pr_patch_helper = PullRequestPatchHelper(pr)
+
+    assert (
+        pr_patch_helper.get_commit_description()
+        == "test pull request with multiple commits"
+    )
+    assert pr_patch_helper.get_timestamp() == "1759952841"
+    assert pr_patch_helper.parse_author_information() == ("User", "user@example.com")
