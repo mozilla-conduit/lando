@@ -275,7 +275,7 @@ class PullRequestChecksAPIView(APIView):
         pr_warnings = [chk.name() for chk in ALL_PULL_REQUEST_WARNINGS]
         warnings = pr_checks.run(pr_warnings, pull_request)
 
-        # PullRequestPatchHelper.get_diff doesn't include binary changes.
+        # PullRequestPatchHelper.diff doesn't include binary changes.
         # This is not considered an issue for checks at the moment, but may need to be kept in
         # mind for the future.
         return JsonResponse(
