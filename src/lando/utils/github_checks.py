@@ -358,30 +358,6 @@ class PullRequestMissingTestingTagWarning(PullRequestWarning):
         return []
 
 
-class PullRequestDiffWarning(PullRequestWarning):
-    """Pull request has a diff warning."""
-
-    @override
-    @classmethod
-    def name(cls) -> str:
-        return "PullRequestDiffWarning"
-
-    @override
-    @classmethod
-    def description(cls) -> str:
-        return "Pull request has a diff warning."
-
-    @override
-    @classmethod
-    def run(
-        cls,
-        pull_request: PullRequest,
-        target_repo: Repo,
-        request: HttpRequest,
-    ) -> list[str]:
-        raise NotImplementedError
-
-
 class PullRequestWIPWarning(PullRequestWarning):
     """Pull request is marked as WIP."""
 
