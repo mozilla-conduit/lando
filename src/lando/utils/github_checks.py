@@ -25,7 +25,7 @@ class PullRequestCheck(Check, ABC):
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
-        """Inspect the PR for on issue, and return a message string if present."""
+        """Inspect the PR for an issue, and return a message string if present."""
 
 
 #
