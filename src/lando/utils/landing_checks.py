@@ -80,66 +80,6 @@ class PatchCheck(Check, ABC):
 
 
 @dataclass
-class PreventSymlinksCheck(PatchCheck):
-    """Check for symlinks introduced in the diff."""
-
-    @override
-    @classmethod
-    def name(cls) -> str:
-        return "PreventSymlinksCheck"
-
-    @override
-    @classmethod
-    def description(cls) -> str:
-        return "Check for symlinks introduced in the diff."
-
-    symlinked_files: list[str] = field(default_factory=list)
-
-    def next_diff(self, diff: dict):
-        modes = diff["modes"]
-
-        # Check the file mode on each file and ensure the file is not a symlink.
-        # `rs_parsepatch` has a `new` and `old` mode key, we are interested in
-        # only the newly introduced modes.
-        if "new" in modes and modes["new"] == SYMLINK_MODE:
-            self.symlinked_files.append(diff["filename"])
-
-    def result(self) -> str | None:
-        if self.symlinked_files:
-            return (
-                "Revision introduces symlinks in the files "
-                f"{wrap_filenames(self.symlinked_files)}."
-            )
-
-
-@dataclass
-class TryTaskConfigCheck(PatchCheck):
-    """Check for `try_task_config.json` introduced in the diff."""
-
-    @override
-    @classmethod
-    def name(cls) -> str:
-        return "TryTaskConfigCheck"
-
-    @override
-    @classmethod
-    def description(cls) -> str:
-        return "Check for `try_task_config.json` introduced in the diff."
-
-    includes_try_task_config: bool = False
-
-    def next_diff(self, diff: dict):
-        """Check each diff for the `try_task_config.json` file."""
-        if diff["filename"] == "try_task_config.json":
-            self.includes_try_task_config = True
-
-    def result(self) -> str | None:
-        """Return an error if the `try_task_config.json` was found."""
-        if self.includes_try_task_config:
-            return "Revision introduces the `try_task_config.json` file."
-
-
-@dataclass
 class PreventNSPRNSSCheck(PatchCheck):
     """Prevent changes to vendored NSPR directories."""
 
@@ -230,6 +170,66 @@ class PreventSubmodulesCheck(PatchCheck):
         """Return an error if the `.gitmodules` file was found."""
         if self.includes_gitmodules:
             return "Revision introduces a Git submodule into the repository."
+
+
+@dataclass
+class PreventSymlinksCheck(PatchCheck):
+    """Check for symlinks introduced in the diff."""
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PreventSymlinksCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Check for symlinks introduced in the diff."
+
+    symlinked_files: list[str] = field(default_factory=list)
+
+    def next_diff(self, diff: dict):
+        modes = diff["modes"]
+
+        # Check the file mode on each file and ensure the file is not a symlink.
+        # `rs_parsepatch` has a `new` and `old` mode key, we are interested in
+        # only the newly introduced modes.
+        if "new" in modes and modes["new"] == SYMLINK_MODE:
+            self.symlinked_files.append(diff["filename"])
+
+    def result(self) -> str | None:
+        if self.symlinked_files:
+            return (
+                "Revision introduces symlinks in the files "
+                f"{wrap_filenames(self.symlinked_files)}."
+            )
+
+
+@dataclass
+class TryTaskConfigCheck(PatchCheck):
+    """Check for `try_task_config.json` introduced in the diff."""
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "TryTaskConfigCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Check for `try_task_config.json` introduced in the diff."
+
+    includes_try_task_config: bool = False
+
+    def next_diff(self, diff: dict):
+        """Check each diff for the `try_task_config.json` file."""
+        if diff["filename"] == "try_task_config.json":
+            self.includes_try_task_config = True
+
+    def result(self) -> str | None:
+        """Return an error if the `try_task_config.json` was found."""
+        if self.includes_try_task_config:
+            return "Revision introduces the `try_task_config.json` file."
 
 
 @dataclass
