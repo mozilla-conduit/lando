@@ -150,6 +150,27 @@ class PreventPathCheckMixin(ABC):
 
 
 @dataclass
+class PreventDotGithubCheck(PreventPathCheckMixin, PatchCheck):
+    """Prevent changes GitHub workflows directory."""
+
+    paths = [
+        re.compile("^.github/workflows"),
+    ]
+    override_commit_message = "DOT_GITHUB_OVERRIDE"
+    error_message = "GitHub workflows directory"
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PreventDotGithubCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Prevent changes to GitHub workflows directory."
+
+
+@dataclass
 class PreventNSPRCheck(PreventPathCheckMixin, PatchCheck):
     """Prevent changes to vendored NSPR directories."""
 
