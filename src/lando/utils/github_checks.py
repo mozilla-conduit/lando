@@ -66,26 +66,6 @@ class PullRequestUserSCMLevelBlocker(PullRequestBlocker):
         return [cls.description()]
 
 
-# XXX: Irrelevant.
-# class PullRequestUnsupportedRepoBlocker(PullRequestBlocker):
-#     """Repository is not supported by Lando."""
-#
-#     @override
-#     @classmethod
-#     def run(cls, pull_request: PullRequest, target_repo: Repo, request: HttpRequest, request: HttpRequest) -> list[str]:
-#         raise NotImplementedError
-
-
-# XXX: Not currently needed.
-# class PullRequestOpenParentsBlocker(PullRequestBlocker):
-#     """Depends on multiple open parents."""
-#
-#     @override
-#     @classmethod
-#     def run(cls, pull_request: PullRequest, target_repo: Repo, request: HttpRequest, request: HttpRequest) -> list[str]:
-#         raise NotImplementedError
-
-
 class PullRequestClosedBlocker(PullRequestBlocker):
     """Revision is closed."""
 
@@ -111,16 +91,6 @@ class PullRequestClosedBlocker(PullRequestBlocker):
             return [cls.description()]
 
         return []
-
-
-# XXX: Not relevant to PRs.
-# class PullRequestLatestDiffsBlocker(PullRequestBlocker):
-#     """A requested diff is not the latest."""
-#
-#     @override
-#     @classmethod
-#     def run(cls, pull_request: PullRequest, target_repo: Repo, request: HttpRequest, request: HttpRequest) -> list[str]:
-#         raise NotImplementedError
 
 
 class PullRequestDiffAuthorIsKnownBlocker(PullRequestBlocker):
@@ -188,30 +158,6 @@ class PullRequestAuthorPlannedChangesBlocker(PullRequestBlocker):
         return []
 
 
-class PullRequestUpliftApprovalBlocker(PullRequestBlocker):
-    """The release-managers group did not accept the stack."""
-
-    @override
-    @classmethod
-    def name(cls) -> str:
-        return "PullRequestUpliftApprovalBlocker"
-
-    @override
-    @classmethod
-    def description(cls) -> str:
-        return "The release-managers group did not accept the stack."
-
-    @override
-    @classmethod
-    def run(
-        cls,
-        pull_request: PullRequest,
-        target_repo: Repo,
-        request: HttpRequest,
-    ) -> list[str]:
-        raise Exception("This check should be at the lando level")
-
-
 class PullRequestRevisionDataClassificationBlocker(PullRequestBlocker):
     """Revision makes changes to data collection and should have its data classification assessed before landing."""
 
@@ -240,15 +186,6 @@ class PullRequestRevisionDataClassificationBlocker(PullRequestBlocker):
 
         return []
 
-
-# XXX: Not currently needed.
-# class PullRequestOpenAncestorBlocker(PullRequestBlocker):
-#     """Has an open ancestor revision that is blocked."""
-#
-#     @override
-#     @classmethod
-#     def run(cls, pull_request: PullRequest, target_repo: Repo, request: HttpRequest, request: HttpRequest) -> list[str]:
-#         raise NotImplementedError
 
 #
 # WARNINGS
