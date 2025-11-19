@@ -1,9 +1,14 @@
 import logging
 from abc import ABC, abstractmethod
+from datetime import datetime, timezone
+from typing import Iterable
 
+import requests
 from django.http import HttpRequest
 from typing_extensions import override
 
+from lando.main.models.jobs import JobStatus
+from lando.main.models.landing_job import get_jobs_for_pull
 from lando.main.models.repo import Repo
 from lando.utils.github import GitHubAPIClient, PullRequest
 from lando.utils.landing_checks import Check
@@ -182,8 +187,343 @@ class PullRequestRevisionDataClassificationBlocker(PullRequestBlocker):
         return []
 
 
+#
+# WARNINGS
+#
+
+
+class PullRequestWarning(PullRequestCheck, ABC):
+    """Parent class for warning checks."""
+
+
+class PullRequestBlockingReviewsWarning(PullRequestWarning):
+    """Has a review intended to block landing."""
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PullRequestBlockingReviewsWarning"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Has a review intended to block landing."
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        reviews = pull_request.reviews
+
+        messages = []
+
+        for review in reviews:
+            if review["state"] == pull_request.Review.CHANGES_REQUESTED:
+                messages.append(
+                    f"{cls.description()} {review['body'].splitlines()[0]}… {review['html_url']})"
+                )
+
+        return messages
+
+
+class PullRequestPreviouslyLandedWarning(PullRequestWarning):
+    """Has previously landed."""
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PullRequestPreviouslyLandedWarning"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Has previously landed."
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        jobs = get_jobs_for_pull(target_repo, pull_request.number)
+
+        if any(job.status == JobStatus.LANDED for job in jobs):
+            return [cls.description()]
+
+        return []
+
+
+class PullRequestNotAcceptedWarning(PullRequestWarning):
+    """Is not Accepted."""
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PullRequestNotAcceptedWarning"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Is not Accepted."
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        reviews = pull_request.reviews
+
+        if any(review["state"] == pull_request.Review.APPROVED for review in reviews):
+            return []
+
+        return [cls.description()]
+
+
+class PullRequestReviewsNotCurrentWarning(PullRequestWarning):
+    """No reviewer has accepted the current diff."""
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PullRequestReviewsNotCurrentWarning"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "No reviewer has accepted the current diff."
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        reviews = pull_request.reviews
+
+        if pull_request.head_sha in [
+            review["commit_id"]
+            for review in reviews
+            if review["state"] == pull_request.Review.APPROVED
+        ]:
+            return []
+
+        return [cls.description()]
+
+
+class PullRequestMissingTestingTagWarning(PullRequestWarning):
+    """Pull request is missing a Testing Policy Project Tag."""
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PullRequestMissingTestingTagWarning"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Pull request is missing a Testing Policy Project Tag."
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        # Only allow a single testing tag.
+        if (
+            len(
+                [
+                    label["name"]
+                    for label in pull_request.labels
+                    if label["name"].startswith("testing")
+                ]
+            )
+            != 1
+        ):
+            return [cls.description()]
+
+        return []
+
+
+class PullRequestWIPWarning(PullRequestWarning):
+    """Pull request is marked as WIP."""
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PullRequestWIPWarning"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Pull request is marked as WIP."
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        if pull_request.title.lower().startswith("wip:"):
+            return [cls.description()]
+
+        return []
+
+
+class PullRequestCodeFreezeWarning(PullRequestWarning):
+    """Repository is under a soft code freeze."""
+
+    # XXX: This code is duplicated from transplants.warning_code_freeze. See bug 2001021.
+
+    # The code freeze dates generally correspond to PST work days.
+    CODE_FREEZE_OFFSET = "-0800"
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PullRequestCodeFreezeWarning"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Repository is under a soft code freeze."
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        if not target_repo.product_details_url:
+            return []
+
+        try:
+            product_details = requests.get(target_repo.product_details_url).json()
+        except requests.exceptions.RequestException as e:
+            logger.exception(e)
+            return [
+                f"Could not retrieve repository's code freeze status from {target_repo.product_details_url}."
+            ]
+
+        freeze_date_str = product_details.get("NEXT_SOFTFREEZE_DATE")
+        merge_date_str = product_details.get("NEXT_MERGE_DATE")
+        # If the JSON doesn't have these keys, this warning isn't applicable
+        if not freeze_date_str or not merge_date_str:
+            return []
+
+        today = datetime.now(tz=timezone.utc)
+        freeze_date = datetime.strptime(
+            f"{freeze_date_str} {cls.CODE_FREEZE_OFFSET}",
+            "%Y-%m-%d %z",
+        ).replace(tzinfo=timezone.utc)
+        if today < freeze_date:
+            return []
+
+        merge_date = datetime.strptime(
+            f"{merge_date_str} {cls.CODE_FREEZE_OFFSET}",
+            "%Y-%m-%d %z",
+        ).replace(tzinfo=timezone.utc)
+
+        if freeze_date <= today <= merge_date:
+            return [f"Repository is under a soft code freeze (ends {merge_date_str})."]
+
+        return []
+
+
+class PullRequestUnresolvedCommentsWarning(PullRequestWarning):
+    """Pull request has unresolved comments."""
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PullRequestUnresolvedCommentsWarning"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Pull request has unresolved comments."
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        commit_comments = pull_request.commit_comments
+        messages = []
+
+        for comment in commit_comments:
+            if not comment["is_resolved"]:
+                messages.append(
+                    f"{cls.description()} {comment['body']} ({comment['url']})"
+                )
+
+        return messages
+
+
+class PullRequestMultipleAuthorsWarning(PullRequestWarning):
+    """Pull request has multiple authors."""
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PullRequestMultipleAuthorsWarning"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Pull request has multiple authors."
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        if (
+            len(
+                authors :=
+                # Note: this is a set comprehension, so each element is unique.
+                {
+                    f"{commit['commit']['author']['name']} <{commit['commit']['author']['email']}>"
+                    for commit in pull_request.commits
+                }
+            )
+            != 1
+        ):
+            return [cls.description() + " " + cls._authors_str(authors)]
+
+        return []
+
+    @classmethod
+    def _authors_str(cls, authors: Iterable[str]) -> str:
+        return ", ".join(authors)
+
+
 ALL_PULL_REQUEST_BLOCKERS = PullRequestBlocker.__subclasses__()
-ALL_PULL_REQUEST_CHECKS = ALL_PULL_REQUEST_BLOCKERS
+ALL_PULL_REQUEST_WARNINGS = PullRequestWarning.__subclasses__()
+ALL_PULL_REQUEST_CHECKS = ALL_PULL_REQUEST_BLOCKERS + ALL_PULL_REQUEST_WARNINGS
 
 
 class PullRequestChecks:
