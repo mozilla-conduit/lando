@@ -15,6 +15,7 @@ from lando.utils.landing_checks import (
     CommitMessagesCheck,
     LandingChecks,
     PatchCollectionAssessor,
+    PreventDotGithubCheck,
     PreventNSPRNSSCheck,
     PreventSubmodulesCheck,
     TryTaskConfigCheck,
@@ -310,6 +311,32 @@ def test_check_wptsync_git(
         assert errors == [return_string], error_message
     else:
         assert not errors, error_message
+
+
+def test_check_prevent_dot_github():
+    parsed_diff = rs_parsepatch.get_diffs(
+        GIT_DIFF_FILENAME_TEMPLATE.format(filename=".github/workflows/workflow.yaml")
+    )
+    prevent_dot_github_check = PreventDotGithubCheck(
+        email="testuser@mozilla.com",
+        commit_message=COMMIT_MESSAGE,
+    )
+    for diff in parsed_diff:
+        prevent_dot_github_check.next_diff(diff)
+    assert prevent_dot_github_check.result() == (
+        "Revision makes changes to restricted directories: GitHub workflows directory: "
+        "`.github/workflows/workflow.yaml`."
+    ), "Check should disallow changes to GitHub workflows without proper commit message."
+
+    prevent_dot_github_check = PreventDotGithubCheck(
+        email="testuser@mozilla.com",
+        commit_message="bug 123: upgrade workflows DOT_GITHUB_OVERRIDE",
+    )
+    for diff in parsed_diff:
+        prevent_dot_github_check.next_diff(diff)
+    assert (
+        prevent_dot_github_check.result() is None
+    ), "Check should allow changes to GitHub workflows with proper commit message."
 
 
 def test_check_prevent_nspr_nss_missing_fields():
