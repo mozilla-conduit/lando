@@ -150,8 +150,57 @@ class PreventPathCheckMixin(ABC):
 
 
 @dataclass
-class PreventNSPRNSSCheck(PatchCheck):
+class PreventNSPRCheck(PreventPathCheckMixin, PatchCheck):
     """Prevent changes to vendored NSPR directories."""
+
+    paths = [
+        re.compile("^nsprpub/"),
+    ]
+    override_commit_message = "UPGRADE_NSPR_RELEASE"
+    error_message = "vendored NSPR directories"
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PreventNSSPRCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Prevent changes to vendored NSPR directories."
+
+
+@dataclass
+class PreventNSSCheck(PreventPathCheckMixin, PatchCheck):
+    """Prevent changes to vendored NSS directories."""
+
+    paths = [
+        re.compile("^security/nss/"),
+    ]
+    override_commit_message = "UPGRADE_NSS_RELEASE"
+    error_message = "vendored NSS directories"
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PreventNSSCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Prevent changes to vendored NSS directories."
+
+
+@dataclass
+class PreventNSPRNSSCheck(PatchCheck):
+    """Prevent changes to vendored NSPR and NSS directories.
+
+    This is a backward-compatible façade wrapping the PreventNSPRCheck and
+    PreventNSSCheck blockers.
+    """
+
+    _prevent_nspr_check: PreventNSPRCheck = field(init=False)
+    _prevent_nss_check: PreventNSSCheck = field(init=False)
 
     @override
     @classmethod
@@ -163,8 +212,11 @@ class PreventNSPRNSSCheck(PatchCheck):
     def description(cls) -> str:
         return "Prevent changes to vendored NSPR directories."
 
-    nss_disallowed_changes: list[str] = field(default_factory=list)
-    nspr_disallowed_changes: list[str] = field(default_factory=list)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self._prevent_nspr_check = PreventNSPRCheck(*args, **kwargs)
+        self._prevent_nss_check = PreventNSSCheck(*args, **kwargs)
 
     def build_prevent_nspr_nss_error_message(self) -> str:
         """Build the `check_prevent_nspr_nss` error message.
@@ -172,43 +224,38 @@ class PreventNSPRNSSCheck(PatchCheck):
         Assumes at least one of `nss_disallowed_changes` or `nspr_disallowed_changes`
         are non-empty lists.
         """
+
         # Build the error message.
-        return_error_message = ["Revision makes changes to restricted directories:"]
+        return_error_message = [PreventPathCheckMixin.BASE_ERROR_MESSAGE]
 
-        if self.nss_disallowed_changes:
-            return_error_message.append("vendored NSS directories:")
+        if self._prevent_nss_check.disallowed_changes:
+            return_error_message.append(
+                self._prevent_nss_check.build_error_message()
+                .removeprefix(f"{self._prevent_nss_check.BASE_ERROR_MESSAGE} ")
+                .removesuffix(".")
+            )
 
-            return_error_message.append(wrap_filenames(self.nss_disallowed_changes))
-
-        if self.nspr_disallowed_changes:
-            return_error_message.append("vendored NSPR directories:")
-
-            return_error_message.append(wrap_filenames(self.nspr_disallowed_changes))
+        if self._prevent_nspr_check.disallowed_changes:
+            return_error_message.append(
+                self._prevent_nspr_check.build_error_message()
+                .removeprefix(f"{self._prevent_nspr_check.BASE_ERROR_MESSAGE} ")
+                .removesuffix(".")
+            )
 
         return f"{' '.join(return_error_message)}."
 
     def next_diff(self, diff: dict):
         """Pass the next `rs_parsepatch` diff `dict` into the check."""
-        if not self.commit_message:
-            return
 
-        filename = diff["filename"]
-
-        if (
-            filename.startswith("security/nss/")
-            and "UPGRADE_NSS_RELEASE" not in self.commit_message
-        ):
-            self.nss_disallowed_changes.append(filename)
-
-        if (
-            filename.startswith("nsprpub/")
-            and "UPGRADE_NSPR_RELEASE" not in self.commit_message
-        ):
-            self.nspr_disallowed_changes.append(filename)
+        self._prevent_nspr_check.next_diff(diff)
+        self._prevent_nss_check.next_diff(diff)
 
     def result(self) -> str | None:
         """Calculate and return the result of the check."""
-        if not self.nss_disallowed_changes and not self.nspr_disallowed_changes:
+        if (
+            not self._prevent_nspr_check.disallowed_changes
+            and not self._prevent_nss_check.disallowed_changes
+        ):
             # Return early if no disallowed changes were found.
             return
 
