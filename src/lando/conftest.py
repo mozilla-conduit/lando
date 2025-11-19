@@ -657,7 +657,6 @@ def repo_mc(
         name: str = "",
         push_target: str = "",
     ) -> Repo:
-
         # The BMO reference check 1) requires access to a BMO instance to test with and
         # 2) is only needed for Try. We disable it here to be closer to a normal MC
         # repo.
