@@ -305,13 +305,6 @@ class GitHubAPIClient:
 
         return comments
 
-    def get_pull_request_labels(self, pull_number: int) -> list:
-        """Return a list of labels for the PR."""
-        # `issues` is correct here
-        labels = self._repo_get(f"issues/{pull_number}/labels")
-
-        return labels
-
     def get_pull_request_reviews(self, pull_number: int) -> list:
         """Return a list of reviews for the PR."""
         return self._repo_get(f"pulls/{pull_number}/reviews")
@@ -425,6 +418,7 @@ class PullRequest:
         ]  # e.g., git://github.com/mozilla-conduit/test-repo.git
         self.html_url = data["html_url"]
         self.id = data["id"]
+        self.labels = data["labels"]
         self.mergeable_state = data["mergeable_state"]
         self.number = data["number"]
         self.requested_reviewers = [
@@ -533,16 +527,6 @@ class PullRequest:
     @property
     def patch(self) -> str:
         return self.client.get_patch(self.number)
-
-    @property
-    @pr_cache_method
-    def labels(self) -> list:
-        """Return a list of labels for the PR."""
-        labels = self.client.get_pull_request_labels(self.number)
-
-        # XXXX check for staleness
-
-        return labels
 
     @property
     @pr_cache_method
