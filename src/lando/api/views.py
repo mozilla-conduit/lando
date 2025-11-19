@@ -25,7 +25,8 @@ from lando.main.scm import (
     SCM_TYPE_GIT,
     SCM_TYPE_HG,
 )
-from lando.utils.github import GitHubAPIClient
+from lando.utils.github import GitHubAPIClient, PullRequestPatchHelper
+from lando.utils.landing_checks import ALL_CHECKS, BugReferencesCheck, LandingChecks
 from lando.utils.phabricator import get_phabricator_client
 
 
@@ -226,7 +227,6 @@ class LandingJobPullRequestAPIView(View):
         revision = Revision.objects.create(pull_number=pull_request.number)
         author_name, author_email = pull_request.author
         patch_data = {
-            # See bug 1995006 (to actually parse authorship info). Use placeholder for now.
             "author_name": author_name,
             "author_email": author_email,
             "commit_message": pull_request.title,
@@ -239,3 +239,28 @@ class LandingJobPullRequestAPIView(View):
         job.save()
 
         return JsonResponse({"id": job.id}, status=201)
+
+
+class PullRequestChecksAPIView(APIView):
+    def get(self, request: WSGIRequest, repo_name: str, number: int) -> JsonResponse:
+        target_repo = Repo.objects.get(name=repo_name)
+        client = GitHubAPIClient(target_repo.url)
+        pull_request = client.build_pull_request(number)
+
+        patch_helper = PullRequestPatchHelper(pull_request)
+
+        _, author_email = pull_request.author
+
+        landing_checks = LandingChecks(author_email)
+        checks = [
+            chk.name()
+            for chk in ALL_CHECKS
+            # This is checking for secure revisions in BMO. We skip this for now.
+            if chk.name() != BugReferencesCheck.name()
+        ]
+        blockers = landing_checks.run(
+            checks,
+            [patch_helper],
+        )
+
+        return JsonResponse({"blockers": blockers, "warnings": []})
