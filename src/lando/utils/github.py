@@ -305,6 +305,13 @@ class GitHubAPIClient:
 
         return comments
 
+    def get_pull_request_labels(self, pull_number: int) -> list:
+        """Return a list of labels for the PR."""
+        # `issues` is correct here
+        labels = self._repo_get(f"issues/{pull_number}/labels")
+
+        return labels
+
     def get_pull_request_reviews(self, pull_number: int) -> list:
         """Return a list of reviews for the PR."""
         return self._repo_get(f"pulls/{pull_number}/reviews")
