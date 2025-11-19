@@ -388,6 +388,8 @@ class PullRequestWIPWarning(PullRequestWarning):
 class PullRequestCodeFreezeWarning(PullRequestWarning):
     """Repository is under a soft code freeze."""
 
+    # XXX: This code is duplicated from transplants.warning_code_freeze. See bug 2001021.
+
     # The code freeze dates generally correspond to PST work days.
     CODE_FREEZE_OFFSET = "-0800"
 
