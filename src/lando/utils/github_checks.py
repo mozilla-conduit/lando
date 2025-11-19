@@ -61,24 +61,6 @@ class PullRequestUserSCMLevelBlocker(PullRequestBlocker):
         return [cls.description()]
 
 
-# XXX: Irrelevant.
-# class PullRequestUnsupportedRepoBlocker(PullRequestBlocker):
-#     """Repository is not supported by Lando."""
-#
-#     @override
-#     @classmethod
-#     def run(cls, client: GitHubAPIClient, pull_request: PullRequest, target_repo: Repo, request: HttpRequest, request: HttpRequest) -> list[str]:
-#         raise NotImplementedError
-
-
-# XXX: Not currently needed.
-# class PullRequestOpenParentsBlocker(PullRequestBlocker):
-#     """Depends on multiple open parents."""
-#
-#     @override
-#     @classmethod
-#     def run(cls, client: GitHubAPIClient, pull_request: PullRequest, target_repo: Repo, request: HttpRequest, request: HttpRequest) -> list[str]:
-#         raise NotImplementedError
 
 
 class PullRequestClosedBlocker(PullRequestBlocker):
