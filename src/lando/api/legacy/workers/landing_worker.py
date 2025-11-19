@@ -169,12 +169,23 @@ class LandingWorker(Worker):
         # at this time. In theory this would work for any provided patches in a
         # standard format.
 
-        for revision in job.revisions:
-            if not revision.patches:
-                continue
-            diff = scm.get_diff_from_patches(revision.patches)
-            revision.set_patch(f"{diff}\r\n")
-            revision.save()
+        # NOTE: this is only supported for jobs with a single revision at this time.
+        # See bug 2001185.
+
+        if len(job.revisions) > 1:
+            raise NotImplementedError(
+                "This method is not supported when job has more than 1 revision."
+            )
+        if len(job.revisions) == 0:
+            raise ValueError("No revisions found in job.")
+
+        revision = job.revisions[0]
+        if not revision.patches:
+            raise ValueError("Revision is missing patches.")
+
+        diff = scm.get_diff_from_patches(revision.patches)
+        revision.set_patch(f"{diff}\r\n")
+        revision.save()
 
     def apply_and_push(
         self,
