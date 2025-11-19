@@ -477,7 +477,10 @@ def test_PullRequestPatchHelper(github_api_client_pr: mock.Mock):
 
     assert (
         pr_patch_helper.get_commit_description()
-        == "test pull request with multiple commits"
+        == "WIP: test pull request with multiple commits"
     )
-    assert pr_patch_helper.get_timestamp() == "1759952841"
-    assert pr_patch_helper.parse_author_information() == ("User", "user@example.com")
+    assert pr_patch_helper.get_timestamp() == "1761017419"
+    assert pr_patch_helper.parse_author_information() == (
+        "Olivier Mehani",
+        "omehani@mozilla.com",
+    )
