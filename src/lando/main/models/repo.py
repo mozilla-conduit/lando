@@ -72,6 +72,10 @@ class Repo(BaseModel):
             "TryTaskConfigCheck",
             "Check for `try_task_config.json` introduced in the diff.",
         )
+        PreventDotGithubCheck = (
+            "PreventDotGithubCheck",
+            "Prevent changes to GitHub workflows directory.",
+        )
         PreventNSPRNSSCheck = (
             "PreventNSPRNSSCheck",
             "Prevent changes to vendored NSPR directories.",
