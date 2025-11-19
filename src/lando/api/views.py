@@ -223,13 +223,9 @@ class LandingJobPullRequestAPIView(View):
         if not form.is_valid():
             return JsonResponse(form.errors, 400)
 
-        # TODO: this does not work with binary data, must use patch instead.
-        # See bug 1993047.
-        diff = client.get_diff(pull_number)
         job = LandingJob.objects.create(
             target_repo=target_repo, requester_email=ldap_username
         )
-        revision = Revision.objects.create(pull_number=pull_request.number)
         author_name, author_email = pull_request.author
         patch_data = {
             "author_name": author_name,
@@ -237,8 +233,11 @@ class LandingJobPullRequestAPIView(View):
             "commit_message": pull_request.title,
             "timestamp": int(datetime.now().timestamp()),
         }
-        revision.set_patch(diff, patch_data)
-        revision.save()
+        revision = Revision.objects.create(
+            pull_number=pull_request.number,
+            patches=pull_request.patch,
+            patch_data=patch_data,
+        )
         add_revisions_to_job([revision], job)
         job.status = JobStatus.SUBMITTED
         job.save()
