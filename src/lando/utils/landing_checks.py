@@ -79,6 +79,76 @@ class PatchCheck(Check, ABC):
         """Calculate and return the result of the check."""
 
 
+class PreventPathCheckMixin(ABC):
+    """Prevent changes to arbitrary directories.
+
+    To use this check, create a subclass that defines the following attributes:
+
+    Attributes:
+
+    paths: list[re.Pattern]
+        list of patterm to match() each filename with
+
+    override_commit_message: str
+        a string to allow users to bypass the check
+
+    error_message: str
+        a basic error string to show before the list of matching files (no colon
+        needed)
+    """
+
+    paths: list[re.Pattern]
+    override_commit_message: str
+    error_message: str
+
+    disallowed_changes: list[str] = field(init=False)
+
+    BASE_ERROR_MESSAGE = "Revision makes changes to restricted directories:"
+
+    def __post_init__(self):
+        # Setting default_factory=list in the field above leads to weird situations
+        # where the disallowed_changes is still a Field, rather than having been
+        # replaced by a value from the default_factory. So we do it ourselves.
+        self.disallowed_changes = []
+
+    def build_error_message(self) -> str:
+        """Build the error message.
+
+        Assumes disallowed_changes is not empty.
+        """
+        # Build the error message.
+        return_error_message = [self.BASE_ERROR_MESSAGE]
+
+        if self.disallowed_changes:
+            return_error_message.append(f"{self.error_message}:")
+
+            return_error_message.append(wrap_filenames(self.disallowed_changes))
+
+        return f"{' '.join(return_error_message)}."
+
+    def next_diff(self, diff: dict):
+        """Pass the next `rs_parsepatch` diff `dict` into the check."""
+        if not self.commit_message:
+            return
+
+        filename = diff["filename"]
+
+        for pattern in self.paths:
+            if (
+                pattern.match(filename)
+                and self.override_commit_message not in self.commit_message
+            ):
+                self.disallowed_changes.append(filename)
+
+    def result(self) -> str | None:
+        """Calculate and return the result of the check."""
+        if not self.disallowed_changes:
+            # Return early if no disallowed changes were found.
+            return
+
+        return self.build_error_message()
+
+
 @dataclass
 class PreventNSPRNSSCheck(PatchCheck):
     """Prevent changes to vendored NSPR directories."""
