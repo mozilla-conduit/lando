@@ -153,30 +153,6 @@ class PullRequestAuthorPlannedChangesBlocker(PullRequestBlocker):
         return []
 
 
-class PullRequestUpliftApprovalBlocker(PullRequestBlocker):
-    """The release-managers group did not accept the stack."""
-
-    @override
-    @classmethod
-    def name(cls) -> str:
-        return "PullRequestUpliftApprovalBlocker"
-
-    @override
-    @classmethod
-    def description(cls) -> str:
-        return "The release-managers group did not accept the stack."
-
-    @override
-    @classmethod
-    def run(
-        cls,
-        pull_request: PullRequest,
-        target_repo: Repo,
-        request: HttpRequest,
-    ) -> list[str]:
-        raise Exception("This check should be at the lando level")
-
-
 class PullRequestRevisionDataClassificationBlocker(PullRequestBlocker):
     """Revision makes changes to data collection and should have its data classification assessed before landing."""
 
