@@ -189,6 +189,22 @@ class GitSCM(AbstractSCM):
                 # Re-raise the exception from the failed `git am`.
                 raise exc
 
+    def get_diff_from_patches(self, patches: str) -> str:
+        """Apply multiple patches and return the diff output."""
+        # TODO: add error handling so that if something goes wrong here,
+        # a meaningful error is stored in the landing job. This would be
+        # the same as what is done when actually applying the patches.
+        # See bug 2000268.
+        with tempfile.NamedTemporaryFile(
+            encoding="utf-8", mode="w+", suffix=".patch"
+        ) as patch_file:
+            patch_file.write(patches)
+            patch_file.flush()
+
+            self._git_run("apply", "--reject", patch_file.name, cwd=self.path)
+            self._git_run("add", "-A", "-f", cwd=self.path)
+            return self._git_run("diff", "--staged", "--binary", cwd=self.path)
+
     @override
     def get_patch(self, revision_id: str) -> str | None:
         """Return a complete patch for the given revision, in the git extended diff format.

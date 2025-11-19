@@ -163,6 +163,30 @@ class LandingWorker(Worker):
 
         return True
 
+    def convert_patches_to_diff(self, scm: AbstractSCM, job: LandingJob):
+        """Generate a unified diff from multiple patches stored in a revision."""
+        # NOTE: this only applies to git patches that are downloaded from GitHub
+        # at this time. In theory this would work for any provided patches in a
+        # standard format.
+
+        # NOTE: this is only supported for jobs with a single revision at this time.
+        # See bug 2001185.
+
+        if len(job.revisions) > 1:
+            raise NotImplementedError(
+                "This method is not supported when job has more than 1 revision."
+            )
+        if len(job.revisions) == 0:
+            raise ValueError("No revisions found in job.")
+
+        revision = job.revisions[0]
+        if not revision.patches:
+            raise ValueError("Revision is missing patches.")
+
+        diff = scm.get_diff_from_patches(revision.patches)
+        revision.set_patch(f"{diff}\r\n")
+        revision.save()
+
     def apply_and_push(
         self,
         job: LandingJob,
@@ -174,7 +198,6 @@ class LandingWorker(Worker):
 
         Returns a tuple of bug_ids and tip commit_id.
         """
-        self.update_repo(repo, job, scm, job.target_commit_hash)
 
         def apply_patch(revision: Revision):
             logger.debug(f"Landing {revision} ...")
@@ -184,6 +207,12 @@ class LandingWorker(Worker):
                 revision.author,
                 revision.timestamp,
             )
+
+        self.update_repo(repo, job, scm, job.target_commit_hash)
+
+        if job.is_pull_request_job:
+            self.convert_patches_to_diff(scm, job)
+            self.update_repo(repo, job, scm, job.target_commit_hash)
 
         # Run through the patches one by one and try to apply them.
         logger.debug(
