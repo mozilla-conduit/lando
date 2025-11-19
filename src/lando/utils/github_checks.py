@@ -61,8 +61,6 @@ class PullRequestUserSCMLevelBlocker(PullRequestBlocker):
         return [cls.description()]
 
 
-
-
 class PullRequestClosedBlocker(PullRequestBlocker):
     """Revision is closed."""
 
@@ -88,7 +86,6 @@ class PullRequestClosedBlocker(PullRequestBlocker):
             return [cls.description()]
 
         return []
-
 
 
 class PullRequestDiffAuthorIsKnownBlocker(PullRequestBlocker):
@@ -207,7 +204,6 @@ class PullRequestRevisionDataClassificationBlocker(PullRequestBlocker):
             return [cls.description()]
 
         return []
-
 
 
 ALL_PULL_REQUEST_BLOCKERS = PullRequestBlocker.__subclasses__()
