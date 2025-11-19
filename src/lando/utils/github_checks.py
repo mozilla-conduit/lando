@@ -321,30 +321,6 @@ class PullRequestReviewsNotCurrentWarning(PullRequestWarning):
         return [cls.description()]
 
 
-class PullRequestSecureRevisionWarning(PullRequestWarning):
-    """Is a secure pull request and should follow the Security Bug Approval Process."""
-
-    @override
-    @classmethod
-    def name(cls) -> str:
-        return "PullRequestSecureRevisionWarning"
-
-    @override
-    @classmethod
-    def description(cls) -> str:
-        return "Is a secure pull request and should follow the Security Bug Approval Process."
-
-    @override
-    @classmethod
-    def run(
-        cls,
-        pull_request: PullRequest,
-        target_repo: Repo,
-        request: HttpRequest,
-    ) -> list[str]:
-        raise NotImplementedError
-
-
 class PullRequestMissingTestingTagWarning(PullRequestWarning):
     """Pull request is missing a Testing Policy Project Tag."""
 
