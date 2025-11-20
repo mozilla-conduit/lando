@@ -57,9 +57,32 @@ $.fn.stack = function() {
                     pull_request_button.removeClass("is-loading");
                     pull_request_button.html("Landing job submitted");
                 } else {
-                    pull_request_button.prop("disabled", false);
-                    pull_request_button.removeClass("is-loading").addClass("is-success");;
-                    pull_request_button.html("Request landing");
+                    fetch(`/api/pulls/${repo_name}/${pull_number}/checks`, {
+                        method: 'GET',
+                    }).then(async response => {
+                        if (response.status == 200) {
+                            var result = await response.json();
+                            var blockers = result.blockers;
+                            var warnings = result.warnings;
+
+                            if (blockers.length === 0) {
+                                $("#blockers").html("None found.");
+                                pull_request_button.prop("disabled", false);
+                                pull_request_button.removeClass("is-loading").addClass("is-success");;
+                                pull_request_button.html("Request landing");
+                            } else {
+                                $("#blockers").html("");
+                                pull_request_button.prop("disabled", true);
+                                pull_request_button.removeClass("is-loading").addClass("is-danger");
+                                pull_request_button.html("Landing is blocked");
+                                for (var blocker of blockers) {
+                                    $("#blockers").append(`<li>${blocker}</li>`);
+                                }
+                            }
+                        } else {
+                            // TODO: handle this case. See bug 1996000.
+                        }
+                    });
                 }
             } else {
                 // TODO: handle this case. See bug 1996000.
