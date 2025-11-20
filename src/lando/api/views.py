@@ -11,6 +11,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
+from lando.main.auth import require_authenticated_user
 from lando.main.models import (
     CommitMap,
     JobStatus,
@@ -202,6 +203,7 @@ class LandingJobPullRequestAPIView(View):
 
         return JsonResponse({"status": status}, status=200)
 
+    @method_decorator(require_authenticated_user)
     def post(
         self, request: WSGIRequest, repo_name: int, pull_number: int
     ) -> JsonResponse:
