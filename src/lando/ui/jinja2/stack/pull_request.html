@@ -15,8 +15,20 @@
             data-csrf-token="{{ csrf_token }}">
         Loading</button>
     </p>
+    <p class="acknowledge-warnings-section">
+        <label class="checkbox">
+              <input type="checkbox" id="acknowledge-warnings" />
+                Acknowledge all warnings below.
+        </label>
+    </p>
   <div class="StackPage-stack">
       <table>
+          <tr>
+              <th>Warnings</th>
+              <td>
+                  <ul id="warnings"><li>Checking...</li/></ul>
+              </td>
+          </tr>
           <tr>
               <th>Blockers</th>
               <td>

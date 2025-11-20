@@ -38,6 +38,17 @@ $.fn.stack = function() {
     // This should be cleaned up as part of bug 1995754.
     var is_pull_request_page = Boolean($('button.post-landing-job').length);
     if (is_pull_request_page) {
+
+        $('#acknowledge-warnings').on("click", function () {
+            if (this.checked) {
+                pull_request_button.prop("disabled", false);
+                pull_request_button.html("Request landing despite warnings");
+            } else {
+                pull_request_button.prop("disabled", true);
+                pull_request_button.html("Acknowledge warnings to continue");
+            }
+        });
+
         var pull_request_button = $('button.post-landing-job');
         if (pull_request_button.data("anonymous") == 1) {
             pull_request_button.prop("disabled", true);
@@ -78,19 +89,40 @@ $.fn.stack = function() {
                             var blockers = result.blockers;
                             var warnings = result.warnings;
 
-                            if (blockers.length === 0) {
+                            var has_blockers = blockers.length !== 0;
+                            var has_warnings = warnings.length !== 0;
+
+                            if (!has_blockers) {
                                 $("#blockers").html("None found.");
-                                pull_request_button.prop("disabled", false);
-                                pull_request_button.removeClass("is-loading").addClass("is-success");;
-                                pull_request_button.html("Request landing");
                             } else {
                                 $("#blockers").html("");
-                                pull_request_button.prop("disabled", true);
-                                pull_request_button.removeClass("is-loading").addClass("is-danger");
-                                pull_request_button.html("Landing is blocked");
                                 for (var blocker of blockers) {
                                     $("#blockers").append(`<li>${blocker}</li>`);
                                 }
+                            }
+
+                            if (!has_warnings) {
+                                $("#warnings").html("None found.");
+                            } else {
+                                $("#warnings").html("");
+                                for (var warning of warnings) {
+                                    $("#warnings").append(`<li>${warning}</li>`);
+                                }
+                            }
+
+                            if (!has_blockers && !has_warnings) {
+                                pull_request_button.prop("disabled", false);
+                                pull_request_button.removeClass("is-loading").addClass("is-success");;
+                                pull_request_button.html("Request landing");
+                            } else if (has_blockers) {
+                                pull_request_button.prop("disabled", true);
+                                pull_request_button.removeClass("is-loading").addClass("is-danger");
+                                pull_request_button.html("Landing is blocked");
+                            } else if (has_warnings) {
+                                $('.acknowledge-warnings-section').show();
+                                pull_request_button.prop("disabled", true);
+                                pull_request_button.removeClass("is-loading").addClass("is-warning");
+                                pull_request_button.html("Acknowledge warnings to continue");
                             }
                         } else {
                             // TODO: handle this case. See bug 1996000.
