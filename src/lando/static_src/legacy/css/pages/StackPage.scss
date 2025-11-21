@@ -327,6 +327,10 @@ ul.StackPage-blockers {
       background-color: #FFFFFF;
     }
   }
+  p {
+      margin-top: 0;
+      margin-bottom: 0;
+  }
 }
 
 %error-message {
@@ -351,4 +355,8 @@ ul.StackPage-blockers {
   display: none;
   margin-top: 0.5em;
   width: 123ch;
+}
+
+p.acknowledge-warnings-section {
+    display: none;
 }

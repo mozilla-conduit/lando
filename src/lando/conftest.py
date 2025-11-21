@@ -1,3 +1,4 @@
+import json
 import os
 import pathlib
 import re
@@ -15,6 +16,7 @@ import requests
 from django.conf import settings
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
+from requests.models import HTTPError
 
 from lando.api.legacy.stacks import (
     RevisionStack,
@@ -655,7 +657,6 @@ def repo_mc(
         name: str = "",
         push_target: str = "",
     ) -> Repo:
-
         # The BMO reference check 1) requires access to a BMO instance to test with and
         # 2) is only needed for Try. We disable it here to be closer to a normal MC
         # repo.
@@ -749,7 +750,6 @@ def hg_test_bundle() -> pathlib.Path:
 
 @pytest.fixture
 def hg_server(hg_test_bundle: pathlib.Path, tmpdir: os.PathLike):
-
     # TODO: Select open port.
     port = "8000"
     hg_url = "http://localhost:" + port
@@ -1187,3 +1187,76 @@ def active_mock() -> Callable:
         return mock_method
 
     return _active_mock
+
+
+class MockResponse:
+    """Mock response class to satisfy some requirements of tests.
+
+    Headers keys will be normalised to all-lowercase.
+    """
+
+    _json: dict | list | None = None
+
+    def __init__(
+        self,
+        *,
+        json_dict: dict | None = None,
+        text: str | None = None,
+        status_code: int = 200,
+        headers: dict | None = None,
+    ):
+        if json_dict and text:
+            raise Exception("MockResponse can't specify json and text at the same time")
+
+        self.status_code = status_code
+
+        headers = headers or {}
+        self.headers = {}
+        # Lower case all provided headers.
+        for hkey in headers:
+            self.headers[hkey.lower()] = headers[hkey]
+
+        # Set a reasonable content-type header value.
+        if not self.headers.get("content_type"):
+            self.headers["content_type"] = (
+                "text/plain"
+                if text
+                else (
+                    "application/json"
+                    if status_code < 400
+                    else "application/problem+json"
+                )
+            )
+
+        try:
+            self._json = json_dict or json.loads(text or "")
+        except json.JSONDecodeError:
+            pass
+        self.text = text or json.dumps(json_dict)
+
+    def json(self) -> dict | list:
+        return self._json
+
+    @property
+    def content_type(self):
+        return self.headers["content_type"]
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise HTTPError(f"Status code {self.status_code} in MockResponse")
+
+
+@pytest.fixture
+def mock_response() -> Callable:
+    def _mock_response(
+        *,
+        json_dict: dict | None = None,
+        text: str | None = None,
+        status_code: int = 200,
+        headers: dict | None = None,
+    ) -> MockResponse:
+        return MockResponse(
+            json_dict=json_dict, text=text, status_code=status_code, headers=headers
+        )
+
+    return _mock_response

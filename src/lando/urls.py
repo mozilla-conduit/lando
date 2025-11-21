@@ -20,7 +20,9 @@ from django.urls import include, path, re_path
 
 from lando.api.legacy.api import landing_jobs
 from lando.api.views import (
+    LandingJobPullRequestAPIView,
     LegacyDiffWarningView,
+    PullRequestChecksAPIView,
     git2hgCommitMapView,
     hg2gitCommitMapView,
 )
@@ -38,7 +40,7 @@ from lando.treestatus.views.ui import (
 from lando.try_api.api import (
     api as try_api,
 )
-from lando.ui import jobs
+from lando.ui import jobs, pull_requests
 from lando.ui.legacy import pages, revisions, user_settings
 
 urlpatterns = [
@@ -51,6 +53,11 @@ urlpatterns += [
     path("", pages.IndexView.as_view()),
     path(
         "D<int:revision_id>/", revisions.RevisionView.as_view(), name="revisions-page"
+    ),
+    path(
+        "pulls/<str:repo_name>/<int:number>/",
+        pull_requests.PullRequestView.as_view(),
+        name="pull-request",
     ),
     path("manage_api_key/", user_settings.manage_api_key, name="user-settings"),
     path("uplift/", revisions.UpliftRequestView.as_view(), name="uplift-page"),
@@ -87,6 +94,19 @@ urlpatterns += [
         r"api/hg2git/(?P<git_repo_name>.*)/(?P<commit_hash>[0-9a-f]{40})",
         hg2gitCommitMapView.as_view(),
         name="hg2git",
+    ),
+]
+
+urlpatterns += [
+    path(
+        "api/pulls/<str:repo_name>/<int:pull_number>/landing_jobs",
+        LandingJobPullRequestAPIView.as_view(),
+        name="api-landing-job-pull-request",
+    ),
+    path(
+        "api/pulls/<str:repo_name>/<int:number>/checks",
+        PullRequestChecksAPIView.as_view(),
+        name="api-pull-request-checks",
     ),
 ]
 

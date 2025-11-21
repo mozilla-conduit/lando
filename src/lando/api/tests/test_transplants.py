@@ -94,7 +94,7 @@ def test_dryrun_no_warnings_or_blockers(
     assert 200 == response.status_code
     assert "application/json" == response.content_type
     expected_json = {"confirmation_token": None, "warnings": [], "blocker": None}
-    assert response.json == expected_json
+    assert response.json() == expected_json
 
 
 @pytest.mark.django_db(transaction=True)
@@ -130,7 +130,7 @@ def test_dryrun_invalid_path_blocks(
     assert "application/json" == response.content_type
     assert (
         "Depends on D1 which is open and has a different repository"
-        in response.json["blocker"]
+        in response.json()["blocker"]
     )
 
 
@@ -170,7 +170,7 @@ def test_dryrun_published_parent(
 
     assert 200 == response.status_code
     assert "application/json" == response.content_type
-    assert response.json["blocker"] is None
+    assert response.json()["blocker"] is None
 
 
 @pytest.mark.django_db
@@ -211,7 +211,7 @@ def test_dryrun_open_parent(
     assert 200 == response.status_code
     assert "application/json" == response.content_type
     assert (
-        "The requested set of revisions are not landable." in response.json["blocker"]
+        "The requested set of revisions are not landable." in response.json()["blocker"]
     ), "Landing should be blocked due to r1 still being open and part of the stack."
 
 
@@ -263,7 +263,7 @@ def test_dryrun_in_progress_transplant_blocks(
 
     assert 200 == response.status_code
     assert "application/json" == response.content_type
-    assert response.json["blocker"] == (
+    assert response.json()["blocker"] == (
         "A landing for revisions in this stack is already in progress."
     )
 
@@ -295,9 +295,9 @@ def test_dryrun_reviewers_warns(
 
     assert 200 == response.status_code
     assert "application/json" == response.content_type
-    assert response.json["warnings"]
-    assert response.json["warnings"][0]["id"] == 0
-    assert response.json["confirmation_token"] is not None
+    assert response.json()["warnings"]
+    assert response.json()["warnings"][0]["id"] == 0
+    assert response.json()["confirmation_token"] is not None
 
 
 @pytest.mark.django_db(transaction=True)
@@ -352,13 +352,13 @@ def test_dryrun_codefreeze_warn(
 
     assert response.status_code == 200
     assert response.content_type == "application/json"
-    assert response.json[
+    assert response.json()[
         "warnings"
     ], "warnings should not be empty for a repo under code freeze"
     assert (
-        response.json["warnings"][0]["id"] == 8
+        response.json()["warnings"][0]["id"] == 8
     ), "the warning ID should match the ID for warning_code_freeze"
-    assert response.json["confirmation_token"] is not None
+    assert response.json()["confirmation_token"] is not None
 
 
 @pytest.mark.django_db(transaction=True)
@@ -412,7 +412,7 @@ def test_dryrun_outside_codefreeze(
 
     assert response.status_code == 200
     assert response.content_type == "application/json"
-    assert not response.json["warnings"]
+    assert not response.json()["warnings"]
 
 
 # auth related issue, blockers empty.
@@ -454,7 +454,7 @@ def test_integrated_dryrun_blocks_for_bad_userinfo(
     )
 
     assert response.status_code == status
-    assert blocker in response.json["blocker"]
+    assert blocker in response.json()["blocker"]
 
 
 @pytest.mark.django_db(transaction=True)
@@ -817,8 +817,8 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     )
     assert response.status_code == 202
     assert response.content_type == "application/json"
-    assert "id" in response.json
-    job_id = response.json["id"]
+    assert "id" in response.json()
+    job_id = response.json()["id"]
 
     # Get LandingJob object by its id
     job = LandingJob.objects.get(pk=job_id)
@@ -873,8 +873,8 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
     )
     assert response.status_code == 202
     assert response.content_type == "application/json"
-    assert "id" in response.json
-    job_id = response.json["id"]
+    assert "id" in response.json()
+    job_id = response.json()["id"]
 
     # Get LandingJob object by its id
     job = LandingJob.objects.get(pk=job_id)
@@ -945,8 +945,8 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     )
     assert response.status_code == 202
     assert response.content_type == "application/json"
-    assert "id" in response.json
-    job_id = response.json["id"]
+    assert "id" in response.json()
+    job_id = response.json()["id"]
 
     # Get LandingJob object by its id
     job = LandingJob.objects.get(pk=job_id)
@@ -1027,8 +1027,8 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_phabricator_r
     )
     assert response.status_code == 202
     assert response.content_type == "application/json"
-    assert "id" in response.json
-    job_1_id = response.json["id"]
+    assert "id" in response.json()
+    job_1_id = response.json()["id"]
 
     # Get LandingJob object by its id.
     job = LandingJob.objects.get(pk=job_1_id)
@@ -1078,7 +1078,7 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_phabricator_r
         permissions=mock_permissions,
     )
 
-    job_2_id = response.json["id"]
+    job_2_id = response.json()["id"]
 
     # Get LandingJob objects by their ids.
     job_1 = LandingJob.objects.get(pk=job_1_id)
@@ -1288,7 +1288,7 @@ def test_integrated_transplant_without_auth0_permissions(
     assert (
         "You have insufficient permissions to land or your access has expired. "
         "main.scm_level_3 is required. See the FAQ for help."
-    ) in response.json["blocker"]
+    ) in response.json()["blocker"]
 
 
 @pytest.mark.django_db(transaction=True)
@@ -1340,7 +1340,7 @@ def test_integrated_transplant_diff_not_in_revision(
         permissions=mock_permissions,
     )
     assert response.status_code == 400
-    assert "A requested diff is not the latest." in response.json["blocker"]
+    assert "A requested diff is not the latest." in response.json()["blocker"]
 
 
 @pytest.mark.django_db(transaction=True)
@@ -1358,7 +1358,7 @@ def test_transplant_nonexisting_revision_returns_404(
     )
     assert response.status_code == 404
     assert response.content_type == "application/problem+json"
-    assert response.json["detail"] == "Stack Not Found"
+    assert response.json()["detail"] == "Stack Not Found"
 
 
 @pytest.mark.django_db(transaction=True)
@@ -1382,7 +1382,9 @@ def test_integrated_transplant_revision_with_no_repo(
         permissions=mock_permissions,
     )
     assert response.status_code == 400
-    assert "Landing repository is missing for this landing." in response.json["blocker"]
+    assert (
+        "Landing repository is missing for this landing." in response.json()["blocker"]
+    )
 
 
 @pytest.mark.django_db(transaction=True)
@@ -1407,7 +1409,9 @@ def test_integrated_transplant_revision_with_unmapped_repo(
         permissions=mock_permissions,
     )
     assert response.status_code == 400
-    assert "Landing repository is missing for this landing." in response.json["blocker"]
+    assert (
+        "Landing repository is missing for this landing." in response.json()["blocker"]
+    )
 
 
 @pytest.mark.django_db(transaction=True)
@@ -1510,7 +1514,7 @@ def test_unresolved_comment_warn(
 
     assert response.status_code == 200
     assert response.content_type == "application/json"
-    assert not response.json[
+    assert not response.json()[
         "warnings"
     ], "warnings should be empty for a revision without unresolved comments"
 
@@ -1533,11 +1537,11 @@ def test_unresolved_comment_warn(
 
     assert response.status_code == 200
     assert response.content_type == "application/json"
-    assert response.json[
+    assert response.json()[
         "warnings"
     ], "warnings should not be empty for a revision with unresolved comments"
     assert (
-        response.json["warnings"][0]["id"] == 9
+        response.json()["warnings"][0]["id"] == 9
     ), "the warning ID should match the ID for warning_unresolved_comments"
 
 
@@ -1607,11 +1611,11 @@ def test_unresolved_comment_stack(
 
     assert response.status_code == 200
     assert response.content_type == "application/json"
-    assert response.json[
+    assert response.json()[
         "warnings"
     ], "warnings should not be empty for a stack with unresolved comments"
     assert (
-        response.json["warnings"][0]["id"] == 9
+        response.json()["warnings"][0]["id"] == 9
     ), "the warning ID should match the ID for warning_unresolved_comments"
 
 
@@ -2069,8 +2073,8 @@ def test_transplant_on_linked_legacy_repo(
     )
     assert response.status_code == 202
     assert response.content_type == "application/json"
-    assert "id" in response.json
-    job_id = response.json["id"]
+    assert "id" in response.json()
+    job_id = response.json()["id"]
 
     # Get LandingJob object by its id
     job = LandingJob.objects.get(pk=job_id)

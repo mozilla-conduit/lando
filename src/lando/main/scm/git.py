@@ -1,4 +1,3 @@
-import asyncio
 import io
 import logging
 import os
@@ -11,8 +10,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from django.conf import settings
-from simple_github import AppAuth, AppInstallationAuth
 from typing_extensions import override
 
 from lando.main.scm.commit import CommitData
@@ -25,6 +22,8 @@ from lando.main.scm.exceptions import (
 )
 from lando.main.scm.helpers import GitPatchHelper, PatchHelper
 from lando.settings import LANDO_USER_EMAIL, LANDO_USER_NAME
+from lando.utils.const import URL_USERINFO_RE
+from lando.utils.github import GitHub
 
 from .abstract_scm import AbstractSCM
 
@@ -35,24 +34,6 @@ ISO8601_TIMESTAMP_BASIC = "%Y-%m-%dT%H%M%S%Z"
 
 ENV_COMMITTER_NAME = "GIT_COMMITTER_NAME"
 ENV_COMMITTER_EMAIL = "GIT_COMMITTER_EMAIL"
-
-# From RFC-3986 [0]:
-#
-#     userinfo    = *( unreserved / pct-encoded / sub-delims / ":" )
-#
-#     unreserved  = ALPHA / DIGIT / "-" / "." / "_" / "~"
-#     pct-encoded   = "%" HEXDIG HEXDIG
-#     sub-delims  = "!" / "$" / "&" / "'" / "(" / ")"
-#                 / "*" / "+" / "," / ";" / "=
-#
-# [0] https://www.rfc-editor.org/rfc/rfc3986
-URL_USERINFO_RE = re.compile(
-    "(?P<userinfo>[-A-Za-z0-9:._~%!$&'*()*+;=]*:[-A-Za-z0-9:._~%!$&'*()*+;=]*@)",
-    flags=re.MULTILINE,
-)
-GITHUB_URL_RE = re.compile(
-    f"https://{URL_USERINFO_RE.pattern}?github.com/(?P<owner>[-A-Za-z0-9]+)/(?P<repo>[^/]+)"
-)
 
 
 class GitSCM(AbstractSCM):
@@ -112,31 +93,14 @@ class GitSCM(AbstractSCM):
         tags: list[str] | None = None,
     ):
         """Push local code to the remote repository."""
+
         push_command = ["push"]
 
         if force_push:
             push_command += ["--force"]
 
-        if match := re.match(GITHUB_URL_RE, push_path):
-            # We only fetch a token if no authentication is explicitly specified in
-            # the push_url.
-            if not match["userinfo"]:
-                logger.info(
-                    "Obtaining fresh GitHub token repo",
-                    extra={
-                        "push_path": push_path,
-                        "repo_name": match["repo"],
-                        "repo_owner": match["owner"],
-                    },
-                )
-
-                owner = match["owner"]
-                repo = match["repo"]
-                repo_name = repo.removesuffix(".git")
-
-                token = self._get_github_token(owner, repo_name)
-                if token:
-                    push_path = f"https://git:{token}@github.com/{owner}/{repo}"
+        if GitHub.is_supported_url(push_path):
+            push_path = GitHub(push_path).authenticated_url
 
         push_command += [push_path]
 
@@ -151,32 +115,6 @@ class GitSCM(AbstractSCM):
                 push_command += [f"refs/tags/{tag}"]
 
         self._git_run(*push_command, cwd=self.path)
-
-    @staticmethod
-    def _get_github_token(repo_owner: str, repo_name: str) -> str | None:
-        """Obtain a fresh GitHub token to push to the specified repo.
-
-        This relies on GITHUB_APP_ID and GITHUB_APP_PRIVKEY to be set in the
-        settings. Returns None if those are missing.
-
-        The app with ID GITHUB_APP_ID needs to be enabled for the target repo.
-
-        """
-        app_id = settings.GITHUB_APP_ID
-        private_key = settings.GITHUB_APP_PRIVKEY
-
-        if not app_id or not private_key:
-            logger.warning(
-                f"Missing GITHUB_APP_ID or GITHUB_APP_PRIVKEY to authenticate against GitHub repo {repo_owner}/{repo_name}",
-            )
-            return None
-
-        app_auth = AppAuth(
-            app_id,
-            private_key,
-        )
-        session = AppInstallationAuth(app_auth, repo_owner, repositories=[repo_name])
-        return asyncio.run(session.get_token())
 
     def last_commit_for_path(self, path: str) -> str:
         """Find last commit to touch a path."""
@@ -250,6 +188,22 @@ class GitSCM(AbstractSCM):
 
                 # Re-raise the exception from the failed `git am`.
                 raise exc
+
+    def get_diff_from_patches(self, patches: str) -> str:
+        """Apply multiple patches and return the diff output."""
+        # TODO: add error handling so that if something goes wrong here,
+        # a meaningful error is stored in the landing job. This would be
+        # the same as what is done when actually applying the patches.
+        # See bug 2000268.
+        with tempfile.NamedTemporaryFile(
+            encoding="utf-8", mode="w+", suffix=".patch"
+        ) as patch_file:
+            patch_file.write(patches)
+            patch_file.flush()
+
+            self._git_run("apply", "--reject", patch_file.name, cwd=self.path)
+            self._git_run("add", "-A", "-f", cwd=self.path)
+            return self._git_run("diff", "--staged", "--binary", cwd=self.path)
 
     @override
     def get_patch(self, revision_id: str) -> str | None:

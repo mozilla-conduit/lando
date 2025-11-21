@@ -111,6 +111,10 @@ def get_timestamp_from_hg_date_header(date_header: str) -> str:
 class PatchHelper(ABC):
     """Base class for parsing patches/exports."""
 
+    # Expected headers (all lowercase!):
+    # - date
+    # - from
+    # - subject
     headers: dict[str, str]
 
     @classmethod
@@ -442,7 +446,6 @@ class GitPatchHelper(PatchHelper):
         """Return the patch diff."""
         return self.diff
 
-    @override
     def get_diff_bytes(self) -> bytes:
         """Return the patch diff."""
         return self.diff.encode("utf-8", errors="surrogateescape")
