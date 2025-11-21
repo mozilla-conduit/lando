@@ -14,6 +14,8 @@ from lando.main.scm import (
 )
 from lando.utils.landing_checks import (
     ALL_CHECKS,
+    PreventNSPRCheck,
+    PreventNSSCheck,
 )
 
 DIFF_ONLY = """
@@ -352,12 +354,16 @@ def test_hook_choices_all_checks():
     # If some checks should not be available as hook choices, list their name here.
     disabled_checks = [
         # BugReferencesCheck.name()
+        # We don't include those for the time being, as the check is available via
+        # PreventNSPRNSSCheck.
+        PreventNSPRCheck.name(),
+        PreventNSSCheck.name(),
     ]
 
     missing_hooks = [
         check.name()
         for check in ALL_CHECKS
-        if check.name() not in Repo.HooksChoices and check.name() not in disabled_checks
+        if check.name() not in (list(Repo.HooksChoices) + disabled_checks)
     ]
     assert (
         not missing_hooks
