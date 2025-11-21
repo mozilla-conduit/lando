@@ -98,6 +98,7 @@ MIDDLEWARE = [
     "mozilla_django_oidc.middleware.SessionRefresh",
     "lando.middleware.ResponseHeadersMiddleware",
     "lando.middleware.MaintenanceModeMiddleware",
+    "lando.middleware.PhabricatorExceptionsMiddleware",
     "lando.middleware.cProfileMiddleware",
 ]
 
