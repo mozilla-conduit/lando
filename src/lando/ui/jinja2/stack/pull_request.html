@@ -1,67 +1,74 @@
 {% extends "partials/layout.html" %}
-{% block page_title %}{{pull_request}}{% endblock %}
-
+{% block page_title %}{{ pull_request }}{% endblock %}
 {% block main %}
-<main class="StackPage container fullhd">
-    <h1><a href="{{ pull_request.html_url }}">{{ pull_request.title }}</a> #{{ pull_request.number }} ({{ target_repo.name }}@{{ target_repo.default_branch }})</h1>
-    <p>
-        <button
-            class="button is-large is-loading post-landing-job"
-            disabled
-            data-anonymous="{{ '0' if request.user.is_authenticated else '1' }}"
-            data-pull-number="{{ pull_request.number }}"
-            data-head-sha="{{ pull_request.head_sha }}"
-            data-repo-name="{{ target_repo.name }}"
-            data-csrf-token="{{ csrf_token }}">
-        Loading</button>
-    </p>
-    <p class="acknowledge-warnings-section">
-        <label class="checkbox">
-              <input type="checkbox" id="acknowledge-warnings" />
+    <main class="StackPage container fullhd">
+        <h1>
+            <a href="{{ pull_request.html_url }}">{{ pull_request.title }}</a> #{{ pull_request.number }} ({{ target_repo.name }}@{{ target_repo.default_branch }})
+        </h1>
+        <p>
+            <button class="button is-large is-loading post-landing-job"
+                    disabled
+                    data-anonymous="{{ '0' if request.user.is_authenticated else '1' }}"
+                    data-pull-number="{{ pull_request.number }}"
+                    data-head-sha="{{ pull_request.head_sha }}"
+                    data-repo-name="{{ target_repo.name }}"
+                    data-csrf-token="{{ csrf_token }}">Loading</button>
+        </p>
+        <p class="acknowledge-warnings-section">
+            <label class="checkbox">
+                <input type="checkbox" id="acknowledge-warnings" />
                 Acknowledge all warnings below.
-        </label>
-    </p>
-  <div class="StackPage-stack">
-      <table>
-          <tr>
-              <th>Warnings</th>
-              <td>
-                  <ul id="warnings"><li>Checking...</li/></ul>
-              </td>
-          </tr>
-          <tr>
-              <th>Blockers</th>
-              <td>
-                  <ul id="blockers"><li>Checking...</li/></ul>
-              </td>
-          </tr>
-          <tr>
-              <th>Branches</th>
-              <td>{{ pull_request.head_ref }} -&gt; {{ pull_request.base_ref }}</td>
-          </tr>
-          <tr>
-              <th>Repo</th>
-              <td>{{ target_repo}} ({{ pull_request.head_repo_git_url }})</td>
-          </tr>
-          <tr>
-              <th>Author</th>
-              <td>{{ pull_request.user_login }}</td>
-          </tr>
-          <tr>
-              <th>State</th>
-              <td>{{ pull_request.state}}</td>
-          </tr>
-          <tr>
-              <th>Title</th>
-              <td>{{ pull_request.title }}</td>
-          </tr>
-          <tr>
-              <th>Description</th>
-              <td>{{ pull_request.body }}</td>
-          </tr>
-      </table>
-  </div>
-  <h1>Landings</h1>
-  {% include "stack/partials/timeline.html" %}
-</main>
+            </label>
+        </p>
+        <div class="StackPage-stack">
+            <table>
+                <tr>
+                    <th>Warnings</th>
+                    <td>
+                        <ul id="warnings">
+                            <li>
+                                Checking...
+                            </li />
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <th>Blockers</th>
+                    <td>
+                        <ul id="blockers">
+                            <li>
+                                Checking...
+                            </li />
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <th>Branches</th>
+                    <td>{{ pull_request.head_ref }} -&gt; {{ pull_request.base_ref }}</td>
+                </tr>
+                <tr>
+                    <th>Repo</th>
+                    <td>{{ target_repo }} ({{ pull_request.head_repo_git_url }})</td>
+                </tr>
+                <tr>
+                    <th>Author</th>
+                    <td>{{ pull_request.user_login }}</td>
+                </tr>
+                <tr>
+                    <th>State</th>
+                    <td>{{ pull_request.state }}</td>
+                </tr>
+                <tr>
+                    <th>Title</th>
+                    <td>{{ pull_request.title }}</td>
+                </tr>
+                <tr>
+                    <th>Description</th>
+                    <td>{{ pull_request.body }}</td>
+                </tr>
+            </table>
+        </div>
+        <h1>Landings</h1>
+        {% include "stack/partials/timeline.html" %}
+    </main>
 {% endblock %}
