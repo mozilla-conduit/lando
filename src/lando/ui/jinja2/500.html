@@ -4,4 +4,5 @@
     <p>
         Something went wrong - someone will look into this shortly. Try again or tell the team at <a href="https://matrix.to/#/#conduit:mozilla.org">#conduit on Matrix</a>.
     </p>
+    {% if details|default(False) %}<p>Details: {{ details }}</p>{% endif %}
 {% endblock %}
