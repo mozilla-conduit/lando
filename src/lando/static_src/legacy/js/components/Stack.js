@@ -76,7 +76,7 @@ $.fn.stack = function() {
                     pull_request_button.prop("disabled", true);
                     pull_request_button.removeClass("is-loading").addClass("is-danger");
                     pull_request_button.html("Pull request landed");
-                } else if (["created", "submitted", "in progress"].includes(result.status)) {
+                } else if (["created", "submitted", "in_progress"].includes(result.status)) {
                     pull_request_button.prop("disabled", true);
                     pull_request_button.removeClass("is-loading");
                     pull_request_button.html("Landing job submitted");
