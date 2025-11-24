@@ -67,6 +67,9 @@ def generate_warnings_and_blockers(
     target_repo: Repo, pull_request: PullRequest, request: HttpRequest
 ) -> dict[str, list[str]]:
     """Run checks on a pull request and return blockers and warnings."""
+    # PullRequestPatchHelper.diff doesn't include binary changes.
+    # This is not considered an issue for checks at the moment, but may need to be kept in
+    # mind for the future.
     patch_helper = PullRequestPatchHelper(pull_request)
     author_email = pull_request.author[1]
     landing_checks = LandingChecks(author_email)
