@@ -32,7 +32,7 @@ from lando.utils.github_checks import (
     ALL_PULL_REQUEST_WARNINGS,
     PullRequestChecks,
 )
-from lando.utils.landing_checks import ALL_CHECKS, BugReferencesCheck, LandingChecks
+from lando.utils.landing_checks import LandingChecks
 from lando.utils.phabricator import get_phabricator_client
 
 
@@ -70,14 +70,8 @@ def generate_warnings_and_blockers(
     patch_helper = PullRequestPatchHelper(pull_request)
     author_email = pull_request.author[1]
     landing_checks = LandingChecks(author_email)
-    checks = [
-        chk.name()
-        for chk in ALL_CHECKS
-        # This is checking for secure revisions in BMO. We skip this for now.
-        if chk.name() != BugReferencesCheck.name()
-    ]
     blockers = landing_checks.run(
-        checks,
+        target_repo.hooks,
         [patch_helper],
     )
     pr_checks = PullRequestChecks(pull_request.client, target_repo, request)
