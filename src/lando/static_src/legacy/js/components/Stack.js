@@ -73,13 +73,19 @@ $.fn.stack = function() {
             if (response.status == 200) {
                 var result = await response.json();
                 if (result.status == "landed") {
+                    var message = "Pull request landed"
                     pull_request_button.prop("disabled", true);
                     pull_request_button.removeClass("is-loading").addClass("is-danger");
-                    pull_request_button.html("Pull request landed");
-                } else if (["created", "submitted", "in progress"].includes(result.status)) {
+                    pull_request_button.html(message);
+                    $("#blockers").html(`${message}.`);
+                    $("#warnings").html(`${message}.`);
+                } else if (["created", "submitted", "in_progress"].includes(result.status)) {
+                    var message = "Landing job submitted"
                     pull_request_button.prop("disabled", true);
                     pull_request_button.removeClass("is-loading");
-                    pull_request_button.html("Landing job submitted");
+                    pull_request_button.html(message);
+                    $("#blockers").html(`${message}.`);
+                    $("#warnings").html(`${message}.`);
                 } else {
                     fetch(`/api/pulls/${repo_name}/${pull_number}/checks`, {
                         method: 'GET',
