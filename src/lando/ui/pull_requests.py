@@ -1,6 +1,7 @@
 import logging
 
 from django.core.handlers.wsgi import WSGIRequest
+from django.http import Http404
 from django.template.response import TemplateResponse
 
 from lando.main.models import Repo
@@ -19,6 +20,10 @@ class PullRequestView(LandoView):
     ) -> TemplateResponse:
         """Handle the GET request for the pull request view."""
         target_repo = Repo.objects.get(name=repo_name)
+
+        if not target_repo.pr_enabled:
+            raise Http404("Pull Requests are not supported for this repository.")
+
         client = GitHubAPIClient(target_repo.url)
         pull_request = client.build_pull_request(number)
         landing_jobs = get_jobs_for_pull(target_repo, number)

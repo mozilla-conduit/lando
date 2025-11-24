@@ -99,6 +99,11 @@ class LandingWorker(Worker):
         repo: Repo = job.target_repo
         scm = repo.scm
 
+        if job.is_pull_request_job and not repo.pr_enabled:
+            raise PermanentFailureException(
+                "Pull Requests are not supported for this repository."
+            )
+
         if not self.treestatus_client.is_open(repo.tree):
             job.transition_status(
                 JobAction.DEFER,
