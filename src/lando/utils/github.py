@@ -554,10 +554,11 @@ class PullRequest:
 
     @property
     def commit_message(self) -> str:
-        """Return a string combining the pull request title and description."""
+        """Return a string combining the pull request title, description, and URL."""
         lines = [self.title, ""]
         if self.body:
-            lines += [self.body]
+            lines += [self.body, ""]
+        lines.append(f"Pull request: {self.html_url}")
         return "\n".join(lines)
 
     def serialize(self) -> dict[str, str]:
