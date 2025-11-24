@@ -6,7 +6,7 @@ from typing import Callable
 
 from django import forms
 from django.core.handlers.wsgi import WSGIRequest
-from django.http import JsonResponse
+from django.http import HttpRequest, JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
@@ -26,13 +26,13 @@ from lando.main.scm import (
     SCM_TYPE_GIT,
     SCM_TYPE_HG,
 )
-from lando.utils.github import GitHubAPIClient, PullRequestPatchHelper
+from lando.utils.github import GitHubAPIClient, PullRequest, PullRequestPatchHelper
 from lando.utils.github_checks import (
     ALL_PULL_REQUEST_BLOCKERS,
     ALL_PULL_REQUEST_WARNINGS,
     PullRequestChecks,
 )
-from lando.utils.landing_checks import ALL_CHECKS, BugReferencesCheck, LandingChecks
+from lando.utils.landing_checks import LandingChecks
 from lando.utils.phabricator import get_phabricator_client
 
 
@@ -61,6 +61,28 @@ def phabricator_api_key_required(func: callable) -> Callable:
         return func(self, request, *args, **kwargs)
 
     return _wrapper
+
+
+def generate_warnings_and_blockers(
+    target_repo: Repo, pull_request: PullRequest, request: HttpRequest
+) -> dict[str, list[str]]:
+    """Run checks on a pull request and return blockers and warnings."""
+    # PullRequestPatchHelper.diff doesn't include binary changes.
+    # This is not considered an issue for checks at the moment, but may need to be kept in
+    # mind for the future.
+    patch_helper = PullRequestPatchHelper(pull_request)
+    author_email = pull_request.author[1]
+    landing_checks = LandingChecks(author_email)
+    blockers = landing_checks.run(
+        target_repo.hooks,
+        [patch_helper],
+    )
+    pr_checks = PullRequestChecks(pull_request.client, target_repo, request)
+    pr_blockers = [chk.name() for chk in ALL_PULL_REQUEST_BLOCKERS]
+    blockers += pr_checks.run(pr_blockers, pull_request)
+    pr_warnings = [chk.name() for chk in ALL_PULL_REQUEST_WARNINGS]
+    warnings = pr_checks.run(pr_warnings, pull_request)
+    return {"warnings": warnings, "blockers": blockers}
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -220,6 +242,15 @@ class LandingJobPullRequestAPIView(View):
         client = GitHubAPIClient(target_repo.url)
         ldap_username = request.user.email
         pull_request = client.build_pull_request(pull_number)
+
+        blockers = generate_warnings_and_blockers(target_repo, pull_request, request)[
+            "blockers"
+        ]
+
+        if blockers:
+            # Pull request has blockers that prevent it from landing.
+            return JsonResponse({"errors": blockers}, status=400)
+
         form = Form(json.loads(request.body))
 
         if not form.is_valid():
@@ -252,36 +283,7 @@ class PullRequestChecksAPIView(APIView):
         target_repo = Repo.objects.get(name=repo_name)
         client = GitHubAPIClient(target_repo.url)
         pull_request = client.build_pull_request(number)
-
-        patch_helper = PullRequestPatchHelper(pull_request)
-
-        _, author_email = pull_request.author
-
-        landing_checks = LandingChecks(author_email)
-        checks = [
-            chk.name()
-            for chk in ALL_CHECKS
-            # This is checking for secure revisions in BMO. We skip this for now.
-            if chk.name() != BugReferencesCheck.name()
-        ]
-        blockers = landing_checks.run(
-            checks,
-            [patch_helper],
+        warnings_and_blockers = generate_warnings_and_blockers(
+            target_repo, pull_request, request
         )
-
-        pr_checks = PullRequestChecks(client, target_repo, request)
-        pr_blockers = [chk.name() for chk in ALL_PULL_REQUEST_BLOCKERS]
-        blockers += pr_checks.run(pr_blockers, pull_request)
-
-        pr_warnings = [chk.name() for chk in ALL_PULL_REQUEST_WARNINGS]
-        warnings = pr_checks.run(pr_warnings, pull_request)
-
-        # PullRequestPatchHelper.diff doesn't include binary changes.
-        # This is not considered an issue for checks at the moment, but may need to be kept in
-        # mind for the future.
-        return JsonResponse(
-            {
-                "blockers": blockers,
-                "warnings": warnings,
-            }
-        )
+        return JsonResponse(warnings_and_blockers)
