@@ -552,6 +552,14 @@ class PullRequest:
 
         return reviews
 
+    @property
+    def commit_message(self) -> str:
+        """Return a string combining the pull request title and description."""
+        lines = [self.title, ""]
+        if self.body:
+            lines += [self.body]
+        return "\n".join(lines)
+
     def serialize(self) -> dict[str, str]:
         """Return a dictionary with various pull request data."""
         return {

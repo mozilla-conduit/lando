@@ -232,7 +232,7 @@ class LandingJobPullRequestAPIView(View):
         patch_data = {
             "author_name": author_name,
             "author_email": author_email,
-            "commit_message": pull_request.title,
+            "commit_message": pull_request.commit_message,
             "timestamp": int(datetime.now().timestamp()),
         }
         revision = Revision.objects.create(
