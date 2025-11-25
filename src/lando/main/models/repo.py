@@ -203,6 +203,8 @@ class Repo(BaseModel):
         default=get_default_hooks,
     )
 
+    pr_enabled = models.BooleanField(default=False)
+
     @property
     def is_legacy(self):  # noqa: ANN201
         """Return True if this repo is listed as a legacy source."""
