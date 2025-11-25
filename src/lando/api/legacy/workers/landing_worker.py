@@ -189,7 +189,7 @@ class LandingWorker(Worker):
             raise ValueError("Revision is missing patches.")
 
         diff = scm.get_diff_from_patches(revision.patches)
-        revision.set_patch(f"{diff}\r\n")
+        revision.set_patch(diff.rstrip() + "\n\n")
         revision.save()
 
     def apply_and_push(
