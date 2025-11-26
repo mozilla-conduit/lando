@@ -85,6 +85,14 @@ class PreventPathCheckMixin(ABC):
     error_message: str
         a basic error string to show before the list of matching files (no colon
         needed)
+
+
+    In addition, the following attribute needs to be set on instances inheriting from
+    thi Mixin.
+
+    commit_message: str
+        the commit_message to check for the presence of the override_commit_message
+
     """
 
     paths: list[re.Pattern]
