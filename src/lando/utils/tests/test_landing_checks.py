@@ -671,7 +671,7 @@ def test_check_try_task_config():
 def test_landing_checks_run():
     landing_checks = LandingChecks("user@example.com")
 
-    # CommitMessagesCheck will get triggered as neither commits conform.
+    # CommitMessagesCheck will get triggered twice as neither commit conform.
     patch_helpers = [
         GitPatchHelper.from_string_io(
             io.StringIO(
@@ -689,4 +689,4 @@ def test_landing_checks_run():
 
     names_run = landing_checks.run([chk.name() for chk in ALL_CHECKS], patch_helpers)
 
-    assert len(names_run) == 3
+    assert len(names_run) == 4
