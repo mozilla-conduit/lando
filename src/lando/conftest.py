@@ -163,6 +163,28 @@ new file mode 100644
 
 """.lstrip()
 
+PATCH_GIT_DOS_LINE_ENDING = """
+From daf43dabd1cc2d4f386519d61eee6e7abb766108 Mon Sep 17 00:00:00 2001
+From: Py Test <pytest@lando.example.net>
+Date: Wed, 26 Nov 2025 04:05:36 +0000
+Subject: [PATCH] No bug: add a DOS file
+
+---
+ test-dos.txt | 2 ++
+ 1 file changed, 2 insertions(+)
+ create mode 100644 test-dos.txt
+
+diff --git a/test-dos.txt b/test-dos.txt
+new file mode 100644
+index 0000000..f04873a
+--- /dev/null
++++ b/test-dos.txt
+@@ -0,0 +1,2 @@
++one DOS-terminated line in the file\r
++one DOS-terminated line\r
+-- 
+"""  # noqa: W291, `git` adds a trailing whitespace after `--`.
+
 
 @pytest.fixture
 def normal_patch():
@@ -207,14 +229,16 @@ def create_patch_revision(normal_patch):
 def git_patch():
     """Return a factory providing one of several git patches.
 
-    The first patch is a normal patch, the second one contains binary weirdness.
+    The first patch is a normal patch, the second one contains binary weirdness, the
+    third has DOS line terminator (\r\n).
     """
     _patches = [
         PATCH_GIT_1,
         PATCH_GIT_BINARY_1,
+        PATCH_GIT_DOS_LINE_ENDING,
     ]
 
-    def _patch(number=0):
+    def _patch(number: int = 0):
         return _patches[number]
 
     return _patch
