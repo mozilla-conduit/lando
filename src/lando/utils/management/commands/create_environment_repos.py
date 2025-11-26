@@ -7,6 +7,7 @@ from lando.main.models import (
     DONTBUILD,
     SCM_CONDUIT,
     SCM_LEVEL_1,
+    SCM_LEVEL_3,
     Repo,
 )
 from lando.main.scm import GitSCM
@@ -164,6 +165,19 @@ for branch in ["main", "autoland", "beta", "release", "esr115", "esr128", "esr14
             "push_path": "https://github.com/mozilla-releng/staging-firefox.git",
             "short_name": f"staging-firefox-{branch}",
             "required_permission": SCM_LEVEL_1,
+            "automation_enabled": True,
+        }
+    )
+
+# comm-central staging repo / branches
+for branch in ["main", "beta", "release", "esr140"]:
+    REPOS[Environment.staging].append(
+        {
+            "name": f"staging-thunderbird-desktop-{branch}",
+            "default_branch": branch,
+            "url": "https://github.com/thunderbird/thunderbird-desktop-staging.git",
+            "short_name": f"staging-thunderbird-desktop-{branch}",
+            "required_permission": SCM_LEVEL_3,
             "automation_enabled": True,
         }
     )
