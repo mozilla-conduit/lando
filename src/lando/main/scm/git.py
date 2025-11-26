@@ -203,7 +203,9 @@ class GitSCM(AbstractSCM):
 
             self._git_run("apply", "--reject", patch_file.name, cwd=self.path)
             self._git_run("add", "-A", "-f", cwd=self.path)
-            return self._git_run("diff", "--staged", "--binary", cwd=self.path)
+            return self._git_run(
+                "diff", "--staged", "--binary", cwd=self.path, rstrip=False
+            )
 
     @override
     def get_patch(self, revision_id: str) -> str | None:
@@ -501,7 +503,7 @@ class GitSCM(AbstractSCM):
         return True
 
     @classmethod
-    def _git_run(cls, *args, cwd: str | None = None) -> str:
+    def _git_run(cls, *args, cwd: str | None = None, rstrip: bool = True) -> str:
         """Run a git command and return full output.
 
         Parameters:
@@ -536,10 +538,14 @@ class GitSCM(AbstractSCM):
 
         try:
             # Try decoding with utf-8 first.
-            out = result.stdout.decode("utf-8").strip()
+            out = result.stdout.decode("utf-8")
         except UnicodeDecodeError:
             # Try again with latin-1.
-            out = result.stdout.decode("latin-1").strip()
+            out = result.stdout.decode("latin-1")
+
+        out = out.lstrip()
+        if rstrip:
+            out = out.rstrip()
 
         if result.returncode:
             redacted_stderr = cls._redact_url_userinfo(result.stderr.decode("utf-8"))

@@ -309,14 +309,14 @@ aDd oNe mOrE LiNe
 )
 @pytest.mark.django_db
 def test_integrated_execute_job(
-    repo_mc,
-    treestatusdouble,
-    mock_phab_trigger_repo_update_apply_async,
-    create_patch_revision,
-    make_landing_job,
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    mock_phab_trigger_repo_update_apply_async: mock.Mock,
+    create_patch_revision: Callable,
+    make_landing_job: Callable,
     repo_type: str,
-    revisions_params,
-    get_landing_worker,
+    revisions_params: list,
+    get_landing_worker: Callable,
 ):
     repo = repo_mc(repo_type)
     treestatusdouble.open_tree(repo.name)
@@ -353,6 +353,73 @@ def test_integrated_execute_job(
         revisions
     ), "Incorrect number of additional commits in the PushLog"
     assert new_push_count == 1, "Incorrect number of additional pushes in the PushLog"
+
+
+@mock.patch("lando.utils.github.GitHubAPI")
+@pytest.mark.django_db
+def test_integrated_execute_job_pull_request(
+    GitHubAPI: mock.Mock,
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    create_pull_request_revision: Callable,
+    make_landing_job: Callable,
+    git_patch: Callable,
+    get_landing_worker: Callable,
+):
+    """
+    Test Pull Request landings.
+
+    CAVEAT:
+    * This only tests the local preparation of the push, as all GitHub interactions are
+    mocked.
+    * This doesn't re-test side effects already tested in test_integrated_execute_job.
+    """
+    pr_number = 1
+    repo_type = SCM_TYPE_GIT
+    repo: Repo = repo_mc(repo_type)
+    repo.is_phabricator_repo = False
+    repo.pr_enabled = True
+
+    treestatusdouble.open_tree(repo.name)
+
+    # We use git_patch(1) here, as it inserts a line in the middle of an existing file,
+    # potentially triggering bug 2002094.
+    revisions = [create_pull_request_revision(pr_number, git_patch(1))]
+
+    job_params = {
+        "status": JobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "target_repo": repo,
+        "attempts": 1,
+    }
+    job = make_landing_job(revisions=revisions, **job_params)
+
+    worker = get_landing_worker(repo_type)
+    assert worker.run_job(job)
+
+    assert job.status == JobStatus.LANDED, job.error
+    assert len(job.landed_commit_id) == 40
+
+    # Check attempts to interact with GitHub.
+    assert GitHubAPI.mock_calls, "GitHubAPI wasn't used."
+    did_comment = False
+    did_close = False
+    for kall in GitHubAPI.mock_calls:
+        if kall == mock.call().post(mock.ANY, json={"body": mock.ANY}):
+            if (
+                f"/issues/{pr_number}/comments" in kall[1][0]
+                and "Pull request closed by commit" in kall[2]["json"]["body"]
+            ):
+                did_comment = True
+        elif kall == mock.call().post(mock.ANY, json={"state": "closed"}):
+            if (
+                f"/pulls/{pr_number}" in kall[1][0]
+                and kall[2]["json"]["state"] == "closed"
+            ):
+                did_close = True
+
+    assert did_comment, "Successful landing did not add comment to PR"
+    assert did_close, "Successful landing did not close PR"
 
 
 @pytest.mark.parametrize(
