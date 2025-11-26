@@ -136,6 +136,9 @@ class PhabricatorExceptionsMiddleware:
             # Let the exception bubble up.
             return
 
+        # Log the exception (and report it to Sentry).
+        logger.exception(exception)
+
         return TemplateResponse(
             request,
             template="500.html",
