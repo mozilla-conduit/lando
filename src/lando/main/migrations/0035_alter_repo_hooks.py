@@ -18,7 +18,7 @@ def disable_dot_github_check_for_all_repos(apps, schema_editor):  # noqa: ANN001
     """Disable the Lando Dot Github Check for all repos."""
     Repo = apps.get_model("main", "Repo")
     for repo in Repo.objects.all():
-        repo.hooks.append("PreventDotGithubCheck")
+        repo.hooks = [hook for hook in repo.hooks if hook != "PreventDotGithubCheck"]
         repo.save()
 
 
