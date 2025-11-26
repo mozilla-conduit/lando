@@ -245,7 +245,7 @@ class PullRequestConflictWithBaseBranch(PullRequestBlocker):
 
 
 class PullRequestFailingCheck(PullRequestBlocker):
-    """This Pull Request has has some failing checks."""
+    """This Pull Request has some failing checks."""
 
     @override
     @classmethod
@@ -255,7 +255,7 @@ class PullRequestFailingCheck(PullRequestBlocker):
     @override
     @classmethod
     def description(cls) -> str:
-        return "This Pull Request has has some failing checks."
+        return "This Pull Request has some failing checks."
 
     @override
     @classmethod
