@@ -129,20 +129,19 @@ class PhabricatorExceptionsMiddleware:
     def process_exception(
         self, request: HttpRequest, exception: Exception
     ) -> HttpResponse | None:
-        if exception.__class__ in [
+        if exception.__class__ not in [
             PhabricatorAPIException,
             PhabricatorCommunicationException,
         ]:
-            return TemplateResponse(
-                request,
-                template="500.html",
-                context={
-                    "details": f"Error communicating with Phabricator. {exception}"
-                },
-                status=500,
-            )
+            # Let the exception bubble up.
+            return
 
-        # Let the exception bubble up.
+        return TemplateResponse(
+            request,
+            template="500.html",
+            context={"details": f"Error communicating with Phabricator. {exception}"},
+            status=500,
+        )
 
 
 class cProfileMiddleware:
