@@ -207,6 +207,8 @@ class Repo(BaseModel):
         default=get_default_hooks,
     )
 
+    pr_enabled = models.BooleanField(default=False)
+
     @property
     def is_legacy(self):  # noqa: ANN201
         """Return True if this repo is listed as a legacy source."""
@@ -330,6 +332,11 @@ class Repo(BaseModel):
     def _github_repo_url(self) -> str | None:
         if self.is_github:
             return self.url.removesuffix(".git")
+
+    @property
+    def _github_repo_org(self) -> str | None:
+        if self.is_github:
+            return self._github_repo_url.split("/")[-2]
 
     @property
     def git_repo_name(self) -> str:

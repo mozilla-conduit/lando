@@ -36,6 +36,7 @@ from lando.main.scm import (
 )
 from lando.pushlog.pushlog import PushLog, PushLogForRepo
 from lando.utils.config import read_lando_config
+from lando.utils.github import GitHubAPIClient
 from lando.utils.landing_checks import LandingChecks
 from lando.utils.tasks import phab_trigger_repo_update
 
@@ -98,6 +99,11 @@ class LandingWorker(Worker):
         repo: Repo = job.target_repo
         scm = repo.scm
 
+        if job.is_pull_request_job and not repo.pr_enabled:
+            raise PermanentFailureException(
+                "Pull Requests are not supported for this repository."
+            )
+
         if not self.treestatus_client.is_open(repo.tree):
             job.transition_status(
                 JobAction.DEFER,
@@ -119,6 +125,15 @@ class LandingWorker(Worker):
 
         job.set_landed_commit_ids()
         job.transition_status(JobAction.LAND, commit_id=commit_id)
+
+        if job.is_pull_request_job:
+            # TODO: move this to different method, and retry if needed.
+            # NOTE: This may need to happen on the revision-level when stack support is added.
+            pull_number = job.revisions.first().pull_number
+            message = f"Pull request closed by commit {commit_id}"
+            client = GitHubAPIClient(job.target_repo.url)
+            client.add_comment_to_pull_request(pull_number, message)
+            client.close_pull_request(pull_number)
 
         mots_path = Path(repo.path) / "mots.yaml"
         if mots_path.exists():
@@ -153,6 +168,30 @@ class LandingWorker(Worker):
 
         return True
 
+    def convert_patches_to_diff(self, scm: AbstractSCM, job: LandingJob):
+        """Generate a unified diff from multiple patches stored in a revision."""
+        # NOTE: this only applies to git patches that are downloaded from GitHub
+        # at this time. In theory this would work for any provided patches in a
+        # standard format.
+
+        # NOTE: this is only supported for jobs with a single revision at this time.
+        # See bug 2001185.
+
+        if len(job.revisions) > 1:
+            raise NotImplementedError(
+                "This method is not supported when job has more than 1 revision."
+            )
+        if len(job.revisions) == 0:
+            raise ValueError("No revisions found in job.")
+
+        revision = job.revisions[0]
+        if not revision.patches:
+            raise ValueError("Revision is missing patches.")
+
+        diff = scm.get_diff_from_patches(revision.patches)
+        revision.set_patch(f"{diff}\r\n")
+        revision.save()
+
     def apply_and_push(
         self,
         job: LandingJob,
@@ -164,7 +203,6 @@ class LandingWorker(Worker):
 
         Returns a tuple of bug_ids and tip commit_id.
         """
-        self.update_repo(repo, job, scm, job.target_commit_hash)
 
         def apply_patch(revision: Revision):
             logger.debug(f"Landing {revision} ...")
@@ -174,6 +212,12 @@ class LandingWorker(Worker):
                 revision.author,
                 revision.timestamp,
             )
+
+        self.update_repo(repo, job, scm, job.target_commit_hash)
+
+        if job.is_pull_request_job:
+            self.convert_patches_to_diff(scm, job)
+            self.update_repo(repo, job, scm, job.target_commit_hash)
 
         # Run through the patches one by one and try to apply them.
         logger.debug(

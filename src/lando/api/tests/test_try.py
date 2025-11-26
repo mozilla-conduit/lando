@@ -120,7 +120,7 @@ def test_try_api_patch_decode_error(
     )
     assert response.status_code == 400, "Improperly encoded patch should return 400."
     assert (
-        response.json["title"] == "Patch decoding error."
+        response.json()["title"] == "Patch decoding error."
     ), "Response should indicate the patch could not be decoded."
 
 
@@ -161,7 +161,7 @@ def test_try_api_patch_format_mismatch(
         response.status_code == 400
     ), "A patch which does not match the passed format should return 400."
     assert (
-        response.json["title"] == "Improper patch format."
+        response.json()["title"] == "Improper patch format."
     ), "Response should indicate the patch could not be decoded."
 
 
@@ -257,8 +257,8 @@ def test_symlink_diff_inspect(
         response.status_code == 400
     ), "Try push which fails diff checks should return 400."
 
-    assert response.json["title"] == "Errors found in pre-submission patch checks."
-    assert response.json["detail"] == (
+    assert response.json()["title"] == "Errors found in pre-submission patch checks."
+    assert response.json()["detail"] == (
         "Patch failed checks:\n\n"
         "  - Revision introduces symlinks in the files `blahfile_symlink`."
     ), "Details message should indicate an introduced symlink."
@@ -345,7 +345,7 @@ def test_try_api_success_hgexport(
     )
     assert response.status_code == 201, "Successful try push should return 201."
     assert (
-        "id" in response.json
+        "id" in response.json()
     ), "Response should include the ID of the new landing job."
 
     queue_items = LandingJob.job_queue_query(
@@ -432,7 +432,7 @@ def test_try_api_success_gitformatpatch(
     )
     assert response.status_code == 201, "Successful try push should return 201."
     assert (
-        "id" in response.json
+        "id" in response.json()
     ), "Response should include the ID of the new landing job."
 
     queue_items = LandingJob.job_queue_query(
