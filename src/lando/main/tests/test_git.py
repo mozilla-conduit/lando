@@ -1084,7 +1084,7 @@ def test_GitSCM_get_diff_from_patches(
     git_setup_user(str(clone_path))
 
     # Normal, Binary, and DOS-LE patches
-    patches = git_patch(0) + git_patch(1) + git_patch(2)
+    patches = git_patch(0) + git_patch(2) + git_patch(3)
     # Manually re-created based on the patches above.
     expected_diff = dedent(
         """
