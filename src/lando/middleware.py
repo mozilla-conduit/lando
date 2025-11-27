@@ -9,9 +9,14 @@ from django.conf import settings
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpRequest, HttpResponse
 from django.template.loader import render_to_string
+from django.template.response import TemplateResponse
 from django.urls import resolve
 
 from lando.main.models import ConfigurationKey, ConfigurationVariable
+from lando.utils.phabricator import (
+    PhabricatorAPIException,
+    PhabricatorCommunicationException,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +114,37 @@ class MaintenanceModeMiddleware:
             )
 
         return self.get_response(request)
+
+
+class PhabricatorExceptionsMiddleware:
+    """A middleware to provide more information on 500s due to Phabricator
+    reachability."""
+
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]):
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        return self.get_response(request)
+
+    def process_exception(
+        self, request: HttpRequest, exception: Exception
+    ) -> HttpResponse | None:
+        if exception.__class__ not in [
+            PhabricatorAPIException,
+            PhabricatorCommunicationException,
+        ]:
+            # Let the exception bubble up.
+            return
+
+        # Log the exception (and report it to Sentry).
+        logger.exception(exception)
+
+        return TemplateResponse(
+            request,
+            template="500.html",
+            context={"details": f"Error communicating with Phabricator. {exception}"},
+            status=500,
+        )
 
 
 class cProfileMiddleware:
