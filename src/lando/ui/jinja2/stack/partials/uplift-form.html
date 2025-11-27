@@ -42,39 +42,41 @@
                         <span>Uplift request documentation</span>
                     </a>
                 </div>
-                {{ uplift.request_form.source_revisions }}
-                {% set requested_revision_ids = uplift.request_form.source_revisions.value() or [] %}
-                {% if requested_revision_ids %}
-                    <div class="field">
-                        <label class="label">Revisions to uplift</label>
-                        <div class="control">
-                            <ul class="content">
-                                {% set revision_ns = namespace(display_id="") %}
-                                {% for revision_id in requested_revision_ids %}
-                                    {% set revision_ns.display_id = revision_id|string %}
-                                    {% if not revision_ns.display_id.startswith("D") %}
-                                        {% set revision_ns.display_id = "D" ~ revision_ns.display_id %}
-                                    {% endif %}
-                                    {% set revision = revisions.values() | selectattr("id", "equalto", revision_ns.display_id) | first %}
-                                    <li>
-                                        <strong>{{ revision_ns.display_id }}</strong>
-                                        {% if revision %}— {{ revision.title }}{% endif %}
-                                    </li>
-                                {% endfor %}
-                            </ul>
+                <fieldset {% if not uplift.can_create_uplift_submission %}disabled{% endif %}>
+                    {{ uplift.request_form.source_revisions }}
+                    {% set requested_revision_ids = uplift.request_form.source_revisions.value() or [] %}
+                    {% if requested_revision_ids %}
+                        <div class="field">
+                            <label class="label">Revisions to uplift</label>
+                            <div class="control">
+                                <ul class="content">
+                                    {% set revision_ns = namespace(display_id="") %}
+                                    {% for revision_id in requested_revision_ids %}
+                                        {% set revision_ns.display_id = revision_id|string %}
+                                        {% if not revision_ns.display_id.startswith("D") %}
+                                            {% set revision_ns.display_id = "D" ~ revision_ns.display_id %}
+                                        {% endif %}
+                                        {% set revision = revisions.values() | selectattr("id", "equalto", revision_ns.display_id) | first %}
+                                        <li>
+                                            <strong>{{ revision_ns.display_id }}</strong>
+                                            {% if revision %}— {{ revision.title }}{% endif %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
                         </div>
+                    {% endif %}
+                    <div class="field">
+                        <label class="label">Uplift repositories</label>
+                        <div class="control">
+                            {% for checkbox in uplift.request_form.repositories %}<label class="checkbox">{{ checkbox }}</label>{% endfor %}
+                        </div>
+                        <p class="help">Uplift jobs will be created for every repository you select here.</p>
                     </div>
-                {% endif %}
-                <div class="field">
-                    <label class="label">Uplift repositories</label>
-                    <div class="control">
-                        {% for checkbox in uplift.request_form.repositories %}<label class="checkbox">{{ checkbox }}</label>{% endfor %}
-                    </div>
-                    <p class="help">Uplift jobs will be created for every repository you select here.</p>
-                </div>
-                {% with assessment_form = uplift.request_form %}
-                    {% include "stack/partials/uplift-assessment.html" %}
-                {% endwith %}
+                    {% with assessment_form = uplift.request_form %}
+                        {% include "stack/partials/uplift-assessment.html" %}
+                    {% endwith %}
+                </fieldset>
             </section>
             <footer class="modal-card-foot">
                 <button class="button is-success"

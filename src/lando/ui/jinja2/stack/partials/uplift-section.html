@@ -84,13 +84,15 @@ future.
                         <button class="edit-assessment-close delete" aria-label="close" type="button"></button>
                     </header>
                     <section class="modal-card-body">
-                        {{ csrf_input }}
-                        {% if not user_has_phabricator_token %}
-                            {% include "stack/partials/uplift-phab-api-key-warning.html" %}
-                        {% endif %}
-                        {% with assessment_form = uplift.assessment_form %}
-                            {% include "stack/partials/uplift-assessment.html" %}
-                        {% endwith %}
+                        <fieldset {% if not uplift.can_create_uplift_submission %}disabled{% endif %}>
+                            {{ csrf_input }}
+                            {% if not user_has_phabricator_token %}
+                                {% include "stack/partials/uplift-phab-api-key-warning.html" %}
+                            {% endif %}
+                            {% with assessment_form = uplift.assessment_form %}
+                                {% include "stack/partials/uplift-assessment.html" %}
+                            {% endwith %}
+                        </fieldset>
                     </section>
                     <footer class="modal-card-foot">
                         <button class="button is-primary"
