@@ -88,7 +88,7 @@ class PreventPathCheckMixin(ABC):
 
 
     In addition, the following attribute needs to be set on instances inheriting from
-    thi Mixin.
+    this Mixin.
 
     commit_message: str
         the commit_message to check for the presence of the override_commit_message
