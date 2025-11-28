@@ -15,4 +15,4 @@ jobs:
           LANDO_BASE_URL: https://lando.moz.tools
           LANDO_REPO: lando
         run: |
-          gh pr comment ${{ env.PR }} --body "Please check Lando ${{ env.LANDO_BASE_URL}}/pulls/${{ env.LANDO_REPO }}/${{ env.PR }} to land this pull request once approved."
+          gh pr comment ${{ env.PR }} --body "[View this pull request in Lando](${{ env.LANDO_BASE_URL}}/pulls/${{ env.LANDO_REPO }}/${{ env.PR }}) to land this pull request once approved."
