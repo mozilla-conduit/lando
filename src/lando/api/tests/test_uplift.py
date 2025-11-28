@@ -29,7 +29,7 @@ from lando.main.scm import SCM_TYPE_GIT
 from lando.ui.legacy.forms import (
     UpliftAssessmentForm,
 )
-from lando.ui.legacy.revisions import uplift_context_for_revision
+from lando.ui.uplift.context import uplift_context_for_revision
 
 MILESTONE_TEST_CONTENTS_1 = """
 # Holds the current milestone.
