@@ -360,3 +360,10 @@ ul.StackPage-blockers {
 p.acknowledge-warnings-section {
     display: none;
 }
+
+/* Remove native fieldset outline when the form is disabled as a block. */
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
