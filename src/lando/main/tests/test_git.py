@@ -1067,3 +1067,66 @@ def test_GitSCM_process_merge_conflict_no_reject(
         "error reading rejects file"
         in error_breakdown["rejects_paths"]["that-other-file.txt"]["content"]
     ), "Missing default message from `content` in rejects_paths for that-other-file.txt"
+
+
+def test_GitSCM_get_diff_from_patches(
+    git_patch: Callable,
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+
+    # Normal, Binary, and DOS-LE patches
+    patches = git_patch(0) + git_patch(2) + git_patch(3)
+    # Manually re-created based on the patches above.
+    expected_diff = dedent(
+        """
+        diff --git a/.gitattributes b/.gitattributes
+        new file mode 100644
+        index 0000000..358bd01
+        --- /dev/null
+        +++ b/.gitattributes
+        @@ -0,0 +1 @@
+        +almost-not-binary diff
+        diff --git a/almost-not-binary b/almost-not-binary
+        new file mode 100644
+        index 0000000..226cdd7
+        --- /dev/null
+        +++ b/almost-not-binary
+        @@ -0,0 +1,2 @@
+        +\x00\x01£j*.0emm.com
+        +*.advisor.ws
+        diff --git a/test-dos.txt b/test-dos.txt
+        new file mode 100644
+        index 0000000..f04873a
+        --- /dev/null
+        +++ b/test-dos.txt
+        @@ -0,0 +1,2 @@
+        +one DOS-terminated line in the file\r
+        +one DOS-terminated line\r
+        diff --git a/test.txt b/test.txt
+        index 2a02d41..45e9938 100644
+        --- a/test.txt
+        +++ b/test.txt
+        @@ -1 +1,2 @@
+         TEST
+        +adding another line
+        diff --git a/test2.txt b/test2.txt
+        new file mode 100644
+        index 0000000..7898192
+        --- /dev/null
+        +++ b/test2.txt
+        @@ -0,0 +1 @@
+        +a
+        """
+    ).lstrip()
+
+    diff = scm.get_diff_from_patches(patches)
+    assert diff == expected_diff, "Did not generate expected diff from patches"

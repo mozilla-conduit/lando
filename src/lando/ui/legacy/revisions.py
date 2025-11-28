@@ -4,14 +4,12 @@ import logging
 from django.contrib import messages
 from django.core.handlers.wsgi import WSGIRequest
 from django.db import transaction
-from django.db.models import Prefetch, QuerySet
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.utils.decorators import method_decorator
 
 from lando.api.legacy import api as legacy_api
-from lando.api.legacy.validation import revision_id_to_int
 from lando.main.auth import force_auth_refresh, require_phabricator_api_key
 from lando.main.models import Repo
 from lando.main.models.jobs import JobStatus
@@ -23,36 +21,11 @@ from lando.ui.legacy.forms import (
     UpliftRequestForm,
 )
 from lando.ui.legacy.stacks import Edge, draw_stack_graph, sort_stack_topological
+from lando.ui.uplift.context import UpliftContext
 from lando.ui.views import LandoView
 from lando.utils.tasks import set_uplift_request_form_on_revision
 
 logger = logging.getLogger(__name__)
-
-
-def build_uplift_forms(
-    request: WSGIRequest,
-    revision_repo: Repo | None,
-    uplift_revision: UpliftRevision | None,
-) -> tuple[UpliftAssessmentForm, LinkUpliftAssessmentForm | None]:
-    """Return the edit and link forms appropriate for the revision context."""
-
-    uplift_assessment_form = UpliftAssessmentForm()
-    uplift_assessment_link_form: LinkUpliftAssessmentForm | None = None
-
-    can_request_uplift = (
-        request.user.is_authenticated
-        and revision_repo
-        and revision_repo.approval_required
-    )
-
-    if can_request_uplift:
-        if uplift_revision:
-            uplift_assessment_form = UpliftAssessmentForm(
-                instance=uplift_revision.assessment
-            )
-        uplift_assessment_link_form = LinkUpliftAssessmentForm(user=request.user)
-
-    return uplift_assessment_form, uplift_assessment_link_form
 
 
 class UpliftRequestView(LandoView):
@@ -227,35 +200,6 @@ class UpliftAssessmentLinkView(LandoView):
         return redirect(request.META.get("HTTP_REFERER"))
 
 
-def uplift_context_for_revision(revision_id: int) -> QuerySet:
-    """Return all UpliftSubmission objects relevant to this revision.
-
-    Relevant if:
-      - this revision was originally requested (in requested_revision_ids)
-      - this revision was created by an uplift job (UpliftJob.created_revision_ids).
-    """
-    base_qs = (
-        UpliftSubmission.objects.select_related("assessment", "requested_by")
-        .prefetch_related(
-            Prefetch(
-                "uplift_jobs",
-                queryset=UpliftJob.objects.select_related("target_repo").order_by("id"),
-            )
-        )
-        .order_by("-created_at")
-    )
-
-    # Original side: the revision was requested (e.g. D123 in requested_revision_ids).
-    original_qs = base_qs.filter(requested_revision_ids__contains=[revision_id])
-
-    # Uplifted side: the revision was produced by an uplift job.
-    uplifted_qs = base_qs.filter(
-        uplift_jobs__created_revision_ids__contains=[revision_id]
-    )
-
-    return (original_qs | uplifted_qs).distinct()
-
-
 class RevisionView(LandoView):
     def get(
         self, request: WSGIRequest, revision_id: int, *args, **kwargs
@@ -277,14 +221,6 @@ class RevisionView(LandoView):
             revisions[r["phid"]] = r
             if r["id"] == "D{}".format(revision_id):
                 revision_phid = r["phid"]
-
-        source_revisions = [
-            revision_id_to_int(revisions[revision_phid]["id"])
-            for revision_phid in stack["stack"].iter_stack_from_root(dest=revision_phid)
-        ]
-        uplift_request_form = UpliftRequestForm(
-            initial={"source_revisions": source_revisions}
-        )
 
         # Build a mapping from phid to repository.
         repositories = {}
@@ -352,14 +288,15 @@ class RevisionView(LandoView):
         revision = revisions[revision_phid]
         revision_repo = repositories.get(revision["repo_phid"])
 
-        # Look for an existing `UpliftRevision` for this revision.
-        uplift_revision = UpliftRevision.one_or_none(revision_id=revision_id)
-        (
-            uplift_assessment_edit_form,
-            uplift_assessment_link_form,
-        ) = build_uplift_forms(request, revision_repo, uplift_revision)
-
-        uplift_requests = uplift_context_for_revision(revision_id)
+        # Build the uplift templating context.
+        uplift_context = UpliftContext.build(
+            request=request,
+            revision_id=revision_id,
+            revision_phid=revision_phid,
+            revision_repo=revision_repo,
+            revisions=revisions,
+            stack=stack["stack"],
+        )
 
         # Current implementation requires that all commits have the flags appended.
         # This may change in the future. What we do here is:
@@ -378,7 +315,6 @@ class RevisionView(LandoView):
 
         context = {
             "revision_id": "D{}".format(revision_id),
-            "revision_id_int": revision_id,
             "series": series,
             "landable": landable,
             "dryrun": dryrun,
@@ -394,10 +330,7 @@ class RevisionView(LandoView):
             "form": form,
             "flags": target_repo.commit_flags if target_repo else [],
             "existing_flags": existing_flags,
-            "uplift_request_form": uplift_request_form,
-            "uplift_requests": uplift_requests,
-            "uplift_assessment_form": uplift_assessment_edit_form,
-            "uplift_assessment_link_form": uplift_assessment_link_form,
+            "uplift": uplift_context,
         }
 
         return TemplateResponse(

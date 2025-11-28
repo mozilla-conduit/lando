@@ -13,34 +13,35 @@ future.
 {% endmacro %}
 <h1>Uplifts</h1>
 {% if revision_repo and revision_repo.approval_required %}
-    {% set has_uplift_assessment = uplift_assessment_form.instance.pk is not none %}
     <div class="block">
         <div class="block">
             <div class="columns is-mobile is-vcentered is-multiline">
-                <div class="column is-narrow">
-                    <button class="button is-primary edit-assessment-open">
-                        <span class="icon is-small">
-                            <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
-                        </span>
-                        <span>
-                            {% if has_uplift_assessment %}
-                                Edit Uplift Assessment
-                            {% else %}
-                                Submit Uplift Assessment
-                            {% endif %}
-                        </span>
-                    </button>
-                </div>
-                {% if uplift_assessment_link_form %}
+                {% if uplift.assessment_form %}
+                    <div class="column is-narrow">
+                        <button class="button is-primary edit-assessment-open">
+                            <span class="icon is-small">
+                                <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
+                            </span>
+                            <span>
+                                {% if uplift.has_assessment %}
+                                    Edit Uplift Assessment
+                                {% else %}
+                                    Submit Uplift Assessment
+                                {% endif %}
+                            </span>
+                        </button>
+                    </div>
+                {% endif %}
+                {% if uplift.assessment_link_form %}
                     <div class="column is-narrow">
                         <button class="button is-light link-assessment-open"
-                                {% if not uplift_assessment_link_form.has_assessments %}disabled{% endif %}
-                                title="{% if not uplift_assessment_link_form.has_assessments %}You have no previous uplift assessments to link{% endif %}">
+                                {% if not uplift.assessment_link_form.has_assessments %}disabled{% endif %}
+                                title="{% if not uplift.assessment_link_form.has_assessments %}You have no previous uplift assessments to link{% endif %}">
                             <span class="icon is-small">
                                 <i class="fa fa-link" aria-hidden="true"></i>
                             </span>
                             <span>
-                                {% if has_uplift_assessment %}
+                                {% if uplift.has_assessment %}
                                     Change Linked Assessment
                                 {% else %}
                                     Link Existing Assessment
@@ -50,7 +51,7 @@ future.
                     </div>
                 {% endif %}
                 <div class="column">
-                    {% if uplift_assessment_form.instance.pk %}
+                    {% if uplift.has_assessment %}
                         <span class="has-text-success">
                             <span class="icon is-small">
                                 <i class="fa fa-check-circle" aria-hidden="true"></i>
@@ -67,43 +68,44 @@ future.
                     {% endif %}
                 </div>
             </div>
-            {% if uplift_assessment_link_form and not uplift_assessment_link_form.has_assessments %}
+            {% if uplift.assessment_link_form and not uplift.assessment_link_form.has_assessments %}
                 <p class="has-text-grey is-size-7 mt-2">You have no previous uplift assessments to link for this account.</p>
             {% endif %}
         </div>
     </div>
-    <div class="uplift-assessment-edit-modal modal">
-        <form action="{{ url('uplift-assessment-page', args=[revision_id_int]) }}"
-              method="post">
-            <div class="modal-background"></div>
-            <div class="modal-card">
-                <header class="modal-card-head">
-                    <p class="modal-card-title">Edit Assessment</p>
-                    <button class="edit-assessment-close delete" aria-label="close" type="button"></button>
-                </header>
-                <section class="modal-card-body">
-                    {{ csrf_input }}
-                    {% if not user_has_phabricator_token %}
-                        {% include "stack/partials/uplift-phab-api-key-warning.html" %}
-                    {% endif %}
-                    {% with assessment_form = uplift_assessment_form %}
-                        {% include "stack/partials/uplift-assessment.html" %}
-                    {% endwith %}
-                </section>
-                {% set can_edit_assessment = user_is_authenticated and user_has_phabricator_token %}
-                <footer class="modal-card-foot">
-                    <button class="button is-primary"
-                            {% if not can_edit_assessment %}disabled{% endif %}
-                            title="{% if not can_edit_assessment %}Editing the assessment is blocked. See the error messages above for more detail.{% else %}Save responses{% endif %}">
-                        Update assessment form
-                    </button>
-                </footer>
-            </div>
-        </form>
-    </div>
-    {% if uplift_assessment_link_form %}
+    {% if uplift.assessment_form %}
+        <div class="uplift-assessment-edit-modal modal">
+            <form action="{{ url('uplift-assessment-page', args=[uplift.revision_id]) }}"
+                  method="post">
+                <div class="modal-background"></div>
+                <div class="modal-card">
+                    <header class="modal-card-head">
+                        <p class="modal-card-title">Edit Assessment</p>
+                        <button class="edit-assessment-close delete" aria-label="close" type="button"></button>
+                    </header>
+                    <section class="modal-card-body">
+                        {{ csrf_input }}
+                        {% if not user_has_phabricator_token %}
+                            {% include "stack/partials/uplift-phab-api-key-warning.html" %}
+                        {% endif %}
+                        {% with assessment_form = uplift.assessment_form %}
+                            {% include "stack/partials/uplift-assessment.html" %}
+                        {% endwith %}
+                    </section>
+                    <footer class="modal-card-foot">
+                        <button class="button is-primary"
+                                {% if not uplift.can_create_uplift_submission %}disabled{% endif %}
+                                title="{% if not uplift.can_create_uplift_submission %}Editing the assessment is blocked. See the error messages above for more detail.{% else %}Save responses{% endif %}">
+                            Update assessment form
+                        </button>
+                    </footer>
+                </div>
+            </form>
+        </div>
+    {% endif %}
+    {% if uplift.assessment_link_form %}
         <div class="uplift-assessment-link-modal modal">
-            <form action="{{ url('uplift-assessment-link-page', args=[revision_id_int]) }}"
+            <form action="{{ url('uplift-assessment-link-page', args=[uplift.revision_id]) }}"
                   method="post">
                 <div class="modal-background"></div>
                 <div class="modal-card">
@@ -119,20 +121,20 @@ future.
                         </p>
                         <div class="field">
                             <label class="label"
-                                   for="{{ uplift_assessment_link_form.assessment.id_for_label }}">
+                                   for="{{ uplift.assessment_link_form.assessment.id_for_label }}">
                                 Existing uplift assessment
                             </label>
                             <div class="control">
-                                <div class="select is-fullwidth">{{ uplift_assessment_link_form.assessment }}</div>
+                                <div class="select is-fullwidth">{{ uplift.assessment_link_form.assessment }}</div>
                             </div>
-                            {% if uplift_assessment_link_form.assessment.help_text %}
-                                <p class="help">{{ uplift_assessment_link_form.assessment.help_text }}</p>
+                            {% if uplift.assessment_link_form.assessment.help_text %}
+                                <p class="help">{{ uplift.assessment_link_form.assessment.help_text }}</p>
                             {% endif %}
                         </div>
                     </section>
                     <footer class="modal-card-foot">
                         <button class="button is-primary"
-                                {% if not uplift_assessment_link_form.has_assessments %}disabled{% endif %}>
+                                {% if not uplift.assessment_link_form.has_assessments %}disabled{% endif %}>
                             Link assessment
                         </button>
                         <button class="button link-assessment-close" type="button">Cancel</button>
@@ -142,9 +144,9 @@ future.
         </div>
     {% endif %}
 {% endif %}
-{% if uplift_requests %}
+{% if uplift.requests %}
     <div class="Uplifts">
-        {% for uplift_request in uplift_requests %}
+        {% for uplift_request in uplift.requests %}
             <div class="box">
                 <div class="level is-mobile">
                     <div class="level-left">
@@ -162,7 +164,7 @@ future.
                             <div class="has-text-right">
                                 <p class="is-size-7 has-text-grey">Requested revisions</p>
                                 <div class="tags is-right">
-                                    {% for rev_id in uplift_request.requested_revision_ids %}{{ revision_tag(rev_id, revision_id_int) }}{% endfor %}
+                                    {% for rev_id in uplift_request.requested_revision_ids %}{{ revision_tag(rev_id, uplift.revision_id) }}{% endfor %}
                                 </div>
                             </div>
                         </div>
@@ -206,7 +208,7 @@ future.
                                             {% if job.created_revision_ids %}
                                                 <div class="content">
                                                     <div class="tags">
-                                                        {% for rev_id in job.created_revision_ids %}{{ revision_tag(rev_id, revision_id_int) }}{% endfor %}
+                                                        {% for rev_id in job.created_revision_ids %}{{ revision_tag(rev_id, uplift.revision_id) }}{% endfor %}
                                                     </div>
                                                 </div>
                                             {% endif %}

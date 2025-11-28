@@ -12,7 +12,7 @@
         {% endif %}
         <h1>Landings for Stack Containing {{ revisions[revision_phid]['id'] }}</h1>
         {% include "stack/partials/timeline.html" %}
-        {% if (revision_repo and revision_repo.approval_required) or uplift_requests %}
+        {% if (revision_repo and revision_repo.approval_required) or uplift.requests %}
             {% include "stack/partials/uplift-section.html" %}
         {% endif %}
         <h1>Stack containing revision {{ revisions[revision_phid]['id'] }}</h1>

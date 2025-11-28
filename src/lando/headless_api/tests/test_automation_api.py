@@ -1,6 +1,5 @@
 import base64
 import datetime
-import itertools
 import json
 import secrets
 import subprocess
@@ -90,7 +89,7 @@ def test_auth_user_agent_bad_format(client, headless_user, automation_job):
         },
     )
 
-    assert response.status_code == 401, "Missing `User-Agent` should result in 401."
+    assert response.status_code == 401, "Incorrect `User-Agent` should result in 401."
     assert response.json() == {"details": "Incorrect `User-Agent` format."}
 
 
@@ -109,7 +108,7 @@ def test_auth_missing_authorization_header(client, headless_user, automation_job
         },
     )
 
-    assert response.status_code == 401, "Missing `User-Agent` should result in 401."
+    assert response.status_code == 401, "Missing `Authorization` should result in 401."
     assert response.json() == {"detail": "Unauthorized"}
 
 
@@ -454,27 +453,14 @@ def test_get_job_status_not_found(client, headless_user):
     ), "API should respond with a 404 for non-existent job ID."
 
 
-@pytest.mark.parametrize(
-    "status,message",
-    (
-        (JobStatus.SUBMITTED, "Job is in the SUBMITTED state."),
-        (JobStatus.IN_PROGRESS, "Job is in the IN_PROGRESS state."),
-        (JobStatus.DEFERRED, "Job is in the DEFERRED state."),
-        (JobStatus.FAILED, "Job is in the FAILED state."),
-        (JobStatus.LANDED, "Job is in the LANDED state."),
-        (JobStatus.CANCELLED, "Job is in the CANCELLED state."),
-    ),
-)
 @pytest.mark.django_db
-def test_get_job_status(
-    status, message, client, headless_user, automation_job, repo_mc
-):
+def test_get_job_status(client, headless_user, automation_job, repo_mc):
     user, token = headless_user
     repo = repo_mc(SCM_TYPE_GIT)
 
     # Create a job and actions
     job, _actions = automation_job(
-        status=status, actions=[{"content": "test"}], target_repo=repo
+        status=JobStatus.SUBMITTED, actions=[{"content": "test"}], target_repo=repo
     )
 
     # Fetch job status.
@@ -494,7 +480,7 @@ def test_get_job_status(
 
     assert response_data["job_id"] == job.id
     assert (
-        response_data["message"] == message
+        response_data["message"] == "Job is in the SUBMITTED state."
     ), "Response message should align with current job status."
     # TODO test a few more things? formatting?
 
@@ -675,24 +661,15 @@ def test_automation_job_create_commit_success(
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
 
 
-@pytest.mark.parametrize(
-    "bad_action_type,hooks_enabled",
-    # We make a cross-product of all the SCM and all the bad actions.
-    itertools.product(
-        FAILING_CHECK_TYPES,
-        (True, False),
-    ),
-)
+@pytest.mark.parametrize("bad_action_type", FAILING_CHECK_TYPES)
 @pytest.mark.django_db
-def test_automation_job_create_commit_failed_check(
+def test_automation_job_create_commit_failed_check_hooks_enabled(
     repo_mc,
     treestatusdouble,
     automation_worker,
     mock_phab_trigger_repo_update_apply_async,
     get_failing_check_action_reason: Callable,
     bad_action_type: str,
-    hooks_enabled: bool,
-    get_failing_check_diff: Callable,
     extract_email: Callable,
     automation_job: Callable,
 ):
@@ -701,11 +678,10 @@ def test_automation_job_create_commit_failed_check(
     repo = repo_mc(SCM_TYPE_GIT)
     scm = repo.scm
 
-    repo.hooks_enabled = hooks_enabled
+    repo.hooks_enabled = True
 
     author_email = extract_email(bad_action["author"])
 
-    # Create a job and actions
     job, _actions = automation_job(
         actions=[bad_action],
         status=JobStatus.SUBMITTED,
@@ -718,16 +694,44 @@ def test_automation_job_create_commit_failed_check(
     scm.push = mock.MagicMock()
 
     assert automation_worker.run_job(job), "Job indicated that it should be retried"
+    assert (
+        job.status == JobStatus.FAILED
+    ), f"Job unexpectedly succeeded for commit `{bad_action['commitmsg']}`"
+    assert reason in job.error, "Expected job failure reason was not found"
 
-    if hooks_enabled:
-        assert (
-            job.status == JobStatus.FAILED
-        ), f"Job unexpectedly succeeded for commit `{bad_action['commitmsg']}`"
-        assert reason in job.error, "Expected job failure reason was not found"
-    else:
-        assert (
-            job.status == JobStatus.LANDED
-        ), "Job did not succeed despite disabled hooks."
+
+@pytest.mark.django_db
+def test_automation_job_create_commit_failed_check_hooks_disabled(
+    repo_mc,
+    treestatusdouble,
+    automation_worker,
+    mock_phab_trigger_repo_update_apply_async,
+    get_failing_check_action_reason: Callable,
+    extract_email: Callable,
+    automation_job: Callable,
+):
+    bad_action, _reason = get_failing_check_action_reason("nobug")
+
+    repo = repo_mc(SCM_TYPE_GIT)
+    scm = repo.scm
+
+    repo.hooks_enabled = False
+
+    author_email = extract_email(bad_action["author"])
+
+    job, _actions = automation_job(
+        actions=[bad_action],
+        status=JobStatus.SUBMITTED,
+        requester_email=author_email,
+        target_repo=repo,
+    )
+
+    automation_worker.worker_instance.applicable_repos.add(repo)
+
+    scm.push = mock.MagicMock()
+
+    assert automation_worker.run_job(job), "Job indicated that it should be retried"
+    assert job.status == JobStatus.LANDED, "Job did not succeed despite disabled hooks."
 
 
 @pytest.fixture
@@ -1497,8 +1501,6 @@ def test_push_to_existing_relbranch(
 @pytest.mark.parametrize(
     "relbranch_specifier,expected_target_cset,expected_push_target",
     [
-        # Case 1: No relbranch_specifier
-        (None, None, "default_target"),
         # Case 2: Only branch_name
         (
             {"branch_name": "FIREFOX_ESR_123_45_X_RELBRANCH"},

@@ -128,6 +128,27 @@ index 0000000..7898192
 -- 
 """  # noqa: W291, `git` adds a trailing whitespace after `--`.
 
+PATCH_GIT_2 = """\
+From ed0231509340a9664aaa06f53a5a1685d2f15b7c Mon Sep 17 00:00:00 2001
+From: Lando <lando@lando.test>
+Date: Wed, 26 Nov 2025 06:28:19 +0000
+Subject: No bug: adding a line in context
+
+---
+ test.txt | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/test.txt b/test.txt
+index 2a02d41..0ff72ad 100644
+--- a/test.txt
++++ b/test.txt
+@@ -1 +1,2 @@
++new line inserted
+ TEST
+-- 
+"""  # noqa: W291, `git` adds a trailing whitespace after `--`.
+
+
 PATCH_GIT_BINARY_1 = """\
 From be6df88a1c2c64621ab9dfdf244272748e93c26f Mon Sep 17 00:00:00 2001
 From: Py Test <pytest@lando.example.net>
@@ -163,6 +184,28 @@ new file mode 100644
 
 """.lstrip()
 
+PATCH_GIT_DOS_LINE_ENDING = """
+From daf43dabd1cc2d4f386519d61eee6e7abb766108 Mon Sep 17 00:00:00 2001
+From: Py Test <pytest@lando.example.net>
+Date: Wed, 26 Nov 2025 04:05:36 +0000
+Subject: [PATCH] No bug: add a DOS file
+
+---
+ test-dos.txt | 2 ++
+ 1 file changed, 2 insertions(+)
+ create mode 100644 test-dos.txt
+
+diff --git a/test-dos.txt b/test-dos.txt
+new file mode 100644
+index 0000000..f04873a
+--- /dev/null
++++ b/test-dos.txt
+@@ -0,0 +1,2 @@
++one DOS-terminated line in the file\r
++one DOS-terminated line\r
+-- 
+"""  # noqa: W291, `git` adds a trailing whitespace after `--`.
+
 
 @pytest.fixture
 def normal_patch():
@@ -180,12 +223,12 @@ def normal_patch():
 
 
 @pytest.fixture
-def create_patch_revision(normal_patch):
+def create_patch_revision(normal_patch: Callable):
     """A fixture that fake uploads a patch"""
 
     normal_patch_0 = normal_patch(0)
 
-    def _create_patch_revision(number, patch=normal_patch_0):
+    def _create_patch_revision(number: int, patch: str = normal_patch_0):
         """Create revision number `number`, with patch text `patch`.
 
         `patch` will default to the first normal patch fixture if unspecified. However,
@@ -207,17 +250,54 @@ def create_patch_revision(normal_patch):
 def git_patch():
     """Return a factory providing one of several git patches.
 
-    The first patch is a normal patch, the second one contains binary weirdness.
+    * The first two patches are normal patches.
+    * The third one contains binary weirdness.
+    * The third has DOS line terminators (\r\n).
     """
     _patches = [
         PATCH_GIT_1,
+        PATCH_GIT_2,
         PATCH_GIT_BINARY_1,
+        PATCH_GIT_DOS_LINE_ENDING,
     ]
 
-    def _patch(number=0):
+    def _patch(number: int = 0):
         return _patches[number]
 
     return _patch
+
+
+@pytest.fixture
+def create_pull_request_revision(git_patch: Callable):
+    """A fixture that fake uploads a patch"""
+
+    git_patch_0 = git_patch(0)
+
+    def _create_pull_request_revision(number: int, patches: str = git_patch_0):
+        """Create revision number `number`, with patch text `patch`.
+
+        `patch` will default to the first git patch fixture if unspecified. However,
+        if explicitly set to None, the `git_patch` fixture will be used to get
+        normal patch number `number-1`."""
+        if not patches:
+            patches = git_patch(number - 1)
+        revision = Revision()
+        revision.pull_number = number
+        # XXX: We use static metadata for now. In the future, we may want to extract dynamic
+        # metadata from the `patches` passed to the fixture.
+        revision.patch_data = {
+            "author_name": "create_pull_request_revision",
+            "author_email": "create_pull_request_revision@pytest",
+            "commit_message": f"No bug - commit message for PR {number}",
+            "timestamp": f"{1764132923 + number}",
+        }
+        # We set the _patches_ as the concatenation of all requested patches, as can be
+        # obtained from Pull Requests.
+        revision.patches = patches
+        revision.save()
+        return revision
+
+    return _create_pull_request_revision
 
 
 PATCH_DIFF = """
