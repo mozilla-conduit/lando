@@ -285,7 +285,7 @@ class PullRequestWarning(PullRequestCheck, ABC):
 
 
 class PullRequestBlockingReviewersWarning(PullRequestWarning):
-    """Is missing reviews from blocking reviewers."""
+    """Warn if some requested reviewers or teams haven't provided a review."""
 
     @override
     @classmethod
