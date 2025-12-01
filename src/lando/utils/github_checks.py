@@ -295,7 +295,7 @@ class PullRequestBlockingReviewersWarning(PullRequestWarning):
     @override
     @classmethod
     def description(cls) -> str:
-        return "Is missing reviews from blocking reviewers."
+        return "Is missing reviews from requested reviewers."
 
     @override
     @classmethod
