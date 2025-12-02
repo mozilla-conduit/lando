@@ -558,7 +558,7 @@ class PullRequest:
         lines = [self.title, ""]
         if self.body:
             lines += [self.body, ""]
-        lines.append(f"Pull request: {self.html_url}")
+        lines.append(f"closes: {self.html_url}")
         return "\n".join(lines)
 
     def serialize(self) -> dict[str, str]:
