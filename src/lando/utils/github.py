@@ -14,6 +14,7 @@ from typing_extensions import override
 
 from lando.api.legacy.commit_message import replace_reviewers
 from lando.main.scm.helpers import PatchHelper
+from lando.settings import GITHUB_REVIEWERS_MAP
 from lando.utils.cache import cache_method
 from lando.utils.const import URL_USERINFO_RE
 
@@ -563,7 +564,7 @@ class PullRequest:
         """Return a string combining the pull request title with reviewers, description, and URL."""
 
         reviewers = [
-            u
+            GITHUB_REVIEWERS_MAP.get(u, u)
             for u in self.reviews_summary
             if self.reviews_summary.get(u) == self.Review.APPROVED
         ]

@@ -284,4 +284,13 @@ COMMITTER_EMAIL = os.getenv("LANDO_COMMITTER_EMAIL", LANDO_USER_EMAIL)
 GITHUB_APP_ID = os.getenv("GITHUB_APP_ID")
 GITHUB_APP_PRIVKEY = os.getenv("GITHUB_APP_PRIVKEY")
 
+# A map of GitHub usernames to known Mozilla nicks.
+# This is a stop-gap measure while we implement a more solid approach.
+GITHUB_REVIEWERS_MAP = {
+    "cgsheeh": "sheehan",
+    "dklawren": "dkl",
+    "marco-c": "marco",
+    "zzzeid": "zeid",
+}
+
 HTTP_USER_AGENT = f"Lando/{version} ({ENVIRONMENT})"
