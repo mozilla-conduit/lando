@@ -12,7 +12,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
-          LANDO_BASE_URL: https://lando.moz.tools
-          LANDO_REPO: lando
+          #
+          # Set the following variables at the repository level [0].
+          # [0] https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-variables#defining-configuration-variables-for-multiple-workflows
+          #
+          #LANDO_BASE_URL:
+          #LANDO_REPO:
         run: |
-          gh pr comment ${{ env.PR }} --body "[View this pull request in Lando](${{ env.LANDO_BASE_URL}}/pulls/${{ env.LANDO_REPO }}/${{ env.PR }}) to land it once approved."
+          gh pr comment "${{ env.PR }}" --body "[View this pull request in Lando](${{ env.LANDO_BASE_URL}}/pulls/${{ env.LANDO_REPO }}/${{ env.PR }}) to land it once approved."
