@@ -119,7 +119,6 @@ class PreventPathCheckMixin(ABC):
 
         if self.disallowed_changes:
             return_error_message.append(f"{self.error_message}:")
-
             return_error_message.append(wrap_filenames(self.disallowed_changes))
 
         return f"{' '.join(return_error_message)}."
