@@ -82,7 +82,7 @@ class PreventPathCheckMixin(ABC):
     override_commit_message: str
         a string to allow users to bypass the check
 
-    error_message: str
+    error_cause_details: str
         a basic error string to show before the list of matching files (no colon
         needed)
 
@@ -97,7 +97,7 @@ class PreventPathCheckMixin(ABC):
 
     paths: list[re.Pattern]
     override_commit_message: str
-    error_message: str
+    error_cause_details: str
 
     disallowed_changes: list[str] = field(init=False)
 
@@ -118,7 +118,7 @@ class PreventPathCheckMixin(ABC):
         return_error_message = [self.BASE_ERROR_MESSAGE]
 
         if self.disallowed_changes:
-            return_error_message.append(f"{self.error_message}:")
+            return_error_message.append(f"{self.error_cause_details}:")
             return_error_message.append(wrap_filenames(self.disallowed_changes))
 
         return f"{' '.join(return_error_message)}."
@@ -154,7 +154,7 @@ class PreventDotGithubCheck(PreventPathCheckMixin, PatchCheck):
         re.compile("^.github/workflows"),
     ]
     override_commit_message = "DOT_GITHUB_OVERRIDE"
-    error_message = "GitHub workflows directory"
+    error_cause_details = "GitHub workflows directory"
 
     @override
     @classmethod
@@ -175,7 +175,7 @@ class PreventNSPRCheck(PreventPathCheckMixin, PatchCheck):
         re.compile("^nsprpub/"),
     ]
     override_commit_message = "UPGRADE_NSPR_RELEASE"
-    error_message = "vendored NSPR directories"
+    error_cause_details = "vendored NSPR directories"
 
     @override
     @classmethod
@@ -196,7 +196,7 @@ class PreventNSSCheck(PreventPathCheckMixin, PatchCheck):
         re.compile("^security/nss/"),
     ]
     override_commit_message = "UPGRADE_NSS_RELEASE"
-    error_message = "vendored NSS directories"
+    error_cause_details = "vendored NSS directories"
 
     @override
     @classmethod
