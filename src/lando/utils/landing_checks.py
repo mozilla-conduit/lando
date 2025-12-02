@@ -149,7 +149,7 @@ class PreventPathCheckMixin(ABC):
 
 @dataclass
 class PreventDotGithubCheck(PreventPathCheckMixin, PatchCheck):
-    """Prevent changes GitHub workflows directory."""
+    """Prevent changes in GitHub workflows directory."""
 
     paths = [
         re.compile("^.github/workflows"),
