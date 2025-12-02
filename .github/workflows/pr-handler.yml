@@ -19,4 +19,4 @@ jobs:
           #LANDO_BASE_URL:
           #LANDO_REPO:
         run: |
-          gh pr comment "${{ env.PR }}" --body "[View this pull request in Lando](${{ env.LANDO_BASE_URL}}/pulls/${{ env.LANDO_REPO }}/${{ env.PR }}) to land it once approved."
+          gh pr comment "${PR}" --body "[View this pull request in Lando](${LANDO_BASE_URL}/pulls/${LANDO_REPO}/${PR}) to land it once approved."
