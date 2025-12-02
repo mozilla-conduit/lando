@@ -14,3 +14,8 @@ URL_USERINFO_RE = re.compile(
     "(?P<userinfo>[-A-Za-z0-9:._~%!$&'*()*+;=]*:[-A-Za-z0-9:._~%!$&'*()*+;=]*@)",
     flags=re.MULTILINE,
 )
+
+# Uplift documentation URL.
+UPLIFT_DOCS_URL = (
+    "https://wiki.mozilla.org/index.php?title=Release_Management/Requesting_an_Uplift"
+)

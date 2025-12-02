@@ -4,6 +4,7 @@ from django.conf import settings
 from django.core.mail import EmailMessage
 
 from lando.api.legacy.validation import REVISION_ID_RE
+from lando.utils.const import UPLIFT_DOCS_URL
 
 logger = logging.getLogger(__name__)
 
@@ -49,20 +50,20 @@ def make_failure_email(
     return msg
 
 
-UPLIFT_FAILURE_EMAIL_TEMPLATE = """
-Your uplift request for {repo_name} did not complete successfully.
+UPLIFT_FAILURE_EMAIL_TEMPLATE = f"""
+Your uplift request for {{repo_name}} did not complete successfully.
 
-See here for details and merge conflicts: {job_url}
+See here for details and merge conflicts: {{job_url}}
 
 Reason:
-{reason}
+{{reason}}
 
 Review the job details linked above for more information, including
 details of any merge conflicts that were encountered.
 
 If your uplift failed due to merge conflicts, this means your patch
 cannot be uplifted without manually resolving the merge conflicts and
-re-submitting. Please pull the latest changes for {repo_name}, resolve
+re-submitting. Please pull the latest changes for {{repo_name}}, resolve
 the conflicts locally, and submit a new uplift request using `moz-phab
 uplift` once the conflicts are cleared.
 
@@ -70,7 +71,7 @@ Once you have created a new uplift Phabricator revision, you can use the
 "Link Existing Assessment" button to link your new uplift revision to the
 uplift assessment form you previously submitted.
 
-See https://wiki.mozilla.org/index.php?title=Release_Management/Requesting_an_Uplift
+See {UPLIFT_DOCS_URL}
 for step-by-step instructions.
 """.strip()
 

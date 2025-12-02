@@ -2,8 +2,9 @@ from lando.api.legacy.email import (
     make_uplift_failure_email,
     make_uplift_success_email,
 )
+from lando.utils.const import UPLIFT_DOCS_URL
 
-FAILURE_EXPECTED_BODY = """
+FAILURE_EXPECTED_BODY = f"""
 Your uplift request for firefox-beta did not complete successfully.
 
 See here for details and merge conflicts: https://lando/jobs/1
@@ -24,7 +25,7 @@ Once you have created a new uplift Phabricator revision, you can use the
 "Link Existing Assessment" button to link your new uplift revision to the
 uplift assessment form you previously submitted.
 
-See https://wiki.mozilla.org/index.php?title=Release_Management/Requesting_an_Uplift
+See {UPLIFT_DOCS_URL}
 for step-by-step instructions.
 """.strip()
 
