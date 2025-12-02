@@ -12,6 +12,7 @@ from django.conf import settings
 from simple_github import AppAuth, AppInstallationAuth
 from typing_extensions import override
 
+from lando.api.legacy.commit_message import replace_reviewers
 from lando.main.scm.helpers import PatchHelper
 from lando.utils.cache import cache_method
 from lando.utils.const import URL_USERINFO_RE
@@ -536,6 +537,11 @@ class PullRequest:
         return self.client.get_patch(self.number)
 
     @property
+    def reviews_summary(self) -> dict[str, str]:
+        """Get a simple dict of reviewers and the state of their review."""
+        return {review["user"]["login"]: review["state"] for review in self.reviews}
+
+    @property
     @pr_cache_method
     def reviews(self) -> list:
         """Return a list of reviews for the PR."""
@@ -554,11 +560,22 @@ class PullRequest:
 
     @property
     def commit_message(self) -> str:
-        """Return a string combining the pull request title, description, and URL."""
-        lines = [self.title, ""]
+        """Return a string combining the pull request title with reviewers, description, and URL."""
+
+        reviewers = [
+            u
+            for u in self.reviews_summary
+            if self.reviews_summary.get(u) == self.Review.APPROVED
+        ]
+        approvals = []
+
+        lines = [replace_reviewers(self.title, reviewers, approvals), ""]
+
         if self.body:
             lines += [self.body, ""]
+
         lines.append(f"closes: {self.html_url}")
+
         return "\n".join(lines)
 
     def serialize(self) -> dict[str, str]:
