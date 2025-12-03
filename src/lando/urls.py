@@ -15,7 +15,6 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
-from debug_toolbar.toolbar import debug_toolbar_urls
 from django.contrib import admin
 from django.urls import include, path, re_path, reverse_lazy
 from django.views.generic.base import RedirectView
@@ -183,6 +182,3 @@ urlpatterns += [
     ),
     path("try/", try_api.urls, name="try"),
 ]
-
-
-urlpatterns += debug_toolbar_urls()
