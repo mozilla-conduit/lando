@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("main", "0034_repo_hooks"),
+        ("main", "0037_repo_pr_enabled"),
     ]
 
     operations = [

@@ -4,9 +4,8 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ("main", "0032_repo_try_enabled"),
+        ("main", "0038_repo_try_enabled"),
     ]
 
     operations = [
