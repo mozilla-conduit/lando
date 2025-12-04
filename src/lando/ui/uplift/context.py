@@ -15,6 +15,7 @@ from lando.ui.legacy.forms import (
     UpliftAssessmentForm,
     UpliftRequestForm,
 )
+from lando.utils.const import UPLIFT_DOCS_URL
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +29,7 @@ class UpliftContext:
     assessment_link_form: LinkUpliftAssessmentForm | None
     can_create_uplift_submission: bool
     revision_id: int
+    docs_url: str
 
     @classmethod
     def build(
@@ -69,6 +71,7 @@ class UpliftContext:
             assessment_link_form=assessment_link_form,
             can_create_uplift_submission=cls.can_create_submission(request),
             revision_id=revision_id,
+            docs_url=UPLIFT_DOCS_URL,
         )
 
     @staticmethod
