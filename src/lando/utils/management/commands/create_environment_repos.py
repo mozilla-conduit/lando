@@ -108,10 +108,10 @@ REPOS = {
         #
         {
             "name": "firefox-try",
-            "url": "http://hg.test/try",
+            "url": "http://hg.test/firefox-try",
             "required_permission": SCM_LEVEL_1,
-            "push_path": "ssh://autoland.hg//repos/try",
-            "pull_path": "http://hg.test/try",
+            "push_path": "ssh://autoland.hg//repos/firefox-try",
+            "pull_path": "http://hg.test/firefox-try",
             "short_name": "firefox-try",
             "is_phabricator_repo": False,
             "force_push": True,
