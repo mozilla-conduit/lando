@@ -262,18 +262,20 @@ class LandingJobPullRequestAPIView(View):
         )
         author_name, author_email = pull_request.author
 
-        reviews_summary = pull_request.reviews_summary
-        reviewers = [
-            u
-            for u in reviews_summary
-            if reviews_summary.get(u) == pull_request.Review.APPROVED
-        ]
-        approvals = []
+        commit_message = pull_request.commit_message
+        if target_repo.add_reviewers_to_commit_message:
+            reviews_summary = pull_request.reviews_summary
+            reviewers = [
+                u
+                for u in reviews_summary
+                if reviews_summary.get(u) == pull_request.Review.APPROVED
+            ]
+            approvals = []
 
-        commit_message = [
-            replace_reviewers(pull_request.commit_message, reviewers, approvals),
-            "",
-        ]
+            commit_message = [
+                replace_reviewers(commit_message, reviewers, approvals),
+                "",
+            ]
 
         patch_data = {
             "author_name": author_name,

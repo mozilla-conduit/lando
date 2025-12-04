@@ -138,6 +138,7 @@ class Repo(BaseModel):
 
     approval_required = models.BooleanField(default=False)
     autoformat_enabled = models.BooleanField(default=False)
+    add_reviewers_to_commit_message = models.BooleanField(default=True)
     commit_flags = ArrayField(
         ArrayField(
             models.CharField(max_length=255, blank=True),
