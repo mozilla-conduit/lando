@@ -201,7 +201,13 @@ class GitSCM(AbstractSCM):
             patch_file.write(patches)
             patch_file.flush()
 
-            self._git_run("apply", "--reject", patch_file.name, cwd=self.path)
+            try:
+                self._git_run("apply", "--reject", patch_file.name, cwd=self.path)
+            except SCMException as exc:
+                if "error: patch" in exc.err:
+                    raise PatchConflict(exc.err) from exc
+                raise exc
+
             self._git_run("add", "-A", "-f", cwd=self.path)
             return self._git_run(
                 "diff", "--staged", "--binary", cwd=self.path, rstrip=False
