@@ -284,6 +284,50 @@ class PullRequestWarning(PullRequestCheck, ABC):
     """Parent class for warning checks."""
 
 
+class PullRequestBlockingReviewersWarning(PullRequestWarning):
+    """Warn if some requested reviewers or teams haven't provided a review."""
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PullRequestBlockingReviewersWarning"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Is missing reviews from requested reviewers."
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        pull_request: PullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        reviewers = pull_request.requested_reviewers
+        teams = pull_request.requested_teams
+
+        messages = []
+
+        if reviewers:
+            messages.append(
+                cls.description() + " Individuals: " + cls._reviewers_str(reviewers)
+            )
+        if teams:
+            messages.append(cls.description() + " Teams: " + cls._teams_str(teams))
+
+        return messages
+
+    @classmethod
+    def _reviewers_str(cls, reviewers: Iterable[dict[str, str]]) -> str:
+        return ", ".join([r["login"] for r in reviewers])
+
+    @classmethod
+    def _teams_str(cls, teams: Iterable[dict[str, str]]) -> str:
+        return ", ".join([r["name"] for r in teams])
+
+
 class PullRequestBlockingReviewsWarning(PullRequestWarning):
     """Has a review intended to block landing."""
 
