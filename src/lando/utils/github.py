@@ -183,6 +183,7 @@ class GitHubAPIClient:
 
     def _get(self, path: str, *args, **kwargs) -> dict | list | str | None:
         result = self._api.get(path, *args, **kwargs)
+        result.raise_for_status()
         content_type = result.headers["content-type"]
         if content_type == "application/json; charset=utf-8":
             return result.json()
