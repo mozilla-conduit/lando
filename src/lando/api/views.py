@@ -11,6 +11,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
+from lando.api.legacy.commit_message import replace_reviewers
 from lando.main.auth import require_authenticated_user
 from lando.main.models import (
     CommitMap,
@@ -260,10 +261,24 @@ class LandingJobPullRequestAPIView(View):
             target_repo=target_repo, requester_email=ldap_username
         )
         author_name, author_email = pull_request.author
+
+        reviews_summary = pull_request.reviews_summary
+        reviewers = [
+            u
+            for u in reviews_summary
+            if reviews_summary.get(u) == pull_request.Review.APPROVED
+        ]
+        approvals = []
+
+        commit_message = [
+            replace_reviewers(pull_request.commit_message, reviewers, approvals),
+            "",
+        ]
+
         patch_data = {
             "author_name": author_name,
             "author_email": author_email,
-            "commit_message": pull_request.commit_message,
+            "commit_message": commit_message,
             "timestamp": int(datetime.now().timestamp()),
         }
         revision = Revision.objects.create(

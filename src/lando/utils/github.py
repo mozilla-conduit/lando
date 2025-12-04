@@ -12,7 +12,6 @@ from django.conf import settings
 from simple_github import AppAuth, AppInstallationAuth
 from typing_extensions import override
 
-from lando.api.legacy.commit_message import replace_reviewers
 from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 from lando.main.scm.helpers import PatchHelper
 from lando.utils.cache import cache_method
@@ -539,8 +538,18 @@ class PullRequest:
 
     @property
     def reviews_summary(self) -> dict[str, str]:
-        """Get a simple dict of reviewers and the state of their review."""
-        return {review["user"]["login"]: review["state"] for review in self.reviews}
+        """Get a simple dict of reviewers and the state of their review.
+
+        The reviewers GitHub usernames are mapped to nicks, if available in the
+        GITHUB_REVIEWERS_MAP ConfigurationVariable.
+        """
+        summary = {review["user"]["login"]: review["state"] for review in self.reviews}
+
+        reviewer_map = ConfigurationVariable.get(
+            ConfigurationKey.GITHUB_REVIEWERS_MAP, {}
+        )
+
+        return {reviewer_map.get(u, u): summary[u] for u in summary}
 
     @property
     @pr_cache_method
@@ -563,16 +572,7 @@ class PullRequest:
     def commit_message(self) -> str:
         """Return a string combining the pull request title with reviewers, description, and URL."""
 
-        reviewer_map = ConfigurationVariable.get(ConfigurationKey.GITHUB_REVIEWERS_MAP, {})
-
-        reviewers = [
-            reviewer_map.get(u, u)
-            for u in self.reviews_summary
-            if self.reviews_summary.get(u) == self.Review.APPROVED
-        ]
-        approvals = []
-
-        lines = [replace_reviewers(self.title, reviewers, approvals), ""]
+        lines = [self.title, ""]
 
         if self.body:
             lines += [self.body, ""]
