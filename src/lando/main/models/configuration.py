@@ -17,6 +17,7 @@ class ConfigurationKey(enum.Enum):
     """Configuration keys used throughout the system."""
 
     API_IN_MAINTENANCE = "API_IN_MAINTENANCE"
+    GITHUB_REVIEWERS_MAP = "GITHUB_REVIEWERS_MAP"
     MAINTENANCE_MESSAGE = "MAINTENANCE_MESSAGE"
     PROFILING_ENABLED = "PROFILING_ENABLED"
 
