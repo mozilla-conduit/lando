@@ -10,6 +10,7 @@ from django.templatetags.static import static
 from django.urls import reverse
 from django.utils.html import escape
 from jinja2 import Environment
+from markupsafe import Markup
 
 from lando.main.models import JobStatus, LandingJob, Repo, UpliftJob
 from lando.main.scm import SCM_TYPE_GIT
@@ -137,7 +138,7 @@ def uplift_status_icon_class(job: UpliftJob) -> str:
     return ""
 
 
-def uplift_status_label(job: UpliftJob) -> str:
+def uplift_status_label(job: UpliftJob) -> str | Markup:
     try:
         status = JobStatus(job.status)
     except ValueError:
@@ -146,7 +147,61 @@ def uplift_status_label(job: UpliftJob) -> str:
     if status == JobStatus.LANDED:
         return "Requested revisions apply cleanly to uplift branch; uplift revisions created"
 
+    if status == JobStatus.FAILED and job.error_breakdown:
+        return Markup(
+            "Manual merge conflict resolution and submission with "
+            "<code>moz-phab uplift</code> required"
+        )
+
     return status.label
+
+
+def build_manual_uplift_instructions(job: UpliftJob) -> str:
+    """Build manual uplift instructions for a failed uplift job.
+
+    Args:
+        job: The UpliftJob that failed with merge conflicts
+
+    Returns:
+        A multi-line string containing step-by-step instructions for manually
+        resolving conflicts and submitting the uplift.
+    """
+    # Get the train (repo short_name).
+    train = job.target_repo.short_name or "<train>"
+
+    # Get the default branch for the target repo.
+    default_branch = job.target_repo.default_branch or "<branch name>"
+
+    # Get the ordered revisions for this job.
+    revisions = list(job.revisions.all())
+
+    # Generate a suggested branch name.
+    if revisions and revisions[0].revision_id:
+        branch_name = f"uplift-{train}-D{revisions[0].revision_id}"
+    else:
+        branch_name = f"uplift-{train}-<revision>"
+
+    # Build the instructions.
+    instructions = []
+    instructions.append("git fetch origin")
+    instructions.append(f"git switch -c {branch_name} origin/{default_branch}")
+
+    # Add cherry-pick commands for each revision.
+    if revisions:
+        for revision in revisions:
+            if revision.commit_id:
+                instructions.append(f"git cherry-pick {revision.commit_id}")
+            else:
+                instructions.append(
+                    f"git cherry-pick <commit SHA for D{revision.revision_id}>"
+                )
+    else:
+        instructions.append("git cherry-pick <commit-sha-1>")
+        instructions.append("# ... cherry-pick additional commits as needed")
+
+    instructions.append(f"moz-phab uplift --train {train}")
+
+    return "\n".join(instructions)
 
 
 def reason_category_to_display(reason_category_str: str) -> str:
@@ -416,6 +471,7 @@ def environment(**options):  # noqa: ANN201
             "uplift_status_icon_class": uplift_status_icon_class,
             "uplift_status_label": uplift_status_label,
             "uplift_status_tag_class": uplift_status_tag_class,
+            "build_manual_uplift_instructions": build_manual_uplift_instructions,
             "tree_category_to_display": tree_category_to_display,
             "treestatus_to_status_badge_class": treestatus_to_status_badge_class,
         }
