@@ -43,6 +43,22 @@ ENCRYPTION_KEYS = (
 )
 
 DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1")
+LOG_LEVEL = os.getenv("LOG_LEVEL", "WARNING").upper()
+
+if DEBUG:
+    LOG_LEVEL = DEBUG
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "root": {"handlers": ["console"], "level": LOG_LEVEL},
+}
+
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,lando.local,lando.test").split(
     ","
 )
@@ -75,6 +91,7 @@ INSTALLED_APPS = [
     "lando.ui",
     "lando.headless_api",
     "lando.treestatus",
+    "lando.try_api",
     # Third-party apps
     "django.contrib.admin",
     "django.contrib.auth",
