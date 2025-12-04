@@ -1,9 +1,6 @@
 import enum
+import json
 import logging
-from typing import (
-    Optional,
-    Union,
-)
 
 from django.db import models
 from django.utils.translation import gettext_lazy
@@ -12,7 +9,7 @@ from lando.main.models.base import BaseModel
 
 logger = logging.getLogger(__name__)
 
-ConfigurationValueType = Union[bool, int, str]
+ConfigurationValueType = bool | dict | int | str
 
 
 @enum.unique
@@ -29,6 +26,7 @@ class VariableTypeChoices(models.TextChoices):
 
     BOOL = "BOOL", gettext_lazy("Boolean")
     INT = "INT", gettext_lazy("Integer")
+    JSON = "JSON", gettext_lazy("JSON object")
     STR = "STR", gettext_lazy("String")
 
 
@@ -71,6 +69,11 @@ class ConfigurationVariable(BaseModel):
                 return int(self.raw_value)
             except ValueError:
                 logger.error(f"Could not convert {self.raw_value} to an integer.")
+        elif self.variable_type == VariableTypeChoices.JSON:
+            try:
+                return json.loads(self.raw_value)
+            except ValueError:
+                logger.error(f"Could not convert {self.raw_value} to a JSON object.")
         elif self.variable_type == VariableTypeChoices.STR:
             return self.raw_value
 
@@ -83,7 +86,7 @@ class ConfigurationVariable(BaseModel):
         """Fetch a variable using `key`, return `default` if it does not exist.
 
         Returns: The parsed value of the configuration variable, of type `str`, `int`,
-            or `bool`.
+            `bool`, or `dict`.
         """
         try:
             return cls.objects.get(key=key.value).value
@@ -96,7 +99,7 @@ class ConfigurationVariable(BaseModel):
         key: ConfigurationKey,
         variable_type: VariableTypeChoices,
         raw_value: ConfigurationValueType,
-    ) -> Optional[ConfigurationValueType]:
+    ) -> ConfigurationValueType | None:
         """Set a variable `key` of type `variable_type` and value `raw_value`.
 
         Returns:
