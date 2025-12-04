@@ -575,7 +575,7 @@ class PullRequest:
         if self.body:
             lines += [self.body, ""]
 
-        lines.append(f"closes: {self.html_url}")
+        lines.append(f"Pull request: {self.html_url}")
 
         return "\n".join(lines)
 
