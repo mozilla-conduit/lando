@@ -5,6 +5,7 @@ import pytest
 
 from lando.jinja import (
     avatar_url,
+    build_manual_uplift_instructions,
     linkify_bug_numbers,
     linkify_faq,
     linkify_revision_ids,
@@ -16,6 +17,8 @@ from lando.jinja import (
     revision_url,
 )
 from lando.main.models import SCM_TYPE_GIT, SCM_TYPE_HG, JobStatus, LandingJob, Repo
+from lando.main.models.revision import Revision
+from lando.main.models.uplift import UpliftAssessment, UpliftJob, UpliftSubmission
 
 
 @pytest.mark.parametrize(
@@ -301,3 +304,54 @@ def test_revision_url__general_case_with_diff():
     expected_result = "http://phabricator.test/D123?id=456"
     actual_result = revision_url(revision_id, diff_id)
     assert expected_result == actual_result
+
+
+@pytest.mark.django_db
+def test_build_manual_uplift_instructions(user):
+    """Test manual uplift instructions with complete data."""
+    # Create repo with all expected fields set.
+    repo = Repo.objects.create(
+        name="firefox-beta",
+        short_name="beta",
+        default_branch="beta",
+        url="https://github.com/mozilla/gecko-dev",
+        scm_type=SCM_TYPE_GIT,
+    )
+
+    # Create revisions with commit IDs.
+    rev1 = Revision.objects.create(revision_id=123, commit_id="abc123def456")
+    rev2 = Revision.objects.create(revision_id=124, commit_id="def789ghi012")
+    rev3 = Revision.objects.create(revision_id=125, commit_id="ghi345jkl678")
+
+    # Create assessment and submission.
+    assessment = UpliftAssessment.objects.create(
+        user=user,
+        user_impact="Test impact",
+        risk_level_explanation="Low risk",
+        string_changes="None",
+    )
+    submission = UpliftSubmission.objects.create(
+        requested_by=user,
+        assessment=assessment,
+        requested_revision_ids=[123, 124, 125],
+    )
+
+    # Create job and link revisions.
+    job = UpliftJob.objects.create(
+        target_repo=repo, status=JobStatus.FAILED, submission=submission
+    )
+    job.add_revisions([rev1, rev2, rev3])
+    job.sort_revisions([rev1, rev2, rev3])
+
+    result = build_manual_uplift_instructions(job)
+
+    expected = (
+        "git fetch origin\n"
+        "git switch -c uplift-beta-D123 origin/beta\n"
+        "git cherry-pick abc123def456\n"
+        "git cherry-pick def789ghi012\n"
+        "git cherry-pick ghi345jkl678\n"
+        "moz-phab uplift --train beta"
+    )
+
+    assert result == expected, "Generated commands should match expected."

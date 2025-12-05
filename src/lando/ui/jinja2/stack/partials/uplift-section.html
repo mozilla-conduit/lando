@@ -209,13 +209,67 @@ future.
                                             </p>
                                             {% if job.error %}
                                                 <div>
-                                                    <button type="button" class="button is-small is-light toggle-content">Show error details</button>
+                                                    <button type="button"
+                                                            class="button is-small is-light uplift-toggle"
+                                                            data-toggle-target="error-{{ job.id }}"
+                                                            aria-expanded="false"
+                                                            aria-controls="error-content-{{ job.id }}">
+                                                        Show error details
+                                                    </button>
+                                                    {% if job.error_breakdown %}
+                                                        <button type="button"
+                                                                class="button is-small is-light uplift-toggle ml-2"
+                                                                data-toggle-target="command-{{ job.id }}"
+                                                                aria-expanded="false"
+                                                                aria-controls="command-content-{{ job.id }}">
+                                                            Show resolution steps
+                                                        </button>
+                                                    {% endif %}
                                                 </div>
-                                                <div class="hidden-content has-text-left">
+                                                <div class="uplift-toggle-content hidden-content"
+                                                     id="error-content-{{ job.id }}"
+                                                     data-toggle-id="error-{{ job.id }}">
                                                     {% include "partials/error-breakdown.html" %}
                                                     <pre><strong>Raw error output:</strong>{{ "\n" + job.error }}</pre>
-                                                    <button type="button" class="button is-small is-light toggle-content">Hide error details</button>
+                                                    <button type="button"
+                                                            class="button is-small is-light uplift-toggle"
+                                                            data-toggle-target="error-{{ job.id }}"
+                                                            aria-expanded="true"
+                                                            aria-controls="error-content-{{ job.id }}">
+                                                        Hide error details
+                                                    </button>
                                                 </div>
+                                                {% if job.error_breakdown %}
+                                                    <div class="uplift-toggle-content hidden-content"
+                                                         id="command-content-{{ job.id }}"
+                                                         data-toggle-id="command-{{ job.id }}">
+                                                        <div class="notification is-info is-light mt-3">
+                                                            <p class="has-text-weight-semibold">
+                                                                <span class="icon is-small">
+                                                                    <i class="fa fa-terminal"></i>
+                                                                </span>
+                                                                To manually resolve conflicts and submit your uplift:
+                                                            </p>
+                                                            <pre class="mt-2"><code>{{ job|build_manual_uplift_instructions }}</code></pre>
+                                                            <p class="is-size-7 mt-2 has-text-grey-dark">
+                                                                Run these commands from your Firefox checkout. Resolve any merge conflicts during the cherry-pick process, then submit with <code>moz-phab uplift</code>.
+                                                            </p>
+                                                            <p class="is-size-7 mt-2 has-text-grey-dark">
+                                                                <strong>Note:</strong> These commands assume your official Firefox remote is named <code>origin</code>. If you use a different remote name, adjust the commands accordingly.
+                                                            </p>
+                                                            <p class="is-size-7 mt-2 has-text-grey-dark">
+                                                                After running <code>moz-phab uplift</code>, visit the Lando page for your new uplift revision and use the "Link Existing Assessment" button to link it to the assessment form you previously submitted.
+                                                            </p>
+                                                        </div>
+                                                        <button type="button"
+                                                                class="button is-small is-light uplift-toggle"
+                                                                data-toggle-target="command-{{ job.id }}"
+                                                                aria-expanded="true"
+                                                                aria-controls="command-content-{{ job.id }}">
+                                                            Hide resolution steps
+                                                        </button>
+                                                    </div>
+                                                {% endif %}
                                             {% endif %}
                                             {% if job.created_revision_ids %}
                                                 <div class="content">
