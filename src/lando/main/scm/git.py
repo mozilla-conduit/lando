@@ -8,7 +8,7 @@ import uuid
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, TypeVar
 
 from typing_extensions import override
 
@@ -34,6 +34,24 @@ ISO8601_TIMESTAMP_BASIC = "%Y-%m-%dT%H%M%S%Z"
 
 ENV_COMMITTER_NAME = "GIT_COMMITTER_NAME"
 ENV_COMMITTER_EMAIL = "GIT_COMMITTER_EMAIL"
+
+
+T = TypeVar("T")
+
+
+def detect_patch_conflict(fn: Callable[..., T]) -> Callable[..., T]:
+    """Decorator transforming SCMExceptions to PatchConflict as appropriate."""
+
+    def wrapper(*args, **kwargs) -> T:
+        try:
+            return fn(*args, **kwargs)
+        except SCMException as exc:
+            if "error: patch" in exc.err:
+                raise PatchConflict(exc.err) from exc
+
+            raise exc
+
+    return wrapper
 
 
 class GitSCM(AbstractSCM):
@@ -122,6 +140,7 @@ class GitSCM(AbstractSCM):
         return self._git_run(*command, cwd=self.path)
 
     @override
+    @detect_patch_conflict
     def apply_patch(
         self, diff: str, commit_description: str, commit_author: str, commit_date: str
     ):
@@ -152,13 +171,7 @@ class GitSCM(AbstractSCM):
             ]
 
             for c in cmds:
-                try:
-                    self._git_run(*c, cwd=self.path)
-                except SCMException as exc:
-                    if "error: patch" in exc.err:
-                        raise PatchConflict(exc.err) from exc
-
-                    raise exc
+                self._git_run(*c, cwd=self.path)
 
     @override
     def apply_patch_git(self, patch_bytes: bytes):
@@ -189,6 +202,7 @@ class GitSCM(AbstractSCM):
                 # Re-raise the exception from the failed `git am`.
                 raise exc
 
+    @detect_patch_conflict
     def get_diff_from_patches(self, patches: str) -> str:
         """Apply multiple patches and return the diff output."""
         # TODO: add error handling so that if something goes wrong here,
@@ -201,12 +215,7 @@ class GitSCM(AbstractSCM):
             patch_file.write(patches)
             patch_file.flush()
 
-            try:
-                self._git_run("apply", "--reject", patch_file.name, cwd=self.path)
-            except SCMException as exc:
-                if "error: patch" in exc.err:
-                    raise PatchConflict(exc.err) from exc
-                raise exc
+            self._git_run("apply", "--reject", patch_file.name, cwd=self.path)
 
             self._git_run("add", "-A", "-f", cwd=self.path)
             return self._git_run(
