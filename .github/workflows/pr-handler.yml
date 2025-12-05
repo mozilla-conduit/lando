@@ -26,7 +26,7 @@ jobs:
           TARGET_BRANCH: ${{ github.base_ref}}
         run: |
           LANDO_BASE_URL="${LANDO_BASE_URL:-${DEFAULT_LANDO_BASE_URL}}"
-          # We extract the GitHub repo name to use as default LANDO_REPO if
-          # unspecified.
-          LANDO_REPO="${LANDO_REPO:-${GITHUB_REPO/*\//}}-${TARGET_BRANCH}"
+          # We extract the GitHub repo name and target branche to use as
+          # default LANDO_REPO if unspecified.
+          LANDO_REPO="${LANDO_REPO:-${GITHUB_REPO/*\//}-${TARGET_BRANCH}}"
           gh pr comment "${PR}" --body "[View this pull request in Lando](${LANDO_BASE_URL}/pulls/${LANDO_REPO}/${PR}) to land it once approved."
