@@ -6,7 +6,7 @@ import re
 import subprocess
 from abc import ABC, abstractmethod
 from time import sleep
-from typing import Callable
+from typing import Callable, TypeVar
 
 from celery import Task
 from django.db import transaction
@@ -35,6 +35,8 @@ from lando.main.scm.exceptions import (
 )
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 
 class Worker(ABC):
@@ -314,15 +316,15 @@ class Worker(ABC):
 
     def handle_new_commit_failures(
         self,
-        create_revision_callable: Callable[[Revision], None],
+        create_revision_callable: Callable[[Revision], T],
         repo: Repo,
         job: BaseJob,
         scm: AbstractSCM,
         revision: Revision,
-    ) -> None:
+    ) -> T:
         """Create revisions with job status handling."""
         try:
-            create_revision_callable(revision)
+            return create_revision_callable(revision)
         except NoDiffStartLine as exc:
             message = (
                 "Lando encountered a malformed patch, please try again. "
