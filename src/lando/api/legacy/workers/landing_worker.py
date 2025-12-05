@@ -34,7 +34,6 @@ from lando.main.scm import (
     TreeApprovalRequired,
     TreeClosed,
 )
-from lando.main.scm.exceptions import PatchConflict
 from lando.pushlog.pushlog import PushLog, PushLogForRepo
 from lando.utils.config import read_lando_config
 from lando.utils.github import GitHubAPIClient
@@ -175,6 +174,10 @@ class LandingWorker(Worker):
         # at this time. In theory this would work for any provided patches in a
         # standard format.
 
+        def get_diff_from_patches(revision: Revision) -> str:
+            logger.debug(f"Converting paches to single diff for {revision} ...")
+            return scm.get_diff_from_patches(revision.patches)
+
         # NOTE: this is only supported for jobs with a single revision at this time.
         # See bug 2001185.
 
@@ -189,18 +192,13 @@ class LandingWorker(Worker):
         if not revision.patches:
             raise ValueError("Revision is missing patches.")
 
-        try:
-            diff = scm.get_diff_from_patches(revision.patches)
-        except PatchConflict as exc:
-            breakdown = scm.process_merge_conflict(
-                job.target_repo.normalized_url, revision.revision_id, str(exc)
-            )
-            job.error_breakdown = breakdown
-
-            message = f"Problem while converting patch to diff:\n\n" f"{str(exc)}"
-            logger.exception(message)
-            job.transition_status(JobAction.FAIL, message=message)
-            raise PermanentFailureException(message) from exc
+        diff = self.handle_new_commit_failures(
+            get_diff_from_patches,
+            job.target_repo,
+            job,
+            scm,
+            revision,
+        )
 
         revision.set_patch(diff)
         revision.save()
