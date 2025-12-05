@@ -1,10 +1,7 @@
 {% extends "default_error.html" %}
 {% set title = "404 - Not Found" %}
 {% block message %}
-    <p>
-        The URL you requested ({{ request_path }}) could not be found.
-        {% if exception|default(False) %}{{ exception }}{% endif %}
-    </p>
+    <p>The URL you requested ({{ request_path }}) could not be found.</p>
     {% if user_is_authenticated and not user_has_phabricator_token %}
         <p>
             If you were trying to view a stack which includes a secure revision, make sure your <a href='#' class="ErrorPage-showAPIKey">Phabricator API Token</a> is added in your Lando user profile."
