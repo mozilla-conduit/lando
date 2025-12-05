@@ -101,6 +101,10 @@ class Repo(BaseModel):
     def path(self) -> str:
         return str(self.system_path) or self.get_system_path()
 
+    @property
+    def is_try(self) -> bool:
+        return self.name == "try"
+
     # TODO: help text for fields below.
     name = models.CharField(max_length=255, unique=True)
     default_branch = models.CharField(max_length=255, default="", blank=True)

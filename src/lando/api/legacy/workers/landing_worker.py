@@ -1,4 +1,5 @@
 import configparser
+import json
 import logging
 import subprocess
 from pathlib import Path
@@ -168,6 +169,19 @@ class LandingWorker(Worker):
 
         return True
 
+    def add_try_task_config(self, scm: AbstractSCM):
+        with (Path(scm.path) / "try_task_config.json").open("x") as f:
+            content = json.dumps(
+                {
+                    "parameters": {
+                        "optimize_target_tasks": True,
+                        "target_tasks_method": "codereview",
+                    },
+                    "version": 2,
+                }
+            )
+            f.write(content)
+
     def convert_patches_to_diff(self, scm: AbstractSCM, job: LandingJob):
         """Generate a unified diff from multiple patches stored in a revision."""
         # NOTE: this only applies to git patches that are downloaded from GitHub
@@ -214,6 +228,17 @@ class LandingWorker(Worker):
             )
 
         self.update_repo(repo, job, scm, job.target_commit_hash)
+
+        if job.is_pull_request_job and job.handover_repo and job.handover_repo.is_try:
+            self.add_try_task_config(scm)
+            self.convert_patches_to_diff(scm, job)
+            job.target_repo = job.handover_repo
+            job.handover_repo = None
+            job.save()
+            job.revisions.update(pull_number=None)
+            message = "Job deferred to try repo."
+            job.transition_status(JobAction.DEFER, message=message)
+            raise TemporaryFailureException(message)
 
         if job.is_pull_request_job:
             self.convert_patches_to_diff(scm, job)

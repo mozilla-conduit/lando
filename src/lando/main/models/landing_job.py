@@ -46,6 +46,17 @@ class LandingJob(BaseJob):
         Revision, through="RevisionLandingJob", related_name="landing_jobs"
     )
 
+    # Reference to the handover repo. A handover repo is a repo that a landing
+    # job is handed over to after being processed in a previous state. If this value
+    # is set, the job will be processed twice, but pushed once.
+    handover_repo = models.ForeignKey(
+        Repo,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="handover_jobs",
+    )
+
     @property
     def is_pull_request_job(self) -> bool:
         """Return True if all revisions in the landing job have a pull_number set."""
