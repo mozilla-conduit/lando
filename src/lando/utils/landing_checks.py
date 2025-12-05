@@ -69,6 +69,244 @@ class PatchCheck(Check, ABC):
         """Calculate and return the result of the check."""
 
 
+class PreventPathCheckMixin(ABC):
+    """Prevent changes to arbitrary directories.
+
+    To use this check, create a subclass that defines the following attributes:
+
+    Attributes:
+
+    paths: list[re.Pattern]
+        list of patterm to match() each filename with
+
+    override_commit_message: str
+        a string to allow users to bypass the check
+
+    error_cause_details: str
+        a basic error string to show before the list of matching files (no colon
+        needed)
+
+
+    In addition, the following attribute needs to be set on instances inheriting from
+    this Mixin.
+
+    commit_message: str
+        the commit_message to check for the presence of the override_commit_message
+
+    """
+
+    paths: list[re.Pattern]
+    override_commit_message: str
+    error_cause_details: str
+
+    disallowed_changes: list[str] = field(init=False)
+
+    BASE_ERROR_MESSAGE = "Revision makes changes to restricted directories:"
+
+    def __post_init__(self):
+        # Setting default_factory=list in the field above leads to weird situations
+        # where the disallowed_changes is still a Field, rather than having been
+        # replaced by a value from the default_factory. So we do it ourselves.
+        self.disallowed_changes = []
+
+    def build_error_message(self) -> str:
+        """Build the error message.
+
+        Assumes disallowed_changes is not empty.
+        """
+        # Build the error message.
+        return_error_message = [self.BASE_ERROR_MESSAGE]
+
+        if self.disallowed_changes:
+            return_error_message.append(f"{self.error_cause_details}:")
+            return_error_message.append(wrap_filenames(self.disallowed_changes))
+
+        return f"{' '.join(return_error_message)}."
+
+    def next_diff(self, diff: dict):
+        """Pass the next `rs_parsepatch` diff `dict` into the check."""
+        if not self.commit_message:
+            return
+
+        filename = diff["filename"]
+
+        for pattern in self.paths:
+            if (
+                pattern.match(filename)
+                and self.override_commit_message not in self.commit_message
+            ):
+                self.disallowed_changes.append(filename)
+
+    def result(self) -> str | None:
+        """Calculate and return the result of the check."""
+        if not self.disallowed_changes:
+            # Return early if no disallowed changes were found.
+            return
+
+        return self.build_error_message()
+
+
+@dataclass
+class PreventDotGithubCheck(PreventPathCheckMixin, PatchCheck):
+    """Prevent changes in GitHub workflows directory."""
+
+    paths = [
+        re.compile("^.github/workflows"),
+    ]
+    override_commit_message = "DOT_GITHUB_OVERRIDE"
+    error_cause_details = "GitHub workflows directory"
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PreventDotGithubCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Prevent changes to GitHub workflows directory."
+
+
+@dataclass
+class PreventNSPRCheck(PreventPathCheckMixin, PatchCheck):
+    """Prevent changes to vendored NSPR directories."""
+
+    paths = [
+        re.compile("^nsprpub/"),
+    ]
+    override_commit_message = "UPGRADE_NSPR_RELEASE"
+    error_cause_details = "vendored NSPR directories"
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PreventNSSPRCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Prevent changes to vendored NSPR directories."
+
+
+@dataclass
+class PreventNSSCheck(PreventPathCheckMixin, PatchCheck):
+    """Prevent changes to vendored NSS directories."""
+
+    paths = [
+        re.compile("^security/nss/"),
+    ]
+    override_commit_message = "UPGRADE_NSS_RELEASE"
+    error_cause_details = "vendored NSS directories"
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PreventNSSCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Prevent changes to vendored NSS directories."
+
+
+@dataclass
+class PreventNSPRNSSCheck(PatchCheck):
+    """Prevent changes to vendored NSPR and NSS directories.
+
+    This is a backward-compatible façade wrapping the PreventNSPRCheck and
+    PreventNSSCheck blockers.
+    """
+
+    _prevent_nspr_check: PreventNSPRCheck = field(init=False)
+    _prevent_nss_check: PreventNSSCheck = field(init=False)
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PreventNSPRNSSCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Prevent changes to vendored NSPR directories."
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self._prevent_nspr_check = PreventNSPRCheck(*args, **kwargs)
+        self._prevent_nss_check = PreventNSSCheck(*args, **kwargs)
+
+    def build_prevent_nspr_nss_error_message(self) -> str:
+        """Build the `check_prevent_nspr_nss` error message.
+
+        Assumes at least one of `nss_disallowed_changes` or `nspr_disallowed_changes`
+        are non-empty lists.
+        """
+
+        # Build the error message.
+        return_error_message = [PreventPathCheckMixin.BASE_ERROR_MESSAGE]
+
+        if self._prevent_nss_check.disallowed_changes:
+            return_error_message.append(
+                self._prevent_nss_check.build_error_message()
+                .removeprefix(f"{self._prevent_nss_check.BASE_ERROR_MESSAGE} ")
+                .removesuffix(".")
+            )
+
+        if self._prevent_nspr_check.disallowed_changes:
+            return_error_message.append(
+                self._prevent_nspr_check.build_error_message()
+                .removeprefix(f"{self._prevent_nspr_check.BASE_ERROR_MESSAGE} ")
+                .removesuffix(".")
+            )
+
+        return f"{' '.join(return_error_message)}."
+
+    def next_diff(self, diff: dict):
+        """Pass the next `rs_parsepatch` diff `dict` into the check."""
+
+        self._prevent_nspr_check.next_diff(diff)
+        self._prevent_nss_check.next_diff(diff)
+
+    def result(self) -> str | None:
+        """Calculate and return the result of the check."""
+        if (
+            not self._prevent_nspr_check.disallowed_changes
+            and not self._prevent_nss_check.disallowed_changes
+        ):
+            # Return early if no disallowed changes were found.
+            return
+
+        return self.build_prevent_nspr_nss_error_message()
+
+
+@dataclass
+class PreventSubmodulesCheck(PatchCheck):
+    """Prevent introduction of Git submodules into the repository."""
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PreventSubmodulesCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Prevent introduction of Git submodules into the repository."
+
+    includes_gitmodules: bool = False
+
+    def next_diff(self, diff: dict):
+        """Check if a diff adds the `.gitmodules` file."""
+        if diff["filename"] == ".gitmodules":
+            self.includes_gitmodules = True
+
+    def result(self) -> str | None:
+        """Return an error if the `.gitmodules` file was found."""
+        if self.includes_gitmodules:
+            return "Revision introduces a Git submodule into the repository."
+
+
 @dataclass
 class PreventSymlinksCheck(PatchCheck):
     """Check for symlinks introduced in the diff."""
@@ -130,99 +368,6 @@ class TryTaskConfigCheck(PatchCheck):
         """Return an error if the `try_task_config.json` was found."""
         if self.includes_try_task_config:
             return "Revision introduces the `try_task_config.json` file."
-
-
-@dataclass
-class PreventNSPRNSSCheck(PatchCheck):
-    """Prevent changes to vendored NSPR directories."""
-
-    @override
-    @classmethod
-    def name(cls) -> str:
-        return "PreventNSPRNSSCheck"
-
-    @override
-    @classmethod
-    def description(cls) -> str:
-        return "Prevent changes to vendored NSPR directories."
-
-    nss_disallowed_changes: list[str] = field(default_factory=list)
-    nspr_disallowed_changes: list[str] = field(default_factory=list)
-
-    def build_prevent_nspr_nss_error_message(self) -> str:
-        """Build the `check_prevent_nspr_nss` error message.
-
-        Assumes at least one of `nss_disallowed_changes` or `nspr_disallowed_changes`
-        are non-empty lists.
-        """
-        # Build the error message.
-        return_error_message = ["Revision makes changes to restricted directories:"]
-
-        if self.nss_disallowed_changes:
-            return_error_message.append("vendored NSS directories:")
-
-            return_error_message.append(wrap_filenames(self.nss_disallowed_changes))
-
-        if self.nspr_disallowed_changes:
-            return_error_message.append("vendored NSPR directories:")
-
-            return_error_message.append(wrap_filenames(self.nspr_disallowed_changes))
-
-        return f"{' '.join(return_error_message)}."
-
-    def next_diff(self, diff: dict):
-        """Pass the next `rs_parsepatch` diff `dict` into the check."""
-        if not self.commit_message:
-            return
-
-        filename = diff["filename"]
-
-        if (
-            filename.startswith("security/nss/")
-            and "UPGRADE_NSS_RELEASE" not in self.commit_message
-        ):
-            self.nss_disallowed_changes.append(filename)
-
-        if (
-            filename.startswith("nsprpub/")
-            and "UPGRADE_NSPR_RELEASE" not in self.commit_message
-        ):
-            self.nspr_disallowed_changes.append(filename)
-
-    def result(self) -> str | None:
-        """Calculate and return the result of the check."""
-        if not self.nss_disallowed_changes and not self.nspr_disallowed_changes:
-            # Return early if no disallowed changes were found.
-            return
-
-        return self.build_prevent_nspr_nss_error_message()
-
-
-@dataclass
-class PreventSubmodulesCheck(PatchCheck):
-    """Prevent introduction of Git submodules into the repository."""
-
-    @override
-    @classmethod
-    def name(cls) -> str:
-        return "PreventSubmodulesCheck"
-
-    @override
-    @classmethod
-    def description(cls) -> str:
-        return "Prevent introduction of Git submodules into the repository."
-
-    includes_gitmodules: bool = False
-
-    def next_diff(self, diff: dict):
-        """Check if a diff adds the `.gitmodules` file."""
-        if diff["filename"] == ".gitmodules":
-            self.includes_gitmodules = True
-
-    def result(self) -> str | None:
-        """Return an error if the `.gitmodules` file was found."""
-        if self.includes_gitmodules:
-            return "Revision introduces a Git submodule into the repository."
 
 
 @dataclass
