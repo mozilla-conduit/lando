@@ -270,8 +270,8 @@ class LandingJobPullRequestAPIView(View):
         ]
         approvals = []
 
-        commit_message = (
-            replace_reviewers(pull_request.commit_message, reviewers, approvals),
+        commit_message = replace_reviewers(
+            pull_request.commit_message, reviewers, approvals
         )
 
         patch_data = {
