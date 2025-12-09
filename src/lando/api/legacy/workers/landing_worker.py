@@ -122,6 +122,10 @@ class LandingWorker(Worker):
                 return True
             except TemporaryFailureException:
                 return False
+            except Exception as e:
+                logger.exception(e)
+                self.notify_user_of_landing_failure(job)
+                return True
 
         job.set_landed_commit_ids()
         job.transition_status(JobAction.LAND, commit_id=commit_id)
