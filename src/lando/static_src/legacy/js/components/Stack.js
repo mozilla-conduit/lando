@@ -75,7 +75,7 @@ $.fn.stack = function() {
                 if (result.status == "landed") {
                     var message = "Pull request landed"
                     pull_request_button.prop("disabled", true);
-                    pull_request_button.removeClass("is-loading").addClass("is-danger");
+                    pull_request_button.removeClass("is-loading").addClass("is-info");
                     pull_request_button.html(message);
                     $("#blockers").html(`${message}.`);
                     $("#warnings").html(`${message}.`);
