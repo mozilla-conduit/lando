@@ -22,7 +22,7 @@
                 </p>
             {% endif %}
         {% endif %}
-        {% if has_revisions %}
+        {% if has_revisions and not job.is_pull_request_job %}
             <p>
                 <strong>Revisions:</strong>
                 {% for i in job.serialized_landing_path -%}
