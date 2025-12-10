@@ -1374,7 +1374,7 @@ def mock_response() -> Callable:
 
 
 @pytest.fixture()
-def api_client() -> Callable:
+def ninja_api_client() -> Callable:
     """Fixture to create a test client for the API."""
 
     # XXX If we pass the API directly, we get an error if we want to use this client
@@ -1388,7 +1388,7 @@ def api_client() -> Callable:
     # Passing the pre-existing router to the TestClient instead, works. However, getting the
     # router is not golden-path.
     #
-    def api_client(api: NinjaAPI) -> TestClient:
+    def _ninja_api_client(api: NinjaAPI) -> TestClient:
         return TestClient(api.default_router)
 
-    return api_client
+    return _ninja_api_client
