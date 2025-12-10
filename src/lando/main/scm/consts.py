@@ -3,6 +3,8 @@ import enum
 SCM_TYPE_GIT = "git"
 SCM_TYPE_HG = "hg"
 
+COMMIT_ID_HEX_LENGTH = 40
+
 
 @enum.unique
 class MergeStrategy(str, enum.Enum):

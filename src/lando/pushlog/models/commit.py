@@ -11,9 +11,9 @@ from django.db import models
 from lando.main.models import Repo
 
 # We need to import from the specific file to avoid dependency loops.
-from lando.main.scm.commit import CommitData
+from lando.main.scm import COMMIT_ID_HEX_LENGTH, CommitData
 
-from .consts import COMMIT_ID_HEX_LENGTH, MAX_FILENAME_LENGTH, MAX_PATH_LENGTH
+from .consts import MAX_FILENAME_LENGTH, MAX_PATH_LENGTH
 
 logger = logging.getLogger(__name__)
 
