@@ -11,10 +11,8 @@ from django.db import models
 from lando.main.models.base import BaseModel
 from lando.main.scm import (
     SCM_IMPLEMENTATIONS,
-    SCM_TYPE_CHOICES,
-    SCM_TYPE_GIT,
-    SCM_TYPE_HG,
     AbstractSCM,
+    SCMType,
 )
 from lando.utils.landing_checks import BugReferencesCheck
 
@@ -117,7 +115,7 @@ class Repo(BaseModel):
     default_branch = models.CharField(max_length=255, default="", blank=True)
     scm_type = models.CharField(
         max_length=3,
-        choices=SCM_TYPE_CHOICES,
+        choices=SCMType,
         null=True,
         blank=True,
         default=None,
@@ -235,11 +233,11 @@ class Repo(BaseModel):
 
     @property
     def is_git(self) -> bool:
-        return self.scm_type == SCM_TYPE_GIT
+        return self.scm_type == SCMType.GIT
 
     @property
     def is_hg(self) -> bool:
-        return self.scm_type == SCM_TYPE_HG
+        return self.scm_type == SCMType.HG
 
     def __str__(self) -> str:
         if self.is_git:
@@ -357,7 +355,7 @@ class Repo(BaseModel):
     @property
     def git_repo_name(self) -> str:
         """Provide the bare name of the Git repo."""
-        if self.scm_type != SCM_TYPE_GIT:
+        if self.scm_type != SCMType.GIT:
             raise ValueError(f"Not a git repo: {self}")
         return self.url.removesuffix(".git").split("/")[-1]
 

@@ -16,7 +16,7 @@ from lando.jinja import (
     repo_branch_url,
     repo_path,
 )
-from lando.main.models import SCM_TYPE_GIT, SCM_TYPE_HG, JobStatus, LandingJob, Repo
+from lando.main.models import JobStatus, LandingJob, Repo, SCMType
 from lando.main.models.revision import Revision, RevisionLandingJob
 from lando.main.models.uplift import UpliftAssessment, UpliftJob, UpliftSubmission
 
@@ -160,19 +160,19 @@ def test_linkify_phabricator_revision_ids(input_text, output_text):
     [
         (
             "badc0ffe",
-            SCM_TYPE_GIT,
+            SCMType.GIT,
             "https://github.com/bad/coffee",
             "https://github.com/bad/coffee/commit/badc0ffe",
         ),
         (
             "badc0ffe",
-            SCM_TYPE_GIT,
+            SCMType.GIT,
             "https://github.com/bad/coffee.git",
             "https://github.com/bad/coffee/commit/badc0ffe",
         ),
         (
             "badc0ffe",
-            SCM_TYPE_HG,
+            SCMType.HG,
             "https://hg.mozilla.org/bad/coffee",
             "https://hg.mozilla.org/bad/coffee/rev/badc0ffe",
         ),
@@ -249,7 +249,7 @@ def test_repo_path(repo_url, path):
     [
         (
             Repo(
-                scm_type=SCM_TYPE_GIT,
+                scm_type=SCMType.GIT,
                 url="http://git.test/test-repo",
                 default_branch="testing",
             ),
@@ -257,7 +257,7 @@ def test_repo_path(repo_url, path):
         ),
         (
             Repo(
-                scm_type=SCM_TYPE_GIT,
+                scm_type=SCMType.GIT,
                 url="https://github.com/mozilla-conduit/test-repo",
                 default_branch="testing",
             ),
@@ -265,7 +265,7 @@ def test_repo_path(repo_url, path):
         ),
         (
             Repo(
-                scm_type=SCM_TYPE_HG,
+                scm_type=SCMType.HG,
                 url="https://example.com/test",
                 default_branch="testing",
             ),
@@ -315,7 +315,7 @@ def test_build_manual_uplift_instructions(user):
         short_name="beta",
         default_branch="beta",
         url="https://github.com/mozilla/gecko-dev",
-        scm_type=SCM_TYPE_GIT,
+        scm_type=SCMType.GIT,
     )
 
     # Create revisions.
