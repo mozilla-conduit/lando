@@ -178,6 +178,10 @@ class LandingWorker(Worker):
         # at this time. In theory this would work for any provided patches in a
         # standard format.
 
+        def get_diff_from_patches(revision: Revision) -> str:
+            logger.debug(f"Converting paches to single diff for {revision} ...")
+            return scm.get_diff_from_patches(revision.patches)
+
         # NOTE: this is only supported for jobs with a single revision at this time.
         # See bug 2001185.
 
@@ -192,7 +196,14 @@ class LandingWorker(Worker):
         if not revision.patches:
             raise ValueError("Revision is missing patches.")
 
-        diff = scm.get_diff_from_patches(revision.patches)
+        diff = self.handle_new_commit_failures(
+            get_diff_from_patches,
+            job.target_repo,
+            job,
+            scm,
+            revision,
+        )
+
         revision.set_patch(diff)
         revision.save()
 
