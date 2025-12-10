@@ -70,6 +70,7 @@ def require_authenticated_user(f):  # noqa: ANN001, ANN201
     Raises a `PermissionDenied` if a request is by an unauthenticated user.
     """
 
+    @functools.wraps(f)
     def wrapper(request, *args, **kwargs):  # noqa: ANN001
         if not request.user.is_authenticated:
             raise PermissionDenied("Authentication is required")
@@ -111,6 +112,7 @@ class require_permission:
         self.required_permission = permission
 
     def __call__(self, f: Callable) -> Callable:
+        @functools.wraps(f)
         def wrapper(request, *args, **kwargs):  # noqa: ANN001
             if not request.user.has_perm(f"main.{self.required_permission}"):
                 raise PermissionDenied()
