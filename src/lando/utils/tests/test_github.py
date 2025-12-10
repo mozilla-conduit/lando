@@ -158,15 +158,15 @@ def test_github_authenticated_url_no_token(
 
 
 def test_github_api_init(mock_github_fetch_token: mock.Mock):
-    api_client = GitHubAPI("https://github.com/o/r")
+    github_api_client = GitHubAPI("https://github.com/o/r")
 
-    assert api_client.session.headers.get("Authorization") == "Bearer mock_token"
+    assert github_api_client.session.headers.get("Authorization") == "Bearer mock_token"
 
 
 def test_github_api_client_init(mock_github_fetch_token: mock.Mock):
-    api_client = GitHubAPIClient("https://github.com/o/r")
+    github_api_client = GitHubAPIClient("https://github.com/o/r")
 
-    assert api_client.repo_base_url == "repos/o/r"
+    assert github_api_client.repo_base_url == "repos/o/r"
 
 
 @pytest.fixture
@@ -378,29 +378,29 @@ def test_api_client_build_pr(
     github_pr_diff: str,
     github_pr_patch: str,
 ):
-    api_client = GitHubAPIClient("https://github.com/mozilla-conduit/test-repo")
+    github_api_client = GitHubAPIClient("https://github.com/mozilla-conduit/test-repo")
 
-    api_client.get_pull_request = mock.MagicMock()
-    api_client.get_pull_request.return_value = json.loads(github_pr_response)
+    github_api_client.get_pull_request = mock.MagicMock()
+    github_api_client.get_pull_request.return_value = json.loads(github_pr_response)
 
-    api_client.get_diff = mock.MagicMock()
-    api_client.get_diff.return_value = github_pr_diff
+    github_api_client.get_diff = mock.MagicMock()
+    github_api_client.get_diff.return_value = github_pr_diff
 
-    api_client.get_patch = mock.MagicMock()
-    api_client.get_patch.return_value = github_pr_patch
+    github_api_client.get_patch = mock.MagicMock()
+    github_api_client.get_patch.return_value = github_pr_patch
 
-    pr = api_client.build_pull_request(1)
+    pr = github_api_client.build_pull_request(1)
 
-    assert api_client.get_pull_request.call_count == 1
+    assert github_api_client.get_pull_request.call_count == 1
     assert pr.number == 1
 
     assert pr.diff == github_pr_diff
-    assert api_client.get_diff.call_count == 1
-    assert api_client.get_diff.call_args.args == (1,)
+    assert github_api_client.get_diff.call_count == 1
+    assert github_api_client.get_diff.call_args.args == (1,)
 
     assert pr.patch == github_pr_patch
-    assert api_client.get_patch.call_count == 1
-    assert api_client.get_patch.call_args.args == (1,)
+    assert github_api_client.get_patch.call_count == 1
+    assert github_api_client.get_patch.call_args.args == (1,)
 
 
 @pytest.fixture
