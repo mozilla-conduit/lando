@@ -13,6 +13,12 @@
                 <strong>Landing Job:</strong>
                 <a href="{{ url('jobs-page', args=[job.id]) }}">{{ job.id }}</a>
             </p>
+        {% elif has_revisions and job.is_pull_request_job %}
+            {% set top_revision = job.revisions[0] %}
+            <p>
+                <strong>Pull request:</strong>
+                <a href="{{ url('pull-request', args=[job.target_repo.name, top_revision.pull_number]) }}">{{ job.target_repo.name }}#{{ top_revision.pull_number }}</a>
+            </p>
         {% elif has_revisions %}
             {% set top_revision = job.revisions[0] %}
             {% if top_revision.revision_id %}
