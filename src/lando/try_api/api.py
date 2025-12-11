@@ -25,8 +25,19 @@ logger = logging.getLogger(__name__)
 
 api = NinjaAPI(urls_namespace="try", auth=AccessTokenAuth())
 
+legacy_api = NinjaAPI(urls_namespace="legacy-try", auth=AccessTokenAuth())
 
 
+# XXX test redirect & scm
+
+
+@legacy_api.post(
+    "/patches",
+    deprecated=True,
+    summary="Backward-compatible redirection to /try/api/patches.",
+)
+def redirect_to_api_patches(request: WSGIRequest) -> HttpResponsePermanentRedirect:
+    return redirect("try:api-patches", permanent=True, preserve_request=True)
 
 
 Base64Patch = Annotated[
@@ -200,15 +211,6 @@ def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]
     return 201, JobResponse(
         id=try_job.id,
     )
-
-
-@api.post(
-    "/patches",
-    deprecated=True,
-    summary="Backward-compatible redirection to /try/api/patches.",
-)
-def redirect_to_api_patches(request: WSGIRequest) -> HttpResponsePermanentRedirect:
-    return redirect("try:api-patches", permanent=True, preserve_request=True)
 
 
 @api.get("/api/jobs/{int:try_job_id}/", url_name="api-job")

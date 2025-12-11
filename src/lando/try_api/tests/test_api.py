@@ -6,16 +6,15 @@ import pytest
 from lando.try_api.api import api
 
 
-@pytest.mark.skip()
 @pytest.mark.django_db()
 @patch("lando.try_api.api.AccessTokenAuth.authenticate")
 def test_try_patches_scm1(
     mock_authenticate: MagicMock,
     scm_user: Callable,
-    to_permissions: Callable,
-    api_client: Callable,
+    to_profile_permissions: Callable,
+    ninja_api_client: Callable,
 ):
-    # user = scm_user(to_permissions(["scm_level_1"]), "password")
+    # user = scm_user(to_profile_permissions(["scm_level_1"]), "password")
     user = scm_user([], "password")
     mock_authenticate.return_value = user
 
@@ -30,7 +29,7 @@ def test_try_patches_scm1(
         # "patch_format": "git-format-patch",
     }
 
-    response = api_client(api).post(
+    response = ninja_api_client(api).post(
         "/patches",
         # The value of the token doesn't actually matter, as the output is controlled by
         # the authenticator function, which we mock to return a User.

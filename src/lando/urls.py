@@ -17,8 +17,7 @@ Including another URLconf
 
 from django.conf import settings
 from django.contrib import admin
-from django.urls import include, path, re_path, reverse_lazy
-from django.views.generic.base import RedirectView
+from django.urls import include, path, re_path
 
 from lando.api.legacy.api import landing_jobs
 from lando.api.views import (
@@ -41,6 +40,9 @@ from lando.treestatus.views.ui import (
 )
 from lando.try_api.api import (
     api as try_api,
+)
+from lando.try_api.api import (
+    legacy_api as legacy_try_api,
 )
 from lando.ui import jobs, pull_requests
 from lando.ui.legacy import pages, revisions, user_settings
@@ -178,10 +180,8 @@ urlpatterns += [
 
 # Try endpoints.
 urlpatterns += [
-    # Backward compatibility with old Try behaviour, which create a landing_jobs.
-    path(
-        "landing_jobs/<int:landing_job_id>/",
-        RedirectView.as_view(url=reverse_lazy("landing-jobs-redirect"), permanent=True),
-    ),
-    path("try/", try_api.urls, name="try"),
+    # New path, as per bug 1990111.
+    path("api/try/", try_api.urls, name="try"),
+    # Deprecated backward-compatible path.
+    path("try/", legacy_try_api.urls, name="legacy_try"),
 ]
