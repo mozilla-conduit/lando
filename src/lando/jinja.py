@@ -1,7 +1,6 @@
 import logging
 import re
 import urllib.parse
-from typing import Optional
 
 from compressor.contrib.jinja2ext import CompressorExtension
 from django.conf import settings
@@ -13,6 +12,7 @@ from jinja2 import Environment
 from markupsafe import Markup
 
 from lando.main.models import JobStatus, LandingJob, Repo, UpliftJob
+from lando.main.models.revision import Revision
 from lando.main.scm import SCM_TYPE_GIT
 from lando.treestatus.models import (
     ReasonCategory,
@@ -317,7 +317,11 @@ def bug_url(text: str) -> str:
     )
 
 
-def revision_url(revision_id: int | str, diff_id: Optional[str] = None) -> str:
+def pull_request_link(repo: Repo, revision: Revision) -> str:
+    return f"{repo.url.removesuffix('.git')}/pull/{ revision.pull_number }"
+
+
+def revision_url(revision_id: int | str, diff_id: str | None = None) -> str:
     if isinstance(revision_id, int):
         path = f"D{revision_id}"
     elif isinstance(revision_id, str) and not revision_id.startswith("D"):
@@ -438,6 +442,7 @@ def environment(**options):  # noqa: ANN201
             "config": settings,
             "get_messages": messages.get_messages,
             "graph_height": graph_height,
+            "pull_request_link": pull_request_link,
             "treeherder_link": treeherder_link,
             "new_settings_form": UserSettingsForm,
             "static_url": settings.STATIC_URL,
