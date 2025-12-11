@@ -48,6 +48,11 @@ class UpliftContext:
             for revision_phid in stack.iter_stack_from_root(dest=revision_phid)
         ]
         request_form = UpliftRequestForm(initial={"source_revisions": source_revisions})
+        # TODO(sheehan): evaluate if this is required.
+        request_form.fields["source_revisions"].queryset = (
+            request_form.fields["source_revisions"]
+            .queryset.filter(revision_id__in=source_revisions)
+        )
 
         # Look for an existing `UpliftRevision` for this revision.
         uplift_revision = UpliftRevision.one_or_none(revision_id=revision_id)

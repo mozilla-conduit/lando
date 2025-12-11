@@ -125,7 +125,7 @@ class UpliftRequestForm(UpliftAssessmentForm):
     source_revisions = forms.ModelMultipleChoiceField(
         queryset=Revision.objects.all(),
         to_field_name="revision_id",
-        widget=forms.widgets.MultipleHiddenInput(),
+        widget=forms.CheckboxSelectMultiple(),
     )
     repositories = forms.ModelMultipleChoiceField(
         queryset=Repo.objects.filter(approval_required=True).order_by("name"),
@@ -139,6 +139,11 @@ class UpliftRequestForm(UpliftAssessmentForm):
         # Set the rendered value of the repository to the
         # name, instead of the default `__str__` representation.
         self.fields["repositories"].label_from_instance = lambda repo: repo.name
+
+        # Set the rendered value of the source_revisions to show as "D123"
+        self.fields["source_revisions"].label_from_instance = (
+            lambda rev: f"D{rev.revision_id}"
+        )
 
     def clean_source_revisions(self) -> list[Revision]:
         """Return source revisions in the same order they were submitted."""
