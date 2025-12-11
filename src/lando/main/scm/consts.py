@@ -18,3 +18,11 @@ class MergeStrategy(str, enum.Enum):
 
     # Use the target branch's tree, ignoring the current tree.
     THEIRS = "theirs"
+
+
+@enum.unique
+class SCMType(str, enum.Enum):
+    """Enumeration of acceptable VCS types."""
+
+    GIT = SCM_TYPE_GIT
+    HG = SCM_TYPE_HG
