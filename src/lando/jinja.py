@@ -442,7 +442,7 @@ def environment(**options):  # noqa: ANN201
             "config": settings,
             "get_messages": messages.get_messages,
             "graph_height": graph_height,
-            "pull_request_link": pull_request_link,
+            "pull_request_url": pull_request_url,
             "treeherder_link": treeherder_link,
             "new_settings_form": UserSettingsForm,
             "static_url": settings.STATIC_URL,
