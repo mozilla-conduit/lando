@@ -318,7 +318,7 @@ def bug_url(text: str) -> str:
 
 
 def pull_request_link(repo: Repo, revision: Revision) -> str:
-    return f"{repo.url.removesuffix('.git')}/pull/{ revision.pull_number }"
+    return f"{repo.normalized_url}/pull/{revision.pull_number}"
 
 
 def revision_url(revision_id: int | str, diff_id: str | None = None) -> str:
