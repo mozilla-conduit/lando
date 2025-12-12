@@ -48,6 +48,18 @@ class LandingJob(BaseJob):
 
     is_pull_request_job = models.BooleanField(default=False, blank=True)
 
+    # Reference to the handover repo. A handover repo is a repo that a landing
+    # job is handed over to after being processed in a previous state. If this value
+    # is set, the job will be processed twice, but pushed once.
+    handover_repo = models.ForeignKey(
+        Repo,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="handover_jobs",
+    )
+    is_handed_over = models.BooleanField(null=True, blank=True)
+
     @property
     def landed_phabricator_revisions(self) -> dict:
         """Return a mapping associating Phabricator revision IDs with the ID of the landed Diff."""
@@ -112,6 +124,25 @@ class LandingJob(BaseJob):
             }
             for revision_id, diff_id in self.landed_revisions.items()
         ]
+
+    def handover(self):
+        if not self.is_pull_request_job:
+            raise NotImplementedError(
+                "Handover is only supported for pull request jobs"
+            )
+        if self.is_handed_over:
+            raise ValueError(f"{self} is already handed over")
+        if not self.handover_repo:
+            raise ValueError(f"{self} does not have a handover repo defined")
+        if not self.handover_repo.is_try:
+            raise NotImplementedError(
+                "Handover is currently only supported for try repo"
+            )
+
+        self.target_repo = self.handover_repo
+        self.is_pull_request_job = False
+        self.is_handed_over = True
+        self.save()
 
     @property
     def has_phabricator_revisions(self) -> bool:
