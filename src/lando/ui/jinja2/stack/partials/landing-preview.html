@@ -49,7 +49,7 @@
                 </div>
                 <div class="StackPage-landingPreview-displayMessagePanel">
                     <pre class="StackPage-landingPreview-commitMessage">{{
-        revision['commit_message']|escape_html|linkify_bug_numbers|linkify_revision_urls|safe
+        revision['commit_message']|escape_html|linkify_bug_numbers|linkify_phabricator_revision_urls|safe
       }}</pre>
                     <div class="StackPage-landingPreview-seeMore"></div>
                 </div>
@@ -87,8 +87,8 @@
                                 <li class="StackPage-landingPreview-warning">
                                     <label>
                                         <input type="checkbox" name="warnings[]" value="1" />
-                                        {{ dw.message|escape_html|linkify_bug_numbers|linkify_revision_urls|linkify_faq|linkify_sec_bug_docs|safe }}
-                                        [{{ w.revision_id | linkify_revision_ids | safe }}]
+                                        {{ dw.message|escape_html|linkify_bug_numbers|linkify_phabricator_revision_urls|linkify_faq|linkify_sec_bug_docs|safe }}
+                                        [{{ w.revision_id | linkify_phabricator_revision_ids | safe }}]
                                     </label>
                                 </li>
                             {% endfor %}
@@ -97,12 +97,12 @@
                         <li class="StackPage-landingPreview-warning">
                             <label>
                                 <input type="checkbox" name="warnings[]" value="1" />
-                                {{ warning['display']|escape_html|linkify_bug_numbers|linkify_revision_urls|linkify_faq|linkify_sec_bug_docs|safe }}
+                                {{ warning['display']|escape_html|linkify_bug_numbers|linkify_phabricator_revision_urls|linkify_faq|linkify_sec_bug_docs|safe }}
                                 [
                                 {% for instance in warning['instances'] %}
                                     {{
                                     ", " if not loop.first else ""
-                                    }}{{ instance['revision_id'] | linkify_revision_ids | safe }}
+                                    }}{{ instance['revision_id'] | linkify_phabricator_revision_ids | safe }}
                                 {% endfor %}
                                 ]
                             </label>

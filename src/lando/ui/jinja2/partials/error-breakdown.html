@@ -12,7 +12,7 @@ Expected variables:
             While applying <a href="{{ pull_request_link(job.target_repo, top_revision) }}">pull request #{{ top_revision.pull_number }}</a> to
             <code>{{ tree }}</code>, the following files had conflicts:
         {% else %}
-            While applying <a href="{{ job.error_breakdown.revision_id|revision_url() }}">revision D{{
+            While applying <a href="{{ job.error_breakdown.revision_id|phabricator_revision_url() }}">revision D{{
             job.error_breakdown.revision_id }}</a> to <code>{{ tree }}</code>, the following files had
             conflicts:
         {% endif %}
