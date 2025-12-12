@@ -284,6 +284,8 @@ class LandingJobPullRequestAPIView(View):
         }
         revision = Revision.objects.create(
             pull_number=pull_request.number,
+            pull_head_sha=pull_request.head_sha,
+            pull_base_sha=pull_request.base_sha,
             patches=pull_request.patch,
             patch_data=patch_data,
         )
