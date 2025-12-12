@@ -9,7 +9,7 @@ Expected variables:
     <p>
         {% if job.is_pull_request_job %}
             {% set top_revision = job.revisions[0] %}
-            While applying <a href="{{ pull_request_link(job.target_repo, top_revision) }}">pull request #{{ top_revision.pull_number }}</a> to
+            While applying <a href="{{ pull_request_url(job.target_repo, top_revision) }}">pull request #{{ top_revision.pull_number }}</a> to
             <code>{{ tree }}</code>, the following files had conflicts:
         {% else %}
             While applying <a href="{{ job.error_breakdown.revision_id|phabricator_revision_url() }}">revision D{{
