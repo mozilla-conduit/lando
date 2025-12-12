@@ -317,7 +317,7 @@ def bug_url(text: str) -> str:
     )
 
 
-def pull_request_link(repo: Repo, revision: Revision) -> str:
+def pull_request_url(repo: Repo, revision: Revision) -> str:
     return f"{repo.normalized_url}/pull/{revision.pull_number}"
 
 
