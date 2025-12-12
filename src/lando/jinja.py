@@ -255,13 +255,13 @@ def linkify_bug_numbers(text: str) -> str:
     return re.sub(search, replace, str(text), flags=re.IGNORECASE)
 
 
-def linkify_revision_urls(text: str) -> str:
+def linkify_phabricator_revision_urls(text: str) -> str:
     search = r"(?=\b)(" + re.escape(settings.PHABRICATOR_URL) + r"/D\d+)(?=\b)"
     replace = r'<a href="\g<1>">\g<1></a>'
     return re.sub(search, replace, str(text), flags=re.IGNORECASE)
 
 
-def linkify_revision_ids(text: str) -> str:
+def linkify_phabricator_revision_ids(text: str) -> str:
     """Linkify revision IDs to proper Phabricator URLs."""
     search = r"\b(D\d+)\b"
     replace = (
@@ -321,7 +321,7 @@ def pull_request_link(repo: Repo, revision: Revision) -> str:
     return f"{repo.normalized_url}/pull/{revision.pull_number}"
 
 
-def revision_url(revision_id: int | str, diff_id: str | None = None) -> str:
+def phabricator_revision_url(revision_id: int | str, diff_id: str | None = None) -> str:
     if isinstance(revision_id, int):
         path = f"D{revision_id}"
     elif isinstance(revision_id, str) and not revision_id.startswith("D"):
@@ -461,8 +461,8 @@ def environment(**options):  # noqa: ANN201
             "graph_x_pos": graph_x_pos,
             "linkify_bug_numbers": linkify_bug_numbers,
             "linkify_faq": linkify_faq,
-            "linkify_revision_ids": linkify_revision_ids,
-            "linkify_revision_urls": linkify_revision_urls,
+            "linkify_phabricator_revision_ids": linkify_phabricator_revision_ids,
+            "linkify_phabricator_revision_urls": linkify_phabricator_revision_urls,
             "linkify_sec_bug_docs": linkify_sec_bug_docs,
             "linkify_transplant_details": linkify_transplant_details,
             "message_type_to_notification_class": message_type_to_notification_class,
@@ -472,7 +472,7 @@ def environment(**options):  # noqa: ANN201
             "reviewer_to_action_text": reviewer_to_action_text,
             "reviewer_to_status_badge_class": reviewer_to_status_badge_class,
             "revision_status_to_badge_class": revision_status_to_badge_class,
-            "revision_url": revision_url,
+            "phabricator_revision_url": phabricator_revision_url,
             "static": static,
             "tostatusbadgeclass": tostatusbadgeclass,
             "tostatusbadgename": tostatusbadgename,

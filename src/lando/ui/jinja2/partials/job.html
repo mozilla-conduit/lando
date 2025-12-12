@@ -33,7 +33,7 @@
                 <strong>Revisions:</strong>
                 {% for i in job.serialized_landing_path -%}
                     {{- "" if loop.first else " ← " -}}
-                    <a href="{{ i['revision_id']|revision_url(diff_id=i['diff_id']) }}">
+                    <a href="{{ i['revision_id']|phabricator_revision_url(diff_id=i['diff_id']) }}">
                         {{ i['revision_id'] }}
                         {% if i['diff_id'] %}diff {{ i['diff_id'] }}{% endif %}
                     </a>
