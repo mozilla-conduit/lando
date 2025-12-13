@@ -140,11 +140,6 @@ class UpliftRequestForm(UpliftAssessmentForm):
         # name, instead of the default `__str__` representation.
         self.fields["repositories"].label_from_instance = lambda repo: repo.name
 
-        # Set the rendered value of the source_revisions to show as "D123"
-        self.fields["source_revisions"].label_from_instance = (
-            lambda rev: f"D{rev.revision_id}"
-        )
-
     def clean_source_revisions(self) -> list[Revision]:
         """Return source revisions in the same order they were submitted."""
         revisions_qs = self.cleaned_data["source_revisions"]
