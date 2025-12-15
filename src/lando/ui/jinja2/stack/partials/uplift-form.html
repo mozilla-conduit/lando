@@ -43,27 +43,29 @@
                     </a>
                 </div>
                 <fieldset {% if not uplift.can_create_uplift_submission %}disabled{% endif %}>
-                    {{ uplift.request_form.source_revisions }}
                     {% set requested_revision_ids = uplift.request_form.source_revisions.value() or [] %}
                     {% if requested_revision_ids %}
                         <div class="field">
                             <label class="label">Revisions to uplift</label>
                             <div class="control">
-                                <ul class="content">
-                                    {% set revision_ns = namespace(display_id="") %}
-                                    {% for revision_id in requested_revision_ids %}
-                                        {% set revision_ns.display_id = revision_id|string %}
-                                        {% if not revision_ns.display_id.startswith("D") %}
-                                            {% set revision_ns.display_id = "D" ~ revision_ns.display_id %}
-                                        {% endif %}
-                                        {% set revision = revisions.values() | selectattr("id", "equalto", revision_ns.display_id) | first %}
-                                        <li>
-                                            <strong>{{ revision_ns.display_id }}</strong>
-                                            {% if revision %}— {{ revision.title }}{% endif %}
-                                        </li>
-                                    {% endfor %}
-                                </ul>
+                                {% set revision_ns = namespace(display_id="") %}
+                                {% for revision_id in requested_revision_ids %}
+                                    {% set revision_ns.display_id = revision_id|string %}
+                                    {% if not revision_ns.display_id.startswith("D") %}
+                                        {% set revision_ns.display_id = "D" ~ revision_ns.display_id %}
+                                    {% endif %}
+                                    {% set revision = revisions.values() | selectattr("id", "equalto", revision_ns.display_id) | first %}
+                                    <label class="checkbox is-block">
+                                        <input type="checkbox"
+                                               name="source_revisions"
+                                               value="{{ revision_id }}"
+                                               checked>
+                                        <strong>{{ revision_ns.display_id }}</strong>
+                                        {% if revision %}— {{ revision.title }}{% endif %}
+                                    </label>
+                                {% endfor %}
                             </div>
+                            <p class="help">Deselect any revisions you don't want to include in the uplift request.</p>
                         </div>
                     {% endif %}
                     <div class="field">
