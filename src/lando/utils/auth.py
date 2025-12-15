@@ -1,7 +1,11 @@
 import logging
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.handlers.wsgi import WSGIRequest
+from django.http import JsonResponse
+from ninja import NinjaAPI
+from ninja.errors import HttpError
 from ninja.security import HttpBearer
 
 # requests is a transitive dependency of mozilla-django-oidc.
@@ -54,3 +58,20 @@ class AccessTokenAuth(HttpBearer):
         request.user = oidc_auth.authenticate(request)
 
         return request.user
+
+
+#
+# Simple API exposing an authenticated endpoint providing OAuth info.
+#
+
+api = NinjaAPI(urls_namespace="auth", auth=AccessTokenAuth())
+
+
+@api.get("/__userinfo__")
+def userinfo(request: WSGIRequest) -> JsonResponse:
+    """Test endpoint to check token verification.
+
+    Only available in non-prod environments."""
+    if not settings.ENVIRONMENT.is_lower:
+        raise HttpError(404, "Not Found")
+    return JsonResponse({"user_id": str(request.auth)})

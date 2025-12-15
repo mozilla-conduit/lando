@@ -15,6 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
+from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path, re_path
 
@@ -42,12 +43,19 @@ from lando.try_api.api import (
 )
 from lando.ui import jobs, pull_requests
 from lando.ui.legacy import pages, revisions, user_settings
+from lando.utils.auth import api as auth_api
 
 urlpatterns = [
     path("", include("lando.dockerflow.urls", "dockerflow")),
     path("admin/", admin.site.urls),
     path("oidc/", include("mozilla_django_oidc.urls")),
 ]
+
+if settings.ENVIRONMENT.is_lower:
+    urlpatterns += [
+        path("auth/", auth_api.urls),
+    ]
+
 
 urlpatterns += [
     path("", pages.IndexView.as_view()),
