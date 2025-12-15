@@ -16,9 +16,6 @@ from pathlib import Path
 from lando.environments import Environment
 from lando.version import version
 
-DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1")
-ENVIRONMENT = Environment(os.getenv("ENVIRONMENT", "test"))
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -45,6 +42,7 @@ ENCRYPTION_KEYS = (
     .split(b",")
 )
 
+DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1")
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,lando.local,lando.test").split(
     ","
 )
@@ -205,7 +203,7 @@ COMPRESS_FILTERS = {
     ],
 }
 
-COMPRESS_ENABLED = ENVIRONMENT.is_remote or not DEBUG
+COMPRESS_ENABLED = True
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = "/files"
@@ -245,6 +243,8 @@ PHABRICATOR_UNPRIVILEGED_API_KEY = os.getenv("PHABRICATOR_UNPRIVILEGED_API_KEY",
 TREEHERDER_URL = os.getenv("TREEHERDER_URL", "https://treeherder.mozilla.org")
 
 TREESTATUS_URL = os.getenv("TREESTATUS_URL", "http://treestatus.test")
+
+ENVIRONMENT = Environment(os.getenv("ENVIRONMENT", "test"))
 
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://lando.redis:6379")
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
