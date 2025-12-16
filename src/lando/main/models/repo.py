@@ -29,6 +29,8 @@ DONTBUILD = (
     ),
 )
 
+TRY_REPO_NAME = "try"
+
 
 def validate_path_in_repo_root(value: str):
     path = Path(value)
@@ -103,7 +105,7 @@ class Repo(BaseModel):
 
     @property
     def is_try(self) -> bool:
-        return self.name == "try"
+        return self.name in (TRY_REPO_NAME,)
 
     # TODO: help text for fields below.
     name = models.CharField(max_length=255, unique=True)
