@@ -276,11 +276,16 @@ class LandingJobPullRequestAPIView(View):
             pull_request.commit_message, reviewers, approvals
         )
 
+        try:
+            timestamp = int(datetime.fromisoformat(pull_request.updated_at).timestamp())
+        except ValueError:
+            timestamp = int(datetime.now().timestamp())
+
         patch_data = {
             "author_name": author_name,
             "author_email": author_email,
             "commit_message": commit_message,
-            "timestamp": int(datetime.now().timestamp()),
+            "timestamp": timestamp,
         }
         revision = Revision.objects.create(
             pull_number=pull_request.number,
