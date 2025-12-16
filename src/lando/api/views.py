@@ -325,6 +325,7 @@ class PullRequestTryPushAPIView(APIView):
         job = LandingJob.objects.create(
             target_repo=target_repo,
             is_handed_over=False,
+            is_pull_request_job=True,
             handover_repo=try_repo,
             requester_email=ldap_username,
         )
