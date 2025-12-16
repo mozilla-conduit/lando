@@ -125,7 +125,7 @@ class UpliftRequestForm(UpliftAssessmentForm):
     source_revisions = forms.ModelMultipleChoiceField(
         queryset=Revision.objects.all(),
         to_field_name="revision_id",
-        widget=forms.widgets.MultipleHiddenInput(),
+        widget=forms.CheckboxSelectMultiple(),
     )
     repositories = forms.ModelMultipleChoiceField(
         queryset=Repo.objects.filter(approval_required=True).order_by("name"),

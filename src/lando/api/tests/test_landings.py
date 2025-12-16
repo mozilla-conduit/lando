@@ -391,6 +391,7 @@ def test_integrated_execute_job_pull_request(
         "requester_email": "test@example.com",
         "target_repo": repo,
         "attempts": 1,
+        "is_pull_request_job": True,
     }
     job = make_landing_job(revisions=revisions, **job_params)
 
