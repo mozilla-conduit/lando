@@ -23,7 +23,7 @@ future.
                                 <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
                             </span>
                             <span>
-                                {% if uplift.has_assessment %}
+                                {% if uplift.assessment %}
                                     Edit Uplift Assessment
                                 {% else %}
                                     Submit Uplift Assessment
@@ -41,7 +41,7 @@ future.
                                 <i class="fa fa-link" aria-hidden="true"></i>
                             </span>
                             <span>
-                                {% if uplift.has_assessment %}
+                                {% if uplift.assessment %}
                                     Change Linked Assessment
                                 {% else %}
                                     Link Existing Assessment
@@ -51,12 +51,12 @@ future.
                     </div>
                 {% endif %}
                 <div class="column">
-                    {% if uplift.has_assessment %}
+                    {% if uplift.assessment %}
                         <span class="has-text-success">
                             <span class="icon is-small">
                                 <i class="fa fa-check-circle" aria-hidden="true"></i>
                             </span>
-                            <span>Uplift assessment submitted for this revision.</span>
+                            <span>Uplift assessment #{{ uplift.assessment.id }} submitted for this revision.</span>
                         </span>
                     {% else %}
                         <span class="has-text-grey">
@@ -80,7 +80,13 @@ future.
                 <div class="modal-background"></div>
                 <div class="modal-card">
                     <header class="modal-card-head">
-                        <p class="modal-card-title">Edit Assessment</p>
+                        <p class="modal-card-title">
+                            {% if uplift.assessment %}
+                                Edit Uplift Assessment #{{ uplift.assessment.id }}
+                            {% else %}
+                                Edit Uplift Assessment
+                            {% endif %}
+                        </p>
                         <button class="edit-assessment-close delete" aria-label="close" type="button"></button>
                     </header>
                     <section class="modal-card-body">
@@ -157,6 +163,9 @@ future.
                                 <div class="is-size-6 has-text-weight-semibold">Uplift request</div>
                                 <p class="is-size-7 has-text-grey">
                                     <time data-timestamp="{{ uplift_request.created_at }}"></time>, by {{ uplift_request.requested_by.email }}.
+                                    {% if uplift_request.assessment %}
+                                        <br>Assessment #{{ uplift_request.assessment.id }}
+                                    {% endif %}
                                 </p>
                                 <div class="mt-1">
                                     <a class="button is-small is-light"

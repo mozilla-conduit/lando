@@ -283,7 +283,7 @@ class UpliftAssessmentBatchLinkView(LandoView):
             "form": assessment_form,
             "revision_ids": revision_ids,
             "existing_linked_revision_ids": existing_linked_revision_ids,
-            "is_update": assessment_instance is not None,
+            "assessment": assessment_instance,
         }
 
         return TemplateResponse(
