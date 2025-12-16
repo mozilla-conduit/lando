@@ -203,7 +203,7 @@ class GitSCM(AbstractSCM):
                 raise exc
 
     @detect_patch_conflict
-    def get_diff_from_patches(self, patches: str) -> str:
+    def add_diff_from_patches(self, patches: str) -> str:
         """Apply multiple patches and return the diff output."""
         # TODO: add error handling so that if something goes wrong here,
         # a meaningful error is stored in the landing job. This would be
