@@ -119,6 +119,54 @@ class LinkUpliftAssessmentForm(forms.Form):
         return f"{date_label}: {revisions_note} -- {summary}"
 
 
+class UpliftAssessmentLinkForm(UpliftAssessmentForm):
+    """Form for creating/updating an assessment and linking to multiple revisions."""
+
+    assessment = forms.ModelChoiceField(
+        queryset=UpliftAssessment.objects.none(),
+        widget=forms.widgets.HiddenInput(),
+        required=False,
+        help_text="Existing assessment to update (optional)",
+    )
+
+    revision_ids = forms.CharField(
+        widget=forms.widgets.HiddenInput(),
+        help_text="Comma-separated list of Phabricator revision IDs",
+    )
+
+    def __init__(self, *args, user: User | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Filter queryset to only show assessments owned by the current user.
+        if user is not None and user.is_authenticated:
+            self.fields["assessment"].queryset = UpliftAssessment.objects.filter(
+                user=user
+            )
+
+    def clean_revision_ids(self) -> list[int]:
+        """Parse and validate the comma-separated revision IDs."""
+        revision_ids_str = self.cleaned_data["revision_ids"]
+
+        if not revision_ids_str:
+            raise forms.ValidationError("At least one revision ID is required.")
+
+        try:
+            revision_ids = [
+                int(rev_id.strip())
+                for rev_id in revision_ids_str.split(",")
+                if rev_id.strip()
+            ]
+        except ValueError:
+            raise forms.ValidationError(
+                "Invalid revision IDs. Must be comma-separated integers."
+            )
+
+        if not revision_ids:
+            raise forms.ValidationError("At least one revision ID is required.")
+
+        return revision_ids
+
+
 class UpliftRequestForm(UpliftAssessmentForm):
     """Form used to request uplift of a stack."""
 

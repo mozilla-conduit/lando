@@ -13,11 +13,17 @@ from lando.api.legacy import api as legacy_api
 from lando.main.auth import force_auth_refresh, require_phabricator_api_key
 from lando.main.models import Repo
 from lando.main.models.jobs import JobStatus
-from lando.main.models.uplift import UpliftJob, UpliftRevision, UpliftSubmission
+from lando.main.models.uplift import (
+    UpliftAssessment,
+    UpliftJob,
+    UpliftRevision,
+    UpliftSubmission,
+)
 from lando.ui.legacy.forms import (
     LinkUpliftAssessmentForm,
     TransplantRequestForm,
     UpliftAssessmentForm,
+    UpliftAssessmentLinkForm,
     UpliftRequestForm,
 )
 from lando.ui.legacy.stacks import Edge, draw_stack_graph, sort_stack_topological
@@ -198,6 +204,189 @@ class UpliftAssessmentLinkView(LandoView):
             messages.add_message(request, messages.SUCCESS, message)
 
         return redirect(request.META.get("HTTP_REFERER"))
+
+
+class UpliftAssessmentBatchLinkView(LandoView):
+    """Create/update an assessment and link it to multiple revisions."""
+
+    @force_auth_refresh
+    def get(self, request: WSGIRequest) -> TemplateResponse:
+        """Display the uplift assessment form for linking to multiple revisions."""
+
+        # Get the comma-separated list of revision IDs from the query parameters.
+        revisions_str = request.GET.get("revisions", "")
+        if not revisions_str:
+            messages.add_message(
+                request,
+                messages.ERROR,
+                "No revision IDs provided. Please specify the 'revisions' parameter.",
+            )
+            return redirect("/")
+
+        # Validate the revision IDs format (basic validation).
+        try:
+            revision_ids = [
+                int(rev_id.strip())
+                for rev_id in revisions_str.split(",")
+                if rev_id.strip()
+            ]
+        except ValueError:
+            messages.add_message(
+                request,
+                messages.ERROR,
+                "Invalid revision IDs. Must be comma-separated integers.",
+            )
+            return redirect("/")
+
+        if not revision_ids:
+            messages.add_message(
+                request,
+                messages.ERROR,
+                "At least one revision ID is required.",
+            )
+            return redirect("/")
+
+        # Check if we're updating an existing assessment.
+        assessment_id = request.GET.get("assessment_id")
+        assessment_instance = None
+
+        if assessment_id:
+            try:
+                assessment_instance = UpliftAssessment.objects.get(
+                    id=assessment_id,
+                    user=request.user,
+                )
+            except (ValueError, UpliftAssessment.DoesNotExist):
+                messages.add_message(
+                    request,
+                    messages.ERROR,
+                    "Assessment not found or you don't have permission to edit it.",
+                )
+                return redirect("/")
+
+        logger.info(
+            f"Uplift assessment batch link GET: user={request.user.id}, "
+            f"revisions={revision_ids}, assessment_id={assessment_id}"
+        )
+
+        # Create the form with the assessment instance if updating.
+        initial_data = {"revision_ids": revisions_str}
+        if assessment_instance:
+            initial_data["assessment"] = assessment_instance
+
+        assessment_form = UpliftAssessmentLinkForm(
+            initial=initial_data,
+            instance=assessment_instance,
+            user=request.user,
+        )
+
+        # Get existing linked revisions if updating an assessment.
+        existing_linked_revision_ids = []
+        if assessment_instance:
+            existing_linked_revision_ids = list(
+                assessment_instance.revisions.values_list("revision_id", flat=True)
+            )
+
+        context = {
+            "form": assessment_form,
+            "revision_ids": revision_ids,
+            "existing_linked_revision_ids": existing_linked_revision_ids,
+            "is_update": assessment_instance is not None,
+        }
+
+        return TemplateResponse(
+            request=request,
+            template="uplift/request.html",
+            context=context,
+        )
+
+    @force_auth_refresh
+    @method_decorator(require_phabricator_api_key(optional=False, provide_client=False))
+    def post(self, request: WSGIRequest) -> HttpResponse:
+        """Handle form submission and link assessment to multiple revisions."""
+
+        # Check if we're updating an existing assessment by checking POST data.
+        # This allows us to load the instance before binding the form.
+        assessment_instance = None
+        assessment_id = request.POST.get("assessment")
+
+        if assessment_id:
+            try:
+                assessment_instance = UpliftAssessment.objects.get(
+                    id=int(assessment_id),
+                    user=request.user,
+                )
+            except (ValueError, UpliftAssessment.DoesNotExist):
+                messages.add_message(
+                    request,
+                    messages.ERROR,
+                    "Assessment not found or you don't have permission to edit it.",
+                )
+                return redirect("/")
+
+        # Bind the form to POST data with the instance (if updating).
+        form = UpliftAssessmentLinkForm(
+            request.POST,
+            user=request.user,
+            instance=assessment_instance,
+        )
+
+        if not form.is_valid():
+            errors = [
+                f"{field}: {', '.join(field_errors)}"
+                for field, field_errors in form.errors.items()
+            ]
+
+            for error in errors:
+                messages.add_message(request, messages.ERROR, error)
+
+            return redirect(request.META.get("HTTP_REFERER"))
+
+        # Get cleaned data.
+        revision_ids = form.cleaned_data["revision_ids"]
+
+        logger.info(
+            f"Uplift assessment batch link POST: user={request.user.id}, "
+            f"revisions={revision_ids}, assessment_id={assessment_id}"
+        )
+
+        # Create or update assessment and link to revisions in a single transaction.
+        with transaction.atomic():
+            assessment = form.save(commit=False)
+            assessment.user = request.user
+            assessment.save()
+
+            # Link assessment to all revisions.
+            for revision_id in revision_ids:
+                UpliftRevision.objects.update_or_create(
+                    revision_id=revision_id,
+                    defaults={"assessment": assessment},
+                )
+
+        # After successful database transaction, trigger Celery tasks to update Phabricator.
+        for revision_id in revision_ids:
+            set_uplift_request_form_on_revision.apply_async(
+                args=(
+                    revision_id,
+                    assessment.to_conduit_json_str(),
+                    request.user.id,
+                )
+            )
+
+        # Success message.
+        if assessment_instance:
+            message = (
+                f"Assessment updated and linked to {len(revision_ids)} revision(s)."
+            )
+        else:
+            message = (
+                f"Assessment created and linked to {len(revision_ids)} revision(s)."
+            )
+
+        messages.add_message(request, messages.SUCCESS, message)
+
+        # Redirect to the first revision.
+        return redirect("revisions-page", revision_id=revision_ids[0])
 
 
 class RevisionView(LandoView):
