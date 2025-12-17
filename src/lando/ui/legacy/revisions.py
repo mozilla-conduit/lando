@@ -10,6 +10,7 @@ from django.template.response import TemplateResponse
 from django.utils.decorators import method_decorator
 
 from lando.api.legacy import api as legacy_api
+from lando.api.legacy.validation import parse_revision_ids
 from lando.main.auth import force_auth_refresh, require_phabricator_api_key
 from lando.main.models import Repo
 from lando.main.models.jobs import JobStatus
@@ -223,26 +224,14 @@ class UpliftAssessmentBatchLinkView(LandoView):
             )
             return redirect("/")
 
-        # Validate the revision IDs format (basic validation).
+        # Validate the revision IDs format.
         try:
-            revision_ids = [
-                int(rev_id.strip())
-                for rev_id in revisions_str.split(",")
-                if rev_id.strip()
-            ]
-        except ValueError:
+            revision_ids = parse_revision_ids(revisions_str)
+        except ValueError as e:
             messages.add_message(
                 request,
                 messages.ERROR,
-                "Invalid revision IDs. Must be comma-separated integers.",
-            )
-            return redirect("/")
-
-        if not revision_ids:
-            messages.add_message(
-                request,
-                messages.ERROR,
-                "At least one revision ID is required.",
+                str(e),
             )
             return redirect("/")
 

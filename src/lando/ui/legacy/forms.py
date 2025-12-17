@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.forms.widgets import RadioSelect
 from django.utils import timezone
 
+from lando.api.legacy.validation import parse_revision_ids
 from lando.main.models import Repo, Revision
 from lando.main.models.uplift import (
     UpliftAssessment,
@@ -147,24 +148,10 @@ class UpliftAssessmentLinkForm(UpliftAssessmentForm):
         """Parse and validate the comma-separated revision IDs."""
         revision_ids_str = self.cleaned_data["revision_ids"]
 
-        if not revision_ids_str:
-            raise forms.ValidationError("At least one revision ID is required.")
-
         try:
-            revision_ids = [
-                int(rev_id.strip())
-                for rev_id in revision_ids_str.split(",")
-                if rev_id.strip()
-            ]
-        except ValueError:
-            raise forms.ValidationError(
-                "Invalid revision IDs. Must be comma-separated integers."
-            )
-
-        if not revision_ids:
-            raise forms.ValidationError("At least one revision ID is required.")
-
-        return revision_ids
+            return parse_revision_ids(revision_ids_str)
+        except ValueError as e:
+            raise forms.ValidationError(str(e))
 
 
 class UpliftRequestForm(UpliftAssessmentForm):
