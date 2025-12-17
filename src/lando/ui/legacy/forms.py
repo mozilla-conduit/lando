@@ -151,7 +151,7 @@ class UpliftAssessmentLinkForm(UpliftAssessmentForm):
         try:
             return parse_revision_ids(revision_ids_str)
         except ValueError as e:
-            raise forms.ValidationError(str(e))
+            raise forms.ValidationError(str(e)) from e
 
 
 class UpliftRequestForm(UpliftAssessmentForm):
