@@ -271,7 +271,7 @@ class UpliftAssessmentBatchLinkView(LandoView):
         )
 
         # Create the form with the assessment instance if updating.
-        initial_data = {"revision_ids": revisions_str}
+        initial_data = {"revision_ids": ",".join(revision_ids)}
         if assessment_instance:
             initial_data["assessment"] = assessment_instance
 
