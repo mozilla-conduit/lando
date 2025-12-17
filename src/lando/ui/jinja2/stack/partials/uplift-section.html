@@ -164,7 +164,8 @@ future.
                                 <p class="is-size-7 has-text-grey">
                                     <time data-timestamp="{{ uplift_request.created_at }}"></time>, by {{ uplift_request.requested_by.email }}.
                                     {% if uplift_request.assessment %}
-                                        <br>Assessment #{{ uplift_request.assessment.id }}
+                                        <br>
+                                        Assessment #{{ uplift_request.assessment.id }}
                                     {% endif %}
                                 </p>
                                 <div class="mt-1">
