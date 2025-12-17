@@ -117,7 +117,7 @@ class LinkUpliftAssessmentForm(forms.Form):
         if len(summary) > 80:
             summary = f"{summary[:77]}..."
 
-        return f"{date_label}: {revisions_note} -- {summary}"
+        return f"#{assessment.id}: {date_label}: {revisions_note} -- {summary}"
 
 
 class UpliftAssessmentLinkForm(UpliftAssessmentForm):

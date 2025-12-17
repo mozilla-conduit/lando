@@ -1,12 +1,18 @@
 {% extends "partials/layout.html" %}
-{% block page_title %}Link Uplift Assessment{% endblock %}
+{% block page_title %}
+    {% if assessment %}
+        Update Uplift Assessment #{{ assessment.id }}
+    {% else %}
+        Link Uplift Assessment
+    {% endif %}
+{% endblock %}
 {% block main %}
     <section class="section">
         <div class="container">
             <div class="content">
                 <h1 class="title">
-                    {% if is_update %}
-                        Update Uplift Assessment
+                    {% if assessment %}
+                        Update Uplift Assessment #{{ assessment.id }}
                     {% else %}
                         Create Uplift Assessment
                     {% endif %}
@@ -48,7 +54,7 @@
                         <div class="field is-grouped">
                             <div class="control">
                                 <button type="submit" class="button is-primary">
-                                    {% if is_update %}
+                                    {% if assessment %}
                                         Update Assessment
                                     {% else %}
                                         Create Assessment
