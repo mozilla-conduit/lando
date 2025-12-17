@@ -1,0 +1,67 @@
+{% extends "partials/layout.html" %}
+{% block page_title %}Link Uplift Assessment{% endblock %}
+{% block main %}
+    <section class="section">
+        <div class="container">
+            <div class="content">
+                <h1 class="title">
+                    {% if is_update %}
+                        Update Uplift Assessment
+                    {% else %}
+                        Create Uplift Assessment
+                    {% endif %}
+                </h1>
+                {% if not user_has_phabricator_token %}
+                    {% include "stack/partials/uplift-phab-api-key-warning.html" %}
+                {% endif %}
+                <p>
+                    <strong>This form will be linked to the following revision(s):</strong>
+                </p>
+                <ul>
+                    {% for rev_id in revision_ids %}
+                        <li>
+                            <a href="/D{{ rev_id }}/" target="_blank">D{{ rev_id }}</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+                {% if existing_linked_revision_ids %}
+                    <p>
+                        <strong>This form is already linked to the following revision(s):</strong>
+                    </p>
+                    <ul>
+                        {% for rev_id in existing_linked_revision_ids %}
+                            <li>
+                                <a href="/D{{ rev_id }}/" target="_blank">D{{ rev_id }}</a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+                <form method="post" action="">
+                    {{ csrf_input }}
+                    {# Hidden fields. #}
+                    {{ form.assessment }}
+                    {{ form.revision_ids }}
+                    <fieldset {% if not user_has_phabricator_token %}disabled{% endif %}>
+                        {% with assessment_form = form %}
+                            {% include "stack/partials/uplift-assessment.html" %}
+                        {% endwith %}
+                        <div class="field is-grouped">
+                            <div class="control">
+                                <button type="submit" class="button is-primary">
+                                    {% if is_update %}
+                                        Update Assessment
+                                    {% else %}
+                                        Create Assessment
+                                    {% endif %}
+                                </button>
+                            </div>
+                            <div class="control">
+                                <a href="/" class="button is-light">Cancel</a>
+                            </div>
+                        </div>
+                    </fieldset>
+                </form>
+            </div>
+        </div>
+    </section>
+{% endblock %}
