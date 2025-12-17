@@ -9,7 +9,12 @@ from django.db.models import Prefetch, QuerySet
 from lando.api.legacy.stacks import RevisionStack
 from lando.api.legacy.validation import revision_id_to_int
 from lando.main.models import Repo
-from lando.main.models.uplift import UpliftJob, UpliftRevision, UpliftSubmission
+from lando.main.models.uplift import (
+    UpliftAssessment,
+    UpliftJob,
+    UpliftRevision,
+    UpliftSubmission,
+)
 from lando.ui.legacy.forms import (
     LinkUpliftAssessmentForm,
     UpliftAssessmentForm,
@@ -25,7 +30,7 @@ class UpliftContext:
     requests: Sequence[UpliftSubmission]
     request_form: UpliftRequestForm
     assessment_form: UpliftAssessmentForm | None
-    has_assessment: bool
+    assessment: UpliftAssessment | None
     assessment_link_form: LinkUpliftAssessmentForm | None
     can_create_uplift_submission: bool
     revision_id: int
@@ -54,7 +59,7 @@ class UpliftContext:
 
         uplift_requests = uplift_context_for_revision(revision_id)
 
-        has_assessment = bool(uplift_revision and uplift_revision.assessment_id)
+        assessment = uplift_revision.assessment if uplift_revision else None
 
         assessment_form = None
         assessment_link_form = None
@@ -67,7 +72,7 @@ class UpliftContext:
             requests=tuple(uplift_requests),
             request_form=request_form,
             assessment_form=assessment_form,
-            has_assessment=has_assessment,
+            assessment=assessment,
             assessment_link_form=assessment_link_form,
             can_create_uplift_submission=cls.can_create_submission(request),
             revision_id=revision_id,
