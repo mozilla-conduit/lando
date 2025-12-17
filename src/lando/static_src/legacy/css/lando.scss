@@ -1,19 +1,15 @@
-@import "bulma/sass/utilities/initial-variables";
-@import "colors";
+@use "colors" as c;
 
-// Customize Bulma variables
-$primary: $blue;
-$info: $turquoise;
-$success: $green;
-$warning: $orange;
-$danger: $red;
-
-$family-sans-serif: 'Fira Sans', Arial, Helvetica, sans-serif;
-$family-monospace: 'Fira Mono' monospace;
-
-$primary: $blue;
-
-@import "bulma/bulma";
+// Import Bulma with custom variable overrides
+@use "bulma/bulma" with (
+  $primary: c.$blue,
+  $info: c.$turquoise,
+  $success: c.$green,
+  $warning: c.$orange,
+  $danger: c.$red,
+  $family-sans-serif: ('Fira Sans', Arial, Helvetica, sans-serif),
+  $family-monospace: ('Fira Mono', monospace)
+);
 
 // Makes sure the footer stays near the bottom of the page.
 body {
