@@ -213,6 +213,13 @@ class UpliftAssessmentBatchLinkView(LandoView):
     @force_auth_refresh
     def get(self, request: WSGIRequest) -> TemplateResponse:
         """Display the uplift assessment form for linking to multiple revisions."""
+        if not request.user.is_authenticated:
+            messages.add_message(
+                request,
+                messages.ERROR,
+                "Must be logged in to submit an uplift assessment.",
+            )
+            return redirect("/")
 
         # Get the comma-separated list of revision IDs from the query parameters.
         revisions_str = request.GET.get("revisions", "")
@@ -253,9 +260,8 @@ class UpliftAssessmentBatchLinkView(LandoView):
                 )
                 return redirect("/")
 
-        user_id = request.user.id if request.user.is_authenticated else "anonymous"
         logger.info(
-            f"Uplift assessment batch link GET: user={user_id}, "
+            f"Uplift assessment batch link GET: user={request.user.id}, "
             f"revisions={revision_ids}, assessment_id={assessment_id}"
         )
 
