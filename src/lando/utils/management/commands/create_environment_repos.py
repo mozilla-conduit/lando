@@ -151,6 +151,17 @@ REPOS = {
             "url": "https://hg.mozilla.org/conduit-testing/test-repo-clone",
             "required_permission": SCM_CONDUIT,
         },
+        # Use real `try` for testing since `try` is a testing environment anyway.
+        {
+            "name": "try",
+            "url": "https://hg.mozilla.org/try",
+            "push_path": "ssh://hg.mozilla.org/try",
+            "pull_path": "https://hg.mozilla.org/mozilla-unified",
+            "required_permission": SCM_LEVEL_1,
+            "short_name": "try",
+            "is_phabricator_repo": False,
+            "force_push": True,
+        },
     ],
     Environment.production: [],
 }
