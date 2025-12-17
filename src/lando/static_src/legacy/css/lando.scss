@@ -1,18 +1,40 @@
-@use "colors" as c;
+// Import Mozilla color palette
+@import "colors";
 
-// Import Bulma with custom variable overrides
-// These Sass variables are compiled into CSS at build time and generate
-// corresponding CSS custom properties (CSS variables) that can be overridden
-// at runtime without recompiling.
-@use "bulma/bulma" with (
-  $primary: c.$blue,
-  $info: c.$turquoise,
-  $success: c.$green,
-  $warning: c.$orange,
-  $danger: c.$red,
-  $family-sans-serif: ('Fira Sans', Arial, Helvetica, sans-serif),
-  $family-monospace: ('Fira Mono', monospace)
-);
+// Import pre-compiled Bulma 1.0.4 CSS
+// NOTE: Using pre-compiled CSS because django-libsass does not support Dart Sass
+// @use/@forward syntax that Bulma 1.0+ requires. To compile from source in the
+// future, migrate to django-sass (with Dart Sass) or a Dart Sass precompiler.
+@import "bulma/bulma.css";
+
+// Customize Bulma using CSS variables (Bulma 1.0+ feature)
+// These override Bulma's default colors and fonts at runtime
+:root {
+  // Mozilla color scheme
+  --bulma-primary-h: 214deg;
+  --bulma-primary-s: 100%;
+  --bulma-primary-l: 52%;  // #0a84ff
+
+  --bulma-info-h: 189deg;
+  --bulma-info-s: 100%;
+  --bulma-info-l: 33%;  // #008ea4 (turquoise)
+
+  --bulma-success-h: 127deg;
+  --bulma-success-s: 100%;
+  --bulma-success-l: 20%;  // #058b00 (green)
+
+  --bulma-warning-h: 28deg;
+  --bulma-warning-s: 100%;
+  --bulma-warning-l: 50%;  // #ff7700 (orange)
+
+  --bulma-danger-h: 351deg;
+  --bulma-danger-s: 98%;
+  --bulma-danger-l: 42%;  // #d70022 (red)
+
+  // Mozilla typography
+  --bulma-family-primary: 'Fira Sans', Arial, Helvetica, sans-serif;
+  --bulma-family-code: 'Fira Mono', monospace;
+}
 
 // ============================================================================
 // CSS VARIABLES (Runtime Customization)
