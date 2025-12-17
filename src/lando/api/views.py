@@ -258,7 +258,9 @@ class LandingJobPullRequestAPIView(View):
             return JsonResponse(form.errors, 400)
 
         job = LandingJob.objects.create(
-            target_repo=target_repo, requester_email=ldap_username
+            target_repo=target_repo,
+            requester_email=ldap_username,
+            is_pull_request_job=True,
         )
         author_name, author_email = pull_request.author
 
