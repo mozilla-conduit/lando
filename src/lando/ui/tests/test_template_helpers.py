@@ -351,7 +351,7 @@ def test_build_manual_uplift_instructions(user):
         "git cherry-pick abc123def456\n"
         "git cherry-pick def789ghi012\n"
         "git cherry-pick ghi345jkl678\n"
-        "moz-phab uplift --train beta"
+        f"moz-phab uplift --train beta --assessment-id {assessment.id}"
     )
 
     assert result == expected, "Generated commands should match expected."
