@@ -264,8 +264,9 @@ class UpliftAssessmentBatchLinkView(LandoView):
                 )
                 return redirect("/")
 
+        user_id = request.user.id if request.user.is_authenticated else "anonymous"
         logger.info(
-            f"Uplift assessment batch link GET: user={request.user.id}, "
+            f"Uplift assessment batch link GET: user={user_id}, "
             f"revisions={revision_ids}, assessment_id={assessment_id}"
         )
 
