@@ -1,6 +1,9 @@
 @use "colors" as c;
 
 // Import Bulma with custom variable overrides
+// These Sass variables are compiled into CSS at build time and generate
+// corresponding CSS custom properties (CSS variables) that can be overridden
+// at runtime without recompiling.
 @use "bulma/bulma" with (
   $primary: c.$blue,
   $info: c.$turquoise,
@@ -11,6 +14,53 @@
   $family-monospace: ('Fira Mono', monospace)
 );
 
+// ============================================================================
+// CSS VARIABLES (Runtime Customization)
+// ============================================================================
+// Bulma 1.0+ generates CSS custom properties that can be overridden at runtime
+// without recompiling SCSS. This enables dynamic theming, user preferences,
+// A/B testing, and more.
+//
+// Examples of CSS variables you can override:
+//
+// Color customization:
+//   --bulma-primary: #0a84ff;
+//   --bulma-primary-dark: #0060df;
+//   --bulma-primary-light: #80b4ff;
+//
+// Typography:
+//   --bulma-family-primary: 'Fira Sans', sans-serif;
+//   --bulma-size-normal: 1rem;
+//   --bulma-weight-bold: 700;
+//
+// Spacing:
+//   --bulma-block-spacing: 1.5rem;
+//   --bulma-control-height: 2.5em;
+//   --bulma-control-radius: 4px;
+//
+// Usage examples:
+//
+// 1. Global override in CSS:
+//    :root {
+//      --bulma-primary: #ff6600;
+//    }
+//
+// 2. Component-specific override:
+//    .my-special-section {
+//      --bulma-control-radius: 8px;
+//    }
+//
+// 3. JavaScript/dynamic theming:
+//    document.documentElement.style.setProperty('--bulma-primary', '#ff6600');
+//
+// 4. Dark mode (Bulma includes a dark theme):
+//    <html class="dark">...</html>
+//
+// See full list of CSS variables:
+// https://bulma.io/documentation/features/css-variables/
+// ============================================================================
+
+// Custom application styles
 // Makes sure the footer stays near the bottom of the page.
 body {
   display: flex;
