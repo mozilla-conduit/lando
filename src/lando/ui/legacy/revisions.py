@@ -385,6 +385,7 @@ class UpliftAssessmentBatchLinkView(LandoView):
             )
 
         messages.add_message(request, messages.SUCCESS, message)
+        logger.info(message)
 
         # Redirect to the first revision.
         return redirect("revisions-page", revision_id=revision_ids[0])
