@@ -2,6 +2,7 @@ import json
 import logging
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.handlers.wsgi import WSGIRequest
 from django.db import transaction
 from django.http import HttpResponse, HttpResponseRedirect
@@ -210,6 +211,7 @@ class UpliftAssessmentLinkView(LandoView):
 class UpliftAssessmentBatchLinkView(LandoView):
     """Create/update an assessment and link it to multiple revisions."""
 
+    @method_decorator(login_required)
     @force_auth_refresh
     def get(self, request: WSGIRequest) -> TemplateResponse:
         """Display the uplift assessment form for linking to multiple revisions."""
