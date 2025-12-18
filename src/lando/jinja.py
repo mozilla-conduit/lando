@@ -199,7 +199,10 @@ def build_manual_uplift_instructions(job: UpliftJob) -> str:
         instructions.append("git cherry-pick <commit-sha-1>")
         instructions.append("# ... cherry-pick additional commits as needed")
 
-    instructions.append(f"moz-phab uplift --train {train}")
+    assessment_id = job.submission.assessment.id
+    instructions.append(
+        f"moz-phab uplift --train {train} --assessment-id {assessment_id}"
+    )
 
     return "\n".join(instructions)
 
