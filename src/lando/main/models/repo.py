@@ -145,6 +145,11 @@ class Repo(BaseModel):
         help_text="Should match the shortname field on Phabricator for this repo.",
     )
     url = models.CharField()
+    treeherder_name = models.CharField(
+        blank=True,
+        help_text="Name of the repo in TreeHerder",
+    )
+    url = models.CharField()
 
     approval_required = models.BooleanField(default=False)
     autoformat_enabled = models.BooleanField(default=False)
