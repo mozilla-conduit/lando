@@ -55,7 +55,10 @@
                     <strong>Result:</strong> {{ job.landed_commit_id|escape_html|linkify_transplant_details(job) |safe }} on {{ job.target_repo }}
                 </p>
                 <p>
-                    <strong>Links:</strong> {{ treeherder_link(job.landed_treeherder_revision, job.target_repo, "Treeherder") |safe }}
+                    <strong>Links:</strong>
+                    {% if job.target_repo.treeherder_name %}
+                        {{ treeherder_link(job.landed_treeherder_revision, job.target_repo, "Treeherder") |safe }}
+                    {% endif %}
                 </p>
             {% elif job.status.lower() == 'submitted' and treestatus and not embedded %}
                 <div>
