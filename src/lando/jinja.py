@@ -1,7 +1,6 @@
 import logging
 import re
 import urllib.parse
-from typing import Optional
 
 from compressor.contrib.jinja2ext import CompressorExtension
 from django.conf import settings
@@ -314,7 +313,7 @@ def bug_url(text: str) -> str:
     )
 
 
-def revision_url(revision_id: int | str, diff_id: Optional[str] = None) -> str:
+def revision_url(revision_id: int | str, diff_id: str | None = None) -> str:
     if isinstance(revision_id, int):
         path = f"D{revision_id}"
     elif isinstance(revision_id, str) and not revision_id.startswith("D"):
