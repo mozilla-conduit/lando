@@ -1069,7 +1069,7 @@ def test_GitSCM_process_merge_conflict_no_reject(
     ), "Missing default message from `content` in rejects_paths for that-other-file.txt"
 
 
-def test_GitSCM_get_diff_from_patches(
+def test_GitSCM_add_diff_from_patches(
     git_patch: Callable,
     git_repo: Path,
     git_setup_user: Callable,
@@ -1128,5 +1128,5 @@ def test_GitSCM_get_diff_from_patches(
         """
     ).lstrip()
 
-    diff = scm.get_diff_from_patches(patches)
+    diff = scm.add_diff_from_patches(patches)
     assert diff == expected_diff, "Did not generate expected diff from patches"
