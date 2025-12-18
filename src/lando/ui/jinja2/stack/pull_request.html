@@ -13,6 +13,13 @@
                     data-head-sha="{{ pull_request.head_sha }}"
                     data-repo-name="{{ target_repo.name }}"
                     data-csrf-token="{{ csrf_token }}">Loading</button>
+            <button class="button is-large push-try-job
+                    data-pull-number="{{ pull_request.number }}"
+                    data-head-sha="{{ pull_request.head_sha }}"
+                    data-repo-name="{{ target_repo.name }}"
+                    data-csrf-token="{{ csrf_token }}"
+>Push to try</button>
+
         </p>
         <p class="acknowledge-warnings-section">
             <label class="checkbox">
