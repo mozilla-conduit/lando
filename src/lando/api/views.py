@@ -315,7 +315,7 @@ class PullRequestTryPushAPIView(APIView):
         try:
             try_repo = Repo.objects.get(name="try")
         except Repo.DoesNotExist:
-            return JsonResponse({"errors": ["Try repo does not exist"]}, 500)
+            return JsonResponse({"errors": ["Try repo does not exist"]}, status=500)
 
         target_repo = Repo.objects.get(name=repo_name)
         client = GitHubAPIClient(target_repo.url)
