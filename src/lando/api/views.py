@@ -305,3 +305,48 @@ class PullRequestChecksAPIView(APIView):
             target_repo, pull_request, request
         )
         return JsonResponse(warnings_and_blockers)
+
+
+class PullRequestTryPushAPIView(APIView):
+    @method_decorator(require_authenticated_user)
+    def post(
+        self, request: WSGIRequest, repo_name: str, pull_number: int
+    ) -> JsonResponse:
+        try:
+            try_repo = Repo.objects.get(name="try")
+        except Repo.DoesNotExist:
+            return JsonResponse({"errors": ["Try repo does not exist"]}, 500)
+
+        target_repo = Repo.objects.get(name=repo_name)
+        client = GitHubAPIClient(target_repo.url)
+        ldap_username = request.user.email
+        pull_request = client.build_pull_request(pull_number)
+
+        job = LandingJob.objects.create(
+            target_repo=target_repo,
+            is_handed_over=False,
+            is_pull_request_job=True,
+            handover_repo=try_repo,
+            requester_email=ldap_username,
+        )
+        author_name, author_email = pull_request.author
+        try:
+            timestamp = int(datetime.fromisoformat(pull_request.updated_at).timestamp())
+        except ValueError:
+            timestamp = int(datetime.now().timestamp())
+        patch_data = {
+            "author_name": author_name,
+            "author_email": author_email,
+            "commit_message": pull_request.commit_message,
+            "timestamp": timestamp,
+        }
+        revision = Revision.objects.create(
+            pull_number=pull_request.number,
+            patches=pull_request.patch,
+            patch_data=patch_data,
+        )
+        add_revisions_to_job([revision], job)
+        job.status = JobStatus.SUBMITTED
+        job.save()
+
+        return JsonResponse({"id": job.id}, status=201)
