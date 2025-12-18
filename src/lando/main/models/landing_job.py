@@ -302,7 +302,22 @@ def add_revisions_to_job(revisions: list[Revision], job: LandingJob):
 def get_jobs_for_pull(target_repo: Repo, pull_number: int) -> QuerySet[LandingJob]:
     """Given a target repo and a pull number, return all landing jobs."""
     revisions = Revision.objects.filter(
-        landing_jobs__target_repo=target_repo, pull_number=pull_number
+        landing_jobs__target_repo=target_repo,
+        pull_number=pull_number,
+        landing_jobs__handover_repo__isnull=True,
+    )
+    return LandingJob.objects.filter(unsorted_revisions__in=revisions).order_by(
+        "-created_at"
+    )
+
+
+def get_handover_jobs_for_pull(
+    target_repo: Repo, pull_number: int
+) -> QuerySet[LandingJob]:
+    """Given a target repo and a pull number, return all try landing jobs."""
+    revisions = Revision.objects.filter(
+        pull_number=pull_number,
+        landing_jobs__handover_repo__isnull=False,
     )
     return LandingJob.objects.filter(unsorted_revisions__in=revisions).order_by(
         "-created_at"
