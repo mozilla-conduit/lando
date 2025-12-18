@@ -7,26 +7,33 @@ from lando.utils.const import UPLIFT_DOCS_URL
 FAILURE_EXPECTED_BODY = f"""
 Your uplift request for firefox-beta did not complete successfully.
 
-See here for details and merge conflicts: https://lando/jobs/1
+WHAT TO DO NEXT:
 
-Reason:
-moz-phab uplift exited with code 2
+Visit your original revision page to see clear resolution instructions:
+https://lando.test/D456/
 
-Review the job details linked above for more information, including
-details of any merge conflicts that were encountered.
+On this page, click the "Show resolution steps" button to see the exact
+commands you need to run to resolve merge conflicts and submit your uplift.
 
-If your uplift failed due to merge conflicts, this means your patch
-cannot be uplifted without manually resolving the merge conflicts and
-re-submitting. Please pull the latest changes for firefox-beta, resolve
-the conflicts locally, and submit a new uplift request using `moz-phab
-uplift` once the conflicts are cleared.
+HOW TO RESOLVE:
+
+Most uplift failures are due to merge conflicts. To resolve:
+1. Pull the latest changes for firefox-beta
+2. Resolve any merge conflicts locally
+3. Submit a new uplift request using `moz-phab uplift`
 
 Once you have created a new uplift Phabricator revision, you can use the
 "Link Existing Assessment" button to link your new uplift revision to the
 uplift assessment form you previously submitted.
 
-See {UPLIFT_DOCS_URL}
-for step-by-step instructions.
+For detailed step-by-step instructions, see {UPLIFT_DOCS_URL}
+
+TECHNICAL DETAILS:
+
+Job details: https://lando/jobs/1
+
+Reason for failure:
+moz-phab uplift exited with code 2
 """.strip()
 
 
