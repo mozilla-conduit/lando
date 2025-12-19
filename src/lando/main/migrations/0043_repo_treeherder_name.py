@@ -24,7 +24,7 @@ def add_firefox_treeherder_name(apps, schema_editor):  # noqa: ANN001
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("main", "0041_revision_pull_base_sha_revision_pull_head_sha"),
+        ("main", "0042_landingjob_handover_repo_landingjob_is_handed_over"),
     ]
 
     operations = [
