@@ -14,61 +14,83 @@
                     data-repo-name="{{ target_repo.name }}"
                     data-csrf-token="{{ csrf_token }}">Loading</button>
         </p>
-        <p class="acknowledge-warnings-section">
-            <label class="checkbox">
-                <input type="checkbox" id="acknowledge-warnings" />
-                Acknowledge all warnings below.
-            </label>
-        </p>
-        <div class="StackPage-stack">
-            <table>
+    </p>
+    <p class="acknowledge-warnings-section">
+        <label class="checkbox">
+            <input type="checkbox" id="acknowledge-warnings" />
+            Acknowledge all warnings below.
+        </label>
+    </p>
+    <div class="StackPage-stack">
+        <table>
+            <tr>
+                <th>Warnings</th>
+                <td>
+                    <ul id="warnings">
+                        <li>
+                            Checking...
+                        </li />
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <th>Blockers</th>
+                <td>
+                    <ul id="blockers">
+                        <li>
+                            Checking...
+                        </li />
+                    </ul>
+                </td>
+            </tr>
+            {% if is_try_compatible %}
                 <tr>
-                    <th>Warnings</th>
+                    <th>Last try job</th>
                     <td>
-                        <ul id="warnings">
+                        <ul>
                             <li>
-                                Checking...
+                                <button class="button is-small is-info post-try-job"
+                                        data-pull-number="{{ pull_request.number }}"
+                                        data-repo-name="{{ target_repo.name }}"
+                                        data-csrf-token="{{ csrf_token }}">Submit new try job</button>
+                                {% if last_try_job %}
+                                    {{ last_try_job }}
+                                    {{ treeherder_link(last_try_job.landed_treeherder_revision, "Treeherder") | safe }}
+                                {% else %}
+                                    No try jobs found.
+                                {% endif %}
                             </li />
                         </ul>
                     </td>
                 </tr>
-                <tr>
-                    <th>Blockers</th>
-                    <td>
-                        <ul id="blockers">
-                            <li>
-                                Checking...
-                            </li />
-                        </ul>
-                    </td>
-                </tr>
-                <tr>
-                    <th>Branches</th>
-                    <td>{{ pull_request.head_ref }} -&gt; {{ pull_request.base_ref }}</td>
-                </tr>
-                <tr>
-                    <th>Repo</th>
-                    <td>{{ target_repo }} ({{ pull_request.head_repo_git_url }})</td>
-                </tr>
-                <tr>
-                    <th>Author</th>
-                    <td>{{ pull_request.user_login }}</td>
-                </tr>
-                <tr>
-                    <th>State</th>
-                    <td>{{ pull_request.state }}</td>
-                </tr>
-                <tr>
-                    <th>Title</th>
-                    <td>{{ pull_request.title }}</td>
-                </tr>
-                <tr>
-                    <th>Description</th>
-                    <td>{{ pull_request.body }}</td>
-                </tr>
-            </table>
-        </div>
-        <h1>Landings</h1>
-        {% include "stack/partials/timeline.html" %}
-    </main>
+            {% endif %}
+            <tr>
+                <th>Branches</th>
+                <td>{{ pull_request.head_ref }} -&gt; {{ pull_request.base_ref }}</td>
+            </tr>
+            <tr>
+                <th>Repo</th>
+                <td>{{ target_repo }} ({{ pull_request.head_repo_git_url }})</td>
+            </tr>
+            <tr>
+                <th>Author</th>
+                <td>{{ pull_request.user_login }}</td>
+            </tr>
+            <tr>
+                <th>State</th>
+                <td>{{ pull_request.state }}</td>
+            </tr>
+            <tr>
+                <th>Title</th>
+                <td>{{ pull_request.title }}</td>
+            </tr>
+            <tr>
+                <th>Description</th>
+                <td>{{ pull_request.body }}</td>
+            </tr>
+        </table>
+    </div>
+    <h1>Landings</h1>
+    {% include "stack/partials/timeline.html" %}
+</main>
 {% endblock %}

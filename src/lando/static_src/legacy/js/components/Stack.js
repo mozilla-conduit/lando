@@ -38,6 +38,8 @@ $.fn.stack = function() {
     // This should be cleaned up as part of bug 1995754.
     var is_pull_request_page = Boolean($('button.post-landing-job').length);
     if (is_pull_request_page) {
+        var pull_request_button = $('button.post-landing-job');
+        var try_request_button = $('button.post-try-job');
 
         $('#acknowledge-warnings').on("click", function () {
             if (this.checked) {
@@ -49,7 +51,27 @@ $.fn.stack = function() {
             }
         });
 
-        var pull_request_button = $('button.post-landing-job');
+        try_request_button.on('click', function(e) {
+            try_request_button.addClass("is-loading");
+            fetch(`/api/pulls/${repo_name}/${pull_number}/try_jobs`, {
+                method: 'POST',
+                body: JSON.stringify({"head_sha": head_sha}),
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrf_token
+                },
+            }).then(response => {
+                if (response.status == 201) {
+                    window.location.reload();
+                } else {
+                    try_request_button.prop("disabled", true);
+                    try_request_button.removeClass("is-danger").removeClass("is-loading").addClass("is-warning");
+                    try_request_button.html("An unknown error occurred");
+                }
+            });
+        });
+
         if (pull_request_button.data("anonymous") == 1) {
             pull_request_button.prop("disabled", true);
             pull_request_button.removeClass("is-loading").addClass("is-danger");

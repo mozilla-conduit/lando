@@ -119,6 +119,8 @@ class LandingJobAdmin(JobAdmin):
         "revisions",
         "status",
         "target_repo__name",
+        "handover_repo__name",
+        "is_handed_over",
         "created_at",
         "requester_email",
         "duration_seconds",
@@ -135,6 +137,8 @@ class LandingJobAdmin(JobAdmin):
         "requester_email",
         "target_commit_hash",
         "target_repo",
+        "handover_repo",
+        "is_handed_over",
         "created_at",
         "updated_at",
     )

@@ -1,4 +1,5 @@
 import configparser
+import json
 import logging
 import subprocess
 from pathlib import Path
@@ -172,15 +173,27 @@ class LandingWorker(Worker):
 
         return True
 
+    def add_try_task_config(self, scm: AbstractSCM):
+        with (Path(scm.path) / "try_task_config.json").open("x") as f:
+            data = {
+                "parameters": {
+                    "optimize_target_tasks": True,
+                    "target_tasks_method": "codereview",
+                },
+                "version": 2,
+            }
+            content = json.dumps(data)
+            f.write(content)
+
     def convert_patches_to_diff(self, scm: AbstractSCM, job: LandingJob):
         """Generate a unified diff from multiple patches stored in a revision."""
         # NOTE: this only applies to git patches that are downloaded from GitHub
         # at this time. In theory this would work for any provided patches in a
         # standard format.
 
-        def get_diff_from_patches(revision: Revision) -> str:
+        def add_diff_from_patches(revision: Revision) -> str:
             logger.debug(f"Converting paches to single diff for {revision} ...")
-            return scm.get_diff_from_patches(revision.patches)
+            return scm.add_diff_from_patches(revision.patches)
 
         # NOTE: this is only supported for jobs with a single revision at this time.
         # See bug 2001185.
@@ -197,7 +210,7 @@ class LandingWorker(Worker):
             raise ValueError("Revision is missing patches.")
 
         diff = self.handle_new_commit_failures(
-            get_diff_from_patches,
+            add_diff_from_patches,
             job.target_repo,
             job,
             scm,
@@ -229,6 +242,19 @@ class LandingWorker(Worker):
             )
 
         self.update_repo(repo, job, scm, job.target_commit_hash)
+
+        if job.is_pull_request_job and job.handover_repo:
+            if not job.handover_repo.is_try:
+                raise ValueError(
+                    f"{job} handover to non-try repo ({job.handover_repos}) is not supported"
+                )
+
+            self.add_try_task_config(scm)
+            self.convert_patches_to_diff(scm, job)
+            job.handover()
+            message = "Job deferred to try repo."
+            job.transition_status(JobAction.DEFER, message=message)
+            raise TemporaryFailureException(message)
 
         if job.is_pull_request_job:
             self.convert_patches_to_diff(scm, job)

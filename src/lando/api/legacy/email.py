@@ -53,26 +53,33 @@ def make_failure_email(
 UPLIFT_FAILURE_EMAIL_TEMPLATE = f"""
 Your uplift request for {{repo_name}} did not complete successfully.
 
-See here for details and merge conflicts: {{job_url}}
+WHAT TO DO NEXT:
 
-Reason:
-{{reason}}
+Visit your original revision page to see clear resolution instructions:
+{{revision_urls}}
 
-Review the job details linked above for more information, including
-details of any merge conflicts that were encountered.
+On this page, click the "Show resolution steps" button to see the exact
+commands you need to run to resolve merge conflicts and submit your uplift.
 
-If your uplift failed due to merge conflicts, this means your patch
-cannot be uplifted without manually resolving the merge conflicts and
-re-submitting. Please pull the latest changes for {{repo_name}}, resolve
-the conflicts locally, and submit a new uplift request using `moz-phab
-uplift` once the conflicts are cleared.
+HOW TO RESOLVE:
+
+Most uplift failures are due to merge conflicts. To resolve:
+1. Pull the latest changes for {{repo_name}}
+2. Resolve any merge conflicts locally
+3. Submit a new uplift request using `moz-phab uplift`
 
 Once you have created a new uplift Phabricator revision, you can use the
 "Link Existing Assessment" button to link your new uplift revision to the
 uplift assessment form you previously submitted.
 
-See {UPLIFT_DOCS_URL}
-for step-by-step instructions.
+For detailed step-by-step instructions, see {UPLIFT_DOCS_URL}
+
+TECHNICAL DETAILS:
+
+Job details: {{job_url}}
+
+Reason for failure:
+{{reason}}
 """.strip()
 
 UPLIFT_SUCCESS_EMAIL_TEMPLATE = """
@@ -106,10 +113,17 @@ def make_uplift_failure_email(
         reason: Error message describing why the uplift failed.
         requested_revision_ids: Optional list of original revision IDs that were being uplifted.
     """
+    # Format revision URL (tip-most revision only)
+    if requested_revision_ids:
+        revision_urls = f"{settings.SITE_URL}/D{requested_revision_ids[-1]}/"
+    else:
+        revision_urls = "(no revisions available)"
+
     body = UPLIFT_FAILURE_EMAIL_TEMPLATE.format(
         job_url=job_url,
         reason=reason,
         repo_name=repo_name,
+        revision_urls=revision_urls,
     )
 
     # Get the tip revision for the subject line.
