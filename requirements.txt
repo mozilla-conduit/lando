@@ -1283,9 +1283,9 @@ mots==0.13.3 \
     --hash=sha256:36bd000b451e221807fa8e87dcdff79ea14eaa3a18c912b01483f0419f34a492 \
     --hash=sha256:acf4ce623de29666f8bf2fb3b4bcc4799f2ccfc28242a233fe7626dedf26d3bb
     # via lando (pyproject.toml)
-mozilla-django-oidc==4.0.1 \
-    --hash=sha256:04ef58759be69f22cdc402d082480aaebf193466cad385dc9e4f8df2a0b187ca \
-    --hash=sha256:4ff8c64069e3e05c539cecf9345e73225a99641a25e13b7a5f933ec897b58918
+mozilla-django-oidc==5.0.2 \
+    --hash=sha256:4e953dcd963c036daaa2ac42b5bb6ea89a1c6ea7be0387c2022a59aca2f83043 \
+    --hash=sha256:965a3533b0e299288cdf38ec2f8b550217c302ffe78ce5bd0b2d2f4bc436878b
     # via lando (pyproject.toml)
 mozphab==2.8.0 \
     --hash=sha256:db8fe57b65d4acca6c1dcada7707a649cdad147f9ec6ac71fd60f9e7163c4e8b \
