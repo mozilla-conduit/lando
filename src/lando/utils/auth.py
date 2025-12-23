@@ -2,6 +2,7 @@ import logging
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.core.exceptions import PermissionDenied
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import JsonResponse
 from ninja import NinjaAPI
@@ -10,6 +11,7 @@ from ninja.security import HttpBearer
 
 # requests is a transitive dependency of mozilla-django-oidc.
 from requests.exceptions import HTTPError
+from typing_extensions import override
 
 from lando.main.auth import LandoOIDCAuthenticationBackend
 
@@ -45,6 +47,7 @@ class AccessTokenLandoOIDCAuthenticationBackend(LandoOIDCAuthenticationBackend):
 class AccessTokenAuth(HttpBearer):
     """Ninja bearer token-based authenticator delegating verification to the OIDC backend."""
 
+    @override
     def authenticate(self, request: WSGIRequest, token: str) -> User:
         """Forward the authenticate request to the LandoOIDCAuthenticationBackend."""
         # The token is extracted in the LandoOIDCAuthenticationBackend, so we don't need
@@ -58,6 +61,24 @@ class AccessTokenAuth(HttpBearer):
         request.user = oidc_auth.authenticate(request)
 
         return request.user
+
+
+class PermissionAccessTokenAuth(AccessTokenAuth):
+    """Ninja authenticator which also verifies that the user has a given permission."""
+
+    required_permission: str
+
+    def __init__(self, required_permission: str, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.required_permission = required_permission
+
+    @override
+    def authenticate(self, request: WSGIRequest, token: str) -> User:
+        user = super().authenticate(request, token)
+        # XXX Check the user's own permissions, not delegated from other roles.
+        if user.has_perm(self.required_permission):
+            return user
+        raise PermissionDenied(f"Missing permissions: {self.required_permission}")
 
 
 #

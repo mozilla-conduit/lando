@@ -203,6 +203,9 @@ class Repo(BaseModel):
     # Use this field to enable/disable access to this repo via the automation API.
     automation_enabled = models.BooleanField(default=False)
 
+    # Use this field to enable/disable access to this repo via the try API.
+    try_enabled = models.BooleanField(default=False)
+
     # Use this field to enable/disable pre-landing hooks for a repo.
     hooks_enabled = models.BooleanField(default=True)
 
