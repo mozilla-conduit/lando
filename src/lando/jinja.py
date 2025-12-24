@@ -1,7 +1,6 @@
 import logging
 import re
 import urllib.parse
-from typing import Optional
 
 from compressor.contrib.jinja2ext import CompressorExtension
 from django.conf import settings
@@ -288,15 +287,24 @@ def linkify_transplant_details(text: str, landing_job: LandingJob) -> str:
     return re.sub(search, replace, str(text))  # This is case sensitive
 
 
-def treeherder_link(treeherder_revision: str, label: str = "") -> str:
+def treeherder_link(treeherder_revision: str, repo: Repo, label: str = "") -> str:
     """Builds a Treeherder link for a given revision."""
 
     if not treeherder_revision:
         return "[Failed to determine Treeherder revision]"
 
+    params = {
+        "revision": treeherder_revision,
+    }
+
+    if repo.treeherder_name:
+        params["treeherder_repo_name"] = repo.treeherder_name
+
+    url = f"{settings.TREEHERDER_URL}/jobs?" + urllib.parse.urlencode(params)
+
     label = label or treeherder_revision
 
-    return f'<a href="{settings.TREEHERDER_URL}/jobs?revision={treeherder_revision}">{label}</a>'
+    return f'<a href="{url}">{label}</a>'
 
 
 def linkify_faq(text: str) -> str:
@@ -317,7 +325,7 @@ def bug_url(text: str) -> str:
     )
 
 
-def revision_url(revision_id: int | str, diff_id: Optional[str] = None) -> str:
+def revision_url(revision_id: int | str, diff_id: str | None = None) -> str:
     if isinstance(revision_id, int):
         path = f"D{revision_id}"
     elif isinstance(revision_id, str) and not revision_id.startswith("D"):
