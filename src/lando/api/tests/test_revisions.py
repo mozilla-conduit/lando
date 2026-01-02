@@ -1,5 +1,6 @@
 import pytest
 
+from lando.api.legacy.api.stacks import get
 from lando.api.legacy.revisions import (
     blocker_diff_author_is_known,
     revision_is_secure,
@@ -29,7 +30,7 @@ def test_check_diff_author_is_known_with_unknown_author(phabdouble):
 
 def test_secure_api_flag_on_public_revision_is_false(
     db,
-    proxy_client,
+    user,
     phabdouble,
     release_management_project,
     needs_data_classification_project,
@@ -40,15 +41,14 @@ def test_secure_api_flag_on_public_revision_is_false(
     public_project = phabdouble.project("public")
     revision = phabdouble.revision(projects=[public_project], repo=repo)
 
-    response = proxy_client.get("/stacks/D{}".format(revision["id"]))
-    assert response.status_code == 200
-    response_revision = response.json()["revisions"].pop()
+    result = get(phabdouble.get_phabricator_client(), revision["id"])
+    response_revision = result["revisions"].pop()
     assert not response_revision["is_secure"]
 
 
 def test_secure_api_flag_on_secure_revision_is_true(
     db,
-    proxy_client,
+    user,
     phabdouble,
     release_management_project,
     needs_data_classification_project,
@@ -58,10 +58,8 @@ def test_secure_api_flag_on_secure_revision_is_true(
     repo = phabdouble.repo(name="test-repo")
     revision = phabdouble.revision(projects=[secure_project], repo=repo)
 
-    response = proxy_client.get("/stacks/D{}".format(revision["id"]))
-
-    assert response.status_code == 200
-    response_revision = response.json()["revisions"].pop()
+    result = get(phabdouble.get_phabricator_client(), revision["id"])
+    response_revision = result["revisions"].pop()
     assert response_revision["is_secure"]
 
 

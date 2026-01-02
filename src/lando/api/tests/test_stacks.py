@@ -1,6 +1,7 @@
 import pytest
 from django.http import Http404
 
+from lando.api.legacy.api.stacks import get
 from lando.api.legacy.stacks import (
     RevisionStack,
     build_stack_graph,
@@ -790,7 +791,7 @@ def test_get_landable_repos_for_revision_data(phabdouble, mocked_repo_config):
 
 @pytest.mark.django_db
 def test_integrated_stack_endpoint_simple(
-    proxy_client,
+    user,
     phabdouble,
     mocked_repo_config,
     release_management_project,
@@ -805,21 +806,20 @@ def test_integrated_stack_endpoint_simple(
     r3 = phabdouble.revision(repo=repo, depends_on=[r1])
     r4 = phabdouble.revision(repo=unsupported_repo, depends_on=[r2, r3])
 
-    response = proxy_client.get("/stacks/D{}".format(r3["id"]))
-    assert response.status_code == 200
+    result = get(phabdouble.get_phabricator_client(), r3["id"])
 
-    assert len(response.json()["edges"]) == 4
-    assert [r2["phid"], r1["phid"]] in response.json()["edges"]
-    assert [r3["phid"], r1["phid"]] in response.json()["edges"]
-    assert [r4["phid"], r2["phid"]] in response.json()["edges"]
-    assert [r4["phid"], r3["phid"]] in response.json()["edges"]
+    assert len(result["edges"]) == 4
+    assert (r2["phid"], r1["phid"]) in result["edges"]
+    assert (r3["phid"], r1["phid"]) in result["edges"]
+    assert (r4["phid"], r2["phid"]) in result["edges"]
+    assert (r4["phid"], r3["phid"]) in result["edges"]
 
-    assert len(response.json()["landable_paths"]) == 2
-    assert [r1["phid"], r2["phid"]] in response.json()["landable_paths"]
-    assert [r1["phid"], r3["phid"]] in response.json()["landable_paths"]
+    assert len(result["landable_paths"]) == 2
+    assert [r1["phid"], r2["phid"]] in result["landable_paths"]
+    assert [r1["phid"], r3["phid"]] in result["landable_paths"]
 
-    assert len(response.json()["revisions"]) == 4
-    revisions = {r["phid"]: r for r in response.json()["revisions"]}
+    assert len(result["revisions"]) == 4
+    revisions = {r["phid"]: r for r in result["revisions"]}
     assert r1["phid"] in revisions
     assert r2["phid"] in revisions
     assert r3["phid"] in revisions
@@ -832,7 +832,7 @@ def test_integrated_stack_endpoint_simple(
 
 @pytest.mark.django_db
 def test_integrated_stack_endpoint_repos(
-    proxy_client,
+    user,
     phabdouble,
     mocked_repo_config,
     release_management_project,
@@ -846,12 +846,11 @@ def test_integrated_stack_endpoint_repos(
     r3 = phabdouble.revision(repo=repo, depends_on=[r1])
     r4 = phabdouble.revision(repo=unsupported_repo, depends_on=[r2, r3])
 
-    response = proxy_client.get("/stacks/D{}".format(r4["id"]))
-    assert response.status_code == 200
+    result = get(phabdouble.get_phabricator_client(), r4["id"])
 
-    assert len(response.json()["repositories"]) == 2
+    assert len(result["repositories"]) == 2
 
-    repositories = {r["phid"]: r for r in response.json()["repositories"]}
+    repositories = {r["phid"]: r for r in result["repositories"]}
     assert repo["phid"] in repositories
     assert unsupported_repo["phid"] in repositories
     assert repositories[repo["phid"]]["landing_supported"]
@@ -864,7 +863,7 @@ def test_integrated_stack_endpoint_repos(
 
 @pytest.mark.django_db
 def test_integrated_stack_has_revision_security_status(
-    proxy_client,
+    user,
     phabdouble,
     mock_repo_config,
     release_management_project,
@@ -878,17 +877,16 @@ def test_integrated_stack_has_revision_security_status(
         repo=repo, projects=[secure_project], depends_on=[public_revision]
     )
 
-    response = proxy_client.get("/stacks/D{}".format(secure_revision["id"]))
-    assert response.status_code == 200
+    result = get(phabdouble.get_phabricator_client(), secure_revision["id"])
 
-    revisions = {r["phid"]: r for r in response.json()["revisions"]}
+    revisions = {r["phid"]: r for r in result["revisions"]}
     assert not revisions[public_revision["phid"]]["is_secure"]
     assert revisions[secure_revision["phid"]]["is_secure"]
 
 
 @pytest.mark.django_db
 def test_integrated_stack_response_mismatch_returns_404(
-    proxy_client,
+    user,
     phabdouble,
     mock_repo_config,
     release_management_project,
@@ -903,10 +901,10 @@ def test_integrated_stack_response_mismatch_returns_404(
     r1 = phabdouble.revision(repo=repo)
     r2 = phabdouble.revision(repo=repo, depends_on=[r1])
 
-    response = proxy_client.get("/stacks/D{}".format(r1["id"]))
-    assert response.status_code == 200
-    assert len(response.json()["edges"]) == 1
-    assert len(response.json()["revisions"]) == 2
+    phab = phabdouble.get_phabricator_client()
+    result = get(phab, r1["id"])
+    assert len(result["edges"]) == 1
+    assert len(result["revisions"]) == 2
 
     # Remove r2 from the response.
     phabdouble._revisions = [
@@ -914,15 +912,14 @@ def test_integrated_stack_response_mismatch_returns_404(
     ]
 
     with pytest.raises(Http404):
-        response = proxy_client.get("/stacks/D{}".format(r1["id"]))
+        get(phab, r1["id"])
 
     # Remove dependency on r2.
     phabdouble.update_revision_dependencies(r1["phid"], [])
 
-    response = proxy_client.get("/stacks/D{}".format(r1["id"]))
-    assert response.status_code == 200
-    assert len(response.json()["edges"]) == 0
-    assert len(response.json()["revisions"]) == 1
+    result = get(phab, r1["id"])
+    assert len(result["edges"]) == 0
+    assert len(result["revisions"]) == 1
 
 
 def test_revisionstack_single():
