@@ -148,9 +148,7 @@ def patches(
                 target_commit_hash = CommitMap.hg2git(mapping_repo, target_commit_hash)
         except CommitMap.DoesNotExist:
             status = 400
-            error = (
-                f"Could not determine the equivalent base commit for {target_commit_hash} in {repo.scm_type} for {mapping_repo}. Please try again later.",
-            )
+            error = f"Could not determine the equivalent base commit for {target_commit_hash} in {repo.scm_type} for {mapping_repo}. Please try again later."
             logger.warning(
                 error,
                 extra={"user": request.user.email},
