@@ -145,7 +145,7 @@ def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]
         except CommitMap.DoesNotExist:
             status = 400
             error = (
-                f"Could not determine the equivalent base commit for {target_commit_hash} in {repo.scm_type} for {mapping_repo}. Please try again later.",
+                f"Could not determine the equivalent base commit for {target_commit_hash} in {repo.scm_type} for {mapping_repo}. Please try again later."
             )
             logger.warning(
                 error,
