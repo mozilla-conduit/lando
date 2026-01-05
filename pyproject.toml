@@ -14,7 +14,7 @@ dependencies = [
     "celery",
     "cryptography",
     "datadog",
-    "django ~= 5.0",
+    "django ~= 6.0",
     "django-libsass",
     "django-ninja",
     "django-storages[google]",
