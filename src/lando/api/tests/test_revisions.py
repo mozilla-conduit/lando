@@ -30,7 +30,6 @@ def test_check_diff_author_is_known_with_unknown_author(phabdouble):
 
 def test_secure_api_flag_on_public_revision_is_false(
     db,
-    user,
     phabdouble,
     release_management_project,
     needs_data_classification_project,
@@ -48,7 +47,6 @@ def test_secure_api_flag_on_public_revision_is_false(
 
 def test_secure_api_flag_on_secure_revision_is_true(
     db,
-    user,
     phabdouble,
     release_management_project,
     needs_data_classification_project,

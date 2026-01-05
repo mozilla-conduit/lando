@@ -435,7 +435,7 @@ def test_integrated_dryrun_blocks_for_bad_userinfo(
 
 
 @pytest.mark.django_db(transaction=True)
-def test_get_transplants_for_entire_stack(user, phabdouble, make_landing_job, repo_mc):
+def test_get_transplants_for_entire_stack(phabdouble, make_landing_job, repo_mc):
     d1a = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1a, repo=phabdouble.repo())
     d1b = phabdouble.diff(revision=r1)
@@ -489,7 +489,7 @@ def test_get_transplants_for_entire_stack(user, phabdouble, make_landing_job, re
 
 
 @pytest.mark.django_db(transaction=True)
-def test_get_transplant_from_middle_revision(user, phabdouble, make_landing_job):
+def test_get_transplant_from_middle_revision(phabdouble, make_landing_job):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
 
