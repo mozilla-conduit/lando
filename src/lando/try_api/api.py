@@ -157,7 +157,7 @@ def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]
 
     try_job = LandingJob.objects.create(
         target_repo=repo,
-        requester_email=request.auth.email,
+        requester_email=request.user.email,
         target_commit_hash=target_commit_hash,
         status=JobStatus.CREATED,
         priority=-10,
