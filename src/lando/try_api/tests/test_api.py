@@ -96,7 +96,7 @@ def test_try_api_patches_no_scm1(
             # The value of the token doesn't actually matter, as the output is controlled by
             # the authenticator function, which we mock to return None, as a failure to
             # authenticate the user.
-            headers={"AuThOrIzAtIoN": "bEaReR token"},
+            headers={"AuThOrIzAtIoN": "bEaReR token no_scm1"},
         )
 
     assert mock_authenticate.called, "Authentication backend should be called"
