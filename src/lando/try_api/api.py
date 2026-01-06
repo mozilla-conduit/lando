@@ -147,7 +147,7 @@ def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]
             error = f"Could not determine the equivalent base commit for {target_commit_hash} in {repo.scm_type} for {mapping_repo}. Please try again later."
             logger.warning(
                 error,
-                extra={"user": request.auth.email},
+                extra={"user": request.user.email},
             )
             return status, ProblemDetail(
                 title="Error converting VCS commit IDs",
