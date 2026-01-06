@@ -77,9 +77,7 @@ class PermissionAccessTokenAuth(AccessTokenAuth):
         user = super().authenticate(request, token)
         # Only check the user's own permission; don't allow delegation from groups or
         # roles.
-        if user_has_direct_permission(
-            user, self.required_permission.removeprefix("main.")
-        ):
+        if self.required_permission in user.get_user_permissions():
             request.user = user
             return user
         raise PermissionDenied(f"Missing permissions: {self.required_permission}")
