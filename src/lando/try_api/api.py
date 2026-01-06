@@ -203,13 +203,6 @@ def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]
     )
 
 
-@api.get("/api/jobs/{int:try_job_id}/", url_name="api-job")
-def get_job_json(request: WSGIRequest, try_job_id: int) -> JsonResponse:
-    job = LandingJob.objects.get(id=try_job_id)
-
-    return JsonResponse(job.to_dict())
-
-
 #
 # Mapping from legacy API paths.
 #
