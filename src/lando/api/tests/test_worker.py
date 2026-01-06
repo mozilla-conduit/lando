@@ -4,14 +4,14 @@ from unittest import mock
 import pytest
 
 from lando.api.legacy.workers.landing_worker import LandingWorker
-from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
+from lando.main.scm import SCMType
 
 
 @pytest.mark.parametrize(
     "scm_type",
     [
-        SCM_TYPE_HG,
-        SCM_TYPE_GIT,
+        SCMType.HG,
+        SCMType.GIT,
     ],
 )
 @mock.patch.dict(os.environ, {LandingWorker.SSH_PRIVATE_KEY_ENV_KEY: ""})

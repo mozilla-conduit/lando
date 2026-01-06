@@ -13,7 +13,7 @@ from typing import Any, Callable, TypeVar
 from typing_extensions import override
 
 from lando.main.scm.commit import CommitData
-from lando.main.scm.consts import SCM_TYPE_GIT, MergeStrategy
+from lando.main.scm.consts import MergeStrategy, SCMType
 from lando.main.scm.exceptions import (
     PatchConflict,
     SCMException,
@@ -81,7 +81,7 @@ class GitSCM(AbstractSCM):
     @override
     def scm_type(cls) -> str:  # noqa: ANN206
         """Return a string identifying the supported SCM."""
-        return SCM_TYPE_GIT
+        return SCMType.GIT
 
     @classmethod
     @override

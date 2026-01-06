@@ -20,7 +20,7 @@ from lando.headless_api.models.automation_job import (
 )
 from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import JobStatus
-from lando.main.scm import SCM_TYPE_GIT, PatchConflict
+from lando.main.scm import PatchConflict, SCMType
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.exceptions import SCMInternalServerError
 from lando.pushlog.models import Push
@@ -243,7 +243,7 @@ def test_automation_job_create_repo_automation_disabled(
     user, token = headless_user
 
     repo_mc(
-        scm_type=SCM_TYPE_GIT,
+        scm_type=SCMType.GIT,
         automation_enabled=False,
     )
 
@@ -293,7 +293,7 @@ def test_automation_job_create_user_automation_disabled(
     user.profile.save()
 
     repo_mc(
-        scm_type=SCM_TYPE_GIT,
+        scm_type=SCMType.GIT,
         automation_enabled=True,
     )
 
@@ -346,7 +346,7 @@ def test_automation_job_create_api(client, repo_mc, headless_user):
     user, token = headless_user
 
     repo_mc(
-        scm_type=SCM_TYPE_GIT,
+        scm_type=SCMType.GIT,
         automation_enabled=True,
     )
 
@@ -403,7 +403,7 @@ def test_automation_job_create_api(client, repo_mc, headless_user):
 def test_automation_job_create_commit_request(client, repo_mc, headless_user):
     user, token = headless_user
 
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
     body = {
         "actions": [
             {
@@ -456,7 +456,7 @@ def test_get_job_status_not_found(client, headless_user):
 @pytest.mark.django_db
 def test_get_job_status(client, headless_user, automation_job, repo_mc):
     user, token = headless_user
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
 
     # Create a job and actions
     job, _actions = automation_job(
@@ -489,7 +489,7 @@ def test_get_job_status(client, headless_user, automation_job, repo_mc):
 def automation_worker(landing_worker_instance):
     worker = landing_worker_instance(
         name="automation-worker-git",
-        scm=SCM_TYPE_GIT,
+        scm=SCMType.GIT,
     )
     return AutomationWorker(worker)
 
@@ -503,7 +503,7 @@ def test_automation_job_add_commit_success_git(
     git_patch,
     automation_job,
 ):
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
     scm = repo.scm
 
     # Create a job and actions
@@ -551,7 +551,7 @@ def test_automation_job_add_commit_base64_success_git(
     git_patch,
     automation_job,
 ):
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
     scm = repo.scm
 
     # Create a valid patch and base64-encode it.
@@ -593,7 +593,7 @@ def test_automation_job_add_commit_fail(
     mock_phab_trigger_repo_update_apply_async,
     automation_job,
 ):
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
     scm = repo.scm
 
     # Create a job and actions
@@ -628,7 +628,7 @@ def test_automation_job_create_commit_success(
     get_failing_check_diff,
     automation_job,
 ):
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
     scm = repo.scm
 
     # Create a job and actions
@@ -675,7 +675,7 @@ def test_automation_job_create_commit_failed_check_hooks_enabled(
 ):
     bad_action, reason = get_failing_check_action_reason(bad_action_type)
 
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
     scm = repo.scm
 
     repo.hooks_enabled = True
@@ -712,7 +712,7 @@ def test_automation_job_create_commit_failed_check_hooks_disabled(
 ):
     bad_action, _reason = get_failing_check_action_reason("nobug")
 
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
     scm = repo.scm
 
     repo.hooks_enabled = False
@@ -763,7 +763,7 @@ def test_automation_job_create_commit_failed_check_override(
     get_failing_check_diff,
     automation_job,
 ):
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
     scm = repo.scm
 
     no_bug_action_data = get_failing_check_action_reason("nobug")[0]
@@ -811,7 +811,7 @@ def test_automation_job_create_commit_failed_check_unchecked(
     automation_job: Callable,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
     scm = repo.scm
 
     no_bug_action_data = get_failing_check_action_reason("nobug")[0]
@@ -857,7 +857,7 @@ def test_automation_job_create_commit_patch_conflict(
     get_failing_check_diff,
     automation_job,
 ):
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
 
     job, _actions = automation_job(
         actions=[
@@ -920,7 +920,7 @@ def test_automation_job_merge_onto_success_git(
     create_git_commit: Callable,
     automation_job: Callable,
 ):
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
     scm = repo.scm
     scm.push = mock.MagicMock()
 
@@ -960,7 +960,7 @@ def test_automation_job_merge_onto_fast_forward_git(
     automation_worker: AutomationWorker,
     automation_job: Callable,
 ):
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
     scm = repo.scm
     scm.push = mock.MagicMock()
 
@@ -1027,7 +1027,7 @@ def test_automation_job_merge_onto_fail(
     monkeypatch,
     automation_job,
 ):
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
 
     job, _actions = automation_job(
         actions=[
@@ -1058,7 +1058,7 @@ def test_automation_job_tag_success_git_tip_commit(
     create_git_commit: Callable,
     automation_job: Callable,
 ):
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
     scm = repo.scm
 
     head_ref = scm.head_ref()
@@ -1110,7 +1110,7 @@ def test_automation_job_tag_retag_success_git(
     automation_worker: AutomationWorker,
     automation_job: Callable,
 ):
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
     scm = repo.scm
 
     active_mock(scm, "push")
@@ -1183,7 +1183,7 @@ def test_automation_job_tag_success_git_new_commit(
     git_patch: Callable,
     automation_job: Callable,
 ):
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
     scm = repo.scm
 
     # Create a new commit that will be tagged
@@ -1235,7 +1235,7 @@ def test_automation_job_tag_failure_git(
     git_patch: Callable,
     automation_job: Callable,
 ):
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
 
     # Create a new commit that will be tagged
     create_git_commit(Path(repo.system_path))
@@ -1275,7 +1275,7 @@ def test_create_and_push_to_new_relbranch(
     git_patch,
 ):
     user, token = headless_user
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
     scm = repo.scm
 
     # Create a base commit (HEAD)
@@ -1410,7 +1410,7 @@ def test_push_to_existing_relbranch(
     git_patch,
 ):
     user, token = headless_user
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
     scm = repo.scm
 
     relbranch_name = "FIREFOX_ESR_999_99_X_RELBRANCH"
@@ -1526,7 +1526,7 @@ def test_resolve_push_target_from_relbranch(
     expected_push_target,
     automation_job,
 ):
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
 
     # Set the push target to a default for the no-relbranch case.
     repo.push_target = "default_target"
@@ -1641,7 +1641,7 @@ def test_token_prefix_collision(monkeypatch, headless_user):
 def test_get_repo_info_success(client, headless_user, repo_mc):
     user, token = headless_user
 
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
 
     response = client.get(
         f"/api/repoinfo/{repo.short_name}",

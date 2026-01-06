@@ -12,7 +12,7 @@ from django.utils.translation import gettext_lazy
 from lando.main.models.base import BaseModel
 from lando.main.models.commit_map import CommitMap
 from lando.main.models.repo import Repo
-from lando.main.scm.consts import SCM_TYPE_HG
+from lando.main.scm.consts import SCMType
 
 logger = logging.getLogger(__name__)
 
@@ -214,10 +214,10 @@ class BaseJob(BaseModel):
         if not self.landed_commit_id:
             return None
 
-        if self.target_repo.scm_type == SCM_TYPE_HG:
+        if self.target_repo.scm_type == SCMType.HG:
             return self.landed_commit_id
 
-        # SCM_TYPE_GIT
+        # SCMType.GIT
         try:
             return CommitMap.git2hg(
                 self.target_repo.git_repo_name, self.landed_commit_id

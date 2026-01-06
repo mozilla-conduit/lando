@@ -11,7 +11,7 @@ from lando.api.tests.mocks import TreeStatusDouble
 from lando.main import scm
 from lando.main.models import JobStatus, LandingJob
 from lando.main.models.commit_map import CommitMap
-from lando.main.scm import SCM_TYPE_GIT
+from lando.main.scm import SCMType
 
 
 @pytest.mark.django_db
@@ -22,12 +22,12 @@ def test_queued_landing_job_view(
     landing_worker_instance: Callable,
     make_landing_job: Callable,
 ):
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
     treestatusdouble.close_tree(repo.name)
 
     # We need a landing worker to exist so the queue can be built, but we don't use it
     # directly in the test.
-    landing_worker_instance(scm.SCM_TYPE_GIT)
+    landing_worker_instance(scm.SCMType.GIT)
 
     jobs = [
         make_landing_job(target_repo=repo, status=JobStatus.SUBMITTED) for _ in range(3)
@@ -61,12 +61,12 @@ def test_landed_landing_job_view(
     cmap = commit_maps[0]
 
     # This test assumes that the URL of the repo_mc matches commit_maps[].git_repo_name.
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
     treestatusdouble.close_tree(repo.name)
 
     # We need a landing worker to exist so the queue can be built, but we don't use it
     # directly in the test.
-    landing_worker_instance(scm.SCM_TYPE_GIT)
+    landing_worker_instance(scm.SCMType.GIT)
 
     job = make_landing_job(
         target_repo=repo, status=JobStatus.LANDED, landed_commit_id=cmap.git_hash
@@ -194,7 +194,7 @@ def test_error_landing_job_view(
     error: str,
     error_breakdown: str,
 ):
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
     treestatusdouble.close_tree(repo.name)
 
     job = make_landing_job(
@@ -251,7 +251,7 @@ def test_landing_revision_redirect(
     make_landing_job: Callable,
 ):
     # Create a job and actions
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
     jobs = [make_landing_job(target_repo=repo, status=JobStatus.SUBMITTED)]
 
     job = jobs[0]

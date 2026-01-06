@@ -37,7 +37,7 @@ from lando.main.models.uplift import (
     UpliftJob,
     UpliftSubmission,
 )
-from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
+from lando.main.scm import SCMType
 from lando.main.support import LegacyAPIException
 from lando.utils.phabricator import PhabricatorClient
 
@@ -225,7 +225,7 @@ def mock_repo_config(monkeypatch):
 def hg_landing_worker(landing_worker_instance):
     worker = landing_worker_instance(
         name="test-hg-worker",
-        scm=SCM_TYPE_HG,
+        scm=SCMType.HG,
     )
     return LandingWorker(worker)
 
@@ -234,7 +234,7 @@ def hg_landing_worker(landing_worker_instance):
 def git_landing_worker(landing_worker_instance):
     worker = landing_worker_instance(
         name="test-git-worker",
-        scm=SCM_TYPE_GIT,
+        scm=SCMType.GIT,
     )
     return LandingWorker(worker)
 
@@ -242,8 +242,8 @@ def git_landing_worker(landing_worker_instance):
 @pytest.fixture
 def get_landing_worker(hg_landing_worker, git_landing_worker):
     workers = {
-        SCM_TYPE_GIT: git_landing_worker,
-        SCM_TYPE_HG: hg_landing_worker,
+        SCMType.GIT: git_landing_worker,
+        SCMType.HG: hg_landing_worker,
     }
 
     def _get_landing_worker(scm_type):
@@ -256,7 +256,7 @@ def get_landing_worker(hg_landing_worker, git_landing_worker):
 def uplift_worker(landing_worker_instance, treestatusdouble):
     worker = landing_worker_instance(
         name="uplift-worker-git",
-        scm=SCM_TYPE_GIT,
+        scm=SCMType.GIT,
     )
     return UpliftWorker(worker)
 
@@ -500,9 +500,9 @@ def authenticated_client(user, user_plaintext_password, client):
 
 
 @pytest.fixture
-def make_uplift_job_with_revisions() -> (
-    Callable[[Repo, User, list[Revision]], UpliftJob]
-):
+def make_uplift_job_with_revisions() -> Callable[
+    [Repo, User, list[Revision]], UpliftJob
+]:
     """Create assessment, multi-request, revisions, and a single UpliftJob associated to them."""
 
     def _make_uplift_job_with_revisions(

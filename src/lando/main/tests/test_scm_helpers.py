@@ -5,7 +5,7 @@ from typing import Callable
 
 import pytest
 
-from lando.main.scm.consts import SCM_TYPE_GIT, SCM_TYPE_HG
+from lando.main.scm.consts import SCMType
 from lando.main.scm.git import GitSCM
 from lando.main.scm.helpers import (
     GitPatchHelper,
@@ -473,7 +473,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
     assert buf.getvalue() == patch_text
 
 
-@pytest.mark.parametrize("repo_type", (SCM_TYPE_GIT, SCM_TYPE_HG))
+@pytest.mark.parametrize("repo_type", (SCMType.GIT, SCMType.HG))
 def test_scm_get_patch_helpers_for_commits(
     tmp_path: Path,
     git_repo: Path,
@@ -482,12 +482,12 @@ def test_scm_get_patch_helpers_for_commits(
     create_scm_commit: Callable,
     repo_type: str,
 ):
-    if repo_type == SCM_TYPE_GIT:
+    if repo_type == SCMType.GIT:
         clone_path = tmp_path / request.node.name
         clone_path.mkdir()
         scm = GitSCM(str(clone_path))
         scm.clone(str(git_repo))
-    elif repo_type == SCM_TYPE_HG:
+    elif repo_type == SCMType.HG:
         clone_path = hg_clone
         scm = HgSCM(str(hg_clone))
     else:
@@ -500,9 +500,9 @@ def test_scm_get_patch_helpers_for_commits(
         first_commit = scm.head_ref()
 
         # The SCMs don't have a plain checkout method, but that's what we need here.
-        if repo_type == SCM_TYPE_GIT:
+        if repo_type == SCMType.GIT:
             scm._git_run("checkout", "-b", "new-branch", "origin/main", cwd=scm.path)
-        elif repo_type == SCM_TYPE_HG:
+        elif repo_type == SCMType.HG:
             scm.run_hg(["up", base_commit])
 
         create_scm_commit(clone_path)
@@ -515,7 +515,7 @@ def test_scm_get_patch_helpers_for_commits(
         # Flatten the filter() Iterable, so we can count the number of elements.
         patch_helpers = list(scm.get_patch_helpers_for_commits(new_commits))
 
-        if repo_type != SCM_TYPE_HG:
+        if repo_type != SCMType.HG:
             # See bug 1998051 for an issue with HG.
             assert (
                 len(patch_helpers) == 2

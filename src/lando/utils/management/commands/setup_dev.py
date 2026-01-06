@@ -6,7 +6,7 @@ from django.core.management.base import BaseCommand, CommandError
 from lando.environments import Environment
 from lando.main.models import Repo, Worker
 from lando.main.models.worker import WorkerType
-from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
+from lando.main.scm import SCMType
 
 
 class Command(BaseCommand):
@@ -16,12 +16,12 @@ class Command(BaseCommand):
         """Ensure a git and an hg worker exist on the local environment."""
         # Set up workers for each SCM. Historically, the worker with no suffix is the landing worker.
         worker_scm_types = {
-            SCM_TYPE_GIT: {
+            SCMType.GIT: {
                 WorkerType.LANDING: "",
                 WorkerType.AUTOMATION: "-automation-worker",
                 WorkerType.UPLIFT: "-uplift-worker",
             },
-            SCM_TYPE_HG: {
+            SCMType.HG: {
                 WorkerType.LANDING: "",
             },
         }
