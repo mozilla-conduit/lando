@@ -3,6 +3,7 @@ import io
 import logging
 from typing import Annotated
 
+from django.core.exceptions import PermissionDenied
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse, HttpResponsePermanentRedirect
 from django.shortcuts import redirect
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 api = NinjaAPI(auth=PermissionAccessTokenAuth(SCM_LEVEL_1), urls_namespace="try")
 
 
-@api.exception_handler(Exception)
+@api.exception_handler(PermissionDenied)
 def on_permission_denied(request: WSGIRequest, exc: Exception) -> HttpResponse:
     """Create a 403 JSON response when the API raises a PermissionDenied."""
     return api.create_response(request, {"details": str(exc)}, status=403)

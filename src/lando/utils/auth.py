@@ -75,8 +75,10 @@ class PermissionAccessTokenAuth(AccessTokenAuth):
     @override
     def authenticate(self, request: WSGIRequest, token: str) -> User:
         user = super().authenticate(request, token)
-        # XXX Check the user's own permissions, not delegated from other roles.
-        if user.has_perm(self.required_permission):
+        # Only check the user's own permission; don't allow delegation from groups or
+        # roles.
+        if self.required_permission in user.get_user_permissions():
+            request.user = user
             return user
         raise PermissionDenied(f"Missing permissions: {self.required_permission}")
 
