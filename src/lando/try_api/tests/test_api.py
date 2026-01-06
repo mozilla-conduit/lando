@@ -174,7 +174,7 @@ def test_try_api_patches_success(
         json=request_payload,
         # The value of the token doesn't actually matter, as the output is controlled by
         # the authenticator function, which we mock to return a User.
-        headers={"AuThOrIzAtIoN": "bEaReR token"},
+        headers={"AuThOrIzAtIoN": "bEaReR token success"},
     )
 
     assert mock_authenticate.called, "Authentication backend should be called"
