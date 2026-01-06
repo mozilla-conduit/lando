@@ -6,7 +6,7 @@ import sentry_sdk
 from django.db import IntegrityError, models
 
 from lando.main.models.base import BaseModel
-from lando.main.scm.consts import SCM_TYPE_GIT, SCM_TYPE_HG
+from lando.main.scm.consts import SCMType
 
 logger = logging.getLogger(__name__)
 
@@ -63,20 +63,20 @@ class CommitMap(BaseModel):
     @classmethod
     def git2hg(cls, git_repo_name: str, commit_hash: str) -> str:
         """Return Hg hash for the given repo and Git hash."""
-        map = cls.map_hash_from(SCM_TYPE_GIT, git_repo_name, commit_hash)
+        map = cls.map_hash_from(SCMType.GIT, git_repo_name, commit_hash)
         return map.hg_hash
 
     @classmethod
     def hg2git(cls, git_repo_name: str, commit_hash: str) -> str:
         """Return Git hash for the given repo and Hg hash."""
-        map = cls.map_hash_from(SCM_TYPE_HG, git_repo_name, commit_hash)
+        map = cls.map_hash_from(SCMType.HG, git_repo_name, commit_hash)
         return map.git_hash
 
     @classmethod
     def map_hash_from(
         cls, src_scm: str, git_repo_name: str, src_commit_hash: str
     ) -> Self:
-        """Return destination hash for the given repo and source (SCM_TYPE_*) hash.
+        """Return destination hash for the given repo and source (SCMType.*) hash.
 
         This method can raise CommitMap.DoesNotExist.
         """
