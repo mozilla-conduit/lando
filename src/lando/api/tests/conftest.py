@@ -500,9 +500,9 @@ def authenticated_client(user, user_plaintext_password, client):
 
 
 @pytest.fixture
-def make_uplift_job_with_revisions() -> Callable[
-    [Repo, User, list[Revision]], UpliftJob
-]:
+def make_uplift_job_with_revisions() -> (
+    Callable[[Repo, User, list[Revision]], UpliftJob]
+):
     """Create assessment, multi-request, revisions, and a single UpliftJob associated to them."""
 
     def _make_uplift_job_with_revisions(
