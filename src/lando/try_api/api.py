@@ -4,7 +4,7 @@ import logging
 from typing import Annotated
 
 from django.core.handlers.wsgi import WSGIRequest
-from django.http import HttpResponse, HttpResponsePermanentRedirect, JsonResponse
+from django.http import HttpResponse, HttpResponsePermanentRedirect
 from django.shortcuts import redirect
 from ninja import NinjaAPI, Schema
 from pydantic import Field, StringConstraints
