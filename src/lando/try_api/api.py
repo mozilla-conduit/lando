@@ -161,7 +161,7 @@ def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]
         target_repo=repo,
         requester_email=request.auth.email,
         target_commit_hash=target_commit_hash,
-        status=JobStatus.SUBMITTED,
+        status=JobStatus.CREATED,
         priority=-10,
     )
 
