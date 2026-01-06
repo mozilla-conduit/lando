@@ -197,6 +197,9 @@ def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]
     try_job.add_revisions(revisions)
     try_job.sort_revisions(revisions)
 
+    try_job.status = JobStatus.SUBMITTED
+    try_job.save()
+
     return 201, JobResponse(
         id=try_job.id,
     )
