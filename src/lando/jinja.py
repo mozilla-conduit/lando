@@ -21,9 +21,7 @@ from lando.treestatus.models import (
 from lando.ui.legacy.forms import UserSettingsForm
 
 FAQ_URL = "https://wiki.mozilla.org/Phabricator/FAQ#Lando"
-SEC_BUG_DOCS = (
-    "https://firefox-source-docs.mozilla.org/bug-mgmt/processes/security-approval.html"  # noqa: E501
-)
+SEC_BUG_DOCS = "https://firefox-source-docs.mozilla.org/bug-mgmt/processes/security-approval.html"  # noqa: E501
 
 logger = logging.getLogger(__name__)
 
