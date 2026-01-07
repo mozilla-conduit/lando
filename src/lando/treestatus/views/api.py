@@ -14,7 +14,7 @@ from django.core.handlers.wsgi import WSGIRequest
 from django.db.models import OuterRef, Subquery
 from django.db.utils import IntegrityError
 from ninja import NinjaAPI, Schema
-from ninja.responses import Response, codes_4xx
+from ninja.responses import codes_4xx
 
 from lando.treestatus.models import (
     CombinedTree,
@@ -33,23 +33,15 @@ from lando.utils.exceptions import (
     NotFoundProblemException,
     ProblemDetail,
     ProblemException,
+    problem_exception_handler,
 )
 
 logger = logging.getLogger(__name__)
 
 treestatus_api = NinjaAPI(auth=None, urls_namespace="treestatus-api")
+treestatus_api.exception_handler(ProblemException)(problem_exception_handler)
 
 TREE_SUMMARY_LOG_LIMIT = 5
-
-
-@treestatus_api.exception_handler(ProblemException)
-def problem_exception_handler(request: WSGIRequest, exc: ProblemException) -> Response:
-    """Convert a thrown `ProblemException` to a response."""
-    return Response(
-        exc.to_response(),
-        status=exc.status_code,
-        content_type="application/problem+json",
-    )
 
 
 # Generic type variable for the data contained in a result field.
