@@ -13,6 +13,12 @@
                 <strong>Landing Job:</strong>
                 <a href="{{ url('jobs-page', args=[job.id]) }}">{{ job.id }}</a>
             </p>
+        {% elif has_revisions and job.is_pull_request_job %}
+            {% set top_revision = job.revisions[0] %}
+            <p>
+                <strong>Pull request:</strong>
+                <a href="{{ url('pull-request', args=[job.target_repo.name, top_revision.pull_number]) }}">{{ job.target_repo.name }}#{{ top_revision.pull_number }}</a>
+            </p>
         {% elif has_revisions %}
             {% set top_revision = job.revisions[0] %}
             {% if top_revision.revision_id %}
@@ -27,7 +33,7 @@
                 <strong>Revisions:</strong>
                 {% for i in job.serialized_landing_path -%}
                     {{- "" if loop.first else " ← " -}}
-                    <a href="{{ i['revision_id']|revision_url(diff_id=i['diff_id']) }}">
+                    <a href="{{ i['revision_id']|phabricator_revision_url(diff_id=i['diff_id']) }}">
                         {{ i['revision_id'] }}
                         {% if i['diff_id'] %}diff {{ i['diff_id'] }}{% endif %}
                     </a>
