@@ -82,7 +82,7 @@ class JobResponse(Schema):
 
 
 @api.post(
-    "/api/patches",
+    "/patches",
     summary="Submit a set of patches to the Try server.",
     url_name="api-patches",
     response={201: JobResponse, 400: ProblemDetail, 404: ProblemDetail},
