@@ -96,13 +96,12 @@ class NotFoundProblemException(ProblemException):
             status=404,
         )
 
-
 def problem_exception_handler(request: WSGIRequest, exc: ProblemException) -> Response:
     """Convert a thrown `ProblemException` to a response.
 
     To install for your API, use the following syntax:
 
-        api = NinjaAPI(...)
+        api = NinjaAPI(auth=None, urls_namespace="treestatus-api")
         api.exception_handler(ProblemException)(problem_exception_handler)
     """
     return Response(
