@@ -14,7 +14,7 @@ from typing import Iterable
 import pytest
 import requests
 from django.conf import settings
-from django.contrib.auth.models import Permission, User
+from django.contrib.auth.models import Group, Permission, User
 from django.contrib.contenttypes.models import ContentType
 from ninja import NinjaAPI
 from ninja.testing import TestClient
@@ -970,7 +970,11 @@ def landing_worker_instance(mocked_repo_config) -> Callable:
 
 @pytest.fixture
 def scm_user() -> Callable:
-    def scm_user(perms: list[Permission], password: str = "password") -> User:
+    def scm_user(
+        perms: list[Permission],
+        password: str = "password",
+        group_perms: list[Permission] | None = None,
+    ) -> User:
         """Return a user with the selected Permissions and password."""
         user = User.objects.create_user(
             username="test_user",
@@ -982,6 +986,13 @@ def scm_user() -> Callable:
 
         for permission in perms:
             user.user_permissions.add(permission)
+
+        if group_perms:
+            group = Group.objects.create(
+                name="test group",
+            )
+            group.permissions.set(group_perms)
+            user.groups.add(group)
 
         user.save()
         user.profile.save()
