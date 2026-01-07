@@ -19,7 +19,13 @@ from lando.main.models.revision import Revision
 from lando.main.scm.consts import SCMType
 from lando.main.scm.helpers import PATCH_HELPER_MAPPING, PatchFormat
 from lando.utils.auth import AccessTokenAuth, PermissionAccessTokenAuth
-from lando.utils.exceptions import ProblemDetail
+from lando.utils.exceptions import (
+    BadRequestProblemException,
+    ForbiddenProblemException,
+    ProblemDetail,
+    ProblemException,
+    problem_exception_handler,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +33,14 @@ api = NinjaAPI(auth=PermissionAccessTokenAuth(SCM_LEVEL_1), urls_namespace="try"
 
 
 @api.exception_handler(PermissionDenied)
-def on_permission_denied(request: WSGIRequest, exc: Exception) -> HttpResponse:
+def on_permission_denied(request: WSGIRequest, exc: PermissionDenied) -> HttpResponse:
     """Create a 403 JSON response when the API raises a PermissionDenied."""
-    return api.create_response(request, {"details": str(exc)}, status=403)
+    return problem_exception_handler(
+        request, ForbiddenProblemException.from_permission_denied(exc)
+    )
+
+
+api.exception_handler(ProblemException)(problem_exception_handler)
 
 
 Base64Patch = Annotated[
@@ -168,19 +179,31 @@ def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]
     revisions = []
     patch_helper_class = PATCH_HELPER_MAPPING[patches.patch_format]
 
-    for patch_data in patches.patches:
+    for patch_no, patch_data in enumerate(patches.patches):
         # Decode the base64 patch data to bytes
-        decoded_patch_bytes = base64.b64decode(patch_data)
+        try:
+            decoded_patch_bytes = base64.b64decode(patch_data)
+        except Exception as exc:
+            raise BadRequestProblemException(
+                title="Invalid base64 patch data",
+                detail=f"Invalid base64 data for patch {patch_no}: {exc}",
+            ) from exc
 
         # Create PatchHelper instance to parse the patch
         patch_io = io.BytesIO(decoded_patch_bytes)
-        patch_helper = patch_helper_class.from_bytes_io(patch_io)
+        try:
+            patch_helper = patch_helper_class.from_bytes_io(patch_io)
 
-        # Extract patch information using PatchHelper
-        author_name, author_email = patch_helper.parse_author_information()
-        commit_message = patch_helper.get_commit_description()
-        timestamp = patch_helper.get_timestamp()
-        diff = patch_helper.get_diff()
+            # Extract patch information using PatchHelper
+            author_name, author_email = patch_helper.parse_author_information()
+            commit_message = patch_helper.get_commit_description()
+            timestamp = patch_helper.get_timestamp()
+            diff = patch_helper.get_diff()
+        except ValueError as exc:
+            raise BadRequestProblemException(
+                title="Invalid patch data",
+                detail=f"Invalid patch data for patch {patch_no}: {exc}",
+            ) from exc
 
         revision = Revision.new_from_patch(
             raw_diff=diff,

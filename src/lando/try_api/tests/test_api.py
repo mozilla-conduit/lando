@@ -110,6 +110,13 @@ def test_try_api_patches_no_scm1(
         response.status_code == 403
     ), "Missing permissions to legacy Try API should result in 403"
 
+    rj = response.json()
+    assert rj, "Error response should be a parseable (RFC 7807) JSON payload"
+    assert "title" in rj, f"Missing title in error 400 response: {response.text}"
+    assert rj["title"] == "Forbidden"
+    assert "detail" in rj, f"Missing detail in error 400 response: {response.text}"
+    assert rj["detail"] == "Missing permissions: main.scm_level_1"
+
 
 @pytest.mark.django_db()
 @patch("lando.utils.auth.AccessTokenAuth.authenticate")
@@ -147,6 +154,64 @@ def test_try_api_patches_not_try(
     assert (
         response.status_code == 400
     ), "Request to Try API for non-try report should result in 400"
+
+
+@pytest.mark.django_db()
+@pytest.mark.parametrize("invalid_base64", (False, True))
+@patch("lando.utils.auth.AccessTokenAuth.authenticate")
+def test_try_api_patches_invalid_data(
+    mock_authenticate: Mock,
+    mocked_repo_config: Mock,
+    scm_user: Callable,
+    to_profile_permissions: Callable,
+    commit_maps: list[CommitMap],
+    git_patch: Callable,
+    client: Client,
+    invalid_base64: bool,
+):
+    user = scm_user(to_profile_permissions(["scm_level_1"]), "password")
+    mock_authenticate.return_value = user
+
+    for map in commit_maps:
+        # This is hardcoded for now.
+        map.git_repo_name = "firefox"
+        map.save()
+
+    bad_patch = base64.b64encode("bad patch".encode()).decode()
+    if invalid_base64:
+        bad_patch = "notbase64butlookslikeit"
+
+    request_payload = {
+        # "repo": "some",  # defaults to try, from the mocked_repo_config
+        "base_commit": commit_maps[0].git_hash,
+        "base_commit_vcs": "git",
+        "patches": [base64.b64encode(git_patch(0).encode()).decode(), bad_patch],
+        "patch_format": "git-format-patch",
+    }
+
+    response = client.post(
+        "/api/try/patches",
+        data=json.dumps(request_payload),
+        content_type="application/json",
+        # The value of the token doesn't actually matter, as the output is controlled by
+        # the authenticator function, which we mock to return a User.
+        headers={"AuThOrIzAtIoN": "bEaReR token success"},
+    )
+
+    assert mock_authenticate.called, "Authentication backend should be called"
+    assert (
+        response.status_code == 400
+    ), f"Valid request to Try API with incorrect patch data should result in 400: {response.text}"
+
+    rj = response.json()
+    assert "title" in rj, f"Missing title in error 400 response: {response.text}"
+    assert "detail" in rj, f"Missing detail in error 400 response: {response.text}"
+    if invalid_base64:
+        assert rj["title"] == "Invalid base64 patch data"
+        assert rj["detail"].startswith("Invalid base64 data for patch 1")
+    else:
+        assert rj["title"] == "Invalid patch data"
+        assert rj["detail"].startswith("Invalid patch data for patch 1")
 
 
 @pytest.mark.django_db()
