@@ -1,28 +1,30 @@
 import base64
+import json
 from typing import Callable
 from unittest.mock import Mock, patch
 
 import pytest
-from django.core.exceptions import PermissionDenied
+from django.test.client import Client
 
 from lando.main.models.commit_map import CommitMap
 from lando.main.models.jobs import JobStatus
 from lando.main.models.landing_job import LandingJob
 from lando.main.models.repo import Repo
-from lando.try_api.api import api, legacy_api
 
 
+@pytest.mark.django_db()
 @patch("lando.try_api.api.AccessTokenAuth.authenticate")
 def test_legacy_try_patches_invalid_user(
     mock_authenticate: Mock,
-    ninja_api_client: Callable,
+    client: Client,
 ):
     mock_authenticate.return_value = None
 
-    response = ninja_api_client(legacy_api).post(
-        "/patches",
+    response = client.post(
+        "/try/patches",
         # This payload doesn't matter, as we only check authentication.
-        json={},
+        data="{}",
+        content_type="application/json",
         # The value of the token doesn't actually matter, as the output is controlled by
         # the authenticator function, which we mock to return None, as a failure to
         # authenticate the user.
@@ -39,12 +41,13 @@ def test_legacy_try_patches_invalid_user(
 @patch("lando.try_api.api.AccessTokenAuth.authenticate")
 def test_legacy_try_patches_auth_redirect(
     mock_authenticate: Mock,
-    ninja_api_client: Callable,
+    client: Client,
 ):
-    response = ninja_api_client(legacy_api).post(
-        "/patches",
+    response = client.post(
+        "/try/patches",
         # This payload doesn't matter, as we only check the redirection.
-        json={},
+        data="{}",
+        content_type="application/json",
         # The value of the token doesn't actually matter, as the output is controlled by
         # the authenticator function, which is just a non-failing mock.
         headers={"AuThOrIzAtIoN": "bEaReR token"},
@@ -56,17 +59,19 @@ def test_legacy_try_patches_auth_redirect(
     ), "Valid token to legacy Try API should result in 308"
 
 
+@pytest.mark.django_db()
 @patch("lando.utils.auth.AccessTokenAuth.authenticate")
 def test_try_api_patches_invalid_user(
     mock_authenticate: Mock,
-    ninja_api_client: Callable,
+    client: Client,
 ):
     mock_authenticate.return_value = None
 
-    response = ninja_api_client(legacy_api).post(
-        "/patches",
+    response = client.post(
+        "/try/patches",
         # This payload doesn't matter, as we only check authentication.
-        json={},
+        data="{}",
+        content_type="application/json",
         # The value of the token doesn't actually matter, as the output is controlled by
         # the authenticator function, which we mock to return None, as a failure to
         # authenticate the user.
@@ -83,23 +88,27 @@ def test_try_api_patches_no_scm1(
     mock_authenticate: Mock,
     scm_user: Callable,
     to_profile_permissions: Callable,
-    ninja_api_client: Callable,
+    client: Client,
 ):
     user = scm_user(to_profile_permissions([]), "password")
     mock_authenticate.return_value = user
 
-    with pytest.raises(PermissionDenied, match="Missing permissions: main.scm_level_1"):
-        ninja_api_client(api).post(
-            "/api/patches",
-            # This payload doesn't matter, as we only check authentication.
-            json={},
-            # The value of the token doesn't actually matter, as the output is controlled by
-            # the authenticator function, which we mock to return None, as a failure to
-            # authenticate the user.
-            headers={"AuThOrIzAtIoN": "bEaReR token no_scm1"},
-        )
+    response = client.post(
+        "/api/try/patches",
+        # This payload doesn't matter, as we only check authentication.
+        data="{}",
+        content_type="application/json",
+        # The value of the token doesn't actually matter, as the output is controlled by
+        # the authenticator function, which we mock to return None, as a failure to
+        # authenticate the user.
+        headers={"AuThOrIzAtIoN": "bEaReR token no_scm1"},
+    )
 
     assert mock_authenticate.called, "Authentication backend should be called"
+
+    assert (
+        response.status_code == 403
+    ), "Missing permissions to legacy Try API should result in 403"
 
 
 @pytest.mark.django_db()
@@ -109,7 +118,7 @@ def test_try_api_patches_not_try(
     mocked_repo_config: Mock,
     scm_user: Callable,
     to_profile_permissions: Callable,
-    ninja_api_client: Callable,
+    client: Client,
 ):
     user = scm_user(to_profile_permissions(["scm_level_1"]), "password")
     mock_authenticate.return_value = user
@@ -125,9 +134,10 @@ def test_try_api_patches_not_try(
         "patch_format": "git-format-patch",
     }
 
-    response = ninja_api_client(api).post(
-        "/api/patches",
-        json=request_payload,
+    response = client.post(
+        "/api/try/patches",
+        data=json.dumps(request_payload),
+        content_type="application/json",
         # The value of the token doesn't actually matter, as the output is controlled by
         # the authenticator function, which we mock to return a User.
         headers={"AuThOrIzAtIoN": "bEaReR token not_try"},
@@ -148,7 +158,7 @@ def test_try_api_patches_success(
     to_profile_permissions: Callable,
     commit_maps: list[CommitMap],
     git_patch: Callable,
-    ninja_api_client: Callable,
+    client: Client,
 ):
     user = scm_user(to_profile_permissions(["scm_level_1"]), "password")
     mock_authenticate.return_value = user
@@ -169,9 +179,10 @@ def test_try_api_patches_success(
         "patch_format": "git-format-patch",
     }
 
-    response = ninja_api_client(api).post(
-        "/api/patches",
-        json=request_payload,
+    response = client.post(
+        "/api/try/patches",
+        data=json.dumps(request_payload),
+        content_type="application/json",
         # The value of the token doesn't actually matter, as the output is controlled by
         # the authenticator function, which we mock to return a User.
         headers={"AuThOrIzAtIoN": "bEaReR token success"},
