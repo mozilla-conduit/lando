@@ -133,7 +133,7 @@ def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]
             title="Repository not found", detail=error, status=status
         )
 
-    if not repo.try_enabled:
+    if not repo.is_try:
         status = 400
         error = f"Repo {repo_name} is not a Try repository."
         logger.info(

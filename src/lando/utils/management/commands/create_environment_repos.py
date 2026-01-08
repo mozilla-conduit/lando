@@ -116,7 +116,7 @@ REPOS = {
             "is_phabricator_repo": False,
             "force_push": True,
             "automation_enabled": False,
-            "try_enabled": True,
+            "is_try": True,
             "hooks_enabled": True,
             # Set difference takes precedence over set union.
             "hooks": list(
@@ -165,7 +165,7 @@ REPOS = {
             "required_permission": SCM_LEVEL_1,
             "short_name": "firefox-try",
             "is_phabricator_repo": False,
-            "try_enabled": True,
+            "is_try": True,
             "hooks_enabled": True,
             # Set difference takes precedence over set union.
             "hooks": list(

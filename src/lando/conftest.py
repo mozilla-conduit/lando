@@ -805,7 +805,7 @@ def mocked_repo_config(mock_repo_config):
         required_permission=SCM_LEVEL_1,
         short_name="try",
         is_phabricator_repo=False,
-        try_enabled=True,
+        is_try=True,
         force_push=True,
     )
     # Copied from legacy "local-dev". Should have been in mocked repos.

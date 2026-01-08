@@ -27,8 +27,6 @@ DONTBUILD = (
     ),
 )
 
-TRY_REPO_NAMES = ("try",)
-
 
 def validate_path_in_repo_root(value: str):
     path = Path(value)
@@ -100,10 +98,6 @@ class Repo(BaseModel):
     @property
     def path(self) -> str:
         return str(self.system_path) or self.get_system_path()
-
-    @property
-    def is_try(self) -> bool:
-        return self.name in TRY_REPO_NAMES
 
     # TODO: help text for fields below.
     name = models.CharField(max_length=255, unique=True)
@@ -202,7 +196,7 @@ class Repo(BaseModel):
     automation_enabled = models.BooleanField(default=False)
 
     # Use this field to enable/disable access to this repo via the try API.
-    try_enabled = models.BooleanField(default=False)
+    is_try = models.BooleanField(default=False)
 
     # Use this field to enable/disable pre-landing hooks for a repo.
     hooks_enabled = models.BooleanField(default=True)
