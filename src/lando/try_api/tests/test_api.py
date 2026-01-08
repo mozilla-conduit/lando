@@ -12,24 +12,32 @@ from lando.main.models.landing_job import LandingJob
 from lando.main.models.repo import Repo
 
 
+@pytest.fixture
+def client_post(client: Client) -> Callable:
+    """Fixture for making POST requests with the test client."""
+
+    def _post(
+        path: str,
+        data: str = "{}",
+        content_type: str = "application/json",
+        headers: dict | None = None,
+    ):
+        if headers is None:
+            headers = {"AuThOrIzAtIoN": "bEaReR token"}
+        return client.post(path, data=data, content_type=content_type, headers=headers)
+
+    return _post
+
+
 @pytest.mark.django_db()
 @patch("lando.try_api.api.AccessTokenAuth.authenticate")
 def test_legacy_try_patches_invalid_user(
     mock_authenticate: Mock,
-    client: Client,
+    client_post: Callable,
 ):
     mock_authenticate.return_value = None
 
-    response = client.post(
-        "/try/patches",
-        # This payload doesn't matter, as we only check authentication.
-        data="{}",
-        content_type="application/json",
-        # The value of the token doesn't actually matter, as the output is controlled by
-        # the authenticator function, which we mock to return None, as a failure to
-        # authenticate the user.
-        headers={"AuThOrIzAtIoN": "bEaReR token"},
-    )
+    response = client_post("/try/patches")
 
     assert mock_authenticate.called, "Authentication backend should be called"
     assert (
@@ -41,17 +49,9 @@ def test_legacy_try_patches_invalid_user(
 @patch("lando.try_api.api.AccessTokenAuth.authenticate")
 def test_legacy_try_patches_auth_redirect(
     mock_authenticate: Mock,
-    client: Client,
+    client_post: Callable,
 ):
-    response = client.post(
-        "/try/patches",
-        # This payload doesn't matter, as we only check the redirection.
-        data="{}",
-        content_type="application/json",
-        # The value of the token doesn't actually matter, as the output is controlled by
-        # the authenticator function, which is just a non-failing mock.
-        headers={"AuThOrIzAtIoN": "bEaReR token"},
-    )
+    response = client_post("/try/patches")
 
     assert mock_authenticate.called, "Authentication backend should be called"
     assert (
@@ -63,20 +63,11 @@ def test_legacy_try_patches_auth_redirect(
 @patch("lando.utils.auth.AccessTokenAuth.authenticate")
 def test_try_api_patches_invalid_user(
     mock_authenticate: Mock,
-    client: Client,
+    client_post: Callable,
 ):
     mock_authenticate.return_value = None
 
-    response = client.post(
-        "/try/patches",
-        # This payload doesn't matter, as we only check authentication.
-        data="{}",
-        content_type="application/json",
-        # The value of the token doesn't actually matter, as the output is controlled by
-        # the authenticator function, which we mock to return None, as a failure to
-        # authenticate the user.
-        headers={"AuThOrIzAtIoN": "bEaReR token"},
-    )
+    response = client_post("/try/patches")
 
     assert mock_authenticate.called, "Authentication backend should be called"
     assert response.status_code == 401, "Invalid token to Try API should result in 401"
@@ -89,7 +80,7 @@ def test_try_api_patches_no_scm1(
     mock_authenticate: Mock,
     scm_user: Callable,
     to_profile_permissions: Callable,
-    client: Client,
+    client_post: Callable,
     group_scm_1: bool,
 ):
     if group_scm_1:
@@ -102,14 +93,8 @@ def test_try_api_patches_no_scm1(
         user = scm_user(to_profile_permissions([]), "password")
     mock_authenticate.return_value = user
 
-    response = client.post(
+    response = client_post(
         "/api/try/patches",
-        # This payload doesn't matter, as we only check authentication.
-        data="{}",
-        content_type="application/json",
-        # The value of the token doesn't actually matter, as the output is controlled by
-        # the authenticator function, which we mock to return None, as a failure to
-        # authenticate the user.
         headers={"AuThOrIzAtIoN": "bEaReR token no_scm1"},
     )
 
@@ -134,7 +119,7 @@ def test_try_api_patches_not_try(
     mocked_repo_config: Mock,
     scm_user: Callable,
     to_profile_permissions: Callable,
-    client: Client,
+    client_post: Callable,
 ):
     user = scm_user(to_profile_permissions(["scm_level_1"]), "password")
     mock_authenticate.return_value = user
@@ -150,12 +135,9 @@ def test_try_api_patches_not_try(
         "patch_format": "git-format-patch",
     }
 
-    response = client.post(
+    response = client_post(
         "/api/try/patches",
         data=json.dumps(request_payload),
-        content_type="application/json",
-        # The value of the token doesn't actually matter, as the output is controlled by
-        # the authenticator function, which we mock to return a User.
         headers={"AuThOrIzAtIoN": "bEaReR token not_try"},
     )
 
@@ -175,7 +157,7 @@ def test_try_api_patches_invalid_data(
     to_profile_permissions: Callable,
     commit_maps: list[CommitMap],
     git_patch: Callable,
-    client: Client,
+    client_post: Callable,
     invalid_base64: bool,
 ):
     user = scm_user(to_profile_permissions(["scm_level_1"]), "password")
@@ -198,12 +180,9 @@ def test_try_api_patches_invalid_data(
         "patch_format": "git-format-patch",
     }
 
-    response = client.post(
+    response = client_post(
         "/api/try/patches",
         data=json.dumps(request_payload),
-        content_type="application/json",
-        # The value of the token doesn't actually matter, as the output is controlled by
-        # the authenticator function, which we mock to return a User.
         headers={"AuThOrIzAtIoN": "bEaReR token success"},
     )
 
@@ -232,7 +211,7 @@ def test_try_api_patches_success(
     to_profile_permissions: Callable,
     commit_maps: list[CommitMap],
     git_patch: Callable,
-    client: Client,
+    client_post: Callable,
 ):
     user = scm_user(to_profile_permissions(["scm_level_1"]), "password")
     mock_authenticate.return_value = user
@@ -253,12 +232,9 @@ def test_try_api_patches_success(
         "patch_format": "git-format-patch",
     }
 
-    response = client.post(
+    response = client_post(
         "/api/try/patches",
         data=json.dumps(request_payload),
-        content_type="application/json",
-        # The value of the token doesn't actually matter, as the output is controlled by
-        # the authenticator function, which we mock to return a User.
         headers={"AuThOrIzAtIoN": "bEaReR token success"},
     )
 
