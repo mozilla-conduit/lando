@@ -158,7 +158,7 @@ REPOS = {
         },
         # Use real `try` for testing since `try` is a testing environment anyway.
         {
-            "name": "firefox-try",
+            "name": "try",
             "url": "https://hg.mozilla.org/try",
             "push_path": "ssh://hg.mozilla.org/try",
             "pull_path": "https://hg.mozilla.org/mozilla-unified",
