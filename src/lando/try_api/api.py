@@ -124,7 +124,7 @@ def patches(
     try:
         repo = Repo.objects.get(name=repo_name)
     except Repo.DoesNotExist:
-        status = 404
+        status = 400
         error = f"Repo {repo_name} does not exist."
         logger.info(
             error,
