@@ -14,7 +14,7 @@ from pydantic import Field, StringConstraints
 from lando.main.models import Repo
 from lando.main.models.commit_map import CommitMap
 from lando.main.models.jobs import JobStatus
-from lando.main.models.landing_job import LandingJob
+from lando.main.models.landing_job import LandingJob, add_revisions_to_job
 from lando.main.models.profile import SCM_LEVEL_1
 from lando.main.models.revision import Revision
 from lando.main.scm.consts import SCMType
