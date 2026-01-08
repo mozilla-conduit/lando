@@ -52,7 +52,7 @@ Base64Patch = Annotated[
 class PatchesRequest(Schema):
     """Provide the content of the push for submission to Lando."""
 
-    repo: Annotated[
+    repo_name: Annotated[
         str,
         Field(description="The Try repository to push to, defaults to `try`"),
     ] = "try"
