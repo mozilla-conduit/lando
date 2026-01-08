@@ -111,10 +111,6 @@ class JobResponse(Schema):
                     "application/problem+json": {"schema": ProblemDetail.schema()}
                 },
             },
-            404: {
-                "description": "Repository not found.",
-                # "content": {"application/problem+json": {"schema": ProblemDetail}},
-            },
         }
     },
 )
