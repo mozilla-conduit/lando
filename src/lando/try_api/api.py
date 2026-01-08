@@ -178,7 +178,7 @@ def patches(
 
     # Create Revision objects from patches and associate them with the job
     revisions = []
-    patch_helper_class = PATCH_HELPER_MAPPING[patches.patch_format]
+    patch_helper_class = PATCH_HELPER_MAPPING[patches_request.patch_format]
 
     for patch_no, patch_data in enumerate(patches.patches):
         # Decode the base64 patch data to bytes
