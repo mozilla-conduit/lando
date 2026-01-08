@@ -148,8 +148,8 @@ def patches(
     # XXX: We'll need a more flexible way to set this.
     mapping_repo = "firefox"
 
-    target_commit_hash = patches.base_commit
-    if patches.base_commit_vcs != repo.scm_type:
+    target_commit_hash = patches_request.base_commit
+    if patches_request.base_commit_vcs != repo.scm_type:
         try:
             if repo.scm_type == SCMType.HG:
                 target_commit_hash = CommitMap.git2hg(mapping_repo, target_commit_hash)
