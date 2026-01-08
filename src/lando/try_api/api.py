@@ -115,8 +115,10 @@ class JobResponse(Schema):
         }
     },
 )
-def patches(request: WSGIRequest, patches: PatchesRequest) -> tuple[int, Schema]:
-    """Submit a set of patches to the Try server."""
+def patches(
+    request: WSGIRequest, patches_request: PatchesRequest
+) -> tuple[int, Schema]:
+    """Submit a new landing job to the provided try repo."""
     # Get the repo object.
     repo_name = patches.repo
     try:
