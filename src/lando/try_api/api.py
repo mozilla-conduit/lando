@@ -94,7 +94,7 @@ class JobResponse(Schema):
 
 @api.post(
     "/patches",
-    summary="Submit a set of patches to the Try server.",
+    summary="Submit a new landing job to the provided try repo.",
     url_name="api-patches",
     response={201: JobResponse, 400: ProblemDetail, 404: ProblemDetail},
     openapi_extra={
