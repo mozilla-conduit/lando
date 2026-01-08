@@ -102,7 +102,7 @@ class JobResponse(Schema):
             200: {
                 # XXX: This should not happen, but NinjaAPI does't let me disable this.
                 "description": "Not used.",
-                "content": {},
+                "content": None,
             },
             201: {"description": "Push was submitted successfully."},
             400: {
