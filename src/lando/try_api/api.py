@@ -184,7 +184,7 @@ def patches(
         # Decode the base64 patch data to bytes
         try:
             decoded_patch_bytes = base64.b64decode(patch_data)
-        except Exception as exc:
+        except binascii.Error as exc:
             raise BadRequestProblemException(
                 title="Invalid base64 patch data",
                 detail=f"Invalid base64 data for patch {patch_no}: {exc}",
