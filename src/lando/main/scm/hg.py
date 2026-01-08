@@ -178,7 +178,7 @@ class HgSCM(AbstractSCM):
 
     @classmethod
     @override
-    def scm_type(cls):  # noqa: ANN206
+    def scm_type(cls) -> SCMType:
         """Return a string identifying the supported SCM."""
         return SCMType.HG
 

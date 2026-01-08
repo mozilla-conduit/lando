@@ -79,7 +79,7 @@ class GitSCM(AbstractSCM):
 
     @classmethod
     @override
-    def scm_type(cls) -> str:  # noqa: ANN206
+    def scm_type(cls) -> SCMType:
         """Return a string identifying the supported SCM."""
         return SCMType.GIT
 

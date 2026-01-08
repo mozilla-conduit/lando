@@ -37,8 +37,6 @@ __all__ = [
     "CommitData",
     # consts
     "COMMIT_ID_HEX_LENGTH",
-    "SCMType.HG",
-    "SCMType.GIT",
     "MergeStrategy",
     "SCMType",
     # consts (built up)

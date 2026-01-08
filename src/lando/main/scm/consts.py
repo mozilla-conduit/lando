@@ -25,5 +25,5 @@ class MergeStrategy(str, enum.Enum):
 class SCMType(TextChoices):
     """Enumeration of acceptable VCS types."""
 
-    GIT = "git"
-    HG = "hg"
+    GIT = "git", "Git"
+    HG = "hg", "Mercurial"
