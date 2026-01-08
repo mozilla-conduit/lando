@@ -120,7 +120,7 @@ def patches(
 ) -> tuple[int, Schema]:
     """Submit a new landing job to the provided try repo."""
     # Get the repo object.
-    repo_name = patches.repo
+    repo_name = patches_request.repo_name
     try:
         repo = Repo.objects.get(name=repo_name)
     except Repo.DoesNotExist:
