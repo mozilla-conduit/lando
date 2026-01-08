@@ -31,6 +31,7 @@ from lando.ui.legacy.forms import (
 from lando.ui.legacy.stacks import Edge, draw_stack_graph, sort_stack_topological
 from lando.ui.uplift.context import UpliftContext
 from lando.ui.views import LandoView
+from lando.utils.phabricator import PhabricatorClient
 from lando.utils.tasks import set_uplift_request_form_on_revision
 
 logger = logging.getLogger(__name__)
@@ -383,13 +384,19 @@ class UpliftAssessmentBatchLinkView(LandoView):
 
 
 class RevisionView(LandoView):
+    @method_decorator(require_phabricator_api_key(optional=False, provide_client=True))
     def get(
-        self, request: WSGIRequest, revision_id: int, *args, **kwargs
+        self,
+        phab: PhabricatorClient,
+        request: WSGIRequest,
+        revision_id: int,
+        *args,
+        **kwargs,
     ) -> TemplateResponse:
         lando_user = request.user
 
         # This is added for backwards compatibility.
-        stack = legacy_api.stacks.get(request, revision_id)
+        stack = legacy_api.stacks.get(phab, revision_id)
 
         form = TransplantRequestForm()
         errors = []
@@ -412,7 +419,7 @@ class RevisionView(LandoView):
             )
 
         # Request all previous landing jobs for the stack.
-        landing_jobs = legacy_api.transplants.get_list(request, f"D{revision_id}")
+        landing_jobs = legacy_api.transplants.get_list(phab, f"D{revision_id}")
 
         # The revision may appear in many `landable_paths`` if it has
         # multiple children, or any of its landable descendents have
@@ -448,7 +455,7 @@ class RevisionView(LandoView):
             form.fields["landing_path"].initial = landing_path_json
 
             dryrun = legacy_api.transplants.dryrun(
-                request, data={"landing_path": landing_path}
+                phab, lando_user, data={"landing_path": landing_path}
             )
             form.fields["confirmation_token"].initial = dryrun["confirmation_token"]
             series = list(reversed(series))
@@ -522,8 +529,14 @@ class RevisionView(LandoView):
         )
 
     @force_auth_refresh
+    @method_decorator(require_phabricator_api_key(optional=False, provide_client=True))
     def post(
-        self, request: WSGIRequest, revision_id: int, *args, **kwargs
+        self,
+        phab: PhabricatorClient,
+        request: WSGIRequest,
+        revision_id: int,
+        *args,
+        **kwargs,
     ) -> HttpResponseRedirect:
         form = TransplantRequestForm(request.POST)
         errors = []
@@ -538,7 +551,7 @@ class RevisionView(LandoView):
             form.cleaned_data["flags"] = (
                 form.cleaned_data["flags"] if form.cleaned_data["flags"] else []
             )
-            legacy_api.transplants.post(request, data=form.cleaned_data)
+            legacy_api.transplants.post(phab, request.user, data=form.cleaned_data)
             # We don't actually need any of the data from the
             # the submission. As long as an exception wasn't
             # raised we're successful.

@@ -4,7 +4,7 @@ from datetime import datetime
 
 import kombu
 from django.conf import settings
-from django.core.handlers.wsgi import WSGIRequest
+from django.contrib.auth.models import User
 
 from lando.api.legacy.api.stacks import HTTP_404_STRING
 from lando.api.legacy.commit_message import format_commit_message
@@ -47,7 +47,6 @@ from lando.api.legacy.validation import (
     parse_landing_path,
     revision_id_to_int,
 )
-from lando.main.auth import require_authenticated_user, require_phabricator_api_key
 from lando.main.models import (
     JobStatus,
     LandingJob,
@@ -55,7 +54,7 @@ from lando.main.models import (
     Revision,
     add_revisions_to_job,
 )
-from lando.main.support import LegacyAPIException, problem
+from lando.main.support import LegacyAPIException
 from lando.utils.phabricator import PhabricatorClient
 from lando.utils.tasks import admin_remove_phab_project
 
@@ -114,10 +113,8 @@ def _find_stack_from_landing_path(
     return build_stack_graph(revision)
 
 
-@require_authenticated_user
-@require_phabricator_api_key(optional=True)
-def dryrun(phab: PhabricatorClient, request: WSGIRequest, data: dict):  # noqa: ANN201
-    lando_user = request.user
+def dryrun(phab: PhabricatorClient, user: User, data: dict):  # noqa: ANN201
+    """Perform a dryrun of a landing to check for warnings and blockers."""
     landing_path = _parse_transplant_request(data)["landing_path"]
 
     release_managers = get_release_managers(phab)
@@ -137,7 +134,7 @@ def dryrun(phab: PhabricatorClient, request: WSGIRequest, data: dict):  # noqa: 
     stack_data = request_extended_revision_data(phab, list(nodes))
     stack = RevisionStack(set(stack_data.revisions.keys()), edges)
     landing_assessment = LandingAssessmentState.from_landing_path(
-        landing_path, stack_data, lando_user
+        landing_path, stack_data, user
     )
     stack_state = build_stack_assessment_state(
         phab,
@@ -152,10 +149,8 @@ def dryrun(phab: PhabricatorClient, request: WSGIRequest, data: dict):  # noqa: 
     return assessment.to_dict()
 
 
-@require_authenticated_user
-@require_phabricator_api_key(optional=True)
-def post(phab: PhabricatorClient, request: WSGIRequest, data: dict):  # noqa: ANN201
-    lando_user = request.user
+def post(phab: PhabricatorClient, user: User, data: dict):  # noqa: ANN201
+    """Submit a landing request."""
     parsed_transplant_request = _parse_transplant_request(data)
     confirmation_token = parsed_transplant_request["confirmation_token"]
     flags = parsed_transplant_request["flags"]
@@ -189,7 +184,7 @@ def post(phab: PhabricatorClient, request: WSGIRequest, data: dict):  # noqa: AN
     stack = RevisionStack(set(stack_data.revisions.keys()), edges)
 
     landing_assessment = LandingAssessmentState.from_landing_path(
-        landing_path, stack_data, request.user
+        landing_path, stack_data, user
     )
     stack_state = build_stack_assessment_state(
         phab,
@@ -327,7 +322,7 @@ def post(phab: PhabricatorClient, request: WSGIRequest, data: dict):  # noqa: AN
         lando_revision.save()
         lando_revisions.append(lando_revision)
 
-    ldap_username = lando_user.email
+    ldap_username = user.email
 
     submitted_assessment = StackAssessment(
         blockers=[
@@ -380,10 +375,7 @@ def post(phab: PhabricatorClient, request: WSGIRequest, data: dict):  # noqa: AN
     return {"id": job.id}, 202
 
 
-@require_phabricator_api_key(optional=True)
-def get_list(
-    phab: PhabricatorClient, request: WSGIRequest, stack_revision_id: str
-) -> list[LandingJob]:
+def get_list(phab: PhabricatorClient, stack_revision_id: str) -> list[LandingJob]:
     """Return a list of landing jobs related to the revision."""
     revision_id_int = revision_id_to_int(stack_revision_id)
 
@@ -392,7 +384,7 @@ def get_list(
     )
     revision = phab.single(revision, "data", none_when_empty=True)
     if revision is None:
-        return problem(404, "Revision not found", HTTP_404_STRING)
+        raise LegacyAPIException(404, HTTP_404_STRING)
     nodes, edges = build_stack_graph(revision)
     revision_phids = list(nodes)
     revs = phab.call_conduit_collated(
