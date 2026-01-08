@@ -105,7 +105,10 @@ class JobResponse(Schema):
                 "description": "Not used.",
                 "content": None,
             },
-            201: {"description": "Push was submitted successfully."},
+            201: {
+                "description": "Push was submitted successfully.",
+                "content": {"application/json": {"schema": JobResponse.schema()}},
+            },
             400: {
                 "description": "Invalid request.",
                 "content": {
