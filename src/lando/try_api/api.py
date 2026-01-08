@@ -96,7 +96,7 @@ class JobResponse(Schema):
     "/patches",
     summary="Submit a new landing job to the provided try repo.",
     url_name="api-patches",
-    response={201: JobResponse, 400: ProblemDetail, 404: ProblemDetail},
+    response={201: JobResponse, 400: ProblemDetail},
     openapi_extra={
         "responses": {
             200: {
