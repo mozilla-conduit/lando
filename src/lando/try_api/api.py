@@ -107,7 +107,9 @@ class JobResponse(Schema):
             201: {"description": "Push was submitted successfully."},
             400: {
                 "description": "Invalid request.",
-                # "content": {"application/problem+json": {"schema": ProblemDetail}},
+                "content": {
+                    "application/problem+json": {"schema": ProblemDetail.schema()}
+                },
             },
             404: {
                 "description": "Repository not found.",
