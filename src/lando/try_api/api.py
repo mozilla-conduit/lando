@@ -180,7 +180,7 @@ def patches(
     revisions = []
     patch_helper_class = PATCH_HELPER_MAPPING[patches_request.patch_format]
 
-    for patch_no, patch_data in enumerate(patches.patches):
+    for patch_no, patch_data in enumerate(patches_request.patches):
         # Decode the base64 patch data to bytes
         try:
             decoded_patch_bytes = base64.b64decode(patch_data)
