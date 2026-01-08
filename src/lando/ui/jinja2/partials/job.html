@@ -1,4 +1,5 @@
 {% set embedded = embedded|default(True) %}
+{% set has_revisions = job.revisions and job.revisions.exists() %}
 <div class="StackPage-timeline-item">
     <div class="StackPage-timeline-itemStatus">
         <span class="{{ job|tostatusbadgeclass }}">{{ job|tostatusbadgename }}</span>
@@ -12,7 +13,13 @@
                 <strong>Landing Job:</strong>
                 <a href="{{ url('jobs-page', args=[job.id]) }}">{{ job.id }}</a>
             </p>
-        {% elif job.revisions.exists() %}
+        {% elif has_revisions and job.is_pull_request_job %}
+            {% set top_revision = job.revisions[0] %}
+            <p>
+                <strong>Pull request:</strong>
+                <a href="{{ url('pull-request', args=[job.target_repo.name, top_revision.pull_number]) }}">{{ job.target_repo.name }}#{{ top_revision.pull_number }}</a>
+            </p>
+        {% elif has_revisions %}
             {% set top_revision = job.revisions[0] %}
             {% if top_revision.revision_id %}
                 <p>
@@ -21,12 +28,12 @@
                 </p>
             {% endif %}
         {% endif %}
-        {% if job.revisions.exists() and not job.is_pull_request_job %}
+        {% if has_revisions and not job.is_pull_request_job %}
             <p>
                 <strong>Revisions:</strong>
                 {% for i in job.serialized_landing_path -%}
                     {{- "" if loop.first else " ← " -}}
-                    <a href="{{ i['revision_id']|revision_url(diff_id=i['diff_id']) }}">
+                    <a href="{{ i['revision_id']|phabricator_revision_url(diff_id=i['diff_id']) }}">
                         {{ i['revision_id'] }}
                         {% if i['diff_id'] %}diff {{ i['diff_id'] }}{% endif %}
                     </a>
@@ -48,7 +55,10 @@
                     <strong>Result:</strong> {{ job.landed_commit_id|escape_html|linkify_transplant_details(job) |safe }} on {{ job.target_repo }}
                 </p>
                 <p>
-                    <strong>Links:</strong> {{ treeherder_link(job.landed_treeherder_revision, "Treeherder") |safe }}
+                    <strong>Links:</strong>
+                    {% if job.target_repo.treeherder_name %}
+                        {{ treeherder_link(job.landed_treeherder_revision, job.target_repo, "Treeherder") |safe }}
+                    {% endif %}
                 </p>
             {% elif job.status.lower() == 'submitted' and treestatus and not embedded %}
                 <div>

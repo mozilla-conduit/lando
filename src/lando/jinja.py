@@ -1,7 +1,6 @@
 import logging
 import re
 import urllib.parse
-from typing import Optional
 
 from compressor.contrib.jinja2ext import CompressorExtension
 from django.conf import settings
@@ -13,6 +12,7 @@ from jinja2 import Environment
 from markupsafe import Markup
 
 from lando.main.models import JobStatus, LandingJob, Repo, UpliftJob
+from lando.main.models.revision import Revision
 from lando.main.scm import SCM_TYPE_GIT
 from lando.treestatus.models import (
     ReasonCategory,
@@ -255,13 +255,13 @@ def linkify_bug_numbers(text: str) -> str:
     return re.sub(search, replace, str(text), flags=re.IGNORECASE)
 
 
-def linkify_revision_urls(text: str) -> str:
+def linkify_phabricator_revision_urls(text: str) -> str:
     search = r"(?=\b)(" + re.escape(settings.PHABRICATOR_URL) + r"/D\d+)(?=\b)"
     replace = r'<a href="\g<1>">\g<1></a>'
     return re.sub(search, replace, str(text), flags=re.IGNORECASE)
 
 
-def linkify_revision_ids(text: str) -> str:
+def linkify_phabricator_revision_ids(text: str) -> str:
     """Linkify revision IDs to proper Phabricator URLs."""
     search = r"\b(D\d+)\b"
     replace = (
@@ -288,15 +288,24 @@ def linkify_transplant_details(text: str, landing_job: LandingJob) -> str:
     return re.sub(search, replace, str(text))  # This is case sensitive
 
 
-def treeherder_link(treeherder_revision: str, label: str = "") -> str:
+def treeherder_link(treeherder_revision: str, repo: Repo, label: str = "") -> str:
     """Builds a Treeherder link for a given revision."""
 
     if not treeherder_revision:
         return "[Failed to determine Treeherder revision]"
 
+    params = {
+        "revision": treeherder_revision,
+    }
+
+    if repo.treeherder_name:
+        params["treeherder_repo_name"] = repo.treeherder_name
+
+    url = f"{settings.TREEHERDER_URL}/jobs?" + urllib.parse.urlencode(params)
+
     label = label or treeherder_revision
 
-    return f'<a href="{settings.TREEHERDER_URL}/jobs?revision={treeherder_revision}">{label}</a>'
+    return f'<a href="{url}">{label}</a>'
 
 
 def linkify_faq(text: str) -> str:
@@ -317,7 +326,11 @@ def bug_url(text: str) -> str:
     )
 
 
-def revision_url(revision_id: int | str, diff_id: Optional[str] = None) -> str:
+def pull_request_url(repo: Repo, revision: Revision) -> str:
+    return f"{repo.normalized_url}/pull/{revision.pull_number}"
+
+
+def phabricator_revision_url(revision_id: int | str, diff_id: str | None = None) -> str:
     if isinstance(revision_id, int):
         path = f"D{revision_id}"
     elif isinstance(revision_id, str) and not revision_id.startswith("D"):
@@ -438,6 +451,7 @@ def environment(**options):  # noqa: ANN201
             "config": settings,
             "get_messages": messages.get_messages,
             "graph_height": graph_height,
+            "pull_request_url": pull_request_url,
             "treeherder_link": treeherder_link,
             "new_settings_form": UserSettingsForm,
             "static_url": settings.STATIC_URL,
@@ -456,8 +470,8 @@ def environment(**options):  # noqa: ANN201
             "graph_x_pos": graph_x_pos,
             "linkify_bug_numbers": linkify_bug_numbers,
             "linkify_faq": linkify_faq,
-            "linkify_revision_ids": linkify_revision_ids,
-            "linkify_revision_urls": linkify_revision_urls,
+            "linkify_phabricator_revision_ids": linkify_phabricator_revision_ids,
+            "linkify_phabricator_revision_urls": linkify_phabricator_revision_urls,
             "linkify_sec_bug_docs": linkify_sec_bug_docs,
             "linkify_transplant_details": linkify_transplant_details,
             "message_type_to_notification_class": message_type_to_notification_class,
@@ -467,7 +481,7 @@ def environment(**options):  # noqa: ANN201
             "reviewer_to_action_text": reviewer_to_action_text,
             "reviewer_to_status_badge_class": reviewer_to_status_badge_class,
             "revision_status_to_badge_class": revision_status_to_badge_class,
-            "revision_url": revision_url,
+            "phabricator_revision_url": phabricator_revision_url,
             "static": static,
             "tostatusbadgeclass": tostatusbadgeclass,
             "tostatusbadgename": tostatusbadgename,
