@@ -163,7 +163,7 @@ REPOS = {
             "push_path": "ssh://hg.mozilla.org/try",
             "pull_path": "https://hg.mozilla.org/mozilla-unified",
             "required_permission": SCM_LEVEL_1,
-            "short_name": "firefox-try",
+            "short_name": "try",
             "is_phabricator_repo": False,
             "is_try": True,
             "hooks_enabled": True,
