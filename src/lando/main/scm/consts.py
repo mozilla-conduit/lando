@@ -19,8 +19,6 @@ class MergeStrategy(str, enum.Enum):
     THEIRS = "theirs"
 
 
-# @enum.unique
-# class SCMType(str, enum.Enum):
 # For cleanliness, this should subclass (str, enum.Enum). However, with a little bit of
 # coupling with Django models.TextChoices, which also subclasses (str, enum.Enum), we
 # can use this verbatim in Model definitions, too.
