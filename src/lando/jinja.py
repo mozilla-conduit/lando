@@ -299,7 +299,7 @@ def treeherder_link(treeherder_revision: str, repo: Repo, label: str = "") -> st
     }
 
     if repo.treeherder_name:
-        params["treeherder_repo_name"] = repo.treeherder_name
+        params["repo"] = repo.treeherder_name
 
     url = f"{settings.TREEHERDER_URL}/jobs?" + urllib.parse.urlencode(params)
 
