@@ -635,12 +635,22 @@ def blocker_user_scm_level(
 
     lando_user = stack_state.landing_assessment.lando_user
 
-    if lando_user.has_perm(landing_repo.required_permission):
-        return None
+    bare_required_permission = landing_repo.required_permission.removeprefix("main.")
+
+    if lando_user.is_superuser:
+        # We can't rely on the `get_user_permissions()` method, as it returns all existing
+        # permissions for superusers. Here, we want to check permissions that have been
+        # explicitely given to the user from LDAP groups.
+        if lando_user.user_permissions.filter(codename=bare_required_permission):
+            return None
+    else:
+        # If the user is not a superuser, skip we don't need the DB round-trip.
+        if landing_repo.required_permission in lando_user.get_user_permissions():
+            return None
 
     return (
         "You have insufficient permissions to land or your access has expired. "
-        "{} is required. See the FAQ for help.".format(landing_repo.required_permission)
+        + f"{bare_required_permission} is required. See the FAQ for help."
     )
 
 
