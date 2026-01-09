@@ -385,12 +385,17 @@ class LandingWorker(Worker):
 
         landoini_config = read_lando_config(lando_ini_contents)
 
+        # When we only have a single commit in the stack, we amend autoformatting changes
+        # into the commit. For stack sizes greater than 1, we create a new commit on
+        # top of the stack.
+        should_amend_autoformat = len(changeset_titles) == 1
+
         try:
             replacements = self.apply_autoformatting(
                 scm,
                 landoini_config,
                 bug_ids,
-                changeset_titles,
+                should_amend_autoformat,
             )
         except AutoformattingException as exc:
             message = (
@@ -407,6 +412,13 @@ class LandingWorker(Worker):
         if replacements:
             job.formatted_replacements = replacements
 
+            if should_amend_autoformat:
+                # Update the `commit_id` field to reflect the new commit SHA after
+                # applying autoformatting changes.
+                revision = job.revisions.first()
+                revision.commit_id = replacements[0]
+                revision.save()
+
         return
 
     def apply_autoformatting(
@@ -414,7 +426,7 @@ class LandingWorker(Worker):
         scm: AbstractSCM,
         landoini_config: configparser.ConfigParser | None,
         bug_ids: list[str],
-        changeset_titles: list[str],
+        should_amend_autoformat: bool,
     ) -> list[str] | None:
         try:
             self.format_stack(landoini_config, scm.path)
@@ -425,7 +437,7 @@ class LandingWorker(Worker):
 
         try:
             replacements = self.commit_autoformatting_changes(
-                scm, len(changeset_titles), bug_ids
+                scm, should_amend_autoformat, bug_ids
             )
         except SCMException as exc:
             msg = "Failed to create an autoformat commit."
@@ -518,16 +530,15 @@ class LandingWorker(Worker):
             return mach_path
 
     def commit_autoformatting_changes(
-        self, scm: AbstractSCM, stack_size: int, bug_ids: list[str]
+        self, scm: AbstractSCM, should_amend_autoformat: bool, bug_ids: list[str]
     ) -> list[str] | None:
         """Call the SCM implementation to commit pending autoformatting changes.
 
-        If the `stack_size` is 1, the tip commit will get amended. Otherwise, a new
-        commit will be created on top of the stack (referencing all bugs involved in the
-        stack).
+        If `should_amend_autoformat` is `True`, formatting changes will be amended into
+        the tip commit. Otherwise, a new commit will be created on top of the stack
+        (referencing all bugs involved in the stack).
         """
-        # When the stack is just a single commit, amend changes into it.
-        if stack_size == 1:
+        if should_amend_autoformat:
             return scm.format_stack_amend()
 
         # If the stack is more than a single commit, create an autoformat commit.
