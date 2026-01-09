@@ -1,10 +1,10 @@
 import json
 from datetime import datetime, timezone
-from typing import Callable
 from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
+from typing_extensions import Any, Callable
 
 from lando.api.legacy.api import transplants as legacy_api_transplants
 from lando.api.legacy.transplants import (

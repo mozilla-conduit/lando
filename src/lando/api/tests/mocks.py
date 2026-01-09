@@ -3,6 +3,8 @@ import json
 from collections import defaultdict
 from copy import deepcopy
 
+from typing_extensions import Any
+
 from lando.api.legacy.treestatus import TreeStatus, TreeStatusError
 from lando.api.tests.canned_responses.phabricator.diffs import (
     CANNED_DEFAULT_DIFF_CHANGES,
@@ -607,8 +609,10 @@ class PhabricatorDouble:
 
         return reviewer
 
-    def project(self, name, *, attachments=None, no_slug=False):
-        """Return a Phabricator Project."""
+    def project(
+        self, name: str, *, attachments: dict | None = None, no_slug: bool = False
+    ) -> dict[str, Any]:
+        """Mock and return a Phabricator Project."""
         projects = [p for p in self._projects if p["name"] == name]
         if projects:
             return projects[0]

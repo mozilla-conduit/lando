@@ -6,10 +6,9 @@ import subprocess
 import time
 import unittest.mock as mock
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
 
 import pytest
 import requests
