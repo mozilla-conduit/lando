@@ -1,8 +1,10 @@
 import json
+from datetime import datetime, timedelta, timezone
+from unittest import mock
 
 import pytest
 
-from lando.main.models import JobStatus, LandingJob, Repo
+from lando.main.models import JobAction, JobStatus, LandingJob, Repo
 from lando.main.scm import SCM_TYPE_GIT
 
 
@@ -183,3 +185,119 @@ def test_landing_job_acquire_job_job_queue_query(mocked_repo_config):
     assert queue_items[0].id == jobs[2].id
     assert queue_items[1].id == jobs[0].id
     assert jobs[1] not in queue_items
+
+
+@pytest.mark.django_db
+def test_processing_no_timing_metrics_for_deferred_status(landing_job):
+    """Timing metrics are NOT sent when job is deferred."""
+    job = landing_job(JobStatus.SUBMITTED)
+
+    with mock.patch("lando.main.models.jobs.statsd") as mock_statsd:
+        with job.processing():
+            job.status = JobStatus.DEFERRED
+
+        # But timing metrics should NOT be sent for deferred jobs
+        mock_statsd.timer.assert_not_called()
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "final_status",
+    [
+        JobStatus.LANDED,
+        JobStatus.FAILED,
+        JobStatus.CANCELLED,
+    ],
+)
+def test_processing_sends_timing_for_all_final_statuses(landing_job, final_status):
+    """Timing metrics are sent for all final job statuses."""
+    job = landing_job(JobStatus.SUBMITTED)
+    job.created_at = datetime.now(timezone.utc) - timedelta(seconds=5)
+    job.save()
+
+    with mock.patch("lando.main.models.jobs.statsd") as mock_statsd:
+        with job.processing():
+            job.status = final_status
+
+        # Verify timing metrics were sent
+        assert mock_statsd.timer.call_count == 2
+
+        repo_name = job.target_repo.name
+        mock_statsd.timer.assert_any_call(
+            f"lando-api.job.{repo_name}.Landing.pending_time", mock.ANY
+        )
+        mock_statsd.timer.assert_any_call(
+            f"lando-api.job.{repo_name}.Landing.processing_time", mock.ANY
+        )
+
+
+@pytest.mark.django_db
+def test_processing_calculates_pending_time_correctly(landing_job):
+    """Pending time is calculated from job creation to processing start."""
+    job = landing_job(JobStatus.SUBMITTED)
+
+    # Set created_at to 30 seconds ago
+    created_time = datetime.now(timezone.utc) - timedelta(seconds=30)
+    job.created_at = created_time
+    job.save()
+
+    with mock.patch("lando.main.models.jobs.statsd") as mock_statsd:
+        with job.processing():
+            job.status = JobStatus.LANDED
+
+        # Get the timedelta that was passed to statsd.timer
+        timer_calls = mock_statsd.timer.call_args_list
+        pending_time_call = [c for c in timer_calls if "pending_time" in c[0][0]][0]
+        actual_pending_time = pending_time_call[0][1]
+
+        # Verify it's a timedelta
+        assert isinstance(actual_pending_time, timedelta)
+
+        # Verify it's 30 seconds (while ignoring micro/milliseconds)
+        assert 29 <= actual_pending_time.total_seconds() <= 31
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "action,action_kwargs,expected_status",
+    [
+        (JobAction.LAND, {"commit_id": "abc123"}, JobStatus.LANDED),
+        (JobAction.FAIL, {"message": "Test failure"}, JobStatus.FAILED),
+        (JobAction.DEFER, {"message": "Test defer"}, JobStatus.DEFERRED),
+        (JobAction.CANCEL, {}, JobStatus.CANCELLED),
+    ],
+)
+def test_transition_status_sends_status_metric(
+    landing_job, action, action_kwargs, expected_status
+):
+    """Status change metrics are sent when transitioning job status."""
+    job = landing_job(JobStatus.SUBMITTED)
+
+    with mock.patch("lando.main.models.jobs.statsd") as mock_statsd:
+        job.transition_status(action, **action_kwargs)
+
+        # Verify status metric was sent
+        repo_name = job.target_repo.name
+        mock_statsd.increment.assert_called_once_with(
+            f"lando-api.job.{repo_name}.Landing.status.{expected_status}", 1
+        )
+
+
+@pytest.mark.django_db
+def test_job_creation_sends_status_metric(repo_mc):
+    """Status metric is sent when a new job is created."""
+    with mock.patch("lando.main.models.jobs.statsd") as mock_statsd:
+        job = LandingJob(
+            status=JobStatus.SUBMITTED,
+            revision_to_diff_id={},
+            revision_order=[],
+            requester_email="test@example.com",
+            target_repo=repo_mc(scm_type=SCM_TYPE_GIT),
+        )
+        job.save()
+
+        # Verify status metric was sent for the creation
+        repo_name = job.target_repo.name
+        mock_statsd.increment.assert_called_once_with(
+            f"lando-api.job.{repo_name}.Landing.status.{JobStatus.SUBMITTED}", 1
+        )

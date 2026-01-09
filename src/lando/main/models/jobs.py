@@ -2,9 +2,10 @@ import enum
 import logging
 from collections.abc import Iterable
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Self
 
+from datadog import statsd
 from django.db import models
 from django.db.models import Case, IntegerField, QuerySet, When
 from django.utils.translation import gettext_lazy
@@ -147,12 +148,27 @@ class BaseJob(BaseModel):
         This context manager facilitates graceful worker shutdown, tracks the duration of
         the current job, and commits changes to the DB at the very end.
         """
-        start_time = datetime.now()
+        start_time = datetime.now(timezone.utc)
         try:
             yield
         finally:
-            self.duration_seconds = (datetime.now() - start_time).seconds
+            self.duration_seconds = (datetime.now(timezone.utc) - start_time).seconds
             self.save()
+            # Timings are only sent if we're not deferring the job for a
+            # transient failure. This means that pending time includes any
+            # time spent in the DEFERRED state. This is correct in the sense
+            # that the job was pending in some form until it reached a `final`
+            # state. This means we don't measure `DEFERRED` time separately,
+            # but it's not exactly clear how this could be modeled without
+            # major difficulty.
+            if self.status in JobStatus.final() and self.target_repo:
+                repo = self.target_repo.name
+                pending_time = start_time - self.created_at
+                type_ = self.type
+                statsd.timer(f"lando-api.job.{repo}.{type_}.pending_time", pending_time)
+                statsd.timer(
+                    f"lando-api.job.{repo}.{type_}.processing_time", pending_time
+                )
 
     def transition_status(
         self,
@@ -203,6 +219,13 @@ class BaseJob(BaseModel):
             self.landed_commit_id = kwargs["commit_id"]
 
         self.save()
+
+        # Repo is included in metric names mainly to allow us to measure
+        # try independently from other repositories.
+        if self.target_repo:
+            repo = self.target_repo.name
+            type_ = self.type
+            statsd.increment(f"lando-api.job.{repo}.{type_}.status.{self.status}", 1)
 
     @property
     def landed_treeherder_revision(self) -> str | None:
@@ -288,3 +311,17 @@ class BaseJob(BaseModel):
             job_dict["repository"] = self.target_repo.short_name
 
         return job_dict
+
+
+def emit_creation_metric(
+    sender: type[BaseJob], instance: BaseJob, created: bool, **kwargs
+) -> None:
+    """Signal handler to emit job creation metrics to statsd.
+
+    This is connected to all concrete BaseJob subclasses via post_save signal.
+    The connection is made in lando.main.apps.MainConfig.ready().
+    """
+    if created and instance.target_repo:
+        repo = instance.target_repo.name
+        type_ = instance.type
+        statsd.increment(f"lando-api.job.{repo}.{type_}.status.{instance.status}", 1)
