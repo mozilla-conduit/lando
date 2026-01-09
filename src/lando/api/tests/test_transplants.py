@@ -1632,6 +1632,44 @@ def test_blocker_scm_permission(
     diff_normal = phabdouble.diff(revision=revision)
 
     user = scm_user(
+        to_profile_permissions(user_perms),
+        "password",
+        to_profile_permissions(group_perms),
+    )
+
+    if superuser:
+        user = make_superuser(user)
+
+    mock_landing_assessment = mock.MagicMock()
+    mock_landing_assessment.lando_user = user
+
+    stack_state = create_state(phab_revision, mock_landing_assessment)
+
+    blocker = blocker_user_scm_level(
+        revision=phab_revision, diff=diff_normal, stack_state=stack_state
+    )
+
+    if should_allow:
+        assert blocker is None, "User with direct required SCM level should be allowed"
+    else:
+        assert blocker == (
+            "You have insufficient permissions to land or your access has expired. "
+            "scm_level_3 is required. See the FAQ for help."
+        ), "User without direct required SCM level should be rejected"
+
+
+@pytest.mark.django_db
+def test_blocker_nsprnss_files(phabdouble, create_state, get_failing_check_diff):
+    repo = phabdouble.repo()
+    # Create a revision/diff pair without NSPR or NSS changes.
+    revision = phabdouble.revision(repo=repo)
+    phab_revision = phabdouble.api_object_for(
+        revision,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    diff_normal = phabdouble.diff(revision=revision)
+
+    user = scm_user(
         [Permission.objects.get(codename=perm) for perm in user_perms],
         "password",
         [Permission.objects.get(codename=perm) for perm in group_perms],
