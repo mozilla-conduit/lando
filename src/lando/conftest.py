@@ -1032,6 +1032,19 @@ def user(
 
 
 @pytest.fixture
+def make_superuser() -> Callable:
+    def _make_superuser(user: User) -> User:
+        user.is_superuser = True
+        user.save()
+
+        # Re-retrieve the updated user to refresh the user permissions.
+        # `refresh_from_db` (empirically), is not sufficient here.
+        return User.objects.get(id=user.id)
+
+    return _make_superuser
+
+
+@pytest.fixture
 def headless_permission():
     content_type = ContentType.objects.get_for_model(AutomationJob)
     return Permission.objects.get(
