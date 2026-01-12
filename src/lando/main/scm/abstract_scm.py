@@ -120,6 +120,10 @@ class AbstractSCM(ABC):
         """
 
     @abstractmethod
+    def cherry_pick_commit(self, commit_id: str):
+        """Cherry-pick the specified commit onto the current branch."""
+
+    @abstractmethod
     def get_patch(self, revision_id: str) -> str | None:
         """Return a complete patch for the given revision, in the git extended diff format.
 

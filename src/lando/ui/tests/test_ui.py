@@ -62,6 +62,8 @@ def test_landed_landing_job_view(
 
     # This test assumes that the URL of the repo_mc matches commit_maps[].git_repo_name.
     repo = repo_mc(SCMType.GIT)
+    repo.treeherder_name = "autoland"
+    repo.save()
     treestatusdouble.close_tree(repo.name)
 
     # We need a landing worker to exist so the queue can be built, but we don't use it

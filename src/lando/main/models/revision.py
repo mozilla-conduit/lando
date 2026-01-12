@@ -232,6 +232,20 @@ class Revision(BaseModel):
 
         return self._patch_helper
 
+    def get_latest_landing_commit_id(self) -> str | None:
+        """Get the commit ID from the most recent landing of this revision.
+
+        Returns:
+            The commit ID from the most recent RevisionLandingJob, or None if
+            no landing job exists or if the landing job has no commit_id.
+        """
+        return (
+            RevisionLandingJob.objects.filter(revision=self)
+            .order_by("-created_at")
+            .values_list("commit_id", flat=True)
+            .first()
+        )
+
 
 class DiffWarningStatus(models.TextChoices):
     ACTIVE = "ACTIVE", gettext_lazy("Active")

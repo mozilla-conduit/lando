@@ -87,6 +87,12 @@ You can also pass arguments directly to pytest by placing them in the
 
     make test ARGS_TEST='-x -- --failed-first --verbose
 
+By default, tests run in parallel using `pytest-xdist` with `-n auto`. To control
+parallelism, use the `-n` option:
+
+    make test ARGS_TESTS="-n 4"      # Use 4 workers
+    make test ARGS_TESTS="-n 0"      # Disable parallelism
+
 ### Specifying the test environment
 
 By default, `make` commands will run a dedicated compose stack to run the tests.

@@ -11,13 +11,9 @@ import requests_mock
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.cache import cache
-from django.http import HttpResponse
 from django.http import JsonResponse as JSONResponse
 from django.test import Client
 
-import lando.api.legacy.api.stacks as legacy_api_stacks
-import lando.api.legacy.api.transplants as legacy_api_transplants
-from lando.api.legacy.api.landing_jobs import LandingJobApiView
 from lando.api.legacy.projects import (
     CHECKIN_PROJ_SLUG,
     RELMAN_PROJECT_SLUG,
@@ -38,7 +34,6 @@ from lando.main.models.uplift import (
     UpliftSubmission,
 )
 from lando.main.scm import SCMType
-from lando.main.support import LegacyAPIException
 from lando.utils.phabricator import PhabricatorClient
 
 
@@ -344,31 +339,6 @@ def codefreeze_datetime(request_mocker):
 
 
 @pytest.fixture
-def fake_request():
-    class FakeUser:
-        def has_perm(self, permission, *args, **kwargs):
-            return permission in self.permissions
-
-        def __init__(self, is_authenticated=True, has_email=True, permissions=None):
-            self.is_authenticated = is_authenticated
-            self.permissions = permissions or ()
-            if has_email:
-                self.email = "email@example.org"
-            else:
-                self.email = ""
-
-    class FakeRequest:
-        def __init__(self, *args, **kwargs):
-            self.body = "{}"
-            if "body" in kwargs:
-                self.body = kwargs.pop("body")
-            self.method = kwargs.pop("method", "GET")
-            self.user = FakeUser(*args, **kwargs)
-
-    return FakeRequest
-
-
-@pytest.fixture
 def mock_permissions():
     return (
         "main.scm_level_1",
@@ -376,121 +346,6 @@ def mock_permissions():
         "main.scm_level_3",
         "main.scm_conduit",
     )
-
-
-@pytest.fixture
-def proxy_client(monkeypatch, fake_request, mock_response):
-    """A client that bridges tests designed to work with the API.
-
-    Most tests that use the API no longer need to access those endpoints through
-    the API as the data can be fetched directly within the application. This client
-    is a temporary implementation to bridge tests and minimize the number of changes
-    needed to the tests during the porting process.
-
-    This client should be removed and all the tests that depend on it should be
-    reimplemented to not need a response or response-like object.
-    """
-
-    class ProxyClient:
-        request = fake_request()
-
-        def _handle__get__stacks__id(self, path):
-            revision_id = int(path.removeprefix("/stacks/D"))
-            json_response = legacy_api_stacks.get(self.request, revision_id)
-            if isinstance(json_response, HttpResponse):
-                # In some cases, an actual response object is returned.
-                return json_response
-            # In other cases, just the data is returned, and it should be
-            # mapped to a response.
-
-            # Remove the `stack` field as it isn't JSON serializable
-            # and isn't required in the proxy client tests.
-            json_response.pop("stack")
-
-            # The double encode/decode is to coerce Python tuples to lists.
-            return mock_response(json_dict=json.loads(json.dumps(json_response)))
-
-        def _handle__get__transplants__id(self, path):
-            stack_revision_id = path.removeprefix("/transplants?stack_revision_id=")
-            result = legacy_api_transplants.get_list(
-                self.request, stack_revision_id=stack_revision_id
-            )
-            if isinstance(result, tuple):
-                # For these endpoints, some responses contain different status codes
-                # which are represented as the second item in a tuple.
-                json_response, status_code = result
-                return mock_response(
-                    json_dict=json.loads(json.dumps(json_response)),
-                    status_code=status_code,
-                )
-            # In the rest of the cases, the returned result is a response object.
-            return result
-
-        def _handle__post__transplants__dryrun(self, **kwargs):
-            json_response = legacy_api_transplants.dryrun(self.request, kwargs["json"])
-            return mock_response(json_dict=json.loads(json.dumps(json_response)))
-
-        def _handle__post__transplants(self, path, **kwargs):
-            try:
-                json_response, status_code = legacy_api_transplants.post(
-                    self.request, kwargs["json"]
-                )
-            except LegacyAPIException as e:
-                # Handle exceptions and pass along the status code to the response object.
-                if e.extra:
-                    return mock_response(json_dict=e.extra, status_code=e.status)
-                if e.json_detail:
-                    return mock_response(json_dict=e.json_detail, status_code=e.status)
-                return mock_response(json_dict=e.args, status_code=e.status)
-            except Exception as e:
-                # TODO: double check that this is a thing in legacy?
-                # Added this due to a validation error (test_transplant_wrong_landing_path_format)
-                return mock_response(json_dict=[f"error ({e})"], status_code=400)
-            return mock_response(
-                json_dict=json.loads(json.dumps(json_response)), status_code=status_code
-            )
-
-        def _handle__put__landing_jobs__id(self, path, **kwargs):
-            job_id = int(path.removeprefix("/landing_jobs/"))
-            landing_job_api = LandingJobApiView()
-            response = landing_job_api.put(self.request, job_id)
-            return mock_response(json_dict=json.loads(response.content))
-
-        def get(self, path, *args, **kwargs):
-            """Handle various get endpoints."""
-            if path.startswith("/stacks/D"):
-                return self._handle__get__stacks__id(path)
-
-            if path.startswith("/transplants?"):
-                return self._handle__get__transplants__id(path)
-
-        def post(self, path, **kwargs):
-            """Handle various post endpoints."""
-            if "permissions" in kwargs:
-                self.request = fake_request(permissions=kwargs["permissions"])
-
-            if path.startswith("/transplants/dryrun"):
-                return self._handle__post__transplants__dryrun(**kwargs)
-
-            if path == "/transplants":
-                return self._handle__post__transplants(path, **kwargs)
-
-        def put(self, path, **kwargs):
-            """Handle put endpoint."""
-            request_dict = {}
-
-            if "permissions" in kwargs:
-                request_dict["permissions"] = kwargs["permissions"]
-
-            if "json" in kwargs:
-                request_dict["body"] = json.dumps(kwargs["json"])
-
-            self.request = fake_request(method="PUT", **request_dict)
-
-            if path.startswith("/landing_jobs/"):
-                return self._handle__put__landing_jobs__id(path, **kwargs)
-
-    return ProxyClient()
 
 
 @pytest.fixture

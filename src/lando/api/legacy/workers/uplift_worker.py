@@ -82,9 +82,31 @@ class UpliftWorker(Worker):
         Returns an ordered list of created revision IDs.
         """
 
-        def log_apply_patch(revision: Revision):
-            """Apply patches to the tip of the target train."""
-            logger.debug(f"Landing {revision} ...")
+        def apply_uplift_revision(revision: Revision):
+            """Apply revision to the current branch.
+
+            Cherry-pick a commit to the tip of the target train,
+            or apply patches as fallback.
+            """
+            commit_id = revision.get_latest_landing_commit_id()
+
+            if commit_id:
+                logger.debug(f"Cherry-picking {revision} with commit_id: {commit_id}")
+                try:
+                    scm.cherry_pick_commit(commit_id)
+                    return
+                except NotImplementedError:
+                    logger.debug(
+                        "Cherry-pick not supported for this SCM type. "
+                        "Falling back to applying patch."
+                    )
+
+            if not commit_id:
+                logger.debug(
+                    f"No landing commit found for {revision}. "
+                    f"Falling back to applying patch."
+                )
+
             scm.apply_patch(
                 revision.diff,
                 revision.commit_message,
@@ -102,7 +124,7 @@ class UpliftWorker(Worker):
 
         for uplift_revision in job.revisions.all():
             self.handle_new_commit_failures(
-                log_apply_patch, repo, job, scm, uplift_revision
+                apply_uplift_revision, repo, job, scm, uplift_revision
             )
             new_commit = scm.describe_commit()
             logger.debug(f"Created new commit {new_commit}")

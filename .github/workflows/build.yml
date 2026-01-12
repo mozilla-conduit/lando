@@ -42,5 +42,4 @@ jobs:
           source env/bin/activate
           lando collectstatic --clear --no-input
           lando migrate
-          lando test
           lando tests

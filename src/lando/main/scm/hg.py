@@ -287,6 +287,10 @@ class HgSCM(AbstractSCM):
                 preserve_git_date=True,
             )
 
+    @override
+    def cherry_pick_commit(self, commit_id: str):
+        raise NotImplementedError("`cherry_pick_commit` not implemented for hg.")
+
     def _run_hg_patch(
         self,
         import_cmd: list[str],

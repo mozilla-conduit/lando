@@ -832,10 +832,18 @@ def hg_test_bundle() -> pathlib.Path:
 
 
 @pytest.fixture
-def hg_server(hg_test_bundle: pathlib.Path, tmpdir: os.PathLike):
-    # TODO: Select open port.
-    port = "8000"
-    hg_url = "http://localhost:" + port
+def hg_server(hg_test_bundle: pathlib.Path, tmpdir: os.PathLike, worker_id: str):
+    """Start a Mercurial server on a unique port per worker for parallel test execution."""
+    # Use worker_id to generate unique port for each parallel worker
+    if worker_id == "master":
+        # Not running in parallel, use default port
+        port = 8000
+    else:
+        # Extract worker number (e.g., "gw0" -> 0, "gw1" -> 1)
+        worker_num = int(worker_id.replace("gw", ""))
+        port = 8000 + worker_num
+
+    hg_url = f"http://localhost:{port}"
 
     repo_dir = tmpdir.mkdir("hg_server")
     subprocess.run(["hg", "clone", hg_test_bundle, repo_dir], check=True, cwd="/")
@@ -849,7 +857,7 @@ def hg_server(hg_test_bundle: pathlib.Path, tmpdir: os.PathLike):
             "--config",
             "web.allow_push=*",
             "-p",
-            port,
+            str(port),
             "-R",
             repo_dir,
         ]
@@ -860,9 +868,9 @@ def hg_server(hg_test_bundle: pathlib.Path, tmpdir: os.PathLike):
     for _i in range(10):
         try:
             requests.get(hg_url)
+            break
         except Exception:
             time.sleep(1)
-        break
 
     yield hg_url
     serve.kill()

@@ -55,7 +55,7 @@
                                         data-csrf-token="{{ csrf_token }}">Submit new try job</button>
                                 {% if last_try_job %}
                                     {{ last_try_job }}
-                                    {{ treeherder_link(last_try_job.landed_treeherder_revision, "Treeherder") | safe }}
+                                    {{ treeherder_link(last_try_job.landed_treeherder_revision, last_try_job.target_repo, "Treeherder") | safe }}
                                 {% else %}
                                     No try jobs found.
                                 {% endif %}

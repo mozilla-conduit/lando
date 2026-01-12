@@ -1,5 +1,6 @@
 import json
 import subprocess
+from io import StringIO
 from unittest import mock
 
 import pytest
@@ -15,6 +16,7 @@ from lando.api.legacy.uplift import (
 )
 from lando.api.tests.test_landings import PATCH_CHANGE_MISSING_CONTENT
 from lando.main.models import JobStatus, PermanentFailureException
+from lando.main.models.revision import Revision, RevisionLandingJob
 from lando.main.models.uplift import (
     LowMediumHighChoices,
     RevisionUpliftJob,
@@ -26,6 +28,8 @@ from lando.main.models.uplift import (
     YesNoUnknownChoices,
 )
 from lando.main.scm import SCMType
+from lando.main.scm.git import GitSCM
+from lando.main.scm.helpers import HgPatchHelper
 from lando.ui.legacy.forms import (
     UpliftAssessmentForm,
 )
@@ -326,6 +330,42 @@ UPDATED_FORM_DATA = {
     "string_changes": "Yes, minor updates.",
     "is_android_affected": "yes",
 }
+
+
+@pytest.mark.django_db
+def test_get_latest_landing_commit_id_with_null_commit_id():
+    """Test that get_latest_landing_commit_id returns None when commit_id is NULL."""
+    # Create a revision.
+    revision = Revision.objects.create(revision_id=9999, diff_id=9999)
+
+    # Create a `RevisionLandingJob` with empty `commit_id`.
+    RevisionLandingJob.objects.create(
+        revision=revision,
+        commit_id=None,
+    )
+
+    assert (
+        revision.get_latest_landing_commit_id() is None
+    ), "`None` should be returned when `commit_id` is `None`."
+
+    # Create another landing job with empty string `commit_id`.
+    RevisionLandingJob.objects.create(
+        revision=revision,
+        commit_id="",
+    )
+
+    result = revision.get_latest_landing_commit_id()
+    assert result == "", f"Expected None or empty string, got {result!r}."
+
+    # Create a landing job with a valid `commit_id`.
+    RevisionLandingJob.objects.create(
+        revision=revision,
+        commit_id="abc123def456",
+    )
+
+    assert (
+        revision.get_latest_landing_commit_id() == "abc123def456"
+    ), "Should return the commit ID from the most recent landing job."
 
 
 @mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
@@ -659,7 +699,47 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         ),
     )
 
-    # Capture the current HEAD to validate it advanced.
+    # Simulate that these revisions were previously landed to autoland
+    # by applying the patches to a separate branch and creating `RevisionLandingJob`
+    # entries. Create a `GitSCM` instance for the pull_path to apply patches there.
+    source_scm = GitSCM(repo.pull_path)
+
+    # Create a separate `autoland` branch to simulate landing to autoland.
+    # This branch will have the patches applied, while main remains unchanged.
+    subprocess.run(
+        ["git", "switch", "-c", "autoland", "main"],
+        check=True,
+        cwd=repo.pull_path,
+    )
+
+    # Apply patches to the autoland branch so they're available for cherry-picking.
+    for revision in revisions:
+        # Parse the patch to extract metadata.
+        patch_helper = HgPatchHelper.from_string_io(StringIO(revision.patch))
+
+        # Apply patch to the autoland branch.
+        source_scm.apply_patch(
+            patch_helper.get_diff(),
+            patch_helper.get_commit_description(),
+            patch_helper.get_header("User"),
+            patch_helper.get_header("Date"),
+        )
+        commit_id = source_scm.head_ref()
+
+        # Create `RevisionLandingJob` entry with the commit ID.
+        RevisionLandingJob.objects.create(
+            revision=revision,
+            commit_id=commit_id,
+        )
+
+    # Switch back to main so the uplift worker can check out from it.
+    subprocess.run(
+        ["git", "checkout", "main"],
+        check=True,
+        cwd=repo.pull_path,
+    )
+
+    # Capture the repo head before running the uplift to compare after.
     old_head = repo.scm.head_ref()
 
     assert uplift_worker.run_job(job), "Job should have completed successfully."
@@ -746,6 +826,104 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     assert (
         UpliftRevision.objects.count() == 2
     ), "Re-running job should create a second UpliftRevision record."
+
+
+@pytest.mark.django_db
+def test_uplift_worker_fallback_to_patch_when_no_landing_commit_id(
+    repo_mc,
+    user,
+    uplift_worker,
+    create_patch_revision,
+    normal_patch,
+    monkeypatch,
+    make_uplift_job_with_revisions,
+    mock_uplift_email_tasks,
+):
+    """Test that uplift falls back to applying patches when no landing commit ID exists."""
+
+    def mock_write_update_commits(commits):
+        def _write_uplift_commits(job_arg, base_rev, env, output_path):
+            with open(output_path, "w", encoding="utf-8") as fh:
+                json.dump(
+                    {
+                        "commits": commits,
+                    },
+                    fh,
+                )
+
+        return _write_uplift_commits
+
+    repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
+
+    # Create revisions WITHOUT associated `RevisionLandingJob` entries.
+    # This simulates old revisions that were landed before commit tracking.
+    revisions = [
+        create_patch_revision(0, patch=normal_patch(0)),
+        create_patch_revision(1, patch=normal_patch(1)),
+    ]
+
+    mock_success_task, mock_failure_task = mock_uplift_email_tasks
+
+    job = make_uplift_job_with_revisions(repo, user, revisions)
+    mock_task = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.uplift_worker.set_uplift_request_form_on_revision",
+        mock_task,
+    )
+
+    # Mock moz-phab uplift to return new tip D-IDs.
+    monkeypatch.setattr(
+        uplift_worker,
+        "run_moz_phab_uplift",
+        mock_write_update_commits(
+            [
+                {"rev_id": 7000},
+                {"rev_id": 7001},
+            ]
+        ),
+    )
+
+    # Note: We're NOT creating RevisionLandingJob entries here
+    # This means get_latest_landing_commit_id() will return `None`
+    # and the worker should fall back to applying patches.
+
+    old_head = repo.scm.head_ref()
+
+    assert uplift_worker.run_job(
+        job
+    ), "Job should complete successfully with patch fallback."
+
+    job.refresh_from_db()
+    expected_task_args = (
+        job.created_revision_ids[-1],
+        job.submission.assessment.to_conduit_json_str(),
+        user.id,
+    )
+    mock_task.apply_async.assert_called_once_with(args=expected_task_args)
+    assert (
+        job.status == JobStatus.LANDED
+    ), "Uplift job should succeed using patch fallback."
+    assert job.created_revision_ids == [
+        7000,
+        7001,
+    ], "Job should store all created revision IDs."
+
+    new_head = repo.scm.head_ref()
+    assert (
+        new_head != old_head
+    ), "Repository HEAD should advance when patches are applied."
+
+    assert (
+        UpliftRevision.objects.count() == 1
+    ), "Successful uplift should create a UpliftRevision link."
+
+    ur = UpliftRevision.objects.get()
+    assert (
+        ur.revision_id == 7001
+    ), "UpliftRevision should point to the latest revision ID."
+
+    mock_success_task.apply_async.assert_called()
+    mock_failure_task.apply_async.assert_not_called()
 
 
 @pytest.mark.django_db

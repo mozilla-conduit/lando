@@ -32,8 +32,19 @@ class Command(BaseCommand):
             help="Start the interactive Python debugger on errors",
         )
 
+        parser.add_argument(
+            "-n",
+            type=str,
+            default="auto",
+            help="Number of workers for pytest-xdist (default: auto)",
+        )
+
     def handle(self, *args, **options):
         command = ["pytest"]
+
+        if options["n"]:
+            command.append("-n")
+            command.append(options["n"])
 
         if options["k"]:
             command.append("-k")

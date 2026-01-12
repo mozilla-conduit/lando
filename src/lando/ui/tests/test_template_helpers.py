@@ -8,13 +8,13 @@ from lando.jinja import (
     build_manual_uplift_instructions,
     linkify_bug_numbers,
     linkify_faq,
-    linkify_revision_ids,
-    linkify_revision_urls,
+    linkify_phabricator_revision_ids,
+    linkify_phabricator_revision_urls,
     linkify_sec_bug_docs,
     linkify_transplant_details,
+    phabricator_revision_url,
     repo_branch_url,
     repo_path,
-    revision_url,
 )
 from lando.main.models import JobStatus, LandingJob, Repo, SCMType
 from lando.main.models.revision import Revision
@@ -122,8 +122,8 @@ def test_linkify_bug_numbers(input_text, output_text):
         ),
     ],
 )
-def test_linkify_revision_urls(input_text, output_text):
-    assert output_text == linkify_revision_urls(input_text)
+def test_linkify_phabricator_revision_urls(input_text, output_text):
+    assert output_text == linkify_phabricator_revision_urls(input_text)
 
 
 @pytest.mark.parametrize(
@@ -150,8 +150,8 @@ def test_linkify_revision_urls(input_text, output_text):
         ),
     ],
 )
-def test_linkify_revision_ids(input_text, output_text):
-    assert output_text == linkify_revision_ids(input_text)
+def test_linkify_phabricator_revision_ids(input_text, output_text):
+    assert output_text == linkify_phabricator_revision_ids(input_text)
 
 
 @pytest.mark.django_db
@@ -280,21 +280,21 @@ def test_repo_branch_url(repo, path):
 def test_revision_url__integer():
     revision_id = 1234
     expected_result = "http://phabricator.test/D1234"
-    actual_result = revision_url(revision_id)
+    actual_result = phabricator_revision_url(revision_id)
     assert expected_result == actual_result
 
 
 def test_revision_url__prepended_string():
     revision_id = "D1234"
     expected_result = "http://phabricator.test/D1234"
-    actual_result = revision_url(revision_id)
+    actual_result = phabricator_revision_url(revision_id)
     assert expected_result == actual_result
 
 
 def test_revision_url__string():
     revision_id = "1234"
     expected_result = "http://phabricator.test/D1234"
-    actual_result = revision_url(revision_id)
+    actual_result = phabricator_revision_url(revision_id)
     assert expected_result == actual_result
 
 
@@ -302,7 +302,7 @@ def test_revision_url__general_case_with_diff():
     revision_id = 123
     diff_id = 456
     expected_result = "http://phabricator.test/D123?id=456"
-    actual_result = revision_url(revision_id, diff_id)
+    actual_result = phabricator_revision_url(revision_id, diff_id)
     assert expected_result == actual_result
 
 

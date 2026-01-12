@@ -174,6 +174,12 @@ class GitSCM(AbstractSCM):
                 self._git_run(*c, cwd=self.path)
 
     @override
+    @detect_patch_conflict
+    def cherry_pick_commit(self, commit_id: str):
+        """Use `git cherry-pick` to apply the commit to the current branch."""
+        self._git_run("cherry-pick", commit_id, cwd=self.path)
+
+    @override
     def apply_patch_git(self, patch_bytes: bytes):
         """Apply the Git patch, provided as encoded bytes."""
         try:

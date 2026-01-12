@@ -2,7 +2,6 @@ import logging
 import urllib.parse
 
 from django.conf import settings
-from django.core.handlers.wsgi import WSGIRequest
 from django.http import Http404
 
 from lando.api.legacy.commit_message import format_commit_message
@@ -39,7 +38,6 @@ from lando.api.legacy.transplants import (
     run_landing_checks,
 )
 from lando.api.legacy.users import user_search
-from lando.main.auth import require_phabricator_api_key
 from lando.main.models import Repo
 from lando.main.models.revision import Revision
 from lando.utils.phabricator import PhabricatorClient
@@ -49,10 +47,7 @@ logger = logging.getLogger(__name__)
 HTTP_404_STRING = "Revision does not exist or you do not have permission to view it"
 
 
-@require_phabricator_api_key(optional=True)
-def get(  # noqa: ANN201
-    phab: PhabricatorClient, request: WSGIRequest, revision_id: int
-):
+def get(phab: PhabricatorClient, revision_id: int):  # noqa: ANN201
     """Get the stack a revision is part of.
 
     Args:

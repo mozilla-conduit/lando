@@ -53,9 +53,7 @@ class PullRequestView(LandoView):
             pull_request = client.build_pull_request(number)
         except HTTPError as e:
             if e.response.status_code == 404:
-                raise Http404(
-                    f"Pull request {repo_name}#{number} doesn't exist."
-                ) from e
+                raise Http404(f"Pull request {repo_name}#{number} doesn't exist") from e
             raise e
 
         landing_jobs = get_jobs_for_pull(target_repo, number)
