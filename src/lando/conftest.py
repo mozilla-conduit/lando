@@ -6,10 +6,9 @@ import subprocess
 import time
 import unittest.mock as mock
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
 
 import pytest
 import requests
@@ -1030,6 +1029,19 @@ def user(
     user.profile.save()
 
     return user
+
+
+@pytest.fixture
+def make_superuser() -> Callable:
+    def _make_superuser(user: User) -> User:
+        user.is_superuser = True
+        user.save()
+
+        # Re-retrieve the updated user to refresh the user permissions.
+        # `refresh_from_db` (empirically), is not sufficient here.
+        return User.objects.get(id=user.id)
+
+    return _make_superuser
 
 
 @pytest.fixture

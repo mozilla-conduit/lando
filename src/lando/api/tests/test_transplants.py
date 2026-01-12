@@ -1,8 +1,10 @@
 import json
 from datetime import datetime, timezone
+from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
+from typing_extensions import Any, Callable
 
 from lando.api.legacy.api import transplants as legacy_api_transplants
 from lando.api.legacy.transplants import (
@@ -15,6 +17,7 @@ from lando.api.legacy.transplants import (
     blocker_revision_data_classification,
     blocker_try_task_config,
     blocker_uplift_approval,
+    blocker_user_scm_level,
     warning_multiple_authors,
     warning_not_accepted,
     warning_previously_landed,
@@ -22,6 +25,7 @@ from lando.api.legacy.transplants import (
     warning_revision_secure,
     warning_wip_commit_message,
 )
+from lando.api.tests.mocks import PhabricatorDouble
 from lando.main.models import (
     DONTBUILD,
     SCM_CONDUIT,
@@ -403,7 +407,7 @@ def test_dryrun_outside_codefreeze(
             (),  # No permissions
             200,
             "You have insufficient permissions to land or your access has expired. "
-            "main.scm_level_3 is required. See the FAQ for help.",
+            "scm_level_3 is required. See the FAQ for help.",
         ),
     ],
 )
@@ -1235,16 +1239,38 @@ def test_integrated_transplant_repo_checkin_project_removed(
 
 
 @pytest.mark.django_db(transaction=True)
-def test_integrated_transplant_without_auth0_permissions(
-    scm_user,
-    phabdouble,
-    mocked_repo_config,
-    release_management_project,
-    needs_data_classification_project,
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "superuser,user_perms,group_perms",
+    (
+        (False, [], []),
+        (False, [], ["scm_level_3"]),
+        (True, [], []),
+        (True, [], ["scm_level_3"]),
+    ),
+)
+def test_integrated_transplant_without_permissions(
+    scm_user: Callable,
+    to_profile_permissions: Callable,
+    make_superuser: Callable,
+    phabdouble: PhabricatorDouble,
+    mocked_repo_config: mock.Mock,
+    release_management_project: dict[str, Any],
+    needs_data_classification_project: dict[str, Any],
+    superuser: bool,
+    user_perms: list[str],
+    group_perms: list[str],
 ):
     """Test that a user without permissions gets blocked."""
     # Create a user with no permissions
-    user_without_perms = scm_user([], "password")
+    user_without_perms = scm_user(
+        to_profile_permissions(user_perms),
+        "password",
+        to_profile_permissions(group_perms),
+    )
+
+    if superuser:
+        user_without_perms = make_superuser(user_without_perms)
 
     repo = phabdouble.repo(name="mozilla-central")
     d1 = phabdouble.diff()
@@ -1264,7 +1290,7 @@ def test_integrated_transplant_without_auth0_permissions(
     assert exc_info.value.status == 400
     assert (
         "You have insufficient permissions to land or your access has expired. "
-        "main.scm_level_3 is required. See the FAQ for help."
+        "scm_level_3 is required. See the FAQ for help."
     ) in exc_info.value.extra["blocker"]
 
 
@@ -1739,6 +1765,65 @@ def test_revision_has_data_classification_tag(
         )
         is None
     ), "Revision with no data classification tag should not be blocked from landing."
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "superuser,user_perms,group_perms,should_allow",
+    (
+        (False, [], [], False),
+        (False, [], ["scm_level_3"], False),
+        (False, ["scm_level_3"], [], True),
+        (True, [], [], False),
+        (True, [], ["scm_level_3"], False),
+        (True, ["scm_level_3"], [], True),
+    ),
+)
+def test_blocker_scm_permission(
+    phabdouble: PhabricatorDouble,
+    create_state: Callable,
+    scm_user: Callable,
+    to_profile_permissions: Callable,
+    make_superuser: Callable,
+    user_perms: list[str],
+    group_perms: list[str],
+    superuser: bool,
+    should_allow: bool,
+):
+    repo = phabdouble.repo()
+    # Create a revision/diff pair without NSPR or NSS changes.
+    revision = phabdouble.revision(repo=repo)
+    phab_revision = phabdouble.api_object_for(
+        revision,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    diff_normal = phabdouble.diff(revision=revision)
+
+    user = scm_user(
+        to_profile_permissions(user_perms),
+        "password",
+        to_profile_permissions(group_perms),
+    )
+
+    if superuser:
+        user = make_superuser(user)
+
+    mock_landing_assessment = mock.MagicMock()
+    mock_landing_assessment.lando_user = user
+
+    stack_state = create_state(phab_revision, mock_landing_assessment)
+
+    blocker = blocker_user_scm_level(
+        revision=phab_revision, diff=diff_normal, stack_state=stack_state
+    )
+
+    if should_allow:
+        assert blocker is None, "User with direct required SCM level should be allowed"
+    else:
+        assert blocker == (
+            "You have insufficient permissions to land or your access has expired. "
+            "scm_level_3 is required. See the FAQ for help."
+        ), "User without direct required SCM level should be rejected"
 
 
 @pytest.mark.django_db
