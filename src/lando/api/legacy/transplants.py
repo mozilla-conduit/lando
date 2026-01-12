@@ -48,6 +48,7 @@ from lando.main.models import (
     Repo,
 )
 from lando.main.support import LegacyAPIException
+from lando.utils.auth import user_has_direct_permission
 from lando.utils.landing_checks import (
     DiffAssessor,
     PreventNSPRNSSCheck,
@@ -637,16 +638,8 @@ def blocker_user_scm_level(
 
     bare_required_permission = landing_repo.required_permission.removeprefix("main.")
 
-    if lando_user.is_superuser:
-        # We can't rely on the `get_user_permissions()` method, as it returns all existing
-        # permissions for superusers. Here, we want to check permissions that have been
-        # explicitely given to the user from LDAP groups.
-        if lando_user.user_permissions.filter(codename=bare_required_permission):
-            return None
-    else:
-        # If the user is not a superuser, skip we don't need the DB round-trip.
-        if landing_repo.required_permission in lando_user.get_user_permissions():
-            return None
+    if user_has_direct_permission(lando_user, bare_required_permission):
+        return None
 
     return (
         "You have insufficient permissions to land or your access has expired. "
