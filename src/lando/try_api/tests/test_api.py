@@ -74,14 +74,24 @@ def test_try_api_patches_invalid_user(
 
 
 @pytest.mark.django_db()
-@pytest.mark.parametrize("group_scm_1", (True, False))
+@pytest.mark.parametrize(
+    "group_scm_1,superuser",
+    (
+        (False, False),
+        (False, True),
+        (True, False),
+        (True, True),
+    ),
+)
 @patch("lando.utils.auth.AccessTokenAuth.authenticate")
 def test_try_api_patches_no_scm1(
     mock_authenticate: Mock,
     scm_user: Callable,
     to_profile_permissions: Callable,
     client_post: Callable,
+    make_superuser: Callable,
     group_scm_1: bool,
+    superuser: bool,
 ):
     if group_scm_1:
         user = scm_user(
@@ -91,6 +101,10 @@ def test_try_api_patches_no_scm1(
         )
     else:
         user = scm_user(to_profile_permissions([]), "password")
+
+    if superuser:
+        user = make_superuser(user)
+
     mock_authenticate.return_value = user
 
     response = client_post(
