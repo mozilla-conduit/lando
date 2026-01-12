@@ -80,18 +80,18 @@ To run the test suite, invoke the following command:
 If you need to run specific tests, or pass additional arguments to `lando tests`,
 you do so via the `ARGS_TESTS` parameter:
 
-    make test ARGS_TESTS="-xk test_patch"
+    make test ARGS_TESTS="-- -xk test_patch"
 
 You can also pass arguments directly to pytest by placing them in the
 `ARGS_TESTS` parameter, after a `--`:
 
-    make test ARGS_TEST='-x -- --failed-first --verbose
+    make test ARGS_TESTS='-- -x -- --failed-first --verbose
 
 By default, tests run in parallel using `pytest-xdist` with `-n auto`. To control
 parallelism, use the `-n` option:
 
-    make test ARGS_TESTS="-n 4"      # Use 4 workers
-    make test ARGS_TESTS="-n 0"      # Disable parallelism
+    make test ARGS_TESTS="-- -n 4"      # Use 4 workers
+    make test ARGS_TESTS="-- -n 0"      # Disable parallelism
 
 ### Specifying the test environment
 
