@@ -9,7 +9,9 @@ STORAGES = {
     },
 }
 
-# Defined in lando.settings.
+# If missing, we default to  `STATIC_URL`, from the `from settings import *`.
+# This allows the code to run in a local environment configured to simulate a remote
+# environment.
 STATIC_URL = os.getenv("STATIC_URL", STATIC_URL)  # noqa: F405
 GS_BUCKET_NAME = os.getenv("GS_BUCKET_NAME")
 GS_PROJECT_ID = os.getenv("GS_PROJECT_ID")
