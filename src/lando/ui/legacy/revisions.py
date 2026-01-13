@@ -384,7 +384,7 @@ class UpliftAssessmentBatchLinkView(LandoView):
 
 
 class RevisionView(LandoView):
-    @method_decorator(require_phabricator_api_key(optional=False, provide_client=True))
+    @method_decorator(require_phabricator_api_key(optional=True, provide_client=True))
     def get(
         self,
         phab: PhabricatorClient,
