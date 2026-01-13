@@ -8,7 +8,9 @@ STORAGES = {
         "BACKEND": "storages.backends.gcloud.GoogleCloudStorage",
     },
 }
-STATIC_URL = os.getenv("STATIC_URL")
+
+# Defined in lando.settings.
+STATIC_URL = os.getenv("STATIC_URL", STATIC_URL)  # noqa: F405
 GS_BUCKET_NAME = os.getenv("GS_BUCKET_NAME")
 GS_PROJECT_ID = os.getenv("GS_PROJECT_ID")
 GS_QUERYSTRING_AUTH = False

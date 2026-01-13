@@ -30,6 +30,10 @@ services:
     env_file:
       - .env
     environment:
+      # To simulate a remote environment, uncomment the following lines.
+      # ENVIRONMENT: production
+      # DJANGO_SETTINGS_MODULE: lando.remote_settings
+
       DEFAULT_DB_HOST: db
     depends_on:
       db:
