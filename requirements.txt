@@ -863,9 +863,9 @@ django-libsass==0.9 \
     --hash=sha256:5234d29100889cac79e36a0f44207ec6d275adfd2da1acb6a94b55c89fe2bd97 \
     --hash=sha256:bfbbb55a8950bb40fa04dd416605f92da34ad1f303b10a41abc3232386ec27b5
     # via lando (pyproject.toml)
-django-ninja==1.5.1 \
-    --hash=sha256:135aaa1117dce8dfd7a1e80b4487a8cccee3a4182c3c8b562d08ea94e4d2cbdf \
-    --hash=sha256:6acda68a64d60934c6fdccb4d97c3ac7f02cfefd78a5d87ae053effe081b17c7
+django-ninja==1.5.3 \
+    --hash=sha256:0a6ead5b4e57ec1050b584eb6f36f105f256b8f4ac70d12e774d8b6dd91e2198 \
+    --hash=sha256:974803944965ad0566071633ffd4999a956f2ad1ecbed815c0de37c1c969592b
     # via lando (pyproject.toml)
 django-storages[google]==1.14.6 \
     --hash=sha256:11b7b6200e1cb5ffcd9962bd3673a39c7d6a6109e8096f0e03d46fab3d3aabd9 \
