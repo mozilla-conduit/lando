@@ -609,6 +609,30 @@ class GitSCM(AbstractSCM):
         """Return the currently active branch."""
         return self._git_run("branch", "--show-current", cwd=self.path)
 
+    def commit_exists(self, commit_id: str) -> bool:
+        """Check if a commit exists in the repository.
+
+        Args:
+            commit_id: The commit ID to check.
+
+        Returns:
+            `True` if the commit exists, `False` otherwise.
+        """
+        try:
+            result = self._git_run("cat-file", "-t", commit_id, cwd=self.path)
+            return result == "commit"
+        except SCMException as exc:
+            # Check if this is the expected "object doesn't exist" error.
+            if "Not a valid object name" in exc.err or "bad object" in exc.err:
+                logger.debug(f"Commit {commit_id} does not exist in repository")
+            else:
+                logger.warning(
+                    f"Unexpected error while checking if commit {commit_id} exists",
+                    exc_info=exc,
+                )
+
+            return False
+
     @override
     def merge_onto(
         self, commit_message: str, target: str, strategy: MergeStrategy | None
