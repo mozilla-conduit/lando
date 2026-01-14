@@ -613,10 +613,10 @@ class GitSCM(AbstractSCM):
         """Check if a commit exists in the repository.
 
         Args:
-            commit_id: The commit ID to check
+            commit_id: The commit ID to check.
 
         Returns:
-            True if the commit exists, False otherwise
+            `True` if the commit exists, `False` otherwise.
         """
         try:
             result = self._git_run("cat-file", "-t", commit_id, cwd=self.path)
