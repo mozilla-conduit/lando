@@ -1198,26 +1198,22 @@ def test_GitSCM_commit_exists(
     scm.clone(str(git_repo))
     git_setup_user(str(clone_path))
 
-    # Get the current HEAD commit SHA - this should exist
     existing_commit = scm.head_ref()
     assert scm.commit_exists(
         existing_commit
-    ), f"commit_exists should return True for existing commit {existing_commit}"
+    ), f"`commit_exists` should return `True` for existing commit {existing_commit}."
 
-    # Create a new commit and verify it exists
     create_git_commit(clone_path)
     new_commit = scm.head_ref()
     assert scm.commit_exists(
         new_commit
-    ), f"commit_exists should return True for new commit {new_commit}"
+    ), f"`commit_exists` should return `True` for new commit {new_commit}."
 
-    # Test with a non-existent commit SHA
     fake_commit = "0000000000000000000000000000000000000000"
     assert not scm.commit_exists(
         fake_commit
-    ), f"commit_exists should return False for non-existent commit {fake_commit}"
+    ), f"`commit_exists` should return `False` for non-existent commit {fake_commit}."
 
-    # Test with an invalid commit reference
     assert not scm.commit_exists(
         "this-is-not-a-valid-commit"
-    ), "commit_exists should return False for invalid commit reference"
+    ), "`commit_exists` should return `False` for invalid commit reference."
