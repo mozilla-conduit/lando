@@ -1132,7 +1132,9 @@ def test_GitSCM_add_diff_from_patches(
     assert diff == expected_diff, "Did not generate expected diff from patches"
 
 
+@pytest.mark.parametrize("has_changes", (True, False))
 def test_GitSCM_format_stack_amend_with_changes(
+    has_changes: bool,
     git_repo: Path,
     git_setup_user: Callable,
     request: pytest.FixtureRequest,
@@ -1152,54 +1154,30 @@ def test_GitSCM_format_stack_amend_with_changes(
     original_commit = scm.head_ref()
 
     # Modify the existing file, simulating autoformatting changes.
-    created_file.write_text("autoformatted content", encoding="utf-8")
+    if has_changes:
+        created_file.write_text("autoformatted content", encoding="utf-8")
 
-    # Call `format_stack_amend` which should amend the commit with changes.
     result = scm.format_stack_amend()
 
-    assert (
-        result is not None
-    ), "`format_stack_amend` should return a list when changes exist."
-    assert isinstance(result, list), "`format_stack_amend` should return a list."
-    assert len(result) == 1, "Should return exactly one commit SHA."
+    if has_changes:
+        assert (
+            result is not None
+        ), "`format_stack_amend` should return a list when changes exist."
+        assert isinstance(result, list), "`format_stack_amend` should return a list."
+        assert len(result) == 1, "Should return exactly one commit SHA."
 
-    new_commit = scm.head_ref()
-    assert (
-        new_commit != original_commit
-    ), "Commit SHA should change when amending with changes"
-    assert result[0] == new_commit, "Returned SHA should match the new HEAD"
+        new_commit = scm.head_ref()
+        assert (
+            new_commit != original_commit
+        ), "Commit SHA should change when amending with changes"
+        assert result[0] == new_commit, "Returned SHA should match the new HEAD"
+    else:
+        assert (
+            result is None
+        ), "`format_stack_amend` should return `None` when no changes exist."
 
-
-def test_GitSCM_format_stack_amend_no_changes(
-    git_repo: Path,
-    git_setup_user: Callable,
-    request: pytest.FixtureRequest,
-    tmp_path: Path,
-    create_git_commit: Callable,
-):
-    """Test format_stack_amend when there are no changes (no-op case)."""
-    clone_path = tmp_path / request.node.name
-    clone_path.mkdir()
-
-    scm = GitSCM(str(clone_path))
-    scm.clone(str(git_repo))
-    git_setup_user(str(clone_path))
-
-    # Create a commit.
-    create_git_commit(clone_path)
-    original_commit = scm.head_ref()
-
-    # Don't make any changes to the working directory.
-
-    # Call `format_stack_amend`, which should be a no-op.
-    result = scm.format_stack_amend()
-
-    assert (
-        result is None
-    ), "`format_stack_amend` should return `None` when no changes exist."
-
-    # The commit SHA should remain unchanged.
-    current_commit = scm.head_ref()
-    assert (
-        current_commit == original_commit
-    ), "Commit SHA should not change when there are no changes to amend."
+        # The commit SHA should remain unchanged.
+        current_commit = scm.head_ref()
+        assert (
+            current_commit == original_commit
+        ), "Commit SHA should not change when there are no changes to amend."
