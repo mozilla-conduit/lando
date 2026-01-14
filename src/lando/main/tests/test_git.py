@@ -1181,3 +1181,43 @@ def test_GitSCM_format_stack_amend_with_changes(
         assert (
             current_commit == original_commit
         ), "Commit SHA should not change when there are no changes to amend."
+
+
+def test_GitSCM_commit_exists(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+    create_git_commit: Callable,
+):
+    """Test commit_exists method returns correct values."""
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+
+    # Get the current HEAD commit SHA - this should exist
+    existing_commit = scm.head_ref()
+    assert scm.commit_exists(
+        existing_commit
+    ), f"commit_exists should return True for existing commit {existing_commit}"
+
+    # Create a new commit and verify it exists
+    create_git_commit(clone_path)
+    new_commit = scm.head_ref()
+    assert scm.commit_exists(
+        new_commit
+    ), f"commit_exists should return True for new commit {new_commit}"
+
+    # Test with a non-existent commit SHA
+    fake_commit = "0000000000000000000000000000000000000000"
+    assert not scm.commit_exists(
+        fake_commit
+    ), f"commit_exists should return False for non-existent commit {fake_commit}"
+
+    # Test with an invalid commit reference
+    assert not scm.commit_exists(
+        "this-is-not-a-valid-commit"
+    ), "commit_exists should return False for invalid commit reference"

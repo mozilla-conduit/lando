@@ -609,6 +609,21 @@ class GitSCM(AbstractSCM):
         """Return the currently active branch."""
         return self._git_run("branch", "--show-current", cwd=self.path)
 
+    def commit_exists(self, commit_id: str) -> bool:
+        """Check if a commit exists in the repository.
+
+        Args:
+            commit_id: The commit ID to check
+
+        Returns:
+            True if the commit exists, False otherwise
+        """
+        try:
+            result = self._git_run("cat-file", "-t", commit_id, cwd=self.path)
+            return result == "commit"
+        except SCMException:
+            return False
+
     @override
     def merge_onto(
         self, commit_message: str, target: str, strategy: MergeStrategy | None

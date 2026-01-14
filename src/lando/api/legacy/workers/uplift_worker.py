@@ -90,7 +90,7 @@ class UpliftWorker(Worker):
             """
             commit_id = revision.get_latest_landing_commit_id()
 
-            if commit_id:
+            if commit_id and scm.commit_exists(commit_id):
                 logger.debug(f"Cherry-picking {revision} with commit_id: {commit_id}")
                 try:
                     scm.cherry_pick_commit(commit_id)
@@ -100,8 +100,7 @@ class UpliftWorker(Worker):
                         "Cherry-pick not supported for this SCM type. "
                         "Falling back to applying patch."
                     )
-
-            if not commit_id:
+            else:
                 logger.debug(
                     f"No landing commit found for {revision}. "
                     f"Falling back to applying patch."
