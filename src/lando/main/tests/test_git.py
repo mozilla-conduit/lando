@@ -1185,20 +1185,21 @@ def test_GitSCM_format_stack_amend_no_changes(
     scm.clone(str(git_repo))
     git_setup_user(str(clone_path))
 
-    # Create a commit
+    # Create a commit.
     create_git_commit(clone_path)
     original_commit = scm.head_ref()
 
-    # Don't make any changes to the working directory
+    # Don't make any changes to the working directory.
 
-    # Call format_stack_amend - should do nothing and return None
+    # Call `format_stack_amend`, which should be a no-op.
     result = scm.format_stack_amend()
 
-    # Should return None when there are no changes
-    assert result is None, "format_stack_amend should return None when no changes exist"
+    assert (
+        result is None
+    ), "`format_stack_amend` should return `None` when no changes exist."
 
-    # The commit SHA should remain unchanged
+    # The commit SHA should remain unchanged.
     current_commit = scm.head_ref()
     assert (
         current_commit == original_commit
-    ), "Commit SHA should not change when there are no changes to amend"
+    ), "Commit SHA should not change when there are no changes to amend."
