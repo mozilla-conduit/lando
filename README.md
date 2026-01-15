@@ -2,13 +2,15 @@
 
 Lando is an application that applies patches and pushes them to Git and Mercurial repositories.
 
+This application runs at: https://lando.moz.tools/
+
 ## Development
 
 ### Contributing
 
 - All contributors must abide by the Mozilla Code of Conduct.
 - The [main repository](https://github.com/mozilla-conduit/lando) is hosted on GitHub. Pull requests should be submitted against the `main` branch.
-- Bugs are tracked [on Bugzilla](https://bugzilla.mozilla.org), under the `Conduit :: Lando` component.
+- Bugs are tracked [on Bugzilla](https://bugzilla.mozilla.org), under the `Conduit :: Lando` component ([open bugs](https://bugzilla.mozilla.org/buglist.cgi?product=Conduit&component=Lando&resolution=---)).
 - It is recommended to fork the repository and create a new branch for each pull request. A good convention to use is to prefix your name and bug number to the branch, and add a brief description at the end, for example: `sarah/bug-4325743-changing-config-params`.
 - Commit messages must be of the following form: `<module name>: <brief description> (bug <bug number>)`.
 
