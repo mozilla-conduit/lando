@@ -15,11 +15,10 @@ from lando.main.models import Repo
 from lando.main.models.commit_map import CommitMap
 from lando.main.models.jobs import JobStatus
 from lando.main.models.landing_job import LandingJob, add_revisions_to_job
-from lando.main.models.profile import SCM_LEVEL_1
 from lando.main.models.revision import Revision
 from lando.main.scm.consts import SCMType
 from lando.main.scm.helpers import PATCH_HELPER_MAPPING, PatchFormat
-from lando.utils.auth import AccessTokenAuth, PermissionAccessTokenAuth
+from lando.utils.auth import AccessTokenAuth
 from lando.utils.exceptions import (
     BadRequestProblemException,
     ForbiddenProblemException,
@@ -30,7 +29,7 @@ from lando.utils.exceptions import (
 
 logger = logging.getLogger(__name__)
 
-api = NinjaAPI(auth=PermissionAccessTokenAuth(SCM_LEVEL_1), urls_namespace="try")
+api = NinjaAPI(auth=AccessTokenAuth(), urls_namespace="try")
 
 
 @api.exception_handler(PermissionDenied)
@@ -147,6 +146,11 @@ def patches(
         return status, ProblemDetail(
             title="Not a Try repository", detail=error, status=status
         )
+
+    if not request.user.profile.has_direct_permission(
+        repo.required_permission.removeprefix("main.")
+    ):
+        raise PermissionDenied(f"Missing permissions: {repo.required_permission}")
 
     # XXX: We'll need a more flexible way to set this.
     mapping_repo = "firefox"

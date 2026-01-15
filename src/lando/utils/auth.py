@@ -2,7 +2,6 @@ import logging
 
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.core.exceptions import PermissionDenied
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import JsonResponse
 from ninja import NinjaAPI
@@ -61,28 +60,6 @@ class AccessTokenAuth(HttpBearer):
         request.user = oidc_auth.authenticate(request)
 
         return request.user
-
-
-class PermissionAccessTokenAuth(AccessTokenAuth):
-    """Ninja authenticator which also verifies that the user has a given permission."""
-
-    required_permission: str
-
-    def __init__(self, required_permission: str, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.required_permission = required_permission
-
-    @override
-    def authenticate(self, request: WSGIRequest, token: str) -> User:
-        user = super().authenticate(request, token)
-        # Only check the user's own permission; don't allow delegation from groups or
-        # roles.
-        if user.profile.has_direct_permission(
-            self.required_permission.removeprefix("main.")
-        ):
-            request.user = user
-            return user
-        raise PermissionDenied(f"Missing permissions: {self.required_permission}")
 
 
 #
