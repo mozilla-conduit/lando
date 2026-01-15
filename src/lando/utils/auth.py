@@ -77,43 +77,12 @@ class PermissionAccessTokenAuth(AccessTokenAuth):
         user = super().authenticate(request, token)
         # Only check the user's own permission; don't allow delegation from groups or
         # roles.
-        if user_has_direct_permission(
-            user, self.required_permission.removeprefix("main.")
+        if user.profile.has_direct_permission(
+            self.required_permission.removeprefix("main.")
         ):
             request.user = user
             return user
         raise PermissionDenied(f"Missing permissions: {self.required_permission}")
-
-
-def user_has_direct_permission(user: User, permission: str) -> bool:
-    """
-    Test that the user has permission directly rather than inherited.
-
-    This prevents giving superusers LDAP-based permissions they shouldn't have.
-
-
-    Parameters:
-
-    user: User
-        Django User model
-
-    permission: str
-        Permission string to check. It should not contain a namespace prefix, which is
-        assumed to be `main`.
-
-    Returns:
-        bool: whether the user has the permission
-    """
-    if user.is_superuser:
-        # We can't rely on the `get_user_permissions()` method, as it returns all existing
-        # permissions for superusers. Here, we want to check permissions that have been
-        # explicitely given to the user from LDAP groups.
-        if user.user_permissions.filter(codename=permission):
-            return True
-    else:
-        # If the user is not a superuser, we can skip the DB round-trip.
-        if f"main.{permission}" in user.get_user_permissions():
-            return True
 
 
 #
