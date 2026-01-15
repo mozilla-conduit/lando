@@ -1130,3 +1130,90 @@ def test_GitSCM_add_diff_from_patches(
 
     diff = scm.add_diff_from_patches(patches)
     assert diff == expected_diff, "Did not generate expected diff from patches"
+
+
+@pytest.mark.parametrize("has_changes", (True, False))
+def test_GitSCM_format_stack_amend_with_changes(
+    has_changes: bool,
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+    create_git_commit: Callable,
+):
+    """Test format_stack_amend when there are changes to amend."""
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+
+    # Create a commit with a file.
+    created_file = create_git_commit(clone_path)
+    original_commit = scm.head_ref()
+
+    # Modify the existing file, simulating autoformatting changes.
+    if has_changes:
+        created_file.write_text("autoformatted content", encoding="utf-8")
+
+    result = scm.format_stack_amend()
+
+    if has_changes:
+        assert (
+            result is not None
+        ), "`format_stack_amend` should return a list when changes exist."
+        assert isinstance(result, list), "`format_stack_amend` should return a list."
+        assert len(result) == 1, "Should return exactly one commit SHA."
+
+        new_commit = scm.head_ref()
+        assert (
+            new_commit != original_commit
+        ), "Commit SHA should change when amending with changes"
+        assert result[0] == new_commit, "Returned SHA should match the new HEAD"
+    else:
+        assert (
+            result is None
+        ), "`format_stack_amend` should return `None` when no changes exist."
+
+        # The commit SHA should remain unchanged.
+        current_commit = scm.head_ref()
+        assert (
+            current_commit == original_commit
+        ), "Commit SHA should not change when there are no changes to amend."
+
+
+def test_GitSCM_commit_exists(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+    create_git_commit: Callable,
+):
+    """Test commit_exists method returns correct values."""
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+
+    existing_commit = scm.head_ref()
+    assert scm.commit_exists(
+        existing_commit
+    ), f"`commit_exists` should return `True` for existing commit {existing_commit}."
+
+    create_git_commit(clone_path)
+    new_commit = scm.head_ref()
+    assert scm.commit_exists(
+        new_commit
+    ), f"`commit_exists` should return `True` for new commit {new_commit}."
+
+    fake_commit = "0000000000000000000000000000000000000000"
+    assert not scm.commit_exists(
+        fake_commit
+    ), f"`commit_exists` should return `False` for non-existent commit {fake_commit}."
+
+    assert not scm.commit_exists(
+        "this-is-not-a-valid-commit"
+    ), "`commit_exists` should return `False` for invalid commit reference."

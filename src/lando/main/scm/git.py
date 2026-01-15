@@ -481,19 +481,24 @@ class GitSCM(AbstractSCM):
         return self._git_run("rev-parse", "--absolute-git-dir", cwd=self.path)
 
     @override
-    def format_stack_amend(self) -> list[str]:
+    def format_stack_amend(self) -> list[str] | None:
         """Amend the top commit in the patch stack with changes from formatting."""
+        status = self._git_run("status", "--porcelain", cwd=self.path)
+        if not status:
+            # No changes detected.
+            return None
+
         self._git_run("commit", "--all", "--amend", "--no-edit", cwd=self.path)
         return [self.head_ref()]
 
     @override
-    def format_stack_tip(self, commit_message: str) -> list[str]:
+    def format_stack_tip(self, commit_message: str) -> list[str] | None:
         """Add an autoformat commit to the top of the patch stack."""
         try:
             self._git_run("commit", "--all", "--message", commit_message, cwd=self.path)
         except SCMException as exc:
             if "nothing to commit, working tree clean" in exc.out:
-                return []
+                return None
             else:
                 raise exc
         return [self.head_ref()]
@@ -603,6 +608,30 @@ class GitSCM(AbstractSCM):
     def get_current_branch(self) -> str:
         """Return the currently active branch."""
         return self._git_run("branch", "--show-current", cwd=self.path)
+
+    def commit_exists(self, commit_id: str) -> bool:
+        """Check if a commit exists in the repository.
+
+        Args:
+            commit_id: The commit ID to check.
+
+        Returns:
+            `True` if the commit exists, `False` otherwise.
+        """
+        try:
+            result = self._git_run("cat-file", "-t", commit_id, cwd=self.path)
+            return result == "commit"
+        except SCMException as exc:
+            # Check if this is the expected "object doesn't exist" error.
+            if "Not a valid object name" in exc.err or "bad object" in exc.err:
+                logger.debug(f"Commit {commit_id} does not exist in repository")
+            else:
+                logger.warning(
+                    f"Unexpected error while checking if commit {commit_id} exists",
+                    exc_info=exc,
+                )
+
+            return False
 
     @override
     def merge_onto(
