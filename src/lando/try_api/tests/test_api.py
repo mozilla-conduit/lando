@@ -1,9 +1,11 @@
 import base64
 import json
 from typing import Callable
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock
 
 import pytest
+from django.contrib.auth.models import User
+from django.core.handlers.wsgi import WSGIRequest
 from django.test.client import Client
 
 from lando.main.models.commit_map import CommitMap
@@ -44,13 +46,31 @@ def client_post(
     return _post
 
 
+@pytest.fixture
+def mock_authenticate_builder(monkeypatch: pytest.MonkeyPatch) -> Callable:
+    """Allows to build a Mock authentication system which returns a specified User."""
+
+    def builder(user: User) -> Mock:
+        mock = MagicMock()
+
+        def authenticate_callback(request: WSGIRequest, token: str) -> User:
+            request.user = user
+            return user
+
+        mock.side_effect = authenticate_callback
+
+        monkeypatch.setattr("lando.utils.auth.AccessTokenAuth.authenticate", mock)
+        return mock
+
+    return builder
+
+
 @pytest.mark.django_db()
-@patch("lando.try_api.api.AccessTokenAuth.authenticate")
 def test_legacy_try_patches_invalid_user(
-    mock_authenticate: Mock,
+    mock_authenticate_builder: Callable,
     client_post: Callable,
 ):
-    mock_authenticate.return_value = None
+    mock_authenticate = mock_authenticate_builder(None)
 
     response = client_post("/try/patches")
 
@@ -61,11 +81,15 @@ def test_legacy_try_patches_invalid_user(
 
 
 @pytest.mark.django_db()
-@patch("lando.try_api.api.AccessTokenAuth.authenticate")
 def test_legacy_try_patches_auth_redirect(
-    mock_authenticate: Mock,
+    mock_authenticate_builder: Callable,
+    scm_user: Callable,
+    to_profile_permissions: Callable,
     client_post: Callable,
 ):
+    user = scm_user(to_profile_permissions(["scm_level_1"]), "password")
+    mock_authenticate = mock_authenticate_builder(user)
+
     response = client_post("/try/patches")
 
     assert mock_authenticate.called, "Authentication backend should be called"
@@ -75,12 +99,11 @@ def test_legacy_try_patches_auth_redirect(
 
 
 @pytest.mark.django_db()
-@patch("lando.utils.auth.AccessTokenAuth.authenticate")
 def test_try_api_patches_invalid_user(
-    mock_authenticate: Mock,
+    mock_authenticate_builder: Callable,
     client_post: Callable,
 ):
-    mock_authenticate.return_value = None
+    mock_authenticate = mock_authenticate_builder(None)
 
     response = client_post("/try/patches")
 
@@ -98,10 +121,9 @@ def test_try_api_patches_invalid_user(
         (True, True),
     ),
 )
-@patch("lando.utils.auth.AccessTokenAuth.authenticate")
 def test_try_api_patches_no_scm1(
+    mock_authenticate_builder: Callable,
     mocked_repo_config: Mock,
-    mock_authenticate: Mock,
     scm_user: Callable,
     to_profile_permissions: Callable,
     client_post: Callable,
@@ -121,7 +143,7 @@ def test_try_api_patches_no_scm1(
     if superuser:
         user = make_superuser(user)
 
-    mock_authenticate.return_value = user
+    mock_authenticate = mock_authenticate_builder(user)
 
     response = client_post(
         "/api/try/patches",
@@ -132,7 +154,7 @@ def test_try_api_patches_no_scm1(
 
     assert (
         response.status_code == 403
-    ), "Missing permissions to legacy Try API should result in 403"
+    ), "Missing permissions to Try API should result in 403"
 
     rj = response.json()
     assert rj, "Error response should be a parseable (RFC 7807) JSON payload"
@@ -143,16 +165,15 @@ def test_try_api_patches_no_scm1(
 
 
 @pytest.mark.django_db()
-@patch("lando.utils.auth.AccessTokenAuth.authenticate")
 def test_try_api_patches_not_try(
-    mock_authenticate: Mock,
+    mock_authenticate_builder: Callable,
     mocked_repo_config: Mock,
     scm_user: Callable,
     to_profile_permissions: Callable,
     client_post: Callable,
 ):
     user = scm_user(to_profile_permissions(["scm_level_1"]), "password")
-    mock_authenticate.return_value = user
+    mock_authenticate = mock_authenticate_builder(user)
 
     request_payload = {
         "repo": "mozilla-central",  # from the mocked_repo_config
@@ -179,9 +200,8 @@ def test_try_api_patches_not_try(
 
 @pytest.mark.django_db()
 @pytest.mark.parametrize("invalid_base64", (False, True))
-@patch("lando.utils.auth.AccessTokenAuth.authenticate")
 def test_try_api_patches_invalid_data(
-    mock_authenticate: Mock,
+    mock_authenticate_builder: Callable,
     mocked_repo_config: Mock,
     scm_user: Callable,
     to_profile_permissions: Callable,
@@ -191,7 +211,7 @@ def test_try_api_patches_invalid_data(
     invalid_base64: bool,
 ):
     user = scm_user(to_profile_permissions(["scm_level_1"]), "password")
-    mock_authenticate.return_value = user
+    mock_authenticate = mock_authenticate_builder(user)
 
     for map in commit_maps:
         # This is hardcoded for now.
@@ -233,9 +253,8 @@ def test_try_api_patches_invalid_data(
 
 
 @pytest.mark.django_db()
-@patch("lando.utils.auth.AccessTokenAuth.authenticate")
 def test_try_api_patches_success(
-    mock_authenticate: Mock,
+    mock_authenticate_builder: Callable,
     mocked_repo_config: Mock,
     scm_user: Callable,
     to_profile_permissions: Callable,
@@ -244,7 +263,8 @@ def test_try_api_patches_success(
     client_post: Callable,
 ):
     user = scm_user(to_profile_permissions(["scm_level_1"]), "password")
-    mock_authenticate.return_value = user
+
+    mock_authenticate = mock_authenticate_builder(user)
 
     for map in commit_maps:
         # This is hardcoded for now.
