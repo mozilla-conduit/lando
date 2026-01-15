@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres
+    image: postgres:17
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -29,6 +29,8 @@ services:
       - media:/files/
     env_file:
       - .env
+    environment:
+      DEFAULT_DB_HOST: db
     depends_on:
       db:
         condition: service_healthy

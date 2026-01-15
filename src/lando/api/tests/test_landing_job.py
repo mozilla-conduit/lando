@@ -24,7 +24,7 @@ def landing_job(repo_mc):
 
 @pytest.mark.django_db
 def test_cancel_landing_job_cancels_when_submitted(
-    authenticated_client, user, landing_job, mock_permissions
+    authenticated_client, user, landing_job
 ):
     """Test happy path; cancelling a job that has not started yet."""
     job = landing_job(JobStatus.SUBMITTED, requester_email=user.email)
