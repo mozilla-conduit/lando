@@ -130,7 +130,6 @@ def patches(
         error = f"Repo {repo_name} does not exist."
         logger.info(
             error,
-            extra={"user": request.user.email, "token": request.auth},
         )
         return status, ProblemDetail(
             title="Repository not found", detail=error, status=status
@@ -141,7 +140,6 @@ def patches(
         error = f"Repo {repo_name} is not a Try repository."
         logger.info(
             error,
-            extra={"user": request.user.email, "token": request.auth},
         )
         return status, ProblemDetail(
             title="Not a Try repository", detail=error, status=status
@@ -167,7 +165,6 @@ def patches(
             error = f"Could not determine the equivalent base commit for {target_commit_hash} in {repo.scm_type} for {mapping_repo}. Please try again later."
             logger.warning(
                 error,
-                extra={"user": request.user.email},
             )
             return status, ProblemDetail(
                 title="Error converting VCS commit IDs",
