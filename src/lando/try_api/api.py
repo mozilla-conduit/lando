@@ -100,7 +100,7 @@ class JobResponse(Schema):
     openapi_extra={
         "responses": {
             200: {
-                # XXX: This should not happen, but NinjaAPI does't let me disable this.
+                # XXX: This should not happen, but NinjaAPI doesn't let us disable this.
                 "description": "Not used.",
                 "content": None,
             },

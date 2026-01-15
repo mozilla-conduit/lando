@@ -13,15 +13,30 @@ from lando.main.models.repo import Repo
 
 
 @pytest.fixture
-def client_post(client: Client) -> Callable:
+def client_post(
+    client: Client, commit_maps: list[CommitMap], git_patch: Callable
+) -> Callable:
     """Fixture for making POST requests with the test client."""
 
     def _post(
         path: str,
-        data: str = "{}",
+        data: str | None = None,
         content_type: str = "application/json",
         headers: dict | None = None,
     ):
+        if not data:
+            data = json.dumps(
+                {
+                    # "repo": "some",  # defaults to try, from the mocked_repo_config
+                    "base_commit": commit_maps[0].git_hash,
+                    "base_commit_vcs": "git",
+                    "patches": [
+                        base64.b64encode(git_patch(0).encode()).decode(),
+                    ],
+                    "patch_format": "git-format-patch",
+                }
+            )
+
         if headers is None:
             headers = {"AuThOrIzAtIoN": "bEaReR token"}
         return client.post(path, data=data, content_type=content_type, headers=headers)
@@ -85,6 +100,7 @@ def test_try_api_patches_invalid_user(
 )
 @patch("lando.utils.auth.AccessTokenAuth.authenticate")
 def test_try_api_patches_no_scm1(
+    mocked_repo_config: Mock,
     mock_authenticate: Mock,
     scm_user: Callable,
     to_profile_permissions: Callable,
