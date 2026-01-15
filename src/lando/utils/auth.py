@@ -2,7 +2,6 @@ import logging
 
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.core.exceptions import PermissionDenied
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import JsonResponse
 from ninja import NinjaAPI
