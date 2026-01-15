@@ -48,7 +48,6 @@ from lando.main.models import (
     Repo,
 )
 from lando.main.support import LegacyAPIException
-from lando.utils.auth import user_has_direct_permission
 from lando.utils.landing_checks import (
     DiffAssessor,
     PreventNSPRNSSCheck,
@@ -641,7 +640,7 @@ def blocker_user_scm_level(
 
     bare_required_permission = landing_repo.required_permission.removeprefix("main.")
 
-    if user_has_direct_permission(lando_user, bare_required_permission):
+    if lando_user.profile.has_direct_permission(bare_required_permission):
         return None
 
     return (
