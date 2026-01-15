@@ -46,7 +46,6 @@ from lando.main.models import (
     Repo,
 )
 from lando.main.support import LegacyAPIException
-from lando.utils.auth import user_has_direct_permission
 from lando.utils.landing_checks import (
     DiffAssessor,
     PreventNSPRNSSCheck,
