@@ -6,9 +6,9 @@ future.
 #}
 {% macro revision_tag(rev_id, current_revision_id) %}
     {% if rev_id == current_revision_id %}
-        <span class="tag is-primary">D{{ rev_id }}</span>
+        <span class="tag is-rounded is-primary">D{{ rev_id }}</span>
     {% else %}
-        <a class="tag is-white" href="{{ url('revisions-page', args=[rev_id]) }}">D{{ rev_id }}</a>
+        <a class="tag is-rounded is-white" href="{{ url('revisions-page', args=[rev_id]) }}">D{{ rev_id }}</a>
     {% endif %}
 {% endmacro %}
 <h1>Uplifts</h1>
@@ -201,7 +201,7 @@ future.
                             {% set icon_class = job|uplift_status_icon_class %}
                             {% set status_label = job|uplift_status_label %}
                             <figure class="media-left">
-                                <span class="tag {{ tag_class }}">
+                                <span class="tag is-rounded {{ tag_class }}">
                                     {% if icon_class %}
                                         <span class="icon is-small">
                                             <i class="{{ icon_class }}" aria-hidden="true"></i>
