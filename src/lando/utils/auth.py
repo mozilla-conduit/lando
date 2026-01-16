@@ -10,6 +10,7 @@ from ninja.security import HttpBearer
 
 # requests is a transitive dependency of mozilla-django-oidc.
 from requests.exceptions import HTTPError
+from typing_extensions import override
 
 from lando.main.auth import LandoOIDCAuthenticationBackend
 
@@ -45,6 +46,7 @@ class AccessTokenLandoOIDCAuthenticationBackend(LandoOIDCAuthenticationBackend):
 class AccessTokenAuth(HttpBearer):
     """Ninja bearer token-based authenticator delegating verification to the OIDC backend."""
 
+    @override
     def authenticate(self, request: WSGIRequest, token: str) -> User:
         """Forward the authenticate request to the LandoOIDCAuthenticationBackend."""
         # The token is extracted in the LandoOIDCAuthenticationBackend, so we don't need
