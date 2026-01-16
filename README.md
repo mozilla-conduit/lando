@@ -2,13 +2,15 @@
 
 Lando is an application that applies patches and pushes them to Git and Mercurial repositories.
 
+This application runs at: https://lando.moz.tools/
+
 ## Development
 
 ### Contributing
 
 - All contributors must abide by the Mozilla Code of Conduct.
 - The [main repository](https://github.com/mozilla-conduit/lando) is hosted on GitHub. Pull requests should be submitted against the `main` branch.
-- Bugs are tracked [on Bugzilla](https://bugzilla.mozilla.org), under the `Conduit :: Lando` component.
+- Bugs are tracked [on Bugzilla](https://bugzilla.mozilla.org), under the `Conduit :: Lando` component ([open bugs](https://bugzilla.mozilla.org/buglist.cgi?product=Conduit&component=Lando&resolution=---)).
 - It is recommended to fork the repository and create a new branch for each pull request. A good convention to use is to prefix your name and bug number to the branch, and add a brief description at the end, for example: `sarah/bug-4325743-changing-config-params`.
 - Commit messages must be of the following form: `<module name>: <brief description> (bug <bug number>)`.
 
@@ -80,18 +82,18 @@ To run the test suite, invoke the following command:
 If you need to run specific tests, or pass additional arguments to `lando tests`,
 you do so via the `ARGS_TESTS` parameter:
 
-    make test ARGS_TESTS="-xk test_patch"
+    make test ARGS_TESTS="-- -xk test_patch"
 
 You can also pass arguments directly to pytest by placing them in the
 `ARGS_TESTS` parameter, after a `--`:
 
-    make test ARGS_TEST='-x -- --failed-first --verbose
+    make test ARGS_TESTS='-- -x -- --failed-first --verbose
 
 By default, tests run in parallel using `pytest-xdist` with `-n auto`. To control
 parallelism, use the `-n` option:
 
-    make test ARGS_TESTS="-n 4"      # Use 4 workers
-    make test ARGS_TESTS="-n 0"      # Disable parallelism
+    make test ARGS_TESTS="-- -n 4"      # Use 4 workers
+    make test ARGS_TESTS="-- -n 0"      # Disable parallelism
 
 ### Specifying the test environment
 
