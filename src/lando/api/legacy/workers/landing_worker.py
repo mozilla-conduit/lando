@@ -173,12 +173,14 @@ class LandingWorker(Worker):
 
         return True
 
-    def add_try_task_config(self, scm: AbstractSCM):
+    def add_try_task_config(self, scm: AbstractSCM, **kwargs):
         with (Path(scm.path) / "try_task_config.json").open("x") as f:
             data = {
                 "parameters": {
                     "optimize_target_tasks": True,
                     "target_tasks_method": "codereview",
+                    "try_mode": "try_task_config",
+                    "try_task_config": {f"github_{k}": v for k, v in kwargs.items()},
                 },
                 "version": 2,
             }
@@ -248,8 +250,13 @@ class LandingWorker(Worker):
                 raise ValueError(
                     f"{job} handover to non-try repo ({job.handover_repos}) is not supported"
                 )
-
-            self.add_try_task_config(scm)
+            self.add_try_task_config(
+                scm,
+                pull_number=job.revisions.first().pull_number,
+                pull_head_sha=job.revisions.first().pull_head_sha,
+                repo_url=job.target_repo.normalized_url,
+                branch=job.target_repo.default_branch,
+            )
             self.convert_patches_to_diff(scm, job)
             job.handover()
             message = "Job deferred to try repo."
