@@ -34,6 +34,9 @@
   // Mozilla typography
   --bulma-family-primary: 'Fira Sans', Arial, Helvetica, sans-serif;
   --bulma-family-code: 'Fira Mono', monospace;
+
+  // Force light mode and disable automatic dark mode
+  color-scheme: light only;
 }
 
 // ============================================================================
