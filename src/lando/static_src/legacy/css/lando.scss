@@ -31,6 +31,12 @@
   --bulma-danger-s: 98%;
   --bulma-danger-l: 42%;  // #d70022 (red)
 
+  // Force white text on colored backgrounds
+  // The -invert-l variable controls text lightness (0% = black, 100% = white)
+  --bulma-primary-invert-l: 100%;  // White text on primary blue
+  --bulma-info-invert-l: 100%;     // White text on info turquoise
+  --bulma-link-invert-l: 100%;     // White text on link blue
+
   // Mozilla typography
   --bulma-family-primary: 'Fira Sans', Arial, Helvetica, sans-serif;
   --bulma-family-code: 'Fira Mono', monospace;
