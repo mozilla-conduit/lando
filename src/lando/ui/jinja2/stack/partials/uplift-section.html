@@ -8,7 +8,7 @@ future.
     {% if rev_id == current_revision_id %}
         <span class="tag is-rounded is-primary">D{{ rev_id }}</span>
     {% else %}
-        <a class="tag is-rounded is-white" href="{{ url('revisions-page', args=[rev_id]) }}">D{{ rev_id }}</a>
+        <a class="tag is-rounded is-primary is-light" href="{{ url('revisions-page', args=[rev_id]) }}">D{{ rev_id }}</a>
     {% endif %}
 {% endmacro %}
 <h1>Uplifts</h1>
