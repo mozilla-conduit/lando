@@ -215,7 +215,10 @@ class LandingJob(BaseJob):
             grace_seconds (int): Ignore landing jobs that were submitted after this
                 many seconds ago.
         """
-        q = super().job_queue_query(repositories)
+        q = super().job_queue_query()
+        q = q.filter(
+            Q(target_repo__in=repositories) | Q(handover_repo__in=repositories)
+        )
 
         if grace_seconds:
             now = datetime.datetime.now(datetime.timezone.utc)

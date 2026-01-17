@@ -105,7 +105,9 @@ class LandingWorker(Worker):
                 "Pull Requests are not supported for this repository."
             )
 
-        if not self.treestatus_client.is_open(repo.tree):
+        skip_treestatus_check = job.handover_repo is not None and not job.is_handed_over
+
+        if not skip_treestatus_check and not self.treestatus_client.is_open(repo.tree):
             job.transition_status(
                 JobAction.DEFER,
                 message=f"Tree {repo.tree} is closed - retrying later.",
