@@ -201,7 +201,7 @@ future.
                             {% set icon_class = job|uplift_status_icon_class %}
                             {% set status_label = job|uplift_status_label %}
                             <figure class="media-left">
-                                <span class="tag is-rounded {{ tag_class }}">
+                                <span class="tag is-rounded has-text-white {{ tag_class }}">
                                     {% if icon_class %}
                                         <span class="icon is-small">
                                             <i class="{{ icon_class }}" aria-hidden="true"></i>
