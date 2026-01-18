@@ -180,7 +180,7 @@ class Worker(ABC):
             while self._paused:
                 # Wait a set number of seconds before checking paused variable again.
                 logger.info(
-                    f"Paused, waiting {self.worker_instance.sleep_seconds} seconds..."
+                    f"{self.worker_instance.name} paused, waiting {self.worker_instance.sleep_seconds} seconds..."
                 )
                 self.throttle(self.worker_instance.sleep_seconds)
             self.loop(*args, **kwargs)

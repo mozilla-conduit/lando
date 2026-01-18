@@ -22,7 +22,7 @@ def log_request(view):  # noqa: ANN001, ANN201
             "t": int(1000 * (end_time - start_time)),
         }
 
-        request_logger.info("Request Summary: ", extra=summary)
+        request_logger.debug("Request Summary: ", extra=summary)
 
         return response
 
