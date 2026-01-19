@@ -59,7 +59,7 @@ def mock_authenticate_builder(monkeypatch: pytest.MonkeyPatch) -> Callable:
 
         mock.side_effect = authenticate_callback
 
-        monkeypatch.setattr("lando.utils.auth.AccessTokenAuth.authenticate", mock)
+        monkeypatch.setattr("lando.utils.ninja_auth.AccessTokenAuth.authenticate", mock)
         return mock
 
     return builder

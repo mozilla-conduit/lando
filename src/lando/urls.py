@@ -47,7 +47,7 @@ from lando.try_api.api import (
 )
 from lando.ui import jobs, pull_requests
 from lando.ui.legacy import pages, revisions, user_settings
-from lando.utils.auth import api as auth_api
+from lando.utils.ninja_auth import api as auth_api
 
 urlpatterns = [
     path("", include("lando.dockerflow.urls", "dockerflow")),

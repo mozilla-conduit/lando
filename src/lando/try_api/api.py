@@ -18,7 +18,6 @@ from lando.main.models.landing_job import LandingJob, add_revisions_to_job
 from lando.main.models.revision import Revision
 from lando.main.scm.consts import SCMType
 from lando.main.scm.helpers import PATCH_HELPER_MAPPING, PatchFormat
-from lando.utils.auth import AccessTokenAuth
 from lando.utils.exceptions import (
     BadRequestProblemException,
     ForbiddenProblemException,
@@ -26,6 +25,7 @@ from lando.utils.exceptions import (
     ProblemException,
     problem_exception_handler,
 )
+from lando.utils.ninja_auth import AccessTokenAuth
 
 logger = logging.getLogger(__name__)
 
