@@ -177,7 +177,6 @@ def patches(
         requester_email=request.user.email,
         target_commit_hash=target_commit_hash,
         status=JobStatus.CREATED,
-        priority=-10,
     )
 
     # Create Revision objects from patches and associate them with the job
