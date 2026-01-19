@@ -943,7 +943,7 @@ def to_profile_permissions() -> Callable:
     def _to_profile_permissions(permissions: list[str]) -> list[Permission]:
         all_perms = Profile.get_all_scm_permissions()
 
-        return [all_perms[p] for p in permissions]
+        return [all_perms[p.removeprefix("main.")] for p in permissions]
 
     return _to_profile_permissions
 

@@ -635,14 +635,14 @@ def blocker_user_scm_level(
 
     lando_user = stack_state.landing_assessment.lando_user
 
-    bare_required_permission = landing_repo.required_permission.removeprefix("main.")
+    required_permission = landing_repo.required_permission
 
-    if lando_user.profile.has_direct_permission(bare_required_permission):
+    if lando_user.profile.has_direct_perm(required_permission):
         return None
 
     return (
         "You have insufficient permissions to land or your access has expired. "
-        + f"{bare_required_permission} is required. See the FAQ for help."
+        + f"{required_permission} is required. See the FAQ for help."
     )
 
 

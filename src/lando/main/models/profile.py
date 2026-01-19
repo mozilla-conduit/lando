@@ -144,7 +144,7 @@ class Profile(BaseModel):
             if self._has_scm_permission_groups(codename, groups):
                 self.user.user_permissions.add(permissions[codename])
 
-    def has_direct_permission(self, permission: str) -> bool:
+    def has_direct_perm(self, permission: str) -> bool:
         """
         Test that the user has permission directly rather than inherited.
 
@@ -153,8 +153,7 @@ class Profile(BaseModel):
         Parameters:
 
         permission: str
-            Permission string to check. It should not contain a namespace prefix, which is
-            assumed to be `main`.
+            Permission string to check.
 
         Returns:
             bool: whether the user has the permission
@@ -163,11 +162,15 @@ class Profile(BaseModel):
             # We can't rely on the `get_user_permissions()` method, as it returns all existing
             # permissions for superusers. Here, we want to check permissions that have been
             # explicitely given to the user from LDAP groups.
-            if self.user.user_permissions.filter(codename=permission):
+
+            (app_label, codename) = permission.split(".")
+            if self.user.user_permissions.filter(
+                content_type__app_label=app_label, codename=codename
+            ):
                 return True
         else:
             # If the user is not a superuser, we can skip the DB round-trip.
-            if f"main.{permission}" in self.user.get_user_permissions():
+            if permission in self.user.get_user_permissions():
                 return True
 
         return False
