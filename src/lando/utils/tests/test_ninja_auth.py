@@ -6,11 +6,11 @@ from django.contrib.auth.models import User
 from django.test import Client, override_settings
 
 from lando.environments import Environment
-from lando.utils.auth import api
+from lando.utils.ninja_auth import api
 
 
 @pytest.mark.django_db()
-@patch("lando.utils.auth.AccessTokenAuth.authenticate")
+@patch("lando.utils.ninja_auth.AccessTokenAuth.authenticate")
 def test_authentication_valid_token(
     mock_authenticate: MagicMock, ninja_api_client: Callable
 ):
@@ -34,7 +34,7 @@ def test_authentication_no_token(client: Client, ninja_api_client: Callable):
 
 
 @pytest.mark.django_db()
-@patch("lando.utils.auth.AccessTokenAuth.authenticate")
+@patch("lando.utils.ninja_auth.AccessTokenAuth.authenticate")
 def test_authentication_invalid_token(
     mock_authenticate: MagicMock, ninja_api_client: Callable
 ):
@@ -53,7 +53,7 @@ def test_authentication_invalid_token(
 
 @pytest.mark.django_db()
 @override_settings(ENVIRONMENT=Environment("production"))
-@patch("lando.utils.auth.AccessTokenAuth.authenticate")
+@patch("lando.utils.ninja_auth.AccessTokenAuth.authenticate")
 def test_userinfo_not_in_prod(mock_authenticate: MagicMock, ninja_api_client: Callable):
     mock_authenticate.return_value = User(username="testuser", is_active=True)
     response = ninja_api_client(api).get(
