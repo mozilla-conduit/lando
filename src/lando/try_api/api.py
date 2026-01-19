@@ -190,7 +190,7 @@ def patches(
         except binascii.Error as exc:
             raise BadRequestProblemException(
                 title="Invalid base64 patch data",
-                detail=f"Invalid base64 data for patch {patch_no}: {exc}",
+                detail=f"Invalid base64 data for patch {patch_no}",
             ) from exc
 
         # Create PatchHelper instance to parse the patch
@@ -206,7 +206,7 @@ def patches(
         except ValueError as exc:
             raise BadRequestProblemException(
                 title="Invalid patch data",
-                detail=f"Invalid patch data for patch {patch_no}: {exc}",
+                detail=f"Invalid patch data for patch {patch_no}",
             ) from exc
 
         revision = Revision.new_from_patch(
