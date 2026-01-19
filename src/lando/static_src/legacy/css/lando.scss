@@ -119,6 +119,9 @@ p {
 section.hero {
   padding: 0.25rem 0 0.25rem 0.25rem;
 
+  // add a border.
+  border-bottom: 1px solid hsl(0, 0%, 86%);
+
   p {
     font-size: 1.25rem;
   }
