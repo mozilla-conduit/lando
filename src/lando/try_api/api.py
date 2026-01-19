@@ -150,11 +150,19 @@ def patches(
     ):
         raise PermissionDenied(f"Missing permissions: {repo.required_permission}")
 
-    # XXX: We'll need a more flexible way to set this.
-    mapping_repo = "firefox"
-
     target_commit_hash = patches_request.base_commit
     if patches_request.base_commit_vcs != repo.scm_type:
+        mapping_repo = CommitMap.TRY_REPO_MAPPING.get(repo.name)
+        if not mapping_repo:
+            status = 400
+            error = f"Don't know how to lookup commits from {patches_request.base_commit_vcs} to {repo.scm_type} for {repo_name}."
+            logger.info(
+                error,
+            )
+            return status, ProblemDetail(
+                title="CommitMap not found", detail=error, status=status
+            )
+
         try:
             if repo.scm_type == SCMType.HG:
                 target_commit_hash = CommitMap.git2hg(mapping_repo, target_commit_hash)
