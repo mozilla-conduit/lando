@@ -1,3 +1,4 @@
+import argparse
 import subprocess
 import sys
 
@@ -14,7 +15,7 @@ from lando.main.models import (
 class Command(BaseCommand):
     help = "Turn maintenance mode on or off"
 
-    def add_arguments(self, parser):  # noqa: ANN001
+    def add_arguments(self, parser: argparse.ArgumentParser):
         parser.add_argument(
             "action",
             help="Enter one of on, off",

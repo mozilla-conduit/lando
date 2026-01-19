@@ -1,3 +1,5 @@
+import argparse
+
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db.utils import IntegrityError
@@ -197,7 +199,7 @@ for branch in ["main", "beta", "release", "esr140"]:
 class Command(BaseCommand):
     help = "Create repos based on specified environment."
 
-    def add_arguments(self, parser):  # noqa: ANN001
+    def add_arguments(self, parser: argparse.ArgumentParser):
         parser.add_argument(
             "environment",
             help=f"Enter one of {', '.join(ENVIRONMENTS)}",

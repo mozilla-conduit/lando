@@ -1,6 +1,7 @@
 import logging
 import urllib.parse
 from datetime import datetime
+from typing import Any
 
 import kombu
 from django.conf import settings
@@ -113,7 +114,7 @@ def _find_stack_from_landing_path(
     return build_stack_graph(revision)
 
 
-def dryrun(phab: PhabricatorClient, user: User, data: dict):  # noqa: ANN201
+def dryrun(phab: PhabricatorClient, user: User, data: dict) -> dict[str, Any]:
     """Perform a dryrun of a landing to check for warnings and blockers."""
     landing_path = _parse_transplant_request(data)["landing_path"]
 
@@ -146,10 +147,12 @@ def dryrun(phab: PhabricatorClient, user: User, data: dict):  # noqa: ANN201
         landing_assessment=landing_assessment,
     )
     assessment = run_landing_checks(stack_state)
+
+    # NOTE: we should switch to returning the `StackAssessment` directly.
     return assessment.to_dict()
 
 
-def post(phab: PhabricatorClient, user: User, data: dict):  # noqa: ANN201
+def post(phab: PhabricatorClient, user: User, data: dict) -> tuple[dict[str, int], int]:
     """Submit a landing request."""
     parsed_transplant_request = _parse_transplant_request(data)
     confirmation_token = parsed_transplant_request["confirmation_token"]

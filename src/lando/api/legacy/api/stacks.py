@@ -1,5 +1,6 @@
 import logging
 import urllib.parse
+from typing import Any
 
 from django.conf import settings
 from django.http import Http404
@@ -47,7 +48,7 @@ logger = logging.getLogger(__name__)
 HTTP_404_STRING = "Revision does not exist or you do not have permission to view it"
 
 
-def get(phab: PhabricatorClient, revision_id: int):  # noqa: ANN201
+def get(phab: PhabricatorClient, revision_id: int) -> dict[str, Any]:
     """Get the stack a revision is part of.
 
     Args:

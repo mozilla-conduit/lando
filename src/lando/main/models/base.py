@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class LockTableContextManager(ContextDecorator):
     """Decorator to lock table for current model."""
 
-    def __init__(self, model, lock="SHARE ROW EXCLUSIVE"):  # noqa: ANN001
+    def __init__(self, model: models.Model, lock: str = "SHARE ROW EXCLUSIVE"):
         self.lock = lock
         self.model = model
 
@@ -36,7 +36,7 @@ class BaseModel(models.Model):
 
     @classmethod
     @property
-    def lock_table(cls):  # noqa: ANN206
+    def lock_table(cls) -> LockTableContextManager:
         return LockTableContextManager(cls)
 
     @classmethod

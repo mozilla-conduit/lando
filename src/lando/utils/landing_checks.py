@@ -697,7 +697,7 @@ class LandingChecks:
 
     requester_email: str
 
-    def __init__(self, requester_email: str):  # noqa: ANN001
+    def __init__(self, requester_email: str):
         self.requester_email = requester_email
 
     def run(
