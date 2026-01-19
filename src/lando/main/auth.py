@@ -63,7 +63,7 @@ class LandoOIDCAuthenticationBackend(OIDCAuthenticationBackend):
         return super().update_user(user, claims)
 
 
-def require_authenticated_user(f):  # noqa: ANN001, ANN201
+def require_authenticated_user(f: Callable) -> Callable:
     """
     Decorator which requires a user to be authenticated.
 
@@ -71,7 +71,7 @@ def require_authenticated_user(f):  # noqa: ANN001, ANN201
     """
 
     @functools.wraps(f)
-    def wrapper(request, *args, **kwargs):  # noqa: ANN001
+    def wrapper(request: WSGIRequest, *args, **kwargs) -> HttpResponse:
         if not request.user.is_authenticated:
             raise PermissionDenied("Authentication is required")
         return f(request, *args, **kwargs)
@@ -108,12 +108,12 @@ class require_permission:
     Decorator that raises a `PermissionDenied` if a user is missing the given permission.
     """
 
-    def __init__(self, permission):  # noqa: ANN001
+    def __init__(self, permission: str):
         self.required_permission = permission
 
     def __call__(self, f: Callable) -> Callable:
         @functools.wraps(f)
-        def wrapper(request, *args, **kwargs):  # noqa: ANN001
+        def wrapper(request: WSGIRequest, *args, **kwargs) -> HttpResponse:
             if not request.user.has_perm(f"main.{self.required_permission}"):
                 raise PermissionDenied(
                     f"Permission level {self.required_permission} is necessary"
@@ -145,7 +145,7 @@ class require_phabricator_api_key:
 
     def __call__(self, f: Callable) -> Callable:
         @functools.wraps(f)
-        def wrapped(request, *args, **kwargs):  # noqa: ANN001
+        def wrapped(request: WSGIRequest, *args, **kwargs) -> HttpResponse:
             user = request.user
             if (
                 user.is_authenticated

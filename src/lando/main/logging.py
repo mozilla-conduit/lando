@@ -70,6 +70,17 @@ class MozLogFormatter(logging.Formatter):
         # (for example, the WSGIRequest object representing the request). Therefore
         # those values are converted to a string to avoid any issues when serializing.
         mozlog_record = {
+            # MozLog https://firefox-source-docs.mozilla.org/mozbase/mozlog.html#data-format
+            "action": "log",
+            "time": int(record.created * 1e3),
+            # We're single-threaded, but might as well report something useful.
+            "thread": self.hostname,
+            "pid": record.process,
+            "source": record.name,
+            # log action
+            "level": record.levelname,
+            "message": record.getMessage(),
+            # Old format
             "EnvVersion": self.MOZLOG_ENVVERSION,
             "Hostname": self.hostname,
             "Logger": self.mozlog_logger,
