@@ -566,5 +566,5 @@ class LandingWorker(Worker):
             except Exception as exc:
                 sentry_sdk.capture_exception(exc)
                 logger.warning(
-                    f"Unexpected error `running mach` bootstrap for repo {repo.name}: {exc}"
+                    f"Unexpected error running `mach bootstrap` for repo {repo.name}: {exc}"
                 )
