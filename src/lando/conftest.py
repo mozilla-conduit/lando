@@ -6,15 +6,14 @@ import subprocess
 import time
 import unittest.mock as mock
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
 
 import pytest
 import requests
 from django.conf import settings
-from django.contrib.auth.models import Permission, User
+from django.contrib.auth.models import Group, Permission, User
 from django.contrib.contenttypes.models import ContentType
 from ninja import NinjaAPI
 from ninja.testing import TestClient
@@ -944,7 +943,7 @@ def to_profile_permissions() -> Callable:
     def _to_profile_permissions(permissions: list[str]) -> list[Permission]:
         all_perms = Profile.get_all_scm_permissions()
 
-        return [all_perms[p] for p in permissions]
+        return [all_perms[p.removeprefix("main.")] for p in permissions]
 
     return _to_profile_permissions
 
@@ -977,7 +976,11 @@ def landing_worker_instance(mocked_repo_config) -> Callable:
 
 @pytest.fixture
 def scm_user() -> Callable:
-    def scm_user(perms: list[Permission], password: str = "password") -> User:
+    def scm_user(
+        perms: list[Permission],
+        password: str = "password",
+        group_perms: list[Permission] | None = None,
+    ) -> User:
         """Return a user with the selected Permissions and password."""
         user = User.objects.create_user(
             username="test_user",
@@ -989,6 +992,13 @@ def scm_user() -> Callable:
 
         for permission in perms:
             user.user_permissions.add(permission)
+
+        if group_perms:
+            group = Group.objects.create(
+                name="test group",
+            )
+            group.permissions.set(group_perms)
+            user.groups.add(group)
 
         user.save()
         user.profile.save()
@@ -1018,6 +1028,19 @@ def user(
     user.profile.save()
 
     return user
+
+
+@pytest.fixture
+def make_superuser() -> Callable:
+    def _make_superuser(user: User) -> User:
+        user.is_superuser = True
+        user.save()
+
+        # Re-retrieve the updated user to refresh the user permissions.
+        # `refresh_from_db` (empirically), is not sufficient here.
+        return User.objects.get(id=user.id)
+
+    return _make_superuser
 
 
 @pytest.fixture
