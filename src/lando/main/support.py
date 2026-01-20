@@ -1,5 +1,4 @@
 from django.core.files.storage import storages
-from django.http import HttpResponse
 from storages.backends.gcloud import GoogleCloudStorage
 
 
@@ -32,39 +31,3 @@ class LegacyAPIException(Exception):
         }
         if self.extra:
             self.json_detail.update(self.extra)
-
-
-def problem(  # noqa: ANN201
-    status,  # noqa: ANN001
-    title,  # noqa: ANN001
-    detail,  # noqa: ANN001
-    type=None,  # noqa: ANN001
-    instance=None,  # noqa: ANN001
-    headers=None,  # noqa: ANN001
-    ext=None,  # noqa: ANN001
-):
-    return HttpResponse(content=detail, headers=headers, status=status)
-
-
-request = {
-    "headers": {},
-}
-
-session = {}
-
-
-g = None
-
-
-class FlaskApi:
-    @classmethod
-    def get_response(self, _problem):  # noqa: ANN001, ANN206
-        return _problem
-
-
-class ConnexionResponse(HttpResponse):
-    def __init__(self, *args, **kwargs):
-        if "status_code" in kwargs:
-            kwargs["status"] = kwargs["status_code"]
-            del kwargs["status_code"]
-            super().__init__(*args, **kwargs)
