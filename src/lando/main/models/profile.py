@@ -161,7 +161,7 @@ class Profile(BaseModel):
         if self.user.is_superuser:
             # We can't rely on the `get_user_permissions()` method, as it returns all existing
             # permissions for superusers. Here, we want to check permissions that have been
-            # explicitely given to the user from LDAP groups.
+            # explicitly given to the user from LDAP groups.
 
             (app_label, codename) = permission.split(".")
             if self.user.user_permissions.filter(
