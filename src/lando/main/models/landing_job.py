@@ -6,7 +6,7 @@ from typing import Any
 
 from django.conf import settings
 from django.db import models
-from django.db.models import Q, QuerySet
+from django.db.models import QuerySet
 from mots.config import FileConfig
 from mots.directory import Directory
 
@@ -179,18 +179,11 @@ class LandingJob(BaseJob):
         return "unknown"
 
     @classmethod
-    def revisions_query(cls, revisions: Iterable[str]) -> QuerySet:
-        """
-        Return all landing jobs associated with a given list of revisions.
-
-        Older records do not have associated revisions, but rather have a JSONB field
-        that stores revisions and diff IDs. Those records are now deprecated and will
-        not be included in this query.
-        """
-        revisions = [str(int(r)) for r in revisions]
+    def revisions_query(cls, revisions: Iterable[int | str]) -> QuerySet:
+        """Return all landing jobs associated with a given list of revision IDs."""
+        revision_ids = [int(r) for r in revisions]
         return cls.objects.filter(
-            Q(unsorted_revisions__revision_id__in=revisions)
-            | Q(revision_to_diff_id__has_keys=revisions)
+            unsorted_revisions__revision_id__in=revision_ids
         ).distinct()
 
     def to_dict(self) -> dict[str, Any]:
