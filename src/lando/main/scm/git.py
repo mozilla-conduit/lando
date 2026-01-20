@@ -79,7 +79,7 @@ class GitSCM(AbstractSCM):
 
     @classmethod
     @override
-    def scm_type(cls) -> str:  # noqa: ANN206
+    def scm_type(cls) -> str:
         """Return a string identifying the supported SCM."""
         return SCM_TYPE_GIT
 
@@ -600,7 +600,7 @@ class GitSCM(AbstractSCM):
         return re.sub(URL_USERINFO_RE, "[REDACTED]@", url)
 
     @classmethod
-    def _git_env(cls):  # noqa: ANN206
+    def _git_env(cls) -> dict[str, str]:
         env = os.environ.copy()
         env.update(cls.DEFAULT_ENV)
         return env

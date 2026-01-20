@@ -1,3 +1,4 @@
+import argparse
 import subprocess
 
 from django.core.management.base import BaseCommand
@@ -6,7 +7,7 @@ from django.core.management.base import BaseCommand
 class Command(BaseCommand):
     help = "Generate requirements.txt file to be used in local and remote environments"
 
-    def add_arguments(self, parser):  # noqa: ANN001
+    def add_arguments(self, parser: argparse.ArgumentParser):
         """Add options to pass to piptools."""
         parser.add_argument(
             "--upgrade",

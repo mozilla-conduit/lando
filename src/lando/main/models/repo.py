@@ -221,7 +221,7 @@ class Repo(BaseModel):
     pr_enabled = models.BooleanField(default=False)
 
     @property
-    def is_legacy(self):  # noqa: ANN201
+    def is_legacy(self) -> bool:
         """Return True if this repo is listed as a legacy source."""
         try:
             return self.new_target is not None
@@ -229,11 +229,11 @@ class Repo(BaseModel):
             return False
 
     @property
-    def is_git(self):  # noqa: ANN201
+    def is_git(self) -> bool:
         return self.scm_type == SCM_TYPE_GIT
 
     @property
-    def is_hg(self):  # noqa: ANN201
+    def is_hg(self) -> bool:
         return self.scm_type == SCM_TYPE_HG
 
     def __str__(self) -> str:
@@ -366,7 +366,7 @@ class Repo(BaseModel):
         raise ValueError(f"Could not determine repo type for {pull_path}")
 
     @property
-    def tree(self):  # noqa: ANN201
+    def tree(self) -> str:
         """Backwards-compatibility alias for tree name."""
         return self.name
 

@@ -153,7 +153,7 @@ class Revision(BaseModel):
         }
 
     @property
-    def author(self):  # noqa: ANN201
+    def author(self) -> str:
         """Get the full author string in "Name <Email>" format."""
         parts = []
         if self.author_name:
@@ -285,7 +285,7 @@ class DiffWarning(BaseModel):
         blank=False,
     )
 
-    def serialize(self):  # noqa: ANN201
+    def serialize(self) -> dict[str, Any]:
         """Return a JSON serializable dictionary."""
         return {
             "data": self.data,

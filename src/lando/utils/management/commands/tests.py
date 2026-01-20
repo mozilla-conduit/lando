@@ -1,3 +1,4 @@
+import argparse
 import os
 import subprocess
 
@@ -10,7 +11,7 @@ ROOT_DIR = settings.BASE_DIR.parent.parent
 class Command(BaseCommand):
     help = "Run pytest from project directory"
 
-    def add_arguments(self, parser):  # noqa: ANN001
+    def add_arguments(self, parser: argparse.ArgumentParser):
         parser.add_argument(
             "--exitfirst",
             "-x",
