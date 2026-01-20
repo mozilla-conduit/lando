@@ -21,10 +21,8 @@ class TreeStatus:
     # hook will enforce `a=<reviewer>` is present in the commit message.
     OPEN_STATUSES = {"approval required", "open"}
 
-    def __init__(
-        self, *, url: str | None = None, session: requests.Session | None = None
-    ):
-        self.url = url if url is not None else TreeStatus.DEFAULT_URL
+    def __init__(self, *, url: str = "", session: requests.Session | None = None):
+        self.url = url or TreeStatus.DEFAULT_URL
         self.url = self.url if self.url[-1] == "/" else self.url + "/"
         self.session = session or self.create_session()
 
