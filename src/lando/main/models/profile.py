@@ -166,7 +166,7 @@ class Profile(BaseModel):
             app_label, codename = permission.split(".", maxsplit=1)
             if self.user.user_permissions.filter(
                 content_type__app_label=app_label, codename=codename
-            ):
+            ).exists():
                 return True
         else:
             # If the user is not a superuser, we can skip the DB round-trip.
