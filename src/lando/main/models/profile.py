@@ -163,7 +163,7 @@ class Profile(BaseModel):
             # permissions for superusers. Here, we want to check permissions that have been
             # explicitly given to the user from LDAP groups.
 
-            (app_label, codename) = permission.split(".")
+            app_label, codename = permission.split(".", maxsplit=1)
             if self.user.user_permissions.filter(
                 content_type__app_label=app_label, codename=codename
             ):
