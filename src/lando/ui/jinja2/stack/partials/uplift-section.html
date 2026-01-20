@@ -36,15 +36,15 @@ future.
                     <div class="column is-narrow">
                         <button class="button is-light link-assessment-open"
                                 {% if not uplift.assessment_link_form.has_assessments %}disabled{% endif %}
-                                title="{% if not uplift.assessment_link_form.has_assessments %}You have no previous uplift assessments to link{% endif %}">
+                                title="{% if not uplift.assessment_link_form.has_assessments %}You have no previous uplift assessments to reuse{% endif %}">
                             <span class="icon is-small">
                                 <i class="fa fa-link" aria-hidden="true"></i>
                             </span>
                             <span>
                                 {% if uplift.assessment %}
-                                    Change Linked Assessment
+                                    Change Assessment
                                 {% else %}
-                                    Link Existing Assessment
+                                    Reuse Previous Assessment
                                 {% endif %}
                             </span>
                         </button>
@@ -69,7 +69,7 @@ future.
                 </div>
             </div>
             {% if uplift.assessment_link_form and not uplift.assessment_link_form.has_assessments %}
-                <p class="has-text-grey is-size-7 mt-2">You have no previous uplift assessments to link for this account.</p>
+                <p class="has-text-grey is-size-7 mt-2">You have no previous uplift assessments to reuse for this account.</p>
             {% endif %}
         </div>
     </div>
@@ -118,14 +118,14 @@ future.
                 <div class="modal-background"></div>
                 <div class="modal-card">
                     <header class="modal-card-head">
-                        <p class="modal-card-title">Link Existing Assessment</p>
+                        <p class="modal-card-title">Reuse Previous Assessment</p>
                         <button class="link-assessment-close delete" aria-label="close" type="button"></button>
                     </header>
                     <section class="modal-card-body">
                         {{ csrf_input }}
                         <p class="block">
-                            Link this revision to a previous uplift assessment so you do not have to re-enter the same answers.
-                            Choose the matching assessment you submitted earlier; you can still edit it after linking if details changed.
+                            Reuse a previous uplift assessment for this revision so you do not have to re-enter the same answers.
+                            Choose the matching assessment you submitted earlier; you can still edit it after reusing if details changed.
                         </p>
                         <div class="field">
                             <label class="label"
@@ -143,7 +143,7 @@ future.
                     <footer class="modal-card-foot">
                         <button class="button is-primary"
                                 {% if not uplift.assessment_link_form.has_assessments %}disabled{% endif %}>
-                            Link assessment
+                            Reuse assessment
                         </button>
                         <button class="button link-assessment-close" type="button">Cancel</button>
                     </footer>
