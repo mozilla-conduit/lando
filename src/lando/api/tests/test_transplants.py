@@ -1727,8 +1727,8 @@ def test_revision_has_data_classification_tag(
         (False, [], ["scm_level_3"], False),
         (False, ["scm_level_3"], [], True),
         (True, [], [], False),
-        (True, [], ["main.scm_level_3"], False),
-        (True, ["main.scm_level_3"], [], True),
+        (True, [], ["scm_level_3"], False),
+        (True, ["scm_level_3"], [], True),
     ),
 )
 def test_blocker_scm_permission(
