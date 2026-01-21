@@ -261,7 +261,7 @@ def test_dryrun_reviewers_warns(
             (),  # No permissions
             200,
             "You have insufficient permissions to land or your access has expired. "
-            "main.scm_level_3 is required. See the FAQ for help.",
+            + "main.scm_level_3 is required. See the FAQ for help.",
         ),
     ],
 )
