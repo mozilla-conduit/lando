@@ -226,15 +226,13 @@ future.
                                                             aria-controls="error-content-{{ job.id }}">
                                                         Show error details
                                                     </button>
-                                                    {% if job.error_breakdown %}
-                                                        <button type="button"
-                                                                class="button is-small is-light uplift-toggle ml-2"
-                                                                data-toggle-target="command-{{ job.id }}"
-                                                                aria-expanded="false"
-                                                                aria-controls="command-content-{{ job.id }}">
-                                                            Show resolution steps
-                                                        </button>
-                                                    {% endif %}
+                                                    <button type="button"
+                                                            class="button is-small is-light uplift-toggle ml-2"
+                                                            data-toggle-target="command-{{ job.id }}"
+                                                            aria-expanded="false"
+                                                            aria-controls="command-content-{{ job.id }}">
+                                                        Show resolution steps
+                                                    </button>
                                                 </div>
                                                 <div class="uplift-toggle-content hidden-content"
                                                      id="error-content-{{ job.id }}"
@@ -249,34 +247,32 @@ future.
                                                         Hide error details
                                                     </button>
                                                 </div>
-                                                {% if job.error_breakdown %}
-                                                    <div class="uplift-toggle-content hidden-content"
-                                                         id="command-content-{{ job.id }}"
-                                                         data-toggle-id="command-{{ job.id }}">
-                                                        <div class="notification is-info is-light mt-3">
-                                                            <p class="has-text-weight-semibold">
-                                                                <span class="icon is-small">
-                                                                    <i class="fa fa-terminal"></i>
-                                                                </span>
-                                                                To manually resolve conflicts and submit your uplift:
-                                                            </p>
-                                                            <pre class="mt-2"><code>{{ job|build_manual_uplift_instructions }}</code></pre>
-                                                            <p class="is-size-7 mt-2 has-text-grey-dark">
-                                                                Run these commands from your Firefox checkout. Resolve any merge conflicts during the cherry-pick process, then submit with <code>moz-phab uplift</code>.
-                                                            </p>
-                                                            <p class="is-size-7 mt-2 has-text-grey-dark">
-                                                                <strong>Note:</strong> These commands assume your official Firefox remote is named <code>origin</code>. If you use a different remote name, adjust the commands accordingly.
-                                                            </p>
-                                                        </div>
-                                                        <button type="button"
-                                                                class="button is-small is-light uplift-toggle"
-                                                                data-toggle-target="command-{{ job.id }}"
-                                                                aria-expanded="true"
-                                                                aria-controls="command-content-{{ job.id }}">
-                                                            Hide resolution steps
-                                                        </button>
+                                                <div class="uplift-toggle-content hidden-content"
+                                                     id="command-content-{{ job.id }}"
+                                                     data-toggle-id="command-{{ job.id }}">
+                                                    <div class="notification is-info is-light mt-3">
+                                                        <p class="has-text-weight-semibold">
+                                                            <span class="icon is-small">
+                                                                <i class="fa fa-terminal"></i>
+                                                            </span>
+                                                            To manually resolve conflicts and submit your uplift:
+                                                        </p>
+                                                        <pre class="mt-2"><code>{{ job|build_manual_uplift_instructions }}</code></pre>
+                                                        <p class="is-size-7 mt-2 has-text-grey-dark">
+                                                            Run these commands from your Firefox checkout. Resolve any merge conflicts during the cherry-pick process, then submit with <code>moz-phab uplift</code>.
+                                                        </p>
+                                                        <p class="is-size-7 mt-2 has-text-grey-dark">
+                                                            <strong>Note:</strong> These commands assume your official Firefox remote is named <code>origin</code>. If you use a different remote name, adjust the commands accordingly.
+                                                        </p>
                                                     </div>
-                                                {% endif %}
+                                                    <button type="button"
+                                                            class="button is-small is-light uplift-toggle"
+                                                            data-toggle-target="command-{{ job.id }}"
+                                                            aria-expanded="true"
+                                                            aria-controls="command-content-{{ job.id }}">
+                                                        Hide resolution steps
+                                                    </button>
+                                                </div>
                                             {% endif %}
                                             {% if job.created_revision_ids %}
                                                 <div class="content">
