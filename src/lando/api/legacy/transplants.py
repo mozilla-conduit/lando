@@ -637,7 +637,7 @@ def blocker_user_scm_level(
 
     required_permission = landing_repo.required_permission
 
-    if lando_user.profile.has_direct_perm(required_permission):
+    if landing_repo.user_allowed(lando_user):
         return None
 
     return (
