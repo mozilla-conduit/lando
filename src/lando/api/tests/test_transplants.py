@@ -1724,8 +1724,8 @@ def test_revision_has_data_classification_tag(
     "superuser,user_perms,group_perms,should_allow",
     (
         (False, [], [], False),
-        (False, [], ["main.scm_level_3"], False),
-        (False, ["main.scm_level_3"], [], True),
+        (False, [], ["scm_level_3"], False),
+        (False, ["scm_level_3"], [], True),
         (True, [], [], False),
         (True, [], ["main.scm_level_3"], False),
         (True, ["main.scm_level_3"], [], True),
