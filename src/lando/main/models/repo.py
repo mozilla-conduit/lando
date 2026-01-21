@@ -396,7 +396,7 @@ class Repo(BaseModel):
         Parameters:
 
         user: User
-            User to check permmission.
+            User to check permission.
 
         Returns:
             bool: whether the user has the permission
