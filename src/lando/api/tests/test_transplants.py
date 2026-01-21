@@ -1196,7 +1196,7 @@ def test_integrated_transplant_repo_checkin_project_removed(
     "superuser,user_perms,group_perms",
     (
         (False, [], []),
-        (False, [], ["main.scm_level_3"]),
+        (False, [], ["scm_level_3"]),
         (True, [], []),
         (True, [], ["main.scm_level_3"]),
     ),
