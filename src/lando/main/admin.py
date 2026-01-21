@@ -76,6 +76,7 @@ class ReadOnlyInline(admin.TabularInline):
 class RevisionLandingJobInline(admin.TabularInline):
     model = RevisionLandingJob
     fields = ("revision", "commit_id")
+    raw_id_fields = ("revision",)
 
 
 class RevisionUpliftJobInline(admin.TabularInline):
