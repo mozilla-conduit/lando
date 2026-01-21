@@ -386,7 +386,7 @@ class Repo(BaseModel):
 
         return self.short_name if self.short_name else self.tree
 
-    def user_allowed(self, user: User) -> bool:
+    def user_can_push(self, user: User) -> bool:
         """
         Test that the user has permission to land to this repo.
 
