@@ -407,7 +407,7 @@ def test_dryrun_outside_codefreeze(
             (),  # No permissions
             200,
             "You have insufficient permissions to land or your access has expired. "
-            "scm_level_3 is required. See the FAQ for help.",
+            + "main.scm_level_3 is required. See the FAQ for help.",
         ),
     ],
 )
@@ -1244,9 +1244,9 @@ def test_integrated_transplant_repo_checkin_project_removed(
     "superuser,user_perms,group_perms",
     (
         (False, [], []),
-        (False, [], ["scm_level_3"]),
+        (False, [], ["main.scm_level_3"]),
         (True, [], []),
-        (True, [], ["scm_level_3"]),
+        (True, [], ["main.scm_level_3"]),
     ),
 )
 def test_integrated_transplant_without_permissions(
@@ -1290,7 +1290,7 @@ def test_integrated_transplant_without_permissions(
     assert exc_info.value.status == 400
     assert (
         "You have insufficient permissions to land or your access has expired. "
-        "scm_level_3 is required. See the FAQ for help."
+        "main.scm_level_3 is required. See the FAQ for help."
     ) in exc_info.value.extra["blocker"]
 
 
@@ -1772,11 +1772,11 @@ def test_revision_has_data_classification_tag(
     "superuser,user_perms,group_perms,should_allow",
     (
         (False, [], [], False),
-        (False, [], ["scm_level_3"], False),
-        (False, ["scm_level_3"], [], True),
+        (False, [], ["main.scm_level_3"], False),
+        (False, ["main.scm_level_3"], [], True),
         (True, [], [], False),
-        (True, [], ["scm_level_3"], False),
-        (True, ["scm_level_3"], [], True),
+        (True, [], ["main.scm_level_3"], False),
+        (True, ["main.scm_level_3"], [], True),
     ),
 )
 def test_blocker_scm_permission(
@@ -1822,7 +1822,7 @@ def test_blocker_scm_permission(
     else:
         assert blocker == (
             "You have insufficient permissions to land or your access has expired. "
-            "scm_level_3 is required. See the FAQ for help."
+            "main.scm_level_3 is required. See the FAQ for help."
         ), "User without direct required SCM level should be rejected"
 
 

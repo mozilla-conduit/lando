@@ -145,9 +145,7 @@ def patches(
             title="Not a Try repository", detail=error, status=status
         )
 
-    if not request.user.profile.has_direct_permission(
-        repo.required_permission.removeprefix("main.")
-    ):
+    if not repo.user_allowed(request.user):
         raise PermissionDenied(f"Missing permissions: {repo.required_permission}")
 
     target_commit_hash = patches_request.base_commit
