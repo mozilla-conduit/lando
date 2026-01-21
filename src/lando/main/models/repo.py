@@ -3,6 +3,7 @@ import urllib
 from pathlib import Path
 
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -384,3 +385,31 @@ class Repo(BaseModel):
             return None
 
         return self.short_name if self.short_name else self.tree
+
+    def user_allowed(self, user: User) -> bool:
+        """
+        Test that the user has permission to land to this repo.
+
+        If the user is a superuser, this checks that the user was given the permissions
+        directly, rather than transitively by virtue of being an admin.
+
+        Parameters:
+
+        user: User
+            User to check permmission.
+
+        Returns:
+            bool: whether the user has the permission
+        """
+        if user.is_superuser:
+            # We can't rely on the `get_user_permissions()` method, as it returns all existing
+            # permissions for superusers. Here, we want to check permissions that have been
+            # explicitly given to the user from LDAP groups.
+
+            app_label, codename = self.required_permission.split(".", maxsplit=1)
+            return user.user_permissions.filter(
+                content_type__app_label=app_label, codename=codename
+            ).exists()
+
+        # If the user is not a superuser, we can skip the DB round-trip.
+        return self.required_permission in user.get_user_permissions()
