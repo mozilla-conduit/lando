@@ -1198,7 +1198,7 @@ def test_integrated_transplant_repo_checkin_project_removed(
         (False, [], []),
         (False, [], ["scm_level_3"]),
         (True, [], []),
-        (True, [], ["main.scm_level_3"]),
+        (True, [], ["scm_level_3"]),
     ),
 )
 def test_integrated_transplant_without_permissions(
