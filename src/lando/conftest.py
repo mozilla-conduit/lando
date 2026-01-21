@@ -937,19 +937,7 @@ def create_hg_commit(request: pytest.FixtureRequest) -> Callable:
 
 
 @pytest.fixture
-def to_profile_permissions() -> Callable:
-    """Convert a list of un-namespaced permissions strings to a list of profile Permissions."""
-
-    def _to_profile_permissions(permissions: list[str]) -> list[Permission]:
-        all_perms = Profile.get_all_scm_permissions()
-
-        return [all_perms[p.removeprefix("main.")] for p in permissions]
-
-    return _to_profile_permissions
-
-
-@pytest.fixture
-def conduit_permissions(to_profile_permissions: Callable) -> list[Permission]:
+def conduit_permissions() -> list[Permission]:
     permissions = (
         "scm_level_1",
         "scm_level_2",
