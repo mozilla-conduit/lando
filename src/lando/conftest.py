@@ -968,7 +968,7 @@ def user_plaintext_password():
 @pytest.fixture
 def landing_worker_instance(mocked_repo_config) -> Callable:
     def _instance(scm, **kwargs) -> Worker:
-        worker = Worker.objects.create(sleep_seconds=0.1, scm=scm, **kwargs)
+        worker = Worker.objects.create(sleep_seconds=0, scm=scm, **kwargs)
         worker.applicable_repos.set(Repo.objects.filter(scm_type=scm))
         return worker
 
