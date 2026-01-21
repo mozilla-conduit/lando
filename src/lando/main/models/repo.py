@@ -388,7 +388,7 @@ class Repo(BaseModel):
 
     def user_can_push(self, user: User) -> bool:
         """
-        Test that the user has permission to land to this repo.
+        Test that the user has permission to push to this repo.
 
         If the user is a superuser, this checks that the user was given the permissions
         directly, rather than transitively by virtue of being an admin.
