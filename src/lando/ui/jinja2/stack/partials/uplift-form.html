@@ -25,11 +25,11 @@
                     </article>
                 {% endif %}
                 <p class="block">
-                    Select the repositories you wish to uplift to and complete the assessment
-                    form below. Lando will check your patch for merge conflicts and create new
-                    uplift revisions in Phabricator if they apply cleanly. You will be notified
-                    of merge conflicts which must be resolved manually and submitted with
-                    <code>moz-phab</code>.
+                    Select the repositories you wish to uplift to and complete the
+                    <strong>Uplift Assessment Form</strong> below. Lando will check your patch
+                    for merge conflicts and create new uplift revisions in Phabricator if they
+                    apply cleanly. You will be notified of merge conflicts which must be resolved
+                    manually and submitted with <code>moz-phab</code>.
                 </p>
                 <div class="block">
                     <a class="button"
@@ -78,6 +78,14 @@
                             {% endfor %}
                         </div>
                         <p class="help is-marginless">Uplift jobs will be created for every repository you select here.</p>
+                    </div>
+                    <hr>
+                    <div class="field">
+                        <label class="label">Uplift Assessment</label>
+                        <p class="help">
+                            Your responses will be saved to Lando and can be referenced when
+                            manually creating uplift revisions for this patch in the future.
+                        </p>
                     </div>
                     {% with assessment_form = uplift.request_form %}
                         {% include "stack/partials/uplift-assessment.html" %}

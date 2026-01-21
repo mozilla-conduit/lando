@@ -3,7 +3,7 @@
     {% if assessment %}
         Update Uplift Assessment #{{ assessment.id }}
     {% else %}
-        Link Uplift Assessment
+        Reuse Uplift Assessment
     {% endif %}
 {% endblock %}
 {% block main %}
@@ -21,7 +21,7 @@
                     {% include "stack/partials/uplift-phab-api-key-warning.html" %}
                 {% endif %}
                 <p>
-                    <strong>This form will be linked to the following revision(s):</strong>
+                    <strong>This form will be associated with the following revision(s):</strong>
                 </p>
                 <ul>
                     {% for rev_id in revision_ids %}
@@ -32,7 +32,7 @@
                 </ul>
                 {% if existing_linked_revision_ids %}
                     <p>
-                        <strong>This form is already linked to the following revision(s):</strong>
+                        <strong>This form is already associated with the following revision(s):</strong>
                     </p>
                     <ul>
                         {% for rev_id in existing_linked_revision_ids %}
