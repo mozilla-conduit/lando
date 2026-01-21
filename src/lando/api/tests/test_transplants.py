@@ -4,6 +4,7 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
+from django.contrib.auth.models import Permission
 from typing_extensions import Any, Callable
 
 from lando.api.legacy.api import transplants as legacy_api_transplants
@@ -1203,7 +1204,6 @@ def test_integrated_transplant_repo_checkin_project_removed(
 )
 def test_integrated_transplant_without_permissions(
     scm_user: Callable,
-    to_profile_permissions: Callable,
     make_superuser: Callable,
     phabdouble: PhabricatorDouble,
     mocked_repo_config: mock.Mock,
@@ -1216,9 +1216,9 @@ def test_integrated_transplant_without_permissions(
     """Test that a user without permissions gets blocked."""
     # Create a user with no permissions
     user_without_perms = scm_user(
-        to_profile_permissions(user_perms),
+        [Permission.objects.get(codename=perm) for perm in user_perms],
         "password",
-        to_profile_permissions(group_perms),
+        [Permission.objects.get(codename=perm) for perm in group_perms],
     )
 
     if superuser:
@@ -1735,7 +1735,6 @@ def test_blocker_scm_permission(
     phabdouble: PhabricatorDouble,
     create_state: Callable,
     scm_user: Callable,
-    to_profile_permissions: Callable,
     make_superuser: Callable,
     user_perms: list[str],
     group_perms: list[str],
@@ -1752,9 +1751,9 @@ def test_blocker_scm_permission(
     diff_normal = phabdouble.diff(revision=revision)
 
     user = scm_user(
-        to_profile_permissions(user_perms),
+        [Permission.objects.get(codename=perm) for perm in user_perms],
         "password",
-        to_profile_permissions(group_perms),
+        [Permission.objects.get(codename=perm) for perm in group_perms],
     )
 
     if superuser:

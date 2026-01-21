@@ -944,7 +944,7 @@ def conduit_permissions() -> list[Permission]:
         "scm_level_3",
         "scm_conduit",
     )
-    return to_profile_permissions(permissions)
+    return [Permission.objects.get(codename=perm) for perm in permissions]
 
 
 @pytest.fixture
@@ -982,7 +982,7 @@ def scm_user() -> Callable:
             user.user_permissions.add(permission)
 
         if group_perms:
-            group = Group.objects.create(
+            group, _ = Group.objects.get_or_create(
                 name="test group",
             )
             group.permissions.set(group_perms)
