@@ -18,7 +18,7 @@
     <p class="acknowledge-warnings-section">
         <label class="checkbox">
             <input type="checkbox" id="acknowledge-warnings" />
-            Acknowledge all warnings below.
+            Acknowledge all warnings below to continue.
         </label>
     </p>
     <div class="StackPage-stack">
@@ -49,10 +49,10 @@
                     <td>
                         <ul>
                             <li>
-                                <button class="button is-small is-info post-try-job"
+                                <button class="button is-link is-small is-info post-try-job"
                                         data-pull-number="{{ pull_request.number }}"
                                         data-repo-name="{{ target_repo.name }}"
-                                        data-csrf-token="{{ csrf_token }}">Submit new try job</button>
+                                        data-csrf-token="{{ csrf_token }}">Request a try push</button>
                                 {% if last_try_job %}
                                     {{ last_try_job }}
                                     {{ treeherder_link(last_try_job.landed_treeherder_revision, last_try_job.target_repo, "Treeherder") | safe }}
