@@ -450,11 +450,8 @@ def test_GitSCM_describe_commit(git_repo: Path):
     assert commit.parents, "Non-initial commit should have parents"
     assert commit.author == "Test User <test@example.com>"
     assert commit.datetime == datetime.datetime.fromtimestamp(0, datetime.timezone.utc)
-    assert (
-        commit.desc
-        == """add another file
+    assert commit.desc == """add another file
 """
-    )
     assert len(commit.files) == 1
     assert "test.txt" in commit.files
 
@@ -464,11 +461,8 @@ def test_GitSCM_describe_commit(git_repo: Path):
     assert prev_commit.datetime == datetime.datetime.fromtimestamp(
         0, datetime.timezone.utc
     )
-    assert (
-        prev_commit.desc
-        == """initial commit
+    assert prev_commit.desc == """initial commit
 """
-    )
     assert len(prev_commit.files) == 1
     assert "README" in prev_commit.files
 
@@ -1027,8 +1021,7 @@ def test_GitSCM_process_merge_conflict_no_reject(
     scm.clone(str(git_repo))
     git_setup_user(str(clone_path))
 
-    conflict_message = dedent(
-        """\
+    conflict_message = dedent("""\
         Problem while applying patch in revision 264890:
 
         Checking patch test.txt...
@@ -1054,8 +1047,7 @@ def test_GitSCM_process_merge_conflict_no_reject(
         Hunk #1 applied cleanly.
         Rejected hunk #2.
         error: patch failed: that-other-file.txt:209
-        Rejected hunk #1."""
-    ).strip()
+        Rejected hunk #1.""").strip()
 
     error_breakdown = scm.process_merge_conflict("wherever", 42, conflict_message)
 
@@ -1086,8 +1078,7 @@ def test_GitSCM_add_diff_from_patches(
     # Normal, Binary, and DOS-LE patches
     patches = git_patch(0) + git_patch(2) + git_patch(3)
     # Manually re-created based on the patches above.
-    expected_diff = dedent(
-        """
+    expected_diff = dedent("""
         diff --git a/.gitattributes b/.gitattributes
         new file mode 100644
         index 0000000..358bd01
@@ -1125,8 +1116,7 @@ def test_GitSCM_add_diff_from_patches(
         +++ b/test2.txt
         @@ -0,0 +1 @@
         +a
-        """
-    ).lstrip()
+        """).lstrip()
 
     diff = scm.add_diff_from_patches(patches)
     assert diff == expected_diff, "Did not generate expected diff from patches"
