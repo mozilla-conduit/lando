@@ -214,8 +214,7 @@ def github_pr_commits_response() -> str:
 @pytest.fixture
 def github_pr_patch() -> str:
     # curl -LO https://github.com/mozilla-conduit/test-repo/pull/1.patch
-    return dedent(
-        """
+    return dedent("""
         From ce9fe5d05e5d56a4756019654e3c2b424cd937b2 Mon Sep 17 00:00:00 2001
         From: User <user@example.com>
         Date: Thu, 28 Aug 2025 15:46:57 -0400
@@ -324,15 +323,13 @@ def github_pr_patch() -> str:
         +++ b/2
         @@ -0,0 +1 @@
         +2
-        """
-    ).lstrip()
+        """).lstrip()
 
 
 @pytest.fixture
 def github_pr_diff() -> str:
     # curl -LO https://github.com/mozilla-conduit/test-repo/pull/1.diff
-    return dedent(
-        """
+    return dedent("""
         diff --git a/1 b/1
         new file mode 100644
         index 0000000..d00491f
@@ -368,8 +365,7 @@ def github_pr_diff() -> str:
         diff --git a/try_task_config.json b/try_task_config.json
         new file mode 100644
         index 0000000..e69de29
-        """
-    ).lstrip()
+        """).lstrip()
 
 
 def test_api_client_build_pr(

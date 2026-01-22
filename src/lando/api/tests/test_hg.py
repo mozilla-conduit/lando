@@ -363,8 +363,7 @@ def test_repo_is_supported(repo_path: str, expected: bool, hg_clone):
 
 
 def test_HgSCM__extract_error_data():
-    exception_message = textwrap.dedent(
-        """\
+    exception_message = textwrap.dedent("""\
     patching file toolkit/moz.configure
     Hunk #1 FAILED at 2075
     Hunk #2 FAILED at 2325
@@ -390,8 +389,7 @@ def test_HgSCM__extract_error_data():
     1 out of 1 hunks FAILED -- saving rejects to file abc/def.rej
     patching file browser/locales/en-US/browser/browserContext.ftl
     Hunk #1 succeeded at 300 with fuzz 2 (offset -4 lines).
-    abort: patch failed to apply"""
-    )
+    abort: patch failed to apply""")
 
     expected_failed_paths = [
         "toolkit/moz.configure",

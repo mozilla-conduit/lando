@@ -36,8 +36,7 @@ diff --git a/{filename} b/{filename}
 """
 
 
-GIT_PATCH_FILENAME_TEMPLATE = (
-    r"""
+GIT_PATCH_FILENAME_TEMPLATE = r"""
 From 0f5a3c99e12c1e9b0e81bed245fe537961f89e57 Mon Sep 17 00:00:00 2001
 From: Connor Sheehan <sheehan@mozilla.com>
 Date: Wed, 6 Jul 2022 16:36:09 -0400
@@ -46,9 +45,7 @@ Subject: Change things
  {filename} | 8 +++++++-
  1 file changed, 7 insertions(+), 1 deletion(-)
 
-""".lstrip()
-    + GIT_DIFF_FILENAME_TEMPLATE
-)
+""".lstrip() + GIT_DIFF_FILENAME_TEMPLATE
 
 COMMIT_MESSAGE = """A commit message to check
 
@@ -57,10 +54,7 @@ Let's make sure everything checks out.
 
 
 def test_check_commit_message_merge_automation_empty_message():
-    patch_helpers = [
-        HgPatchHelper.from_string_io(
-            io.StringIO(
-                """
+    patch_helpers = [HgPatchHelper.from_string_io(io.StringIO("""
 # HG changeset patch
 # User ffxbld
 # Date 1523427125 -28800
@@ -73,10 +67,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 @@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
 # instead of passing the url to 'hg import' to make
 ...
-""".strip()
-            )
-        )
-    ]
+""".strip()))]
 
     assessor = PatchCollectionAssessor(patch_helpers=patch_helpers)
 
@@ -89,10 +80,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 
 def test_check_commit_message_merge_automation_bad_message():
-    patch_helpers = [
-        HgPatchHelper.from_string_io(
-            io.StringIO(
-                """
+    patch_helpers = [HgPatchHelper.from_string_io(io.StringIO("""
 # HG changeset patch
 # User ffxbld
 # Date 1523427125 -28800
@@ -107,10 +95,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 @@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
 # instead of passing the url to 'hg import' to make
 ...
-""".strip()
-            )
-        )
-    ]
+""".strip()))]
 
     assessor = PatchCollectionAssessor(patch_helpers=patch_helpers)
 
@@ -157,10 +142,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
     ],
 )
 def test_check_commit_message_valid_message(commit_message: str, error_message: str):
-    patch_helpers = [
-        HgPatchHelper.from_string_io(
-            io.StringIO(
-                f"""
+    patch_helpers = [HgPatchHelper.from_string_io(io.StringIO(f"""
 # HG changeset patch
 # User Connor Sheehan <sheehan@mozilla.com>
 # Date 1523427125 -28800
@@ -175,10 +157,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 @@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
 # instead of passing the url to 'hg import' to make
 ...
-""".strip()
-            )
-        )
-    ]
+""".strip()))]
     assessor = PatchCollectionAssessor(patch_helpers=patch_helpers)
 
     assert (
@@ -240,10 +219,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 def test_check_commit_message_invalid_message(
     commit_message: str, return_string: str, error_message: str
 ):
-    patch_helpers = [
-        HgPatchHelper.from_string_io(
-            io.StringIO(
-                f"""
+    patch_helpers = [HgPatchHelper.from_string_io(io.StringIO(f"""
 # HG changeset patch
 # User Connor Sheehan <sheehan@mozilla.com>
 # Date 1523427125 -28800
@@ -258,10 +234,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 @@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
 # instead of passing the url to 'hg import' to make
 ...
-""".strip()
-            )
-        )
-    ]
+""".strip()))]
     assessor = PatchCollectionAssessor(patch_helpers=patch_helpers)
 
     assert assessor.run_patch_collection_checks(
@@ -481,9 +454,7 @@ def test_check_prevent_submodules():
 
 
 def test_check_bug_references_public_bugs():
-    patch_helper = HgPatchHelper.from_string_io(
-        io.StringIO(
-            """
+    patch_helper = HgPatchHelper.from_string_io(io.StringIO("""
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
@@ -498,9 +469,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 @@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
 # instead of passing the url to 'hg import' to make
 ...
-""".strip()
-        )
-    )
+""".strip()))
     patch_helpers = [patch_helper]
 
     # Simulate contacting BMO returning a public bug state.
@@ -526,18 +495,14 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 def test_check_bug_references_private_bugs():
     # Simulate a patch that references a private bug.
-    patch_helper = HgPatchHelper.from_string_io(
-        io.StringIO(
-            """
+    patch_helper = HgPatchHelper.from_string_io(io.StringIO("""
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
 # Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
 # Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
 Bug 999999: Fix issue with feature X
-""".strip()
-        )
-    )
+""".strip()))
     patch_helpers = [patch_helper]
 
     # Simulate Bugzilla (BMO) responding that the bug is private.
@@ -565,9 +530,7 @@ Bug 999999: Fix issue with feature X
 
 def test_check_bug_references_skip_check():
     # Simulate a patch with SKIP_BMO_CHECK in the commit message.
-    patch_helper = HgPatchHelper.from_string_io(
-        io.StringIO(
-            """
+    patch_helper = HgPatchHelper.from_string_io(io.StringIO("""
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
@@ -575,9 +538,7 @@ def test_check_bug_references_skip_check():
 # Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
 Bug 999999: Fix issue with feature X
 SKIP_BMO_CHECK
-""".strip()
-        )
-    )
+""".strip()))
     patch_helpers = [patch_helper]
 
     # Simulate Bugzilla (BMO) responding that the bug is private.
@@ -604,18 +565,14 @@ SKIP_BMO_CHECK
 
 def test_check_bug_references_bmo_error():
     # Simulate a patch that references a bug.
-    patch_helper = HgPatchHelper.from_string_io(
-        io.StringIO(
-            """
+    patch_helper = HgPatchHelper.from_string_io(io.StringIO("""
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
 # Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
 # Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
 Bug 123456: Fix issue with feature Y
-""".strip()
-        )
-    )
+""".strip()))
     patch_helpers = [patch_helper]
 
     # Simulate an error occurring when trying to contact BMO.
