@@ -217,7 +217,7 @@ class Repo(BaseModel):
     pr_enabled = models.BooleanField(default=False)
 
     @property
-    def is_legacy(self):  # noqa: ANN201
+    def is_legacy(self) -> bool:
         """Return True if this repo is listed as a legacy source."""
         try:
             return self.new_target is not None
@@ -225,11 +225,11 @@ class Repo(BaseModel):
             return False
 
     @property
-    def is_git(self):  # noqa: ANN201
+    def is_git(self) -> bool:
         return self.scm_type == SCMType.GIT
 
     @property
-    def is_hg(self):  # noqa: ANN201
+    def is_hg(self) -> bool:
         return self.scm_type == SCMType.HG
 
     def __str__(self) -> str:
@@ -362,7 +362,7 @@ class Repo(BaseModel):
         raise ValueError(f"Could not determine repo type for {pull_path}")
 
     @property
-    def tree(self):  # noqa: ANN201
+    def tree(self) -> str:
         """Backwards-compatibility alias for tree name."""
         return self.name
 
@@ -381,9 +381,9 @@ class Repo(BaseModel):
 
         return self.short_name if self.short_name else self.tree
 
-    def user_allowed(self, user: User) -> bool:
+    def user_can_push(self, user: User) -> bool:
         """
-        Test that the user has permission to land to this repo.
+        Test that the user has permission to push to this repo.
 
         If the user is a superuser, this checks that the user was given the permissions
         directly, rather than transitively by virtue of being an admin.

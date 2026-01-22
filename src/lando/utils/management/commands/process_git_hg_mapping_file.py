@@ -1,3 +1,4 @@
+import argparse
 import csv
 from io import StringIO
 from pathlib import Path
@@ -15,7 +16,7 @@ class Command(BaseCommand):
     file_paths = None
     rows = []
 
-    def add_arguments(self, parser):  # noqa: ANN001
+    def add_arguments(self, parser: argparse.ArgumentParser):
         parser.add_argument(
             "--url",
             default="",

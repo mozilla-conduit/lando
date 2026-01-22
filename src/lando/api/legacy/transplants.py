@@ -635,7 +635,7 @@ def blocker_user_scm_level(
 
     lando_user = stack_state.landing_assessment.lando_user
 
-    if landing_repo.user_allowed(lando_user):
+    if landing_repo.user_can_push(lando_user):
         return None
 
     return (

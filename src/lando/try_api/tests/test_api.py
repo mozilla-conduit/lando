@@ -4,7 +4,7 @@ from typing import Callable
 from unittest.mock import MagicMock, Mock
 
 import pytest
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Permission, User
 from django.core.handlers.wsgi import WSGIRequest
 from django.test.client import Client
 
@@ -84,10 +84,12 @@ def test_legacy_try_patches_invalid_user(
 def test_legacy_try_patches_auth_redirect(
     mock_authenticate_builder: Callable,
     scm_user: Callable,
-    to_profile_permissions: Callable,
     client_post: Callable,
 ):
-    user = scm_user(to_profile_permissions(["scm_level_1"]), "password")
+    user = scm_user(
+        [Permission.objects.get(codename="scm_level_1")],
+        "password",
+    )
     mock_authenticate = mock_authenticate_builder(user)
 
     response = client_post("/try/patches")
@@ -125,7 +127,6 @@ def test_try_api_patches_no_scm1(
     mock_authenticate_builder: Callable,
     mocked_repo_config: Mock,
     scm_user: Callable,
-    to_profile_permissions: Callable,
     client_post: Callable,
     make_superuser: Callable,
     group_scm_1: bool,
@@ -133,12 +134,12 @@ def test_try_api_patches_no_scm1(
 ):
     if group_scm_1:
         user = scm_user(
-            to_profile_permissions([]),
+            [],
             "password",
-            to_profile_permissions(["scm_level_1"]),
+            [Permission.objects.get(codename="scm_level_1")],
         )
     else:
-        user = scm_user(to_profile_permissions([]), "password")
+        user = scm_user([], "password")
 
     if superuser:
         user = make_superuser(user)
@@ -169,10 +170,9 @@ def test_try_api_patches_not_try(
     mock_authenticate_builder: Callable,
     mocked_repo_config: Mock,
     scm_user: Callable,
-    to_profile_permissions: Callable,
     client_post: Callable,
 ):
-    user = scm_user(to_profile_permissions(["scm_level_1"]), "password")
+    user = scm_user([Permission.objects.get(codename="scm_level_1")], "password")
     mock_authenticate = mock_authenticate_builder(user)
 
     request_payload = {
@@ -204,13 +204,12 @@ def test_try_api_patches_invalid_data(
     mock_authenticate_builder: Callable,
     mocked_repo_config: Mock,
     scm_user: Callable,
-    to_profile_permissions: Callable,
     commit_maps: list[CommitMap],
     git_patch: Callable,
     client_post: Callable,
     invalid_base64: bool,
 ):
-    user = scm_user(to_profile_permissions(["scm_level_1"]), "password")
+    user = scm_user([Permission.objects.get(codename="scm_level_1")], "password")
     mock_authenticate = mock_authenticate_builder(user)
 
     for map in commit_maps:
@@ -257,12 +256,11 @@ def test_try_api_patches_success(
     mock_authenticate_builder: Callable,
     mocked_repo_config: Mock,
     scm_user: Callable,
-    to_profile_permissions: Callable,
     commit_maps: list[CommitMap],
     git_patch: Callable,
     client_post: Callable,
 ):
-    user = scm_user(to_profile_permissions(["scm_level_1"]), "password")
+    user = scm_user([Permission.objects.get(codename="scm_level_1")], "password")
 
     mock_authenticate = mock_authenticate_builder(user)
 

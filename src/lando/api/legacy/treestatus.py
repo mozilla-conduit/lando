@@ -1,7 +1,9 @@
 import logging
 from json.decoder import JSONDecodeError
+from typing import Any
 
 import requests
+from django.http import HttpResponse
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +21,8 @@ class TreeStatus:
     # hook will enforce `a=<reviewer>` is present in the commit message.
     OPEN_STATUSES = {"approval required", "open"}
 
-    def __init__(self, *, url=None, session=None):  # noqa: ANN001
-        self.url = url if url is not None else TreeStatus.DEFAULT_URL
+    def __init__(self, *, url: str = "", session: requests.Session | None = None):
+        self.url = url or TreeStatus.DEFAULT_URL
         self.url = self.url if self.url[-1] == "/" else self.url + "/"
         self.session = session or self.create_session()
 
@@ -115,7 +117,7 @@ class TreeStatusCommunicationException(TreeStatusException):
 class TreeStatusError(TreeStatusException):
     """Exception when TreeStatus responds with an error."""
 
-    def __init__(self, status_code, data):  # noqa: ANN001
+    def __init__(self, status_code: int, data: dict[str, Any]):
         self.status_code = status_code
 
         # Error responses should have the RFC 7807 fields at minimum
@@ -141,7 +143,7 @@ class TreeStatusError(TreeStatusException):
         super().__init__(self.detail or "")
 
     @classmethod
-    def raise_if_error(cls, response_obj, data):  # noqa: ANN001
+    def raise_if_error(cls, response_obj: HttpResponse, data: dict[str, Any]):
         if response_obj.status_code < 400:
             return
 

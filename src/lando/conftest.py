@@ -938,26 +938,14 @@ def create_hg_commit(request: pytest.FixtureRequest) -> Callable:
 
 
 @pytest.fixture
-def to_profile_permissions() -> Callable:
-    """Convert a list of un-namespaced permissions strings to a list of profile Permissions."""
-
-    def _to_profile_permissions(permissions: list[str]) -> list[Permission]:
-        all_perms = Profile.get_all_scm_permissions()
-
-        return [all_perms[p.removeprefix("main.")] for p in permissions]
-
-    return _to_profile_permissions
-
-
-@pytest.fixture
-def conduit_permissions(to_profile_permissions: Callable) -> list[Permission]:
+def conduit_permissions() -> list[Permission]:
     permissions = (
         "scm_level_1",
         "scm_level_2",
         "scm_level_3",
         "scm_conduit",
     )
-    return to_profile_permissions(permissions)
+    return [Permission.objects.get(codename=perm) for perm in permissions]
 
 
 @pytest.fixture
@@ -968,7 +956,7 @@ def user_plaintext_password():
 @pytest.fixture
 def landing_worker_instance(mocked_repo_config) -> Callable:
     def _instance(scm, **kwargs) -> Worker:
-        worker = Worker.objects.create(sleep_seconds=0.1, scm=scm, **kwargs)
+        worker = Worker.objects.create(sleep_seconds=0, scm=scm, **kwargs)
         worker.applicable_repos.set(Repo.objects.filter(scm_type=scm))
         return worker
 
@@ -995,7 +983,7 @@ def scm_user() -> Callable:
             user.user_permissions.add(permission)
 
         if group_perms:
-            group = Group.objects.create(
+            group, _ = Group.objects.get_or_create(
                 name="test group",
             )
             group.permissions.set(group_perms)

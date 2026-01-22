@@ -538,7 +538,7 @@ class HgSCM(AbstractSCM):
         self._update_from_upstream(source, target_cset)
         return self.head_ref()
 
-    def _update_from_upstream(self, source, remote_rev):  # noqa: ANN001
+    def _update_from_upstream(self, source: str, remote_rev: str):
         """Update the repository to the specified changeset (not optional)."""
         # Pull and update to remote tip.
         cmds = [

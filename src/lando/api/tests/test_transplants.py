@@ -4,6 +4,7 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
+from django.contrib.auth.models import Permission
 from typing_extensions import Any, Callable
 
 from lando.api.legacy.api import transplants as legacy_api_transplants
@@ -38,40 +39,6 @@ from lando.main.scm import SCMType
 from lando.main.support import LegacyAPIException
 from lando.utils.phabricator import PhabricatorRevisionStatus, ReviewerStatus
 from lando.utils.tasks import admin_remove_phab_project
-
-
-def _make_landing_job_override_with_no_linked_revisions(
-    target_repo,
-    *,
-    landing_path=((1, 1),),
-    revisions=None,
-    requester_email="tuser@example.com",
-    status=None,
-):
-    # Create a landing job without a direct link to revisions, but by referencing
-    # revisions in revision_to_diff_id and revision_order
-    job_params = {
-        "requester_email": requester_email,
-        "status": status,
-        "target_repo": target_repo,
-    }
-    job = LandingJob(**job_params)
-    job.save()
-    revisions = []
-    for revision_id, diff_id in landing_path:
-        revision = Revision.one_or_none(revision_id=revision_id)
-        if not revision:
-            revision = Revision(revision_id=revision_id)
-        revision.diff_id = diff_id
-        revisions.append(revision)
-    for revision in revisions:
-        revision.save()
-    job.revision_to_diff_id = {
-        str(revision.revision_id): revision.diff_id for revision in revisions
-    }
-    job.revision_order = [str(revision.revision_id) for revision in revisions]
-    job.save()
-    return job
 
 
 @pytest.mark.django_db(transaction=True)
@@ -545,21 +512,14 @@ def test_warning_previously_landed_no_landings(phabdouble, create_state):
     assert warning_previously_landed(revision, diff, stack_state) is None
 
 
-@pytest.mark.parametrize(
-    "make_landing_job_override",
-    (None, _make_landing_job_override_with_no_linked_revisions),
-)
 @pytest.mark.django_db(transaction=True)
 def test_warning_previously_landed_failed_landing(
-    phabdouble, make_landing_job, make_landing_job_override, create_state, repo_mc
+    phabdouble, make_landing_job, create_state, repo_mc
 ):
-    if not make_landing_job_override:
-        make_landing_job_override = make_landing_job
-
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
 
-    make_landing_job_override(
+    make_landing_job(
         target_repo=repo_mc(SCMType.GIT),
         landing_path=[(r["id"], d["id"])],
         status=JobStatus.FAILED,
@@ -575,21 +535,14 @@ def test_warning_previously_landed_failed_landing(
     assert warning_previously_landed(revision, diff, stack_state) is None
 
 
-@pytest.mark.parametrize(
-    "make_landing_job_override",
-    (None, _make_landing_job_override_with_no_linked_revisions),
-)
 @pytest.mark.django_db(transaction=True)
 def test_warning_previously_landed_landed_landing(
-    phabdouble, make_landing_job, make_landing_job_override, create_state, repo_mc
+    phabdouble, make_landing_job, create_state, repo_mc
 ):
-    if not make_landing_job_override:
-        make_landing_job_override = make_landing_job
-
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
 
-    make_landing_job_override(
+    make_landing_job(
         target_repo=repo_mc(SCMType.GIT),
         landing_path=[(r["id"], d["id"])],
         status=JobStatus.LANDED,
@@ -1244,14 +1197,13 @@ def test_integrated_transplant_repo_checkin_project_removed(
     "superuser,user_perms,group_perms",
     (
         (False, [], []),
-        (False, [], ["main.scm_level_3"]),
+        (False, [], ["scm_level_3"]),
         (True, [], []),
-        (True, [], ["main.scm_level_3"]),
+        (True, [], ["scm_level_3"]),
     ),
 )
 def test_integrated_transplant_without_permissions(
     scm_user: Callable,
-    to_profile_permissions: Callable,
     make_superuser: Callable,
     phabdouble: PhabricatorDouble,
     mocked_repo_config: mock.Mock,
@@ -1264,9 +1216,9 @@ def test_integrated_transplant_without_permissions(
     """Test that a user without permissions gets blocked."""
     # Create a user with no permissions
     user_without_perms = scm_user(
-        to_profile_permissions(user_perms),
+        [Permission.objects.get(codename=perm) for perm in user_perms],
         "password",
-        to_profile_permissions(group_perms),
+        [Permission.objects.get(codename=perm) for perm in group_perms],
     )
 
     if superuser:
@@ -1772,18 +1724,17 @@ def test_revision_has_data_classification_tag(
     "superuser,user_perms,group_perms,should_allow",
     (
         (False, [], [], False),
-        (False, [], ["main.scm_level_3"], False),
-        (False, ["main.scm_level_3"], [], True),
+        (False, [], ["scm_level_3"], False),
+        (False, ["scm_level_3"], [], True),
         (True, [], [], False),
-        (True, [], ["main.scm_level_3"], False),
-        (True, ["main.scm_level_3"], [], True),
+        (True, [], ["scm_level_3"], False),
+        (True, ["scm_level_3"], [], True),
     ),
 )
 def test_blocker_scm_permission(
     phabdouble: PhabricatorDouble,
     create_state: Callable,
     scm_user: Callable,
-    to_profile_permissions: Callable,
     make_superuser: Callable,
     user_perms: list[str],
     group_perms: list[str],
@@ -1800,9 +1751,9 @@ def test_blocker_scm_permission(
     diff_normal = phabdouble.diff(revision=revision)
 
     user = scm_user(
-        to_profile_permissions(user_perms),
+        [Permission.objects.get(codename=perm) for perm in user_perms],
         "password",
-        to_profile_permissions(group_perms),
+        [Permission.objects.get(codename=perm) for perm in group_perms],
     )
 
     if superuser:

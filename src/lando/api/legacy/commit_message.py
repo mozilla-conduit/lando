@@ -249,7 +249,7 @@ def replace_reviewers(
         # later
         d = {"first": True}
 
-        def replace_first_reviewer(matchobj):  # noqa: ANN001
+        def replace_first_reviewer(matchobj: re.Match) -> str:
             if SPECIFIER_RE.match(matchobj.group(2)):
                 if d["first"]:
                     d["first"] = False

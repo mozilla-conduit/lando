@@ -1,7 +1,9 @@
-from lando.utils.phabricator import result_list_to_phid_dict
+from lando.utils.phabricator import PhabricatorClient, result_list_to_phid_dict
 
 
-def user_search(phabricator, user_phids):  # noqa: ANN001, ANN201
+def user_search(
+    phabricator: PhabricatorClient, user_phids: list[str]
+) -> dict[str, dict]:
     """Return a dictionary mapping phid to user information from a user.search.
 
     Args:
