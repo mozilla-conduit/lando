@@ -6,7 +6,7 @@ from typing import Any
 
 from django.conf import settings
 from django.db import models
-from django.db.models import QuerySet
+from django.db.models import Q, QuerySet
 from mots.config import FileConfig
 from mots.directory import Directory
 
@@ -125,6 +125,14 @@ class LandingJob(BaseJob):
             for revision_id, diff_id in self.landed_revisions.items()
         ]
 
+    @property
+    def skip_treestatus_check(self) -> bool:
+        """Return True if job is to be handed over."""
+        # If a job has a handover repo defined but has not yet been handed over,
+        # return True, since the handover job will not be pushed on the first
+        # pass. Once a job is handed over, do not treat this job any differently.
+        return self.handover_repo is not None and not self.is_handed_over
+
     def handover(self):
         if not self.is_pull_request_job:
             raise NotImplementedError(
@@ -208,8 +216,12 @@ class LandingJob(BaseJob):
             grace_seconds (int): Ignore landing jobs that were submitted after this
                 many seconds ago.
         """
-        q = super().job_queue_query(repositories)
+        q = super().job_queue_query()
 
+        if repositories:
+            q = q.filter(
+                Q(target_repo__in=repositories) | Q(handover_repo__in=repositories)
+            )
         if grace_seconds:
             now = datetime.datetime.now(datetime.timezone.utc)
             grace_cutoff = now - datetime.timedelta(seconds=grace_seconds)

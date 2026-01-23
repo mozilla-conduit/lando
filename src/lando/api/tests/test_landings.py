@@ -2,6 +2,7 @@ import io
 import itertools
 import re
 import unittest.mock as mock
+from datetime import datetime
 from typing import Callable
 
 import pytest
@@ -332,6 +333,7 @@ def test_integrated_execute_job(
         "attempts": 1,
     }
     job = make_landing_job(revisions=revisions, **job_params)
+    assert not job.skip_treestatus_check
 
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
@@ -1336,3 +1338,110 @@ def test_worker_active_repos_updated_when_tree_closed(
     worker.refresh_active_repos()
     assert repo not in worker.active_repos
     assert repo in worker.enabled_repos
+
+
+@pytest.fixture
+def make_handover_job(
+    create_patch_revision: Callable, make_landing_job: Callable
+) -> Callable:
+    def _make_handover_job(target_repo: Repo, handover_repo: Repo) -> LandingJob:
+        revision = create_patch_revision(1)
+        revision.pull_number = 1
+        revision.patches = revision.patch
+        revision.patch_data = {
+            "author_name": "someone",
+            "author_email": "someone@example.org",
+            "commit_message": "no bug: this is a test commit",
+            "timestamp": int(datetime.now().timestamp()),
+        }
+        revision.save()
+
+        revisions = [revision]
+
+        job_params = {
+            "status": JobStatus.SUBMITTED,
+            "requester_email": "test@example.com",
+            "target_repo": target_repo,
+            "is_pull_request_job": True,
+            "handover_repo": handover_repo,
+        }
+
+        job = make_landing_job(revisions=revisions, **job_params)
+        return job
+
+    return _make_handover_job
+
+
+@pytest.mark.parametrize(
+    "closed_repos,",
+    [
+        (),
+        ("try",),
+        ("git",),
+        ("try", "git"),
+    ],
+)
+@pytest.mark.django_db
+def test_handover_landing_job(
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    get_landing_worker: Callable,
+    make_handover_job: Callable,
+    mock_phab_trigger_repo_update_apply_async: mock.Mock,
+    closed_repos: tuple[str],
+):
+    """Test that a handover job is correctly handed over."""
+    try_repo = repo_mc(SCM_TYPE_HG, hooks_enabled=False, name="try")
+    git_repo = repo_mc(SCM_TYPE_GIT, hooks_enabled=False, pr_enabled=True)
+
+    git_worker = get_landing_worker(SCM_TYPE_GIT)
+    hg_worker = get_landing_worker(SCM_TYPE_HG)
+
+    hg_worker.worker_instance.applicable_repos.add(try_repo)
+    git_worker.worker_instance.applicable_repos.add(git_repo)
+
+    repos = {
+        "try": try_repo,
+        "git": git_repo,
+    }
+
+    for key, repo in repos.items():
+        if key in closed_repos:
+            treestatusdouble.close_tree(repo.name)
+        else:
+            treestatusdouble.open_tree(repo.name)
+
+    git_worker.refresh_active_repos()
+    hg_worker.refresh_active_repos()
+
+    job = make_handover_job(target_repo=git_repo, handover_repo=try_repo)
+    assert job.skip_treestatus_check
+    assert job.target_repo == git_repo
+
+    next_job = git_worker.job_type.next_job(
+        repositories=git_worker.active_repos
+    ).first()
+    assert not job.is_handed_over
+    assert next_job == job
+    git_worker.start(max_loops=1)
+    job.refresh_from_db()
+    assert job.is_handed_over
+    assert job.status == JobStatus.DEFERRED, job.error
+    assert job.error == "Job deferred to try repo."
+    assert job.target_repo == try_repo
+    assert job.attempts == 1
+
+    next_job = hg_worker.job_type.next_job(repositories=hg_worker.active_repos).first()
+    assert not job.skip_treestatus_check
+    if "try" in closed_repos:
+        assert next_job is None
+        hg_worker.start(max_loops=1)
+        job.refresh_from_db()
+        assert job.status == JobStatus.DEFERRED, job.error
+        assert job.attempts == 1
+    else:
+        assert next_job == job
+        hg_worker.start(max_loops=1)
+        job.refresh_from_db()
+        assert job.attempts == 2
+        assert job.status == JobStatus.LANDED, job.error

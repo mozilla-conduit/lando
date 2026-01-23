@@ -105,7 +105,9 @@ class LandingWorker(Worker):
                 "Pull Requests are not supported for this repository."
             )
 
-        if not self.treestatus_client.is_open(repo.tree):
+        if not job.skip_treestatus_check and not self.treestatus_client.is_open(
+            repo.tree
+        ):
             job.transition_status(
                 JobAction.DEFER,
                 message=f"Tree {repo.tree} is closed - retrying later.",
@@ -220,6 +222,28 @@ class LandingWorker(Worker):
         revision.set_patch(diff)
         revision.save()
 
+    def handover_job(self, scm: AbstractSCM, job: LandingJob):
+        """Given a handover job, process it then hand it over.
+
+        Add a try_task_config.json file with relevant content, convert
+        the patches to a diff, and then call job.handover() setting various
+        parameters on the job before deferring it.
+
+        NOTE: at this time, handover jobs are only supported when the terminal
+        repo is a try repo.
+        """
+        if not job.handover_repo.is_try:
+            raise ValueError(
+                f"{job} handover to non-try repo ({job.handover_repos}) is not supported"
+            )
+
+        self.add_try_task_config(scm)
+        self.convert_patches_to_diff(scm, job)
+        job.handover()
+        message = "Job deferred to try repo."
+        job.transition_status(JobAction.DEFER, message=message)
+        raise TemporaryFailureException(message)
+
     def apply_and_push(
         self,
         job: LandingJob,
@@ -243,20 +267,10 @@ class LandingWorker(Worker):
 
         self.update_repo(repo, job, scm, job.target_commit_hash)
 
-        if job.is_pull_request_job and job.handover_repo:
-            if not job.handover_repo.is_try:
-                raise ValueError(
-                    f"{job} handover to non-try repo ({job.handover_repos}) is not supported"
-                )
-
-            self.add_try_task_config(scm)
-            self.convert_patches_to_diff(scm, job)
-            job.handover()
-            message = "Job deferred to try repo."
-            job.transition_status(JobAction.DEFER, message=message)
-            raise TemporaryFailureException(message)
-
         if job.is_pull_request_job:
+            if job.handover_repo:
+                self.handover_job(scm, job)
+
             self.convert_patches_to_diff(scm, job)
             self.update_repo(repo, job, scm, job.target_commit_hash)
 
