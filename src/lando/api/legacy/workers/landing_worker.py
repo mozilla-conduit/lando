@@ -175,12 +175,34 @@ class LandingWorker(Worker):
 
         return True
 
-    def add_try_task_config(self, scm: AbstractSCM):
+    def add_try_task_config(self, scm: AbstractSCM, **github_params):
+        """
+        Add try_task_config.json with provided parameters.
+
+        NOTE: try_task_config value will be a copy of provided github_params
+        with keys prepended with "github_".
+        """
+        allowed_params = (
+            "pull_number",
+            "pull_head_sha",
+            "repo_url",
+            "branch",
+        )
+        if not set(github_params).issubset(allowed_params):
+            raise ValueError(
+                "Disallowed parameter(s) passed: "
+                f"{set(allowed_params).difference(github_params)}"
+            )
+
         with (Path(scm.path) / "try_task_config.json").open("x") as f:
             data = {
                 "parameters": {
                     "optimize_target_tasks": True,
                     "target_tasks_method": "codereview",
+                    "try_mode": "try_task_config",
+                    "try_task_config": {
+                        f"github_{k}": v for k, v in github_params.items()
+                    },
                 },
                 "version": 2,
             }
@@ -237,7 +259,15 @@ class LandingWorker(Worker):
                 f"{job} handover to non-try repo ({job.handover_repos}) is not supported"
             )
 
-        self.add_try_task_config(scm)
+        first_revision = job.revisions.first()
+
+        self.add_try_task_config(
+            scm,
+            pull_number=first_revision.pull_number,
+            pull_head_sha=first_revision.pull_head_sha,
+            repo_url=job.target_repo.normalized_url,
+            branch=job.target_repo.default_branch,
+        )
         self.convert_patches_to_diff(scm, job)
         job.handover()
         message = "Job deferred to try repo."
