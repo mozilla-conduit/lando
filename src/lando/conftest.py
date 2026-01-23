@@ -678,6 +678,7 @@ def git_repo_mc(
     hooks: list[str] | None = None,
     hooks_to_disable: list[str] | None = None,
     name: str = "",
+    pr_enabled: bool = False,
     push_target: str = "",
 ) -> Repo:
     repos_dir = tmp_path / "repos"
@@ -696,6 +697,7 @@ def git_repo_mc(
         "automation_enabled": automation_enabled,
         "force_push": force_push,
         "hooks_enabled": hooks_enabled,
+        "pr_enabled": pr_enabled,
         # We only set "hooks" below, if not empty.
         "push_target": push_target,
     }
@@ -736,6 +738,7 @@ def repo_mc(
         hooks: list[str] | None = None,
         hooks_to_disable: list[str] | None = None,
         name: str = "",
+        pr_enabled: bool = False,
         push_target: str = "",
     ) -> Repo:
         # The BMO reference check 1) requires access to a BMO instance to test with and
@@ -756,8 +759,10 @@ def repo_mc(
         }
 
         if scm_type == SCM_TYPE_GIT:
+            params["pr_enabled"] = pr_enabled
             return git_repo_mc(git_repo, tmp_path, **params)
         elif scm_type == SCM_TYPE_HG:
+            assert not pr_enabled
             return hg_repo_mc(hg_server, hg_clone, **params)
         raise Exception(f"Unknown SCM Type {scm_type=}")
 
@@ -794,17 +799,6 @@ def mocked_repo_config(mock_repo_config):
         url="http://hg.test/new",
         required_permission=SCM_LEVEL_3,
         commit_flags=[("VALIDFLAG1", "testing"), ("VALIDFLAG2", "testing")],
-    )
-    Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="try",
-        url="http://hg.test/try",
-        push_path="http://hg.test/try",
-        pull_path="http://hg.test",
-        required_permission=SCM_LEVEL_1,
-        short_name="try",
-        is_phabricator_repo=False,
-        force_push=True,
     )
     # Copied from legacy "local-dev". Should have been in mocked repos.
     Repo.objects.create(

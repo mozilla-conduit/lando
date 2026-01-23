@@ -24,3 +24,5 @@ CACHES = {
 
 DEFAULT_FROM_EMAIL = "Lando <lando@lando.test>"
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+LANDING_WORKER_DEFAULT_GRACE_SECONDS = 0
