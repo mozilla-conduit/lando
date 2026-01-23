@@ -8,7 +8,10 @@ from lando.main.scm.git import GitSCM
 
 
 class Command(BaseCommand):
-    help = "One-time command to clear invalid `commit_id` values from `RevisionLandingJob`."
+    help = """One-time command to clear invalid `commit_id` values from `RevisionLandingJob`.
+
+    Values are invalid due to bug 2009220 and bug 2009805.
+    """
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         parser.add_argument(
