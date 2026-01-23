@@ -8,7 +8,7 @@ from lando.main.scm.git import GitSCM
 
 
 class Command(BaseCommand):
-    help = "Clear invalid `commit_id` values from `RevisionLandingJob`." ""
+    help = "One-time command to clear invalid `commit_id` values from `RevisionLandingJob`."
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         parser.add_argument(
