@@ -189,8 +189,9 @@ def build_manual_uplift_instructions(job: UpliftJob) -> str:
     # Add cherry-pick commands for each revision.
     if revisions:
         for revision in revisions:
-            if revision.commit_id:
-                instructions.append(f"git cherry-pick {revision.commit_id}")
+            landing_commit_id = revision.get_latest_landing_commit_id()
+            if landing_commit_id:
+                instructions.append(f"git cherry-pick {landing_commit_id}")
             else:
                 instructions.append(
                     f"git cherry-pick <commit SHA for D{revision.revision_id}>"
