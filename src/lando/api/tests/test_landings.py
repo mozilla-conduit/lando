@@ -280,6 +280,14 @@ aDdInG AnOtHeR LiNe
 aDd oNe mOrE LiNe
 """.lstrip()
 
+TRY_TASK_CONFIG_DIFF_SNIPPET = """
+--- /dev/null
++++ b/try_task_config.json
+@@ -0,0 +1 @@
++{{"parameters": {{"optimize_target_tasks": true, "target_tasks_method": "codereview", "try_mode": "try_task_config", "try_task_config": {{"github_pull_number": 1, "github_pull_head_sha": null, "github_repo_url": "{}", "github_branch": "main"}}}}, "version": 2}}
+\\ No newline at end of file
+""".lstrip()
+
 
 @pytest.mark.parametrize(
     "repo_type,revisions_params",
@@ -1433,6 +1441,11 @@ def test_handover_landing_job(
 
     next_job = hg_worker.job_type.next_job(repositories=hg_worker.active_repos).first()
     assert not job.skip_treestatus_check
+
+    patch = job.revisions[0].patch
+    expected = TRY_TASK_CONFIG_DIFF_SNIPPET.format(git_repo.normalized_url)
+    assert patch.endswith(expected)
+
     if "try" in closed_repos:
         assert next_job is None
         hg_worker.start(max_loops=1)
