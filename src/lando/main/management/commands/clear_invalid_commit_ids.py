@@ -16,12 +16,12 @@ class Command(BaseCommand):
             help="Path to the Git repository to check commits against.",
         )
         parser.add_argument(
-            "--dry-run",
+            "--execute",
             action="store_true",
-            help="Show what would be cleared without making changes.",
+            help="Actually clear invalid commit IDs. Without this flag, only shows what would be changed.",
         )
 
-    def handle(self, repo_path: str, dry_run: bool, **options):
+    def handle(self, repo_path: str, execute: bool, **options):
         git_scm = GitSCM(path=repo_path)
 
         jobs_with_commit_id = RevisionLandingJob.objects.filter(
@@ -42,10 +42,11 @@ class Command(BaseCommand):
                 invalid_records.append(job)
 
         invalid_count = len(invalid_records)
-        if dry_run:
+        if not execute:
             self.stdout.write(
                 self.style.WARNING(
-                    f"Dry run: {invalid_count} invalid commit_id values would be cleared."
+                    f"Found {invalid_count} invalid commit_id values. "
+                    f"Run with --execute to clear them."
                 )
             )
             return
