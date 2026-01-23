@@ -1294,9 +1294,9 @@ mozilla-django-oidc==5.0.2 \
     --hash=sha256:4e953dcd963c036daaa2ac42b5bb6ea89a1c6ea7be0387c2022a59aca2f83043 \
     --hash=sha256:965a3533b0e299288cdf38ec2f8b550217c302ffe78ce5bd0b2d2f4bc436878b
     # via lando (pyproject.toml)
-mozphab==2.8.0 \
-    --hash=sha256:db8fe57b65d4acca6c1dcada7707a649cdad147f9ec6ac71fd60f9e7163c4e8b \
-    --hash=sha256:f58e97268b6839a4c0a0bc625f497ffca245b75520c7cb2cc296c09972813400
+mozphab==2.8.1 \
+    --hash=sha256:dcee4a70c76e558748c390df0da03c6a7849d4fb95e978c8e73c889f50ccd04e \
+    --hash=sha256:e737243d44b413d07a49d9b6d52b0cf0e568006f9f1222930d1e58af06ec96e8
     # via lando (pyproject.toml)
 multidict==6.7.0 \
     --hash=sha256:03ca744319864e92721195fa28c7a3b2bc7b686246b35e4078c1e4d0eb5466d3 \
