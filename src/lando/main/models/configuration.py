@@ -2,7 +2,7 @@ import enum
 import json
 import logging
 
-from django.db import models
+from django.db import ProgrammingError, models
 from django.utils.translation import gettext_lazy
 
 from lando.main.models.base import BaseModel
@@ -139,5 +139,22 @@ class ConfigurationVariable(BaseModel):
         logger.info(
             f"Configuration variable {key.value} set to {raw_value} ({record.value})"
         )
-        record.save()
+
+        if not record.pk:
+            record.save()
+        else:
+            try:
+                record.save()
+            except ProgrammingError as e:
+                # In some cases, saving the variable may not work (e.g., if there are
+                # pending migrations when running the maintenance command.) Try
+                # updating the variable object instead, as a last resort.
+                ConfigurationVariable.objects.filter(pk=record.pk).update(
+                    variable_type=variable_type,
+                    key=key.value,
+                    raw_value=raw_value,
+                )
+                logger.error(e)
+                logger.warning(f"{record} was changed using an update instead of save")
+
         return record
