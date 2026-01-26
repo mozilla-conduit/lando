@@ -15,6 +15,7 @@ dependencies = [
     "cryptography",
     "datadog",
     "django ~= 5.0",
+    "django-auditlog",
     "django-libsass",
     "django-ninja",
     "django-storages[google]",
