@@ -141,8 +141,11 @@ class ConfigurationVariable(BaseModel):
         )
 
         if not record.pk:
+            # Record does not exist in DB and must be saved using `.save`.
             record.save()
         else:
+            # Record with this key already exists in the database. Try to save
+            # first.
             try:
                 record.save()
             except ProgrammingError as e:
