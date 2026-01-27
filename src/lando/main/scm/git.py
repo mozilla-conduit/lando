@@ -623,15 +623,23 @@ class GitSCM(AbstractSCM):
             return result == "commit"
         except SCMException as exc:
             # Check if this is the expected "object doesn't exist" error.
-            if "Not a valid object name" in exc.err or "bad object" in exc.err:
-                logger.debug(f"Commit {commit_id} does not exist in repository")
-            else:
-                logger.warning(
-                    f"Unexpected error while checking if commit {commit_id} exists",
-                    exc_info=exc,
+            if any(
+                err in exc.err
+                for err in (
+                    "Not a valid object name",
+                    "bad object",
+                    "could not get object info",
                 )
+            ):
+                logger.debug(f"Commit {commit_id} does not exist in repository")
+                return False
 
-            return False
+            logger.warning(
+                f"Unexpected error while checking if commit {commit_id} exists",
+                exc_info=exc,
+            )
+
+            raise exc
 
     @override
     def merge_onto(

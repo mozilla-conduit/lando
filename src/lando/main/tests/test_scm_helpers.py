@@ -300,9 +300,7 @@ def test_patchhelper_is_diff_line(line: str, expected: str):
 
 
 def test_patchhelper_vanilla_export():
-    patch = HgPatchHelper.from_string_io(
-        io.StringIO(
-            """
+    patch = HgPatchHelper.from_string_io(io.StringIO("""
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
@@ -317,9 +315,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 @@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
 # instead of passing the url to 'hg import' to make
 ...
-""".strip()
-        )
-    )
+""".strip()))
     assert patch.get_header("Date") == "1523427125 -28800"
     assert patch.get_header("Node ID") == "3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07"
     assert patch.get_header("User") == "byron jones <glob@mozilla.com>"
@@ -328,9 +324,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 
 def test_patchhelper_start_line():
-    patch = HgPatchHelper.from_string_io(
-        io.StringIO(
-            """
+    patch = HgPatchHelper.from_string_io(io.StringIO("""
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
@@ -346,17 +340,13 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 @@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
 # instead of passing the url to 'hg import' to make
 ...
-""".strip()
-        )
-    )
+""".strip()))
     assert patch.get_header("Diff Start Line") == "10"
     assert patch.get_commit_description() == "WIP transplant and diff-start-line"
 
 
 def test_patchhelper_no_header():
-    patch = HgPatchHelper.from_string_io(
-        io.StringIO(
-            """
+    patch = HgPatchHelper.from_string_io(io.StringIO("""
 # Date 1523427125 -28800
 WIP transplant and diff-start-line
 
@@ -366,17 +356,13 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 @@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
 # instead of passing the url to 'hg import' to make
 ...
-""".strip()
-        )
-    )
+""".strip()))
     assert patch.get_header("User") is None
     assert patch.get_commit_description() == "WIP transplant and diff-start-line"
 
 
 def test_patchhelper_diff_injection_no_start_line():
-    patch = HgPatchHelper.from_string_io(
-        io.StringIO(
-            """
+    patch = HgPatchHelper.from_string_io(io.StringIO("""
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
@@ -395,16 +381,12 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 @@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
 # instead of passing the url to 'hg import' to make
 ...
-""".strip()
-        )
-    )
+""".strip()))
     assert patch.get_commit_description() == "WIP transplant and diff-start-line"
 
 
 def test_patchhelper_diff_injection_start_line():
-    patch = HgPatchHelper.from_string_io(
-        io.StringIO(
-            """
+    patch = HgPatchHelper.from_string_io(io.StringIO("""
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
@@ -424,9 +406,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 @@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
 # instead of passing the url to 'hg import' to make
 ...
-""".strip()
-        )
-    )
+""".strip()))
     assert patch.get_commit_description() == (
         "WIP transplant and diff-start-line\n"
         "\n"
@@ -650,18 +630,14 @@ def test_preserves_diff_crlf():
         hg_helper.get_diff() == "\n" + GIT_DIFF_CRLF
     ), "`get_diff()` should preserve CRLF."
 
-    git_helper = GitPatchHelper.from_string_io(
-        io.StringIO(
-            f"""\
+    git_helper = GitPatchHelper.from_string_io(io.StringIO(f"""\
 From: Connor Sheehan <sheehan@mozilla.com>
 Date: Wed, 6 Jul 2022 16:36:09 -0400
 Subject: {COMMIT_MESSAGE}
 ---
 {GIT_DIFF_CRLF}--
 2.47.1
-"""
-        )
-    )
+"""))
 
     assert git_helper.get_diff() == GIT_DIFF_CRLF, "`get_diff()` should preserve CRLF."
 

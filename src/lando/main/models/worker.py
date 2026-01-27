@@ -1,6 +1,6 @@
 import logging
 
-from django.db import models
+from django.db import ProgrammingError, models
 from django.utils.translation import gettext_lazy
 
 from lando.main.models.base import BaseModel
@@ -58,14 +58,24 @@ class Worker(BaseModel):
     def enabled_repo_names(self) -> list[str]:
         return self.enabled_repos.values_list("name", flat=True)
 
+    def save_or_update(self, is_paused: bool):
+        """Change the value of is_paused via a save or update."""
+        self.is_paused = is_paused
+        try:
+            self.save()
+        except ProgrammingError as e:
+            # In some cases (e.g., during maintenance command), database migrations
+            # may cause self.save() to fail. Try again using an update, and log error.
+            logger.error(e)
+            logger.warning(f"{self} was paused using an update instead of save.")
+            Worker.objects.filter(pk=self.pk).update(is_paused=True)
+
     def pause(self):
         """Pause the landing worker if it is not already paused."""
         if not self.is_paused:
-            self.is_paused = True
-            self.save()
+            self.save_or_update(is_paused=True)
 
     def resume(self):
         """Resume the landing worker if it is paused."""
         if self.is_paused:
-            self.is_paused = False
-            self.save()
+            self.save_or_update(is_paused=False)

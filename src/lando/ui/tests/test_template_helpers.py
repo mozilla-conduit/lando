@@ -17,7 +17,7 @@ from lando.jinja import (
     repo_path,
 )
 from lando.main.models import JobStatus, LandingJob, Repo, SCMType
-from lando.main.models.revision import Revision
+from lando.main.models.revision import Revision, RevisionLandingJob
 from lando.main.models.uplift import UpliftAssessment, UpliftJob, UpliftSubmission
 
 
@@ -318,10 +318,15 @@ def test_build_manual_uplift_instructions(user):
         scm_type=SCMType.GIT,
     )
 
-    # Create revisions with commit IDs.
-    rev1 = Revision.objects.create(revision_id=123, commit_id="abc123def456")
-    rev2 = Revision.objects.create(revision_id=124, commit_id="def789ghi012")
-    rev3 = Revision.objects.create(revision_id=125, commit_id="ghi345jkl678")
+    # Create revisions.
+    rev1 = Revision.objects.create(revision_id=123)
+    rev2 = Revision.objects.create(revision_id=124)
+    rev3 = Revision.objects.create(revision_id=125)
+
+    # Create RevisionLandingJob records with commit IDs.
+    RevisionLandingJob.objects.create(revision=rev1, commit_id="abc123def456")
+    RevisionLandingJob.objects.create(revision=rev2, commit_id="def789ghi012")
+    RevisionLandingJob.objects.create(revision=rev3, commit_id="ghi345jkl678")
 
     # Create assessment and submission.
     assessment = UpliftAssessment.objects.create(
