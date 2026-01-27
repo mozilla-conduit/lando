@@ -630,6 +630,7 @@ def hg_repo_mc(
     hooks_enabled: bool = True,
     hooks: list[str] | None = None,
     hooks_to_disable: list[str] | None = None,
+    is_try: bool = True,
     name: str = "",
     push_target: str = "",
 ) -> Repo:
@@ -646,6 +647,7 @@ def hg_repo_mc(
         "automation_enabled": automation_enabled,
         "force_push": force_push,
         "hooks_enabled": hooks_enabled,
+        "is_try": is_try,
         # We only set "hooks" below, if not empty.
         "push_target": push_target,
     }
@@ -677,6 +679,7 @@ def git_repo_mc(
     hooks_enabled: bool = True,
     hooks: list[str] | None = None,
     hooks_to_disable: list[str] | None = None,
+    is_try: bool = False,
     name: str = "",
     pr_enabled: bool = False,
     push_target: str = "",
@@ -697,6 +700,7 @@ def git_repo_mc(
         "automation_enabled": automation_enabled,
         "force_push": force_push,
         "hooks_enabled": hooks_enabled,
+        "is_try": is_try,
         "pr_enabled": pr_enabled,
         # We only set "hooks" below, if not empty.
         "push_target": push_target,
@@ -737,6 +741,7 @@ def repo_mc(
         hooks_enabled: bool = True,
         hooks: list[str] | None = None,
         hooks_to_disable: list[str] | None = None,
+        is_try: bool = False,
         name: str = "",
         pr_enabled: bool = False,
         push_target: str = "",
@@ -753,6 +758,7 @@ def repo_mc(
             "hooks_enabled": hooks_enabled,
             "hooks": hooks or [],
             "hooks_to_disable": hooks_to_disable or default_hooks_to_disable,
+            "is_try": is_try,
             "force_push": force_push,
             "name": name,
             "push_target": push_target,
@@ -800,6 +806,19 @@ def mocked_repo_config(mock_repo_config):
         required_permission=SCM_LEVEL_3,
         commit_flags=[("VALIDFLAG1", "testing"), ("VALIDFLAG2", "testing")],
     )
+    # Copied from legacy "local-dev". Should have been in mocked repos.
+    Repo.objects.create(
+        scm_type=SCMType.HG,
+        name="uplift-target",
+        url="http://hg.test",  # TODO: fix this? URL is probably incorrect.
+        required_permission=SCM_LEVEL_1,
+        approval_required=True,
+        milestone_tracking_flag_template="cf_status_firefox{milestone}",
+    )
+
+
+@pytest.fixture
+def mocked_repo_config_try(mock_repo_config):
     Repo.objects.create(
         scm_type=SCMType.HG,
         name="try",
@@ -811,15 +830,6 @@ def mocked_repo_config(mock_repo_config):
         is_phabricator_repo=False,
         is_try=True,
         force_push=True,
-    )
-    # Copied from legacy "local-dev". Should have been in mocked repos.
-    Repo.objects.create(
-        scm_type=SCMType.HG,
-        name="uplift-target",
-        url="http://hg.test",  # TODO: fix this? URL is probably incorrect.
-        required_permission=SCM_LEVEL_1,
-        approval_required=True,
-        milestone_tracking_flag_template="cf_status_firefox{milestone}",
     )
 
 
