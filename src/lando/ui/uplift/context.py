@@ -1,5 +1,6 @@
 """Helpers for building uplift-related template context."""
 
+import logging
 from dataclasses import dataclass
 from typing import Self, Sequence
 
@@ -21,6 +22,8 @@ from lando.ui.legacy.forms import (
     UpliftRequestForm,
 )
 from lando.utils.const import UPLIFT_DOCS_URL
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,10 +51,20 @@ class UpliftContext:
         stack: RevisionStack,
     ) -> Self:
         """Return a populated `UpliftContext` for the given stack view."""
-        source_revisions = [
-            revision_id_to_int(revisions[revision_phid]["id"])
-            for revision_phid in stack.iter_stack_from_root(dest=revision_phid)
-        ]
+        try:
+            source_revisions = [
+                revision_id_to_int(revisions[revision_phid]["id"])
+                for revision_phid in stack.iter_stack_from_root(dest=revision_phid)
+            ]
+        except ValueError:
+            logger.exception(
+                "Could not walk stack to revision %s, using single revision fallback.",
+                revision_phid,
+            )
+
+            # Fall back to just the current revision if we can't walk the stack.
+            source_revisions = [revision_id]
+
         request_form = UpliftRequestForm(initial={"source_revisions": source_revisions})
 
         # Look for an existing `UpliftRevision` for this revision.

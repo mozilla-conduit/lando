@@ -960,3 +960,58 @@ def test_revisionstack_stack():
         "Iterating over the stack from the root to a non-tip node should "
         "result in only the path from root to `head` as the response."
     )
+
+
+def test_revisionstack_iter_stack_multiple_roots_disconnected():
+    """Test iter_stack_from_root handles graphs with multiple roots.
+
+    This tests the fix for bug 2011455 where the graph walking algorithm
+    would fail if it picked a root that had no path to the destination.
+
+    Graph structure (two disconnected components):
+        A       C
+        |       |
+        B       D
+
+    Both A and C are roots. When looking for a path to B, if root C is
+    checked first, there's no path from C to B. The fix ensures we try
+    all roots until we find one with a valid path.
+    """
+    nodes = {"A", "B", "C", "D"}
+    # B depends on A, D depends on C.
+    edges = {("B", "A"), ("D", "C")}
+
+    stack = RevisionStack(nodes, edges)
+
+    # Both A and C are roots.
+    roots = set(stack.root_revisions())
+    assert roots == {"A", "C"}
+
+    # Should successfully find paths even though not all roots connect to all nodes
+    result = list(stack.iter_stack_from_root("B"))
+    assert result == ["A", "B"], "Should find path from root A to B."
+
+    result = list(stack.iter_stack_from_root("D"))
+    assert result == ["C", "D"], "Should find path from root C to D."
+
+    # Roots themselves should also work.
+    result = list(stack.iter_stack_from_root("A"))
+    assert result == ["A"], "Root node should return itself."
+
+    result = list(stack.iter_stack_from_root("C"))
+    assert result == ["C"], "Root node should return itself."
+
+
+def test_revisionstack_iter_stack_no_valid_path_raises():
+    """Test that iter_stack_from_root raises when destination doesn't exist."""
+    # B depends on A.
+    nodes = {"A", "B"}
+    edges = {("B", "A")}
+
+    stack = RevisionStack(nodes, edges)
+
+    # Trying to walk to a non-existent node should raise.
+    with pytest.raises(
+        ValueError, match="Could not walk from a root node to nonexistent"
+    ):
+        list(stack.iter_stack_from_root("nonexistent"))
