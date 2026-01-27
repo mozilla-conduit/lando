@@ -329,6 +329,7 @@ def test_try_api_success_hgexport(
     client,
     mock_permissions,
     mocked_repo_config,
+    mocked_repo_config_try,
 ):
     new_treestatus_tree(tree="mozilla-central", status="open")
 
@@ -356,16 +357,7 @@ def test_try_api_success_hgexport(
     # Run the landing job.
     job = queue_items[0]
 
-    repo = Repo.objects.create(
-        name="try",
-        url=hg_server,
-        required_permission=SCM_LEVEL_1,
-        push_path=hg_server,
-        pull_path=hg_server,
-        short_name="try",
-        is_phabricator_repo=False,
-        force_push=True,
-    )
+    repo = Repo.objects.get(name="try")
 
     worker = LandingWorker(sleep_seconds=0, repos=[repo])
 
@@ -416,6 +408,7 @@ def test_try_api_success_gitformatpatch(
     client,
     mock_permissions,
     mocked_repo_config,
+    mocked_repo_config_try,
 ):
     new_treestatus_tree(tree="mozilla-central", status="open")
 
@@ -443,16 +436,7 @@ def test_try_api_success_gitformatpatch(
     # Run the landing job.
     job = queue_items[0]
 
-    repo = Repo.objects.create(
-        name="try",
-        url=hg_server,
-        required_permission=SCM_LEVEL_1,
-        push_path=hg_server,
-        pull_path=hg_server,
-        short_name="try",
-        is_phabricator_repo=False,
-        force_push=True,
-    )
+    repo = Repo.objects.get(name="try")
 
     worker = LandingWorker(sleep_seconds=0, repos=[repo])
 

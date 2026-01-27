@@ -1399,7 +1399,7 @@ def test_handover_landing_job(
     closed_repos: tuple[str],
 ):
     """Test that a handover job is correctly handed over."""
-    try_repo = repo_mc(SCMType.HG, hooks_enabled=False, name="try")
+    try_repo = repo_mc(SCMType.HG, hooks_enabled=False, name="try", is_try=True)
     git_repo = repo_mc(SCMType.GIT, hooks_enabled=False, pr_enabled=True)
 
     git_worker = get_landing_worker(SCMType.GIT)
@@ -1433,9 +1433,9 @@ def test_handover_landing_job(
     assert next_job == job
     git_worker.start(max_loops=1)
     job.refresh_from_db()
-    assert job.is_handed_over
     assert job.status == JobStatus.DEFERRED, job.error
     assert job.error == "Job deferred to try repo."
+    assert job.is_handed_over
     assert job.target_repo == try_repo
     assert job.attempts == 1
 

@@ -29,7 +29,7 @@ def client_post(
         if not data:
             data = json.dumps(
                 {
-                    # "repo": "some",  # defaults to try, from the mocked_repo_config
+                    # "repo": "some",  # defaults to try, from the mocked_repo_config_try
                     "base_commit": commit_maps[0].git_hash,
                     "base_commit_vcs": "git",
                     "patches": [
@@ -125,7 +125,7 @@ def test_try_api_patches_invalid_user(
 )
 def test_try_api_patches_no_scm1(
     mock_authenticate_builder: Callable,
-    mocked_repo_config: Mock,
+    mocked_repo_config_try: Mock,
     scm_user: Callable,
     client_post: Callable,
     make_superuser: Callable,
@@ -168,7 +168,7 @@ def test_try_api_patches_no_scm1(
 @pytest.mark.django_db()
 def test_try_api_patches_not_try(
     mock_authenticate_builder: Callable,
-    mocked_repo_config: Mock,
+    mocked_repo_config_try: Mock,
     scm_user: Callable,
     client_post: Callable,
 ):
@@ -202,7 +202,7 @@ def test_try_api_patches_not_try(
 @pytest.mark.parametrize("invalid_base64", (False, True))
 def test_try_api_patches_invalid_data(
     mock_authenticate_builder: Callable,
-    mocked_repo_config: Mock,
+    mocked_repo_config_try: Mock,
     scm_user: Callable,
     commit_maps: list[CommitMap],
     git_patch: Callable,
@@ -254,7 +254,7 @@ def test_try_api_patches_invalid_data(
 @pytest.mark.django_db()
 def test_try_api_patches_success(
     mock_authenticate_builder: Callable,
-    mocked_repo_config: Mock,
+    mocked_repo_config_try: Mock,
     scm_user: Callable,
     commit_maps: list[CommitMap],
     git_patch: Callable,
