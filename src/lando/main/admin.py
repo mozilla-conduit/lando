@@ -119,6 +119,7 @@ class LandingJobAdmin(JobAdmin):
         "id",
         "revisions",
         "status",
+        "is_pull_request_job",
         "target_repo__name",
         "handover_repo__name",
         "is_handed_over",
@@ -137,17 +138,23 @@ class LandingJobAdmin(JobAdmin):
         "priority",
         "requester_email",
         "target_commit_hash",
+        "is_pull_request_job",
         "target_repo",
         "handover_repo",
         "is_handed_over",
         "created_at",
         "updated_at",
     )
-    readonly_fields = JobAdmin.readonly_fields + ("formatted_replacements",)
+    readonly_fields = JobAdmin.readonly_fields + (
+        "formatted_replacements",
+        "is_pull_request_job",
+        "is_handed_over",
+    )
     search_fields = JobAdmin.search_fields + (
         "unsorted_revisions__revision_id",
         "requester_email",
     )
+    list_filter = JobAdmin.list_filter + ("is_pull_request_job",)
 
     def revisions(self, instance: LandingJob) -> str:
         """Return a summary of revisions present in a LandingJob
@@ -234,6 +241,7 @@ class RevisionAdmin(admin.ModelAdmin):
         "desc",
         "patch_timestamp",
         "author",
+        "pull_number",
         "created_at",
         "updated_at",
     )
