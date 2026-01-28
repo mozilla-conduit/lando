@@ -201,7 +201,7 @@ class LandingWorker(Worker):
                     "target_tasks_method": "codereview",
                     "try_mode": "try_task_config",
                     "try_task_config": {
-                        f"github_{k}": v for k, v in github_params.items()
+                        "github": github_params,
                     },
                 },
                 "version": 2,

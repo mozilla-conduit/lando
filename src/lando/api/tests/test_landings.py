@@ -284,7 +284,7 @@ TRY_TASK_CONFIG_DIFF_SNIPPET = """
 --- /dev/null
 +++ b/try_task_config.json
 @@ -0,0 +1 @@
-+{{"parameters": {{"optimize_target_tasks": true, "target_tasks_method": "codereview", "try_mode": "try_task_config", "try_task_config": {{"github_pull_number": 1, "github_pull_head_sha": null, "github_repo_url": "{}", "github_branch": "main"}}}}, "version": 2}}
++{{"parameters": {{"optimize_target_tasks": true, "target_tasks_method": "codereview", "try_mode": "try_task_config", "try_task_config": {{"github": {{"pull_number": 1, "pull_head_sha": null, "repo_url": "{}", "branch": "main"}}}}}}, "version": 2}}
 \\ No newline at end of file
 """.lstrip()
 
