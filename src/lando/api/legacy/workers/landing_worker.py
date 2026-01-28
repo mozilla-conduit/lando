@@ -182,16 +182,16 @@ class LandingWorker(Worker):
         NOTE: try_task_config value will be a copy of provided github_params
         with keys prepended with "github_".
         """
-        required_params = (
+        required_params = {
             "pull_number",
             "pull_head_sha",
             "repo_url",
             "branch",
-        )
-        if not set(github_params) == set(required_params):
+        }
+        if not set(github_params) == required_params:
             raise ValueError(
                 "Missing or disallowed parameter(s) passed: "
-                f"{set(required_params).difference(github_params)}"
+                f"{required_params.difference(github_params)}"
             )
 
         with (Path(scm.path) / "try_task_config.json").open("x") as f:
