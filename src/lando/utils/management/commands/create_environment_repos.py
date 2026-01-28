@@ -14,7 +14,11 @@ from lando.main.models import (
 )
 from lando.main.models.repo import get_default_hooks
 from lando.main.scm import GitSCM
-from lando.utils.landing_checks import BugReferencesCheck, TryTaskConfigCheck
+from lando.utils.landing_checks import (
+    BugReferencesCheck,
+    CommitMessagesCheck,
+    TryTaskConfigCheck,
+)
 
 ENVIRONMENTS = [e for e in Environment if not e.is_test and e.is_lower]
 
@@ -122,7 +126,9 @@ REPOS = {
             "hooks_enabled": True,
             # Set difference takes precedence over set union.
             "hooks": list(
-                set(get_default_hooks()) - {TryTaskConfigCheck.name()}
+                set(get_default_hooks())
+                - {TryTaskConfigCheck.name()}
+                - {CommitMessagesCheck.name()}
                 | {BugReferencesCheck.name()}
             ),
         },
@@ -171,7 +177,9 @@ REPOS = {
             "hooks_enabled": True,
             # Set difference takes precedence over set union.
             "hooks": list(
-                set(get_default_hooks()) - {TryTaskConfigCheck.name()}
+                set(get_default_hooks())
+                - {TryTaskConfigCheck.name()}
+                - {CommitMessagesCheck.name()}
                 | {BugReferencesCheck.name()}
             ),
         },
