@@ -157,24 +157,26 @@ class RevisionStack(nx.DiGraph):
         Walks from one of the root nodes of the graphs to `dest`. If multiple
         root nodes exist, it will select one naively.
         """
-        root = next(self.root_revisions())
+        for root in self.root_revisions():
+            if root == dest:
+                yield root
+                return
 
-        if root == dest:
-            yield root
+            paths = list(nx.all_simple_paths(self, root, dest))
+
+            if not paths:
+                logger.debug(f"Graph has no paths from {root} to {dest}.")
+                continue
+
+            # Select one of the available paths.
+            path = paths[0]
+
+            for node in path:
+                yield node
+
             return
 
-        paths = list(nx.all_simple_paths(self, root, dest))
-
-        if not paths:
-            raise ValueError(f"Graph has no paths from {root} to {dest}.")
-
-        if len(paths) > 1:
-            raise ValueError(f"Graph has multiple paths from {root} to {dest}: {paths}")
-
-        path = paths[0]
-
-        for node in path:
-            yield node
+        raise ValueError(f"Could not walk from a root node to {dest}.")
 
     def landable_paths(self) -> list[list[str]]:
         """Return the landable paths for the given stack."""
