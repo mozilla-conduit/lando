@@ -188,7 +188,7 @@ class LandingWorker(Worker):
             "repo_url",
             "branch",
         }
-        if not set(github_params) == required_params:
+        if set(github_params) != required_params:
             raise ValueError(
                 "Missing or disallowed parameter(s) passed: "
                 f"{required_params.symmetric_difference(github_params)}"
