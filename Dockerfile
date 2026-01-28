@@ -13,6 +13,10 @@ RUN addgroup --gid 10001 app \
         --gecos "app,,," \
         app
 
+# Install Node.js and npm for Dart Sass compilation.
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs
+
 # Install the Rust toolchain. Some packages do not have pre-built wheels (e.g.
 # rs-parsepatch) and require this in order to compile.
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
@@ -32,6 +36,9 @@ RUN pip install -r /code/requirements.txt
 
 # Copy code into the container.
 COPY ./ /code
+
+# Install npm dependencies (Bulma and Dart Sass).
+RUN npm install
 
 RUN mkdir -p /code/.ruff_cache
 RUN chown -R app /code/.ruff_cache
