@@ -196,7 +196,7 @@ STATICFILES_FINDERS = [
 ]
 
 COMPRESS_PRECOMPILERS = (
-    ("text/x-scss", "npx sass --load-path=./node_modules {infile} {outfile}"),
+    ("text/x-scss", "npx sass --load-path=node_modules {infile} {outfile}"),
 )
 
 COMPRESS_FILTERS = {
