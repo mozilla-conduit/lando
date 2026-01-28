@@ -191,7 +191,7 @@ class LandingWorker(Worker):
         if not set(github_params) == required_params:
             raise ValueError(
                 "Missing or disallowed parameter(s) passed: "
-                f"{required_params.difference(github_params)}"
+                f"{required_params.symmetric_difference(github_params)}"
             )
 
         with (Path(scm.path) / "try_task_config.json").open("x") as f:
