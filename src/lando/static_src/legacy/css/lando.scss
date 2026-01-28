@@ -1,20 +1,95 @@
-@import "bulma/sass/utilities/initial-variables";
+// Import Bulma 1.0.4 from npm package using Dart Sass
+// @use rules must come before any other rules in Dart Sass
+@use "bulma/bulma";
+
+// Import Mozilla color palette
 @import "colors";
 
-// Customize Bulma variables
-$primary: $blue;
-$info: $turquoise;
-$success: $green;
-$warning: $orange;
-$danger: $red;
+// Customize Bulma using CSS variables (Bulma 1.0+ feature)
+// These override Bulma's default colors and fonts at runtime
+:root {
+  // Mozilla color scheme
+  --bulma-primary-h: 214deg;
+  --bulma-primary-s: 100%;
+  --bulma-primary-l: 52%;  // #0a84ff
 
-$family-sans-serif: 'Fira Sans', Arial, Helvetica, sans-serif;
-$family-monospace: 'Fira Mono' monospace;
+  --bulma-info-h: 189deg;
+  --bulma-info-s: 100%;
+  --bulma-info-l: 33%;  // #008ea4 (turquoise)
 
-$primary: $blue;
+  --bulma-success-h: 127deg;
+  --bulma-success-s: 100%;
+  --bulma-success-l: 20%;  // #058b00 (green)
 
-@import "bulma/bulma";
+  --bulma-warning-h: 28deg;
+  --bulma-warning-s: 100%;
+  --bulma-warning-l: 50%;  // #ff7700 (orange)
 
+  --bulma-danger-h: 351deg;
+  --bulma-danger-s: 98%;
+  --bulma-danger-l: 42%;  // #d70022 (red)
+
+  // Force white text on colored backgrounds
+  // The -invert-l variable controls text lightness (0% = black, 100% = white)
+  --bulma-primary-invert-l: 100%;  // White text on primary blue
+  --bulma-info-invert-l: 100%;     // White text on info turquoise
+  --bulma-link-invert-l: 100%;     // White text on link blue
+
+  // Mozilla typography
+  --bulma-family-primary: 'Fira Sans', Arial, Helvetica, sans-serif;
+  --bulma-family-code: 'Fira Mono', monospace;
+
+  // Force light mode and disable automatic dark mode
+  color-scheme: light only;
+}
+
+// ============================================================================
+// CSS VARIABLES (Runtime Customization)
+// ============================================================================
+// Bulma 1.0+ generates CSS custom properties that can be overridden at runtime
+// without recompiling SCSS. This enables dynamic theming, user preferences,
+// A/B testing, and more.
+//
+// Examples of CSS variables you can override:
+//
+// Color customization:
+//   --bulma-primary: #0a84ff;
+//   --bulma-primary-dark: #0060df;
+//   --bulma-primary-light: #80b4ff;
+//
+// Typography:
+//   --bulma-family-primary: 'Fira Sans', sans-serif;
+//   --bulma-size-normal: 1rem;
+//   --bulma-weight-bold: 700;
+//
+// Spacing:
+//   --bulma-block-spacing: 1.5rem;
+//   --bulma-control-height: 2.5em;
+//   --bulma-control-radius: 4px;
+//
+// Usage examples:
+//
+// 1. Global override in CSS:
+//    :root {
+//      --bulma-primary: #ff6600;
+//    }
+//
+// 2. Component-specific override:
+//    .my-special-section {
+//      --bulma-control-radius: 8px;
+//    }
+//
+// 3. JavaScript/dynamic theming:
+//    document.documentElement.style.setProperty('--bulma-primary', '#ff6600');
+//
+// 4. Dark mode (Bulma includes a dark theme):
+//    <html class="dark">...</html>
+//
+// See full list of CSS variables:
+// https://bulma.io/documentation/features/css-variables/
+// ============================================================================
+
+// Custom application styles
 // Makes sure the footer stays near the bottom of the page.
 body {
   display: flex;
@@ -41,6 +116,9 @@ p {
 // The banner that appears at the top of every page
 section.hero {
   padding: 0.25rem 0 0.25rem 0.25rem;
+
+  // add a border.
+  border-bottom: 1px solid hsl(0, 0%, 86%);
 
   p {
     font-size: 1.25rem;

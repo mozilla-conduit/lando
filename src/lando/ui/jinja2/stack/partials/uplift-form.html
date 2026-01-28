@@ -70,14 +70,14 @@
                     {% endif %}
                     <div class="field">
                         <label class="label">Uplift repositories</label>
-                        <div class="field is-grouped is-grouped-multiline is-marginless">
+                        <div class="field is-grouped is-grouped-multiline m-0">
                             {% for checkbox in uplift.request_form.repositories %}
                                 <p class="control">
                                     <label class="checkbox">{{ checkbox }}</label>
                                 </p>
                             {% endfor %}
                         </div>
-                        <p class="help is-marginless">Uplift jobs will be created for every repository you select here.</p>
+                        <p class="help m-0">Uplift jobs will be created for every repository you select here.</p>
                     </div>
                     <hr>
                     <div class="field">
@@ -93,7 +93,7 @@
                 </fieldset>
             </section>
             <footer class="modal-card-foot">
-                <button class="button is-success"
+                <button class="button is-success has-text-white"
                         {% if not uplift.can_create_uplift_submission %}disabled{% endif %}
                         title="{% if not uplift.can_create_uplift_submission %}Requesting uplift is blocked. See the error messages above for more detail.{% else %}Create Phabricator review requests for the selected patch stack to land in the specified uplift train.{% endif %}">
                     Create uplift request
