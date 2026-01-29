@@ -311,6 +311,7 @@ class PullRequestChecksAPIView(APIView):
         return JsonResponse(warnings_and_blockers)
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class PullRequestTryPushAPIView(APIView):
     @method_decorator(require_authenticated_user)
     def post(
@@ -346,6 +347,7 @@ class PullRequestTryPushAPIView(APIView):
         }
         revision = Revision.objects.create(
             pull_number=pull_request.number,
+            pull_head_sha=pull_request.head_sha,
             patches=pull_request.patch,
             patch_data=patch_data,
         )

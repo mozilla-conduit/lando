@@ -219,9 +219,8 @@ class LandingJob(BaseJob):
         q = super().job_queue_query()
 
         if repositories:
-            q = q.filter(
-                Q(target_repo__in=repositories) | Q(handover_repo__in=repositories)
-            )
+            q = q.filter(Q(target_repo__in=repositories))
+
         if grace_seconds:
             now = datetime.datetime.now(datetime.timezone.utc)
             grace_cutoff = now - datetime.timedelta(seconds=grace_seconds)
