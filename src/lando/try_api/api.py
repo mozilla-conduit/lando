@@ -206,14 +206,15 @@ def patches(
 
             # Extract patch information using PatchHelper
             author_name, author_email = patch_helper.parse_author_information()
-            commit_message = patch_helper.get_commit_description()
             timestamp = patch_helper.get_timestamp()
-            diff = patch_helper.get_diff()
         except ValueError as exc:
             raise BadRequestProblemException(
                 title="Invalid patch data",
                 detail=f"Invalid patch data for patch {patch_no}",
             ) from exc
+
+        commit_message = patch_helper.get_commit_description()
+        diff = patch_helper.get_diff()
 
         revision = Revision.new_from_patch(
             raw_diff=diff,
