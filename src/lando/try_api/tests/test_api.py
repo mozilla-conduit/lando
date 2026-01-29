@@ -166,6 +166,37 @@ def test_try_api_patches_no_scm1(
 
 
 @pytest.mark.django_db()
+def test_try_api_patches_invalid_scm(
+    mock_authenticate_builder: Callable,
+    mocked_repo_config_try: Mock,
+    scm_user: Callable,
+    client_post: Callable,
+):
+    user = scm_user([Permission.objects.get(codename="scm_level_1")], "password")
+    mock_authenticate = mock_authenticate_builder(user)
+
+    request_payload = {
+        "repo": "mozilla-central",  # from the mocked_repo_config
+        "base_commit": "0" * 40,
+        "base_commit_vcs": "bob",
+        "patches": [
+            "YmFzZTY0Cg==",  # "base64"
+        ],
+        "patch_format": "git-format-patch",
+    }
+
+    response = client_post(
+        "/api/try/patches",
+        data=json.dumps(request_payload),
+        headers={"AuThOrIzAtIoN": "bEaReR token not_try"},
+    )
+
+    assert mock_authenticate.called, "Authentication backend should be called"
+    assert (
+        response.status_code == 422
+    ), "Request to Try API with incorrect base_commit_vcs should result in 422"
+
+@pytest.mark.django_db()
 def test_try_api_patches_not_try(
     mock_authenticate_builder: Callable,
     mocked_repo_config_try: Mock,
