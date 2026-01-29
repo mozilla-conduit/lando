@@ -180,7 +180,7 @@ def test_try_api_patches_invalid_scm(
         "base_commit": "0" * 40,
         "base_commit_vcs": "bob",
         "patches": [
-            "YmFzZTY0Cg==",  # "base64"
+            base64.b64encode(b"base64").decode("utf-8"),
         ],
         "patch_format": "git-format-patch",
     }
@@ -211,8 +211,8 @@ def test_try_api_patches_not_try(
         "base_commit": "0" * 40,
         "base_commit_vcs": "git",
         "patches": [
-            "YmFzZTY0Cg==",  # "base64"
-            "YmFzZTY0LXRvbwo=",  # "base64-too"
+            base64.b64encode(b"base64").decode("utf-8"),
+            base64.b64encode(b"base64-too").decode("utf-8"),
         ],
         "patch_format": "git-format-patch",
     }
@@ -248,7 +248,7 @@ def test_try_api_patches_invalid_data(
         map.git_repo_name = "firefox"
         map.save()
 
-    bad_patch = base64.b64encode("bad patch".encode()).decode()
+    bad_patch = base64.b64encode(b"bad patch").decode()
     if invalid_base64:
         bad_patch = "notbase64butlookslikeit"
 
