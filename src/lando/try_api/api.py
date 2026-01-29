@@ -66,7 +66,7 @@ class PatchesRequest(Schema):
     base_commit_vcs: Annotated[
         SCMType,
         Field(
-            description="The VCS that the `base_commit` hash is based on. Default is `hg`.",
+            description="The SCM that the `base_commit` hash is based on. Default is `hg`.",
             default=SCMType.HG,
         ),
     ]
@@ -173,8 +173,8 @@ def patches(
                 error,
             )
             return status, ProblemDetail(
-                title="Error converting VCS commit IDs",
-                detail=f"Could not determine the equivalent base commit for {target_commit_hash} in {repo.scm_type} for {mapping_repo}. Please try again later.",
+                title="Error converting SCM commit IDs",
+                detail=error,
                 status=status,
             )
 
