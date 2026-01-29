@@ -153,7 +153,7 @@ def patches(
         mapping_repo = CommitMap.TRY_REPO_MAPPING.get(repo.name)
         if not mapping_repo:
             status = 400
-            error = f"Don't know how to lookup commits from {patches_request.base_commit_vcs} to {repo.scm_type} for {repo_name}."
+            error = f"Unable to lookup commits from {patches_request.base_commit_vcs} to {repo.scm_type}. {repo_name} is not supported."
             logger.info(
                 error,
             )
