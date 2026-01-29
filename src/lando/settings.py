@@ -99,6 +99,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "mozilla_django_oidc.middleware.SessionRefresh",
+    "lando.middleware.PhabricatorTokenAuthenticationMiddleware",
     "lando.middleware.ResponseHeadersMiddleware",
     "lando.middleware.MaintenanceModeMiddleware",
     "lando.middleware.PhabricatorExceptionsMiddleware",
@@ -243,6 +244,7 @@ BUGZILLA_API_KEY = os.getenv("BUGZILLA_API_KEY", "")
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
     "lando.main.auth.LandoOIDCAuthenticationBackend",
+    "lando.main.auth.PhabricatorTokenAuthenticationBackend",
 ]
 
 LINT_PATHS = (BASE_DIR,)

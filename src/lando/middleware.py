@@ -6,6 +6,7 @@ from io import StringIO
 from typing import Optional
 
 from django.conf import settings
+from django.contrib.auth import authenticate
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpRequest, HttpResponse
 from django.template.loader import render_to_string
@@ -192,3 +193,21 @@ class cProfileMiddleware:
         stats.strip_dirs().sort_stats(request.GET.get("sort", "cumtime"))
         stats.print_stats()
         return HttpResponse(f"<pre>{out.getvalue()}</pre>")
+
+
+class PhabricatorTokenAuthenticationMiddleware:
+    """If a Phabricator token header is in the request, attempt to authenticate."""
+
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]):
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        key = "HTTP_X_PHABRICATOR_API_KEY"
+
+        if key in request.META:
+            phabricator_token = request.META.get(key)
+            user = authenticate(request, phabricator_token=phabricator_token)
+            if user:
+                request.user = user
+
+        return self.get_response(request)
