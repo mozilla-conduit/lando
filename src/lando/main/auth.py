@@ -67,19 +67,15 @@ class LandoOIDCAuthenticationBackend(OIDCAuthenticationBackend):
 
 
 class AccessTokenLandoOIDCAuthenticationBackend(LandoOIDCAuthenticationBackend):
-    """A shim of the LandoOIDCAuthenticationBackend, borrowing code from mozilla-django-oidc#551.
-
-    https://github.com/mozilla/mozilla-django-oidc/pull/551"""
+    """Authenticates a user based on a Bearer access_token or the OIDC code flow."""
 
     def authenticate(self, request: WSGIRequest, **kwargs) -> User:
         # If a bearer token is present in the request, use it to authenticate the user.
         if authorization := request.META.get("HTTP_AUTHORIZATION"):
             scheme, token = authorization.split(maxsplit=1)
             if scheme.lower() == "bearer":
-                # get_or_create_user and get_userinfo uses neither id_token nor payload.
-                # XXX: maybe we only want to _get_ the user, and not create the if they
-                # aren't alrealdy registered.
                 try:
+                    # get_or_create_user and get_userinfo uses neither id_token nor payload.
                     return self.get_or_create_user(token, None, None)
                 except HTTPError as exc:
                     if exc.response.status_code in [401, 403]:
