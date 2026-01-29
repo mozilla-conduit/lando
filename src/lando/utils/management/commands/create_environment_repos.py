@@ -22,6 +22,15 @@ from lando.utils.landing_checks import (
 
 ENVIRONMENTS = [e for e in Environment if not e.is_test and e.is_lower]
 
+# Try repos require a slightly different set of hooks from the defaults for normal
+# repos.
+TRY_HOOKS = list(
+    # Set difference takes precedence over set union.
+    set(get_default_hooks())
+    - {TryTaskConfigCheck.name()}
+    - {CommitMessagesCheck.name()}
+    | {BugReferencesCheck.name()}
+)
 # These repos are copied from the legacy repo "subsystem".
 REPOS = {
     Environment.local: [
@@ -124,13 +133,7 @@ REPOS = {
             "automation_enabled": False,
             "is_try": True,
             "hooks_enabled": True,
-            # Set difference takes precedence over set union.
-            "hooks": list(
-                set(get_default_hooks())
-                - {TryTaskConfigCheck.name()}
-                - {CommitMessagesCheck.name()}
-                | {BugReferencesCheck.name()}
-            ),
+            "hooks": TRY_HOOKS,
         },
     ],
     Environment.development: [
@@ -175,13 +178,7 @@ REPOS = {
             "is_phabricator_repo": False,
             "is_try": True,
             "hooks_enabled": True,
-            # Set difference takes precedence over set union.
-            "hooks": list(
-                set(get_default_hooks())
-                - {TryTaskConfigCheck.name()}
-                - {CommitMessagesCheck.name()}
-                | {BugReferencesCheck.name()}
-            ),
+            "hooks": TRY_HOOKS,
         },
     ],
     Environment.staging: [
