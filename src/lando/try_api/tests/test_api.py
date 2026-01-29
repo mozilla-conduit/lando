@@ -196,6 +196,7 @@ def test_try_api_patches_invalid_scm(
         response.status_code == 422
     ), "Request to Try API with incorrect base_commit_vcs should result in 422"
 
+
 @pytest.mark.django_db()
 def test_try_api_patches_not_try(
     mock_authenticate_builder: Callable,
