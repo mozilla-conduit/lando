@@ -256,7 +256,7 @@ class LandingWorker(Worker):
         """
         if not job.handover_repo.is_try:
             raise ValueError(
-                f"{job} handover to non-try repo ({job.handover_repos}) is not supported"
+                f"{job} handover to non-try repo ({job.handover_repo}) is not supported"
             )
 
         first_revision = job.revisions.first()

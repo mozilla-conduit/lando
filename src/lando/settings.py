@@ -77,6 +77,7 @@ INSTALLED_APPS = [
     "lando.ui",
     "lando.headless_api",
     "lando.treestatus",
+    "lando.try_api",
     # Third-party apps
     "django.contrib.admin",
     "django.contrib.auth",
