@@ -117,8 +117,7 @@ class MaintenanceModeMiddleware:
 
 
 class PhabricatorExceptionsMiddleware:
-    """A middleware to provide more information on 500s due to Phabricator
-    reachability."""
+    """Provide more information on 500s due to Phabricator reachability."""
 
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]):
         self.get_response = get_response
@@ -129,10 +128,13 @@ class PhabricatorExceptionsMiddleware:
     def process_exception(
         self, request: HttpRequest, exception: Exception
     ) -> HttpResponse | None:
-        if exception.__class__ not in [
-            PhabricatorAPIException,
-            PhabricatorCommunicationException,
-        ]:
+        if not isinstance(
+            exception,
+            (
+                PhabricatorAPIException,
+                PhabricatorCommunicationException,
+            ),
+        ):
             # Let the exception bubble up.
             return
 
