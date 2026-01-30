@@ -25,7 +25,7 @@ help:
 	@echo "    test                 run the test suite"
 	@echo "    migrations           generates migration files to reflect model changes in the database"
 	@echo "    upgrade-requirements upgrade packages in requirements.txt"
-	@echo "    upgrade-npm          update package-lock.json"
+	@echo "    upgrade-npm-packages update package-lock.json"
 	@echo "    add-requirements     update requirements.txt with new requirements"
 	@echo "    attach               attach for debugging (ctrl-p ctrl-q to detach)"
 	@echo "    test-use-suite       run the testsuite using the conduit-suite environment"
