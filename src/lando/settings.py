@@ -195,7 +195,9 @@ STATICFILES_FINDERS = [
     "compressor.finders.CompressorFinder",
 ]
 
-COMPRESS_PRECOMPILERS = (("text/x-scss", "django_libsass.SassCompiler"),)
+COMPRESS_PRECOMPILERS = (
+    ("text/x-scss", "npx sass --load-path=node_modules {infile} {outfile}"),
+)
 
 COMPRESS_FILTERS = {
     "css": [

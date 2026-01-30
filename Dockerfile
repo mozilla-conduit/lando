@@ -1,3 +1,6 @@
+# Copy Node.js from official image to avoid running third-party install scripts.
+FROM node:20-slim AS node
+
 FROM python:3.11
 
 EXPOSE 80
@@ -12,6 +15,12 @@ RUN addgroup --gid 10001 app \
         --home /app \
         --gecos "app,,," \
         app
+
+# Copy Node.js and npm from the official node image.
+COPY --from=node /usr/local/bin/node /usr/local/bin/
+COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 # Install the Rust toolchain. Some packages do not have pre-built wheels (e.g.
 # rs-parsepatch) and require this in order to compile.
@@ -32,6 +41,9 @@ RUN pip install -r /code/requirements.txt
 
 # Copy code into the container.
 COPY ./ /code
+
+# Install npm dependencies (Bulma and Dart Sass).
+RUN npm install
 
 RUN mkdir -p /code/.ruff_cache
 RUN chown -R app /code/.ruff_cache

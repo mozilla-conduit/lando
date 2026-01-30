@@ -1,22 +1,23 @@
-<nav class="Navbar navbar container">
-    <div class="navbar-brand">
-        <a class="navbar-item" href="/">
-            <img class="Navbar-logo"
-                 src="{{ static_url }}assets/images/logo/bird_128.png" />
-            <span class="Navbar-title">LANDO&nbsp;</span>
-            <span class="Navbar-subtitle">- MOZILLA</span>
-        </a>
-        <div class="navbar-burger">
-            <span></span>
-            <span></span>
-            <span></span>
+<nav class="Navbar navbar">
+    <div class="container">
+        <div class="navbar-brand">
+            <a class="navbar-item" href="/">
+                <img class="Navbar-logo"
+                     src="{{ static_url }}assets/images/logo/bird_128.png" />
+                <span class="Navbar-title">LANDO&nbsp;</span>
+                <span class="Navbar-subtitle">- MOZILLA</span>
+            </a>
+            <div class="navbar-burger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
         </div>
-    </div>
-    <div id="Navbar-menu" class="navbar-menu">
-        <div class="navbar-end">
-            <div class="navbar-item">
-                <div class="field is-grouped">
-                    {# TODO: un-hide after migrating Treestatus to new Lando.
+        <div id="Navbar-menu" class="navbar-menu">
+            <div class="navbar-end">
+                <div class="navbar-item">
+                    <div class="field is-grouped">
+                        {# TODO: un-hide after migrating Treestatus to new Lando.
           <p class="control">
             <a class="button" href="{{ url("treestatus-dashboard") }}">
               <span class="icon"><i class="fa fa-tree"></i></span>
@@ -24,67 +25,68 @@
             </a>
           </p>
           #}
-                    <p class="control">
-                        <a class="button" href="{{ config['PHABRICATOR_URL'] }}">
-                            <span class="icon">
-                                <i class="fa fa-cog"></i>
-                            </span>
-                            <span>Phabricator</span>
-                        </a>
-                    </p>
-                    {% if user_is_authenticated %}
                         <p class="control">
-                            <a class="Navbar-userSettingsBtn button">
+                            <a class="button" href="{{ config['PHABRICATOR_URL'] }}">
                                 <span class="icon">
-                                    <img src="{{ request.user.profile.userinfo['picture']|avatar_url }}" />
+                                    <i class="fa fa-cog"></i>
                                 </span>
-                                <span>&nbsp;{{ request.user.profile.userinfo['name'] }}&nbsp;</span>
-                                <i class="fa fa-cogs"></i>
+                                <span>Phabricator</span>
                             </a>
                         </p>
-                    {% endif %}
-                    {% if user_is_authenticated and request.user.is_superuser %}
-                        <p class="control">
-                            <a class="button" href="{{ url('admin:index') }}">
-                                <span class="icon">
-                                    <i class="fa fa-dashboard"></i>
-                                </span>
-                                <span>Admin</span>
-                            </a>
-                        </p>
-                    {% endif %}
-                    {% if not in_maintenance %}
                         {% if user_is_authenticated %}
-                            <form class="control" action="/oidc/logout/" method="post">
-                                {{ csrf_input }}
-                                <button class="button">
-                                    <span class="icon">
-                                        <i class="fa fa-sign-out"></i>
-                                    </span>
-                                    <span>Logout</span>
-                                </button>
-                            </form>
-                        {% else %}
                             <p class="control">
-                                <a class="Navbar-login button"
-                                   href="/oidc/authenticate?next={{ request.path }}">
+                                <a class="Navbar-userSettingsBtn button">
                                     <span class="icon">
-                                        <i class="fa fa-sign-in"></i>
+                                        <img src="{{ request.user.profile.userinfo['picture']|avatar_url }}" />
                                     </span>
-                                    <span>Login with Auth0</span>
+                                    <span>&nbsp;{{ request.user.profile.userinfo['name'] }}&nbsp;</span>
+                                    <i class="fa fa-cogs"></i>
                                 </a>
                             </p>
                         {% endif %}
-                    {% endif %}
-                    <p class="control">
-                        <a class="button"
-                           href="http://moz-conduit.readthedocs.io/en/latest/lando-user.html">
-                            <span class="icon">
-                                <i class="fa fa-question-circle"></i>
-                            </span>
-                            <span>Help</span>
-                        </a>
-                    </p>
+                        {% if user_is_authenticated and request.user.is_superuser %}
+                            <p class="control">
+                                <a class="button" href="{{ url('admin:index') }}">
+                                    <span class="icon">
+                                        <i class="fa fa-dashboard"></i>
+                                    </span>
+                                    <span>Admin</span>
+                                </a>
+                            </p>
+                        {% endif %}
+                        {% if not in_maintenance %}
+                            {% if user_is_authenticated %}
+                                <form class="control" action="/oidc/logout/" method="post">
+                                    {{ csrf_input }}
+                                    <button class="button">
+                                        <span class="icon">
+                                            <i class="fa fa-sign-out"></i>
+                                        </span>
+                                        <span>Logout</span>
+                                    </button>
+                                </form>
+                            {% else %}
+                                <p class="control">
+                                    <a class="Navbar-login button"
+                                       href="/oidc/authenticate?next={{ request.path }}">
+                                        <span class="icon">
+                                            <i class="fa fa-sign-in"></i>
+                                        </span>
+                                        <span>Login with Auth0</span>
+                                    </a>
+                                </p>
+                            {% endif %}
+                        {% endif %}
+                        <p class="control">
+                            <a class="button"
+                               href="http://moz-conduit.readthedocs.io/en/latest/lando-user.html">
+                                <span class="icon">
+                                    <i class="fa fa-question-circle"></i>
+                                </span>
+                                <span>Help</span>
+                            </a>
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -125,8 +127,10 @@
                     </p>
                 </section>
                 <footer class="modal-card-foot">
-                    <a class="Navbar-modalSubmit button is-success">Save changes</a>
-                    <a class="Navbar-modalCancel button">Cancel</a>
+                    <div class="buttons">
+                        <a class="Navbar-modalSubmit button is-success has-text-white">Save changes</a>
+                        <a class="Navbar-modalCancel button">Cancel</a>
+                    </div>
                 </footer>
             </div>
         </div>

@@ -25,6 +25,7 @@ help:
 	@echo "    test                 run the test suite"
 	@echo "    migrations           generates migration files to reflect model changes in the database"
 	@echo "    upgrade-requirements upgrade packages in requirements.txt"
+	@echo "    upgrade-npm-packages update package-lock.json"
 	@echo "    add-requirements     update requirements.txt with new requirements"
 	@echo "    attach               attach for debugging (ctrl-p ctrl-q to detach)"
 	@echo "    test-use-suite       run the testsuite using the conduit-suite environment"
@@ -57,6 +58,10 @@ upgrade-requirements:
 .PHONY: add-requirements
 add-requirements:
 	$(BASE_COMMAND) lando generate_requirements
+
+.PHONY: upgrade-npm
+upgrade-npm:
+	$(BASE_COMMAND) npm install
 
 .PHONY: attach
 attach:
