@@ -1,6 +1,5 @@
 {
-  "name": "lando",
-  "version": "1.0.0",
+  "name": "Lando",
   "description": "Unified Lando Project",
   "private": true,
   "dependencies": {
