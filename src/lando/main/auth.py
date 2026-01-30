@@ -54,11 +54,13 @@ class LandoOIDCAuthenticationBackend(OIDCAuthenticationBackend):
         self._update_user_profile_permissions(user_profile, claims)
 
     def create_user(self, claims: dict) -> User:
+        """Create user with given claims then run post auth hooks."""
         user = super().create_user(claims)
         self.post_auth_hook(user, claims)
         return user
 
     def update_user(self, user: User, claims: dict) -> User:
+        """Run post auth hooks then update given user with given claims."""
         self.post_auth_hook(user, claims)
         return super().update_user(user, claims)
 
