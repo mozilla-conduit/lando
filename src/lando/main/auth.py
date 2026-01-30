@@ -67,11 +67,7 @@ class LandoOIDCAuthenticationBackend(OIDCAuthenticationBackend):
 
 
 class AccessTokenLandoOIDCAuthenticationBackend(LandoOIDCAuthenticationBackend):
-    """Authenticates a user based on a Bearer access_token or the OIDC code flow.
-
-    This is a shim of the LandoOIDCAuthenticationBackend, borrowing code from mozilla-django-oidc#551.
-
-    https://github.com/mozilla/mozilla-django-oidc/pull/551"""
+    """Authenticates a user based on a Bearer access_token or the OIDC code flow."""
 
     def authenticate(self, request: WSGIRequest, **kwargs) -> User | None:
         # If a bearer token is present in the request, use it to authenticate the user.
