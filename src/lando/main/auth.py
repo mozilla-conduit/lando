@@ -69,7 +69,7 @@ class LandoOIDCAuthenticationBackend(OIDCAuthenticationBackend):
 class AccessTokenLandoOIDCAuthenticationBackend(LandoOIDCAuthenticationBackend):
     """Authenticates a user based on a Bearer access_token or the OIDC code flow."""
 
-    def authenticate(self, request: WSGIRequest, **kwargs) -> User:
+    def authenticate(self, request: WSGIRequest, **kwargs) -> User | None:
         # If a bearer token is present in the request, use it to authenticate the user.
         if authorization := request.META.get("HTTP_AUTHORIZATION"):
             scheme, token = authorization.split(maxsplit=1)
@@ -85,7 +85,9 @@ class AccessTokenLandoOIDCAuthenticationBackend(LandoOIDCAuthenticationBackend):
                         return None
                     raise exc
 
-        return super().authenticate(request, **kwargs)
+        # We only want to authenticate a token with this backend. Don't let subsequent
+        # authentications go through.
+        return None
 
 
 def require_authenticated_user(f: Callable) -> Callable:
