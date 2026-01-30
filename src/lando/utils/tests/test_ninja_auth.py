@@ -58,8 +58,6 @@ def test_authentication_valid_token_non_existent_user(
 
     response = client.get(
         "/auth/__userinfo__",
-        # The value of the token doesn't actually matter, as the output is controlled by
-        # the authenticator function, which we mock to return a User.
         headers={"AuThOrIzAtIoN": "bEaReR valid_token"},
     )
 
