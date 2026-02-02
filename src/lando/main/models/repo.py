@@ -79,6 +79,10 @@ class Repo(BaseModel):
             "PreventDotGithubCheck",
             "Prevent changes to GitHub workflows directory.",
         )
+        PreventHgDirectoryCheck = (
+            "PreventHgDirectoryCheck",
+            "Prevent patches from modifying .hg/ directory.",
+        )
         PreventNSPRNSSCheck = (
             "PreventNSPRNSSCheck",
             "Prevent changes to vendored NSPR directories.",
