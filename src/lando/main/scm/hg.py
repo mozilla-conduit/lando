@@ -18,6 +18,7 @@ from typing import (
 )
 
 import hglib
+import rs_parsepatch
 from django.conf import settings
 from typing_extensions import override
 
@@ -327,6 +328,8 @@ class HgSCM(AbstractSCM):
             import_cmd += ["--config", "ui.patch=patch"]
             self.clean_repo(strip_non_public_commits=False)
 
+            self._prevent_hg_modifications(patch_or_diff.name)
+
             try:
                 self.run_hg(import_cmd + similarity_args + [patch_or_diff.name])
                 # When using an external patch util mercurial won't
@@ -339,6 +342,17 @@ class HgSCM(AbstractSCM):
                 # exception with the conflict information at the top of the exception
                 # chain.
                 raise exc from exc2
+
+    def _prevent_hg_modifications(self, diff_name: str) -> None:
+        """Inspect the patch data and raise an exception if any file is in .hg."""
+        with open(diff_name) as f:
+            diff = f.read()
+
+        parsed_diff = rs_parsepatch.get_diffs(diff)
+        filenames = [d["filename"] for d in parsed_diff]
+
+        if any(f == ".hg" or f.startswith(".hg/") for f in filenames):
+            raise ValueError("Patch modifies forbidden path.")
 
     @override
     def get_patch(self, revision_id: str) -> str | None:
