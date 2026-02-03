@@ -1,6 +1,9 @@
 # Copy Node.js from official image to avoid running third-party install scripts.
 FROM node:20-slim AS node
 
+# Copy Rust from official image to avoid running third-party install scripts.
+FROM rust:1.84-slim AS rust
+
 FROM python:3.11
 
 EXPOSE 80
@@ -22,13 +25,13 @@ COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
 RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
-# Install the Rust toolchain. Some packages do not have pre-built wheels (e.g.
-# rs-parsepatch) and require this in order to compile.
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
-
-# Include ~/.cargo/bin in PATH.
-# See: rust-lang.org/tools/install (Configuring the PATH environment variable).
-ENV PATH="/root/.cargo/bin:${PATH}"
+# Copy Rust toolchain from the official rust image. Some packages do not have
+# pre-built wheels (e.g. rs-parsepatch) and require this in order to compile.
+COPY --from=rust /usr/local/rustup /usr/local/rustup
+COPY --from=rust /usr/local/cargo /usr/local/cargo
+ENV RUSTUP_HOME=/usr/local/rustup
+ENV CARGO_HOME=/usr/local/cargo
+ENV PATH="/usr/local/cargo/bin:${PATH}"
 
 # Upgrade `setuptools`.
 RUN pip install --upgrade pip setuptools
