@@ -199,9 +199,12 @@ def test_integrated_hgrepo_patch_hg_changes_failure(hg_clone: os.PathLike):
     with open(hgrc_file) as f:
         hgrc_orig = f.read()
 
-    # Patches with conflicts should raise a proper PatchConflict exception.
-    with pytest.raises(ValueError), repo.for_pull():
-        ph = HgPatchHelper.from_string_io(io.StringIO(PATCH_WITH_HG_CHANGES))
+    ph = HgPatchHelper.from_string_io(io.StringIO(PATCH_WITH_HG_CHANGES))
+    # Patches modifying `.hg` should raise a ValueError exception.
+    with (
+        pytest.raises(ValueError, match="Patch modifies forbidden path."),
+        repo.for_pull(),
+    ):
         repo.apply_patch(
             ph.get_diff(),
             ph.get_commit_description(),
