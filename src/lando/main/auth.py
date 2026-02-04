@@ -143,7 +143,7 @@ class require_permission:
         def wrapper(request: WSGIRequest, *args, **kwargs) -> HttpResponse:
             if not request.user.has_perm(f"main.{self.required_permission}"):
                 raise PermissionDenied(
-                    f"Permission level {self.required_permission} is necessary"
+                    f"Permission {self.required_permission} is required"
                 )
             return f(request, *args, **kwargs)
 
