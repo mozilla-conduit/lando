@@ -6,14 +6,12 @@ from typing import (
 
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, SuspiciousOperation
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse
 from mozilla_django_oidc.auth import OIDCAuthenticationBackend
 
 # requests is a transitive dependency of mozilla-django-oidc.
-from requests.exceptions import HTTPError
-
 from lando.environments import Environment
 from lando.main.models.profile import Profile, filter_claims
 from lando.utils.phabricator import PhabricatorClient
@@ -67,7 +65,10 @@ class LandoOIDCAuthenticationBackend(OIDCAuthenticationBackend):
 
 
 class AccessTokenLandoOIDCAuthenticationBackend(LandoOIDCAuthenticationBackend):
-    """Authenticates a user based on a Bearer access_token or the OIDC code flow."""
+    """Authenticates a user based on a Bearer access_token.
+
+    Note, this is a shim replacement of the mozilla_django_oidc.auth.TokenOIDCAuthenticationBackend.
+    """
 
     def authenticate(self, request: WSGIRequest, **kwargs) -> User | None:
         # If a bearer token is present in the request, use it to authenticate the user.
@@ -77,16 +78,10 @@ class AccessTokenLandoOIDCAuthenticationBackend(LandoOIDCAuthenticationBackend):
                 try:
                     # get_or_create_user and get_userinfo uses neither id_token nor payload.
                     return self.get_or_create_user(token, None, None)
-                except HTTPError as exc:
-                    if exc.response.status_code in [401, 403]:
-                        logger.warning(
-                            "failed to authenticate user from bearer token: %s", exc
-                        )
-                        return None
-                    raise exc
+                except SuspiciousOperation as exc:
+                    logger.warning("failed to get or create user: %s", exc)
+                    return None
 
-        # We only want to authenticate a token with this backend. Don't let subsequent
-        # authentications go through.
         return None
 
 
