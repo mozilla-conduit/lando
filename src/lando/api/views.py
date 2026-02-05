@@ -301,9 +301,13 @@ class PullRequestChecksAPIView(APIView):
         target_repo = Repo.objects.get(name=repo_name)
         client = GitHubAPIClient(target_repo.url)
         pull_request = client.build_pull_request(number)
-        warnings_and_blockers = generate_warnings_and_blockers(
-            target_repo, pull_request, request
-        )
+        try:
+            warnings_and_blockers = generate_warnings_and_blockers(
+                target_repo, pull_request, request
+            )
+        except PullRequest.StaleMetadataException as exc:
+            # The StaleMetadataException error message is safe for user consumption.
+            return JsonResponse({"errors": [str(exc)]}, status=500)
         return JsonResponse(warnings_and_blockers)
 
 
