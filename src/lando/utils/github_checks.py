@@ -355,8 +355,12 @@ class PullRequestBlockingReviewsWarning(PullRequestWarning):
 
         for review in reviews:
             if review["state"] == pull_request.Review.CHANGES_REQUESTED:
+                try:
+                    review_title = review["body"].splitlines()[0]
+                except IndexError:
+                    review_title = "(empty body)"
                 messages.append(
-                    f"{cls.description()} {review['body'].splitlines()[0]}… {review['html_url']})"
+                    f"{cls.description()} {review_title}… {review['html_url']})"
                 )
 
         return messages
