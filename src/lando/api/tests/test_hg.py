@@ -112,9 +112,9 @@ diff --git a/not-real.txt b/not-real.txt
 @@ -1,1 +1,2 @@
  TEST
 +This line doesn't exist
-diff --git a/not-real.txt b/not-real.txt
---- a/.hg/hgrc
-+++ b/.hg/hgrc
+diff --git a/{filename} b/{filename}
+--- a/{filename}
++++ b/{filename}
 @@ -1,2 +1,3 @@
  # name and email (local to this repository, optional), e.g.
  # username = Jane Doe <jdoe@example.com>
@@ -191,7 +191,20 @@ def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
         )
 
 
-def test_integrated_hgrepo_patch_hg_changes_failure(hg_clone: os.PathLike):
+@pytest.mark.parametrize(
+    "reference",
+    (
+        ".hg/hgrc",
+        "./.hg/hgrc",
+        "./testdir/../.hg/hgrc",
+        "./././.hg/hgrc",
+    )
+)
+def test_integrated_hgrepo_patch_hg_changes_failure(
+        hg_clone: os.PathLike, reference: str
+):
+    # Patches with changes in .hg should raise a ValueError exception.
+    # .hg/hgrc should also not be modified.
     repo = HgSCM(hg_clone.strpath)
 
     hgrc_file = hg_clone.strpath + "/.hg/hgrc"
@@ -199,21 +212,19 @@ def test_integrated_hgrepo_patch_hg_changes_failure(hg_clone: os.PathLike):
     with open(hgrc_file) as f:
         hgrc_orig = f.read()
 
-    ph = HgPatchHelper.from_string_io(io.StringIO(PATCH_WITH_HG_CHANGES))
-    # Patches modifying `.hg` should raise a ValueError exception.
-    with (
-        pytest.raises(ValueError, match="Patch modifies forbidden path."),
-        repo.for_pull(),
-    ):
-        repo.apply_patch(
-            ph.get_diff(),
-            ph.get_commit_description(),
-            ph.get_header("User"),
-            ph.get_header("Date"),
-        )
-
-    with open(hgrc_file) as f:
-        hgrc_new = f.read()
+    ph = HgPatchHelper.from_string_io(
+        io.StringIO(PATCH_WITH_HG_CHANGES.format(reference))
+    )
+    with repo.for_pull():
+        with pytest.raises(ValueError, match="Patch modifies forbidden path."):
+            repo.apply_patch(
+                ph.get_diff(),
+                ph.get_commit_description(),
+                ph.get_header("User"),
+                ph.get_header("Date"),
+            )
+        with open(hgrc_file) as f:
+            hgrc_new = f.read()
 
     assert hgrc_new == hgrc_orig, "hgrc file was modified"
 
