@@ -252,7 +252,6 @@ def test_dryrun_reviewers_warns(
     )
 
     assert result["warnings"]
-    assert result["warnings"][0]["id"] == 0
     assert result["confirmation_token"] is not None
 
 
@@ -309,8 +308,8 @@ def test_dryrun_codefreeze_warn(
         "warnings"
     ], "warnings should not be empty for a repo under code freeze"
     assert (
-        result["warnings"][0]["id"] == 8
-    ), "the warning ID should match the ID for warning_code_freeze"
+        result["warnings"][0]["display"] == "Repository is under a soft code freeze."
+    ), "the warning display should match warning_code_freeze"
     assert result["confirmation_token"] is not None
 
 
@@ -693,11 +692,11 @@ def test_warning_reviews_not_current_no_warning_on_accepted_diff(
 
 def test_confirmation_token_warning_order():
     warnings_a = [
-        RevisionWarning(0, "W0", 123, "Details123"),
-        RevisionWarning(0, "W0", 124, "Details124"),
-        RevisionWarning(1, "W1", 123, "Details123"),
-        RevisionWarning(3, "W3", 13, "Details3"),
-        RevisionWarning(1000, "W1000", 13, "Details3"),
+        RevisionWarning("W0", 123, "Details123"),
+        RevisionWarning("W0", 124, "Details124"),
+        RevisionWarning("W1", 123, "Details123"),
+        RevisionWarning("W3", 13, "Details3"),
+        RevisionWarning("W1000", 13, "Details3"),
     ]
     warnings_b = [
         warnings_a[3],
@@ -1494,8 +1493,8 @@ def test_unresolved_comment_warn(
         "warnings"
     ], "warnings should not be empty for a revision with unresolved comments"
     assert (
-        result["warnings"][0]["id"] == 9
-    ), "the warning ID should match the ID for warning_unresolved_comments"
+        result["warnings"][0]["display"] == "Revision has unresolved comments."
+    ), "the warning display should match warning_unresolved_comments"
 
 
 @pytest.mark.django_db(transaction=True)
@@ -1565,8 +1564,8 @@ def test_unresolved_comment_stack(
         "warnings"
     ], "warnings should not be empty for a stack with unresolved comments"
     assert (
-        result["warnings"][0]["id"] == 9
-    ), "the warning ID should match the ID for warning_unresolved_comments"
+        result["warnings"][0]["display"] == "Revision has unresolved comments."
+    ), "the warning display should match warning_unresolved_comments"
 
 
 @pytest.mark.django_db
