@@ -308,6 +308,34 @@ class PreventSubmodulesCheck(PatchCheck):
 
 
 @dataclass
+class PreventHgDirectoryCheck(PatchCheck):
+    """Prevent patches from modifying .hg/ directory."""
+
+    hg_files: list[str] = field(default_factory=list)
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PreventHgDirectoryCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Prevent patches from modifying .hg/ directory."
+
+    def next_diff(self, diff: dict):
+        filename = diff["filename"]
+        if filename.startswith(".hg/") or filename == ".hg":
+            self.hg_files.append(filename)
+
+    def result(self) -> str | None:
+        if self.hg_files:
+            return "Patch attempts to modify repository metadata: " + wrap_filenames(
+                self.hg_files
+            )
+
+
+@dataclass
 class PreventSymlinksCheck(PatchCheck):
     """Check for symlinks introduced in the diff."""
 
