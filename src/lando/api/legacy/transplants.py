@@ -5,11 +5,9 @@ import json
 import logging
 from collections import namedtuple
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any, Callable, Self
 
 import networkx as nx
-import requests
 import rs_parsepatch
 from django.contrib.auth.models import User
 from django.core.cache import cache
@@ -68,9 +66,6 @@ RevisionWarning = namedtuple(
     ("display", "revision_id", "details", "articulated"),
     defaults=(None, None, None, False),
 )
-
-# The code freeze dates generally correspond to PST work days.
-CODE_FREEZE_OFFSET = "-0800"
 
 
 @dataclass
@@ -506,60 +501,6 @@ def warning_wip_commit_message(
         return "This revision is marked as a WIP. Please remove `WIP:` before landing."
 
 
-@RevisionWarningCheck("Repository is under a soft code freeze.", True)
-def warning_code_freeze(
-    revision: dict, diff: dict, stack_state: StackAssessmentState
-) -> list[dict[str, str]] | None:
-    repo_phid = PhabricatorClient.expect(revision, "fields", "repositoryPHID")
-    repo = stack_state.stack_data.repositories.get(repo_phid)
-    if not repo:
-        return
-
-    supported_repos = Repo.get_mapping()
-    try:
-        repo_details = supported_repos[repo["fields"]["shortName"]]
-    except KeyError:
-        return
-
-    if not repo_details.product_details_url:
-        # Repo does not have a product details URL.
-        return
-
-    try:
-        product_details = requests.get(repo_details.product_details_url).json()
-    except requests.exceptions.RequestException as e:
-        logger.exception(e)
-        return [{"message": "Could not retrieve repository's code freeze status."}]
-
-    freeze_date_str = product_details.get("NEXT_SOFTFREEZE_DATE")
-    merge_date_str = product_details.get("NEXT_MERGE_DATE")
-    # If the JSON doesn't have these keys, this warning isn't applicable
-    if not freeze_date_str or not merge_date_str:
-        return
-
-    today = datetime.now(tz=timezone.utc)
-    freeze_date = datetime.strptime(
-        f"{freeze_date_str} {CODE_FREEZE_OFFSET}",
-        "%Y-%m-%d %z",
-    ).replace(tzinfo=timezone.utc)
-    if today < freeze_date:
-        return
-
-    merge_date = datetime.strptime(
-        f"{merge_date_str} {CODE_FREEZE_OFFSET}",
-        "%Y-%m-%d %z",
-    ).replace(tzinfo=timezone.utc)
-
-    if freeze_date <= today <= merge_date:
-        return [
-            {
-                "message": (
-                    f"Repository is under a soft code freeze (ends {merge_date_str})."
-                )
-            }
-        ]
-
-
 @RevisionWarningCheck("Revision has unresolved comments.")
 def warning_unresolved_comments(
     revision: dict, diff: dict, stack_state: StackAssessmentState
@@ -955,7 +896,6 @@ WARNING_CHECKS = [
     warning_revision_missing_testing_tag,
     warning_diff_warning,
     warning_wip_commit_message,
-    warning_code_freeze,
     warning_unresolved_comments,
     warning_multiple_authors,
 ]
