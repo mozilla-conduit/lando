@@ -99,6 +99,29 @@ diff --git a/not-real.txt b/not-real.txt
 """.strip()
 
 
+PATCH_WITH_HG_CHANGES = """
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+Modify hgrc
+diff --git a/not-real.txt b/not-real.txt
+--- a/not-real.txt
++++ b/not-real.txt
+@@ -1,1 +1,2 @@
+ TEST
++This line doesn't exist
+diff --git a/not-real.txt b/not-real.txt
+--- a/.hg/hgrc
++++ b/.hg/hgrc
+@@ -1,2 +1,3 @@
+ # name and email (local to this repository, optional), e.g.
+ # username = Jane Doe <jdoe@example.com>
++# modified hgrc
+""".strip()
+
+
 PATCH_DELETE_NO_NEWLINE_FILE = """
 # HG changeset patch
 # User Test User <test@example.com>
@@ -166,6 +189,33 @@ def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
             ph.get_header("User"),
             ph.get_header("Date"),
         )
+
+
+def test_integrated_hgrepo_patch_hg_changes_failure(hg_clone: os.PathLike):
+    repo = HgSCM(hg_clone.strpath)
+
+    hgrc_file = hg_clone.strpath + "/.hg/hgrc"
+
+    with open(hgrc_file) as f:
+        hgrc_orig = f.read()
+
+    ph = HgPatchHelper.from_string_io(io.StringIO(PATCH_WITH_HG_CHANGES))
+    # Patches modifying `.hg` should raise a ValueError exception.
+    with (
+        pytest.raises(ValueError, match="Patch modifies forbidden path."),
+        repo.for_pull(),
+    ):
+        repo.apply_patch(
+            ph.get_diff(),
+            ph.get_commit_description(),
+            ph.get_header("User"),
+            ph.get_header("Date"),
+        )
+
+    with open(hgrc_file) as f:
+        hgrc_new = f.read()
+
+    assert hgrc_new == hgrc_orig, "hgrc file was modified"
 
 
 @pytest.mark.parametrize(
