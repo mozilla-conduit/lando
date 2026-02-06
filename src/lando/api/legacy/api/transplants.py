@@ -227,7 +227,11 @@ def post(phab: PhabricatorClient, user: User, data: dict) -> tuple[dict[str, int
             extra={
                 "landing_path": str(landing_path),
                 "warnings": [
-                    {"i": w.i, "revision_id": w.revision_id, "details": w.details}
+                    {
+                        "display": w.display,
+                        "revision_id": w.revision_id,
+                        "details": w.details,
+                    }
                     for w in assessment.warnings
                 ],
             },
