@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from lando.main.scm.commit import CommitData
-from lando.main.scm.consts import MergeStrategy
+from lando.main.scm.consts import MergeStrategy, SCMType
 from lando.main.scm.helpers import PatchHelper
 
 logger = logging.getLogger(__name__)
@@ -27,9 +27,8 @@ class AbstractSCM(ABC):
 
     @classmethod
     @abstractmethod
-    def scm_type(cls) -> str:
-        """Return a string identifying the supported SCM (e.g., `hg`; see the `SCM_*`
-        constants)."""
+    def scm_type(cls) -> SCMType:
+        """Return an SCMType identifying the supported SCM."""
 
     @classmethod
     @abstractmethod

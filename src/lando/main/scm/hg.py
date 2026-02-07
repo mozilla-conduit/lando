@@ -25,7 +25,7 @@ from typing_extensions import override
 
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.commit import CommitData
-from lando.main.scm.consts import SCM_TYPE_HG, MergeStrategy
+from lando.main.scm.consts import MergeStrategy, SCMType
 from lando.main.scm.exceptions import (
     PatchConflict,
     SCMException,
@@ -180,9 +180,9 @@ class HgSCM(AbstractSCM):
 
     @classmethod
     @override
-    def scm_type(cls) -> str:
+    def scm_type(cls) -> SCMType:
         """Return a string identifying the supported SCM."""
-        return SCM_TYPE_HG
+        return SCMType.HG
 
     @classmethod
     @override

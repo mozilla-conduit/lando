@@ -38,7 +38,7 @@ from lando.main.models import (
 )
 from lando.main.models.landing_job import LandingJob, add_job_with_revisions
 from lando.main.models.revision import Revision
-from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
+from lando.main.scm import SCMType
 from lando.main.scm.commit import CommitData
 from lando.main.scm.git import GitSCM
 from lando.main.scm.hg import HgSCM
@@ -630,6 +630,7 @@ def hg_repo_mc(
     hooks_enabled: bool = True,
     hooks: list[str] | None = None,
     hooks_to_disable: list[str] | None = None,
+    is_try: bool = True,
     name: str = "",
     push_target: str = "",
 ) -> Repo:
@@ -646,6 +647,7 @@ def hg_repo_mc(
         "automation_enabled": automation_enabled,
         "force_push": force_push,
         "hooks_enabled": hooks_enabled,
+        "is_try": is_try,
         # We only set "hooks" below, if not empty.
         "push_target": push_target,
     }
@@ -655,7 +657,7 @@ def hg_repo_mc(
         params["hooks"] = hooks
 
     repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
+        scm_type=SCMType.HG,
         **params,
     )
     if hooks_to_disable:
@@ -677,6 +679,7 @@ def git_repo_mc(
     hooks_enabled: bool = True,
     hooks: list[str] | None = None,
     hooks_to_disable: list[str] | None = None,
+    is_try: bool = False,
     name: str = "",
     pr_enabled: bool = False,
     push_target: str = "",
@@ -697,6 +700,7 @@ def git_repo_mc(
         "automation_enabled": automation_enabled,
         "force_push": force_push,
         "hooks_enabled": hooks_enabled,
+        "is_try": is_try,
         "pr_enabled": pr_enabled,
         # We only set "hooks" below, if not empty.
         "push_target": push_target,
@@ -707,7 +711,7 @@ def git_repo_mc(
         params["hooks"] = hooks
 
     repo = Repo.objects.create(
-        scm_type=SCM_TYPE_GIT,
+        scm_type=SCMType.GIT,
         **params,
     )
     if hooks_to_disable:
@@ -737,6 +741,7 @@ def repo_mc(
         hooks_enabled: bool = True,
         hooks: list[str] | None = None,
         hooks_to_disable: list[str] | None = None,
+        is_try: bool = False,
         name: str = "",
         pr_enabled: bool = False,
         push_target: str = "",
@@ -753,15 +758,16 @@ def repo_mc(
             "hooks_enabled": hooks_enabled,
             "hooks": hooks or [],
             "hooks_to_disable": hooks_to_disable or default_hooks_to_disable,
+            "is_try": is_try,
             "force_push": force_push,
             "name": name,
             "push_target": push_target,
         }
 
-        if scm_type == SCM_TYPE_GIT:
+        if scm_type == SCMType.GIT:
             params["pr_enabled"] = pr_enabled
             return git_repo_mc(git_repo, tmp_path, **params)
-        elif scm_type == SCM_TYPE_HG:
+        elif scm_type == SCMType.HG:
             assert not pr_enabled
             return hg_repo_mc(hg_server, hg_clone, **params)
         raise Exception(f"Unknown SCM Type {scm_type=}")
@@ -780,21 +786,21 @@ def mock_repo_config(monkeypatch):
 @pytest.fixture
 def mocked_repo_config(mock_repo_config):
     Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
+        scm_type=SCMType.HG,
         name="mozilla-central",
         url="http://hg.test",
         required_permission=SCM_LEVEL_3,
         approval_required=False,
     )
     Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
+        scm_type=SCMType.HG,
         name="mozilla-uplift",
         url="http://hg.test/uplift",
         required_permission=SCM_LEVEL_3,
         approval_required=True,
     )
     Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
+        scm_type=SCMType.HG,
         name="mozilla-new",
         url="http://hg.test/new",
         required_permission=SCM_LEVEL_3,
@@ -802,12 +808,28 @@ def mocked_repo_config(mock_repo_config):
     )
     # Copied from legacy "local-dev". Should have been in mocked repos.
     Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
+        scm_type=SCMType.HG,
         name="uplift-target",
         url="http://hg.test",  # TODO: fix this? URL is probably incorrect.
         required_permission=SCM_LEVEL_1,
         approval_required=True,
         milestone_tracking_flag_template="cf_status_firefox{milestone}",
+    )
+
+
+@pytest.fixture
+def mocked_repo_config_try(mock_repo_config):
+    Repo.objects.create(
+        scm_type=SCMType.HG,
+        name="try",
+        url="http://hg.test/try",
+        push_path="http://hg.test/try",
+        pull_path="http://hg.test",
+        required_permission=SCM_LEVEL_1,
+        short_name="try",
+        is_phabricator_repo=False,
+        is_try=True,
+        force_push=True,
     )
 
 
@@ -1100,7 +1122,7 @@ def make_repo():
         """Create a non-descript repository with a sequence number in the test DB."""
         return Repo.objects.create(
             name=f"repo-{seqno}",
-            scm_type=SCM_TYPE_GIT,
+            scm_type=SCMType.GIT,
             url=f"https://repo-{seqno}",
             default_branch=f"main-{seqno}",
         )
@@ -1255,7 +1277,7 @@ def make_landing_job(repo_mc: Repo) -> Callable:
         If revisions is None, a set of revisions will be built from landing_paths.
         """
         if not target_repo:
-            target_repo = repo_mc(SCM_TYPE_GIT)
+            target_repo = repo_mc(SCMType.GIT)
 
         job_params = {
             "requester_email": requester_email,

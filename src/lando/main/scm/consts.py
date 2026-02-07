@@ -1,7 +1,6 @@
 import enum
 
-SCM_TYPE_GIT = "git"
-SCM_TYPE_HG = "hg"
+from django.db.models import TextChoices
 
 COMMIT_ID_HEX_LENGTH = 40
 
@@ -18,3 +17,13 @@ class MergeStrategy(str, enum.Enum):
 
     # Use the target branch's tree, ignoring the current tree.
     THEIRS = "theirs"
+
+
+# For cleanliness, this should subclass (str, enum.Enum). However, with a little bit of
+# coupling with Django models.TextChoices, which also subclasses (str, enum.Enum), we
+# can use this verbatim in Model definitions, too.
+class SCMType(TextChoices):
+    """Enumeration of acceptable VCS types."""
+
+    GIT = "git", "Git"
+    HG = "hg", "Mercurial"
