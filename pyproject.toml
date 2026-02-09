@@ -21,7 +21,6 @@ dependencies = [
     "django_compressor",
     "jinja2",
     "kombu",
-    "mercurial==6.1.4",
     "mots",
     "MozPhab==2.8.0",
     "mozilla_django_oidc",
