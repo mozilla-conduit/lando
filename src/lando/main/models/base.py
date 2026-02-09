@@ -35,7 +35,6 @@ class BaseModel(models.Model):
         abstract = True
 
     @classmethod
-    @property
     def lock_table(cls) -> LockTableContextManager:
         return LockTableContextManager(cls)
 
