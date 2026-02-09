@@ -6,7 +6,7 @@
             <a href="{{ pull_request.html_url }}">{{ pull_request.title }}</a> #{{ pull_request.number }} ({{ target_repo.name }}@{{ target_repo.default_branch }})
         </h1>
         <p>
-            <button class="button is-large is-loading post-landing-job"
+            <button class="button is-large is-loading post-landing-job has-text-white"
                     disabled
                     data-anonymous="{{ '0' if request.user.is_authenticated else '1' }}"
                     data-pull-number="{{ pull_request.number }}"
