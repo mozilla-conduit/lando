@@ -2173,9 +2173,9 @@ rcssmin==1.2.2 \
     --hash=sha256:f6696d73585c6ec01c154123bc772184a7ea6571d10092a41693050cef1fd6a9 \
     --hash=sha256:fc3cfd3548c2a95a9bdab56914083b2c8eaf40b6b60801ae22bf01c6a05662c9
     # via django-compressor
-redis==7.1.0 \
-    --hash=sha256:23c52b208f92b56103e17c5d06bdc1a6c2c0b3106583985a76a18f83b265de2b \
-    --hash=sha256:b1cc3cfa5a2cb9c2ab3ba700864fb0ad75617b41f01352ce5779dabf6d5f9c3c
+redis==7.1.1 \
+    --hash=sha256:a2814b2bda15b39dad11391cc48edac4697214a8a5a4bd10abe936ab4892eb43 \
+    --hash=sha256:f77817f16071c2950492c67d40b771fa493eb3fccc630a424a10976dbb794b7a
     # via lando (pyproject.toml)
 referencing==0.37.0 \
     --hash=sha256:381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231 \
