@@ -65,8 +65,8 @@ logger = logging.getLogger(__name__)
 
 RevisionWarning = namedtuple(
     "RevisionWarning",
-    ("i", "display", "revision_id", "details", "articulated"),
-    defaults=(None, None, None, None, False),
+    ("display", "revision_id", "details", "articulated"),
+    defaults=(None, None, None, False),
 )
 
 # The code freeze dates generally correspond to PST work days.
@@ -257,15 +257,14 @@ class StackAssessment:
     def to_dict(self) -> dict[str, Any]:
         bucketed_warnings = {}
         for w in self.warnings:
-            if w.i not in bucketed_warnings:
-                bucketed_warnings[w.i] = {
-                    "id": w.i,
+            if w.display not in bucketed_warnings:
+                bucketed_warnings[w.display] = {
                     "display": w.display,
                     "instances": [],
                     "articulated": w.articulated,
                 }
 
-            bucketed_warnings[w.i]["instances"].append(
+            bucketed_warnings[w.display]["instances"].append(
                 {
                     "revision_id": w.revision_id,
                     "details": w.details,
@@ -289,7 +288,9 @@ class StackAssessment:
             return None
 
         # Convert warnings to JSON serializable form and sort.
-        warnings_sorted = sorted((w.i, w.revision_id, w.details) for w in warnings)
+        warnings_sorted = sorted(
+            (w.display, w.revision_id, w.details) for w in warnings
+        )
         return hashlib.sha256(json.dumps(warnings_sorted).encode("utf-8")).hexdigest()
 
     def raise_if_blocked_or_unacknowledged(self, confirmation_token: str | None):
@@ -317,18 +318,7 @@ class StackAssessment:
 
 
 class RevisionWarningCheck:
-    _warning_ids = set()
-
-    def __init__(self, i: int, display: str, articulated: bool = False):
-        if i > 0 and (i - 1) not in self._warning_ids:
-            raise ValueError(
-                "Warnings may not skip an id number. Warnings should never "
-                "be removed, just replaced with a noop function if they are "
-                "no longer used. This prevents id re-use."
-            )
-
-        self._warning_ids.add(i)
-        self.i = i
+    def __init__(self, display: str, articulated: bool = False):
         self.display = display
         self.articulated = articulated
 
@@ -340,14 +330,14 @@ class RevisionWarningCheck:
                 None
                 if result is None
                 else RevisionWarning(
-                    self.i, self.display, f"D{revision['id']}", result, self.articulated
+                    self.display, f"D{revision['id']}", result, self.articulated
                 )
             )
 
         return wrapped
 
 
-@RevisionWarningCheck(0, "Has a review intended to block landing.")
+@RevisionWarningCheck("Has a review intended to block landing.")
 def warning_blocking_reviews(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> str | None:
@@ -384,7 +374,7 @@ def warning_blocking_reviews(
     )
 
 
-@RevisionWarningCheck(1, "Has previously landed.")
+@RevisionWarningCheck("Has previously landed.")
 def warning_previously_landed(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> str | None:
@@ -423,7 +413,7 @@ def warning_previously_landed(
     )
 
 
-@RevisionWarningCheck(2, "Is not Accepted.")
+@RevisionWarningCheck("Is not Accepted.")
 def warning_not_accepted(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> str | None:
@@ -436,7 +426,7 @@ def warning_not_accepted(
     return status.output_name
 
 
-@RevisionWarningCheck(3, "No reviewer has accepted the current diff.")
+@RevisionWarningCheck("No reviewer has accepted the current diff.")
 def warning_reviews_not_current(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> str | None:
@@ -455,7 +445,7 @@ def warning_reviews_not_current(
 
 
 @RevisionWarningCheck(
-    4, "Is a secure revision and should follow the Security Bug Approval Process."
+    "Is a secure revision and should follow the Security Bug Approval Process."
 )
 def warning_revision_secure(
     revision: dict, diff: dict, stack_state: StackAssessmentState
@@ -472,7 +462,7 @@ def warning_revision_secure(
     )
 
 
-@RevisionWarningCheck(5, "Revision is missing a Testing Policy Project Tag.")
+@RevisionWarningCheck("Revision is missing a Testing Policy Project Tag.")
 def warning_revision_missing_testing_tag(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> str | None:
@@ -494,7 +484,7 @@ def warning_revision_missing_testing_tag(
     )
 
 
-@RevisionWarningCheck(6, "Revision has a diff warning.", True)
+@RevisionWarningCheck("Revision has a diff warning.", True)
 def warning_diff_warning(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> list[str] | None:
@@ -507,7 +497,7 @@ def warning_diff_warning(
         return [w.data for w in warnings]
 
 
-@RevisionWarningCheck(7, "Revision is marked as WIP.")
+@RevisionWarningCheck("Revision is marked as WIP.")
 def warning_wip_commit_message(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> str | None:
@@ -516,7 +506,7 @@ def warning_wip_commit_message(
         return "This revision is marked as a WIP. Please remove `WIP:` before landing."
 
 
-@RevisionWarningCheck(8, "Repository is under a soft code freeze.", True)
+@RevisionWarningCheck("Repository is under a soft code freeze.", True)
 def warning_code_freeze(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> list[dict[str, str]] | None:
@@ -570,7 +560,7 @@ def warning_code_freeze(
         ]
 
 
-@RevisionWarningCheck(9, "Revision has unresolved comments.")
+@RevisionWarningCheck("Revision has unresolved comments.")
 def warning_unresolved_comments(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> str | None:
@@ -581,7 +571,7 @@ def warning_unresolved_comments(
         return "Revision has unresolved comments."
 
 
-@RevisionWarningCheck(10, "Revision has multiple authors.")
+@RevisionWarningCheck("Revision has multiple authors.")
 def warning_multiple_authors(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> str | None:
