@@ -198,10 +198,10 @@ def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
         "./.hg/hgrc",
         "./testdir/../.hg/hgrc",
         "./././.hg/hgrc",
-    )
+    ),
 )
 def test_integrated_hgrepo_patch_hg_changes_failure(
-        hg_clone: os.PathLike, reference: str
+    hg_clone: os.PathLike, reference: str
 ):
     # Patches with changes in .hg should raise a ValueError exception.
     # .hg/hgrc should also not be modified.
@@ -213,7 +213,7 @@ def test_integrated_hgrepo_patch_hg_changes_failure(
         hgrc_orig = f.read()
 
     ph = HgPatchHelper.from_string_io(
-        io.StringIO(PATCH_WITH_HG_CHANGES.format(reference))
+        io.StringIO(PATCH_WITH_HG_CHANGES.format(filename=reference))
     )
     with repo.for_pull():
         with pytest.raises(ValueError, match="Patch modifies forbidden path."):
