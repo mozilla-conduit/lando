@@ -5,7 +5,7 @@ from django.utils.translation import gettext_lazy
 
 from lando.main.models.base import BaseModel
 from lando.main.models.repo import Repo
-from lando.main.scm import SCM_TYPE_CHOICES, SCM_TYPE_HG
+from lando.main.scm import SCMType
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +34,8 @@ class Worker(BaseModel):
 
     scm = models.CharField(
         max_length=3,
-        choices=SCM_TYPE_CHOICES,
-        default=SCM_TYPE_HG,
+        choices=SCMType,
+        default=SCMType.HG,
     )
 
     def __str__(self) -> str:

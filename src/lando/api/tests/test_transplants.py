@@ -35,7 +35,7 @@ from lando.main.models import (
     Repo,
 )
 from lando.main.models.revision import Revision
-from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
+from lando.main.scm import SCMType
 from lando.main.support import LegacyAPIException
 from lando.utils.phabricator import PhabricatorRevisionStatus, ReviewerStatus
 from lando.utils.tasks import admin_remove_phab_project
@@ -277,7 +277,7 @@ def test_dryrun_codefreeze_warn(
     )
     monkeypatch.setattr("lando.api.legacy.transplants.datetime", codefreeze_datetime())
     mc_repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
+        scm_type=SCMType.HG,
         name="mozilla-conduit",
         url="https://hg.test/mozilla-conduit",
         required_permission=SCM_CONDUIT,
@@ -334,7 +334,7 @@ def test_dryrun_outside_codefreeze(
     )
     monkeypatch.setattr("lando.api.legacy.transplants.datetime", codefreeze_datetime())
     mc_repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
+        scm_type=SCMType.HG,
         name="mozilla-conduit",
         url="https://hg.test/mozilla-conduit",
         required_permission=SCM_CONDUIT,
@@ -373,7 +373,7 @@ def test_dryrun_outside_codefreeze(
             (),  # No permissions
             200,
             "You have insufficient permissions to land or your access has expired. "
-            "main.scm_level_3 is required. See the FAQ for help.",
+            + "main.scm_level_3 is required. See the FAQ for help.",
         ),
     ],
 )
@@ -419,7 +419,7 @@ def test_get_transplants_for_entire_stack(phabdouble, make_landing_job, repo_mc)
     d_not_in_stack = phabdouble.diff()
     r_not_in_stack = phabdouble.revision(diff=d_not_in_stack, repo=phabdouble.repo())
 
-    repo = repo_mc(SCM_TYPE_GIT)
+    repo = repo_mc(SCMType.GIT)
 
     t1 = make_landing_job(
         target_repo=repo,
@@ -519,7 +519,7 @@ def test_warning_previously_landed_failed_landing(
     r = phabdouble.revision(diff=d)
 
     make_landing_job(
-        target_repo=repo_mc(SCM_TYPE_GIT),
+        target_repo=repo_mc(SCMType.GIT),
         landing_path=[(r["id"], d["id"])],
         status=JobStatus.FAILED,
     )
@@ -542,7 +542,7 @@ def test_warning_previously_landed_landed_landing(
     r = phabdouble.revision(diff=d)
 
     make_landing_job(
-        target_repo=repo_mc(SCM_TYPE_GIT),
+        target_repo=repo_mc(SCMType.GIT),
         landing_path=[(r["id"], d["id"])],
         status=JobStatus.LANDED,
     )
@@ -838,7 +838,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     hg_landing_worker,
     repo_mc,
 ):
-    repo = repo_mc(SCM_TYPE_HG)
+    repo = repo_mc(SCMType.HG)
     treestatusdouble.open_tree(repo.name)
     hg_landing_worker.worker_instance.applicable_repos.add(repo)
 
@@ -2048,7 +2048,7 @@ def test_transplant_on_linked_legacy_repo(
     repo_mc,
     needs_data_classification_project,
 ):
-    new_repo = repo_mc(SCM_TYPE_GIT)
+    new_repo = repo_mc(SCMType.GIT)
     new_repo.legacy_source = Repo.objects.get(name="mozilla-central")
     new_repo.save()
     phabrepo = phabdouble.repo(name="mozilla-central")

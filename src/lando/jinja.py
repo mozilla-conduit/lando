@@ -13,7 +13,7 @@ from markupsafe import Markup
 
 from lando.main.models import JobStatus, LandingJob, Repo, UpliftJob
 from lando.main.models.revision import Revision
-from lando.main.scm import SCM_TYPE_GIT
+from lando.main.scm import SCMType
 from lando.treestatus.models import (
     ReasonCategory,
     TreeCategory,
@@ -282,7 +282,7 @@ def linkify_transplant_details(text: str, landing_job: LandingJob) -> str:
     # We assume HG by default (legacy path), but use a Github-like path if 'git' is
     # present in the netloc.
     link_template = r'<a href="{repo_url}/rev/\g<1>">\g<1></a>'
-    if landing_job.target_repo.scm_type == SCM_TYPE_GIT:
+    if landing_job.target_repo.scm_type == SCMType.GIT:
         link_template = r'<a href="{repo_url}/commit/\g<1>">\g<1></a>'
 
     replace = link_template.format(repo_url=landing_job.target_repo.normalized_url)

@@ -18,7 +18,7 @@ from lando.main.models import (
     Repo,
     RevisionLandingJob,
 )
-from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
+from lando.main.scm import SCMType
 from lando.main.scm.exceptions import SCMInternalServerError
 from lando.main.scm.helpers import HgPatchHelper
 from lando.main.scm.hg import LostPushRace
@@ -294,26 +294,26 @@ TRY_TASK_CONFIG_DIFF_SNIPPET = """
     [
         # Git
         (
-            SCM_TYPE_GIT,
+            SCMType.GIT,
             [
                 (1, {"patch": None}),
                 (2, {"patch": None}),
             ],
         ),
-        (SCM_TYPE_GIT, [(1, {"patch": LARGE_PATCH})]),
-        (SCM_TYPE_GIT, [(1, {"patch": PATCH_BINARY_GITATTRIBUTES})]),
-        (SCM_TYPE_GIT, [(1, {"patch": BINARY_PATCH})]),
+        (SCMType.GIT, [(1, {"patch": LARGE_PATCH})]),
+        (SCMType.GIT, [(1, {"patch": PATCH_BINARY_GITATTRIBUTES})]),
+        (SCMType.GIT, [(1, {"patch": BINARY_PATCH})]),
         # Hg
         (
-            SCM_TYPE_HG,
+            SCMType.HG,
             [
                 (1, {"patch": None}),
                 (2, {"patch": None}),
             ],
         ),
-        (SCM_TYPE_HG, [(1, {"patch": LARGE_PATCH})]),
-        (SCM_TYPE_HG, [(1, {"patch": PATCH_BINARY_GITATTRIBUTES})]),
-        (SCM_TYPE_HG, [(1, {"patch": BINARY_PATCH})]),
+        (SCMType.HG, [(1, {"patch": LARGE_PATCH})]),
+        (SCMType.HG, [(1, {"patch": PATCH_BINARY_GITATTRIBUTES})]),
+        (SCMType.HG, [(1, {"patch": BINARY_PATCH})]),
     ],
 )
 @pytest.mark.django_db
@@ -385,7 +385,7 @@ def test_integrated_execute_job_pull_request(
     * This doesn't re-test side effects already tested in test_integrated_execute_job.
     """
     pr_number = 1
-    repo_type = SCM_TYPE_GIT
+    repo_type = SCMType.GIT
     repo: Repo = repo_mc(repo_type)
     repo.is_phabricator_repo = False
     repo.pr_enabled = True
@@ -436,8 +436,8 @@ def test_integrated_execute_job_pull_request(
 @pytest.mark.parametrize(
     "repo_type",
     [
-        SCM_TYPE_GIT,
-        SCM_TYPE_HG,
+        SCMType.GIT,
+        SCMType.HG,
     ],
 )
 @pytest.mark.django_db
@@ -486,8 +486,8 @@ def test_revisionlandingjob_commit_ids_updated_on_success(
 @pytest.mark.parametrize(
     "repo_type",
     [
-        SCM_TYPE_GIT,
-        SCM_TYPE_HG,
+        SCMType.GIT,
+        SCMType.HG,
     ],
 )
 @pytest.mark.django_db
@@ -534,8 +534,8 @@ def test_revisionlandingjob_commit_ids_unset_without_landing(
 @pytest.mark.parametrize(
     "repo_type",
     [
-        SCM_TYPE_GIT,
-        SCM_TYPE_HG,
+        SCMType.GIT,
+        SCMType.HG,
     ],
 )
 @pytest.mark.django_db
@@ -578,8 +578,8 @@ def test_integrated_execute_job_with_force_push(
 @pytest.mark.parametrize(
     "repo_type",
     [
-        SCM_TYPE_GIT,
-        SCM_TYPE_HG,
+        SCMType.GIT,
+        SCMType.HG,
     ],
 )
 @pytest.mark.django_db
@@ -617,8 +617,8 @@ def test_integrated_execute_job_with_bookmark(
 @pytest.mark.parametrize(
     "repo_type",
     [
-        SCM_TYPE_GIT,
-        SCM_TYPE_HG,
+        SCMType.GIT,
+        SCMType.HG,
     ],
 )
 @pytest.mark.django_db
@@ -664,8 +664,8 @@ def test_integrated_execute_job_with_scm_internal_error(
 @pytest.mark.parametrize(
     "repo_type",
     [
-        SCM_TYPE_GIT,
-        SCM_TYPE_HG,
+        SCMType.GIT,
+        SCMType.HG,
     ],
 )
 @pytest.mark.django_db
@@ -698,8 +698,8 @@ def test_no_diff_start_line(
 @pytest.mark.parametrize(
     "repo_type",
     [
-        SCM_TYPE_GIT,
-        SCM_TYPE_HG,
+        SCMType.GIT,
+        SCMType.HG,
     ],
 )
 @pytest.mark.django_db
@@ -749,8 +749,8 @@ def test_lose_push_race(
     (
         scm + (patch,)
         for scm in (
-            (SCM_TYPE_GIT, "Rejected hunk"),
-            (SCM_TYPE_HG, "hunks FAILED"),
+            (SCMType.GIT, "Rejected hunk"),
+            (SCMType.HG, "hunks FAILED"),
         )
         for patch in (
             PATCH_FORMATTED_2,
@@ -811,9 +811,9 @@ def test_merge_conflict(
         ), f"Empty or missing reject content for failed path {fp}"
 
     for fp in job.error_breakdown["failed_paths"]:
-        if repo_type == SCM_TYPE_GIT:
+        if repo_type == SCMType.GIT:
             assert re.match(f"{repo.pull_path}/tree", fp["url"])
-        else:  # SCM_TYPE_HG
+        else:  # SCMType.HG
             assert re.match(f"{repo.pull_path}/file", fp["url"])
 
 
@@ -823,7 +823,7 @@ def test_merge_conflict(
     # As we don't want a cross-product of bad actions and reasons, we bundle them in a
     # tuple, that we deconstruct in the test.
     itertools.product(
-        [SCM_TYPE_HG, SCM_TYPE_GIT],
+        [SCMType.HG, SCMType.GIT],
         # All of FAILING_CHECK_TYPES, except for wpt
         [check_type for check_type in FAILING_CHECK_TYPES if check_type != "wpt"],
     ),
@@ -884,8 +884,8 @@ def test_failed_landing_job_checks(
 @pytest.mark.parametrize(
     "repo_type",
     [
-        SCM_TYPE_GIT,
-        SCM_TYPE_HG,
+        SCMType.GIT,
+        SCMType.HG,
     ],
 )
 @pytest.mark.django_db
@@ -926,8 +926,8 @@ def test_exception_landing_job_checks(
 @pytest.mark.parametrize(
     "repo_type",
     [
-        SCM_TYPE_GIT,
-        SCM_TYPE_HG,
+        SCMType.GIT,
+        SCMType.HG,
     ],
 )
 @pytest.mark.django_db
@@ -978,8 +978,8 @@ def test_failed_landing_job_notification(
 @pytest.mark.parametrize(
     "repo_type",
     [
-        SCM_TYPE_GIT,
-        SCM_TYPE_HG,
+        SCMType.GIT,
+        SCMType.HG,
     ],
 )
 @pytest.mark.django_db
@@ -1033,8 +1033,8 @@ def test_format_patch_success_unchanged(
 @pytest.mark.parametrize(
     "repo_type",
     [
-        SCM_TYPE_GIT,
-        SCM_TYPE_HG,
+        SCMType.GIT,
+        SCMType.HG,
     ],
 )
 @pytest.mark.django_db
@@ -1117,8 +1117,8 @@ def test_format_single_success_changed(
 @pytest.mark.parametrize(
     "repo_type",
     [
-        SCM_TYPE_GIT,
-        SCM_TYPE_HG,
+        SCMType.GIT,
+        SCMType.HG,
     ],
 )
 @pytest.mark.django_db
@@ -1189,8 +1189,8 @@ def test_format_stack_success_changed(
 @pytest.mark.parametrize(
     "repo_type",
     [
-        SCM_TYPE_GIT,
-        SCM_TYPE_HG,
+        SCMType.GIT,
+        SCMType.HG,
     ],
 )
 @pytest.mark.django_db
@@ -1250,8 +1250,8 @@ def test_format_patch_fail(
 @pytest.mark.parametrize(
     "repo_type",
     [
-        SCM_TYPE_GIT,
-        SCM_TYPE_HG,
+        SCMType.GIT,
+        SCMType.HG,
     ],
 )
 @pytest.mark.django_db
@@ -1337,7 +1337,7 @@ def test_worker_active_repos_updated_when_tree_closed(
     repo = Repo.objects.get(name="mozilla-central")
     treestatusdouble.open_tree(repo.name)
 
-    worker = get_landing_worker(SCM_TYPE_HG)
+    worker = get_landing_worker(SCMType.HG)
     worker.refresh_active_repos()
     assert repo in worker.active_repos
     assert repo in worker.enabled_repos
@@ -1400,11 +1400,11 @@ def test_handover_landing_job(
     closed_repos: tuple[str],
 ):
     """Test that a handover job is correctly handed over."""
-    try_repo = repo_mc(SCM_TYPE_HG, hooks_enabled=False, name="try")
-    git_repo = repo_mc(SCM_TYPE_GIT, hooks_enabled=False, pr_enabled=True)
+    try_repo = repo_mc(SCMType.HG, hooks_enabled=False, name="try", is_try=True)
+    git_repo = repo_mc(SCMType.GIT, hooks_enabled=False, pr_enabled=True)
 
-    git_worker = get_landing_worker(SCM_TYPE_GIT)
-    hg_worker = get_landing_worker(SCM_TYPE_HG)
+    git_worker = get_landing_worker(SCMType.GIT)
+    hg_worker = get_landing_worker(SCMType.HG)
 
     hg_worker.worker_instance.applicable_repos.add(try_repo)
     git_worker.worker_instance.applicable_repos.add(git_repo)
@@ -1434,9 +1434,9 @@ def test_handover_landing_job(
     assert next_job == job
     git_worker.start(max_loops=1)
     job.refresh_from_db()
-    assert job.is_handed_over
     assert job.status == JobStatus.DEFERRED, job.error
     assert job.error == "Job deferred to try repo."
+    assert job.is_handed_over
     assert job.target_repo == try_repo
     assert job.attempts == 1
 

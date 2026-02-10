@@ -6,7 +6,7 @@ from django.core.management.base import BaseCommand, CommandError
 from lando.api.legacy.workers.base import Worker
 from lando.api.legacy.workers.landing_worker import LandingWorker
 from lando.main.models import Worker as WorkerModel
-from lando.main.scm import SCM_TYPE_GIT, SCM_TYPE_HG
+from lando.main.scm import SCMType
 
 logger = logging.getLogger(__name__)
 
@@ -35,11 +35,11 @@ class Command(BaseCommand):
 
     def handle_hg(self, worker: WorkerModel):
         """Handle the starting of the Mercurial landing worker ("hg-landing-worker")."""
-        self._handle(worker, SCM_TYPE_HG)
+        self._handle(worker, SCMType.HG)
 
     def handle_git(self, worker: WorkerModel):
         """Handle the starting of the Git landing worker ("git-landing-worker")."""
-        self._handle(worker, SCM_TYPE_GIT)
+        self._handle(worker, SCMType.GIT)
 
     def _check_for_unsupported_repos(self, worker: WorkerModel, repo_type: str):
         for repo in worker.enabled_repos:
@@ -90,8 +90,8 @@ class Command(BaseCommand):
     def handle(self, name: str, **options):
         """Select a landing worker based on provided argument and start it up."""
         handlers = {
-            SCM_TYPE_GIT: self.handle_git,
-            SCM_TYPE_HG: self.handle_hg,
+            SCMType.GIT: self.handle_git,
+            SCMType.HG: self.handle_hg,
         }
 
         worker = self.get_worker(name)

@@ -12,10 +12,25 @@ from lando.main.models import (
     SCM_LEVEL_3,
     Repo,
 )
+from lando.main.models.repo import get_default_hooks
 from lando.main.scm import GitSCM
+from lando.utils.landing_checks import (
+    BugReferencesCheck,
+    CommitMessagesCheck,
+    TryTaskConfigCheck,
+)
 
 ENVIRONMENTS = [e for e in Environment if not e.is_test and e.is_lower]
 
+# Try repos require a slightly different set of hooks from the defaults for normal
+# repos.
+TRY_HOOKS = list(
+    # Set difference takes precedence over set union.
+    set(get_default_hooks())
+    - {TryTaskConfigCheck.name()}
+    - {CommitMessagesCheck.name()}
+    | {BugReferencesCheck.name()}
+)
 # These repos are copied from the legacy repo "subsystem".
 REPOS = {
     Environment.local: [
@@ -103,6 +118,23 @@ REPOS = {
             "default_branch": "test-repo",
             "required_permission": SCM_LEVEL_1,
         },
+        #
+        # try
+        #
+        {
+            "name": "try",
+            "url": "http://hg.test/try",
+            "required_permission": SCM_LEVEL_1,
+            "push_path": "ssh://autoland.hg//repos/try",
+            "pull_path": "http://hg.test/try",
+            "short_name": "try",
+            "is_phabricator_repo": False,
+            "force_push": True,
+            "automation_enabled": False,
+            "is_try": True,
+            "hooks_enabled": True,
+            "hooks": TRY_HOOKS,
+        },
     ],
     Environment.development: [
         {
@@ -144,7 +176,9 @@ REPOS = {
             "required_permission": SCM_LEVEL_1,
             "short_name": "try",
             "is_phabricator_repo": False,
-            "force_push": True,
+            "is_try": True,
+            "hooks_enabled": True,
+            "hooks": TRY_HOOKS,
         },
     ],
     Environment.staging: [

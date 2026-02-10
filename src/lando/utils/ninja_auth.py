@@ -7,44 +7,17 @@ from django.http import JsonResponse
 from ninja import NinjaAPI
 from ninja.errors import HttpError
 from ninja.security import HttpBearer
+from typing_extensions import override
 
-# requests is a transitive dependency of mozilla-django-oidc.
-from requests.exceptions import HTTPError
-
-from lando.main.auth import LandoOIDCAuthenticationBackend
+from lando.main.auth import AccessTokenLandoOIDCAuthenticationBackend
 
 logger = logging.getLogger(__name__)
-
-
-class AccessTokenLandoOIDCAuthenticationBackend(LandoOIDCAuthenticationBackend):
-    """A shim of the LandoOIDCAuthenticationBackend, borrowing code from mozilla-django-oidc#551.
-
-    https://github.com/mozilla/mozilla-django-oidc/pull/551"""
-
-    def authenticate(self, request: WSGIRequest, **kwargs) -> User:
-        # If a bearer token is present in the request, use it to authenticate the user.
-        if authorization := request.META.get("HTTP_AUTHORIZATION"):
-            scheme, token = authorization.split(maxsplit=1)
-            if scheme.lower() == "bearer":
-                # get_or_create_user and get_userinfo uses neither id_token nor payload.
-                # XXX: maybe we only want to _get_ the user, and not create the if they
-                # aren't alrealdy registered.
-                try:
-                    return self.get_or_create_user(token, None, None)
-                except HTTPError as exc:
-                    if exc.response.status_code in [401, 403]:
-                        logger.warning(
-                            "failed to authenticate user from bearer token: %s", exc
-                        )
-                        return None
-                    raise exc
-
-        return super().authenticate(request, **kwargs)
 
 
 class AccessTokenAuth(HttpBearer):
     """Ninja bearer token-based authenticator delegating verification to the OIDC backend."""
 
+    @override
     def authenticate(self, request: WSGIRequest, token: str) -> User:
         """Forward the authenticate request to the LandoOIDCAuthenticationBackend."""
         # The token is extracted in the LandoOIDCAuthenticationBackend, so we don't need

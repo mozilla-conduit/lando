@@ -27,7 +27,7 @@ from lando.main.models.uplift import (
     YesNoChoices,
     YesNoUnknownChoices,
 )
-from lando.main.scm import SCM_TYPE_GIT
+from lando.main.scm import SCMType
 from lando.main.scm.git import GitSCM
 from lando.main.scm.helpers import HgPatchHelper
 from lando.ui.legacy.forms import (
@@ -90,9 +90,9 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
     phabdouble.user(api_key=user.profile.phabricator_api_key)
 
     # Create two target repos.
-    repo_a = repo_mc(scm_type=SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
+    repo_a = repo_mc(scm_type=SCMType.GIT, name="firefox-beta", approval_required=True)
     repo_b = repo_mc(
-        scm_type=SCM_TYPE_GIT, name="firefox-release", approval_required=True
+        scm_type=SCMType.GIT, name="firefox-release", approval_required=True
     )
 
     # Create the revisions with `456` before `123` to ensure the passed
@@ -190,9 +190,9 @@ def test_uplift_creation_fails_when_revisions_missing(
     """Test uplift creation endpoint behaviour without previous landing."""
     phabdouble.user(api_key=user.profile.phabricator_api_key)
 
-    repo_a = repo_mc(scm_type=SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
+    repo_a = repo_mc(scm_type=SCMType.GIT, name="firefox-beta", approval_required=True)
     repo_b = repo_mc(
-        scm_type=SCM_TYPE_GIT, name="firefox-release", approval_required=True
+        scm_type=SCMType.GIT, name="firefox-release", approval_required=True
     )
 
     url = reverse("uplift-page")
@@ -670,7 +670,7 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
 
         return _write_uplift_commits
 
-    repo = repo_mc(SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
+    repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
 
     revisions = [
         create_patch_revision(0, patch=normal_patch(0)),
@@ -853,7 +853,7 @@ def test_uplift_worker_fallback_to_patch_when_no_landing_commit_id(
 
         return _write_uplift_commits
 
-    repo = repo_mc(SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
+    repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
 
     # Create revisions WITHOUT associated `RevisionLandingJob` entries.
     # This simulates old revisions that were landed before commit tracking.
@@ -936,7 +936,7 @@ def test_create_uplift_revisions_invokes_cli_and_returns_response(
     monkeypatch,
     make_uplift_job_with_revisions,
 ):
-    repo = repo_mc(SCM_TYPE_GIT, name="firefox-release", approval_required=True)
+    repo = repo_mc(SCMType.GIT, name="firefox-release", approval_required=True)
 
     revisions = [
         create_patch_revision(0, patch=normal_patch(0)),
@@ -990,7 +990,7 @@ def test_create_uplift_revisions_invalid_json_marks_job_failed(
     monkeypatch,
     make_uplift_job_with_revisions,
 ):
-    repo = repo_mc(SCM_TYPE_GIT, name="firefox-release", approval_required=True)
+    repo = repo_mc(SCMType.GIT, name="firefox-release", approval_required=True)
     revisions = [
         create_patch_revision(0, patch=normal_patch(0)),
         create_patch_revision(1, patch=normal_patch(1)),
@@ -1023,7 +1023,7 @@ def test_run_moz_phab_uplift_invokes_subprocess_with_expected_args(
     monkeypatch,
     tmp_path,
 ):
-    repo = repo_mc(SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
+    repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
     revisions = [
         create_patch_revision(0, patch=normal_patch(0)),
         create_patch_revision(1, patch=normal_patch(1)),
@@ -1082,7 +1082,7 @@ def test_uplift_worker_mozphab_failure_marks_failed(
     make_uplift_job_with_revisions,
     mock_uplift_email_tasks,
 ):
-    repo = repo_mc(SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
+    repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
 
     revisions = [
         create_patch_revision(0, patch=normal_patch(0)),
@@ -1130,7 +1130,7 @@ def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
     make_uplift_job_with_revisions,
     mock_uplift_email_tasks,
 ):
-    repo = repo_mc(SCM_TYPE_GIT, name="firefox-esr", approval_required=True)
+    repo = repo_mc(SCMType.GIT, name="firefox-esr", approval_required=True)
 
     # Create a job where one revision has a bad patch.
     revisions = [
@@ -1173,7 +1173,7 @@ def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
 def test_uplift_context_for_revision_returns_original_and_uplifted_requests(
     repo_mc, user, create_patch_revision, normal_patch, make_uplift_job_with_revisions
 ):
-    repo = repo_mc(SCM_TYPE_GIT, name="firefox-beta", approval_required=True)
+    repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
 
     revisions = [
         create_patch_revision(0, patch=normal_patch(0)),
@@ -1188,7 +1188,7 @@ def test_uplift_context_for_revision_returns_original_and_uplifted_requests(
     job.created_revision_ids = [uplifted_revision_id]
     job.save(update_fields=["created_revision_ids"])
 
-    other_repo = repo_mc(SCM_TYPE_GIT, name="firefox-esr", approval_required=True)
+    other_repo = repo_mc(SCMType.GIT, name="firefox-esr", approval_required=True)
     other_revision = create_patch_revision(2, patch=normal_patch(2))
     make_uplift_job_with_revisions(other_repo, user, [other_revision])
 
