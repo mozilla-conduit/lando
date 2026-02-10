@@ -1,9 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
 from typing import Iterable
 
-import requests
 from django.http import HttpRequest
 from typing_extensions import override
 
@@ -517,68 +515,6 @@ class PullRequestWIPWarning(PullRequestWarning):
     ) -> list[str]:
         if pull_request.title.lower().startswith("wip:"):
             return [cls.description()]
-
-        return []
-
-
-class PullRequestCodeFreezeWarning(PullRequestWarning):
-    """Repository is under a soft code freeze."""
-
-    # XXX: This code is duplicated from transplants.warning_code_freeze. See bug 2001021.
-
-    # The code freeze dates generally correspond to PST work days.
-    CODE_FREEZE_OFFSET = "-0800"
-
-    @override
-    @classmethod
-    def name(cls) -> str:
-        return "PullRequestCodeFreezeWarning"
-
-    @override
-    @classmethod
-    def description(cls) -> str:
-        return "Repository is under a soft code freeze."
-
-    @override
-    @classmethod
-    def run(
-        cls,
-        pull_request: PullRequest,
-        target_repo: Repo,
-        request: HttpRequest,
-    ) -> list[str]:
-        if not target_repo.product_details_url:
-            return []
-
-        try:
-            product_details = requests.get(target_repo.product_details_url).json()
-        except requests.exceptions.RequestException as e:
-            logger.exception(e)
-            return [
-                f"Could not retrieve repository's code freeze status from {target_repo.product_details_url}."
-            ]
-
-        freeze_date_str = product_details.get("NEXT_SOFTFREEZE_DATE")
-        merge_date_str = product_details.get("NEXT_MERGE_DATE")
-        # If the JSON doesn't have these keys, this warning isn't applicable
-        if not freeze_date_str or not merge_date_str:
-            return []
-
-        today = datetime.now(tz=timezone.utc)
-        freeze_date = datetime.strptime(
-            f"{freeze_date_str} {cls.CODE_FREEZE_OFFSET}",
-            "%Y-%m-%d %z",
-        ).replace(tzinfo=timezone.utc)
-        if today < freeze_date:
-            return []
-
-        merge_date = datetime.strptime(
-            f"{merge_date_str} {cls.CODE_FREEZE_OFFSET}",
-            "%Y-%m-%d %z",
-        ).replace(tzinfo=timezone.utc)
-
-        if freeze_date <= today <= merge_date:
-            return [f"Repository is under a soft code freeze (ends {merge_date_str})."]
 
         return []
 
