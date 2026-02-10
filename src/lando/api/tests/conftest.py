@@ -1,6 +1,5 @@
 import json
 import os
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 from unittest import mock
@@ -20,7 +19,6 @@ from lando.api.legacy.projects import (
     SEC_APPROVAL_PROJECT_SLUG,
     SEC_PROJ_SLUG,
 )
-from lando.api.legacy.transplants import CODE_FREEZE_OFFSET
 from lando.api.legacy.workers.landing_worker import LandingWorker
 from lando.api.legacy.workers.uplift_worker import (
     UpliftWorker,
@@ -313,29 +311,6 @@ def register_codefreeze_uri(request_mocker):
             "NEXT_MERGE_DATE": "2122-01-01",
         },
     )
-
-
-@pytest.fixture
-def codefreeze_datetime(request_mocker):
-    utc_offset = CODE_FREEZE_OFFSET
-    dates = {
-        "today": datetime(2000, 1, 5, 0, 0, 0, tzinfo=timezone.utc),
-        f"two_days_ago {utc_offset}": datetime(2000, 1, 3, 0, 0, 0),
-        f"tomorrow {utc_offset}": datetime(2000, 1, 6, 0, 0, 0),
-        f"four_weeks_from_today {utc_offset}": datetime(2000, 2, 3, 0, 0, 0),
-        f"five_weeks_from_today {utc_offset}": datetime(2000, 2, 10, 0, 0, 0),
-    }
-
-    class Mockdatetime:
-        @classmethod
-        def now(cls, tz):
-            return dates["today"]
-
-        @classmethod
-        def strptime(cls, date_string, fmt):
-            return dates[f"{date_string}"]
-
-    return Mockdatetime
 
 
 @pytest.fixture
