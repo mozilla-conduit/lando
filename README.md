@@ -178,6 +178,7 @@ and restore the default with
 
 ## Coding Conventions
 
+- Add type hints on for function signatures and return types everywhere possible. Type hints are enforced by `ruff` with `ANN` rules. Avoid writing code which accepts multiple types where possible, and instead prefer to use a specific type. For example, instead of adding a method which takes values as `str | int`, choose either `str` or `int` and update the code to appropriately convert types.
 - Always add assert messages in tests: `assert a == b, "a and b should be equal"`. Where possible, comments surrounding assert statements should instead become assert messages.
 - Avoid `getattr` and `hasattr`. Referencing attributes directly enables LSP features (go-to-references, rename) and avoids "stringly typed" patterns. Prefer direct attribute access and explicit checks.
 - Add docstrings to functions by default. Even a short one-line docstring is preferred to no docstring.
