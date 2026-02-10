@@ -1,6 +1,6 @@
 # Lando
 
-Lando is a Django 5.0 application that applies patches from Phabricator and GitHub pull requests and pushes them to Git and Mercurial repositories. It integrates with Mozilla services (Phabricator, Treestatus, Treeherder) and uses Celery workers for async operations.
+Lando is a Django application that applies patches from Phabricator and GitHub pull requests and pushes them to Git and Mercurial repositories. It integrates with Mozilla services (Phabricator, Treestatus, Treeherder) and uses Celery workers for async operations. See `pyproject.toml` for the Django version and other Python dependencies.
 
 This application runs at: https://lando.moz.tools/
 
@@ -36,11 +36,11 @@ OIDC via Auth0 (`mozilla_django_oidc`) with Django model backend fallback. API a
 
 ### Frontend
 
-Jinja2 templates (primary) with Django Compressor for asset pipeline. Uses **Bulma 1.0.4** and **FontAwesome 4.7.0** — use APIs from these specific versions.
+Jinja2 templates (primary) with Django Compressor for asset pipeline. Uses Bulma (version in `package.json`) and FontAwesome (vendored in `src/lando/static_src/legacy/vendor/`) — use APIs from the specific versions pinned in those files.
 
 ### Database
 
-PostgreSQL 17. Models inherit from `BaseModel` (provides `created_at`/`updated_at`). Migrations live in each app's `migrations/` directory and auto-run on `docker compose up`.
+PostgreSQL (version in `compose.yaml`). Models inherit from `BaseModel` (provides `created_at`/`updated_at`). Migrations live in each app's `migrations/` directory and auto-run on `docker compose up`.
 
 ## Code Layout
 
