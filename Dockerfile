@@ -42,11 +42,13 @@ WORKDIR /code
 COPY requirements.txt /code/requirements.txt
 RUN pip install -r /code/requirements.txt
 
+# Install npm dependencies (Bulma and Dart Sass) outside of /code so that
+# the compose volume mount (./:/code) doesn't hide them.
+COPY package.json package-lock.json /deps/
+RUN npm install --prefix /deps
+
 # Copy code into the container.
 COPY ./ /code
-
-# Install npm dependencies (Bulma and Dart Sass).
-RUN npm install
 
 RUN mkdir -p /code/.ruff_cache
 RUN chown -R app /code/.ruff_cache
