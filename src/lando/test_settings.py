@@ -26,3 +26,12 @@ DEFAULT_FROM_EMAIL = "Lando <lando@lando.test>"
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 LANDING_WORKER_DEFAULT_GRACE_SECONDS = 0
+
+# Disable django-compressor's SCSS compilation in tests. Both settings are
+# needed: render_compressed only skips compilation when COMPRESS_ENABLED is
+# False *and* COMPRESS_PRECOMPILERS is empty. Without clearing precompilers,
+# the compress template tag still invokes `npx sass --load-path=node_modules`,
+# which fails when node_modules is not present (e.g. local Docker via volume
+# mount hiding the image's node_modules).
+COMPRESS_ENABLED = False
+COMPRESS_PRECOMPILERS = ()
