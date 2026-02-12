@@ -170,7 +170,6 @@ class AddCommitAction(Schema):
             )
         except Exception as exc:
             message = f"Aborting, could not apply patch buffer from `add-commit` action #{index}."
-            logger.exception(message)
             raise AutomationActionException(
                 message=message, job_action=JobAction.FAIL, is_fatal=False
             ) from exc
@@ -204,7 +203,6 @@ class AddCommitBase64Action(Schema):
             scm.apply_patch_git(patch_bytes)
         except Exception as exc:
             message = f"Aborting, could not apply patch in `add-commit-base64` action #{index}."
-            logger.exception(message)
             raise AutomationActionException(
                 message=message, job_action=JobAction.FAIL, is_fatal=True
             ) from exc
@@ -243,7 +241,6 @@ class CreateCommitAction(Schema):
             )
         except Exception as exc:
             message = f"Aborting, could not create commit from `create-commit` action #{index}."
-            logger.exception(message)
             raise AutomationActionException(
                 message=message, job_action=JobAction.FAIL, is_fatal=True
             ) from exc
@@ -280,7 +277,6 @@ class MergeOntoAction(Schema):
             )
         except Exception as exc:
             message = f"Aborting, could not perform `merge-onto`, action #{index}."
-            logger.exception(message)
             raise AutomationActionException(
                 message=message, job_action=JobAction.FAIL, is_fatal=True
             ) from exc
@@ -303,7 +299,6 @@ class TagAction(Schema):
             scm.tag(name=self.name, target=self.target)
         except Exception as exc:
             message = f"Aborting, could not perform `tag`, action #{index}"
-            logger.exception(message)
             raise AutomationActionException(
                 message=message, job_action=JobAction.FAIL, is_fatal=True
             ) from exc
