@@ -277,6 +277,15 @@ class MergeOntoAction(Schema):
                 target=self.target,
                 strategy=self.strategy,
             )
+        except PatchConflict as exc:
+            message = (
+                f"Merge conflict while applying patch in `merge-onto`, "
+                f"action #{index}.\n\n"
+                f"{str(exc)}"
+            )
+            raise AutomationActionException(
+                message=message, job_action=JobAction.FAIL, is_fatal=False
+            )
         except Exception as exc:
             message = (
                 f"Aborting, could not perform `merge-onto`, action #{index}.\n{exc}"
