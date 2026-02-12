@@ -48,3 +48,8 @@ jobs:
           lando collectstatic --clear --no-input
           lando migrate
           lando tests
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage-report
+          path: htmlcov
