@@ -168,15 +168,11 @@ class AddCommitAction(Schema):
             raise AutomationActionException(
                 message=message, job_action=JobAction.FAIL, is_fatal=False
             )
-        except Exception as e:
-            message = (
-                f"Aborting, could not apply patch buffer from `add-commit`, "
-                f"action #{index}."
-                f"\n{e}"
-            )
+        except Exception as exc:
+            message = f"Aborting, could not apply patch buffer from `add-commit` action #{index}."
             raise AutomationActionException(
                 message=message, job_action=JobAction.FAIL, is_fatal=False
-            )
+            ) from exc
 
         return True
 
@@ -206,13 +202,10 @@ class AddCommitBase64Action(Schema):
         try:
             scm.apply_patch_git(patch_bytes)
         except Exception as exc:
-            message = (
-                f"Aborting, could not apply patch in `add-commit-base64` action #{index}."
-                f"\n{exc}"
-            )
+            message = f"Aborting, could not apply patch in `add-commit-base64` action #{index}."
             raise AutomationActionException(
                 message=message, job_action=JobAction.FAIL, is_fatal=True
-            )
+            ) from exc
 
         return True
 
@@ -246,15 +239,11 @@ class CreateCommitAction(Schema):
             raise AutomationActionException(
                 message=message, job_action=JobAction.FAIL, is_fatal=True
             )
-        except Exception as e:
-            message = (
-                f"Aborting, could not create commit from `create-commit`, "
-                f"action #{index}."
-                f"\n{e}"
-            )
+        except Exception as exc:
+            message = f"Aborting, could not create commit from `create-commit` action #{index}."
             raise AutomationActionException(
                 message=message, job_action=JobAction.FAIL, is_fatal=True
-            )
+            ) from exc
 
         return True
 
@@ -287,9 +276,7 @@ class MergeOntoAction(Schema):
                 message=message, job_action=JobAction.FAIL, is_fatal=False
             )
         except Exception as exc:
-            message = (
-                f"Aborting, could not perform `merge-onto`, action #{index}.\n{exc}"
-            )
+            message = f"Aborting, could not perform `merge-onto`, action #{index}."
             raise AutomationActionException(
                 message=message, job_action=JobAction.FAIL, is_fatal=True
             ) from exc
@@ -311,10 +298,10 @@ class TagAction(Schema):
         try:
             scm.tag(name=self.name, target=self.target)
         except Exception as exc:
-            message = f"Aborting, could not perform `tag`, action #{index}\n{exc}"
+            message = f"Aborting, could not perform `tag`, action #{index}"
             raise AutomationActionException(
                 message=message, job_action=JobAction.FAIL, is_fatal=True
-            )
+            ) from exc
 
         return True
 
