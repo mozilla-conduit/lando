@@ -200,6 +200,9 @@ class GitHubAPIClient:
             ret = self._get(
                 f"{self.repo_base_url}/{subpath}?page={page}", *args, **kwargs
             )
+            # Loop termination case.
+            if not ret:
+                return
             if not isinstance(ret, list):
                 raise ValueError(
                     f"Non-list data returned for paginated request to {subpath}"
