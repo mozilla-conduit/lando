@@ -16,6 +16,7 @@ from lando.utils.landing_checks import (
     LandingChecks,
     PatchCollectionAssessor,
     PreventDotGithubCheck,
+    PreventHgDirectoryCheck,
     PreventNSPRNSSCheck,
     PreventSubmodulesCheck,
     TryTaskConfigCheck,
@@ -310,6 +311,22 @@ def test_check_prevent_dot_github():
     assert (
         prevent_dot_github_check.result() is None
     ), "Check should allow changes to GitHub workflows with proper commit message."
+
+
+def test_check_prevent_hg_directory():
+    parsed_diff = rs_parsepatch.get_diffs(
+        GIT_DIFF_FILENAME_TEMPLATE.format(filename=".hg/hgrc")
+    )
+    prevent_hg_directory_check = PreventHgDirectoryCheck(
+        email="testuser@mozilla.com",
+        commit_message=COMMIT_MESSAGE,
+    )
+    for diff in parsed_diff:
+        prevent_hg_directory_check.next_diff(diff)
+    assert (
+        prevent_hg_directory_check.result()
+        == "Patch attempts to modify repository metadata: `.hg/hgrc`"
+    ), "Check should not allow changes to .hg directory"
 
 
 def test_check_prevent_nspr_nss_missing_fields():

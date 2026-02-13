@@ -227,7 +227,11 @@ def post(phab: PhabricatorClient, user: User, data: dict) -> tuple[dict[str, int
             extra={
                 "landing_path": str(landing_path),
                 "warnings": [
-                    {"i": w.i, "revision_id": w.revision_id, "details": w.details}
+                    {
+                        "display": w.display,
+                        "revision_id": w.revision_id,
+                        "details": w.details,
+                    }
                     for w in assessment.warnings
                 ],
             },
@@ -333,7 +337,7 @@ def post(phab: PhabricatorClient, user: User, data: dict) -> tuple[dict[str, int
         ]
     )
     stack_ids = [revision.revision_id for revision in lando_revisions]
-    with LandingJob.lock_table:
+    with LandingJob.lock_table():
         if (
             LandingJob.revisions_query(stack_ids)
             .filter(status__in=([JobStatus.SUBMITTED, JobStatus.IN_PROGRESS]))

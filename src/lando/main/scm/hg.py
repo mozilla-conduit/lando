@@ -2,6 +2,7 @@ import copy
 import io
 import logging
 import os
+import posixpath
 import re
 import shlex
 import shutil
@@ -349,7 +350,7 @@ class HgSCM(AbstractSCM):
             diff = f.read()
 
         parsed_diff = rs_parsepatch.get_diffs(diff)
-        filenames = [d["filename"] for d in parsed_diff]
+        filenames = [posixpath.normpath(d["filename"]) for d in parsed_diff]
 
         if any(f == ".hg" or f.startswith(".hg/") for f in filenames):
             raise ValueError("Patch modifies forbidden path.")

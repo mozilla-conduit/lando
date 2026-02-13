@@ -1,5 +1,4 @@
 import json
-from datetime import datetime, timezone
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -28,8 +27,6 @@ from lando.api.legacy.transplants import (
 )
 from lando.api.tests.mocks import PhabricatorDouble
 from lando.main.models import (
-    DONTBUILD,
-    SCM_CONDUIT,
     JobStatus,
     LandingJob,
     Repo,
@@ -252,117 +249,7 @@ def test_dryrun_reviewers_warns(
     )
 
     assert result["warnings"]
-    assert result["warnings"][0]["id"] == 0
     assert result["confirmation_token"] is not None
-
-
-@pytest.mark.django_db(transaction=True)
-def test_dryrun_codefreeze_warn(
-    user,
-    phabdouble,
-    codefreeze_datetime,
-    monkeypatch,
-    request_mocker,
-    mocked_repo_config,
-    release_management_project,
-    needs_data_classification_project,
-):
-    product_details = "https://product-details.mozilla.org/1.0/firefox_versions.json"
-    request_mocker.register_uri(
-        "GET",
-        product_details,
-        json={
-            "NEXT_SOFTFREEZE_DATE": "two_days_ago",
-            "NEXT_MERGE_DATE": "tomorrow",
-        },
-    )
-    monkeypatch.setattr("lando.api.legacy.transplants.datetime", codefreeze_datetime())
-    mc_repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="mozilla-conduit",
-        url="https://hg.test/mozilla-conduit",
-        required_permission=SCM_CONDUIT,
-        commit_flags=[DONTBUILD],
-        product_details_url=product_details,
-    )
-    mc_mock = MagicMock()
-    mc_mock.return_value = {"mozilla-central": mc_repo}
-    monkeypatch.setattr("lando.main.models.Repo.get_mapping", mc_mock)
-
-    d1 = phabdouble.diff()
-    r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
-    phabdouble.reviewer(
-        r1, phabdouble.user(username="reviewer"), status=ReviewerStatus.ACCEPTED
-    )
-
-    result = legacy_api_transplants.dryrun(
-        phabdouble.get_phabricator_client(),
-        user,
-        {
-            "landing_path": [
-                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
-            ]
-        },
-    )
-
-    assert result[
-        "warnings"
-    ], "warnings should not be empty for a repo under code freeze"
-    assert (
-        result["warnings"][0]["id"] == 8
-    ), "the warning ID should match the ID for warning_code_freeze"
-    assert result["confirmation_token"] is not None
-
-
-@pytest.mark.django_db(transaction=True)
-def test_dryrun_outside_codefreeze(
-    user,
-    phabdouble,
-    codefreeze_datetime,
-    monkeypatch,
-    request_mocker,
-    release_management_project,
-    needs_data_classification_project,
-):
-    product_details = "https://product-details.mozilla.org/1.0/firefox_versions.json"
-    request_mocker.register_uri(
-        "GET",
-        product_details,
-        json={
-            "NEXT_SOFTFREEZE_DATE": "four_weeks_from_today",
-            "NEXT_MERGE_DATE": "five_weeks_from_today",
-        },
-    )
-    monkeypatch.setattr("lando.api.legacy.transplants.datetime", codefreeze_datetime())
-    mc_repo = Repo.objects.create(
-        scm_type=SCM_TYPE_HG,
-        name="mozilla-conduit",
-        url="https://hg.test/mozilla-conduit",
-        required_permission=SCM_CONDUIT,
-        commit_flags=[DONTBUILD],
-        product_details_url=product_details,
-    )
-    mc_mock = MagicMock()
-    mc_mock.return_value = {"mozilla-central": mc_repo}
-    monkeypatch.setattr("lando.main.models.Repo.get_mapping", mc_mock)
-
-    d1 = phabdouble.diff()
-    r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
-    phabdouble.reviewer(
-        r1, phabdouble.user(username="reviewer"), status=ReviewerStatus.ACCEPTED
-    )
-
-    result = legacy_api_transplants.dryrun(
-        phabdouble.get_phabricator_client(),
-        user,
-        {
-            "landing_path": [
-                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
-            ]
-        },
-    )
-
-    assert not result["warnings"]
 
 
 # auth related issue, blockers empty.
@@ -693,11 +580,11 @@ def test_warning_reviews_not_current_no_warning_on_accepted_diff(
 
 def test_confirmation_token_warning_order():
     warnings_a = [
-        RevisionWarning(0, "W0", 123, "Details123"),
-        RevisionWarning(0, "W0", 124, "Details124"),
-        RevisionWarning(1, "W1", 123, "Details123"),
-        RevisionWarning(3, "W3", 13, "Details3"),
-        RevisionWarning(1000, "W1000", 13, "Details3"),
+        RevisionWarning("W0", 123, "Details123"),
+        RevisionWarning("W0", 124, "Details124"),
+        RevisionWarning("W1", 123, "Details123"),
+        RevisionWarning("W3", 13, "Details3"),
+        RevisionWarning("W1000", 13, "Details3"),
     ]
     warnings_b = [
         warnings_a[3],
@@ -1424,12 +1311,6 @@ def test_warning_wip_commit_message(phabdouble, create_state):
     assert warning_wip_commit_message(revision, {}, stack_state) is not None
 
 
-def test_codefreeze_datetime_mock(codefreeze_datetime):
-    dt = codefreeze_datetime()
-    assert dt.now(tz=timezone.utc) == datetime(2000, 1, 5, 0, 0, 0, tzinfo=timezone.utc)
-    assert dt.strptime("tomorrow -0800", fmt="") == datetime(2000, 1, 6, 0, 0, 0)
-
-
 @pytest.mark.django_db(transaction=True)
 def test_unresolved_comment_warn(
     user,
@@ -1494,8 +1375,8 @@ def test_unresolved_comment_warn(
         "warnings"
     ], "warnings should not be empty for a revision with unresolved comments"
     assert (
-        result["warnings"][0]["id"] == 9
-    ), "the warning ID should match the ID for warning_unresolved_comments"
+        result["warnings"][0]["display"] == "Revision has unresolved comments."
+    ), "the warning display should match warning_unresolved_comments"
 
 
 @pytest.mark.django_db(transaction=True)
@@ -1565,8 +1446,8 @@ def test_unresolved_comment_stack(
         "warnings"
     ], "warnings should not be empty for a stack with unresolved comments"
     assert (
-        result["warnings"][0]["id"] == 9
-    ), "the warning ID should match the ID for warning_unresolved_comments"
+        result["warnings"][0]["display"] == "Revision has unresolved comments."
+    ), "the warning display should match warning_unresolved_comments"
 
 
 @pytest.mark.django_db
