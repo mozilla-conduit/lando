@@ -261,7 +261,7 @@ class GitHubAPIClient:
 
     def get_pull_request_commits(self, pull_number: int) -> list[dict]:
         """Get all commits from specific pull request from the repo."""
-        return self._repo_get(f"pulls/{pull_number}/commits")
+        return list(self._repo_get(f"pulls/{pull_number}/commits", paginated=True))
 
     def get_pull_request_commits_comments(self, pull_number: int) -> list:
         """Return a list of comments on specific changes of the PR."""

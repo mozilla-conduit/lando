@@ -90,13 +90,23 @@ def mock_github_api_get(
                     },
                 ),
             },
-            f"repos/{repo}/pulls/{pr_no}/commits": mock_response(
+            f"repos/{repo}/pulls/{pr_no}/commits?page=0": mock_response(
                 text=pr_commits_response,
                 headers={
                     "content-type": "application/json; charset=utf-8",
                 },
             ),
+            f"repos/{repo}/pulls/{pr_no}/commits?page=1": mock_response(
+                text="[]",
+                headers={
+                    "content-type": "application/json; charset=utf-8",
+                },
+            ),
         }
+        # Unpaged request gives out the first page.
+        response_map[f"repos/{repo}/pulls/{pr_no}/commits"] = response_map[
+            f"repos/{repo}/pulls/{pr_no}/commits?page=0"
+        ]
 
         def _mock_api_get(url: str, headers: dict = dict, **kwargs) -> Response:
             # We don't use 'get' here, as we'd rather it failed loudly if something's
@@ -397,6 +407,44 @@ def test_api_client_build_pr(
     assert pr.patch == github_pr_patch
     assert github_api_client.get_patch.call_count == 1
     assert github_api_client.get_patch.call_args.args == (1,)
+
+
+@mock.patch("lando.utils.github.GitHub._fetch_token")
+@mock.patch("lando.utils.github.GitHub.parse_url")
+def test_api_client_get_pull_request_commits(
+    parse_url: mock.Mock, fetch_token: mock.Mock
+):
+
+    parse_url.return_value = {"owner": "owner", "repo": "repo", "userinfo": ""}
+    fetch_token.return_value = "token"
+
+    github_api_client = GitHubAPIClient("https://github.example.com/owner/repo")
+
+    github_api_client._get = mock.MagicMock()
+    github_api_client._get.side_effect = [
+        [{"sha": "commit_11"}, {"sha": "commit_12"}],
+        [{"sha": "commit_21"}, {"sha": "commit_22"}],
+        [],
+    ]
+
+    # We use list() to consume all the iterator
+    commits = list(github_api_client.get_pull_request_commits(1))
+
+    assert (
+        github_api_client._get.call_count == 3
+    ), "GitHubAPIClient._get not called as many times as expected"
+
+    page = 0
+    for args in github_api_client._get.call_args_list:
+        assert f"?page={page}" in args[0][0], f"Incorrect page request in {args[0][0]}"
+        page += 1
+
+    assert commits == [
+        {"sha": "commit_11"},
+        {"sha": "commit_12"},
+        {"sha": "commit_21"},
+        {"sha": "commit_22"},
+    ], "Unexpected commit data"
 
 
 @pytest.fixture
