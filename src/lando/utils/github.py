@@ -193,15 +193,13 @@ class GitHubAPIClient:
 
         # We need to call a separate method here, so our method doesn't unconditionally
         # returns a generator due to the presence of a yield.
-        return self._paginated_repo_get(subpath)
+        return self._paginated_repo_get(subpath, *args, **kwargs)
 
     def _paginated_repo_get(self, subpath: str, *args, **kwargs) -> Iterator:
         for page in count():
             ret = self._get(
                 f"{self.repo_base_url}/{subpath}?page={page}", *args, **kwargs
             )
-            if not ret:
-                return
             if not isinstance(ret, list):
                 raise ValueError(
                     f"Non-list data returned for paginated request to {subpath}"
