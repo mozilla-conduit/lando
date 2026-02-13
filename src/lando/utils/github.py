@@ -4,8 +4,10 @@ import logging
 import math
 import re
 from collections import Counter
+from collections.abc import Iterator
 from datetime import datetime
 from enum import Enum
+from itertools import count
 
 import requests
 from django.conf import settings
@@ -169,7 +171,9 @@ class GitHubAPIClient:
     def repo_name(self) -> str:
         return self._api.repo_name
 
-    def _repo_get(self, subpath: str, *args, **kwargs) -> dict | list:
+    def _repo_get(
+        self, subpath: str, paginated: bool = False, *args, **kwargs
+    ) -> dict | Iterator:
         """Get API endpoint scoped to the repo_base_url.
 
         Parameters:
@@ -177,10 +181,34 @@ class GitHubAPIClient:
         subpath: str
             Relative path without leading `/`.
 
+        paginated: bool
+            Whether to return an Iterator that uses the GitHub API pagination system to
+            fetch more data (this will only work for API endpoints that return JSON array).
+
         Return:
-            dist | list: decoded JSON from the response
+            dict | Iterator: decoded JSON from the response
         """
-        return self._get(f"{self.repo_base_url}/{subpath}", *args, **kwargs)
+        if not paginated:
+            return self._get(f"{self.repo_base_url}/{subpath}", *args, **kwargs)
+
+        # We need to call a separate method here, so our method doesn't unconditionally
+        # returns a generator due to the presence of a yield.
+        return self._paginated_repo_get(subpath, *args, **kwargs)
+
+    def _paginated_repo_get(self, subpath: str, *args, **kwargs) -> Iterator:
+        for page in count():
+            ret = self._get(
+                f"{self.repo_base_url}/{subpath}?page={page}", *args, **kwargs
+            )
+            # Loop termination case.
+            if not ret:
+                return
+            if not isinstance(ret, list):
+                raise ValueError(
+                    f"Non-list data returned for paginated request to {subpath}"
+                )
+            for value in ret:
+                yield value
 
     def _get(self, path: str, *args, **kwargs) -> dict | list | str | None:
         result = self._api.get(path, *args, **kwargs)
