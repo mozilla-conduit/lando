@@ -7,44 +7,15 @@ on:
   workflow_dispatch:
 
 jobs:
-  run-tests:
+  build-and-run-tests:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:latest
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options:
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - name: Install dependencies
-        run: |
-          python -m venv env
-          source env/bin/activate
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install -e .
-          npm install
+      - name: Build
+        run: docker build -t lando .
       - name: Test
         env:
           DEFAULT_DB_HOST: 127.0.0.1
         run: |
-          source env/bin/activate
-          lando collectstatic --clear --no-input
-          lando migrate
-          lando tests
+          echo "version = \"0.0.0\"" > src/lando/version.py
+          make test

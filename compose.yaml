@@ -28,7 +28,8 @@ services:
       - ./:/code
       - media:/files/
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       DEFAULT_DB_HOST: db
     depends_on:
@@ -51,7 +52,8 @@ services:
         gtbfIaZbhDcJElzHwpnqGfHYU+cM4KyurA==
         -----END EC PRIVATE KEY-----
     env_file:
-      - .env
+      - path: .env
+        required: false
     depends_on:
       db:
         condition: service_healthy
@@ -63,7 +65,8 @@ services:
       DEFAULT_GRACE_SECONDS: 10
       LANDING_WORKER_USERNAME: app
     env_file:
-      - .env
+      - path: .env
+        required: false
     depends_on:
       db:
         condition: service_healthy
