@@ -4,7 +4,7 @@ FROM node:20-slim AS node
 # Copy Rust from official image to avoid running third-party install scripts.
 FROM rust:1.84-slim AS rust
 
-FROM python:3.11
+FROM python:3.12-bookworm
 
 EXPOSE 80
 ENV PYTHONUNBUFFERED=1
@@ -41,6 +41,10 @@ RUN pip install --upgrade pip setuptools
 WORKDIR /code
 COPY requirements.txt /code/requirements.txt
 RUN pip install -r /code/requirements.txt
+
+# Install mercurial
+RUN apt-get update
+RUN apt-get install -y mercurial=6.3.2-1+deb12u1
 
 # Install npm dependencies (Bulma and Dart Sass) outside of /code so that
 # the compose volume mount (./:/code) doesn't hide them.
