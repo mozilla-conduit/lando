@@ -1063,9 +1063,9 @@ glean-sdk==65.2.3 \
     --hash=sha256:f8346bd5938218906ad572ab82c5fd4468481dda6a2ba41e5fbe67c9383bbcf9 \
     --hash=sha256:fdb39d22e2a6c095ec8990b71b2eb833cbde4a807e8032a4ae218a2983eb23bd
     # via mozphab
-google-api-core==2.29.0 \
-    --hash=sha256:84181be0f8e6b04006df75ddfe728f24489f0af57c96a529ff7cf45bc28797f7 \
-    --hash=sha256:d30bc60980daa36e314b5d5a3e5958b0200cb44ca8fa1be2b614e932b75a3ea9
+google-api-core==2.30.0 \
+    --hash=sha256:02edfa9fab31e17fc0befb5f161b3bf93c9096d99aed584625f38065c511ad9b \
+    --hash=sha256:80be49ee937ff9aba0fd79a6eddfde35fe658b9953ab9b79c57dd7061afa8df5
     # via
     #   google-cloud-core
     #   google-cloud-storage
