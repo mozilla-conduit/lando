@@ -800,6 +800,17 @@ def mocked_repo_config(mock_repo_config):
         required_permission=SCM_LEVEL_3,
         commit_flags=[("VALIDFLAG1", "testing"), ("VALIDFLAG2", "testing")],
     )
+    Repo.objects.create(
+        scm_type=SCMType.HG,
+        name="try",
+        url="http://hg.test/try",
+        push_path="http://hg.test/try",
+        pull_path="http://hg.test",
+        required_permission=SCM_LEVEL_1,
+        short_name="try",
+        is_phabricator_repo=False,
+        force_push=True,
+    )
     # Copied from legacy "local-dev". Should have been in mocked repos.
     Repo.objects.create(
         scm_type=SCMType.HG,
