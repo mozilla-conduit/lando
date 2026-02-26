@@ -4,7 +4,7 @@ FROM node:20-slim AS node
 # Copy Rust from official image to avoid running third-party install scripts.
 FROM rust:1.84-slim AS rust
 
-FROM python:3.11
+FROM python:3.12-bookworm
 
 EXPOSE 80
 ENV PYTHONUNBUFFERED=1
@@ -18,6 +18,10 @@ RUN addgroup --gid 10001 app \
         --home /app \
         --gecos "app,,," \
         app
+
+# Install mercurial
+RUN apt-get update
+RUN apt-get install -y mercurial=6.3.2-1+deb12u1
 
 # Copy Node.js and npm from the official node image.
 COPY --from=node /usr/local/bin/node /usr/local/bin/
