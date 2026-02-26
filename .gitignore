@@ -6,7 +6,6 @@
 __pycache__
 env
 staticfiles
-src/lando/version.py
 .test-use-suite
 .coverage*
 node_modules

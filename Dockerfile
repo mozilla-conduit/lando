@@ -50,6 +50,9 @@ RUN npm install --prefix /deps
 # Copy code into the container.
 COPY ./ /code
 
+# Create an empty directory to store version info.
+RUN mkdir -p /code/src/lando/version
+
 RUN mkdir -p /code/.ruff_cache
 RUN chown -R app /code/.ruff_cache
 
