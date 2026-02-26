@@ -82,6 +82,12 @@ class LandingWorker(Worker):
             job.id,
         )
 
+    def get_next_job(self) -> LandingJob:
+        """Return the next job in the queue from all enabled repositories."""
+        # NOTE: This could include DEFERRED jobs that were deferred due to a
+        # closed tree.
+        return self.job_type.next_job(repositories=self.enabled_repos).first()
+
     @override
     def run_job(self, job: LandingJob) -> bool:
         """Run a given LandingJob and return appropriate boolean state.

@@ -1427,11 +1427,15 @@ def test_handover_landing_job(
     assert job.skip_treestatus_check
     assert job.target_repo == git_repo
 
-    next_job = git_worker.job_type.next_job(
-        repositories=git_worker.active_repos
-    ).first()
+    assert LandingJob.objects.all().count() == 1
+
+    next_git_job = git_worker.get_next_job()
+
+    next_hg_job = hg_worker.get_next_job()
+
     assert not job.is_handed_over
-    assert next_job == job
+    assert next_git_job == job
+    assert next_hg_job is None
     git_worker.start(max_loops=1)
     job.refresh_from_db()
     assert job.status == JobStatus.DEFERRED, job.error
@@ -1439,23 +1443,23 @@ def test_handover_landing_job(
     assert job.is_handed_over
     assert job.target_repo == try_repo
     assert job.attempts == 1
-
-    next_job = hg_worker.job_type.next_job(repositories=hg_worker.active_repos).first()
     assert not job.skip_treestatus_check
+
+    next_git_job = git_worker.get_next_job()
+    next_hg_job = hg_worker.get_next_job()
+
+    assert next_git_job is None
 
     patch = job.revisions[0].patch
     expected = TRY_TASK_CONFIG_DIFF_SNIPPET.format(git_repo.normalized_url)
     assert patch.endswith(expected)
 
+    assert next_hg_job == job
+    hg_worker.start(max_loops=1)
+    job.refresh_from_db()
+    assert job.attempts == 2
+
     if "try" in closed_repos:
-        assert next_job is None
-        hg_worker.start(max_loops=1)
-        job.refresh_from_db()
         assert job.status == JobStatus.DEFERRED, job.error
-        assert job.attempts == 1
     else:
-        assert next_job == job
-        hg_worker.start(max_loops=1)
-        job.refresh_from_db()
-        assert job.attempts == 2
         assert job.status == JobStatus.LANDED, job.error

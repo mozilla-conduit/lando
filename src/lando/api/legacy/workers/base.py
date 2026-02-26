@@ -188,6 +188,10 @@ class Worker(ABC):
 
         logger.info(f"{self} exited after {loops} loops.")
 
+    def get_next_job(self) -> BaseJob:
+        """Return the next job in the queue from active repositories."""
+        return self.job_type.next_job(repositories=self.active_repos).first()
+
     def loop(self):
         """Fetch jobs and processes them.
 
@@ -211,9 +215,9 @@ class Worker(ABC):
             self.refresh_active_repos()
 
         with transaction.atomic():
-            job = self.job_type.next_job(repositories=self.active_repos).first()
+            job = self.get_next_job()
 
-        if job is None:
+        if job is None or job.status is JobStatus.DEFERRED:
             self.throttle(self.worker_instance.sleep_seconds)
             return
 
