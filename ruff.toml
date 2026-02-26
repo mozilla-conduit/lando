@@ -16,6 +16,7 @@ exclude = [
     ".git",
     ".hg",
     "__pycache__",
+    "src/lando/version/__init__.py",
 ]
 
 [lint.isort]
