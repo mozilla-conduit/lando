@@ -104,7 +104,7 @@ $.fn.stack = function() {
                 } else if (["created", "submitted", "in_progress", "deferred"].includes(result.status)) {
                     var message = "Landing job submitted"
                     pull_request_button.prop("disabled", true);
-                    pull_request_button.removeClass("is-loading");
+                    pull_request_button.removeClass("is-loading has-text-white");
                     pull_request_button.html(message);
                     $("#blockers").html(`${message}.`);
                     $("#warnings").html(`${message}.`);
