@@ -1775,6 +1775,7 @@ class PhabricatorDouble:
                 "phid": i["phid"],
                 "userName": i["userName"],
                 "realName": i["realName"],
+                "primaryEmail": i["email"],
                 "image": i["image"],
                 "uri": i["uri"],
                 "roles": i["roles"],
