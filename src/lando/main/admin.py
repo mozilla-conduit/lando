@@ -88,6 +88,16 @@ class ReadOnlyInline(admin.TabularInline):
         return self.can_delete
 
 
+class RepoWorkersInline(ReadOnlyInline):
+    model = Worker.applicable_repos.through
+    _target_object = "worker"
+
+
+class WorkerReposInline(ReadOnlyInline):
+    model = Repo.worker_set.through
+    _target_object = "repo"
+
+
 class RevisionLandingJobInline(admin.TabularInline):
     model = RevisionLandingJob
     fields = ("revision", "commit_id")
@@ -333,16 +343,12 @@ class RepoAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "scm_type",
-        "system_path",
-        "pull_path",
-        "push_path",
-        "required_permission",
-        "short_name",
+        "worker_count",
         "url",
-        "created_at",
+        "required_permission",
         "updated_at",
     )
-
+    inlines = (RepoWorkersInline,)
     readonly_fields = (
         "commit_flags",
         "system_path",
@@ -363,6 +369,10 @@ class RepoAdmin(admin.ModelAdmin):
                 choices=Repo.HooksChoices,
             )
         return super().formfield_for_dbfield(db_field, request, **kwargs)
+
+    def worker_count(self, instance: Repo) -> int:
+        """Return the count of repositories associated to the Worker."""
+        return instance.worker_set.count()
 
 
 class CommitMapAdmin(admin.ModelAdmin):
@@ -412,9 +422,9 @@ class WorkerAdmin(admin.ModelAdmin):
         "repo_count",
         "is_paused",
         "is_stopped",
-        "created_at",
         "updated_at",
     )
+    inlines = (WorkerReposInline,)
     readonly_fields = (
         "created_at",
         "updated_at",

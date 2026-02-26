@@ -1,5 +1,4 @@
 from django.contrib import admin
-from django.core.handlers.wsgi import WSGIRequest
 from django.urls import reverse
 
 from lando.headless_api.models.automation_job import AutomationAction, AutomationJob
