@@ -42,9 +42,12 @@ from lando.treestatus.views.ui import (
 from lando.try_api.api import (
     api as try_api,
 )
+from lando.try_api.api import (
+    legacy_api as legacy_try_api,
+)
 from lando.ui import jobs, pull_requests
 from lando.ui.legacy import pages, revisions, user_settings
-from lando.utils.auth import api as auth_api
+from lando.utils.ninja_auth import api as auth_api
 
 urlpatterns = [
     path("", include("lando.dockerflow.urls", "dockerflow")),
@@ -187,4 +190,9 @@ urlpatterns += [
 ]
 
 # Try endpoints.
-urlpatterns += [path("try/", try_api.urls, name="try")]
+urlpatterns += [
+    # New path, as per bug 1990111.
+    path("api/try/", try_api.urls, name="try"),
+    # Deprecated backward-compatible path.
+    path("try/", legacy_try_api.urls, name="legacy_try"),
+]

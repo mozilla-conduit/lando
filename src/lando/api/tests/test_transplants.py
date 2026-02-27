@@ -1,10 +1,10 @@
 import json
+from typing import Any, Callable
 from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
 from django.contrib.auth.models import Permission
-from typing_extensions import Any, Callable
 
 from lando.api.legacy.api import transplants as legacy_api_transplants
 from lando.api.legacy.transplants import (
@@ -261,7 +261,7 @@ def test_dryrun_reviewers_warns(
             (),  # No permissions
             200,
             "You have insufficient permissions to land or your access has expired. "
-            "main.scm_level_3 is required. See the FAQ for help.",
+            + "main.scm_level_3 is required. See the FAQ for help.",
         ),
     ],
 )
