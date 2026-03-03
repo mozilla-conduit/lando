@@ -162,7 +162,6 @@ class Repo(BaseModel):
     force_push = models.BooleanField(default=False)
     is_phabricator_repo = models.BooleanField(default=True)
     milestone_tracking_flag_template = models.CharField(blank=True, default="")
-    product_details_url = models.CharField(blank=True, default="")
 
     # By default, override any attribute forcing files to be displayed as diffs (rather
     # than binaries).

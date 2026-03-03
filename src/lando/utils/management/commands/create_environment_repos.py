@@ -52,7 +52,6 @@ REPOS = {
             "name": "test-repo",
             "url": "http://hg.test/test-repo",
             "required_permission": SCM_LEVEL_1,
-            "product_details_url": "http://product-details.test/1.0/firefox_versions.json",
         },
         {
             "name": "first-repo",
@@ -149,8 +148,6 @@ REPOS = {
             "commit_flags": [DONTBUILD],
             "approval_required": True,
             "milestone_tracking_flag_template": "cf_status_firefox{milestone}",
-            "product_details_url": "https://raw.githubusercontent.com/mozilla-conduit"
-            "/suite/main/docker/product-details/1.0/firefox_versions.json",
         },
         {
             "name": "large-repo",
@@ -158,8 +155,6 @@ REPOS = {
             "required_permission": SCM_CONDUIT,
             "commit_flags": [DONTBUILD],
             "milestone_tracking_flag_template": "cf_status_firefox{milestone}",
-            "product_details_url": "https://raw.githubusercontent.com/mozilla-conduit"
-            "/suite/main/docker/product-details/1.0/firefox_versions.json",
         },
         {
             "name": "vct",
