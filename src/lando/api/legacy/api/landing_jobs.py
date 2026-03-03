@@ -76,7 +76,7 @@ class LandingJobApiView(View):
         job_id = form.cleaned_data["landing_job_id"]
         status = form.cleaned_data["status"]
 
-        with LandingJob.lock_table:
+        with LandingJob.lock_table():
             try:
                 landing_job = LandingJob.objects.get(pk=job_id)
             except LandingJob.DoesNotExist:

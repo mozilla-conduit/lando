@@ -337,7 +337,7 @@ def post(phab: PhabricatorClient, user: User, data: dict) -> tuple[dict[str, int
         ]
     )
     stack_ids = [revision.revision_id for revision in lando_revisions]
-    with LandingJob.lock_table:
+    with LandingJob.lock_table():
         if (
             LandingJob.revisions_query(stack_ids)
             .filter(status__in=([JobStatus.SUBMITTED, JobStatus.IN_PROGRESS]))

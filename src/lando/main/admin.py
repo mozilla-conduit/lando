@@ -6,6 +6,7 @@ from django.db.models import Field as DbField
 from django.forms import CheckboxSelectMultiple, MultipleChoiceField
 from django.forms import Field as FormField
 from django.http import HttpRequest
+from django.urls import reverse
 from django.utils.translation import gettext_lazy
 
 from lando.main.models import (
@@ -112,9 +113,14 @@ class JobAdmin(admin.ModelAdmin):
     )
     search_fields = ("requester_email", "landed_commit_id")
 
+    def view_on_site(self, instance: LandingJob) -> str:
+        url = reverse("jobs-page", kwargs={"job_id": instance.id})
+        return url
+
 
 class LandingJobAdmin(JobAdmin):
     model = LandingJob
+
     list_display = (
         "id",
         "revisions",
@@ -250,6 +256,12 @@ class RevisionAdmin(admin.ModelAdmin):
         "updated_at",
     )
     search_fields = ("revision_id",)
+
+    def view_on_site(self, instance: Revision) -> str | None:
+        if not instance.revision_id:
+            return None
+        url = reverse("revisions-page", kwargs={"revision_id": instance.revision_id})
+        return url
 
     def revision(self, instance: Revision) -> str:
         """Return a Phabricator-like revision identifier."""

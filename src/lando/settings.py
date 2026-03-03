@@ -77,12 +77,14 @@ INSTALLED_APPS = [
     "lando.ui",
     "lando.headless_api",
     "lando.treestatus",
+    "lando.try_api",
     # Third-party apps
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
-    "django.contrib.sessions",
     "django.contrib.messages",
+    "django.contrib.postgres",
+    "django.contrib.sessions",
     "django.contrib.staticfiles",
     "compressor",
     "mozilla_django_oidc",
@@ -99,6 +101,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "mozilla_django_oidc.middleware.SessionRefresh",
+    "lando.middleware.PhabricatorTokenAuthenticationMiddleware",
     "lando.middleware.ResponseHeadersMiddleware",
     "lando.middleware.MaintenanceModeMiddleware",
     "lando.middleware.PhabricatorExceptionsMiddleware",
@@ -196,7 +199,10 @@ STATICFILES_FINDERS = [
 ]
 
 COMPRESS_PRECOMPILERS = (
-    ("text/x-scss", "npx sass --load-path=node_modules {infile} {outfile}"),
+    (
+        "text/x-scss",
+        "npx sass --load-path=/deps/node_modules --load-path=node_modules {infile} {outfile}",
+    ),
 )
 
 COMPRESS_FILTERS = {
@@ -240,6 +246,7 @@ BUGZILLA_API_KEY = os.getenv("BUGZILLA_API_KEY", "")
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
     "lando.main.auth.LandoOIDCAuthenticationBackend",
+    "lando.main.auth.PhabricatorTokenAuthenticationBackend",
 ]
 
 LINT_PATHS = (BASE_DIR,)

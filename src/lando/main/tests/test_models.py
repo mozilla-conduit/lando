@@ -8,10 +8,7 @@ from django.core.exceptions import ValidationError
 
 from lando.main.models import CommitMap, Repo
 from lando.main.models.revision import Revision
-from lando.main.scm import (
-    SCM_TYPE_GIT,
-    SCM_TYPE_HG,
-)
+from lando.main.scm import SCMType
 from lando.utils.landing_checks import (
     ALL_CHECKS,
     PreventNSPRCheck,
@@ -30,7 +27,7 @@ diff --git a/test.txt b/test.txt
 
 @pytest.mark.parametrize(
     "git_returncode,hg_returncode,scm_type",
-    ((255, 0, SCM_TYPE_HG), (0, 255, SCM_TYPE_GIT)),
+    ((255, 0, SCMType.HG), (0, 255, SCMType.GIT)),
 )
 @patch("lando.main.scm.GitSCM")
 @patch("lando.main.scm.HgSCM")
@@ -54,8 +51,8 @@ def test__models__Repo__scm(
     monkeypatch.setattr(
         "lando.main.models.repo.SCM_IMPLEMENTATIONS",
         {
-            SCM_TYPE_GIT: GitSCM,
-            SCM_TYPE_HG: HgSCM,
+            SCMType.GIT: GitSCM,
+            SCMType.HG: HgSCM,
         },
     )
 
@@ -65,14 +62,14 @@ def test__models__Repo__scm(
     assert repo.scm_type == scm_type
 
 
-@pytest.mark.parametrize("scm_type,call_count", ((SCM_TYPE_HG, 0), (SCM_TYPE_GIT, 0)))
+@pytest.mark.parametrize("scm_type,call_count", ((SCMType.HG, 0), (SCMType.GIT, 0)))
 @patch("lando.main.scm.git.subprocess")
 @patch("lando.main.scm.hg.subprocess")
 @pytest.mark.django_db(transaction=True)
 def test__models__Repo__scm_not_calculated_when_preset(
     hg_subprocess, git_subprocess, scm_type, call_count
 ):
-    subprocess_map = {SCM_TYPE_GIT: git_subprocess, SCM_TYPE_HG: hg_subprocess}
+    subprocess_map = {SCMType.GIT: git_subprocess, SCMType.HG: hg_subprocess}
     subprocess = subprocess_map[scm_type]
     repo_path = "some_hg_repo"
     repo = Repo(pull_path=repo_path, scm_type=scm_type)
@@ -107,31 +104,31 @@ def test__models__Repo__system_path_validator(path, expected_exception):
     "scm_type, url, expected_url, expected_normalized_url,",
     [
         (
-            SCM_TYPE_GIT,
+            SCMType.GIT,
             "https://github.com/mozilla-conduit/test-repo.git/",
             "https://github.com/mozilla-conduit/test-repo.git",
             "https://github.com/mozilla-conduit/test-repo",
         ),
         (
-            SCM_TYPE_GIT,
+            SCMType.GIT,
             "https://github.com/mozilla-conduit/test-repo.git",
             "https://github.com/mozilla-conduit/test-repo.git",
             "https://github.com/mozilla-conduit/test-repo",
         ),
         (
-            SCM_TYPE_GIT,
+            SCMType.GIT,
             "https://github.com/mozilla-conduit/test-repo",
             "https://github.com/mozilla-conduit/test-repo.git",
             "https://github.com/mozilla-conduit/test-repo",
         ),
         (
-            SCM_TYPE_HG,
+            SCMType.HG,
             "https://hg.mozilla.org/conduit-testing/test-repo/",
             "https://hg.mozilla.org/conduit-testing/test-repo",
             "https://hg.mozilla.org/conduit-testing/test-repo",
         ),
         (
-            SCM_TYPE_HG,
+            SCMType.HG,
             "https://hg.mozilla.org/conduit-testing/test-repo",
             "https://hg.mozilla.org/conduit-testing/test-repo",
             "https://hg.mozilla.org/conduit-testing/test-repo",
@@ -156,17 +153,17 @@ def test__models__Repo__normalized_url(
     "scm_type, url, expected_git_repo_name,",
     [
         (
-            SCM_TYPE_GIT,
+            SCMType.GIT,
             "https://github.com/mozilla-conduit/test-repo.git/",
             "test-repo",
         ),
         (
-            SCM_TYPE_GIT,
+            SCMType.GIT,
             "https://github.com/mozilla-firefox/firefox.git/",
             "firefox",
         ),
         (
-            SCM_TYPE_HG,
+            SCMType.HG,
             "https://hg.mozilla.org/conduit-testing/test-repo/",
             None,
         ),
@@ -255,7 +252,7 @@ def test__models__Revision__metadata():
 )
 def test_repo_default_branch_to_scm(branch: str, expected_branch: str):
     repo_path = "some_repo"
-    repo = Repo(pull_path=repo_path, scm_type=SCM_TYPE_GIT, default_branch=branch)
+    repo = Repo(pull_path=repo_path, scm_type=SCMType.GIT, default_branch=branch)
 
     # repo.scm here is a GitSCM
     assert repo.scm.default_branch == expected_branch

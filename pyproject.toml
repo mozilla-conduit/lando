@@ -14,16 +14,15 @@ dependencies = [
     "celery",
     "cryptography",
     "datadog",
-    "django ~= 5.0",
+    "django ~= 6.0",
     "django-auditlog",
     "django-ninja",
     "django-storages[google]",
     "django_compressor",
     "jinja2",
     "kombu",
-    "mercurial==6.1.4",
     "mots",
-    "MozPhab==2.8.0",
+    "MozPhab==2.8.3",
     "mozilla_django_oidc",
     "networkx",
     "psycopg2-binary",
@@ -72,7 +71,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
-version_file = "src/lando/version.py"
+version_file = "src/lando/version/__init__.py"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -80,6 +79,9 @@ where = ["src"]
 [tool.pytest]
 DJANGO_SETTINGS_MODULE = "lando.test_settings"
 addopts = ["--cov", "--cov-report", "html", "--no-migrations"]
+
+[tool.black]
+extend_exclude = "src/lando/version/__init__.py"
 
 [tool.djlint]
 profile = "jinja"

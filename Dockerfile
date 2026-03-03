@@ -4,7 +4,7 @@ FROM node:20-slim AS node
 # Copy Rust from official image to avoid running third-party install scripts.
 FROM rust:1.84-slim AS rust
 
-FROM python:3.11
+FROM python:3.12-bookworm
 
 EXPOSE 80
 ENV PYTHONUNBUFFERED=1
@@ -18,6 +18,10 @@ RUN addgroup --gid 10001 app \
         --home /app \
         --gecos "app,,," \
         app
+
+# Install mercurial
+RUN apt-get update
+RUN apt-get install -y mercurial=6.3.2-1+deb12u1
 
 # Copy Node.js and npm from the official node image.
 COPY --from=node /usr/local/bin/node /usr/local/bin/
@@ -42,11 +46,16 @@ WORKDIR /code
 COPY requirements.txt /code/requirements.txt
 RUN pip install -r /code/requirements.txt
 
+# Install npm dependencies (Bulma and Dart Sass) outside of /code so that
+# the compose volume mount (./:/code) doesn't hide them.
+COPY package.json package-lock.json /deps/
+RUN npm install --prefix /deps
+
 # Copy code into the container.
 COPY ./ /code
 
-# Install npm dependencies (Bulma and Dart Sass).
-RUN npm install
+# Create an empty directory to store version info.
+RUN mkdir -p /code/src/lando/version
 
 RUN mkdir -p /code/.ruff_cache
 RUN chown -R app /code/.ruff_cache

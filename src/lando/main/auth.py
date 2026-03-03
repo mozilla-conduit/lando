@@ -5,17 +5,77 @@ from typing import (
 )
 
 from django.conf import settings
+from django.contrib.auth.backends import BaseBackend
 from django.contrib.auth.models import User
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, SuspiciousOperation
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse
 from mozilla_django_oidc.auth import OIDCAuthenticationBackend
 
+# requests is a transitive dependency of mozilla-django-oidc.
 from lando.environments import Environment
 from lando.main.models.profile import Profile, filter_claims
 from lando.utils.phabricator import PhabricatorClient
 
 logger = logging.getLogger(__name__)
+
+
+class PhabricatorTokenAuthenticationBackend(BaseBackend):
+    """Authenticate a user based on their Phabricator email and token."""
+
+    @staticmethod
+    def get_phab_user(phabricator_token: str) -> dict[str:str]:
+        """Verify phabricator token and return the user data."""
+        phab = PhabricatorClient(settings.PHABRICATOR_URL, phabricator_token)
+
+        if not phab.verify_api_token():
+            return
+
+        return phab.call_conduit("user.whoami")
+
+    @staticmethod
+    def get_phab_email(user_data: dict[str:str]) -> str:
+        try:
+            email = user_data["primaryEmail"]
+        except KeyError:
+            # If for whatever reason a valid token is not associated with an email.
+            return
+        return email
+
+    def authenticate(self, request: WSGIRequest, phabricator_token: str) -> User:
+        """Given a Phabricator token, validate and attempt to match with local user."""
+        token_user = self.get_phab_user(phabricator_token)
+        if not token_user:
+            # Token is not valid.
+            raise PermissionDenied()
+
+        email = self.get_phab_email(token_user)
+
+        try:
+            lando_user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            # Token is valid, however, no equivalent user can be found using
+            # the primary email. It's possible that the user has a different
+            # primary email set on Phabricator, vs. their LDAP.
+            raise PermissionDenied()
+
+        if not lando_user.profile.phabricator_api_key:
+            # Matching user does not have a phabricator API key, so we are
+            # unable to perform a secondary verification.
+            raise PermissionDenied()
+
+        matching_user = self.get_phab_user(lando_user.profile.phabricator_api_key)
+        if token_user != matching_user:
+            # The stored token and the provided token point to two different users.
+            raise PermissionDenied()
+
+        return lando_user
+
+    def get_user(self, user_id: int) -> User:
+        try:
+            return User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return None
 
 
 class LandoOIDCAuthenticationBackend(OIDCAuthenticationBackend):
@@ -61,6 +121,27 @@ class LandoOIDCAuthenticationBackend(OIDCAuthenticationBackend):
     def update_user(self, user: User, claims: dict) -> User:
         self.post_auth_hook(user, claims)
         return super().update_user(user, claims)
+
+
+class AccessTokenLandoOIDCAuthenticationBackend(LandoOIDCAuthenticationBackend):
+    """Authenticates a user based on a Bearer access_token.
+
+    Note, this is a shim replacement of the mozilla_django_oidc.auth.TokenOIDCAuthenticationBackend.
+    """
+
+    def authenticate(self, request: WSGIRequest, **kwargs) -> User | None:
+        # If a bearer token is present in the request, use it to authenticate the user.
+        if authorization := request.META.get("HTTP_AUTHORIZATION"):
+            scheme, token = authorization.split(maxsplit=1)
+            if scheme.lower() == "bearer":
+                try:
+                    # get_or_create_user and get_userinfo uses neither id_token nor payload.
+                    return self.get_or_create_user(token, None, None)
+                except SuspiciousOperation as exc:
+                    logger.warning("failed to get or create user: %s", exc)
+                    return None
+
+        return None
 
 
 def require_authenticated_user(f: Callable) -> Callable:
@@ -115,7 +196,9 @@ class require_permission:
         @functools.wraps(f)
         def wrapper(request: WSGIRequest, *args, **kwargs) -> HttpResponse:
             if not request.user.has_perm(f"main.{self.required_permission}"):
-                raise PermissionDenied()
+                raise PermissionDenied(
+                    f"Permission {self.required_permission} is required"
+                )
             return f(request, *args, **kwargs)
 
         return wrapper

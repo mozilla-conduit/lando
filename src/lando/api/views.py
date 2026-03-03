@@ -23,10 +23,7 @@ from lando.main.models import (
 )
 from lando.main.models.landing_job import get_jobs_for_pull
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
-from lando.main.scm import (
-    SCM_TYPE_GIT,
-    SCM_TYPE_HG,
-)
+from lando.main.scm import SCMType
 from lando.utils.github import GitHubAPIClient, PullRequest, PullRequestPatchHelper
 from lando.utils.github_checks import (
     ALL_PULL_REQUEST_BLOCKERS,
@@ -187,14 +184,14 @@ class CommitMapBaseView(View):
 class git2hgCommitMapView(CommitMapBaseView):
     """Return corresponding CommitMap given a git hash."""
 
-    scm = SCM_TYPE_GIT
+    scm = SCMType.GIT
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class hg2gitCommitMapView(CommitMapBaseView):
     """Return corresponding CommitMap given an hg hash."""
 
-    scm = SCM_TYPE_HG
+    scm = SCMType.HG
 
 
 class LandingJobPullRequestAPIView(View):
@@ -311,6 +308,7 @@ class PullRequestChecksAPIView(APIView):
         return JsonResponse(warnings_and_blockers)
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class PullRequestTryPushAPIView(APIView):
     @method_decorator(require_authenticated_user)
     def post(
@@ -346,6 +344,7 @@ class PullRequestTryPushAPIView(APIView):
         }
         revision = Revision.objects.create(
             pull_number=pull_request.number,
+            pull_head_sha=pull_request.head_sha,
             patches=pull_request.patch,
             patch_data=patch_data,
         )
