@@ -16,6 +16,7 @@ from google.cloud import bigquery
 from more_itertools import chunked
 
 from lando.main.models import BaseModel
+from lando.main.models.repo import Repo
 from lando.main.models.uplift import (
     RevisionUpliftJob,
     UpliftAssessment,
@@ -66,6 +67,29 @@ class Exporter(ABC):
     @abstractmethod
     def transform(self, instance: BaseModel) -> dict[str, Any]:
         """Transform a model instance to a BigQuery row."""
+
+
+class RepoExporter(Exporter):
+    """Exporter for Repo model."""
+
+    name = "Repo"
+    model = Repo
+    table_id_env_var = "BQ_REPOS_TABLE_ID"
+
+    def transform(self, instance: Repo) -> dict[str, Any]:
+        """Transform a `Repo` instance to a BigQuery row."""
+        return {
+            "id": instance.id,
+            "name": instance.name,
+            "short_name": instance.short_name,
+            "url": instance.url,
+            "scm_type": instance.scm_type,
+            "is_phabricator_repo": instance.is_phabricator_repo,
+            "is_try": instance.is_try,
+            "automation_enabled": instance.automation_enabled,
+            "created_at": datetime_to_timestamp(instance.created_at),
+            "updated_at": datetime_to_timestamp(instance.updated_at),
+        }
 
 
 class UpliftAssessmentExporter(Exporter):
@@ -179,6 +203,7 @@ class RevisionUpliftJobExporter(Exporter):
 
 # All available exporters.
 EXPORTERS = [
+    RepoExporter(),
     UpliftAssessmentExporter(),
     UpliftRevisionExporter(),
     UpliftSubmissionExporter(),

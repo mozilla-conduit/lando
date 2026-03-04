@@ -10,6 +10,7 @@ from django.contrib.auth.models import User
 from django.core.management import call_command
 
 from lando.main.management.commands.export_to_bigquery import (
+    RepoExporter,
     RevisionUpliftJobExporter,
     UpliftAssessmentExporter,
     UpliftJobExporter,
@@ -68,6 +69,27 @@ def test_staging_table_id_appends_staging_suffix():
     assert (
         result == "project.dataset.table_staging"
     ), "Should append `_staging` suffix to table ID."
+
+
+@pytest.mark.django_db
+def test_transform_repo(make_repo):
+    repo = make_repo(1)
+
+    exporter = RepoExporter()
+    result = exporter.transform(repo)
+
+    assert result["id"] == repo.id, "Should include `id`."
+    assert result["name"] == "repo-1", "Should include `name`."
+    assert result["short_name"] == repo.short_name, "Should include `short_name`."
+    assert result["url"] == repo.url, "Should include `url`."
+    assert result["scm_type"] == "git", "Should include `scm_type`."
+    assert (
+        result["is_phabricator_repo"] is True
+    ), "Should include `is_phabricator_repo`."
+    assert result["is_try"] is False, "Should include `is_try`."
+    assert result["automation_enabled"] is False, "Should include `automation_enabled`."
+    assert result["created_at"] is not None, "Should convert `created_at` to timestamp."
+    assert result["updated_at"] is not None, "Should convert `updated_at` to timestamp."
 
 
 @pytest.mark.django_db
