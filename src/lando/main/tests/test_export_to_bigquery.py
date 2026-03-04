@@ -203,6 +203,7 @@ def test_transform_uplift_job(make_repo):
     assert result["id"] == job.id, "Should include `id`."
     assert result["status"] == "LANDED", "Should include `status`."
     assert result["error"] == "", "Should include `error`."
+    assert result["error_breakdown"] == {}, "Should include `error_breakdown`."
     assert result["landed_commit_id"] == "abc123", "Should include `landed_commit_id`."
     assert (
         result["requester_email"] == "user@example.com"

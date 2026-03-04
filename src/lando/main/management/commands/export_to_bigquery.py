@@ -144,6 +144,7 @@ class UpliftJobExporter(Exporter):
             "id": instance.id,
             "status": instance.status,
             "error": instance.error,
+            "error_breakdown": instance.error_breakdown,
             "landed_commit_id": instance.landed_commit_id,
             "requester_email": instance.requester_email,
             "attempts": instance.attempts,
