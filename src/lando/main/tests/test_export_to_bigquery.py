@@ -281,12 +281,14 @@ def test_transform_revision_uplift_job(make_repo):
     assert result["updated_at"] is not None, "Should convert `updated_at` to timestamp."
 
 
-def test_get_cutoff_timestamp_full_export_returns_none():
+def test_get_cutoff_timestamp_full_export_returns_datetime_min():
     bq_client = MagicMock()
 
     result = get_cutoff_timestamp(bq_client, full_export=True, since_arg=None)
 
-    assert result is None, "Should return `None` for full export."
+    assert result == datetime.min.replace(
+        tzinfo=timezone.utc
+    ), "Should return `datetime.min` (UTC) for full export."
 
 
 @pytest.mark.parametrize(
@@ -322,8 +324,8 @@ def test_get_cutoff_timestamp_parses_since_arg(since_arg, expected, msg):
         ),
         (
             None,
-            None,
-            "Should return `None` when BigQuery has no previous data.",
+            datetime.min.replace(tzinfo=timezone.utc),
+            "Should return `datetime.min` (UTC) when BigQuery has no previous data.",
         ),
     ],
 )

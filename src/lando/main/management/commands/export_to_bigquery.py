@@ -356,10 +356,11 @@ class BigQueryLoader(Loader):
             self.bq_client.delete_table(incoming_id, not_found_ok=True)
 
 
-def get_last_run_timestamp(
-    bq_client: bigquery.Client, table_id: str
-) -> datetime | None:
-    """Get the timestamp of the most recently modified entry in BigQuery."""
+def get_last_run_timestamp(bq_client: bigquery.Client, table_id: str) -> datetime:
+    """Get the timestamp of the most recently modified entry in BigQuery.
+
+    Returns `datetime.min` (UTC) if no data exists in the table.
+    """
     query = f"SELECT MAX(updated_at) as last_run FROM `{table_id}`"
 
     job = bq_client.query(query)
@@ -370,7 +371,7 @@ def get_last_run_timestamp(
 
     last_run = rows[0].last_run
     if last_run is None:
-        return None
+        return datetime.min.replace(tzinfo=timezone.utc)
 
     return datetime.fromtimestamp(last_run, tz=timezone.utc)
 
@@ -379,10 +380,13 @@ def get_cutoff_timestamp(
     bq_client: bigquery.Client,
     full_export: bool,
     since_arg: str | None,
-) -> datetime | None:
-    """Determine the cutoff timestamp for the export."""
+) -> datetime:
+    """Determine the cutoff timestamp for the export.
+
+    Returns `datetime.min` (UTC) when all records should be exported.
+    """
     if full_export:
-        return None
+        return datetime.min.replace(tzinfo=timezone.utc)
 
     if since_arg:
         since_timestamp = datetime.fromisoformat(since_arg)
@@ -439,10 +443,12 @@ class Command(BaseCommand):
 
         # Determine cutoff timestamp.
         since_timestamp = get_cutoff_timestamp(bq_client, full_export, since_arg)
-        if since_timestamp:
-            self.stdout.write(f"Exporting records modified since {since_timestamp}.\n")
+        if since_timestamp == datetime.min.replace(tzinfo=timezone.utc):
+            self.stdout.write(
+                "No previous export found, starting from the beginning.\n"
+            )
         else:
-            self.stdout.write("Starting full export.\n")
+            self.stdout.write(f"Exporting records modified since {since_timestamp}.\n")
 
         # Select loader.
         if output_file:
@@ -458,12 +464,9 @@ class Command(BaseCommand):
         for exporter in EXPORTERS:
             self.stdout.write(f"\nProcessing {exporter.name}...\n")
 
-            queryset = exporter.model.objects.all()
-            if since_timestamp:
-                queryset = queryset.filter(
-                    Q(created_at__gt=since_timestamp)
-                    | Q(updated_at__gt=since_timestamp)
-                )
+            queryset = exporter.model.objects.filter(
+                Q(created_at__gt=since_timestamp) | Q(updated_at__gt=since_timestamp)
+            )
 
             count = loader.load(exporter, queryset)
             self.stdout.write(f"  Loaded {count} rows.\n")
