@@ -55,9 +55,13 @@ def staging_table_id(table_id: str) -> str:
 class Exporter(ABC):
     """Base class for BigQuery exporters."""
 
-    name: str
     model: type[Model]
     table_id_env_var: str
+
+    @property
+    def name(self) -> str:
+        """Return the model class name."""
+        return self.model.__name__
 
     @cached_property
     def table_id(self) -> str:
@@ -72,7 +76,6 @@ class Exporter(ABC):
 class RepoExporter(Exporter):
     """Exporter for Repo model."""
 
-    name = "Repo"
     model = Repo
     table_id_env_var = "BQ_REPOS_TABLE_ID"
 
@@ -95,7 +98,6 @@ class RepoExporter(Exporter):
 class UpliftAssessmentExporter(Exporter):
     """Exporter for UpliftAssessment model."""
 
-    name = "UpliftAssessment"
     model = UpliftAssessment
     table_id_env_var = "BQ_UPLIFT_ASSESSMENTS_TABLE_ID"
 
@@ -121,7 +123,6 @@ class UpliftAssessmentExporter(Exporter):
 class UpliftRevisionExporter(Exporter):
     """Exporter for UpliftRevision model."""
 
-    name = "UpliftRevision"
     model = UpliftRevision
     table_id_env_var = "BQ_UPLIFT_REVISIONS_TABLE_ID"
 
@@ -139,7 +140,6 @@ class UpliftRevisionExporter(Exporter):
 class UpliftSubmissionExporter(Exporter):
     """Exporter for UpliftSubmission model."""
 
-    name = "UpliftSubmission"
     model = UpliftSubmission
     table_id_env_var = "BQ_UPLIFT_SUBMISSIONS_TABLE_ID"
 
@@ -158,7 +158,6 @@ class UpliftSubmissionExporter(Exporter):
 class UpliftJobExporter(Exporter):
     """Exporter for UpliftJob model."""
 
-    name = "UpliftJob"
     model = UpliftJob
     table_id_env_var = "BQ_UPLIFT_JOBS_TABLE_ID"
 
@@ -185,7 +184,6 @@ class UpliftJobExporter(Exporter):
 class RevisionUpliftJobExporter(Exporter):
     """Exporter for RevisionUpliftJob model."""
 
-    name = "RevisionUpliftJob"
     model = RevisionUpliftJob
     table_id_env_var = "BQ_REVISION_UPLIFT_JOBS_TABLE_ID"
 
