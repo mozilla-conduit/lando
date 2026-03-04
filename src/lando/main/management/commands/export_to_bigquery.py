@@ -458,13 +458,12 @@ class Command(BaseCommand):
         for exporter in EXPORTERS:
             self.stdout.write(f"\nProcessing {exporter.name}...\n")
 
+            queryset = exporter.model.objects.all()
             if since_timestamp:
-                queryset = exporter.model.objects.filter(
+                queryset = queryset.filter(
                     Q(created_at__gt=since_timestamp)
                     | Q(updated_at__gt=since_timestamp)
                 )
-            else:
-                queryset = exporter.model.objects.all()
 
             count = loader.load(exporter, queryset)
             self.stdout.write(f"  Loaded {count} rows.\n")
