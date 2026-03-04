@@ -18,8 +18,8 @@ from lando.main.management.commands.export_to_bigquery import (
     UpliftSubmissionExporter,
     datetime_to_timestamp,
     get_cutoff_timestamp,
+    incoming_table_id,
     sql_table_id,
-    staging_table_id,
 )
 from lando.main.models.uplift import (
     RevisionUpliftJob,
@@ -64,11 +64,11 @@ def test_sql_table_id_formats_table_reference():
     ), "`sql_table_id` should output in expected format."
 
 
-def test_staging_table_id_appends_staging_suffix():
-    result = staging_table_id("project.dataset.table")
+def test_incoming_table_id_appends_incoming_suffix():
+    result = incoming_table_id("project.dataset.table")
     assert (
-        result == "project.dataset.table_staging"
-    ), "Should append `_staging` suffix to table ID."
+        result == "project.dataset.table_incoming"
+    ), "Should append `_incoming` suffix to table ID."
 
 
 @pytest.mark.django_db

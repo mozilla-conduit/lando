@@ -47,9 +47,9 @@ def sql_table_id(table: bigquery.Table) -> str:
     return f"{table.project}.{table.dataset_id}.{table.table_id}"
 
 
-def staging_table_id(table_id: str) -> str:
-    """Return a staging table ID for the given table ID."""
-    return f"{table_id}_staging"
+def incoming_table_id(table_id: str) -> str:
+    """Return an incoming table ID for the given target table ID."""
+    return f"{table_id}_incoming"
 
 
 class Exporter(ABC):
@@ -261,33 +261,33 @@ class JsonLinesLoader(Loader):
 
 
 class BigQueryLoader(Loader):
-    """Loader that exports data to BigQuery using staging tables."""
+    """Loader that exports data to BigQuery using temporary incoming tables."""
 
     def __init__(self, stdout: IO[str], stderr: IO[str], bq_client: bigquery.Client):
         super().__init__(stdout, stderr)
         self.bq_client = bq_client
         self.target_tables: dict[str, bigquery.Table] = {}
-        self.staging_tables: dict[str, bigquery.Table] = {}
+        self.incoming_tables: dict[str, bigquery.Table] = {}
 
     def setup(self, exporters: list[Exporter]) -> None:
-        """Create staging tables in BigQuery for each exporter."""
+        """Create temporary incoming tables in BigQuery for each exporter."""
         for exporter in exporters:
             target = self.bq_client.get_table(exporter.table_id)
             self.target_tables[exporter.table_id] = target
 
-            # Create staging table (delete existing first).
-            staging_id = staging_table_id(sql_table_id(target))
-            self.bq_client.delete_table(staging_id, not_found_ok=True)
-            staging = bigquery.Table(staging_id, schema=target.schema)
-            self.staging_tables[exporter.table_id] = self.bq_client.create_table(
-                staging, exists_ok=False
+            # Create an incoming table to hold data before merging (delete existing first).
+            incoming_id = incoming_table_id(sql_table_id(target))
+            self.bq_client.delete_table(incoming_id, not_found_ok=True)
+            incoming = bigquery.Table(incoming_id, schema=target.schema)
+            self.incoming_tables[exporter.table_id] = self.bq_client.create_table(
+                incoming, exists_ok=False
             )
-            self.stdout.write(f"Created staging table for {exporter.name}.\n")
+            self.stdout.write(f"Created incoming table for {exporter.name}.\n")
 
     def load(self, exporter: Exporter, queryset: QuerySet) -> int:
-        """Transform and insert records into the staging table in chunks."""
-        staging_table = self.staging_tables[exporter.table_id]
-        table_id = sql_table_id(staging_table)
+        """Transform and insert records into the incoming table in chunks."""
+        incoming_table = self.incoming_tables[exporter.table_id]
+        table_id = sql_table_id(incoming_table)
 
         # Transform and insert in chunks to avoid memory issues.
         def transform_iterator() -> Iterator[dict]:
@@ -296,27 +296,27 @@ class BigQueryLoader(Loader):
 
         for chunk in chunked(transform_iterator(), BQ_CHUNK_SIZE):
             if not self.insert_with_retry(table_id, chunk):
-                self.cleanup_staging_tables()
+                self.cleanup_incoming_tables()
                 raise CommandError(f"Failed to export {exporter.name}. Aborting.")
 
         return queryset.count()
 
     def finalize(self) -> None:
-        """Merge each staging table into its target table and clean up."""
-        if not self.staging_tables:
+        """Merge each incoming table into its target table and clean up."""
+        if not self.incoming_tables:
             return
 
-        self.stdout.write("\nMerging staging tables into target tables...\n")
+        self.stdout.write("\nMerging incoming tables into target tables...\n")
 
-        for table_id, staging_table in self.staging_tables.items():
-            staging_id = sql_table_id(staging_table)
+        for table_id, incoming_table in self.incoming_tables.items():
+            incoming_id = sql_table_id(incoming_table)
             target_table = self.target_tables[table_id]
 
-            # Merge staging into target.
+            # Merge incoming data into the target table.
             target_id = sql_table_id(target_table)
             merge_query = f"""
                 MERGE `{target_id}` as T
-                USING `{staging_id}` as S
+                USING `{incoming_id}` as S
                 ON T.id = S.id
                 WHEN MATCHED THEN
                   UPDATE SET {", ".join(f"{f.name} = S.{f.name}" for f in target_table.schema)}
@@ -327,9 +327,9 @@ class BigQueryLoader(Loader):
             job = self.bq_client.query(merge_query)
             job.result()
 
-            # Delete staging table.
-            self.bq_client.delete_table(staging_id)
-            self.stdout.write(f"  Merged and cleaned up {staging_table.table_id}.\n")
+            # Delete the incoming table after merging.
+            self.bq_client.delete_table(incoming_id)
+            self.stdout.write(f"  Merged and cleaned up {incoming_table.table_id}.\n")
 
     def insert_with_retry(self, table_id: str, rows: list[dict]) -> bool:
         """Insert rows with exponential backoff retry."""
@@ -349,11 +349,11 @@ class BigQueryLoader(Loader):
         logger.error(f"Failed to insert to {table_id} after {BQ_MAX_RETRIES} attempts.")
         return False
 
-    def cleanup_staging_tables(self) -> None:
-        """Delete all staging tables on failure."""
-        for staging_table in self.staging_tables.values():
-            staging_id = sql_table_id(staging_table)
-            self.bq_client.delete_table(staging_id, not_found_ok=True)
+    def cleanup_incoming_tables(self) -> None:
+        """Delete all incoming tables on failure."""
+        for incoming_table in self.incoming_tables.values():
+            incoming_id = sql_table_id(incoming_table)
+            self.bq_client.delete_table(incoming_id, not_found_ok=True)
 
 
 def get_last_run_timestamp(
