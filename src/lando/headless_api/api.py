@@ -15,7 +15,7 @@ from ninja import (
 )
 from ninja.responses import codes_4xx
 from ninja.security import HttpBearer
-from pydantic import Field, TypeAdapter
+from pydantic import AfterValidator, Field, TypeAdapter
 
 from lando.headless_api.models.automation_job import (
     AutomationAction,
@@ -35,6 +35,27 @@ from lando.main.scm.helpers import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def reject_cli_flags(value: str) -> str:
+    """Reject values that could be used for git CLI or shell injection.
+
+    Strips leading/trailing whitespace before checking, so that padded
+    values like ``" --flag"`` cannot bypass the guard. Also rejects null
+    bytes and newlines which could cause string truncation or argument
+    injection at the C level.
+    """
+    if "\x00" in value:
+        raise ValueError(f"Invalid value {value!r}: must not contain null bytes.")
+    if "\n" in value or "\r" in value:
+        raise ValueError(f"Invalid value {value!r}: must not contain newlines.")
+    stripped = value.strip()
+    if stripped.startswith("-"):
+        raise ValueError(f"Invalid value {value!r}: must not start with `-`.")
+    return stripped
+
+
+SafeGitRef = Annotated[str, AfterValidator(reject_cli_flags)]
 
 
 class APIPermissionDenied(PermissionDenied):
@@ -255,7 +276,7 @@ class MergeOntoAction(Schema):
     action: Literal["merge-onto"]
     commit_message: str
     strategy: MergeStrategy | None
-    target: str
+    target: SafeGitRef
 
     def process(
         self, job: AutomationJob, repo: Repo, scm: AbstractSCM, index: int
@@ -289,8 +310,8 @@ class TagAction(Schema):
     """Create a new tag with the given name."""
 
     action: Literal["tag"]
-    name: str
-    target: str | None = None
+    name: SafeGitRef
+    target: SafeGitRef | None = None
 
     def process(
         self, job: AutomationJob, repo: Repo, scm: AbstractSCM, index: int
@@ -342,10 +363,10 @@ class RelBranchSpecifier(Schema):
     """Metadata requried to specify the RelBranch for pushing."""
 
     # Name of the RelBranch for pushing.
-    branch_name: str
+    branch_name: SafeGitRef
 
     # Commit to point the RelBranch to, if it does not exist yet.
-    commit_sha: str | None = None
+    commit_sha: SafeGitRef | None = None
 
 
 class AutomationOperation(Schema):
