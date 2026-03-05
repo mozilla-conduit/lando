@@ -27,6 +27,7 @@ from lando.main.scm import (
     AbstractSCM,
     MergeStrategy,
     PatchConflict,
+    SCMType,
 )
 from lando.main.scm.helpers import (
     PATCH_HELPER_MAPPING,
@@ -389,6 +390,14 @@ def post_repo_actions(
             extra={"user": request.user.email, "token": request.auth.token_prefix},
         )
         return 404, {"details": error}
+
+    if repo.scm_type != SCMType.GIT:
+        error = "Automation API is Git-only."
+        logger.info(
+            error,
+            extra={"user": request.user.email, "token": request.auth.token_prefix},
+        )
+        return 400, {"details": error}
 
     if not repo.automation_enabled:
         error = f"Repo {repo_name} is not enabled for automation."

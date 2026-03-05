@@ -487,7 +487,12 @@ def test_scm_get_patch_helpers_for_commits(
 
         create_scm_commit(clone_path)
 
-        scm.merge_onto("test merge", first_commit, None)
+        # Perform a merge using SCM-specific commands.
+        if repo_type == SCMType.GIT:
+            scm.merge_onto("test merge", first_commit, None)
+        elif repo_type == SCMType.HG:
+            scm.run_hg(["merge", first_commit])
+            scm.run_hg(["commit", "-m", "test merge"])
 
         new_commits = scm.describe_local_changes()
         assert len(new_commits) == 3, "Unexpected number of commits"
