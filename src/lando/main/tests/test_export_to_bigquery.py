@@ -9,7 +9,10 @@ import pytest
 from django.contrib.auth.models import User
 from django.core.management import call_command
 
+from django.core.management.base import CommandError
+
 from lando.main.management.commands.export_to_bigquery import (
+    JsonLinesLoader,
     RepoTransformer,
     RevisionUpliftJobTransformer,
     UpliftAssessmentTransformer,
@@ -395,6 +398,15 @@ def test_get_cutoff_timestamp_falls_back_to_bigquery(
     result = get_cutoff_timestamp(bq_client, full_export=False, since_arg=None)
 
     assert result == expected, msg
+
+
+def test_json_lines_loader_raises_if_output_file_exists():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        output_path = Path(tmpdir) / "export.jsonl"
+        output_path.touch()
+
+        with pytest.raises(CommandError, match="Output file already exists"):
+            JsonLinesLoader(StringIO(), StringIO(), output_path)
 
 
 @pytest.mark.django_db

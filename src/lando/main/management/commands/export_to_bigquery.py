@@ -239,6 +239,10 @@ class JsonLinesLoader(Loader):
 
     def __init__(self, stdout: IO[str], stderr: IO[str], output_path: Path):
         super().__init__(stdout, stderr)
+
+        if output_path.exists():
+            raise CommandError(f"Output file already exists: {output_path}")
+
         self.output_path = output_path
         self.first_write = True
 
