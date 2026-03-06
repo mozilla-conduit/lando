@@ -10,12 +10,12 @@ from django.contrib.auth.models import User
 from django.core.management import call_command
 
 from lando.main.management.commands.export_to_bigquery import (
-    RepoExporter,
-    RevisionUpliftJobExporter,
-    UpliftAssessmentExporter,
-    UpliftJobExporter,
-    UpliftRevisionExporter,
-    UpliftSubmissionExporter,
+    RepoTransformer,
+    RevisionUpliftJobTransformer,
+    UpliftAssessmentTransformer,
+    UpliftJobTransformer,
+    UpliftRevisionTransformer,
+    UpliftSubmissionTransformer,
     datetime_to_timestamp,
     get_cutoff_timestamp,
     incoming_table_id,
@@ -75,8 +75,8 @@ def test_incoming_table_id_appends_incoming_suffix():
 def test_transform_repo(make_repo):
     repo = make_repo(1)
 
-    exporter = RepoExporter()
-    result = exporter.transform(repo)
+    transformer = RepoTransformer()
+    result = transformer.transform(repo)
 
     assert result["id"] == repo.id, "Should include `id`."
     assert result["name"] == "repo-1", "Should include `name`."
@@ -108,8 +108,8 @@ def test_transform_uplift_assessment():
         is_android_affected="yes",
     )
 
-    exporter = UpliftAssessmentExporter()
-    result = exporter.transform(assessment)
+    transformer = UpliftAssessmentTransformer()
+    result = transformer.transform(assessment)
 
     assert result["id"] == assessment.id, "Should include `id`."
     assert result["user_id"] == user.id, "Should include `user_id`."
@@ -152,8 +152,8 @@ def test_transform_uplift_revision():
         revision_id=12345,
     )
 
-    exporter = UpliftRevisionExporter()
-    result = exporter.transform(revision)
+    transformer = UpliftRevisionTransformer()
+    result = transformer.transform(revision)
 
     assert result["id"] == revision.id, "Should include `id`."
     assert result["assessment_id"] == assessment.id, "Should include `assessment_id`."
@@ -177,8 +177,8 @@ def test_transform_uplift_submission():
         requested_revision_ids=[100, 101, 102],
     )
 
-    exporter = UpliftSubmissionExporter()
-    result = exporter.transform(submission)
+    transformer = UpliftSubmissionTransformer()
+    result = transformer.transform(submission)
 
     assert result["id"] == submission.id, "Should include `id`."
     assert result["requested_by_id"] == user.id, "Should include `requested_by_id`."
@@ -219,8 +219,8 @@ def test_transform_uplift_job(make_repo):
         submission=submission,
     )
 
-    exporter = UpliftJobExporter()
-    result = exporter.transform(job)
+    transformer = UpliftJobTransformer()
+    result = transformer.transform(job)
 
     assert result["id"] == job.id, "Should include `id`."
     assert result["status"] == "LANDED", "Should include `status`."
@@ -270,8 +270,8 @@ def test_transform_revision_uplift_job(make_repo):
         index=0,
     )
 
-    exporter = RevisionUpliftJobExporter()
-    result = exporter.transform(revision_uplift_job)
+    transformer = RevisionUpliftJobTransformer()
+    result = transformer.transform(revision_uplift_job)
 
     assert result["id"] == revision_uplift_job.id, "Should include `id`."
     assert result["uplift_job_id"] == job.id, "Should include `uplift_job_id`."

@@ -52,8 +52,8 @@ def incoming_table_id(table_id: str) -> str:
     return f"{table_id}_incoming"
 
 
-class Exporter(ABC):
-    """Base class for BigQuery exporters."""
+class ModelTransformer(ABC):
+    """Base class for transforming Django models to BigQuery rows."""
 
     model: type[Model]
     table_id_env_var: str
@@ -73,8 +73,8 @@ class Exporter(ABC):
         """Transform a model instance to a BigQuery row."""
 
 
-class RepoExporter(Exporter):
-    """Exporter for Repo model."""
+class RepoTransformer(ModelTransformer):
+    """Transformer for `Repo` model."""
 
     model = Repo
     table_id_env_var = "BQ_REPOS_TABLE_ID"
@@ -95,8 +95,8 @@ class RepoExporter(Exporter):
         }
 
 
-class UpliftAssessmentExporter(Exporter):
-    """Exporter for UpliftAssessment model."""
+class UpliftAssessmentTransformer(ModelTransformer):
+    """Transformer for `UpliftAssessment` model."""
 
     model = UpliftAssessment
     table_id_env_var = "BQ_UPLIFT_ASSESSMENTS_TABLE_ID"
@@ -120,8 +120,8 @@ class UpliftAssessmentExporter(Exporter):
         }
 
 
-class UpliftRevisionExporter(Exporter):
-    """Exporter for UpliftRevision model."""
+class UpliftRevisionTransformer(ModelTransformer):
+    """Transformer for `UpliftRevision` model."""
 
     model = UpliftRevision
     table_id_env_var = "BQ_UPLIFT_REVISIONS_TABLE_ID"
@@ -137,8 +137,8 @@ class UpliftRevisionExporter(Exporter):
         }
 
 
-class UpliftSubmissionExporter(Exporter):
-    """Exporter for UpliftSubmission model."""
+class UpliftSubmissionTransformer(ModelTransformer):
+    """Transformer for `UpliftSubmission` model."""
 
     model = UpliftSubmission
     table_id_env_var = "BQ_UPLIFT_SUBMISSIONS_TABLE_ID"
@@ -155,8 +155,8 @@ class UpliftSubmissionExporter(Exporter):
         }
 
 
-class UpliftJobExporter(Exporter):
-    """Exporter for UpliftJob model."""
+class UpliftJobTransformer(ModelTransformer):
+    """Transformer for `UpliftJob` model."""
 
     model = UpliftJob
     table_id_env_var = "BQ_UPLIFT_JOBS_TABLE_ID"
@@ -181,8 +181,8 @@ class UpliftJobExporter(Exporter):
         }
 
 
-class RevisionUpliftJobExporter(Exporter):
-    """Exporter for RevisionUpliftJob model."""
+class RevisionUpliftJobTransformer(ModelTransformer):
+    """Transformer for `RevisionUpliftJob` model."""
 
     model = RevisionUpliftJob
     table_id_env_var = "BQ_REVISION_UPLIFT_JOBS_TABLE_ID"
@@ -199,14 +199,14 @@ class RevisionUpliftJobExporter(Exporter):
         }
 
 
-# All available exporters.
-EXPORTERS = [
-    RepoExporter(),
-    UpliftAssessmentExporter(),
-    UpliftRevisionExporter(),
-    UpliftSubmissionExporter(),
-    UpliftJobExporter(),
-    RevisionUpliftJobExporter(),
+# All available transformers.
+TRANSFORMERS = [
+    RepoTransformer(),
+    UpliftAssessmentTransformer(),
+    UpliftRevisionTransformer(),
+    UpliftSubmissionTransformer(),
+    UpliftJobTransformer(),
+    RevisionUpliftJobTransformer(),
 ]
 
 
@@ -218,16 +218,16 @@ class Loader(ABC):
         self.stderr = stderr
 
     @abstractmethod
-    def setup(self, exporters: list[Exporter]) -> None:
-        """Called once before processing any exporters."""
+    def setup(self, transformers: list[ModelTransformer]) -> None:
+        """Called once before processing any transformers."""
 
     @abstractmethod
-    def load(self, exporter: Exporter, queryset: QuerySet) -> int:
+    def load(self, transformer: ModelTransformer, queryset: QuerySet) -> int:
         """Load data from queryset. Returns number of rows loaded."""
 
     @abstractmethod
     def finalize(self) -> None:
-        """Called once after all exporters are processed."""
+        """Called once after all transformers are processed."""
 
 
 class JsonLinesLoader(Loader):
@@ -242,15 +242,15 @@ class JsonLinesLoader(Loader):
         """No-op setup for `JsonLinesLoader`."""
         pass
 
-    def load(self, exporter: Exporter, queryset: QuerySet) -> int:
+    def load(self, transformer: ModelTransformer, queryset: QuerySet) -> int:
         """Write transformed records to the JSON Lines output file."""
         mode = "w" if self.first_write else "a"
         self.first_write = False
 
         with self.output_path.open(mode) as f:
             for record in queryset.iterator():
-                row = exporter.transform(record)
-                row["_model"] = exporter.name
+                row = transformer.transform(record)
+                row["_model"] = transformer.name
                 f.write(json.dumps(row) + "\n")
 
         return queryset.count()
@@ -269,35 +269,35 @@ class BigQueryLoader(Loader):
         self.target_tables: dict[str, bigquery.Table] = {}
         self.incoming_tables: dict[str, bigquery.Table] = {}
 
-    def setup(self, exporters: list[Exporter]) -> None:
-        """Create temporary incoming tables in BigQuery for each exporter."""
-        for exporter in exporters:
-            target = self.bq_client.get_table(exporter.table_id)
-            self.target_tables[exporter.table_id] = target
+    def setup(self, transformers: list[ModelTransformer]) -> None:
+        """Create temporary incoming tables in BigQuery for each transformer."""
+        for transformer in transformers:
+            target = self.bq_client.get_table(transformer.table_id)
+            self.target_tables[transformer.table_id] = target
 
             # Create an incoming table to hold data before merging (delete existing first).
             incoming_id = incoming_table_id(sql_table_id(target))
             self.bq_client.delete_table(incoming_id, not_found_ok=True)
             incoming = bigquery.Table(incoming_id, schema=target.schema)
-            self.incoming_tables[exporter.table_id] = self.bq_client.create_table(
+            self.incoming_tables[transformer.table_id] = self.bq_client.create_table(
                 incoming, exists_ok=False
             )
-            self.stdout.write(f"Created incoming table for {exporter.name}.\n")
+            self.stdout.write(f"Created incoming table for {transformer.name}.\n")
 
-    def load(self, exporter: Exporter, queryset: QuerySet) -> int:
+    def load(self, transformer: ModelTransformer, queryset: QuerySet) -> int:
         """Transform and insert records into the incoming table in chunks."""
-        incoming_table = self.incoming_tables[exporter.table_id]
+        incoming_table = self.incoming_tables[transformer.table_id]
         table_id = sql_table_id(incoming_table)
 
         # Transform and insert in chunks to avoid memory issues.
         def transform_iterator() -> Iterator[dict]:
             for record in queryset.iterator():
-                yield exporter.transform(record)
+                yield transformer.transform(record)
 
         for chunk in chunked(transform_iterator(), BQ_CHUNK_SIZE):
             if not self.insert_with_retry(table_id, chunk):
                 self.cleanup_incoming_tables()
-                raise CommandError(f"Failed to export {exporter.name}. Aborting.")
+                raise CommandError(f"Failed to export {transformer.name}. Aborting.")
 
         return queryset.count()
 
@@ -396,7 +396,7 @@ def get_cutoff_timestamp(
 
     # Query BigQuery for the last run timestamp.
     # Use the UpliftJob table as the reference.
-    return get_last_run_timestamp(bq_client, UpliftJobExporter().table_id)
+    return get_last_run_timestamp(bq_client, UpliftJobTransformer().table_id)
 
 
 class Command(BaseCommand):
@@ -434,7 +434,7 @@ class Command(BaseCommand):
 
         # Validate environment variables for BigQuery mode.
         if not output_file:
-            missing = [e.table_id_env_var for e in EXPORTERS if not e.table_id]
+            missing = [t.table_id_env_var for t in TRANSFORMERS if not t.table_id]
             if missing:
                 raise CommandError(f"Missing env vars: {', '.join(missing)}")
 
@@ -458,17 +458,17 @@ class Command(BaseCommand):
             logger.info("Loading into BigQuery.")
             loader = BigQueryLoader(self.stdout, self.stderr, bq_client)
 
-        loader.setup(EXPORTERS)
+        loader.setup(TRANSFORMERS)
 
-        # Process each exporter.
-        for exporter in EXPORTERS:
-            self.stdout.write(f"\nProcessing {exporter.name}...\n")
+        # Process each transformer.
+        for transformer in TRANSFORMERS:
+            self.stdout.write(f"\nProcessing {transformer.name}...\n")
 
-            queryset = exporter.model.objects.filter(
+            queryset = transformer.model.objects.filter(
                 Q(created_at__gt=since_timestamp) | Q(updated_at__gt=since_timestamp)
             )
 
-            count = loader.load(exporter, queryset)
+            count = loader.load(transformer, queryset)
             self.stdout.write(f"  Loaded {count} rows.\n")
 
         loader.finalize()
