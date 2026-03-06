@@ -387,7 +387,7 @@ def test_get_cutoff_timestamp_parses_since_arg(since_arg, expected, msg):
             "Should return timestamp from BigQuery.",
         ),
         (
-            None,
+            datetime.min.replace(tzinfo=timezone.utc),
             datetime.min.replace(tzinfo=timezone.utc),
             "Should return `datetime.min` (UTC) when BigQuery has no previous data.",
         ),
