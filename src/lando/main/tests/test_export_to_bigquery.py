@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.contrib.auth.models import User
 from django.core.management import call_command
-
 from django.core.management.base import CommandError
 
 from lando.main.management.commands.export_to_bigquery import (
@@ -87,7 +86,9 @@ def test_transform_repo(make_repo):
         result["short_name"] == repo.short_name
     ), "`short_name` should exist and match expected value."
     assert result["url"] == repo.url, "`url` should exist and match expected value."
-    assert result["scm_type"] == "git", "`scm_type` should exist and match expected value."
+    assert (
+        result["scm_type"] == "git"
+    ), "`scm_type` should exist and match expected value."
     assert (
         result["is_phabricator_repo"] is True
     ), "`is_phabricator_repo` should exist and match expected value."
@@ -123,7 +124,9 @@ def test_transform_uplift_assessment():
     result = transformer.transform(assessment)
 
     assert result["id"] == assessment.id, "`id` should exist and match expected value."
-    assert result["user_id"] == user.id, "`user_id` should exist and match expected value."
+    assert (
+        result["user_id"] == user.id
+    ), "`user_id` should exist and match expected value."
     assert (
         result["user_impact"] == "high"
     ), "`user_impact` should exist and match expected value."
@@ -260,7 +263,9 @@ def test_transform_uplift_job(make_repo):
     result = transformer.transform(job)
 
     assert result["id"] == job.id, "`id` should exist and match expected value."
-    assert result["status"] == "LANDED", "`status` should exist and match expected value."
+    assert (
+        result["status"] == "LANDED"
+    ), "`status` should exist and match expected value."
     assert result["error"] == "", "`error` should exist and match expected value."
     assert (
         result["error_breakdown"] == {}
@@ -459,7 +464,9 @@ def test_export_to_bigquery_output_file_writes_json_lines(mock_bq_client):
         assert (
             record["_model"] == "UpliftAssessment"
         ), "`_model` should exist and match expected value."
-        assert record["id"] == assessment.id, "`id` should exist and match expected value."
+        assert (
+            record["id"] == assessment.id
+        ), "`id` should exist and match expected value."
         assert (
             record["user_id"] == user.id
         ), "`user_id` should exist and match expected value."
