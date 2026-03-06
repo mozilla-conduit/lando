@@ -74,6 +74,12 @@ class ReadOnlyInline(admin.TabularInline):
         super().__init__(*args, **kwargs)
 
 
+class RepoWorkersInline(ReadOnlyInline):
+    model = Worker.applicable_repos.through
+    _target_object = "worker"
+    readonly_fields = ("name", "is_paused", "is_stopped")
+
+
 class RevisionLandingJobInline(admin.TabularInline):
     model = RevisionLandingJob
     fields = ("revision", "commit_id")
@@ -329,7 +335,7 @@ class RepoAdmin(admin.ModelAdmin):
         "created_at",
         "updated_at",
     )
-
+    inlines = (RepoWorkersInline,)
     readonly_fields = (
         "commit_flags",
         "system_path",
