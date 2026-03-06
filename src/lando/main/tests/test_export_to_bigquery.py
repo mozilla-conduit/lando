@@ -222,25 +222,39 @@ def test_transform_uplift_job(make_repo):
     transformer = UpliftJobTransformer()
     result = transformer.transform(job)
 
-    assert result["id"] == job.id, "Should include `id`."
-    assert result["status"] == "LANDED", "Should include `status`."
-    assert result["error"] == "", "Should include `error`."
-    assert result["error_breakdown"] == {}, "Should include `error_breakdown`."
-    assert result["landed_commit_id"] == "abc123", "Should include `landed_commit_id`."
+    assert result["id"] == job.id, "`id` should exist and match expected value."
+    assert result["status"] == "LANDED", "`status` should exist and match expected value."
+    assert result["error"] == "", "`error` should exist and match expected value."
+    assert (
+        result["error_breakdown"] == {}
+    ), "`error_breakdown` should exist and match expected value."
+    assert (
+        result["landed_commit_id"] == "abc123"
+    ), "`landed_commit_id` should exist and match expected value."
     assert (
         result["requester_email"] == "user@example.com"
-    ), "Should include `requester_email`."
-    assert result["attempts"] == 2, "Should include `attempts`."
-    assert result["priority"] == 1, "Should include `priority`."
-    assert result["duration_seconds"] == 120, "Should include `duration_seconds`."
-    assert result["target_repo_id"] == repo.id, "Should include `target_repo_id`."
+    ), "`requester_email` should exist and match expected value."
+    assert result["attempts"] == 2, "`attempts` should exist and match expected value."
+    assert result["priority"] == 1, "`priority` should exist and match expected value."
+    assert (
+        result["duration_seconds"] == 120
+    ), "`duration_seconds` should exist and match expected value."
+    assert (
+        result["target_repo_id"] == repo.id
+    ), "`target_repo_id` should exist and match expected value."
     assert result["created_revision_ids"] == [
         200,
         201,
-    ], "Should include `created_revision_ids`."
-    assert result["submission_id"] == submission.id, "Should include `submission_id`."
-    assert result["created_at"] is not None, "Should convert `created_at` to timestamp."
-    assert result["updated_at"] is not None, "Should convert `updated_at` to timestamp."
+    ], "`created_revision_ids` should exist and match expected value."
+    assert (
+        result["submission_id"] == submission.id
+    ), "`submission_id` should exist and match expected value."
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
 
 
 @pytest.mark.django_db
