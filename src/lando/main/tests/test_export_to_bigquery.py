@@ -78,18 +78,26 @@ def test_transform_repo(make_repo):
     transformer = RepoTransformer()
     result = transformer.transform(repo)
 
-    assert result["id"] == repo.id, "Should include `id`."
-    assert result["name"] == "repo-1", "Should include `name`."
-    assert result["short_name"] == repo.short_name, "Should include `short_name`."
-    assert result["url"] == repo.url, "Should include `url`."
-    assert result["scm_type"] == "git", "Should include `scm_type`."
+    assert result["id"] == repo.id, "`id` should exist and match expected value."
+    assert result["name"] == "repo-1", "`name` should exist and match expected value."
+    assert (
+        result["short_name"] == repo.short_name
+    ), "`short_name` should exist and match expected value."
+    assert result["url"] == repo.url, "`url` should exist and match expected value."
+    assert result["scm_type"] == "git", "`scm_type` should exist and match expected value."
     assert (
         result["is_phabricator_repo"] is True
-    ), "Should include `is_phabricator_repo`."
-    assert result["is_try"] is False, "Should include `is_try`."
-    assert result["automation_enabled"] is False, "Should include `automation_enabled`."
-    assert result["created_at"] is not None, "Should convert `created_at` to timestamp."
-    assert result["updated_at"] is not None, "Should convert `updated_at` to timestamp."
+    ), "`is_phabricator_repo` should exist and match expected value."
+    assert result["is_try"] is False, "`is_try` should exist and match expected value."
+    assert (
+        result["automation_enabled"] is False
+    ), "`automation_enabled` should exist and match expected value."
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
 
 
 @pytest.mark.django_db
@@ -111,31 +119,41 @@ def test_transform_uplift_assessment():
     transformer = UpliftAssessmentTransformer()
     result = transformer.transform(assessment)
 
-    assert result["id"] == assessment.id, "Should include `id`."
-    assert result["user_id"] == user.id, "Should include `user_id`."
-    assert result["user_impact"] == "high", "Should include `user_impact`."
-    assert result["covered_by_testing"] == "yes", "Should include `covered_by_testing`."
+    assert result["id"] == assessment.id, "`id` should exist and match expected value."
+    assert result["user_id"] == user.id, "`user_id` should exist and match expected value."
+    assert (
+        result["user_impact"] == "high"
+    ), "`user_impact` should exist and match expected value."
+    assert (
+        result["covered_by_testing"] == "yes"
+    ), "`covered_by_testing` should exist and match expected value."
     assert (
         result["fix_verified_in_nightly"] == "no"
-    ), "Should include `fix_verified_in_nightly`."
+    ), "`fix_verified_in_nightly` should exist and match expected value."
     assert (
         result["needs_manual_qe_testing"] == "yes"
-    ), "Should include `needs_manual_qe_testing`."
+    ), "`needs_manual_qe_testing` should exist and match expected value."
     assert (
         result["qe_testing_reproduction_steps"] == "Step 1, Step 2"
-    ), "Should include `qe_testing_reproduction_steps`."
+    ), "`qe_testing_reproduction_steps` should exist and match expected value."
     assert (
         result["risk_associated_with_patch"] == "low"
-    ), "Should include `risk_associated_with_patch`."
+    ), "`risk_associated_with_patch` should exist and match expected value."
     assert (
         result["risk_level_explanation"] == "Simple change"
-    ), "Should include `risk_level_explanation`."
-    assert result["string_changes"] == "none", "Should include `string_changes`."
+    ), "`risk_level_explanation` should exist and match expected value."
+    assert (
+        result["string_changes"] == "none"
+    ), "`string_changes` should exist and match expected value."
     assert (
         result["is_android_affected"] == "yes"
-    ), "Should include `is_android_affected`."
-    assert result["created_at"] is not None, "Should convert `created_at` to timestamp."
-    assert result["updated_at"] is not None, "Should convert `updated_at` to timestamp."
+    ), "`is_android_affected` should exist and match expected value."
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
 
 
 @pytest.mark.django_db
@@ -155,11 +173,19 @@ def test_transform_uplift_revision():
     transformer = UpliftRevisionTransformer()
     result = transformer.transform(revision)
 
-    assert result["id"] == revision.id, "Should include `id`."
-    assert result["assessment_id"] == assessment.id, "Should include `assessment_id`."
-    assert result["revision_id"] == 12345, "Should include `revision_id`."
-    assert result["created_at"] is not None, "Should convert `created_at` to timestamp."
-    assert result["updated_at"] is not None, "Should convert `updated_at` to timestamp."
+    assert result["id"] == revision.id, "`id` should exist and match expected value."
+    assert (
+        result["assessment_id"] == assessment.id
+    ), "`assessment_id` should exist and match expected value."
+    assert (
+        result["revision_id"] == 12345
+    ), "`revision_id` should exist and match expected value."
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
 
 
 @pytest.mark.django_db
@@ -180,16 +206,24 @@ def test_transform_uplift_submission():
     transformer = UpliftSubmissionTransformer()
     result = transformer.transform(submission)
 
-    assert result["id"] == submission.id, "Should include `id`."
-    assert result["requested_by_id"] == user.id, "Should include `requested_by_id`."
+    assert result["id"] == submission.id, "`id` should exist and match expected value."
+    assert (
+        result["requested_by_id"] == user.id
+    ), "`requested_by_id` should exist and match expected value."
     assert result["requested_revision_ids"] == [
         100,
         101,
         102,
-    ], "Should include `requested_revision_ids`."
-    assert result["assessment_id"] == assessment.id, "Should include `assessment_id`."
-    assert result["created_at"] is not None, "Should convert `created_at` to timestamp."
-    assert result["updated_at"] is not None, "Should convert `updated_at` to timestamp."
+    ], "`requested_revision_ids` should exist and match expected value."
+    assert (
+        result["assessment_id"] == assessment.id
+    ), "`assessment_id` should exist and match expected value."
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
 
 
 @pytest.mark.django_db
@@ -287,12 +321,20 @@ def test_transform_revision_uplift_job(make_repo):
     transformer = RevisionUpliftJobTransformer()
     result = transformer.transform(revision_uplift_job)
 
-    assert result["id"] == revision_uplift_job.id, "Should include `id`."
-    assert result["uplift_job_id"] == job.id, "Should include `uplift_job_id`."
-    assert result["revision_id"] is None, "Should include `revision_id`."
-    assert result["index"] == 0, "Should include `index`."
-    assert result["created_at"] is not None, "Should convert `created_at` to timestamp."
-    assert result["updated_at"] is not None, "Should convert `updated_at` to timestamp."
+    assert (
+        result["id"] == revision_uplift_job.id
+    ), "`id` should exist and match expected value."
+    assert (
+        result["uplift_job_id"] == job.id
+    ), "`uplift_job_id` should exist and match expected value."
+    assert result["revision_id"] is None, "`revision_id` should exist and be `None`."
+    assert result["index"] == 0, "`index` should exist and match expected value."
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
 
 
 def test_get_cutoff_timestamp_full_export_returns_datetime_min():
@@ -402,22 +444,28 @@ def test_export_to_bigquery_output_file_writes_json_lines(mock_bq_client):
 
         # Verify the transformed data matches.
         record = assessment_records[0]
-        assert record["_model"] == "UpliftAssessment", "Should include `_model` field."
-        assert record["id"] == assessment.id, "Should include correct `id`."
-        assert record["user_id"] == user.id, "Should include correct `user_id`."
-        assert record["user_impact"] == "high", "Should include correct `user_impact`."
+        assert (
+            record["_model"] == "UpliftAssessment"
+        ), "`_model` should exist and match expected value."
+        assert record["id"] == assessment.id, "`id` should exist and match expected value."
+        assert (
+            record["user_id"] == user.id
+        ), "`user_id` should exist and match expected value."
+        assert (
+            record["user_impact"] == "high"
+        ), "`user_impact` should exist and match expected value."
         assert (
             record["covered_by_testing"] == "yes"
-        ), "Should include correct `covered_by_testing`."
+        ), "`covered_by_testing` should exist and match expected value."
         assert (
             record["risk_associated_with_patch"] == "low"
-        ), "Should include correct `risk_associated_with_patch`."
+        ), "`risk_associated_with_patch` should exist and match expected value."
         assert (
             record["created_at"] is not None
-        ), "Should include `created_at` as timestamp."
+        ), "`created_at` should exist and not be `None`."
         assert (
             record["updated_at"] is not None
-        ), "Should include `updated_at` as timestamp."
+        ), "`updated_at` should exist and not be `None`."
 
     # Should not call BigQuery client methods.
     mock_bq_client.return_value.get_table.assert_not_called()
