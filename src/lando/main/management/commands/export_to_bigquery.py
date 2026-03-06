@@ -70,7 +70,7 @@ class ModelTransformer(ABC):
 
     @abstractmethod
     def transform(self, instance: BaseModel) -> dict[str, Any]:
-        """Transform a model instance to a BigQuery row."""
+        """Transform a model instance for loading."""
 
 
 class RepoTransformer(ModelTransformer):
@@ -80,7 +80,7 @@ class RepoTransformer(ModelTransformer):
     table_id_env_var = "BQ_REPOS_TABLE_ID"
 
     def transform(self, instance: Repo) -> dict[str, Any]:
-        """Transform a `Repo` instance to a BigQuery row."""
+        """Transform a `Repo` instance for loading."""
         return {
             "id": instance.id,
             "name": instance.name,
@@ -102,7 +102,7 @@ class UpliftAssessmentTransformer(ModelTransformer):
     table_id_env_var = "BQ_UPLIFT_ASSESSMENTS_TABLE_ID"
 
     def transform(self, instance: UpliftAssessment) -> dict[str, Any]:
-        """Transform an `UpliftAssessment` instance to a BigQuery row."""
+        """Transform an `UpliftAssessment` instance for loading."""
         return {
             "id": instance.id,
             "user_id": instance.user_id,
@@ -127,7 +127,7 @@ class UpliftRevisionTransformer(ModelTransformer):
     table_id_env_var = "BQ_UPLIFT_REVISIONS_TABLE_ID"
 
     def transform(self, instance: UpliftRevision) -> dict[str, Any]:
-        """Transform an `UpliftRevision` instance to a BigQuery row."""
+        """Transform an `UpliftRevision` instance for loading."""
         return {
             "id": instance.id,
             "assessment_id": instance.assessment_id,
@@ -144,7 +144,7 @@ class UpliftSubmissionTransformer(ModelTransformer):
     table_id_env_var = "BQ_UPLIFT_SUBMISSIONS_TABLE_ID"
 
     def transform(self, instance: UpliftSubmission) -> dict[str, Any]:
-        """Transform an `UpliftSubmission` instance to a BigQuery row."""
+        """Transform an `UpliftSubmission` instance for loading."""
         return {
             "id": instance.id,
             "requested_by_id": instance.requested_by_id,
@@ -162,7 +162,7 @@ class UpliftJobTransformer(ModelTransformer):
     table_id_env_var = "BQ_UPLIFT_JOBS_TABLE_ID"
 
     def transform(self, instance: UpliftJob) -> dict[str, Any]:
-        """Transform an `UpliftJob` instance to a BigQuery row."""
+        """Transform an `UpliftJob` instance for loading."""
         return {
             "id": instance.id,
             "status": instance.status,
@@ -188,7 +188,7 @@ class RevisionUpliftJobTransformer(ModelTransformer):
     table_id_env_var = "BQ_REVISION_UPLIFT_JOBS_TABLE_ID"
 
     def transform(self, instance: RevisionUpliftJob) -> dict[str, Any]:
-        """Transform a `RevisionUpliftJob` instance to a BigQuery row."""
+        """Transform a `RevisionUpliftJob` instance for loading."""
         return {
             "id": instance.id,
             "uplift_job_id": instance.uplift_job_id,
