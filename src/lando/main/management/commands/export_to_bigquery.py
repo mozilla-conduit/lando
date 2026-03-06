@@ -309,6 +309,30 @@ class BigQueryLoader(Loader):
 
         return queryset.count()
 
+    def insert_with_retry(self, table_id: str, rows: list[dict]) -> bool:
+        """Insert rows with exponential backoff retry."""
+        for attempt in range(BQ_MAX_RETRIES):
+            errors = self.bq_client.insert_rows_json(table_id, rows)
+            if not errors:
+                return True
+
+            if attempt < BQ_MAX_RETRIES - 1:
+                delay = BQ_RETRY_BASE_DELAY * (2**attempt)
+                logger.warning(
+                    f"Retry {attempt + 1}/{BQ_MAX_RETRIES} for {table_id} "
+                    f"after {delay}s: {errors}"
+                )
+                time.sleep(delay)
+
+        logger.error(f"Failed to insert to {table_id} after {BQ_MAX_RETRIES} attempts.")
+        return False
+
+    def cleanup_incoming_tables(self) -> None:
+        """Delete all incoming tables on failure."""
+        for incoming_table in self.incoming_tables.values():
+            incoming_id = sql_table_id(incoming_table)
+            self.bq_client.delete_table(incoming_id, not_found_ok=True)
+
     def finalize(self) -> None:
         """Merge each incoming table into its target table and clean up."""
         if not self.incoming_tables:
@@ -338,30 +362,6 @@ class BigQueryLoader(Loader):
             # Delete the incoming table after merging.
             self.bq_client.delete_table(incoming_id)
             self.stdout.write(f"Merged and cleaned up {incoming_table.table_id}.\n")
-
-    def insert_with_retry(self, table_id: str, rows: list[dict]) -> bool:
-        """Insert rows with exponential backoff retry."""
-        for attempt in range(BQ_MAX_RETRIES):
-            errors = self.bq_client.insert_rows_json(table_id, rows)
-            if not errors:
-                return True
-
-            if attempt < BQ_MAX_RETRIES - 1:
-                delay = BQ_RETRY_BASE_DELAY * (2**attempt)
-                logger.warning(
-                    f"Retry {attempt + 1}/{BQ_MAX_RETRIES} for {table_id} "
-                    f"after {delay}s: {errors}"
-                )
-                time.sleep(delay)
-
-        logger.error(f"Failed to insert to {table_id} after {BQ_MAX_RETRIES} attempts.")
-        return False
-
-    def cleanup_incoming_tables(self) -> None:
-        """Delete all incoming tables on failure."""
-        for incoming_table in self.incoming_tables.values():
-            incoming_id = sql_table_id(incoming_table)
-            self.bq_client.delete_table(incoming_id, not_found_ok=True)
 
 
 def get_last_run_timestamp(bq_client: bigquery.Client, table_id: str) -> datetime:
