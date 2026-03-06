@@ -56,6 +56,10 @@ class ModelTransformer(ABC):
     """Base class for transforming Django models to BigQuery rows."""
 
     model: type[Model]
+
+    # The environment variable containing the fully-qualified BigQuery table ID,
+    # e.g. "project_id.dataset_id.table_id". The schema of the table this ID
+    # points to should match the dict returned by `transform`.
     table_id_env_var: str
 
     @property
