@@ -329,7 +329,7 @@ class BigQueryLoader(Loader):
 
             # Delete the incoming table after merging.
             self.bq_client.delete_table(incoming_id)
-            self.stdout.write(f"  Merged and cleaned up {incoming_table.table_id}.\n")
+            self.stdout.write(f"Merged and cleaned up {incoming_table.table_id}.\n")
 
     def insert_with_retry(self, table_id: str, rows: list[dict]) -> bool:
         """Insert rows with exponential backoff retry."""
@@ -469,7 +469,7 @@ class Command(BaseCommand):
             )
 
             count = loader.load(transformer, queryset)
-            self.stdout.write(f"  Loaded {count} rows.\n")
+            self.stdout.write(f"Loaded {count} rows.\n")
 
         loader.finalize()
 
