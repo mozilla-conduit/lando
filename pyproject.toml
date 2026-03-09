@@ -22,7 +22,7 @@ dependencies = [
     "jinja2",
     "kombu",
     "mots",
-    "MozPhab==2.8.3",
+    "MozPhab==2.9.0",
     "mozilla_django_oidc",
     "networkx",
     "psycopg2-binary",
