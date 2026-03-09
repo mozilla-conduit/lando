@@ -235,6 +235,43 @@ def test_automation_job_create_bad_action(bad_action, reason, client, headless_u
 
 
 @pytest.mark.django_db
+def test_automation_job_create_hg_repo_rejected(
+    client,
+    headless_user,
+    repo_mc,
+):
+    user, token = headless_user
+
+    repo_mc(scm_type=SCMType.HG)
+
+    body = {
+        "actions": [
+            {
+                "action": "add-commit",
+                "content": "0",
+                "patch_format": "git-format-patch",
+            },
+        ],
+    }
+    response = client.post(
+        "/api/repo/mozilla-central-hg",
+        data=json.dumps(body),
+        content_type="application/json",
+        headers={
+            "User-Agent": "Lando-User/testuser@example.org",
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert (
+        response.status_code == 400
+    ), "HG repo should be rejected by the automation API."
+    assert response.json() == {
+        "details": "Automation API is Git-only."
+    }, "Response should indicate the automation API is Git-only."
+
+
+@pytest.mark.django_db
 def test_automation_job_create_repo_automation_disabled(
     client,
     headless_user,
