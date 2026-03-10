@@ -10,7 +10,14 @@ from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.core.management.base import CommandError
 
-from lando.main.management.commands.export_to_bigquery import (
+from lando.main.models.uplift import (
+    RevisionUpliftJob,
+    UpliftAssessment,
+    UpliftJob,
+    UpliftRevision,
+    UpliftSubmission,
+)
+from lando.utils.management.commands.export_to_bigquery import (
     JsonLinesLoader,
     RepoTransformer,
     RevisionUpliftJobTransformer,
@@ -22,13 +29,6 @@ from lando.main.management.commands.export_to_bigquery import (
     get_cutoff_timestamp,
     incoming_table_id,
     sql_table_id,
-)
-from lando.main.models.uplift import (
-    RevisionUpliftJob,
-    UpliftAssessment,
-    UpliftJob,
-    UpliftRevision,
-    UpliftSubmission,
 )
 
 
@@ -393,7 +393,7 @@ def test_get_cutoff_timestamp_parses_since_arg(since_arg, expected, msg):
         ),
     ],
 )
-@patch("lando.main.management.commands.export_to_bigquery.get_last_run_timestamp")
+@patch("lando.utils.management.commands.export_to_bigquery.get_last_run_timestamp")
 def test_get_cutoff_timestamp_falls_back_to_bigquery(
     mock_get_last_run, bq_return, expected, msg
 ):
@@ -415,7 +415,7 @@ def test_json_lines_loader_raises_if_output_file_exists():
 
 
 @pytest.mark.django_db
-@patch("lando.main.management.commands.export_to_bigquery.bigquery.Client")
+@patch("lando.utils.management.commands.export_to_bigquery.bigquery.Client")
 def test_export_to_bigquery_output_file_writes_json_lines(mock_bq_client):
     # Create test data.
     user = User.objects.create_user(username="testuser", email="test@example.com")
