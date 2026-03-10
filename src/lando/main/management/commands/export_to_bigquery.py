@@ -244,22 +244,18 @@ class JsonLinesLoader(Loader):
             raise CommandError(f"Output file already exists: {output_path}")
 
         self.output_path = output_path
-        self.first_write = True
 
     def setup(self, *args, **kwargs):
-        """No-op setup for `JsonLinesLoader`."""
-        pass
+        """Create the empty output file."""
+        self.output_path.touch()
 
     def load(self, transformer: ModelTransformer, queryset: QuerySet) -> int:
         """Write transformed records to the JSON Lines output file."""
-        mode = "w" if self.first_write else "a"
-        self.first_write = False
-
-        with self.output_path.open(mode) as f:
+        with self.output_path.open("a") as output_file:
             for record in queryset.iterator():
                 row = transformer.transform(record)
                 row["_model"] = transformer.name
-                f.write(json.dumps(row) + "\n")
+                output_file.write(json.dumps(row) + "\n")
 
         return queryset.count()
 
