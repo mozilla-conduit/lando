@@ -212,8 +212,8 @@ def test_uplift_creation_fails_when_revisions_missing(
     ), "Submission missing requested revisions should redirect with error."
     messages = list(get_messages(response.wsgi_request))
     assert any(
-        "is not one of the available choices" in str(message) for message in messages
-    ), f"Should reject with message about no previous landing: {messages=}"
+        "has not landed on autoland yet" in str(message) for message in messages
+    ), f"Should reject with message about missing revision data: {messages=}"
 
     assert (
         UpliftAssessment.objects.count() == 0

@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from lando.api.legacy.stacks import RevisionStack
+from lando.main.models import Revision
 from lando.ui.uplift.context import UpliftContext
 
 
@@ -75,3 +76,32 @@ def test_uplift_context_build_walks_stack_successfully():
         200,
         300,
     ], "Should have walked from root A through B to C."
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "existing_ids, requested_ids, expected_missing",
+    [
+        ([100, 200], [100, 200, 300, 400], {"D300", "D400"}),
+        ([], [100, 200], {"D100", "D200"}),
+        ([100, 200], [100, 200], set()),
+        ([], [], set()),
+    ],
+    ids=[
+        "some missing",
+        "all missing",
+        "none missing",
+        "empty input",
+    ],
+)
+def test_find_missing_revisions(existing_ids, requested_ids, expected_missing):
+    """Test that `find_missing_revisions` correctly identifies revisions without DB records."""
+    for revision_id in existing_ids:
+        Revision.objects.create(revision_id=revision_id)
+
+    missing = UpliftContext.find_missing_revisions(requested_ids)
+
+    assert set(missing) == expected_missing, (
+        f"`find_missing_revisions({requested_ids})` should return `{expected_missing}` "
+        f"when revisions `{existing_ids}` exist in the database."
+    )
