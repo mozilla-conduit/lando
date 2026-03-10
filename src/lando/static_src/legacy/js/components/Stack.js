@@ -34,6 +34,38 @@ $.fn.stack = function() {
         $('.uplift-assessment-link-modal').removeClass("is-active");
     });
 
+    // Toggle `required` on the "steps to reproduce" textarea based on
+    // whether "Needs manual QE testing?" is set to "Yes".
+    function updateQeStepsRequired(form) {
+        let selectedRadio = form.find('input[name="needs_manual_qe_testing"]:checked');
+        let stepsTextarea = form.find('textarea[name="qe_testing_reproduction_steps"]');
+        stepsTextarea.prop("required", selectedRadio.val() === "yes");
+    }
+
+    $('input[name="needs_manual_qe_testing"]').on("change", function () {
+        updateQeStepsRequired($(this).closest("form"));
+    });
+
+    // Set the initial `required` state for any pre-populated forms.
+    $('input[name="needs_manual_qe_testing"]').closest("form").each(function () {
+        updateQeStepsRequired($(this));
+    });
+
+    // Require at least one repository checkbox to be selected in the uplift
+    // request form. Since `required` on `CheckboxSelectMultiple` would require
+    // all checkboxes to be checked, we use `setCustomValidity` instead.
+    let repositoryCheckboxes = $('input[name="repositories"]');
+    function updateRepositoryValidity() {
+        let isAnyChecked = repositoryCheckboxes.is(":checked");
+        let validityMessage = isAnyChecked ? "" : "Please select at least one repository.";
+        repositoryCheckboxes.each(function () {
+            this.setCustomValidity(validityMessage);
+        });
+    }
+
+    repositoryCheckboxes.on("change", updateRepositoryValidity);
+    updateRepositoryValidity();
+
     // Simple check for time being. If the button exists, assume this is a pull request page.
     // This should be cleaned up as part of bug 1995754.
     var is_pull_request_page = Boolean($('button.post-landing-job').length);
