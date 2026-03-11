@@ -27,9 +27,6 @@ from lando.main.models.uplift import (
 
 logger = logging.getLogger(__name__)
 
-# Chunk size for BigQuery inserts.
-BQ_CHUNK_SIZE = 500
-
 # Retry configuration for BigQuery inserts.
 BQ_MAX_RETRIES = 3
 BQ_RETRY_BASE_DELAY = 1.0  # seconds
@@ -288,7 +285,7 @@ class BigQueryLoader(Loader):
             )
             self.stdout.write(f"Created incoming table for {transformer.name}.\n")
 
-    def load(self, transformer: ModelTransformer, queryset: QuerySet) -> int:
+    def load(self, transformer: ModelTransformer, queryset: QuerySet, chunk_size: int = 500) -> int:
         """Transform and insert records into the incoming table in chunks."""
         incoming_table = self.incoming_tables[transformer.table_id]
         table_id = sql_table_id(incoming_table)
@@ -298,7 +295,7 @@ class BigQueryLoader(Loader):
             for record in queryset.iterator():
                 yield transformer.transform(record)
 
-        for chunk in chunked(transform_iterator(), BQ_CHUNK_SIZE):
+        for chunk in chunked(transform_iterator(), chunk_size):
             if not self.insert_with_retry(table_id, chunk):
                 self.cleanup_incoming_tables()
                 raise CommandError(f"Failed to export {transformer.name}. Aborting.")
