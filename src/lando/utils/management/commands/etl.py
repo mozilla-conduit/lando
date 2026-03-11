@@ -1,4 +1,4 @@
-"""Management command to export Lando data to BigQuery for analytics."""
+"""Management command to ETL Lando data into BigQuery for analytics."""
 
 import json
 import logging
@@ -239,7 +239,7 @@ class JsonLinesLoader(Loader):
 
 
 class BigQueryLoader(Loader):
-    """Loader that exports data to BigQuery using temporary incoming tables."""
+    """Loader that loads data into BigQuery using temporary incoming tables."""
 
     def __init__(self, stdout: IO[str], stderr: IO[str], bq_client: bigquery.Client):
         super().__init__(stdout, stderr)
@@ -277,7 +277,7 @@ class BigQueryLoader(Loader):
         for chunk in chunked(transform_iterator(), chunk_size):
             if not self.insert_with_retry(table_id, chunk):
                 self.cleanup_incoming_tables()
-                raise CommandError(f"Failed to export {transformer.name}. Aborting.")
+                raise CommandError(f"Failed to load {transformer.name}. Aborting.")
 
         return queryset.count()
 
@@ -382,24 +382,24 @@ def parse_since_timestamp(value: str) -> datetime:
 
 
 class Command(BaseCommand):
-    help = "Export Lando data to BigQuery for analytics."
+    help = "ETL Lando data into BigQuery for analytics."
     name = "etl"
 
     def add_arguments(self, parser: CommandParser):
-        """Define command-line arguments for the export command."""
+        """Define command-line arguments for the ETL command."""
         parser.add_argument(
             "--since",
             type=parse_since_timestamp,
             default=None,
             help=(
-                "Export records modified since this timestamp (ISO format). "
+                "Extract records modified since this timestamp (ISO format). "
                 "If not specified, queries BigQuery for the last run timestamp."
             ),
         )
         parser.add_argument(
             "--full",
             action="store_true",
-            help="Export all records from the beginning of history.",
+            help="Extract all records from the beginning of history.",
         )
         parser.add_argument(
             "--output-file",
@@ -410,20 +410,20 @@ class Command(BaseCommand):
 
     def get_cutoff_timestamp(
         self,
-        full_export: bool,
+        full_extract: bool,
         since: datetime | None,
     ) -> datetime:
-        """Determine the cutoff timestamp for the export.
+        """Determine the cutoff timestamp for extraction.
 
         Checks `--full` first, then `--since`, then falls back to querying
         BigQuery for the last run timestamp.
         """
-        if full_export:
-            self.stdout.write("Full export requested, starting from the beginning.\n")
+        if full_extract:
+            self.stdout.write("Full extraction requested, starting from the beginning.\n")
             return datetime.min.replace(tzinfo=timezone.utc)
 
         if since:
-            self.stdout.write(f"Exporting records modified since {since}.\n")
+            self.stdout.write(f"Extracting records modified since {since}.\n")
             return since
 
         # Query BigQuery for the last run timestamp.
@@ -442,15 +442,15 @@ class Command(BaseCommand):
 
         if last_run == datetime.min.replace(tzinfo=timezone.utc):
             self.stdout.write(
-                "No previous export found, starting from the beginning.\n"
+                "No previous ETL run found, starting from the beginning.\n"
             )
         else:
-            self.stdout.write(f"Exporting records modified since {last_run}.\n")
+            self.stdout.write(f"Extracting records modified since {last_run}.\n")
 
         return last_run
 
     def handle(self, *args, **options):
-        """Run the BigQuery export pipeline."""
+        """Run the ETL pipeline."""
         output_file = options["output_file"]
 
         # Validate environment variables for BigQuery mode.
@@ -487,4 +487,4 @@ class Command(BaseCommand):
         loader.finalize()
 
         total_time = round(time.perf_counter() - total_start, 2)
-        self.stdout.write(self.style.SUCCESS(f"\nExport completed in {total_time}s."))
+        self.stdout.write(self.style.SUCCESS(f"\nETL completed in {total_time}s."))

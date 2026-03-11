@@ -346,14 +346,14 @@ def test_transform_revision_uplift_job(make_repo):
     ), "`updated_at` should exist and not be `None`."
 
 
-def test_get_cutoff_timestamp_full_export_returns_datetime_min():
+def test_get_cutoff_timestamp_full_extract_returns_datetime_min():
     command = Command()
 
-    result = command.get_cutoff_timestamp(full_export=True, since=None)
+    result = command.get_cutoff_timestamp(full_extract=True, since=None)
 
     assert result == datetime.min.replace(
         tzinfo=timezone.utc
-    ), "Should return `datetime.min` (UTC) for full export."
+    ), "Should return `datetime.min` (UTC) for full extraction."
 
 
 @pytest.mark.parametrize(
@@ -381,7 +381,7 @@ def test_get_cutoff_timestamp_returns_since_when_provided():
     command = Command()
     since = datetime(2024, 1, 15, 12, 30, 45, tzinfo=timezone.utc)
 
-    result = command.get_cutoff_timestamp(full_export=False, since=since)
+    result = command.get_cutoff_timestamp(full_extract=False, since=since)
 
     assert result == since, "Should return the provided `since` `datetime`."
 
@@ -409,7 +409,7 @@ def test_get_cutoff_timestamp_falls_back_to_bigquery(
     command = Command()
     mock_get_last_run.return_value = bq_return
 
-    result = command.get_cutoff_timestamp(full_export=False, since=None)
+    result = command.get_cutoff_timestamp(full_extract=False, since=None)
 
     assert result == expected, msg
 
@@ -419,7 +419,7 @@ def test_get_cutoff_timestamp_falls_back_to_beginning_on_bq_error(mock_bq_client
     mock_bq_client.side_effect = Exception("Could not connect.")
     command = Command()
 
-    result = command.get_cutoff_timestamp(full_export=False, since=None)
+    result = command.get_cutoff_timestamp(full_extract=False, since=None)
 
     assert result == datetime.min.replace(
         tzinfo=timezone.utc
