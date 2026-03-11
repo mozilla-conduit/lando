@@ -410,7 +410,6 @@ class Command(BaseCommand):
 
     def get_cutoff_timestamp(
         self,
-        bq_client: bigquery.Client,
         full_export: bool,
         since: datetime | None,
     ) -> datetime:
@@ -429,7 +428,17 @@ class Command(BaseCommand):
 
         # Query BigQuery for the last run timestamp.
         # Use the UpliftJob table as the reference.
-        last_run = get_last_run_timestamp(bq_client, UpliftJobTransformer().table_id)
+        try:
+            bq_client = bigquery.Client()
+            last_run = get_last_run_timestamp(
+                bq_client, UpliftJobTransformer().table_id
+            )
+        except Exception:
+            logger.warning(
+                "Could not query BigQuery for last run timestamp. "
+                "Starting from the beginning."
+            )
+            return datetime.min.replace(tzinfo=timezone.utc)
 
         if last_run == datetime.min.replace(tzinfo=timezone.utc):
             self.stdout.write(
@@ -451,11 +460,8 @@ class Command(BaseCommand):
                 raise CommandError(f"Missing env vars: {', '.join(missing)}")
 
         total_start = time.perf_counter()
-        bq_client = bigquery.Client()
 
-        since_timestamp = self.get_cutoff_timestamp(
-            bq_client, options["full"], options["since"]
-        )
+        since_timestamp = self.get_cutoff_timestamp(options["full"], options["since"])
 
         # Select loader.
         if output_file:
@@ -463,7 +469,7 @@ class Command(BaseCommand):
             loader = JsonLinesLoader(self.stdout, self.stderr, output_file)
         else:
             logger.info("Loading into BigQuery.")
-            loader = BigQueryLoader(self.stdout, self.stderr, bq_client)
+            loader = BigQueryLoader(self.stdout, self.stderr, bigquery.Client())
 
         loader.setup(TRANSFORMERS)
 

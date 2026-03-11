@@ -347,10 +347,9 @@ def test_transform_revision_uplift_job(make_repo):
 
 
 def test_get_cutoff_timestamp_full_export_returns_datetime_min():
-    bq_client = MagicMock()
     command = Command()
 
-    result = command.get_cutoff_timestamp(bq_client, full_export=True, since=None)
+    result = command.get_cutoff_timestamp(full_export=True, since=None)
 
     assert result == datetime.min.replace(
         tzinfo=timezone.utc
@@ -379,11 +378,10 @@ def test_parse_since_timestamp(since_arg, expected, msg):
 
 
 def test_get_cutoff_timestamp_returns_since_when_provided():
-    bq_client = MagicMock()
     command = Command()
     since = datetime(2024, 1, 15, 12, 30, 45, tzinfo=timezone.utc)
 
-    result = command.get_cutoff_timestamp(bq_client, full_export=False, since=since)
+    result = command.get_cutoff_timestamp(full_export=False, since=since)
 
     assert result == since, "Should return the provided `since` `datetime`."
 
@@ -404,16 +402,28 @@ def test_get_cutoff_timestamp_returns_since_when_provided():
     ],
 )
 @patch("lando.utils.management.commands.export_to_bigquery.get_last_run_timestamp")
+@patch("lando.utils.management.commands.export_to_bigquery.bigquery.Client")
 def test_get_cutoff_timestamp_falls_back_to_bigquery(
-    mock_get_last_run, bq_return, expected, msg
+    mock_bq_client, mock_get_last_run, bq_return, expected, msg
 ):
-    bq_client = MagicMock()
     command = Command()
     mock_get_last_run.return_value = bq_return
 
-    result = command.get_cutoff_timestamp(bq_client, full_export=False, since=None)
+    result = command.get_cutoff_timestamp(full_export=False, since=None)
 
     assert result == expected, msg
+
+
+@patch("lando.utils.management.commands.export_to_bigquery.bigquery.Client")
+def test_get_cutoff_timestamp_falls_back_to_beginning_on_bq_error(mock_bq_client):
+    mock_bq_client.side_effect = Exception("Could not connect.")
+    command = Command()
+
+    result = command.get_cutoff_timestamp(full_export=False, since=None)
+
+    assert result == datetime.min.replace(
+        tzinfo=timezone.utc
+    ), "Should fall back to `datetime.min` (UTC) when BigQuery is unavailable."
 
 
 def test_json_lines_loader_raises_if_output_file_exists():
