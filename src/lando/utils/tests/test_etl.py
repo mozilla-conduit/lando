@@ -9,14 +9,6 @@ import pytest
 from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.core.management.base import CommandError
-
-from lando.main.models.uplift import (
-    RevisionUpliftJob,
-    UpliftAssessment,
-    UpliftJob,
-    UpliftRevision,
-    UpliftSubmission,
-)
 from lando.utils.management.commands.export_to_bigquery import (
     Command,
     JsonLinesLoader,
@@ -30,6 +22,14 @@ from lando.utils.management.commands.export_to_bigquery import (
     incoming_table_id,
     parse_since_timestamp,
     sql_table_id,
+)
+
+from lando.main.models.uplift import (
+    RevisionUpliftJob,
+    UpliftAssessment,
+    UpliftJob,
+    UpliftRevision,
+    UpliftSubmission,
 )
 
 
