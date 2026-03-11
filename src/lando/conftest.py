@@ -227,7 +227,9 @@ def create_patch_revision(normal_patch: Callable):
 
     normal_patch_0 = normal_patch(0)
 
-    def _create_patch_revision(number: int, patch: str = normal_patch_0):
+    def _create_patch_revision(
+        number: int, patch: str = normal_patch_0, revision_id: int | None = None
+    ):
         """Create revision number `number`, with patch text `patch`.
 
         `patch` will default to the first normal patch fixture if unspecified. However,
@@ -235,11 +237,13 @@ def create_patch_revision(normal_patch: Callable):
         normal patch number `number-1`."""
         if not patch:
             patch = normal_patch(number - 1)
-        revision = Revision()
-        revision.revision_id = number
-        revision.diff_id = number
-        revision.patch = patch
-        revision.save()
+        last_revision = Revision.objects.last()
+        revision_id = revision_id or (last_revision.id + 1 if last_revision else 1)
+        revision = Revision.objects.create(
+            revision_id=revision_id,
+            diff_id=revision_id * 10,
+            patch=patch,
+        )
         return revision
 
     return _create_patch_revision
@@ -575,7 +579,7 @@ def _run_commands(commands: list[list[str]], cwd: Path):
 
 
 @pytest.fixture
-def git_repo(
+def make_git_repo(
     tmp_path: Path, git_repo_seed: Path, monkeypatch: pytest.MonkeyPatch
 ) -> Path:
     """
@@ -587,33 +591,40 @@ def git_repo(
     Returns:
         pathlib.Path: The path to the created Git repository.
     """
-    # Force the committer date to a known value. This allows to have
-    # predictable commit SHAs when applying known patches on top.
-    epoch = "1970-01-01T00:00:00"
-    monkeypatch.setenv("GIT_COMMITTER_DATE", epoch)
 
-    repo_dir = tmp_path / "git_repo"
-    subprocess.run(["git", "init", repo_dir], check=True)
-    subprocess.run(["git", "branch", "-m", "main"], check=True, cwd=repo_dir)
-    _git_setup_user(repo_dir)
-    _git_ignore_denyCurrentBranch(repo_dir)
-    for patch in sorted(git_repo_seed.glob("*")):
-        subprocess.run(
-            ["git", "am", "--committer-date-is-author-date", str(patch)],
-            check=True,
-            cwd=repo_dir,
+    def _make_git_repo():
+        # Force the committer date to a known value. This allows to have
+        # predictable commit SHAs when applying known patches on top.
+        epoch = "1970-01-01T00:00:00"
+        monkeypatch.setenv("GIT_COMMITTER_DATE", epoch)
+
+        repo_dir = tmp_path / str(uuid.uuid4())
+        while repo_dir.exists():
+            repo_dir = tmp_path / str(uuid.uuid4())
+
+        subprocess.run(["git", "init", repo_dir], check=True)
+        subprocess.run(["git", "branch", "-m", "main"], check=True, cwd=repo_dir)
+        _git_setup_user(repo_dir)
+        _git_ignore_denyCurrentBranch(repo_dir)
+        for patch in sorted(git_repo_seed.glob("*")):
+            subprocess.run(
+                ["git", "am", "--committer-date-is-author-date", str(patch)],
+                check=True,
+                cwd=repo_dir,
+            )
+
+        # Create a separate base branch for branch tests.
+        _run_commands(
+            [
+                ["git", "checkout", "-b", "dev"],
+                ["git", "commit", "--date", epoch, "--allow-empty", "-m", "dev"],
+                ["git", "checkout", "main"],
+            ],
+            repo_dir,
         )
+        return repo_dir
 
-    # Create a separate base branch for branch tests.
-    _run_commands(
-        [
-            ["git", "checkout", "-b", "dev"],
-            ["git", "commit", "--date", epoch, "--allow-empty", "-m", "dev"],
-            ["git", "checkout", "main"],
-        ],
-        repo_dir,
-    )
-    return repo_dir
+    return _make_git_repo
 
 
 @pytest.mark.django_db
@@ -685,13 +696,16 @@ def git_repo_mc(
     repos_dir = tmp_path / "repos"
     repos_dir.mkdir(exist_ok=True)
 
+    git_repo_dir = git_repo
+    name = name or str(git_repo_dir).split("/")[-1]
+
     params = {
-        "name": name or "mozilla-central-git",
-        "pull_path": str(git_repo),
-        "push_path": str(git_repo),
+        "name": name,
+        "pull_path": str(git_repo_dir),
+        "push_path": str(git_repo_dir),
         "required_permission": SCM_LEVEL_3,
-        "system_path": repos_dir / "git_repo",
-        "url": str(git_repo),
+        "system_path": repos_dir / name,
+        "url": str(git_repo_dir),
         # The option below can be overriden in the parameters
         "approval_required": approval_required,
         "autoformat_enabled": autoformat_enabled,
@@ -723,7 +737,7 @@ def git_repo_mc(
 @pytest.fixture()
 def repo_mc(
     # Git
-    git_repo: pathlib.Path,
+    make_git_repo: Callable,
     tmp_path: pathlib.Path,
     # Hg
     hg_server: str,
@@ -764,7 +778,7 @@ def repo_mc(
 
         if scm_type == SCMType.GIT:
             params["pr_enabled"] = pr_enabled
-            return git_repo_mc(git_repo, tmp_path, **params)
+            return git_repo_mc(make_git_repo(), tmp_path, **params)
         elif scm_type == SCMType.HG:
             assert not pr_enabled
             return hg_repo_mc(hg_server, hg_clone, **params)
@@ -1235,17 +1249,26 @@ def assert_same_commit_data():
 
 
 @pytest.fixture
-def commit_maps(git_repo) -> list[CommitMap]:
-    for git_hash, hg_hash in (
-        ("a" * 39 + "b", "b" * 39 + "c"),
-        ("a" * 40, "b" * 40),
-        ("c" * 40, "d" * 40),
-        ("e" * 40, "f" * 40),
-    ):
-        CommitMap.objects.create(
-            git_hash=git_hash, hg_hash=hg_hash, git_repo_name=git_repo.name
-        )
-    return list(CommitMap.objects.all().order_by("id"))
+def commit_maps(make_commit_maps) -> list[CommitMap]:
+    return make_commit_maps()
+
+
+@pytest.fixture
+def make_commit_maps(make_git_repo: Callable) -> Callable:
+    def _make_commit_maps(git_repo=None):
+        git_repo = git_repo or make_git_repo()
+        for git_hash, hg_hash in (
+            ("a" * 39 + "b", "b" * 39 + "c"),
+            ("a" * 40, "b" * 40),
+            ("c" * 40, "d" * 40),
+            ("e" * 40, "f" * 40),
+        ):
+            CommitMap.objects.create(
+                git_hash=git_hash, hg_hash=hg_hash, git_repo_name=git_repo.name
+            )
+        return list(CommitMap.objects.all().order_by("id"))
+
+    return _make_commit_maps
 
 
 @pytest.fixture
