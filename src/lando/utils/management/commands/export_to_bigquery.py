@@ -45,8 +45,15 @@ def incoming_table_id(table_id: str) -> str:
     return f"{table_id}_incoming"
 
 
-class ModelTransformer(ABC):
-    """Base class for transforming Django models to BigQuery rows."""
+class ModelTransformer:
+    """Base class for transforming Django models to BigQuery rows.
+
+    Subclasses declare `model`, `table_id_env_var`, and `fields`. The base
+    `transform` method handles `id`, `created_at`, and `updated_at` automatically,
+    then copies each field in `fields` from the model instance via `getattr`.
+
+    Override `transform` in a subclass if you need derived fields.
+    """
 
     model: type[Model]
 
@@ -54,6 +61,9 @@ class ModelTransformer(ABC):
     # e.g. "project_id.dataset_id.table_id". The schema of the table this ID
     # points to should match the dict returned by `transform`.
     table_id_env_var: str
+
+    # Model fields to include in the transformed output (beyond the base fields).
+    fields: list[str] = []
 
     @property
     def name(self) -> str:
@@ -65,9 +75,16 @@ class ModelTransformer(ABC):
         """Return the BigQuery table ID from environment variable."""
         return os.getenv(self.table_id_env_var, "")
 
-    @abstractmethod
     def transform(self, instance: BaseModel) -> dict[str, Any]:
         """Transform a model instance for loading."""
+        data = {
+            "id": instance.id,
+            "created_at": datetime_to_timestamp(instance.created_at),
+            "updated_at": datetime_to_timestamp(instance.updated_at),
+        }
+        for field in self.fields:
+            data[field] = getattr(instance, field)
+        return data
 
 
 class RepoTransformer(ModelTransformer):
@@ -75,21 +92,15 @@ class RepoTransformer(ModelTransformer):
 
     model = Repo
     table_id_env_var = "BQ_REPOS_TABLE_ID"
-
-    def transform(self, instance: Repo) -> dict[str, Any]:
-        """Transform a `Repo` instance for loading."""
-        return {
-            "id": instance.id,
-            "name": instance.name,
-            "short_name": instance.short_name,
-            "url": instance.url,
-            "scm_type": instance.scm_type,
-            "is_phabricator_repo": instance.is_phabricator_repo,
-            "is_try": instance.is_try,
-            "automation_enabled": instance.automation_enabled,
-            "created_at": datetime_to_timestamp(instance.created_at),
-            "updated_at": datetime_to_timestamp(instance.updated_at),
-        }
+    fields = [
+        "name",
+        "short_name",
+        "url",
+        "scm_type",
+        "is_phabricator_repo",
+        "is_try",
+        "automation_enabled",
+    ]
 
 
 class UpliftAssessmentTransformer(ModelTransformer):
@@ -97,24 +108,18 @@ class UpliftAssessmentTransformer(ModelTransformer):
 
     model = UpliftAssessment
     table_id_env_var = "BQ_UPLIFT_ASSESSMENTS_TABLE_ID"
-
-    def transform(self, instance: UpliftAssessment) -> dict[str, Any]:
-        """Transform an `UpliftAssessment` instance for loading."""
-        return {
-            "id": instance.id,
-            "user_id": instance.user_id,
-            "user_impact": instance.user_impact,
-            "covered_by_testing": instance.covered_by_testing,
-            "fix_verified_in_nightly": instance.fix_verified_in_nightly,
-            "needs_manual_qe_testing": instance.needs_manual_qe_testing,
-            "qe_testing_reproduction_steps": instance.qe_testing_reproduction_steps,
-            "risk_associated_with_patch": instance.risk_associated_with_patch,
-            "risk_level_explanation": instance.risk_level_explanation,
-            "string_changes": instance.string_changes,
-            "is_android_affected": instance.is_android_affected,
-            "created_at": datetime_to_timestamp(instance.created_at),
-            "updated_at": datetime_to_timestamp(instance.updated_at),
-        }
+    fields = [
+        "user_id",
+        "user_impact",
+        "covered_by_testing",
+        "fix_verified_in_nightly",
+        "needs_manual_qe_testing",
+        "qe_testing_reproduction_steps",
+        "risk_associated_with_patch",
+        "risk_level_explanation",
+        "string_changes",
+        "is_android_affected",
+    ]
 
 
 class UpliftRevisionTransformer(ModelTransformer):
@@ -122,16 +127,10 @@ class UpliftRevisionTransformer(ModelTransformer):
 
     model = UpliftRevision
     table_id_env_var = "BQ_UPLIFT_REVISIONS_TABLE_ID"
-
-    def transform(self, instance: UpliftRevision) -> dict[str, Any]:
-        """Transform an `UpliftRevision` instance for loading."""
-        return {
-            "id": instance.id,
-            "assessment_id": instance.assessment_id,
-            "revision_id": instance.revision_id,
-            "created_at": datetime_to_timestamp(instance.created_at),
-            "updated_at": datetime_to_timestamp(instance.updated_at),
-        }
+    fields = [
+        "assessment_id",
+        "revision_id",
+    ]
 
 
 class UpliftSubmissionTransformer(ModelTransformer):
@@ -139,17 +138,11 @@ class UpliftSubmissionTransformer(ModelTransformer):
 
     model = UpliftSubmission
     table_id_env_var = "BQ_UPLIFT_SUBMISSIONS_TABLE_ID"
-
-    def transform(self, instance: UpliftSubmission) -> dict[str, Any]:
-        """Transform an `UpliftSubmission` instance for loading."""
-        return {
-            "id": instance.id,
-            "requested_by_id": instance.requested_by_id,
-            "requested_revision_ids": instance.requested_revision_ids,
-            "assessment_id": instance.assessment_id,
-            "created_at": datetime_to_timestamp(instance.created_at),
-            "updated_at": datetime_to_timestamp(instance.updated_at),
-        }
+    fields = [
+        "requested_by_id",
+        "requested_revision_ids",
+        "assessment_id",
+    ]
 
 
 class UpliftJobTransformer(ModelTransformer):
@@ -157,25 +150,19 @@ class UpliftJobTransformer(ModelTransformer):
 
     model = UpliftJob
     table_id_env_var = "BQ_UPLIFT_JOBS_TABLE_ID"
-
-    def transform(self, instance: UpliftJob) -> dict[str, Any]:
-        """Transform an `UpliftJob` instance for loading."""
-        return {
-            "id": instance.id,
-            "status": instance.status,
-            "error": instance.error,
-            "error_breakdown": instance.error_breakdown,
-            "landed_commit_id": instance.landed_commit_id,
-            "requester_email": instance.requester_email,
-            "attempts": instance.attempts,
-            "priority": instance.priority,
-            "duration_seconds": instance.duration_seconds,
-            "target_repo_id": instance.target_repo_id,
-            "created_revision_ids": instance.created_revision_ids,
-            "submission_id": instance.submission_id,
-            "created_at": datetime_to_timestamp(instance.created_at),
-            "updated_at": datetime_to_timestamp(instance.updated_at),
-        }
+    fields = [
+        "status",
+        "error",
+        "error_breakdown",
+        "landed_commit_id",
+        "requester_email",
+        "attempts",
+        "priority",
+        "duration_seconds",
+        "target_repo_id",
+        "created_revision_ids",
+        "submission_id",
+    ]
 
 
 class RevisionUpliftJobTransformer(ModelTransformer):
@@ -183,17 +170,11 @@ class RevisionUpliftJobTransformer(ModelTransformer):
 
     model = RevisionUpliftJob
     table_id_env_var = "BQ_REVISION_UPLIFT_JOBS_TABLE_ID"
-
-    def transform(self, instance: RevisionUpliftJob) -> dict[str, Any]:
-        """Transform a `RevisionUpliftJob` instance for loading."""
-        return {
-            "id": instance.id,
-            "uplift_job_id": instance.uplift_job_id,
-            "revision_id": instance.revision_id,
-            "index": instance.index,
-            "created_at": datetime_to_timestamp(instance.created_at),
-            "updated_at": datetime_to_timestamp(instance.updated_at),
-        }
+    fields = [
+        "uplift_job_id",
+        "revision_id",
+        "index",
+    ]
 
 
 # All available transformers.
