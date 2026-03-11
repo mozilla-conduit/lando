@@ -212,8 +212,8 @@ def test_uplift_creation_fails_when_revisions_missing(
     ), "Submission missing requested revisions should redirect with error."
     messages = list(get_messages(response.wsgi_request))
     assert any(
-        "is not one of the available choices" in str(message) for message in messages
-    ), f"Should reject with message about no previous landing: {messages=}"
+        "has not landed on autoland yet" in str(message) for message in messages
+    ), f"Should reject with message about missing revision data: {messages=}"
 
     assert (
         UpliftAssessment.objects.count() == 0
@@ -281,29 +281,29 @@ def test_to_conduit_json_transforms_fields(user):
     conduit_dict = instance.to_conduit_json()
     assert isinstance(conduit_dict, dict), "`to_conduit_json` should return a `dict`."
     assert (
-        conduit_dict["User impact if declined"] == "Impact"
+        conduit_dict["User impact if declined/Reason for urgency"] == "Impact"
     ), "`user_impact` field should not be transformed."
     assert (
-        conduit_dict["Code covered by automated testing"] is True
-    ), "`Yes` should be converted to `True`."
+        conduit_dict["Code covered by automated testing?"] == "yes"
+    ), "`covered_by_testing` value should be preserved as a string."
     assert (
-        conduit_dict["Fix verified in Nightly"] is False
-    ), "`No` should be converted to `False`."
+        conduit_dict["Fix verified in Nightly?"] == "no"
+    ), "`fix_verified_in_nightly` value should be preserved as a string."
     assert (
-        conduit_dict["Needs manual QE test"] is True
-    ), "`Yes` should be converted to `True`."
+        conduit_dict["Needs manual QE testing?"] == "yes"
+    ), "`needs_manual_qe_testing` value should be preserved as a string."
     assert (
-        conduit_dict["Is Android affected?"] is False
-    ), "`Unknown` should be converted to `False`."
+        conduit_dict["Is Android affected?"] == "unknown"
+    ), "`is_android_affected` value should be preserved as a string."
     assert (
         conduit_dict["Risk associated with taking this patch"] == "high"
-    ), "Text choice should be converted to `str`."
+    ), "`risk_associated_with_patch` value should be preserved as a string."
 
     conduit_str = instance.to_conduit_json_str()
 
     assert (
         conduit_str
-        == '{"User impact if declined": "Impact", "Code covered by automated testing": true, "Fix verified in Nightly": false, "Needs manual QE test": true, "Steps to reproduce for manual QE testing": "Steps", "Risk associated with taking this patch": "high", "Explanation of risk level": "Explanation", "String changes made/needed": "Changes", "Is Android affected?": false}'
+        == '{"User impact if declined/Reason for urgency": "Impact", "Code covered by automated testing?": "yes", "Fix verified in Nightly?": "no", "Needs manual QE testing?": "yes", "Steps to reproduce for manual QE testing": "Steps", "Risk associated with taking this patch": "high", "Explanation of risk level": "Explanation", "String changes made/needed?": "Changes", "Is Android affected?": "unknown"}'
     ), "`to_conduit_json_str` should return dict as a string."
 
 

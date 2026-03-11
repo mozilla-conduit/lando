@@ -660,8 +660,8 @@ class GitSCM(AbstractSCM):
             timestamp = datetime.now().strftime(ISO8601_TIMESTAMP_BASIC)
             temp_branch_name = f"theirs-merge-temp-branch-{timestamp}"
 
-            # Switch to target and merge current into it with 'ours' strategy
-            self._git_run("switch", "-c", temp_branch_name, target, cwd=self.path)
+            # Switch to target and merge current into it with 'ours' strategy.
+            self._git_run("switch", "-c", temp_branch_name, "--", target, cwd=self.path)
 
             # Create merge commit that favors the target's content
             self._git_run(
@@ -696,6 +696,7 @@ class GitSCM(AbstractSCM):
             "-m",
             commit_message,
             *strategy_args,
+            "--",
             target,
             cwd=self.path,
         )
@@ -708,7 +709,7 @@ class GitSCM(AbstractSCM):
 
         If `target` is `None`, use the currently checked out commit.
         """
-        tag_command = ["tag", name]
+        tag_command = ["tag", "--", name]
 
         if target:
             tag_command.append(target)
@@ -716,7 +717,7 @@ class GitSCM(AbstractSCM):
         try:
             self._git_run(*tag_command, cwd=self.path)
         except SCMInternalServerError as exc:
-            if self._git_run("tag", "-l", name, cwd=self.path):
+            if self._git_run("tag", "-l", "--", name, cwd=self.path):
                 desired_tag_target = self._git_run(
                     "rev-parse", target or "HEAD", cwd=self.path
                 )

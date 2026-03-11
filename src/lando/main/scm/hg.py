@@ -788,47 +788,8 @@ class HgSCM(AbstractSCM):
     def merge_onto(
         self, commit_message: str, target: str, strategy: MergeStrategy | None
     ) -> str:
-        """Create a merge commit on the specified repo.
-
-        Use the specified `MergeStrategy` if passed. Otherwise, perform
-        a normal merge and fail if there are merge conflicts.
-
-        Return the SHA of the newly created merge commit.
-        """
-        if strategy == MergeStrategy.OURS:
-            # Create a fake `hg debugsetparent` merge.
-            self.run_hg(["debugsetparents", ".", target])
-        elif strategy == MergeStrategy.THEIRS:
-            # Create a fake `hg debugsetparent` merge.
-            self.run_hg(["debugsetparents", target, "."])
-        else:
-            # Without strategy, do a regular merge, and fail if there are
-            # conflicts.
-            self.run_hg(["merge", "-r", target])
-            unresolved = self.run_hg(["resolve", "--list"]).decode("utf-8")
-            unresolved_files = [
-                line.split()[1]
-                for line in unresolved.splitlines()
-                if line.startswith("U ")
-            ]
-            if unresolved_files:
-                raise PatchConflict(
-                    f"Unresolved merge conflicts in files: {', '.join(unresolved_files)}",
-                )
-
-        self.run_hg(["commit", "-m", commit_message])
-
-        return self.head_ref()
+        raise NotImplementedError("`merge_onto` not implemented for Mercurial.")
 
     @override
     def tag(self, name: str, target: str | None):
-        """Create a new tag called `name` on the `target` commit.
-
-        If `target` is `None`, use the currently checked out commit.
-        """
-        tag_command = ["tag", name]
-
-        if target:
-            tag_command.append(target)
-
-        self.run_hg(tag_command)
+        raise NotImplementedError("`tag` is not implemented for Mercurial.")

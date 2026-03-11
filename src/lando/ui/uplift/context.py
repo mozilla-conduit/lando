@@ -9,7 +9,7 @@ from django.db.models import Prefetch, QuerySet
 
 from lando.api.legacy.stacks import RevisionStack
 from lando.api.legacy.validation import revision_id_to_int
-from lando.main.models import Repo
+from lando.main.models import Repo, Revision
 from lando.main.models.uplift import (
     UpliftAssessment,
     UpliftJob,
@@ -36,6 +36,7 @@ class UpliftContext:
     assessment: UpliftAssessment | None
     assessment_link_form: LinkUpliftAssessmentForm | None
     can_create_uplift_submission: bool
+    missing_source_revisions: tuple[str, ...]
     revision_id: int
     docs_url: str
 
@@ -67,6 +68,8 @@ class UpliftContext:
 
         request_form = UpliftRequestForm(initial={"source_revisions": source_revisions})
 
+        missing_source_revisions = cls.find_missing_revisions(source_revisions)
+
         # Look for an existing `UpliftRevision` for this revision.
         uplift_revision = UpliftRevision.one_or_none(revision_id=revision_id)
 
@@ -87,9 +90,28 @@ class UpliftContext:
             assessment_form=assessment_form,
             assessment=assessment,
             assessment_link_form=assessment_link_form,
-            can_create_uplift_submission=cls.can_create_submission(request),
+            can_create_uplift_submission=(
+                cls.can_create_submission(request) and not missing_source_revisions
+            ),
+            missing_source_revisions=missing_source_revisions,
             revision_id=revision_id,
             docs_url=UPLIFT_DOCS_URL,
+        )
+
+    @staticmethod
+    def find_missing_revisions(source_revision_ids: list[int]) -> tuple[str, ...]:
+        """Return display IDs (e.g. ``"D123"``) for revisions not found in the database.
+
+        Revisions are created when a patch lands on autoland. If a revision ID
+        is not in the database it means the patch has not landed yet and cannot
+        be used as a source for an uplift request.
+        """
+        existing_revision_ids = Revision.objects.filter(
+            revision_id__in=source_revision_ids
+        ).values_list("revision_id", flat=True)
+        return tuple(
+            f"D{rev_id}"
+            for rev_id in set(source_revision_ids) - set(existing_revision_ids)
         )
 
     @staticmethod

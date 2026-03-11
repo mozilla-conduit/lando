@@ -36,17 +36,7 @@ class UpliftAssessmentForm(forms.ModelForm):
             "risk_associated_with_patch": RadioSelect,
             "is_android_affected": RadioSelect,
         }
-        labels = {
-            "user_impact": "User impact if declined/Reason for urgency",
-            "covered_by_testing": "Code covered by automated testing?",
-            "fix_verified_in_nightly": "Fix verified in Nightly?",
-            "needs_manual_qe_testing": "Needs manual QE testing?",
-            "qe_testing_reproduction_steps": "Steps to reproduce for manual QE testing",
-            "risk_associated_with_patch": "Risk associated with taking this patch",
-            "risk_level_explanation": "Explanation of risk level",
-            "string_changes": "String changes made/needed?",
-            "is_android_affected": "Is Android affected?",
-        }
+        labels = UpliftAssessment.CONDUIT_FIELDS
 
     def clean(self):
         """Ensure QE reproduction steps are given if manual QE testing is required."""
@@ -161,6 +151,13 @@ class UpliftRequestForm(UpliftAssessmentForm):
         queryset=Revision.objects.all(),
         to_field_name="revision_id",
         widget=forms.CheckboxSelectMultiple(),
+        error_messages={
+            "invalid_choice": (
+                "Revision D%(value)s has not landed on autoland yet, so Lando "
+                "does not have the revision data required to create an uplift. "
+                "Please land the patch on autoland first before requesting an uplift."
+            ),
+        },
     )
     repositories = forms.ModelMultipleChoiceField(
         queryset=Repo.objects.filter(approval_required=True).order_by("name"),
