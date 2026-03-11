@@ -687,12 +687,14 @@ def git_repo_mc(
     repos_dir = tmp_path / "repos"
     repos_dir.mkdir(exist_ok=True)
 
+    name = name or "mozilla-central-git"
+
     params = {
-        "name": name or "mozilla-central-git",
+        "name": name,
         "pull_path": str(git_repo),
         "push_path": str(git_repo),
         "required_permission": SCM_LEVEL_3,
-        "system_path": repos_dir / "git_repo",
+        "system_path": repos_dir / name,
         "url": str(git_repo),
         # The option below can be overriden in the parameters
         "approval_required": approval_required,
