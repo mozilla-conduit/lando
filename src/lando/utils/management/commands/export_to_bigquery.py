@@ -342,9 +342,17 @@ class BigQueryLoader(Loader):
 
             # Merge incoming data into the target table.
             target_id = sql_table_id(target_table)
+            # De-duplicate the incoming table before merging, keeping only
+            # the entry with the latest `updated_at` timestamp for each `id`.
             merge_query = f"""
                 MERGE `{target_id}` as T
-                USING `{incoming_id}` as S
+                USING (
+                  SELECT *
+                  FROM `{incoming_id}`
+                  QUALIFY ROW_NUMBER() OVER (
+                    PARTITION BY id ORDER BY updated_at DESC
+                  ) = 1
+                ) as S
                 ON T.id = S.id
                 WHEN MATCHED THEN
                   UPDATE SET {", ".join(f"{f.name} = S.{f.name}" for f in target_table.schema)}
