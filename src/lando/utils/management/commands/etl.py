@@ -383,7 +383,7 @@ def parse_since_timestamp(value: str) -> datetime:
 
 class Command(BaseCommand):
     help = "Export Lando data to BigQuery for analytics."
-    name = "export_to_bigquery"
+    name = "etl"
 
     def add_arguments(self, parser: CommandParser):
         """Define command-line arguments for the export command."""

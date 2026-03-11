@@ -9,7 +9,15 @@ import pytest
 from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from lando.utils.management.commands.export_to_bigquery import (
+
+from lando.main.models.uplift import (
+    RevisionUpliftJob,
+    UpliftAssessment,
+    UpliftJob,
+    UpliftRevision,
+    UpliftSubmission,
+)
+from lando.utils.management.commands.etl import (
     Command,
     JsonLinesLoader,
     RepoTransformer,
@@ -22,14 +30,6 @@ from lando.utils.management.commands.export_to_bigquery import (
     incoming_table_id,
     parse_since_timestamp,
     sql_table_id,
-)
-
-from lando.main.models.uplift import (
-    RevisionUpliftJob,
-    UpliftAssessment,
-    UpliftJob,
-    UpliftRevision,
-    UpliftSubmission,
 )
 
 
@@ -401,8 +401,8 @@ def test_get_cutoff_timestamp_returns_since_when_provided():
         ),
     ],
 )
-@patch("lando.utils.management.commands.export_to_bigquery.get_last_run_timestamp")
-@patch("lando.utils.management.commands.export_to_bigquery.bigquery.Client")
+@patch("lando.utils.management.commands.etl.get_last_run_timestamp")
+@patch("lando.utils.management.commands.etl.bigquery.Client")
 def test_get_cutoff_timestamp_falls_back_to_bigquery(
     mock_bq_client, mock_get_last_run, bq_return, expected, msg
 ):
@@ -414,7 +414,7 @@ def test_get_cutoff_timestamp_falls_back_to_bigquery(
     assert result == expected, msg
 
 
-@patch("lando.utils.management.commands.export_to_bigquery.bigquery.Client")
+@patch("lando.utils.management.commands.etl.bigquery.Client")
 def test_get_cutoff_timestamp_falls_back_to_beginning_on_bq_error(mock_bq_client):
     mock_bq_client.side_effect = Exception("Could not connect.")
     command = Command()
@@ -436,8 +436,8 @@ def test_json_lines_loader_raises_if_output_file_exists():
 
 
 @pytest.mark.django_db
-@patch("lando.utils.management.commands.export_to_bigquery.bigquery.Client")
-def test_export_to_bigquery_output_file_writes_json_lines(mock_bq_client):
+@patch("lando.utils.management.commands.etl.bigquery.Client")
+def test_etl_output_file_writes_json_lines(mock_bq_client):
     # Create test data.
     user = User.objects.create_user(username="testuser", email="test@example.com")
     assessment = UpliftAssessment.objects.create(
@@ -458,7 +458,7 @@ def test_export_to_bigquery_output_file_writes_json_lines(mock_bq_client):
         stdout = StringIO()
 
         call_command(
-            "export_to_bigquery",
+            "etl",
             "--output-file",
             str(output_path),
             "--full",
