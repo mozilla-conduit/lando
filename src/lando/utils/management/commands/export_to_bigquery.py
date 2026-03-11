@@ -27,9 +27,6 @@ from lando.main.models.uplift import (
 
 logger = logging.getLogger(__name__)
 
-# Retry configuration for BigQuery inserts.
-BQ_RETRY_BASE_DELAY = 1.0  # seconds
-
 
 def datetime_to_timestamp(dt: datetime | None) -> int | None:
     """Convert a datetime to a Unix timestamp."""
@@ -284,7 +281,9 @@ class BigQueryLoader(Loader):
             )
             self.stdout.write(f"Created incoming table for {transformer.name}.\n")
 
-    def load(self, transformer: ModelTransformer, queryset: QuerySet, chunk_size: int = 500) -> int:
+    def load(
+        self, transformer: ModelTransformer, queryset: QuerySet, chunk_size: int = 500
+    ) -> int:
         """Transform and insert records into the incoming table in chunks."""
         incoming_table = self.incoming_tables[transformer.table_id]
         table_id = sql_table_id(incoming_table)
@@ -301,7 +300,13 @@ class BigQueryLoader(Loader):
 
         return queryset.count()
 
-    def insert_with_retry(self, table_id: str, rows: list[dict], max_retries: int = 3) -> bool:
+    def insert_with_retry(
+        self,
+        table_id: str,
+        rows: list[dict],
+        max_retries: int = 3,
+        retry_base_delay_s: float = 1.0,
+    ) -> bool:
         """Insert rows with exponential backoff retry."""
         for attempt in range(max_retries):
             errors = self.bq_client.insert_rows_json(table_id, rows)
@@ -309,7 +314,7 @@ class BigQueryLoader(Loader):
                 return True
 
             if attempt < max_retries - 1:
-                delay = BQ_RETRY_BASE_DELAY * (2**attempt)
+                delay = retry_base_delay_s * (2**attempt)
                 logger.warning(
                     f"Retry {attempt + 1}/{max_retries} for {table_id} "
                     f"after {delay}s: {errors}"
