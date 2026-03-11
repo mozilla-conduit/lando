@@ -400,26 +400,6 @@ def parse_since_timestamp(value: str) -> datetime:
     return parsed
 
 
-def get_cutoff_timestamp(
-    bq_client: bigquery.Client,
-    full_export: bool,
-    since_arg: datetime | None,
-) -> datetime:
-    """Determine the cutoff timestamp for the export.
-
-    Returns `datetime.min` (UTC) when all records should be exported.
-    """
-    if full_export:
-        return datetime.min.replace(tzinfo=timezone.utc)
-
-    if since_arg:
-        return since_arg
-
-    # Query BigQuery for the last run timestamp.
-    # Use the UpliftJob table as the reference.
-    return get_last_run_timestamp(bq_client, UpliftJobTransformer().table_id)
-
-
 class Command(BaseCommand):
     help = "Export Lando data to BigQuery for analytics."
     name = "export_to_bigquery"
@@ -447,10 +427,40 @@ class Command(BaseCommand):
             help="Write transformed data to a JSON file instead of BigQuery.",
         )
 
+    def get_cutoff_timestamp(
+        self,
+        bq_client: bigquery.Client,
+        full_export: bool,
+        since: datetime | None,
+    ) -> datetime:
+        """Determine the cutoff timestamp for the export.
+
+        Checks `--full` first, then `--since`, then falls back to querying
+        BigQuery for the last run timestamp.
+        """
+        if full_export:
+            self.stdout.write("Full export requested, starting from the beginning.\n")
+            return datetime.min.replace(tzinfo=timezone.utc)
+
+        if since:
+            self.stdout.write(f"Exporting records modified since {since}.\n")
+            return since
+
+        # Query BigQuery for the last run timestamp.
+        # Use the UpliftJob table as the reference.
+        last_run = get_last_run_timestamp(bq_client, UpliftJobTransformer().table_id)
+
+        if last_run == datetime.min.replace(tzinfo=timezone.utc):
+            self.stdout.write(
+                "No previous export found, starting from the beginning.\n"
+            )
+        else:
+            self.stdout.write(f"Exporting records modified since {last_run}.\n")
+
+        return last_run
+
     def handle(self, *args, **options):
         """Run the BigQuery export pipeline."""
-        full_export = options["full"]
-        since_arg = options["since"]
         output_file = options["output_file"]
 
         # Validate environment variables for BigQuery mode.
@@ -462,14 +472,9 @@ class Command(BaseCommand):
         total_start = time.perf_counter()
         bq_client = bigquery.Client()
 
-        # Determine cutoff timestamp.
-        since_timestamp = get_cutoff_timestamp(bq_client, full_export, since_arg)
-        if since_timestamp == datetime.min.replace(tzinfo=timezone.utc):
-            self.stdout.write(
-                "No previous export found, starting from the beginning.\n"
-            )
-        else:
-            self.stdout.write(f"Exporting records modified since {since_timestamp}.\n")
+        since_timestamp = self.get_cutoff_timestamp(
+            bq_client, options["full"], options["since"]
+        )
 
         # Select loader.
         if output_file:

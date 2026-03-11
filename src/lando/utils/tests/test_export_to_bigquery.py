@@ -18,6 +18,7 @@ from lando.main.models.uplift import (
     UpliftSubmission,
 )
 from lando.utils.management.commands.export_to_bigquery import (
+    Command,
     JsonLinesLoader,
     RepoTransformer,
     RevisionUpliftJobTransformer,
@@ -26,7 +27,6 @@ from lando.utils.management.commands.export_to_bigquery import (
     UpliftRevisionTransformer,
     UpliftSubmissionTransformer,
     datetime_to_timestamp,
-    get_cutoff_timestamp,
     incoming_table_id,
     parse_since_timestamp,
     sql_table_id,
@@ -348,8 +348,9 @@ def test_transform_revision_uplift_job(make_repo):
 
 def test_get_cutoff_timestamp_full_export_returns_datetime_min():
     bq_client = MagicMock()
+    command = Command()
 
-    result = get_cutoff_timestamp(bq_client, full_export=True, since_arg=None)
+    result = command.get_cutoff_timestamp(bq_client, full_export=True, since=None)
 
     assert result == datetime.min.replace(
         tzinfo=timezone.utc
@@ -377,13 +378,14 @@ def test_parse_since_timestamp(since_arg, expected, msg):
     assert result == expected, msg
 
 
-def test_get_cutoff_timestamp_returns_since_arg_when_provided():
+def test_get_cutoff_timestamp_returns_since_when_provided():
     bq_client = MagicMock()
+    command = Command()
     since = datetime(2024, 1, 15, 12, 30, 45, tzinfo=timezone.utc)
 
-    result = get_cutoff_timestamp(bq_client, full_export=False, since_arg=since)
+    result = command.get_cutoff_timestamp(bq_client, full_export=False, since=since)
 
-    assert result == since, "Should return the provided `since_arg` `datetime`."
+    assert result == since, "Should return the provided `since` `datetime`."
 
 
 @pytest.mark.parametrize(
@@ -406,9 +408,10 @@ def test_get_cutoff_timestamp_falls_back_to_bigquery(
     mock_get_last_run, bq_return, expected, msg
 ):
     bq_client = MagicMock()
+    command = Command()
     mock_get_last_run.return_value = bq_return
 
-    result = get_cutoff_timestamp(bq_client, full_export=False, since_arg=None)
+    result = command.get_cutoff_timestamp(bq_client, full_export=False, since=None)
 
     assert result == expected, msg
 
