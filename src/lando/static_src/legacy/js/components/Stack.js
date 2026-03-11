@@ -55,6 +55,7 @@ $.fn.stack = function() {
     // request form. Since `required` on `CheckboxSelectMultiple` would require
     // all checkboxes to be checked, we use `setCustomValidity` instead.
     let repositoryCheckboxes = $('input[name="repositories"]');
+    
     function updateRepositoryValidity() {
         let isAnyChecked = repositoryCheckboxes.is(":checked");
         let validityMessage = isAnyChecked ? "" : "Please select at least one repository.";
