@@ -28,6 +28,7 @@ from lando.utils.management.commands.export_to_bigquery import (
     datetime_to_timestamp,
     get_cutoff_timestamp,
     incoming_table_id,
+    parse_since_timestamp,
     sql_table_id,
 )
 
@@ -370,12 +371,19 @@ def test_get_cutoff_timestamp_full_export_returns_datetime_min():
         ),
     ],
 )
-def test_get_cutoff_timestamp_parses_since_arg(since_arg, expected, msg):
-    bq_client = MagicMock()
-
-    result = get_cutoff_timestamp(bq_client, full_export=False, since_arg=since_arg)
+def test_parse_since_timestamp(since_arg, expected, msg):
+    result = parse_since_timestamp(since_arg)
 
     assert result == expected, msg
+
+
+def test_get_cutoff_timestamp_returns_since_arg_when_provided():
+    bq_client = MagicMock()
+    since = datetime(2024, 1, 15, 12, 30, 45, tzinfo=timezone.utc)
+
+    result = get_cutoff_timestamp(bq_client, full_export=False, since_arg=since)
+
+    assert result == since, "Should return the provided `since_arg` `datetime`."
 
 
 @pytest.mark.parametrize(

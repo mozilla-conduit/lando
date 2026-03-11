@@ -392,10 +392,18 @@ def get_last_run_timestamp(bq_client: bigquery.Client, table_id: str) -> datetim
     return datetime.fromtimestamp(last_run, tz=timezone.utc)
 
 
+def parse_since_timestamp(value: str) -> datetime:
+    """Parse a `--since` timestamp string, ensuring it is timezone-aware (UTC)."""
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
 def get_cutoff_timestamp(
     bq_client: bigquery.Client,
     full_export: bool,
-    since_arg: str | None,
+    since_arg: datetime | None,
 ) -> datetime:
     """Determine the cutoff timestamp for the export.
 
@@ -405,10 +413,7 @@ def get_cutoff_timestamp(
         return datetime.min.replace(tzinfo=timezone.utc)
 
     if since_arg:
-        since_timestamp = datetime.fromisoformat(since_arg)
-        if since_timestamp.tzinfo is None:
-            since_timestamp = since_timestamp.replace(tzinfo=timezone.utc)
-        return since_timestamp
+        return since_arg
 
     # Query BigQuery for the last run timestamp.
     # Use the UpliftJob table as the reference.
@@ -423,7 +428,7 @@ class Command(BaseCommand):
         """Define command-line arguments for the export command."""
         parser.add_argument(
             "--since",
-            type=str,
+            type=parse_since_timestamp,
             default=None,
             help=(
                 "Export records modified since this timestamp (ISO format). "
