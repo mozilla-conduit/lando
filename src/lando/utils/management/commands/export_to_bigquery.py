@@ -28,7 +28,6 @@ from lando.main.models.uplift import (
 logger = logging.getLogger(__name__)
 
 # Retry configuration for BigQuery inserts.
-BQ_MAX_RETRIES = 3
 BQ_RETRY_BASE_DELAY = 1.0  # seconds
 
 
@@ -302,22 +301,22 @@ class BigQueryLoader(Loader):
 
         return queryset.count()
 
-    def insert_with_retry(self, table_id: str, rows: list[dict]) -> bool:
+    def insert_with_retry(self, table_id: str, rows: list[dict], max_retries: int = 3) -> bool:
         """Insert rows with exponential backoff retry."""
-        for attempt in range(BQ_MAX_RETRIES):
+        for attempt in range(max_retries):
             errors = self.bq_client.insert_rows_json(table_id, rows)
             if not errors:
                 return True
 
-            if attempt < BQ_MAX_RETRIES - 1:
+            if attempt < max_retries - 1:
                 delay = BQ_RETRY_BASE_DELAY * (2**attempt)
                 logger.warning(
-                    f"Retry {attempt + 1}/{BQ_MAX_RETRIES} for {table_id} "
+                    f"Retry {attempt + 1}/{max_retries} for {table_id} "
                     f"after {delay}s: {errors}"
                 )
                 time.sleep(delay)
 
-        logger.error(f"Failed to insert to {table_id} after {BQ_MAX_RETRIES} attempts.")
+        logger.error(f"Failed to insert to {table_id} after {max_retries} attempts.")
         return False
 
     def cleanup_incoming_tables(self) -> None:
