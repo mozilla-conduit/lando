@@ -63,7 +63,7 @@ class ModelTransformer:
     table_id_env_var: str
 
     # Model fields to include in the transformed output (beyond the base fields).
-    fields: list[str] = []
+    fields: tuple[str, ...] = ()
 
     @property
     def name(self) -> str:
@@ -92,7 +92,7 @@ class RepoTransformer(ModelTransformer):
 
     model = Repo
     table_id_env_var = "BQ_REPOS_TABLE_ID"
-    fields = [
+    fields = (
         "name",
         "short_name",
         "url",
@@ -100,7 +100,7 @@ class RepoTransformer(ModelTransformer):
         "is_phabricator_repo",
         "is_try",
         "automation_enabled",
-    ]
+    )
 
 
 class UpliftAssessmentTransformer(ModelTransformer):
@@ -108,7 +108,7 @@ class UpliftAssessmentTransformer(ModelTransformer):
 
     model = UpliftAssessment
     table_id_env_var = "BQ_UPLIFT_ASSESSMENTS_TABLE_ID"
-    fields = [
+    fields = (
         "user_id",
         "user_impact",
         "covered_by_testing",
@@ -119,7 +119,7 @@ class UpliftAssessmentTransformer(ModelTransformer):
         "risk_level_explanation",
         "string_changes",
         "is_android_affected",
-    ]
+    )
 
 
 class UpliftRevisionTransformer(ModelTransformer):
@@ -127,10 +127,10 @@ class UpliftRevisionTransformer(ModelTransformer):
 
     model = UpliftRevision
     table_id_env_var = "BQ_UPLIFT_REVISIONS_TABLE_ID"
-    fields = [
+    fields = (
         "assessment_id",
         "revision_id",
-    ]
+    )
 
 
 class UpliftSubmissionTransformer(ModelTransformer):
@@ -138,11 +138,11 @@ class UpliftSubmissionTransformer(ModelTransformer):
 
     model = UpliftSubmission
     table_id_env_var = "BQ_UPLIFT_SUBMISSIONS_TABLE_ID"
-    fields = [
+    fields = (
         "requested_by_id",
         "requested_revision_ids",
         "assessment_id",
-    ]
+    )
 
 
 class UpliftJobTransformer(ModelTransformer):
@@ -150,7 +150,7 @@ class UpliftJobTransformer(ModelTransformer):
 
     model = UpliftJob
     table_id_env_var = "BQ_UPLIFT_JOBS_TABLE_ID"
-    fields = [
+    fields = (
         "status",
         "error",
         "error_breakdown",
@@ -162,7 +162,7 @@ class UpliftJobTransformer(ModelTransformer):
         "target_repo_id",
         "created_revision_ids",
         "submission_id",
-    ]
+    )
 
 
 class RevisionUpliftJobTransformer(ModelTransformer):
@@ -170,11 +170,11 @@ class RevisionUpliftJobTransformer(ModelTransformer):
 
     model = RevisionUpliftJob
     table_id_env_var = "BQ_REVISION_UPLIFT_JOBS_TABLE_ID"
-    fields = [
+    fields = (
         "uplift_job_id",
         "revision_id",
         "index",
-    ]
+    )
 
 
 # All available transformers.
@@ -419,7 +419,9 @@ class Command(BaseCommand):
         BigQuery for the last run timestamp.
         """
         if full_extract:
-            self.stdout.write("Full extraction requested, starting from the beginning.\n")
+            self.stdout.write(
+                "Full extraction requested, starting from the beginning.\n"
+            )
             return datetime.min.replace(tzinfo=timezone.utc)
 
         if since:
