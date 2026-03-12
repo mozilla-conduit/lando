@@ -137,7 +137,9 @@ class UpliftContext:
     def can_create_submission(request: WSGIRequest) -> bool:
         """Return `True` when the user can submit uplift jobs."""
         return (
-            request.user.is_authenticated and request.user.profile.phabricator_api_key
+            request.user.is_authenticated
+            and hasattr(request.user, "profile")
+            and request.user.profile.phabricator_api_key
         )
 
 
