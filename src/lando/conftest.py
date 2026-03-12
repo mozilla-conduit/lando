@@ -98,6 +98,17 @@ new file mode 100644
 +TEST
 """.lstrip()
 
+PATCH_NORMAL_4 = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+no bug: patch that applies over and over
+diff --git a/{filename} b/{filename}
+new file mode 100644
+""".lstrip()
+
 PATCH_GIT_1 = """\
 From dd187015cd85d59c2a65a3a18c67b2b05e7739b9 Mon Sep 17 00:00:00 2001
 From: Py Test <pytest@lando.example.net>
@@ -213,9 +224,12 @@ def normal_patch():
         PATCH_NORMAL_1,
         PATCH_NORMAL_2,
         PATCH_NORMAL_3,
+        PATCH_NORMAL_4,
     ]
 
     def _patch(number=0):
+        if number == 3:
+            return PATCH_NORMAL_4.format(filename=uuid.uuid4())
         return _patches[number]
 
     return _patch

@@ -1381,6 +1381,107 @@ def make_handover_job(
     return _make_handover_job
 
 
+@pytest.mark.django_db
+def test_deferred_jobs(
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    get_landing_worker: Callable,
+    make_landing_job,
+    create_patch_revision,
+    normal_patch,
+    mock_phab_trigger_repo_update_apply_async: mock.Mock,
+):
+    # This test simulates a number of jobs in two different repos
+    # being submitted, and ensures that when closing a tree the
+    # queue is not blocked by the jobs in the queue that target
+    # the closed tree.
+
+    def refresh(jobs):
+        [job.refresh_from_db() for job in jobs]
+
+    git_repo_1 = repo_mc(SCMType.GIT, hooks_enabled=False, name="repo1")
+    git_repo_2 = repo_mc(SCMType.GIT, hooks_enabled=False, name="repo2")
+    git_worker = get_landing_worker(SCMType.GIT)
+    git_worker.worker_instance.applicable_repos.add(git_repo_1)
+    git_worker.worker_instance.applicable_repos.add(git_repo_2)
+
+    treestatusdouble.open_tree(git_repo_1.name)
+    treestatusdouble.open_tree(git_repo_2.name)
+    git_worker.refresh_active_repos()
+
+    job_params = {
+        "status": JobStatus.SUBMITTED,
+        "requester_email": "test@example.com",
+    }
+
+    job_params["target_repo"] = git_repo_1
+    jobs = []
+    for i in (1, 2, 3):
+        jobs.append(
+            make_landing_job(
+                revisions=[
+                    create_patch_revision(1, patch=normal_patch(3), revision_id=i)
+                ],
+                **job_params,
+            )
+        )
+
+    job_params["target_repo"] = git_repo_2
+    for i in (4, 5, 6):
+        jobs.append(
+            make_landing_job(
+                revisions=[
+                    create_patch_revision(1, patch=normal_patch(3), revision_id=i)
+                ],
+                **job_params,
+            )
+        )
+
+    assert LandingJob.objects.all().count() == 6
+    assert all(
+        job.status == JobStatus.SUBMITTED for job in LandingJob.objects.all()
+    ), "All jobs should be in a submitted state."
+
+    git_worker.start(max_loops=1)
+    refresh(jobs)
+
+    assert jobs[0].status == JobStatus.LANDED, "First job should have landed."
+
+    # Close first tree.
+    treestatusdouble.close_tree(git_repo_1.name)
+    git_worker.start(max_loops=1)
+
+    # Second job should be deferred now, since we did not refresh active repos.
+    # All remaining jobs should be submitted. Active repos are refreshed when
+    # the last job did not complete.
+    refresh(jobs)
+    assert jobs[1].status == JobStatus.DEFERRED, "Second job should be deferred."
+    assert all(
+        job.status == JobStatus.SUBMITTED for job in jobs[2:]
+    ), "Remaining jobs should be submitted."
+
+    git_worker.start(max_loops=10)
+    refresh(jobs)
+    assert all(
+        job.status == JobStatus.LANDED for job in jobs[3:]
+    ), "Remaining repo2 jobs should be landed."
+
+    refresh(jobs)
+    assert (
+        jobs[1].status == JobStatus.DEFERRED
+    ), "Second repo1 job should still be deferred."
+    assert (
+        jobs[2].status == JobStatus.SUBMITTED
+    ), "Third repo1 job should still be submitted."
+
+    treestatusdouble.open_tree(git_repo_1.name)
+    git_worker.start(max_loops=5)
+    refresh(jobs)
+    assert all(
+        job.status == JobStatus.LANDED for job in jobs
+    ), "All jobs should have landed."
+
+
 @pytest.mark.parametrize(
     "closed_repos,",
     [
