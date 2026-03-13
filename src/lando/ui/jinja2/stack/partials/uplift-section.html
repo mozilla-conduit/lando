@@ -91,7 +91,7 @@ future.
                         <button class="edit-assessment-close delete" aria-label="close" type="button"></button>
                     </header>
                     <section class="modal-card-body">
-                        <fieldset {% if not uplift.can_create_uplift_submission %}disabled{% endif %}>
+                        <fieldset>
                             {{ csrf_input }}
                             {% if not user_has_phabricator_token %}
                                 {% include "stack/partials/uplift-phab-api-key-warning.html" %}
@@ -102,11 +102,7 @@ future.
                         </fieldset>
                     </section>
                     <footer class="modal-card-foot">
-                        <button class="button is-primary"
-                                {% if not uplift.can_create_uplift_submission %}disabled{% endif %}
-                                title="{% if not uplift.can_create_uplift_submission %}Editing the assessment is blocked. See the error messages above for more detail.{% else %}Save responses{% endif %}">
-                            Update assessment form
-                        </button>
+                        <button class="button is-primary" title="Save responses">Update assessment form</button>
                     </footer>
                 </div>
             </form>
