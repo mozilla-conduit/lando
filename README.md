@@ -1,6 +1,6 @@
 # Lando
 
-Lando is an application that applies patches and pushes them to Git and Mercurial repositories.
+Lando is an application that applies patches and pushes them to Git and Mercurial repositories. noop
 
 This application runs at: https://lando.moz.tools/
 
