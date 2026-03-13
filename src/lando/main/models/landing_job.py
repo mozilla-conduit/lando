@@ -6,7 +6,7 @@ from typing import Any
 
 from django.conf import settings
 from django.db import models
-from django.db.models import Q, QuerySet
+from django.db.models import QuerySet
 from mots.config import FileConfig
 from mots.directory import Directory
 
@@ -216,12 +216,8 @@ class LandingJob(BaseJob):
             grace_seconds (int): Ignore landing jobs that were submitted after this
                 many seconds ago.
         """
-        q = super().job_queue_query()
+        q = super().job_queue_query(repositories)
 
-        if repositories:
-            q = q.filter(
-                Q(target_repo__in=repositories) | Q(handover_repo__in=repositories)
-            )
         if grace_seconds:
             now = datetime.datetime.now(datetime.timezone.utc)
             grace_cutoff = now - datetime.timedelta(seconds=grace_seconds)
