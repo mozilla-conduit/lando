@@ -189,6 +189,11 @@ TRANSFORMERS = [
 ]
 
 
+def extract(model: type[Model], since: datetime) -> QuerySet:
+    """Return records created or updated after `since`."""
+    return model.objects.filter(Q(created_at__gt=since) | Q(updated_at__gt=since))
+
+
 class Loader(ABC):
     """Base class for data loaders."""
 
@@ -480,9 +485,7 @@ class Command(BaseCommand):
         for transformer in TRANSFORMERS:
             self.stdout.write(f"\nProcessing {transformer.name}...\n")
 
-            queryset = transformer.model.objects.filter(
-                Q(created_at__gt=since_timestamp) | Q(updated_at__gt=since_timestamp)
-            )
+            queryset = extract(transformer.model, since_timestamp)
 
             count = loader.load(transformer, queryset)
             self.stdout.write(f"Loaded {count} rows.\n")

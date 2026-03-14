@@ -27,6 +27,7 @@ from lando.utils.management.commands.etl import (
     UpliftRevisionTransformer,
     UpliftSubmissionTransformer,
     datetime_to_timestamp,
+    extract,
     incoming_table_id,
     parse_since_timestamp,
     sql_table_id,
@@ -510,3 +511,40 @@ def test_etl_output_file_writes_json_lines(mock_bq_client):
     # Should not call BigQuery client methods.
     mock_bq_client.return_value.get_table.assert_not_called()
     mock_bq_client.return_value.insert_rows_json.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_extract_filters_out_records_before_cutoff():
+    """Records created/updated before the cutoff should not be returned."""
+    user = User.objects.create_user(username="testuser", email="test@example.com")
+
+    old_assessment = UpliftAssessment.objects.create(
+        user=user,
+        user_impact="low",
+        risk_level_explanation="Minimal risk.",
+        string_changes="none",
+    )
+    new_assessment = UpliftAssessment.objects.create(
+        user=user,
+        user_impact="high",
+        risk_level_explanation="High risk.",
+        string_changes="some",
+    )
+
+    # Backdate the old record so it falls before the cutoff.
+    old_timestamp = datetime(2020, 1, 1, tzinfo=timezone.utc)
+    UpliftAssessment.objects.filter(id=old_assessment.id).update(
+        created_at=old_timestamp,
+        updated_at=old_timestamp,
+    )
+
+    cutoff = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    results = extract(UpliftAssessment, since=cutoff)
+
+    result_ids = list(results.values_list("id", flat=True))
+    assert (
+        new_assessment.id in result_ids
+    ), "Records after the cutoff should be included."
+    assert (
+        old_assessment.id not in result_ids
+    ), "Records before the cutoff should be excluded."
