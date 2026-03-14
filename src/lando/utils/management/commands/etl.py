@@ -91,7 +91,8 @@ class RepoTransformer(ModelTransformer):
     """Transformer for `Repo` model."""
 
     model = Repo
-    table_id_env_var = "BQ_REPOS_TABLE_ID"
+    # TODO(sheehan): update ws-i to use `REPOS` table instead
+    table_id_env_var = "BQ_REPOSITORIES_TABLE_ID"
     fields = (
         "name",
         "short_name",
