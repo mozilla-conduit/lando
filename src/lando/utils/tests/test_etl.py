@@ -1,7 +1,6 @@
 import json
 import tempfile
 from datetime import datetime, timezone
-from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -270,7 +269,7 @@ def test_transform_uplift_job(make_repo):
     ), "`status` should exist and match expected value."
     assert result["error"] == "", "`error` should exist and match expected value."
     assert (
-        result["error_breakdown"] == {}
+        result["error_breakdown"] == "{}"
     ), "`error_breakdown` should exist and match expected value."
     assert (
         result["landed_commit_id"] == "abc123"
@@ -433,7 +432,7 @@ def test_json_lines_loader_raises_if_output_file_exists():
         output_path.touch()
 
         with pytest.raises(CommandError, match="Output file already exists"):
-            JsonLinesLoader(StringIO(), StringIO(), output_path)
+            JsonLinesLoader(output_path)
 
 
 @pytest.mark.django_db
@@ -456,14 +455,12 @@ def test_etl_output_file_writes_json_lines(mock_bq_client):
 
     with tempfile.TemporaryDirectory() as tmpdir:
         output_path = Path(tmpdir) / "export.jsonl"
-        stdout = StringIO()
 
         call_command(
             "etl",
             "--output-file",
             str(output_path),
             "--full",
-            stdout=stdout,
         )
 
         # Verify the file was created.

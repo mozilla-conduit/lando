@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from functools import cached_property
 from pathlib import Path
-from typing import IO, Any, Iterator
+from typing import Any, Iterator
 
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 from django.db.models import Model, Q, QuerySet
@@ -207,10 +207,6 @@ def extract(model: type[Model], since: datetime) -> QuerySet:
 class Loader(ABC):
     """Base class for data loaders."""
 
-    def __init__(self, stdout: IO[str], stderr: IO[str]):
-        self.stdout = stdout
-        self.stderr = stderr
-
     @abstractmethod
     def setup(self, transformers: list[ModelTransformer]) -> None:
         """Called once before processing any transformers."""
@@ -227,9 +223,7 @@ class Loader(ABC):
 class JsonLinesLoader(Loader):
     """Loader that writes data to a JSON Lines file."""
 
-    def __init__(self, stdout: IO[str], stderr: IO[str], output_path: Path):
-        super().__init__(stdout, stderr)
-
+    def __init__(self, output_path: Path):
         if output_path.exists():
             raise CommandError(f"Output file already exists: {output_path}")
 
@@ -257,8 +251,7 @@ class JsonLinesLoader(Loader):
 class BigQueryLoader(Loader):
     """Loader that loads data into BigQuery using temporary incoming tables."""
 
-    def __init__(self, stdout: IO[str], stderr: IO[str], bq_client: bigquery.Client):
-        super().__init__(stdout, stderr)
+    def __init__(self, bq_client: bigquery.Client):
         self.bq_client = bq_client
         self.target_tables: dict[str, bigquery.Table] = {}
         self.incoming_tables: dict[str, bigquery.Table] = {}
@@ -276,7 +269,7 @@ class BigQueryLoader(Loader):
             self.incoming_tables[transformer.table_id] = self.bq_client.create_table(
                 incoming, exists_ok=False
             )
-            self.stdout.write(f"Created incoming table for {transformer.name}.\n")
+            logger.info("Created incoming table for %s.", transformer.name)
 
     def load(
         self, transformer: ModelTransformer, queryset: QuerySet, chunk_size: int = 500
@@ -332,7 +325,7 @@ class BigQueryLoader(Loader):
         if not self.incoming_tables:
             return
 
-        self.stdout.write("\nMerging incoming tables into target tables...\n")
+        logger.info("Merging incoming tables into target tables.")
 
         for table_id, incoming_table in self.incoming_tables.items():
             incoming_id = sql_table_id(incoming_table)
@@ -363,7 +356,7 @@ class BigQueryLoader(Loader):
 
             # Delete the incoming table after merging.
             self.bq_client.delete_table(incoming_id)
-            self.stdout.write(f"Merged and cleaned up {incoming_table.table_id}.\n")
+            logger.info("Merged and cleaned up %s.", incoming_table.table_id)
 
 
 def get_last_run_timestamp(bq_client: bigquery.Client, table_id: str) -> datetime:
@@ -435,13 +428,11 @@ class Command(BaseCommand):
         BigQuery for the last run timestamp.
         """
         if full_extract:
-            self.stdout.write(
-                "Full extraction requested, starting from the beginning.\n"
-            )
+            logger.info("Full extraction requested, starting from the beginning.")
             return datetime.min.replace(tzinfo=timezone.utc)
 
         if since:
-            self.stdout.write(f"Extracting records modified since {since}.\n")
+            logger.info("Extracting records modified since %s.", since)
             return since
 
         # Query BigQuery for the last run timestamp.
@@ -459,11 +450,9 @@ class Command(BaseCommand):
             return datetime.min.replace(tzinfo=timezone.utc)
 
         if last_run == datetime.min.replace(tzinfo=timezone.utc):
-            self.stdout.write(
-                "No previous ETL run found, starting from the beginning.\n"
-            )
+            logger.info("No previous ETL run found, starting from the beginning.")
         else:
-            self.stdout.write(f"Extracting records modified since {last_run}.\n")
+            logger.info("Extracting records modified since %s.", last_run)
 
         return last_run
 
@@ -484,23 +473,23 @@ class Command(BaseCommand):
         # Select loader.
         if output_file:
             logger.info("Loading into a JSON-lines file.")
-            loader = JsonLinesLoader(self.stdout, self.stderr, output_file)
+            loader = JsonLinesLoader(output_file)
         else:
             logger.info("Loading into BigQuery.")
-            loader = BigQueryLoader(self.stdout, self.stderr, bigquery.Client())
+            loader = BigQueryLoader(bigquery.Client())
 
         loader.setup(TRANSFORMERS)
 
         # Process each transformer.
         for transformer in TRANSFORMERS:
-            self.stdout.write(f"\nProcessing {transformer.name}...\n")
+            logger.info("Processing %s.", transformer.name)
 
             queryset = extract(transformer.model, since_timestamp)
 
             count = loader.load(transformer, queryset)
-            self.stdout.write(f"Loaded {count} rows.\n")
+            logger.info("Loaded %d rows.", count)
 
         loader.finalize()
 
         total_time = round(time.perf_counter() - total_start, 2)
-        self.stdout.write(self.style.SUCCESS(f"\nETL completed in {total_time}s."))
+        logger.info("ETL completed in %ss.", total_time)
