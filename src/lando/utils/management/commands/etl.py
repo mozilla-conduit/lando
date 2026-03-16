@@ -154,7 +154,6 @@ class UpliftJobTransformer(ModelTransformer):
     fields = (
         "status",
         "error",
-        "error_breakdown",
         "landed_commit_id",
         "requester_email",
         "attempts",
@@ -164,6 +163,17 @@ class UpliftJobTransformer(ModelTransformer):
         "created_revision_ids",
         "submission_id",
     )
+
+    def transform(self, instance: BaseModel) -> dict[str, Any]:
+        """Transform an `UpliftJob` instance for loading.
+
+        The `error_breakdown` field is a `JSONField` which returns a Python
+        dict, but BigQuery's `JSON` column type expects a JSON string when
+        using the streaming insert API.
+        """
+        data = super().transform(instance)
+        data["error_breakdown"] = json.dumps(instance.error_breakdown)
+        return data
 
 
 class RevisionUpliftJobTransformer(ModelTransformer):
