@@ -8,6 +8,7 @@ import pytest
 from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from google.api_core.exceptions import NotFound
 
 from lando.main.models.uplift import (
     RevisionUpliftJob,
@@ -17,6 +18,7 @@ from lando.main.models.uplift import (
     UpliftSubmission,
 )
 from lando.utils.management.commands.etl import (
+    BigQueryLoader,
     Command,
     JsonLinesLoader,
     RepoTransformer,
@@ -545,3 +547,59 @@ def test_extract_filters_out_records_before_cutoff():
     assert (
         old_assessment.id not in result_ids
     ), "Records before the cutoff should be excluded."
+
+
+def test_wait_for_incoming_tables_succeeds_immediately():
+    """Should return immediately when all tables are visible."""
+    mock_client = MagicMock()
+    loader = BigQueryLoader(mock_client)
+
+    incoming_table = MagicMock()
+    incoming_table.project = "proj"
+    incoming_table.dataset_id = "ds"
+    incoming_table.table_id = "tbl_incoming"
+    loader.incoming_tables["key"] = incoming_table
+
+    loader.wait_for_incoming_tables(retry_base_delay_s=0)
+
+    assert (
+        mock_client.get_table.call_count == 1
+    ), "Should call `get_table` once per incoming table."
+
+
+def test_wait_for_incoming_tables_retries_on_not_found():
+    """Should retry when `get_table` raises `NotFound`, then succeed."""
+    mock_client = MagicMock()
+    mock_client.get_table.side_effect = [
+        NotFound("Table not found."),
+        MagicMock(),
+    ]
+    loader = BigQueryLoader(mock_client)
+
+    incoming_table = MagicMock()
+    incoming_table.project = "proj"
+    incoming_table.dataset_id = "ds"
+    incoming_table.table_id = "tbl_incoming"
+    loader.incoming_tables["key"] = incoming_table
+
+    loader.wait_for_incoming_tables(retry_base_delay_s=0)
+
+    assert (
+        mock_client.get_table.call_count == 2
+    ), "Should have retried after `NotFound`."
+
+
+def test_wait_for_incoming_tables_raises_after_max_retries():
+    """Should raise `CommandError` when tables never become visible."""
+    mock_client = MagicMock()
+    mock_client.get_table.side_effect = NotFound("Table not found.")
+    loader = BigQueryLoader(mock_client)
+
+    incoming_table = MagicMock()
+    incoming_table.project = "proj"
+    incoming_table.dataset_id = "ds"
+    incoming_table.table_id = "tbl_incoming"
+    loader.incoming_tables["key"] = incoming_table
+
+    with pytest.raises(CommandError, match="Incoming tables not visible"):
+        loader.wait_for_incoming_tables(max_retries=2, retry_base_delay_s=0)

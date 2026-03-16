@@ -12,7 +12,9 @@ from typing import Any, Iterator
 
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 from django.db.models import Model, Q, QuerySet
+from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
+from google.cloud.bigquery import Table
 from more_itertools import chunked
 
 from lando.main.models import BaseModel
@@ -270,6 +272,48 @@ class BigQueryLoader(Loader):
                 incoming, exists_ok=False
             )
             logger.info("Created incoming table for %s.", transformer.name)
+
+        self.wait_for_incoming_tables()
+
+    def wait_for_incoming_tables(
+        self, max_retries: int = 5, retry_base_delay_s: float = 1.0
+    ) -> None:
+        """Wait for all incoming tables to be visible to the BigQuery API.
+
+        BigQuery's streaming insert API is eventually consistent with table
+        creation, so a newly created table may not be immediately available.
+        This method polls `get_table` for each incoming table until all are
+        confirmed visible, preventing `NotFound` errors on the first insert.
+        """
+        pending: list[Table] = list(self.incoming_tables.values())
+
+        for attempt in range(max_retries):
+            still_pending: list[Table] = []
+            for table in pending:
+                try:
+                    self.bq_client.get_table(sql_table_id(table))
+                except NotFound:
+                    still_pending.append(table)
+
+            if not still_pending:
+                logger.debug("All incoming tables are ready.")
+                return
+
+            delay = retry_base_delay_s * (2**attempt)
+            logger.warning(
+                "Waiting %.1fs for %d incoming table(s) to become visible.",
+                delay,
+                len(still_pending),
+            )
+            time.sleep(delay)
+            pending = still_pending
+
+        table_ids = [sql_table_id(table) for table in pending]
+        self.cleanup_incoming_tables()
+        raise CommandError(
+            f"Incoming tables not visible after {max_retries} retries: "
+            f"{', '.join(table_ids)}"
+        )
 
     def load(
         self, transformer: ModelTransformer, queryset: QuerySet, chunk_size: int = 500
