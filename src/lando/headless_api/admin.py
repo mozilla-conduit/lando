@@ -27,19 +27,9 @@ class ApiTokenAdmin(admin.ModelAdmin):
 class AutomationActionJobInline(ReadOnlyInline):
     model = AutomationAction
     _target_object = "actions"
+    can_change = True
+
     readonly_fields = ("action_type", "data", "order")
-
-    def has_add_permission(
-        self, request: WSGIRequest, obj: AutomationAction | None = None
-    ) -> bool:
-        """Forbid addition of any action object from the inline interface."""
-        return False
-
-    def has_delete_permission(
-        self, request: WSGIRequest, obj: AutomationAction | None = None
-    ) -> bool:
-        """Forbid deletion of any action object from the inline interface."""
-        return False
 
 
 class AutomationJobAdmin(JobAdmin):

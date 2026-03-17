@@ -50,6 +50,8 @@ class ReadOnlyInline(admin.TabularInline):
     """
 
     extra = 0
+    can_add = False
+    can_change = False
     can_delete = False
     show_change_link = False
 
@@ -73,6 +75,18 @@ class ReadOnlyInline(admin.TabularInline):
                 setattr(self, f, self._field_getter_factory(f))
         super().__init__(*args, **kwargs)
 
+    def has_add_permission(self, request, obj=None) -> bool:  # noqa: ANN001
+        """Forbid addition of any pushlog object from the admin interface."""
+        return self.can_add
+
+    def has_change_permission(self, request, obj=None) -> bool:  # noqa: ANN001
+        """Forbid change of any pushlog object from the admin interface."""
+        return self.can_change
+
+    def has_delete_permission(self, request, obj=None) -> bool:  # noqa: ANN001
+        """Forbid deletion of any pushlog object from the admin interface."""
+        return self.can_delete
+
 
 class RevisionLandingJobInline(admin.TabularInline):
     model = RevisionLandingJob
@@ -85,7 +99,6 @@ class RevisionUpliftJobInline(admin.TabularInline):
     fields = ("index", "revision")
     readonly_fields = ("index", "revision")
     extra = 0
-    can_delete = False
     ordering = ("index",)
     raw_id_fields = ("revision",)
 
@@ -470,7 +483,6 @@ class UpliftJobInline(admin.TabularInline):
         "created_at",
     )
     extra = 0
-    can_delete = False
     show_change_link = True
 
     @admin.display(description="Created revisions")
