@@ -15,8 +15,6 @@ import requests
 from django.conf import settings
 from django.contrib.auth.models import Group, Permission, User
 from django.contrib.contenttypes.models import ContentType
-from ninja import NinjaAPI
-from ninja.testing import TestClient
 from requests.models import HTTPError
 
 from lando.api.legacy.stacks import (
@@ -1406,24 +1404,3 @@ def mock_response() -> Callable:
         )
 
     return _mock_response
-
-
-@pytest.fixture()
-def ninja_api_client() -> Callable:
-    """Fixture to create a test client for the API."""
-
-    # XXX If we pass the API directly, we get an error if we want to use this client
-    # more than once (regardless of the scope of the fixture), as follows:
-    #
-    #    Looks like you created multiple NinjaAPIs or TestClients
-    #    To let ninja distinguish them you need to set either unique version or urls_namespace
-    #     - NinjaAPI(..., version='2.0.0')
-    #     - NinjaAPI(..., urls_namespace='otherapi')
-    #
-    # Passing the pre-existing router to the TestClient instead, works. However, getting the
-    # router is not golden-path.
-    #
-    def _ninja_api_client(api: NinjaAPI) -> TestClient:
-        return TestClient(api.default_router)
-
-    return _ninja_api_client
