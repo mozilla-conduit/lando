@@ -868,9 +868,9 @@ django-compressor==4.6.0 \
     --hash=sha256:6e7b21020a0d86272c5e37000c33accc4ebeb77394a3dd86d775a09aae7aade4 \
     --hash=sha256:c7478feab98f3368780591f9ee28a433350f5277dd28811f7f710f5bc6dff3c0
     # via lando (pyproject.toml)
-django-ninja==1.5.3 \
-    --hash=sha256:0a6ead5b4e57ec1050b584eb6f36f105f256b8f4ac70d12e774d8b6dd91e2198 \
-    --hash=sha256:974803944965ad0566071633ffd4999a956f2ad1ecbed815c0de37c1c969592b
+django-ninja==1.6.0 \
+    --hash=sha256:44c6e3f5f1b929cf51f645004715b36326ea32fddf1a94026c4917de8d230135 \
+    --hash=sha256:dd84230931f511503a251ac090200c65fd0be25a16ba2b9140073b814decc201
     # via lando (pyproject.toml)
 django-storages[google]==1.14.6 \
     --hash=sha256:11b7b6200e1cb5ffcd9962bd3673a39c7d6a6109e8096f0e03d46fab3d3aabd9 \
