@@ -2668,9 +2668,9 @@ setuptools-scm==9.2.2 \
     # via
     #   lando (pyproject.toml)
     #   lando (pyproject.toml::build-system.requires)
-simple-github==3.0.0 \
-    --hash=sha256:3cb87771e20e17597b2183169662a47a490a0494039bbe78c6dd2c7ed9cb4d85 \
-    --hash=sha256:906f6af08c9b373524bb55ab71da08cb4521da46d00439e42e25a5c6f516f7ec
+simple-github==3.1.0 \
+    --hash=sha256:8c6f6d88c95c94f1bb196693c90336c1d7f75f85ad8437e95e89ede0cb03872b \
+    --hash=sha256:b78dc5ee4faa5e30a2d53620c5222da9b44bddc4942abeeed862388ac1fc7f25
     # via lando (pyproject.toml)
 six==1.17.0 \
     --hash=sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274 \
