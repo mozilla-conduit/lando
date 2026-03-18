@@ -26,7 +26,6 @@ class ApiTokenAdmin(admin.ModelAdmin):
 class AutomationActionJobInline(ReadOnlyInline):
     model = AutomationAction
     _target_object = "actions"
-    can_change = True
 
     readonly_fields = ("action_type", "data", "order")
 
