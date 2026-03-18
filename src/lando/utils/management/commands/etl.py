@@ -67,6 +67,9 @@ class ModelTransformer:
     # Model fields to include in the transformed output (beyond the base fields).
     fields: tuple[str, ...] = ()
 
+    # Related fields to eagerly load via `select_related` during extraction.
+    select_related: tuple[str, ...] = ()
+
     @property
     def name(self) -> str:
         """Return the model class name."""
@@ -122,6 +125,16 @@ class UpliftAssessmentTransformer(ModelTransformer):
         "string_changes",
         "is_android_affected",
     )
+    select_related = ("user",)
+
+    def transform(self, instance: BaseModel) -> dict[str, Any]:
+        """Transform an `UpliftAssessment` instance for loading.
+
+        Derives `user_email` from the related `User` model.
+        """
+        data = super().transform(instance)
+        data["user_email"] = instance.user.email
+        return data
 
 
 class UpliftRevisionTransformer(ModelTransformer):
@@ -145,6 +158,16 @@ class UpliftSubmissionTransformer(ModelTransformer):
         "requested_revision_ids",
         "assessment_id",
     )
+    select_related = ("requested_by",)
+
+    def transform(self, instance: BaseModel) -> dict[str, Any]:
+        """Transform an `UpliftSubmission` instance for loading.
+
+        Derives `requested_by_email` from the related `User` model.
+        """
+        data = super().transform(instance)
+        data["requested_by_email"] = instance.requested_by.email
+        return data
 
 
 class UpliftJobTransformer(ModelTransformer):
@@ -528,6 +551,8 @@ class Command(BaseCommand):
             logger.info("Processing %s.", transformer.name)
 
             queryset = extract(transformer.model, since_timestamp)
+            if transformer.select_related:
+                queryset = queryset.select_related(*transformer.select_related)
 
             count = loader.load(transformer, queryset)
             logger.info("Loaded %d rows.", count)
