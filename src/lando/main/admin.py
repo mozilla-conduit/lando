@@ -50,6 +50,8 @@ class ReadOnlyInline(admin.TabularInline):
     """
 
     extra = 0
+    can_add = False
+    can_change = False
     can_delete = False
     show_change_link = False
 
@@ -73,6 +75,28 @@ class ReadOnlyInline(admin.TabularInline):
                 setattr(self, f, self._field_getter_factory(f))
         super().__init__(*args, **kwargs)
 
+    def has_add_permission(self, request, obj=None) -> bool:  # noqa: ANN001
+        """Forbid addition of any pushlog object from the admin interface."""
+        return self.can_add
+
+    def has_change_permission(self, request, obj=None) -> bool:  # noqa: ANN001
+        """Forbid change of any pushlog object from the admin interface."""
+        return self.can_change
+
+    def has_delete_permission(self, request, obj=None) -> bool:  # noqa: ANN001
+        """Forbid deletion of any pushlog object from the admin interface."""
+        return self.can_delete
+
+
+class RepoWorkersInline(ReadOnlyInline):
+    model = Worker.applicable_repos.through
+    _target_object = "worker"
+
+
+class WorkerReposInline(ReadOnlyInline):
+    model = Repo.worker_set.through
+    _target_object = "repo"
+
 
 class RevisionLandingJobInline(admin.TabularInline):
     model = RevisionLandingJob
@@ -85,7 +109,6 @@ class RevisionUpliftJobInline(admin.TabularInline):
     fields = ("index", "revision")
     readonly_fields = ("index", "revision")
     extra = 0
-    can_delete = False
     ordering = ("index",)
     raw_id_fields = ("revision",)
 
@@ -320,16 +343,12 @@ class RepoAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "scm_type",
-        "system_path",
-        "pull_path",
-        "push_path",
-        "required_permission",
-        "short_name",
+        "worker_count",
         "url",
-        "created_at",
+        "required_permission",
         "updated_at",
     )
-
+    inlines = (RepoWorkersInline,)
     readonly_fields = (
         "commit_flags",
         "system_path",
@@ -350,6 +369,10 @@ class RepoAdmin(admin.ModelAdmin):
                 choices=Repo.HooksChoices,
             )
         return super().formfield_for_dbfield(db_field, request, **kwargs)
+
+    def worker_count(self, instance: Repo) -> int:
+        """Return the count of repositories associated to the Worker."""
+        return instance.worker_set.count()
 
 
 class CommitMapAdmin(admin.ModelAdmin):
@@ -399,9 +422,9 @@ class WorkerAdmin(admin.ModelAdmin):
         "repo_count",
         "is_paused",
         "is_stopped",
-        "created_at",
         "updated_at",
     )
+    inlines = (WorkerReposInline,)
     readonly_fields = (
         "created_at",
         "updated_at",
@@ -470,7 +493,6 @@ class UpliftJobInline(admin.TabularInline):
         "created_at",
     )
     extra = 0
-    can_delete = False
     show_change_link = True
 
     @admin.display(description="Created revisions")

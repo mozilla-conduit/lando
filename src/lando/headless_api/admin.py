@@ -1,5 +1,4 @@
 from django.contrib import admin
-from django.core.handlers.wsgi import WSGIRequest
 from django.urls import reverse
 
 from lando.headless_api.models.automation_job import AutomationAction, AutomationJob
@@ -27,19 +26,8 @@ class ApiTokenAdmin(admin.ModelAdmin):
 class AutomationActionJobInline(ReadOnlyInline):
     model = AutomationAction
     _target_object = "actions"
+
     readonly_fields = ("action_type", "data", "order")
-
-    def has_add_permission(
-        self, request: WSGIRequest, obj: AutomationAction | None = None
-    ) -> bool:
-        """Forbid addition of any action object from the inline interface."""
-        return False
-
-    def has_delete_permission(
-        self, request: WSGIRequest, obj: AutomationAction | None = None
-    ) -> bool:
-        """Forbid deletion of any action object from the inline interface."""
-        return False
 
 
 class AutomationJobAdmin(JobAdmin):
