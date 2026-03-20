@@ -107,7 +107,7 @@ def test_pulse_notify(
 
     push.save()
 
-    queue = kombu_queue_maker("pulse_notify")
+    queue = kombu_queue_maker(repo.pulse_routing_key)
     producer = next(queue)
     mock_notifier_producer(producer)
 
@@ -152,7 +152,7 @@ def test_pulse_notify_push_id_force(
 
         push.save()
 
-    queue = kombu_queue_maker("pulse_notify")
+    queue = kombu_queue_maker(repo.pulse_routing_key)
     producer = next(queue)
     mock_notifier_producer(producer)
 

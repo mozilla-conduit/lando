@@ -30,9 +30,7 @@ class PulseNotifier:
 
         ex = kombu.Exchange(settings.PULSE_EXCHANGE, type="topic")
 
-        producer = connection.Producer(
-            exchange=ex, routing_key=settings.PULSE_ROUTING_KEY, serializer="json"
-        )
+        producer = connection.Producer(exchange=ex, serializer="json")
         return producer
 
     def declare_exchange(self) -> kombu.Exchange:
@@ -43,11 +41,18 @@ class PulseNotifier:
         """Send a Pulse notification for the given Push."""
         message = self.pulse_message_for_push(push)
 
+        # Determine if a non-default routing key should be used.
+        push_routing_key = settings.PULSE_ROUTING_KEY
+        if push.repo:
+            push_routing_key = push.repo.pulse_routing_key or push_routing_key
+
         # XXX: make a separate notification worker that loops around un-notified
         # Push entries.
-        logger.info(f"Sending {message} ...")
+        logger.info(f"Sending {message} (routing key: {push_routing_key} ...")
+
         self.producer.publish(
             message,
+            routing_key=push_routing_key,
             retry=True,
             retry_policy={
                 "interval_start": 0,  # First retry immediately,
