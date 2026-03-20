@@ -10,6 +10,9 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from google.api_core.exceptions import NotFound
 
+from lando.headless_api.models.automation_job import AutomationAction, AutomationJob
+from lando.main.models.landing_job import LandingJob
+from lando.main.models.revision import Revision, RevisionLandingJob
 from lando.main.models.uplift import (
     RevisionUpliftJob,
     UpliftAssessment,
@@ -18,10 +21,15 @@ from lando.main.models.uplift import (
     UpliftSubmission,
 )
 from lando.utils.management.commands.etl import (
+    AutomationActionTransformer,
+    AutomationJobTransformer,
     BigQueryLoader,
     Command,
     JsonLinesLoader,
+    LandingJobTransformer,
     RepoTransformer,
+    RevisionLandingJobTransformer,
+    RevisionTransformer,
     RevisionUpliftJobTransformer,
     UpliftAssessmentTransformer,
     UpliftJobTransformer,
@@ -340,6 +348,270 @@ def test_transform_revision_uplift_job(make_repo):
     ), "`uplift_job_id` should exist and match expected value."
     assert result["revision_id"] is None, "`revision_id` should exist and be `None`."
     assert result["index"] == 0, "`index` should exist and match expected value."
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
+
+
+@pytest.mark.django_db
+def test_transform_landing_job(make_repo):
+    repo = make_repo(1)
+    job = LandingJob.objects.create(
+        status="LANDED",
+        landed_commit_id="def456",
+        requester_email="lander@example.com",
+        attempts=1,
+        priority=5,
+        duration_seconds=60,
+        target_repo=repo,
+        is_pull_request_job=True,
+        target_commit_hash="aabbcc",
+        error_breakdown={"failed_paths": ["/some/path"]},
+    )
+
+    transformer = LandingJobTransformer()
+    result = transformer.transform(job)
+
+    assert result["id"] == job.id, "`id` should exist and match expected value."
+    assert (
+        result["status"] == "LANDED"
+    ), "`status` should exist and match expected value."
+    assert result["error"] == "", "`error` should exist and match expected value."
+    assert result["error_breakdown"] == json.dumps(
+        {"failed_paths": ["/some/path"]}
+    ), "`error_breakdown` should be a JSON string."
+    assert (
+        result["landed_commit_id"] == "def456"
+    ), "`landed_commit_id` should exist and match expected value."
+    assert (
+        result["requester_email"] == "lander@example.com"
+    ), "`requester_email` should exist and match expected value."
+    assert result["attempts"] == 1, "`attempts` should exist and match expected value."
+    assert result["priority"] == 5, "`priority` should exist and match expected value."
+    assert (
+        result["duration_seconds"] == 60
+    ), "`duration_seconds` should exist and match expected value."
+    assert (
+        result["target_repo_id"] == repo.id
+    ), "`target_repo_id` should exist and match expected value."
+    assert (
+        result["is_pull_request_job"] is True
+    ), "`is_pull_request_job` should exist and match expected value."
+    assert (
+        result["target_commit_hash"] == "aabbcc"
+    ), "`target_commit_hash` should exist and match expected value."
+    assert (
+        result["handover_repo_id"] is None
+    ), "`handover_repo_id` should exist and be `None`."
+    assert (
+        result["is_handed_over"] is None
+    ), "`is_handed_over` should exist and be `None`."
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
+
+
+@pytest.mark.django_db
+def test_transform_revision_landing_job(make_repo):
+    repo = make_repo(1)
+    revision = Revision.objects.create(
+        revision_id=100,
+        diff_id=200,
+    )
+    landing_job = LandingJob.objects.create(
+        status="LANDED",
+        requester_email="lander@example.com",
+        target_repo=repo,
+    )
+    revision_landing_job = RevisionLandingJob.objects.create(
+        landing_job=landing_job,
+        revision=revision,
+        index=0,
+        diff_id=200,
+        commit_id="abc123",
+    )
+
+    transformer = RevisionLandingJobTransformer()
+    result = transformer.transform(revision_landing_job)
+
+    assert (
+        result["id"] == revision_landing_job.id
+    ), "`id` should exist and match expected value."
+    assert (
+        result["landing_job_id"] == landing_job.id
+    ), "`landing_job_id` should exist and match expected value."
+    assert (
+        result["revision_id"] == revision.id
+    ), "`revision_id` should exist and match expected value."
+    assert result["index"] == 0, "`index` should exist and match expected value."
+    assert result["diff_id"] == 200, "`diff_id` should exist and match expected value."
+    assert (
+        result["commit_id"] == "abc123"
+    ), "`commit_id` should exist and match expected value."
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
+
+
+@pytest.mark.django_db
+def test_transform_revision():
+    revision = Revision.objects.create(
+        revision_id=42,
+        diff_id=99,
+        pull_number=7,
+        commit_id="deadbeef",
+        patch_data={
+            "author_name": "Test Author",
+            "author_email": "author@example.com",
+            "commit_message": "Fix the bug",
+            "timestamp": "1700000000",
+        },
+    )
+
+    transformer = RevisionTransformer()
+    result = transformer.transform(revision)
+
+    assert result["id"] == revision.id, "`id` should exist and match expected value."
+    assert (
+        result["revision_id"] == 42
+    ), "`revision_id` should exist and match expected value."
+    assert result["diff_id"] == 99, "`diff_id` should exist and match expected value."
+    assert (
+        result["pull_number"] == 7
+    ), "`pull_number` should exist and match expected value."
+    assert (
+        result["commit_id"] == "deadbeef"
+    ), "`commit_id` should exist and match expected value."
+    assert (
+        result["author_name"] == "Test Author"
+    ), "`author_name` should be derived from `patch_data`."
+    assert (
+        result["author_email"] == "author@example.com"
+    ), "`author_email` should be derived from `patch_data`."
+    assert (
+        result["commit_message"] == "Fix the bug"
+    ), "`commit_message` should be derived from `patch_data`."
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
+
+
+@pytest.mark.django_db
+def test_transform_revision_with_empty_patch_data():
+    revision = Revision.objects.create(
+        revision_id=43,
+        diff_id=100,
+    )
+
+    transformer = RevisionTransformer()
+    result = transformer.transform(revision)
+
+    assert (
+        result["author_name"] is None
+    ), "`author_name` should be `None` when `patch_data` is empty."
+    assert (
+        result["author_email"] is None
+    ), "`author_email` should be `None` when `patch_data` is empty."
+    assert (
+        result["commit_message"] is None
+    ), "`commit_message` should be `None` when `patch_data` is empty."
+
+
+@pytest.mark.django_db
+def test_transform_automation_job(make_repo):
+    repo = make_repo(1)
+    job = AutomationJob.objects.create(
+        status="LANDED",
+        landed_commit_id="aaa111",
+        requester_email="automator@example.com",
+        attempts=3,
+        priority=10,
+        duration_seconds=45,
+        target_repo=repo,
+        relbranch_name="FIREFOX_RELEASE_130",
+        relbranch_commit_sha="bbb222",
+    )
+
+    transformer = AutomationJobTransformer()
+    result = transformer.transform(job)
+
+    assert result["id"] == job.id, "`id` should exist and match expected value."
+    assert (
+        result["status"] == "LANDED"
+    ), "`status` should exist and match expected value."
+    assert result["error"] == "", "`error` should exist and match expected value."
+    assert (
+        result["landed_commit_id"] == "aaa111"
+    ), "`landed_commit_id` should exist and match expected value."
+    assert (
+        result["requester_email"] == "automator@example.com"
+    ), "`requester_email` should exist and match expected value."
+    assert result["attempts"] == 3, "`attempts` should exist and match expected value."
+    assert result["priority"] == 10, "`priority` should exist and match expected value."
+    assert (
+        result["duration_seconds"] == 45
+    ), "`duration_seconds` should exist and match expected value."
+    assert (
+        result["target_repo_id"] == repo.id
+    ), "`target_repo_id` should exist and match expected value."
+    assert (
+        result["relbranch_name"] == "FIREFOX_RELEASE_130"
+    ), "`relbranch_name` should exist and match expected value."
+    assert (
+        result["relbranch_commit_sha"] == "bbb222"
+    ), "`relbranch_commit_sha` should exist and match expected value."
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
+
+
+@pytest.mark.django_db
+def test_transform_automation_action(make_repo):
+    repo = make_repo(1)
+    job = AutomationJob.objects.create(
+        status="SUBMITTED",
+        requester_email="automator@example.com",
+        target_repo=repo,
+    )
+    action = AutomationAction.objects.create(
+        job_id=job,
+        action_type="add-commit",
+        data={"diff": "some-diff-content", "message": "Bump version"},
+        order=0,
+    )
+
+    transformer = AutomationActionTransformer()
+    result = transformer.transform(action)
+
+    assert result["id"] == action.id, "`id` should exist and match expected value."
+    assert (
+        result["automation_job_id"] == job.id
+    ), "`automation_job_id` should exist and match expected value."
+    assert (
+        "job_id_id" not in result
+    ), "`job_id_id` should be renamed to `automation_job_id`."
+    assert (
+        result["action_type"] == "add-commit"
+    ), "`action_type` should exist and match expected value."
+    assert result["order"] == 0, "`order` should exist and match expected value."
+    assert result["data"] == json.dumps(
+        {"diff": "some-diff-content", "message": "Bump version"}
+    ), "`data` should be a JSON string."
     assert (
         result["created_at"] is not None
     ), "`created_at` should exist and not be `None`."
