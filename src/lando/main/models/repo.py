@@ -1,4 +1,5 @@
 import logging
+import re
 import urllib
 from pathlib import Path
 
@@ -6,6 +7,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 from django.db import models
 
 from lando.main.models.base import BaseModel
@@ -199,6 +201,13 @@ class Repo(BaseModel):
 
     pushlog_disabled = models.BooleanField(
         default=False,
+    )
+
+    pulse_routing_key = models.CharField(
+        max_length=255,
+        default="gitpushes",
+        validators=[RegexValidator(r"^\w[\.\w]+$", flags=re.ASCII)],
+        help_text="AMQP routing key to use when sending Pulse messages, as dot-separated words (example: `gitpushes.firefox`, default: `gitpushes` or overriden by `PULSE_ROUTING_KEY`)",
     )
 
     # Use this field to enable/disable access to this repo via the automation API.
