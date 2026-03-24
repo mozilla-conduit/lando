@@ -60,7 +60,7 @@
                         {{ treeherder_link(job.landed_treeherder_revision, job.target_repo, "Treeherder") |safe }}
                     {% endif %}
                 </p>
-            {% elif job.status.lower() == 'submitted' and treestatus and not embedded %}
+            {% elif job.status.lower() == 'submitted' and treestatus %}
                 <div>
                     <p>
                         <strong>Tree Status for <code>{{ treestatus.repo }}</code>:</strong>
