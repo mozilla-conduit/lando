@@ -158,6 +158,9 @@ def test_transform_uplift_assessment():
         result["is_android_affected"] == "yes"
     ), "`is_android_affected` should exist and match expected value."
     assert (
+        result["user_email"] == "test@example.com"
+    ), "`user_email` should exist and match expected value."
+    assert (
         result["created_at"] is not None
     ), "`created_at` should exist and not be `None`."
     assert (
@@ -227,6 +230,9 @@ def test_transform_uplift_submission():
     assert (
         result["assessment_id"] == assessment.id
     ), "`assessment_id` should exist and match expected value."
+    assert (
+        result["requested_by_email"] == "test@example.com"
+    ), "`requested_by_email` should exist and match expected value."
     assert (
         result["created_at"] is not None
     ), "`created_at` should exist and not be `None`."
@@ -500,6 +506,9 @@ def test_etl_output_file_writes_json_lines(mock_bq_client):
         assert (
             record["risk_associated_with_patch"] == "low"
         ), "`risk_associated_with_patch` should exist and match expected value."
+        assert (
+            record["user_email"] == "test@example.com"
+        ), "`user_email` should exist and match expected value."
         assert (
             record["created_at"] is not None
         ), "`created_at` should exist and not be `None`."
