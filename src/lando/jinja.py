@@ -17,6 +17,7 @@ from lando.main.scm import SCMType
 from lando.treestatus.models import (
     ReasonCategory,
     TreeCategory,
+    TreeStatus,
 )
 from lando.ui.legacy.forms import UserSettingsForm
 
@@ -28,6 +29,15 @@ logger = logging.getLogger(__name__)
 
 def escape_html(text: str) -> str:
     return escape(text)
+
+
+def totreestatusbadgeclass(status: str) -> str:
+    mapping = {
+        TreeStatus.APPROVAL_REQUIRED.lower(): "Badge Badge--warning",
+        TreeStatus.CLOSED.lower(): "Badge Badge--negative",
+        TreeStatus.OPEN.lower(): "Badge Badge--positive",
+    }
+    return mapping.get(status.lower(), "Badge Badge--warning")
 
 
 def tostatusbadgeclass(landing_job: LandingJob) -> str:
@@ -484,6 +494,7 @@ def environment(**options) -> Environment:
             "revision_status_to_badge_class": revision_status_to_badge_class,
             "phabricator_revision_url": phabricator_revision_url,
             "static": static,
+            "totreestatusbadgeclass": totreestatusbadgeclass,
             "tostatusbadgeclass": tostatusbadgeclass,
             "tostatusbadgename": tostatusbadgename,
             "uplift_status_icon_class": uplift_status_icon_class,
