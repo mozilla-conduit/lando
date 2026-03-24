@@ -63,7 +63,7 @@
             {% elif job.status.lower() == 'submitted' and treestatus and not embedded %}
                 <div>
                     <p>
-                        <strong>Tree Status for <code>{{ treestatus.repo }}</code>:</strong> {{ treestatus.status }} ({{ treestatus.reason }})
+                    <strong>Tree Status for <code>{{ treestatus.repo }}</code>:</strong> {{ treestatus.status }} {% if treestatus.reason %}({{ treestatus.reason }}){% endif %}
                     </p>
                 </div>
             {% elif job.error %}
