@@ -6,10 +6,6 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
 
-from lando.api.legacy.treestatus import (
-    TreeStatusCommunicationException,
-    TreeStatusError,
-)
 from lando.headless_api.models.automation_job import AutomationJob
 from lando.main.models import JobStatus, LandingJob, Worker, WorkerType
 from lando.main.models.jobs import BaseJob
@@ -79,17 +75,11 @@ class LandingJobView(LandoView):
                 revision_id=revision_id,
             )
 
-        ts_data = {"repo": landing_job.target_repo.short_name}
-
-        ts_client = treestatus.get_treestatus_client()
-        try:
-            ts_data.update(ts_client.get_trees(ts_data["repo"])["result"])
-        except (TreeStatusCommunicationException, TreeStatusError) as exc:
-            ts_data.update({"status": "unknown", "reason": exc})
-
         context = {
             "job": landing_job,
-            "treestatus": ts_data,
+            "treestatus": treestatus.get_treestatus_data(
+                landing_job.target_repo.short_name
+            ),
         }
 
         if landing_job.status not in JobStatus.final():
