@@ -17,8 +17,11 @@ from google.cloud import bigquery
 from google.cloud.bigquery import Table
 from more_itertools import chunked
 
+from lando.headless_api.models.automation_job import AutomationAction, AutomationJob
 from lando.main.models import BaseModel
+from lando.main.models.landing_job import LandingJob
 from lando.main.models.repo import Repo
+from lando.main.models.revision import Revision, RevisionLandingJob
 from lando.main.models.uplift import (
     RevisionUpliftJob,
     UpliftAssessment,
@@ -212,9 +215,128 @@ class RevisionUpliftJobTransformer(ModelTransformer):
     )
 
 
+class LandingJobTransformer(ModelTransformer):
+    """Transformer for `LandingJob` model."""
+
+    model = LandingJob
+    table_id_env_var = "BQ_LANDING_JOBS_TABLE_ID"
+    fields = (
+        "status",
+        "error",
+        "landed_commit_id",
+        "requester_email",
+        "attempts",
+        "priority",
+        "duration_seconds",
+        "target_repo_id",
+        "is_pull_request_job",
+        "target_commit_hash",
+        "handover_repo_id",
+        "is_handed_over",
+    )
+
+    def transform(self, instance: BaseModel) -> dict[str, Any]:
+        """Transform a `LandingJob` instance for loading.
+
+        The `error_breakdown` field is a `JSONField` which returns a Python
+        dict, but BigQuery's `JSON` column type expects a JSON string when
+        using the streaming insert API.
+        """
+        data = super().transform(instance)
+        data["error_breakdown"] = json.dumps(instance.error_breakdown)
+        return data
+
+
+class RevisionLandingJobTransformer(ModelTransformer):
+    """Transformer for `RevisionLandingJob` model."""
+
+    model = RevisionLandingJob
+    table_id_env_var = "BQ_REVISION_LANDING_JOBS_TABLE_ID"
+    fields = (
+        "landing_job_id",
+        "revision_id",
+        "index",
+        "diff_id",
+        "commit_id",
+    )
+
+
+class RevisionTransformer(ModelTransformer):
+    """Transformer for `Revision` model."""
+
+    model = Revision
+    table_id_env_var = "BQ_REVISIONS_TABLE_ID"
+    fields = (
+        "revision_id",
+        "diff_id",
+        "pull_number",
+        "commit_id",
+    )
+
+    def transform(self, instance: BaseModel) -> dict[str, Any]:
+        """Transform a `Revision` instance for loading.
+
+        Derives `author_name`, `author_email`, and `commit_message` from
+        the `patch_data` JSON field.
+        """
+        data = super().transform(instance)
+        patch_data = instance.patch_data or {}
+        data["author_name"] = patch_data.get("author_name")
+        data["author_email"] = patch_data.get("author_email")
+        data["commit_message"] = patch_data.get("commit_message")
+        return data
+
+
+class AutomationJobTransformer(ModelTransformer):
+    """Transformer for `AutomationJob` model."""
+
+    model = AutomationJob
+    table_id_env_var = "BQ_AUTOMATION_JOBS_TABLE_ID"
+    fields = (
+        "status",
+        "error",
+        "landed_commit_id",
+        "requester_email",
+        "attempts",
+        "priority",
+        "duration_seconds",
+        "target_repo_id",
+        "relbranch_name",
+        "relbranch_commit_sha",
+    )
+
+
+class AutomationActionTransformer(ModelTransformer):
+    """Transformer for `AutomationAction` model."""
+
+    model = AutomationAction
+    table_id_env_var = "BQ_AUTOMATION_ACTIONS_TABLE_ID"
+    fields = (
+        "job_id_id",
+        "action_type",
+        "order",
+    )
+
+    def transform(self, instance: BaseModel) -> dict[str, Any]:
+        """Transform an `AutomationAction` instance for loading.
+
+        Renames the Django FK field `job_id_id` to `automation_job_id` for
+        clarity in BigQuery, and serializes the `data` JSON field as a string.
+        """
+        data = super().transform(instance)
+        data["automation_job_id"] = data.pop("job_id_id")
+        data["data"] = json.dumps(instance.data)
+        return data
+
+
 # All available transformers.
 TRANSFORMERS = [
     RepoTransformer(),
+    LandingJobTransformer(),
+    RevisionLandingJobTransformer(),
+    RevisionTransformer(),
+    AutomationJobTransformer(),
+    AutomationActionTransformer(),
     UpliftAssessmentTransformer(),
     UpliftRevisionTransformer(),
     UpliftSubmissionTransformer(),
