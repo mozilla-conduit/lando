@@ -379,10 +379,12 @@ class JsonLinesLoader(Loader):
         """Create the empty output file."""
         self.output_path.touch()
 
-    def load(self, transformer: ModelTransformer, queryset: QuerySet) -> int:
+    def load(
+        self, transformer: ModelTransformer, queryset: QuerySet, chunk_size: int = 2000
+    ) -> int:
         """Write transformed records to the JSON Lines output file."""
         with self.output_path.open("a") as output_file:
-            for record in queryset.iterator():
+            for record in queryset.iterator(chunk_size=chunk_size):
                 row = transformer.transform(record)
                 row["_model"] = transformer.name
                 output_file.write(json.dumps(row) + "\n")
@@ -468,7 +470,7 @@ class BigQueryLoader(Loader):
 
         # Transform and insert in chunks to avoid memory issues.
         def transform_iterator() -> Iterator[dict]:
-            for record in queryset.iterator():
+            for record in queryset.iterator(chunk_size=chunk_size):
                 yield transformer.transform(record)
 
         for chunk in chunked(transform_iterator(), chunk_size):
