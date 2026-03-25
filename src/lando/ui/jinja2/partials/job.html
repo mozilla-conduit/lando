@@ -6,7 +6,7 @@
     </div>
     <div class="StackPage-timeline-itemDetail">
         <p>
-            Landing requested on <time data-timestamp="{{ job.created_at }}"></time>, by {{ job.requester_email }}.
+            Landing requested on <time data-timestamp="{{ job.created_at }}"></time> ({{ job.created_at|naturaltime }}), by {{ job.requester_email }}.
         </p>
         {% if embedded %}
             <p>
@@ -48,7 +48,7 @@
                 </p>
             {% endif %}
             <p>
-                <strong>Last update:</strong> <time data-timestamp="{{ job.updated_at }}"></time>
+                <strong>Last update:</strong> <time data-timestamp="{{ job.updated_at }}"></time> ({{ job.updated_at|naturaltime }})
             </p>
             {% if job.status.lower() == 'landed' and job.landed_commit_id %}
                 <p>

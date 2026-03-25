@@ -29,6 +29,7 @@ dependencies = [
     "networkx",
     "psycopg2-binary",
     "python-hglib==2.6.2",
+    "humanize",
     "python-jose",
     "redis",
     "rs-parsepatch",

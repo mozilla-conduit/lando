@@ -2,6 +2,8 @@ import logging
 import re
 import urllib.parse
 
+import humanize
+
 from compressor.contrib.jinja2ext import CompressorExtension
 from django.conf import settings
 from django.contrib import messages
@@ -492,6 +494,7 @@ def environment(**options) -> Environment:
             "build_manual_uplift_instructions": build_manual_uplift_instructions,
             "tree_category_to_display": tree_category_to_display,
             "treestatus_to_status_badge_class": treestatus_to_status_badge_class,
+            "naturaltime": humanize.naturaltime,
         }
     )
     return env
