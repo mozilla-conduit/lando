@@ -13,7 +13,7 @@ from django.core.cache import cache
 from django.core.handlers.wsgi import WSGIRequest
 from django.db.models import OuterRef, Subquery
 from django.db.utils import IntegrityError
-from ninja import NinjaAPI, Schema
+from ninja import Field, NinjaAPI, Schema
 from ninja.responses import codes_4xx
 
 from lando.treestatus.models import (
@@ -60,12 +60,12 @@ class Result(Schema, Generic[T]):
 class TreeData(Schema):
     """Expected schema of a tree."""
 
-    category: Optional[str]
-    log_id: Optional[int]
-    message_of_the_day: str
-    reason: str
-    status: TreeStatus
-    tags: list[str]
+    category: str | None = None  # None to mark as optional
+    log_id: int | None = None
+    message_of_the_day: str = ""
+    reason: str = ""
+    status: TreeStatus = TreeStatus.UNKNOWN
+    tags: list[str] = Field(default_factory=list)
     tree: str
 
 

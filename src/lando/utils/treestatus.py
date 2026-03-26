@@ -5,6 +5,7 @@ from lando.api.legacy.treestatus import (
     TreeStatusCommunicationException,
     TreeStatusError,
 )
+from lando.treestatus.views.api import TreeData
 from lando.version import version
 
 
@@ -17,14 +18,10 @@ def get_treestatus_client() -> TreeStatus:
     return treestatus_client
 
 
-def get_treestatus_data(tree: str) -> dict:
+def get_treestatus_data(tree: str) -> TreeData:
     """Return TreeStatus data for the given tree."""
-    ts_data = {"repo": tree}
-
     ts_client = get_treestatus_client()
     try:
-        ts_data.update(ts_client.get_trees(ts_data["repo"])["result"])
+        return TreeData(**ts_client.get_trees(tree)["result"])
     except (TreeStatusCommunicationException, TreeStatusError) as exc:
-        ts_data.update({"status": "unknown", "reason": exc})
-
-    return ts_data
+        return TreeData(tree=tree, reason=f"{exc.__class__}: {exc}")

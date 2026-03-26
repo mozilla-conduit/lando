@@ -20,6 +20,7 @@ class TreeStatus(models.TextChoices):
     OPEN = "open", "Open"
     CLOSED = "closed", "Closed"
     APPROVAL_REQUIRED = "approval required", "Approval required"
+    UNKNOWN = "unknown", "Unknown"
 
     def is_open(self) -> bool:
         """Return `True` if Lando should consider this status as open for landing.
