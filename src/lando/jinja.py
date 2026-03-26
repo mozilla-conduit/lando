@@ -485,7 +485,6 @@ def environment(**options) -> Environment:
             "revision_status_to_badge_class": revision_status_to_badge_class,
             "phabricator_revision_url": phabricator_revision_url,
             "static": static,
-            "totreestatusbadgeclass": totreestatusbadgeclass,
             "tostatusbadgeclass": tostatusbadgeclass,
             "tostatusbadgename": tostatusbadgename,
             "uplift_status_icon_class": uplift_status_icon_class,
