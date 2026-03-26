@@ -31,15 +31,6 @@ def escape_html(text: str) -> str:
     return escape(text)
 
 
-def totreestatusbadgeclass(status: str) -> str:
-    mapping = {
-        TreeStatus.APPROVAL_REQUIRED.lower(): "Badge Badge--warning",
-        TreeStatus.CLOSED.lower(): "Badge Badge--negative",
-        TreeStatus.OPEN.lower(): "Badge Badge--positive",
-    }
-    return mapping.get(status.lower(), "Badge Badge--warning")
-
-
 def tostatusbadgeclass(landing_job: LandingJob) -> str:
     mapping = {
         "aborted": "Badge Badge--negative",
