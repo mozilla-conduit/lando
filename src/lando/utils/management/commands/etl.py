@@ -320,6 +320,7 @@ class AutomationActionTransformer(ModelTransformer):
         "action_type",
         "order",
     )
+    defer = ("data",)
 
     def transform(self, instance: BaseModel) -> dict[str, Any]:
         """Transform an `AutomationAction` instance for loading.
