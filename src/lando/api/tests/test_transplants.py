@@ -1583,7 +1583,8 @@ def test_revision_has_data_classification_tag(
         revision=phab_revision, diff={}, stack_state=stack_state
     ) == (
         "Revision makes changes to data collection and "
-        "should have its data classification assessed before landing."
+        "should have its data classification assessed before landing. "
+        "See the Herald comment on your revision."
     ), "Revision with data classification project tag should be blocked from landing."
 
     revision = phabdouble.revision(repo=repo)

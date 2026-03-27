@@ -767,7 +767,8 @@ def blocker_revision_data_classification(
     ):
         return (
             "Revision makes changes to data collection and "
-            "should have its data classification assessed before landing."
+            "should have its data classification assessed before landing. "
+            "See the Herald comment on your revision."
         )
 
 
