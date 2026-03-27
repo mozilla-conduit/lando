@@ -38,6 +38,7 @@ dependencies = [
     "uwsgi",
 ]
 name = "lando"
+# NOTE: When bumping this, also update the Dockerfile to match.
 requires-python = ">=3.12"
 dynamic = ["version"]
 
