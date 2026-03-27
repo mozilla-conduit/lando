@@ -340,7 +340,7 @@ TRANSFORMERS = [
     RevisionLandingJobTransformer(),
     RevisionTransformer(),
     AutomationJobTransformer(),
-    AutomationActionTransformer(),
+    # AutomationActionTransformer(),
     UpliftAssessmentTransformer(),
     UpliftRevisionTransformer(),
     UpliftSubmissionTransformer(),
