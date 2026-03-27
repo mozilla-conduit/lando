@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # Queryset of git repos that are compatible with try.
 TRY_COMPATIBLE_REPOS = Repo.objects.filter(
     Q(name__startswith="firefox-")
+    | Q(name__startswith="thunderbird-")
     | Q(name__startswith="infra-testing-")
     | Q(name__startswith="ff-test-")
     | Q(name="git-repo")
