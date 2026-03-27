@@ -18,10 +18,24 @@ def get_treestatus_client() -> TreeStatus:
     return treestatus_client
 
 
-def get_treestatus_data(tree: str) -> TreeData:
-    """Return TreeStatus data for the given tree."""
+def get_treestatus_data(tree: str) -> TreeData | dict[str, str]:
+    """Return TreeStatus data for the given tree.
+
+    Returns:
+        TreeData: a well-formed Tree status data
+
+        or
+
+        dict: a simple error dict, with `reason`, `status` and `tree` keys;
+        suitable for formatting via lando.jinja.treestatus_to_status_badge_class.
+
+    """
     ts_client = get_treestatus_client()
     try:
         return TreeData(**ts_client.get_trees(tree)["result"])
     except (TreeStatusCommunicationException, TreeStatusError) as exc:
-        return TreeData(tree=tree, reason=f"{exc.__class__}: {exc}")
+        return {
+            "reason": f"{exc.__class__.__name__}: {exc}",
+            "status": "unknown",
+            "tree": tree,
+        }
