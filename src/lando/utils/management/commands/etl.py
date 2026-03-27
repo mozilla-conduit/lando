@@ -73,6 +73,9 @@ class ModelTransformer:
     # Related fields to eagerly load via `select_related` during extraction.
     select_related: tuple[str, ...] = ()
 
+    # Fields to defer (not load from the database) during extraction.
+    defer: tuple[str, ...] = ()
+
     @property
     def name(self) -> str:
         """Return the model class name."""
@@ -272,6 +275,7 @@ class RevisionTransformer(ModelTransformer):
         "pull_number",
         "commit_id",
     )
+    defer = ("patch", "patches")
 
     def transform(self, instance: BaseModel) -> dict[str, Any]:
         """Transform a `Revision` instance for loading.
@@ -681,6 +685,8 @@ class Command(BaseCommand):
             logger.info("Processing %s.", transformer.name)
 
             queryset = extract(transformer.model, since_timestamp)
+            if transformer.defer:
+                queryset = queryset.defer(*transformer.defer)
             if transformer.select_related:
                 queryset = queryset.select_related(*transformer.select_related)
 
