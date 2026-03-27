@@ -330,7 +330,6 @@ class AutomationActionTransformer(ModelTransformer):
         """
         data = super().transform(instance)
         data["automation_job_id"] = data.pop("job_id_id")
-        data["data"] = json.dumps(instance.data)
         return data
 
 
