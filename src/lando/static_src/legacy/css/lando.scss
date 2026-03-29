@@ -35,6 +35,10 @@
   --bulma-info-invert-l: 100%;     // White text on info turquoise
   --bulma-link-invert-l: 100%;     // White text on link blue
 
+  // Make inline code more neutral.
+  --bulma-code-background: var(--bulma-background);
+  --bulma-code: var(--bulma-text);
+
   // Mozilla typography
   --bulma-family-primary: 'Fira Sans', Arial, Helvetica, sans-serif;
   --bulma-family-code: 'Fira Mono', monospace;

@@ -17,6 +17,7 @@ from lando.main.scm import SCMType
 from lando.treestatus.models import (
     ReasonCategory,
     TreeCategory,
+    TreeStatus,
 )
 from lando.ui.legacy.forms import UserSettingsForm
 
@@ -56,11 +57,12 @@ def reviewer_to_status_badge_class(reviewer: dict) -> str:
 
 def treestatus_to_status_badge_class(tree_status: str) -> str:
     """Convert Tree statuses into status badges."""
-    return {
-        "open": "Badge Badge--positive",
-        "closed": "Badge Badge--negative",
-        "approval required": "Badge Badge--warning",
-    }.get(tree_status, "Badge Badge--warning")
+    mapping = {
+        TreeStatus.APPROVAL_REQUIRED.lower(): "Badge Badge--warning",
+        TreeStatus.CLOSED.lower(): "Badge Badge--negative",
+        TreeStatus.OPEN.lower(): "Badge Badge--positive",
+    }
+    return mapping.get(tree_status.lower(), "Badge Badge--warning")
 
 
 def reviewer_to_action_text(reviewer: dict) -> str:
