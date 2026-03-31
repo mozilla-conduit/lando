@@ -10,6 +10,8 @@ from typing import Callable
 
 import pytest
 from django.contrib.auth.hashers import check_password
+from django.contrib.auth.models import Permission, User
+from django.test.client import Client
 from pydantic import ValidationError
 
 from lando.api.legacy.workers.automation_worker import AutomationWorker
@@ -373,6 +375,65 @@ def test_automation_job_create_user_automation_disabled(
     assert (
         response_json["details"]
         == "User testuser@example.org is not permitted to make automation changes."
+    )
+
+
+@pytest.mark.parametrize("as_superuser", (True, False))
+@pytest.mark.django_db
+def test_automation_job_create_user_no_repo_required_automation_permission(
+    client: Client,
+    headless_user: tuple[User, str],
+    make_superuser: Callable,
+    direct_push_permission: Permission,
+    repo_mc: Callable,
+    as_superuser: bool,
+):
+    user, token = headless_user
+
+    # Disable automation enabled for user.
+    user.user_permissions.remove(direct_push_permission)
+    if as_superuser:
+        user = make_superuser(user)
+    user.save()
+    user.profile.save()
+
+    repo = repo_mc(
+        scm_type=SCMType.GIT,
+        automation_enabled=True,
+    )
+
+    # Send a valid request.
+    body = {
+        "actions": [
+            {
+                "action": "add-commit",
+                "content": "0",
+                "patch_format": "git-format-patch",
+            },
+            {
+                "action": "add-commit",
+                "content": "1",
+                "patch_format": "git-format-patch",
+            },
+        ],
+    }
+    response = client.post(
+        f"/api/repo/{repo.name}",
+        data=json.dumps(body),
+        content_type="application/json",
+        headers={
+            "User-Agent": "Lando-User/testuser@example.org",
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert (
+        response.status_code == 403
+    ), "User without automation permission for repo should return 403 status code."
+    response_json = response.json()
+    assert (
+        response_json["details"]
+        == f"User testuser@example.org is not allowed to use this API for repo {repo.name}. Missing permission: {repo.required_automation_permission}."
     )
 
 

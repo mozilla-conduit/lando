@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from django.conf import settings
+from django.contrib.auth.models import Permission, User
 from django.core.exceptions import ValidationError
 
 from lando.main.models import CommitMap, Repo
@@ -189,6 +190,42 @@ def test__models__Repo__git_repo_name(
             assert repo.git_repo_name == expected_git_repo_name
     else:
         assert repo.git_repo_name == expected_git_repo_name
+
+
+@pytest.mark.parametrize(
+    "has_permission,as_superuser",
+    (
+        (False, False),
+        (False, True),
+        (True, False),
+        (True, True),
+    ),
+)
+@pytest.mark.django_db
+def test__models__Repo___user_has_direct_permissions(
+    user: User,
+    make_superuser: Callable,
+    repo_mc: Callable,
+    direct_push_permission: Permission,
+    has_permission: bool,
+    as_superuser: bool,
+):
+    permission = direct_push_permission
+    permission_string = f"{permission.content_type.app_label}.{permission.codename}"
+
+    if has_permission:
+        user.user_permissions.add(permission)
+    if as_superuser:
+        user = make_superuser(user)
+    user.save()
+    user.profile.save()
+
+    repo = repo_mc(
+        scm_type=SCMType.GIT,
+        automation_enabled=True,
+    )
+
+    assert repo._user_has_direct_permission(user, permission_string) == has_permission
 
 
 @pytest.mark.parametrize(

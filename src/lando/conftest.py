@@ -35,6 +35,7 @@ from lando.main.models import (
     Worker,
 )
 from lando.main.models.landing_job import LandingJob, add_job_with_revisions
+from lando.main.models.profile import SCM_ALLOW_DIRECT_PUSH
 from lando.main.models.revision import Revision
 from lando.main.scm import SCMType
 from lando.main.scm.commit import CommitData
@@ -696,6 +697,7 @@ def git_repo_mc(
         "approval_required": approval_required,
         "autoformat_enabled": autoformat_enabled,
         "automation_enabled": automation_enabled,
+        "required_automation_permission": SCM_ALLOW_DIRECT_PUSH,
         "force_push": force_push,
         "hooks_enabled": hooks_enabled,
         "is_try": is_try,
@@ -1054,10 +1056,22 @@ def headless_permission():
 
 
 @pytest.fixture
-def headless_user(user, headless_permission):
+def direct_push_permission():
+    content_type = ContentType.objects.get_for_model(Profile)
+    perm = Permission.objects.get(
+        codename="scm_allow_direct_push", content_type=content_type
+    )
+    return perm
+
+
+@pytest.fixture
+def headless_user(
+    user, headless_permission, direct_push_permission
+) -> tuple[User, str]:
     user.user_permissions.add(headless_permission)
-    user.save()
+    user.user_permissions.add(direct_push_permission)
     user.profile.save()
+    user.save()
 
     token = ApiToken.create_token(user)
     return user, token
