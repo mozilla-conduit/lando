@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Callable
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
@@ -184,6 +185,40 @@ def test__models__Repo__git_repo_name(
             assert repo.git_repo_name == expected_git_repo_name
     else:
         assert repo.git_repo_name == expected_git_repo_name
+
+
+@pytest.mark.parametrize(
+    "pulse_routing_key,expected_valid",
+    (
+        ("gitpushes", True),
+        ("gitpushes.firefox", True),
+        ("", False),
+        (" gitpushes", False),
+        ("gitpushes-firefox", False),
+        ("é·œil", False),
+        ("🔥️🦊️", False),
+    ),
+)
+@pytest.mark.django_db()
+def test__models__Repo__pulse_routing_key_validator(
+    repo_mc: Callable,
+    pulse_routing_key: str,
+    expected_valid: bool,
+):
+
+    repo = repo_mc(SCMType.GIT)
+
+    # Prevent the `system_path` validator from raising an error.
+    settings.REPO_ROOT = repo.system_path.parent
+
+    repo.pulse_routing_key = pulse_routing_key
+
+    if expected_valid:
+        repo.full_clean()
+
+    else:
+        with pytest.raises(ValidationError):
+            repo.full_clean()
 
 
 @pytest.mark.parametrize(
