@@ -167,7 +167,10 @@ class PullRequestRevisionDataClassificationBlocker(PullRequestBlocker):
     @override
     @classmethod
     def description(cls) -> str:
-        return "Revision makes changes to data collection and should have its data classification assessed before landing."
+        return (
+            "Revision makes changes to data collection and should "
+            "have its data classification assessed before landing. "
+        )
 
     @override
     @classmethod

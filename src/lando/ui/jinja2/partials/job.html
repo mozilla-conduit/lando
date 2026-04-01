@@ -60,10 +60,12 @@
                         {{ treeherder_link(job.landed_treeherder_revision, job.target_repo, "Treeherder") |safe }}
                     {% endif %}
                 </p>
-            {% elif job.status.lower() == 'submitted' and treestatus and not embedded %}
+            {% elif job.status.lower() == 'submitted' and treestatus %}
                 <div>
                     <p>
-                        <strong>Tree Status for <code>{{ treestatus.repo }}</code>:</strong> {{ treestatus.status }} ({{ treestatus.reason }})
+                        <strong>Tree Status for <code>{{ treestatus.tree }}</code>:</strong>
+                        <span class="{{ treestatus.status|treestatus_to_status_badge_class }}">{{ treestatus.status }}</span>
+                        {% if treestatus.reason %}({{ treestatus.reason }}){% endif %}
                     </p>
                 </div>
             {% elif job.error %}

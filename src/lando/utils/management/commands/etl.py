@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from django.core.management.base import BaseCommand, CommandError, CommandParser
-from django.db.models import Model, Q, QuerySet
+from django.db.models import Model, QuerySet
 from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
 from google.cloud.bigquery import Table
@@ -72,6 +72,9 @@ class ModelTransformer:
 
     # Related fields to eagerly load via `select_related` during extraction.
     select_related: tuple[str, ...] = ()
+
+    # Fields to defer (not load from the database) during extraction.
+    defer: tuple[str, ...] = ()
 
     @property
     def name(self) -> str:
@@ -272,6 +275,7 @@ class RevisionTransformer(ModelTransformer):
         "pull_number",
         "commit_id",
     )
+    defer = ("patch", "patches")
 
     def transform(self, instance: BaseModel) -> dict[str, Any]:
         """Transform a `Revision` instance for loading.
@@ -316,6 +320,7 @@ class AutomationActionTransformer(ModelTransformer):
         "action_type",
         "order",
     )
+    defer = ("data",)
 
     def transform(self, instance: BaseModel) -> dict[str, Any]:
         """Transform an `AutomationAction` instance for loading.
@@ -326,6 +331,7 @@ class AutomationActionTransformer(ModelTransformer):
         data = super().transform(instance)
         data["automation_job_id"] = data.pop("job_id_id")
         data["data"] = json.dumps(instance.data)
+
         return data
 
 
@@ -336,7 +342,7 @@ TRANSFORMERS = [
     RevisionLandingJobTransformer(),
     RevisionTransformer(),
     AutomationJobTransformer(),
-    AutomationActionTransformer(),
+    # AutomationActionTransformer(),
     UpliftAssessmentTransformer(),
     UpliftRevisionTransformer(),
     UpliftSubmissionTransformer(),
@@ -346,8 +352,14 @@ TRANSFORMERS = [
 
 
 def extract(model: type[Model], since: datetime) -> QuerySet:
-    """Return records created or updated after `since`."""
-    return model.objects.filter(Q(created_at__gt=since) | Q(updated_at__gt=since))
+    """Return records updated after `since`.
+
+    Since `updated_at` uses `auto_now=True`, it is always set on creation as
+    well, so filtering on `updated_at` alone captures both new and modified
+    records. Using a single-column filter instead of an OR allows PostgreSQL to
+    use an index scan, avoiding large temp files on big tables.
+    """
+    return model.objects.filter(updated_at__gt=since)
 
 
 class Loader(ABC):
@@ -379,10 +391,12 @@ class JsonLinesLoader(Loader):
         """Create the empty output file."""
         self.output_path.touch()
 
-    def load(self, transformer: ModelTransformer, queryset: QuerySet) -> int:
+    def load(
+        self, transformer: ModelTransformer, queryset: QuerySet, chunk_size: int = 2000
+    ) -> int:
         """Write transformed records to the JSON Lines output file."""
         with self.output_path.open("a") as output_file:
-            for record in queryset.iterator():
+            for record in queryset.iterator(chunk_size=chunk_size):
                 row = transformer.transform(record)
                 row["_model"] = transformer.name
                 output_file.write(json.dumps(row) + "\n")
@@ -468,7 +482,7 @@ class BigQueryLoader(Loader):
 
         # Transform and insert in chunks to avoid memory issues.
         def transform_iterator() -> Iterator[dict]:
-            for record in queryset.iterator():
+            for record in queryset.iterator(chunk_size=chunk_size):
                 yield transformer.transform(record)
 
         for chunk in chunked(transform_iterator(), chunk_size):
@@ -673,6 +687,8 @@ class Command(BaseCommand):
             logger.info("Processing %s.", transformer.name)
 
             queryset = extract(transformer.model, since_timestamp)
+            if transformer.defer:
+                queryset = queryset.defer(*transformer.defer)
             if transformer.select_related:
                 queryset = queryset.select_related(*transformer.select_related)
 

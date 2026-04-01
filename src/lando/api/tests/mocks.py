@@ -1860,9 +1860,11 @@ class TreeStatusDouble:
     def set_tree(self, tree, *, status="open", reason="", message_of_the_day=""):
         assert tree
         self._trees[tree] = {
+            "category": "other",
             "message_of_the_day": message_of_the_day,
             "reason": reason,
             "status": status,
+            "tags": [],
             "tree": tree,
         }
 
@@ -1885,9 +1887,12 @@ class TreeStatusDouble:
     def get_trees(self, tree=""):
         def to_response(i):
             return {
+                "category": i.get("category", "other"),
+                "log_id": i.get("log_id", 0),
                 "message_of_the_day": i["message_of_the_day"],
                 "reason": i["reason"],
                 "status": i["status"],
+                "tags": i.get("tags", []),
                 "tree": i["tree"],
             }
 
