@@ -112,7 +112,12 @@ class GitHub:
         session = AppInstallationAuth(
             app_auth, self.repo_owner, repositories=[self.repo_name]
         )
-        return asyncio.run(session.get_token())
+        return asyncio.run(self._async_get_token(session))
+
+    async def _async_get_token(self, session: AppInstallationAuth) -> str:
+        token = await session.get_token()
+        await session.close()
+        return token
 
 
 class GitHubAPI(GitHub):
