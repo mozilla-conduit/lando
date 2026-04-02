@@ -270,7 +270,8 @@ PULSE_HOST = os.getenv("PULSE_HOST", "memory://")
 PULSE_PORT = os.getenv("PULSE_PORT", "5672")
 PULSE_EXCHANGE = os.getenv("PULSE_EXCHANGE", "exchange/suite/git-hg-sync")
 PULSE_QUEUE = os.getenv("PULSE_QUEUE", "queue/suite/git-hg-sync")
-PULSE_ROUTING_KEY = os.getenv("PULSE_ROUTING_KEY", "git-hg-sync")
+# Note that the routing_key set on individual repos takes precedence.
+PULSE_ROUTING_KEY = os.getenv("PULSE_ROUTING_KEY", "gitpushes")
 PULSE_SSL = os.getenv("PULSE_SSL", True)
 
 LANDO_USER_NAME = os.getenv("LANDO_USER_NAME", "Lando")

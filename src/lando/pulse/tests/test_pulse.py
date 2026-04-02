@@ -5,6 +5,7 @@ import pytest
 from lando.pulse.pulse import PulseNotifier
 
 
+@pytest.mark.parametrize("pulse_routing_key", ("gitpushes", "some.other.key"))
 @pytest.mark.django_db
 def test__PulseNotifier(
     make_repo: Callable,
@@ -12,15 +13,16 @@ def test__PulseNotifier(
     make_push: Callable,
     make_tag: Callable,
     kombu_queue_maker: Callable,
+    pulse_routing_key: str,
 ):
-    routing_key = "routing_key"
-
-    queue = kombu_queue_maker(routing_key)
+    queue = kombu_queue_maker(pulse_routing_key)
     producer = next(queue)
     notifier = PulseNotifier(producer)
 
     # Test push.
     repo = make_repo(1)
+    repo.pulse_routing_key = pulse_routing_key
+
     commit = make_commit(repo=repo, seqno=1)
     # An unrelated commit we don't want to see in the push
     make_commit(repo=repo, seqno=2)
