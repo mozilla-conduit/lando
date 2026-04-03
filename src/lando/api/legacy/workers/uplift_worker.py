@@ -138,9 +138,8 @@ class UpliftWorker(Worker):
         created_revision_ids = [int(commit["rev_id"]) for commit in commits]
         tip_revision_id = created_revision_ids[-1]
 
-        UpliftRevision.objects.create(
-            revision_id=tip_revision_id,
-            assessment=submission.assessment,
+        UpliftRevision.link_revision_to_assessment(
+            tip_revision_id, submission.assessment
         )
 
         # Trigger a Celery task to update the form on Phabricator.

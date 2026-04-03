@@ -126,6 +126,21 @@ class UpliftRevision(BaseModel):
     class Meta:
         unique_together = ("assessment", "revision_id")
 
+    @classmethod
+    def link_revision_to_assessment(
+        cls, revision_id: int, assessment: UpliftAssessment
+    ) -> tuple["UpliftRevision", bool]:
+        """Link a revision to an assessment, creating or updating the record.
+
+        Returns a tuple of the `UpliftRevision` instance and a boolean
+        indicating whether a new record was created (`True`) or an
+        existing one was updated (`False`).
+        """
+        return cls.objects.update_or_create(
+            revision_id=revision_id,
+            defaults={"assessment": assessment},
+        )
+
 
 class UpliftSubmission(BaseModel):
     """Represents a single uplift submission.

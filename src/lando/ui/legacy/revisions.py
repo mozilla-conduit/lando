@@ -133,10 +133,7 @@ class UpliftAssessmentCreateOrEditView(LandoView):
                 logger.info(
                     f"No existing assessment for {revision_id=}, creating a new instance."
                 )
-                UpliftRevision.objects.create(
-                    assessment=assessment,
-                    revision_id=revision_id,
-                )
+                UpliftRevision.link_revision_to_assessment(revision_id, assessment)
                 message = "Uplift assessment created."
 
         messages.add_message(request, messages.SUCCESS, message)
@@ -180,9 +177,8 @@ class UpliftAssessmentLinkView(LandoView):
         assessment = link_form.cleaned_data["assessment"]
 
         with transaction.atomic():
-            uplift_revision, created = UpliftRevision.objects.update_or_create(
-                revision_id=revision_id,
-                defaults={"assessment": assessment},
+            uplift_revision, created = UpliftRevision.link_revision_to_assessment(
+                revision_id, assessment
             )
 
         if existing_assessment and existing_assessment.pk == assessment.pk:
@@ -352,10 +348,7 @@ class UpliftAssessmentBatchLinkView(LandoView):
 
             # Link assessment to all revisions.
             for revision_id in revision_ids:
-                UpliftRevision.objects.update_or_create(
-                    revision_id=revision_id,
-                    defaults={"assessment": assessment},
-                )
+                UpliftRevision.link_revision_to_assessment(revision_id, assessment)
 
         # After successful database transaction, trigger Celery tasks to update Phabricator.
         for revision_id in revision_ids:
