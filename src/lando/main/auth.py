@@ -21,54 +21,98 @@ logger = logging.getLogger(__name__)
 
 
 class PhabricatorTokenAuthenticationBackend(BaseBackend):
-    """Authenticate a user based on their Phabricator email and token."""
+    """Authenticate a user based on their Phabricator PHID and token."""
 
     @staticmethod
-    def get_phab_user(phabricator_token: str) -> dict[str:str]:
-        """Verify phabricator token and return the user data."""
+    def get_phab_user(phabricator_token: str) -> dict | None:
+        """Verify a Phabricator token and return the `user.whoami` data."""
         phab = PhabricatorClient(settings.PHABRICATOR_URL, phabricator_token)
 
         if not phab.verify_api_token():
-            return
+            return None
 
         return phab.call_conduit("user.whoami")
 
     @staticmethod
-    def get_phab_email(user_data: dict[str:str]) -> str:
+    def get_profile_by_phid(token_phid: str) -> Profile | None:
+        """Look up a local profile by Phabricator PHID."""
+        if not token_phid:
+            return None
+
         try:
-            email = user_data["primaryEmail"]
-        except KeyError:
-            # If for whatever reason a valid token is not associated with an email.
-            return
-        return email
+            return Profile.objects.get(phabricator_phid=token_phid)
+        except Profile.DoesNotExist:
+            return None
+
+    @staticmethod
+    def get_profile_by_email(email: str) -> Profile | None:
+        """Look up a local profile by email."""
+        try:
+            return User.objects.get(email=email).profile
+        except (User.DoesNotExist, Profile.DoesNotExist):
+            return None
 
     def authenticate(self, request: WSGIRequest, phabricator_token: str) -> User:
         """Given a Phabricator token, validate and attempt to match with local user."""
+        logger.debug("Authenticating Phabricator token via `user.whoami`.")
         token_user = self.get_phab_user(phabricator_token)
         if not token_user:
-            # Token is not valid.
+            logger.debug("Phabricator token authentication failed: token is not valid.")
             raise PermissionDenied()
 
-        email = self.get_phab_email(token_user)
+        token_phid = token_user["phid"]
+        logger.debug("Phabricator token resolved to PHID `%s`.", token_phid)
 
-        try:
-            lando_user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            # Token is valid, however, no equivalent user can be found using
-            # the primary email. It's possible that the user has a different
-            # primary email set on Phabricator, vs. their LDAP.
+        profile = self.get_profile_by_phid(token_phid)
+        if not profile:
+            logger.debug(
+                "No profile found for PHID `%s`, falling back to email lookup.",
+                token_phid,
+            )
+            email = token_user.get("primaryEmail")
+            if email:
+                profile = self.get_profile_by_email(email)
+
+        if not profile:
+            logger.debug(
+                "Phabricator token authentication failed: "
+                "no local user found for PHID `%s`.",
+                token_phid,
+            )
             raise PermissionDenied()
 
-        if not lando_user.profile.phabricator_api_key:
-            # Matching user does not have a phabricator API key, so we are
-            # unable to perform a secondary verification.
+        lando_user = profile.user
+        if not profile.phabricator_api_key:
+            logger.debug(
+                "Phabricator token authentication failed: "
+                "user `%s` has no stored Phabricator API key "
+                "for secondary verification.",
+                lando_user.username,
+            )
             raise PermissionDenied()
 
-        matching_user = self.get_phab_user(lando_user.profile.phabricator_api_key)
+        logger.debug("Verifying stored API key for user `%s`.", lando_user.username)
+        matching_user = self.get_phab_user(profile.phabricator_api_key)
         if token_user != matching_user:
-            # The stored token and the provided token point to two different users.
+            logger.debug(
+                "Phabricator token authentication failed: "
+                "stored API key and provided token resolve to different users.",
+            )
             raise PermissionDenied()
 
+        if not profile.phabricator_phid:
+            logger.debug(
+                "Back-populating PHID `%s` on profile for user `%s`.",
+                token_phid,
+                lando_user.username,
+            )
+            profile.phabricator_phid = token_phid
+            profile.save()
+
+        logger.debug(
+            "Phabricator token authentication succeeded for user `%s`.",
+            lando_user.username,
+        )
         return lando_user
 
     def get_user(self, user_id: int) -> User:

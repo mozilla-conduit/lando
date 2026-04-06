@@ -1,8 +1,14 @@
+import logging
+
+from django.conf import settings
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponseNotAllowed, JsonResponse
 
 from lando.main.auth import require_authenticated_user
 from lando.ui.legacy.forms import UserSettingsForm
+from lando.utils.phabricator import PhabricatorClient
+
+logger = logging.getLogger(__name__)
 
 
 @require_authenticated_user
@@ -24,6 +30,20 @@ def manage_api_key(request: WSGIRequest) -> JsonResponse:
     if form.cleaned_data["reset_key"]:
         profile.clear_phabricator_api_key()
     else:
-        profile.save_phabricator_api_key(form.cleaned_data["phabricator_api_key"])
+        api_key = form.cleaned_data["phabricator_api_key"]
+
+        logger.debug("Verifying Phabricator API key via `user.whoami`.")
+        phab = PhabricatorClient(settings.PHABRICATOR_URL, api_key)
+        if not phab.verify_api_token():
+            return JsonResponse(
+                {"errors": {"phabricator_api_key": ["Invalid API key."]}},
+                status=400,
+            )
+
+        whoami = phab.call_conduit("user.whoami")
+        phid = whoami["phid"]
+        logger.debug("Phabricator API key verified for PHID `%s`.", phid)
+
+        profile.save_phabricator_api_key(api_key, phid=phid)
 
     return JsonResponse({"success": True}, status=200)
