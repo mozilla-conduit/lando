@@ -48,8 +48,8 @@ class PhabricatorTokenAuthenticationBackend(BaseBackend):
     def get_profile_by_email(email: str) -> Profile | None:
         """Look up a local profile by email."""
         try:
-            return User.objects.get(email=email).profile
-        except (User.DoesNotExist, Profile.DoesNotExist):
+            return Profile.objects.get(user__email=email)
+        except Profile.DoesNotExist:
             return None
 
     def authenticate(self, request: WSGIRequest, phabricator_token: str) -> User:
