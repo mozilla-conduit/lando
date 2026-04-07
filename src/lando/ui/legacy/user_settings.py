@@ -33,13 +33,13 @@ def manage_api_key(request: WSGIRequest) -> JsonResponse:
 
         logger.debug("Verifying Phabricator API key via `user.whoami`.")
         phab = get_phabricator_client(api_key=api_key)
-        if not phab.verify_api_token():
+        whoami = phab.verify_api_token()
+        if not whoami:
             return JsonResponse(
                 {"errors": {"phabricator_api_key": ["Invalid API key."]}},
                 status=400,
             )
 
-        whoami = phab.call_conduit("user.whoami")
         phid = whoami["phid"]
         logger.debug("Phabricator API key verified for PHID `%s`.", phid)
 

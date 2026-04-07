@@ -320,17 +320,16 @@ class PhabricatorClient:
         """
         return datetime.fromtimestamp(int(timestamp), timezone.utc)
 
-    def verify_api_token(self) -> bool:
+    def verify_api_token(self) -> dict | None:
         """Verifies that the api token is valid.
 
-        Returns False if Phabricator returns an error code when checking this
-        api token. Returns True if no errors are found.
+        Returns the `user.whoami` result dict if the token is valid, or `None`
+        if Phabricator returns an error code.
         """
         try:
-            self.call_conduit("user.whoami")
+            return self.call_conduit("user.whoami")
         except PhabricatorAPIException:
-            return False
-        return True
+            return None
 
 
 class PhabricatorAPIException(Exception):
