@@ -66,13 +66,9 @@ def test__views__git2hgCommitMapView_short_hash(commit_maps, client, monkeypatch
 
 @pytest.mark.django_db(transaction=True)
 def test__views__phabricator_auth_backend(
-    phabdouble, client, user, user_phab_api_key, monkeypatch
+    phabdouble, client, user, user_phab_api_key, user_linked_to_phab, monkeypatch
 ):
     """Test that the Phabricator authentication backend behaves as expected."""
-    phab_user = phabdouble.user(username="phab_user", email=user.email)
-    user.profile.phabricator_phid = phab_user["phid"]
-    user.profile.save()
-
     test = client.get("/__version__")
     assert test.wsgi_request.user.is_anonymous
 
@@ -128,17 +124,13 @@ def test__views__phabricator_auth_backend_email_fallback(
 @pytest.mark.xfail
 @pytest.mark.django_db(transaction=True)
 def test__views__phabricator_auth_backend_invalid_token(
-    phabdouble, client, user, user_phab_api_key, monkeypatch
+    phabdouble, client, user, user_phab_api_key, user_linked_to_phab, monkeypatch
 ):
     """Test that the Phabricator authentication backend behaves as expected."""
     # NOTE: Currently, PhabricatorDouble does not have any awareness of the
     # Phabricator API token being used to authorize the client. Therefore,
     # any token passed here will result in a passing test, whether it is valid
     # or not. This should be fixed (see bug 2019413.)
-
-    phab_user = phabdouble.user(username="phab_user", email=user.email)
-    user.profile.phabricator_phid = phab_user["phid"]
-    user.profile.save()
 
     headers = {"X-Phabricator-API-Key": "INVALID_TOKEN"}
     test = client.get("/__version__", headers=headers)
