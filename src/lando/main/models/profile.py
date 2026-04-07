@@ -75,6 +75,12 @@ class Profile(BaseModel):
     # Encrypted Phabricator API token.
     encrypted_phabricator_api_key = models.BinaryField(default=b"", blank=True)
 
+    # The Phabricator PHID associated with the stored API key.
+    # Stored at key-link time via a `user.whoami` call.
+    phabricator_phid = models.CharField(
+        max_length=255, null=True, blank=True, unique=True
+    )
+
     def _encrypt_value(self, value: str) -> bytes:
         """Encrypt a given string value."""
         return self.cryptography.encrypt(value.encode("utf-8"))
@@ -121,12 +127,13 @@ class Profile(BaseModel):
             return ""
 
     def clear_phabricator_api_key(self):
-        """Set the phabricator API key to an empty string and save."""
-        self.save_phabricator_api_key("")
+        """Clear the phabricator API key and PHID."""
+        self.save_phabricator_api_key("", phid=None)
 
-    def save_phabricator_api_key(self, key: str):
-        """Given a raw API key, encrypt it and store it in the relevant field."""
+    def save_phabricator_api_key(self, key: str, phid: str | None = None):
+        """Given a raw API key and PHID, encrypt the key and store both."""
         self.encrypted_phabricator_api_key = self._encrypt_value(key)
+        self.phabricator_phid = phid or None
         self.save()
 
     def rotate_phabricator_api_key_encryption(self):

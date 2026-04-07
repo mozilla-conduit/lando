@@ -324,6 +324,15 @@ def mock_permissions():
 
 
 @pytest.fixture
+def user_linked_to_phab(phabdouble, user):
+    """A `user` whose profile has a `phabricator_phid` linked to a `phabdouble` user."""
+    phab_user = phabdouble.user(username="phab_user", email=user.email)
+    user.profile.phabricator_phid = phab_user["phid"]
+    user.profile.save()
+    return phab_user
+
+
+@pytest.fixture
 def authenticated_client(user, user_plaintext_password, client):
     client.login(username=user.username, password=user_plaintext_password)
     return client
