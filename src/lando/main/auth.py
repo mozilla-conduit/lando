@@ -34,22 +34,24 @@ class PhabricatorTokenAuthenticationBackend(BaseBackend):
         return phab.call_conduit("user.whoami")
 
     @staticmethod
-    def get_profile_by_phid(token_phid: str) -> Profile | None:
-        """Look up a local profile by Phabricator PHID."""
+    def get_user_by_phid(token_phid: str) -> User | None:
+        """Look up a local user by Phabricator PHID."""
         if not token_phid:
             return None
 
         try:
-            return Profile.objects.get(phabricator_phid=token_phid)
-        except Profile.DoesNotExist:
+            return User.objects.select_related("profile").get(
+                profile__phabricator_phid=token_phid
+            )
+        except User.DoesNotExist:
             return None
 
     @staticmethod
-    def get_profile_by_email(email: str) -> Profile | None:
-        """Look up a local profile by email."""
+    def get_user_by_email(email: str) -> User | None:
+        """Look up a local user by email."""
         try:
-            return Profile.objects.get(user__email=email)
-        except Profile.DoesNotExist:
+            return User.objects.select_related("profile").get(email=email)
+        except User.DoesNotExist:
             return None
 
     def authenticate(self, request: WSGIRequest, phabricator_token: str) -> User:
@@ -63,17 +65,17 @@ class PhabricatorTokenAuthenticationBackend(BaseBackend):
         token_phid = token_user["phid"]
         logger.debug("Phabricator token resolved to PHID `%s`.", token_phid)
 
-        profile = self.get_profile_by_phid(token_phid)
-        if not profile:
+        lando_user = self.get_user_by_phid(token_phid)
+        if not lando_user:
             logger.debug(
-                "No profile found for PHID `%s`, falling back to email lookup.",
+                "No user found for PHID `%s`, falling back to email lookup.",
                 token_phid,
             )
             email = token_user.get("primaryEmail")
             if email:
-                profile = self.get_profile_by_email(email)
+                lando_user = self.get_user_by_email(email)
 
-        if not profile:
+        if not lando_user:
             logger.debug(
                 "Phabricator token authentication failed: "
                 "no local user found for PHID `%s`.",
@@ -81,7 +83,7 @@ class PhabricatorTokenAuthenticationBackend(BaseBackend):
             )
             raise PermissionDenied()
 
-        lando_user = profile.user
+        profile = lando_user.profile
         if not profile.phabricator_api_key:
             logger.debug(
                 "Phabricator token authentication failed: "
