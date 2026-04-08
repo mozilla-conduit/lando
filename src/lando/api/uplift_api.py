@@ -62,7 +62,7 @@ def link_revision_to_assessment(
         assessment = UpliftAssessment.objects.get(id=body.assessment_id)
     except UpliftAssessment.DoesNotExist:
         detail = f"Assessment with id {body.assessment_id} does not exist."
-        logger.info(detail)
+        logger.warning(detail)
         raise NotFoundProblemException(title="Assessment not found", detail=detail)
 
     with transaction.atomic():
