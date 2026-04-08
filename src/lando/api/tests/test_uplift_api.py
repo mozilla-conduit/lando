@@ -26,7 +26,7 @@ def phab_header(phabdouble, user, user_phab_api_key):
         ({"HTTP_X_PHABRICATOR_API_KEY": "invalid-key"}, "invalid"),
     ],
 )
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 def test_link_revision_unauthorized_api_key(
     client, phabdouble, extra_headers, description
 ):
@@ -45,7 +45,7 @@ def test_link_revision_unauthorized_api_key(
     ), "Response `detail` should indicate the request was unauthorized."
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 def test_link_revision_missing_fields(client, phab_header):
     """Request with missing fields should return 422."""
     response = client.post(
@@ -57,7 +57,7 @@ def test_link_revision_missing_fields(client, phab_header):
     assert response.status_code == 422, "Missing required fields should return 422."
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 def test_link_revision_assessment_not_found(client, phab_header):
     """Request referencing a non-existent assessment should return 404."""
     response = client.post(
@@ -77,7 +77,7 @@ def test_link_revision_assessment_not_found(client, phab_header):
 
 
 @mock.patch("lando.api.uplift_api.set_uplift_request_form_on_revision.apply_async")
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 def test_link_revision_creates_new_link(mock_apply_async, client, phab_header, user):
     """Linking a new revision to an assessment should create an `UpliftRevision`."""
     assessment = UpliftAssessment.objects.create(user=user, **CREATE_FORM_DATA)
@@ -122,7 +122,7 @@ def test_link_revision_creates_new_link(mock_apply_async, client, phab_header, u
 
 
 @mock.patch("lando.api.uplift_api.set_uplift_request_form_on_revision.apply_async")
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 def test_link_revision_replaces_existing_link(
     mock_apply_async, client, phab_header, user
 ):
