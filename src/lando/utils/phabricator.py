@@ -386,13 +386,10 @@ def get_phabricator_client(
     privileged: Optional[bool] = False, api_key: Optional[str] = None
 ) -> PhabricatorClient:
     """Return an initialized PhabricatorClient object with relevant API key."""
-    api_key = (
-        api_key or settings.PHABRICATOR_ADMIN_API_KEY
-        if privileged
-        else settings.PHABRICATOR_UNPRIVILEGED_API_KEY
-    )
-    phab = PhabricatorClient(
-        settings.PHABRICATOR_URL,
-        api_key,
-    )
-    return phab
+    if api_key is None:
+        api_key = (
+            settings.PHABRICATOR_ADMIN_API_KEY
+            if privileged
+            else settings.PHABRICATOR_UNPRIVILEGED_API_KEY
+        )
+    return PhabricatorClient(settings.PHABRICATOR_URL, api_key)
