@@ -6,10 +6,11 @@ from django.core.handlers.wsgi import WSGIRequest
 from django.http import JsonResponse
 from ninja import NinjaAPI
 from ninja.errors import HttpError
-from ninja.security import HttpBearer
+from ninja.security import APIKeyHeader, HttpBearer
 from typing_extensions import override
 
 from lando.main.auth import AccessTokenLandoOIDCAuthenticationBackend
+from lando.utils.phabricator import PHABRICATOR_API_KEY_HEADER
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,28 @@ class AccessTokenAuth(HttpBearer):
 #
 
 api = NinjaAPI(urls_namespace="auth", auth=AccessTokenAuth())
+
+
+class PhabricatorTokenAuth(APIKeyHeader):
+    """Verify that the Phabricator middleware authenticated the request.
+
+    The `PhabricatorTokenAuthenticationMiddleware` reads the
+    `X-Phabricator-API-Key` header and authenticates the user via the
+    `PhabricatorTokenAuthenticationBackend`, setting `request.user`.
+    This auth class simply verifies that the user was authenticated.
+    """
+
+    param_name = PHABRICATOR_API_KEY_HEADER
+
+    def authenticate(self, request: WSGIRequest, key: str | None) -> str | None:
+        """Return the API key if the middleware authenticated the user, `None` otherwise.
+
+        Note: `key` is the variable name Django-Ninja expects.
+        """
+        if not key or not request.user.is_authenticated:
+            return None
+
+        return key
 
 
 @api.get("/__userinfo__")

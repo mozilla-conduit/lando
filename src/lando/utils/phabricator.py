@@ -21,6 +21,8 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
+PHABRICATOR_API_KEY_HEADER = "X-Phabricator-API-Key"
+
 
 @unique
 class PhabricatorRevisionStatus(Enum):

@@ -380,7 +380,7 @@ class AutomationOperation(Schema):
 
 
 class ApiError(Schema):
-    """Response format for an error within the API."""
+    """Error response format."""
 
     details: str
 

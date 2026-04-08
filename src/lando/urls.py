@@ -20,6 +20,7 @@ from django.contrib import admin
 from django.urls import include, path, re_path
 
 from lando.api.legacy.api import landing_jobs
+from lando.api.uplift_api import api as uplift_api
 from lando.api.views import (
     LandingJobPullRequestAPIView,
     LegacyDiffWarningView,
@@ -156,6 +157,7 @@ urlpatterns += [
 
 urlpatterns += [
     path("api/", headless_api.urls, name="headless-api"),
+    path("api/uplift/", uplift_api.urls, name="uplift-api"),
     path(
         "api/jobs/<int:job_id>/",
         jobs.AutomationJobView.as_view(),

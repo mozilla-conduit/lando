@@ -31,7 +31,7 @@ from lando.utils.github_checks import (
     PullRequestChecks,
 )
 from lando.utils.landing_checks import LandingChecks
-from lando.utils.phabricator import get_phabricator_client
+from lando.utils.phabricator import PHABRICATOR_API_KEY_HEADER, get_phabricator_client
 
 
 class APIView(View):
@@ -45,15 +45,14 @@ def phabricator_api_key_required(func: Callable) -> Callable:
 
     @wraps(func)
     def _wrapper(self: View, request: WSGIRequest, *args, **kwargs) -> Callable:
-        HEADER = "X-Phabricator-API-Key"
-        if HEADER not in request.headers:
-            return JsonResponse({"error": f"{HEADER} missing."}, status=400)
+        if PHABRICATOR_API_KEY_HEADER not in request.headers:
+            return JsonResponse(
+                {"error": f"{PHABRICATOR_API_KEY_HEADER} missing."}, status=400
+            )
 
-        api_key = request.headers[HEADER]
+        api_key = request.headers[PHABRICATOR_API_KEY_HEADER]
         client = get_phabricator_client(api_key=api_key)
-        has_valid_token = client.verify_api_token()
-
-        if not has_valid_token:
+        if not client.verify_api_token():
             return JsonResponse({"error": "Invalid Phabricator API token."}, status=401)
 
         return func(self, request, *args, **kwargs)
