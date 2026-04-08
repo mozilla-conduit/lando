@@ -6,12 +6,19 @@ from ninja import NinjaAPI, Schema
 from ninja.responses import codes_4xx
 
 from lando.main.models.uplift import UpliftAssessment, UpliftRevision
-from lando.utils.ninja_auth import ApiError, PhabricatorTokenAuth
+from lando.utils.exceptions import (
+    NotFoundProblemException,
+    ProblemDetail,
+    ProblemException,
+    problem_exception_handler,
+)
+from lando.utils.ninja_auth import PhabricatorTokenAuth
 from lando.utils.tasks import set_uplift_request_form_on_revision
 
 logger = logging.getLogger(__name__)
 
 api = NinjaAPI(auth=PhabricatorTokenAuth(), urls_namespace="uplift-api")
+api.exception_handler(ProblemException)(problem_exception_handler)
 
 
 class LinkRevisionRequest(Schema):
@@ -31,7 +38,7 @@ class LinkRevisionResponse(Schema):
 
 @api.post(
     "/assessments/link",
-    response={201: LinkRevisionResponse, codes_4xx: ApiError},
+    response={201: LinkRevisionResponse, codes_4xx: ProblemDetail},
 )
 def link_revision_to_assessment(
     request: WSGIRequest,
@@ -54,9 +61,9 @@ def link_revision_to_assessment(
     try:
         assessment = UpliftAssessment.objects.get(id=body.assessment_id)
     except UpliftAssessment.DoesNotExist:
-        error = f"Assessment with id {body.assessment_id} does not exist."
-        logger.info(error)
-        return 404, ApiError(details=error)
+        detail = f"Assessment with id {body.assessment_id} does not exist."
+        logger.info(detail)
+        raise NotFoundProblemException(title="Assessment not found", detail=detail)
 
     with transaction.atomic():
         uplift_revision, created = UpliftRevision.link_revision_to_assessment(
