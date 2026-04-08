@@ -53,7 +53,10 @@ class PhabricatorTokenAuth(APIKeyHeader):
     param_name = PHABRICATOR_API_KEY_HEADER
 
     def authenticate(self, request: WSGIRequest, key: str | None) -> str | None:
-        """Return the API key if the middleware authenticated the user, `None` otherwise."""
+        """Return the API key if the middleware authenticated the user, `None` otherwise.
+
+        Note: `key` is the variable name Django-Ninja expects.
+        """
         if not key or not request.user.is_authenticated:
             return None
 
