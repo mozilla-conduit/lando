@@ -58,14 +58,14 @@ def test_GitSCM_repo_is_supported(repo_path: str, expected: bool, git_repo: Path
 
 def test_GitSCM_clone(
     git_repo: Path,
-    monkeypatch: pytest.MonkeyPatch,
+    active_mock: Callable,
     request: pytest.FixtureRequest,
     tmp_path: Path,
 ):
     clone_path = tmp_path / request.node.name
     scm = GitSCM(str(clone_path))
 
-    mock_git_run = _monkeypatch_scm(monkeypatch, scm, "_git_run")
+    mock_git_run = active_mock(scm, "_git_run")
 
     scm.clone(str(git_repo))
 
@@ -83,7 +83,7 @@ def test_GitSCM_clone(
 def test_GitSCM_clean_repo(
     git_repo: Path,
     git_setup_user: Callable,
-    monkeypatch: pytest.MonkeyPatch,
+    active_mock: Callable,
     request: pytest.FixtureRequest,
     tmp_path: Path,
     create_git_commit: Callable,
@@ -118,7 +118,7 @@ def test_GitSCM_clean_repo(
     new_untracked_file = clone_path / "new_untracked_file"
     new_untracked_file.write_text("test", encoding="utf-8")
 
-    mock_git_run = _monkeypatch_scm(monkeypatch, scm, "_git_run")
+    mock_git_run = active_mock(scm, "_git_run")
 
     scm.clean_repo(strip_non_public_commits=strip_non_public_commits)
 
@@ -638,7 +638,7 @@ def test_GitSCM_changeset_descriptions_on_workbranch(
 def test_GitSCM_push(
     git_repo: Path,
     git_setup_user: Callable,
-    monkeypatch: pytest.MonkeyPatch,
+    active_mock: Callable,
     push_target: str | None,
     request: pytest.FixtureRequest,
     tmp_path: Path,
@@ -658,7 +658,7 @@ def test_GitSCM_push(
     new_untracked_file = clone_path / "new_untracked_file"
     new_untracked_file.write_text("test", encoding="utf-8")
 
-    mock_git_run = _monkeypatch_scm(monkeypatch, scm, "_git_run")
+    mock_git_run = active_mock(scm, "_git_run")
 
     scm.push(str(git_repo), push_target)
 
@@ -724,21 +724,6 @@ def test_GitSCM_git_run_redact_url_userinfo(
         assert string in str(exc.value)
         assert string in repr(exc.value)
         assert "[REDACTED]" not in str(exc.value)
-
-
-def _monkeypatch_scm(monkeypatch, scm: GitSCM, method: str) -> MagicMock:
-    """
-    Mock a method on `scm` to test the call, but let it continue with its original side
-    effect, so we can test that it's correct, too.
-
-    Returns:
-    MagicMock: The mock object.
-    """
-    original = scm.__getattribute__(method)
-    mock = MagicMock()
-    mock.side_effect = original
-    monkeypatch.setattr(scm, method, mock)
-    return mock
 
 
 @pytest.mark.parametrize("strategy", [None, MergeStrategy.OURS, MergeStrategy.THEIRS])
