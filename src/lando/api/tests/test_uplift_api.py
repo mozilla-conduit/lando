@@ -71,9 +71,9 @@ def test_link_revision_assessment_not_found(client, phab_header):
     assert (
         "does not exist" in body["detail"]
     ), "Error message should indicate the assessment was not found."
-    assert body["title"] == "Assessment not found", (
-        "Error title should indicate the assessment was not found."
-    )
+    assert (
+        body["title"] == "Assessment not found"
+    ), "Error title should indicate the assessment was not found."
 
 
 @mock.patch("lando.api.uplift_api.set_uplift_request_form_on_revision.apply_async")
