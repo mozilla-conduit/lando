@@ -4,7 +4,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import JsonResponse
-from ninja import NinjaAPI, Schema
+from ninja import NinjaAPI
 from ninja.errors import HttpError
 from ninja.security import APIKeyHeader, HttpBearer
 from typing_extensions import override
@@ -39,12 +39,6 @@ class AccessTokenAuth(HttpBearer):
 #
 
 api = NinjaAPI(urls_namespace="auth", auth=AccessTokenAuth())
-
-
-class ApiError(Schema):
-    """Error response format."""
-
-    details: str
 
 
 class PhabricatorTokenAuth(APIKeyHeader):

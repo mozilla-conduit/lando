@@ -33,7 +33,6 @@ from lando.main.scm.helpers import (
     PATCH_HELPER_MAPPING,
     PatchFormat,
 )
-from lando.utils.ninja_auth import ApiError
 
 logger = logging.getLogger(__name__)
 
@@ -378,6 +377,12 @@ class AutomationOperation(Schema):
 
     # Optional field indicating the changes should be pushed to a RelBranch.
     relbranch: RelBranchSpecifier | None = None
+
+
+class ApiError(Schema):
+    """Error response format."""
+
+    details: str
 
 
 class JobStatusResponse(Schema):
