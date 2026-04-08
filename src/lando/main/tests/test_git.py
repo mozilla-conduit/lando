@@ -6,13 +6,18 @@ import subprocess
 from collections.abc import Callable
 from pathlib import Path
 from textwrap import dedent
+from typing import Any
 from unittest import mock
 from unittest.mock import MagicMock, PropertyMock
 
 import pytest
 
 from lando.main.scm.consts import MergeStrategy
-from lando.main.scm.exceptions import SCMException, TagAlreadyPresentException
+from lando.main.scm.exceptions import (
+    PatchConflict,
+    SCMException,
+    TagAlreadyPresentException,
+)
 from lando.main.scm.git import GitSCM
 from lando.main.scm.helpers import GitPatchHelper
 
@@ -1192,3 +1197,53 @@ def test_GitSCM_commit_exists(
     assert not scm.commit_exists(
         "this-is-not-a-valid-commit"
     ), "`commit_exists` should return `False` for invalid commit reference."
+
+
+@pytest.mark.parametrize(
+    "method_name, method_args",
+    (
+        ("add_diff_from_patches", {"patches": ""}),
+        (
+            "apply_patch",
+            {
+                "diff": "",
+                "commit_description": "",
+                "commit_author": "",
+                "commit_date": "",
+            },
+        ),
+        ("apply_patch_git", {"patch_bytes": ""}),
+    ),
+)
+def test_GitSCM__detect_patch_conflict(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+    method_name: str,
+    method_args: dict[str, Any],
+):
+    """Tests that select methods correctly transform generic SCMException into PatchConflict."""
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+
+    scm._git_run = mock.MagicMock()
+    scm._git_run.side_effect = SCMException(
+        msg="can't apply",
+        out="out",
+        err=dedent("""\
+        error: patch failed: security/manager/tools/PreloadedHPKPins.json:25
+        error: security/manager/tools/PreloadedHPKPins.json: patch does not apply
+        error: patch failed: taskcluster/docker/periodic-updates/scripts/genHPKPStaticPins.js:121
+        error: taskcluster/docker/periodic-updates/scripts/genHPKPStaticPins.js: patch does not apply
+        error: patch failed: taskcluster/docker/periodic-updates/scripts/getHSTSPreloadList.js:17
+        error: taskcluster/docker/periodic-updates/scripts/getHSTSPreloadList.js: patch does not apply
+        """).strip(),
+    )
+
+    with pytest.raises(PatchConflict):
+        getattr(scm, method_name)(**method_args)
