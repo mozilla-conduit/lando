@@ -1245,5 +1245,7 @@ def test_GitSCM__detect_patch_conflict(
         """).strip(),
     )
 
-    with pytest.raises(PatchConflict):
+    with pytest.raises(PatchConflict) as exc_info:
         getattr(scm, method_name)(**method_args)
+
+    assert exc_info.match("patch failed: security/manager/tools/PreloadedHPKPins.json")
