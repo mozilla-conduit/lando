@@ -24,19 +24,6 @@
                         </div>
                     </article>
                 {% endif %}
-                {% if uplift.missing_source_revisions %}
-                    <article class="message is-danger">
-                        <div class="message-header">
-                            <p>Missing Revision Data</p>
-                        </div>
-                        <div class="message-body">
-                            The following revisions have not landed on autoland yet, so Lando does
-                            not have the revision data required to create an uplift:
-                            <strong>{{ uplift.missing_source_revisions | join(", ") }}</strong>.
-                            Please land the patch on autoland first before requesting an uplift.
-                        </div>
-                    </article>
-                {% endif %}
                 <p class="block">
                     Select the repositories you wish to uplift to and complete the
                     <strong>Uplift Assessment Form</strong> below. Lando will check your patch

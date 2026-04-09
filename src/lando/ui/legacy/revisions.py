@@ -11,6 +11,7 @@ from django.template.response import TemplateResponse
 from django.utils.decorators import method_decorator
 
 from lando.api.legacy import api as legacy_api
+from lando.api.legacy.revisions import seed_revisions_from_phabricator
 from lando.api.legacy.validation import parse_revision_ids
 from lando.main.auth import force_auth_refresh, require_phabricator_api_key
 from lando.main.models import Repo
@@ -40,9 +41,17 @@ logger = logging.getLogger(__name__)
 
 class UpliftRequestView(LandoView):
     @force_auth_refresh
-    @method_decorator(require_phabricator_api_key(optional=False, provide_client=False))
-    def post(self, request: WSGIRequest) -> HttpResponse:
+    @method_decorator(require_phabricator_api_key(optional=False, provide_client=True))
+    def post(self, phab: PhabricatorClient, request: WSGIRequest) -> HttpResponse:
         """Process the uplift request submission."""
+        try:
+            seed_revisions_from_phabricator(
+                phab, request.POST.getlist("source_revisions")
+            )
+        except ValueError as exc:
+            messages.add_message(request, messages.ERROR, str(exc))
+            return redirect(request.META.get("HTTP_REFERER"))
+
         uplift_request_form = UpliftRequestForm(request.POST)
 
         if not uplift_request_form.is_valid():

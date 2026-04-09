@@ -1,6 +1,5 @@
 import logging
 import urllib.parse
-from datetime import datetime
 from typing import Any
 
 import kombu
@@ -25,11 +24,11 @@ from lando.api.legacy.reviews import (
     reviewers_for_commit_message,
 )
 from lando.api.legacy.revisions import (
+    fetch_raw_diff_and_save,
     find_title_and_summary_for_landing,
     gather_involved_phids,
     get_bugzilla_bug,
     revision_is_secure,
-    select_diff_author,
 )
 from lando.api.legacy.stacks import (
     RevisionStack,
@@ -52,7 +51,6 @@ from lando.main.models import (
     JobStatus,
     LandingJob,
     Repo,
-    Revision,
     add_revisions_to_job,
 )
 from lando.main.support import LegacyAPIException
@@ -298,35 +296,15 @@ def post(phab: PhabricatorClient, user: User, data: dict) -> tuple[dict[str, int
             ),
             flags,
         )[1]
-        author_name, author_email = select_diff_author(diff)
-        timestamp = int(datetime.now().timestamp())
-
-        # Construct the patch that will be transplanted.
-        revision_id = revision["id"]
-        diff_id = diff["id"]
-
-        lando_revision = Revision.get_from_revision_id(revision_id)
-        if not lando_revision:
-            lando_revision = Revision(revision_id=revision_id)
-
-        lando_revision.diff_id = diff_id
-        lando_revision.save()
+        lando_revision = fetch_raw_diff_and_save(
+            phab, revision["id"], diff, commit_message
+        )
 
         revision_reviewers[lando_revision.id] = get_approved_by_ids(
             phab,
             PhabricatorClient.expect(revision, "attachments", "reviewers", "reviewers"),
         )
 
-        patch_data = {
-            "author_name": author_name,
-            "author_email": author_email,
-            "commit_message": commit_message,
-            "timestamp": timestamp,
-        }
-
-        raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff["id"])
-        lando_revision.set_patch(raw_diff, patch_data)
-        lando_revision.save()
         lando_revisions.append(lando_revision)
 
     ldap_username = user.email
