@@ -16,6 +16,7 @@ dependencies = [
     "datadog",
     "django ~= 6.0",
     "django-auditlog",
+    "django-cors-headers",
     "django-ninja",
     "django-storages[google]",
     "django_compressor",
