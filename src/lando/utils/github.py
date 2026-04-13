@@ -22,6 +22,9 @@ from lando.utils.const import URL_USERINFO_RE
 logger = logging.getLogger(__name__)
 
 
+PR_DELIMITER = "-+-+- LANDO DELIMITER - DO NOT MODIFY THIS LINE -+-+-"
+
+
 class GitHub:
     """Work with authentication to GitHub repositories."""
 
@@ -150,6 +153,11 @@ class GitHubAPI(GitHub):
         url = f"{self.GITHUB_BASE_URL}/{path}"
         return self.session.post(url, *args, **kwargs)
 
+    def patch(self, path: str, *args, **kwargs) -> requests.Response:
+        """Send a PATCH request to the GitHub API with given args and kwargs."""
+        url = f"{self.GITHUB_BASE_URL}/{path}"
+        return self.session.patch(url, *args, **kwargs)
+
 
 class GitHubAPIClient:
     """A convenience client that provides various methods to interact with the GitHub API."""
@@ -239,6 +247,10 @@ class GitHubAPIClient:
 
     def _post(self, path: str, *args, **kwargs):
         result = self._api.post(path, *args, **kwargs)
+        return result.json()
+
+    def _patch(self, path: str, *args, **kwargs):
+        result = self._api.patch(path, *args, **kwargs)
         return result.json()
 
     def build_pull_request(self, pull_number: int) -> "PullRequest":
@@ -381,6 +393,13 @@ class GitHubAPIClient:
             json={"body": comment},
         )
 
+    def update_pull_request_body(self, pull_number: int, body: str) -> dict:
+        """Update the pull request description with provided body."""
+        return self._patch(
+            f"{self.repo_base_url}/issues/{pull_number}",
+            json={"body": body},
+        )
+
     @classmethod
     def convert_timestamp_from_github(cls, timestamp: str) -> str:
         timestamp_datetime = datetime.fromisoformat(timestamp)
@@ -444,6 +463,19 @@ class PullRequest:
     def __repr__(self) -> str:
         return f"Pull request #{self.number} ({self.head_repo_git_url})"
 
+    @staticmethod
+    def _parse_body_segments(body: str) -> tuple[str]:
+        if body:
+            parts = body.split(PR_DELIMITER)
+            if len(parts) > 2:
+                # Something went wrong, the delimiter should only be present once.
+                raise ValueError("Multiple delimiters detected in PR description")
+            elif len(parts) == 2:
+                return tuple(parts)
+            # Assume this is the original PR description, i.e., there was no delimiter.
+            return parts[0], ""
+        return "", ""
+
     def __init__(self, client: GitHubAPIClient, data: dict):
         self.client = client
 
@@ -462,6 +494,8 @@ class PullRequest:
         self.diff_url = data["diff_url"]
         self.patch_url = data["patch_url"]
         self.body = data["body"]  # description
+
+        self.lando_body, self.commit_body = self._parse_body_segments(self.body)
         self.is_draft = data["draft"]
         self.comments_url = data["comments_url"]
         self.commits_url = data["commits_url"]
@@ -619,8 +653,8 @@ class PullRequest:
 
         lines = [self.title, ""]
 
-        if self.body:
-            lines += [self.body, ""]
+        if self.commit_body:
+            lines += [self.commit_body, ""]
 
         lines.append(f"Pull request: {self.html_url}")
 

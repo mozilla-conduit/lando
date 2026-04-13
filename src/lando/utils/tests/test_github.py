@@ -8,9 +8,11 @@ from django.conf import settings
 from requests import Response
 
 from lando.utils.github import (
+    PR_DELIMITER,
     GitHub,
     GitHubAPI,
     GitHubAPIClient,
+    PullRequest,
     PullRequestPatchHelper,
 )
 
@@ -445,6 +447,40 @@ def test_api_client_get_pull_request_commits(
         {"sha": "commit_21"},
         {"sha": "commit_22"},
     ], "Unexpected commit data"
+
+
+def test__PullRequest___parse_body_segments__no_delimiter():
+    test_input = "some random text"
+    result = PullRequest._parse_body_segments(test_input)
+    assert isinstance(result, tuple)
+    assert len(result) == 2
+    assert result[0] == test_input
+    assert result[1] == ""
+
+
+def test__PullRequest___parse_body_segments__one_delimiter():
+    test_input = f"some random text{PR_DELIMITER}some other text"
+    result = PullRequest._parse_body_segments(test_input)
+    assert isinstance(result, tuple)
+    assert len(result) == 2
+    assert result[0] == "some random text"
+    assert result[1] == "some other text"
+
+
+def test__PullRequest___parse_body_segments__two_delimiters():
+    test_input = f"some random text{PR_DELIMITER}some other text{PR_DELIMITER}more text"
+    with pytest.raises(ValueError) as e:
+        PullRequest._parse_body_segments(test_input)
+    assert e.value.args[0] == "Multiple delimiters detected in PR description"
+
+
+def test__PullRequest___parse_body_segments__empty_body():
+    test_input = ""
+    result = PullRequest._parse_body_segments(test_input)
+    assert isinstance(result, tuple)
+    assert len(result) == 2
+    assert result[0] == ""
+    assert result[1] == ""
 
 
 @pytest.fixture
