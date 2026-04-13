@@ -13,7 +13,7 @@ from lando.main.models.landing_job import (
     get_jobs_for_pull,
 )
 from lando.ui.views import LandoView
-from lando.utils.github import GitHubAPIClient
+from lando.utils.github import SPECIAL_DELIMITER, GitHubAPIClient
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +70,7 @@ class PullRequestView(LandoView):
             "landing_jobs": landing_jobs,
             "last_try_job": last_try_job,
             "is_try_compatible": is_try_compatible,
+            "special_delimiter": SPECIAL_DELIMITER,
         }
 
         return TemplateResponse(

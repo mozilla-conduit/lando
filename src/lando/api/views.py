@@ -5,14 +5,17 @@ from functools import wraps
 from typing import Callable
 
 from django import forms
+from django.conf import settings
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpRequest, JsonResponse
+from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.html import escape
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from lando.api.legacy.commit_message import replace_reviewers
+from lando.api.legacy.commit_message import parse_bugs, replace_reviewers
 from lando.main.auth import require_authenticated_user
 from lando.main.models import (
     CommitMap,
@@ -25,7 +28,12 @@ from lando.main.models import (
 from lando.main.models.landing_job import get_jobs_for_pull
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.main.scm import SCMType
-from lando.utils.github import GitHubAPIClient, PullRequest, PullRequestPatchHelper
+from lando.utils.github import (
+    SPECIAL_DELIMITER,
+    GitHubAPIClient,
+    PullRequest,
+    PullRequestPatchHelper,
+)
 from lando.utils.github_checks import (
     ALL_PULL_REQUEST_BLOCKERS,
     ALL_PULL_REQUEST_WARNINGS,
@@ -372,3 +380,45 @@ class PullRequestTryPushAPIView(PullRequestAPIView):
         job.save()
 
         return JsonResponse({"id": job.id}, status=201)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class PullRequestEnhancedDescriptionAPIView(PullRequestAPIView):
+    """API methods to modify the pull request description box."""
+
+    @method_decorator(require_authenticated_user)
+    def get(
+        self, request: WSGIRequest, repo_name: str, pull_number: int
+    ) -> JsonResponse:
+        """Update PR description box with parsed content."""
+
+        if not request.user.has_perm("main.can_change_landing_job"):
+            raise PermissionError()
+
+        context = {}
+        context.update(
+            generate_warnings_and_blockers(self.target_repo, self.pull_request, request)
+        )
+
+        path = reverse(
+            "pull-request",
+            kwargs={
+                "repo_name": self.target_repo.name,
+                "number": self.pull_request.number,
+            },
+        )
+
+        context["lando_url"] = f"{settings.SITE_URL}{path}"
+        context["special_delimiter"] = SPECIAL_DELIMITER
+        bugs = parse_bugs(self.pull_request.title)
+        context["bugs"] = []
+
+        for bug in bugs:
+            context["bugs"].append((bug, f"{settings.BUGZILLA_URL}/{bug}"))
+
+        context["title"] = self.pull_request.title
+        context["body"] = self.pull_request.parsed_body
+
+        rendered = render_to_string("pr_description.md", context)
+        self.client.update_pull_request_body(pull_number, rendered)
+        return JsonResponse({"context": context, "md": rendered})
