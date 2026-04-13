@@ -88,7 +88,7 @@ def test__models__Repo__scm_not_calculated_when_preset(
     ],
 )
 def test__models__Repo__system_path_validator(
-    request: pytest.FixtureRequest, path: str, expected_exception: Exception | None
+    path: str, expected_exception: Exception | None
 ):
 
     repo = Repo(
