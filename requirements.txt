@@ -2656,9 +2656,9 @@ semver==3.0.4 \
     --hash=sha256:9c824d87ba7f7ab4a1890799cec8596f15c1241cb473404ea1cb0c55e4b04746 \
     --hash=sha256:afc7d8c584a5ed0a11033af086e8af226a9c0b206f313e0301f8dd7b6b589602
     # via glean-sdk
-sentry-sdk==2.54.0 \
-    --hash=sha256:2620c2575128d009b11b20f7feb81e4e4e8ae08ec1d36cbc845705060b45cc1b \
-    --hash=sha256:fd74e0e281dcda63afff095d23ebcd6e97006102cdc8e78a29f19ecdf796a0de
+sentry-sdk==2.58.0 \
+    --hash=sha256:688d1c704ddecf382ea3326f21a67453d4caa95592d722b7c780a36a9d23109e \
+    --hash=sha256:c1144d947352d54e5b7daa63596d9f848adf684989c06c4f5a659f0c85a18f6f
     # via
     #   lando (pyproject.toml)
     #   mozphab
