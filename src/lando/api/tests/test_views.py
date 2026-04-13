@@ -162,3 +162,62 @@ def test__views__pull_request_api_view__private_repo(github_api_client, client):
     mock_github_api_client.repo_is_private = False
     test = client.get(f"/api/pulls/{repo.name}/1/landing_jobs")
     assert test.status_code == 200
+
+
+@mock.patch("lando.api.views.GitHubAPIClient")
+@mock.patch("lando.api.views.generate_warnings_and_blockers")
+@pytest.mark.django_db(transaction=True)
+def test__views__pull_request_update_webhook(
+    generate_warnings_and_blockers, github_api_client, authenticated_client
+):
+    """Test that the webhook is calling the GitHub API with the correct parameters."""
+    generate_warnings_and_blockers.return_value = {
+        "warnings": ["a warning"],
+        "blockers": ["a blocker"],
+    }
+
+    mock_github_api_client = mock.MagicMock()
+    mock_pr = mock.MagicMock()
+    mock_pr.number = 1
+    mock_pr.title = "this is some title (bug 1111111, bug 2222222)"
+    mock_pr.commit_body = "this is some body"
+    mock_github_api_client.repo_is_private = False
+    mock_github_api_client.build_pull_request.return_value = mock_pr
+    github_api_client.return_value = mock_github_api_client
+
+    repo = Repo.objects.create(
+        name="git-repo",
+        scm_type=SCMType.GIT,
+        pr_enabled=True,
+    )
+
+    test = authenticated_client.post(f"/api/pulls/{repo.name}/1/webhook")
+
+    assert mock_github_api_client.update_pull_request_body.call_count == 1
+    pr_number, body = mock_github_api_client.update_pull_request_body.call_args[0]
+    assert pr_number == 1
+    assert body == "\n".join(
+        [
+            "Lando: [link](https://lando.test/pulls/git-repo/1/)",
+            "Bugzilla: [bug 1111111](http://bmo.test/show_bug.cgi?id=1111111), [bug 2222222](http://bmo.test/show_bug.cgi?id=2222222)",
+            "",
+            "|Warnings|",
+            "|---------|",
+            ":warning: a warning",
+            "",
+            "",
+            "|Blockers|",
+            "|---------|",
+            ":no_entry_sign: a blocker",
+            "",
+            "",
+            "",
+            "-+-+- LANDO DELIMITER - DO NOT MODIFY THIS LINE -+-+-",
+            "",
+            "this is some body",
+            "",
+        ]
+    )
+
+    assert test.status_code == 200
+    assert test.json() == {"status": "success"}

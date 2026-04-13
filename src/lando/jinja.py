@@ -450,6 +450,7 @@ def message_type_to_notification_class(flash_message_category: str) -> str:
 
 
 def environment(**options) -> Environment:
+    options.update({"trim_blocks": True, "lstrip_blocks": True})
     env = Environment(extensions=[CompressorExtension], **options)
     env.globals.update(
         {
