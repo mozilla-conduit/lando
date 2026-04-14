@@ -11,7 +11,9 @@
         {% if embedded %}
             <p>
                 <strong>Landing Job:</strong>
-                <a href="{{ url('jobs-page', args=[job.id]) }}">{{ job.id }}</a>
+                <a href="{{ url('jobs-page', args=[job.id]) }}">{{ job.id }}
+                    {% if queue and queue|length > 1 %}({{ queue|length }} jobs in the queue){% endif %}
+                </a>
             </p>
         {% elif has_revisions and job.is_pull_request_job %}
             {% set top_revision = job.revisions[0] %}
