@@ -18,7 +18,7 @@ def test_cors_acao_header(
 ):
 
     headers = {}
-    if origin:
+    if origin is not None:
         headers.update({"origin": origin})
 
     resp = client.get(path, headers=headers)
