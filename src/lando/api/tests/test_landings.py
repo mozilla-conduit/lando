@@ -418,8 +418,10 @@ def test_integrated_execute_job(
 
 
 @mock.patch("lando.utils.github.api.GitHubAPI")
+@mock.patch("lando.api.legacy.workers.landing_worker.GitHubAPIClient")
 @pytest.mark.django_db
 def test_integrated_execute_job_pull_request(
+    GitHubAPIClient: mock.Mock,
     GitHubAPI: mock.Mock,
     repo_mc: Callable,
     create_pull_request_revision: Callable,
@@ -441,6 +443,14 @@ def test_integrated_execute_job_pull_request(
     repo.is_phabricator_repo = False
     repo.pr_enabled = True
 
+    mock_api_client = mock.MagicMock()
+    GitHubAPIClient.return_value = mock_api_client
+
+    mock_pull_request = mock.MagicMock()
+    mock_pull_request.number = pr_number
+    mock_pull_request.title = "no bug: some title"
+    mock_api_client.build_pull_request.return_value = mock_pull_request
+
     # We use git_patch(1) here, as it inserts a line in the middle of an existing file,
     # potentially triggering bug 2002094.
     revisions = [create_pull_request_revision(pr_number, git_patch(1))]
@@ -460,26 +470,11 @@ def test_integrated_execute_job_pull_request(
     assert job.status == JobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40
 
-    # Check attempts to interact with GitHub.
-    assert GitHubAPI.mock_calls, "GitHubAPI wasn't used."
-    did_comment = False
-    did_close = False
-    for kall in GitHubAPI.mock_calls:
-        if kall == mock.call().post(mock.ANY, json={"body": mock.ANY}):
-            if (
-                f"/issues/{pr_number}/comments" in kall[1][0]
-                and "Pull request closed by commit" in kall[2]["json"]["body"]
-            ):
-                did_comment = True
-        elif kall == mock.call().post(mock.ANY, json={"state": "closed"}):
-            if (
-                f"/pulls/{pr_number}" in kall[1][0]
-                and kall[2]["json"]["state"] == "closed"
-            ):
-                did_close = True
-
-    assert did_comment, "Successful landing did not add comment to PR"
-    assert did_close, "Successful landing did not close PR"
+    # 5 is the number of calls using the API client at the time of writing.
+    assert len(mock_api_client.mock_calls) == 5
+    assert mock_api_client.mock_calls[3] == mock.call.add_comment_to_pull_request(
+        1, "Pull request closed by commit 93b68000bc7d3578eca658e882bfaf1e00d23c78"
+    ), "Successful landing did not add comment to PR"
 
 
 @pytest.mark.parametrize(

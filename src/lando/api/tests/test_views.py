@@ -400,7 +400,7 @@ class TestViewsPullRequestUpdateWebHook:
             headers={},
         )
 
-        assert mock_github_api_client.update_pull_request_body.call_count == 0
+        assert mock_github_api_client.update_pull_request_content.call_count == 0
         assert response.status_code == 403
 
     @mock.patch("lando.api.views.generate_warnings_and_blockers")
@@ -569,7 +569,7 @@ class TestViewsPullRequestUpdateWebHook:
             headers=hmac_headers(body=content),
         )
         assert response.status_code == 202
-        assert mock_github_api_client.update_pull_request_body.call_count == 0
+        assert mock_github_api_client.update_pull_request_content.call_count == 0
 
 
 @mock.patch("lando.api.views.generate_warnings_and_blockers")
@@ -621,14 +621,15 @@ def test__views_landing_job_pull_request_view__warnings(
     github_api_client.return_value = repo_mc_github_api_client
 
     mock_pr = mock.MagicMock()
-    repo_mc_github_api_client.build_pull_request.return_value = mock_pr
     mock_pr.author = ("Test Author", "test@email.com")
+    mock_pr.title = "no bug: test"
     mock_pr.commit_message = "Test Commit Message"
     mock_pr.number = 1
     mock_pr.head_sha = "aaa123"
     mock_pr.base_sha = "bbb123"
     mock_pr.patch = "diff --git a/abc b/def\n"
     mock_pr.reviews_summary = {}
+    repo_mc_github_api_client.build_pull_request.return_value = mock_pr
 
     mock_warnings_and_blockers.return_value = {
         "warnings": warnings_1,

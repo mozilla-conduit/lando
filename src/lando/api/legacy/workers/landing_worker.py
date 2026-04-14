@@ -13,6 +13,7 @@ from lando.api.legacy.notifications import (
     notify_user_of_landing_failure,
 )
 from lando.api.legacy.workers.base import NON_ABORTABLE_FAILURES, Worker
+from lando.api.views import generate_enhanced_pr_description
 from lando.main.models import (
     AutoformatChange,
     JobAction,
@@ -95,6 +96,7 @@ class LandingWorker(Worker):
             True: The job finished processing and is in a permanent state.
             False: The job encountered a temporary failure and should be tried again.
         """
+
         repo: Repo = job.target_repo
         scm = repo.scm
 
@@ -136,6 +138,13 @@ class LandingWorker(Worker):
             pull_number = job.revisions.first().pull_number
             message = f"Pull request closed by commit {commit_id}"
             client = GitHubAPIClient(job.target_repo.url)
+            pull_request = client.build_pull_request(pull_number)
+            description = generate_enhanced_pr_description(
+                pull_request,
+                job.target_repo,
+                template="pr_description_landing.md",
+            )
+            client.update_pull_request_content(pull_number, description)
             client.add_comment_to_pull_request(pull_number, message)
             client.close_pull_request(pull_number)
 
