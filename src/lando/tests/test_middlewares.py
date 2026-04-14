@@ -29,7 +29,7 @@ def test_cors_acao_header(
         ), f"Missing ACAO header for request from '{origin}' to '{path}'"
         assert (
             resp.headers["access-control-allow-origin"] == "*"
-        ), f"Unexpected ACAO header value {resp.headers["access-control-allow-origin"]} for requesst from '{origin}' to '{path}'"
+        ), f"Unexpected ACAO header value {resp.headers["access-control-allow-origin"]} for request from '{origin}' to '{path}'"
     else:
         assert (
             "access-control-allow-origin" not in resp.headers
