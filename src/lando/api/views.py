@@ -35,7 +35,6 @@ from lando.main.models.configuration import ConfigurationKey, ConfigurationVaria
 from lando.main.models.landing_job import (
     get_pull_request_last_landing_job_status,
 )
-from lando.main.models.landing_job import get_pull_request_last_landing_job_status
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.main.scm import SCMType
 from lando.utils.github import (
@@ -110,6 +109,41 @@ def generate_warnings_and_blockers(
         blockers = [escape(blocker) for blocker in blockers]
 
     return {"warnings": warnings, "blockers": blockers}
+
+
+def generate_enhanced_pr_description(
+    pull_request: PullRequest,
+    target_repo: Repo,
+    request: WSGIRequest = None,
+    template: str = "pr_description.md",
+) -> str:
+    context = {}
+    if request:
+        context.update(
+            generate_warnings_and_blockers(target_repo, pull_request, request)
+        )
+
+    context["landing_status"] = str(
+        get_pull_request_last_landing_job_status(target_repo.name, pull_request.number)
+    ).lower()
+
+    path = reverse(
+        "pull-request",
+        kwargs={
+            "repo_name": target_repo.name,
+            "number": pull_request.number,
+        },
+    )
+
+    context["lando_url"] = f"{settings.SITE_URL}{path}"
+    context["pr_delimiter"] = PR_DELIMITER
+    bugs = parse_bugs(pull_request.title)
+    context["bugs"] = bugs
+    context["title"] = pull_request.title
+    context["commit_body"] = pull_request.commit_body
+
+    rendered = render_to_string(template, context)
+    return rendered
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -257,10 +291,10 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
         self, request: WSGIRequest, repo_name: str, pull_number: int
     ) -> JsonResponse:
         """Return the status of a pull request based on landing job counts."""
-        status = str(
+        landing_status = str(
             get_pull_request_last_landing_job_status(repo_name, pull_number)
         ).lower()
-        return JsonResponse({"status": status}, status=200)
+        return JsonResponse({"status": landing_status}, status=200)
 
     @method_decorator(require_authenticated_user)
     def post(
@@ -360,6 +394,14 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
         add_revisions_to_job([revision], job)
         job.status = JobStatus.SUBMITTED
         job.save()
+
+        description = generate_enhanced_pr_description(
+            self.pull_request,
+            self.target_repo,
+            request,
+            template="pr_description_landing.md",
+        )
+        self.client.update_pull_request_body(pull_number, description)
 
         return JsonResponse({"id": job.id}, status=201)
 
