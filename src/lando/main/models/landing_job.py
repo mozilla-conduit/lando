@@ -11,7 +11,7 @@ from mots.config import FileConfig
 from mots.directory import Directory
 
 from lando.main.models.base import BaseModel
-from lando.main.models.jobs import BaseJob
+from lando.main.models.jobs import BaseJob, JobStatus
 from lando.main.models.repo import Repo
 from lando.main.models.revision import Revision, RevisionLandingJob
 
@@ -305,6 +305,18 @@ def add_revisions_to_job(revisions: list[Revision], job: LandingJob):
     """Given an existing job, add and sort provided revisions."""
     job.add_revisions(revisions)
     job.sort_revisions(revisions)
+
+
+def get_pull_request_last_landing_job_status(
+    repo_name: str, pull_number: int
+) -> JobStatus | None:
+    """Return a heuristically determined status based on related jobs."""
+    # This method will return a single status that the UI can use to determine
+    # the state of a pull request.
+    target_repo = Repo.objects.get(name=repo_name)
+    landing_jobs = get_jobs_for_pull(target_repo, pull_number)
+    if landing_jobs:
+        return landing_jobs.first().status
 
 
 def get_jobs_for_pull(target_repo: Repo, pull_number: int) -> QuerySet[LandingJob]:

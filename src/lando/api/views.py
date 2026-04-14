@@ -33,7 +33,10 @@ from lando.main.models import (
     add_revisions_to_job,
 )
 from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
-from lando.main.models.landing_job import get_jobs_for_pull
+from lando.main.models.landing_job import (
+    get_jobs_for_pull,
+    get_pull_request_last_landing_job_status,
+)
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.main.scm import SCMType
 from lando.utils.github import (
@@ -111,6 +114,41 @@ def generate_warnings_and_blockers(
         blockers = [escape(blocker) for blocker in blockers]
 
     return {"warnings": warnings, "blockers": blockers}
+
+
+def generate_enhanced_pr_description(
+    pull_request: LandoPullRequest,
+    target_repo: Repo,
+    request: WSGIRequest = None,
+    template: str = "pr_description.md",
+) -> str:
+    context = {}
+    if request:
+        context.update(
+            generate_warnings_and_blockers(target_repo, pull_request, request)
+        )
+
+    context["landing_status"] = str(
+        get_pull_request_last_landing_job_status(target_repo.name, pull_request.number)
+    ).lower()
+
+    path = reverse(
+        "pull-request",
+        kwargs={
+            "repo_name": target_repo.name,
+            "number": pull_request.number,
+        },
+    )
+
+    context["lando_url"] = f"{settings.SITE_URL}{path}"
+    context["pr_delimiter"] = PR_DELIMITER
+    bugs = parse_bugs(pull_request.title)
+    context["bugs"] = bugs
+    context["title"] = pull_request.title
+    context["commit_body"] = pull_request.commit_body
+
+    rendered = render_to_string(template, context)
+    return rendered
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -381,6 +419,14 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
         job.status = JobStatus.SUBMITTED
         job.save()
 
+        description = generate_enhanced_pr_description(
+            self.pull_request,
+            self.target_repo,
+            request,
+            template="pr_description_landing.md",
+        )
+        self.client.update_pull_request_content(pull_number, description)
+
         return JsonResponse({"id": job.id}, status=201)
 
 
@@ -466,36 +512,15 @@ class PullRequestUpdateWebhook(View, PrivateRepoPermissionMixin):
 
         return super().dispatch(request)
 
-    def generate_context(self, request: HttpRequest) -> dict[str, str | list[str]]:
-        """Generate various context variables used in rendering the template."""
-        context = generate_warnings_and_blockers(
-            self.target_repo, self.pull_request, request
-        )
-
-        path = reverse(
-            "pull-request",
-            kwargs={
-                "repo_name": self.target_repo.name,
-                "number": self.pull_request.number,
-            },
-        )
-
-        context["lando_url"] = f"{settings.SITE_URL}{path}"
-        context["pr_delimiter"] = PR_DELIMITER
-        bugs = parse_bugs(self.pull_request.title)
-        context["bugs"] = bugs
-        context["title"] = self.pull_request.title
-
-        # This commit body refers to the portion of the description below the
-        # delimiter (i.e., user-inputted value).
-        context["commit_body"] = self.pull_request.commit_body
-        return context
-
     @require_github_signature
     @ignore_bot_sender
     def post(self, request: WSGIRequest, *args, **kwargs) -> JsonResponse:
         """Generate content and update PR description."""
-        context = self.generate_context(request)
-        rendered = render_to_string("pr_description.md", context)
-        self.client.update_pull_request_content(self.pull_request.number, rendered)
+        description = generate_enhanced_pr_description(
+            self.pull_request,
+            self.target_repo,
+            request,
+            template="pr_description.md",
+        )
+        self.client.update_pull_request_content(self.pull_request.number, description)
         return JsonResponse({"status": "success"})
