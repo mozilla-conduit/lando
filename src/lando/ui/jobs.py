@@ -37,7 +37,24 @@ class BaseJobView(LandoView, ABC):
             context=context,
         )
 
-    def worker_queue(self, job: BaseJob):
+    # XXX: this should be on the worker
+    def worker_queue(self, job: BaseJob, **kwargs) -> list[BaseJob]:
+        """
+        Return a list of the jobs ahead of the passed job for the associated worker.
+
+        This relies on `self.worker_type` to find the associated worker, and
+        `self.job_type` to find the jobs of the same type.
+
+        Parameters:
+
+        job: BaseJob
+            the job to look up in the queue
+
+        **kwargs (dict): Additional arguments for the queue query
+
+        Returns:
+            list[BaseJob]: an ordered list of the jobs ahead
+        """
         try:
             worker = Worker.objects.get(
                 applicable_repos=job.target_repo,
@@ -48,9 +65,7 @@ class BaseJobView(LandoView, ABC):
 
         queue_query = self.job_type.job_queue_query(
             repositories=worker.applicable_repos.all(),
-            # We set the grace_seconds to 0, so all current jobs are shown, including
-            # those in the grace period, so they don't appear unannounced later.
-            grace_seconds=0,
+            **kwargs,
         )
         queue = list(queue_query.all())
         # Only include jobs before the current landing_job in the queue
@@ -61,7 +76,7 @@ class BaseJobView(LandoView, ABC):
         return queue
 
 
-class LandingJobView(LandoView):
+class LandingJobView(BaseJobView):
     job_type = LandingJob
     worker_type = WorkerType.LANDING
 
@@ -92,7 +107,9 @@ class LandingJobView(LandoView):
         if landing_job.status not in JobStatus.final():
             # There's only one Landing worker for each repo.
 
-            context["queue"] = self.worker_queue(landing_job)
+            # We set the grace_seconds to 0, so all current jobs are shown, including
+            # those in the grace period, so they don't appear unannounced later.
+            context["queue"] = self.worker_queue(landing_job, grace_seconds=0)
 
         return TemplateResponse(
             request=request,
