@@ -99,6 +99,45 @@ def generate_warnings_and_blockers(
     return {"warnings": warnings, "blockers": blockers}
 
 
+def generate_enhanced_pr_description(
+    pull_request: PullRequest,
+    target_repo: Repo,
+    request: WSGIRequest = None,
+    template: str = "pr_description.md",
+) -> str:
+    context = {}
+    if request:
+        context.update(
+            generate_warnings_and_blockers(target_repo, pull_request, request)
+        )
+
+    context["landing_status"] = str(
+        get_pull_request_last_landing_job_status(target_repo.name, pull_request.number)
+    ).lower()
+
+    path = reverse(
+        "pull-request",
+        kwargs={
+            "repo_name": target_repo.name,
+            "number": pull_request.number,
+        },
+    )
+
+    context["lando_url"] = f"{settings.SITE_URL}{path}"
+    context["special_delimiter"] = SPECIAL_DELIMITER
+    bugs = parse_bugs(pull_request.title)
+    context["bugs"] = []
+
+    for bug in bugs:
+        context["bugs"].append((bug, f"{settings.BUGZILLA_URL}/{bug}"))
+
+    context["title"] = pull_request.title
+    context["body"] = pull_request.parsed_body
+
+    rendered = render_to_string(template, context)
+    return rendered
+
+
 @method_decorator(csrf_exempt, name="dispatch")
 class LegacyDiffWarningView(View):
     """
@@ -233,10 +272,10 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
         self, request: WSGIRequest, repo_name: int, pull_number: int
     ) -> JsonResponse:
         """Return the status of a pull request based on landing job counts."""
-        status = str(
+        landing_status = str(
             get_pull_request_last_landing_job_status(repo_name, pull_number)
         ).lower()
-        return JsonResponse({"status": status}, status=200)
+        return JsonResponse({"status": landing_status}, status=200)
 
     @method_decorator(require_authenticated_user)
     def post(
@@ -301,6 +340,14 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
         add_revisions_to_job([revision], job)
         job.status = JobStatus.SUBMITTED
         job.save()
+
+        description = generate_enhanced_pr_description(
+            self.pull_request,
+            self.target_repo,
+            request,
+            template="pr_description_landing.md",
+        )
+        self.client.update_pull_request_body(pull_number, description)
 
         return JsonResponse({"id": job.id}, status=201)
 
@@ -378,30 +425,10 @@ class PullRequestEnhancedDescriptionAPIView(PullRequestAPIView):
         if not request.user.has_perm("main.can_change_landing_job"):
             raise PermissionError()
 
-        context = {}
-        context.update(
-            generate_warnings_and_blockers(self.target_repo, self.pull_request, request)
+        description = generate_enhanced_pr_description(
+            self.pull_request, self.target_repo, request
         )
-
-        path = reverse(
-            "pull-request",
-            kwargs={
-                "repo_name": self.target_repo.name,
-                "number": self.pull_request.number,
-            },
+        self.client.update_pull_request_body(pull_number, description)
+        return JsonResponse(
+            {"status": f"Pull request {pull_number} description updated."}
         )
-
-        context["lando_url"] = f"{settings.SITE_URL}{path}"
-        context["special_delimiter"] = SPECIAL_DELIMITER
-        bugs = parse_bugs(self.pull_request.title)
-        context["bugs"] = []
-
-        for bug in bugs:
-            context["bugs"].append((bug, f"{settings.BUGZILLA_URL}/{bug}"))
-
-        context["title"] = self.pull_request.title
-        context["body"] = self.pull_request.parsed_body
-
-        rendered = render_to_string("pr_description.md", context)
-        self.client.update_pull_request_body(pull_number, rendered)
-        return JsonResponse({"context": context, "md": rendered})
