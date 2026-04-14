@@ -428,6 +428,14 @@ def post_repo_actions(
         )
         return 400, {"details": error}
 
+    if not repo.user_can_use_automation(request.user):
+        error = f"User {request.user.email} is not allowed to use this API for repo {repo_name}. Missing permission: {repo.required_automation_permission}."
+        logger.info(
+            error,
+            extra={"user": request.user.email, "token": request.auth.token_prefix},
+        )
+        return 403, {"details": error}
+
     with transaction.atomic():
         automation_job = AutomationJob.objects.create(
             status=JobStatus.SUBMITTED,
