@@ -51,6 +51,43 @@ def get_diffs_for_revision(revision: dict, all_diffs: dict[str, dict]) -> list[d
 RevisionData = namedtuple("RevisionData", ("revisions", "diffs", "repositories"))
 
 
+def request_extended_revision_data(
+    phab: PhabricatorClient, revision_phids: list[str]
+) -> RevisionData:
+    """Return a RevisionData containing extended data for revisions.
+
+    Args:
+        phab: A PhabricatorClient instance.
+        revision_phids: List of String PHIDs for revisions.
+
+    Returns:
+        A RevisionData containing extended data for a set of revisions.
+    """
+    if not revision_phids:
+        return RevisionData({}, {}, {})
+
+    revs = get_revisions_by_phid(phab, revision_phids)
+    diffs = get_diffs_by_revision_phid(phab, list(revs.keys()))
+
+    repo_phids = [phab.expect(r, "fields", "repositoryPHID") for r in revs.values()] + [
+        phab.expect(d, "fields", "repositoryPHID") for d in diffs.values()
+    ]
+    repo_phids = {phid for phid in repo_phids if phid is not None}
+    if repo_phids:
+        repos = phab.call_conduit(
+            "diffusion.repository.search",
+            attachments={"projects": True},
+            constraints={"phids": list(repo_phids)},
+            limit=len(repo_phids),
+        )
+        phab.expect(repos, "data", len(repo_phids) - 1)
+        repos = result_list_to_phid_dict(phab.expect(repos, "data"))
+    else:
+        repos = {}
+
+    return RevisionData(revs, diffs, repos)
+
+
 def get_revisions_by_phid(
     phab: PhabricatorClient, revision_phids: list[str]
 ) -> dict[str, dict]:
@@ -131,43 +168,6 @@ def get_diffs_by_phid(
         attachments={"commits": True},
     )
     return result_list_to_phid_dict(phab.expect(diffs, "data"))
-
-
-def request_extended_revision_data(
-    phab: PhabricatorClient, revision_phids: list[str]
-) -> RevisionData:
-    """Return a RevisionData containing extended data for revisions.
-
-    Args:
-        phab: A PhabricatorClient instance.
-        revision_phids: List of String PHIDs for revisions.
-
-    Returns:
-        A RevisionData containing extended data for a set of revisions.
-    """
-    if not revision_phids:
-        return RevisionData({}, {}, {})
-
-    revs = get_revisions_by_phid(phab, revision_phids)
-    diffs = get_diffs_by_revision_phid(phab, list(revs.keys()))
-
-    repo_phids = [phab.expect(r, "fields", "repositoryPHID") for r in revs.values()] + [
-        phab.expect(d, "fields", "repositoryPHID") for d in diffs.values()
-    ]
-    repo_phids = {phid for phid in repo_phids if phid is not None}
-    if repo_phids:
-        repos = phab.call_conduit(
-            "diffusion.repository.search",
-            attachments={"projects": True},
-            constraints={"phids": list(repo_phids)},
-            limit=len(repo_phids),
-        )
-        phab.expect(repos, "data", len(repo_phids) - 1)
-        repos = result_list_to_phid_dict(phab.expect(repos, "data"))
-    else:
-        repos = {}
-
-    return RevisionData(revs, diffs, repos)
 
 
 class RevisionStack(nx.DiGraph):
