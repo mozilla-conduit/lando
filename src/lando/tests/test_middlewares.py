@@ -33,4 +33,4 @@ def test_cors_acao_header(
     else:
         assert (
             "access-control-allow-origin" not in resp.headers
-        ), f"Unexpected ACAO header present for requesst from '{origin}' to '{path}'"
+        ), f"Unexpected ACAO header present for request from '{origin}' to '{path}'"
