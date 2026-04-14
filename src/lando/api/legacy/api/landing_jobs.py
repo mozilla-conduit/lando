@@ -7,9 +7,11 @@ from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
 
+from lando.api.views import generate_enhanced_pr_description
 from lando.main.auth import require_authenticated_user
 from lando.main.models import JobAction, JobStatus, LandingJob
 from lando.utils.exceptions import NotFoundProblemException
+from lando.utils.github import GitHubAPIClient
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +101,18 @@ class LandingJobApiView(View):
             if landing_job.status in (JobStatus.SUBMITTED, JobStatus.DEFERRED):
                 landing_job.transition_status(JobAction.CANCEL)
                 landing_job.save()
+                if landing_job.is_pull_request_job:
+                    client = GitHubAPIClient(landing_job.target_repo.url)
+                    for revision in landing_job.revisions:
+                        pull_request = client.build_pull_request(revision.pull_number)
+                        description = generate_enhanced_pr_description(
+                            pull_request,
+                            landing_job.target_repo,
+                            template="pr_description_landing.md",
+                        )
+                        client.update_pull_request_body(
+                            revision.pull_number, description
+                        )
                 return JsonResponse({"id": landing_job.id})
             else:
                 data = {
