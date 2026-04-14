@@ -260,6 +260,9 @@ def test_uplift_creation_fails_when_seeding_fails(
     response = authenticated_client.post(url, data=form_data, HTTP_REFERER="/D999999")
 
     assert response.status_code == 302, "Failed seeding should redirect."
+    assert (
+        response["Location"] == "/D999999"
+    ), "Failed seeding should redirect back to the referer."
     flash_messages = list(get_messages(response.wsgi_request))
     assert any(
         "not found on Phabricator" in str(message) for message in flash_messages
