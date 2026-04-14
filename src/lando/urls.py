@@ -127,7 +127,7 @@ urlpatterns += [
         name="api-try-job-pull-request",
     ),
     path(
-        "api/pulls/<str:repo_name>/<int:number>/checks",
+        "api/pulls/<str:repo_name>/<int:pull_number>/checks",
         PullRequestChecksAPIView.as_view(),
         name="api-pull-request-checks",
     ),
