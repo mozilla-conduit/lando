@@ -891,9 +891,9 @@ django-cors-headers==4.9.0 \
     --hash=sha256:15c7f20727f90044dcee2216a9fd7303741a864865f0c3657e28b7056f61b449 \
     --hash=sha256:fe5d7cb59fdc2c8c646ce84b727ac2bca8912a247e6e68e1fb507372178e59e8
     # via lando (pyproject.toml)
-django-ninja==1.6.0 \
-    --hash=sha256:44c6e3f5f1b929cf51f645004715b36326ea32fddf1a94026c4917de8d230135 \
-    --hash=sha256:dd84230931f511503a251ac090200c65fd0be25a16ba2b9140073b814decc201
+django-ninja==1.6.2 \
+    --hash=sha256:20095f5900bada22ea00cf1a58af50bdb285b2354c61a9d9b47d0dc89ac462d6 \
+    --hash=sha256:d56ae5aa4791068ef4ac9a66cfdf2fc11f507413ded35abb79c51d0d52ad6412
     # via lando (pyproject.toml)
 django-storages[google]==1.14.6 \
     --hash=sha256:11b7b6200e1cb5ffcd9962bd3673a39c7d6a6109e8096f0e03d46fab3d3aabd9 \
