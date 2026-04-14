@@ -11,10 +11,10 @@
 {% endfor %}
 {% endmacro %}
 
-{% block upper %}
 Lando: [link]({{ lando_url }})
 {% if bugs %}Bugzilla: {% for bug in bugs %}[bug {{ bug.0 }}]({{ bug.1 }}){% endfor %}{% endif %}
 
+{% block upper %}
 {% if not warnings and not blockers %}
 :white_check_mark: All Lando checks passed
 {% endif %}
