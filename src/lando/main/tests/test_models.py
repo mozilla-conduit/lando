@@ -87,14 +87,18 @@ def test__models__Repo__scm_not_calculated_when_preset(
         ("/invalid_path", ValidationError),
     ],
 )
-def test__models__Repo__system_path_validator(path, expected_exception):
+def test__models__Repo__system_path_validator(
+    path: str, expected_exception: Exception | None
+):
+
     repo = Repo(
         name="name",
         url="http://example.com",
         required_permission="required_permission",
         system_path=path,
     )
-    if expected_exception:
+
+    if expected_exception is not None:
         with pytest.raises(expected_exception):
             repo.clean_fields()
     else:
