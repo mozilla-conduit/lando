@@ -80,17 +80,18 @@ def test__models__Repo__scm_not_calculated_when_preset(
 
 
 @pytest.mark.parametrize(
-    "path, expected_exception",
+    "path_suffix, expected_exception",
     [
-        (settings.REPO_ROOT + "/valid_path", None),
-        (settings.REPO_ROOT + "invalid_path", ValidationError),
-        (settings.REPO_ROOT + "/invalid/path", ValidationError),
-        ("/invalid_path", ValidationError),
+        ("/valid_path", None),
+        ("invalid_path", ValidationError),
+        ("/invalid/path", ValidationError),
     ],
 )
 def test__models__Repo__system_path_validator(
-    path: str, expected_exception: Exception | None
+    path_suffix: str, expected_exception: Exception | None
 ):
+    """Validate that `system_path` must be a direct child of `REPO_ROOT`."""
+    path = settings.REPO_ROOT + path_suffix
 
     repo = Repo(
         name="name",
@@ -103,7 +104,19 @@ def test__models__Repo__system_path_validator(
         with pytest.raises(expected_exception):
             repo.clean_fields()
     else:
-        repo.clean_fields()  # Should not raise any exception
+        repo.clean_fields()
+
+
+def test__models__Repo__system_path_validator_invalid_root():
+    """Validate that a path outside `REPO_ROOT` is rejected."""
+    repo = Repo(
+        name="name",
+        url="http://example.com",
+        required_permission="required_permission",
+        system_path="/invalid_path",
+    )
+    with pytest.raises(ValidationError):
+        repo.clean_fields()
 
 
 @pytest.mark.parametrize(
@@ -245,12 +258,13 @@ def test__models__Repo__pulse_routing_key_validator(
     repo_mc: Callable,
     pulse_routing_key: str,
     expected_valid: bool,
+    monkeypatch,
 ):
 
     repo = repo_mc(SCMType.GIT)
 
     # Prevent the `system_path` validator from raising an error.
-    settings.REPO_ROOT = repo.system_path.parent
+    monkeypatch.setattr(settings, "REPO_ROOT", str(repo.system_path.parent))
 
     repo.pulse_routing_key = pulse_routing_key
 
