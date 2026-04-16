@@ -95,12 +95,16 @@ class GitSCM(AbstractSCM):
         # When cloning, self.path doesn't exist yet, so we need to use another CWD.
         self._git_run("clone", source, self.path, cwd="/")
         self._git_run("checkout", self.default_branch, cwd=self.path)
-        self._git_setup_user()
+        self._git_repo_config()
 
-    def _git_setup_user(self):
+    def _git_repo_config(self):
         """Configure the git user locally to repo_dir so as not to mess with the real user's configuration."""
         self._git_run("config", "user.name", LANDO_USER_NAME, cwd=self.path)
         self._git_run("config", "user.email", LANDO_USER_EMAIL, cwd=self.path)
+        # This is mandatory for SSH signature detection to work.
+        self._git_run(
+            "config", "gpg.ssh.allowedSignersFile", "/dev/null", cwd=self.path
+        )
 
     @override
     def push(
@@ -260,7 +264,40 @@ class GitSCM(AbstractSCM):
     def get_patch_helper(self, revision_id: str) -> PatchHelper | None:
         """Return a PatchHelper containing the patch for the given revision."""
         patch = self.get_patch(revision_id)
-        return GitPatchHelper.from_string_io(io.StringIO(patch)) if patch else None
+        signature = self._get_metadata_gpgsig(revision_id)
+        return (
+            GitPatchHelper.from_string_io(io.StringIO(patch), signature=signature)
+            if patch
+            else None
+        )
+
+    def _get_metadata_gpgsig(self, revision_id: str) -> bool:
+        """Use git's %G? pretty format to get the signature status of a commit.
+
+        From git-log(1):
+
+             show  "G"  for  a  good (valid) signature, "B" for a bad signature, "U" for
+             a good signature with unknown validity, "X" for a good signature that has
+             expired, "Y" for a good signature made by an expired key, "R" for a good
+             signature made by a revoked key, "E" if the signature cannot be checked
+             (e.g. missing key) and "N" for no signature
+
+        To properly detect SSH signatures, even if invalid, the system must have
+        `gpg.ssh.allowedSignersFile` point to any existing file.
+
+            git config gpg.ssh.allowedSignersFile /dev/null
+
+        """
+        return (
+            self._git_run(
+                "log",
+                "-1",
+                "--pretty=%G?",
+                revision_id,
+                cwd=self.path,
+            )
+            != "N"
+        )
 
     @override
     def process_merge_conflict(

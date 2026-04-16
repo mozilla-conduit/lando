@@ -85,6 +85,10 @@ class Repo(BaseModel):
             "PreventNSPRNSSCheck",
             "Prevent changes to vendored NSPR directories.",
         )
+        PreventSignedCommitsCheck = (
+            "PreventSignedCommitsCheck",
+            "Prevent patches from introducing signed commits.",
+        )
         PreventSubmodulesCheck = (
             "PreventSubmodulesCheck",
             "Prevent introduction of Git submodules into the repository.",

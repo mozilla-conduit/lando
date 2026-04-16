@@ -60,10 +60,12 @@ RUN mkdir -p /code/src/lando/version
 RUN mkdir -p /code/.ruff_cache
 RUN chown -R app /code/.ruff_cache
 
-
 RUN pip install -e /code
 
 USER app
+
+# Make sure we can detect SSH signatures, even if we can't validate them.
+RUN git config --global gpg.ssh.allowedSignersFile /dev/null
 
 WORKDIR /code
 
