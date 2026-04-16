@@ -10,10 +10,19 @@ from typing import Callable
 
 import pytest
 from django.contrib.auth.hashers import check_password
+from django.contrib.auth.models import Permission, User
+from django.test.client import Client
+from pydantic import ValidationError
 
 from lando.api.legacy.workers.automation_worker import AutomationWorker
 from lando.api.tests.mocks import TreeStatusDouble
 from lando.conftest import FAILING_CHECK_TYPES
+from lando.headless_api.api import (
+    MergeOntoAction,
+    RelBranchSpecifier,
+    TagAction,
+    reject_cli_flags,
+)
 from lando.headless_api.models.automation_job import (
     AutomationAction,
     AutomationJob,
@@ -366,6 +375,65 @@ def test_automation_job_create_user_automation_disabled(
     assert (
         response_json["details"]
         == "User testuser@example.org is not permitted to make automation changes."
+    )
+
+
+@pytest.mark.parametrize("as_superuser", (True, False))
+@pytest.mark.django_db
+def test_automation_job_create_user_no_repo_required_automation_permission(
+    client: Client,
+    headless_user: tuple[User, str],
+    make_superuser: Callable,
+    direct_push_permission: Permission,
+    repo_mc: Callable,
+    as_superuser: bool,
+):
+    user, token = headless_user
+
+    # Disable automation enabled for user.
+    user.user_permissions.remove(direct_push_permission)
+    if as_superuser:
+        user = make_superuser(user)
+    user.save()
+    user.profile.save()
+
+    repo = repo_mc(
+        scm_type=SCMType.GIT,
+        automation_enabled=True,
+    )
+
+    # Send a valid request.
+    body = {
+        "actions": [
+            {
+                "action": "add-commit",
+                "content": "0",
+                "patch_format": "git-format-patch",
+            },
+            {
+                "action": "add-commit",
+                "content": "1",
+                "patch_format": "git-format-patch",
+            },
+        ],
+    }
+    response = client.post(
+        f"/api/repo/{repo.name}",
+        data=json.dumps(body),
+        content_type="application/json",
+        headers={
+            "User-Agent": "Lando-User/testuser@example.org",
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert (
+        response.status_code == 403
+    ), "User without automation permission for repo should return 403 status code."
+    response_json = response.json()
+    assert (
+        response_json["details"]
+        == f"User testuser@example.org is not allowed to use this API for repo {repo.name}. Missing permission: {repo.required_automation_permission}."
     )
 
 
@@ -1299,6 +1367,178 @@ def test_automation_job_tag_failure_git(
     job.refresh_from_db()
     assert job.status == JobStatus.FAILED
     assert "Aborting, could not perform `tag`, action #1" in job.error
+
+
+@pytest.mark.parametrize(
+    "name,target",
+    [
+        ("--file=/etc/passwd", None),
+        ("valid-tag", "--file=/etc/passwd"),
+        ("-n", "HEAD"),
+        ("--message=evil", "HEAD"),
+    ],
+    ids=[
+        "malicious_name",
+        "malicious_target",
+        "option_flag_name",
+        "option_flag_name_with_value",
+    ],
+)
+def test_tag_action_rejects_option_injection(name: str, target: str | None):
+    """Verify that `TagAction` rejects values starting with `-`."""
+    with pytest.raises(ValidationError, match="must not start with `-`"):
+        TagAction(action="tag", name=name, target=target)
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "--strategy-option=theirs",
+        "--no-commit",
+        "-s",
+    ],
+    ids=[
+        "strategy_option_injection",
+        "no_commit_flag",
+        "short_option_flag",
+    ],
+)
+def test_merge_onto_action_rejects_option_injection(target: str):
+    """Verify that `MergeOntoAction` rejects `target` values starting with `-`."""
+    with pytest.raises(ValidationError, match="must not start with `-`"):
+        MergeOntoAction(
+            action="merge-onto",
+            commit_message="test merge",
+            strategy=None,
+            target=target,
+        )
+
+
+@pytest.mark.parametrize(
+    "branch_name,commit_sha",
+    [
+        ("--option-injection", None),
+        ("VALID_BRANCH", "--option-injection"),
+        ("-flag", "abc123"),
+    ],
+    ids=[
+        "malicious_branch_name",
+        "malicious_commit_sha",
+        "option_flag_branch_name",
+    ],
+)
+def test_relbranch_specifier_rejects_option_injection(
+    branch_name: str, commit_sha: str | None
+):
+    """Verify that `RelBranchSpecifier` rejects values starting with `-`."""
+    with pytest.raises(ValidationError, match="must not start with `-`"):
+        RelBranchSpecifier(branch_name=branch_name, commit_sha=commit_sha)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "--file=/etc/passwd",
+        "-n",
+        "--message=evil",
+        "-",
+    ],
+    ids=[
+        "long_option_with_value",
+        "short_option",
+        "long_option_with_equals",
+        "bare_dash",
+    ],
+)
+def test_reject_cli_flags_rejects_flags(value: str):
+    """Values starting with `-` should be rejected."""
+    with pytest.raises(ValueError, match="must not start with `-`"):
+        reject_cli_flags(value)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "  --file=/etc/passwd",
+        "\t-n",
+        " --message=evil ",
+        "  -  ",
+    ],
+    ids=[
+        "leading_spaces_long_option",
+        "leading_tab_short_option",
+        "surrounded_by_spaces",
+        "padded_bare_dash",
+    ],
+)
+def test_reject_cli_flags_rejects_whitespace_padded_flags(value: str):
+    """Whitespace-padded values that resolve to flags should be rejected."""
+    with pytest.raises(ValueError, match="must not start with `-`"):
+        reject_cli_flags(value)
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("HEAD", "HEAD"),
+        ("main", "main"),
+        ("abc123", "abc123"),
+        ("valid-tag", "valid-tag"),
+        ("  valid-tag  ", "valid-tag"),
+    ],
+    ids=[
+        "simple_ref",
+        "branch_name",
+        "commit_sha",
+        "tag_with_hyphen",
+        "stripped_whitespace",
+    ],
+)
+def test_reject_cli_flags_allows_valid_values(value: str, expected: str):
+    """Valid values should pass through, with whitespace stripped."""
+    assert (
+        reject_cli_flags(value) == expected
+    ), f"`reject_cli_flags({value!r})` should return {expected!r}."
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "safe\x00--evil",
+        "\x00",
+        "HEAD\x00",
+    ],
+    ids=[
+        "null_byte_mid_string",
+        "bare_null_byte",
+        "trailing_null_byte",
+    ],
+)
+def test_reject_cli_flags_rejects_null_bytes(value: str):
+    """Values containing null bytes should be rejected."""
+    with pytest.raises(ValueError, match="must not contain null bytes"):
+        reject_cli_flags(value)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "safe\n--evil",
+        "safe\r--evil",
+        "safe\r\n--evil",
+        "HEAD\n",
+    ],
+    ids=[
+        "newline_mid_string",
+        "carriage_return_mid_string",
+        "crlf_mid_string",
+        "trailing_newline",
+    ],
+)
+def test_reject_cli_flags_rejects_newlines(value: str):
+    """Values containing newlines should be rejected."""
+    with pytest.raises(ValueError, match="must not contain newlines"):
+        reject_cli_flags(value)
 
 
 @pytest.mark.django_db

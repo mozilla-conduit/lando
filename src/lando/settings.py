@@ -59,6 +59,11 @@ SECURE_SSL_REDIRECT = False
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
+# Configure the django-cors-headers middleware.
+CORS_ALLOW_ALL_ORIGINS = True
+# Only set the CORS header for those paths.
+CORS_URLS_REGEX = r"^(/landing_jobs)"
+
 # Set the default upload memory size to a large value, to support large uploads from
 # lando-cli.
 DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("DATA_UPLOAD_MAX_MEMORY_SIZE", "524288000"))
@@ -87,12 +92,14 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.staticfiles",
     "compressor",
+    "corsheaders",
     "mozilla_django_oidc",
     "ninja",
     "auditlog",
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",

@@ -998,6 +998,62 @@ def test_GitSCM_tag_retag(
         scm.tag(tag_name, old_commit)
 
 
+def test_GitSCM_tag_rejects_option_injection(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    """Verify that `--` separator prevents git option injection via `target`."""
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+
+    # Attempting to use `--file` as a target should fail as an invalid ref,
+    # not read a file from disk.
+    with pytest.raises(SCMException):
+        scm.tag("test-tag", "--file=/etc/passwd")
+
+    # Verify no tag was created.
+    tag_output = subprocess.run(
+        ["git", "tag", "--list"],
+        cwd=clone_path,
+        capture_output=True,
+        check=True,
+    ).stdout.decode()
+
+    assert (
+        "test-tag" not in tag_output
+    ), "No tag should be created from an option-injection attempt."
+
+
+def test_GitSCM_merge_onto_rejects_option_injection(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    """Verify that `--` separator prevents git option injection via `target`."""
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+
+    # Attempting to use a git option as a target should fail as an invalid ref,
+    # not be interpreted as a git option.
+    with pytest.raises(SCMException):
+        scm.merge_onto(
+            commit_message="test merge",
+            target="--strategy-option=theirs",
+            strategy=None,
+        )
+
+
 def test_GitSCM_process_merge_conflict_no_reject(
     git_repo: Path,
     git_setup_user: Callable,
