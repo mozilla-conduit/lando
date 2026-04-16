@@ -20,6 +20,8 @@ from lando.api.legacy.commit_message import (
 )
 from lando.main.scm.helpers import PatchHelper
 
+REPO_FLAG_RE = re.compile(r"[\s.;]REPO-(?P<repo>[-a-zA-Z0-9]+)(?:\w|$)")
+
 
 def wrap_filenames(filenames: list[str]) -> str:
     """Convert a list of filenames to a string with names wrapped in backticks."""
@@ -510,6 +512,13 @@ class CommitMessagesCheck(PatchCollectionCheck):
                 f"git-format-patch -k to avoid this: {commit_message}"
             )
             return
+
+        if match := REPO_FLAG_RE.search(firstline):
+            if match["repo"] != self.repo_name:
+                self.commit_message_issues.append(
+                    f"Commit locked to another repo than {self.repo_name}: {commit_message}"
+                )
+                return
 
         if INVALID_REVIEW_FLAG_RE.search(firstline):
             self.commit_message_issues.append(

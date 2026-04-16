@@ -198,7 +198,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
             "Backout should be rejected when a reference to the original patch is missing.",
         ),
         (
-            "Bug 100 - Foo. r?bar",
+            "Bug 100 - Foo. r?bar REPO-firefox-autoland",
             "Revision contains 'r?' in the commit message. Please use 'r=' instead: ",
             "Improper review specifier should be rejected.",
         ),
@@ -214,6 +214,11 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
                 "Use git-format-patch -k to avoid this: "
             ),
             "`git-format-patch` cruft should result in a failed check.",
+        ),
+        (
+            "Bug 100 - Foo. r=bar REPO-elm",
+            "Commit locked to another repo than firefox-autoland: ",
+            "Revision with REPO- mismatch should be rejected.",
         ),
     ],
 )
