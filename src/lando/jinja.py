@@ -188,7 +188,7 @@ def build_manual_uplift_instructions(job: UpliftJob) -> str:
     instructions.append("git fetch origin")
     instructions.append(f"git switch -c {branch_name} origin/{default_branch}")
 
-    # Add cherry-pick commands for each revision.
+    # Add patch application commands for each revision.
     if revisions:
         for revision in revisions:
             landing_commit_id = revision.get_latest_landing_commit_id()
@@ -196,11 +196,11 @@ def build_manual_uplift_instructions(job: UpliftJob) -> str:
                 instructions.append(f"git cherry-pick {landing_commit_id}")
             else:
                 instructions.append(
-                    f"git cherry-pick <commit SHA for D{revision.revision_id}>"
+                    f"moz-phab patch D{revision.revision_id} --apply-to here"
                 )
     else:
-        instructions.append("git cherry-pick <commit-sha-1>")
-        instructions.append("# ... cherry-pick additional commits as needed")
+        instructions.append("moz-phab patch D<revision_id> --apply-to here")
+        instructions.append("# ... apply additional patches as needed")
 
     assessment_id = job.submission.assessment.id
     instructions.append(
