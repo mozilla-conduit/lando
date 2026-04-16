@@ -446,6 +446,7 @@ class PatchCollectionCheck(Check, ABC):
     """
 
     push_user_email: str | None = None
+    repo_name: str | None = None
 
     @abstractmethod
     def next_diff(self, patch_helper: PatchHelper):
@@ -672,6 +673,7 @@ class PatchCollectionAssessor:
 
     patch_helpers: Iterable[PatchHelper]
     push_user_email: str | None = None
+    repo_name: str | None = None
 
     def run_patch_collection_checks(
         self,
@@ -686,7 +688,10 @@ class PatchCollectionAssessor:
         """
         issues = []
 
-        checks = [check(self.push_user_email) for check in patch_collection_checks]
+        checks = [
+            check(self.push_user_email, self.repo_name)
+            for check in patch_collection_checks
+        ]
 
         for patch_helper in self.patch_helpers:
             # Pass the patch information into the push-wide check.
@@ -724,9 +729,11 @@ class LandingChecks:
     """Utility class to run landing checks (a.k.a. hooks) on a list of commits."""
 
     requester_email: str
+    repo_name: str
 
-    def __init__(self, requester_email: str):
+    def __init__(self, requester_email: str, repo_name: str):
         self.requester_email = requester_email
+        self.repo_name = repo_name
 
     def run(
         self,
@@ -754,7 +761,9 @@ class LandingChecks:
         stack_checks = [chk for chk in ALL_STACK_CHECKS if chk.name() in hook_names]
 
         assessor = PatchCollectionAssessor(
-            patches, push_user_email=self.requester_email
+            patches,
+            push_user_email=self.requester_email,
+            repo_name=self.repo_name,
         )
         return assessor.run_patch_collection_checks(
             patch_collection_checks=stack_checks, patch_checks=commit_checks

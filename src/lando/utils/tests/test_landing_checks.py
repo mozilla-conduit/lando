@@ -236,7 +236,9 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 # instead of passing the url to 'hg import' to make
 ...
 """.strip()))]
-    assessor = PatchCollectionAssessor(patch_helpers=patch_helpers)
+    assessor = PatchCollectionAssessor(
+        patch_helpers=patch_helpers, repo_name="firefox-autoland"
+    )
 
     assert assessor.run_patch_collection_checks(
         patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
@@ -643,7 +645,7 @@ def test_check_try_task_config():
 
 
 def test_landing_checks_run():
-    landing_checks = LandingChecks("user@example.com")
+    landing_checks = LandingChecks("user@example.com", "some-repo")
 
     # CommitMessagesCheck will get triggered twice as neither commit conform.
     patch_helpers = [
