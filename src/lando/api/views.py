@@ -1,5 +1,4 @@
 import json
-from collections import defaultdict
 from datetime import datetime
 from functools import wraps
 from typing import Callable
@@ -25,7 +24,7 @@ from lando.main.models import (
     Revision,
     add_revisions_to_job,
 )
-from lando.main.models.landing_job import get_jobs_for_pull
+from lando.main.models.landing_job import get_pull_request_last_landing_job_status
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.main.scm import SCMType
 from lando.utils.github import (
@@ -234,25 +233,9 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
         self, request: WSGIRequest, repo_name: int, pull_number: int
     ) -> JsonResponse:
         """Return the status of a pull request based on landing job counts."""
-
-        landing_jobs = get_jobs_for_pull(self.target_repo, pull_number)
-        landing_jobs_by_status = defaultdict(list)
-        for landing_job in landing_jobs:
-            landing_jobs_by_status[landing_job.status].append(landing_job.id)
-
-        status = None
-        # Return the first encountered status in this list.
-        for _status in [
-            JobStatus.LANDED,
-            JobStatus.CREATED,
-            JobStatus.SUBMITTED,
-            JobStatus.IN_PROGRESS,
-            JobStatus.FAILED,
-        ]:
-            if landing_jobs_by_status[_status]:
-                status = str(_status).lower()
-                break
-
+        status = str(
+            get_pull_request_last_landing_job_status(repo_name, pull_number)
+        ).lower()
         return JsonResponse({"status": status}, status=200)
 
     @method_decorator(require_authenticated_user)
