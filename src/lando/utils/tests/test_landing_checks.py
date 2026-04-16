@@ -221,6 +221,17 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
             "Revision with REPO- mismatch should be rejected.",
         ),
     ],
+    ids=(
+        "nobug",
+        "revert",
+        "update",
+        "bugword",
+        "backout",
+        "rq",
+        "wip",
+        "patch",
+        "repo",
+    ),
 )
 def test_check_commit_message_invalid_message(
     commit_message: str, return_string: str, error_message: str
