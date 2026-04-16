@@ -166,6 +166,7 @@ class HgSCM(AbstractSCM):
     }
 
     config: dict
+    rejects_content: dict[str, str]
 
     hg_repo: hglib.client.hgclient
 
