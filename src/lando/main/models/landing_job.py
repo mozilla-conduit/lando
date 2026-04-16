@@ -48,6 +48,7 @@ class LandingJob(BaseJob):
 
     is_pull_request_job = models.BooleanField(default=False, blank=True)
 
+    # NOTE: The handover fields are legacy and are kept for reference only.
     # Reference to the handover repo. A handover repo is a repo that a landing
     # job is handed over to after being processed in a previous state. If this value
     # is set, the job will be processed twice, but pushed once.
@@ -124,33 +125,6 @@ class LandingJob(BaseJob):
             }
             for revision_id, diff_id in self.landed_revisions.items()
         ]
-
-    @property
-    def skip_treestatus_check(self) -> bool:
-        """Return True if job is to be handed over."""
-        # If a job has a handover repo defined but has not yet been handed over,
-        # return True, since the handover job will not be pushed on the first
-        # pass. Once a job is handed over, do not treat this job any differently.
-        return self.handover_repo is not None and not self.is_handed_over
-
-    def handover(self):
-        if not self.is_pull_request_job:
-            raise NotImplementedError(
-                "Handover is only supported for pull request jobs"
-            )
-        if self.is_handed_over:
-            raise ValueError(f"{self} is already handed over")
-        if not self.handover_repo:
-            raise ValueError(f"{self} does not have a handover repo defined")
-        if not self.handover_repo.is_try:
-            raise NotImplementedError(
-                "Handover is currently only supported for try repo"
-            )
-
-        self.target_repo = self.handover_repo
-        self.is_pull_request_job = False
-        self.is_handed_over = True
-        self.save()
 
     @property
     def has_phabricator_revisions(self) -> bool:
@@ -309,20 +283,6 @@ def get_jobs_for_pull(target_repo: Repo, pull_number: int) -> QuerySet[LandingJo
     revisions = Revision.objects.filter(
         landing_jobs__target_repo=target_repo,
         pull_number=pull_number,
-        landing_jobs__handover_repo__isnull=True,
-    )
-    return LandingJob.objects.filter(unsorted_revisions__in=revisions).order_by(
-        "-created_at"
-    )
-
-
-def get_handover_jobs_for_pull(
-    target_repo: Repo, pull_number: int
-) -> QuerySet[LandingJob]:
-    """Given a target repo and a pull number, return all try landing jobs."""
-    revisions = Revision.objects.filter(
-        pull_number=pull_number,
-        landing_jobs__handover_repo__isnull=False,
     )
     return LandingJob.objects.filter(unsorted_revisions__in=revisions).order_by(
         "-created_at"
