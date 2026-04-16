@@ -35,6 +35,7 @@ from lando.main.models.configuration import ConfigurationKey, ConfigurationVaria
 from lando.main.models.landing_job import (
     get_pull_request_last_landing_job_status,
 )
+from lando.main.models.landing_job import get_pull_request_last_landing_job_status
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.main.scm import SCMType
 from lando.utils.github import (
