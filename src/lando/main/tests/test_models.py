@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from django.conf import settings
+from django.contrib.auth.models import Permission, User
 from django.core.exceptions import ValidationError
 
 from lando.main.models import CommitMap, Repo
@@ -79,26 +80,43 @@ def test__models__Repo__scm_not_calculated_when_preset(
 
 
 @pytest.mark.parametrize(
-    "path, expected_exception",
+    "path_suffix, expected_exception",
     [
-        (settings.REPO_ROOT + "/valid_path", None),
-        (settings.REPO_ROOT + "invalid_path", ValidationError),
-        (settings.REPO_ROOT + "/invalid/path", ValidationError),
-        ("/invalid_path", ValidationError),
+        ("/valid_path", None),
+        ("invalid_path", ValidationError),
+        ("/invalid/path", ValidationError),
     ],
 )
-def test__models__Repo__system_path_validator(path, expected_exception):
+def test__models__Repo__system_path_validator(
+    path_suffix: str, expected_exception: Exception | None
+):
+    """Validate that `system_path` must be a direct child of `REPO_ROOT`."""
+    path = settings.REPO_ROOT + path_suffix
+
     repo = Repo(
         name="name",
         url="http://example.com",
         required_permission="required_permission",
         system_path=path,
     )
-    if expected_exception:
+
+    if expected_exception is not None:
         with pytest.raises(expected_exception):
             repo.clean_fields()
     else:
-        repo.clean_fields()  # Should not raise any exception
+        repo.clean_fields()
+
+
+def test__models__Repo__system_path_validator_invalid_root():
+    """Validate that a path outside `REPO_ROOT` is rejected."""
+    repo = Repo(
+        name="name",
+        url="http://example.com",
+        required_permission="required_permission",
+        system_path="/invalid_path",
+    )
+    with pytest.raises(ValidationError):
+        repo.clean_fields()
 
 
 @pytest.mark.parametrize(
@@ -188,6 +206,42 @@ def test__models__Repo__git_repo_name(
 
 
 @pytest.mark.parametrize(
+    "has_permission,as_superuser",
+    (
+        (False, False),
+        (False, True),
+        (True, False),
+        (True, True),
+    ),
+)
+@pytest.mark.django_db
+def test__models__Repo___user_has_direct_permissions(
+    user: User,
+    make_superuser: Callable,
+    repo_mc: Callable,
+    direct_push_permission: Permission,
+    has_permission: bool,
+    as_superuser: bool,
+):
+    permission = direct_push_permission
+    permission_string = f"{permission.content_type.app_label}.{permission.codename}"
+
+    if has_permission:
+        user.user_permissions.add(permission)
+    if as_superuser:
+        user = make_superuser(user)
+    user.save()
+    user.profile.save()
+
+    repo = repo_mc(
+        scm_type=SCMType.GIT,
+        automation_enabled=True,
+    )
+
+    assert repo._user_has_direct_permission(user, permission_string) == has_permission
+
+
+@pytest.mark.parametrize(
     "pulse_routing_key,expected_valid",
     (
         ("gitpushes", True),
@@ -204,12 +258,13 @@ def test__models__Repo__pulse_routing_key_validator(
     repo_mc: Callable,
     pulse_routing_key: str,
     expected_valid: bool,
+    monkeypatch,
 ):
 
     repo = repo_mc(SCMType.GIT)
 
     # Prevent the `system_path` validator from raising an error.
-    settings.REPO_ROOT = repo.system_path.parent
+    monkeypatch.setattr(settings, "REPO_ROOT", str(repo.system_path.parent))
 
     repo.pulse_routing_key = pulse_routing_key
 

@@ -5,7 +5,6 @@ import os
 import posixpath
 import re
 import shlex
-import shutil
 import subprocess
 import tempfile
 import uuid
@@ -167,11 +166,13 @@ class HgSCM(AbstractSCM):
     }
 
     config: dict
+    rejects_content: dict[str, str]
 
     hg_repo: hglib.client.hgclient
 
     def __init__(self, path: str, config: dict | None = None, **kwargs):
         self.config = copy.copy(self.DEFAULT_CONFIGS)
+        self.rejects_content: dict[str, str] = {}
 
         if config:
             self.config.update(config)
@@ -402,11 +403,8 @@ class HgSCM(AbstractSCM):
         breakdown["rejects_paths"] = {}
         for path in rejects_paths:
             reject = {"path": path}
-            try:
-                with open(self._get_rejects_path() / self.path[1:] / path, "r") as f:
-                    reject["content"] = f.read()
-            except Exception as e:
-                logger.exception(e)
+            if path in self.rejects_content:
+                reject["content"] = self.rejects_content[path]
             # Use actual path of file to store reject data, by removing
             # `.rej` extension.
             breakdown["rejects_paths"][path[:-4]] = reject
@@ -461,11 +459,6 @@ class HgSCM(AbstractSCM):
             commits.append(CommitData(**metadata))
 
         return commits
-
-    @classmethod
-    def _get_rejects_path(cls) -> Path:
-        """A Path where this SCM stores rejects from a failed patch application."""
-        return Path("/tmp/patch_rejects")
 
     @staticmethod
     def _extract_error_data(exception: str) -> tuple[list[str], list[str]]:
@@ -740,6 +733,17 @@ class HgSCM(AbstractSCM):
             logger.exception(e)
         self.hg_repo.close()
 
+    def read_rejects_files(self) -> dict[str, str]:
+        """Read all `.rej` files in the repo and return their contents.
+
+        Returns a dict mapping repo-relative paths to file contents.
+        """
+        repo_path = Path(self.path)
+        return {
+            str(reject.relative_to(repo_path)): reject.read_text(errors="replace")
+            for reject in repo_path.rglob("*.rej")
+        }
+
     @override
     def clean_repo(
         self,
@@ -751,21 +755,8 @@ class HgSCM(AbstractSCM):
 
         `attributes_override` is ignored.
         """
-        # Reset rejects directory
-        if self._get_rejects_path().is_dir():
-            shutil.rmtree(self._get_rejects_path())
-        self._get_rejects_path().mkdir()
-
-        # Copy .rej files to a temporary folder.
-        rejects = Path(f"{self.path}/").rglob("*.rej")
-        for reject in rejects:
-            os.makedirs(
-                self._get_rejects_path().joinpath(reject.parents[0].as_posix()[1:]),
-                exist_ok=True,
-            )
-            shutil.copy(
-                reject, self._get_rejects_path().joinpath(reject.as_posix()[1:])
-            )
+        # Read `.rej` file contents into memory before cleaning removes them.
+        self.rejects_content = self.read_rejects_files()
 
         # Clean working directory.
         try:

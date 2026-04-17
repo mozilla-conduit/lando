@@ -212,6 +212,11 @@ class Repo(BaseModel):
 
     # Use this field to enable/disable access to this repo via the automation API.
     automation_enabled = models.BooleanField(default=False)
+    required_automation_permission = models.CharField(
+        help_text="The permission required to use the automation API against this repo. For example, main.scm_allow_direct_push.",
+        blank=True,
+        default="",
+    )
 
     # Use this field to enable/disable access to this repo via the try API.
     is_try = models.BooleanField(default=False)
@@ -395,7 +400,21 @@ class Repo(BaseModel):
 
     def user_can_push(self, user: User) -> bool:
         """
-        Test that the user has permission to push to this repo.
+        Test that the user has the permission to push to this repo.
+        """
+        return self._user_has_direct_permission(user, str(self.required_permission))
+
+    def user_can_use_automation(self, user: User) -> bool:
+        """
+        Test that the user has the permission to create automation job for this repo.
+        """
+        return self._user_has_direct_permission(
+            user, str(self.required_automation_permission)
+        )
+
+    def _user_has_direct_permission(self, user: User, permission: str):
+        """
+        Test that the user has a specific permission directly rather than via a role.
 
         If the user is a superuser, this checks that the user was given the permissions
         directly, rather than transitively by virtue of being an admin.
@@ -403,20 +422,27 @@ class Repo(BaseModel):
         Parameters:
 
         user: User
-            User to check permmission.
+            User for whom to check permission.
+
+        permissions: str
+            Permission string to look for. If empty, fail closed denying any access.
 
         Returns:
             bool: whether the user has the permission
         """
+        # Fail closed if the permission is empty.
+        if not permission:
+            return False
+
         if user.is_superuser:
             # We can't rely on the `get_user_permissions()` method, as it returns all existing
             # permissions for superusers. Here, we want to check permissions that have been
             # explicitly given to the user from LDAP groups.
 
-            app_label, codename = self.required_permission.split(".", maxsplit=1)
+            app_label, codename = permission.split(".", maxsplit=1)
             return user.user_permissions.filter(
                 content_type__app_label=app_label, codename=codename
             ).exists()
 
         # If the user is not a superuser, we can skip the DB round-trip.
-        return self.required_permission in user.get_user_permissions()
+        return permission in user.get_user_permissions()

@@ -184,7 +184,7 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
 
 
 @pytest.mark.django_db
-def test_uplift_creation_fails_when_revisions_missing(
+def test_uplift_creation_seeds_revisions_from_phabricator(
     authenticated_client, repo_mc, user, phabdouble
 ):
     """Test uplift creation endpoint behaviour without previous landing."""
@@ -195,38 +195,81 @@ def test_uplift_creation_fails_when_revisions_missing(
         scm_type=SCMType.GIT, name="firefox-release", approval_required=True
     )
 
+    # Create revisions in Phabricator but not in the local database.
+    phab_rev_a = phabdouble.revision(title="Bug 1 - First patch")
+    phab_rev_b = phabdouble.revision(title="Bug 1 - Second patch")
+    rev_id_a = phab_rev_a["id"]
+    rev_id_b = phab_rev_b["id"]
+
+    assert not Revision.objects.filter(
+        revision_id__in=[rev_id_a, rev_id_b]
+    ).exists(), "Revisions should not exist in the database before the request."
+
     url = reverse("uplift-page")
-
-    # NOTE: We intentionally DO NOT create a Revision(revision_id=1234) here.
-
     form_data = {
-        "source_revisions": [123, 456],
+        "source_revisions": [rev_id_a, rev_id_b],
         "repositories": [repo_a.name, repo_b.name],
     }
     form_data |= CREATE_FORM_DATA
 
-    response = authenticated_client.post(url, data=form_data, HTTP_REFERER="/D1234")
+    response = authenticated_client.post(url, data=form_data, HTTP_REFERER="/D456")
 
-    assert (
-        response.status_code == 302
-    ), "Submission missing requested revisions should redirect with error."
-    messages = list(get_messages(response.wsgi_request))
+    assert response.status_code == 302, "Successful creation should return 302."
+    flash_messages = list(get_messages(response.wsgi_request))
     assert any(
-        "has not landed on autoland yet" in str(message) for message in messages
-    ), f"Should reject with message about missing revision data: {messages=}"
+        "Uplift request queued." in str(message) for message in flash_messages
+    ), f"Successful creation should flash success: {flash_messages=}"
 
+    # Revisions should have been seeded from Phabricator.
+    assert Revision.objects.filter(
+        revision_id=rev_id_a
+    ).exists(), "Revision A should be seeded from Phabricator."
+    assert Revision.objects.filter(
+        revision_id=rev_id_b
+    ).exists(), "Revision B should be seeded from Phabricator."
+
+    # Uplift jobs should be created and linked to the seeded revisions.
     assert (
-        UpliftAssessment.objects.count() == 0
-    ), "Failed submission should not create an assessment."
+        UpliftSubmission.objects.count() == 1
+    ), "An `UpliftSubmission` should be created."
+    assert UpliftJob.objects.count() == 2, "Two uplift jobs should be created."
+
+    for job in UpliftJob.objects.all():
+        job_rev_ids = sorted(job.revisions.values_list("revision_id", flat=True))
+        assert job_rev_ids == sorted(
+            [rev_id_a, rev_id_b]
+        ), "Each job should reference the seeded revisions."
+
+
+@pytest.mark.django_db
+def test_uplift_creation_fails_when_seeding_fails(
+    authenticated_client, repo_mc, user, phabdouble
+):
+    """Test that seeding failures redirect with error flash messages."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
+    repo_mc(scm_type=SCMType.GIT, name="firefox-beta", approval_required=True)
+
+    url = reverse("uplift-page")
+    form_data = {
+        "source_revisions": [999999],
+        "repositories": ["firefox-beta"],
+    }
+    form_data |= CREATE_FORM_DATA
+
+    response = authenticated_client.post(url, data=form_data, HTTP_REFERER="/D999999")
+
+    assert response.status_code == 302, "Failed seeding should redirect."
+    assert (
+        response["Location"] == "/D999999"
+    ), "Failed seeding should redirect back to the referer."
+    flash_messages = list(get_messages(response.wsgi_request))
+    assert any(
+        "not found on Phabricator" in str(message) for message in flash_messages
+    ), f"Should flash an error about the missing revision: {flash_messages=}"
     assert (
         UpliftSubmission.objects.count() == 0
-    ), "Failed submission should not create an uplift submission."
-    assert (
-        UpliftJob.objects.count() == 0
-    ), "Failed submission should not enqueue uplift jobs."
-    assert (
-        RevisionUpliftJob.objects.count() == 0
-    ), "Failed submission should not populate through rows."
+    ), "No `UpliftSubmission` should be created when seeding fails."
 
 
 def test_create_uplift_bug_update_payload():
