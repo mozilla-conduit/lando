@@ -256,6 +256,159 @@ def test_check_commit_message_invalid_message(
 
 
 @pytest.mark.parametrize(
+    "commit_message,return_string,error_message",
+    (
+        (
+            "Bug 1 - update file REPO-foo",
+            "",
+            "Commits locked to foo (with REPO-foo in the title) should be allowed on foo.",
+        ),
+        (
+            "Bug 1 - update file REPO-foo bar",
+            "",
+            "Commits are allowed also when REPO-foo is not last in the title.",
+        ),
+        (
+            "Bug 1 - update file REPO-FOO",
+            "Commit locked to a repo other than foo: ",
+            "Commits locked to FOO (with REPO-FOO in the title) should not be allowed on foo.",
+        ),
+        (
+            "Bug 1 - update file REPO-bar",
+            "Commit locked to a repo other than foo: ",
+            "Commits locked to bar (with REPO-bar in the title) should not be allowed on foo.",
+        ),
+        (
+            "Bug 1 - update file REPO-foo-bar",
+            "Commit locked to a repo other than foo: ",
+            "Commits locked to foo-bar should not be allowed on foo.",
+        ),
+        (
+            "Bug 1 - update file REPO-bar baz",
+            "Commit locked to a repo other than foo: ",
+            "Commits are disallowed even when REPO-bar is not last in the title.",
+        ),
+        (
+            "Bug 1 - update file\n\nREPO-bar",
+            "",
+            "Commits are allowed on foo when REPO-bar is in the body rather than the title.",
+        ),
+        # See next test.
+        # (
+        #     "Bug 1 - update file REPO-bar",
+        #     "Commit locked to a repo other than foo: ",
+        #     "Commits are disallowed when REPO-bar is in any commit in the push.",
+        # ),
+        # (
+        #     "Bug 1 - update file REPO-bar",
+        #     "",
+        #     "Commits locked to bar (with REPO-bar in the title) should be allowed on subdir/bar.",
+        # ),
+        (
+            "Bug 1 - update file REPO-subdir/bar",
+            "Push contains commits intended to be locked to subdir/bar but the repo name is badly formatted. '/' is not allowed: ",
+            "Commits locked to subdir/bar (with REPO-subdir/bar in the title) should not be allowed on subdir/bar.",
+        ),
+        (
+            "Bug 1 - update file REPO-subdir/bar",
+            "Push contains commits intended to be locked to subdir/bar but the repo name is badly formatted. '/' is not allowed: ",
+            "Commits locked to subdir/bar (with REPO-subdir/bar in the title) should not be allowed on foo.",
+        ),
+        # (
+        #     "Bug 1 - update file REPO-subdir",
+        #     "",
+        #     "Commits locked to subdir (with REPO-subdir in the title) should not be allowed on subdir/bar.",
+        # ),
+        (
+            "Bug 1 - update file REPO-foo REPO-bar",
+            "",
+            "Commits locked to foo and bar should be allowed on foo.",
+        ),
+        (
+            "Bug 1 - update file REPO-bar REPO-foo",
+            "",
+            "Commits locked to bar and foo should be allowed on foo.",
+        ),
+        # (
+        #     "Bug 1 - update file\n\nREPO-foo",
+        #     "",
+        #     "Commits locked to foo (with REPO-foo in the title) should be allowed on try.",
+        # ),
+    ),
+)
+def test_check_commit_message_repolocked(
+    commit_message: str, return_string: str, error_message: str
+):
+    patch_helpers = [
+        HgPatchHelper.from_string_io(
+            io.StringIO(
+                HG_PATCH_AUTHOR_COMMIT_MESSAGE_TEMPLATE.format(
+                    author="U Ser <user@example.com>",
+                    commit_message=f"{commit_message}\n\n",
+                )
+            )
+        )
+    ]
+    assessor = PatchCollectionAssessor(patch_helpers=patch_helpers, repo_name="foo")
+
+    expected = []
+    if return_string:
+        expected = [return_string + commit_message]
+
+    assert (
+        assessor.run_patch_collection_checks(
+            patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
+        )
+        == expected
+    ), error_message
+
+
+def test_check_commit_message_repolocked_multiple():
+    commit_message = "Bug 1 - update file REPO-bar"
+    return_string = "Commit locked to a repo other than foo: "
+    error_message = "Commits are disallowed when REPO-bar is in any commit in the push."
+
+    patch_helpers = [
+        HgPatchHelper.from_string_io(
+            io.StringIO(
+                HG_PATCH_AUTHOR_COMMIT_MESSAGE_TEMPLATE.format(
+                    author="U Ser <user@example.com>",
+                    commit_message="Bug 1 - innocuous commit\n\n",
+                )
+            )
+        ),
+        HgPatchHelper.from_string_io(
+            io.StringIO(
+                HG_PATCH_AUTHOR_COMMIT_MESSAGE_TEMPLATE.format(
+                    author="U Ser <user@example.com>",
+                    commit_message=f"{commit_message}\n\n",
+                )
+            )
+        ),
+        HgPatchHelper.from_string_io(
+            io.StringIO(
+                HG_PATCH_AUTHOR_COMMIT_MESSAGE_TEMPLATE.format(
+                    author="U Ser <user@example.com>",
+                    commit_message="Bug 1 - another innocuous commit\n\n",
+                )
+            )
+        ),
+    ]
+    assessor = PatchCollectionAssessor(patch_helpers=patch_helpers, repo_name="foo")
+
+    expected = []
+    if return_string:
+        expected = [return_string + commit_message]
+
+    assert (
+        assessor.run_patch_collection_checks(
+            patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
+        )
+        == expected
+    ), error_message
+
+
+@pytest.mark.parametrize(
     "push_user_email,patch,return_string,error_message",
     [
         (
