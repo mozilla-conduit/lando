@@ -217,7 +217,7 @@ def test_check_commit_message_valid_message(commit_message: str, error_message: 
         ),
         (
             "Bug 100 - Foo. r=bar REPO-elm",
-            "Commit locked to another repo than firefox-autoland: ",
+            "Commit locked to a repo other than firefox-autoland: ",
             "Revision with REPO- mismatch should be rejected.",
         ),
     ],
