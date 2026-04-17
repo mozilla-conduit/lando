@@ -20,7 +20,7 @@ from lando.api.legacy.commit_message import (
 )
 from lando.main.scm.helpers import PatchHelper
 
-REPO_FLAG_RE = re.compile(r"[\s.;]REPO-(?P<repo>[-a-zA-Z0-9]+)(?:\w|$)")
+REPO_FLAG_RE = re.compile(r"[\s.;]REPO-(?P<repo>[-/a-zA-Z0-9]+)(?=[\s.;]|$)")
 
 
 def wrap_filenames(filenames: list[str]) -> str:
@@ -513,10 +513,16 @@ class CommitMessagesCheck(PatchCollectionCheck):
             )
             return
 
-        if match := REPO_FLAG_RE.search(firstline):
-            if match["repo"] != self.repo_name:
+        if match := REPO_FLAG_RE.findall(firstline):
+            for repo in match:
+                if "/" in repo:
+                    self.commit_message_issues.append(
+                        f"Push contains commits intended to be locked to {repo} but the repo name is badly formatted. '/' is not allowed: {commit_message}"
+                    )
+                    return
+            if self.repo_name not in match:
                 self.commit_message_issues.append(
-                    f"Commit locked to another repo than {self.repo_name}: {commit_message}"
+                    f"Commit locked to a repo other than {self.repo_name}: {commit_message}"
                 )
                 return
 
