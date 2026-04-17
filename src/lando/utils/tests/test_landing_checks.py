@@ -54,21 +54,32 @@ Let's make sure everything checks out.
 """
 
 
-def test_check_commit_message_merge_automation_empty_message():
-    patch_helpers = [HgPatchHelper.from_string_io(io.StringIO("""
+HG_PATCH_AUTHOR_COMMIT_MESSAGE_TEMPLATE = r"""
 # HG changeset patch
-# User ffxbld
+# User {author}
 # Date 1523427125 -28800
 #      Wed Apr 11 14:12:05 2018 +0800
 # Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
 # Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
-diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
+{commit_message}diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 --- a/autoland/autoland/transplant.py
 +++ b/autoland/autoland/transplant.py
 @@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
 # instead of passing the url to 'hg import' to make
 ...
-""".strip()))]
+""".strip()
+
+
+def test_check_commit_message_merge_automation_empty_message():
+    patch_helpers = [
+        HgPatchHelper.from_string_io(
+            io.StringIO(
+                HG_PATCH_AUTHOR_COMMIT_MESSAGE_TEMPLATE.format(
+                    author="ffxbld", commit_message=""
+                )
+            )
+        )
+    ]
 
     assessor = PatchCollectionAssessor(patch_helpers=patch_helpers)
 
@@ -81,22 +92,16 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 
 def test_check_commit_message_merge_automation_bad_message():
-    patch_helpers = [HgPatchHelper.from_string_io(io.StringIO("""
-# HG changeset patch
-# User ffxbld
-# Date 1523427125 -28800
-#      Wed Apr 11 14:12:05 2018 +0800
-# Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
-# Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
-this message is missing the bug.
-
-diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
---- a/autoland/autoland/transplant.py
-+++ b/autoland/autoland/transplant.py
-@@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
-# instead of passing the url to 'hg import' to make
-...
-""".strip()))]
+    patch_helpers = [
+        HgPatchHelper.from_string_io(
+            io.StringIO(
+                HG_PATCH_AUTHOR_COMMIT_MESSAGE_TEMPLATE.format(
+                    author="ffxbld",
+                    commit_message="this message is missing the bug\n\n",
+                )
+            )
+        )
+    ]
 
     assessor = PatchCollectionAssessor(patch_helpers=patch_helpers)
 
@@ -143,22 +148,17 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
     ],
 )
 def test_check_commit_message_valid_message(commit_message: str, error_message: str):
-    patch_helpers = [HgPatchHelper.from_string_io(io.StringIO(f"""
-# HG changeset patch
-# User Connor Sheehan <sheehan@mozilla.com>
-# Date 1523427125 -28800
-#      Wed Apr 11 14:12:05 2018 +0800
-# Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
-# Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
-{commit_message}
+    patch_helpers = [
+        HgPatchHelper.from_string_io(
+            io.StringIO(
+                HG_PATCH_AUTHOR_COMMIT_MESSAGE_TEMPLATE.format(
+                    author="U Ser <user@example.com>",
+                    commit_message=f"{commit_message}\n\n",
+                )
+            )
+        )
+    ]
 
-diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
---- a/autoland/autoland/transplant.py
-+++ b/autoland/autoland/transplant.py
-@@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
-# instead of passing the url to 'hg import' to make
-...
-""".strip()))]
     assessor = PatchCollectionAssessor(patch_helpers=patch_helpers)
 
     assert (
@@ -236,22 +236,16 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 def test_check_commit_message_invalid_message(
     commit_message: str, return_string: str, error_message: str
 ):
-    patch_helpers = [HgPatchHelper.from_string_io(io.StringIO(f"""
-# HG changeset patch
-# User Connor Sheehan <sheehan@mozilla.com>
-# Date 1523427125 -28800
-#      Wed Apr 11 14:12:05 2018 +0800
-# Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
-# Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
-{commit_message}
-
-diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
---- a/autoland/autoland/transplant.py
-+++ b/autoland/autoland/transplant.py
-@@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
-# instead of passing the url to 'hg import' to make
-...
-""".strip()))]
+    patch_helpers = [
+        HgPatchHelper.from_string_io(
+            io.StringIO(
+                HG_PATCH_AUTHOR_COMMIT_MESSAGE_TEMPLATE.format(
+                    author="U Ser <user@example.com>",
+                    commit_message=f"{commit_message}\n\n",
+                )
+            )
+        )
+    ]
     assessor = PatchCollectionAssessor(
         patch_helpers=patch_helpers, repo_name="firefox-autoland"
     )
