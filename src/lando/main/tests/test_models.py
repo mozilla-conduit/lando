@@ -350,7 +350,7 @@ def test_repo_default_branch_to_scm(branch: str, expected_branch: str):
 
 @pytest.mark.django_db(transaction=True)
 def test__models__CommitMap___find_last_node(commit_maps):
-    assert commit_maps[-1] == CommitMap._find_last_node("git_repo")
+    assert commit_maps[-1] == CommitMap._find_last_node(commit_maps[-1].git_repo_name)
 
 
 @pytest.mark.django_db(transaction=True)

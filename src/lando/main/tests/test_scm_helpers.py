@@ -456,12 +456,13 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 @pytest.mark.parametrize("repo_type", (SCMType.GIT, SCMType.HG))
 def test_scm_get_patch_helpers_for_commits(
     tmp_path: Path,
-    git_repo: Path,
+    make_git_repo: Path,
     hg_clone: os.PathLike,
     request: pytest.FixtureRequest,
     create_scm_commit: Callable,
     repo_type: str,
 ):
+    git_repo = make_git_repo()
     if repo_type == SCMType.GIT:
         clone_path = tmp_path / request.node.name
         clone_path.mkdir()

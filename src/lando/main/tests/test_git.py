@@ -22,6 +22,11 @@ from lando.main.scm.git import GitSCM
 from lando.main.scm.helpers import GitPatchHelper
 
 
+@pytest.fixture
+def git_repo(make_git_repo: Callable) -> Path:
+    return make_git_repo()
+
+
 @pytest.mark.parametrize(
     "path,expected",
     (

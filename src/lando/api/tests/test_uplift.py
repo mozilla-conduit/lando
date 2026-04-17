@@ -99,8 +99,8 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
     # ordering in `source_revisions` is preserved instead of the
     # default queryset ordering.
     revisions_created = [
-        create_patch_revision(456, patch=normal_patch(1)),
-        create_patch_revision(123, patch=normal_patch(0)),
+        create_patch_revision(456, patch=normal_patch(1), revision_id=1),
+        create_patch_revision(123, patch=normal_patch(0), revision_id=2),
     ]
     revisions_ordered = reversed(revisions_created)
 
@@ -145,8 +145,8 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
         submission.requested_by_id == user.id
     ), "Uplift request should belong to the user."
     assert submission.requested_revision_ids == [
-        123,
-        456,
+        2,
+        1,
     ], "Both revisions should be tracked, in the correct order, in uplift request."
 
     jobs = list(
@@ -174,8 +174,8 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
     for job in jobs:
         job_rev_ids = list(job.revisions.values_list("revision_id", flat=True))
         assert job_rev_ids == [
-            123,
-            456,
+            2,
+            1,
         ], "Each job should reference the requested Revision."
 
         for idx, revision in enumerate(revisions_ordered):

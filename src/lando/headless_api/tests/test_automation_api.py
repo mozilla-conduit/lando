@@ -288,7 +288,7 @@ def test_automation_job_create_repo_automation_disabled(
 ):
     user, token = headless_user
 
-    repo_mc(
+    repo = repo_mc(
         scm_type=SCMType.GIT,
         automation_enabled=False,
     )
@@ -309,7 +309,7 @@ def test_automation_job_create_repo_automation_disabled(
         ],
     }
     response = client.post(
-        "/api/repo/mozilla-central-git",
+        f"/api/repo/{repo.name}",
         data=json.dumps(body),
         content_type="application/json",
         headers={
@@ -322,8 +322,7 @@ def test_automation_job_create_repo_automation_disabled(
         response.status_code == 400
     ), "Automation disabled for repo should return `400 Bad Request` status."
     assert (
-        response.json()["details"]
-        == "Repo mozilla-central-git is not enabled for automation."
+        response.json()["details"] == f"Repo {repo.name} is not enabled for automation."
     ), "Details should indicate automation API is disabled for repo."
 
 
@@ -338,7 +337,7 @@ def test_automation_job_create_user_automation_disabled(
     user.save()
     user.profile.save()
 
-    repo_mc(
+    repo = repo_mc(
         scm_type=SCMType.GIT,
         automation_enabled=True,
     )
@@ -359,7 +358,7 @@ def test_automation_job_create_user_automation_disabled(
         ],
     }
     response = client.post(
-        "/api/repo/mozilla-central-git",
+        f"/api/repo/{repo.name}",
         data=json.dumps(body),
         content_type="application/json",
         headers={
@@ -450,7 +449,7 @@ def is_isoformat_timestamp(date_string: str) -> bool:
 def test_automation_job_create_api(client, repo_mc, headless_user):
     user, token = headless_user
 
-    repo_mc(
+    repo = repo_mc(
         scm_type=SCMType.GIT,
         automation_enabled=True,
     )
@@ -471,7 +470,7 @@ def test_automation_job_create_api(client, repo_mc, headless_user):
         ],
     }
     response = client.post(
-        "/api/repo/mozilla-central-git",
+        f"/api/repo/{repo.name}",
         data=json.dumps(body),
         content_type="application/json",
         headers={
