@@ -57,7 +57,7 @@ def request_extended_revision_data(
     """Return a RevisionData containing extended data for revisions.
 
     Args:
-        phab: A landoapi.phabricator.PhabricatorClient.
+        phab: A PhabricatorClient instance.
         revision_phids: List of String PHIDs for revisions.
 
     Returns:
@@ -66,26 +66,8 @@ def request_extended_revision_data(
     if not revision_phids:
         return RevisionData({}, {}, {})
 
-    revs = phab.call_conduit_collated(
-        "differential.revision.search",
-        constraints={"phids": revision_phids},
-        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
-        limit=len(revision_phids),
-    )
-
-    if len(revs["data"]) != len(revision_phids):
-        raise ValueError("Mismatch in size of returned data.")
-
-    phab.expect(revs, "data", len(revision_phids) - 1)
-    revs = result_list_to_phid_dict(phab.expect(revs, "data"))
-
-    diffs = phab.call_conduit_collated(
-        "differential.diff.search",
-        constraints={"revisionPHIDs": revision_phids},
-        attachments={"commits": True},
-    )
-    phab.expect(diffs, "data", len(revision_phids) - 1)
-    diffs = result_list_to_phid_dict(phab.expect(diffs, "data"))
+    revs = get_revisions_by_phid(phab, revision_phids)
+    diffs = get_diffs_by_revision_phid(phab, list(revs.keys()))
 
     repo_phids = [phab.expect(r, "fields", "repositoryPHID") for r in revs.values()] + [
         phab.expect(d, "fields", "repositoryPHID") for d in diffs.values()
@@ -104,6 +86,88 @@ def request_extended_revision_data(
         repos = {}
 
     return RevisionData(revs, diffs, repos)
+
+
+def get_revisions_by_phid(
+    phab: PhabricatorClient, revision_phids: list[str]
+) -> dict[str, dict]:
+    """Fetch revisions from Phabricator by PHID.
+
+    Returns a PHID-keyed dict of revision data with reviewer and project
+    attachments.  Raises `ValueError` if any PHID is not found.
+    """
+    revs = phab.call_conduit_collated(
+        "differential.revision.search",
+        constraints={"phids": revision_phids},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+        limit=len(revision_phids),
+    )
+
+    if len(revs["data"]) != len(revision_phids):
+        raise ValueError("Mismatch in size of returned data.")
+
+    phab.expect(revs, "data", len(revision_phids) - 1)
+    return result_list_to_phid_dict(phab.expect(revs, "data"))
+
+
+def get_revisions_by_id(
+    phab: PhabricatorClient, revision_ids: list[int]
+) -> dict[str, dict]:
+    """Fetch revisions from Phabricator by integer ID.
+
+    Returns a PHID-keyed dict of revision data with reviewer and project
+    attachments.  Raises `ValueError` if any ID is not found.
+    """
+    revs = phab.call_conduit_collated(
+        "differential.revision.search",
+        constraints={"ids": revision_ids},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+        limit=len(revision_ids),
+    )
+
+    if len(revs["data"]) != len(revision_ids):
+        raise ValueError("Mismatch in size of returned data.")
+
+    phab.expect(revs, "data", len(revision_ids) - 1)
+    return result_list_to_phid_dict(phab.expect(revs, "data"))
+
+
+def get_diffs_by_revision_phid(
+    phab: PhabricatorClient, revision_phids: list[str]
+) -> dict[str, dict]:
+    """Fetch diffs from Phabricator for the given revision PHIDs.
+
+    Returns a PHID-keyed dict of diff data with the `commits` attachment.
+    Raises `ValueError` if fewer diffs than revisions are returned.
+    """
+    diffs = phab.call_conduit_collated(
+        "differential.diff.search",
+        constraints={"revisionPHIDs": revision_phids},
+        attachments={"commits": True},
+    )
+    phab.expect(diffs, "data", len(revision_phids) - 1)
+    return result_list_to_phid_dict(phab.expect(diffs, "data"))
+
+
+def get_diffs_by_phid(
+    phab: PhabricatorClient, diff_phids: list[str]
+) -> dict[str, dict]:
+    """Fetch specific diffs from Phabricator by their PHIDs.
+
+    Unlike `get_diffs_by_revision_phid`, this fetches only the diffs with the
+    given PHIDs rather than all diffs associated with a set of revisions.
+
+    Returns a PHID-keyed dict of diff data with the `commits` attachment.
+    """
+    if not diff_phids:
+        return {}
+
+    diffs = phab.call_conduit_collated(
+        "differential.diff.search",
+        constraints={"phids": diff_phids},
+        attachments={"commits": True},
+    )
+    return result_list_to_phid_dict(phab.expect(diffs, "data"))
 
 
 class RevisionStack(nx.DiGraph):

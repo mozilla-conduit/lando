@@ -360,3 +360,54 @@ def test_build_manual_uplift_instructions(user):
     )
 
     assert result == expected, "Generated commands should match expected."
+
+
+@pytest.mark.django_db
+def test_build_manual_uplift_instructions_no_landing_commit(user):
+    """Test manual uplift instructions when revisions have no landing commit."""
+    # Create repo with all expected fields set.
+    repo = Repo.objects.create(
+        name="firefox-beta",
+        short_name="beta",
+        default_branch="beta",
+        url="https://github.com/mozilla/gecko-dev",
+        scm_type=SCMType.GIT,
+    )
+
+    # Create revisions without any RevisionLandingJob records.
+    rev1 = Revision.objects.create(revision_id=200)
+    rev2 = Revision.objects.create(revision_id=201)
+
+    # Create assessment and submission.
+    assessment = UpliftAssessment.objects.create(
+        user=user,
+        user_impact="Test impact",
+        risk_level_explanation="Low risk",
+        string_changes="None",
+    )
+    submission = UpliftSubmission.objects.create(
+        requested_by=user,
+        assessment=assessment,
+        requested_revision_ids=[200, 201],
+    )
+
+    # Create job and link revisions.
+    job = UpliftJob.objects.create(
+        target_repo=repo, status=JobStatus.FAILED, submission=submission
+    )
+    job.add_revisions([rev1, rev2])
+    job.sort_revisions([rev1, rev2])
+
+    result = build_manual_uplift_instructions(job)
+
+    expected = (
+        "git fetch origin\n"
+        "git switch -c uplift-beta-D200 origin/beta\n"
+        "moz-phab patch D200 --apply-to here\n"
+        "moz-phab patch D201 --apply-to here\n"
+        f"moz-phab uplift --train beta --assessment-id {assessment.id}"
+    )
+
+    assert (
+        result == expected
+    ), "Revisions without landing commits should use `moz-phab patch`."

@@ -179,15 +179,33 @@ diff --git a/test.txt b/test.txt
 def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
     repo = HgSCM(hg_clone.strpath)
 
-    # Patches with conflicts should raise a proper PatchConflict exception.
-    with pytest.raises(PatchConflict), repo.for_pull():
-        ph = HgPatchHelper.from_string_io(io.StringIO(PATCH_WITH_CONFLICT))
-        repo.apply_patch(
-            ph.get_diff(),
-            ph.get_commit_description(),
-            ph.get_header("User"),
-            ph.get_header("Date"),
-        )
+    # Patches with conflicts should raise a proper PatchConflict exception,
+    # and `process_merge_conflict` should include `.rej` file content that
+    # was captured in-memory by `clean_repo`.
+    breakdown = None
+    with pytest.raises(PatchConflict):
+        with repo.for_pull():
+            ph = HgPatchHelper.from_string_io(io.StringIO(PATCH_WITH_CONFLICT))
+            try:
+                repo.apply_patch(
+                    ph.get_diff(),
+                    ph.get_commit_description(),
+                    ph.get_header("User"),
+                    ph.get_header("Date"),
+                )
+            except PatchConflict as exc:
+                breakdown = repo.process_merge_conflict("https://hg.test", 1, str(exc))
+                raise
+
+    assert breakdown is not None, "`process_merge_conflict` should have been called."
+    assert (
+        "not-real.txt" in breakdown["rejects_paths"]
+    ), "Breakdown should include the conflicted file path."
+    reject_entry = breakdown["rejects_paths"]["not-real.txt"]
+    assert (
+        "content" in reject_entry
+    ), "Reject entry should include `.rej` content captured by `clean_repo`."
+    assert reject_entry["content"], "Reject content should not be empty."
 
 
 @pytest.mark.parametrize(
@@ -474,6 +492,53 @@ def test_HgSCM__extract_error_data():
     failed_paths, rejects_paths = HgSCM._extract_error_data(exception_message)
     assert failed_paths == expected_failed_paths
     assert rejects_paths == expected_rejects_paths
+
+
+def test_HgSCM_read_rejects_files(tmp_path: Path):
+    """Test that `read_rejects_files` returns `.rej` file contents keyed by relative path."""
+    scm = HgSCM(str(tmp_path))
+
+    # Create `.rej` files in various locations.
+    (tmp_path / "top_level.rej").write_text("reject at root")
+    nested_dir = tmp_path / "subdir" / "nested"
+    nested_dir.mkdir(parents=True)
+    (nested_dir / "deep.rej").write_text("reject in nested dir")
+
+    # Create a non-`.rej` file that should be ignored.
+    (tmp_path / "not_a_reject.txt").write_text("should be ignored")
+
+    result = scm.read_rejects_files()
+
+    assert result == {
+        "top_level.rej": "reject at root",
+        "subdir/nested/deep.rej": "reject in nested dir",
+    }, "`read_rejects_files` should return contents keyed by repo-relative path."
+
+
+def test_HgSCM_read_rejects_files_empty(tmp_path: Path):
+    """Test that `read_rejects_files` returns an empty dict when no `.rej` files exist."""
+    scm = HgSCM(str(tmp_path))
+
+    result = scm.read_rejects_files()
+
+    assert (
+        result == {}
+    ), "`read_rejects_files` should return an empty dict with no `.rej` files."
+
+
+def test_HgSCM_read_rejects_files_non_utf8(tmp_path: Path):
+    """Test that `read_rejects_files` handles non-UTF-8 content without raising."""
+    scm = HgSCM(str(tmp_path))
+
+    # Write a `.rej` file containing invalid UTF-8 bytes.
+    (tmp_path / "binary.rej").write_bytes(b"valid start \xff\xfe invalid bytes")
+
+    result = scm.read_rejects_files()
+
+    assert "binary.rej" in result, "Non-UTF-8 `.rej` file should still be included."
+    assert (
+        "\ufffd" in result["binary.rej"]
+    ), "Invalid bytes should be replaced with the Unicode replacement character."
 
 
 # The equivalent of PATCH_GIT_1 (from the git_patch() fixture), as applied to the base

@@ -151,13 +151,6 @@ class UpliftRequestForm(UpliftAssessmentForm):
         queryset=Revision.objects.all(),
         to_field_name="revision_id",
         widget=forms.CheckboxSelectMultiple(),
-        error_messages={
-            "invalid_choice": (
-                "Revision D%(value)s has not landed on autoland yet, so Lando "
-                "does not have the revision data required to create an uplift. "
-                "Please land the patch on autoland first before requesting an uplift."
-            ),
-        },
     )
     repositories = forms.ModelMultipleChoiceField(
         queryset=Repo.objects.filter(approval_required=True).order_by("name"),
