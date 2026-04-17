@@ -14,13 +14,12 @@ from lando.api.legacy.bmo import (
 from lando.api.legacy.commit_message import (
     ACCEPTABLE_MESSAGE_FORMAT_RES,
     INVALID_REVIEW_FLAG_RE,
+    REPO_FLAG_RE,
     is_backout,
     parse_backouts,
     parse_bugs,
 )
 from lando.main.scm.helpers import PatchHelper
-
-REPO_FLAG_RE = re.compile(r"[\s.;]REPO-(?P<repo>[-/a-zA-Z0-9]+)(?=[\s.;]|$)")
 
 
 def wrap_filenames(filenames: list[str]) -> str:
