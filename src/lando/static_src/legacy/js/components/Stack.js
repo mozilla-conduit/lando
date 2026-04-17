@@ -152,9 +152,10 @@ $.fn.stack = function() {
 
                             var has_blockers = blockers.length !== 0;
                             var has_warnings = warnings.length !== 0;
+                            var success_placeholder = `<li><span class="fa-li has-text-success"><i class="fa fa-check"></i></span>None found.</li>`;
 
                             if (!has_blockers) {
-                                $("#blockers").html(`<li><span class="fa-li has-text-success"><i class="fa fa-check"></i></span>None found.</li>`);
+                                $("#blockers").html(success_placeholder);
                             } else {
                                 $("#blockers").html("");
                                 for (var blocker of blockers) {
@@ -163,7 +164,7 @@ $.fn.stack = function() {
                             }
 
                             if (!has_warnings) {
-                                $("#warnings").html(`<li><span class="fa-li has-text-success"><i class="fa fa-check"></i></span>None found.</li>`);
+                                $("#warnings").html(success_placeholder);
                             } else {
                                 $("#warnings").html("");
                                 for (var warning of warnings) {
