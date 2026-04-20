@@ -293,17 +293,6 @@ def test_check_commit_message_invalid_message(
             "",
             "Commits are allowed on foo when REPO-bar is in the body rather than the title.",
         ),
-        # See next test.
-        # (
-        #     "Bug 1 - update file REPO-bar",
-        #     "Commit locked to a repo other than foo: ",
-        #     "Commits are disallowed when REPO-bar is in any commit in the push.",
-        # ),
-        # (
-        #     "Bug 1 - update file REPO-bar",
-        #     "",
-        #     "Commits locked to bar (with REPO-bar in the title) should be allowed on subdir/bar.",
-        # ),
         (
             "Bug 1 - update file REPO-subdir/bar",
             "Push contains commits intended to be locked to subdir/bar but the repo name is badly formatted. '/' is not allowed: ",
