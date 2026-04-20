@@ -303,11 +303,6 @@ def test_check_commit_message_invalid_message(
             "Push contains commits intended to be locked to subdir/bar but the repo name is badly formatted. '/' is not allowed: ",
             "Commits locked to subdir/bar (with REPO-subdir/bar in the title) should not be allowed on foo.",
         ),
-        # (
-        #     "Bug 1 - update file REPO-subdir",
-        #     "",
-        #     "Commits locked to subdir (with REPO-subdir in the title) should not be allowed on subdir/bar.",
-        # ),
         (
             "Bug 1 - update file REPO-foo REPO-bar",
             "",
