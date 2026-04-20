@@ -329,11 +329,6 @@ def test_check_commit_message_invalid_message(
             "",
             "Commits locked to bar and foo should be allowed on foo.",
         ),
-        # (
-        #     "Bug 1 - update file\n\nREPO-foo",
-        #     "",
-        #     "Commits locked to foo (with REPO-foo in the title) should be allowed on try.",
-        # ),
     ),
 )
 def test_check_commit_message_repolocked(
