@@ -102,7 +102,7 @@ class AutomationWorker(Worker):
 
             if not self.skip_checks(job, new_commits) and repo.hooks_enabled:
                 patch_helpers = repo.scm.get_patch_helpers_for_commits(new_commits)
-                landing_checks = LandingChecks(job.requester_email)
+                landing_checks = LandingChecks(job.requester_email, repo.name)
                 try:
                     check_errors = landing_checks.run(repo.hooks, patch_helpers)
                 except Exception as exc:

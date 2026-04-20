@@ -14,6 +14,7 @@ from lando.api.legacy.bmo import (
 from lando.api.legacy.commit_message import (
     ACCEPTABLE_MESSAGE_FORMAT_RES,
     INVALID_REVIEW_FLAG_RE,
+    REPO_FLAG_RE,
     is_backout,
     parse_backouts,
     parse_bugs,
@@ -446,6 +447,7 @@ class PatchCollectionCheck(Check, ABC):
     """
 
     push_user_email: str | None = None
+    repo_name: str | None = None
 
     @abstractmethod
     def next_diff(self, patch_helper: PatchHelper):
@@ -509,6 +511,19 @@ class CommitMessagesCheck(PatchCollectionCheck):
                 f"git-format-patch -k to avoid this: {commit_message}"
             )
             return
+
+        if match := REPO_FLAG_RE.findall(firstline):
+            for repo in match:
+                if "/" in repo:
+                    self.commit_message_issues.append(
+                        f"Push contains commits intended to be locked to {repo} but the repo name is badly formatted. '/' is not allowed: {commit_message}"
+                    )
+                    return
+            if self.repo_name not in match:
+                self.commit_message_issues.append(
+                    f"Commit locked to a repo other than {self.repo_name}: {commit_message}"
+                )
+                return
 
         if INVALID_REVIEW_FLAG_RE.search(firstline):
             self.commit_message_issues.append(
@@ -672,6 +687,7 @@ class PatchCollectionAssessor:
 
     patch_helpers: Iterable[PatchHelper]
     push_user_email: str | None = None
+    repo_name: str | None = None
 
     def run_patch_collection_checks(
         self,
@@ -686,7 +702,10 @@ class PatchCollectionAssessor:
         """
         issues = []
 
-        checks = [check(self.push_user_email) for check in patch_collection_checks]
+        checks = [
+            check(self.push_user_email, self.repo_name)
+            for check in patch_collection_checks
+        ]
 
         for patch_helper in self.patch_helpers:
             # Pass the patch information into the push-wide check.
@@ -724,9 +743,11 @@ class LandingChecks:
     """Utility class to run landing checks (a.k.a. hooks) on a list of commits."""
 
     requester_email: str
+    repo_name: str
 
-    def __init__(self, requester_email: str):
+    def __init__(self, requester_email: str, repo_name: str):
         self.requester_email = requester_email
+        self.repo_name = repo_name
 
     def run(
         self,
@@ -754,7 +775,9 @@ class LandingChecks:
         stack_checks = [chk for chk in ALL_STACK_CHECKS if chk.name() in hook_names]
 
         assessor = PatchCollectionAssessor(
-            patches, push_user_email=self.requester_email
+            patches,
+            push_user_email=self.requester_email,
+            repo_name=self.repo_name,
         )
         return assessor.run_patch_collection_checks(
             patch_collection_checks=stack_checks, patch_checks=commit_checks

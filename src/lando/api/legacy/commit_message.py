@@ -12,6 +12,10 @@ REVISION_URL_TEMPLATE = "Differential Revision: {url}"
 # "bug" syntax like "bug X" or "b=".
 BUG_CONSERVATIVE_RE = re.compile(r"""(\b(?:bug|b=)\b(?:\s*)(\d+)(?=\b))""", re.I | re.X)
 
+# Catch REPO-<reponame> locking flags.
+REPO_FLAG_RE = re.compile(r"[\s.;]REPO-(?P<repo>[-/a-zA-Z0-9]+)(?=[\s.;]|$)")
+
+
 SPECIFIER = r"\b(?:r|a|sr|rs|ui-r)[=?]"
 SPECIFIER_RE = re.compile(SPECIFIER)
 

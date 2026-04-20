@@ -54,21 +54,32 @@ Let's make sure everything checks out.
 """
 
 
-def test_check_commit_message_merge_automation_empty_message():
-    patch_helpers = [HgPatchHelper.from_string_io(io.StringIO("""
+HG_PATCH_AUTHOR_COMMIT_MESSAGE_TEMPLATE = r"""
 # HG changeset patch
-# User ffxbld
+# User {author}
 # Date 1523427125 -28800
 #      Wed Apr 11 14:12:05 2018 +0800
 # Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
 # Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
-diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
+{commit_message}diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 --- a/autoland/autoland/transplant.py
 +++ b/autoland/autoland/transplant.py
 @@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
 # instead of passing the url to 'hg import' to make
 ...
-""".strip()))]
+""".strip()
+
+
+def test_check_commit_message_merge_automation_empty_message():
+    patch_helpers = [
+        HgPatchHelper.from_string_io(
+            io.StringIO(
+                HG_PATCH_AUTHOR_COMMIT_MESSAGE_TEMPLATE.format(
+                    author="ffxbld", commit_message=""
+                )
+            )
+        )
+    ]
 
     assessor = PatchCollectionAssessor(patch_helpers=patch_helpers)
 
@@ -81,22 +92,16 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 
 def test_check_commit_message_merge_automation_bad_message():
-    patch_helpers = [HgPatchHelper.from_string_io(io.StringIO("""
-# HG changeset patch
-# User ffxbld
-# Date 1523427125 -28800
-#      Wed Apr 11 14:12:05 2018 +0800
-# Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
-# Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
-this message is missing the bug.
-
-diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
---- a/autoland/autoland/transplant.py
-+++ b/autoland/autoland/transplant.py
-@@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
-# instead of passing the url to 'hg import' to make
-...
-""".strip()))]
+    patch_helpers = [
+        HgPatchHelper.from_string_io(
+            io.StringIO(
+                HG_PATCH_AUTHOR_COMMIT_MESSAGE_TEMPLATE.format(
+                    author="ffxbld",
+                    commit_message="this message is missing the bug\n\n",
+                )
+            )
+        )
+    ]
 
     assessor = PatchCollectionAssessor(patch_helpers=patch_helpers)
 
@@ -143,22 +148,17 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
     ],
 )
 def test_check_commit_message_valid_message(commit_message: str, error_message: str):
-    patch_helpers = [HgPatchHelper.from_string_io(io.StringIO(f"""
-# HG changeset patch
-# User Connor Sheehan <sheehan@mozilla.com>
-# Date 1523427125 -28800
-#      Wed Apr 11 14:12:05 2018 +0800
-# Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
-# Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
-{commit_message}
+    patch_helpers = [
+        HgPatchHelper.from_string_io(
+            io.StringIO(
+                HG_PATCH_AUTHOR_COMMIT_MESSAGE_TEMPLATE.format(
+                    author="U Ser <user@example.com>",
+                    commit_message=f"{commit_message}\n\n",
+                )
+            )
+        )
+    ]
 
-diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
---- a/autoland/autoland/transplant.py
-+++ b/autoland/autoland/transplant.py
-@@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
-# instead of passing the url to 'hg import' to make
-...
-""".strip()))]
     assessor = PatchCollectionAssessor(patch_helpers=patch_helpers)
 
     assert (
@@ -198,7 +198,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
             "Backout should be rejected when a reference to the original patch is missing.",
         ),
         (
-            "Bug 100 - Foo. r?bar",
+            "Bug 100 - Foo. r?bar REPO-firefox-autoland",
             "Revision contains 'r?' in the commit message. Please use 'r=' instead: ",
             "Improper review specifier should be rejected.",
         ),
@@ -215,32 +215,176 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
             ),
             "`git-format-patch` cruft should result in a failed check.",
         ),
+        (
+            "Bug 100 - Foo. r=bar REPO-elm",
+            "Commit locked to a repo other than firefox-autoland: ",
+            "Revision with REPO- mismatch should be rejected.",
+        ),
     ],
+    ids=(
+        "nobug",
+        "revert",
+        "update",
+        "bugword",
+        "backout",
+        "rq",
+        "wip",
+        "patch",
+        "repo",
+    ),
 )
 def test_check_commit_message_invalid_message(
     commit_message: str, return_string: str, error_message: str
 ):
-    patch_helpers = [HgPatchHelper.from_string_io(io.StringIO(f"""
-# HG changeset patch
-# User Connor Sheehan <sheehan@mozilla.com>
-# Date 1523427125 -28800
-#      Wed Apr 11 14:12:05 2018 +0800
-# Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
-# Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
-{commit_message}
-
-diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
---- a/autoland/autoland/transplant.py
-+++ b/autoland/autoland/transplant.py
-@@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
-# instead of passing the url to 'hg import' to make
-...
-""".strip()))]
-    assessor = PatchCollectionAssessor(patch_helpers=patch_helpers)
+    patch_helpers = [
+        HgPatchHelper.from_string_io(
+            io.StringIO(
+                HG_PATCH_AUTHOR_COMMIT_MESSAGE_TEMPLATE.format(
+                    author="U Ser <user@example.com>",
+                    commit_message=f"{commit_message}\n\n",
+                )
+            )
+        )
+    ]
+    assessor = PatchCollectionAssessor(
+        patch_helpers=patch_helpers, repo_name="firefox-autoland"
+    )
 
     assert assessor.run_patch_collection_checks(
         patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
     ) == [return_string + commit_message], error_message
+
+
+@pytest.mark.parametrize(
+    "commit_message,return_string,error_message",
+    (
+        (
+            "Bug 1 - update file REPO-foo",
+            "",
+            "Commits locked to foo (with REPO-foo in the title) should be allowed on foo.",
+        ),
+        (
+            "Bug 1 - update file REPO-foo bar",
+            "",
+            "Commits are allowed also when REPO-foo is not last in the title.",
+        ),
+        (
+            "Bug 1 - update file REPO-FOO",
+            "Commit locked to a repo other than foo: ",
+            "Commits locked to FOO (with REPO-FOO in the title) should not be allowed on foo.",
+        ),
+        (
+            "Bug 1 - update file REPO-bar",
+            "Commit locked to a repo other than foo: ",
+            "Commits locked to bar (with REPO-bar in the title) should not be allowed on foo.",
+        ),
+        (
+            "Bug 1 - update file REPO-foo-bar",
+            "Commit locked to a repo other than foo: ",
+            "Commits locked to foo-bar should not be allowed on foo.",
+        ),
+        (
+            "Bug 1 - update file REPO-bar baz",
+            "Commit locked to a repo other than foo: ",
+            "Commits are disallowed even when REPO-bar is not last in the title.",
+        ),
+        (
+            "Bug 1 - update file\n\nREPO-bar",
+            "",
+            "Commits are allowed on foo when REPO-bar is in the body rather than the title.",
+        ),
+        (
+            "Bug 1 - update file REPO-subdir/bar",
+            "Push contains commits intended to be locked to subdir/bar but the repo name is badly formatted. '/' is not allowed: ",
+            "Commits locked to subdir/bar (with REPO-subdir/bar in the title) should not be allowed on subdir/bar.",
+        ),
+        (
+            "Bug 1 - update file REPO-subdir/bar",
+            "Push contains commits intended to be locked to subdir/bar but the repo name is badly formatted. '/' is not allowed: ",
+            "Commits locked to subdir/bar (with REPO-subdir/bar in the title) should not be allowed on foo.",
+        ),
+        (
+            "Bug 1 - update file REPO-foo REPO-bar",
+            "",
+            "Commits locked to foo and bar should be allowed on foo.",
+        ),
+        (
+            "Bug 1 - update file REPO-bar REPO-foo",
+            "",
+            "Commits locked to bar and foo should be allowed on foo.",
+        ),
+    ),
+)
+def test_check_commit_message_repolocked(
+    commit_message: str, return_string: str, error_message: str
+):
+    patch_helpers = [
+        HgPatchHelper.from_string_io(
+            io.StringIO(
+                HG_PATCH_AUTHOR_COMMIT_MESSAGE_TEMPLATE.format(
+                    author="U Ser <user@example.com>",
+                    commit_message=f"{commit_message}\n\n",
+                )
+            )
+        )
+    ]
+    assessor = PatchCollectionAssessor(patch_helpers=patch_helpers, repo_name="foo")
+
+    expected = []
+    if return_string:
+        expected = [return_string + commit_message]
+
+    assert (
+        assessor.run_patch_collection_checks(
+            patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
+        )
+        == expected
+    ), error_message
+
+
+def test_check_commit_message_repolocked_multiple():
+    commit_message = "Bug 1 - update file REPO-bar"
+    return_string = "Commit locked to a repo other than foo: "
+    error_message = "Commits are disallowed when REPO-bar is in any commit in the push."
+
+    patch_helpers = [
+        HgPatchHelper.from_string_io(
+            io.StringIO(
+                HG_PATCH_AUTHOR_COMMIT_MESSAGE_TEMPLATE.format(
+                    author="U Ser <user@example.com>",
+                    commit_message="Bug 1 - innocuous commit\n\n",
+                )
+            )
+        ),
+        HgPatchHelper.from_string_io(
+            io.StringIO(
+                HG_PATCH_AUTHOR_COMMIT_MESSAGE_TEMPLATE.format(
+                    author="U Ser <user@example.com>",
+                    commit_message=f"{commit_message}\n\n",
+                )
+            )
+        ),
+        HgPatchHelper.from_string_io(
+            io.StringIO(
+                HG_PATCH_AUTHOR_COMMIT_MESSAGE_TEMPLATE.format(
+                    author="U Ser <user@example.com>",
+                    commit_message="Bug 1 - another innocuous commit\n\n",
+                )
+            )
+        ),
+    ]
+    assessor = PatchCollectionAssessor(patch_helpers=patch_helpers, repo_name="foo")
+
+    expected = []
+    if return_string:
+        expected = [return_string + commit_message]
+
+    assert (
+        assessor.run_patch_collection_checks(
+            patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
+        )
+        == expected
+    ), error_message
 
 
 @pytest.mark.parametrize(
@@ -643,7 +787,7 @@ def test_check_try_task_config():
 
 
 def test_landing_checks_run():
-    landing_checks = LandingChecks("user@example.com")
+    landing_checks = LandingChecks("user@example.com", "some-repo")
 
     # CommitMessagesCheck will get triggered twice as neither commit conform.
     patch_helpers = [
