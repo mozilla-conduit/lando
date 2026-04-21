@@ -8,6 +8,7 @@ from django import forms
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpRequest, JsonResponse
 from django.utils.decorators import method_decorator
+from django.utils.html import escape
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
@@ -61,7 +62,10 @@ def phabricator_api_key_required(func: Callable) -> Callable:
 
 
 def generate_warnings_and_blockers(
-    target_repo: Repo, pull_request: PullRequest, request: HttpRequest
+    target_repo: Repo,
+    pull_request: PullRequest,
+    request: HttpRequest,
+    do_escape: bool = True,
 ) -> dict[str, list[str]]:
     """Run checks on a pull request and return blockers and warnings."""
     # PullRequestPatchHelper.diff doesn't include binary changes.
@@ -79,6 +83,12 @@ def generate_warnings_and_blockers(
     blockers += pr_checks.run(pr_blockers, pull_request)
     pr_warnings = [chk.name() for chk in ALL_PULL_REQUEST_WARNINGS]
     warnings = pr_checks.run(pr_warnings, pull_request)
+
+    if do_escape:
+        # Sanitize blockers and warnings as they may be rendered in a page.
+        warnings = [escape(warning) for warning in warnings]
+        blockers = [escape(blocker) for blocker in blockers]
+
     return {"warnings": warnings, "blockers": blockers}
 
 

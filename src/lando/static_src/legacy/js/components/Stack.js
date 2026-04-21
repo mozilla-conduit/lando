@@ -152,22 +152,23 @@ $.fn.stack = function() {
 
                             var has_blockers = blockers.length !== 0;
                             var has_warnings = warnings.length !== 0;
+                            var success_placeholder = `<li><span class="fa-li has-text-success"><i class="fa fa-check"></i></span>None found.</li>`;
 
                             if (!has_blockers) {
-                                $("#blockers").html("None found.");
+                                $("#blockers").html(success_placeholder);
                             } else {
                                 $("#blockers").html("");
                                 for (var blocker of blockers) {
-                                    $("#blockers").append(`<li>${blocker}</li>`);
+                                    $("#blockers").append(`<li><span class="fa-li has-text-danger"><i class="fa fa-ban"></i></span>${blocker}</li>`);
                                 }
                             }
 
                             if (!has_warnings) {
-                                $("#warnings").html("None found.");
+                                $("#warnings").html(success_placeholder);
                             } else {
                                 $("#warnings").html("");
                                 for (var warning of warnings) {
-                                    $("#warnings").append(`<li>${warning}</li>`);
+                                    $("#warnings").append(`<li><span class="fa-li has-text-warning"><i class="fa fa-warning"></i></span>${warning}</li>`);
                                 }
                             }
 
