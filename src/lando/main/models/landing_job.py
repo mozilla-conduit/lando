@@ -196,7 +196,15 @@ class LandingJob(BaseJob):
 
     def to_dict(self) -> dict[str, Any]:
         job_dict = super().to_dict()
-        job_dict["revisions"] = [r.url() for r in self.revisions]
+        job_dict["revisions"] = [
+            {
+                "author_email": r.author_email,
+                "author_name": r.author_name,
+                "commit_message": r.commit_message,
+                "url": r.url(),
+            }
+            for r in self.revisions
+        ]
         job_dict["url"] = f"{settings.SITE_URL}/landings/{self.id}"
 
         return job_dict
