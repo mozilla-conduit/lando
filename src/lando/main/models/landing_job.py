@@ -1,5 +1,6 @@
 import datetime
 import logging
+from collections import defaultdict
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
@@ -10,7 +11,7 @@ from django.db.models import Q, QuerySet
 from mots.config import FileConfig
 from mots.directory import Directory
 
-from lando.main.models.jobs import BaseJob
+from lando.main.models.jobs import BaseJob, JobStatus
 from lando.main.models.repo import Repo
 from lando.main.models.revision import Revision, RevisionLandingJob
 
@@ -302,6 +303,41 @@ def add_revisions_to_job(revisions: list[Revision], job: LandingJob):
     """Given an existing job, add and sort provided revisions."""
     job.add_revisions(revisions)
     job.sort_revisions(revisions)
+
+
+def get_pull_request_last_landing_job_status(
+    repo_name: str, pull_number: int
+) -> JobStatus:
+    """Return a heuristically determined status based on related jobs."""
+    target_repo = Repo.objects.get(name=repo_name)
+    landing_jobs = get_jobs_for_pull(target_repo, pull_number)
+    landing_jobs_by_status = defaultdict(list)
+    for landing_job in landing_jobs:
+        landing_jobs_by_status[landing_job.status].append(landing_job.id)
+
+    # A LANDED status implies that the pull request has landed. A
+    # DEFERRED status implies that the last job has been deferred.
+    # For all other cases, there may be other permanently failed landing
+    # jobs that are no longer relevant to the status of the pull request as
+    # a whole.
+
+    # A CREATED status implies that the latest landing job is created.
+    # A SUBMITTED status implies that the latest landing job is submitted.
+    # An IN_PROGRESS status implies that the latest landing job is in progress.
+    # A FAILED status implies that the latest landing job has failed.
+
+    # Return the first encountered status in this list.
+    for _status in [
+        JobStatus.LANDED,
+        JobStatus.CREATED,
+        JobStatus.SUBMITTED,
+        JobStatus.IN_PROGRESS,
+        JobStatus.DEFERRED,
+        JobStatus.FAILED,
+        JobStatus.CANCELLED,
+    ]:
+        if landing_jobs_by_status[_status]:
+            return _status
 
 
 def get_jobs_for_pull(target_repo: Repo, pull_number: int) -> QuerySet[LandingJob]:
