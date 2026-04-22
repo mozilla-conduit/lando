@@ -16,7 +16,13 @@ from lando.main.scm import (
     AbstractSCM,
     SCMType,
 )
-from lando.utils.landing_checks import BugReferencesCheck
+from lando.utils.landing_checks import (
+    BugReferencesCheck,
+    CommitMessagesCheck,
+    PreventNSPRNSSCheck,
+    TryTaskConfigCheck,
+    WPTSyncCheck,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +62,15 @@ def get_default_hooks() -> list[str]:
         if hook.name != BugReferencesCheck.name()
     ]
 
+# Try repos require a slightly different set of hooks from the defaults for normal
+# repos.
+TRY_HOOKS = list(
+    # Set difference takes precedence over set union.
+    set(get_default_hooks())
+    - {CommitMessagesCheck.name()}
+    - {TryTaskConfigCheck.name()}
+    | {BugReferencesCheck.name()}
+)
 
 class Repo(BaseModel):
     """Represents the configuration of a particular repo."""
@@ -446,3 +461,15 @@ class Repo(BaseModel):
 
         # If the user is not a superuser, we can skip the DB round-trip.
         return permission in user.get_user_permissions()
+
+
+# Try repos require a slightly different set of hooks from the defaults for normal
+# repos. This needs to be below the definition of Repo, so we can use it via
+# get_default_hooks.
+TRY_HOOKS = list(
+    # Set difference takes precedence over set union.
+    set(get_default_hooks())
+    - {CommitMessagesCheck.name()}
+    - {TryTaskConfigCheck.name()}
+    | {BugReferencesCheck.name()}
+)

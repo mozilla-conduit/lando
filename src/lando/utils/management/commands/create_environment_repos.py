@@ -12,25 +12,11 @@ from lando.main.models import (
     SCM_LEVEL_3,
     Repo,
 )
-from lando.main.models.repo import get_default_hooks
+from lando.main.models.repo import TRY_HOOKS
 from lando.main.scm import GitSCM
-from lando.utils.landing_checks import (
-    BugReferencesCheck,
-    CommitMessagesCheck,
-    TryTaskConfigCheck,
-)
 
 ENVIRONMENTS = [e for e in Environment if not e.is_test and e.is_lower]
 
-# Try repos require a slightly different set of hooks from the defaults for normal
-# repos.
-TRY_HOOKS = list(
-    # Set difference takes precedence over set union.
-    set(get_default_hooks())
-    - {TryTaskConfigCheck.name()}
-    - {CommitMessagesCheck.name()}
-    | {BugReferencesCheck.name()}
-)
 # These repos are copied from the legacy repo "subsystem".
 REPOS = {
     Environment.local: [
