@@ -62,15 +62,6 @@ def get_default_hooks() -> list[str]:
         if hook.name != BugReferencesCheck.name()
     ]
 
-# Try repos require a slightly different set of hooks from the defaults for normal
-# repos.
-TRY_HOOKS = list(
-    # Set difference takes precedence over set union.
-    set(get_default_hooks())
-    - {CommitMessagesCheck.name()}
-    - {TryTaskConfigCheck.name()}
-    | {BugReferencesCheck.name()}
-)
 
 class Repo(BaseModel):
     """Represents the configuration of a particular repo."""
@@ -470,6 +461,8 @@ TRY_HOOKS = list(
     # Set difference takes precedence over set union.
     set(get_default_hooks())
     - {CommitMessagesCheck.name()}
+    - {PreventNSPRNSSCheck.name()}
     - {TryTaskConfigCheck.name()}
+    - {WPTSyncCheck.name()}
     | {BugReferencesCheck.name()}
 )
