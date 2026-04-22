@@ -36,6 +36,7 @@ from lando.main.models import (
 )
 from lando.main.models.landing_job import LandingJob, add_job_with_revisions
 from lando.main.models.profile import SCM_ALLOW_DIRECT_PUSH
+from lando.main.models.repo import TRY_HOOKS
 from lando.main.models.revision import Revision
 from lando.main.scm import SCMType
 from lando.main.scm.commit import CommitData
@@ -829,6 +830,7 @@ def mocked_repo_config_try(mock_repo_config):
         short_name="try",
         is_phabricator_repo=False,
         is_try=True,
+        hooks=TRY_HOOKS,
         force_push=True,
     )
 
