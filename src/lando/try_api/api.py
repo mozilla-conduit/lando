@@ -25,6 +25,7 @@ from lando.utils.exceptions import (
     ProblemException,
     problem_exception_handler,
 )
+from lando.utils.landing_checks import LandingChecks
 from lando.utils.ninja_auth import AccessTokenAuth
 
 logger = logging.getLogger(__name__)
@@ -178,17 +179,9 @@ def patches(
                 status=status,
             )
 
-    try_job = LandingJob.objects.create(
-        target_repo=repo,
-        requester_email=request.user.email,
-        target_commit_hash=target_commit_hash,
-        status=JobStatus.CREATED,
-    )
-
-    # Create Revision objects from patches and associate them with the job
-    revisions = []
+    # Create PatchHelpers and run the checks prior to creating any DB object.
     patch_helper_class = PATCH_HELPER_MAPPING[patches_request.patch_format]
-
+    patch_helpers = []
     for patch_no, patch_data in enumerate(patches_request.patches):
         # Decode the base64 patch data to bytes
         try:
@@ -202,19 +195,45 @@ def patches(
         # Create PatchHelper instance to parse the patch
         patch_io = io.BytesIO(decoded_patch_bytes)
         try:
-            patch_helper = patch_helper_class.from_bytes_io(patch_io)
+            ph = patch_helper_class.from_bytes_io(patch_io)
 
             # Extract patch information using PatchHelper
-            author_name, author_email = patch_helper.parse_author_information()
-            timestamp = patch_helper.get_timestamp()
+            author_name, author_email = ph.parse_author_information()
+            timestamp = ph.get_timestamp()
         except ValueError as exc:
             raise BadRequestProblemException(
                 title="Invalid patch data",
                 detail=f"Invalid patch data for patch {patch_no}",
             ) from exc
 
-        commit_message = patch_helper.get_commit_description()
-        diff = patch_helper.get_diff()
+        patch_helpers.append(ph)
+
+    landing_checks = LandingChecks(request.user.email, repo.name)
+    errors = landing_checks.run(
+        repo.hooks,
+        patch_helpers,
+    )
+
+    if any(errors):
+        bulleted_errors = "\n  - ".join(errors)
+        error_message = f"Patch failed checks:\n\n  - {bulleted_errors}"
+        raise BadRequestProblemException(
+            title="Errors found in pre-submission patch checks.",
+            detail=error_message,
+        )
+
+    try_job = LandingJob.objects.create(
+        target_repo=repo,
+        requester_email=request.user.email,
+        target_commit_hash=target_commit_hash,
+        status=JobStatus.CREATED,
+    )
+
+    # Create Revision objects from patches and associate them with the job.
+    revisions = []
+    for ph in patch_helpers:
+        commit_message = ph.get_commit_description()
+        diff = ph.get_diff()
 
         revision = Revision.new_from_patch(
             raw_diff=diff,
