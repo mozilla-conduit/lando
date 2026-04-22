@@ -9,6 +9,7 @@ import uuid
 from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
 from pathlib import Path
+from textwrap import dedent
 
 import pytest
 import requests
@@ -221,6 +222,33 @@ def normal_patch():
         return _patches[number]
 
     return _patch
+
+
+@pytest.fixture
+def diff_to_git_patch() -> Callable:
+    GIT_PATCH_TEMPLATE = dedent("""
+    From daf43dabd1cc2d4f386519d61eee6e7abb766108 Mon Sep 17 00:00:00 2001
+    From: {author}
+    Date: Wed, 26 Nov 2025 04:05:36 +0000
+    Subject: {commit_description}
+
+    ---
+
+    {diff}
+    -- 
+    """.rstrip()).strip()  # noqa: W291, `git` adds a trailing whitespace after `--`.
+
+    def _diff_to_git_patch(
+        diff: str,
+        commit_description: str = "commit description",
+        author: str = "A. U. Thor <author@example.net>",
+    ) -> str:
+        """Wrap a diff in a git patch header and footer."""
+        return GIT_PATCH_TEMPLATE.format(
+            author=author, commit_description=commit_description, diff=diff.strip()
+        )
+
+    return _diff_to_git_patch
 
 
 @pytest.fixture
