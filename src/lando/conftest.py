@@ -223,13 +223,17 @@ def normal_patch():
     return _patch
 
 
-@pytest.fixture
-def diff_to_git_patch() -> Callable:
-    GIT_PATCH_TEMPLATE = dedent("""
-    From daf43dabd1cc2d4f386519d61eee6e7abb766108 Mon Sep 17 00:00:00 2001
-    From: {author}
-    Date: Wed, 26 Nov 2025 04:05:36 +0000
-    Subject: {commit_description}
+GIT_PATCH_TEMPLATE = """
+From daf43dabd1cc2d4f386519d61eee6e7abb766108 Mon Sep 17 00:00:00 2001
+From: {author}
+Date: Wed, 26 Nov 2025 04:05:36 +0000
+Subject: {commit_description}
+
+---
+
+{diff}
+-- 
+""".strip()  # noqa: W291, `git` adds a trailing whitespace after `--`.
 
     ---
 
