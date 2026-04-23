@@ -222,27 +222,12 @@ def patches(
             detail=error_message,
         )
 
-    try_job = LandingJob.objects.create(
-        target_repo=repo,
-        requester_email=request.user.email,
-        target_commit_hash=target_commit_hash,
-        status=JobStatus.CREATED,
-    )
-
-    # Create Revision objects from patches and associate them with the job.
-    revisions = []
-    for ph in patch_helpers:
-        commit_message = ph.get_commit_description()
-        diff = ph.get_diff()
-
-        revision = Revision.new_from_patch(
-            raw_diff=diff,
-            patch_data={
-                "author_name": author_name,
-                "author_email": author_email,
-                "commit_message": commit_message,
-                "timestamp": timestamp,
-            },
+    with transaction.atomic():
+        try_job = LandingJob.objects.create(
+            target_repo=repo,
+            requester_email=request.user.email,
+            target_commit_hash=target_commit_hash,
+            status=JobStatus.CREATED,
         )
         revisions.append(revision)
 
