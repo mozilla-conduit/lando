@@ -236,9 +236,8 @@ Subject: {commit_description}
 """.strip()  # noqa: W291, `git` adds a trailing whitespace after `--`.
 
 
-    {diff}
-    -- 
-    """.rstrip()).strip()  # noqa: W291, `git` adds a trailing whitespace after `--`.
+@pytest.fixture
+def diff_to_git_patch() -> Callable:
 
     def _diff_to_git_patch(
         diff: str,
