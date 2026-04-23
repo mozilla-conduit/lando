@@ -3,9 +3,19 @@ import os
 from lando.main.logging import MozLogFormatter
 from lando.settings import *  # noqa: F403
 
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    },
+    "db": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "lando_db_cache",
+    },
+}
+
 STORAGES = {
     "staticfiles": {
-        "BACKEND": "storages.backends.gcloud.GoogleCloudStorage",
+        "BACKEND": "lando.main.support.CachedGoogleCloudStorage",
     },
 }
 
@@ -17,8 +27,10 @@ GS_BUCKET_NAME = os.getenv("GS_BUCKET_NAME")
 GS_PROJECT_ID = os.getenv("GS_PROJECT_ID")
 GS_QUERYSTRING_AUTH = False
 
+COMPRESS_CACHE_BACKEND = "db"
 COMPRESS_URL = STATIC_URL
-COMPRESS_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
+COMPRESS_STORAGE = "lando.main.support.CachedGoogleCloudStorage"
+COMPRESS_OFFLINE = True
 COMPRESS_OFFLINE_MANIFEST_STORAGE = COMPRESS_STORAGE
 SENTRY_DSN = os.getenv("SENTRY_DSN")
 
