@@ -235,7 +235,6 @@ Subject: {commit_description}
 -- 
 """.strip()  # noqa: W291, `git` adds a trailing whitespace after `--`.
 
-    ---
 
     {diff}
     -- 
