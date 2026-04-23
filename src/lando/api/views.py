@@ -73,7 +73,7 @@ def generate_warnings_and_blockers(
     # mind for the future.
     patch_helper = PullRequestPatchHelper(pull_request)
     author_email = pull_request.author[1]
-    landing_checks = LandingChecks(author_email, str(target_repo.name))
+    landing_checks = LandingChecks(author_email, target_repo.name)
     blockers = landing_checks.run(
         target_repo.hooks,
         [patch_helper],
