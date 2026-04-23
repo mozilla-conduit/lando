@@ -874,9 +874,9 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_phabricator_r
         result["status"] == JobStatus.SUBMITTED
     ), f"Invalid status in GET /landing_jobs/{job.id} response"
 
-    assert result[
-        "revisions"
-    ], f"Missing or empty revisions list in GET /landing_jobs/{job.id} response"
+    assert (
+        len(result["revisions"]) == 1
+    ), f"Revisions list of unexpected length in GET /landing_jobs/{job.id} response"
     assert (
         result["revisions"][0]["url"] == r1["uri"]
     ), "Incorrect revision URL in GET /landing_jobs/{job.id} response"
@@ -885,13 +885,13 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_phabricator_r
 
     assert (
         result["revisions"][0]["author_email"] == db_revision.author_email
-    ), "Missing revision author email in GET /landing_jobs/{job.id} response"
+    ), f"Incorrect revision author email in GET /landing_jobs/{job.id} response"
     assert (
         result["revisions"][0]["author_name"] == db_revision.author_name
-    ), "Missing revision author name in GET /landing_jobs/{job.id} response"
+    ), f"Incorrect revision author name in GET /landing_jobs/{job.id} response"
     assert (
         result["revisions"][0]["commit_message"] == db_revision.commit_message
-    ), "Missing revision commitmessage in GET /landing_jobs/{job.id} response"
+    ), f"Incorrect revision commitmessage in GET /landing_jobs/{job.id} response"
 
     # Cancel job.
 
