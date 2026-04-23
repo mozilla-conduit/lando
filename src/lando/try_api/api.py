@@ -214,7 +214,7 @@ def patches(
         patch_helpers,
     )
 
-    if any(errors):
+    if errors:
         bulleted_errors = "\n  - ".join(errors)
         error_message = f"Patch failed checks:\n\n  - {bulleted_errors}"
         raise BadRequestProblemException(
