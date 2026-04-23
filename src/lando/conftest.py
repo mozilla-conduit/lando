@@ -894,10 +894,12 @@ def hg_server(hg_test_bundle: pathlib.Path, tmpdir: os.PathLike, worker_id: str)
 def create_scm_commit(
     create_git_commit: Callable, create_hg_commit: Callable
 ) -> Callable:
-    def _create_commit(clone_path: Path) -> str:
+    def _create_commit(clone_path: Path, signed: bool = False) -> str:
         if GitSCM.repo_is_supported(str(clone_path)):
-            return create_git_commit(clone_path)
+            return create_git_commit(clone_path, signed)
         if HgSCM.repo_is_supported(str(clone_path)):
+            if signed:
+                raise ValueError(f"Cannot create signed HG commits for {clone_path}")
             return create_hg_commit(clone_path)
         raise ValueError(f"Cannot determine which SCM to use for {clone_path}")
 
@@ -905,21 +907,49 @@ def create_scm_commit(
 
 
 @pytest.fixture
-def create_git_commit(request: pytest.FixtureRequest) -> Callable:
-    def _create_git_commit(clone_path: Path) -> str:
+def git_signing_key(tmp_path: Path) -> Path:
+    """
+    Generate an SSH key to sign git commits.
+
+    Return a tuple of the Path to the private key.
+    """
+    key_path = tmp_path / "git_signing_key.pem"
+
+    cmd = ("ssh-keygen", "-t", "ed25519", "-P", "", "-f", str(key_path))
+    subprocess.run(cmd, cwd=str(tmp_path), check=True)
+
+    return key_path
+
+
+@pytest.fixture
+def create_git_commit(
+    request: pytest.FixtureRequest, git_signing_key: tuple[Path, str]
+) -> Callable:
+    def _create_git_commit(clone_path: Path, signed: bool = False) -> str:
         new_file = clone_path / str(uuid.uuid4())
         new_file.write_text(request.node.name, encoding="utf-8")
 
         subprocess.run(["git", "add", new_file.name], cwd=str(clone_path), check=True)
+        commit_command = [
+            "git",
+            "commit",
+            "-m",
+            f"No bug: adding {new_file} (signed: {signed})",
+            "--author",
+            f"{request.node.name} <pytest@lando>",
+        ]
+
+        if signed:
+            subprocess.run(
+                ("git", "config", "gpg.format", "ssh"),
+                cwd=str(clone_path),
+                check=True,
+            )
+
+            commit_command.append(f"-S{git_signing_key}")
+
         subprocess.run(
-            [
-                "git",
-                "commit",
-                "-m",
-                f"No bug: adding {new_file}",
-                "--author",
-                f"{request.node.name} <pytest@lando>",
-            ],
+            commit_command,
             cwd=str(clone_path),
             check=True,
         )

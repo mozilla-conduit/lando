@@ -18,6 +18,7 @@ from lando.utils.landing_checks import (
     PreventDotGithubCheck,
     PreventHgDirectoryCheck,
     PreventNSPRNSSCheck,
+    PreventSignedCommitsCheck,
     PreventSubmodulesCheck,
     TryTaskConfigCheck,
     WPTSyncCheck,
@@ -253,6 +254,30 @@ def test_check_commit_message_invalid_message(
     assert assessor.run_patch_collection_checks(
         patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
     ) == [return_string + commit_message], error_message
+
+
+@pytest.mark.parametrize("signed_disallowed", (False, True))
+def test_prevent_signed_commits_check(signed_disallowed: bool):
+    patch = GIT_PATCH_FILENAME_TEMPLATE.format(filename="somefile.txt")
+    patch_helpers = [GitPatchHelper.from_string_io(io.StringIO(patch))]
+    patch_helpers[0].metadata.signature = signed_disallowed
+
+    assessor = PatchCollectionAssessor(
+        patch_helpers=patch_helpers, push_user_email="user@example.com"
+    )
+
+    errors = assessor.run_patch_collection_checks(
+        patch_collection_checks=[PreventSignedCommitsCheck], patch_checks=[]
+    )
+
+    if signed_disallowed:
+        return_string = (
+            "Patch introduces one or more signed commits: "
+            + patch_helpers[0].get_commit_title()
+        )
+        assert errors == [return_string], "Unexpected error messages for signed commit"
+    else:
+        assert not errors, "Unexpected errors for unsigned commit"
 
 
 @pytest.mark.parametrize(

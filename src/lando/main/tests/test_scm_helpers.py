@@ -460,7 +460,7 @@ def test_scm_get_patch_helpers_for_commits(
     hg_clone: os.PathLike,
     request: pytest.FixtureRequest,
     create_scm_commit: Callable,
-    repo_type: str,
+    repo_type: SCMType,
 ):
     if repo_type == SCMType.GIT:
         clone_path = tmp_path / request.node.name
@@ -505,6 +505,75 @@ def test_scm_get_patch_helpers_for_commits(
             assert (
                 len(patch_helpers) == 2
             ), "Unexpected number of PatchHelpers: there shouldn't be one for the merge commit."
+
+        expected_sig = False
+
+    assert all(
+        ph.metadata.signature == expected_sig for ph in patch_helpers
+    ), f"Unexpected signature validity for {repo_type}"
+
+
+@pytest.mark.parametrize(
+    "sign_base,sign_new",
+    (
+        (False, False),
+        (False, True),
+        # We should really not ever have signed commits in the base,
+        # but let's make sure we have a consistent behaviour nonetheless.
+        (True, False),
+        (True, True),
+    ),
+)
+def test_scm_get_patch_helper_signed_git_commit(
+    tmp_path: Path,
+    git_repo: Path,
+    request: pytest.FixtureRequest,
+    create_scm_commit: Callable,
+    sign_base: bool,
+    sign_new: bool,
+):
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+
+    with scm.for_push("pushuser@example.net"):
+        # Create a conditionally-signed base. It should not be considered by the hook.
+        create_scm_commit(clone_path, signed=sign_base)
+        first_commit = scm.head_ref()
+        scm.push(str(git_repo))
+
+        # The SCMs don't have a plain checkout method, but that's what we need here.
+        scm._git_run("checkout", "-b", "new-branch", "origin/main", cwd=scm.path)
+
+        create_scm_commit(clone_path, signed=sign_new)
+        create_scm_commit(clone_path, signed=False)
+
+        # Perform a merge using SCM-specific commands.
+        scm.merge_onto("test merge", first_commit, None)
+
+        # Update origin/main post-push, so the local changes are only the merged commit.
+        scm._git_run("fetch", cwd=scm.path)
+
+        new_commits = scm.describe_local_changes()
+        assert len(new_commits) == 3, "Unexpected number of commits"
+
+        # Flatten the filter() Iterable, so we can count the number of elements.
+        patch_helpers = list(scm.get_patch_helpers_for_commits(new_commits))
+
+        assert (
+            len(patch_helpers) == 2
+        ), "Unexpected number of PatchHelpers: only 2 non-merge commits should be found."
+
+    if sign_new:
+        # Only new commits from the merge should be flagged.
+        assert any(
+            ph.metadata.signature for ph in patch_helpers
+        ), "The signed commit was not detected"
+    else:
+        assert not any(
+            ph.metadata.signature for ph in patch_helpers
+        ), "A previously signed commit was erroneously detected"
 
 
 def test_patchhelper_write_no_start_line():

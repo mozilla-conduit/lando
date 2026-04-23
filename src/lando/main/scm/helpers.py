@@ -4,6 +4,7 @@ import io
 import math
 import re
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from datetime import datetime
 from email.message import EmailMessage
 from email.policy import (
@@ -12,6 +13,7 @@ from email.policy import (
 from email.utils import (
     parseaddr,
 )
+from typing import Self
 
 from typing_extensions import override
 
@@ -108,6 +110,12 @@ def get_timestamp_from_hg_date_header(date_header: str) -> str:
     return date_header.split(" ")[0]
 
 
+@dataclass
+class PatchHelperMetadata:
+
+    signature: bool = False
+
+
 class PatchHelper(ABC):
     """Base class for parsing patches/exports."""
 
@@ -117,14 +125,36 @@ class PatchHelper(ABC):
     # - subject
     headers: dict[str, str]
 
+    metadata: PatchHelperMetadata
+
     @classmethod
     @abstractmethod
-    def from_string_io(cls, string_io: io.StringIO) -> "PatchHelper":
+    def from_string_io(cls, string_io: io.StringIO, **kwargs) -> Self:
+        """Build a PatchHelper from a StringIO view of a patch.
+
+        Parameters:
+
+        string_io: io.StringIO
+            Patch data
+
+        **kwargs: dict
+            Additional arguments for the PatchHelperMetadata
+        """
         raise NotImplementedError("`from_string_io` not implemented.")
 
     @classmethod
     @abstractmethod
-    def from_bytes_io(cls, bytes_io: io.BytesIO) -> "PatchHelper":
+    def from_bytes_io(cls, bytes_io: io.BytesIO, **kwargs) -> Self:
+        """Build a PatchHelper from a BytesIO view of a patch.
+
+        Parameters:
+
+        string_io: io.StringIO
+            Patch data
+
+        **kwargs: dict
+            Additional arguments for the PatchHelperMetadata
+        """
         raise NotImplementedError("`from_bytes_io` not implemented.")
 
     def __init__(self):
@@ -147,6 +177,14 @@ class PatchHelper(ABC):
             name = name.decode("utf-8")
 
         self.headers[name.lower()] = value
+
+    def get_commit_title(self) -> str:
+        """Returns the commit summary (first line)."""
+        desc = self.get_commit_description()
+        if desc:
+            return desc.split("\n")[0]
+        # This should not happen, but if it does `grep` will lead us here.
+        return "(empty commit description)"
 
     @abstractmethod
     def get_commit_description(self) -> str:
@@ -191,17 +229,18 @@ class HgPatchHelper(PatchHelper):
 
     @classmethod
     @override
-    def from_string_io(cls, string_io: io.StringIO) -> "HgPatchHelper":
+    def from_string_io(cls, string_io: io.StringIO, **kwargs) -> Self:
         return cls(string_io)
 
     @classmethod
     @override
-    def from_bytes_io(cls, bytes_io: io.BytesIO) -> "PatchHelper":
+    def from_bytes_io(cls, bytes_io: io.BytesIO, **kwargs) -> Self:
         raise NotImplementedError("`from_bytes_io` not implemented for HgPatchHelper.")
 
-    def __init__(self, fileobj: io.StringIO):
+    def __init__(self, fileobj: io.StringIO, **kwargs):
         super().__init__()
         self.patch = fileobj
+        self.metadata = PatchHelperMetadata(**kwargs)
         self.header_end_line_no = 0
         self._parse_header()
 
@@ -330,19 +369,22 @@ class GitPatchHelper(PatchHelper):
 
     @classmethod
     @override
-    def from_string_io(cls, string_io: io.StringIO) -> "GitPatchHelper":
+    def from_string_io(cls, string_io: io.StringIO, **kwargs) -> Self:
         patch_bytes = string_io.read().encode("utf-8", errors="surrogateescape")
-        return cls(patch_bytes)
+        instance = cls(patch_bytes, **kwargs)
+        return instance
 
     @classmethod
     @override
-    def from_bytes_io(cls, bytes_io: io.BytesIO) -> "GitPatchHelper":
+    def from_bytes_io(cls, bytes_io: io.BytesIO, **kwargs) -> Self:
         patch_bytes = bytes_io.read()
-        return cls(patch_bytes)
+        instance = cls(patch_bytes, **kwargs)
+        return instance
 
-    def __init__(self, patch_bytes: bytes):
+    def __init__(self, patch_bytes: bytes, **kwargs):
         super().__init__()
         self.patch_bytes = patch_bytes
+        self.metadata = PatchHelperMetadata(**kwargs)
 
         self.message = email.message_from_bytes(
             patch_bytes, policy=default_email_policy

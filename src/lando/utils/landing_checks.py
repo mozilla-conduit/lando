@@ -561,6 +561,34 @@ class CommitMessagesCheck(PatchCollectionCheck):
 
 
 @dataclass
+class PreventSignedCommitsCheck(PatchCollectionCheck):
+    """Prevent patches from introducing signed commits."""
+
+    signed_commits: list[str] = field(default_factory=list)
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PreventSignedCommitsCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Prevent patches from introducing signed commits."
+
+    @override
+    def next_diff(self, patch_helper: PatchHelper):
+        if patch_helper.metadata.signature:
+            self.signed_commits.append(patch_helper.get_commit_title())
+
+    def result(self) -> str | None:
+        if self.signed_commits:
+            return "Patch introduces one or more signed commits: " + ", ".join(
+                self.signed_commits
+            )
+
+
+@dataclass
 class WPTSyncCheck(PatchCollectionCheck):
     """Check the WPTSync bot is only pushing changes to relevant subset of the tree."""
 
