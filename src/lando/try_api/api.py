@@ -6,6 +6,7 @@ from typing import Annotated
 
 from django.core.exceptions import PermissionDenied
 from django.core.handlers.wsgi import WSGIRequest
+from django.db import transaction
 from django.http import HttpResponse, HttpResponsePermanentRedirect
 from django.shortcuts import redirect
 from ninja import NinjaAPI, Schema
@@ -229,12 +230,28 @@ def patches(
             target_commit_hash=target_commit_hash,
             status=JobStatus.CREATED,
         )
-        revisions.append(revision)
 
-    add_revisions_to_job(revisions, try_job)
+        # Create Revision objects from patches and associate them with the job.
+        revisions = []
+        for ph in patch_helpers:
+            commit_message = ph.get_commit_description()
+            diff = ph.get_diff()
 
-    try_job.status = JobStatus.SUBMITTED
-    try_job.save()
+            revision = Revision.new_from_patch(
+                raw_diff=diff,
+                patch_data={
+                    "author_name": author_name,
+                    "author_email": author_email,
+                    "commit_message": commit_message,
+                    "timestamp": timestamp,
+                },
+            )
+            revisions.append(revision)
+
+        add_revisions_to_job(revisions, try_job)
+
+        try_job.status = JobStatus.SUBMITTED
+        try_job.save()
 
     return 201, JobResponse(
         id=try_job.id,
