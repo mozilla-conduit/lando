@@ -9,7 +9,6 @@ import uuid
 from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
 from pathlib import Path
-from textwrap import dedent
 
 import pytest
 import requests
