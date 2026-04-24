@@ -263,3 +263,27 @@ def test_landing_revision_redirect(
     assert (
         response.url == f"/D{job.revisions[0].revision_id}/landings/{job.id}/"
     ), "Landing job view should redirect to revision URL"
+
+
+@pytest.mark.django_db
+def test_landing_no_revision_no_redirect(
+    client: Client,
+    repo_mc: Callable,
+    make_landing_job: Callable,
+):
+    # Create a job and actions
+    repo = repo_mc(SCMType.GIT)
+    jobs = [
+        make_landing_job(target_repo=repo, status=JobStatus.SUBMITTED, revisions=[])
+    ]
+
+    job = jobs[0]
+
+    # Fetch job status.
+    response = client.get(
+        f"/landings/{job.id}/",
+    )
+
+    assert (
+        response.status_code == 200
+    ), "Landing job view without revision should render without a redirect"

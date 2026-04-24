@@ -1358,7 +1358,7 @@ def make_landing_job(repo_mc: Repo) -> Callable:
             "target_repo": target_repo,
             **kwargs,
         }
-        if not revisions:
+        if revisions is None:
             revisions = []
             for revision_id, diff_id in landing_path:
                 revision = Revision.one_or_none(revision_id=revision_id)
