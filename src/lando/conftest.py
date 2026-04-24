@@ -36,6 +36,7 @@ from lando.main.models import (
 )
 from lando.main.models.landing_job import LandingJob, add_job_with_revisions
 from lando.main.models.profile import SCM_ALLOW_DIRECT_PUSH
+from lando.main.models.repo import TRY_HOOKS
 from lando.main.models.revision import Revision
 from lando.main.scm import SCMType
 from lando.main.scm.commit import CommitData
@@ -220,6 +221,35 @@ def normal_patch():
         return _patches[number]
 
     return _patch
+
+
+GIT_PATCH_TEMPLATE = """
+From daf43dabd1cc2d4f386519d61eee6e7abb766108 Mon Sep 17 00:00:00 2001
+From: {author}
+Date: Wed, 26 Nov 2025 04:05:36 +0000
+Subject: {commit_description}
+
+---
+
+{diff}
+-- 
+""".strip()  # noqa: W291, `git` adds a trailing whitespace after `--`.
+
+
+@pytest.fixture
+def diff_to_git_patch() -> Callable:
+
+    def _diff_to_git_patch(
+        diff: str,
+        commit_description: str = "commit description",
+        author: str = "A. U. Thor <author@example.net>",
+    ) -> str:
+        """Wrap a diff in a git patch header and footer."""
+        return GIT_PATCH_TEMPLATE.format(
+            author=author, commit_description=commit_description, diff=diff.strip()
+        )
+
+    return _diff_to_git_patch
 
 
 @pytest.fixture
@@ -829,6 +859,7 @@ def mocked_repo_config_try(mock_repo_config):
         short_name="try",
         is_phabricator_repo=False,
         is_try=True,
+        hooks=TRY_HOOKS,
         force_push=True,
     )
 
