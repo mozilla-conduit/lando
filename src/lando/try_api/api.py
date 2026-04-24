@@ -252,7 +252,6 @@ def patches(
 
         add_revisions_to_job(revisions, try_job)
 
-        try_job.status = JobStatus.SUBMITTED
         try_job.save()
 
     return 201, JobResponse(
