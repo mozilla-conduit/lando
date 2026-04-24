@@ -228,7 +228,9 @@ def patches(
             target_repo=repo,
             requester_email=request.user.email,
             target_commit_hash=target_commit_hash,
-            status=JobStatus.CREATED,
+            # We are in a transaction, so we can mark this job as SUBMITTED rather than
+            # having a two-step process starting with CREATED.
+            status=JobStatus.SUBMITTED,
         )
 
         # Create Revision objects from patches and associate them with the job.
