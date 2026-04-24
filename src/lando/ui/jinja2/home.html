@@ -1,7 +1,7 @@
 {% extends "partials/layout.html" %}
 {% block main %}
     <main class="container content">
-        <div id="home">
+        <section id="home">
             <h1>Welcome to Lando</h1>
             <p class="bordered">
                 Lando is an automated code lander for Mozilla.
@@ -22,6 +22,28 @@
                 For more information on Lando, consult the <a href="http://moz-conduit.readthedocs.io/en/latest/lando-user.html">user
                 guide</a>.
             </p>
-        </div>
+        </section>
+        {% if user_is_authenticated and (pending_jobs|default(False) or final_jobs|default(False)) %}
+            <section class="StackPage">
+                <h1>Your recent jobs</h1>
+                {% set embedded = True %}
+                {% if pending_jobs %}
+                    <h2>Pending</h2>
+                    <div class="StackPage-landingQueue StackPage-timeline">
+                        {% for job in pending_jobs %}
+                            {% include "partials/job.html" %}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                {% if final_jobs %}
+                    <h2>Finished (last 7 days)</h2>
+                    <div class="StackPage-landingQueue StackPage-timeline">
+                        {% for job in final_jobs %}
+                            {% include "partials/job.html" %}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </section>
+        {% endif %}
     </main>
 {% endblock %}
