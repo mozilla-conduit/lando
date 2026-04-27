@@ -63,7 +63,8 @@
             {% elif job.status.lower() == 'submitted' and treestatus %}
                 <div>
                     <p>
-                        <strong>Tree Status for <code>{{ treestatus.tree }}</code>:</strong>
+                        <strong><a href="https://firefox-source-docs.mozilla.org/testing/automated-testing/tree-closure.html"
+   target="_blank">Treestatus</a> for <code>{{ treestatus.tree }}</code>:</strong>
                         <span class="{{ treestatus.status|treestatus_to_status_badge_class }}">{{ treestatus.status }}</span>
                         {% if treestatus.reason %}({{ treestatus.reason }}){% endif %}
                     </p>

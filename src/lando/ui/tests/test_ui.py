@@ -36,8 +36,8 @@ def test_queued_landing_job_view(
     page_html = _fetch_job_view(client, jobs[0])
     assert "ahead in the queue" not in page_html, "Unexpected queue state in job view"
     assert re.search(
-        f"Tree Status for.*{repo.name}.*\n.*closed", page_html
-    ), "Missing TreeStatus information in job view"
+        f"Treestatus.*{repo.name}.*\n.*closed", page_html
+    ), "Missing Treestatus information in job view"
 
     page_html = _fetch_job_view(client, jobs[1])
     assert (
