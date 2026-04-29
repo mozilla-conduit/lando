@@ -2,7 +2,7 @@ import logging
 from abc import ABC
 
 from django.core.handlers.wsgi import WSGIRequest
-from django.http import HttpResponseRedirect
+from django.http import HttpResponsePermanentRedirect, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
 
@@ -29,26 +29,7 @@ class BaseJobView(LandoView, ABC):
         context = {"job": job}
 
         if job.status not in JobStatus.final():
-            try:
-                worker = Worker.objects.get(
-                    applicable_repos=job.target_repo,
-                    type=self.worker_type,
-                )
-            except Worker.DoesNotExist:
-                queue = []
-            else:
-                queue_query = self.job_type.job_queue_query(
-                    repositories=worker.applicable_repos.all(),
-                    # We set the grace_seconds to 0, so all current jobs are shown, including
-                    # those in the grace period, so they don't appear unannounced later.
-                    grace_seconds=0,
-                )
-                queue = list(queue_query.all())
-                # Only include jobs before the current landing_job in the queue
-                # I'd rather do this DB-side, but I couldn't work out how.
-                if job in queue:
-                    queue = queue[: queue.index(job)]
-            context["queue"] = queue
+            context["queue"] = self.worker_queue(job)
 
         return TemplateResponse(
             request=request,
@@ -56,11 +37,52 @@ class BaseJobView(LandoView, ABC):
             context=context,
         )
 
+    # XXX: this should be on the worker
+    def worker_queue(self, job: BaseJob, **kwargs) -> list[BaseJob]:
+        """
+        Return a list of the jobs ahead of the passed job for the associated worker.
 
-class LandingJobView(LandoView):
+        This relies on `self.worker_type` to find the associated worker, and
+        `self.job_type` to find the jobs of the same type.
+
+        Parameters:
+
+        job: BaseJob
+            the job to look up in the queue
+
+        **kwargs (dict): Additional arguments for the queue query
+
+        Returns:
+            list[BaseJob]: an ordered list of the jobs ahead
+        """
+        try:
+            worker = Worker.objects.get(
+                applicable_repos=job.target_repo,
+                type=self.worker_type,
+            )
+        except Worker.DoesNotExist:
+            return []
+
+        queue_query = self.job_type.job_queue_query(
+            repositories=worker.applicable_repos.all(),
+            **kwargs,
+        )
+        queue = list(queue_query.all())
+        # Only include jobs before the current landing_job in the queue
+        # I'd rather do this DB-side, but I couldn't work out how.
+        if job in queue:
+            queue = queue[: queue.index(job)]
+
+        return queue
+
+
+class LandingJobView(BaseJobView):
+    job_type = LandingJob
+    worker_type = WorkerType.LANDING
+
     def get(
         self, request: WSGIRequest, job_id: int, revision_id: int | None
-    ) -> TemplateResponse | HttpResponseRedirect:
+    ) -> TemplateResponse | HttpResponsePermanentRedirect | HttpResponseRedirect:
         landing_job = get_object_or_404(LandingJob, id=job_id)
 
         # Redirect to the canonical URL in case the revision is missing or
@@ -85,25 +107,9 @@ class LandingJobView(LandoView):
         if landing_job.status not in JobStatus.final():
             # There's only one Landing worker for each repo.
 
-            try:
-                landing_worker = Worker.objects.get(
-                    applicable_repos=landing_job.target_repo, type=WorkerType.LANDING
-                )
-            except Worker.DoesNotExist:
-                queue = []
-            else:
-                queue_query = LandingJob.job_queue_query(
-                    repositories=landing_worker.applicable_repos.all(),
-                    # We set the grace_seconds to 0, so all current jobs are shown, including
-                    # those in the grace period, so they don't appear unannounced later.
-                    grace_seconds=0,
-                )
-                queue = list(queue_query.all())
-                # Only include jobs before the current landing_job in the queue
-                # I'd rather do this DB-side, but I couldn't work out how.
-                if landing_job in queue:
-                    queue = queue[: queue.index(landing_job)]
-            context["queue"] = queue
+            # We set the grace_seconds to 0, so all current jobs are shown, including
+            # those in the grace period, so they don't appear unannounced later.
+            context["queue"] = self.worker_queue(landing_job, grace_seconds=0)
 
         return TemplateResponse(
             request=request,
