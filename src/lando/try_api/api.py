@@ -27,11 +27,11 @@ from lando.utils.exceptions import (
     problem_exception_handler,
 )
 from lando.utils.landing_checks import LandingChecks
-from lando.utils.ninja_auth import AccessTokenAuth
+from lando.utils.ninja_auth import PhabricatorTokenAuth
 
 logger = logging.getLogger(__name__)
 
-api = NinjaAPI(auth=AccessTokenAuth(), urls_namespace="try")
+api = NinjaAPI(auth=PhabricatorTokenAuth(), urls_namespace="try")
 
 
 @api.exception_handler(PermissionDenied)
@@ -263,7 +263,7 @@ def patches(
 # Mapping from legacy API paths.
 #
 
-legacy_api = NinjaAPI(auth=AccessTokenAuth(), urls_namespace="legacy-try")
+legacy_api = NinjaAPI(auth=PhabricatorTokenAuth(), urls_namespace="legacy-try")
 
 
 @legacy_api.post(
