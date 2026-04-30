@@ -63,16 +63,20 @@ class LandingJobView(LandoView):
     ) -> TemplateResponse | HttpResponseRedirect:
         landing_job = get_object_or_404(LandingJob, id=job_id)
 
-        # Redirect to the canonical URL in case the revision is missing or
-        # incorrect.
-        if (
-            not revision_id
-            or (not landing_job.revisions.filter(revision_id=revision_id))
-        ) and (revision_id := landing_job.revisions[0].revision_id):
+        # Find the tip revision for the job.
+        job_tip_revision = (
+            landing_job.revisions.exists() and landing_job.revisions[0].revision_id
+        )
+
+        revision_in_job = revision_id and landing_job.revisions.filter(
+            revision_id=revision_id
+        )
+
+        # Make sure the revision_id in the URL matches one of the revisions in
+        # the stack, or redirect to the tip revision, if it exists.
+        if not revision_in_job and job_tip_revision:
             return redirect(
-                "revision-jobs-page",
-                job_id=job_id,
-                revision_id=revision_id,
+                "revision-jobs-page", job_id=job_id, revision_id=job_tip_revision
             )
 
         context = {
@@ -83,9 +87,8 @@ class LandingJobView(LandoView):
         }
 
         if landing_job.status not in JobStatus.final():
-            # There's only one Landing worker for each repo.
-
             try:
+                # There's only one Landing worker for each repo.
                 landing_worker = Worker.objects.get(
                     applicable_repos=landing_job.target_repo, type=WorkerType.LANDING
                 )
