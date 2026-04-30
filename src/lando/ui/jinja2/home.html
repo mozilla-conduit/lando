@@ -34,6 +34,8 @@
                             {% include "partials/job.html" %}
                         {% endfor %}
                     </div>
+                {% else %}
+                    <p>You don't have any pending job currently.</p>
                 {% endif %}
                 {% if final_jobs %}
                     <h2>Finished (last 7 days)</h2>
