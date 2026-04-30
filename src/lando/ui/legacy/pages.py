@@ -14,7 +14,7 @@ class IndexView(LandoView):
     MAX_JOBS_HISTORY = 10
 
     def get(self, request: WSGIRequest) -> TemplateResponse:
-        context = {}
+        context = {"MAX_JOBS_HISTORY": self.MAX_JOBS_HISTORY}
         if request.user.is_authenticated:
             context["pending_jobs"] = LandingJob.objects.filter(
                 requester_email=request.user.email, status__in=JobStatus.pending()
