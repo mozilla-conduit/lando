@@ -22,8 +22,6 @@ class IndexView(LandoView):
             context["final_jobs"] = LandingJob.objects.filter(
                 requester_email=request.user.email,
                 status__in=JobStatus.final(),
-                updated_at__gt=datetime.datetime.now()
-                - datetime.timedelta(days=self.FINAL_JOBS_MAX_DAYS),
-            )
+            ).order_by("-updated_at")[: self.MAX_JOBS_HISTORY]
 
         return TemplateResponse(request=request, template="home.html", context=context)
