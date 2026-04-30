@@ -23,7 +23,7 @@
                 guide</a>.
             </p>
         </section>
-        {% if user_is_authenticated and (pending_jobs|default(False) or final_jobs|default(False)) %}
+        {% if user_is_authenticated and (pending_jobs|default([]) or final_jobs|default([])) %}
             <section class="StackPage">
                 <h1>Your recent jobs</h1>
                 {% set embedded = True %}
