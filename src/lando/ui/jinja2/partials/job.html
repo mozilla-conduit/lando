@@ -60,7 +60,7 @@
                         {{ treeherder_link(job.landed_treeherder_revision, job.target_repo, "Treeherder") |safe }}
                     {% endif %}
                 </p>
-            {% elif job.status.lower() == 'submitted' and treestatus %}
+            {% elif job.status.lower() == 'submitted' and treestatus and not embedded %}
                 <div>
                     <p>
                         <strong><a href="https://firefox-source-docs.mozilla.org/testing/automated-testing/tree-closure.html"
