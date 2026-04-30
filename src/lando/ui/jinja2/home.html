@@ -44,6 +44,8 @@
                             {% include "partials/job.html" %}
                         {% endfor %}
                     </div>
+                {% else %}
+                    <p>You haven't submitted any job yet.</p>
                 {% endif %}
             </section>
         {% endif %}
