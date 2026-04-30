@@ -29,7 +29,6 @@
                 {% set embedded = True %}
                 <h2>Pending</h2>
                 {% if pending_jobs %}
-                    <h2>Pending</h2>
                     <div class="StackPage-landingQueue StackPage-timeline">
                         {% for job in pending_jobs %}
                             {% include "partials/job.html" %}
