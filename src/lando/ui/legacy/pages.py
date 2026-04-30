@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class IndexView(LandoView):
-    FINAL_JOBS_MAX_DAYS = 7
+    MAX_JOBS_HISTORY = 10
 
     def get(self, request: WSGIRequest) -> TemplateResponse:
         context = {}
