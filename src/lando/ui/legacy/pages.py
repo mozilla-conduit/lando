@@ -1,4 +1,3 @@
-import datetime
 import logging
 
 from django.core.handlers.wsgi import WSGIRequest
