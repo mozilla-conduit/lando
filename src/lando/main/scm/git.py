@@ -489,17 +489,37 @@ class GitSCM(AbstractSCM):
         return self.head_ref()
 
     @override
+    def maintenance(self) -> None:
+        """Delete leftover `lando-<timestamp>` work branches.
+
+        Each landing creates a fresh work branch in `update_repo`, and they
+        accumulate on disk indefinitely. Idle-time cleanup keeps the local
+        branch list small without affecting per-job latency.
+        """
+        branches = self._git_run(
+            "for-each-ref",
+            "--format=%(refname:short)",
+            "refs/heads/lando-*",
+            cwd=self.path,
+        ).splitlines()
+        if not branches:
+            return
+
+        # `git branch -D` refuses to delete the currently checked-out branch,
+        # so move off any `lando-*` branch first.
+        if self.get_current_branch().startswith("lando-"):
+            self._git_run("checkout", "--force", self.default_branch, cwd=self.path)
+
+        self._git_run("branch", "-D", *branches, cwd=self.path)
+
+    @override
     def clean_repo(
         self,
         *,
-        strip_non_public_commits: bool = True,
         attributes_override: str | None = None,
     ):
         """Reset the local repository to the origin"""
-        if strip_non_public_commits:
-            self._git_run(
-                "reset", "--hard", f"origin/{self.default_branch}", cwd=self.path
-            )
+        self._git_run("reset", "--hard", f"origin/{self.default_branch}", cwd=self.path)
 
         # We need to differentiate between None and "" here, so we know when we were
         # explicitly given an empty string.

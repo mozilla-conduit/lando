@@ -328,7 +328,7 @@ class HgSCM(AbstractSCM):
             # might have partially applied the patch.
             logger.info("import failed, retrying with 'patch'", exc_info=exc)
             import_cmd += ["--config", "ui.patch=patch"]
-            self.clean_repo(strip_non_public_commits=False)
+            self.clean_repo()
 
             self._prevent_hg_modifications(patch_or_diff.name)
 
@@ -539,7 +539,8 @@ class HgSCM(AbstractSCM):
         if not target_cset:
             target_cset = self._get_remote_head(source)
 
-        # Strip any lingering changes.
+        # Clean working directory; idle-time `maintenance()` is responsible
+        # for stripping draft commits, so we don't pay that cost here.
         self.clean_repo()
 
         # Pull from "upstream".
@@ -748,12 +749,12 @@ class HgSCM(AbstractSCM):
     def clean_repo(
         self,
         *,
-        strip_non_public_commits: bool = True,
         attributes_override: str | None = None,
     ):
         """Clean the local working copy from all extraneous files.
 
-        `attributes_override` is ignored.
+        `attributes_override` is ignored. Stripping draft commits happens in
+        `maintenance()` during worker idle time, not here.
         """
         # Read `.rej` file contents into memory before cleaning removes them.
         self.rejects_content = self.read_rejects_files()
@@ -768,12 +769,26 @@ class HgSCM(AbstractSCM):
         except HgException:
             pass
 
-        # Strip any lingering draft changesets.
-        if strip_non_public_commits:
-            try:
-                self.run_hg(["strip", "--no-backup", "-r", "not public()"])
-            except HgException:
-                pass
+    @override
+    def maintenance(self) -> None:
+        """Strip draft commits left over from previous landings.
+
+        Runs during worker idle periods so the ~8s strip cost doesn't land in
+        the user-visible job latency window. This is the only place that
+        strips drafts; the per-job `clean_repo` calls leave them in place.
+        """
+        try:
+            self._open()
+        except hglib.error.ServerError as exc:
+            raise SCMException(
+                "Failed to open hg server for maintenance.", "", str(exc)
+            ) from exc
+        try:
+            self.run_hg(["strip", "--no-backup", "-r", "not public()"])
+        except HgException:
+            pass
+        finally:
+            self.hg_repo.close()
 
     @override
     def merge_onto(

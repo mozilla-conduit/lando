@@ -70,13 +70,9 @@ class AbstractSCM(ABC):
     def clean_repo(
         self,
         *,
-        strip_non_public_commits: bool = True,
         attributes_override: str | None = None,
     ):
         """Clean the local working copy from all extraneous files.
-
-        If `strip_non_public_commits` is set, also rewind any commit not present on the
-        origin.
 
         `attributes_override` is SCM-dependent.
         """
@@ -197,6 +193,15 @@ class AbstractSCM(ABC):
         Commits are sorted in ascending topological order.
 
         If `base_cset` is passed, use it as the public base to find changes against.
+        """
+
+    @abstractmethod
+    def maintenance(self) -> None:
+        """Run idle-time maintenance tasks for the repo.
+
+        Called from the worker loop during idle periods so background cleanup
+        (e.g. stripping stale Mercurial drafts, deleting old Git work
+        branches) doesn't add to per-job latency.
         """
 
     @abstractmethod

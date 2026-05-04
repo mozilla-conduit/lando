@@ -31,7 +31,7 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
     repo = HgSCM(hg_clone.strpath)
 
     with repo.for_pull(), hg_clone.as_cwd():
-        # Create a draft commits to clean.
+        # Create a draft commit to clean.
         new_file = hg_clone.join("new-file.txt")
         new_file.write("text", mode="w+")
         repo.run_hg_cmds(
@@ -43,37 +43,32 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
         new_file.write("Extra data", mode="a")
         assert repo.run_hg_cmds([["status"]])
 
-        # Can clean working directory without nuking commits
-        repo.clean_repo(strip_non_public_commits=False)
-        assert repo.run_hg_cmds([["outgoing"]])
-        assert not repo.run_hg_cmds([["status"]])
-
-        # Dirty the working directory again.
-        new_file.write("Extra data", mode="a")
-        assert repo.run_hg_cmds([["status"]])
-
-        # Cleaning should remove commit and clean working directory.
+        # `clean_repo` clears the working directory but leaves drafts in place;
+        # stripping is `maintenance`'s job.
         repo.clean_repo()
-        with pytest.raises(HgCommandError, match="no changes found"):
-            repo.run_hg_cmds([["outgoing"]])
+        assert repo.run_hg_cmds([["outgoing"]])
         assert not repo.run_hg_cmds([["status"]])
 
-        # Create a commit and dirty the directory before exiting
-        # the context manager as entering a new context should
-        # provide a clean repo.
-        new_file.write("text", mode="w+")
-        repo.run_hg_cmds(
-            [["add", new_file.strpath], ["commit", "-m", "new draft commit"]]
-        )
+        # Dirty the directory again before exiting the context manager.
         new_file.write("extra data", mode="a")
-        assert repo.run_hg_cmds([["outgoing"]])
         assert repo.run_hg_cmds([["status"]])
 
     with repo.for_pull(), hg_clone.as_cwd():
-        # New context should be clean.
+        assert not repo.run_hg_cmds(
+            [["status"]]
+        ), "Working directory should be clean after exiting and re-entering the context."
+        assert repo.run_hg_cmds(
+            [["outgoing"]]
+        ), "Draft commits should persist across context exits; `maintenance` strips them."
+
+    repo.maintenance()
+
+    with repo.for_pull(), hg_clone.as_cwd():
         with pytest.raises(HgCommandError, match="no changes found"):
             repo.run_hg_cmds([["outgoing"]])
-        assert not repo.run_hg_cmds([["status"]])
+        assert not repo.run_hg_cmds(
+            [["status"]]
+        ), "Working directory should be clean after `maintenance` runs."
 
 
 def test_integrated_hgrepo_can_log(hg_clone):

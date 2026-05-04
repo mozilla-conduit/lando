@@ -5,7 +5,7 @@ import os
 import re
 import subprocess
 from abc import ABC, abstractmethod
-from time import sleep
+from time import monotonic, sleep
 from typing import Callable, TypeVar
 
 from celery import Task
@@ -31,6 +31,7 @@ from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.exceptions import (
     NoDiffStartLine,
     PatchConflict,
+    SCMException,
     SCMInternalServerError,
 )
 
@@ -77,6 +78,9 @@ class Worker(ABC):
 
     last_job_finished: bool | None = None
 
+    # Minimum seconds between idle-time `scm.maintenance()` runs per repo.
+    MAINTENANCE_INTERVAL_SECONDS = 300
+
     def __str__(self) -> str:
         return f"{self.__class__.__name__} {self.worker_instance}"
 
@@ -90,6 +94,8 @@ class Worker(ABC):
         self.treestatus_client = lando.utils.treestatus.get_treestatus_client()
         if not self.treestatus_client.ping():
             raise ConnectionError("Could not connect to Treestatus")
+
+        self.last_maintenance_at: dict[int, float] = {}
 
         self.refresh_active_repos()
 
@@ -214,6 +220,7 @@ class Worker(ABC):
             job = self.job_type.next_job(repositories=self.active_repos).first()
 
         if job is None:
+            self.run_idle_maintenance()
             self.throttle(self.worker_instance.sleep_seconds)
             return
 
@@ -283,6 +290,40 @@ class Worker(ABC):
             r for r in self.enabled_repos if self.treestatus_client.is_open(r.tree)
         ]
         logger.info(f"{len(self.active_repos)} enabled repos: {self.active_repos}")
+
+    def run_idle_maintenance(self):
+        """Run `scm.maintenance()` on each enabled repo, throttled per repo.
+
+        Called when no job is available. Each repo is maintained at most once
+        per `MAINTENANCE_INTERVAL_SECONDS` so this branch stays cheap on
+        consecutive idle loops.
+        """
+        now = monotonic()
+        repos_to_maintain = [
+            repo
+            for repo in self.enabled_repos
+            if now - self.last_maintenance_at.get(repo.id, 0.0)
+            >= self.MAINTENANCE_INTERVAL_SECONDS
+        ]
+        if not repos_to_maintain:
+            return
+
+        count = len(repos_to_maintain)
+        repo_names = [repo.name for repo in repos_to_maintain]
+        logger.info(f"Starting idle maintenance for {count} repo(s): {repo_names}")
+        start_time = monotonic()
+        for repo in repos_to_maintain:
+            try:
+                repo.scm.maintenance()
+            except SCMException:
+                logger.exception(f"Idle maintenance failed for {repo.name}.")
+            # Update on success or failure so a broken repo doesn't get hammered
+            # every idle loop.
+            self.last_maintenance_at[repo.id] = monotonic()
+        logger.info(
+            f"Finished idle maintenance for {count} repo(s) "
+            f"in {monotonic() - start_time:.2f}s"
+        )
 
     def update_repo(
         self, repo: Repo, job: BaseJob, scm: AbstractSCM, target_cset: str | None
