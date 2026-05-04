@@ -203,7 +203,23 @@ class hg2gitCommitMapView(CommitMapBaseView):
     scm = SCMType.HG
 
 
-class LandingJobPullRequestAPIView(View):
+class PullRequestAPIView(View):
+    """Set various common attributes for views that extend this one."""
+
+    target_repo: Repo
+    client: GitHubAPIClient
+    pull_request: PullRequest
+
+    def dispatch(
+        self, request: WSGIRequest, repo_name: str, pull_number: int, *args, **kwargs
+    ) -> JsonResponse:
+        self.target_repo = Repo.objects.get(name=repo_name)
+        self.client = GitHubAPIClient(self.target_repo.url)
+        self.pull_request = self.client.build_pull_request(pull_number)
+        return super().dispatch(request, repo_name, pull_number, *args, **kwargs)
+
+
+class LandingJobPullRequestAPIView(PullRequestAPIView):
     """Handle pull request landing jobs in the API."""
 
     def get(
@@ -211,8 +227,7 @@ class LandingJobPullRequestAPIView(View):
     ) -> JsonResponse:
         """Return the status of a pull request based on landing job counts."""
 
-        target_repo = Repo.objects.get(name=repo_name)
-        landing_jobs = get_jobs_for_pull(target_repo, pull_number)
+        landing_jobs = get_jobs_for_pull(self.target_repo, pull_number)
         landing_jobs_by_status = defaultdict(list)
         for landing_job in landing_jobs:
             landing_jobs_by_status[landing_job.status].append(landing_job.id)
@@ -245,14 +260,11 @@ class LandingJobPullRequestAPIView(View):
             # TODO: use this for verification later, see bug 1996571.
             # base_ref = forms.CharField()
 
-        target_repo = Repo.objects.get(name=repo_name)
-        client = GitHubAPIClient(target_repo.url)
         ldap_username = request.user.email
-        pull_request = client.build_pull_request(pull_number)
 
-        blockers = generate_warnings_and_blockers(target_repo, pull_request, request)[
-            "blockers"
-        ]
+        blockers = generate_warnings_and_blockers(
+            self.target_repo, self.pull_request, request
+        )["blockers"]
 
         if blockers:
             # Pull request has blockers that prevent it from landing.
@@ -264,22 +276,22 @@ class LandingJobPullRequestAPIView(View):
             return JsonResponse(form.errors, 400)
 
         job = LandingJob.objects.create(
-            target_repo=target_repo,
+            target_repo=self.target_repo,
             requester_email=ldap_username,
             is_pull_request_job=True,
         )
-        author_name, author_email = pull_request.author
+        author_name, author_email = self.pull_request.author
 
-        reviews_summary = pull_request.reviews_summary
+        reviews_summary = self.pull_request.reviews_summary
         reviewers = [
             u
             for u in reviews_summary
-            if reviews_summary.get(u) == pull_request.Review.APPROVED
+            if reviews_summary.get(u) == self.pull_request.Review.APPROVED
         ]
         approvals = []
 
         commit_message = replace_reviewers(
-            pull_request.commit_message, reviewers, approvals
+            self.pull_request.commit_message, reviewers, approvals
         )
 
         patch_data = {
@@ -289,10 +301,10 @@ class LandingJobPullRequestAPIView(View):
             "timestamp": int(datetime.now().timestamp()),
         }
         revision = Revision.objects.create(
-            pull_number=pull_request.number,
-            pull_head_sha=pull_request.head_sha,
-            pull_base_sha=pull_request.base_sha,
-            patches=pull_request.patch,
+            pull_number=self.pull_request.number,
+            pull_head_sha=self.pull_request.head_sha,
+            pull_base_sha=self.pull_request.base_sha,
+            patches=self.pull_request.patch,
             patch_data=patch_data,
         )
         add_revisions_to_job([revision], job)
@@ -302,14 +314,13 @@ class LandingJobPullRequestAPIView(View):
         return JsonResponse({"id": job.id}, status=201)
 
 
-class PullRequestChecksAPIView(APIView):
-    def get(self, request: WSGIRequest, repo_name: str, number: int) -> JsonResponse:
-        target_repo = Repo.objects.get(name=repo_name)
-        client = GitHubAPIClient(target_repo.url)
-        pull_request = client.build_pull_request(number)
+class PullRequestChecksAPIView(PullRequestAPIView):
+    def get(
+        self, request: WSGIRequest, repo_name: str, pull_number: int
+    ) -> JsonResponse:
         try:
             warnings_and_blockers = generate_warnings_and_blockers(
-                target_repo, pull_request, request
+                self.target_repo, self.pull_request, request
             )
         except PullRequest.StaleMetadataException as exc:
             # The StaleMetadataException error message is safe for user consumption.
@@ -318,7 +329,7 @@ class PullRequestChecksAPIView(APIView):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class PullRequestTryPushAPIView(APIView):
+class PullRequestTryPushAPIView(PullRequestAPIView):
     @method_decorator(require_authenticated_user)
     def post(
         self, request: WSGIRequest, repo_name: str, pull_number: int
@@ -328,33 +339,32 @@ class PullRequestTryPushAPIView(APIView):
         except Repo.DoesNotExist:
             return JsonResponse({"errors": ["Try repo does not exist"]}, status=500)
 
-        target_repo = Repo.objects.get(name=repo_name)
-        client = GitHubAPIClient(target_repo.url)
         ldap_username = request.user.email
-        pull_request = client.build_pull_request(pull_number)
 
         job = LandingJob.objects.create(
-            target_repo=target_repo,
+            target_repo=self.target_repo,
             is_handed_over=False,
             is_pull_request_job=True,
             handover_repo=try_repo,
             requester_email=ldap_username,
         )
-        author_name, author_email = pull_request.author
+        author_name, author_email = self.pull_request.author
         try:
-            timestamp = int(datetime.fromisoformat(pull_request.updated_at).timestamp())
+            timestamp = int(
+                datetime.fromisoformat(self.pull_request.updated_at).timestamp()
+            )
         except ValueError:
             timestamp = int(datetime.now().timestamp())
         patch_data = {
             "author_name": author_name,
             "author_email": author_email,
-            "commit_message": pull_request.commit_message,
+            "commit_message": self.pull_request.commit_message,
             "timestamp": timestamp,
         }
         revision = Revision.objects.create(
-            pull_number=pull_request.number,
-            pull_head_sha=pull_request.head_sha,
-            patches=pull_request.patch,
+            pull_number=self.pull_request.number,
+            pull_head_sha=self.pull_request.head_sha,
+            patches=self.pull_request.patch,
             patch_data=patch_data,
         )
         add_revisions_to_job([revision], job)
