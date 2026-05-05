@@ -4,6 +4,7 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
+
     dependencies = [
         ("main", "0013_alter_repo_scm_type_alter_worker_scm"),
     ]

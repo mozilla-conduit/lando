@@ -6,6 +6,7 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
+
     dependencies = [
         ("main", "0028_repo_attributes_override"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),

@@ -4,6 +4,7 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
+
     dependencies = [
         ("main", "0040_landingjob_is_pull_request_job"),
     ]

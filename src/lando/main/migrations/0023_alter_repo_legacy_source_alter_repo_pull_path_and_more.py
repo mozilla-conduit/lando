@@ -7,6 +7,7 @@ import lando.main.models.repo
 
 
 class Migration(migrations.Migration):
+
     dependencies = [
         ("main", "0022_repo_automation_enabled"),
     ]

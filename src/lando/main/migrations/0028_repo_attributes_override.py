@@ -4,6 +4,7 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
+
     dependencies = [
         ("main", "0027_alter_landingjob_status_worker_type"),
     ]

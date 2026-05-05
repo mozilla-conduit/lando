@@ -4,6 +4,7 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
+
     dependencies = [
         ("main", "0023_alter_repo_legacy_source_alter_repo_pull_path_and_more"),
     ]

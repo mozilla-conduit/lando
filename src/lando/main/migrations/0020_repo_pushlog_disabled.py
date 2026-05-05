@@ -12,6 +12,7 @@ def disable_pushlog_for_hg_repos(apps, schema_editor):  # noqa: ANN001
 
 
 class Migration(migrations.Migration):
+
     dependencies = [
         ("main", "0019_alter_repo_short_name"),
     ]

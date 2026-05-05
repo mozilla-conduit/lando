@@ -4,6 +4,7 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
+
     dependencies = [
         ("main", "0044_alter_repo_hooks_PreventHgDirectoryCheck"),
     ]

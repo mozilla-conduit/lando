@@ -4,6 +4,7 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
+
     dependencies = [
         ("headless_api", "0003_automationjob_relbranch_commit_sha_and_more"),
     ]

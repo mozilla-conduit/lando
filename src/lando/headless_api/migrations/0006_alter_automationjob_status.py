@@ -4,6 +4,7 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
+
     dependencies = [
         ("headless_api", "0005_alter_automationaction_action_type"),
     ]
