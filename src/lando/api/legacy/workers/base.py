@@ -78,7 +78,7 @@ class Worker(ABC):
 
     last_job_finished: bool | None = None
 
-    # Minimum seconds between idle-time `scm.maintenance()` runs per repo.
+    # Minimum seconds between `scm.maintenance` calls per repo.
     MAINTENANCE_INTERVAL_SECONDS = 300
 
     def __str__(self) -> str:
