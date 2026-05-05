@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("main", "0041_revision_pull_base_sha_revision_pull_head_sha"),
     ]

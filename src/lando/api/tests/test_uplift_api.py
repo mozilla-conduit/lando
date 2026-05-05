@@ -40,9 +40,9 @@ def test_link_revision_unauthorized_api_key(
     assert response.status_code == 401, f"{description} API key should return 401."
     body = response.json()
     assert "detail" in body, "Response body should contain a `detail` field."
-    assert (
-        body["detail"] == "Unauthorized"
-    ), "Response `detail` should indicate the request was unauthorized."
+    assert body["detail"] == "Unauthorized", (
+        "Response `detail` should indicate the request was unauthorized."
+    )
 
 
 @pytest.mark.django_db
@@ -68,12 +68,12 @@ def test_link_revision_assessment_not_found(client, phab_header):
     )
     assert response.status_code == 404, "Non-existent assessment should return 404."
     body = response.json()
-    assert (
-        "does not exist" in body["detail"]
-    ), "Error message should indicate the assessment was not found."
-    assert (
-        body["title"] == "Assessment not found"
-    ), "Error title should indicate the assessment was not found."
+    assert "does not exist" in body["detail"], (
+        "Error message should indicate the assessment was not found."
+    )
+    assert body["title"] == "Assessment not found", (
+        "Error title should indicate the assessment was not found."
+    )
 
 
 @mock.patch("lando.api.uplift_api.set_uplift_request_form_on_revision.apply_async")
@@ -97,28 +97,28 @@ def test_link_revision_creates_new_link(mock_apply_async, client, phab_header, u
     assert response.status_code == 201, "Successful link should return 201."
     body = response.json()
     assert body["revision_id"] == 12345, "Response should echo the revision ID."
-    assert (
-        body["assessment_id"] == assessment.id
-    ), "Response should echo the assessment ID."
+    assert body["assessment_id"] == assessment.id, (
+        "Response should echo the assessment ID."
+    )
     assert body["created"] is True, "Response should indicate a new link was created."
 
     uplift_revision = UpliftRevision.objects.get(revision_id=12345)
-    assert (
-        uplift_revision.assessment_id == assessment.id
-    ), "`UpliftRevision` should be linked to the correct assessment."
+    assert uplift_revision.assessment_id == assessment.id, (
+        "`UpliftRevision` should be linked to the correct assessment."
+    )
 
     mock_apply_async.assert_called_once()
     _, kwargs = mock_apply_async.call_args
     task_revision_id, conduit_json_str, task_user_id = kwargs["args"]
-    assert (
-        task_revision_id == 12345
-    ), "Celery task should receive the linked revision ID."
-    assert isinstance(
-        conduit_json_str, str
-    ), "Celery task should receive a serialized assessment payload."
-    assert (
-        task_user_id == assessment.user.id
-    ), "Celery task should use the assessment owner's user ID."
+    assert task_revision_id == 12345, (
+        "Celery task should receive the linked revision ID."
+    )
+    assert isinstance(conduit_json_str, str), (
+        "Celery task should receive a serialized assessment payload."
+    )
+    assert task_user_id == assessment.user.id, (
+        "Celery task should use the assessment owner's user ID."
+    )
 
 
 @mock.patch("lando.api.uplift_api.set_uplift_request_form_on_revision.apply_async")
@@ -146,13 +146,13 @@ def test_link_revision_replaces_existing_link(
 
     assert response.status_code == 201, "Replacement link should return 201."
     body = response.json()
-    assert (
-        body["created"] is False
-    ), "Response should indicate the link was updated, not created."
+    assert body["created"] is False, (
+        "Response should indicate the link was updated, not created."
+    )
 
     uplift_revision = UpliftRevision.objects.get(revision_id=6789)
-    assert (
-        uplift_revision.assessment_id == new_assessment.id
-    ), "`UpliftRevision` should now point to the new assessment."
+    assert uplift_revision.assessment_id == new_assessment.id, (
+        "`UpliftRevision` should now point to the new assessment."
+    )
 
     mock_apply_async.assert_called_once()

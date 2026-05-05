@@ -6,7 +6,6 @@ import lando.main.models.repo
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("main", "0009_profile_encrypted_phabricator_api_key"),
     ]

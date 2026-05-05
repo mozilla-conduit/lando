@@ -45,7 +45,6 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 code-quality = [
-    "black",
     "djlint",
     "ruff"
 ]
@@ -84,8 +83,8 @@ where = ["src"]
 DJANGO_SETTINGS_MODULE = "lando.test_settings"
 addopts = ["--cov", "--cov-report", "html", "--no-migrations"]
 
-[tool.black]
-extend_exclude = "src/lando/version/__init__.py"
+[tool.ruff]
+extend-exclude = ["src/lando/version/__init__.py"]
 
 [tool.djlint]
 profile = "jinja"

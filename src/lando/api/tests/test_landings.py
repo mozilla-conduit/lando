@@ -348,20 +348,20 @@ def test_integrated_execute_job(
 
     assert job.status == JobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40
-    assert (
-        mock_phab_trigger_repo_update_apply_async.call_count == 1
-    ), "Successful landing should trigger Phab repo update."
+    assert mock_phab_trigger_repo_update_apply_async.call_count == 1, (
+        "Successful landing should trigger Phab repo update."
+    )
 
     # The diff_id is not set for landings not created from Phabricator transplants.
-    assert job.landed_revisions == {
-        r.id: None for r in revisions
-    }, "Incorrect mapping of internal revision IDs to diff ID"
+    assert job.landed_revisions == {r.id: None for r in revisions}, (
+        "Incorrect mapping of internal revision IDs to diff ID"
+    )
 
     new_commit_count = Commit.objects.filter(repo=repo).count()
     new_push_count = Push.objects.filter(repo=repo).count()
-    assert new_commit_count == len(
-        revisions
-    ), "Incorrect number of additional commits in the PushLog"
+    assert new_commit_count == len(revisions), (
+        "Incorrect number of additional commits in the PushLog"
+    )
     assert new_push_count == 1, "Incorrect number of additional pushes in the PushLog"
 
 
@@ -478,9 +478,9 @@ def test_revisionlandingjob_commit_ids_updated_on_success(
     ordered_revisions = list(job.revisions)
     for revision, revision_job in zip(ordered_revisions, revision_jobs, strict=False):
         assert revision.commit_id, "`commit_id` should be set on `Revision` object."
-        assert (
-            revision_job.commit_id
-        ), "`commit_id` should be set on `RevisionLandingJob` object."
+        assert revision_job.commit_id, (
+            "`commit_id` should be set on `RevisionLandingJob` object."
+        )
 
 
 @pytest.mark.parametrize(
@@ -526,9 +526,9 @@ def test_revisionlandingjob_commit_ids_unset_without_landing(
 
     revision = job.revisions.first()
     assert revision.commit_id, "`commit_id` should still be set on `Revision` object."
-    assert (
-        revision_jobs[0].commit_id is None
-    ), "`commit_id` should not be set for un-landed job."
+    assert revision_jobs[0].commit_id is None, (
+        "`commit_id` should not be set for un-landed job."
+    )
 
 
 @pytest.mark.parametrize(
@@ -652,9 +652,9 @@ def test_integrated_execute_job_with_scm_internal_error(
     worker = get_landing_worker(repo_type)
 
     assert not worker.run_job(job)
-    assert (
-        job.status == JobStatus.DEFERRED
-    ), "Job should have been deferred on first push exception."
+    assert job.status == JobStatus.DEFERRED, (
+        "Job should have been deferred on first push exception."
+    )
     assert "Some SCM error" in job.error
 
     assert worker.run_job(job)
@@ -795,20 +795,20 @@ def test_merge_conflict(
     assert expected_error_log in caplog.text
 
     assert job.error_breakdown, "No error breakdown added to job"
-    assert job.error_breakdown.get(
-        "rejects_paths"
-    ), "Empty or missing reject information in error breakdown"
+    assert job.error_breakdown.get("rejects_paths"), (
+        "Empty or missing reject information in error breakdown"
+    )
     failed_paths = [p["path"] for p in job.error_breakdown["failed_paths"]]
-    assert set(failed_paths) == set(
-        job.error_breakdown["rejects_paths"].keys()
-    ), "Mismatch between failed_paths and rejects_paths"
+    assert set(failed_paths) == set(job.error_breakdown["rejects_paths"].keys()), (
+        "Mismatch between failed_paths and rejects_paths"
+    )
     for fp in failed_paths:
-        assert job.error_breakdown["rejects_paths"][fp].get(
-            "path"
-        ), f"Empty or missing reject path for failed path {fp}"
-        assert job.error_breakdown["rejects_paths"][fp].get(
-            "content"
-        ), f"Empty or missing reject content for failed path {fp}"
+        assert job.error_breakdown["rejects_paths"][fp].get("path"), (
+            f"Empty or missing reject path for failed path {fp}"
+        )
+        assert job.error_breakdown["rejects_paths"][fp].get("content"), (
+            f"Empty or missing reject content for failed path {fp}"
+        )
 
     for fp in job.error_breakdown["failed_paths"]:
         if repo_type == SCMType.GIT:
@@ -1014,20 +1014,20 @@ def test_format_patch_success_unchanged(
 
     new_commit_count = Commit.objects.filter(repo=repo).count()
     new_push_count = Push.objects.filter(repo=repo).count()
-    assert new_commit_count == len(
-        revisions
-    ), "Incorrect number of additional commits in the PushLog"
+    assert new_commit_count == len(revisions), (
+        "Incorrect number of additional commits in the PushLog"
+    )
     assert new_push_count == 1, "Incorrect number of additional pushes in the PushLog"
 
-    assert (
-        job.status == JobStatus.LANDED
-    ), "Successful landing should set `LANDED` status."
-    assert (
-        mock_phab_trigger_repo_update_apply_async.call_count == 1
-    ), "Successful landing should trigger Phab repo update."
-    assert (
-        job.formatted_replacements is None
-    ), "Autoformat making no changes should leave `formatted_replacements` empty."
+    assert job.status == JobStatus.LANDED, (
+        "Successful landing should set `LANDED` status."
+    )
+    assert mock_phab_trigger_repo_update_apply_async.call_count == 1, (
+        "Successful landing should trigger Phab repo update."
+    )
+    assert job.formatted_replacements is None, (
+        "Autoformat making no changes should leave `formatted_replacements` empty."
+    )
 
 
 @pytest.mark.parametrize(
@@ -1080,17 +1080,17 @@ def test_format_single_success_changed(
 
     new_commit_count = Commit.objects.filter(repo=repo).count()
     new_push_count = Push.objects.filter(repo=repo).count()
-    assert (
-        new_commit_count == 1
-    ), "Incorrect number of additional commits in the PushLog"
+    assert new_commit_count == 1, (
+        "Incorrect number of additional commits in the PushLog"
+    )
     assert new_push_count == 1, "Incorrect number of additional pushes in the PushLog"
 
-    assert (
-        job.status == JobStatus.LANDED
-    ), "Successful landing should set `LANDED` status."
-    assert (
-        mock_phab_trigger_repo_update_apply_async.call_count == 1
-    ), "Successful landing should trigger Phab repo update."
+    assert job.status == JobStatus.LANDED, (
+        "Successful landing should set `LANDED` status."
+    )
+    assert mock_phab_trigger_repo_update_apply_async.call_count == 1, (
+        "Successful landing should trigger Phab repo update."
+    )
 
     with scm.for_push(job.requester_email):
         # Get the commit message.
@@ -1105,13 +1105,13 @@ def test_format_single_success_changed(
 
     assert tip_content == TESTTXT_FORMATTED_1, "`test.txt` is incorrect in base commit."
 
-    assert (
-        desc == "bug 123: add another file for formatting 1"
-    ), "Autoformat via amend should not change commit message."
+    assert desc == "bug 123: add another file for formatting 1", (
+        "Autoformat via amend should not change commit message."
+    )
 
-    assert (
-        hash_behind_current_tip == pre_landing_tip
-    ), "Autoformat via amending should only land a single commit."
+    assert hash_behind_current_tip == pre_landing_tip, (
+        "Autoformat via amending should only land a single commit."
+    )
 
 
 @pytest.mark.parametrize(
@@ -1154,17 +1154,17 @@ def test_format_stack_success_changed(
 
     new_commit_count = Commit.objects.filter(repo=repo).count()
     new_push_count = Push.objects.filter(repo=repo).count()
-    assert (
-        new_commit_count == len(revisions) + 1
-    ), "Incorrect number of additional commits in the PushLog (should be one more than the number of revisions)"
+    assert new_commit_count == len(revisions) + 1, (
+        "Incorrect number of additional commits in the PushLog (should be one more than the number of revisions)"
+    )
     assert new_push_count == 1, "Incorrect number of additional pushes in the PushLog"
 
-    assert (
-        job.status == JobStatus.LANDED
-    ), "Successful landing should set `LANDED` status."
-    assert (
-        mock_phab_trigger_repo_update_apply_async.call_count == 1
-    ), "Successful landing should trigger Phab repo update."
+    assert job.status == JobStatus.LANDED, (
+        "Successful landing should set `LANDED` status."
+    )
+    assert mock_phab_trigger_repo_update_apply_async.call_count == 1, (
+        "Successful landing should trigger Phab repo update."
+    )
 
     with scm.for_push(job.requester_email):
         # Get the commit message.
@@ -1173,17 +1173,17 @@ def test_format_stack_success_changed(
         # Get the content of the file after autoformatting.
         rev3_content = scm.read_checkout_file("test.txt").encode("utf-8")
 
-    assert (
-        rev3_content == TESTTXT_FORMATTED_2
-    ), "`test.txt` is incorrect in base commit."
+    assert rev3_content == TESTTXT_FORMATTED_2, (
+        "`test.txt` is incorrect in base commit."
+    )
 
-    assert (
-        "# ignore-this-changeset" in desc
-    ), "Commit message for autoformat commit should contain `# ignore-this-changeset`."
+    assert "# ignore-this-changeset" in desc, (
+        "Commit message for autoformat commit should contain `# ignore-this-changeset`."
+    )
 
-    assert desc == AUTOFORMAT_COMMIT_MESSAGE.format(
-        bugs="Bug 123"
-    ), "Autoformat commit has incorrect commit message."
+    assert desc == AUTOFORMAT_COMMIT_MESSAGE.format(bugs="Bug 123"), (
+        "Autoformat commit has incorrect commit message."
+    )
 
 
 @pytest.mark.parametrize(
@@ -1229,22 +1229,22 @@ def test_format_patch_fail(
     )
 
     worker = get_landing_worker(repo_type)
-    assert not worker.run_job(
-        job
-    ), "`run_job` should return `False` when autoformatting fails."
+    assert not worker.run_job(job), (
+        "`run_job` should return `False` when autoformatting fails."
+    )
 
     new_push_count = Push.objects.filter(repo=repo).count()
     assert new_push_count == 0, "The number of pushes shouldn't have changed"
 
-    assert (
-        job.status == JobStatus.FAILED
-    ), "Failed autoformatting should set `FAILED` job status."
-    assert (
-        "Lando failed to format your patch" in job.error
-    ), "Error message is not set to show autoformat caused landing failure."
-    assert (
-        mock_notify.call_count == 1
-    ), "User should be notified their landing was unsuccessful due to autoformat."
+    assert job.status == JobStatus.FAILED, (
+        "Failed autoformatting should set `FAILED` job status."
+    )
+    assert "Lando failed to format your patch" in job.error, (
+        "Error message is not set to show autoformat caused landing failure."
+    )
+    assert mock_notify.call_count == 1, (
+        "User should be notified their landing was unsuccessful due to autoformat."
+    )
 
 
 @pytest.mark.parametrize(
@@ -1292,15 +1292,15 @@ def test_format_patch_no_landoini(
 
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
-    assert (
-        job.status == JobStatus.LANDED
-    ), "Missing `.lando.ini` should not inhibit landing."
-    assert (
-        mock_notify.call_count == 0
-    ), "Should not notify user of landing failure due to `.lando.ini` missing."
-    assert (
-        mock_phab_trigger_repo_update_apply_async.call_count == 1
-    ), "Successful landing should trigger Phab repo update."
+    assert job.status == JobStatus.LANDED, (
+        "Missing `.lando.ini` should not inhibit landing."
+    )
+    assert mock_notify.call_count == 0, (
+        "Should not notify user of landing failure due to `.lando.ini` missing."
+    )
+    assert mock_phab_trigger_repo_update_apply_async.call_count == 1, (
+        "Successful landing should trigger Phab repo update."
+    )
 
 
 @pytest.mark.django_db

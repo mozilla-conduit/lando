@@ -15,7 +15,6 @@ def set_worker_type_based_on_name(apps, schema_editor):  # noqa: ANN001
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("main", "0026_commitmap"),
     ]

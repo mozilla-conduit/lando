@@ -452,21 +452,21 @@ def test_hook_choices_all_checks():
         for check in ALL_CHECKS
         if check.name() not in (list(Repo.HooksChoices) + disabled_checks)
     ]
-    assert (
-        not missing_hooks
-    ), f"Some landing checks are not available as hook choices: {missing_hooks}"
+    assert not missing_hooks, (
+        f"Some landing checks are not available as hook choices: {missing_hooks}"
+    )
 
     missing_checks = [
         hook.name
         for hook in Repo.HooksChoices
         if hook not in ([check.name() for check in ALL_CHECKS] + disabled_checks)
     ]
-    assert (
-        not missing_checks
-    ), f"Some hook choices refer to non-existent or disabled checks: {missing_checks}"
+    assert not missing_checks, (
+        f"Some hook choices refer to non-existent or disabled checks: {missing_checks}"
+    )
 
     check_dict = {check.name(): check.description() for check in ALL_CHECKS}
     for hook in Repo.HooksChoices:
-        assert (
-            hook.label == check_dict[hook.name]
-        ), f"Hook choice label doesn't match check description for {hook.name}"
+        assert hook.label == check_dict[hook.name], (
+            f"Hook choice label doesn't match check description for {hook.name}"
+        )

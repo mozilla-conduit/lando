@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("main", "0005_repo_approval_required_repo_autoformat_enabled_and_more"),
     ]

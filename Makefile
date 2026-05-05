@@ -21,7 +21,7 @@ help:
 	@echo
 	@echo "target is one of:"
 	@echo "    help                 show this message and exit"
-	@echo "    format               run ruff and black on source code"
+	@echo "    format               run ruff on source code"
 	@echo "    test                 run the test suite"
 	@echo "    migrations           generates migration files to reflect model changes in the database"
 	@echo "    upgrade-requirements upgrade packages in requirements.txt"

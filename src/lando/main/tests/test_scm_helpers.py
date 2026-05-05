@@ -300,7 +300,9 @@ def test_patchhelper_is_diff_line(line: str, expected: str):
 
 
 def test_patchhelper_vanilla_export():
-    patch = HgPatchHelper.from_string_io(io.StringIO("""
+    patch = HgPatchHelper.from_string_io(
+        io.StringIO(
+            """
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
@@ -315,7 +317,9 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 @@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
 # instead of passing the url to 'hg import' to make
 ...
-""".strip()))
+""".strip()
+        )
+    )
     assert patch.get_header("Date") == "1523427125 -28800"
     assert patch.get_header("Node ID") == "3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07"
     assert patch.get_header("User") == "byron jones <glob@mozilla.com>"
@@ -324,7 +328,9 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 
 def test_patchhelper_start_line():
-    patch = HgPatchHelper.from_string_io(io.StringIO("""
+    patch = HgPatchHelper.from_string_io(
+        io.StringIO(
+            """
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
@@ -340,13 +346,17 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 @@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
 # instead of passing the url to 'hg import' to make
 ...
-""".strip()))
+""".strip()
+        )
+    )
     assert patch.get_header("Diff Start Line") == "10"
     assert patch.get_commit_description() == "WIP transplant and diff-start-line"
 
 
 def test_patchhelper_no_header():
-    patch = HgPatchHelper.from_string_io(io.StringIO("""
+    patch = HgPatchHelper.from_string_io(
+        io.StringIO(
+            """
 # Date 1523427125 -28800
 WIP transplant and diff-start-line
 
@@ -356,13 +366,17 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 @@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
 # instead of passing the url to 'hg import' to make
 ...
-""".strip()))
+""".strip()
+        )
+    )
     assert patch.get_header("User") is None
     assert patch.get_commit_description() == "WIP transplant and diff-start-line"
 
 
 def test_patchhelper_diff_injection_no_start_line():
-    patch = HgPatchHelper.from_string_io(io.StringIO("""
+    patch = HgPatchHelper.from_string_io(
+        io.StringIO(
+            """
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
@@ -381,12 +395,16 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 @@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
 # instead of passing the url to 'hg import' to make
 ...
-""".strip()))
+""".strip()
+        )
+    )
     assert patch.get_commit_description() == "WIP transplant and diff-start-line"
 
 
 def test_patchhelper_diff_injection_start_line():
-    patch = HgPatchHelper.from_string_io(io.StringIO("""
+    patch = HgPatchHelper.from_string_io(
+        io.StringIO(
+            """
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
@@ -406,7 +424,9 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 @@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
 # instead of passing the url to 'hg import' to make
 ...
-""".strip()))
+""".strip()
+        )
+    )
     assert patch.get_commit_description() == (
         "WIP transplant and diff-start-line\n"
         "\n"
@@ -502,15 +522,15 @@ def test_scm_get_patch_helpers_for_commits(
 
         if repo_type != SCMType.HG:
             # See bug 1998051 for an issue with HG.
-            assert (
-                len(patch_helpers) == 2
-            ), "Unexpected number of PatchHelpers: there shouldn't be one for the merge commit."
+            assert len(patch_helpers) == 2, (
+                "Unexpected number of PatchHelpers: there shouldn't be one for the merge commit."
+            )
 
         expected_sig = False
 
-    assert all(
-        ph.metadata.signature == expected_sig for ph in patch_helpers
-    ), f"Unexpected signature validity for {repo_type}"
+    assert all(ph.metadata.signature == expected_sig for ph in patch_helpers), (
+        f"Unexpected signature validity for {repo_type}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -561,19 +581,19 @@ def test_scm_get_patch_helper_signed_git_commit(
         # Flatten the filter() Iterable, so we can count the number of elements.
         patch_helpers = list(scm.get_patch_helpers_for_commits(new_commits))
 
-        assert (
-            len(patch_helpers) == 2
-        ), "Unexpected number of PatchHelpers: only 2 non-merge commits should be found."
+        assert len(patch_helpers) == 2, (
+            "Unexpected number of PatchHelpers: only 2 non-merge commits should be found."
+        )
 
     if sign_new:
         # Only new commits from the merge should be flagged.
-        assert any(
-            ph.metadata.signature for ph in patch_helpers
-        ), "The signed commit was not detected"
+        assert any(ph.metadata.signature for ph in patch_helpers), (
+            "The signed commit was not detected"
+        )
     else:
-        assert not any(
-            ph.metadata.signature for ph in patch_helpers
-        ), "A previously signed commit was erroneously detected"
+        assert not any(ph.metadata.signature for ph in patch_helpers), (
+            "A previously signed commit was erroneously detected"
+        )
 
 
 def test_patchhelper_write_no_start_line():
@@ -613,12 +633,12 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 def test_git_formatpatch_helper_parse():
     patch = GitPatchHelper.from_string_io(io.StringIO(GIT_PATCH))
-    assert (
-        patch.get_header("From") == "Connor Sheehan <sheehan@mozilla.com>"
-    ), "`From` header should contain author information."
-    assert (
-        patch.get_header("Date") == "Wed, 06 Jul 2022 16:36:09 -0400"
-    ), "`Date` header should contain raw date info."
+    assert patch.get_header("From") == "Connor Sheehan <sheehan@mozilla.com>", (
+        "`From` header should contain author information."
+    )
+    assert patch.get_header("Date") == "Wed, 06 Jul 2022 16:36:09 -0400", (
+        "`Date` header should contain raw date info."
+    )
     assert patch.get_header("Subject") == (
         "[PATCH] errors: add a maintenance-mode specific title to serverside error handlers "
         "(Bug 1724769)"
@@ -652,12 +672,12 @@ def test_git_formatpatch_helper_write():
 
 def test_git_formatpatch_helper_empty_commit():
     patch = GitPatchHelper.from_string_io(io.StringIO(GIT_PATCH_EMPTY))
-    assert (
-        patch.get_header("From") == "Connor Sheehan <sheehan@mozilla.com>"
-    ), "`From` header should contain author information."
-    assert (
-        patch.get_header("Date") == "Wed, 06 Jul 2022 16:36:09 -0400"
-    ), "`Date` header should contain raw date info."
+    assert patch.get_header("From") == "Connor Sheehan <sheehan@mozilla.com>", (
+        "`From` header should contain author information."
+    )
+    assert patch.get_header("Date") == "Wed, 06 Jul 2022 16:36:09 -0400", (
+        "`Date` header should contain raw date info."
+    )
     assert patch.get_header("Subject") == (
         "[PATCH] errors: add a maintenance-mode specific title to serverside error handlers "
         "(Bug 1724769)"
@@ -676,17 +696,17 @@ def test_git_formatpatch_helper_empty_commit():
 def test_git_formatpatch_helper_utf8():
     helper = GitPatchHelper.from_string_io(io.StringIO(GIT_FORMATPATCH_UTF8))
 
-    assert (
-        helper.get_diff() == GIT_DIFF_UTF8
-    ), "`get_diff()` should return unescaped unicode and match the original patch."
+    assert helper.get_diff() == GIT_DIFF_UTF8, (
+        "`get_diff()` should return unescaped unicode and match the original patch."
+    )
 
 
 def test_git_formatpatch_helper_binary():
     helper = GitPatchHelper.from_bytes_io(io.BytesIO(GIT_FORMATPATCH_BINARY))
 
-    assert (
-        helper.get_diff_bytes() == GIT_DIFF_BINARY
-    ), "`get_diff_bytes()` did not return the original binary contents."
+    assert helper.get_diff_bytes() == GIT_DIFF_BINARY, (
+        "`get_diff_bytes()` did not return the original binary contents."
+    )
 
 
 def test_preserves_diff_crlf():
@@ -700,18 +720,20 @@ def test_preserves_diff_crlf():
 
     hg_helper = HgPatchHelper.from_string_io(io.StringIO(hg_patch))
 
-    assert (
-        hg_helper.get_diff() == "\n" + GIT_DIFF_CRLF
-    ), "`get_diff()` should preserve CRLF."
+    assert hg_helper.get_diff() == "\n" + GIT_DIFF_CRLF, (
+        "`get_diff()` should preserve CRLF."
+    )
 
-    git_helper = GitPatchHelper.from_string_io(io.StringIO(f"""\
+    git_helper = GitPatchHelper.from_string_io(
+        io.StringIO(f"""\
 From: Connor Sheehan <sheehan@mozilla.com>
 Date: Wed, 6 Jul 2022 16:36:09 -0400
 Subject: {COMMIT_MESSAGE}
 ---
 {GIT_DIFF_CRLF}--
 2.47.1
-"""))
+""")
+    )
 
     assert git_helper.get_diff() == GIT_DIFF_CRLF, "`get_diff()` should preserve CRLF."
 
