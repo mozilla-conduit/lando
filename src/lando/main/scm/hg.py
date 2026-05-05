@@ -539,8 +539,7 @@ class HgSCM(AbstractSCM):
         if not target_cset:
             target_cset = self._get_remote_head(source)
 
-        # Clean working directory; idle-time `maintenance()` is responsible
-        # for stripping draft commits, so we don't pay that cost here.
+        # Clean working directory.
         self.clean_repo()
 
         # Pull from "upstream".
