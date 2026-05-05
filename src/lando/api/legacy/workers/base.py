@@ -292,7 +292,7 @@ class Worker(ABC):
         logger.info(f"{len(self.active_repos)} enabled repos: {self.active_repos}")
 
     def run_idle_maintenance(self):
-        """Run `scm.maintenance()` on each enabled repo, throttled per repo.
+        """Call `scm.maintenance` on each enabled repo, throttled per repo.
 
         Called when no job is available. Each repo is maintained at most once
         per `MAINTENANCE_INTERVAL_SECONDS` so this branch stays cheap on
