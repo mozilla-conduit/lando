@@ -295,8 +295,7 @@ class Worker(ABC):
         """Call `scm.maintenance` on each enabled repo, throttled per repo.
 
         Called when no job is available. Each repo is maintained at most once
-        per `MAINTENANCE_INTERVAL_SECONDS` so this branch stays cheap on
-        consecutive idle loops.
+        per `MAINTENANCE_INTERVAL_SECONDS` to avoid unnecessary cleanup.
         """
         now = monotonic()
         repos_to_maintain = [
