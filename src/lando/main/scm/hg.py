@@ -752,8 +752,7 @@ class HgSCM(AbstractSCM):
     ):
         """Clean the local working copy from all extraneous files.
 
-        `attributes_override` is ignored. Stripping draft commits happens in
-        `maintenance()` during worker idle time, not here.
+        `attributes_override` is ignored.
         """
         # Read `.rej` file contents into memory before cleaning removes them.
         self.rejects_content = self.read_rejects_files()
