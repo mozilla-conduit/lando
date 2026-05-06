@@ -299,7 +299,7 @@ class Worker(ABC):
         repos_to_maintain = [
             repo
             for repo in self.enabled_repos
-            if now - self.last_maintenance_at.get(repo.id, 0.0)
+            if now - self.last_maintenance_at.get(repo.id, float("-inf"))
             >= self.worker_instance.maintenance_interval_seconds
         ]
         if not repos_to_maintain:
