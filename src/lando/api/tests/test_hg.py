@@ -28,45 +28,45 @@ from lando.main.scm.helpers import HgPatchHelper
 def test_integrated_hgrepo_clean_repo(hg_clone):
     # Test is long and checks various repo cleaning cases as the startup
     # time for anything using `hg_clone` fixture is very long.
-    repo = HgSCM(hg_clone.strpath)
+    scm = HgSCM(hg_clone.strpath)
 
-    with repo.for_pull(), hg_clone.as_cwd():
+    with scm.for_pull(), hg_clone.as_cwd():
         # Create a draft commit to clean.
         new_file = hg_clone.join("new-file.txt")
         new_file.write("text", mode="w+")
-        repo.run_hg_cmds(
+        scm.run_hg_cmds(
             [["add", new_file.strpath], ["commit", "-m", "new draft commit"]]
         )
-        assert repo.run_hg_cmds([["outgoing"]])
+        assert scm.run_hg_cmds([["outgoing"]])
 
         # Dirty the working directory.
         new_file.write("Extra data", mode="a")
-        assert repo.run_hg_cmds([["status"]])
+        assert scm.run_hg_cmds([["status"]])
 
         # `clean_repo` clears the working directory but leaves drafts in place;
         # stripping is `maintenance`'s job.
-        repo.clean_repo()
-        assert repo.run_hg_cmds([["outgoing"]])
-        assert not repo.run_hg_cmds([["status"]])
+        scm.clean_repo()
+        assert scm.run_hg_cmds([["outgoing"]])
+        assert not scm.run_hg_cmds([["status"]])
 
         # Dirty the directory again before exiting the context manager.
         new_file.write("extra data", mode="a")
-        assert repo.run_hg_cmds([["status"]])
+        assert scm.run_hg_cmds([["status"]])
 
-    with repo.for_pull(), hg_clone.as_cwd():
-        assert not repo.run_hg_cmds(
+    with scm.for_pull(), hg_clone.as_cwd():
+        assert not scm.run_hg_cmds(
             [["status"]]
         ), "Working directory should be clean after exiting and re-entering the context."
-        assert repo.run_hg_cmds(
+        assert scm.run_hg_cmds(
             [["outgoing"]]
         ), "Draft commits should persist across context exits; `maintenance` strips them."
 
-    repo.maintenance()
+    scm.maintenance()
 
-    with repo.for_pull(), hg_clone.as_cwd():
+    with scm.for_pull(), hg_clone.as_cwd():
         with pytest.raises(HgCommandError, match="no changes found"):
-            repo.run_hg_cmds([["outgoing"]])
-        assert not repo.run_hg_cmds(
+            scm.run_hg_cmds([["outgoing"]])
+        assert not scm.run_hg_cmds(
             [["status"]]
         ), "Working directory should be clean after `maintenance` runs."
 
