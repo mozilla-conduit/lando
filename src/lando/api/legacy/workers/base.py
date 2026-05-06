@@ -5,7 +5,8 @@ import os
 import re
 import subprocess
 from abc import ABC, abstractmethod
-from time import monotonic, sleep
+from datetime import datetime, timedelta
+from time import sleep
 from typing import Callable, TypeVar
 
 from celery import Task
@@ -92,7 +93,7 @@ class Worker(ABC):
         if not self.treestatus_client.ping():
             raise ConnectionError("Could not connect to Treestatus")
 
-        self.last_maintenance_at: dict[int, float] = {}
+        self.last_maintenance_at: dict[int, datetime] = {}
 
         self.refresh_active_repos()
 
@@ -295,12 +296,12 @@ class Worker(ABC):
         per `worker_instance.maintenance_interval_seconds` to avoid unnecessary
         cleanup.
         """
-        now = monotonic()
+        now = datetime.now()
+        interval = timedelta(seconds=self.worker_instance.maintenance_interval_seconds)
         repos_to_maintain = [
             repo
             for repo in self.enabled_repos
-            if now - self.last_maintenance_at.get(repo.id, float("-inf"))
-            >= self.worker_instance.maintenance_interval_seconds
+            if now - self.last_maintenance_at.get(repo.id, datetime.min) >= interval
         ]
         if not repos_to_maintain:
             return
@@ -308,7 +309,7 @@ class Worker(ABC):
         count = len(repos_to_maintain)
         repo_names = [repo.name for repo in repos_to_maintain]
         logger.info(f"Starting idle maintenance for {count} repo(s): {repo_names}")
-        start_time = monotonic()
+        start_time = datetime.now()
         for repo in repos_to_maintain:
             try:
                 repo.scm.maintenance()
@@ -316,10 +317,10 @@ class Worker(ABC):
                 logger.exception(f"Idle maintenance failed for {repo.name}.")
             # Update on success or failure so a broken repo doesn't get hammered
             # every idle loop.
-            self.last_maintenance_at[repo.id] = monotonic()
+            self.last_maintenance_at[repo.id] = datetime.now()
+        duration_seconds = (datetime.now() - start_time).total_seconds()
         logger.info(
-            f"Finished idle maintenance for {count} repo(s) "
-            f"in {monotonic() - start_time:.2f}s"
+            f"Finished idle maintenance for {count} repo(s) in {duration_seconds:.2f}s"
         )
 
     def update_repo(

@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from unittest import mock
 
 import pytest
@@ -70,9 +71,11 @@ def test_Worker_run_idle_maintenance_runs_again_after_interval(
     hg_landing_worker.run_idle_maintenance()
 
     # Pretend the previous run happened beyond the throttle window.
-    interval = hg_landing_worker.worker_instance.maintenance_interval_seconds
+    interval = timedelta(
+        seconds=hg_landing_worker.worker_instance.maintenance_interval_seconds + 1
+    )
     for repo in mocked_enabled_repos:
-        hg_landing_worker.last_maintenance_at[repo.id] -= interval + 1
+        hg_landing_worker.last_maintenance_at[repo.id] -= interval
 
     hg_landing_worker.run_idle_maintenance()
 
