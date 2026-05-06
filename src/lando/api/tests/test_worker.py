@@ -60,7 +60,7 @@ def test_Worker_run_idle_maintenance_throttles_repeat_calls(
     for repo in mocked_enabled_repos:
         assert (
             repo._scm.maintenance.call_count == 1
-        ), "Repeat calls inside `MAINTENANCE_INTERVAL_SECONDS` should be throttled."
+        ), "Repeat calls inside `maintenance_interval_seconds` should be throttled."
 
 
 @pytest.mark.django_db
@@ -70,16 +70,15 @@ def test_Worker_run_idle_maintenance_runs_again_after_interval(
     hg_landing_worker.run_idle_maintenance()
 
     # Pretend the previous run happened beyond the throttle window.
+    interval = hg_landing_worker.worker_instance.maintenance_interval_seconds
     for repo in mocked_enabled_repos:
-        hg_landing_worker.last_maintenance_at[repo.id] -= (
-            hg_landing_worker.MAINTENANCE_INTERVAL_SECONDS + 1
-        )
+        hg_landing_worker.last_maintenance_at[repo.id] -= interval + 1
     hg_landing_worker.run_idle_maintenance()
 
     for repo in mocked_enabled_repos:
         assert (
             repo._scm.maintenance.call_count == 2
-        ), "`maintenance` should run again once `MAINTENANCE_INTERVAL_SECONDS` has elapsed."
+        ), "`maintenance` should run again once `maintenance_interval_seconds` has elapsed."
 
 
 @pytest.mark.django_db

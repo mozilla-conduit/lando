@@ -78,9 +78,6 @@ class Worker(ABC):
 
     last_job_finished: bool | None = None
 
-    # Minimum seconds between `scm.maintenance` calls per repo.
-    MAINTENANCE_INTERVAL_SECONDS = 300
-
     def __str__(self) -> str:
         return f"{self.__class__.__name__} {self.worker_instance}"
 
@@ -295,14 +292,15 @@ class Worker(ABC):
         """Call `scm.maintenance` on each enabled repo, throttled per repo.
 
         Called when no job is available. Each repo is maintained at most once
-        per `MAINTENANCE_INTERVAL_SECONDS` to avoid unnecessary cleanup.
+        per `worker_instance.maintenance_interval_seconds` to avoid unnecessary
+        cleanup.
         """
         now = monotonic()
         repos_to_maintain = [
             repo
             for repo in self.enabled_repos
             if now - self.last_maintenance_at.get(repo.id, 0.0)
-            >= self.MAINTENANCE_INTERVAL_SECONDS
+            >= self.worker_instance.maintenance_interval_seconds
         ]
         if not repos_to_maintain:
             return
