@@ -25,6 +25,7 @@ REPOS = {
             "url": "https://github.com/mozilla-conduit/test-repo.git",
             "required_permission": SCM_LEVEL_1,
             "scm_type": GitSCM.scm_type(),
+            "pr_enabled": True,
         },
         {
             "name": "test-repo-git",
