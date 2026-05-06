@@ -83,9 +83,6 @@ where = ["src"]
 DJANGO_SETTINGS_MODULE = "lando.test_settings"
 addopts = ["--cov", "--cov-report", "html", "--no-migrations"]
 
-[tool.ruff]
-extend-exclude = ["src/lando/version/__init__.py", "src/lando/*/migrations/*"]
-
 [tool.djlint]
 profile = "jinja"
 
