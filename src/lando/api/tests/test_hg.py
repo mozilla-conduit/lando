@@ -53,7 +53,7 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
         new_file.write("extra data", mode="a")
         assert scm.run_hg_cmds([["status"]])
 
-    with scm.for_pull(), hg_clone.as_cwd():
+    with scm.for_pull():
         assert not scm.run_hg_cmds(
             [["status"]]
         ), "Working directory should be clean after exiting and re-entering the context."
