@@ -490,11 +490,12 @@ class GitSCM(AbstractSCM):
 
     @override
     def maintenance(self) -> None:
-        """Delete leftover `lando-<timestamp>` work branches.
+        """Perform various maintenance tasks while the worker is idling.
 
-        Each landing creates a fresh work branch in `update_repo`, and they
-        accumulate on disk indefinitely. Idle-time cleanup keeps the local
-        branch list small without affecting per-job latency.
+        Currently this method cleans up leftover `lando-<timestamp>` work
+        branches. Each landing creates a fresh work branch in `update_repo`,
+        and they accumulate on disk indefinitely. Idle-time cleanup keeps the
+        local branch list small without affecting per-job latency.
         """
         branches = self._git_run(
             "for-each-ref",

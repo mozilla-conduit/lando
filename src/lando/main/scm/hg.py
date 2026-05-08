@@ -769,11 +769,13 @@ class HgSCM(AbstractSCM):
 
     @override
     def maintenance(self) -> None:
-        """Strip draft commits left over from previous landings.
+        """Perform various maintenance tasks while the worker is idling.
 
-        Runs during worker idle periods so the ~8s strip cost doesn't land in
-        the user-visible job latency window. This is the only place that
-        strips drafts; the per-job `clean_repo` calls leave them in place.
+        Currently this method strips draft commits left over from previous
+        landings. Running during worker idle periods keeps the ~8s strip cost
+        out of the user-visible job latency window. This is the only place
+        that strips drafts; the per-job `clean_repo` calls leave them in
+        place.
         """
         try:
             self._open()

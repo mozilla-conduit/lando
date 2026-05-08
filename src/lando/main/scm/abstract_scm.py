@@ -197,7 +197,7 @@ class AbstractSCM(ABC):
 
     @abstractmethod
     def maintenance(self) -> None:
-        """Run idle-time maintenance tasks for the repo.
+        """Perform various maintenance tasks while the worker is idling.
 
         Called from the worker loop during idle periods so background cleanup
         (e.g. stripping stale Mercurial drafts, deleting old Git work
