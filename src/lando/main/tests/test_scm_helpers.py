@@ -2,6 +2,7 @@ import io
 import os
 from pathlib import Path
 from typing import Callable
+from unittest import mock
 
 import pytest
 
@@ -752,3 +753,21 @@ def test_strip_git_version_info_lines():
         "blah",
         "blah",
     ]
+
+
+@pytest.mark.parametrize(
+    "url,is_supported_url,result",
+    (
+        ("some_supported_url", True, "authenticated_url"),
+        ("some_unsupported_url", False, "some_unsupported_url"),
+    ),
+)
+@mock.patch("lando.main.scm.git.GitHub")
+def test_GitSCM__authenticate_path_if_possible(github, is_supported_url, url, result):
+    mock_github = mock.MagicMock()
+    type(mock_github).authenticated_url = mock.PropertyMock(return_value=result)
+    github.return_value = mock_github
+    github.is_supported_url.return_value = is_supported_url
+
+    authenticated_url = GitSCM.authenticate_path_if_possible(url)
+    assert authenticated_url == result
