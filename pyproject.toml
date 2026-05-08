@@ -88,3 +88,5 @@ profile = "jinja"
 
 # Avoid templating vendored code and coverage reports.
 extend_exclude = "src/lando/static_src/legacy/vendor/.*|htmlcov/.*"
+
+# Ruff settings are in ruff.toml.
