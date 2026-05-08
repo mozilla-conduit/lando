@@ -69,13 +69,13 @@ MILESTONE_TEST_CONTENTS_2 = """
 
 
 def test_parse_milestone_version():
-    assert parse_milestone_version(MILESTONE_TEST_CONTENTS_1) == Version("84.0a1"), (
-        "Test milestone file 1 should have 84 as major milestone version."
-    )
+    assert parse_milestone_version(MILESTONE_TEST_CONTENTS_1) == Version(
+        "84.0a1"
+    ), "Test milestone file 1 should have 84 as major milestone version."
 
-    assert parse_milestone_version(MILESTONE_TEST_CONTENTS_2) == Version("105.0"), (
-        "Test milestone file 2 should have 84 as major milestone version."
-    )
+    assert parse_milestone_version(MILESTONE_TEST_CONTENTS_2) == Version(
+        "105.0"
+    ), "Test milestone file 2 should have 84 as major milestone version."
 
     bad_milestone_contents = "blahblahblah"
     with pytest.raises(ValueError, match=bad_milestone_contents):
@@ -116,34 +116,34 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
 
     # Redirect + success message.
     assert response.status_code == 302, "Successful creation should return 302."
-    assert response["Location"] == "/D456", (
-        "Successful creation should redirect to tip revision."
-    )
+    assert (
+        response["Location"] == "/D456"
+    ), "Successful creation should redirect to tip revision."
     messages = list(get_messages(response.wsgi_request))
-    assert any("Uplift request queued." in str(message) for message in messages), (
-        f"Successful creation should flash success: {messages=}"
-    )
+    assert any(
+        "Uplift request queued." in str(message) for message in messages
+    ), f"Successful creation should flash success: {messages=}"
 
     # Assessment created and owned by the requester.
-    assert UpliftAssessment.objects.count() == 1, (
-        "A new `UpliftAssessment` should be created."
-    )
+    assert (
+        UpliftAssessment.objects.count() == 1
+    ), "A new `UpliftAssessment` should be created."
     assessment = UpliftAssessment.objects.get()
     assert assessment.user_id == user.id, "New assessment should belong to the user."
 
     # Parent request created and linked to assessment.
-    assert UpliftSubmission.objects.count() == 1, (
-        "New uplift request should be created."
-    )
+    assert (
+        UpliftSubmission.objects.count() == 1
+    ), "New uplift request should be created."
     submission = UpliftSubmission.objects.select_related(
         "assessment", "requested_by"
     ).get()
-    assert submission.assessment_id == assessment.id, (
-        "Uplift request should be associated with assessment."
-    )
-    assert submission.requested_by_id == user.id, (
-        "Uplift request should belong to the user."
-    )
+    assert (
+        submission.assessment_id == assessment.id
+    ), "Uplift request should be associated with assessment."
+    assert (
+        submission.requested_by_id == user.id
+    ), "Uplift request should belong to the user."
     assert submission.requested_revision_ids == [
         123,
         456,
@@ -153,9 +153,9 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
         UpliftJob.objects.select_related("target_repo").filter(submission=submission)
     )
     assert len(jobs) == 2, "Two uplift jobs should be created."
-    assert all(job.status == JobStatus.SUBMITTED for job in jobs), (
-        "Newly created uplift jobs should be submitted for processing."
-    )
+    assert all(
+        job.status == JobStatus.SUBMITTED for job in jobs
+    ), "Newly created uplift jobs should be submitted for processing."
     repo_names = sorted(job.target_repo.name for job in jobs)
     assert repo_names == [
         repo_a.name,
@@ -201,9 +201,9 @@ def test_uplift_creation_seeds_revisions_from_phabricator(
     rev_id_a = phab_rev_a["id"]
     rev_id_b = phab_rev_b["id"]
 
-    assert not Revision.objects.filter(revision_id__in=[rev_id_a, rev_id_b]).exists(), (
-        "Revisions should not exist in the database before the request."
-    )
+    assert not Revision.objects.filter(
+        revision_id__in=[rev_id_a, rev_id_b]
+    ).exists(), "Revisions should not exist in the database before the request."
 
     url = reverse("uplift-page")
     form_data = {
@@ -221,24 +221,24 @@ def test_uplift_creation_seeds_revisions_from_phabricator(
     ), f"Successful creation should flash success: {flash_messages=}"
 
     # Revisions should have been seeded from Phabricator.
-    assert Revision.objects.filter(revision_id=rev_id_a).exists(), (
-        "Revision A should be seeded from Phabricator."
-    )
-    assert Revision.objects.filter(revision_id=rev_id_b).exists(), (
-        "Revision B should be seeded from Phabricator."
-    )
+    assert Revision.objects.filter(
+        revision_id=rev_id_a
+    ).exists(), "Revision A should be seeded from Phabricator."
+    assert Revision.objects.filter(
+        revision_id=rev_id_b
+    ).exists(), "Revision B should be seeded from Phabricator."
 
     # Uplift jobs should be created and linked to the seeded revisions.
-    assert UpliftSubmission.objects.count() == 1, (
-        "An `UpliftSubmission` should be created."
-    )
+    assert (
+        UpliftSubmission.objects.count() == 1
+    ), "An `UpliftSubmission` should be created."
     assert UpliftJob.objects.count() == 2, "Two uplift jobs should be created."
 
     for job in UpliftJob.objects.all():
         job_rev_ids = sorted(job.revisions.values_list("revision_id", flat=True))
-        assert job_rev_ids == sorted([rev_id_a, rev_id_b]), (
-            "Each job should reference the seeded revisions."
-        )
+        assert job_rev_ids == sorted(
+            [rev_id_a, rev_id_b]
+        ), "Each job should reference the seeded revisions."
 
 
 @pytest.mark.django_db
@@ -260,16 +260,16 @@ def test_uplift_creation_fails_when_seeding_fails(
     response = authenticated_client.post(url, data=form_data, HTTP_REFERER="/D999999")
 
     assert response.status_code == 302, "Failed seeding should redirect."
-    assert response["Location"] == "/D999999", (
-        "Failed seeding should redirect back to the referer."
-    )
+    assert (
+        response["Location"] == "/D999999"
+    ), "Failed seeding should redirect back to the referer."
     flash_messages = list(get_messages(response.wsgi_request))
     assert any(
         "not found on Phabricator" in str(message) for message in flash_messages
     ), f"Should flash an error about the missing revision: {flash_messages=}"
-    assert UpliftSubmission.objects.count() == 0, (
-        "No `UpliftSubmission` should be created when seeding fails."
-    )
+    assert (
+        UpliftSubmission.objects.count() == 0
+    ), "No `UpliftSubmission` should be created when seeding fails."
 
 
 def test_create_uplift_bug_update_payload():
@@ -284,12 +284,12 @@ def test_create_uplift_bug_update_payload():
     )
 
     assert payload["ids"] == [123], "Passed bug ID should be present in the payload."
-    assert payload["whiteboard"] == "", (
-        "checkin-needed flag should be removed from whiteboard."
-    )
-    assert payload["cf_status_firefox100"] == "fixed", (
-        "Custom tracking flag should be set to `fixed`."
-    )
+    assert (
+        payload["whiteboard"] == ""
+    ), "checkin-needed flag should be removed from whiteboard."
+    assert (
+        payload["cf_status_firefox100"] == "fixed"
+    ), "Custom tracking flag should be set to `fixed`."
 
     bug = {
         "cf_status_firefox100": "---",
@@ -301,9 +301,9 @@ def test_create_uplift_bug_update_payload():
         bug, "beta", 100, "cf_status_firefox{milestone}"
     )
 
-    assert "cf_status_firefox100" not in payload, (
-        "Status should not have been set with `leave-open` keyword on bug."
-    )
+    assert (
+        "cf_status_firefox100" not in payload
+    ), "Status should not have been set with `leave-open` keyword on bug."
 
 
 @pytest.mark.django_db
@@ -323,24 +323,24 @@ def test_to_conduit_json_transforms_fields(user):
 
     conduit_dict = instance.to_conduit_json()
     assert isinstance(conduit_dict, dict), "`to_conduit_json` should return a `dict`."
-    assert conduit_dict["User impact if declined/Reason for urgency"] == "Impact", (
-        "`user_impact` field should not be transformed."
-    )
-    assert conduit_dict["Code covered by automated testing?"] == "yes", (
-        "`covered_by_testing` value should be preserved as a string."
-    )
-    assert conduit_dict["Fix verified in Nightly?"] == "no", (
-        "`fix_verified_in_nightly` value should be preserved as a string."
-    )
-    assert conduit_dict["Needs manual QE testing?"] == "yes", (
-        "`needs_manual_qe_testing` value should be preserved as a string."
-    )
-    assert conduit_dict["Is Android affected?"] == "unknown", (
-        "`is_android_affected` value should be preserved as a string."
-    )
-    assert conduit_dict["Risk associated with taking this patch"] == "high", (
-        "`risk_associated_with_patch` value should be preserved as a string."
-    )
+    assert (
+        conduit_dict["User impact if declined/Reason for urgency"] == "Impact"
+    ), "`user_impact` field should not be transformed."
+    assert (
+        conduit_dict["Code covered by automated testing?"] == "yes"
+    ), "`covered_by_testing` value should be preserved as a string."
+    assert (
+        conduit_dict["Fix verified in Nightly?"] == "no"
+    ), "`fix_verified_in_nightly` value should be preserved as a string."
+    assert (
+        conduit_dict["Needs manual QE testing?"] == "yes"
+    ), "`needs_manual_qe_testing` value should be preserved as a string."
+    assert (
+        conduit_dict["Is Android affected?"] == "unknown"
+    ), "`is_android_affected` value should be preserved as a string."
+    assert (
+        conduit_dict["Risk associated with taking this patch"] == "high"
+    ), "`risk_associated_with_patch` value should be preserved as a string."
 
     conduit_str = instance.to_conduit_json_str()
 
@@ -387,9 +387,9 @@ def test_get_latest_landing_commit_id_with_null_commit_id():
         commit_id=None,
     )
 
-    assert revision.get_latest_landing_commit_id() is None, (
-        "`None` should be returned when `commit_id` is `None`."
-    )
+    assert (
+        revision.get_latest_landing_commit_id() is None
+    ), "`None` should be returned when `commit_id` is `None`."
 
     # Create another landing job with empty string `commit_id`.
     RevisionLandingJob.objects.create(
@@ -406,9 +406,9 @@ def test_get_latest_landing_commit_id_with_null_commit_id():
         commit_id="abc123def456",
     )
 
-    assert revision.get_latest_landing_commit_id() == "abc123def456", (
-        "Should return the commit ID from the most recent landing job."
-    )
+    assert (
+        revision.get_latest_landing_commit_id() == "abc123def456"
+    ), "Should return the commit ID from the most recent landing job."
 
 
 @mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
@@ -427,80 +427,80 @@ def test_patch_assessment_creates_and_updates(
     response = authenticated_client.post(
         url, data=CREATE_FORM_DATA, HTTP_REFERER="/D1234"
     )
-    assert response.status_code == 302, (
-        "Updating assessment form should redirect back to referrer."
-    )
+    assert (
+        response.status_code == 302
+    ), "Updating assessment form should redirect back to referrer."
 
     # Check that a new response was created.
     responses = UpliftAssessment.objects.all()
     assert responses.count() == 1, "Updating a form should result in a single form."
 
     response_obj = responses.first()
-    assert response_obj.user_impact == CREATE_FORM_DATA["user_impact"], (
-        "`user_impact` field should match the initial value."
-    )
+    assert (
+        response_obj.user_impact == CREATE_FORM_DATA["user_impact"]
+    ), "`user_impact` field should match the initial value."
 
     revision = UpliftRevision.objects.get()
     assert revision.revision_id == 1234, "Revision ID should match initial value."
-    assert revision.assessment == response_obj, (
-        "Response object for the revision should match the queried model."
-    )
+    assert (
+        revision.assessment == response_obj
+    ), "Response object for the revision should match the queried model."
 
     # Assert Celery task was called.
-    assert mock_apply_async.call_count == 1, (
-        "`set_uplift_request_form_on_revision` should be called."
-    )
+    assert (
+        mock_apply_async.call_count == 1
+    ), "`set_uplift_request_form_on_revision` should be called."
     _, kwargs = mock_apply_async.call_args
     revision_id, conduit_json_str, user_id = kwargs["args"]
 
-    assert revision_id == 1234, (
-        "Revision ID for `set_uplift_request_form_on_revision` should match expected."
-    )
-    assert isinstance(conduit_json_str, str), (
-        "Uplift form be JSON string from `to_conduit_json_str()`."
-    )
-    assert user_id == user.id, (
-        "User ID for `set_uplift_request_form_on_revision` should match expected."
-    )
+    assert (
+        revision_id == 1234
+    ), "Revision ID for `set_uplift_request_form_on_revision` should match expected."
+    assert isinstance(
+        conduit_json_str, str
+    ), "Uplift form be JSON string from `to_conduit_json_str()`."
+    assert (
+        user_id == user.id
+    ), "User ID for `set_uplift_request_form_on_revision` should match expected."
 
     # Submit the form for a revision which already has a completed form.
     response = authenticated_client.post(
         url, data=UPDATED_FORM_DATA, HTTP_REFERER="/D1234"
     )
-    assert response.status_code == 302, (
-        "Updating assessment form should redirect back to referrer."
-    )
+    assert (
+        response.status_code == 302
+    ), "Updating assessment form should redirect back to referrer."
 
     # Check that a new response was created.
     responses = UpliftAssessment.objects.all()
     assert responses.count() == 1, "Updating a form should result in a single form."
 
     updated_response_obj = responses.first()
-    assert updated_response_obj.user_impact == UPDATED_FORM_DATA["user_impact"], (
-        "User impact should be updated to a new value."
-    )
+    assert (
+        updated_response_obj.user_impact == UPDATED_FORM_DATA["user_impact"]
+    ), "User impact should be updated to a new value."
 
     revision.refresh_from_db()
-    assert revision.assessment == updated_response_obj, (
-        "Revision should point to the new response."
-    )
+    assert (
+        revision.assessment == updated_response_obj
+    ), "Revision should point to the new response."
 
     # Assert Celery task was called again.
-    assert mock_apply_async.call_count == 2, (
-        "`set_uplift_request_form_on_revision` should be called."
-    )
+    assert (
+        mock_apply_async.call_count == 2
+    ), "`set_uplift_request_form_on_revision` should be called."
     _, kwargs = mock_apply_async.call_args
     revision_id, conduit_json_str, user_id = kwargs["args"]
 
-    assert revision_id == 1234, (
-        "Revision ID for `set_uplift_request_form_on_revision` should match expected."
-    )
-    assert isinstance(conduit_json_str, str), (
-        "Uplift form be JSON string from `to_conduit_json_str()`."
-    )
-    assert user_id == user.id, (
-        "User ID for `set_uplift_request_form_on_revision` should match expected."
-    )
+    assert (
+        revision_id == 1234
+    ), "Revision ID for `set_uplift_request_form_on_revision` should match expected."
+    assert isinstance(
+        conduit_json_str, str
+    ), "Uplift form be JSON string from `to_conduit_json_str()`."
+    assert (
+        user_id == user.id
+    ), "User ID for `set_uplift_request_form_on_revision` should match expected."
 
 
 @mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
@@ -521,17 +521,17 @@ def test_patch_assessment_updates_in_place(
     )
 
     assert response.status_code == 302, "Update should redirect to referrer."
-    assert UpliftAssessment.objects.count() == 1, (
-        "Assessment update should not create additional rows."
-    )
+    assert (
+        UpliftAssessment.objects.count() == 1
+    ), "Assessment update should not create additional rows."
 
     updated_assessment = UpliftAssessment.objects.get()
-    assert updated_assessment.pk == original_pk, (
-        "Assessment should be updated in place, not replaced."
-    )
-    assert updated_assessment.user_impact == UPDATED_FORM_DATA["user_impact"], (
-        "Updated assessment should reflect new values."
-    )
+    assert (
+        updated_assessment.pk == original_pk
+    ), "Assessment should be updated in place, not replaced."
+    assert (
+        updated_assessment.user_impact == UPDATED_FORM_DATA["user_impact"]
+    ), "Updated assessment should reflect new values."
 
     mock_apply_async.assert_called()
 
@@ -563,18 +563,18 @@ def test_patch_assessment_form_invalid(
     response = authenticated_client.post(url, data=invalid_data, HTTP_REFERER="/D1234")
 
     assert response.status_code == 302, "Submission should redirect on error."
-    assert UpliftAssessment.objects.count() == 0, (
-        "Assessment should not be saved on error."
-    )
-    assert UpliftRevision.objects.count() == 0, (
-        "Assessment should not be associated with a revision."
-    )
+    assert (
+        UpliftAssessment.objects.count() == 0
+    ), "Assessment should not be saved on error."
+    assert (
+        UpliftRevision.objects.count() == 0
+    ), "Assessment should not be associated with a revision."
 
     messages = [str(message) for message in get_messages(response.wsgi_request)]
     for bad_field in ("qe_testing_reproduction_steps", "user_impact"):
-        assert any(bad_field in message for message in messages), (
-            f"Validation message not sent for `{bad_field}`: {messages=}"
-        )
+        assert any(
+            bad_field in message for message in messages
+        ), f"Validation message not sent for `{bad_field}`: {messages=}"
 
     assert mock_apply_async.call_count == 0, "Uplift form task should not be called."
 
@@ -597,9 +597,9 @@ def test_link_assessment_links_existing_form(
     )
 
     assert response.status_code == 302, "Successful link should redirect to referrer."
-    assert response["Location"] == "/D5678", (
-        "Linking should return to the revision page."
-    )
+    assert (
+        response["Location"] == "/D5678"
+    ), "Linking should return to the revision page."
     messages = [str(message) for message in get_messages(response.wsgi_request)]
     assert any(
         "Linked existing assessment to this revision." in message
@@ -607,27 +607,27 @@ def test_link_assessment_links_existing_form(
     ), f"Successful link should flash confirmation: {messages=}"
 
     revision_link = UpliftRevision.objects.get()
-    assert revision_link.revision_id == 5678, (
-        "Revision link should target the requested revision."
-    )
-    assert revision_link.assessment_id == assessment.id, (
-        "Revision should be associated with the selected assessment."
-    )
+    assert (
+        revision_link.revision_id == 5678
+    ), "Revision link should target the requested revision."
+    assert (
+        revision_link.assessment_id == assessment.id
+    ), "Revision should be associated with the selected assessment."
 
     assessment.refresh_from_db()
-    assert assessment.revisions.count() == 1, (
-        "Assessment should now be linked to exactly one revision."
-    )
+    assert (
+        assessment.revisions.count() == 1
+    ), "Assessment should now be linked to exactly one revision."
 
     assert mock_apply_async.call_count == 1, "Celery task should update Phabricator."
     _, kwargs = mock_apply_async.call_args
     task_revision_id, conduit_json_str, user_id = kwargs["args"]
-    assert task_revision_id == 5678, (
-        "Celery task should publish the linked revision ID."
-    )
-    assert isinstance(conduit_json_str, str), (
-        "Celery task should receive the serialized assessment payload."
-    )
+    assert (
+        task_revision_id == 5678
+    ), "Celery task should publish the linked revision ID."
+    assert isinstance(
+        conduit_json_str, str
+    ), "Celery task should receive the serialized assessment payload."
     assert user_id == user.id, "Celery task should run under the submitting user."
 
 
@@ -676,18 +676,18 @@ def test_link_assessment_replaces_existing_form(
     ), f"Replacement action should flash confirmation: {messages=}"
 
     revision_link = UpliftRevision.objects.get(revision_id=6789)
-    assert revision_link.assessment_id == replacement_assessment.id, (
-        "Revision should link to the replacement assessment."
-    )
+    assert (
+        revision_link.assessment_id == replacement_assessment.id
+    ), "Revision should link to the replacement assessment."
 
     mock_apply_async.assert_called_once()
     _, kwargs = mock_apply_async.call_args
     task_revision_id, conduit_json_str, user_id = kwargs["args"]
     assert task_revision_id == 6789, "Celery task should receive revision ID."
     assert user_id == user.id, "Celery task should use the requesting user's identity."
-    assert isinstance(conduit_json_str, str), (
-        "Celery task should receive serialized payload."
-    )
+    assert isinstance(
+        conduit_json_str, str
+    ), "Celery task should receive serialized payload."
 
 
 @pytest.mark.django_db
@@ -794,9 +794,9 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         user.id,
     )
     mock_task.apply_async.assert_called_once_with(args=expected_task_args)
-    assert job.status == JobStatus.LANDED, (
-        "Successful uplift job should transition to LANDED."
-    )
+    assert (
+        job.status == JobStatus.LANDED
+    ), "Successful uplift job should transition to LANDED."
     assert job.created_revision_ids == [
         4567,
         4568,
@@ -804,21 +804,21 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
 
     # Validate that HEAD changed after applying patches locally.
     new_head = repo.scm.head_ref()
-    assert new_head != old_head, (
-        "Repository HEAD should have advanced after applying patches."
-    )
+    assert (
+        new_head != old_head
+    ), "Repository HEAD should have advanced after applying patches."
 
     # Validate that UpliftRevision objects are created and linked.
-    assert UpliftRevision.objects.count() == 1, (
-        "Successful uplift job should create a single UpliftRevision link."
-    )
+    assert (
+        UpliftRevision.objects.count() == 1
+    ), "Successful uplift job should create a single UpliftRevision link."
     ur = UpliftRevision.objects.get()
-    assert ur.revision_id == 4568, (
-        "Created UpliftRevision should point to the latest revision ID."
-    )
-    assert ur.assessment_id == job.submission.assessment_id, (
-        "Created UpliftRevision should link back to the original assessment."
-    )
+    assert (
+        ur.revision_id == 4568
+    ), "Created UpliftRevision should point to the latest revision ID."
+    assert (
+        ur.assessment_id == job.submission.assessment_id
+    ), "Created UpliftRevision should link back to the original assessment."
 
     # Mock `moz-phab uplift` again with new created commits.
     monkeypatch.setattr(
@@ -848,9 +848,9 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         5000,
         5001,
     ], "Revision identifiers should be in the correct order."
-    assert mock_task.apply_async.call_count == 2, (
-        "Celery task should be dispatched on each successful run."
-    )
+    assert (
+        mock_task.apply_async.call_count == 2
+    ), "Celery task should be dispatched on each successful run."
 
     expected_task_args = (
         job.created_revision_ids[-1],
@@ -866,9 +866,9 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         5000,
         5001,
     ], "Re-running job should leave created_revision_ids unchanged."
-    assert UpliftRevision.objects.count() == 2, (
-        "Re-running job should create a second UpliftRevision record."
-    )
+    assert (
+        UpliftRevision.objects.count() == 2
+    ), "Re-running job should create a second UpliftRevision record."
 
 
 @pytest.mark.django_db
@@ -932,9 +932,9 @@ def test_uplift_worker_fallback_to_patch_when_no_landing_commit_id(
 
     old_head = repo.scm.head_ref()
 
-    assert uplift_worker.run_job(job), (
-        "Job should complete successfully with patch fallback."
-    )
+    assert uplift_worker.run_job(
+        job
+    ), "Job should complete successfully with patch fallback."
 
     job.refresh_from_db()
     expected_task_args = (
@@ -943,27 +943,27 @@ def test_uplift_worker_fallback_to_patch_when_no_landing_commit_id(
         user.id,
     )
     mock_task.apply_async.assert_called_once_with(args=expected_task_args)
-    assert job.status == JobStatus.LANDED, (
-        "Uplift job should succeed using patch fallback."
-    )
+    assert (
+        job.status == JobStatus.LANDED
+    ), "Uplift job should succeed using patch fallback."
     assert job.created_revision_ids == [
         7000,
         7001,
     ], "Job should store all created revision IDs."
 
     new_head = repo.scm.head_ref()
-    assert new_head != old_head, (
-        "Repository HEAD should advance when patches are applied."
-    )
+    assert (
+        new_head != old_head
+    ), "Repository HEAD should advance when patches are applied."
 
-    assert UpliftRevision.objects.count() == 1, (
-        "Successful uplift should create a UpliftRevision link."
-    )
+    assert (
+        UpliftRevision.objects.count() == 1
+    ), "Successful uplift should create a UpliftRevision link."
 
     ur = UpliftRevision.objects.get()
-    assert ur.revision_id == 7001, (
-        "UpliftRevision should point to the latest revision ID."
-    )
+    assert (
+        ur.revision_id == 7001
+    ), "UpliftRevision should point to the latest revision ID."
 
     mock_success_task.apply_async.assert_called()
     mock_failure_task.apply_async.assert_not_called()
@@ -1006,21 +1006,21 @@ def test_create_uplift_revisions_invokes_cli_and_returns_response(
 
     response = uplift_worker.create_uplift_revisions(job, api_key, base_revision)
 
-    assert response == expected_response, (
-        "`create_uplift_revisions` should return the JSON read from the output file."
-    )
-    assert captured_call, (
-        "`create_uplift_revisions` should invoke `run_moz_phab_uplift`."
-    )
-    assert captured_call["job"] == job, (
-        "`run_moz_phab_uplift` should be called with the uplift job."
-    )
-    assert captured_call["base_revision"] == base_revision, (
-        "`run_moz_phab_uplift` should receive the base revision."
-    )
-    assert captured_call["env"]["MOZPHAB_PHABRICATOR_API_TOKEN"] == api_key, (
-        "`run_moz_phab_uplift` should set the API key in the environment."
-    )
+    assert (
+        response == expected_response
+    ), "`create_uplift_revisions` should return the JSON read from the output file."
+    assert (
+        captured_call
+    ), "`create_uplift_revisions` should invoke `run_moz_phab_uplift`."
+    assert (
+        captured_call["job"] == job
+    ), "`run_moz_phab_uplift` should be called with the uplift job."
+    assert (
+        captured_call["base_revision"] == base_revision
+    ), "`run_moz_phab_uplift` should receive the base revision."
+    assert (
+        captured_call["env"]["MOZPHAB_PHABRICATOR_API_TOKEN"] == api_key
+    ), "`run_moz_phab_uplift` should set the API key in the environment."
 
 
 @pytest.mark.django_db
@@ -1103,15 +1103,15 @@ def test_run_moz_phab_uplift_invokes_subprocess_with_expected_args(
         base_revision,
         "HEAD",
     ], "`run_moz_phab_uplift` should include repo and revisions in the command."
-    assert fake_run.call_args.kwargs["cwd"] == repo.system_path, (
-        "`run_moz_phab_uplift` should use the repo path as the cwd."
-    )
-    assert fake_run.call_args.kwargs["env"] == env, (
-        "`run_moz_phab_uplift` should forward the prepared environment."
-    )
-    assert fake_run.call_args.kwargs["encoding"] == "utf-8", (
-        "`run_moz_phab_uplift` should request UTF-8 encoding."
-    )
+    assert (
+        fake_run.call_args.kwargs["cwd"] == repo.system_path
+    ), "`run_moz_phab_uplift` should use the repo path as the cwd."
+    assert (
+        fake_run.call_args.kwargs["env"] == env
+    ), "`run_moz_phab_uplift` should forward the prepared environment."
+    assert (
+        fake_run.call_args.kwargs["encoding"] == "utf-8"
+    ), "`run_moz_phab_uplift` should request UTF-8 encoding."
 
 
 @pytest.mark.django_db
@@ -1152,12 +1152,12 @@ def test_uplift_worker_mozphab_failure_marks_failed(
     assert not uplift_worker.run_job(job), "Job should not complete successfully."
 
     job.refresh_from_db()
-    assert job.status == JobStatus.FAILED, (
-        "Job should be marked FAILED on moz-phab error."
-    )
-    assert UpliftRevision.objects.count() == 0, (
-        "No UpliftRevision should be created on failure."
-    )
+    assert (
+        job.status == JobStatus.FAILED
+    ), "Job should be marked FAILED on moz-phab error."
+    assert (
+        UpliftRevision.objects.count() == 0
+    ), "No UpliftRevision should be created on failure."
     mock_failure_task.apply_async.assert_called_once()
     mock_success_task.apply_async.assert_not_called()
 
@@ -1191,15 +1191,15 @@ def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
     assert not uplift_worker.run_job(job), "Job should not complete successfully."
 
     job.refresh_from_db()
-    assert job.status != JobStatus.LANDED, (
-        "Job must not be LANDED when apply_patch fails."
-    )
-    assert UpliftRevision.objects.count() == 0, (
-        "Apply-patch failure should not create UpliftRevision records."
-    )
-    assert job.created_revision_ids == [], (
-        "Apply-patch failure should leave created_revision_ids empty."
-    )
+    assert (
+        job.status != JobStatus.LANDED
+    ), "Job must not be LANDED when apply_patch fails."
+    assert (
+        UpliftRevision.objects.count() == 0
+    ), "Apply-patch failure should not create UpliftRevision records."
+    assert (
+        job.created_revision_ids == []
+    ), "Apply-patch failure should leave created_revision_ids empty."
 
     mock_failure_task.apply_async.assert_called_once()
     mock_success_task.apply_async.assert_not_called()
@@ -1238,9 +1238,9 @@ def test_uplift_context_for_revision_returns_original_and_uplifted_requests(
     requested_qs = uplift_context_for_revision(original_revision_id)
     uplifted_qs = uplift_context_for_revision(uplifted_revision_id)
 
-    assert list(requested_qs) == [submission], (
-        "Querying with original revision ID should find the uplift request."
-    )
-    assert list(uplifted_qs) == [submission], (
-        "Querying with uplifted revision ID should find the uplift request."
-    )
+    assert list(requested_qs) == [
+        submission
+    ], "Querying with original revision ID should find the uplift request."
+    assert list(uplifted_qs) == [
+        submission
+    ], "Querying with uplifted revision ID should find the uplift request."

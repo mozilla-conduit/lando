@@ -26,9 +26,9 @@ from lando.utils.github import (
     ),
 )
 def test_github_is_supported(url: str, expected_support: bool):
-    assert GitHub.is_supported_url(url) == expected_support, (
-        f"Support for {url} incorrectly determined"
-    )
+    assert (
+        GitHub.is_supported_url(url) == expected_support
+    ), f"Support for {url} incorrectly determined"
 
 
 @pytest.mark.parametrize(
@@ -430,9 +430,9 @@ def test_api_client_get_pull_request_commits(
     # We use list() to consume all the iterator
     commits = list(github_api_client.get_pull_request_commits(1))
 
-    assert github_api_client._get.call_count == 3, (
-        "GitHubAPIClient._get not called as many times as expected"
-    )
+    assert (
+        github_api_client._get.call_count == 3
+    ), "GitHubAPIClient._get not called as many times as expected"
 
     page = 0
     for args in github_api_client._get.call_args_list:

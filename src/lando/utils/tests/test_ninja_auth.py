@@ -66,12 +66,12 @@ def test_authentication_valid_token_non_existent_user(
 
     assert hasattr(user, "profile"), "Token-created user is missing its Profile"
 
-    assert user.has_perm("main.scm_level_1"), (
-        "User is missing scm_level_1 permission, despite it being active"
-    )
-    assert not user.has_perm("main.scm_level_3"), (
-        "User has scm_level_3 permission, despite it being inactive"
-    )
+    assert user.has_perm(
+        "main.scm_level_1"
+    ), "User is missing scm_level_1 permission, despite it being active"
+    assert not user.has_perm(
+        "main.scm_level_3"
+    ), "User has scm_level_3 permission, despite it being inactive"
 
 
 @pytest.mark.django_db()

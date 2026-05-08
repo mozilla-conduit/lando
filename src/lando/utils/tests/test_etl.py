@@ -72,16 +72,16 @@ def test_sql_table_id_formats_table_reference():
 
     result = sql_table_id(table)
 
-    assert result == "my-project.my_dataset.my_table", (
-        "`sql_table_id` should output in expected format."
-    )
+    assert (
+        result == "my-project.my_dataset.my_table"
+    ), "`sql_table_id` should output in expected format."
 
 
 def test_incoming_table_id_appends_incoming_suffix():
     result = incoming_table_id("project.dataset.table")
-    assert result == "project.dataset.table_incoming", (
-        "Should append `_incoming` suffix to table ID."
-    )
+    assert (
+        result == "project.dataset.table_incoming"
+    ), "Should append `_incoming` suffix to table ID."
 
 
 @pytest.mark.django_db
@@ -93,26 +93,26 @@ def test_transform_repo(make_repo):
 
     assert result["id"] == repo.id, "`id` should exist and match expected value."
     assert result["name"] == "repo-1", "`name` should exist and match expected value."
-    assert result["short_name"] == repo.short_name, (
-        "`short_name` should exist and match expected value."
-    )
+    assert (
+        result["short_name"] == repo.short_name
+    ), "`short_name` should exist and match expected value."
     assert result["url"] == repo.url, "`url` should exist and match expected value."
-    assert result["scm_type"] == "git", (
-        "`scm_type` should exist and match expected value."
-    )
-    assert result["is_phabricator_repo"] is True, (
-        "`is_phabricator_repo` should exist and match expected value."
-    )
+    assert (
+        result["scm_type"] == "git"
+    ), "`scm_type` should exist and match expected value."
+    assert (
+        result["is_phabricator_repo"] is True
+    ), "`is_phabricator_repo` should exist and match expected value."
     assert result["is_try"] is False, "`is_try` should exist and match expected value."
-    assert result["automation_enabled"] is False, (
-        "`automation_enabled` should exist and match expected value."
-    )
-    assert result["created_at"] is not None, (
-        "`created_at` should exist and not be `None`."
-    )
-    assert result["updated_at"] is not None, (
-        "`updated_at` should exist and not be `None`."
-    )
+    assert (
+        result["automation_enabled"] is False
+    ), "`automation_enabled` should exist and match expected value."
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
 
 
 @pytest.mark.django_db
@@ -135,45 +135,45 @@ def test_transform_uplift_assessment():
     result = transformer.transform(assessment)
 
     assert result["id"] == assessment.id, "`id` should exist and match expected value."
-    assert result["user_id"] == user.id, (
-        "`user_id` should exist and match expected value."
-    )
-    assert result["user_impact"] == "high", (
-        "`user_impact` should exist and match expected value."
-    )
-    assert result["covered_by_testing"] == "yes", (
-        "`covered_by_testing` should exist and match expected value."
-    )
-    assert result["fix_verified_in_nightly"] == "no", (
-        "`fix_verified_in_nightly` should exist and match expected value."
-    )
-    assert result["needs_manual_qe_testing"] == "yes", (
-        "`needs_manual_qe_testing` should exist and match expected value."
-    )
-    assert result["qe_testing_reproduction_steps"] == "Step 1, Step 2", (
-        "`qe_testing_reproduction_steps` should exist and match expected value."
-    )
-    assert result["risk_associated_with_patch"] == "low", (
-        "`risk_associated_with_patch` should exist and match expected value."
-    )
-    assert result["risk_level_explanation"] == "Simple change", (
-        "`risk_level_explanation` should exist and match expected value."
-    )
-    assert result["string_changes"] == "none", (
-        "`string_changes` should exist and match expected value."
-    )
-    assert result["is_android_affected"] == "yes", (
-        "`is_android_affected` should exist and match expected value."
-    )
-    assert result["user_email"] == "test@example.com", (
-        "`user_email` should exist and match expected value."
-    )
-    assert result["created_at"] is not None, (
-        "`created_at` should exist and not be `None`."
-    )
-    assert result["updated_at"] is not None, (
-        "`updated_at` should exist and not be `None`."
-    )
+    assert (
+        result["user_id"] == user.id
+    ), "`user_id` should exist and match expected value."
+    assert (
+        result["user_impact"] == "high"
+    ), "`user_impact` should exist and match expected value."
+    assert (
+        result["covered_by_testing"] == "yes"
+    ), "`covered_by_testing` should exist and match expected value."
+    assert (
+        result["fix_verified_in_nightly"] == "no"
+    ), "`fix_verified_in_nightly` should exist and match expected value."
+    assert (
+        result["needs_manual_qe_testing"] == "yes"
+    ), "`needs_manual_qe_testing` should exist and match expected value."
+    assert (
+        result["qe_testing_reproduction_steps"] == "Step 1, Step 2"
+    ), "`qe_testing_reproduction_steps` should exist and match expected value."
+    assert (
+        result["risk_associated_with_patch"] == "low"
+    ), "`risk_associated_with_patch` should exist and match expected value."
+    assert (
+        result["risk_level_explanation"] == "Simple change"
+    ), "`risk_level_explanation` should exist and match expected value."
+    assert (
+        result["string_changes"] == "none"
+    ), "`string_changes` should exist and match expected value."
+    assert (
+        result["is_android_affected"] == "yes"
+    ), "`is_android_affected` should exist and match expected value."
+    assert (
+        result["user_email"] == "test@example.com"
+    ), "`user_email` should exist and match expected value."
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
 
 
 @pytest.mark.django_db
@@ -194,18 +194,18 @@ def test_transform_uplift_revision():
     result = transformer.transform(revision)
 
     assert result["id"] == revision.id, "`id` should exist and match expected value."
-    assert result["assessment_id"] == assessment.id, (
-        "`assessment_id` should exist and match expected value."
-    )
-    assert result["revision_id"] == 12345, (
-        "`revision_id` should exist and match expected value."
-    )
-    assert result["created_at"] is not None, (
-        "`created_at` should exist and not be `None`."
-    )
-    assert result["updated_at"] is not None, (
-        "`updated_at` should exist and not be `None`."
-    )
+    assert (
+        result["assessment_id"] == assessment.id
+    ), "`assessment_id` should exist and match expected value."
+    assert (
+        result["revision_id"] == 12345
+    ), "`revision_id` should exist and match expected value."
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
 
 
 @pytest.mark.django_db
@@ -227,26 +227,26 @@ def test_transform_uplift_submission():
     result = transformer.transform(submission)
 
     assert result["id"] == submission.id, "`id` should exist and match expected value."
-    assert result["requested_by_id"] == user.id, (
-        "`requested_by_id` should exist and match expected value."
-    )
+    assert (
+        result["requested_by_id"] == user.id
+    ), "`requested_by_id` should exist and match expected value."
     assert result["requested_revision_ids"] == [
         100,
         101,
         102,
     ], "`requested_revision_ids` should exist and match expected value."
-    assert result["assessment_id"] == assessment.id, (
-        "`assessment_id` should exist and match expected value."
-    )
-    assert result["requested_by_email"] == "test@example.com", (
-        "`requested_by_email` should exist and match expected value."
-    )
-    assert result["created_at"] is not None, (
-        "`created_at` should exist and not be `None`."
-    )
-    assert result["updated_at"] is not None, (
-        "`updated_at` should exist and not be `None`."
-    )
+    assert (
+        result["assessment_id"] == assessment.id
+    ), "`assessment_id` should exist and match expected value."
+    assert (
+        result["requested_by_email"] == "test@example.com"
+    ), "`requested_by_email` should exist and match expected value."
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
 
 
 @pytest.mark.django_db
@@ -280,40 +280,40 @@ def test_transform_uplift_job(make_repo):
     result = transformer.transform(job)
 
     assert result["id"] == job.id, "`id` should exist and match expected value."
-    assert result["status"] == "LANDED", (
-        "`status` should exist and match expected value."
-    )
+    assert (
+        result["status"] == "LANDED"
+    ), "`status` should exist and match expected value."
     assert result["error"] == "", "`error` should exist and match expected value."
-    assert result["error_breakdown"] == "{}", (
-        "`error_breakdown` should exist and match expected value."
-    )
-    assert result["landed_commit_id"] == "abc123", (
-        "`landed_commit_id` should exist and match expected value."
-    )
-    assert result["requester_email"] == "user@example.com", (
-        "`requester_email` should exist and match expected value."
-    )
+    assert (
+        result["error_breakdown"] == "{}"
+    ), "`error_breakdown` should exist and match expected value."
+    assert (
+        result["landed_commit_id"] == "abc123"
+    ), "`landed_commit_id` should exist and match expected value."
+    assert (
+        result["requester_email"] == "user@example.com"
+    ), "`requester_email` should exist and match expected value."
     assert result["attempts"] == 2, "`attempts` should exist and match expected value."
     assert result["priority"] == 1, "`priority` should exist and match expected value."
-    assert result["duration_seconds"] == 120, (
-        "`duration_seconds` should exist and match expected value."
-    )
-    assert result["target_repo_id"] == repo.id, (
-        "`target_repo_id` should exist and match expected value."
-    )
+    assert (
+        result["duration_seconds"] == 120
+    ), "`duration_seconds` should exist and match expected value."
+    assert (
+        result["target_repo_id"] == repo.id
+    ), "`target_repo_id` should exist and match expected value."
     assert result["created_revision_ids"] == [
         200,
         201,
     ], "`created_revision_ids` should exist and match expected value."
-    assert result["submission_id"] == submission.id, (
-        "`submission_id` should exist and match expected value."
-    )
-    assert result["created_at"] is not None, (
-        "`created_at` should exist and not be `None`."
-    )
-    assert result["updated_at"] is not None, (
-        "`updated_at` should exist and not be `None`."
-    )
+    assert (
+        result["submission_id"] == submission.id
+    ), "`submission_id` should exist and match expected value."
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
 
 
 @pytest.mark.django_db
@@ -346,20 +346,20 @@ def test_transform_revision_uplift_job(make_repo):
     transformer = RevisionUpliftJobTransformer()
     result = transformer.transform(revision_uplift_job)
 
-    assert result["id"] == revision_uplift_job.id, (
-        "`id` should exist and match expected value."
-    )
-    assert result["uplift_job_id"] == job.id, (
-        "`uplift_job_id` should exist and match expected value."
-    )
+    assert (
+        result["id"] == revision_uplift_job.id
+    ), "`id` should exist and match expected value."
+    assert (
+        result["uplift_job_id"] == job.id
+    ), "`uplift_job_id` should exist and match expected value."
     assert result["revision_id"] is None, "`revision_id` should exist and be `None`."
     assert result["index"] == 0, "`index` should exist and match expected value."
-    assert result["created_at"] is not None, (
-        "`created_at` should exist and not be `None`."
-    )
-    assert result["updated_at"] is not None, (
-        "`updated_at` should exist and not be `None`."
-    )
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
 
 
 @pytest.mark.django_db
@@ -382,45 +382,45 @@ def test_transform_landing_job(make_repo):
     result = transformer.transform(job)
 
     assert result["id"] == job.id, "`id` should exist and match expected value."
-    assert result["status"] == "LANDED", (
-        "`status` should exist and match expected value."
-    )
+    assert (
+        result["status"] == "LANDED"
+    ), "`status` should exist and match expected value."
     assert result["error"] == "", "`error` should exist and match expected value."
-    assert result["error_breakdown"] == json.dumps({"failed_paths": ["/some/path"]}), (
-        "`error_breakdown` should be a JSON string."
-    )
-    assert result["landed_commit_id"] == "def456", (
-        "`landed_commit_id` should exist and match expected value."
-    )
-    assert result["requester_email"] == "lander@example.com", (
-        "`requester_email` should exist and match expected value."
-    )
+    assert result["error_breakdown"] == json.dumps(
+        {"failed_paths": ["/some/path"]}
+    ), "`error_breakdown` should be a JSON string."
+    assert (
+        result["landed_commit_id"] == "def456"
+    ), "`landed_commit_id` should exist and match expected value."
+    assert (
+        result["requester_email"] == "lander@example.com"
+    ), "`requester_email` should exist and match expected value."
     assert result["attempts"] == 1, "`attempts` should exist and match expected value."
     assert result["priority"] == 5, "`priority` should exist and match expected value."
-    assert result["duration_seconds"] == 60, (
-        "`duration_seconds` should exist and match expected value."
-    )
-    assert result["target_repo_id"] == repo.id, (
-        "`target_repo_id` should exist and match expected value."
-    )
-    assert result["is_pull_request_job"] is True, (
-        "`is_pull_request_job` should exist and match expected value."
-    )
-    assert result["target_commit_hash"] == "aabbcc", (
-        "`target_commit_hash` should exist and match expected value."
-    )
-    assert result["handover_repo_id"] is None, (
-        "`handover_repo_id` should exist and be `None`."
-    )
-    assert result["is_handed_over"] is None, (
-        "`is_handed_over` should exist and be `None`."
-    )
-    assert result["created_at"] is not None, (
-        "`created_at` should exist and not be `None`."
-    )
-    assert result["updated_at"] is not None, (
-        "`updated_at` should exist and not be `None`."
-    )
+    assert (
+        result["duration_seconds"] == 60
+    ), "`duration_seconds` should exist and match expected value."
+    assert (
+        result["target_repo_id"] == repo.id
+    ), "`target_repo_id` should exist and match expected value."
+    assert (
+        result["is_pull_request_job"] is True
+    ), "`is_pull_request_job` should exist and match expected value."
+    assert (
+        result["target_commit_hash"] == "aabbcc"
+    ), "`target_commit_hash` should exist and match expected value."
+    assert (
+        result["handover_repo_id"] is None
+    ), "`handover_repo_id` should exist and be `None`."
+    assert (
+        result["is_handed_over"] is None
+    ), "`is_handed_over` should exist and be `None`."
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
 
 
 @pytest.mark.django_db
@@ -446,26 +446,26 @@ def test_transform_revision_landing_job(make_repo):
     transformer = RevisionLandingJobTransformer()
     result = transformer.transform(revision_landing_job)
 
-    assert result["id"] == revision_landing_job.id, (
-        "`id` should exist and match expected value."
-    )
-    assert result["landing_job_id"] == landing_job.id, (
-        "`landing_job_id` should exist and match expected value."
-    )
-    assert result["revision_id"] == revision.id, (
-        "`revision_id` should exist and match expected value."
-    )
+    assert (
+        result["id"] == revision_landing_job.id
+    ), "`id` should exist and match expected value."
+    assert (
+        result["landing_job_id"] == landing_job.id
+    ), "`landing_job_id` should exist and match expected value."
+    assert (
+        result["revision_id"] == revision.id
+    ), "`revision_id` should exist and match expected value."
     assert result["index"] == 0, "`index` should exist and match expected value."
     assert result["diff_id"] == 200, "`diff_id` should exist and match expected value."
-    assert result["commit_id"] == "abc123", (
-        "`commit_id` should exist and match expected value."
-    )
-    assert result["created_at"] is not None, (
-        "`created_at` should exist and not be `None`."
-    )
-    assert result["updated_at"] is not None, (
-        "`updated_at` should exist and not be `None`."
-    )
+    assert (
+        result["commit_id"] == "abc123"
+    ), "`commit_id` should exist and match expected value."
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
 
 
 @pytest.mark.django_db
@@ -487,31 +487,31 @@ def test_transform_revision():
     result = transformer.transform(revision)
 
     assert result["id"] == revision.id, "`id` should exist and match expected value."
-    assert result["revision_id"] == 42, (
-        "`revision_id` should exist and match expected value."
-    )
+    assert (
+        result["revision_id"] == 42
+    ), "`revision_id` should exist and match expected value."
     assert result["diff_id"] == 99, "`diff_id` should exist and match expected value."
-    assert result["pull_number"] == 7, (
-        "`pull_number` should exist and match expected value."
-    )
-    assert result["commit_id"] == "deadbeef", (
-        "`commit_id` should exist and match expected value."
-    )
-    assert result["author_name"] == "Test Author", (
-        "`author_name` should be derived from `patch_data`."
-    )
-    assert result["author_email"] == "author@example.com", (
-        "`author_email` should be derived from `patch_data`."
-    )
-    assert result["commit_message"] == "Fix the bug", (
-        "`commit_message` should be derived from `patch_data`."
-    )
-    assert result["created_at"] is not None, (
-        "`created_at` should exist and not be `None`."
-    )
-    assert result["updated_at"] is not None, (
-        "`updated_at` should exist and not be `None`."
-    )
+    assert (
+        result["pull_number"] == 7
+    ), "`pull_number` should exist and match expected value."
+    assert (
+        result["commit_id"] == "deadbeef"
+    ), "`commit_id` should exist and match expected value."
+    assert (
+        result["author_name"] == "Test Author"
+    ), "`author_name` should be derived from `patch_data`."
+    assert (
+        result["author_email"] == "author@example.com"
+    ), "`author_email` should be derived from `patch_data`."
+    assert (
+        result["commit_message"] == "Fix the bug"
+    ), "`commit_message` should be derived from `patch_data`."
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
 
 
 @pytest.mark.django_db
@@ -524,15 +524,15 @@ def test_transform_revision_with_empty_patch_data():
     transformer = RevisionTransformer()
     result = transformer.transform(revision)
 
-    assert result["author_name"] is None, (
-        "`author_name` should be `None` when `patch_data` is empty."
-    )
-    assert result["author_email"] is None, (
-        "`author_email` should be `None` when `patch_data` is empty."
-    )
-    assert result["commit_message"] is None, (
-        "`commit_message` should be `None` when `patch_data` is empty."
-    )
+    assert (
+        result["author_name"] is None
+    ), "`author_name` should be `None` when `patch_data` is empty."
+    assert (
+        result["author_email"] is None
+    ), "`author_email` should be `None` when `patch_data` is empty."
+    assert (
+        result["commit_message"] is None
+    ), "`commit_message` should be `None` when `patch_data` is empty."
 
 
 @pytest.mark.django_db
@@ -554,36 +554,36 @@ def test_transform_automation_job(make_repo):
     result = transformer.transform(job)
 
     assert result["id"] == job.id, "`id` should exist and match expected value."
-    assert result["status"] == "LANDED", (
-        "`status` should exist and match expected value."
-    )
+    assert (
+        result["status"] == "LANDED"
+    ), "`status` should exist and match expected value."
     assert result["error"] == "", "`error` should exist and match expected value."
-    assert result["landed_commit_id"] == "aaa111", (
-        "`landed_commit_id` should exist and match expected value."
-    )
-    assert result["requester_email"] == "automator@example.com", (
-        "`requester_email` should exist and match expected value."
-    )
+    assert (
+        result["landed_commit_id"] == "aaa111"
+    ), "`landed_commit_id` should exist and match expected value."
+    assert (
+        result["requester_email"] == "automator@example.com"
+    ), "`requester_email` should exist and match expected value."
     assert result["attempts"] == 3, "`attempts` should exist and match expected value."
     assert result["priority"] == 10, "`priority` should exist and match expected value."
-    assert result["duration_seconds"] == 45, (
-        "`duration_seconds` should exist and match expected value."
-    )
-    assert result["target_repo_id"] == repo.id, (
-        "`target_repo_id` should exist and match expected value."
-    )
-    assert result["relbranch_name"] == "FIREFOX_RELEASE_130", (
-        "`relbranch_name` should exist and match expected value."
-    )
-    assert result["relbranch_commit_sha"] == "bbb222", (
-        "`relbranch_commit_sha` should exist and match expected value."
-    )
-    assert result["created_at"] is not None, (
-        "`created_at` should exist and not be `None`."
-    )
-    assert result["updated_at"] is not None, (
-        "`updated_at` should exist and not be `None`."
-    )
+    assert (
+        result["duration_seconds"] == 45
+    ), "`duration_seconds` should exist and match expected value."
+    assert (
+        result["target_repo_id"] == repo.id
+    ), "`target_repo_id` should exist and match expected value."
+    assert (
+        result["relbranch_name"] == "FIREFOX_RELEASE_130"
+    ), "`relbranch_name` should exist and match expected value."
+    assert (
+        result["relbranch_commit_sha"] == "bbb222"
+    ), "`relbranch_commit_sha` should exist and match expected value."
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
 
 
 @pytest.mark.django_db
@@ -605,25 +605,25 @@ def test_transform_automation_action(make_repo):
     result = transformer.transform(action)
 
     assert result["id"] == action.id, "`id` should exist and match expected value."
-    assert result["automation_job_id"] == job.id, (
-        "`automation_job_id` should exist and match expected value."
-    )
-    assert "job_id_id" not in result, (
-        "`job_id_id` should be renamed to `automation_job_id`."
-    )
-    assert result["action_type"] == "add-commit", (
-        "`action_type` should exist and match expected value."
-    )
+    assert (
+        result["automation_job_id"] == job.id
+    ), "`automation_job_id` should exist and match expected value."
+    assert (
+        "job_id_id" not in result
+    ), "`job_id_id` should be renamed to `automation_job_id`."
+    assert (
+        result["action_type"] == "add-commit"
+    ), "`action_type` should exist and match expected value."
     assert result["order"] == 0, "`order` should exist and match expected value."
     assert result["data"] == json.dumps(
         {"diff": "some-diff-content", "message": "Bump version"}
     ), "`data` should be a JSON string."
-    assert result["created_at"] is not None, (
-        "`created_at` should exist and not be `None`."
-    )
-    assert result["updated_at"] is not None, (
-        "`updated_at` should exist and not be `None`."
-    )
+    assert (
+        result["created_at"] is not None
+    ), "`created_at` should exist and not be `None`."
+    assert (
+        result["updated_at"] is not None
+    ), "`updated_at` should exist and not be `None`."
 
 
 def test_get_cutoff_timestamp_full_extract_returns_datetime_min():
@@ -631,9 +631,9 @@ def test_get_cutoff_timestamp_full_extract_returns_datetime_min():
 
     result = command.get_cutoff_timestamp(full_extract=True, since=None)
 
-    assert result == datetime.min.replace(tzinfo=timezone.utc), (
-        "Should return `datetime.min` (UTC) for full extraction."
-    )
+    assert result == datetime.min.replace(
+        tzinfo=timezone.utc
+    ), "Should return `datetime.min` (UTC) for full extraction."
 
 
 @pytest.mark.parametrize(
@@ -701,9 +701,9 @@ def test_get_cutoff_timestamp_falls_back_to_beginning_on_bq_error(mock_bq_client
 
     result = command.get_cutoff_timestamp(full_extract=False, since=None)
 
-    assert result == datetime.min.replace(tzinfo=timezone.utc), (
-        "Should fall back to `datetime.min` (UTC) when BigQuery is unavailable."
-    )
+    assert result == datetime.min.replace(
+        tzinfo=timezone.utc
+    ), "Should fall back to `datetime.min` (UTC) when BigQuery is unavailable."
 
 
 def test_json_lines_loader_raises_if_output_file_exists():
@@ -754,39 +754,39 @@ def test_etl_output_file_writes_json_lines(mock_bq_client):
         assessment_records = [
             record for record in lines if record.get("_model") == "UpliftAssessment"
         ]
-        assert len(assessment_records) == 1, (
-            "Should have one `UpliftAssessment` record."
-        )
+        assert (
+            len(assessment_records) == 1
+        ), "Should have one `UpliftAssessment` record."
 
         # Verify the transformed data matches.
         record = assessment_records[0]
-        assert record["_model"] == "UpliftAssessment", (
-            "`_model` should exist and match expected value."
-        )
-        assert record["id"] == assessment.id, (
-            "`id` should exist and match expected value."
-        )
-        assert record["user_id"] == user.id, (
-            "`user_id` should exist and match expected value."
-        )
-        assert record["user_impact"] == "high", (
-            "`user_impact` should exist and match expected value."
-        )
-        assert record["covered_by_testing"] == "yes", (
-            "`covered_by_testing` should exist and match expected value."
-        )
-        assert record["risk_associated_with_patch"] == "low", (
-            "`risk_associated_with_patch` should exist and match expected value."
-        )
-        assert record["user_email"] == "test@example.com", (
-            "`user_email` should exist and match expected value."
-        )
-        assert record["created_at"] is not None, (
-            "`created_at` should exist and not be `None`."
-        )
-        assert record["updated_at"] is not None, (
-            "`updated_at` should exist and not be `None`."
-        )
+        assert (
+            record["_model"] == "UpliftAssessment"
+        ), "`_model` should exist and match expected value."
+        assert (
+            record["id"] == assessment.id
+        ), "`id` should exist and match expected value."
+        assert (
+            record["user_id"] == user.id
+        ), "`user_id` should exist and match expected value."
+        assert (
+            record["user_impact"] == "high"
+        ), "`user_impact` should exist and match expected value."
+        assert (
+            record["covered_by_testing"] == "yes"
+        ), "`covered_by_testing` should exist and match expected value."
+        assert (
+            record["risk_associated_with_patch"] == "low"
+        ), "`risk_associated_with_patch` should exist and match expected value."
+        assert (
+            record["user_email"] == "test@example.com"
+        ), "`user_email` should exist and match expected value."
+        assert (
+            record["created_at"] is not None
+        ), "`created_at` should exist and not be `None`."
+        assert (
+            record["updated_at"] is not None
+        ), "`updated_at` should exist and not be `None`."
 
     # Should not call BigQuery client methods.
     mock_bq_client.return_value.get_table.assert_not_called()
@@ -822,12 +822,12 @@ def test_extract_filters_out_records_before_cutoff():
     results = extract(UpliftAssessment, since=cutoff)
 
     result_ids = list(results.values_list("id", flat=True))
-    assert new_assessment.id in result_ids, (
-        "Records after the cutoff should be included."
-    )
-    assert old_assessment.id not in result_ids, (
-        "Records before the cutoff should be excluded."
-    )
+    assert (
+        new_assessment.id in result_ids
+    ), "Records after the cutoff should be included."
+    assert (
+        old_assessment.id not in result_ids
+    ), "Records before the cutoff should be excluded."
 
 
 def test_wait_for_incoming_tables_succeeds_immediately():
@@ -843,9 +843,9 @@ def test_wait_for_incoming_tables_succeeds_immediately():
 
     loader.wait_for_incoming_tables(retry_base_delay_s=0)
 
-    assert mock_client.get_table.call_count == 1, (
-        "Should call `get_table` once per incoming table."
-    )
+    assert (
+        mock_client.get_table.call_count == 1
+    ), "Should call `get_table` once per incoming table."
 
 
 def test_wait_for_incoming_tables_retries_on_not_found():
@@ -865,9 +865,9 @@ def test_wait_for_incoming_tables_retries_on_not_found():
 
     loader.wait_for_incoming_tables(retry_base_delay_s=0)
 
-    assert mock_client.get_table.call_count == 2, (
-        "Should have retried after `NotFound`."
-    )
+    assert (
+        mock_client.get_table.call_count == 2
+    ), "Should have retried after `NotFound`."
 
 
 def test_wait_for_incoming_tables_raises_after_max_retries():

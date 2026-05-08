@@ -408,6 +408,6 @@ def test_build_manual_uplift_instructions_no_landing_commit(user):
         f"moz-phab uplift --train beta --assessment-id {assessment.id}"
     )
 
-    assert result == expected, (
-        "Revisions without landing commits should use `moz-phab patch`."
-    )
+    assert (
+        result == expected
+    ), "Revisions without landing commits should use `moz-phab patch`."

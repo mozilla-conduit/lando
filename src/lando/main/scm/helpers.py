@@ -112,6 +112,7 @@ def get_timestamp_from_hg_date_header(date_header: str) -> str:
 
 @dataclass
 class PatchHelperMetadata:
+
     signature: bool = False
 
 

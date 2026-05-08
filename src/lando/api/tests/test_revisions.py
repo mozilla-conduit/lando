@@ -121,13 +121,13 @@ def test_fetch_raw_diff_and_save_creates_new_revision(phabdouble):
         phab, phab_revision["id"], diff, "Bug 1 - Test commit"
     )
 
-    assert revision.revision_id == phab_revision["id"], (
-        "`revision_id` should match the provided value."
-    )
+    assert (
+        revision.revision_id == phab_revision["id"]
+    ), "`revision_id` should match the provided value."
     assert revision.diff_id == diff["id"], "`diff_id` should match the diff."
-    assert revision.commit_message == "Bug 1 - Test commit", (
-        "`commit_message` should be set from the provided message."
-    )
+    assert (
+        revision.commit_message == "Bug 1 - Test commit"
+    ), "`commit_message` should be set from the provided message."
 
 
 @pytest.mark.django_db
@@ -144,13 +144,13 @@ def test_fetch_raw_diff_and_save_updates_existing_revision(phabdouble):
         phab, phab_revision["id"], diff, "Updated message"
     )
 
-    assert revision.pk == existing.pk, (
-        "Should update the existing Revision, not create a new one."
-    )
+    assert (
+        revision.pk == existing.pk
+    ), "Should update the existing Revision, not create a new one."
     assert revision.diff_id == diff["id"], "`diff_id` should be updated."
-    assert revision.commit_message == "Updated message", (
-        "`commit_message` should reflect the new data."
-    )
+    assert (
+        revision.commit_message == "Updated message"
+    ), "`commit_message` should reflect the new data."
 
 
 @pytest.mark.django_db
@@ -179,12 +179,12 @@ def test_ensure_revisions_from_phabricator_creates_from_phabricator(phabdouble):
     revision = revisions[0]
     assert revision.revision_id == phab_revision["id"], "`revision_id` should match."
     assert revision.diff_id is not None, "`diff_id` should be populated."
-    assert "Bug 1 - Test patch" in revision.commit_message, (
-        "`commit_message` should contain the revision title."
-    )
-    assert "Patch summary." in revision.commit_message, (
-        "`commit_message` should contain the revision summary."
-    )
+    assert (
+        "Bug 1 - Test patch" in revision.commit_message
+    ), "`commit_message` should contain the revision title."
+    assert (
+        "Patch summary." in revision.commit_message
+    ), "`commit_message` should contain the revision summary."
 
 
 @pytest.mark.django_db

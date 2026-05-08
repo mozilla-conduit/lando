@@ -342,9 +342,9 @@ class GitSCM(AbstractSCM):
                 reject["content"] = f"error reading rejects file {reject['path']}"
 
             if path_error:
-                reject["content"] += (
-                    f"\nin addition, Git reported this error: {path_error}"
-                )
+                reject[
+                    "content"
+                ] += f"\nin addition, Git reported this error: {path_error}"
 
             breakdown["rejects_paths"][path] = reject
 

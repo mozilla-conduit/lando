@@ -75,9 +75,9 @@ def test_legacy_try_patches_invalid_user(
     response = client_post("/try/patches")
 
     assert mock_authenticate.called, "Authentication backend should be called"
-    assert response.status_code == 401, (
-        "Invalid user to legacy Try API should result in 401"
-    )
+    assert (
+        response.status_code == 401
+    ), "Invalid user to legacy Try API should result in 401"
 
 
 @pytest.mark.django_db()
@@ -95,9 +95,9 @@ def test_legacy_try_patches_auth_redirect(
     response = client_post("/try/patches")
 
     assert mock_authenticate.called, "Authentication backend should be called"
-    assert response.status_code == 308, (
-        "Valid token to legacy Try API should result in 308"
-    )
+    assert (
+        response.status_code == 308
+    ), "Valid token to legacy Try API should result in 308"
 
 
 @pytest.mark.django_db()
@@ -153,9 +153,9 @@ def test_try_api_patches_no_scm1(
 
     assert mock_authenticate.called, "Authentication backend should be called"
 
-    assert response.status_code == 403, (
-        "Missing permissions to Try API should result in 403"
-    )
+    assert (
+        response.status_code == 403
+    ), "Missing permissions to Try API should result in 403"
 
     rj = response.json()
     assert rj, "Error response should be a parseable (RFC 7807) JSON payload"
@@ -192,9 +192,9 @@ def test_try_api_patches_invalid_scm(
     )
 
     assert mock_authenticate.called, "Authentication backend should be called"
-    assert response.status_code == 422, (
-        "Request to Try API with incorrect base_commit_vcs should result in 422"
-    )
+    assert (
+        response.status_code == 422
+    ), "Request to Try API with incorrect base_commit_vcs should result in 422"
 
 
 @pytest.mark.django_db()
@@ -225,9 +225,9 @@ def test_try_api_patches_not_try(
     )
 
     assert mock_authenticate.called, "Authentication backend should be called"
-    assert response.status_code == 400, (
-        "Request to Try API for non-try report should result in 400"
-    )
+    assert (
+        response.status_code == 400
+    ), "Request to Try API for non-try report should result in 400"
 
 
 @pytest.mark.django_db()
@@ -268,9 +268,9 @@ def test_try_api_patches_invalid_data(
     )
 
     assert mock_authenticate.called, "Authentication backend should be called"
-    assert response.status_code == 400, (
-        f"Valid request to Try API with incorrect patch data should result in 400: {response.text}"
-    )
+    assert (
+        response.status_code == 400
+    ), f"Valid request to Try API with incorrect patch data should result in 400: {response.text}"
 
     rj = response.json()
     assert "title" in rj, f"Missing title in error 400 response: {response.text}"
@@ -321,9 +321,9 @@ def test_try_api_patches_failed_checks(
     )
 
     assert mock_authenticate.called, "Authentication backend should be called"
-    assert response.status_code == 400, (
-        f"Request to Try API failing checks should result in 400: {response.text}"
-    )
+    assert (
+        response.status_code == 400
+    ), f"Request to Try API failing checks should result in 400: {response.text}"
 
     rj = response.json()
     assert rj["title"] == "Errors found in pre-submission patch checks."
@@ -367,9 +367,9 @@ def test_try_api_patches_success(
     )
 
     assert mock_authenticate.called, "Authentication backend should be called"
-    assert response.status_code == 201, (
-        f"Valid request to Try API should result in 201: {response.text}"
-    )
+    assert (
+        response.status_code == 201
+    ), f"Valid request to Try API should result in 201: {response.text}"
 
     rj = response.json()
     assert "id" in rj, "Missing job id in success response"
@@ -378,15 +378,15 @@ def test_try_api_patches_success(
 
     assert job, "Try LandingJob should have been created"
     assert job.status == JobStatus.SUBMITTED, "Try LandingJob not in the expected state"
-    assert job.target_repo == Repo.objects.get(name="try"), (
-        "Try LandingJob not against the Try repo"
-    )
-    assert job.requester_email == user.email, (
-        "Try LandingJob request email not as expected"
-    )
-    assert len(job.revisions) == 2, (
-        "Unexpected number of revisions associated to Try LandingJob"
-    )
-    assert job.target_commit_hash == commit_maps[0].hg_hash, (
-        "Target commit hash not correctly converted"
-    )
+    assert job.target_repo == Repo.objects.get(
+        name="try"
+    ), "Try LandingJob not against the Try repo"
+    assert (
+        job.requester_email == user.email
+    ), "Try LandingJob request email not as expected"
+    assert (
+        len(job.revisions) == 2
+    ), "Unexpected number of revisions associated to Try LandingJob"
+    assert (
+        job.target_commit_hash == commit_maps[0].hg_hash
+    ), "Target commit hash not correctly converted"

@@ -45,6 +45,7 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 code-quality = [
+    "black",
     "djlint",
     "ruff"
 ]
@@ -83,10 +84,11 @@ where = ["src"]
 DJANGO_SETTINGS_MODULE = "lando.test_settings"
 addopts = ["--cov", "--cov-report", "html", "--no-migrations"]
 
+[tool.black]
+extend_exclude = "src/lando/version/__init__.py"
+
 [tool.djlint]
 profile = "jinja"
 
 # Avoid templating vendored code and coverage reports.
 extend_exclude = "src/lando/static_src/legacy/vendor/.*|htmlcov/.*"
-
-# Ruff settings are in ruff.toml.

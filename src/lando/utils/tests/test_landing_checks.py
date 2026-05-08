@@ -38,8 +38,7 @@ diff --git a/{filename} b/{filename}
 """
 
 
-GIT_PATCH_FILENAME_TEMPLATE = (
-    r"""
+GIT_PATCH_FILENAME_TEMPLATE = r"""
 From 0f5a3c99e12c1e9b0e81bed245fe537961f89e57 Mon Sep 17 00:00:00 2001
 From: Connor Sheehan <sheehan@mozilla.com>
 Date: Wed, 6 Jul 2022 16:36:09 -0400
@@ -48,9 +47,7 @@ Subject: Change things
  {filename} | 8 +++++++-
  1 file changed, 7 insertions(+), 1 deletion(-)
 
-""".lstrip()
-    + GIT_DIFF_FILENAME_TEMPLATE
-)
+""".lstrip() + GIT_DIFF_FILENAME_TEMPLATE
 
 COMMIT_MESSAGE = """A commit message to check
 
@@ -90,9 +87,9 @@ def test_check_commit_message_merge_automation_empty_message():
     # Test check fails for empty commit message.
     assert assessor.run_patch_collection_checks(
         patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
-    ) == ["Revision has an empty commit message."], (
-        "Commit message check should fail if a commit message is passed but it is empty."
-    )
+    ) == [
+        "Revision has an empty commit message."
+    ], "Commit message check should fail if a commit message is passed but it is empty."
 
 
 def test_check_commit_message_merge_automation_bad_message():
@@ -472,9 +469,7 @@ def test_check_prevent_dot_github():
     assert prevent_dot_github_check.result() == (
         "Revision makes changes to restricted directories: GitHub workflows directory: "
         "`.github/workflows/workflow.yaml`."
-    ), (
-        "Check should disallow changes to GitHub workflows without proper commit message."
-    )
+    ), "Check should disallow changes to GitHub workflows without proper commit message."
 
     prevent_dot_github_check = PreventDotGithubCheck(
         email="testuser@mozilla.com",
@@ -482,9 +477,9 @@ def test_check_prevent_dot_github():
     )
     for diff in parsed_diff:
         prevent_dot_github_check.next_diff(diff)
-    assert prevent_dot_github_check.result() is None, (
-        "Check should allow changes to GitHub workflows with proper commit message."
-    )
+    assert (
+        prevent_dot_github_check.result() is None
+    ), "Check should allow changes to GitHub workflows with proper commit message."
 
 
 def test_check_prevent_hg_directory():
@@ -512,9 +507,9 @@ def test_check_prevent_nspr_nss_missing_fields():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() is None, (
-        "Missing commit message should result in passing check."
-    )
+    assert (
+        prevent_nspr_nss_check.result() is None
+    ), "Missing commit message should result in passing check."
 
 
 def test_check_prevent_nspr_nss_nss():
@@ -538,9 +533,9 @@ def test_check_prevent_nspr_nss_nss():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() is None, (
-        "Check should allow changes to NSS with proper commit message."
-    )
+    assert (
+        prevent_nspr_nss_check.result() is None
+    ), "Check should allow changes to NSS with proper commit message."
 
 
 def test_check_prevent_nspr_nss_nspr():
@@ -564,9 +559,9 @@ def test_check_prevent_nspr_nss_nspr():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() is None, (
-        "Check should allow changes to NSPR with proper commit message."
-    )
+    assert (
+        prevent_nspr_nss_check.result() is None
+    ), "Check should allow changes to NSPR with proper commit message."
 
 
 def test_check_prevent_nspr_nss_combined():
@@ -584,9 +579,7 @@ def test_check_prevent_nspr_nss_combined():
     assert prevent_nspr_nss_check.result() == (
         "Revision makes changes to restricted directories: vendored NSS directories: "
         "`security/nss/testfile.txt` vendored NSPR directories: `nsprpub/testfile.txt`."
-    ), (
-        "Check should disallow changes to both NSS and NSPR without proper commit message."
-    )
+    ), "Check should disallow changes to both NSS and NSPR without proper commit message."
 
     prevent_nspr_nss_check = PreventNSPRNSSCheck(
         email="testuser@mozilla.com",
@@ -616,9 +609,9 @@ def test_check_prevent_nspr_nss_combined():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() is None, (
-        "Check should allow changes to NSPR with proper commit message."
-    )
+    assert (
+        prevent_nspr_nss_check.result() is None
+    ), "Check should allow changes to NSPR with proper commit message."
 
 
 def test_check_prevent_submodules():
@@ -629,9 +622,9 @@ def test_check_prevent_submodules():
     for diff in parsed_diff:
         prevent_submodules_check.next_diff(diff)
 
-    assert prevent_submodules_check.result() is None, (
-        "Check should pass when no submodules are introduced."
-    )
+    assert (
+        prevent_submodules_check.result() is None
+    ), "Check should pass when no submodules are introduced."
 
     parsed_diff = rs_parsepatch.get_diffs(
         GIT_DIFF_FILENAME_TEMPLATE.format(filename=".gitmodules")
@@ -647,9 +640,7 @@ def test_check_prevent_submodules():
 
 
 def test_check_bug_references_public_bugs():
-    patch_helper = HgPatchHelper.from_string_io(
-        io.StringIO(
-            """
+    patch_helper = HgPatchHelper.from_string_io(io.StringIO("""
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
@@ -664,9 +655,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 @@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
 # instead of passing the url to 'hg import' to make
 ...
-""".strip()
-        )
-    )
+""".strip()))
     patch_helpers = [patch_helper]
 
     # Simulate contacting BMO returning a public bug state.
@@ -692,18 +681,14 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 def test_check_bug_references_private_bugs():
     # Simulate a patch that references a private bug.
-    patch_helper = HgPatchHelper.from_string_io(
-        io.StringIO(
-            """
+    patch_helper = HgPatchHelper.from_string_io(io.StringIO("""
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
 # Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
 # Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
 Bug 999999: Fix issue with feature X
-""".strip()
-        )
-    )
+""".strip()))
     patch_helpers = [patch_helper]
 
     # Simulate Bugzilla (BMO) responding that the bug is private.
@@ -731,9 +716,7 @@ Bug 999999: Fix issue with feature X
 
 def test_check_bug_references_skip_check():
     # Simulate a patch with SKIP_BMO_CHECK in the commit message.
-    patch_helper = HgPatchHelper.from_string_io(
-        io.StringIO(
-            """
+    patch_helper = HgPatchHelper.from_string_io(io.StringIO("""
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
@@ -741,9 +724,7 @@ def test_check_bug_references_skip_check():
 # Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
 Bug 999999: Fix issue with feature X
 SKIP_BMO_CHECK
-""".strip()
-        )
-    )
+""".strip()))
     patch_helpers = [patch_helper]
 
     # Simulate Bugzilla (BMO) responding that the bug is private.
@@ -763,25 +744,21 @@ SKIP_BMO_CHECK
             patch_checks=[],
         )
 
-        assert issues == [], (
-            "Check should always pass when `SKIP_BMO_CHECK` is present."
-        )
+        assert (
+            issues == []
+        ), "Check should always pass when `SKIP_BMO_CHECK` is present."
 
 
 def test_check_bug_references_bmo_error():
     # Simulate a patch that references a bug.
-    patch_helper = HgPatchHelper.from_string_io(
-        io.StringIO(
-            """
+    patch_helper = HgPatchHelper.from_string_io(io.StringIO("""
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
 # Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
 # Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
 Bug 123456: Fix issue with feature Y
-""".strip()
-        )
-    )
+""".strip()))
     patch_helpers = [patch_helper]
 
     # Simulate an error occurring when trying to contact BMO.
@@ -817,9 +794,9 @@ def test_check_try_task_config():
     for diff in parsed_diff:
         try_task_config_check.next_diff(diff)
 
-    assert try_task_config_check.result() is None, (
-        "Check should pass when no try_task_config.json is introduced."
-    )
+    assert (
+        try_task_config_check.result() is None
+    ), "Check should pass when no try_task_config.json is introduced."
 
     parsed_diff = rs_parsepatch.get_diffs(
         GIT_DIFF_FILENAME_TEMPLATE.format(filename="try_task_config.json")

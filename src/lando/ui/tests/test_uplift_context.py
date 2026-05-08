@@ -38,9 +38,9 @@ def test_uplift_context_build_falls_back_on_stack_walk_error():
         stack=mock_stack,
     )
 
-    assert context.request_form.initial["source_revisions"] == [revision_id], (
-        "Form should be initialized with current revision."
-    )
+    assert context.request_form.initial["source_revisions"] == [
+        revision_id
+    ], "Form should be initialized with current revision."
 
 
 @pytest.mark.django_db

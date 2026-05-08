@@ -19,8 +19,6 @@ exclude = [
     "src/lando/version/__init__.py",
 ]
 
-extend-exclude = ["src/lando/version/__init__.py", "src/lando/*/migrations/*"]
-
 [lint.isort]
 split-on-trailing-comma = true
 

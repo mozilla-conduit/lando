@@ -169,9 +169,9 @@ def test_dryrun_open_parent(
         },
     )
 
-    assert "The requested set of revisions are not landable." in result["blocker"], (
-        "Landing should be blocked due to r1 still being open and part of the stack."
-    )
+    assert (
+        "The requested set of revisions are not landable." in result["blocker"]
+    ), "Landing should be blocked due to r1 still being open and part of the stack."
 
 
 @pytest.mark.django_db(transaction=True)
@@ -790,18 +790,18 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
         f"/landing_jobs/{job.id}",
         follow=True,
     )
-    assert response.status_code == 200, (
-        f"Invalid status code from GET /landing_jobs/{job.id}"
-    )
+    assert (
+        response.status_code == 200
+    ), f"Invalid status code from GET /landing_jobs/{job.id}"
 
     result = response.json()
     assert result["id"] == job.id, f"Invalid id in GET /landing_jobs/{job.id} response"
-    assert result["status"] == JobStatus.LANDED, (
-        f"Invalid status in GET /landing_jobs/{job.id} response"
-    )
-    assert result["commit_id"] == job.landed_commit_id, (
-        f"Invalid commit_id in GET /landing_jobs/{job.id} response"
-    )
+    assert (
+        result["status"] == JobStatus.LANDED
+    ), f"Invalid status in GET /landing_jobs/{job.id} response"
+    assert (
+        result["commit_id"] == job.landed_commit_id
+    ), f"Invalid commit_id in GET /landing_jobs/{job.id} response"
 
     assert job.status == JobStatus.LANDED
     for revision in job.revisions.all():
@@ -864,34 +864,34 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_phabricator_r
         f"/landing_jobs/{job.id}",
         follow=True,
     )
-    assert response.status_code == 200, (
-        f"Invalid status code from GET /landing_jobs/{job.id}"
-    )
+    assert (
+        response.status_code == 200
+    ), f"Invalid status code from GET /landing_jobs/{job.id}"
 
     result = response.json()
     assert result["id"] == job.id, f"Invalid id in GET /landing_jobs/{job.id} response"
-    assert result["status"] == JobStatus.SUBMITTED, (
-        f"Invalid status in GET /landing_jobs/{job.id} response"
-    )
+    assert (
+        result["status"] == JobStatus.SUBMITTED
+    ), f"Invalid status in GET /landing_jobs/{job.id} response"
 
-    assert len(result["revisions"]) == 1, (
-        f"Revisions list of unexpected length in GET /landing_jobs/{job.id} response"
-    )
-    assert result["revisions"][0]["url"] == r1["uri"], (
-        "Incorrect revision URL in GET /landing_jobs/{job.id} response"
-    )
+    assert (
+        len(result["revisions"]) == 1
+    ), f"Revisions list of unexpected length in GET /landing_jobs/{job.id} response"
+    assert (
+        result["revisions"][0]["url"] == r1["uri"]
+    ), "Incorrect revision URL in GET /landing_jobs/{job.id} response"
 
     db_revision = job.revisions[0]
 
-    assert result["revisions"][0]["author_email"] == db_revision.author_email, (
-        f"Incorrect revision author email in GET /landing_jobs/{job.id} response"
-    )
-    assert result["revisions"][0]["author_name"] == db_revision.author_name, (
-        f"Incorrect revision author name in GET /landing_jobs/{job.id} response"
-    )
-    assert result["revisions"][0]["commit_message"] == db_revision.commit_message, (
-        f"Incorrect revision commitmessage in GET /landing_jobs/{job.id} response"
-    )
+    assert (
+        result["revisions"][0]["author_email"] == db_revision.author_email
+    ), f"Incorrect revision author email in GET /landing_jobs/{job.id} response"
+    assert (
+        result["revisions"][0]["author_name"] == db_revision.author_name
+    ), f"Incorrect revision author name in GET /landing_jobs/{job.id} response"
+    assert (
+        result["revisions"][0]["commit_message"] == db_revision.commit_message
+    ), f"Incorrect revision commitmessage in GET /landing_jobs/{job.id} response"
 
     # Cancel job.
 
@@ -951,9 +951,9 @@ def test_get_landing_jobs_404(authenticated_client):
         "/landing_jobs/20000",
         follow=True,
     )
-    assert response.status_code == 404, (
-        "Incorrect status code from GET /landing_jobs/ for non-existent job"
-    )
+    assert (
+        response.status_code == 404
+    ), "Incorrect status code from GET /landing_jobs/ for non-existent job"
     assert response.json()["title"] == "Landing job not found"
     assert response.json()["detail"] == "A landing job with ID 20000 was not found."
 
@@ -1369,9 +1369,9 @@ def test_unresolved_comment_warn(
         },
     )
 
-    assert not result["warnings"], (
-        "warnings should be empty for a revision without unresolved comments"
-    )
+    assert not result[
+        "warnings"
+    ], "warnings should be empty for a revision without unresolved comments"
 
     phabdouble.transaction(
         transaction_type="inline",
@@ -1390,12 +1390,12 @@ def test_unresolved_comment_warn(
         },
     )
 
-    assert result["warnings"], (
-        "warnings should not be empty for a revision with unresolved comments"
-    )
-    assert result["warnings"][0]["display"] == "Revision has unresolved comments.", (
-        "the warning display should match warning_unresolved_comments"
-    )
+    assert result[
+        "warnings"
+    ], "warnings should not be empty for a revision with unresolved comments"
+    assert (
+        result["warnings"][0]["display"] == "Revision has unresolved comments."
+    ), "the warning display should match warning_unresolved_comments"
 
 
 @pytest.mark.django_db(transaction=True)
@@ -1461,12 +1461,12 @@ def test_unresolved_comment_stack(
         },
     )
 
-    assert result["warnings"], (
-        "warnings should not be empty for a stack with unresolved comments"
-    )
-    assert result["warnings"][0]["display"] == "Revision has unresolved comments.", (
-        "the warning display should match warning_unresolved_comments"
-    )
+    assert result[
+        "warnings"
+    ], "warnings should not be empty for a stack with unresolved comments"
+    assert (
+        result["warnings"][0]["display"] == "Revision has unresolved comments."
+    ), "the warning display should match warning_unresolved_comments"
 
 
 @pytest.mark.django_db
@@ -1934,9 +1934,9 @@ def test_warning_multiple_authors(phabdouble, mocked_repo_config, create_state):
 
     warning = warning_multiple_authors(phab_revision, diff2, stack_state)
     assert warning is not None
-    assert warning.details == "Revision has multiple authors: alice, bob.", (
-        "Multiple authors on a revision should return a warning."
-    )
+    assert (
+        warning.details == "Revision has multiple authors: alice, bob."
+    ), "Multiple authors on a revision should return a warning."
 
 
 @pytest.mark.django_db(transaction=True)

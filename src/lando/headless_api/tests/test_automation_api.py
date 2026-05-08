@@ -137,9 +137,9 @@ def test_auth_invalid_token(client, headless_user, automation_job):
         },
     )
 
-    assert response.status_code == 401, (
-        "Invalid API key should result in 401 status code."
-    )
+    assert (
+        response.status_code == 401
+    ), "Invalid API key should result in 401 status code."
     assert response.json() == {"details": "Token api-bad-key was not found."}
 
 
@@ -187,9 +187,9 @@ def test_automation_job_empty_actions(client, headless_user):
         },
     )
 
-    assert response.status_code == 422, (
-        "Empty `actions` should result in validation error."
-    )
+    assert (
+        response.status_code == 422
+    ), "Empty `actions` should result in validation error."
 
 
 @pytest.mark.parametrize(
@@ -238,9 +238,9 @@ def test_automation_job_create_bad_action(bad_action, reason, client, headless_u
         },
     )
 
-    assert response.status_code == 422, (
-        f"Improper `actions` JSON schema should return 422 status: {reason}"
-    )
+    assert (
+        response.status_code == 422
+    ), f"Improper `actions` JSON schema should return 422 status: {reason}"
 
 
 @pytest.mark.django_db
@@ -272,12 +272,12 @@ def test_automation_job_create_hg_repo_rejected(
         },
     )
 
-    assert response.status_code == 400, (
-        "HG repo should be rejected by the automation API."
-    )
-    assert response.json() == {"details": "Automation API is Git-only."}, (
-        "Response should indicate the automation API is Git-only."
-    )
+    assert (
+        response.status_code == 400
+    ), "HG repo should be rejected by the automation API."
+    assert response.json() == {
+        "details": "Automation API is Git-only."
+    }, "Response should indicate the automation API is Git-only."
 
 
 @pytest.mark.django_db
@@ -318,9 +318,9 @@ def test_automation_job_create_repo_automation_disabled(
         },
     )
 
-    assert response.status_code == 400, (
-        "Automation disabled for repo should return `400 Bad Request` status."
-    )
+    assert (
+        response.status_code == 400
+    ), "Automation disabled for repo should return `400 Bad Request` status."
     assert (
         response.json()["details"]
         == "Repo mozilla-central-git is not enabled for automation."
@@ -368,9 +368,9 @@ def test_automation_job_create_user_automation_disabled(
         },
     )
 
-    assert response.status_code == 401, (
-        "User disabled for automation should return 401 status code."
-    )
+    assert (
+        response.status_code == 401
+    ), "User disabled for automation should return 401 status code."
     response_json = response.json()
     assert (
         response_json["details"]
@@ -427,9 +427,9 @@ def test_automation_job_create_user_no_repo_required_automation_permission(
         },
     )
 
-    assert response.status_code == 403, (
-        "User without automation permission for repo should return 403 status code."
-    )
+    assert (
+        response.status_code == 403
+    ), "User without automation permission for repo should return 403 status code."
     response_json = response.json()
     assert (
         response_json["details"]
@@ -480,9 +480,9 @@ def test_automation_job_create_api(client, repo_mc, headless_user):
         },
     )
 
-    assert response.status_code == 202, (
-        "Successful submission should result in `202 Accepted` status code."
-    )
+    assert (
+        response.status_code == 202
+    ), "Successful submission should result in `202 Accepted` status code."
 
     response_json = response.json()
 
@@ -492,16 +492,16 @@ def test_automation_job_create_api(client, repo_mc, headless_user):
     assert response_json["status_url"] == f"https://lando.test/api/job/{job_id}"
     assert response_json["message"] == "Job is in the SUBMITTED state."
     assert response_json["status"] == "SUBMITTED"
-    assert is_isoformat_timestamp(response_json["created_at"]), (
-        "Response should include an ISO formatted creation timestamp."
-    )
+    assert is_isoformat_timestamp(
+        response_json["created_at"]
+    ), "Response should include an ISO formatted creation timestamp."
 
     job = AutomationJob.objects.get(id=job_id)
 
     for index, action in enumerate(job.actions.all()):
-        assert action.data["content"] == str(index), (
-            "Actions should be retrieved in order of submission."
-        )
+        assert action.data["content"] == str(
+            index
+        ), "Actions should be retrieved in order of submission."
 
 
 @pytest.mark.django_db
@@ -530,17 +530,17 @@ def test_automation_job_create_commit_request(client, repo_mc, headless_user):
         },
     )
 
-    assert response.status_code == 202, (
-        "Successful submission should result in `202 Accepted` status code."
-    )
+    assert (
+        response.status_code == 202
+    ), "Successful submission should result in `202 Accepted` status code."
 
     job_id = response.json()["job_id"]
     job = AutomationJob.objects.get(id=job_id)
     action = job.actions.all()[0]
 
-    assert action.data["date"] == "2025-04-22T18:30:27.786900Z", (
-        "`date` field should be serialized properly."
-    )
+    assert (
+        action.data["date"] == "2025-04-22T18:30:27.786900Z"
+    ), "`date` field should be serialized properly."
 
 
 @pytest.mark.django_db
@@ -553,9 +553,9 @@ def test_get_job_status_not_found(client, headless_user):
             "Authorization": f"Bearer {token}",
         },
     )
-    assert response.status_code == 404, (
-        "API should respond with a 404 for non-existent job ID."
-    )
+    assert (
+        response.status_code == 404
+    ), "API should respond with a 404 for non-existent job ID."
 
 
 @pytest.mark.django_db
@@ -577,16 +577,16 @@ def test_get_job_status(client, headless_user, automation_job, repo_mc):
         },
     )
 
-    assert response.status_code == 200, (
-        "Response code should be 200 when status is retrieved successfully."
-    )
+    assert (
+        response.status_code == 200
+    ), "Response code should be 200 when status is retrieved successfully."
 
     response_data = response.json()
 
     assert response_data["job_id"] == job.id
-    assert response_data["message"] == "Job is in the SUBMITTED state.", (
-        "Response message should align with current job status."
-    )
+    assert (
+        response_data["message"] == "Job is in the SUBMITTED state."
+    ), "Response message should align with current job status."
     # TODO test a few more things? formatting?
 
 
@@ -799,9 +799,9 @@ def test_automation_job_create_commit_failed_check_hooks_enabled(
     scm.push = mock.MagicMock()
 
     assert automation_worker.run_job(job), "Job indicated that it should be retried"
-    assert job.status == JobStatus.FAILED, (
-        f"Job unexpectedly succeeded for commit `{bad_action['commitmsg']}`"
-    )
+    assert (
+        job.status == JobStatus.FAILED
+    ), f"Job unexpectedly succeeded for commit `{bad_action['commitmsg']}`"
     assert reason in job.error, "Expected job failure reason was not found"
 
 
@@ -1119,9 +1119,9 @@ def test_automation_job_merge_onto_fast_forward_git(
         .split()
     )
 
-    assert len(parents) == 2, (
-        f"Expected fast-forward commit with 1 parent, got: {parents}"
-    )
+    assert (
+        len(parents) == 2
+    ), f"Expected fast-forward commit with 1 parent, got: {parents}"
 
 
 @pytest.mark.django_db
@@ -1246,19 +1246,19 @@ def test_automation_job_tag_retag_success_git(
 
     automation_worker.worker_instance.applicable_repos.add(repo)
 
-    assert not automation_worker.run_job(job), (
-        "The automation job should not have succeeded the first time."
-    )
-    assert job.status == JobStatus.DEFERRED, (
-        "Job should have been deferred on first push exception."
-    )
+    assert not automation_worker.run_job(
+        job
+    ), "The automation job should not have succeeded the first time."
+    assert (
+        job.status == JobStatus.DEFERRED
+    ), "Job should have been deferred on first push exception."
     assert "Some Github error" in job.error
 
     # This is an test for the current internal behaviour that a tags remains after a
     # failure, which the deferral should be able to work around.
-    assert scm._git_run("tag", "-l", tag_name, cwd=scm.path), (
-        f"Though the job has failed, we would have expected a stray {tag_name} tag to still be present."
-    )
+    assert scm._git_run(
+        "tag", "-l", tag_name, cwd=scm.path
+    ), f"Though the job has failed, we would have expected a stray {tag_name} tag to still be present."
 
     assert automation_worker.run_job(job)
     assert job.status == JobStatus.LANDED, "Job should have landed on second run."
@@ -1496,9 +1496,9 @@ def test_reject_cli_flags_rejects_whitespace_padded_flags(value: str):
 )
 def test_reject_cli_flags_allows_valid_values(value: str, expected: str):
     """Valid values should pass through, with whitespace stripped."""
-    assert reject_cli_flags(value) == expected, (
-        f"`reject_cli_flags({value!r})` should return {expected!r}."
-    )
+    assert (
+        reject_cli_flags(value) == expected
+    ), f"`reject_cli_flags({value!r})` should return {expected!r}."
 
 
 @pytest.mark.parametrize(
@@ -1621,9 +1621,9 @@ def test_create_and_push_to_new_relbranch(
         text=True,
         check=True,
     ).stdout.strip()
-    assert f"refs/heads/{relbranch_name}" in remote_branches, (
-        "Push did not create a new RelBranch."
-    )
+    assert (
+        f"refs/heads/{relbranch_name}" in remote_branches
+    ), "Push did not create a new RelBranch."
 
     local_sha = scm.head_ref()
     remote_sha = subprocess.run(
@@ -1649,9 +1649,9 @@ def test_create_and_push_to_new_relbranch(
         .split()
     )
 
-    assert base_commit in parents[1:], (
-        f"Expected base_commit {base_commit} to be parent of {current_commit}"
-    )
+    assert (
+        base_commit in parents[1:]
+    ), f"Expected base_commit {base_commit} to be parent of {current_commit}"
 
     # Confirm that 'head.txt' is not present on the relbranch
     tree_files = (
@@ -1671,9 +1671,9 @@ def test_create_and_push_to_new_relbranch(
     # Confirm `Push` has the correct branch name.
     pushes = Push.objects.all()
     assert len(pushes) == 1
-    assert pushes[0].branch == relbranch_name, (
-        f"Completed push should point to `{relbranch_name}`."
-    )
+    assert (
+        pushes[0].branch == relbranch_name
+    ), f"Completed push should point to `{relbranch_name}`."
 
 
 @pytest.mark.django_db
@@ -1752,9 +1752,9 @@ def test_push_to_existing_relbranch(
         text=True,
         check=True,
     ).stdout.strip()
-    assert f"refs/heads/{relbranch_name}" in remote_branches, (
-        "Expected relbranch to exist on remote after push."
-    )
+    assert (
+        f"refs/heads/{relbranch_name}" in remote_branches
+    ), "Expected relbranch to exist on remote after push."
 
     # Compare local HEAD to remote relbranch SHA
     local_sha = scm.head_ref()
@@ -1770,9 +1770,9 @@ def test_push_to_existing_relbranch(
     # Confirm `Push` has the correct branch name.
     pushes = Push.objects.all()
     assert len(pushes) == 1
-    assert pushes[0].branch == relbranch_name, (
-        f"Completed push should point to `{relbranch_name}`."
-    )
+    assert (
+        pushes[0].branch == relbranch_name
+    ), f"Completed push should point to `{relbranch_name}`."
 
 
 @pytest.mark.parametrize(
@@ -1846,9 +1846,9 @@ def test_token_generation_security(headless_user):
 def test_valid_token_verification(headless_user):
     user, token = headless_user
 
-    assert ApiToken.verify_token(token).user == user, (
-        "verify_token should return the user for a valid token."
-    )
+    assert (
+        ApiToken.verify_token(token).user == user
+    ), "verify_token should return the user for a valid token."
 
 
 @pytest.mark.django_db
@@ -1906,12 +1906,12 @@ def test_token_prefix_collision(monkeypatch, headless_user):
     token2 = ApiToken.create_token(user)
 
     # Even if both tokens share the same prefix, each should verify correctly.
-    assert ApiToken.verify_token(token1).user == user, (
-        "First token with common prefix should return headless user."
-    )
-    assert ApiToken.verify_token(token2).user == user, (
-        "Second token with common prefix should return headless user."
-    )
+    assert (
+        ApiToken.verify_token(token1).user == user
+    ), "First token with common prefix should return headless user."
+    assert (
+        ApiToken.verify_token(token2).user == user
+    ), "Second token with common prefix should return headless user."
 
 
 @pytest.mark.django_db
@@ -1928,18 +1928,18 @@ def test_get_repo_info_success(client, headless_user, repo_mc):
         },
     )
 
-    assert response.status_code == 200, (
-        "`repoinfo` should return 200 for successful response."
-    )
+    assert (
+        response.status_code == 200
+    ), "`repoinfo` should return 200 for successful response."
 
     response_json = response.json()
     assert response_json["repo_url"] == repo.url, "`repo_url` does not match expected."
-    assert response_json["branch_name"] == repo.default_branch, (
-        "`branch_name` does not match expected."
-    )
-    assert response_json["scm_level"] == "scm_level_3", (
-        "`scm_level` does not match expected."
-    )
+    assert (
+        response_json["branch_name"] == repo.default_branch
+    ), "`branch_name` does not match expected."
+    assert (
+        response_json["scm_level"] == "scm_level_3"
+    ), "`scm_level` does not match expected."
 
 
 @pytest.mark.django_db
@@ -1970,6 +1970,6 @@ def test_automation_job_processing(automation_job):
 
     # Query for the job to ensure we inspect the result as it exists in the DB.
     job_from_db = AutomationJob.objects.get(id=job.id)
-    assert job_from_db.duration_seconds > 0, (
-        "`processing` should set and save the job duration."
-    )
+    assert (
+        job_from_db.duration_seconds > 0
+    ), "`processing` should set and save the job duration."

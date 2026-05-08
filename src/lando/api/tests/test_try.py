@@ -85,9 +85,9 @@ def test_try_api_requires_data(db, client, mock_permissions, mocked_repo_config)
     response = client.post(
         "/try/patches", json=try_push_json, permissions=mock_permissions
     )
-    assert response.status_code == 400, (
-        "Try push without 40-character base commit should return 400."
-    )
+    assert (
+        response.status_code == 400
+    ), "Try push without 40-character base commit should return 400."
 
     try_push_json["base_commit"] = "abcabcabcaabcabcabcaabcabcabcaabcabcabca"
     response = client.post(
@@ -119,9 +119,9 @@ def test_try_api_patch_decode_error(
         "/try/patches", json=try_push_json, permissions=mock_permissions
     )
     assert response.status_code == 400, "Improperly encoded patch should return 400."
-    assert response.json()["title"] == "Patch decoding error.", (
-        "Response should indicate the patch could not be decoded."
-    )
+    assert (
+        response.json()["title"] == "Patch decoding error."
+    ), "Response should indicate the patch could not be decoded."
 
 
 @pytest.mark.parametrize(
@@ -157,12 +157,12 @@ def test_try_api_patch_format_mismatch(
     response = client.post(
         "/try/patches", json=try_push_json, permissions=mock_permissions
     )
-    assert response.status_code == 400, (
-        "A patch which does not match the passed format should return 400."
-    )
-    assert response.json()["title"] == "Improper patch format.", (
-        "Response should indicate the patch could not be decoded."
-    )
+    assert (
+        response.status_code == 400
+    ), "A patch which does not match the passed format should return 400."
+    assert (
+        response.json()["title"] == "Improper patch format."
+    ), "Response should indicate the patch could not be decoded."
 
 
 SYMLINK_PATCH = rb"""
@@ -253,9 +253,9 @@ def test_symlink_diff_inspect(
     response = client.post(
         "/try/patches", json=try_push_json, headers=auth0_mock.mock_headers
     )
-    assert response.status_code == 400, (
-        "Try push which fails diff checks should return 400."
-    )
+    assert (
+        response.status_code == 400
+    ), "Try push which fails diff checks should return 400."
 
     assert response.json()["title"] == "Errors found in pre-submission patch checks."
     assert response.json()["detail"] == (
@@ -286,9 +286,9 @@ def test_try_task_config_diff_inspect(
     response = client.post(
         "/try/patches", json=try_push_json, headers=auth0_mock.mock_headers
     )
-    assert response.status_code == 201, (
-        "Try push with a `try_task_config.json` should be accepted."
-    )
+    assert (
+        response.status_code == 201
+    ), "Try push with a `try_task_config.json` should be accepted."
 
 
 def test_try_api_unknown_patch_format(
@@ -315,9 +315,9 @@ def test_try_api_unknown_patch_format(
     response = client.post(
         "/try/patches", json=try_push_json, permissions=mock_permissions
     )
-    assert response.status_code == 400, (
-        "Unknown `patch_format` value should return 400."
-    )
+    assert (
+        response.status_code == 400
+    ), "Unknown `patch_format` value should return 400."
 
 
 def test_try_api_success_hgexport(
@@ -345,9 +345,9 @@ def test_try_api_success_hgexport(
         "/try/patches", json=try_push_json, permissions=mock_permissions
     )
     assert response.status_code == 201, "Successful try push should return 201."
-    assert "id" in response.json(), (
-        "Response should include the ID of the new landing job."
-    )
+    assert (
+        "id" in response.json()
+    ), "Response should include the ID of the new landing job."
 
     queue_items = LandingJob.job_queue_query(
         repositories=["try"], grace_seconds=0
@@ -364,25 +364,25 @@ def test_try_api_success_hgexport(
     assert worker.run_job(job)
     assert job.status == JobStatus.LANDED
     assert len(job.landed_commit_id) == 40
-    assert job.target_commit_hash == "0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4", (
-        "Target changeset should match the passed value."
-    )
+    assert (
+        job.target_commit_hash == "0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4"
+    ), "Target changeset should match the passed value."
 
     # Test the revision content matches expected.
     assert len(job.revisions) == 1, "Job should have landed a single revision."
     revision = job.revisions[0]
-    assert revision.patch_data["author_name"] == "Test User", (
-        "Patch author should be parsed from `User` header."
-    )
-    assert revision.patch_data["author_email"] == "test@example.com", (
-        "Email address should be parsed from `User` header."
-    )
-    assert revision.patch_data["commit_message"] == ("add another file."), (
-        "Commit message should be parsed from patch."
-    )
-    assert revision.patch_data["timestamp"] == "0", (
-        "Timestamp should be parsed from `Date` header."
-    )
+    assert (
+        revision.patch_data["author_name"] == "Test User"
+    ), "Patch author should be parsed from `User` header."
+    assert (
+        revision.patch_data["author_email"] == "test@example.com"
+    ), "Email address should be parsed from `User` header."
+    assert revision.patch_data["commit_message"] == (
+        "add another file."
+    ), "Commit message should be parsed from patch."
+    assert (
+        revision.patch_data["timestamp"] == "0"
+    ), "Timestamp should be parsed from `Date` header."
     assert revision.patch_bytes == (
         b"# HG changeset patch\n"
         b"# User Test User <test@example.com>\n"
@@ -424,9 +424,9 @@ def test_try_api_success_gitformatpatch(
         "/try/patches", json=try_push_json, permissions=mock_permissions
     )
     assert response.status_code == 201, "Successful try push should return 201."
-    assert "id" in response.json(), (
-        "Response should include the ID of the new landing job."
-    )
+    assert (
+        "id" in response.json()
+    ), "Response should include the ID of the new landing job."
 
     queue_items = LandingJob.job_queue_query(
         repositories=["try"], grace_seconds=0
@@ -444,25 +444,25 @@ def test_try_api_success_gitformatpatch(
     assert worker.run_job(job)
     assert job.status == JobStatus.LANDED
     assert len(job.landed_commit_id) == 40
-    assert job.target_commit_hash == "0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4", (
-        "Target changeset should match the passed value."
-    )
+    assert (
+        job.target_commit_hash == "0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4"
+    ), "Target changeset should match the passed value."
 
     # Test the revision content matches expected.
     assert len(job.revisions) == 1, "Job should have landed a single revision."
     revision = job.revisions[0]
-    assert revision.patch_data["author_name"] == "Connor Sheehan", (
-        "Patch author should be parsed from `From` header."
-    )
-    assert revision.patch_data["author_email"] == "sheehan@mozilla.com", (
-        "Email address should be parsed from `From` header."
-    )
+    assert (
+        revision.patch_data["author_name"] == "Connor Sheehan"
+    ), "Patch author should be parsed from `From` header."
+    assert (
+        revision.patch_data["author_email"] == "sheehan@mozilla.com"
+    ), "Email address should be parsed from `From` header."
     assert revision.patch_data["commit_message"] == (
         "add another file\n\nadd another file to the repo."
     ), "Multi-line commit message should be parsed from patch."
-    assert revision.patch_data["timestamp"] == "1657139769", (
-        "Timestamp should be parsed from `Date` header."
-    )
+    assert (
+        revision.patch_data["timestamp"] == "1657139769"
+    ), "Timestamp should be parsed from `Date` header."
     assert revision.patch_bytes == (
         b"# HG changeset patch\n"
         b"# User Connor Sheehan <sheehan@mozilla.com>\n"

@@ -125,12 +125,12 @@ def test_approvals_for_commit_message(
         accepted_reviewers,
     )
 
-    assert user["userName"] in approval_reviewers, (
-        "RelMan review should be recognized as approval."
-    )
-    assert user["userName"] not in accepted_reviewers, (
-        "RelMan review should be filtered from regular reviewers."
-    )
-    assert release_management_project["name"] not in accepted_reviewers, (
-        "`release-managers` project should be filtered from `accepted_reviewers`."
-    )
+    assert (
+        user["userName"] in approval_reviewers
+    ), "RelMan review should be recognized as approval."
+    assert (
+        user["userName"] not in accepted_reviewers
+    ), "RelMan review should be filtered from regular reviewers."
+    assert (
+        release_management_project["name"] not in accepted_reviewers
+    ), "`release-managers` project should be filtered from `accepted_reviewers`."

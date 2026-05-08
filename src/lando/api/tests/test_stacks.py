@@ -260,9 +260,7 @@ def test_request_extended_revision_data_repo_has_projects(phabdouble, secure_pro
 
     assert all(
         "projects" in repo["attachments"] for repo in data.repositories.values()
-    ), (
-        "`request_extended_revision_data` should return repos with `projects` attachment."
-    )
+    ), "`request_extended_revision_data` should return repos with `projects` attachment."
 
 
 def test_request_extended_revision_data_raises_value_error(phabdouble):
@@ -930,9 +928,9 @@ def test_revisionstack_single():
 
     stack = RevisionStack(nodes, edges)
 
-    assert list(stack.root_revisions()) == ["123"], (
-        "Node `123` should be the root revision."
-    )
+    assert list(stack.root_revisions()) == [
+        "123"
+    ], "Node `123` should be the root revision."
 
     assert list(stack.iter_stack_from_root("123")) == [
         "123",
@@ -945,13 +943,13 @@ def test_revisionstack_stack():
 
     stack = RevisionStack(nodes, edges)
 
-    assert list(stack.root_revisions()) == ["789"], (
-        "Node `789` should be the root revision."
-    )
+    assert list(stack.root_revisions()) == [
+        "789"
+    ], "Node `789` should be the root revision."
 
-    assert list(stack.leaf_revisions()) == ["123"], (
-        "Node `123` should be the only leaf revisions."
-    )
+    assert list(stack.leaf_revisions()) == [
+        "123"
+    ], "Node `123` should be the only leaf revisions."
 
     assert list(stack.iter_stack_from_root("123")) == ["789", "456", "123"], (
         "Iterating over the stack from the root to the tip should "
