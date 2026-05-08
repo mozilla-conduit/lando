@@ -77,11 +77,12 @@ class GitSCM(AbstractSCM):
         self.default_branch = default_branch
         super().__init__(path)
 
-    def authenticate_path_if_possible(self, path: str) -> str:
-        """Return authenticated URL if supported."""
-        if GitHub.is_supported_url(path):
-            return GitHub(path).authenticated_url
-        return path
+    @staticmethod
+    def authenticate_path_if_possible(url: str) -> str:
+        """Return authenticated URL if it is a GitHub URL."""
+        if GitHub.is_supported_url(url):
+            return GitHub(url).authenticated_url
+        return url
 
     @classmethod
     @override
@@ -96,9 +97,9 @@ class GitSCM(AbstractSCM):
         return "Git"
 
     @override
-    def clone(self, pull_path: str):
+    def clone(self, source: str):
         """Clone a repository from a source (pull_path)."""
-        pull_path = self.authenticate_path_if_possible(pull_path)
+        pull_path = self.authenticate_path_if_possible(source)
 
         # When cloning, self.path doesn't exist yet, so we need to use another CWD.
         self._git_run("clone", pull_path, self.path, cwd="/")
