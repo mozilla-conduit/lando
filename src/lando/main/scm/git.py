@@ -506,9 +506,8 @@ class GitSCM(AbstractSCM):
             return
 
         # `git branch -D` refuses to delete the currently checked-out branch,
-        # so move off any `lando-*` branch first.
-        if self.get_current_branch().startswith("lando-"):
-            self._git_run("checkout", "--force", self.default_branch, cwd=self.path)
+        # and we are always on a `lando-*` branch at this point.
+        self._git_run("checkout", "--force", self.default_branch, cwd=self.path)
 
         self._git_run("branch", "-D", *branches, cwd=self.path)
 
