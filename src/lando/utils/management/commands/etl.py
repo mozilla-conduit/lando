@@ -573,8 +573,7 @@ def get_last_run_timestamp(bq_client: bigquery.Client, table_id: str) -> datetim
 
     if len(rows) != 1:
         raise ValueError(
-            f"Expected 1 row from `{table_id}` timestamp query, "
-            f"got {len(rows)}: {rows}"
+            f"Expected 1 row from `{table_id}` timestamp query, got {len(rows)}: {rows}"
         )
 
     last_run = rows[0].last_run

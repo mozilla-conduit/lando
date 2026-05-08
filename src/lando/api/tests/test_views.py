@@ -105,20 +105,20 @@ def test__views__phabricator_auth_backend_email_fallback(
     # `phabricator_phid` set. The backend should fall back to email lookup, authenticate
     # successfully, and store the PHID on the profile for future lookups.
     phab_user = phabdouble.user(username="phab_user", email=user.email)
-    assert (
-        not user.profile.phabricator_phid
-    ), "Profile should not have a PHID set before the email fallback test."
+    assert not user.profile.phabricator_phid, (
+        "Profile should not have a PHID set before the email fallback test."
+    )
 
     headers = {"X-Phabricator-API-Key": user_phab_api_key}
     test = client.get("/__version__", headers=headers)
-    assert (
-        test.wsgi_request.user.is_authenticated
-    ), "Email fallback should authenticate the user when the PHID is not yet stored."
+    assert test.wsgi_request.user.is_authenticated, (
+        "Email fallback should authenticate the user when the PHID is not yet stored."
+    )
 
     user.profile.refresh_from_db()
-    assert (
-        user.profile.phabricator_phid == phab_user["phid"]
-    ), "The backend should back-populate the PHID on the profile after email fallback."
+    assert user.profile.phabricator_phid == phab_user["phid"], (
+        "The backend should back-populate the PHID on the profile after email fallback."
+    )
 
 
 @pytest.mark.xfail
