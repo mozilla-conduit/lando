@@ -16,6 +16,7 @@ from lando.utils.landing_checks import (
     LandingChecks,
     PatchCollectionAssessor,
     PreventDotGithubCheck,
+    PreventEmptyBinaryCheck,
     PreventHgDirectoryCheck,
     PreventNSPRNSSCheck,
     PreventSignedCommitsCheck,
@@ -644,6 +645,99 @@ def test_check_prevent_submodules():
         prevent_submodules_check.result()
         == "Revision introduces a Git submodule into the repository."
     ), "Check should prevent revisions from introducing submodules."
+
+
+# Patches exercising the binary file paths in `rs_parsepatch`. These reflect
+# the GIT binary patch format Phabricator emits via `differential.getrawdiff`.
+GIT_DIFF_EMPTY_BINARY_ADD = """\
+diff --git a/empty.png b/empty.png
+new file mode 100644
+GIT binary patch
+literal 0
+HcmV?d00001
+
+"""
+
+GIT_DIFF_NONEMPTY_BINARY_ADD = """\
+diff --git a/real.png b/real.png
+new file mode 100644
+GIT binary patch
+literal 87
+zcmZ?wbhEHbWMp7uXkdSr1_lE>3=9k!85kJ?7+e9j7+M3l85kIz?VMfFP&3pMz`(EJ
+o&%nUd&(O%n&CtNI%g_nQz5(_qzaP=zsBtDUMI;Cj1_p+T0VKi-RR910
+
+"""
+
+GIT_DIFF_BINARY_DELETE = """\
+diff --git a/old.png b/old.png
+deleted file mode 100644
+GIT binary patch
+literal 0
+HcmV?d00001
+
+"""
+
+
+def test_check_prevent_empty_binary_text_only():
+    """Text-only diffs are unaffected."""
+    parsed_diff = rs_parsepatch.get_diffs(
+        GIT_DIFF_FILENAME_TEMPLATE.format(filename="src/foo.cpp")
+    )
+    check = PreventEmptyBinaryCheck()
+    for diff in parsed_diff:
+        check.next_diff(diff)
+    assert check.result() is None, "Text-only diffs must not trigger the check."
+
+
+def test_check_prevent_empty_binary_nonempty_addition():
+    """Adding a non-empty binary file is allowed."""
+    parsed_diff = rs_parsepatch.get_diffs(GIT_DIFF_NONEMPTY_BINARY_ADD)
+    check = PreventEmptyBinaryCheck()
+    for diff in parsed_diff:
+        check.next_diff(diff)
+    assert check.result() is None, (
+        "Adding a binary file with content must not trigger the check."
+    )
+
+
+def test_check_prevent_empty_binary_deletion():
+    """Deleting a binary file is allowed even though its hunk is zero-sized."""
+    parsed_diff = rs_parsepatch.get_diffs(GIT_DIFF_BINARY_DELETE)
+    check = PreventEmptyBinaryCheck()
+    for diff in parsed_diff:
+        check.next_diff(diff)
+    assert check.result() is None, "Deleting a binary file must not trigger the check."
+
+
+def test_check_prevent_empty_binary_addition():
+    """Adding a zero-byte binary file is the bug 1709608 signature."""
+    parsed_diff = rs_parsepatch.get_diffs(GIT_DIFF_EMPTY_BINARY_ADD)
+    check = PreventEmptyBinaryCheck()
+    for diff in parsed_diff:
+        check.next_diff(diff)
+    result = check.result()
+    assert result is not None, "Adding a zero-byte binary file must trigger the check."
+    assert "empty.png" in result
+    assert "1709608" in result
+
+
+def test_check_prevent_empty_binary_mixed():
+    """In a mixed diff, only the empty addition is reported."""
+    parsed_diff = rs_parsepatch.get_diffs(
+        GIT_DIFF_EMPTY_BINARY_ADD
+        + GIT_DIFF_NONEMPTY_BINARY_ADD
+        + GIT_DIFF_FILENAME_TEMPLATE.format(filename="src/bar.cpp")
+    )
+    check = PreventEmptyBinaryCheck()
+    for diff in parsed_diff:
+        check.next_diff(diff)
+    result = check.result()
+    assert result is not None
+    assert "empty.png" in result
+    assert "real.png" not in result, (
+        "Non-empty binary additions must not appear in the report."
+    )
+    assert "src/bar.cpp" not in result, "Text additions must not appear in the report."
 
 
 def test_check_bug_references_public_bugs():
