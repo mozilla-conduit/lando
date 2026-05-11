@@ -388,7 +388,13 @@ class GitHubAPIClient:
             f"{self.repo_base_url}/issues/{pull_number}",
             json={"body": body},
         )
-
+    def update_pull_request_title(self, pull_number: int, title: str) -> dict:
+        """Update the pull request title."""
+        return self._patch(
+            f"{self.repo_base_url}/issues/{pull_number}",
+            json={"title": title},
+        )
+        
     @classmethod
     def convert_timestamp_from_github(cls, timestamp: str) -> str:
         timestamp_datetime = datetime.fromisoformat(timestamp)
