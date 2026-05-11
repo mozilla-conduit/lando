@@ -199,26 +199,40 @@ $.fn.stack = function() {
             });
         });
 
-        $('button.save-pr-body').on('click', function(e) {
+        $('button.save-pr').on('click', function(e) {
             var body = document.getElementById('commit-body').innerText;
-            fetch(`/api/pulls/${repo_name}/${pull_number}/update_body`, {
-                method: 'POST',
-                body: JSON.stringify({"body": body}),
-                headers: { //what are these?
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrf_token
-            },
-        }).then(response => {
-            console.log(response);
-            if (response.status == 200) {
-                            console.log(response);
-                window.location.reload();
-            };
+            var title = document.getElementById('commit-title').innerText;
+            Promise.all([
+                fetch(`/api/pulls/${repo_name}/${pull_number}/update_body`, {
+                    method: 'POST',
+                    body: JSON.stringify({"body": body}),
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrf_token
+                    }
+                }),
+                fetch(`/api/pulls/${repo_name}/${pull_number}/update_title`, {
+                    method: 'POST',
+                    body: JSON.stringify({"title": title}),
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrf_token
+                    }
+                })
+            ]).then(responses => {
+                if (responses.every(r => r.status === 200)) {
+                    Promise.all(responses.map(r => r.json())).then(data => {
+                        window.location.reload();
+                    });
+                }
+            });
+            console.log(response); //remove later
         });
-        }); 
+        }; 
 
 
-    };
-  });
-};
+    });
+  };
+
