@@ -71,7 +71,7 @@ $.fn.stack = function() {
     // This should be cleaned up as part of bug 1995754.
     var is_pull_request_page = Boolean($('button.post-landing-job').length);
     if (is_pull_request_page) {
-        var pull_request_button = $('button.post-landing-job');
+        var pull_request_button = $('button.post-landing-job');          
 
         $('#acknowledge-warnings').on("click", function () {
             if (this.checked) {
@@ -81,7 +81,7 @@ $.fn.stack = function() {
                 pull_request_button.prop("disabled", true);
                 pull_request_button.html("Acknowledge warnings to continue");
             }
-        });
+        });    
 
         if (pull_request_button.data("anonymous") == 1) {
             pull_request_button.prop("disabled", true);
@@ -198,6 +198,27 @@ $.fn.stack = function() {
                 }
             });
         });
+
+        $('button.save-pr-body').on('click', function(e) {
+            var body = document.getElementById('commit-body').innerText;
+            fetch(`/api/pulls/${repo_name}/${pull_number}/update_body`, {
+                method: 'POST',
+                body: JSON.stringify({"body": body}),
+                headers: { //what are these?
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrf_token
+            },
+        }).then(response => {
+            console.log(response);
+            if (response.status == 200) {
+                            console.log(response);
+                window.location.reload();
+            };
+        });
+        }); 
+
+
     };
   });
 };
