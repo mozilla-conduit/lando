@@ -770,4 +770,6 @@ def test_GitSCM__authenticate_path_if_possible(github, is_supported_url, url, re
     github.is_supported_url.return_value = is_supported_url
 
     authenticated_url = GitSCM.authenticate_path_if_possible(url)
+    assert github.is_supported_url.call_count == 1
+    github.is_supported_url.assert_called_with(url)
     assert authenticated_url == result
