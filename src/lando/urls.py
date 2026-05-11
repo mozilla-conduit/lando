@@ -23,6 +23,7 @@ from lando.api.legacy.api import landing_jobs
 from lando.api.uplift_api import api as uplift_api
 from lando.api.views import (
     LandingJobPullRequestAPIView,
+    PullRequestBodyAPIView,
     LegacyDiffWarningView,
     PullRequestChecksAPIView,
     git2hgCommitMapView,
@@ -125,6 +126,11 @@ urlpatterns += [
         PullRequestChecksAPIView.as_view(),
         name="api-pull-request-checks",
     ),
+    path(
+        "api/pulls/<str:repo_name>/<int:pull_number>/update_body",
+        PullRequestBodyAPIView.as_view(),
+        name="api-pull-request-update-body",
+    )
 ]
 
 # "API" endpoints ported from legacy API app.
