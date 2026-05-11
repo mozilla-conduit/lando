@@ -67,7 +67,17 @@
                 <th>Commit Body</th>
                 <td contenteditable="true" id="commit-body">{{ pull_request.body }}</td>
             </tr>
+
         </table>
+         <p>
+            <button class="button save-pr-body"
+                data-anonymous="{{ '0' if request.user.is_authenticated else '1' }}"
+                data-pull-number="{{ pull_request.number }}"
+                data-head-sha="{{ pull_request.head_sha }}"
+                data-repo-name="{{ target_repo.name }}"
+                data-csrf-token="{{ csrf_token }}">Save Changes
+            </button>
+        </p>
     </div>
     <h1>Landings</h1>
     {% include "stack/partials/timeline.html" %}
