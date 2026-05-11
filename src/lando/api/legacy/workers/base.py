@@ -219,7 +219,6 @@ class Worker(ABC):
 
         if job is None:
             self.run_idle_maintenance()
-            self.throttle(self.worker_instance.sleep_seconds)
             return
 
         with job.processing():
@@ -294,23 +293,36 @@ class Worker(ABC):
 
         Called when no job is available. Each repo is maintained at most once
         per `worker_instance.maintenance_interval_seconds` to avoid unnecessary
-        cleanup.
+        cleanup. Repos are processed oldest-first by last maintenance time so
+        the repo that has been waiting longest goes first. Maintenance stops
+        early once total elapsed time meets or exceeds `sleep_seconds`, so the
+        worker can promptly check the job queue again. After maintenance
+        finishes (or is cut short), sleeps for any time remaining in the
+        `sleep_seconds` interval.
         """
-        now = datetime.now()
+        sleep_seconds = self.worker_instance.sleep_seconds
+        start_time = datetime.now()
         interval = timedelta(seconds=self.worker_instance.maintenance_interval_seconds)
-        repos_to_maintain = [
-            repo
-            for repo in self.enabled_repos
-            if now - self.last_maintenance_at.get(repo.id, datetime.min) >= interval
-        ]
+
+        repos_to_maintain = sorted(
+            (
+                repo
+                for repo in self.enabled_repos
+                if start_time - self.last_maintenance_at.get(repo.id, datetime.min)
+                >= interval
+            ),
+            key=lambda repo: self.last_maintenance_at.get(repo.id, datetime.min),
+        )
+
         if not repos_to_maintain:
+            self.throttle(sleep_seconds)
             return
 
         count = len(repos_to_maintain)
         repo_names = [repo.name for repo in repos_to_maintain]
         logger.info(f"Starting idle maintenance for {count} repo(s): {repo_names}")
-        start_time = datetime.now()
-        for repo in repos_to_maintain:
+
+        for repo_index, repo in enumerate(repos_to_maintain):
             try:
                 repo.scm.maintenance()
             except SCMException:
@@ -318,10 +330,24 @@ class Worker(ABC):
             # Update on success or failure so a broken repo doesn't get hammered
             # every idle loop.
             self.last_maintenance_at[repo.id] = datetime.now()
+            elapsed_seconds = (datetime.now() - start_time).total_seconds()
+            if elapsed_seconds >= sleep_seconds:
+                logger.info(
+                    f"Idle maintenance budget ({sleep_seconds}s) reached after "
+                    f"{repo_index + 1} of {count} repo(s); stopping early."
+                )
+                break
+
+        maintained_count = repo_index + 1
         duration_seconds = (datetime.now() - start_time).total_seconds()
         logger.info(
-            f"Finished idle maintenance for {count} repo(s) in {duration_seconds:.2f}s"
+            f"Finished idle maintenance for {maintained_count} of {count} repo(s) "
+            f"in {duration_seconds:.2f}s"
         )
+
+        remaining_seconds = sleep_seconds - duration_seconds
+        if remaining_seconds > 0:
+            self.throttle(int(remaining_seconds))
 
     def update_repo(
         self, repo: Repo, job: BaseJob, scm: AbstractSCM, target_cset: str | None
