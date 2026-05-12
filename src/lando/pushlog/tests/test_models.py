@@ -57,9 +57,9 @@ def test__pushlog__models__Commit__from_scm_commit(
     )
 
     for commit, scm_commit in [(commit1, scm_commit1), (commit2, scm_commit2)]:
-        assert (
-            commit.id
-        ), "New commit {commit} doesn't have an ID after being saved to the DB"
+        assert commit.id, (
+            "New commit {commit} doesn't have an ID after being saved to the DB"
+        )
         assert_same_commit_data(commit, scm_commit)
 
 
@@ -201,14 +201,14 @@ def test__pushlog__models__Push(make_repo, make_commit, make_push):
 
     # Ensure that the push_id are scoped by repo.
     assert push11.push_id == 1
-    assert (
-        push21.push_id == 1
-    ), "first push_id on second repository is not a strict incrementation"
-    assert (
-        push12.push_id == 2
-    ), "second push_id on first repository is not a strict incrementation"
+    assert push21.push_id == 1, (
+        "first push_id on second repository is not a strict incrementation"
+    )
+    assert push12.push_id == 2, (
+        "second push_id on first repository is not a strict incrementation"
+    )
 
     push12.save()
-    assert (
-        push12.push_id == 2
-    ), "second push_id on first repository has changed on re-save"
+    assert push12.push_id == 2, (
+        "second push_id on first repository has changed on re-save"
+    )

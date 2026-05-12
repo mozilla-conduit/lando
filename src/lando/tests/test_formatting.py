@@ -7,8 +7,8 @@ import subprocess
 from lando.settings import LINT_PATHS
 
 
-def test_black():
-    cmd = ("black", "--diff")
+def test_ruff_format():
+    cmd = ("ruff", "format", "--diff")
     output = subprocess.check_output(cmd + LINT_PATHS)
     assert not output, "The python code does not adhere to the project style."
 

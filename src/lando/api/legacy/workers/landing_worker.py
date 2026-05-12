@@ -1,5 +1,4 @@
 import configparser
-import json
 import logging
 import subprocess
 from pathlib import Path
@@ -105,9 +104,7 @@ class LandingWorker(Worker):
                 "Pull Requests are not supported for this repository."
             )
 
-        if not job.skip_treestatus_check and not self.treestatus_client.is_open(
-            repo.tree
-        ):
+        if not self.treestatus_client.is_open(repo.tree):
             job.transition_status(
                 JobAction.DEFER,
                 message=f"Tree {repo.tree} is closed - retrying later.",
@@ -175,40 +172,6 @@ class LandingWorker(Worker):
 
         return True
 
-    def add_try_task_config(self, scm: AbstractSCM, **github_params):
-        """
-        Add try_task_config.json with provided parameters.
-
-        NOTE: try_task_config value will be a copy of provided github_params
-        with keys prepended with "github_".
-        """
-        required_params = {
-            "pull_number",
-            "pull_head_sha",
-            "repo_url",
-            "branch",
-        }
-        if set(github_params) != required_params:
-            raise ValueError(
-                "Missing or disallowed parameter(s) passed: "
-                f"{required_params.symmetric_difference(github_params)}"
-            )
-
-        with (Path(scm.path) / "try_task_config.json").open("x") as f:
-            data = {
-                "parameters": {
-                    "optimize_target_tasks": True,
-                    "target_tasks_method": "codereview",
-                    "try_mode": "try_task_config",
-                    "try_task_config": {
-                        "github": github_params,
-                    },
-                },
-                "version": 2,
-            }
-            content = json.dumps(data)
-            f.write(content)
-
     def convert_patches_to_diff(self, scm: AbstractSCM, job: LandingJob):
         """Generate a unified diff from multiple patches stored in a revision."""
         # NOTE: this only applies to git patches that are downloaded from GitHub
@@ -244,36 +207,6 @@ class LandingWorker(Worker):
         revision.set_patch(diff)
         revision.save()
 
-    def handover_job(self, scm: AbstractSCM, job: LandingJob):
-        """Given a handover job, process it then hand it over.
-
-        Add a try_task_config.json file with relevant content, convert
-        the patches to a diff, and then call job.handover() setting various
-        parameters on the job before deferring it.
-
-        NOTE: at this time, handover jobs are only supported when the terminal
-        repo is a try repo.
-        """
-        if not job.handover_repo.is_try:
-            raise ValueError(
-                f"{job} handover to non-try repo ({job.handover_repo}) is not supported"
-            )
-
-        first_revision = job.revisions.first()
-
-        self.add_try_task_config(
-            scm,
-            pull_number=first_revision.pull_number,
-            pull_head_sha=first_revision.pull_head_sha,
-            repo_url=job.target_repo.normalized_url,
-            branch=job.target_repo.default_branch,
-        )
-        self.convert_patches_to_diff(scm, job)
-        job.handover()
-        message = "Job deferred to try repo."
-        job.transition_status(JobAction.DEFER, message=message)
-        raise TemporaryFailureException(message)
-
     def apply_and_push(
         self,
         job: LandingJob,
@@ -298,9 +231,6 @@ class LandingWorker(Worker):
         self.update_repo(repo, job, scm, job.target_commit_hash)
 
         if job.is_pull_request_job:
-            if job.handover_repo:
-                self.handover_job(scm, job)
-
             self.convert_patches_to_diff(scm, job)
             self.update_repo(repo, job, scm, job.target_commit_hash)
 

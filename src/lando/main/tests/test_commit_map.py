@@ -19,9 +19,9 @@ def test_CommitMap_git2hg_catchup(monkeypatch):
     with pytest.raises(CommitMap.DoesNotExist):
         CommitMap.git2hg("git_test_repo", "z" * 40)
 
-    assert (
-        mock_catch_up.assert_called
-    ), "CommitMap.catch_up wasn't called for a missing Git commit"
+    assert mock_catch_up.assert_called, (
+        "CommitMap.catch_up wasn't called for a missing Git commit"
+    )
 
 
 @pytest.mark.django_db(transaction=True)
@@ -38,9 +38,9 @@ def test_CommitMap_hg2git_catchup(monkeypatch):
     with pytest.raises(CommitMap.DoesNotExist):
         CommitMap.hg2git("git_test_repo", "z" * 40)
 
-    assert (
-        mock_catch_up.assert_called
-    ), "CommitMap.catch_up wasn't called for a missing Hg commit"
+    assert mock_catch_up.assert_called, (
+        "CommitMap.catch_up wasn't called for a missing Hg commit"
+    )
 
 
 def test_CommitMap_get_git_repo_name():

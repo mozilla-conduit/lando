@@ -198,13 +198,13 @@ def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
                 raise
 
     assert breakdown is not None, "`process_merge_conflict` should have been called."
-    assert (
-        "not-real.txt" in breakdown["rejects_paths"]
-    ), "Breakdown should include the conflicted file path."
+    assert "not-real.txt" in breakdown["rejects_paths"], (
+        "Breakdown should include the conflicted file path."
+    )
     reject_entry = breakdown["rejects_paths"]["not-real.txt"]
-    assert (
-        "content" in reject_entry
-    ), "Reject entry should include `.rej` content captured by `clean_repo`."
+    assert "content" in reject_entry, (
+        "Reject entry should include `.rej` content captured by `clean_repo`."
+    )
     assert reject_entry["content"], "Reject content should not be empty."
 
 
@@ -268,9 +268,9 @@ def test_integrated_hgrepo_patch_success(
         )
 
         # Commit created.
-        assert repo.run_hg(
-            ["outgoing"]
-        ), f"No outgoing commit after {name} patch has been applied"
+        assert repo.run_hg(["outgoing"]), (
+            f"No outgoing commit after {name} patch has been applied"
+        )
 
         log_output = repo.run_hg(["log"])
         assert expected_log in log_output.decode("utf-8")
@@ -319,9 +319,9 @@ def test_integrated_hgrepo_patch_hgimport_fail_success(
         )
 
         # Commit created.
-        assert scm.run_hg(
-            ["outgoing"]
-        ), "No outgoing commit after non-hg importable patch has been applied"
+        assert scm.run_hg(["outgoing"]), (
+            "No outgoing commit after non-hg importable patch has been applied"
+        )
 
         commit = scm.describe_commit()
 
@@ -435,9 +435,9 @@ def test_repo_is_supported(repo_path: str, expected: bool, hg_clone):
     scm = HgSCM
     if not repo_path:
         repo_path = hg_clone.strpath
-    assert (
-        scm.repo_is_supported(repo_path) == expected
-    ), f"{scm} did not correctly report support for {repo_path}"
+    assert scm.repo_is_supported(repo_path) == expected, (
+        f"{scm} did not correctly report support for {repo_path}"
+    )
 
 
 def test_HgSCM__extract_error_data():
@@ -521,9 +521,9 @@ def test_HgSCM_read_rejects_files_empty(tmp_path: Path):
 
     result = scm.read_rejects_files()
 
-    assert (
-        result == {}
-    ), "`read_rejects_files` should return an empty dict with no `.rej` files."
+    assert result == {}, (
+        "`read_rejects_files` should return an empty dict with no `.rej` files."
+    )
 
 
 def test_HgSCM_read_rejects_files_non_utf8(tmp_path: Path):
@@ -536,9 +536,9 @@ def test_HgSCM_read_rejects_files_non_utf8(tmp_path: Path):
     result = scm.read_rejects_files()
 
     assert "binary.rej" in result, "Non-UTF-8 `.rej` file should still be included."
-    assert (
-        "\ufffd" in result["binary.rej"]
-    ), "Invalid bytes should be replaced with the Unicode replacement character."
+    assert "\ufffd" in result["binary.rej"], (
+        "Invalid bytes should be replaced with the Unicode replacement character."
+    )
 
 
 # The equivalent of PATCH_GIT_1 (from the git_patch() fixture), as applied to the base

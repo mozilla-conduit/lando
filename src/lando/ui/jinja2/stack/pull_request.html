@@ -43,23 +43,6 @@
                     </ul>
                 </td>
             </tr>
-            {% if is_try_compatible %}
-                <tr>
-                    <th>Last try job</th>
-                    <td>
-                        <button class="button is-link is-small is-info post-try-job"
-                                data-pull-number="{{ pull_request.number }}"
-                                data-repo-name="{{ target_repo.name }}"
-                                data-csrf-token="{{ csrf_token }}">Request a try push</button>
-                        {% if last_try_job %}
-                            {{ last_try_job }}
-                            {{ treeherder_link(last_try_job.landed_treeherder_revision, last_try_job.target_repo, "Treeherder") | safe }}
-                        {% else %}
-                            No try jobs found.
-                        {% endif %}
-                    </td>
-                </tr>
-            {% endif %}
             <tr>
                 <th>Branches</th>
                 <td>{{ pull_request.head_ref }} -&gt; {{ pull_request.base_ref }}</td>
