@@ -129,12 +129,12 @@ def test_GitSCM_clean_repo(
     current_commit = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=str(clone_path), capture_output=True
     ).stdout
-    assert (
-        current_commit == original_commit
-    ), f"`clean_repo` should rewind to {original_commit}, got {current_commit}."
-    assert (
-        not new_file.exists()
-    ), f"`clean_repo` should remove the new commit's file: {new_file}"
+    assert current_commit == original_commit, (
+        f"`clean_repo` should rewind to {original_commit}, got {current_commit}."
+    )
+    assert not new_file.exists(), (
+        f"`clean_repo` should remove the new commit's file: {new_file}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -234,12 +234,12 @@ def test_GitSCM_maintenance(
     scm.maintenance()
 
     remaining = _list_branches(clone_path)
-    assert all(
-        not branch.startswith("lando-") for branch in remaining
-    ), f"All `lando-*` branches should have been deleted; got {remaining}."
-    assert (
-        "feature-keep-me" in remaining
-    ), "Non-`lando-*` branches should be left alone."
+    assert all(not branch.startswith("lando-") for branch in remaining), (
+        f"All `lando-*` branches should have been deleted; got {remaining}."
+    )
+    assert "feature-keep-me" in remaining, (
+        "Non-`lando-*` branches should be left alone."
+    )
     assert scm.default_branch in remaining, "Default branch should still exist."
 
 
@@ -259,9 +259,9 @@ def test_GitSCM_maintenance_noop_without_lando_branches(
 
     scm.maintenance()
 
-    assert (
-        _list_branches(clone_path) == branches_before
-    ), "`maintenance` should be a no-op when there are no `lando-*` branches."
+    assert _list_branches(clone_path) == branches_before, (
+        "`maintenance` should be a no-op when there are no `lando-*` branches."
+    )
 
 
 def remove_git_version_from_patch(patch: str) -> str:

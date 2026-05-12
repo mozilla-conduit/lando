@@ -68,9 +68,9 @@ def test_Worker_run_idle_maintenance_throttles_repeat_calls(
     hg_landing_worker.run_idle_maintenance()
 
     for repo in mocked_enabled_repos:
-        assert (
-            repo._scm.maintenance.call_count == 1
-        ), "Repeat calls inside `maintenance_interval_seconds` should be throttled."
+        assert repo._scm.maintenance.call_count == 1, (
+            "Repeat calls inside `maintenance_interval_seconds` should be throttled."
+        )
 
 
 @pytest.mark.django_db
@@ -89,9 +89,9 @@ def test_Worker_run_idle_maintenance_runs_again_after_interval(
     hg_landing_worker.run_idle_maintenance()
 
     for repo in mocked_enabled_repos:
-        assert (
-            repo._scm.maintenance.call_count == 2
-        ), "`maintenance` should run again once `maintenance_interval_seconds` has elapsed."
+        assert repo._scm.maintenance.call_count == 2, (
+            "`maintenance` should run again once `maintenance_interval_seconds` has elapsed."
+        )
 
 
 @pytest.mark.django_db
@@ -117,15 +117,15 @@ def test_Worker_run_idle_maintenance_stops_at_budget_and_prefers_oldest(
 
     hg_landing_worker.run_idle_maintenance()
 
-    assert (
-        oldest_repo._scm.maintenance.call_count == 1
-    ), "The repo waiting longest should run first when the budget is tight."
+    assert oldest_repo._scm.maintenance.call_count == 1, (
+        "The repo waiting longest should run first when the budget is tight."
+    )
     for repo in mocked_enabled_repos:
         if repo is oldest_repo:
             continue
-        assert (
-            repo._scm.maintenance.call_count == 0
-        ), "Other repos should be skipped once the budget is exhausted."
+        assert repo._scm.maintenance.call_count == 0, (
+            "Other repos should be skipped once the budget is exhausted."
+        )
 
 
 @pytest.mark.django_db
@@ -141,9 +141,9 @@ def test_Worker_run_idle_maintenance_isolates_failures(
 
     for repo in healthy_repos:
         repo._scm.maintenance.assert_called_once_with()
-    assert (
-        f"Idle maintenance failed for {failing_repo.name}" in caplog.text
-    ), "A failure in one repo's maintenance should be logged."
-    assert (
-        failing_repo.id in hg_landing_worker.last_maintenance_at
-    ), "A failed run should still update the timestamp so we don't retry on every idle loop."
+    assert f"Idle maintenance failed for {failing_repo.name}" in caplog.text, (
+        "A failure in one repo's maintenance should be logged."
+    )
+    assert failing_repo.id in hg_landing_worker.last_maintenance_at, (
+        "A failed run should still update the timestamp so we don't retry on every idle loop."
+    )

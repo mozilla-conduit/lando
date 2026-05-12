@@ -54,21 +54,21 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
         assert scm.run_hg_cmds([["status"]])
 
     with scm.for_pull():
-        assert not scm.run_hg_cmds(
-            [["status"]]
-        ), "Working directory should be clean after exiting and re-entering the context."
-        assert scm.run_hg_cmds(
-            [["outgoing"]]
-        ), "Draft commits should persist across context exits; `maintenance` strips them."
+        assert not scm.run_hg_cmds([["status"]]), (
+            "Working directory should be clean after exiting and re-entering the context."
+        )
+        assert scm.run_hg_cmds([["outgoing"]]), (
+            "Draft commits should persist across context exits; `maintenance` strips them."
+        )
 
     scm.maintenance()
 
     with scm.for_pull(), hg_clone.as_cwd():
         with pytest.raises(HgCommandError, match="no changes found"):
             scm.run_hg_cmds([["outgoing"]])
-        assert not scm.run_hg_cmds(
-            [["status"]]
-        ), "Working directory should be clean after `maintenance` runs."
+        assert not scm.run_hg_cmds([["status"]]), (
+            "Working directory should be clean after `maintenance` runs."
+        )
 
 
 def test_integrated_hgrepo_can_log(hg_clone):
