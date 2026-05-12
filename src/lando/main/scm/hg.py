@@ -361,9 +361,7 @@ class HgSCM(AbstractSCM):
         """Return a complete patch for the given revision, in the git extended diff format."""
         # Write to a temp file via `-o` instead of stdout so the patch stays out of command logs.
         with tempfile.NamedTemporaryFile(suffix=".patch") as patch_file:
-            self.run_hg(
-                ["export", "-o", patch_file.name, "--git", "-r", revision_id]
-            )
+            self.run_hg(["export", "-o", patch_file.name, "--git", "-r", revision_id])
             patch_bytes = Path(patch_file.name).read_bytes()
 
         try:
