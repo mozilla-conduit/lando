@@ -24,7 +24,6 @@ from lando.main.scm.helpers import GitPatchHelper, PatchHelper
 from lando.settings import LANDO_USER_EMAIL, LANDO_USER_NAME
 from lando.utils.const import URL_USERINFO_RE
 from lando.utils.github import GitHub
-from lando.utils.strings import truncate_text
 
 from .abstract_scm import AbstractSCM
 
@@ -230,32 +229,52 @@ class GitSCM(AbstractSCM):
             self._git_run("apply", "--reject", patch_file.name, cwd=self.path)
 
             self._git_run("add", "-A", "-f", cwd=self.path)
-            return self._git_run(
-                "diff",
-                "--staged",
-                "--binary",
-                cwd=self.path,
-                rstrip=False,
-                truncate_log_output=True,
-            )
+
+            # Write to a temp file instead of stdout so the diff stays out of command logs.
+            with tempfile.NamedTemporaryFile(suffix=".diff") as diff_file:
+                self._git_run(
+                    "diff",
+                    "--staged",
+                    "--binary",
+                    f"--output={diff_file.name}",
+                    cwd=self.path,
+                )
+                diff_bytes = Path(diff_file.name).read_bytes()
+
+        try:
+            diff = diff_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            diff = diff_bytes.decode("latin-1")
+
+        return diff.lstrip()
 
     @override
     def get_patch(self, revision_id: str) -> str | None:
-        """Return a complete patch for the given revision, in the git extended diff format.
+        """Return a complete patch for the given revision, in the git extended diff format."""
+        # Write to a temp dir instead of `--stdout` so the patch stays out of command logs;
+        # `--numbered-files` makes the resulting filename predictable as `1`.
+        with tempfile.TemporaryDirectory() as patch_dir:
+            self._git_run(
+                "format-patch",
+                "--keep-subject",
+                "--numbered-files",
+                "-o",
+                patch_dir,
+                "-1",
+                revision_id,
+                cwd=self.path,
+            )
+            patch_path = Path(patch_dir) / "1"
+            if not patch_path.exists():
+                return None
+            patch_bytes = patch_path.read_bytes()
 
-        Note that `_git_run` strips the output before returning it. This means
-        that trailing newlines in the patch output will no be present. This is
-        acceptable for our purpose, but it may not reapply cleanly (TBC).
-        """
-        patch = self._git_run(
-            "format-patch",
-            "--keep-subject",
-            "--stdout",
-            "-1",
-            revision_id,
-            cwd=self.path,
-            truncate_log_output=True,
-        )
+        try:
+            patch = patch_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            patch = patch_bytes.decode("latin-1")
+        patch = patch.strip()
+
         # We only return the patch if the `From` header indicates that it's the same as
         # the requested revision. This may not be the case when, e.g., `git
         # format-patch` processes a clean merge commit, in which case it returns a
@@ -574,13 +593,7 @@ class GitSCM(AbstractSCM):
         return True
 
     @classmethod
-    def _git_run(
-        cls,
-        *args,
-        cwd: str | None = None,
-        rstrip: bool = True,
-        truncate_log_output: bool = False,
-    ) -> str:
+    def _git_run(cls, *args, cwd: str | None = None, rstrip: bool = True) -> str:
         """Run a git command and return full output.
 
         Parameters:
@@ -590,12 +603,6 @@ class GitSCM(AbstractSCM):
 
         cwd: str
             Optional path to work in, default to '/'
-
-        truncate_log_output: bool
-            If `True`, only the head and tail of the command's output will be
-            logged. Use this for commands like `git format-patch` whose full
-            output is too large to be useful in logs. The return value is
-            unaffected.
 
         Returns:
             str: the standard output of the command
@@ -639,14 +646,13 @@ class GitSCM(AbstractSCM):
             )
 
         if out:
-            log_output = truncate_text(out) if truncate_log_output else out
             logger.info(
                 "output from git command #%s: %s",
                 correlation_id,
-                log_output,
+                out,
                 extra={
                     "command_id": correlation_id,
-                    "output": log_output,
+                    "output": out,
                     "path": cwd,
                 },
             )

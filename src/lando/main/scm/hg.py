@@ -35,7 +35,6 @@ from lando.main.scm.exceptions import (
     TreeClosed,
 )
 from lando.main.scm.helpers import GitPatchHelper, HgPatchHelper, PatchHelper
-from lando.utils.strings import truncate_text
 
 logger = logging.getLogger(__name__)
 
@@ -360,13 +359,17 @@ class HgSCM(AbstractSCM):
     @override
     def get_patch(self, revision_id: str) -> str | None:
         """Return a complete patch for the given revision, in the git extended diff format."""
-        out = self.run_hg(
-            ["export", "--git", "-r", revision_id], truncate_log_output=True
-        )
+        # Write to a temp file via `-o` instead of stdout so the patch stays out of command logs.
+        with tempfile.NamedTemporaryFile(suffix=".patch") as patch_file:
+            self.run_hg(
+                ["export", "-o", patch_file.name, "--git", "-r", revision_id]
+            )
+            patch_bytes = Path(patch_file.name).read_bytes()
+
         try:
-            return out.decode("utf-8")
+            return patch_bytes.decode("utf-8")
         except UnicodeDecodeError:
-            return out.decode("latin-1")
+            return patch_bytes.decode("latin-1")
 
     @override
     def get_patch_helper(self, revision_id: str) -> PatchHelper | None:
@@ -660,21 +663,16 @@ class HgSCM(AbstractSCM):
             last_result = self.run_hg(cmd)
         return last_result
 
-    def run_hg(self, args: list[str], *, truncate_log_output: bool = False) -> bytes:
+    def run_hg(self, args: list[str]) -> bytes:
         """Run a single Mercurial command, and return its output.
-
-        If `truncate_log_output` is `True`, only the head and tail of the command's
-        output will be logged. Use this for commands like `hg export` whose
-        full output is too large to be useful in logs. The return value is
-        unaffected.
 
         A specific HgException will be raised on error."""
         try:
-            return self._run_hg(args, truncate_log_output=truncate_log_output)
+            return self._run_hg(args)
         except hglib.error.CommandError as exc:
             raise HgException.from_hglib_error(exc) from exc
 
-    def _run_hg(self, args: list[str], *, truncate_log_output: bool = False) -> bytes:
+    def _run_hg(self, args: list[str]) -> bytes:
         """Use hglib to run a Mercurial command, and return its output."""
         correlation_id = str(uuid.uuid4())
         command_string = " ".join(["hg"] + [shlex.quote(str(arg)) for arg in args])
@@ -705,10 +703,7 @@ class HgSCM(AbstractSCM):
         out = out.getvalue()
         err = err.getvalue()
         if out:
-            decoded_output = out.rstrip().decode(self.ENCODING, errors="replace")
-            out_string = (
-                truncate_text(decoded_output) if truncate_log_output else decoded_output
-            )
+            out_string = out.rstrip().decode(self.ENCODING, errors="replace")
             logger.info(
                 "output from hg command #%s: %s",
                 correlation_id,

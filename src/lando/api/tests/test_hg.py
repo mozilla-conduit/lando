@@ -292,7 +292,7 @@ def test_integrated_hgrepo_patch_hgimport_fail_success(
     # Mock the internal method, so the public method can do exception conversion.
     original_run_hg = scm._run_hg
 
-    def run_hg_conflict_on_import(*args, **kwargs):
+    def run_hg_conflict_on_import(*args):
         # Fail the native import, but not the one using `patch`
         if args[0][0] == "import" and "ui.patch=patch" not in args[0]:
             raise hglib.error.CommandError(
@@ -301,7 +301,7 @@ def test_integrated_hgrepo_patch_hgimport_fail_success(
                 b"",
                 b"forced fail: hunk FAILED -- saving rejects to file",
             )
-        return original_run_hg(*args, **kwargs)
+        return original_run_hg(*args)
 
     run_hg = mock.MagicMock()
     run_hg.side_effect = run_hg_conflict_on_import
@@ -595,7 +595,7 @@ def test_HgSCM_apply_patch_git_conflict(
     # Mock the internal method, so the public method can do exception conversion.
     original_run_hg = scm._run_hg
 
-    def run_hg_conflict_on_import(*args, **kwargs):
+    def run_hg_conflict_on_import(*args):
         # Fail the native import, but not the one using `patch`
         if args[0][0] == "import" and "ui.patch=patch" not in args[0]:
             raise hglib.error.CommandError(
@@ -604,7 +604,7 @@ def test_HgSCM_apply_patch_git_conflict(
                 b"",
                 b"forced fail: hunk FAILED -- saving rejects to file",
             )
-        return original_run_hg(*args, **kwargs)
+        return original_run_hg(*args)
 
     run_hg = mock.MagicMock()
     run_hg.side_effect = run_hg_conflict_on_import
