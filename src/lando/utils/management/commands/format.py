@@ -6,7 +6,7 @@ from lando.settings import LINT_PATHS
 
 
 class Command(BaseCommand):
-    help = "Run ruff, black and djlint on the codebase"
+    help = "Run ruff and djlint on the codebase"
 
     def handle(self, *args, **options):
         for lint_path in LINT_PATHS:
@@ -19,6 +19,6 @@ class Command(BaseCommand):
                 )
             )
 
-        subprocess.call(("black",) + LINT_PATHS)
+        subprocess.call(("ruff", "format") + LINT_PATHS)
 
         subprocess.call(("djlint", *LINT_PATHS, "--reformat"))

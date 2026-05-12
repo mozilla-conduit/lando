@@ -119,9 +119,9 @@ def test_diff_warning_invalid_token_returns_unauthorized(
     )
 
     assert response.status_code == 401, "Unexpected response code for invalid token"
-    assert response.json() == {
-        "error": "Invalid Phabricator API token."
-    }, "Unexpected error payload for invalid token"
+    assert response.json() == {"error": "Invalid Phabricator API token."}, (
+        "Unexpected error payload for invalid token"
+    )
 
 
 @pytest.mark.django_db(transaction=True, reset_sequences=True)

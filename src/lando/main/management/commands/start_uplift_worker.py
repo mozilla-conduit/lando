@@ -95,7 +95,7 @@ class Command(StartWorkerCommand):
             ) from exc
         except subprocess.CalledProcessError as exc:
             raise CommandError(
-                "moz-phab configuration verification failed: " f"{exc}."
+                f"moz-phab configuration verification failed: {exc}."
             ) from exc
 
         # Ensure the config file location we wrote our config file to

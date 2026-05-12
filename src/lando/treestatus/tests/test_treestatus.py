@@ -33,9 +33,9 @@ class IncreasingDatetime:
 
 @pytest.mark.django_db
 def test_is_open_assumes_true_on_unknown_tree():
-    assert is_open(
-        "tree-doesn't-exist"
-    ), "`is_open` should return `True` for unknown tree."
+    assert is_open("tree-doesn't-exist"), (
+        "`is_open` should return `True` for unknown tree."
+    )
 
 
 @pytest.mark.django_db
@@ -47,17 +47,17 @@ def test_is_open_for_open_tree(new_treestatus_tree):
 @pytest.mark.django_db
 def test_is_open_for_closed_tree(new_treestatus_tree):
     new_treestatus_tree(tree="mozilla-central", status=TreeStatus.CLOSED)
-    assert not is_open(
-        "mozilla-central"
-    ), "`is_open` should return `False` for closed tree."
+    assert not is_open("mozilla-central"), (
+        "`is_open` should return `False` for closed tree."
+    )
 
 
 @pytest.mark.django_db
 def test_is_open_for_approval_required_tree(new_treestatus_tree):
     new_treestatus_tree(tree="mozilla-central", status=TreeStatus.APPROVAL_REQUIRED)
-    assert is_open(
-        "mozilla-central"
-    ), "`is_open` should return `True` for approval required tree."
+    assert is_open("mozilla-central"), (
+        "`is_open` should return `True` for approval required tree."
+    )
 
 
 @pytest.mark.django_db
@@ -87,18 +87,18 @@ def test_get_tree_exists(client, new_treestatus_tree):
         tree="mozilla-central", status=TreeStatus.OPEN, reason="reason", motd="message"
     )
     response = client.get("/trees/mozilla-central")
-    assert (
-        "result" in response.json()
-    ), "Response should be contained in the `result` key."
+    assert "result" in response.json(), (
+        "Response should be contained in the `result` key."
+    )
     assert response.status_code == 200, "Response status code should be 200."
 
     tree_response = TreeData(**response.json()["result"])
-    assert (
-        tree_response.tree == tree.tree
-    ), "Returned `tree` should be `mozilla-central`."
-    assert (
-        tree_response.message_of_the_day == tree.message_of_the_day
-    ), "Returned `message_of_the_day` should be `message`."
+    assert tree_response.tree == tree.tree, (
+        "Returned `tree` should be `mozilla-central`."
+    )
+    assert tree_response.message_of_the_day == tree.message_of_the_day, (
+        "Returned `message_of_the_day` should be `message`."
+    )
     assert tree_response.reason == tree.reason, "Returned `reason` should be `reason`."
     assert tree_response.status == tree.status, "Returned `status` should be `open`."
 
@@ -119,17 +119,17 @@ def test_get_tree_missing(client):
 def test_api_get_trees2(client, new_treestatus_tree):
     """API test for `GET /trees2`."""
     response = client.get("/trees2")
-    assert (
-        response.status_code == 200
-    ), "`GET /trees2` should return 200 even when no trees are found."
+    assert response.status_code == 200, (
+        "`GET /trees2` should return 200 even when no trees are found."
+    )
     assert "result" in response.json(), "Response should contain `result` key."
     assert response.json()["result"] == [], "Result from Treestatus should be empty."
 
     new_treestatus_tree(tree="mozilla-central")
     response = client.get("/trees2")
-    assert (
-        response.status_code == 200
-    ), "`GET /trees2` should return 200 when trees are found."
+    assert response.status_code == 200, (
+        "`GET /trees2` should return 200 when trees are found."
+    )
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."
     assert len(result) == 1, "Result from Treestatus should contain one tree"
@@ -269,9 +269,9 @@ def test_api_get_logs(client, new_treestatus_tree):
         assert tree_data.id == expected["id"], "ID should match expected."
         assert tree_data.reason == expected["reason"], "Reason should match expected."
         assert tree_data.status == expected["status"], "Status should match expected."
-        assert sorted(tree_data.tags) == sorted(
-            expected["tags"]
-        ), "Tags should match expected."
+        assert sorted(tree_data.tags) == sorted(expected["tags"]), (
+            "Tags should match expected."
+        )
 
     # Check all results are returned from `logs_all`.
     response = client.get("/trees/tree/logs_all")
@@ -334,9 +334,9 @@ def test_api_get_logs(client, new_treestatus_tree):
         assert tree_data.id == expected["id"], "ID should match expected."
         assert tree_data.reason == expected["reason"], "Reason should match expected."
         assert tree_data.status == expected["status"], "Status should match expected."
-        assert sorted(tree_data.tags) == sorted(
-            expected["tags"]
-        ), "Tags should match expected."
+        assert sorted(tree_data.tags) == sorted(expected["tags"]), (
+            "Tags should match expected."
+        )
 
 
 @pytest.mark.django_db
@@ -379,15 +379,15 @@ def test_make_tree(client):
 
     # Tree can be retrieved from the API after being added.
     response = client.get("/trees/tree")
-    assert (
-        response.status_code == 200
-    ), "Retrieving tree after addition should return 200 status code."
+    assert response.status_code == 200, (
+        "Retrieving tree after addition should return 200 status code."
+    )
     result = response.json().get("result")
     assert result is not None, "Response should contain a `result` key."
     tree_data = TreeData(**result)
-    assert (
-        tree_data.status == "open"
-    ), "Status should be retrievable after tree creation."
+    assert tree_data.status == "open", (
+        "Status should be retrievable after tree creation."
+    )
 
     # Attempt to add a duplicate tree.
     with pytest.raises(ProblemException) as exc_info:
@@ -410,9 +410,9 @@ def test_make_tree(client):
 def test_api_get_trees_single_not_found(client):
     """API test for `GET /trees/{tree}` with an unknown tree."""
     response = client.get("/trees/unknowntree")
-    assert (
-        response.status_code == 404
-    ), "Response code for unknown tree should be `404`."
+    assert response.status_code == 404, (
+        "Response code for unknown tree should be `404`."
+    )
     assert response.json() == {
         "detail": "No tree unknowntree found.",
         "status": 404,
@@ -427,9 +427,9 @@ def test_api_get_trees_single_exists(client, new_treestatus_tree):
     new_treestatus_tree(tree="mozilla-central")
 
     response = client.get("/trees/mozilla-central")
-    assert (
-        response.status_code == 200
-    ), "Response code when a tree is found should be `200`."
+    assert response.status_code == 200, (
+        "Response code when a tree is found should be `200`."
+    )
     result = response.json().get("result")
     assert result is not None, "Response JSON should contain `result` key."
     get_data = TreeData(**result)
@@ -592,14 +592,14 @@ def test_apply_tree_updates_success_remember(client, new_treestatus_tree):
 
     result = response.json().get("result")
     assert result is not None, "Response should contain a `result` key."
-    assert (
-        len(result) == 1
-    ), "Setting `remember: true` should have created a stack entry."
+    assert len(result) == 1, (
+        "Setting `remember: true` should have created a stack entry."
+    )
 
     stack_entry = StackEntry(**result[0])
-    assert (
-        stack_entry.reason == "somereason"
-    ), "Stack entry reason should match expected."
+    assert stack_entry.reason == "somereason", (
+        "Stack entry reason should match expected."
+    )
     assert stack_entry.status == "closed", "Stack entry status should match expected."
 
     for tree in stack_entry.trees:
@@ -636,26 +636,26 @@ def test_apply_tree_updates_success_no_remember(client, new_treestatus_tree):
 
     response = client.get("/stack")
     assert response.status_code == 200
-    assert (
-        response.json()["result"] == []
-    ), "Status should not have been added to the stack."
+    assert response.json()["result"] == [], (
+        "Status should not have been added to the stack."
+    )
 
 
 @pytest.mark.django_db
 def test_api_get_trees(client, new_treestatus_tree):
     """API test for `GET /trees`."""
     response = client.get("/trees")
-    assert (
-        response.status_code == 200
-    ), "`GET /trees` should return 200 even when no trees are found."
+    assert response.status_code == 200, (
+        "`GET /trees` should return 200 even when no trees are found."
+    )
     assert "result" in response.json(), "Response should contain `result` key."
     assert response.json()["result"] == {}, "Result from Treestatus should be empty."
 
     new_treestatus_tree(tree="mozilla-central")
     response = client.get("/trees")
-    assert (
-        response.status_code == 200
-    ), "`GET /trees` should return 200 when trees are found."
+    assert response.status_code == 200, (
+        "`GET /trees` should return 200 when trees are found."
+    )
     result = response.json().get("result")
     assert result is not None, "Response should contain a result key."
     assert len(result) == 1, "Result from Treestatus should contain one tree."
@@ -725,9 +725,9 @@ def test_revert_change_revert(client, new_treestatus_tree):
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."
     tree_state = TreeData(**result)
-    assert (
-        tree_state.reason == "some reason for opening"
-    ), "Previous reason should be restored."
+    assert tree_state.reason == "some reason for opening", (
+        "Previous reason should be restored."
+    )
     assert tree_state.status == "open", "Previous state should be restored."
     assert sorted(tree_state.tags) == [
         "sometag1",
@@ -795,12 +795,12 @@ def test_revert_change_no_revert(client, new_treestatus_tree):
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."
     tree_state = TreeData(**result)
-    assert (
-        tree_state.reason == "some reason to close"
-    ), "Reason should be preserved after discard."
-    assert (
-        tree_state.status == "closed"
-    ), "Tree status should be preserved after discard."
+    assert tree_state.reason == "some reason to close", (
+        "Reason should be preserved after discard."
+    )
+    assert tree_state.status == "closed", (
+        "Tree status should be preserved after discard."
+    )
     assert sorted(tree_state.tags) == [
         "closingtag1",
         "closingtag2",
@@ -919,9 +919,9 @@ def test_update_log_and_stack(client, new_treestatus_tree):
 
     stack_entry = StackEntry(**result[0])
     stack_tree = stack_entry.trees[0].last_state
-    assert (
-        stack_tree.current_reason == "new log reason"
-    ), "Stack should show updated log reason."
+    assert stack_tree.current_reason == "new log reason", (
+        "Stack should show updated log reason."
+    )
     assert stack_tree.current_tags == [
         "new tag 1",
         "new tag 2",

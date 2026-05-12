@@ -190,7 +190,7 @@ def test_relman_reviews_become_approvals():
         1,
         [],
         ["ryanvm"],
-        ("A summary.\n" "\n" "Original Revision: http://phabricator.test/D1"),
+        ("A summary.\n\nOriginal Revision: http://phabricator.test/D1"),
         "http://phabricator.test/D123",
     )
 
@@ -204,18 +204,18 @@ def test_relman_reviews_become_approvals():
 
 
 def test_bug_list_to_commit_string():
-    assert (
-        bug_list_to_commit_string([]) == "No bug"
-    ), "Empty input should return `No bug`"
-    assert (
-        bug_list_to_commit_string(["123"]) == "Bug 123"
-    ), "Single bug should return with `bug` and number."
-    assert (
-        bug_list_to_commit_string(["123", "456"]) == "Bug 123, 456"
-    ), "Multiple bugs should return comma separated list."
-    assert (
-        bug_list_to_commit_string(["123", "123"]) == "Bug 123"
-    ), "Multiple bugs should be deduplicated."
+    assert bug_list_to_commit_string([]) == "No bug", (
+        "Empty input should return `No bug`"
+    )
+    assert bug_list_to_commit_string(["123"]) == "Bug 123", (
+        "Single bug should return with `bug` and number."
+    )
+    assert bug_list_to_commit_string(["123", "456"]) == "Bug 123, 456", (
+        "Multiple bugs should return comma separated list."
+    )
+    assert bug_list_to_commit_string(["123", "123"]) == "Bug 123", (
+        "Multiple bugs should be deduplicated."
+    )
 
 
 BUG_COMMIT_MESSAGE = """
@@ -229,6 +229,6 @@ Differential Revision: https://phabricator.services.mozilla.com/D223371
 
 
 def test_parse_bugs():
-    assert parse_bugs(BUG_COMMIT_MESSAGE) == [
-        1803416
-    ], "`parse_bugs` should only return the appropriate bug numbers."
+    assert parse_bugs(BUG_COMMIT_MESSAGE) == [1803416], (
+        "`parse_bugs` should only return the appropriate bug numbers."
+    )

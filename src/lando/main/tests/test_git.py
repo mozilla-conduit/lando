@@ -56,9 +56,9 @@ def test_GitSCM_repo_is_supported(repo_path: str, expected: bool, git_repo: Path
     scm = GitSCM
     if not repo_path:
         repo_path = str(git_repo)
-    assert (
-        scm.repo_is_supported(repo_path) == expected
-    ), f"{scm} did not correctly report support for {repo_path}"
+    assert scm.repo_is_supported(repo_path) == expected, (
+        f"{scm} did not correctly report support for {repo_path}"
+    )
 
 
 def test_GitSCM_clone(
@@ -76,9 +76,9 @@ def test_GitSCM_clone(
 
     mock_git_run.assert_any_call("clone", str(git_repo), str(clone_path), cwd="/")
     assert clone_path.exists(), f"New git clone {clone_path} wasn't created"
-    assert (
-        clone_path / ".git"
-    ).exists(), f"New git clone {clone_path} doesn't contain a .git directory"
+    assert (clone_path / ".git").exists(), (
+        f"New git clone {clone_path} doesn't contain a .git directory"
+    )
 
 
 def test_GitSCM_clean_repo(
@@ -177,19 +177,17 @@ def test_GitSCM_clean_repo_gitattributes(
     expected_gitattributes = (
         # We want to allow empty strings to go through, so we need an explicit
         # comparison to None.
-        new_gitattributes
-        if new_gitattributes is not None
-        else current_gitattributes
+        new_gitattributes if new_gitattributes is not None else current_gitattributes
     )
     with open(attributes_file, "r") as file:
-        assert (
-            file.read() == expected_gitattributes
-        ), f"{attributes_file} contents does not match expected overrides"
+        assert file.read() == expected_gitattributes, (
+            f"{attributes_file} contents does not match expected overrides"
+        )
 
     if new_gitattributes == current_gitattributes or new_gitattributes is None:
-        assert (
-            new_attribute_mtime == attribute_mtime
-        ), f"{attributes_file} with same content should not have been modified"
+        assert new_attribute_mtime == attribute_mtime, (
+            f"{attributes_file} with same content should not have been modified"
+        )
 
 
 def _list_branches(clone_path: Path) -> list[str]:
@@ -413,9 +411,9 @@ def test_GitSCM_apply_patch_git_aborts_on_failure(
         scm.apply_patch_git(b"blah")
 
     # Ensure the `rebase-apply` directory is gone.
-    assert (
-        not rebase_apply.exists()
-    ), "`rebase-apply` dir was not cleaned up after failed git am"
+    assert not rebase_apply.exists(), (
+        "`rebase-apply` dir was not cleaned up after failed git am"
+    )
 
     # Create `rebase-apply` directory.
     rebase_apply.mkdir()
@@ -429,9 +427,9 @@ def test_GitSCM_apply_patch_git_aborts_on_failure(
     scm.apply_patch_git(good_patch_bytes)
 
     # Ensure the `rebase-apply` directory is gone.
-    assert (
-        not rebase_apply.exists()
-    ), "`rebase-apply` dir was not cleaned up after failed git am"
+    assert not rebase_apply.exists(), (
+        "`rebase-apply` dir was not cleaned up after failed git am"
+    )
 
     commit = scm.describe_commit()
     assert commit.hash, "Valid patch did not land after recovering from failure"
@@ -506,9 +504,9 @@ def test_GitSCM_apply_patch_includes_ignored_files(
         text=True,
         check=True,
     ).stdout.splitlines()
-    assert (
-        "ignored.json" in files_in_commit
-    ), "`ignored.json` not found in committed files."
+    assert "ignored.json" in files_in_commit, (
+        "`ignored.json` not found in committed files."
+    )
 
 
 def test_GitSCM_describe_commit(git_repo: Path):
@@ -522,8 +520,11 @@ def test_GitSCM_describe_commit(git_repo: Path):
     assert commit.parents, "Non-initial commit should have parents"
     assert commit.author == "Test User <test@example.com>"
     assert commit.datetime == datetime.datetime.fromtimestamp(0, datetime.timezone.utc)
-    assert commit.desc == """add another file
+    assert (
+        commit.desc
+        == """add another file
 """
+    )
     assert len(commit.files) == 1
     assert "test.txt" in commit.files
 
@@ -533,8 +534,11 @@ def test_GitSCM_describe_commit(git_repo: Path):
     assert prev_commit.datetime == datetime.datetime.fromtimestamp(
         0, datetime.timezone.utc
     )
-    assert prev_commit.desc == """initial commit
+    assert (
+        prev_commit.desc
+        == """initial commit
 """
+    )
     assert len(prev_commit.files) == 1
     assert "README" in prev_commit.files
 
@@ -589,9 +593,9 @@ def test_GitSCM_describe_local_changes_with_explicit_target_cset(
 
     assert second_commit_file.name in changed_files
     assert third_commit_file.name in changed_files
-    assert (
-        base_commit_file.name not in changed_files
-    ), "Base commit file should not appear in local changes."
+    assert base_commit_file.name not in changed_files, (
+        "Base commit file should not appear in local changes."
+    )
 
 
 @pytest.mark.parametrize("target_cs", [None, "main", "dev", "git-ref"])
@@ -647,24 +651,24 @@ def test_GitSCM_update_repo(
     current_commit = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=str(clone_path), capture_output=True
     ).stdout
-    assert (
-        current_commit == original_commit
-    ), f"Not on original_commit {original_commit} updating repo: {current_commit}"
+    assert current_commit == original_commit, (
+        f"Not on original_commit {original_commit} updating repo: {current_commit}"
+    )
 
     current_branch = subprocess.run(
         ["git", "rev-parse", "--abbrev-ref", "HEAD"],
         cwd=str(clone_path),
         capture_output=True,
     ).stdout
-    assert current_branch.startswith(
-        b"lando-"
-    ), f"Not on a work branch after update_repo: {current_branch}"
+    assert current_branch.startswith(b"lando-"), (
+        f"Not on a work branch after update_repo: {current_branch}"
+    )
 
     gitattributes = clone_path / ".git" / "info" / "attributes"
     with open(gitattributes, "r") as f:
-        assert (
-            f.read() == attributes_override
-        ), f".gitattributes override not in {gitattributes}"
+        assert f.read() == attributes_override, (
+            f".gitattributes override not in {gitattributes}"
+        )
 
 
 @pytest.mark.parametrize(
@@ -701,9 +705,9 @@ def test_GitSCM_changeset_descriptions_on_workbranch(
 
     create_git_commit(clone_path)
 
-    assert (
-        len(scm.changeset_descriptions()) == 1
-    ), "Incorrect number of commit from the local changeset"
+    assert len(scm.changeset_descriptions()) == 1, (
+        "Incorrect number of commit from the local changeset"
+    )
 
 
 @pytest.mark.parametrize("push_target", [None, "main", "dev"])
@@ -765,12 +769,12 @@ def test_GitSCM_push_github_authenticated_url(
     scm.push("https://github.com/some/repo")
 
     assert scm._git_run.call_count >= 1, "_git_run wasn't called when pushing"
-    assert (
-        mock_github_authenticated_url.call_count == 1
-    ), "GitHub.authenticated_url wasn't accessed when pushing to a github-like URL"
-    assert (
-        "git:ghs_yolo@github.com" in scm._git_run.call_args[0][1]
-    ), "GitHub authenticated_url was not found in rewritten push_path"
+    assert mock_github_authenticated_url.call_count == 1, (
+        "GitHub.authenticated_url wasn't accessed when pushing to a github-like URL"
+    )
+    assert "git:ghs_yolo@github.com" in scm._git_run.call_args[0][1], (
+        "GitHub authenticated_url was not found in rewritten push_path"
+    )
 
 
 @pytest.mark.parametrize(
@@ -845,12 +849,12 @@ def test_GitSCM_merge_onto(
         .strip()
     )
     current_sha = scm.head_ref()
-    assert (
-        current_branch == main_branch
-    ), "`merge_onto` incorrectly changed the current branch."
-    assert (
-        current_sha == merge_commit
-    ), "`merge_onto` did not leave the repo on the merge commit."
+    assert current_branch == main_branch, (
+        "`merge_onto` incorrectly changed the current branch."
+    )
+    assert current_sha == merge_commit, (
+        "`merge_onto` did not leave the repo on the merge commit."
+    )
 
     # Confirm the new commit has two parents.
     parents = (
@@ -867,12 +871,12 @@ def test_GitSCM_merge_onto(
     # Len is 3 here due to 2 parents + the commit itself.
     assert len(parents) == 3, f"Expected merge commit with 2 parents, got: {parents}"
 
-    assert (
-        main_commit in parents and target_commit in parents
-    ), "Unexpected merge parents."
-    assert (
-        commit_msg in scm.changeset_descriptions()
-    ), "Commit message is not found in descriptions."
+    assert main_commit in parents and target_commit in parents, (
+        "Unexpected merge parents."
+    )
+    assert commit_msg in scm.changeset_descriptions(), (
+        "Commit message is not found in descriptions."
+    )
 
     file_to_check = target_commit_file
     expected_sha = None
@@ -904,13 +908,13 @@ def test_GitSCM_merge_onto(
             check=True,
         ).stdout.strip()
 
-        assert all(
-            {merged_file, expected_content}
-        ), "File contents should be non-empty."
+        assert all({merged_file, expected_content}), (
+            "File contents should be non-empty."
+        )
 
-        assert (
-            merged_file == expected_content
-        ), f"File contents did not match expected for strategy {strategy}"
+        assert merged_file == expected_content, (
+            f"File contents did not match expected for strategy {strategy}"
+        )
 
 
 def test_GitSCM_merge_onto_fast_forward(
@@ -944,18 +948,18 @@ def test_GitSCM_merge_onto_fast_forward(
     new_head = scm.merge_onto(commit_msg, feature_commit, strategy=None)
 
     # Check that the HEAD matches the feature commit (i.e. fast-forward happened)
-    assert (
-        new_head == feature_commit
-    ), "Returned head for `main` should point to the same SHA as `feature`."
-    assert (
-        new_head != base_commit
-    ), "Returned head for `main` should not point to the old base."
-    assert (
-        scm.head_ref() == feature_commit
-    ), "Current head should point to the same SHA as `feature`."
-    assert (
-        scm.head_ref() != base_commit
-    ), "Returned head for `main` should not point to the old base."
+    assert new_head == feature_commit, (
+        "Returned head for `main` should point to the same SHA as `feature`."
+    )
+    assert new_head != base_commit, (
+        "Returned head for `main` should not point to the old base."
+    )
+    assert scm.head_ref() == feature_commit, (
+        "Current head should point to the same SHA as `feature`."
+    )
+    assert scm.head_ref() != base_commit, (
+        "Returned head for `main` should not point to the old base."
+    )
 
     # Check that no merge commit was created.
     parents = (
@@ -970,9 +974,9 @@ def test_GitSCM_merge_onto_fast_forward(
         .split()
     )
 
-    assert (
-        len(parents) == 2
-    ), "Fast-forward should have one parent (i.e. no merge commit)."
+    assert len(parents) == 2, (
+        "Fast-forward should have one parent (i.e. no merge commit)."
+    )
 
 
 def test_GitSCM_tag(
@@ -1057,9 +1061,9 @@ def test_GitSCM_tag_retag(
     scm.tag(tag_name, None)
 
     scm.tag(tag_name, "HEAD")
-    assert (
-        "already exists, but points to the desired target" in caplog.text
-    ), "No warning that the tag was already present."
+    assert "already exists, but points to the desired target" in caplog.text, (
+        "No warning that the tag was already present."
+    )
 
     with pytest.raises(TagAlreadyPresentException):
         scm.tag(tag_name, old_commit)
@@ -1092,9 +1096,9 @@ def test_GitSCM_tag_rejects_option_injection(
         check=True,
     ).stdout.decode()
 
-    assert (
-        "test-tag" not in tag_output
-    ), "No tag should be created from an option-injection attempt."
+    assert "test-tag" not in tag_output, (
+        "No tag should be created from an option-injection attempt."
+    )
 
 
 def test_GitSCM_merge_onto_rejects_option_injection(
@@ -1263,27 +1267,27 @@ def test_GitSCM_format_stack_amend_with_changes(
     result = scm.format_stack_amend()
 
     if has_changes:
-        assert (
-            result is not None
-        ), "`format_stack_amend` should return a list when changes exist."
+        assert result is not None, (
+            "`format_stack_amend` should return a list when changes exist."
+        )
         assert isinstance(result, list), "`format_stack_amend` should return a list."
         assert len(result) == 1, "Should return exactly one commit SHA."
 
         new_commit = scm.head_ref()
-        assert (
-            new_commit != original_commit
-        ), "Commit SHA should change when amending with changes"
+        assert new_commit != original_commit, (
+            "Commit SHA should change when amending with changes"
+        )
         assert result[0] == new_commit, "Returned SHA should match the new HEAD"
     else:
-        assert (
-            result is None
-        ), "`format_stack_amend` should return `None` when no changes exist."
+        assert result is None, (
+            "`format_stack_amend` should return `None` when no changes exist."
+        )
 
         # The commit SHA should remain unchanged.
         current_commit = scm.head_ref()
-        assert (
-            current_commit == original_commit
-        ), "Commit SHA should not change when there are no changes to amend."
+        assert current_commit == original_commit, (
+            "Commit SHA should not change when there are no changes to amend."
+        )
 
 
 def test_GitSCM_commit_exists(
@@ -1302,24 +1306,24 @@ def test_GitSCM_commit_exists(
     git_setup_user(str(clone_path))
 
     existing_commit = scm.head_ref()
-    assert scm.commit_exists(
-        existing_commit
-    ), f"`commit_exists` should return `True` for existing commit {existing_commit}."
+    assert scm.commit_exists(existing_commit), (
+        f"`commit_exists` should return `True` for existing commit {existing_commit}."
+    )
 
     create_git_commit(clone_path)
     new_commit = scm.head_ref()
-    assert scm.commit_exists(
-        new_commit
-    ), f"`commit_exists` should return `True` for new commit {new_commit}."
+    assert scm.commit_exists(new_commit), (
+        f"`commit_exists` should return `True` for new commit {new_commit}."
+    )
 
     fake_commit = "0000000000000000000000000000000000000000"
-    assert not scm.commit_exists(
-        fake_commit
-    ), f"`commit_exists` should return `False` for non-existent commit {fake_commit}."
+    assert not scm.commit_exists(fake_commit), (
+        f"`commit_exists` should return `False` for non-existent commit {fake_commit}."
+    )
 
-    assert not scm.commit_exists(
-        "this-is-not-a-valid-commit"
-    ), "`commit_exists` should return `False` for invalid commit reference."
+    assert not scm.commit_exists("this-is-not-a-valid-commit"), (
+        "`commit_exists` should return `False` for invalid commit reference."
+    )
 
 
 @pytest.mark.parametrize(
