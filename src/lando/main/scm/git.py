@@ -77,6 +77,13 @@ class GitSCM(AbstractSCM):
         self.default_branch = default_branch
         super().__init__(path)
 
+    @staticmethod
+    def authenticate_path_if_possible(url: str) -> str:
+        """Return authenticated URL if it is a GitHub URL."""
+        if GitHub.is_supported_url(url):
+            return GitHub(url).authenticated_url
+        return url
+
     @classmethod
     @override
     def scm_type(cls) -> SCMType:
@@ -91,9 +98,11 @@ class GitSCM(AbstractSCM):
 
     @override
     def clone(self, source: str):
-        """Clone a repository from a source."""
+        """Clone a repository from a source (pull_path)."""
+        pull_path = self.authenticate_path_if_possible(source)
+
         # When cloning, self.path doesn't exist yet, so we need to use another CWD.
-        self._git_run("clone", source, self.path, cwd="/")
+        self._git_run("clone", pull_path, self.path, cwd="/")
         self._git_run("checkout", self.default_branch, cwd=self.path)
         self._git_repo_config()
 
@@ -121,8 +130,7 @@ class GitSCM(AbstractSCM):
         if force_push:
             push_command += ["--force"]
 
-        if GitHub.is_supported_url(push_path):
-            push_path = GitHub(push_path).authenticated_url
+        push_path = self.authenticate_path_if_possible(push_path)
 
         push_command += [push_path]
 
@@ -466,6 +474,9 @@ class GitSCM(AbstractSCM):
 
         self.clean_repo(attributes_override=attributes_override)
         # Fetch all refs at the given pull_path, and overwrite the `origin` references.
+
+        pull_path = self.authenticate_path_if_possible(pull_path)
+
         self._git_run(
             "fetch",
             "--prune",
