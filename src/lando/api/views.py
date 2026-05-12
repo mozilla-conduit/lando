@@ -328,36 +328,19 @@ class PullRequestChecksAPIView(PullRequestAPIView):
         return JsonResponse(warnings_and_blockers)
 
 
-class PullRequestBodyAPIView(PullRequestAPIView):
-    def post(
+class PullRequestContentAPIView(PullRequestAPIView):
+    def put(
         self, request: WSGIRequest, repo_name: str, pull_number: int
     ) -> JsonResponse:
         class Form(forms.Form): #form to validate the body of the pull request
-            body = forms.CharField() #checks if body is a valid string, can be blank though
+            body = forms.CharField(required=False)
+            title = forms.CharField()
 
         form = Form(json.loads(request.body)) #create a form instance with the data from the request body, which is expected to be in JSON format
         if not form.is_valid():
-            return JsonResponse({"body": form.errors}, status=400)
+            return JsonResponse(form.errors, status=400)
 
-        self.pull_request.body = form.cleaned_data["body"]
-
-        result = self.client.update_pull_request_body(self.pull_request.number, self.pull_request.body)
-        return JsonResponse({"body": result}) 
-        #return the updated pull request body in the response, which is obtained by calling the GitHub API client to update the pull request body on GitHub and return the new body text.
-
-class PullRequestTitleAPIView(PullRequestAPIView):
-    def post(
-        self, request: WSGIRequest, repo_name: str, pull_number: int
-    ) -> JsonResponse:
-        class Form(forms.Form): #form to validate the title of the pull request
-            title = forms.CharField() #checks if title is a valid string, cannot be blank
-
-        form = Form(json.loads(request.body)) #create a form instance with the data from the request body, which is expected to be in JSON format
-        if not form.is_valid():
-            return JsonResponse({"title": form.errors}, status=400)
-
-        self.pull_request.title = form.cleaned_data["title"]
-
-        result = self.client.update_pull_request_title(self.pull_request.number, self.pull_request.title)
-        return JsonResponse({"title": result}) 
-        #return the updated pull request title in the response, which is obtained by calling the GitHub API client to update the pull request title on GitHub and return the new title text.
+        result_body = self.client.update_pull_request_body(self.pull_request.number,form.cleaned_data["body"])
+        result_title = self.client.update_pull_request_title(self.pull_request.number, form.cleaned_data["title"])
+        return JsonResponse({"body": result_body, "title": result_title})
+        #return the updated pull request body and title in the response, which is obtained by calling the GitHub API client to update the pull request on GitHub and return the new body and title text.

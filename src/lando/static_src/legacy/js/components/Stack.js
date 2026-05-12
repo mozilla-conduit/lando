@@ -202,37 +202,29 @@ $.fn.stack = function() {
         $('button.save-pr').on('click', function(e) {
             var body = document.getElementById('commit-body').innerText;
             var title = document.getElementById('commit-title').innerText;
-            Promise.all([
-                fetch(`/api/pulls/${repo_name}/${pull_number}/update_body`, {
-                    method: 'POST',
-                    body: JSON.stringify({"body": body}),
+
+                fetch(`/api/pulls/${repo_name}/${pull_number}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({"body": body, "title": title}),
                     headers: {
                         'Accept': 'application/json',
                         'Content-Type': 'application/json',
                         'X-CSRFToken': csrf_token
                     }
-                }),
-                fetch(`/api/pulls/${repo_name}/${pull_number}/update_title`, {
-                    method: 'POST',
-                    body: JSON.stringify({"title": title}),
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrf_token
+                }).then(async (response) => {
+                console.log(response);
+                let isOK = true;
+                    if (response.status === 400) {
+                        var result = await response.json();
+                        console.error("400:", result);
+                        isOK = false;
                     }
-                })
-            ]).then(responses => {
-                if (responses.every(r => r.status === 200)) {
-                    Promise.all(responses.map(r => r.json())).then(data => {
-                        window.location.reload();
-                    });
+                if (isOK) {
+                    window.location.reload();
                 }
             });
-            console.log(response); //remove later
         });
-        }; 
-
-
-    });
-  };
+    }
+  });
+};
 
