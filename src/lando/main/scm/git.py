@@ -259,23 +259,17 @@ class GitSCM(AbstractSCM):
     @override
     def get_patch(self, revision_id: str) -> str | None:
         """Return a complete patch for the given revision, in the git extended diff format."""
-        # Write to a temp dir instead of `--stdout` so the patch stays out of command logs;
-        # `--numbered-files` makes the resulting filename predictable as `1`.
-        with tempfile.TemporaryDirectory() as patch_dir:
+        # Write to a temp file instead of `--stdout` so the patch stays out of command logs.
+        with tempfile.NamedTemporaryFile(suffix=".patch") as patch_file:
             self._git_run(
                 "format-patch",
                 "--keep-subject",
-                "--numbered-files",
-                "-o",
-                patch_dir,
+                f"--output={patch_file.name}",
                 "-1",
                 revision_id,
                 cwd=self.path,
             )
-            patch_path = Path(patch_dir) / "1"
-            if not patch_path.exists():
-                return None
-            patch_bytes = patch_path.read_bytes()
+            patch_bytes = Path(patch_file.name).read_bytes()
 
         try:
             patch = patch_bytes.decode("utf-8")
