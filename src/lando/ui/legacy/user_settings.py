@@ -1,6 +1,7 @@
 import logging
 
 from django.core.handlers.wsgi import WSGIRequest
+from django.db import IntegrityError
 from django.http import HttpResponseNotAllowed, JsonResponse
 
 from lando.main.auth import require_authenticated_user
@@ -43,6 +44,23 @@ def manage_api_key(request: WSGIRequest) -> JsonResponse:
         phid = whoami["phid"]
         logger.debug("Phabricator API key verified for PHID `%s`.", phid)
 
-        profile.save_phabricator_api_key(api_key, phid=phid)
+        try:
+            profile.save_phabricator_api_key(api_key, phid=phid)
+        except IntegrityError:
+            logger.warning(
+                "Phabricator PHID `%s` is already linked to another Lando account.",
+                phid,
+            )
+            return JsonResponse(
+                {
+                    "errors": {
+                        "phabricator_api_key": [
+                            "This Phabricator account is already linked to "
+                            "another Lando user."
+                        ]
+                    }
+                },
+                status=400,
+            )
 
     return JsonResponse({"success": True}, status=200)
