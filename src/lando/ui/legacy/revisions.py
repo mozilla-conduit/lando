@@ -293,7 +293,7 @@ class UpliftAssessmentBatchLinkView(LandoView):
             "assessment": assessment_instance,
         }
 
-        return TemplateResponse(
+        return self.response(
             request=request,
             template="uplift/request.html",
             context=context,
@@ -532,7 +532,7 @@ class RevisionView(LandoView):
             ),
         }
 
-        return TemplateResponse(
+        return self.response(
             request=request,
             template="stack/stack.html",
             context=context,

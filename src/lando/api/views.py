@@ -33,12 +33,13 @@ from lando.utils.github_checks import (
 )
 from lando.utils.landing_checks import LandingChecks
 from lando.utils.phabricator import PHABRICATOR_API_KEY_HEADER, get_phabricator_client
+from lando.utils.views import BaseLandoViewMixin
 
 
-class APIView(View):
+class APIView(View, BaseLandoViewMixin):
     """A base class for API views."""
 
-    pass
+    response_class = JsonResponse
 
 
 def phabricator_api_key_required(func: Callable) -> Callable:
@@ -47,14 +48,16 @@ def phabricator_api_key_required(func: Callable) -> Callable:
     @wraps(func)
     def _wrapper(self: View, request: WSGIRequest, *args, **kwargs) -> Callable:
         if PHABRICATOR_API_KEY_HEADER not in request.headers:
-            return JsonResponse(
+            return self.response(
                 {"error": f"{PHABRICATOR_API_KEY_HEADER} missing."}, status=400
             )
 
         api_key = request.headers[PHABRICATOR_API_KEY_HEADER]
         client = get_phabricator_client(api_key=api_key)
         if not client.verify_api_token():
-            return JsonResponse({"error": "Invalid Phabricator API token."}, status=401)
+            return self.response(
+                {"error": "Invalid Phabricator API token."}, status=401
+            )
 
         return func(self, request, *args, **kwargs)
 
@@ -93,7 +96,7 @@ def generate_warnings_and_blockers(
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class LegacyDiffWarningView(View):
+class LegacyDiffWarningView(APIView):
     """
     This class provides the API controllers for the legacy `DiffWarning` model.
 
@@ -131,20 +134,20 @@ class LegacyDiffWarningView(View):
         if form.is_valid():
             data = form.cleaned_data
             warning = DiffWarning.objects.create(**data)
-            return JsonResponse(warning.serialize(), status=201)
+            return self.response(warning.serialize(), status=201)
 
-        return JsonResponse({"errors": dict(form.errors)}, status=400)
+        return self.response({"errors": dict(form.errors)}, status=400)
 
     @phabricator_api_key_required
     def delete(self, request: WSGIRequest, diff_warning_id: int) -> JsonResponse:
         """Archive a `DiffWarning` based on provided pk."""
         warning = DiffWarning.objects.get(pk=diff_warning_id)
         if not warning:
-            return JsonResponse({}, status=404)
+            return self.response({}, status=404)
 
         warning.status = DiffWarningStatus.ARCHIVED
         warning.save()
-        return JsonResponse(warning.serialize(), status=200)
+        return self.response(warning.serialize(), status=200)
 
     @phabricator_api_key_required
     def get(self, request: WSGIRequest, **kwargs) -> JsonResponse:
@@ -158,14 +161,14 @@ class LegacyDiffWarningView(View):
         form = Form(request.GET)
         if form.is_valid():
             warnings = DiffWarning.objects.filter(**form.cleaned_data).all()
-            return JsonResponse(
+            return self.response(
                 [warning.serialize() for warning in warnings], status=200, safe=False
             )
 
-        return JsonResponse({"errors": dict(form.errors)}, status=400)
+        return self.response({"errors": dict(form.errors)}, status=400)
 
 
-class CommitMapBaseView(View):
+class CommitMapBaseView(APIView):
     """CommitMap base view to be extended for bidirectional git - hg mapping."""
 
     scm: str
@@ -177,16 +180,16 @@ class CommitMapBaseView(View):
             commit = CommitMap.map_hash_from(self.scm, git_repo_name, commit_hash)
         except CommitMap.DoesNotExist as exc:
             error_detail = f"No commit found in {self.scm} for {commit_hash} in {git_repo_name}: {exc}"
-            return JsonResponse(
+            return self.response(
                 {"error": "No commits found", "detail": error_detail}, status=404
             )
         except CommitMap.MultipleObjectsReturned as exc:
             error_detail = f"Multiple commits found in {self.scm} for {commit_hash} in {git_repo_name}: {exc}"
-            return JsonResponse(
+            return self.response(
                 {"error": "Multiple commits found", "detail": error_detail}, status=400
             )
 
-        return JsonResponse(commit.serialize(), status=200)
+        return self.response(commit.serialize(), status=200)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -203,7 +206,7 @@ class hg2gitCommitMapView(CommitMapBaseView):
     scm = SCMType.HG
 
 
-class PullRequestAPIView(View):
+class PullRequestAPIView(APIView):
     """Set various common attributes for views that extend this one."""
 
     target_repo: Repo
@@ -245,7 +248,7 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
                 status = str(_status).lower()
                 break
 
-        return JsonResponse({"status": status}, status=200)
+        return self.response({"status": status}, status=200)
 
     @method_decorator(require_authenticated_user)
     def post(
@@ -268,12 +271,12 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
 
         if blockers:
             # Pull request has blockers that prevent it from landing.
-            return JsonResponse({"errors": blockers}, status=400)
+            return self.response({"errors": blockers}, status=400)
 
         form = Form(json.loads(request.body))
 
         if not form.is_valid():
-            return JsonResponse(form.errors, 400)
+            return self.response(form.errors, 400)
 
         job = LandingJob.objects.create(
             target_repo=self.target_repo,
@@ -311,7 +314,7 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
         job.status = JobStatus.SUBMITTED
         job.save()
 
-        return JsonResponse({"id": job.id}, status=201)
+        return self.response({"id": job.id}, status=201)
 
 
 class PullRequestChecksAPIView(PullRequestAPIView):
@@ -324,5 +327,5 @@ class PullRequestChecksAPIView(PullRequestAPIView):
             )
         except PullRequest.StaleMetadataException as exc:
             # The StaleMetadataException error message is safe for user consumption.
-            return JsonResponse({"errors": [str(exc)]}, status=500)
-        return JsonResponse(warnings_and_blockers)
+            return self.response({"errors": [str(exc)]}, status=500)
+        return self.response(warnings_and_blockers)

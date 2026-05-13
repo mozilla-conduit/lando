@@ -24,4 +24,4 @@ class IndexView(LandoView):
                 status__in=JobStatus.final(),
             ).order_by("-updated_at")[: self.MAX_JOBS_HISTORY]
 
-        return TemplateResponse(request=request, template="home.html", context=context)
+        return self.response(request=request, template="home.html", context=context)
