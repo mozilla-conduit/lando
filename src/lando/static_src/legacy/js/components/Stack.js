@@ -200,8 +200,8 @@ $.fn.stack = function() {
         });
 
         $('button.save-pr').on('click', function(e) {
-            var body = document.getElementById('commit-body').innerText;
-            var title = document.getElementById('commit-title').innerText;
+            var body = document.getElementById('commit-body').value;
+            var title = document.getElementById('commit-title').value;
 
                 fetch(`/api/pulls/${repo_name}/${pull_number}`, {
                     method: 'PUT',
@@ -216,10 +216,22 @@ $.fn.stack = function() {
                 let isOK = true;
                     if (response.status === 400) {
                         var result = await response.json();
+                        if (result.title){ //might be redudant since i 
+                            document.getElementById("commit-title-error").textContent = result.title;
+                            document.getElementById("commit-title").classList.add("is-danger");
+                        }
+                        if (result.body){
+                            document.getElementById("commit-body-error").textContent = result.body;
+                            document.getElementById("commit-body").classList.add("is-danger");
+                        }
                         console.error("400:", result);
                         isOK = false;
                     }
                 if (isOK) {
+                    document.getElementById("commit-title-error").textContent = "";
+                    document.getElementById("commit-body-error").textContent = ""; 
+                    document.getElementById("commit-title").classList.remove("is-danger");
+                    document.getElementById("commit-body").classList.remove("is-danger");
                     window.location.reload();
                 }
             });
