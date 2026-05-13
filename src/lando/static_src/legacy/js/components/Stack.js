@@ -216,11 +216,11 @@ $.fn.stack = function() {
                 let isOK = true;
                     if (response.status === 400) {
                         var result = await response.json();
-                        if (result.title){ //might be redudant since i 
+                        if (result.title){ 
                             document.getElementById("commit-title-error").textContent = result.title;
                             document.getElementById("commit-title").classList.add("is-danger");
                         }
-                        if (result.body){
+                        if (result.body){ //redundant right now since there isn't any manual checks for the message body
                             document.getElementById("commit-body-error").textContent = result.body;
                             document.getElementById("commit-body").classList.add("is-danger");
                         }

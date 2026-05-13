@@ -332,17 +332,19 @@ class PullRequestContentAPIView(PullRequestAPIView):
     def put(
         self, request: WSGIRequest, repo_name: str, pull_number: int
     ) -> JsonResponse:
-        class Form(forms.Form): #form to validate the  body of the pull request
+        class Form(forms.Form): 
             body = forms.CharField(required=False)
             title = forms.CharField(max_length=256)
 
-        form = Form(json.loads(request.body)) #create a form instance with the data from the request body, which is expected to be in JSON format
+        form = Form(json.loads(request.body))
         if not form.is_valid():
             errors = form.errors
             return JsonResponse(form.errors, status=400)
 
-
-        result_body = self.client.update_pull_request_body(self.pull_request.number,form.cleaned_data["body"])
-        result_title = self.client.update_pull_request_title(self.pull_request.number, form.cleaned_data["title"])
-        return JsonResponse({"body": result_body, "title": result_title})
-        #return the updated pull request body and title in the response, which is obtained by calling the GitHub API client to update the pull request on GitHub and return the new body and title text.
+        result = self.client.update_pull_request_content(
+            self.pull_request.number,
+            form.cleaned_data["body"],
+            form.cleaned_data["title"],
+        )
+        return JsonResponse({"body": result["body"], "title": result["title"]})
+        

@@ -382,17 +382,11 @@ class GitHubAPIClient:
             json={"body": comment},
         )
 
-    def update_pull_request_body(self, pull_number: int, body: str) -> dict:
+    def update_pull_request_content(self, pull_number: int, body: str, title: str) -> dict:
         """Update the pull request description with provided body."""
         return self._patch(
             f"{self.repo_base_url}/issues/{pull_number}",
-            json={"body": body},
-        )
-    def update_pull_request_title(self, pull_number: int, title: str) -> dict:
-        """Update the pull request title."""
-        return self._patch(
-            f"{self.repo_base_url}/issues/{pull_number}",
-            json={"title": title},
+            json={"body": body, "title": title},
         )
         
     @classmethod
