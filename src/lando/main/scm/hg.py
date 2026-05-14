@@ -359,11 +359,15 @@ class HgSCM(AbstractSCM):
     @override
     def get_patch(self, revision_id: str) -> str | None:
         """Return a complete patch for the given revision, in the git extended diff format."""
-        out = self.run_hg(["export", "--git", "-r", revision_id])
+        # Write to a temp file via `-o` instead of stdout so the patch stays out of command logs.
+        with tempfile.NamedTemporaryFile(suffix=".patch") as patch_file:
+            self.run_hg(["export", "-o", patch_file.name, "--git", "-r", revision_id])
+            patch_bytes = Path(patch_file.name).read_bytes()
+
         try:
-            return out.decode("utf-8")
+            return patch_bytes.decode("utf-8")
         except UnicodeDecodeError:
-            return out.decode("latin-1")
+            return patch_bytes.decode("latin-1")
 
     @override
     def get_patch_helper(self, revision_id: str) -> PatchHelper | None:
@@ -697,7 +701,7 @@ class HgSCM(AbstractSCM):
         out = out.getvalue()
         err = err.getvalue()
         if out:
-            out_string = (out.rstrip().decode(self.ENCODING, errors="replace"),)
+            out_string = out.rstrip().decode(self.ENCODING, errors="replace")
             logger.info(
                 "output from hg command #%s: %s",
                 correlation_id,
