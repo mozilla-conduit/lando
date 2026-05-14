@@ -332,19 +332,15 @@ class PullRequestContentAPIView(PullRequestAPIView):
     def put(
         self, request: WSGIRequest, repo_name: str, pull_number: int
     ) -> JsonResponse:
-        class Form(forms.Form): 
+        class Form(forms.Form):
             body = forms.CharField(required=False)
             title = forms.CharField(max_length=256)
 
         form = Form(json.loads(request.body))
         if not form.is_valid():
-            errors = form.errors
             return JsonResponse(form.errors, status=400)
 
         result = self.client.update_pull_request_content(
-            self.pull_request.number,
-            form.cleaned_data["body"],
-            form.cleaned_data["title"],
+            self.pull_request.number, **form.cleaned_data
         )
-        return JsonResponse({"body": result["body"], "title": result["title"]})
-        
+        return JsonResponse(result, status=200)
