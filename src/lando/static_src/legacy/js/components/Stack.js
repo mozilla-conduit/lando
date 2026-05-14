@@ -213,7 +213,6 @@ $.fn.stack = function() {
                     }
                 }).then(async (response) => {
                 console.log(response);
-                let isOK = true;
                     if (response.status === 400) {
                         var result = await response.json();
                         if (result.title){ 
@@ -225,18 +224,20 @@ $.fn.stack = function() {
                             document.getElementById("commit-body").classList.add("is-danger");
                         }
                         console.error("400:", result);
-                        isOK = false;
                     }
-                if (isOK) {
-                    document.getElementById("commit-title-error").textContent = "";
-                    document.getElementById("commit-body-error").textContent = ""; 
-                    document.getElementById("commit-title").classList.remove("is-danger");
-                    document.getElementById("commit-body").classList.remove("is-danger");
-                    window.location.reload();
-                }
+                    else if (response.status === 200) {
+                        document.getElementById("commit-title-error").textContent = "";
+                        document.getElementById("commit-body-error").textContent = ""; 
+                        document.getElementById("commit-title").classList.remove("is-danger");
+                        document.getElementById("commit-body").classList.remove("is-danger");
+                        window.location.reload();
+                    }
+                    else{
+                        console.error("error updating pull request:", response);
+                    }
             });
         });
     }
-  });
+});
 };
 
