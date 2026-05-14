@@ -47,7 +47,7 @@ def manage_api_key(request: WSGIRequest) -> JsonResponse:
         try:
             profile.save_phabricator_api_key(api_key, phid=phid)
         except IntegrityError:
-            logger.warning(
+            logger.info(
                 "Phabricator PHID `%s` is already linked to another Lando account.",
                 phid,
             )
