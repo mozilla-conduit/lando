@@ -237,26 +237,46 @@ class GitSCM(AbstractSCM):
             self._git_run("apply", "--reject", patch_file.name, cwd=self.path)
 
             self._git_run("add", "-A", "-f", cwd=self.path)
-            return self._git_run(
-                "diff", "--staged", "--binary", cwd=self.path, rstrip=False
-            )
+
+            # Write to a temp file instead of stdout so the diff stays out of command logs.
+            with tempfile.NamedTemporaryFile(suffix=".diff") as diff_file:
+                self._git_run(
+                    "diff",
+                    "--staged",
+                    "--binary",
+                    f"--output={diff_file.name}",
+                    cwd=self.path,
+                )
+                diff_bytes = Path(diff_file.name).read_bytes()
+
+        try:
+            diff = diff_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            diff = diff_bytes.decode("latin-1")
+
+        return diff.lstrip()
 
     @override
     def get_patch(self, revision_id: str) -> str | None:
-        """Return a complete patch for the given revision, in the git extended diff format.
+        """Return a complete patch for the given revision, in the git extended diff format."""
+        # Write to a temp file instead of `--stdout` so the patch stays out of command logs.
+        with tempfile.NamedTemporaryFile(suffix=".patch") as patch_file:
+            self._git_run(
+                "format-patch",
+                "--keep-subject",
+                f"--output={patch_file.name}",
+                "-1",
+                revision_id,
+                cwd=self.path,
+            )
+            patch_bytes = Path(patch_file.name).read_bytes()
 
-        Note that `_git_run` strips the output before returning it. This means
-        that trailing newlines in the patch output will no be present. This is
-        acceptable for our purpose, but it may not reapply cleanly (TBC).
-        """
-        patch = self._git_run(
-            "format-patch",
-            "--keep-subject",
-            "--stdout",
-            "-1",
-            revision_id,
-            cwd=self.path,
-        )
+        try:
+            patch = patch_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            patch = patch_bytes.decode("latin-1")
+        patch = patch.strip()
+
         # We only return the patch if the `From` header indicates that it's the same as
         # the requested revision. This may not be the case when, e.g., `git
         # format-patch` processes a clean merge commit, in which case it returns a
