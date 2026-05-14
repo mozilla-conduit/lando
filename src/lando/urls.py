@@ -23,9 +23,9 @@ from lando.api.legacy.api import landing_jobs
 from lando.api.uplift_api import api as uplift_api
 from lando.api.views import (
     LandingJobPullRequestAPIView,
-    PullRequestContentAPIView,
     LegacyDiffWarningView,
     PullRequestChecksAPIView,
+    PullRequestContentAPIView,
     git2hgCommitMapView,
     hg2gitCommitMapView,
 )

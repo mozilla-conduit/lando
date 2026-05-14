@@ -73,14 +73,12 @@
                     <p class="help is-danger" id="commit-body-error"></p>
                 </td>
             </tr>
-
         </table>
-         <p>
+        <p>
             <button class="button save-pr"
-                data-pull-number="{{ pull_request.number }}"
-                data-repo-name="{{ target_repo.name }}"
-                data-csrf-token="{{ csrf_token }}">Save Commit Message
-            </button>
+                    data-pull-number="{{ pull_request.number }}"
+                    data-repo-name="{{ target_repo.name }}"
+                    data-csrf-token="{{ csrf_token }}">Save Commit Message</button>
         </p>
     </div>
     <h1>Landings</h1>

@@ -382,13 +382,15 @@ class GitHubAPIClient:
             json={"body": comment},
         )
 
-    def update_pull_request_content(self, pull_number: int, body: str, title: str) -> dict:
-        """Update the pull request description with provided body."""
+    def update_pull_request_content(
+        self, pull_number: int, body: str, title: str
+    ) -> dict:
+        """Update the pull request description with provided body and title."""
         return self._patch(
             f"{self.repo_base_url}/issues/{pull_number}",
             json={"body": body, "title": title},
         )
-        
+
     @classmethod
     def convert_timestamp_from_github(cls, timestamp: str) -> str:
         timestamp_datetime = datetime.fromisoformat(timestamp)
