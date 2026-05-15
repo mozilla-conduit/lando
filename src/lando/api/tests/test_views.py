@@ -2,6 +2,7 @@ from unittest import mock
 
 import pytest
 
+from lando.main.scm import SCMType
 
 @pytest.mark.django_db(transaction=True)
 def test__views__git2hgCommitMapView(commit_maps, client, monkeypatch):
@@ -135,3 +136,33 @@ def test__views__phabricator_auth_backend_invalid_token(
     headers = {"X-Phabricator-API-Key": "INVALID_TOKEN"}
     test = client.get("/__version__", headers=headers)
     assert not test.wsgi_request.user.is_authenticated
+
+
+@mock.patch("lando.api.views.GitHubAPIClient")
+@pytest.mark.django_db(transaction=True)
+def test__views__pull_request_content_api_view_happy_path(github_api_client, client, repo_mc):
+  
+    """Test that PullRequestContentAPIView correctly processes a valid request and returns the expected response."""
+
+    repo_mc(SCMType.GIT, name="git-repo")
+
+    mock_github_api_client = mock.MagicMock()
+    github_api_client.return_value = mock_github_api_client
+
+
+    mock_pull_request = mock.MagicMock()
+    mock_pull_request.title = "Hello"
+    mock_pull_request.body = "World"
+    mock_github_api_client.build_pull_request.return_value = mock_pull_request
+
+    payload = {"title": "Valid New Title","body": "Valid New Body",}
+    
+    mock_github_api_client.update_pull_request_content.return_value = payload
+
+    result = client.put(
+        "/api/pulls/git-repo/100",
+        data=payload,
+        content_type="application/json",
+    ) 
+    assert result.status_code == 200
+    assert result.json() == payload
