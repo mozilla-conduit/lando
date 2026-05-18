@@ -50,7 +50,7 @@ class BaseJobView(LandoView, ABC):
                     queue = queue[: queue.index(job)]
             context["queue"] = queue
 
-        return TemplateResponse(
+        return self.response(
             request=request,
             template="jobs/job.html",
             context=context,
@@ -108,7 +108,7 @@ class LandingJobView(LandoView):
                     queue = queue[: queue.index(landing_job)]
             context["queue"] = queue
 
-        return TemplateResponse(
+        return self.response(
             request=request,
             template="jobs/job.html",
             context=context,
