@@ -22,11 +22,13 @@ from django.urls import include, path, re_path
 from lando.api.legacy.api import landing_jobs
 from lando.api.uplift_api import api as uplift_api
 from lando.api.views import (
-    LandingJobPullRequestAPIView,
     LegacyDiffWarningView,
-    PullRequestChecksAPIView,
     git2hgCommitMapView,
     hg2gitCommitMapView,
+)
+from lando.api.views.pull_requests import (
+    LandingJobPullRequestAPIView,
+    ChecksPullRequestAPIView,
 )
 from lando.headless_api.api import (
     api as headless_api,
@@ -122,7 +124,7 @@ urlpatterns += [
     ),
     path(
         "api/pulls/<str:repo_name>/<int:pull_number>/checks",
-        PullRequestChecksAPIView.as_view(),
+        ChecksPullRequestAPIView.as_view(),
         name="api-pull-request-checks",
     ),
 ]
