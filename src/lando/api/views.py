@@ -329,9 +329,11 @@ class PullRequestChecksAPIView(PullRequestAPIView):
 
 
 class PullRequestContentAPIView(PullRequestAPIView):
+    """Handle pull request content updates in the API."""
     def put(
         self, request: WSGIRequest, repo_name: str, pull_number: int
     ) -> JsonResponse:
+        """Update pull request content"""
         class Form(forms.Form):
             body = forms.CharField(required=False)
             title = forms.CharField(max_length=256)
