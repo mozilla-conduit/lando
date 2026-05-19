@@ -209,6 +209,7 @@ $.fn.stack = function() {
                 save_pr_button.textContent = 'Save Commit Message';
                 document.getElementById('cancel-edit-pr').classList.remove('is-hidden');
                 document.getElementById('commit-title').focus();
+                document.getElementById("post-landing-job").disabled = true;
                 return;
             }
 
@@ -269,6 +270,7 @@ $.fn.stack = function() {
             document.getElementById('save-pr').dataset.mode = 'edit';
             document.getElementById('save-pr').textContent = 'Edit Commit Message';
             document.getElementById('cancel-edit-pr').classList.add('is-hidden');
+            document.getElementById("post-landing-job").disabled = false;
         });
     }
 });
