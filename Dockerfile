@@ -51,6 +51,9 @@ RUN pip install -r /code/requirements.txt
 COPY package.json package-lock.json /deps/
 RUN npm install --prefix /deps
 
+# Add node_modules to PATH so `prettier` can be run directly.
+ENV PATH="/deps/node_modules/.bin:${PATH}"
+
 # Copy code into the container.
 COPY ./ /code
 

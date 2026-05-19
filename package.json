@@ -6,6 +6,9 @@
     "bulma": "^1.0.4",
     "sass": "^1.97.0"
   },
+  "devDependencies": {
+    "prettier": "^3.4.2"
+  },
   "scripts": {
     "postinstall": "echo 'Bulma and Dart Sass installed successfully'"
   }
