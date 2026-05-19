@@ -18,14 +18,27 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser: argparse.ArgumentParser):
         parser.add_argument(
+            "--csv-name",
+            "-c",
+            default="git2hg_firefox.csv",
+            help="Filename to fetch from https://archive.mozilla.org/pub/vcs-archive/ (.zip extension will be appended)",
+        )
+        parser.add_argument(
+            "--repo",
+            "-r",
+            default="firefox",
+            help="Repository that this CommitMap applies to",
+        )
+        parser.add_argument(
             "--url",
+            "-u",
             default="",
-            help="URL for additional csv file",
+            help="Full alternate URL to fetch a CommitMap CSV file from",
         )
 
     def _prepare_rows(self, **options):
         if not options["url"]:
-            filename = "git2hg.csv"
+            filename = options["csv_name"]
             url = f"https://archive.mozilla.org/pub/vcs-archive/{filename}.zip"
             zip_file_path = Path("/tmp") / f"{filename}.zip"
             file_path = Path("/tmp") / filename
@@ -47,6 +60,8 @@ class Command(BaseCommand):
             self.rows += list(csv.DictReader(StringIO(content)))
 
     def handle(self, *args, **options):
+        git_repo_name = options["repo"]
+
         self._prepare_rows(**options)
         count = 0
         skipped_count = 0
@@ -56,7 +71,7 @@ class Command(BaseCommand):
                 CommitMap.objects.create(
                     git_hash=row["git"],
                     hg_hash=row["hg"],
-                    git_repo_name="firefox",
+                    git_repo_name=git_repo_name,
                 )
             except IntegrityError:
                 self.stdout.write(f"Skipped {row}.")
