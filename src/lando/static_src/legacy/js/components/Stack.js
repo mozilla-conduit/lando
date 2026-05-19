@@ -200,6 +200,18 @@ $.fn.stack = function() {
         });
 
         $('button.save-pr').on('click', function(e) {
+            var save_pr_button = this;
+
+            if (save_pr_button.dataset.mode === 'edit') {
+                document.getElementById('commit-title').removeAttribute('readonly');
+                document.getElementById('commit-body').removeAttribute('readonly');
+                save_pr_button.dataset.mode = 'save';
+                save_pr_button.textContent = 'Save Commit Message';
+                document.getElementById('cancel-edit-pr').classList.remove('is-hidden');
+                document.getElementById('commit-title').focus();
+                return;
+            }
+
             var body = document.getElementById('commit-body').value;
             var title = document.getElementById('commit-title').value;
 
@@ -223,19 +235,40 @@ $.fn.stack = function() {
                             document.getElementById("commit-body-error").textContent = result.body;
                             document.getElementById("commit-body").classList.add("is-danger");
                         }
-                        console.error("400:", result);
+
+                        console.error("400:", result);//remove later
                     }
                     else if (response.status === 200) {
+                        save_pr_button.classList.add("disabled");
+                        save_pr_button.classList.add("is-loading");
                         document.getElementById("commit-title-error").textContent = "";
                         document.getElementById("commit-body-error").textContent = ""; 
                         document.getElementById("commit-title").classList.remove("is-danger");
                         document.getElementById("commit-body").classList.remove("is-danger");
+                        document.getElementById("commit-title").disabled = true;
+                        document.getElementById("commit-body").disabled = true;
+                        document.getElementById('cancel-edit-pr').classList.add('is-hidden');
+
                         window.location.reload();
                     }
                     else{
                         console.error("error updating pull request:", response);
                     }
             });
+        });
+
+        $('button.cancel-edit-pr').on('click', function(e) {
+            document.getElementById('commit-title').setAttribute('readonly', true);
+            document.getElementById('commit-body').setAttribute('readonly', true);
+            document.getElementById("commit-title-error").textContent = "";
+            document.getElementById("commit-body-error").textContent = ""; 
+            document.getElementById("commit-title").classList.remove("is-danger");
+            document.getElementById("commit-body").classList.remove("is-danger");
+            document.getElementById('commit-title').value = document.getElementById('commit-title').defaultValue;
+            document.getElementById('commit-body').value = document.getElementById('commit-body').defaultValue;
+            document.getElementById('save-pr').dataset.mode = 'edit';
+            document.getElementById('save-pr').textContent = 'Edit Commit Message';
+            document.getElementById('cancel-edit-pr').classList.add('is-hidden');
         });
     }
 });

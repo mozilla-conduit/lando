@@ -62,23 +62,31 @@
             <tr>
                 <th>Commit Title</th>
                 <td>
-                    <textarea contenteditable="true" id="commit-title" class="textarea">{{ pull_request.title }}</textarea>
+                    <textarea readonly
+                              id="commit-title"
+                              class="textarea">{{ pull_request.title }}</textarea>
                     <p class="help is-danger" id="commit-title-error"></p>
                 </td>
             </tr>
             <tr>
                 <th>Commit Body</th>
                 <td>
-                    <textarea contenteditable="true" id="commit-body" class="textarea">{{ pull_request.parsed_body }}</textarea>
+                    <textarea readonly
+                              id="commit-body"
+                              class="textarea">{{ pull_request.parsed_body }}</textarea>
                     <p class="help is-danger" id="commit-body-error"></p>
                 </td>
             </tr>
         </table>
         <p>
-            <button class="button save-pr"
+            <button id="save-pr"
+                    class="button save-pr"
+                    data-mode="edit"
                     data-pull-number="{{ pull_request.number }}"
                     data-repo-name="{{ target_repo.name }}"
-                    data-csrf-token="{{ csrf_token }}">Save Commit Message</button>
+                    data-csrf-token="{{ csrf_token }}">Edit Commit Message</button>
+            <button id="cancel-edit-pr"
+                    class="button is-light cancel-edit-pr is-hidden">Cancel</button>
         </p>
     </div>
     <h1>Landings</h1>

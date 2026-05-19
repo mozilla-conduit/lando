@@ -32,6 +32,19 @@
   & table {
     margin-bottom: 0;
   }
+
+  #commit-title,
+  #commit-body {
+    font-family: 'Fira Mono', monospace;
+  }
+
+  #commit-title {
+    min-height: 50px;
+  }
+
+  #commit-body {
+    min-height: 75px;
+  }
 }
 
 .StackPage-revision {
@@ -89,7 +102,7 @@
 .StackPage-actions {
   text-align: right;
   margin-top: 20px;
-
+ 
   button {
     border: 0;
     text-align: center;
