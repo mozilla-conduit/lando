@@ -1,5 +1,6 @@
 import configparser
 import logging
+import os
 import subprocess
 from pathlib import Path
 
@@ -403,7 +404,7 @@ class LandingWorker(Worker):
         should_amend_autoformat: bool,
     ) -> list[str] | None:
         try:
-            self.format_stack(landoini_config, scm.path)
+            self.format_stack(landoini_config, scm)
         except AutoformattingException as exc:
             logger.warning("Failed to format the stack.")
             logger.exception(exc)
@@ -422,7 +423,7 @@ class LandingWorker(Worker):
         return replacements
 
     def format_stack(
-        self, landoini_config: configparser.ConfigParser, repo_path: str
+        self, landoini_config: configparser.ConfigParser, scm: AbstractSCM
     ) -> None:
         """Format the patch stack for landing.
 
@@ -431,12 +432,12 @@ class LandingWorker(Worker):
         if autoformatting failed for the current job.
         """
         # If `mach` is not at the root of the repo, we can't autoformat.
-        if not self.mach_path(repo_path):
+        if not self.mach_path(scm.path):
             logger.info("No `./mach` in the repo - skipping autoformat.")
             return None
 
         try:
-            self.run_code_formatters(repo_path)
+            self.run_code_formatters(scm)
         except subprocess.CalledProcessError as exc:
             logger.warning("Failed to run automated code formatters.")
             logger.exception(exc)
@@ -446,23 +447,34 @@ class LandingWorker(Worker):
                 details=exc.stdout,
             )
 
-    def run_code_formatters(self, path: str) -> str:
+    def run_code_formatters(self, scm: AbstractSCM) -> str:
         """Run automated code formatters, returning the output of the process.
 
         Changes made by code formatters are applied to the working directory and
         are not committed into version control.
         """
         return self.run_mach_command(
-            path, ["format", "--fix", "--outgoing", "--verbose", "--skip-android"]
+            scm, ["format", "--fix", "--outgoing", "--verbose", "--skip-android"]
         )
 
-    def run_mach_command(self, path: str, args: list[str]) -> str:
-        """Run a command using the local `mach`, raising if it is missing."""
-        if not self.mach_path(path):
+    def run_mach_command(self, scm: AbstractSCM, args: list[str]) -> str:
+        """Run a command using the local `mach`, raising if it is missing.
+
+        If `scm.mozbuild_state_path` is set, `MOZBUILD_STATE_PATH` is exported
+        into the subprocess environment (and the directory created) so that
+        `mach` writes bootstrapped toolchains and state per checkout rather
+        than into the worker's homedir.
+        """
+        if not self.mach_path(scm.path):
             raise Exception("No `mach` found in local repo!")
 
         # Convert to `str` here so we can log the mach path.
-        command_args = [str(self.mach_path(path))] + args
+        command_args = [str(self.mach_path(scm.path))] + args
+
+        env = os.environ.copy()
+        if scm.mozbuild_state_path:
+            scm.mozbuild_state_path.mkdir(parents=True, exist_ok=True)
+            env["MOZBUILD_STATE_PATH"] = str(scm.mozbuild_state_path)
 
         try:
             logger.info("running mach command", extra={"command": command_args})
@@ -471,9 +483,10 @@ class LandingWorker(Worker):
                 command_args,
                 capture_output=True,
                 check=True,
-                cwd=path,
+                cwd=scm.path,
                 encoding="utf-8",
                 universal_newlines=True,
+                env=env,
             )
 
             logger.info(
@@ -532,7 +545,7 @@ class LandingWorker(Worker):
 
         for repo in repos:
             try:
-                self.run_mach_command(repo.path, command)
+                self.run_mach_command(repo.scm, command)
             except subprocess.CalledProcessError as exc:
                 logger.warning(
                     f"Error `running mach` bootstrap for repo {repo.name}: {exc}"

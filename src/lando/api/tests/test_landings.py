@@ -19,6 +19,7 @@ from lando.main.models import (
 )
 from lando.main.scm import SCMType
 from lando.main.scm.exceptions import SCMInternalServerError
+from lando.main.scm.git import GitSCM
 from lando.main.scm.helpers import HgPatchHelper
 from lando.main.scm.hg import LostPushRace
 from lando.pushlog.models.commit import Commit
@@ -1181,6 +1182,29 @@ def test_format_stack_success_changed(
 
     assert desc == AUTOFORMAT_COMMIT_MESSAGE.format(bugs="Bug 123"), (
         "Autoformat commit has incorrect commit message."
+    )
+
+
+@pytest.mark.django_db
+def test_run_mach_command_sets_mozbuild_state_path(tmp_path, hg_landing_worker):
+    """`run_mach_command` should export `MOZBUILD_STATE_PATH` from the SCM env."""
+    mozbuild_dir = tmp_path / "srcdir-mozbuilds" / "test-repo"
+
+    # `mach` echoes `$MOZBUILD_STATE_PATH` so we can verify it was exported.
+    mach_file = tmp_path / "mach"
+    mach_file.write_text('#!/bin/sh\necho "$MOZBUILD_STATE_PATH"\n')
+    mach_file.chmod(0o755)
+
+    scm = GitSCM(str(tmp_path), mozbuild_state_path=mozbuild_dir)
+
+    output = hg_landing_worker.run_mach_command(scm, [])
+
+    assert output.strip() == str(mozbuild_dir), (
+        "`MOZBUILD_STATE_PATH` should be set in the subprocess env "
+        "to `scm.mozbuild_state_path`."
+    )
+    assert mozbuild_dir.is_dir(), (
+        "`run_mach_command` should create the `mozbuild_state_path` directory."
     )
 
 

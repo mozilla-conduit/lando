@@ -177,7 +177,7 @@ class HgSCM(AbstractSCM):
         if config:
             self.config.update(config)
 
-        super().__init__(path)
+        super().__init__(path, **kwargs)
 
     @classmethod
     @override
