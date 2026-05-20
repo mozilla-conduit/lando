@@ -138,13 +138,55 @@ def test__views__phabricator_auth_backend_invalid_token(
     test = client.get("/__version__", headers=headers)
     assert not test.wsgi_request.user.is_authenticated
 
-
 @mock.patch("lando.api.views.GitHubAPIClient")
 @pytest.mark.django_db(transaction=True)
-def test__views__pull_request_content_api_view_happy_path(
-    github_api_client, client, repo_mc
+@pytest.mark.parametrize(
+    "payload, expected_status, expected_response",
+    [
+        (
+            {
+                "title": "Valid New Title",
+                "body": "Valid New Body",
+            },
+            200,
+            {
+                "title": "Valid New Title",
+                "body": "Valid New Body",
+            },
+        ),
+        (
+            {
+                "title": "",
+                "body": "Valid New Body",
+            },
+            400,
+            {
+                "title": ["This field is required."],
+            },
+        ),
+        (
+            {
+                "title": "a" * 300,
+                "body": "Valid New Body",
+            },
+            400,
+            {
+                "title": [
+                    "Ensure this value has at most 256 characters (it has 300)."
+                ],
+            },
+        ),
+    ],
+)
+def test__views__pull_request_content_api_view(
+    github_api_client,
+    client,
+    repo_mc,
+    payload,
+    expected_status,
+    expected_response,
 ):
-    """Test that PullRequestContentAPIView correctly processes a valid request and returns the expected response."""
+    """Test PullRequestContentAPIView validation and success responses."""
 
     repo_mc(SCMType.GIT, name="git-repo")
 
@@ -154,13 +196,8 @@ def test__views__pull_request_content_api_view_happy_path(
     mock_pull_request = mock.MagicMock()
     mock_pull_request.title = "Hello"
     mock_pull_request.body = "World"
+
     mock_github_api_client.build_pull_request.return_value = mock_pull_request
-
-    payload = {
-        "title": "Valid New Title",
-        "body": "Valid New Body",
-    }
-
     mock_github_api_client.update_pull_request_content.return_value = payload
 
     result = client.put(
@@ -168,73 +205,13 @@ def test__views__pull_request_content_api_view_happy_path(
         data=payload,
         content_type="application/json",
     )
-    assert result.status_code == 200
-    assert result.json() == payload
 
+    assert result.status_code == expected_status
 
-@mock.patch("lando.api.views.GitHubAPIClient")
-@pytest.mark.django_db(transaction=True)
-def test__views__pull_request_content_api_view_empty_title(
-    github_api_client, client, repo_mc
-):
-    """Test that PullRequestContentAPIView correctly processes a empty title and returns the expected response."""
-
-    repo_mc(SCMType.GIT, name="git-repo")
-
-    mock_github_api_client = mock.MagicMock()
-    github_api_client.return_value = mock_github_api_client
-
-    mock_pull_request = mock.MagicMock()
-    mock_pull_request.title = "Hello"
-    mock_pull_request.body = "World"
-    mock_github_api_client.build_pull_request.return_value = mock_pull_request
-
-    payload = {
-        "title": "",
-        "body": "Valid New Body",
-    }
-
-    mock_github_api_client.update_pull_request_content.return_value = payload
-
-    result = client.put(
-        "/api/pulls/git-repo/100",
-        data=payload,
-        content_type="application/json",
-    )
-    assert result.status_code == 400
-    assert (
-        not result.json() == payload
-    )  # or assert result.json().get("title") == ["This field is required."]?
-
-
-@mock.patch("lando.api.views.GitHubAPIClient")
-@pytest.mark.django_db(transaction=True)
-def test__views__pull_request_content_api_view_long_title(
-    github_api_client, client, repo_mc
-):
-    """Test that PullRequestContentAPIView correctly processes a title that is too long and returns the expected response."""
-
-    repo_mc(SCMType.GIT, name="git-repo")
-
-    mock_github_api_client = mock.MagicMock()
-    github_api_client.return_value = mock_github_api_client
-
-    mock_pull_request = mock.MagicMock()
-    mock_pull_request.title = "Hello"
-    mock_pull_request.body = "World"
-    mock_github_api_client.build_pull_request.return_value = mock_pull_request
-
-    payload = {
-        "title": "a" * 300,
-        "body": "Valid New Body",
-    }
-
-    mock_github_api_client.update_pull_request_content.return_value = payload
-
-    result = client.put(
-        "/api/pulls/git-repo/100",
-        data=payload,
-        content_type="application/json",
-    )
-    assert result.status_code == 400
-    assert not result.json() == payload
+    response_json = result.json()
+    breakpoint()
+    if expected_status == 200:
+        assert response_json == expected_response
+    else:
+        for key, value in expected_response.items():
+            assert response_json.get(key) == value
