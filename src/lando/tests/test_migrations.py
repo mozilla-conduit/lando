@@ -3,7 +3,7 @@ from django.test import override_settings
 
 
 def test_no_migration_conflicts():
-    """Each app's migration graph must have exactly one leaf node."""
+    """Test that each app's migration graph has exactly one leaf node."""
     # `connection=None` skips the DB. `MIGRATION_MODULES={}` defeats
     # `pytest-django`'s `--no-migrations` patch, which would otherwise
     # hide every migration from the loader once `django_db_setup` runs.
