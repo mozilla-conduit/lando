@@ -184,6 +184,17 @@ class GitHubAPIClient:
     def repo_name(self) -> str:
         return self._api.repo_name
 
+    @property
+    def repo(self) -> dict:
+        """Fetch repo info from the GitHub API."""
+        return self._get(self.repo_base_url)
+
+    @property
+    def repo_is_private(self) -> bool:
+        """Return True if repo is a private repo."""
+        # Default to True if this value can not be determined from the response.
+        return self.repo.get("private", True)
+
     def _repo_get(
         self, subpath: str, paginated: bool = False, *args, **kwargs
     ) -> dict | Iterator:

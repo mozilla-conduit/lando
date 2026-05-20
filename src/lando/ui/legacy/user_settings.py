@@ -1,13 +1,33 @@
 import logging
 
 from django.core.handlers.wsgi import WSGIRequest
+from django.db import IntegrityError
 from django.http import HttpResponseNotAllowed, JsonResponse
 
 from lando.main.auth import require_authenticated_user
+from lando.main.models.profile import Profile
 from lando.ui.legacy.forms import UserSettingsForm
 from lando.utils.phabricator import get_phabricator_client
 
 logger = logging.getLogger(__name__)
+
+
+def phid_conflict_response(phid: str) -> JsonResponse:
+    """Return a 400 response indicating the PHID is owned by another account."""
+    logger.info(
+        "Phabricator PHID `%s` is already linked to another Lando account.",
+        phid,
+    )
+    return JsonResponse(
+        {
+            "errors": {
+                "phabricator_api_key": [
+                    "This Phabricator account is already linked to another Lando user."
+                ]
+            }
+        },
+        status=400,
+    )
 
 
 @require_authenticated_user
@@ -43,6 +63,16 @@ def manage_api_key(request: WSGIRequest) -> JsonResponse:
         phid = whoami["phid"]
         logger.debug("Phabricator API key verified for PHID `%s`.", phid)
 
-        profile.save_phabricator_api_key(api_key, phid=phid)
+        if (
+            Profile.objects.filter(phabricator_phid=phid)
+            .exclude(pk=profile.pk)
+            .exists()
+        ):
+            return phid_conflict_response(phid)
+
+        try:
+            profile.save_phabricator_api_key(api_key, phid=phid)
+        except IntegrityError:
+            return phid_conflict_response(phid)
 
     return JsonResponse({"success": True}, status=200)

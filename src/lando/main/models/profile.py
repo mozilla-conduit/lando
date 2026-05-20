@@ -66,7 +66,9 @@ class Profile(BaseModel):
     """A model to store additional information about users."""
 
     class Meta:
-        permissions = SCM_PERMISSIONS
+        permissions = SCM_PERMISSIONS + (
+            ("can_view_private_repos", "CAN_VIEW_PRIVATE_REPOS"),
+        )
 
     # Provide encryption/decryption functionality.
     cryptography = MultiFernet([Fernet(key) for key in settings.ENCRYPTION_KEYS])

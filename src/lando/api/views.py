@@ -6,14 +6,15 @@ from typing import Callable
 
 from django import forms
 from django.core.handlers.wsgi import WSGIRequest
-from django.http import HttpRequest, JsonResponse
+from django.http import Http404, HttpRequest, JsonResponse
 from django.utils.decorators import method_decorator
 from django.utils.html import escape
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
+from requests import HTTPError
 
 from lando.api.legacy.commit_message import replace_reviewers
-from lando.main.auth import require_authenticated_user
+from lando.main.auth import PrivateRepoPermissionMixin, require_authenticated_user
 from lando.main.models import (
     CommitMap,
     JobStatus,
@@ -203,7 +204,7 @@ class hg2gitCommitMapView(CommitMapBaseView):
     scm = SCMType.HG
 
 
-class PullRequestAPIView(View):
+class PullRequestAPIView(View, PrivateRepoPermissionMixin):
     """Set various common attributes for views that extend this one."""
 
     target_repo: Repo
@@ -215,7 +216,14 @@ class PullRequestAPIView(View):
     ) -> JsonResponse:
         self.target_repo = Repo.objects.get(name=repo_name)
         self.client = GitHubAPIClient(self.target_repo.url)
-        self.pull_request = self.client.build_pull_request(pull_number)
+        self.raise_404_if_needed(request, self.client)
+
+        try:
+            self.pull_request = self.client.build_pull_request(pull_number)
+        except HTTPError as e:
+            if e.response.status_code == 404:
+                raise Http404 from e
+            raise
         return super().dispatch(request, repo_name, pull_number, *args, **kwargs)
 
 
