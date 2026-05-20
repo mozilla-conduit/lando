@@ -8,6 +8,7 @@ from lando.main.models.base import BaseModel
 
 SCM_PERMISSIONS = (
     ("scm_allow_direct_push", "SCM_ALLOW_DIRECT_PUSH"),
+    ("scm_allow_direct_push_thunderbird", "SCM_ALLOW_DIRECT_PUSH_THUNDERBIRD"),
     ("scm_conduit", "SCM_CONDUIT"),
     ("scm_firefoxci", "SCM_FIREFOXCI"),
     ("scm_l10n_infra", "SCM_L10N_INFRA"),
@@ -23,6 +24,9 @@ CLAIM_GROUPS_KEY = "https://sso.mozilla.com/claim/groups"
 SCM_PERMISSIONS_MAP = {value: f"main.{key}" for key, value in SCM_PERMISSIONS}
 
 SCM_ALLOW_DIRECT_PUSH = SCM_PERMISSIONS_MAP["SCM_ALLOW_DIRECT_PUSH"]
+SCM_ALLOW_DIRECT_PUSH_THUNDERBIRD = SCM_PERMISSIONS_MAP[
+    "SCM_ALLOW_DIRECT_PUSH_THUNDERBIRD"
+]
 SCM_CONDUIT = SCM_PERMISSIONS_MAP["SCM_CONDUIT"]
 SCM_FIREFOXCI = SCM_PERMISSIONS_MAP["SCM_FIREFOXCI"]
 SCM_L10N_INFRA = SCM_PERMISSIONS_MAP["SCM_L10N_INFRA"]
@@ -62,7 +66,9 @@ class Profile(BaseModel):
     """A model to store additional information about users."""
 
     class Meta:
-        permissions = SCM_PERMISSIONS
+        permissions = SCM_PERMISSIONS + (
+            ("can_view_private_repos", "CAN_VIEW_PRIVATE_REPOS"),
+        )
 
     # Provide encryption/decryption functionality.
     cryptography = MultiFernet([Fernet(key) for key in settings.ENCRYPTION_KEYS])

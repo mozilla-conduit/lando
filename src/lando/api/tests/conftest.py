@@ -23,7 +23,6 @@ from lando.api.legacy.workers.landing_worker import LandingWorker
 from lando.api.legacy.workers.uplift_worker import (
     UpliftWorker,
 )
-from lando.api.tests.mocks import PhabricatorDouble
 from lando.main.models import JobStatus, Repo, Revision
 from lando.main.models.uplift import (
     RevisionUpliftJob,
@@ -133,22 +132,6 @@ def request_mocker():
     """Yield a requests Mocker for response factories."""
     with requests_mock.mock() as m:
         yield m
-
-
-@pytest.fixture
-def phabdouble(monkeypatch):
-    """Mock the Phabricator service and build fake response objects."""
-    phabdouble = PhabricatorDouble(monkeypatch)
-
-    # Create required projects.
-    phabdouble.project(SEC_PROJ_SLUG)
-    phabdouble.project(CHECKIN_PROJ_SLUG)
-    phabdouble.project(SEC_APPROVAL_PROJECT_SLUG)
-    phabdouble.project(
-        RELMAN_PROJECT_SLUG,
-        attachments={"members": {"members": [{"phid": "PHID-USER-1"}]}},
-    )
-    yield phabdouble
 
 
 @pytest.fixture
