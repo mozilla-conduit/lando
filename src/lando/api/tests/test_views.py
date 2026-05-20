@@ -138,6 +138,7 @@ def test__views__phabricator_auth_backend_invalid_token(
     test = client.get("/__version__", headers=headers)
     assert not test.wsgi_request.user.is_authenticated
 
+
 @mock.patch("lando.api.views.GitHubAPIClient")
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize(
@@ -171,9 +172,7 @@ def test__views__phabricator_auth_backend_invalid_token(
             },
             400,
             {
-                "title": [
-                    "Ensure this value has at most 256 characters (it has 300)."
-                ],
+                "title": ["Ensure this value has at most 256 characters (it has 300)."],
             },
         ),
     ],
@@ -209,7 +208,6 @@ def test__views__pull_request_content_api_view(
     assert result.status_code == expected_status
 
     response_json = result.json()
-    breakpoint()
     if expected_status == 200:
         assert response_json == expected_response
     else:
