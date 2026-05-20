@@ -22,9 +22,6 @@ from lando.utils.const import URL_USERINFO_RE
 logger = logging.getLogger(__name__)
 
 
-SPECIAL_DELIMITER = "-" * 9
-
-
 class GitHub:
     """Work with authentication to GitHub repositories."""
 
@@ -483,9 +480,6 @@ class PullRequest:
         self.diff_url = data["diff_url"]
         self.patch_url = data["patch_url"]
         self.body = data["body"]  # description
-        self.parsed_body = (
-            self.body.split(SPECIAL_DELIMITER)[-1].strip() if self.body else ""
-        )
         self.is_draft = data["draft"]
         self.comments_url = data["comments_url"]
         self.commits_url = data["commits_url"]
@@ -643,8 +637,8 @@ class PullRequest:
 
         lines = [self.title, ""]
 
-        if self.parsed_body:
-            lines += [self.parsed_body, ""]
+        if self.body:
+            lines += [self.body, ""]
 
         lines.append(f"Pull request: {self.html_url}")
 
