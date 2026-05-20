@@ -56,6 +56,7 @@ class Command(BaseCommand):
         else:
             # Download second (remainder) backup file.
             url = options["url"]
+            self.stdout.write(f"Downloading {url}...")
             content = requests.get(url).text
             self.rows += list(csv.DictReader(StringIO(content)))
 
