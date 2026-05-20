@@ -9,12 +9,13 @@ from django.contrib.auth.backends import BaseBackend
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied, SuspiciousOperation
 from django.core.handlers.wsgi import WSGIRequest
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from mozilla_django_oidc.auth import OIDCAuthenticationBackend
 
 # requests is a transitive dependency of mozilla-django-oidc.
 from lando.environments import Environment
 from lando.main.models.profile import Profile, filter_claims
+from lando.utils.github import GitHubAPIClient
 from lando.utils.phabricator import PhabricatorClient
 
 logger = logging.getLogger(__name__)
@@ -299,3 +300,15 @@ class require_phabricator_api_key:
                 return f(request, *args, **kwargs)
 
         return wrapped
+
+
+class PrivateRepoPermissionMixin:
+    """Provide a helper method to check permissions for private repos."""
+
+    @staticmethod
+    def raise_404_if_needed(request: HttpResponse, client: GitHubAPIClient):
+        """Check client repo and request user for correct permissions."""
+        if client.repo_is_private and not request.user.has_perm(
+            "main.can_view_private_repos"
+        ):
+            raise Http404()

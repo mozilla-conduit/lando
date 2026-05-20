@@ -2,6 +2,8 @@ from unittest import mock
 
 import pytest
 
+from lando.main.models import Repo, SCMType
+
 
 @pytest.mark.django_db(transaction=True)
 def test__views__git2hgCommitMapView(commit_maps, client, monkeypatch):
@@ -135,3 +137,28 @@ def test__views__phabricator_auth_backend_invalid_token(
     headers = {"X-Phabricator-API-Key": "INVALID_TOKEN"}
     test = client.get("/__version__", headers=headers)
     assert not test.wsgi_request.user.is_authenticated
+
+
+@mock.patch("lando.api.views.GitHubAPIClient")
+@pytest.mark.django_db(transaction=True)
+def test__views__pull_request_api_view__private_repo(github_api_client, client):
+    mock_github_api_client = mock.MagicMock()
+    mock_pr = mock.MagicMock()
+
+    mock_github_api_client.repo_is_private = True
+    mock_github_api_client.build_pull_request.return_value = mock_pr
+
+    github_api_client.return_value = mock_github_api_client
+
+    repo = Repo.objects.create(
+        name="git-repo-private",
+        url="git.example.org/mozilla-conduit/test-repo-private",
+        scm_type=SCMType.GIT,
+    )
+
+    test = client.get(f"/api/pulls/{repo.name}/1/landing_jobs")
+    assert test.status_code == 404
+
+    mock_github_api_client.repo_is_private = False
+    test = client.get(f"/api/pulls/{repo.name}/1/landing_jobs")
+    assert test.status_code == 200
