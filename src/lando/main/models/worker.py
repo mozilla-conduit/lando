@@ -26,6 +26,7 @@ class Worker(BaseModel):
 
     throttle_seconds = models.IntegerField(default=10)
     sleep_seconds = models.IntegerField(default=10)
+    maintenance_interval_seconds = models.IntegerField(default=300)
 
     type = models.CharField(
         choices=WorkerType,

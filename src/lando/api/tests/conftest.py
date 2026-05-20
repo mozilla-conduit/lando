@@ -198,7 +198,7 @@ def mock_repo_config(monkeypatch):
 
 
 @pytest.fixture
-def hg_landing_worker(landing_worker_instance):
+def hg_landing_worker(landing_worker_instance, treestatusdouble):
     worker = landing_worker_instance(
         name="test-hg-worker",
         scm=SCMType.HG,
@@ -207,7 +207,7 @@ def hg_landing_worker(landing_worker_instance):
 
 
 @pytest.fixture
-def git_landing_worker(landing_worker_instance):
+def git_landing_worker(landing_worker_instance, treestatusdouble):
     worker = landing_worker_instance(
         name="test-git-worker",
         scm=SCMType.GIT,

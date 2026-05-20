@@ -21,6 +21,8 @@ from lando.utils.phabricator import (
 
 logger = logging.getLogger(__name__)
 
+CONDUIT_ADMIN_GROUP_NAME = "conduit-admin"
+
 
 class ResponseHeadersMiddleware:
     """Add custom response headers for each request."""
@@ -76,7 +78,11 @@ class MaintenanceModeMiddleware:
         self.get_response = get_response
 
     def __call__(self, request: WSGIRequest) -> HttpResponse:
-        if request.user.is_authenticated and request.user.is_superuser:
+        if (
+            request.user.is_authenticated
+            and request.user.is_staff
+            and request.user.groups.filter(name=CONDUIT_ADMIN_GROUP_NAME).exists()
+        ):
             return self.get_response(request)
 
         excepted_namespaces = (

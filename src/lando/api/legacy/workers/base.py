@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 from abc import ABC, abstractmethod
+from datetime import datetime, timedelta
 from time import sleep
 from typing import Callable, TypeVar
 
@@ -31,6 +32,7 @@ from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.exceptions import (
     NoDiffStartLine,
     PatchConflict,
+    SCMException,
     SCMInternalServerError,
 )
 
@@ -90,6 +92,8 @@ class Worker(ABC):
         self.treestatus_client = lando.utils.treestatus.get_treestatus_client()
         if not self.treestatus_client.ping():
             raise ConnectionError("Could not connect to Treestatus")
+
+        self.last_maintenance_at: dict[int, datetime] = {}
 
         self.refresh_active_repos()
 
@@ -214,7 +218,7 @@ class Worker(ABC):
             job = self.job_type.next_job(repositories=self.active_repos).first()
 
         if job is None:
-            self.throttle(self.worker_instance.sleep_seconds)
+            self.run_idle_maintenance()
             return
 
         with job.processing():
@@ -283,6 +287,67 @@ class Worker(ABC):
             r for r in self.enabled_repos if self.treestatus_client.is_open(r.tree)
         ]
         logger.info(f"{len(self.active_repos)} enabled repos: {self.active_repos}")
+
+    def run_idle_maintenance(self):
+        """Call `scm.maintenance` on each enabled repo, throttled per repo.
+
+        Called when no job is available. Each repo is maintained at most once
+        per `worker_instance.maintenance_interval_seconds` to avoid unnecessary
+        cleanup. Repos are processed oldest-first by last maintenance time so
+        the repo that has been waiting longest goes first. Maintenance stops
+        early once total elapsed time meets or exceeds `sleep_seconds`, so the
+        worker can promptly check the job queue again. After maintenance
+        finishes (or is cut short), sleeps for any time remaining in the
+        `sleep_seconds` interval.
+        """
+        sleep_seconds = self.worker_instance.sleep_seconds
+        start_time = datetime.now()
+        interval = timedelta(seconds=self.worker_instance.maintenance_interval_seconds)
+
+        repos_to_maintain = sorted(
+            (
+                repo
+                for repo in self.enabled_repos
+                if start_time - self.last_maintenance_at.get(repo.id, datetime.min)
+                >= interval
+            ),
+            key=lambda repo: self.last_maintenance_at.get(repo.id, datetime.min),
+        )
+
+        if not repos_to_maintain:
+            self.throttle(sleep_seconds)
+            return
+
+        count = len(repos_to_maintain)
+        repo_names = [repo.name for repo in repos_to_maintain]
+        logger.info(f"Starting idle maintenance for {count} repo(s): {repo_names}")
+
+        for repo_index, repo in enumerate(repos_to_maintain):
+            try:
+                repo.scm.maintenance()
+            except SCMException:
+                logger.exception(f"Idle maintenance failed for {repo.name}.")
+            # Update on success or failure so a broken repo doesn't get hammered
+            # every idle loop.
+            self.last_maintenance_at[repo.id] = datetime.now()
+            elapsed_seconds = (datetime.now() - start_time).total_seconds()
+            if elapsed_seconds >= sleep_seconds:
+                logger.info(
+                    f"Idle maintenance budget ({sleep_seconds}s) reached after "
+                    f"{repo_index + 1} of {count} repo(s); stopping early."
+                )
+                break
+
+        maintained_count = repo_index + 1
+        duration_seconds = (datetime.now() - start_time).total_seconds()
+        logger.info(
+            f"Finished idle maintenance for {maintained_count} of {count} repo(s) "
+            f"in {duration_seconds:.2f}s"
+        )
+
+        remaining_seconds = sleep_seconds - duration_seconds
+        if remaining_seconds > 0:
+            self.throttle(int(remaining_seconds))
 
     def update_repo(
         self, repo: Repo, job: BaseJob, scm: AbstractSCM, target_cset: str | None
