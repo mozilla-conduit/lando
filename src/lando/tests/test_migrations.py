@@ -13,6 +13,6 @@ def test_no_migration_conflicts():
 
     assert not conflicts, (
         "Conflicting migrations detected (multiple leaf nodes per app): "
-        f"{conflicts}. Renumber/rebase the offending migration or run "
-        "`makemigrations --merge`."
+        f"{conflicts}. Check any new migration files that may need to be "
+        "regenerated."
     )
