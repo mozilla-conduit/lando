@@ -197,6 +197,8 @@ STATIC_ROOT = "staticfiles"
 # Directories to include in static file collection.
 STATICFILES_DIRS = [
     BASE_DIR / "static_src",
+    ("font-awesome", "/deps/node_modules/font-awesome"),
+    ("jquery", "/deps/node_modules/jquery/dist"),
 ]
 
 STATICFILES_FINDERS = [
