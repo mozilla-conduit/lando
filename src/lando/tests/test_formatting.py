@@ -4,7 +4,7 @@ Code Style Tests.
 
 import subprocess
 
-from lando.settings import LINT_PATHS
+from lando.settings import LINT_PATHS, STATIC_LINT_PATHS
 
 
 def test_ruff_format():
@@ -26,3 +26,12 @@ def test_djlint():
     for lint_path in LINT_PATHS:
         passed.append(subprocess.call(("djlint", lint_path, "--check")) == 0)
     assert all(passed), "djlint did not run cleanly."
+
+
+def test_prettier():
+    cmd = ("prettier", "--check", *STATIC_LINT_PATHS)
+    output = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    assert output.returncode == 0, (
+        f"The CSS/JS code does not adhere to the project style:\n"
+        f"{output.stdout.decode()}{output.stderr.decode()}"
+    )
