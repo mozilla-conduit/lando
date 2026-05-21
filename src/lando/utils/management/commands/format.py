@@ -2,7 +2,7 @@ import subprocess
 
 from django.core.management.base import BaseCommand
 
-from lando.settings import LINT_PATHS, PRETTIER_PATHS
+from lando.settings import LINT_PATHS, STATIC_LINT_PATHS
 
 
 class Command(BaseCommand):
@@ -23,4 +23,4 @@ class Command(BaseCommand):
 
         subprocess.call(("djlint", *LINT_PATHS, "--reformat"))
 
-        subprocess.call(("prettier", "--write", *PRETTIER_PATHS))
+        subprocess.call(("prettier", "--write", *STATIC_LINT_PATHS))
