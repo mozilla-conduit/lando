@@ -1,9 +1,11 @@
 from django.conf import settings
-from django.contrib.auth.models import Group, User
+from django.contrib.auth.hashers import make_password
+from django.contrib.auth.models import Group, Permission, User
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 
 from lando.environments import Environment
+from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import Repo, Worker
 from lando.main.models.worker import WorkerType
 from lando.main.scm import SCMType
@@ -71,11 +73,24 @@ class Command(BaseCommand):
             user = User.objects.get(username="admin")
             self.stdout.write(f"Admin user ({user}) found, resetting settings.")
         except User.DoesNotExist:
-            user = User.objects.create_user("admin", password="password")
+            user = User.objects.create_user(
+                "admin", password="password", email="test@example.org"
+            )
             self.stdout.write(f"Admin user ({user}) created.")
         user.is_staff = True
         user.save()
+        add_automationjob = Permission.objects.get(codename="add_automationjob")
+        user.user_permissions.add(add_automationjob)
         Group.objects.get(name=CONDUIT_ADMIN_GROUP_NAME).user_set.add(user)
+        token = "a" * 128
+        ApiToken.objects.create(
+            user=user,
+            token_prefix=token[:8],
+            token_hash=make_password(token),
+        )
+
+        self.stdout.write(self.style.SUCCESS(f"Token created for {user}"))
+        self.stdout.write(self.style.SUCCESS(f"Token: {token}"))
         self.stdout.write(
             self.style.SUCCESS(
                 "Superuser created with the following username and password: "
