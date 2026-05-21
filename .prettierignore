@@ -1,6 +1,1 @@
-node_modules
-staticfiles
-htmlcov
 **/vendor/**
-**/migrations/**
-package-lock.json
