@@ -371,6 +371,7 @@ class LandingWorker(Worker):
                 landoini_config,
                 bug_ids,
                 should_amend_autoformat,
+                mach_env={"MOZBUILD_STATE_PATH": job.target_repo.mozbuild_state_path},
             )
         except AutoformattingException as exc:
             message = (
@@ -402,9 +403,10 @@ class LandingWorker(Worker):
         landoini_config: configparser.ConfigParser | None,
         bug_ids: list[str],
         should_amend_autoformat: bool,
+        mach_env: dict[str, str] | None = None,
     ) -> list[str] | None:
         try:
-            self.format_stack(landoini_config, scm)
+            self.format_stack(landoini_config, scm.path, env=mach_env)
         except AutoformattingException as exc:
             logger.warning("Failed to format the stack.")
             logger.exception(exc)
@@ -423,7 +425,10 @@ class LandingWorker(Worker):
         return replacements
 
     def format_stack(
-        self, landoini_config: configparser.ConfigParser, scm: AbstractSCM
+        self,
+        landoini_config: configparser.ConfigParser,
+        repo_path: str,
+        env: dict[str, str] | None = None,
     ) -> None:
         """Format the patch stack for landing.
 
@@ -432,12 +437,12 @@ class LandingWorker(Worker):
         if autoformatting failed for the current job.
         """
         # If `mach` is not at the root of the repo, we can't autoformat.
-        if not self.mach_path(scm.path):
+        if not self.mach_path(repo_path):
             logger.info("No `./mach` in the repo - skipping autoformat.")
             return None
 
         try:
-            self.run_code_formatters(scm)
+            self.run_code_formatters(repo_path, env=env)
         except subprocess.CalledProcessError as exc:
             logger.warning("Failed to run automated code formatters.")
             logger.exception(exc)
@@ -447,34 +452,40 @@ class LandingWorker(Worker):
                 details=exc.stdout,
             )
 
-    def run_code_formatters(self, scm: AbstractSCM) -> str:
+    def run_code_formatters(
+        self, repo_path: str, env: dict[str, str] | None = None
+    ) -> str:
         """Run automated code formatters, returning the output of the process.
 
         Changes made by code formatters are applied to the working directory and
         are not committed into version control.
         """
         return self.run_mach_command(
-            scm, ["format", "--fix", "--outgoing", "--verbose", "--skip-android"]
+            repo_path,
+            ["format", "--fix", "--outgoing", "--verbose", "--skip-android"],
+            env=env,
         )
 
-    def run_mach_command(self, scm: AbstractSCM, args: list[str]) -> str:
+    def run_mach_command(
+        self, repo_path: str, args: list[str], env: dict[str, str] | None = None
+    ) -> str:
         """Run a command using the local `mach`, raising if it is missing.
 
-        If `scm.mozbuild_state_path` is set, `MOZBUILD_STATE_PATH` is exported
-        into the subprocess environment (and the directory created) so that
-        `mach` writes bootstrapped toolchains and state per checkout rather
-        than into the worker's homedir.
+        If `env` contains `MOZBUILD_STATE_PATH`, the directory is created
+        before the subprocess runs so `mach` can write bootstrapped toolchains
+        and state there instead of the worker's homedir.
         """
-        if not self.mach_path(scm.path):
+        if not self.mach_path(repo_path):
             raise Exception("No `mach` found in local repo!")
 
         # Convert to `str` here so we can log the mach path.
-        command_args = [str(self.mach_path(scm.path))] + args
+        command_args = [str(self.mach_path(repo_path))] + args
 
-        env = os.environ.copy()
-        if scm.mozbuild_state_path:
-            scm.mozbuild_state_path.mkdir(parents=True, exist_ok=True)
-            env["MOZBUILD_STATE_PATH"] = str(scm.mozbuild_state_path)
+        subprocess_env = os.environ.copy()
+        if env:
+            subprocess_env.update(env)
+            if mozbuild_state_path := env.get("MOZBUILD_STATE_PATH"):
+                Path(mozbuild_state_path).mkdir(parents=True, exist_ok=True)
 
         try:
             logger.info("running mach command", extra={"command": command_args})
@@ -483,10 +494,10 @@ class LandingWorker(Worker):
                 command_args,
                 capture_output=True,
                 check=True,
-                cwd=scm.path,
+                cwd=repo_path,
                 encoding="utf-8",
                 universal_newlines=True,
-                env=env,
+                env=subprocess_env,
             )
 
             logger.info(
@@ -545,7 +556,11 @@ class LandingWorker(Worker):
 
         for repo in repos:
             try:
-                self.run_mach_command(repo.scm, command)
+                self.run_mach_command(
+                    repo.path,
+                    command,
+                    env={"MOZBUILD_STATE_PATH": repo.mozbuild_state_path},
+                )
             except subprocess.CalledProcessError as exc:
                 logger.warning(
                     f"Error `running mach` bootstrap for repo {repo.name}: {exc}"

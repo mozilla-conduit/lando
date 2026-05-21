@@ -19,13 +19,8 @@ class AbstractSCM(ABC):
     # The path to the repository.
     path: str
 
-    # The path to use as `MOZBUILD_STATE_PATH` when running `mach` commands against
-    # this repo. `None` means no per-checkout state path has been configured.
-    mozbuild_state_path: Path | None
-
-    def __init__(self, path: str, mozbuild_state_path: Path | None = None, **kwargs):
+    def __init__(self, path: str, **kwargs):
         self.path = path
-        self.mozbuild_state_path = mozbuild_state_path
 
     def __str__(self) -> str:
         return f"{self.scm_name()} repo at {self.path}"

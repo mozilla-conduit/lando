@@ -349,29 +349,12 @@ def test_repo_default_branch_to_scm(branch: str, expected_branch: str):
     assert repo.scm.default_branch == expected_branch
 
 
-def test__models__Repo__get_mozbuild_state_path():
-    """`get_mozbuild_state_path` should return a per-repo subdir of `REPO_ROOT`."""
+def test__models__Repo__mozbuild_state_path():
+    """`mozbuild_state_path` should return a per-repo subdir of `MOZBUILDS_ROOT`."""
     repo = Repo(name="firefox-autoland")
 
-    expected = Path(settings.REPO_ROOT) / "srcdir-mozbuilds" / "firefox-autoland"
-    assert repo.get_mozbuild_state_path() == expected, (
-        "`get_mozbuild_state_path` should return "
-        "`<REPO_ROOT>/srcdir-mozbuilds/<name>` as a `Path`."
-    )
-
-
-def test__models__Repo__scm_propagates_mozbuild_state_path():
-    """`Repo.scm` should pass `mozbuild_state_path` to the SCM constructor."""
-    repo = Repo(
-        name="firefox-autoland",
-        pull_path="some_repo",
-        scm_type=SCMType.GIT,
-    )
-
-    expected = Path(settings.REPO_ROOT) / "srcdir-mozbuilds" / "firefox-autoland"
-    assert repo.scm.mozbuild_state_path == expected, (
-        "`Repo.scm.mozbuild_state_path` should match `Repo.get_mozbuild_state_path`."
-    )
+    expected = str(Path(settings.MOZBUILDS_ROOT) / "firefox-autoland")
+    assert repo.mozbuild_state_path == expected
 
 
 @pytest.mark.django_db(transaction=True)

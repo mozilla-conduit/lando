@@ -276,7 +276,7 @@ class Repo(BaseModel):
         """Return the SCM implementation associated with this Repository"""
         if not self._scm:
             if impl := SCM_IMPLEMENTATIONS.get(self.scm_type):
-                kwargs = {"mozbuild_state_path": self.get_mozbuild_state_path()}
+                kwargs = {}
                 if self.default_branch:
                     kwargs["default_branch"] = self.default_branch
 
@@ -289,14 +289,14 @@ class Repo(BaseModel):
         """Calculate system path based on `REPO_ROOT` and repository name."""
         return str(Path(settings.REPO_ROOT) / self.name)
 
-    def get_mozbuild_state_path(self) -> Path:
+    @property
+    def mozbuild_state_path(self) -> str:
         """Calculate the per-checkout `MOZBUILD_STATE_PATH` for this repo.
 
-        Lives alongside the checkout under `REPO_ROOT` so that `mach` toolchains
-        and bootstrapped state are isolated per repo rather than sharing the
-        worker's homedir.
+        Lives under `MOZBUILDS_ROOT` so that `mach` toolchains and bootstrapped
+        state are isolated per repo rather than sharing the worker's homedir.
         """
-        return Path(settings.REPO_ROOT) / "srcdir-mozbuilds" / self.name
+        return str(Path(settings.MOZBUILDS_ROOT) / self.name)
 
     @property
     def _method_not_supported_for_repo_error(self) -> RepoError:

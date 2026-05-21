@@ -75,7 +75,7 @@ class GitSCM(AbstractSCM):
 
     def __init__(self, path: str, default_branch: str = "main", **kwargs):
         self.default_branch = default_branch
-        super().__init__(path, **kwargs)
+        super().__init__(path)
 
     @staticmethod
     def authenticate_path_if_possible(url: str) -> str:
