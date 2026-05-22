@@ -54,6 +54,14 @@ RUN npm install --prefix /deps
 # Add node_modules to PATH so `prettier` can be run directly.
 ENV PATH="/deps/node_modules/.bin:${PATH}"
 
+# Copy vendored static dependencies from `node_modules` into a curated location
+# outside of `/code` so this layer caches with `npm install` instead of being
+# invalidated on every source change. Django reads this path from
+# `STATICFILES_DIRS` in `settings.py`.
+RUN mkdir -p /static_vendor \
+    && cp -r /deps/node_modules/font-awesome /static_vendor/font-awesome \
+    && cp -r /deps/node_modules/jquery/dist /static_vendor/jquery
+
 # Copy code into the container.
 COPY ./ /code
 
