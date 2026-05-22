@@ -5,7 +5,6 @@ the project is styled. It is not meant to be a rulebook or the law, feel free to
 change the project as necessary and update this guide if you feel there is a
 better way to do something.
 
-
 # SCSS
 
 All styles in the Lando project should preferably be in the SCSS syntax.
@@ -14,13 +13,11 @@ It has been included in the project mainly so that we can customize Bulma
 and so that we can take advantage of nested styles and variables. Feel free to
 use the more advanced features if you so choose.
 
-
 # Bulma
 
 Lando UI uses the [Bulma CSS Framework](http://bulma.io/)
 as a way to provide some excellent defaults and style helpers (e.g. grids,
 modals, forms, etc).
-
 
 # SUIT CSS, Naming, Components
 
@@ -30,7 +27,8 @@ CSS](https://github.com/suitcss/suit/blob/master/doc/naming-conventions.md)
 naming conventions. It is not the best out there, but, it is simple and it works.
 Here is an example, we have a widget and we want to style it:
 
-### *Not* Preferred Method:
+### _Not_ Preferred Method:
+
 ```html
 <div>
   <div class="left-title large"><h1>Hi!</h1></div>
@@ -45,6 +43,7 @@ Here is an example, we have a widget and we want to style it:
 You can infer the css.
 
 ### Preferred Method:
+
 ```html
 <div class="Widget">
   <div class="Widget-left Widget-left--large"><h1>Hi!</h1></div>
@@ -89,12 +88,12 @@ be a css class from the Bulma framework or another global class.
 If possible prefer classes like .MyPage over id's like #MyPage for defining
 styles. That way we won't run into weird specificity issues.
 
-
 # Colors and Fonts
 
 For simplicity Lando UI follows the [Firefox Photon Color Pallete](http://design.firefox.com/photon/visual/color.html) to the letter.
 The only addition is our main color of orange (to be finalized, please give opinion).
 Currently it is:
+
 ```
 F76600 - Darker Orange
 FF7700 - Main Orange (same as Lando logo)
@@ -110,7 +109,6 @@ doesn't load, then it will just use the browser default so no biggie.
 Our customization of Bulma has been configured to default to these colors
 and the Fira font.
 
-
 # Logo
 
 In the `static/images/logo` folder you will find many logos to use. They have been
@@ -119,7 +117,6 @@ resized at 1024px, 512px, 256px, 128px, and some at 64px.
 The logo with the text's aspect ratio is 2.65625, it comes with both black and
 white text. See the `assets_src/logo` folder for the src files.
 Israel, imadueme@mozilla.com, created them :D
-
 
 # Icons
 

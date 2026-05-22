@@ -17,11 +17,11 @@ or Page initialize the child component in their javascript class.
 To pass state or any other data from the server to the browser, use a HTML
 data-attribute like `data-state` on the DOM element of the component. In Flask
 you can accomplish this with something like:
+
 ```html
-<div class="MyWidget" data-state='{{ widgetStateDict | tojson }}'>
-  ...
-</div>
+<div class="MyWidget" data-state="{{ widgetStateDict | tojson }}">...</div>
 ```
+
 and in the JS class load the state with `$widget.data('state');` jQuery will
 automatically convert the JSON text into a proper JS object for use. NOTICE: you
 must use single quotes instead of double quotes for the data-attribute.
@@ -42,7 +42,6 @@ $.fn.landoWidget = function(){
 };
 ```
 
-
 # Browser Compatibility
 
 Lando UI doesn't transpile es6 javascript into es5 and so it depends on the
@@ -51,7 +50,6 @@ on: classes, the let & const operators, arrow functions, and template literals.
 
 Any recent version of Firefox, Chrome, Edge, Android Browser, Opera, and Safari
 will work fine. Notable browsers that won't work: IE11, iOS9 browser.
-
 
 # Dependencies
 

@@ -8,13 +8,13 @@ $revision-spacing: 20px;
 }
 
 h1.RevisionPage-heading {
-  margin-top: .25em;
-  margin-bottom: .5em;
+  margin-top: 0.25em;
+  margin-bottom: 0.5em;
   font-weight: 600;
 }
 
 .RevisionPage-heading-statuses {
-  margin-bottom: $revision-spacing*2;
+  margin-bottom: $revision-spacing * 2;
 }
 
 .RevisionPage-heading-statuses .revision-badge {
@@ -48,7 +48,7 @@ h1.RevisionPage-heading {
 }
 
 .RevisionPage-commit-message {
-  font-family: 'Fira Mono', monospace;
+  font-family: "Fira Mono", monospace;
   font-size: 1em;
   white-space: pre-wrap;
   height: auto;
@@ -63,14 +63,14 @@ h1.RevisionPage-heading {
 
 .RevisionPage-commit-expand {
   display: none;
-  font-size: .9em;
+  font-size: 0.9em;
   font-weight: normal;
 }
 
 .RevisionPage-commit-see-more {
   display: none;
   color: #999;
-  font-size: .9em;
+  font-size: 0.9em;
 }
 
 .RevisionPage-landing-info {
@@ -86,7 +86,7 @@ ul.RevisionPage-warnings {
 .RevisionPage-warning {
   background: #fdf3da;
   border-color: #e9dbcd;
-  color:#726f56;
+  color: #726f56;
   margin-bottom: 4px;
   padding: 3px 9px 3px 30px;
   position: relative;
@@ -104,9 +104,9 @@ ul.RevisionPage-blockers {
   margin-left: 0;
 
   & li {
-    background: #E8A2A2;
-    border-color: #A53030;
-    color:#A53030;
+    background: #e8a2a2;
+    border-color: #a53030;
+    color: #a53030;
     margin-bottom: 4px;
     padding: 3px 9px 3px 30px;
     position: relative;
@@ -129,9 +129,9 @@ ul.RevisionPage-success {
 }
 
 .RevisionPage-errors {
-  background: #E8A2A2;
-  border: 1px solid #A53030;
-  color:#A53030;
+  background: #e8a2a2;
+  border: 1px solid #a53030;
+  color: #a53030;
   padding: 6px 12px 6px 12px;
   width: 100%;
 
@@ -148,7 +148,7 @@ ul.RevisionPage-success {
     border: 0;
     text-align: center;
     color: #fff;
-    background: #3F9B47;
+    background: #3f9b47;
     padding: 8px 20px;
     border-radius: 5px;
     min-width: 16rem;
@@ -193,6 +193,7 @@ ul.RevisionPage-success {
 }
 
 /* Put this somewhere */
-button, label {
+button,
+label {
   cursor: pointer;
 }

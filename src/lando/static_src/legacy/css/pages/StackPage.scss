@@ -1,6 +1,5 @@
 @import "../colors";
 
-
 .StackPage-reviewer-list {
   display: flex;
 
@@ -74,7 +73,7 @@
     width: 1%;
     &-text {
       max-width: 60ch;
-      text-overflow:ellipsis;
+      text-overflow: ellipsis;
       overflow: hidden;
     }
   }
@@ -89,7 +88,8 @@
     }
   }
 
-  .StackPage-revision &-graph { /* Needed to beat bulma's specificity */
+  .StackPage-revision &-graph {
+    /* Needed to beat bulma's specificity */
     padding: 0;
   }
   .GraphDrawing {
@@ -107,7 +107,7 @@
     border: 0;
     text-align: center;
     color: #fff;
-    background: #3F9B47;
+    background: #3f9b47;
     padding: 8px 20px;
     border-radius: 5px;
     min-width: 16rem;
@@ -147,28 +147,26 @@ ul.StackPage-blockers {
   margin-left: 0;
 
   & li {
-    background: #E8A2A2;
-    border-color: #A53030;
-    color:#A53030;
+    background: #e8a2a2;
+    border-color: #a53030;
+    color: #a53030;
     margin-bottom: 4px;
     padding: 3px 9px;
     position: relative;
   }
 }
 
-
 .StackPage-blockerReason {
   display: inline-flex;
   position: relative;
   vertical-align: top;
   &.is-active,
-  &:hover
-    .StackPage-blockerReason-tooltip {
-      display: block;
-      visibility: visible;
-      opacity: 1;
-      transition: .25s all ease;
-      transition-delay: 0s;
+  &:hover .StackPage-blockerReason-tooltip {
+    display: block;
+    visibility: visible;
+    opacity: 1;
+    transition: 0.25s all ease;
+    transition-delay: 0s;
   }
 }
 
@@ -180,21 +178,22 @@ ul.StackPage-blockers {
   position: absolute;
   z-index: 20;
   border-radius: 3px;
-  box-shadow: 0 2px 3px rgba($black, 0.1), 0 0 0 1px rgba($black, 0.1);
+  box-shadow:
+    0 2px 3px rgba($black, 0.1),
+    0 0 0 1px rgba($black, 0.1);
   padding: 3px 9px;
   background: #f7e6e6;
   color: #a53737;
   margin-left: 2px;
   font-size: 0.8rem;
-  transition: .25s all ease;
-  transition-delay: .75s;
+  transition: 0.25s all ease;
+  transition-delay: 0.75s;
 }
-
 
 .StackPage-landingPreview {
   .modal-card {
     width: 1344px;
-    max-width: calc(100vw - 20px)
+    max-width: calc(100vw - 20px);
   }
 
   &-sectionLabel {
@@ -234,7 +233,7 @@ ul.StackPage-blockers {
 
   hr:after {
     background: #fff;
-    content: '↓';
+    content: "↓";
     padding: 0 4px;
     position: relative;
     top: -13px;
@@ -253,7 +252,7 @@ ul.StackPage-blockers {
   }
 
   &-commitMessage {
-    font-family: 'Fira Mono', monospace;
+    font-family: "Fira Mono", monospace;
     font-size: 1em;
     white-space: pre-wrap;
     height: auto;
@@ -279,16 +278,16 @@ ul.StackPage-blockers {
   &-warning {
     background: #fdf3da;
     border-color: #e9dbcd;
-    color:#726f56;
+    color: #726f56;
     margin-bottom: 4px;
     padding: 3px 9px;
     position: relative;
   }
 
   &-blocker {
-    background: #E8A2A2;
-    border-color: #A53030;
-    color:#A53030;
+    background: #e8a2a2;
+    border-color: #a53030;
+    color: #a53030;
     margin-bottom: 4px;
     padding: 3px 9px;
     position: relative;
@@ -299,7 +298,7 @@ ul.StackPage-blockers {
   }
 
   &-secureRevisionWarning {
-    background: #FEDBDB;
+    background: #fedbdb;
     margin: 1ch 0 0 1ch;
     padding: 1em;
     position: relative;
@@ -307,7 +306,7 @@ ul.StackPage-blockers {
 
   &-editMessagePanel {
     display: none;
-    background: #FEDBDB;
+    background: #fedbdb;
     margin: 0 0 4px 1ch;
     padding: 1em;
 
@@ -328,7 +327,6 @@ ul.StackPage-blockers {
     margin-left: auto;
     text-align: center;
   }
-
 }
 
 .StackPage-timeline {
@@ -337,19 +335,19 @@ ul.StackPage-blockers {
     grid-template-columns: 150px auto;
     margin-bottom: 20px;
     pre {
-      background-color: #FFFFFF;
+      background-color: #ffffff;
     }
   }
   p {
-      margin-top: 0;
-      margin-bottom: 0 !important;
+    margin-top: 0;
+    margin-bottom: 0 !important;
   }
 }
 
 %error-message {
-  background: #E8A2A2;
-  border: 1px solid #A53030;
-  color:#A53030;
+  background: #e8a2a2;
+  border: 1px solid #a53030;
+  color: #a53030;
   padding: 6px 12px 6px 12px;
   width: 100%;
 
@@ -371,7 +369,7 @@ ul.StackPage-blockers {
 }
 
 p.acknowledge-warnings-section {
-    display: none;
+  display: none;
 }
 
 /* Remove native fieldset outline when the form is disabled as a block. */
