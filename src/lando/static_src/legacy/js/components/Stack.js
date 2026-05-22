@@ -196,104 +196,120 @@ $.fn.stack = function () {
         }
       });
 
-        pull_request_button.on('click', function(e) {
-            pull_request_button.addClass("is-loading");
-            fetch(`/api/pulls/${repo_name}/${pull_number}/landing_jobs`, {
-                method: 'POST',
-                body: JSON.stringify({"head_sha": head_sha}),
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrf_token
-                },
-            }).then(response => {
-                if (response.status == 201) {
-                    window.location.reload();
-                } else if (response.status == 400) {
-                    pull_request_button.prop("disabled", true);
-                    pull_request_button.removeClass("is-danger").removeClass("is-loading").addClass("is-warning");
-                    pull_request_button.html("Could not create landing job");
-                } else {
-                    pull_request_button.prop("disabled", true);
-                    pull_request_button.removeClass("is-danger").removeClass("is-loading").addClass("is-warning");
-                    pull_request_button.html("An unknown error occurred");
-                }
-            });
+      pull_request_button.on("click", function (e) {
+        pull_request_button.addClass("is-loading");
+        fetch(`/api/pulls/${repo_name}/${pull_number}/landing_jobs`, {
+          method: "POST",
+          body: JSON.stringify({ head_sha: head_sha }),
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrf_token,
+          },
+        }).then((response) => {
+          if (response.status == 201) {
+            window.location.reload();
+          } else if (response.status == 400) {
+            pull_request_button.prop("disabled", true);
+            pull_request_button
+              .removeClass("is-danger")
+              .removeClass("is-loading")
+              .addClass("is-warning");
+            pull_request_button.html("Could not create landing job");
+          } else {
+            pull_request_button.prop("disabled", true);
+            pull_request_button
+              .removeClass("is-danger")
+              .removeClass("is-loading")
+              .addClass("is-warning");
+            pull_request_button.html("An unknown error occurred");
+          }
         });
+      });
 
-        $('button.save-pr').on('click', function(e) {
-            var save_pr_button = this;
+      $("button.save-pr").on("click", function (e) {
+        var save_pr_button = this;
 
-            if (save_pr_button.dataset.mode === 'edit') {
-                document.getElementById('commit-title').removeAttribute('readonly');
-                document.getElementById('commit-body').removeAttribute('readonly');
-                save_pr_button.dataset.mode = 'save';
-                save_pr_button.textContent = 'Save Commit Message';
-                document.getElementById('cancel-edit-pr').classList.remove('is-hidden');
-                document.getElementById('commit-title').focus();
-                document.getElementById("post-landing-job").disabled = true;
-                return;
+        if (save_pr_button.dataset.mode === "edit") {
+          document.getElementById("commit-title").removeAttribute("readonly");
+          document.getElementById("commit-body").removeAttribute("readonly");
+          save_pr_button.dataset.mode = "save";
+          save_pr_button.textContent = "Save Commit Message";
+          document
+            .getElementById("cancel-edit-pr")
+            .classList.remove("is-hidden");
+          document.getElementById("commit-title").focus();
+          document.getElementById("post-landing-job").disabled = true;
+          return;
+        }
+
+        var body = document.getElementById("commit-body").value;
+        var title = document.getElementById("commit-title").value;
+
+        fetch(`/api/pulls/${repo_name}/${pull_number}`, {
+          method: "PUT",
+          body: JSON.stringify({ body: body, title: title }),
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrf_token,
+          },
+        }).then(async (response) => {
+          console.log(response);
+          if (response.status === 400) {
+            var result = await response.json();
+            if (result.title) {
+              document.getElementById("commit-title-error").textContent =
+                result.title;
+              document
+                .getElementById("commit-title")
+                .classList.add("is-danger");
             }
-
-            var body = document.getElementById('commit-body').value;
-            var title = document.getElementById('commit-title').value;
-
-                fetch(`/api/pulls/${repo_name}/${pull_number}`, {
-                    method: 'PUT',
-                    body: JSON.stringify({"body": body, "title": title}),
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrf_token
-                    }
-                }).then(async (response) => {
-                console.log(response);
-                    if (response.status === 400) {
-                        var result = await response.json();
-                        if (result.title){ 
-                            document.getElementById("commit-title-error").textContent = result.title;
-                            document.getElementById("commit-title").classList.add("is-danger");
-                        }
-                        if (result.body){
-                            document.getElementById("commit-body-error").textContent = result.body;
-                            document.getElementById("commit-body").classList.add("is-danger");
-                        }
-
-                    }
-                    else if (response.status === 200) {
-                        save_pr_button.classList.add("disabled");
-                        save_pr_button.classList.add("is-loading");
-                        document.getElementById("commit-title-error").textContent = "";
-                        document.getElementById("commit-body-error").textContent = ""; 
-                        document.getElementById("commit-title").classList.remove("is-danger");
-                        document.getElementById("commit-body").classList.remove("is-danger");
-                        document.getElementById("commit-title").disabled = true;
-                        document.getElementById("commit-body").disabled = true;
-                        document.getElementById('cancel-edit-pr').classList.add('is-hidden');
-
-                        window.location.reload();
-                    }
-                    else{
-                        console.error("error updating pull request:", response);
-                    }
-            });
-        });
-
-        $('button.cancel-edit-pr').on('click', function(e) {
-            document.getElementById('commit-title').setAttribute('readonly', true);
-            document.getElementById('commit-body').setAttribute('readonly', true);
+            if (result.body) {
+              document.getElementById("commit-body-error").textContent =
+                result.body;
+              document.getElementById("commit-body").classList.add("is-danger");
+            }
+          } else if (response.status === 200) {
+            save_pr_button.classList.add("disabled");
+            save_pr_button.classList.add("is-loading");
             document.getElementById("commit-title-error").textContent = "";
-            document.getElementById("commit-body-error").textContent = ""; 
-            document.getElementById("commit-title").classList.remove("is-danger");
-            document.getElementById("commit-body").classList.remove("is-danger");
-            document.getElementById('commit-title').value = document.getElementById('commit-title').defaultValue;
-            document.getElementById('commit-body').value = document.getElementById('commit-body').defaultValue;
-            document.getElementById('save-pr').dataset.mode = 'edit';
-            document.getElementById('save-pr').textContent = 'Edit Commit Message';
-            document.getElementById('cancel-edit-pr').classList.add('is-hidden');
-            document.getElementById("post-landing-job").disabled = false;
-        });
-    }
-});
-};
+            document.getElementById("commit-body-error").textContent = "";
+            document
+              .getElementById("commit-title")
+              .classList.remove("is-danger");
+            document
+              .getElementById("commit-body")
+              .classList.remove("is-danger");
+            document.getElementById("commit-title").disabled = true;
+            document.getElementById("commit-body").disabled = true;
+            document
+              .getElementById("cancel-edit-pr")
+              .classList.add("is-hidden");
 
+            window.location.reload();
+          } else {
+            console.error("error updating pull request:", response);
+          }
+        });
+      });
+
+      $("button.cancel-edit-pr").on("click", function (e) {
+        document.getElementById("commit-title").setAttribute("readonly", true);
+        document.getElementById("commit-body").setAttribute("readonly", true);
+        document.getElementById("commit-title-error").textContent = "";
+        document.getElementById("commit-body-error").textContent = "";
+        document.getElementById("commit-title").classList.remove("is-danger");
+        document.getElementById("commit-body").classList.remove("is-danger");
+        document.getElementById("commit-title").value =
+          document.getElementById("commit-title").defaultValue;
+        document.getElementById("commit-body").value =
+          document.getElementById("commit-body").defaultValue;
+        document.getElementById("save-pr").dataset.mode = "edit";
+        document.getElementById("save-pr").textContent = "Edit Commit Message";
+        document.getElementById("cancel-edit-pr").classList.add("is-hidden");
+        document.getElementById("post-landing-job").disabled = false;
+      });
+    }
+  });
+};
