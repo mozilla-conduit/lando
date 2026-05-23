@@ -714,8 +714,6 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     user,
     authenticated_client,
     treestatusdouble,
-    hg_server,
-    hg_clone,
     release_management_project,
     needs_data_classification_project,
     register_codefreeze_uri,
@@ -723,12 +721,12 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     normal_patch,
     phabdouble,
     checkin_project,
-    hg_landing_worker,
+    git_landing_worker,
     repo_mc,
 ):
-    repo = repo_mc(SCMType.HG)
+    repo = repo_mc(SCMType.GIT)
     treestatusdouble.open_tree(repo.name)
-    hg_landing_worker.worker_instance.applicable_repos.add(repo)
+    git_landing_worker.worker_instance.applicable_repos.add(repo)
 
     phabrepo = phabdouble.repo(name=repo.name)
     # Mock a few mots-related things needed by the landing worker.
@@ -746,11 +744,11 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     reviewer = phabdouble.user(username="reviewer")
     user2 = phabdouble.user(username="reviewer2")
 
-    d1 = phabdouble.diff(rawdiff=normal_patch(1))
+    d1 = phabdouble.diff(rawdiff=normal_patch(0))
     r1 = phabdouble.revision(diff=d1, repo=phabrepo)
     phabdouble.reviewer(r1, reviewer)
 
-    d2 = phabdouble.diff(rawdiff=normal_patch(2))
+    d2 = phabdouble.diff(rawdiff=normal_patch(1))
     r2 = phabdouble.revision(diff=d2, repo=phabrepo, depends_on=[r1])
     phabdouble.reviewer(r2, user2)
 
@@ -782,7 +780,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     approved_by = [revision.data["approved_by"] for revision in job.revisions.all()]
     assert approved_by == [[101], [102]]
 
-    assert hg_landing_worker.run_job(job)
+    assert git_landing_worker.run_job(job)
     assert job.landed_commit_id
 
     # Fetch Job data.

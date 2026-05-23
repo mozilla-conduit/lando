@@ -1332,10 +1332,10 @@ def test_worker_active_repos_updated_when_tree_closed(
     monkeypatch,
     get_landing_worker,
 ):
-    repo = Repo.objects.get(name="mozilla-central")
+    repo = Repo.objects.get(name="firefox")
     treestatusdouble.open_tree(repo.name)
 
-    worker = get_landing_worker(SCMType.HG)
+    worker = get_landing_worker(SCMType.GIT)
     worker.refresh_active_repos()
     assert repo in worker.active_repos
     assert repo in worker.enabled_repos
