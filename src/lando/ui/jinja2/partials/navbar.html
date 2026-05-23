@@ -34,15 +34,17 @@
                             </a>
                         </p>
                         {% if user_is_authenticated %}
-                            <p class="control">
-                                <a class="Navbar-userSettingsBtn button">
-                                    <span class="icon">
-                                        <img src="{{ request.user.profile.userinfo['picture']|avatar_url }}" />
-                                    </span>
-                                    <span>&nbsp;{{ request.user.profile.userinfo['name'] }}&nbsp;</span>
-                                    <i class="fa fa-cogs"></i>
-                                </a>
-                            </p>
+                            {% if request.user.profile|default(False) %}
+                                <p class="control">
+                                    <a class="Navbar-userSettingsBtn button">
+                                        <span class="icon">
+                                            <img src="{{ request.user.profile.userinfo['picture']|avatar_url }}" />
+                                        </span>
+                                        <span>&nbsp;{{ request.user.profile.userinfo['name'] }}&nbsp;</span>
+                                        <i class="fa fa-cogs"></i>
+                                    </a>
+                                </p>
+                            {% endif %}
                         {% endif %}
                         {% if user_is_authenticated and request.user.is_superuser %}
                             <p class="control">
@@ -129,33 +131,35 @@
                     <p class="modal-card-title">Settings</p>
                     <button class="Navbar-modalCancel delete"></button>
                 </header>
-                <section class="modal-card-body">
-                    {% set api_key_is_set = false if request.user.profile.phabricator_api_key == "" else true %}
-                    <form class="userSettingsForm"
-                          {% if api_key_is_set %}data-phabricator_api_key=1{% endif %}>
-                        {% set settings_form = new_settings_form() %}
-                        {{ settings_form.phabricator_api_key.label }}
-                        {% if api_key_is_set %}
-                            (set)
-                            <label class="checkbox is-pulled-right">
-                                {{ settings_form.reset_key.label }}
-                                {{ settings_form.reset_key }}
-                            </label>
-                        {% else %}
-                            (unset)
-                        {% endif %}
-                        {{ settings_form.phabricator_api_key }}
-                        {{ csrf_input }}
-                        <ul id="phabricator_api_key_errors" class="userSettingsForm-Errors">
-                        </ul>
-                        <ul id="form_errors" class="userSettingsForm-Errors">
-                        </ul>
-                    </form>
-                    <p>
-                        The API key allows anybody with access to it to perform actions on your behalf.
-                        It is important not to store your API key anywhere but here or on the Phabricator site.
-                    </p>
-                </section>
+                {% if request.user.profile|default(False) %}
+                    <section class="modal-card-body">
+                        {% set api_key_is_set = false if request.user.profile.phabricator_api_key == "" else true %}
+                        <form class="userSettingsForm"
+                              {% if api_key_is_set %}data-phabricator_api_key=1{% endif %}>
+                            {% set settings_form = new_settings_form() %}
+                            {{ settings_form.phabricator_api_key.label }}
+                            {% if api_key_is_set %}
+                                (set)
+                                <label class="checkbox is-pulled-right">
+                                    {{ settings_form.reset_key.label }}
+                                    {{ settings_form.reset_key }}
+                                </label>
+                            {% else %}
+                                (unset)
+                            {% endif %}
+                            {{ settings_form.phabricator_api_key }}
+                            {{ csrf_input }}
+                            <ul id="phabricator_api_key_errors" class="userSettingsForm-Errors">
+                            </ul>
+                            <ul id="form_errors" class="userSettingsForm-Errors">
+                            </ul>
+                        </form>
+                        <p>
+                            The API key allows anybody with access to it to perform actions on your behalf.
+                            It is important not to store your API key anywhere but here or on the Phabricator site.
+                        </p>
+                    </section>
+                {% endif %}
                 <footer class="modal-card-foot">
                     <div class="buttons">
                         <a class="Navbar-modalSubmit button is-success has-text-white">Save changes</a>
