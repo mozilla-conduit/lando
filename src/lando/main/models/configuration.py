@@ -97,7 +97,7 @@ class ConfigurationVariable(BaseModel):
     @classmethod
     def set(
         cls,
-        key: ConfigurationKey,
+        key: ConfigurationKey | str,
         variable_type: VariableTypeChoices,
         raw_value: ConfigurationValueType,
     ) -> ConfigurationValueType | None:
@@ -110,8 +110,9 @@ class ConfigurationVariable(BaseModel):
         NOTE: This method will create the variable with the provided `key` if it does
         not exist.
         """
+        key_value = key if isinstance(key, str) else key.value
         try:
-            record = cls.objects.get(key=key.value)
+            record = cls.objects.get(key=key_value)
         except cls.DoesNotExist:
             record = None
         if (
@@ -120,24 +121,27 @@ class ConfigurationVariable(BaseModel):
             and record.raw_value == raw_value
         ):
             logger.info(
-                f"Configuration variable {key.value} is already set to {raw_value}."
+                f"Configuration variable {key_value} is already set to {raw_value}."
             )
             return
 
         if not record:
-            logger.info(f"Creating new configuration variable {key.value}.")
+            logger.info(f"Creating new configuration variable {key_value}.")
             record = cls()
 
         if record.raw_value:
             logger.info(
-                f"Configuration variable {key.value} previously set to {record.raw_value} "
-                f"({record.value})"
+                f"Configuration variable {key_value} previously set to {record.raw_value} "
             )
         record.variable_type = variable_type
-        record.key = key.value
+        record.key = key_value
         record.raw_value = raw_value
+
+        if record.variable_type == VariableTypeChoices.JSON:
+            record.raw_value = json.dumps(json.loads(record.raw_value))
+
         logger.info(
-            f"Configuration variable {key.value} set to {raw_value} ({record.value})"
+            f"Configuration variable {key_value} set to {raw_value} ({record.value})"
         )
 
         if not record.pk:
