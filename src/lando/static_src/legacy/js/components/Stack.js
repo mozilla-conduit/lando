@@ -227,7 +227,7 @@ $.fn.stack = function () {
         });
       });
 
-      $("button.save-pr").on("click", function (e) {
+      $("button.save-edit-pr").on("click", function (e) {
         var save_pr_button = this;
 
         if (save_pr_button.dataset.mode === "edit") {
@@ -305,8 +305,8 @@ $.fn.stack = function () {
           document.getElementById("commit-title").defaultValue;
         document.getElementById("commit-body").value =
           document.getElementById("commit-body").defaultValue;
-        document.getElementById("save-pr").dataset.mode = "edit";
-        document.getElementById("save-pr").textContent = "Edit Commit Message";
+        document.getElementById("save-edit-pr").dataset.mode = "edit";
+        document.getElementById("save-edit-pr").textContent = "Edit Commit Message";
         document.getElementById("cancel-edit-pr").classList.add("is-hidden");
         document.getElementById("post-landing-job").disabled = false;
       });
