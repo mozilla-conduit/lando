@@ -228,18 +228,40 @@ $.fn.stack = function () {
       });
 
       $("button.save-edit-pr").on("click", function (e) {
-        var save_pr_button = this;
+        var save_edit_pr_button = this;
 
-        if (save_pr_button.dataset.mode === "edit") {
-          document.getElementById("commit-title").removeAttribute("readonly");
-          document.getElementById("commit-body").removeAttribute("readonly");
-          save_pr_button.dataset.mode = "save";
-          save_pr_button.textContent = "Save Commit Message";
+        if (save_edit_pr_button.dataset.mode === "edit") {
+          const textareaTitle = document.createElement("textarea");
+          const textareaBody = document.createElement("textarea");
+          const pTitle = document.getElementById("commit-title");
+          const pBody = document.getElementById("commit-body");
+          textareaTitle.value = pTitle.textContent;
+          textareaBody.value = pBody.textContent;
+          textareaTitle.id = "commit-title";
+          textareaBody.id = "commit-body";
+          textareaTitle.classList.add("textarea");
+          textareaBody.classList.add("textarea");
+          pTitle.replaceWith(textareaTitle);
+          pBody.replaceWith(textareaBody);
+          save_edit_pr_button.dataset.mode = "save";
+          save_edit_pr_button.textContent = "Save Commit Message";
           document
             .getElementById("cancel-edit-pr")
             .classList.remove("is-hidden");
           document.getElementById("commit-title").focus();
           document.getElementById("post-landing-job").disabled = true;
+
+          textareaTitle.addEventListener("input", function () {
+            document.getElementById("commit-title").classList.remove("is-danger");
+            document.getElementById("commit-title-error").textContent = "";
+            save_edit_pr_button.disabled = false;
+          });
+
+          textareaBody.addEventListener("input", function () {
+            document.getElementById("commit-body").classList.remove("is-danger");
+            document.getElementById("commit-body-error").textContent = "";
+            save_edit_pr_button.disabled = false;
+          });
           return;
         }
 
@@ -256,6 +278,7 @@ $.fn.stack = function () {
           },
         }).then(async (response) => {
           console.log(response);
+          save_edit_pr_button.disabled = true;
           if (response.status === 400) {
             var result = await response.json();
             if (result.title) {
@@ -271,8 +294,7 @@ $.fn.stack = function () {
               document.getElementById("commit-body").classList.add("is-danger");
             }
           } else if (response.status === 200) {
-            save_pr_button.classList.add("disabled");
-            save_pr_button.classList.add("is-loading");
+            save_edit_pr_button.classList.add("is-loading");
             document.getElementById("commit-title-error").textContent = "";
             document.getElementById("commit-body-error").textContent = "";
             document
@@ -286,7 +308,6 @@ $.fn.stack = function () {
             document
               .getElementById("cancel-edit-pr")
               .classList.add("is-hidden");
-
             window.location.reload();
           } else {
             console.error("error updating pull request:", response);
