@@ -234,20 +234,23 @@ class GitSCM(AbstractSCM):
             patch_file.write(patches)
             patch_file.flush()
 
-            self._git_run("apply", "--reject", patch_file.name, cwd=self.path)
-
-            self._git_run("add", "-A", "-f", cwd=self.path)
+            base_commit_sha = self._git_run("rev-parse", "HEAD", cwd=self.path)
+            self._git_run("am", "--keep-cr", "--reject", patch_file.name, cwd=self.path)
 
             # Write to a temp file instead of stdout so the diff stays out of command logs.
             with tempfile.NamedTemporaryFile(suffix=".diff") as diff_file:
                 self._git_run(
                     "diff",
-                    "--staged",
                     "--binary",
+                    f"{base_commit_sha}",
+                    "HEAD",
                     f"--output={diff_file.name}",
                     cwd=self.path,
                 )
                 diff_bytes = Path(diff_file.name).read_bytes()
+
+            # Revert back to original state.
+            self._git_run("reset", "--hard", base_commit_sha, cwd=self.path)
 
         try:
             diff = diff_bytes.decode("utf-8")
