@@ -24,11 +24,30 @@ from lando.utils.phabricator import (
 logger = logging.getLogger(__name__)
 
 
-class ResponseHeadersMiddleware:
-    """Add custom response headers for each request."""
+def url_origin(url: str) -> str:
+    """Return the `scheme://host` origin of `url`, or `""` if it has none.
+
+    A relative or same-origin URL has no distinct origin, so it yields an empty
+    string; deciding what to do with that is left to the caller.
+    """
+    parts = urlsplit(url)
+    if parts.scheme and parts.netloc:
+        return f"{parts.scheme}://{parts.netloc}"
+    return ""
+
+
+class LandoMiddleware:
+    """Base class for Lando middleware."""
 
     def __init__(self, get_response: Callable[[WSGIRequest], HttpResponse]):
         self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        return self.get_response(request)
+
+
+class ResponseHeadersMiddleware(LandoMiddleware):
+    """Add custom response headers for each request."""
 
     def __call__(self, request: WSGIRequest) -> HttpResponse:
         # NOTE: These headers were ported from both the legacy UI and API.
@@ -79,23 +98,8 @@ class ResponseHeadersMiddleware:
         return response
 
 
-def url_origin(url: str) -> str:
-    """Return the `scheme://host` origin of `url`, or `""` if it has none.
-
-    A relative or same-origin URL has no distinct origin, so it yields an empty
-    string; deciding what to do with that is left to the caller.
-    """
-    parts = urlsplit(url)
-    if parts.scheme and parts.netloc:
-        return f"{parts.scheme}://{parts.netloc}"
-    return ""
-
-
-class MaintenanceModeMiddleware:
+class MaintenanceModeMiddleware(LandoMiddleware):
     """If maintenance mode is enabled, non-admin requests should be redirected."""
-
-    def __init__(self, get_response: Callable[[WSGIRequest], HttpResponse]):
-        self.get_response = get_response
 
     def __call__(self, request: WSGIRequest) -> HttpResponse:
         if user_is_conduit_admin(request.user):
@@ -139,15 +143,9 @@ class MaintenanceModeMiddleware:
         return self.get_response(request)
 
 
-class PhabricatorExceptionsMiddleware:
+class PhabricatorExceptionsMiddleware(LandoMiddleware):
     """A middleware to provide more information on 500s due to Phabricator
     reachability."""
-
-    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]):
-        self.get_response = get_response
-
-    def __call__(self, request: HttpRequest) -> HttpResponse:
-        return self.get_response(request)
 
     def process_exception(
         self, request: HttpRequest, exception: Exception
@@ -170,7 +168,7 @@ class PhabricatorExceptionsMiddleware:
         )
 
 
-class cProfileMiddleware:
+class cProfileMiddleware(LandoMiddleware):
     """A middleware to profile requests/responses and return the result.
 
     To generate a profile report for a request, the following conditions must be met:
@@ -189,12 +187,6 @@ class cProfileMiddleware:
             and request.user.is_staff
             and "profile" in request.GET
         )
-
-    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]):
-        self.get_response = get_response
-
-    def __call__(self, request: HttpRequest) -> HttpResponse:
-        return self.get_response(request)
 
     def process_view(
         self,
@@ -217,11 +209,8 @@ class cProfileMiddleware:
         return HttpResponse(f"<pre>{out.getvalue()}</pre>")
 
 
-class PhabricatorTokenAuthenticationMiddleware:
+class PhabricatorTokenAuthenticationMiddleware(LandoMiddleware):
     """If a Phabricator token header is in the request, attempt to authenticate."""
-
-    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]):
-        self.get_response = get_response
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
         key = "HTTP_X_PHABRICATOR_API_KEY"
