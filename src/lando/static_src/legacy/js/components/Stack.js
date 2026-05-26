@@ -252,13 +252,17 @@ $.fn.stack = function () {
           document.getElementById("post-landing-job").disabled = true;
 
           textareaTitle.addEventListener("input", function () {
-            document.getElementById("commit-title").classList.remove("is-danger");
+            document
+              .getElementById("commit-title")
+              .classList.remove("is-danger");
             document.getElementById("commit-title-error").textContent = "";
             save_edit_pr_button.disabled = false;
           });
 
           textareaBody.addEventListener("input", function () {
-            document.getElementById("commit-body").classList.remove("is-danger");
+            document
+              .getElementById("commit-body")
+              .classList.remove("is-danger");
             document.getElementById("commit-body-error").textContent = "";
             save_edit_pr_button.disabled = false;
           });
@@ -327,7 +331,8 @@ $.fn.stack = function () {
         document.getElementById("commit-body").value =
           document.getElementById("commit-body").defaultValue;
         document.getElementById("save-edit-pr").dataset.mode = "edit";
-        document.getElementById("save-edit-pr").textContent = "Edit Commit Message";
+        document.getElementById("save-edit-pr").textContent =
+          "Edit Commit Message";
         document.getElementById("cancel-edit-pr").classList.add("is-hidden");
         document.getElementById("post-landing-job").disabled = false;
       });

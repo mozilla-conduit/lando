@@ -338,14 +338,17 @@ class PullRequestChecksAPIView(PullRequestAPIView):
 
 class PullRequestContentAPIView(PullRequestAPIView):
     """Handle pull request content updates in the API."""
-    @method_decorator(require_authenticated_user)
 
+    @method_decorator(require_authenticated_user)
     def put(
         self, request: WSGIRequest, repo_name: str, pull_number: int
     ) -> JsonResponse:
         """Update pull request content"""
         if not self.target_repo.user_can_push(request.user):
-            return JsonResponse({"errors": ["You are not allowed to push to this repository."]}, status=403)
+            return JsonResponse(
+                {"errors": ["You are not allowed to push to this repository."]},
+                status=403,
+            )
 
         class Form(forms.Form):
             body = forms.CharField(required=False)
