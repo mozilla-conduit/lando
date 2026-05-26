@@ -1,14 +1,14 @@
-'use strict';
+"use strict";
 
-$(document).ready(function() {
-  let $flashMessages = $('.FlashMessages');
-  let $landingPreview = $('.StackPage-landingPreview');
-  let $navBar = $('.Navbar');
-  let $secRequestSubmitted = $('.StackPage-secRequestSubmitted');
-  let $stack = $('.StackPage-stack');
-  let $timeline = $('.StackPage-timeline');
-  let $treestatus = $('.Treestatus');
-  let $uplifts = $('.Uplifts');
+$(document).ready(function () {
+  let $flashMessages = $(".FlashMessages");
+  let $landingPreview = $(".StackPage-landingPreview");
+  let $navBar = $(".Navbar");
+  let $secRequestSubmitted = $(".StackPage-secRequestSubmitted");
+  let $stack = $(".StackPage-stack");
+  let $timeline = $(".StackPage-timeline");
+  let $treestatus = $(".Treestatus");
+  let $uplifts = $(".Uplifts");
 
   // Initialize components
   $flashMessages.flashMessages();

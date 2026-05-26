@@ -17,13 +17,19 @@ from django.contrib.auth.models import Group, Permission, User
 from django.contrib.contenttypes.models import ContentType
 from requests.models import HTTPError
 
+from lando.api.legacy.projects import (
+    CHECKIN_PROJ_SLUG,
+    RELMAN_PROJECT_SLUG,
+    SEC_APPROVAL_PROJECT_SLUG,
+    SEC_PROJ_SLUG,
+)
 from lando.api.legacy.stacks import (
     RevisionStack,
     build_stack_graph,
     request_extended_revision_data,
 )
 from lando.api.legacy.transplants import build_stack_assessment_state
-from lando.api.tests.mocks import TreeStatusDouble
+from lando.api.tests.mocks import PhabricatorDouble, TreeStatusDouble
 from lando.headless_api.models.automation_job import AutomationJob
 from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import (
@@ -1184,6 +1190,22 @@ def treestatus_url():
 def treestatusdouble(monkeypatch, treestatus_url):
     """Mock the Tree Status service and build fake responses."""
     yield TreeStatusDouble(monkeypatch, treestatus_url)
+
+
+@pytest.fixture
+def phabdouble(monkeypatch):
+    """Mock the Phabricator service and build fake response objects."""
+    phabdouble = PhabricatorDouble(monkeypatch)
+
+    # Create required projects.
+    phabdouble.project(SEC_PROJ_SLUG)
+    phabdouble.project(CHECKIN_PROJ_SLUG)
+    phabdouble.project(SEC_APPROVAL_PROJECT_SLUG)
+    phabdouble.project(
+        RELMAN_PROJECT_SLUG,
+        attachments={"members": {"members": [{"phid": "PHID-USER-1"}]}},
+    )
+    yield phabdouble
 
 
 #

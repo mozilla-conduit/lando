@@ -23,7 +23,6 @@ from lando.api.legacy.workers.landing_worker import LandingWorker
 from lando.api.legacy.workers.uplift_worker import (
     UpliftWorker,
 )
-from lando.api.tests.mocks import PhabricatorDouble
 from lando.main.models import JobStatus, Repo, Revision
 from lando.main.models.uplift import (
     RevisionUpliftJob,
@@ -136,22 +135,6 @@ def request_mocker():
 
 
 @pytest.fixture
-def phabdouble(monkeypatch):
-    """Mock the Phabricator service and build fake response objects."""
-    phabdouble = PhabricatorDouble(monkeypatch)
-
-    # Create required projects.
-    phabdouble.project(SEC_PROJ_SLUG)
-    phabdouble.project(CHECKIN_PROJ_SLUG)
-    phabdouble.project(SEC_APPROVAL_PROJECT_SLUG)
-    phabdouble.project(
-        RELMAN_PROJECT_SLUG,
-        attachments={"members": {"members": [{"phid": "PHID-USER-1"}]}},
-    )
-    yield phabdouble
-
-
-@pytest.fixture
 def mock_uplift_email_tasks(monkeypatch):
     success_task = mock.MagicMock()
     failure_task = mock.MagicMock()
@@ -215,7 +198,7 @@ def mock_repo_config(monkeypatch):
 
 
 @pytest.fixture
-def hg_landing_worker(landing_worker_instance):
+def hg_landing_worker(landing_worker_instance, treestatusdouble):
     worker = landing_worker_instance(
         name="test-hg-worker",
         scm=SCMType.HG,
@@ -224,7 +207,7 @@ def hg_landing_worker(landing_worker_instance):
 
 
 @pytest.fixture
-def git_landing_worker(landing_worker_instance):
+def git_landing_worker(landing_worker_instance, treestatusdouble):
     worker = landing_worker_instance(
         name="test-git-worker",
         scm=SCMType.GIT,

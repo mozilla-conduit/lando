@@ -81,10 +81,6 @@ def test_GitSCM_clone(
     )
 
 
-@pytest.mark.parametrize(
-    "strip_non_public_commits",
-    [True, False],
-)
 def test_GitSCM_clean_repo(
     git_repo: Path,
     git_setup_user: Callable,
@@ -92,7 +88,6 @@ def test_GitSCM_clean_repo(
     request: pytest.FixtureRequest,
     tmp_path: Path,
     create_git_commit: Callable,
-    strip_non_public_commits: bool,
 ):
     clone_path = tmp_path / request.node.name
     clone_path.mkdir()
@@ -125,22 +120,20 @@ def test_GitSCM_clean_repo(
 
     mock_git_run = active_mock(scm, "_git_run")
 
-    scm.clean_repo(strip_non_public_commits=strip_non_public_commits)
+    scm.clean_repo()
 
     mock_git_run.assert_called_with("clean", "-fdx", cwd=str(clone_path))
-    if strip_non_public_commits:
-        mock_git_run.assert_any_call(
-            "reset", "--hard", f"origin/{scm.default_branch}", cwd=str(clone_path)
-        )
-        current_commit = subprocess.run(
-            ["git", "rev-parse", "HEAD"], cwd=str(clone_path), capture_output=True
-        ).stdout
-        assert current_commit == original_commit, (
-            f"Not on original_commit {original_commit} after using strip_non_public_commits: {current_commit}"
-        )
-
-    assert strip_non_public_commits != new_file.exists(), (
-        f"strip_non_public_commits not honoured for {new_file}"
+    mock_git_run.assert_any_call(
+        "reset", "--hard", f"origin/{scm.default_branch}", cwd=str(clone_path)
+    )
+    current_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=str(clone_path), capture_output=True
+    ).stdout
+    assert current_commit == original_commit, (
+        f"`clean_repo` should rewind to {original_commit}, got {current_commit}."
+    )
+    assert not new_file.exists(), (
+        f"`clean_repo` should remove the new commit's file: {new_file}"
     )
 
 
@@ -195,6 +188,80 @@ def test_GitSCM_clean_repo_gitattributes(
         assert new_attribute_mtime == attribute_mtime, (
             f"{attributes_file} with same content should not have been modified"
         )
+
+
+def _list_branches(clone_path: Path) -> list[str]:
+    """Return all local branch names in `clone_path`."""
+    result = subprocess.run(
+        ["git", "for-each-ref", "--format=%(refname:short)", "refs/heads/"],
+        cwd=str(clone_path),
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+    return result.stdout.splitlines()
+
+
+@pytest.mark.parametrize("checked_out_branch", ["lando-2025-01-01T120000", "main"])
+def test_GitSCM_maintenance(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+    checked_out_branch: str,
+):
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+
+    lando_branches = [
+        "lando-2025-01-01T120000",
+        "lando-2025-04-30T135037",
+        "lando-2025-05-01T022525",
+    ]
+    for branch in lando_branches:
+        subprocess.run(["git", "branch", branch], cwd=str(clone_path), check=True)
+    subprocess.run(
+        ["git", "branch", "feature-keep-me"], cwd=str(clone_path), check=True
+    )
+
+    subprocess.run(
+        ["git", "checkout", checked_out_branch], cwd=str(clone_path), check=True
+    )
+
+    scm.maintenance()
+
+    remaining = _list_branches(clone_path)
+    assert all(not branch.startswith("lando-") for branch in remaining), (
+        f"All `lando-*` branches should have been deleted; got {remaining}."
+    )
+    assert "feature-keep-me" in remaining, (
+        "Non-`lando-*` branches should be left alone."
+    )
+    assert scm.default_branch in remaining, "Default branch should still exist."
+
+
+def test_GitSCM_maintenance_noop_without_lando_branches(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+
+    branches_before = _list_branches(clone_path)
+
+    scm.maintenance()
+
+    assert _list_branches(clone_path) == branches_before, (
+        "`maintenance` should be a no-op when there are no `lando-*` branches."
+    )
 
 
 def remove_git_version_from_patch(patch: str) -> str:
@@ -1170,6 +1237,43 @@ def test_GitSCM_add_diff_from_patches(
 
     diff = scm.add_diff_from_patches(patches)
     assert diff == expected_diff, "Did not generate expected diff from patches"
+
+
+def test_GitSCM_add_diff_from_patches__add_remove_files_multiple_commits(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    """Test that adding and removing a file in different commits results in an empty diff."""
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+
+    # Create a revision.patches equivalent.
+    some_file = clone_path / "some-file"
+    with some_file.open("w") as f:
+        f.write("this is a test")
+    subprocess.run(["git", "add", "-A"], cwd=clone_path)
+    subprocess.run(["git", "commit", "-m", "add file"], cwd=clone_path)
+    some_file.unlink()
+    subprocess.run(["git", "add", "-A"], cwd=clone_path)
+    subprocess.run(["git", "commit", "-m", "delete file"], cwd=clone_path)
+    patches = subprocess.run(
+        ["git", "format-patch", "HEAD^^", "--stdout"],
+        capture_output=True,
+        cwd=clone_path,
+    ).stdout.decode("utf-8")
+
+    # Reset repo back to origin.
+    subprocess.run(["git", "reset", "--hard", "origin/main"], cwd=clone_path)
+
+    # Generate diff.
+    diff = scm.add_diff_from_patches(patches)
+
+    assert diff == "", "diff should be an empty string since no files were added"
 
 
 @pytest.mark.parametrize("has_changes", (True, False))

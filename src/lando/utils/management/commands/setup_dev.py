@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 
@@ -7,6 +7,7 @@ from lando.environments import Environment
 from lando.main.models import Repo, Worker
 from lando.main.models.worker import WorkerType
 from lando.main.scm import SCMType
+from lando.middleware import CONDUIT_ADMIN_GROUP_NAME
 
 
 class Command(BaseCommand):
@@ -72,9 +73,9 @@ class Command(BaseCommand):
         except User.DoesNotExist:
             user = User.objects.create_user("admin", password="password")
             self.stdout.write(f"Admin user ({user}) created.")
-        user.is_superuser = True
         user.is_staff = True
         user.save()
+        Group.objects.get(name=CONDUIT_ADMIN_GROUP_NAME).user_set.add(user)
         self.stdout.write(
             self.style.SUCCESS(
                 "Superuser created with the following username and password: "
@@ -82,12 +83,24 @@ class Command(BaseCommand):
             )
         )
 
+    def setup_groups(self):
+        if settings.ENVIRONMENT != Environment.local:
+            raise CommandError("This method can not be triggered on this environment.")
+
+        try:
+            conduit_admin = Group.objects.get(name=CONDUIT_ADMIN_GROUP_NAME)
+            self.stdout.write(f"({conduit_admin}) found.")
+        except Group.DoesNotExist:
+            conduit_admin = Group.objects.create(name=CONDUIT_ADMIN_GROUP_NAME)
+            self.stdout.write(f"({conduit_admin}) created.")
+
     def handle(self, *args, **options):
         if settings.ENVIRONMENT != Environment.local:
             raise CommandError("This script can only be run on a local environment.")
         call_command("migrate")
         call_command("create_environment_repos", Environment.local.value)
         self.setup_workers()
+        self.setup_groups()
         self.setup_users()
         self.stdout.write(
             self.style.SUCCESS("Finished setting up local Lando environment.")

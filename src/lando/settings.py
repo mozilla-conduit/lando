@@ -257,6 +257,8 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 LINT_PATHS = (BASE_DIR,)
+# Currently used by Prettier for linting CSS/JS.
+STATIC_LINT_PATHS = (BASE_DIR / "static_src",)
 PHABRICATOR_URL = os.getenv("PHABRICATOR_URL", "http://phabricator.test")
 PHABRICATOR_ADMIN_API_KEY = os.getenv("PHABRICATOR_ADMIN_API_KEY", "")
 PHABRICATOR_UNPRIVILEGED_API_KEY = os.getenv("PHABRICATOR_UNPRIVILEGED_API_KEY", "")
