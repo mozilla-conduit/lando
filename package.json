@@ -12,9 +12,13 @@
     "so it is not actually excluded from production images."
   ],
   "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "jquery": "^3.7.1",
     "prettier": "^3.4.2"
   },
   "scripts": {
-    "postinstall": "echo 'Bulma and Dart Sass installed successfully'"
+    "postinstall": "echo 'Bulma and Dart Sass installed successfully'",
+    "test": "TZ=UTC jest"
   }
 }

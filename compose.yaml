@@ -21,7 +21,7 @@ services:
     image: lando
     command: bash -c "
       lando migrate &&
-      lando collectstatic --clear --no-input &&
+      lando collectstatic --clear --no-input --ignore=__tests__ &&
       uwsgi --ini /code/uwsgi.ini:local"
     volumes:
       - ./:/code

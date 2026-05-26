@@ -53,6 +53,10 @@ RUN npm install --prefix /deps
 
 # Add node_modules to PATH so `prettier` can be run directly.
 ENV PATH="/deps/node_modules/.bin:${PATH}"
+# Add node_modules to `NODE_PATH` so tests (Jest) can `require` packages like
+# `jquery` by bare name — the host volume mount at `/code` hides any
+# `./node_modules`, so module resolution must fall back to `/deps`.
+ENV NODE_PATH="/deps/node_modules"
 
 # Copy code into the container.
 COPY ./ /code
