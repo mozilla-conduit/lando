@@ -59,8 +59,8 @@ upgrade-requirements:
 add-requirements:
 	$(BASE_COMMAND) lando generate_requirements
 
-.PHONY: upgrade-npm
-upgrade-npm:
+.PHONY: upgrade-npm-packages
+upgrade-npm-packages:
 	$(BASE_COMMAND) npm install
 
 .PHONY: attach
