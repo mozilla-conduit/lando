@@ -1324,9 +1324,9 @@ markupsafe==3.0.3 \
     --hash=sha256:f9e130248f4462aaa8e2552d547f36ddadbeaa573879158d721bbd33dfe4743a \
     --hash=sha256:fed51ac40f757d41b7c48425901843666a6677e3e8eb0abcff09e4ba6e664f50
     # via jinja2
-more-itertools==11.0.2 \
-    --hash=sha256:392a9e1e362cbc106a2457d37cabf9b36e5e12efd4ebff1654630e76597df804 \
-    --hash=sha256:6e35b35f818b01f691643c6c611bc0902f2e92b46c18fffa77ae1e7c46e912e4
+more-itertools==11.1.0 \
+    --hash=sha256:48e8f4d9e7e5878571ecf6f2b4e57634f93cd474cc8cfbd2376f2d11b396e30d \
+    --hash=sha256:4b65538ae22f6fed0ce4874efd317463a7489796a0939fa66824dd542125a192
     # via lando (pyproject.toml)
 mots==0.13.3 \
     --hash=sha256:36bd000b451e221807fa8e87dcdff79ea14eaa3a18c912b01483f0419f34a492 \
