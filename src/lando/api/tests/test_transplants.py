@@ -709,8 +709,13 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
     assert job.landed_phabricator_revisions == {1: 1, 2: 2}
 
 
+@pytest.mark.parametrize(
+    "scm_type",
+    [SCMType.HG, SCMType.GIT],
+)
 @pytest.mark.django_db
 def test_integrated_transplant_records_approvers_peers_and_owners(
+    scm_type,
     user,
     authenticated_client,
     treestatusdouble,
@@ -721,12 +726,13 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     normal_patch,
     phabdouble,
     checkin_project,
-    git_landing_worker,
+    get_landing_worker,
     repo_mc,
 ):
-    repo = repo_mc(SCMType.GIT)
+    landing_worker = get_landing_worker(scm_type)
+    repo = repo_mc(scm_type)
     treestatusdouble.open_tree(repo.name)
-    git_landing_worker.worker_instance.applicable_repos.add(repo)
+    landing_worker.worker_instance.applicable_repos.add(repo)
 
     phabrepo = phabdouble.repo(name=repo.name)
     # Mock a few mots-related things needed by the landing worker.
@@ -780,7 +786,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     approved_by = [revision.data["approved_by"] for revision in job.revisions.all()]
     assert approved_by == [[101], [102]]
 
-    assert git_landing_worker.run_job(job)
+    assert landing_worker.run_job(job)
     assert job.landed_commit_id
 
     # Fetch Job data.
