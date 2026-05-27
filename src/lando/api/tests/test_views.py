@@ -1,6 +1,7 @@
 from unittest import mock
 
 import pytest
+from django.test import Client
 
 from lando.main.models import Repo, SCMType
 
@@ -204,7 +205,7 @@ def test__views__pull_request_api_view__private_repo(github_api_client, client):
 )
 def test__views__pull_request_content_api_view(
     github_api_client,
-    client,
+    authenticated_client,
     repo_mc,
     payload,
     expected_status,
@@ -219,13 +220,11 @@ def test__views__pull_request_content_api_view(
     github_api_client.return_value = mock_github_api_client
 
     mock_pull_request = mock.MagicMock()
-    mock_pull_request.title = "Hello"
-    mock_pull_request.body = "World"
 
     mock_github_api_client.build_pull_request.return_value = mock_pull_request
     mock_github_api_client.update_pull_request_content.return_value = payload
 
-    result = client.put(
+    result = authenticated_client.put(
         "/api/pulls/git-repo/100",
         data=payload,
         content_type="application/json",
@@ -239,3 +238,50 @@ def test__views__pull_request_content_api_view(
     else:
         for key, value in expected_response.items():
             assert response_json.get(key) == value
+
+
+@mock.patch("lando.api.views.GitHubAPIClient")
+@pytest.mark.django_db(transaction=True)
+def test__views__pull_request_content_api_view__unauthenticated(
+    github_api_client, client, repo_mc
+):
+    """An anonymous PUT should be rejected by the auth decorator."""
+    repo_mc(SCMType.GIT, name="git-repo")
+
+    mock_github_api_client = mock.MagicMock()
+    mock_github_api_client.repo_is_private = False
+    github_api_client.return_value = mock_github_api_client
+
+    result = client.put(
+        "/api/pulls/git-repo/100",
+        data={"title": "Valid New Title", "body": "Valid New Body"},
+        content_type="application/json",
+    )
+
+    assert result.status_code == 403
+    assert b"403 Forbidden" in result.content
+    assert b"CSRF" not in result.content
+
+
+@mock.patch("lando.api.views.GitHubAPIClient")
+@pytest.mark.django_db(transaction=True)
+def test__views__pull_request_content_api_view__missing_csrf_token(
+    github_api_client, user, user_plaintext_password, repo_mc
+):
+    """An authenticated PUT without a CSRF token should be rejected."""
+    repo_mc(SCMType.GIT, name="git-repo")
+
+    mock_github_api_client = mock.MagicMock()
+    mock_github_api_client.repo_is_private = False
+    github_api_client.return_value = mock_github_api_client
+
+    csrf_client = Client(enforce_csrf_checks=True)
+    csrf_client.login(username=user.username, password=user_plaintext_password)
+
+    result = csrf_client.put(
+        "/api/pulls/git-repo/100",
+        data={"title": "Valid New Title", "body": "Valid New Body"},
+        content_type="application/json",
+    )
+    assert result.status_code == 403
+    assert b"CSRF verification failed." in result.content
