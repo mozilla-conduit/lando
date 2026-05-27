@@ -1,5 +1,4 @@
 from django.conf import settings
-from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import Group, Permission, User
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
@@ -83,10 +82,10 @@ class Command(BaseCommand):
         user.user_permissions.add(add_automationjob)
         Group.objects.get(name=CONDUIT_ADMIN_GROUP_NAME).user_set.add(user)
         token = "a" * 128
+
         ApiToken.objects.create(
             user=user,
-            token_prefix=token[:8],
-            token_hash=make_password(token),
+            **ApiToken._get_token_parts(token),
         )
 
         self.stdout.write(self.style.SUCCESS(f"Token created for {user}"))
@@ -108,6 +107,8 @@ class Command(BaseCommand):
         except Group.DoesNotExist:
             conduit_admin = Group.objects.create(name=CONDUIT_ADMIN_GROUP_NAME)
             self.stdout.write(f"({conduit_admin}) created.")
+        for permission in Permission.objects.all():
+            conduit_admin.permissions.add(permission)
 
     def handle(self, *args, **options):
         if settings.ENVIRONMENT != Environment.local:
