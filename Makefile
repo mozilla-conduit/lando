@@ -33,6 +33,10 @@ help:
 	@echo "    test-use-suite       run the testsuite using the conduit-suite environment"
 	@echo "    test-use-local       run the testsuite using the local environment"
 
+.PHONY: build
+build:
+	$(DOCKER_COMPOSE) build
+
 .PHONY: test
 test: test-py test-js
 
