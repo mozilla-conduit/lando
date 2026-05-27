@@ -14,8 +14,15 @@ from lando.middleware import CONDUIT_ADMIN_GROUP_NAME
 class Command(BaseCommand):
     help = "Generate required database records used in dev."
 
+    @staticmethod
+    def _raise_if_not_local():
+        if settings.ENVIRONMENT != Environment.local:
+            raise CommandError("This method can not be triggered on this environment.")
+
     def setup_workers(self):
         """Ensure a git and an hg worker exist on the local environment."""
+        self._raise_if_not_local()
+
         # Set up workers for each SCM. Historically, the worker with no suffix is the landing worker.
         worker_scm_types = {
             SCMType.GIT: {
@@ -65,8 +72,7 @@ class Command(BaseCommand):
         # In case someone is trying to run this manually for whatever reason on a
         # different environment, raise an exception so an admin user with a weak
         # password is not accidentally created.
-        if settings.ENVIRONMENT != Environment.local:
-            raise CommandError("This method can not be triggered on this environment.")
+        self._raise_if_not_local()
 
         try:
             user = User.objects.get(username="admin")
@@ -98,9 +104,7 @@ class Command(BaseCommand):
         )
 
     def setup_groups(self):
-        if settings.ENVIRONMENT != Environment.local:
-            raise CommandError("This method can not be triggered on this environment.")
-
+        self._raise_if_not_local()
         try:
             conduit_admin = Group.objects.get(name=CONDUIT_ADMIN_GROUP_NAME)
             self.stdout.write(f"({conduit_admin}) found.")
@@ -111,8 +115,7 @@ class Command(BaseCommand):
             conduit_admin.permissions.add(permission)
 
     def handle(self, *args, **options):
-        if settings.ENVIRONMENT != Environment.local:
-            raise CommandError("This script can only be run on a local environment.")
+        self._raise_if_not_local()
         call_command("migrate")
         call_command("create_environment_repos", Environment.local.value)
         self.setup_workers()
