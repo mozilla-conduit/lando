@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build
-        run: docker build -t lando .
+        run: make build
       - name: Test
         run: make test-py
 
