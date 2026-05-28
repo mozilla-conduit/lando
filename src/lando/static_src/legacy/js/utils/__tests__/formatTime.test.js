@@ -52,4 +52,32 @@ describe("$.fn.formatTime", () => {
       "Wed, January 1, 2020 at 12:00 AM UTC (6 years ago)",
     ]);
   });
+
+  test("is a no-op when the selector matches no elements", () => {
+    document.body.innerHTML = "<div>untouched</div>";
+
+    const result = $("time[data-timestamp]").formatTime();
+
+    expect(result).toHaveLength(0);
+    expect($("div").text()).toBe("untouched");
+  });
+
+  test("throws when `data-timestamp` cannot be parsed as a date", () => {
+    document.body.innerHTML =
+      '<time data-timestamp="not-a-date"></time>';
+
+    expect(() => $("time[data-timestamp]").formatTime()).toThrow(RangeError);
+  });
+
+  test("throws when `data-timestamp` is empty", () => {
+    document.body.innerHTML = '<time data-timestamp=""></time>';
+
+    expect(() => $("time").formatTime()).toThrow(RangeError);
+  });
+
+  test("throws when the `data-timestamp` attribute is missing", () => {
+    document.body.innerHTML = "<time></time>";
+
+    expect(() => $("time").formatTime()).toThrow(RangeError);
+  });
 });
