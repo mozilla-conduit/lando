@@ -7,11 +7,11 @@ describe("$.fn.formatTime", () => {
     // Pin "now" to midnight UTC on January 1, 2026 so relative-time output
     // is deterministic. The `TZ=UTC` env var (set in the `test` npm script)
     // makes `toLocaleString` output deterministic across environments.
-    jest.useFakeTimers().setSystemTime(new Date("2026-01-01T00:00:00Z"));
+    vi.useFakeTimers().setSystemTime(new Date("2026-01-01T00:00:00Z"));
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   test("renders 'yesterday' for a timestamp from the prior day", () => {

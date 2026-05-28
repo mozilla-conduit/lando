@@ -23,7 +23,7 @@ help:
 	@echo "    help                 show this message and exit"
 	@echo "    format               run ruff and djLint on source code"
 	@echo "    test                 run the Python test suite"
-	@echo "    test-js              run the JavaScript test suite (Jest)"
+	@echo "    test-js              run the JavaScript test suite (Vitest)"
 	@echo "    migrations           generates migration files to reflect model changes in the database"
 	@echo "    upgrade-requirements upgrade packages in requirements.txt"
 	@echo "    upgrade-npm-packages update package-lock.json"
