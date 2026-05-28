@@ -62,22 +62,45 @@ describe("$.fn.formatTime", () => {
     expect($("div").text()).toBe("untouched");
   });
 
-  test("throws when `data-timestamp` cannot be parsed as a date", () => {
+  test("leaves the element alone when `data-timestamp` cannot be parsed", () => {
     document.body.innerHTML =
-      '<time data-timestamp="not-a-date"></time>';
+      '<time data-timestamp="not-a-date">fallback</time>';
 
-    expect(() => $("time[data-timestamp]").formatTime()).toThrow(RangeError);
+    $("time[data-timestamp]").formatTime();
+
+    expect($("time[data-timestamp]").text()).toBe("fallback");
   });
 
-  test("throws when `data-timestamp` is empty", () => {
-    document.body.innerHTML = '<time data-timestamp=""></time>';
+  test("leaves the element alone when `data-timestamp` is empty", () => {
+    document.body.innerHTML = '<time data-timestamp="">fallback</time>';
 
-    expect(() => $("time").formatTime()).toThrow(RangeError);
+    $("time").formatTime();
+
+    expect($("time").text()).toBe("fallback");
   });
 
-  test("throws when the `data-timestamp` attribute is missing", () => {
-    document.body.innerHTML = "<time></time>";
+  test("leaves the element alone when `data-timestamp` is missing", () => {
+    document.body.innerHTML = "<time>fallback</time>";
 
-    expect(() => $("time").formatTime()).toThrow(RangeError);
+    $("time").formatTime();
+
+    expect($("time").text()).toBe("fallback");
+  });
+
+  test("keeps processing subsequent elements after an invalid timestamp", () => {
+    document.body.innerHTML = `
+      <time data-timestamp="not-a-date">fallback</time>
+      <time data-timestamp="2020-01-01 00:00:00.000000+00:00"></time>
+    `;
+
+    $("time").formatTime();
+
+    const renderedTexts = $("time")
+      .map((_, element) => $(element).text())
+      .get();
+    expect(renderedTexts).toEqual([
+      "fallback",
+      "Wed, January 1, 2020 at 12:00 AM UTC (6 years ago)",
+    ]);
   });
 });
