@@ -1,6 +1,6 @@
 "use strict";
 
-require("../formatTime");
+import "@static_src/legacy/js/utils/formatTime";
 
 describe("$.fn.formatTime", () => {
   beforeEach(() => {
