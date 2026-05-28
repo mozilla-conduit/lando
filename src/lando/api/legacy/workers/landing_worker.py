@@ -483,10 +483,10 @@ class LandingWorker(Worker):
         command_args = [str(self.mach_path(repo_path))] + args
 
         subprocess_env = os.environ.copy()
-        if extra_env:
-            subprocess_env.update(extra_env)
-            if mozbuild_state_path := extra_env.get("MOZBUILD_STATE_PATH"):
-                Path(mozbuild_state_path).mkdir(parents=True, exist_ok=True)
+        subprocess_env.update(extra_env or {})
+
+        if extra_env and (mozbuild_state_path := extra_env.get("MOZBUILD_STATE_PATH")):
+            Path(mozbuild_state_path).mkdir(parents=True, exist_ok=True)
 
         try:
             logger.info("running mach command", extra={"command": command_args})
