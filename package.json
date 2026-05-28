@@ -2,6 +2,7 @@
   "name": "Lando",
   "description": "Unified Lando Project",
   "private": true,
+  "type": "module",
   "dependencies": {
     "bulma": "^1.0.4",
     "sass": "^1.97.0"

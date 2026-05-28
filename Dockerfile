@@ -47,16 +47,14 @@ COPY requirements.txt /code/requirements.txt
 RUN pip install -r /code/requirements.txt
 
 # Install npm dependencies (Bulma and Dart Sass) outside of /code so that
-# the compose volume mount (./:/code) doesn't hide them.
+# the compose volume mount (./:/code) doesn't hide them. Symlink to
+# `/node_modules` so both CJS and ESM module resolvers find the deps when
+# walking up from `/code` — `NODE_PATH` only works for CJS.
 COPY package.json package-lock.json /deps/
-RUN npm install --prefix /deps
+RUN npm install --prefix /deps && ln -s /deps/node_modules /node_modules
 
 # Add node_modules to PATH so `prettier` can be run directly.
 ENV PATH="/deps/node_modules/.bin:${PATH}"
-# Add node_modules to `NODE_PATH` so tests (Vitest) can resolve packages like
-# `jquery` by bare name — the host volume mount at `/code` hides any
-# `./node_modules`, so module resolution must fall back to `/deps`.
-ENV NODE_PATH="/deps/node_modules"
 
 # Copy code into the container.
 COPY ./ /code
