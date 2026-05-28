@@ -371,7 +371,7 @@ class LandingWorker(Worker):
                 landoini_config,
                 bug_ids,
                 should_amend_autoformat,
-                mach_env={"MOZBUILD_STATE_PATH": job.target_repo.mozbuild_state_path},
+                extra_env={"MOZBUILD_STATE_PATH": job.target_repo.mozbuild_state_path},
             )
         except AutoformattingException as exc:
             message = (
@@ -403,10 +403,10 @@ class LandingWorker(Worker):
         landoini_config: configparser.ConfigParser | None,
         bug_ids: list[str],
         should_amend_autoformat: bool,
-        mach_env: dict[str, str] | None = None,
+        extra_env: dict[str, str] | None = None,
     ) -> list[str] | None:
         try:
-            self.format_stack(landoini_config, scm.path, env=mach_env)
+            self.format_stack(landoini_config, scm.path, extra_env=extra_env)
         except AutoformattingException as exc:
             logger.warning("Failed to format the stack.")
             logger.exception(exc)
@@ -428,7 +428,7 @@ class LandingWorker(Worker):
         self,
         landoini_config: configparser.ConfigParser,
         repo_path: str,
-        env: dict[str, str] | None = None,
+        extra_env: dict[str, str] | None = None,
     ) -> None:
         """Format the patch stack for landing.
 
@@ -442,7 +442,7 @@ class LandingWorker(Worker):
             return None
 
         try:
-            self.run_code_formatters(repo_path, env=env)
+            self.run_code_formatters(repo_path, extra_env=extra_env)
         except subprocess.CalledProcessError as exc:
             logger.warning("Failed to run automated code formatters.")
             logger.exception(exc)
@@ -453,7 +453,7 @@ class LandingWorker(Worker):
             )
 
     def run_code_formatters(
-        self, repo_path: str, env: dict[str, str] | None = None
+        self, repo_path: str, extra_env: dict[str, str] | None = None
     ) -> str:
         """Run automated code formatters, returning the output of the process.
 
@@ -463,17 +463,18 @@ class LandingWorker(Worker):
         return self.run_mach_command(
             repo_path,
             ["format", "--fix", "--outgoing", "--verbose", "--skip-android"],
-            env=env,
+            extra_env=extra_env,
         )
 
     def run_mach_command(
-        self, repo_path: str, args: list[str], env: dict[str, str] | None = None
+        self, repo_path: str, args: list[str], extra_env: dict[str, str] | None = None
     ) -> str:
         """Run a command using the local `mach`, raising if it is missing.
 
-        If `env` contains `MOZBUILD_STATE_PATH`, the directory is created
-        before the subprocess runs so `mach` can write bootstrapped toolchains
-        and state there instead of the worker's homedir.
+        `extra_env` is merged on top of the current process environment rather
+        than replacing it. If it contains `MOZBUILD_STATE_PATH`, the directory
+        is created before the subprocess runs so `mach` can write bootstrapped
+        toolchains and state there instead of the worker's homedir.
         """
         if not self.mach_path(repo_path):
             raise Exception("No `mach` found in local repo!")
@@ -482,9 +483,9 @@ class LandingWorker(Worker):
         command_args = [str(self.mach_path(repo_path))] + args
 
         subprocess_env = os.environ.copy()
-        if env:
-            subprocess_env.update(env)
-            if mozbuild_state_path := env.get("MOZBUILD_STATE_PATH"):
+        if extra_env:
+            subprocess_env.update(extra_env)
+            if mozbuild_state_path := extra_env.get("MOZBUILD_STATE_PATH"):
                 Path(mozbuild_state_path).mkdir(parents=True, exist_ok=True)
 
         try:
@@ -559,7 +560,7 @@ class LandingWorker(Worker):
                 self.run_mach_command(
                     repo.path,
                     command,
-                    env={"MOZBUILD_STATE_PATH": repo.mozbuild_state_path},
+                    extra_env={"MOZBUILD_STATE_PATH": repo.mozbuild_state_path},
                 )
             except subprocess.CalledProcessError as exc:
                 logger.warning(

@@ -1186,7 +1186,7 @@ def test_format_stack_success_changed(
 
 @pytest.mark.django_db
 def test_run_mach_command_sets_mozbuild_state_path(tmp_path, git_landing_worker):
-    """`run_mach_command` should export `MOZBUILD_STATE_PATH` from `env`."""
+    """`run_mach_command` should export `MOZBUILD_STATE_PATH` from `extra_env`."""
     mozbuild_dir = tmp_path / "mozbuilds" / "test-repo"
 
     # `mach` echoes `$MOZBUILD_STATE_PATH` so we can verify it was exported.
@@ -1195,7 +1195,7 @@ def test_run_mach_command_sets_mozbuild_state_path(tmp_path, git_landing_worker)
     mach_file.chmod(0o755)
 
     output = git_landing_worker.run_mach_command(
-        str(tmp_path), [], env={"MOZBUILD_STATE_PATH": str(mozbuild_dir)}
+        str(tmp_path), [], extra_env={"MOZBUILD_STATE_PATH": str(mozbuild_dir)}
     )
 
     assert output.strip() == str(mozbuild_dir), (
