@@ -42,7 +42,9 @@ REPOS = {
             "pull_path": "http://git.test/test-repo",
             "push_path": "http://lando:password@git.test/test-repo",
             "required_permission": SCM_LEVEL_1,
+            "required_automation_permission": SCM_LEVEL_1,
             "scm_type": GitSCM.scm_type(),
+            "automation_enabled": True,
         },
         {
             "name": "test-repo",
