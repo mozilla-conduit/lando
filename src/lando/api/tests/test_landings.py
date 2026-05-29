@@ -1326,21 +1326,38 @@ def test_landing_job_revisions_sorting(
     assert list(job.revisions.all()) == new_ordering
 
 
+@pytest.mark.parametrize(
+    "scm_type,repo_name",
+    [
+        (SCMType.HG, "mozilla-central"),
+        (SCMType.GIT, "firefox"),
+    ],
+)
 @pytest.mark.django_db
 def test_worker_active_repos_updated_when_tree_closed(
+    scm_type,
+    repo_name,
     treestatusdouble,
     monkeypatch,
     get_landing_worker,
 ):
-    repo = Repo.objects.get(name="mozilla-central")
+    repo = Repo.objects.get(name=repo_name)
     treestatusdouble.open_tree(repo.name)
 
-    worker = get_landing_worker(SCMType.HG)
+    worker = get_landing_worker(scm_type)
     worker.refresh_active_repos()
-    assert repo in worker.active_repos
-    assert repo in worker.enabled_repos
+    assert repo in worker.active_repos, (
+        f"The {scm_type} repo should be active when its tree is open."
+    )
+    assert repo in worker.enabled_repos, (
+        f"The {scm_type} repo should be enabled when its tree is open."
+    )
 
     treestatusdouble.close_tree(repo.name)
     worker.refresh_active_repos()
-    assert repo not in worker.active_repos
-    assert repo in worker.enabled_repos
+    assert repo not in worker.active_repos, (
+        f"The {scm_type} repo should not be active when its tree is closed."
+    )
+    assert repo in worker.enabled_repos, (
+        f"The {scm_type} repo should still be enabled when its tree is closed."
+    )

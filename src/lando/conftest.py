@@ -852,6 +852,37 @@ def mocked_repo_config(mock_repo_config):
         milestone_tracking_flag_template="cf_status_firefox{milestone}",
     )
 
+    # Git versions of the mocked repos.
+    Repo.objects.create(
+        scm_type=SCMType.GIT,
+        name="firefox",
+        url="http://git.test/firefox",
+        required_permission=SCM_LEVEL_3,
+        approval_required=False,
+    )
+    Repo.objects.create(
+        scm_type=SCMType.GIT,
+        name="firefox-uplift",
+        url="http://git.test/firefox-uplift",
+        required_permission=SCM_LEVEL_3,
+        approval_required=True,
+    )
+    Repo.objects.create(
+        scm_type=SCMType.GIT,
+        name="firefox-new",
+        url="http://git.test/firefox-new",
+        required_permission=SCM_LEVEL_3,
+        commit_flags=[("VALIDFLAG1", "testing"), ("VALIDFLAG2", "testing")],
+    )
+    Repo.objects.create(
+        scm_type=SCMType.GIT,
+        name="firefox-uplift-target",
+        url="http://git.test/firefox-uplift-target",
+        required_permission=SCM_LEVEL_1,
+        approval_required=True,
+        milestone_tracking_flag_template="cf_status_firefox{milestone}",
+    )
+
 
 @pytest.fixture
 def mocked_repo_config_try(mock_repo_config):

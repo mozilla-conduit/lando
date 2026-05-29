@@ -1239,6 +1239,43 @@ def test_GitSCM_add_diff_from_patches(
     assert diff == expected_diff, "Did not generate expected diff from patches"
 
 
+def test_GitSCM_add_diff_from_patches__add_remove_files_multiple_commits(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    """Test that adding and removing a file in different commits results in an empty diff."""
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+
+    # Create a revision.patches equivalent.
+    some_file = clone_path / "some-file"
+    with some_file.open("w") as f:
+        f.write("this is a test")
+    subprocess.run(["git", "add", "-A"], cwd=clone_path)
+    subprocess.run(["git", "commit", "-m", "add file"], cwd=clone_path)
+    some_file.unlink()
+    subprocess.run(["git", "add", "-A"], cwd=clone_path)
+    subprocess.run(["git", "commit", "-m", "delete file"], cwd=clone_path)
+    patches = subprocess.run(
+        ["git", "format-patch", "HEAD^^", "--stdout"],
+        capture_output=True,
+        cwd=clone_path,
+    ).stdout.decode("utf-8")
+
+    # Reset repo back to origin.
+    subprocess.run(["git", "reset", "--hard", "origin/main"], cwd=clone_path)
+
+    # Generate diff.
+    diff = scm.add_diff_from_patches(patches)
+
+    assert diff == "", "diff should be an empty string since no files were added"
+
+
 @pytest.mark.parametrize("has_changes", (True, False))
 def test_GitSCM_format_stack_amend_with_changes(
     has_changes: bool,
