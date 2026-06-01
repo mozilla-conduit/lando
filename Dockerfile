@@ -47,12 +47,22 @@ COPY requirements.txt /code/requirements.txt
 RUN pip install -r /code/requirements.txt
 
 # Install npm dependencies (Bulma and Dart Sass) outside of /code so that
-# the compose volume mount (./:/code) doesn't hide them.
+# the compose volume mount (./:/code) doesn't hide them. Symlink to
+# `/node_modules` so both CJS and ESM module resolvers find the deps when
+# walking up from `/code` — `NODE_PATH` only works for CJS.
 COPY package.json package-lock.json /deps/
-RUN npm install --prefix /deps
+RUN npm install --prefix /deps && ln -s /deps/node_modules /node_modules
 
 # Add node_modules to PATH so `prettier` can be run directly.
 ENV PATH="/deps/node_modules/.bin:${PATH}"
+
+# Copy vendored static dependencies from `node_modules` into a curated location
+# outside of `/code` so this layer caches with `npm install` instead of being
+# invalidated on every source change. Django reads this path from
+# `STATICFILES_DIRS` in `settings.py`.
+RUN mkdir -p /static_vendor \
+    && cp -r /deps/node_modules/font-awesome /static_vendor/font-awesome \
+    && cp -r /deps/node_modules/jquery/dist /static_vendor/jquery
 
 # Copy code into the container.
 COPY ./ /code

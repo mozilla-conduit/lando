@@ -25,6 +25,14 @@ class ApiToken(BaseModel):
     # If the token is considered valid, or has been revoked.
     is_valid = models.BooleanField(default=True)
 
+    @staticmethod
+    def _get_token_parts(token: str) -> dict[str, str]:
+        """Return a prefix (for indexing) and the hash (for verification)."""
+        return {
+            "token_prefix": token[:API_TOKEN_PREFIX_LENGTH],
+            "token_hash": make_password(token),
+        }
+
     @classmethod
     def create_token(cls, user: User) -> str:
         """Generate a token for the given user.
@@ -32,17 +40,9 @@ class ApiToken(BaseModel):
         Generate a secure token for the given `user` and store in the
         database. The token is returned in full for display.
         """
-        # Generate the secure token.
+        # Generate a secure token.
         token = secrets.token_hex(nbytes=20)
-
-        # Note the prefix for the index.
-        token_prefix = token[:API_TOKEN_PREFIX_LENGTH]
-
-        # Create the hashed/salted token.
-        token_hash = make_password(token)
-
-        cls.objects.create(user=user, token_prefix=token_prefix, token_hash=token_hash)
-
+        cls.objects.create(user=user, **cls._get_token_parts(token))
         return token
 
     @classmethod

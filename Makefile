@@ -22,7 +22,9 @@ help:
 	@echo "target is one of:"
 	@echo "    help                 show this message and exit"
 	@echo "    format               run ruff and djLint on source code"
-	@echo "    test                 run the test suite"
+	@echo "    test                 run the Python and JavaScript test suites"
+	@echo "    test-py              run the Python test suite"
+	@echo "    test-js              run the JavaScript test suite (Vitest)"
 	@echo "    migrations           generates migration files to reflect model changes in the database"
 	@echo "    upgrade-requirements upgrade packages in requirements.txt"
 	@echo "    upgrade-npm-packages update package-lock.json"
@@ -32,8 +34,15 @@ help:
 	@echo "    test-use-local       run the testsuite using the local environment"
 
 .PHONY: test
-test:
+test: test-py test-js
+
+.PHONY: test-py
+test-py:
 	$(BASE_COMMAND) lando tests $(ARGS_TESTS)
+
+.PHONY: test-js
+test-js:
+	$(BASE_COMMAND) npm test
 
 .PHONY: test-use-suite
 test-use-suite:

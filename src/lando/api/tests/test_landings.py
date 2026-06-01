@@ -1184,6 +1184,28 @@ def test_format_stack_success_changed(
     )
 
 
+@pytest.mark.django_db
+def test_run_mach_command_sets_mozbuild_state_path(tmp_path, git_landing_worker):
+    """`run_mach_command` should export `MOZBUILD_STATE_PATH` from `extra_env`."""
+    mozbuild_dir = tmp_path / "mozbuilds" / "test-repo"
+
+    # `mach` echoes `$MOZBUILD_STATE_PATH` so we can verify it was exported.
+    mach_file = tmp_path / "mach"
+    mach_file.write_text('#!/bin/sh\necho "$MOZBUILD_STATE_PATH"\n')
+    mach_file.chmod(0o755)
+
+    output = git_landing_worker.run_mach_command(
+        str(tmp_path), [], extra_env={"MOZBUILD_STATE_PATH": str(mozbuild_dir)}
+    )
+
+    assert output.strip() == str(mozbuild_dir), (
+        "`MOZBUILD_STATE_PATH` should be set in the subprocess env."
+    )
+    assert mozbuild_dir.is_dir(), (
+        "`run_mach_command` should create the `MOZBUILD_STATE_PATH` directory."
+    )
+
+
 @pytest.mark.parametrize(
     "repo_type",
     [
@@ -1326,21 +1348,38 @@ def test_landing_job_revisions_sorting(
     assert list(job.revisions.all()) == new_ordering
 
 
+@pytest.mark.parametrize(
+    "scm_type,repo_name",
+    [
+        (SCMType.HG, "mozilla-central"),
+        (SCMType.GIT, "firefox"),
+    ],
+)
 @pytest.mark.django_db
 def test_worker_active_repos_updated_when_tree_closed(
+    scm_type,
+    repo_name,
     treestatusdouble,
     monkeypatch,
     get_landing_worker,
 ):
-    repo = Repo.objects.get(name="mozilla-central")
+    repo = Repo.objects.get(name=repo_name)
     treestatusdouble.open_tree(repo.name)
 
-    worker = get_landing_worker(SCMType.HG)
+    worker = get_landing_worker(scm_type)
     worker.refresh_active_repos()
-    assert repo in worker.active_repos
-    assert repo in worker.enabled_repos
+    assert repo in worker.active_repos, (
+        f"The {scm_type} repo should be active when its tree is open."
+    )
+    assert repo in worker.enabled_repos, (
+        f"The {scm_type} repo should be enabled when its tree is open."
+    )
 
     treestatusdouble.close_tree(repo.name)
     worker.refresh_active_repos()
-    assert repo not in worker.active_repos
-    assert repo in worker.enabled_repos
+    assert repo not in worker.active_repos, (
+        f"The {scm_type} repo should not be active when its tree is closed."
+    )
+    assert repo in worker.enabled_repos, (
+        f"The {scm_type} repo should still be enabled when its tree is closed."
+    )

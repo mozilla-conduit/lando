@@ -1,5 +1,6 @@
 import configparser
 import logging
+import os
 import subprocess
 from pathlib import Path
 
@@ -370,6 +371,7 @@ class LandingWorker(Worker):
                 landoini_config,
                 bug_ids,
                 should_amend_autoformat,
+                extra_env={"MOZBUILD_STATE_PATH": job.target_repo.mozbuild_state_path},
             )
         except AutoformattingException as exc:
             message = (
@@ -401,9 +403,10 @@ class LandingWorker(Worker):
         landoini_config: configparser.ConfigParser | None,
         bug_ids: list[str],
         should_amend_autoformat: bool,
+        extra_env: dict[str, str] | None = None,
     ) -> list[str] | None:
         try:
-            self.format_stack(landoini_config, scm.path)
+            self.format_stack(landoini_config, scm.path, extra_env=extra_env)
         except AutoformattingException as exc:
             logger.warning("Failed to format the stack.")
             logger.exception(exc)
@@ -422,7 +425,10 @@ class LandingWorker(Worker):
         return replacements
 
     def format_stack(
-        self, landoini_config: configparser.ConfigParser, repo_path: str
+        self,
+        landoini_config: configparser.ConfigParser,
+        repo_path: str,
+        extra_env: dict[str, str] | None = None,
     ) -> None:
         """Format the patch stack for landing.
 
@@ -436,7 +442,7 @@ class LandingWorker(Worker):
             return None
 
         try:
-            self.run_code_formatters(repo_path)
+            self.run_code_formatters(repo_path, extra_env=extra_env)
         except subprocess.CalledProcessError as exc:
             logger.warning("Failed to run automated code formatters.")
             logger.exception(exc)
@@ -446,23 +452,41 @@ class LandingWorker(Worker):
                 details=exc.stdout,
             )
 
-    def run_code_formatters(self, path: str) -> str:
+    def run_code_formatters(
+        self, repo_path: str, extra_env: dict[str, str] | None = None
+    ) -> str:
         """Run automated code formatters, returning the output of the process.
 
         Changes made by code formatters are applied to the working directory and
         are not committed into version control.
         """
         return self.run_mach_command(
-            path, ["format", "--fix", "--outgoing", "--verbose", "--skip-android"]
+            repo_path,
+            ["format", "--fix", "--outgoing", "--verbose", "--skip-android"],
+            extra_env=extra_env,
         )
 
-    def run_mach_command(self, path: str, args: list[str]) -> str:
-        """Run a command using the local `mach`, raising if it is missing."""
-        if not self.mach_path(path):
+    def run_mach_command(
+        self, repo_path: str, args: list[str], extra_env: dict[str, str] | None = None
+    ) -> str:
+        """Run a command using the local `mach`, raising if it is missing.
+
+        `extra_env` is merged on top of the current process environment rather
+        than replacing it. If it contains `MOZBUILD_STATE_PATH`, the directory
+        is created before the subprocess runs so `mach` can write bootstrapped
+        toolchains and state there instead of the worker's homedir.
+        """
+        if not self.mach_path(repo_path):
             raise Exception("No `mach` found in local repo!")
 
         # Convert to `str` here so we can log the mach path.
-        command_args = [str(self.mach_path(path))] + args
+        command_args = [str(self.mach_path(repo_path))] + args
+
+        subprocess_env = os.environ.copy()
+        subprocess_env.update(extra_env or {})
+
+        if extra_env and (mozbuild_state_path := extra_env.get("MOZBUILD_STATE_PATH")):
+            Path(mozbuild_state_path).mkdir(parents=True, exist_ok=True)
 
         try:
             logger.info("running mach command", extra={"command": command_args})
@@ -471,9 +495,10 @@ class LandingWorker(Worker):
                 command_args,
                 capture_output=True,
                 check=True,
-                cwd=path,
+                cwd=repo_path,
                 encoding="utf-8",
                 universal_newlines=True,
+                env=subprocess_env,
             )
 
             logger.info(
@@ -532,7 +557,11 @@ class LandingWorker(Worker):
 
         for repo in repos:
             try:
-                self.run_mach_command(repo.path, command)
+                self.run_mach_command(
+                    repo.path,
+                    command,
+                    extra_env={"MOZBUILD_STATE_PATH": repo.mozbuild_state_path},
+                )
             except subprocess.CalledProcessError as exc:
                 logger.warning(
                     f"Error `running mach` bootstrap for repo {repo.name}: {exc}"

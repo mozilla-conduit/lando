@@ -17,4 +17,13 @@ jobs:
       - name: Build
         run: docker build -t lando .
       - name: Test
-        run: make test
+        run: make test-py
+
+  test-js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: docker build -t lando .
+      - name: Test
+        run: make test-js

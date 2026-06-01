@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Callable
 from unittest import mock
 from unittest.mock import MagicMock, patch
@@ -346,6 +347,14 @@ def test_repo_default_branch_to_scm(branch: str, expected_branch: str):
 
     # repo.scm here is a GitSCM
     assert repo.scm.default_branch == expected_branch
+
+
+def test__models__Repo__mozbuild_state_path():
+    """`mozbuild_state_path` should return a per-repo subdir of `MOZBUILDS_ROOT`."""
+    repo = Repo(name="firefox-autoland")
+
+    expected = str(Path(settings.MOZBUILDS_ROOT) / "firefox-autoland")
+    assert repo.mozbuild_state_path == expected
 
 
 @pytest.mark.django_db(transaction=True)

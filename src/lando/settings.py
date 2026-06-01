@@ -194,9 +194,11 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = "staticfiles"
 
-# Directories to include in static file collection.
+# Directories to include in static file collection. `/static_vendor` is
+# populated from `node_modules` during the Docker build (see `Dockerfile`).
 STATICFILES_DIRS = [
     BASE_DIR / "static_src",
+    Path("/static_vendor"),
 ]
 
 STATICFILES_FINDERS = [
@@ -228,6 +230,7 @@ MEDIA_URL = "media/"
 MEDIA_ROOT = "/files"
 
 REPO_ROOT = f"{MEDIA_ROOT}/repos"
+MOZBUILDS_ROOT = f"{MEDIA_ROOT}/mozbuilds"
 
 SITE_URL = os.getenv("SITE_URL", "https://lando.test")
 
