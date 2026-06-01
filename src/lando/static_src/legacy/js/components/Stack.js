@@ -254,13 +254,17 @@ $.fn.stack = function () {
           document.getElementById("post-landing-job").disabled = true;
 
           textareaTitle.addEventListener("input", function () {
-            document.getElementById("commit-title").classList.remove("is-danger");
+            document
+              .getElementById("commit-title")
+              .classList.remove("is-danger");
             document.getElementById("commit-title-error").textContent = "";
             save_edit_pr_button.disabled = false;
           });
 
           textareaBody.addEventListener("input", function () {
-            document.getElementById("commit-body").classList.remove("is-danger");
+            document
+              .getElementById("commit-body")
+              .classList.remove("is-danger");
             document.getElementById("commit-body-error").textContent = "";
             save_edit_pr_button.disabled = false;
           });
