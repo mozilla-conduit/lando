@@ -86,7 +86,7 @@ addopts = ["--cov", "--cov-report", "html", "--no-migrations"]
 [tool.djlint]
 profile = "jinja"
 
-# Avoid templating vendored code and coverage reports.
-extend_exclude = "src/lando/static_src/legacy/vendor/.*|htmlcov/.*"
+# Avoid templating coverage reports.
+extend_exclude = "htmlcov/.*"
 
 # Ruff settings are in ruff.toml.

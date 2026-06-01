@@ -5,6 +5,8 @@
   "type": "module",
   "dependencies": {
     "bulma": "^1.0.4",
+    "font-awesome": "^4.7.0",
+    "jquery": "^3.7.1",
     "sass": "^1.97.0"
   },
   "//": [
