@@ -23,7 +23,7 @@ help:                 ## show this message and exit
 	@echo "usage: make <target>"
 	@echo
 	@echo "target is one of:"
-	@sed -n 's/\(^[^	:]*\+\):\(\s*\)## \(.*\)$$/    \1\2\3/p' Makefile
+	@sed -n 's/\(^[^	:]*\+\):\(\s*\)##\s*\(.*\)$$/    \1\2\3/p' Makefile
 
 .PHONY: add-requirements
 add-requirements:     ## add-requirements
@@ -53,11 +53,11 @@ test:                 ## run the Python and JavaScript test suites
 test: test-py test-js
 
 .PHONY: test-js
-test-js:              ## run the JavaScript test suite (Vitest)"
+test-js:              ## run the JavaScript test suite (Vitest)
 	$(BASE_COMMAND) npm test
 
 .PHONY: test-py
-test-py:              ##run the Python test suite"
+test-py:              ##run the Python test suite
 	$(BASE_COMMAND) lando tests $(ARGS_TESTS)
 
 .PHONY: test-use-local
