@@ -286,8 +286,17 @@ class Repo(BaseModel):
         return self._scm
 
     def get_system_path(self) -> str:
-        """Calculate system path based on REPO_ROOT and repository name."""
+        """Calculate system path based on `REPO_ROOT` and repository name."""
         return str(Path(settings.REPO_ROOT) / self.name)
+
+    @property
+    def mozbuild_state_path(self) -> str:
+        """Calculate the per-checkout `MOZBUILD_STATE_PATH` for this repo.
+
+        Lives under `MOZBUILDS_ROOT` so that `mach` toolchains and bootstrapped
+        state are isolated per repo rather than sharing the worker's homedir.
+        """
+        return str(Path(settings.MOZBUILDS_ROOT) / self.name)
 
     @property
     def _method_not_supported_for_repo_error(self) -> RepoError:
