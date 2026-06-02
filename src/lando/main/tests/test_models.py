@@ -357,6 +357,21 @@ def test__models__Repo__mozbuild_state_path():
     assert repo.mozbuild_state_path == expected
 
 
+def test__models__Repo__default_autoformat_setup_commands():
+    """A new repo should default to fetching toolchains via `mach artifact`."""
+    repo = Repo(name="firefox-autoland")
+
+    expected = [
+        ["artifact", "toolchain", "--from-build", "linux64-clang-tidy"],
+        ["artifact", "toolchain", "--from-build", "linux64-node"],
+        ["artifact", "toolchain", "--from-build", "linux64-rust"],
+        ["lint", "--setup", "-l", "eslint"],
+    ]
+    assert repo.autoformat_setup_commands == expected, (
+        "Default `autoformat_setup_commands` should be the artifact-toolchain sequence."
+    )
+
+
 @pytest.mark.django_db(transaction=True)
 def test__models__CommitMap___find_last_node(commit_maps):
     assert commit_maps[-1] == CommitMap._find_last_node("git_repo")

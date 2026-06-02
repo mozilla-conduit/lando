@@ -51,6 +51,22 @@ class RepoError(Exception):
     pass
 
 
+def get_default_autoformat_setup_commands() -> list[list[str]]:
+    """Return the default autoformat setup command sequence for a repo.
+
+    Each inner list is a single `./mach` invocation (without the `./mach` prefix),
+    run in order at worker startup to install this repo's formatter toolchains. We
+    fetch each toolchain as a CI artifact via `mach artifact toolchain`, which resolves
+    the alias to the version built for the repo's branch.
+    """
+    return [
+        ["artifact", "toolchain", "--from-build", "linux64-clang-tidy"],
+        ["artifact", "toolchain", "--from-build", "linux64-node"],
+        ["artifact", "toolchain", "--from-build", "linux64-rust"],
+        ["lint", "--setup", "-l", "eslint"],
+    ]
+
+
 def get_default_hooks() -> list[str]:
     """Returns a list of all known hook names, suitable as a default value.
 
@@ -162,6 +178,15 @@ class Repo(BaseModel):
 
     approval_required = models.BooleanField(default=False)
     autoformat_enabled = models.BooleanField(default=False)
+    autoformat_setup_commands = models.JSONField(
+        default=get_default_autoformat_setup_commands,
+        help_text=(
+            "Ordered list of command arg-lists run at worker startup to set up this "
+            "repo's formatter toolchains. Each entry is a list of arguments passed to "
+            "`./mach` (without `./mach` itself). Only used when `autoformat_enabled` "
+            "is set."
+        ),
+    )
     commit_flags = ArrayField(
         ArrayField(
             models.CharField(max_length=255, blank=True),
