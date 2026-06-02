@@ -51,6 +51,22 @@ class RepoError(Exception):
     pass
 
 
+def get_default_autoformat_setup_commands() -> list[list[str]]:
+    """Return the default autoformat setup command sequence for a repo.
+
+    Each inner list is a single `./mach` invocation (without the `./mach` prefix),
+    run in order at worker startup to install this repo's formatter toolchains. We
+    fetch each toolchain as a CI artifact via `mach artifact toolchain`, which resolves
+    the alias to the version built for the repo's branch.
+    """
+    return [
+        ["artifact", "toolchain", "--from-build", "linux64-clang-tidy"],
+        ["artifact", "toolchain", "--from-build", "linux64-node"],
+        ["artifact", "toolchain", "--from-build", "linux64-rust"],
+        ["lint", "--setup", "-l", "eslint"],
+    ]
+
+
 def get_default_hooks() -> list[str]:
     """Returns a list of all known hook names, suitable as a default value.
 
@@ -162,6 +178,17 @@ class Repo(BaseModel):
 
     approval_required = models.BooleanField(default=False)
     autoformat_enabled = models.BooleanField(default=False)
+    autoformat_setup_commands = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "Ordered list of command arg-lists run at worker startup to set up this "
+            "repo's formatter toolchains. Each entry is a list of arguments passed to "
+            "`./mach` (without `./mach` itself). Populated with the default "
+            "`mach artifact` sequence on save when `autoformat_enabled` is set, unless "
+            "explicitly provided; left empty otherwise."
+        ),
+    )
     commit_flags = ArrayField(
         ArrayField(
             models.CharField(max_length=255, blank=True),
@@ -335,6 +362,11 @@ class Repo(BaseModel):
         # Set commit flags to an empty list, if not set already.
         if not self.commit_flags:
             self.commit_flags = []
+
+        # Populate the default toolchain setup sequence when autoformatting is enabled,
+        # but leave non-autoformat repos with an empty sequence.
+        if self.autoformat_enabled and not self.autoformat_setup_commands:
+            self.autoformat_setup_commands = get_default_autoformat_setup_commands()
 
         # Append a ".git" to the URL if this is a GitHub repo and is missing the suffix.
         if self.is_github and not self.url.endswith(".git"):

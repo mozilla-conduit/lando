@@ -548,26 +548,27 @@ class LandingWorker(Worker):
         """Optional method to bootstrap repositories in the the work directory."""
         logger.info("Bootstrapping applicable repos...")
         repos = self.worker_instance.enabled_repos.filter(autoformat_enabled=True)
-        command = [
-            "bootstrap",
-            "--no-system-changes",
-            "--application-choice",
-            "browser",
-        ]
 
         for repo in repos:
-            try:
-                self.run_mach_command(
-                    repo.path,
-                    command,
-                    extra_env={"MOZBUILD_STATE_PATH": repo.mozbuild_state_path},
-                )
-            except subprocess.CalledProcessError as exc:
-                logger.warning(
-                    f"Error `running mach` bootstrap for repo {repo.name}: {exc}"
-                )
-            except Exception as exc:
-                sentry_sdk.capture_exception(exc)
-                logger.warning(
-                    f"Unexpected error running `mach bootstrap` for repo {repo.name}: {exc}"
-                )
+            # Each repo defines its own ordered command sequence to install formatter
+            # toolchains. We run them in order, isolating failures per command so one
+            # missing toolchain doesn't abort the rest.
+            for command in repo.autoformat_setup_commands:
+                command_string = " ".join(command)
+                try:
+                    self.run_mach_command(
+                        repo.path,
+                        command,
+                        extra_env={"MOZBUILD_STATE_PATH": repo.mozbuild_state_path},
+                    )
+                except subprocess.CalledProcessError as exc:
+                    logger.warning(
+                        f"Error running `mach {command_string}` for repo "
+                        f"{repo.name}: {exc}"
+                    )
+                except Exception as exc:
+                    sentry_sdk.capture_exception(exc)
+                    logger.warning(
+                        f"Unexpected error running `mach {command_string}` for repo "
+                        f"{repo.name}: {exc}"
+                    )

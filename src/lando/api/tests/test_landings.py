@@ -1,6 +1,7 @@
 import io
 import itertools
 import re
+import subprocess
 import unittest.mock as mock
 from typing import Callable
 
@@ -1203,6 +1204,58 @@ def test_run_mach_command_sets_mozbuild_state_path(tmp_path, git_landing_worker)
     )
     assert mozbuild_dir.is_dir(), (
         "`run_mach_command` should create the `MOZBUILD_STATE_PATH` directory."
+    )
+
+
+@pytest.mark.django_db
+def test_bootstrap_repos_runs_configured_command_sequence(repo_mc, git_landing_worker):
+    commands = [
+        ["artifact", "toolchain", "--from-build", "linux64-rust"],
+        ["lint", "--setup", "-l", "eslint"],
+    ]
+    repo = repo_mc(
+        SCMType.GIT,
+        name="test-bootstrap-git",
+        autoformat_enabled=True,
+        autoformat_setup_commands=commands,
+    )
+    git_landing_worker.worker_instance.applicable_repos.set([repo])
+
+    with mock.patch.object(
+        git_landing_worker,
+        "run_mach_command",
+        side_effect=[subprocess.CalledProcessError(1, "mach"), "ok"],
+    ) as run_mach:
+        # `bootstrap_repos` should swallow the failure and keep going.
+        git_landing_worker.bootstrap_repos()
+
+    expected_env = {"MOZBUILD_STATE_PATH": repo.mozbuild_state_path}
+    assert run_mach.call_args_list == [
+        mock.call(repo.path, commands[0], extra_env=expected_env),
+        mock.call(repo.path, commands[1], extra_env=expected_env),
+    ], (
+        "Each configured bootstrap command should run in order with the repo's state "
+        "path, and a failing command should not abort the remaining commands."
+    )
+
+
+@pytest.mark.django_db
+def test_bootstrap_repos_uses_artifact_default(repo_mc, git_landing_worker):
+    """A repo without overrides bootstraps via the default `mach artifact` sequence."""
+    repo = repo_mc(
+        SCMType.GIT, name="test-bootstrap-default-git", autoformat_enabled=True
+    )
+    git_landing_worker.worker_instance.applicable_repos.set([repo])
+
+    with mock.patch.object(git_landing_worker, "run_mach_command") as run_mach:
+        git_landing_worker.bootstrap_repos()
+
+    ran_commands = [call.args[1] for call in run_mach.call_args_list]
+    assert ran_commands == repo.autoformat_setup_commands, (
+        "Default bootstrap should run the artifact-toolchain sequence."
+    )
+    assert ["artifact", "toolchain", "--from-build", "linux64-rust"] in ran_commands, (
+        "Default bootstrap should fetch the `rust` toolchain via `mach artifact`."
     )
 
 
