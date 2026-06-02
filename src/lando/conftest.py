@@ -666,6 +666,7 @@ def hg_repo_mc(
     hooks: list[str] | None = None,
     hooks_to_disable: list[str] | None = None,
     is_try: bool = True,
+    autoformat_setup_commands: list[list[str]] | None = None,
     name: str = "",
     push_target: str = "",
 ) -> Repo:
@@ -686,6 +687,9 @@ def hg_repo_mc(
         # We only set "hooks" below, if not empty.
         "push_target": push_target,
     }
+    if autoformat_setup_commands is not None:
+        # There's a sane default on the model, so only override when explicitly given.
+        params["autoformat_setup_commands"] = autoformat_setup_commands
     if hooks:
         # There's a sane default in the fixture we call, so we don't want to override it
         # with None if nothing explicit it given.
@@ -715,6 +719,7 @@ def git_repo_mc(
     hooks: list[str] | None = None,
     hooks_to_disable: list[str] | None = None,
     is_try: bool = False,
+    autoformat_setup_commands: list[list[str]] | None = None,
     name: str = "",
     pr_enabled: bool = False,
     push_target: str = "",
@@ -741,6 +746,9 @@ def git_repo_mc(
         # We only set "hooks" below, if not empty.
         "push_target": push_target,
     }
+    if autoformat_setup_commands is not None:
+        # There's a sane default on the model, so only override when explicitly given.
+        params["autoformat_setup_commands"] = autoformat_setup_commands
     if hooks:
         # There's a sane default in the fixture we call, so we don't want to override it
         # with None if nothing explicit it given.
@@ -778,6 +786,7 @@ def repo_mc(
         hooks: list[str] | None = None,
         hooks_to_disable: list[str] | None = None,
         is_try: bool = False,
+        autoformat_setup_commands: list[list[str]] | None = None,
         name: str = "",
         pr_enabled: bool = False,
         push_target: str = "",
@@ -795,6 +804,7 @@ def repo_mc(
             "hooks": hooks or [],
             "hooks_to_disable": hooks_to_disable or default_hooks_to_disable,
             "is_try": is_try,
+            "autoformat_setup_commands": autoformat_setup_commands,
             "force_push": force_push,
             "name": name,
             "push_target": push_target,
