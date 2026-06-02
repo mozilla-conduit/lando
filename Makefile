@@ -17,7 +17,7 @@ endif
 # Any target with an inline comment introduced with `##` will be shown here.
 # Keeping `##` markers aligned in this file will ensure the output is aligned, too.
 .PHONY: help
-help:                 ## show this message and exit
+help: ## show this message and exit
 	@$(DOCKER) --version
 	@$(DOCKER_COMPOSE) version
 	@echo "usage: make <target>"
@@ -26,11 +26,11 @@ help:                 ## show this message and exit
 	@sed -n 's/\(^[^	:]*\+\):\s*##\s*\(.*\)$$/    :\1:\2/p' Makefile | column --table --separator :
 
 .PHONY: add-requirements
-add-requirements:     ## add-requirements
+add-requirements: ## add-requirements
 	$(BASE_COMMAND) lando generate_requirements
 
 .PHONY: attach
-attach:               ## attach for debugging (ctrl-p ctrl-q to detach)
+attach: ## attach for debugging (ctrl-p ctrl-q to detach)
 ifeq ($(INSUITE), 1)
 	-@docker attach suite-lando-1 ||:
 else
@@ -38,34 +38,34 @@ else
 endif
 
 .PHONY: build
-build:                ## build the container images
+build: ## build the container images
 	$(DOCKER_COMPOSE) build
 
 .PHONY: format
-format:               ## run ruff and djLint on source code
+format: ## run ruff and djLint on source code
 	$(BASE_COMMAND) lando format
 .PHONY: migrations
-migrations:           ## generates migration files to reflect model changes in the database
+migrations: ## generates migration files to reflect model changes in the database
 	$(BASE_COMMAND) lando makemigrations
 
 .PHONY: test
-test:                 ## run the Python and JavaScript test suites
+test: ## run the Python and JavaScript test suites
 test: test-py test-js
 
 .PHONY: test-js
-test-js:              ## run the JavaScript test suite (Vitest)
+test-js: ## run the JavaScript test suite (Vitest)
 	$(BASE_COMMAND) npm test
 
 .PHONY: test-py
-test-py:              ##run the Python test suite
+test-py: ##run the Python test suite
 	$(BASE_COMMAND) lando tests $(ARGS_TESTS)
 
 .PHONY: test-use-local
-test-use-local:       ## run the testsuite using the local environment
+test-use-local: ## run the testsuite using the local environment
 	rm -f ${SUITE_STAMP}
 
 .PHONY: test-use-suite
-test-use-suite:       ## run the testsuite using the conduit-suite environment
+test-use-suite: ## run the testsuite using the conduit-suite environment
 	echo 1 > ${SUITE_STAMP}
 
 .PHONY: upgrade-npm-packages
