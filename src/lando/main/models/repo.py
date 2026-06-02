@@ -179,12 +179,14 @@ class Repo(BaseModel):
     approval_required = models.BooleanField(default=False)
     autoformat_enabled = models.BooleanField(default=False)
     autoformat_setup_commands = models.JSONField(
-        default=get_default_autoformat_setup_commands,
+        default=list,
+        blank=True,
         help_text=(
             "Ordered list of command arg-lists run at worker startup to set up this "
             "repo's formatter toolchains. Each entry is a list of arguments passed to "
-            "`./mach` (without `./mach` itself). Only used when `autoformat_enabled` "
-            "is set."
+            "`./mach` (without `./mach` itself). Populated with the default "
+            "`mach artifact` sequence on save when `autoformat_enabled` is set, unless "
+            "explicitly provided; left empty otherwise."
         ),
     )
     commit_flags = ArrayField(
@@ -360,6 +362,11 @@ class Repo(BaseModel):
         # Set commit flags to an empty list, if not set already.
         if not self.commit_flags:
             self.commit_flags = []
+
+        # Populate the default toolchain setup sequence when autoformatting is enabled,
+        # but leave non-autoformat repos with an empty sequence.
+        if self.autoformat_enabled and not self.autoformat_setup_commands:
+            self.autoformat_setup_commands = get_default_autoformat_setup_commands()
 
         # Append a ".git" to the URL if this is a GitHub repo and is missing the suffix.
         if self.is_github and not self.url.endswith(".git"):

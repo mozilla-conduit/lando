@@ -10,6 +10,7 @@ from django.contrib.auth.models import Permission, User
 from django.core.exceptions import ValidationError
 
 from lando.main.models import CommitMap, Repo
+from lando.main.models.repo import get_default_autoformat_setup_commands
 from lando.main.models.revision import Revision
 from lando.main.scm import SCMType
 from lando.utils.landing_checks import (
@@ -357,18 +358,48 @@ def test__models__Repo__mozbuild_state_path():
     assert repo.mozbuild_state_path == expected
 
 
-def test__models__Repo__default_autoformat_setup_commands():
-    """A new repo should default to fetching toolchains via `mach artifact`."""
-    repo = Repo(name="firefox-autoland")
+@pytest.mark.django_db
+def test__models__Repo__autoformat_setup_commands_empty_without_autoformat():
+    """A repo without autoformatting enabled keeps an empty setup sequence."""
+    repo = Repo(name="no-autoformat", url="http://example.com", scm_type=SCMType.GIT)
+    repo.save()
 
-    expected = [
-        ["artifact", "toolchain", "--from-build", "linux64-clang-tidy"],
-        ["artifact", "toolchain", "--from-build", "linux64-node"],
-        ["artifact", "toolchain", "--from-build", "linux64-rust"],
-        ["lint", "--setup", "-l", "eslint"],
-    ]
-    assert repo.autoformat_setup_commands == expected, (
-        "Default `autoformat_setup_commands` should be the artifact-toolchain sequence."
+    assert repo.autoformat_setup_commands == [], (
+        "A repo without `autoformat_enabled` should have no setup commands."
+    )
+
+
+@pytest.mark.django_db
+def test__models__Repo__autoformat_setup_commands_set_on_save():
+    """Enabling autoformatting populates the default `mach artifact` sequence on save."""
+    repo = Repo(
+        name="firefox-autoland",
+        url="http://example.com",
+        scm_type=SCMType.GIT,
+        autoformat_enabled=True,
+    )
+    repo.save()
+
+    assert repo.autoformat_setup_commands == get_default_autoformat_setup_commands(), (
+        "Enabling autoformatting should populate the default setup sequence on save."
+    )
+
+
+@pytest.mark.django_db
+def test__models__Repo__autoformat_setup_commands_not_overwritten():
+    """An explicitly-set setup sequence is preserved on save."""
+    custom = [["artifact", "toolchain", "--from-build", "linux64-rust"]]
+    repo = Repo(
+        name="custom-autoland",
+        url="http://example.com",
+        scm_type=SCMType.GIT,
+        autoformat_enabled=True,
+        autoformat_setup_commands=custom,
+    )
+    repo.save()
+
+    assert repo.autoformat_setup_commands == custom, (
+        "An explicitly-set setup sequence should not be overwritten on save."
     )
 
 
