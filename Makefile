@@ -26,7 +26,7 @@ help: ## show this message and exit
 	@sed -n 's/\(^[^	:]*\+\):\s*##\s*\(.*\)$$/    :\1:\2/p' Makefile | column --table --separator :
 
 .PHONY: add-requirements
-add-requirements: ## add-requirements
+add-requirements: ## update requirements.txt with new requirements
 	$(BASE_COMMAND) lando generate_requirements
 
 .PHONY: attach
