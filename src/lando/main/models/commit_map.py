@@ -19,13 +19,16 @@ class CommitMap(BaseModel):
     # looking for new commits for a given Git repo.
     # Tuples of (Git, HgMO) repository names.
     # Use what Repo.git_commit_map() would return as the Git name.
-    REPO_MAPPING = (("firefox", "mozilla-unified"),)
+    REPO_MAPPING = (
+        ("firefox", "mozilla-unified"),
+        ("thunderbird", "comm-unified"),
+    )
 
     # The TRY_REPO_MAPPING is used to determine which repository to use for
     # inspecting relevant CommitMap for a Try repository.
     TRY_REPO_MAPPING = {
         "try": "firefox",
-        "try-comm-central": "thunderbird-desktop",
+        "try-comm-central": "thunderbird",
     }
 
     git_hash = models.CharField(default="", max_length=40)

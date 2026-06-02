@@ -31,6 +31,9 @@ $.fn.formatTime = function () {
   return this.each(function () {
     let time = $(this).data("timestamp");
     let date = new Date(time);
+    if (Number.isNaN(date.getTime())) {
+      return;
+    }
 
     const formattedDate = date
       .toLocaleString("en", {
