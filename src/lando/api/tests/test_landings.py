@@ -1209,8 +1209,6 @@ def test_run_mach_command_sets_mozbuild_state_path(tmp_path, git_landing_worker)
 
 @pytest.mark.django_db
 def test_bootstrap_repos_runs_configured_command_sequence(repo_mc, git_landing_worker):
-    """`bootstrap_repos` runs each configured command in order, with the repo's state
-    path, and keeps going even when an earlier command fails."""
     commands = [
         ["artifact", "toolchain", "--from-build", "linux64-rust"],
         ["lint", "--setup", "-l", "eslint"],
