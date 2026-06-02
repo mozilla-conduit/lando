@@ -14,6 +14,7 @@ from markupsafe import Markup
 from lando.main.models import JobStatus, LandingJob, Repo, UpliftJob
 from lando.main.models.revision import Revision
 from lando.main.scm import SCMType
+from lando.middleware import user_is_conduit_admin
 from lando.treestatus.models import (
     ReasonCategory,
     TreeCategory,
@@ -462,6 +463,7 @@ def environment(**options) -> Environment:
             "new_settings_form": UserSettingsForm,
             "static_url": settings.STATIC_URL,
             "url": reverse,
+            "user_is_conduit_admin": user_is_conduit_admin,
         }
     )
     env.filters.update(

@@ -7,6 +7,7 @@ from typing import Optional
 
 from django.conf import settings
 from django.contrib.auth import authenticate
+from django.contrib.auth.models import User
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpRequest, HttpResponse
 from django.template.loader import render_to_string
@@ -22,6 +23,18 @@ from lando.utils.phabricator import (
 logger = logging.getLogger(__name__)
 
 CONDUIT_ADMIN_GROUP_NAME = "conduit-admin"
+
+
+def user_is_conduit_admin(user: User) -> bool:
+    """Return whether `user` is a Conduit administrator.
+
+    Administrators are staff users who belong to the `conduit-admin` group.
+    """
+    return (
+        user.is_authenticated
+        and user.is_staff
+        and user.groups.filter(name=CONDUIT_ADMIN_GROUP_NAME).exists()
+    )
 
 
 class ResponseHeadersMiddleware:
@@ -78,11 +91,7 @@ class MaintenanceModeMiddleware:
         self.get_response = get_response
 
     def __call__(self, request: WSGIRequest) -> HttpResponse:
-        if (
-            request.user.is_authenticated
-            and request.user.is_staff
-            and request.user.groups.filter(name=CONDUIT_ADMIN_GROUP_NAME).exists()
-        ):
+        if user_is_conduit_admin(request.user):
             return self.get_response(request)
 
         excepted_namespaces = (

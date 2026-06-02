@@ -44,7 +44,7 @@
                                 </a>
                             </p>
                         {% endif %}
-                        {% if user_is_authenticated and request.user.is_superuser %}
+                        {% if user_is_authenticated and user_is_conduit_admin(request.user) %}
                             <p class="control">
                                 <a class="button" href="{{ url('admin:index') }}">
                                     <span class="icon">
