@@ -23,7 +23,7 @@ help:                 ## show this message and exit
 	@echo "usage: make <target>"
 	@echo
 	@echo "target is one of:"
-	@sed -n 's/\(^[^	:]*\+\):\(\s*\)##\s*\(.*\)$$/    \1\2\3/p' Makefile
+	@sed -n 's/\(^[^	:]*\+\):\s*##\s*\(.*\)$$/    :\1:\2/p' Makefile | column --table --separator :
 
 .PHONY: add-requirements
 add-requirements:     ## add-requirements
