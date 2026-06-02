@@ -2,6 +2,7 @@ import configparser
 import logging
 import os
 import subprocess
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import sentry_sdk
@@ -17,6 +18,7 @@ from lando.api.legacy.uplift import (
 )
 from lando.api.legacy.workers.base import Worker
 from lando.main.models import (
+    AutoformatChange,
     JobAction,
     LandingJob,
     PermanentFailureException,
@@ -48,6 +50,30 @@ AUTOFORMAT_COMMIT_MESSAGE = """
 
 # ignore-this-changeset
 """.strip()
+
+
+@dataclass
+class AutoformattingResult:
+    """The outcome of applying autoformatting to a stack."""
+
+    # Commit SHAs that autoformatting amended or added, empty when no changes were made.
+    replacements: list[str] = field(default_factory=list)
+
+    # File paths modified by autoformatting. `None` when the SCM cannot capture them.
+    changed_files: list[str] | None = None
+
+    # Unified diff of the autoformatting changes. `None` when unavailable.
+    diff: str | None = None
+
+    @property
+    def has_changes(self) -> bool:
+        """Return whether autoformatting produced any commits."""
+        return bool(self.replacements)
+
+    @property
+    def captured_changes(self) -> bool:
+        """Return whether the SCM captured the changed files and diff."""
+        return self.changed_files is not None
 
 
 class LandingWorker(Worker):
@@ -366,7 +392,7 @@ class LandingWorker(Worker):
         should_amend_autoformat = len(changeset_titles) == 1
 
         try:
-            replacements = self.apply_autoformatting(
+            result = self.apply_autoformatting(
                 scm,
                 landoini_config,
                 bug_ids,
@@ -384,15 +410,24 @@ class LandingWorker(Worker):
 
             return message
 
-        # If autoformatting added any changesets, note those in the job.
-        if replacements:
-            job.formatted_replacements = replacements
+        # If autoformatting added any changesets, note those in the job and record
+        # the changed files and diff for later analysis.
+        if result.has_changes:
+            job.formatted_replacements = result.replacements
+
+            if result.captured_changes:
+                AutoformatChange.objects.create(
+                    landing_job=job,
+                    commit_sha=result.replacements[0],
+                    changed_files=result.changed_files,
+                    diff=result.diff,
+                )
 
             if should_amend_autoformat:
                 # Update the `commit_id` field to reflect the new commit SHA after
                 # applying autoformatting changes.
                 revision = job.revisions.first()
-                revision.commit_id = replacements[0]
+                revision.commit_id = result.replacements[0]
                 revision.save()
 
         return
@@ -404,13 +439,24 @@ class LandingWorker(Worker):
         bug_ids: list[str],
         should_amend_autoformat: bool,
         extra_env: dict[str, str] | None = None,
-    ) -> list[str] | None:
+    ) -> AutoformattingResult:
         try:
             self.format_stack(landoini_config, scm.path, extra_env=extra_env)
         except AutoformattingException as exc:
             logger.warning("Failed to format the stack.")
             logger.exception(exc)
             raise exc
+
+        # Capture the changes before committing, while they exist in the working
+        # directory. After an amend the pre-amend state is no longer available.
+        # `changed_files` is `None` when the SCM does not support capture (e.g. Hg).
+        try:
+            changed_files = scm.changed_files()
+            diff = scm.working_directory_diff()
+        except NotImplementedError:
+            logger.warning("SCM does not support capturing autoformat changes.")
+            changed_files = None
+            diff = None
 
         try:
             replacements = self.commit_autoformatting_changes(
@@ -422,7 +468,11 @@ class LandingWorker(Worker):
             logger.exception(exc)
             raise AutoformattingException(msg, exc.out, exc.err) from exc
 
-        return replacements
+        return AutoformattingResult(
+            replacements=replacements or [],
+            changed_files=changed_files,
+            diff=diff,
+        )
 
     def format_stack(
         self,

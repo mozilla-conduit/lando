@@ -616,6 +616,18 @@ class HgSCM(AbstractSCM):
             raise exc
 
     @override
+    def changed_files(self) -> list[str]:
+        """Return paths of files with uncommitted changes in the working directory."""
+        raise NotImplementedError("`changed_files` is not implemented for Mercurial.")
+
+    @override
+    def working_directory_diff(self) -> str:
+        """Return the unified diff of uncommitted working-directory changes."""
+        raise NotImplementedError(
+            "`working_directory_diff` is not implemented for Mercurial."
+        )
+
+    @override
     def clone(self, source: str):
         """Clone a repository from a source."""
         # Use of robustcheckout here would work, but is probably not worth

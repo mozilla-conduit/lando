@@ -595,6 +595,17 @@ class GitSCM(AbstractSCM):
                 raise exc
         return [self.head_ref()]
 
+    @override
+    def changed_files(self) -> list[str]:
+        """Return paths of files with uncommitted changes in the working directory."""
+        output = self._git_run("diff", "--name-only", cwd=self.path)
+        return output.splitlines() if output else []
+
+    @override
+    def working_directory_diff(self) -> str:
+        """Return the unified diff of uncommitted working-directory changes."""
+        return self._git_run("diff", cwd=self.path)
+
     @property
     @override
     def repo_is_initialized(self) -> bool:

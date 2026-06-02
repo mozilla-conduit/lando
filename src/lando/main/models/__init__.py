@@ -9,3 +9,4 @@ from lando.main.models.repo import *
 from lando.main.models.worker import *
 from lando.main.models.commit_map import *
 from lando.main.models.uplift import *
+from lando.main.models.autoformat import *

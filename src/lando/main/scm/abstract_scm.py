@@ -293,6 +293,14 @@ class AbstractSCM(ABC):
         Returns a list containing a single string representing the ID of the newly created commit.
         """
 
+    @abstractmethod
+    def changed_files(self) -> list[str]:
+        """Return paths of files with uncommitted changes in the working directory."""
+
+    @abstractmethod
+    def working_directory_diff(self) -> str:
+        """Return the unified diff of uncommitted working-directory changes."""
+
     @staticmethod
     def _separator() -> str:
         """Generate a long random string usable as a separator.
