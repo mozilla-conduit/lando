@@ -5,10 +5,10 @@ from django.core.management.base import BaseCommand, CommandError
 
 from lando.environments import Environment
 from lando.headless_api.models.tokens import ApiToken
+from lando.main.auth import CONDUIT_ADMIN_GROUP_NAME
 from lando.main.models import Repo, Worker
 from lando.main.models.worker import WorkerType
 from lando.main.scm import SCMType
-from lando.middleware import CONDUIT_ADMIN_GROUP_NAME
 
 
 class Command(BaseCommand):
