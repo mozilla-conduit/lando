@@ -227,52 +227,49 @@ $.fn.stack = function () {
         });
       });
 
-      $("button.save-edit-pr").on("click", function (e) {
-        var save_edit_pr_button = this;
+      $("#save-edit-pr").on("click", function (e) {
+        var save_edit_pr_button = $(this);
 
-        if (save_edit_pr_button.dataset.mode === "edit") {
-          const textareaTitle = document.createElement("textarea");
-          const textareaBody = document.createElement("textarea");
-          const pTitle = document.getElementById("commit-title");
-          const pBody = document.getElementById("commit-body");
-          textareaTitle.value = pTitle.textContent;
-          textareaBody.value = pBody.textContent;
-          textareaTitle.dataset.original = pTitle.textContent;
-          textareaBody.dataset.original = pBody.textContent;
-          textareaTitle.id = "commit-title";
-          textareaBody.id = "commit-body";
-          textareaTitle.classList.add("textarea");
-          textareaBody.classList.add("textarea");
+        if (save_edit_pr_button.attr("data-mode") === "saved") {
+          const pTitle = $("#commit-title");
+          const pBody = $("#commit-body");
+          const textareaTitle = $("<textarea>")
+            .attr("id", "commit-title")
+            .addClass("textarea")
+            .val(pTitle.text())
+            .attr("data-original", pTitle.text());
+          const textareaBody = $("<textarea>")
+            .attr("id", "commit-body")
+            .addClass("textarea")
+            .val(pBody.text())
+            .attr("data-original", pBody.text());
+
           pTitle.replaceWith(textareaTitle);
           pBody.replaceWith(textareaBody);
-          save_edit_pr_button.dataset.mode = "save";
-          save_edit_pr_button.textContent = "Save Commit Message";
-          document
-            .getElementById("cancel-edit-pr")
-            .classList.remove("is-hidden");
-          document.getElementById("commit-title").focus();
-          document.getElementById("post-landing-job").disabled = true;
 
-          textareaTitle.addEventListener("input", function () {
-            document
-              .getElementById("commit-title")
-              .classList.remove("is-danger");
-            document.getElementById("commit-title-error").textContent = "";
-            save_edit_pr_button.disabled = false;
+          save_edit_pr_button
+            .attr("data-mode", "edit")
+            .text("Save Commit Message");
+          $("#cancel-edit-pr").removeClass("is-hidden");
+          $("#commit-title").focus();
+          $("#post-landing-job").prop("disabled", true);
+
+          textareaTitle.on("input", function () {
+            $("#commit-title").removeClass("is-danger");
+            $("#commit-title-error").text("");
+            save_edit_pr_button.prop("disabled", false);
           });
 
-          textareaBody.addEventListener("input", function () {
-            document
-              .getElementById("commit-body")
-              .classList.remove("is-danger");
-            document.getElementById("commit-body-error").textContent = "";
-            save_edit_pr_button.disabled = false;
+          textareaBody.on("input", function () {
+            $("#commit-body").removeClass("is-danger");
+            $("#commit-body-error").text("");
+            save_edit_pr_button.prop("disabled", false);
           });
           return;
         }
 
-        var body = document.getElementById("commit-body").value;
-        var title = document.getElementById("commit-title").value;
+        var body = $("#commit-body").val();
+        var title = $("#commit-title").val();
 
         fetch(`/api/pulls/${repo_name}/${pull_number}`, {
           method: "PUT",
@@ -284,36 +281,26 @@ $.fn.stack = function () {
           },
         }).then(async (response) => {
           console.log(response);
-          save_edit_pr_button.disabled = true;
+          save_edit_pr_button.prop("disabled", true);
           if (response.status === 400) {
             var result = await response.json();
             if (result.title) {
-              document.getElementById("commit-title-error").textContent =
-                result.title;
-              document
-                .getElementById("commit-title")
-                .classList.add("is-danger");
+              $("#commit-title-error").text(result.title);
+              $("#commit-title").addClass("is-danger");
             }
             if (result.body) {
-              document.getElementById("commit-body-error").textContent =
-                result.body;
-              document.getElementById("commit-body").classList.add("is-danger");
+              $("#commit-body-error").text(result.body);
+              $("#commit-body").addClass("is-danger");
             }
           } else if (response.status === 200) {
-            save_edit_pr_button.classList.add("is-loading");
-            document.getElementById("commit-title-error").textContent = "";
-            document.getElementById("commit-body-error").textContent = "";
-            document
-              .getElementById("commit-title")
-              .classList.remove("is-danger");
-            document
-              .getElementById("commit-body")
-              .classList.remove("is-danger");
-            document.getElementById("commit-title").disabled = true;
-            document.getElementById("commit-body").disabled = true;
-            document
-              .getElementById("cancel-edit-pr")
-              .classList.add("is-hidden");
+            save_edit_pr_button.addClass("is-loading");
+            $("#commit-title-error").text("");
+            $("#commit-body-error").text("");
+            $("#commit-title").removeClass("is-danger");
+            $("#commit-body").removeClass("is-danger");
+            $("#commit-title").prop("disabled", true);
+            $("#commit-body").prop("disabled", true);
+            $("#cancel-edit-pr").addClass("is-hidden");
             window.location.reload();
           } else {
             console.error("error updating pull request:", response);
@@ -321,11 +308,11 @@ $.fn.stack = function () {
         });
       });
 
-      $("button.cancel-edit-pr").on("click", function (e) {
+      $("#cancel-edit-pr").on("click", function (e) {
         const pTitle = document.createElement("p");
         const pBody = document.createElement("p");
-        const textareaTitle = document.getElementById("commit-title");
-        const textareaBody = document.getElementById("commit-body");
+        const textareaTitle = $("#commit-title")[0];
+        const textareaBody = $("#commit-body")[0];
         pTitle.textContent = textareaTitle.dataset.original;
         pBody.textContent = textareaBody.dataset.original;
         pTitle.id = "commit-title";
@@ -333,15 +320,15 @@ $.fn.stack = function () {
         textareaTitle.replaceWith(pTitle);
         textareaBody.replaceWith(pBody);
 
-        document.getElementById("commit-title-error").textContent = "";
-        document.getElementById("commit-body-error").textContent = "";
-        const save_edit_pr_button = document.getElementById("save-edit-pr");
+        const save_edit_pr_button = $("#save-edit-pr")[0];
         save_edit_pr_button.disabled = false;
-        save_edit_pr_button.dataset.mode = "edit";
+        save_edit_pr_button.dataset.mode = "saved";
         save_edit_pr_button.textContent = "Edit Commit Message";
 
-        document.getElementById("cancel-edit-pr").classList.add("is-hidden");
-        document.getElementById("post-landing-job").disabled = false;
+        $("#commit-title-error").text("");
+        $("#commit-body-error").text("");
+        $("#cancel-edit-pr").addClass("is-hidden");
+        $("#post-landing-job").prop("disabled", false);
       });
     }
   });

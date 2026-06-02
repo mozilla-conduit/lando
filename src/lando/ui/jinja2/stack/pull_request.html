@@ -64,25 +64,25 @@
                 <th>Commit Title</th>
                 <td>
                     <p id="commit-title">{{ pull_request.title }}</p>
-                    <p class="help is-danger" id="commit-title-error"></p>
+                    <p id="commit-title-error" class="help is-danger"></p>
                 </td>
             </tr>
             <tr>
                 <th>Commit Body</th>
                 <td>
                     <p id="commit-body">{{ pull_request.body }}</p>
-                    <p class="help is-danger" id="commit-body-error"></p>
+                    <p id="commit-body-error" class="help is-danger"></p>
                 </td>
             </tr>
         </table>
         <p>
             <button id="save-edit-pr"
-                    class="button save-edit-pr"
-                    data-mode="edit"
+                    class="button"
+                    data-mode="saved"
                     data-pull-number="{{ pull_request.number }}"
                     data-repo-name="{{ target_repo.name }}"
                     data-csrf-token="{{ csrf_token }}">Edit Commit Message</button>
-            <button id="cancel-edit-pr" class="button is-light cancel-edit-pr is-hidden">Cancel</button>
+            <button id="cancel-edit-pr" class="button is-light is-hidden">Cancel</button>
         </p>
     </div>
     <h1>Landings</h1>
