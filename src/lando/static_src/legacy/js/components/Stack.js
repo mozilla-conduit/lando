@@ -303,7 +303,11 @@ $.fn.stack = function () {
             $("#cancel-edit-pr").addClass("is-hidden");
             window.location.reload();
           } else {
-            console.error("error updating pull request:", response);
+            save_edit_pr_button
+              .prop("disabled", true)
+              .removeClass("is-danger is-loading")
+              .addClass("is-warning")
+              .text("An unknown error occurred");
           }
         });
       });
