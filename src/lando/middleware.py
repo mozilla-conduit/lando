@@ -13,6 +13,7 @@ from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
 from django.urls import resolve
 
+from lando.main.auth import user_is_conduit_admin
 from lando.main.models import ConfigurationKey, ConfigurationVariable
 from lando.utils.phabricator import (
     PhabricatorAPIException,
@@ -20,8 +21,6 @@ from lando.utils.phabricator import (
 )
 
 logger = logging.getLogger(__name__)
-
-CONDUIT_ADMIN_GROUP_NAME = "conduit-admin"
 
 
 class ResponseHeadersMiddleware:
@@ -78,11 +77,7 @@ class MaintenanceModeMiddleware:
         self.get_response = get_response
 
     def __call__(self, request: WSGIRequest) -> HttpResponse:
-        if (
-            request.user.is_authenticated
-            and request.user.is_staff
-            and request.user.groups.filter(name=CONDUIT_ADMIN_GROUP_NAME).exists()
-        ):
+        if user_is_conduit_admin(request.user):
             return self.get_response(request)
 
         excepted_namespaces = (
