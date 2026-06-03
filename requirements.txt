@@ -1183,9 +1183,9 @@ grpcio==1.80.0 \
     # via
     #   google-api-core
     #   grpcio-status
-grpcio-status==1.80.0 \
-    --hash=sha256:4b56990363af50dbf2c2ebb80f1967185c07d87aa25aa2bea45ddb75fc181dbe \
-    --hash=sha256:df73802a4c89a3ea88aa2aff971e886fccce162bc2e6511408b3d67a144381cd
+grpcio-status==1.81.0 \
+    --hash=sha256:10eb4c2309db902dc26c1873e80a821bf794be772c10dfd83030f7f59f165fab \
+    --hash=sha256:b6fe9788cfdd1f0f63c0528a1e0bfdb41e8ff0583e920d2d8e8888598c01bb69
     # via google-api-core
 idna==3.13 \
     --hash=sha256:585ea8fe5d69b9181ec1afba340451fba6ba764af97026f92a91d4eef164a242 \
