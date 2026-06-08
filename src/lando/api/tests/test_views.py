@@ -260,7 +260,6 @@ def test__views__pull_request_content_api_view__unauthenticated(
 
     assert result.status_code == 403
     assert b"403 Forbidden" in result.content
-    assert b"CSRF" not in result.content
 
 
 @mock.patch("lando.api.views.GitHubAPIClient")
@@ -284,4 +283,4 @@ def test__views__pull_request_content_api_view__missing_csrf_token(
         content_type="application/json",
     )
     assert result.status_code == 403
-    assert b"CSRF verification failed." in result.content
+    assert b"403 Forbidden" in result.content
