@@ -270,6 +270,11 @@ $.fn.stack = function () {
 
         var body = $("#commit-body").val();
         var title = $("#commit-title").val();
+        save_edit_pr_button.prop("disabled", true);
+        save_edit_pr_button.addClass("is-loading");
+        $("#cancel-edit-pr").prop("disabled", true);
+        $("#commit-title").prop("disabled", true);
+        $("#commit-body").prop("disabled", true);
 
         fetch(`/api/pulls/${repo_name}/${pull_number}`, {
           method: "PUT",
@@ -280,27 +285,25 @@ $.fn.stack = function () {
             "X-CSRFToken": csrf_token,
           },
         }).then(async (response) => {
-          console.log(response);
-          save_edit_pr_button.prop("disabled", true);
           if (response.status === 400) {
             var result = await response.json();
+            save_edit_pr_button.removeClass("is-loading");
+            $("#cancel-edit-pr").prop("disabled", false);
             if (result.title) {
               $("#commit-title-error").text(result.title);
+              $("#commit-title").prop("disabled", false);
               $("#commit-title").addClass("is-danger");
             }
             if (result.body) {
               $("#commit-body-error").text(result.body);
+              $("#commit-body").prop("disabled", false);
               $("#commit-body").addClass("is-danger");
             }
           } else if (response.status === 200) {
-            save_edit_pr_button.addClass("is-loading");
             $("#commit-title-error").text("");
             $("#commit-body-error").text("");
             $("#commit-title").removeClass("is-danger");
             $("#commit-body").removeClass("is-danger");
-            $("#commit-title").prop("disabled", true);
-            $("#commit-body").prop("disabled", true);
-            $("#cancel-edit-pr").addClass("is-hidden");
             window.location.reload();
           } else {
             save_edit_pr_button
@@ -324,7 +327,7 @@ $.fn.stack = function () {
         textareaTitle.replaceWith(pTitle);
         textareaBody.replaceWith(pBody);
 
-        const save_edit_pr_button = $("#save-edit-pr")[0];
+        const save_edit_pr_button = $("#save-edit-pr");
         save_edit_pr_button.disabled = false;
         save_edit_pr_button.dataset.mode = "saved";
         save_edit_pr_button.textContent = "Edit Commit Message";
