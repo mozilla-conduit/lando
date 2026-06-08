@@ -318,19 +318,18 @@ $.fn.stack = function () {
       $("#cancel-edit-pr").on("click", function (e) {
         const pTitle = document.createElement("p");
         const pBody = document.createElement("p");
-        const textareaTitle = $("#commit-title")[0];
-        const textareaBody = $("#commit-body")[0];
-        pTitle.textContent = textareaTitle.dataset.original;
-        pBody.textContent = textareaBody.dataset.original;
+        const textareaTitle = $("#commit-title");
+        const textareaBody = $("#commit-body");
+        pTitle.textContent = textareaTitle.data('original');
+        pBody.textContent = textareaBody.data('original');
         pTitle.id = "commit-title";
         pBody.id = "commit-body";
         textareaTitle.replaceWith(pTitle);
         textareaBody.replaceWith(pBody);
 
         const save_edit_pr_button = $("#save-edit-pr");
-        save_edit_pr_button.disabled = false;
-        save_edit_pr_button.dataset.mode = "saved";
-        save_edit_pr_button.textContent = "Edit Commit Message";
+        save_edit_pr_button.prop("disabled", false);
+        save_edit_pr_button.attr("data-mode", "saved").text("Edit Commit Message")
 
         $("#commit-title-error").text("");
         $("#commit-body-error").text("");
