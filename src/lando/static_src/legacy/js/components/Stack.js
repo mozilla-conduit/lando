@@ -291,11 +291,13 @@ $.fn.stack = function () {
             $("#cancel-edit-pr").prop("disabled", false);
             if (result.title) {
               $("#commit-title-error").text(result.title);
+              $("#commit-title-error").addClass("help is-danger");
               $("#commit-title").prop("disabled", false);
               $("#commit-title").addClass("is-danger");
             }
             if (result.body) {
               $("#commit-body-error").text(result.body);
+              $("#commit-body-error").addClass("help is-danger");
               $("#commit-body").prop("disabled", false);
               $("#commit-body").addClass("is-danger");
             }
@@ -320,8 +322,8 @@ $.fn.stack = function () {
         const pBody = document.createElement("p");
         const textareaTitle = $("#commit-title");
         const textareaBody = $("#commit-body");
-        pTitle.textContent = textareaTitle.data('original');
-        pBody.textContent = textareaBody.data('original');
+        pTitle.textContent = textareaTitle.data("original");
+        pBody.textContent = textareaBody.data("original");
         pTitle.id = "commit-title";
         pBody.id = "commit-body";
         textareaTitle.replaceWith(pTitle);
@@ -329,7 +331,9 @@ $.fn.stack = function () {
 
         const save_edit_pr_button = $("#save-edit-pr");
         save_edit_pr_button.prop("disabled", false);
-        save_edit_pr_button.attr("data-mode", "saved").text("Edit Commit Message")
+        save_edit_pr_button
+          .attr("data-mode", "saved")
+          .text("Edit Commit Message");
 
         $("#commit-title-error").text("");
         $("#commit-body-error").text("");
