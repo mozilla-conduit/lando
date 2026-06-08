@@ -11,6 +11,7 @@ from django.utils.html import escape
 from jinja2 import Environment
 from markupsafe import Markup
 
+from lando.main.auth import user_is_conduit_admin
 from lando.main.models import JobStatus, LandingJob, Repo, UpliftJob
 from lando.main.models.revision import Revision
 from lando.main.scm import SCMType
@@ -462,6 +463,7 @@ def environment(**options) -> Environment:
             "new_settings_form": UserSettingsForm,
             "static_url": settings.STATIC_URL,
             "url": reverse,
+            "user_is_conduit_admin": user_is_conduit_admin,
         }
     )
     env.filters.update(

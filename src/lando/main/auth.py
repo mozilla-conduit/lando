@@ -20,6 +20,20 @@ from lando.utils.phabricator import PhabricatorClient
 
 logger = logging.getLogger(__name__)
 
+CONDUIT_ADMIN_GROUP_NAME = "conduit-admin"
+
+
+def user_is_conduit_admin(user: User) -> bool:
+    """Return whether `user` is a Conduit administrator.
+
+    Administrators are staff users who belong to the `conduit-admin` group.
+    """
+    return (
+        user.is_authenticated
+        and user.is_staff
+        and user.groups.filter(name=CONDUIT_ADMIN_GROUP_NAME).exists()
+    )
+
 
 class PhabricatorTokenAuthenticationBackend(BaseBackend):
     """Authenticate a user based on their Phabricator PHID and token."""
