@@ -2,7 +2,7 @@ import configparser
 import logging
 import os
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import sentry_sdk
@@ -53,27 +53,17 @@ AUTOFORMAT_COMMIT_MESSAGE = """
 
 
 @dataclass
-class AutoformattingResult:
-    """The outcome of applying autoformatting to a stack."""
+class AutoformatResult:
+    """The results of an autoformatting run that amended or added a commit."""
 
-    # Commit SHAs that autoformatting amended or added, empty when no changes were made.
-    replacements: list[str] = field(default_factory=list)
+    # The commit SHA autoformatting amended or added.
+    commit_sha: str
 
-    # File paths modified by autoformatting. `None` when the SCM cannot capture them.
-    changed_files: list[str] | None = None
+    # File paths modified by autoformatting. Empty when the SCM cannot report them (e.g. Hg).
+    changed_files: list[str]
 
-    # Unified diff of the autoformatting changes. `None` when unavailable.
-    diff: str | None = None
-
-    @property
-    def has_changes(self) -> bool:
-        """Return whether autoformatting produced any commits."""
-        return bool(self.replacements)
-
-    @property
-    def captured_changes(self) -> bool:
-        """Return whether the SCM captured the changed files and diff."""
-        return self.changed_files is not None
+    # Unified diff of the autoformatting changes. Empty when the SCM cannot report it (e.g. Hg).
+    diff: str
 
 
 class LandingWorker(Worker):
@@ -412,13 +402,14 @@ class LandingWorker(Worker):
 
         # If autoformatting added any changesets, note those in the job and record
         # the changed files and diff for later analysis.
-        if result.has_changes:
-            job.formatted_replacements = result.replacements
+        if result is not None:
+            job.formatted_replacements = [result.commit_sha]
 
-            if result.captured_changes:
+            # `changed_files` is empty when the SCM cannot capture the changes (e.g. Hg).
+            if result.changed_files:
                 AutoformatChange.objects.create(
                     landing_job=job,
-                    commit_sha=result.replacements[0],
+                    commit_sha=result.commit_sha,
                     changed_files=result.changed_files,
                     diff=result.diff,
                 )
@@ -427,7 +418,7 @@ class LandingWorker(Worker):
                 # Update the `commit_id` field to reflect the new commit SHA after
                 # applying autoformatting changes.
                 revision = job.revisions.first()
-                revision.commit_id = result.replacements[0]
+                revision.commit_id = result.commit_sha
                 revision.save()
 
         return
@@ -439,7 +430,7 @@ class LandingWorker(Worker):
         bug_ids: list[str],
         should_amend_autoformat: bool,
         extra_env: dict[str, str] | None = None,
-    ) -> AutoformattingResult:
+    ) -> AutoformatResult | None:
         try:
             self.format_stack(landoini_config, scm.path, extra_env=extra_env)
         except AutoformattingException as exc:
@@ -449,14 +440,14 @@ class LandingWorker(Worker):
 
         # Capture the changes before committing, while they exist in the working
         # directory. After an amend the pre-amend state is no longer available.
-        # `changed_files` is `None` when the SCM does not support capture (e.g. Hg).
+        # Both are empty when the SCM does not support capture (e.g. Hg).
         try:
             changed_files = scm.changed_files()
             diff = scm.working_directory_diff()
         except NotImplementedError:
             logger.warning("SCM does not support capturing autoformat changes.")
-            changed_files = None
-            diff = None
+            changed_files = []
+            diff = ""
 
         try:
             replacements = self.commit_autoformatting_changes(
@@ -468,8 +459,12 @@ class LandingWorker(Worker):
             logger.exception(exc)
             raise AutoformattingException(msg, exc.out, exc.err) from exc
 
-        return AutoformattingResult(
-            replacements=replacements or [],
+        # Autoformatting made no changes, so there is nothing to commit or record.
+        if not replacements:
+            return None
+
+        return AutoformatResult(
+            commit_sha=replacements[0],
             changed_files=changed_files,
             diff=diff,
         )
