@@ -10,6 +10,7 @@ from django.db.models import Q, QuerySet
 from mots.config import FileConfig
 from mots.directory import Directory
 
+from lando.main.models.base import BaseModel
 from lando.main.models.jobs import BaseJob
 from lando.main.models.repo import Repo
 from lando.main.models.revision import Revision, RevisionLandingJob
@@ -295,3 +296,22 @@ def get_jobs_for_pull(target_repo: Repo, pull_number: int) -> QuerySet[LandingJo
     return LandingJob.objects.filter(unsorted_revisions__in=revisions).order_by(
         "-created_at"
     )
+
+
+class AutoformatChange(BaseModel):
+    """Record of autoformatting changes applied to a commit during landing."""
+
+    landing_job = models.ForeignKey(
+        "LandingJob",
+        on_delete=models.CASCADE,
+        related_name="autoformat_changes",
+    )
+
+    # Commit SHA where autoformatting was applied (amended or new commit).
+    commit_sha = models.CharField(max_length=40)
+
+    # File paths modified by autoformatting.
+    changed_files = models.JSONField(default=list)
+
+    # Unified diff of the autoformatting changes.
+    diff = models.TextField(blank=True, default="")
