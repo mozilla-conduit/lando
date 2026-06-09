@@ -10,6 +10,7 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy
 
 from lando.main.models import (
+    AutoformatChange,
     CommitMap,
     ConfigurationVariable,
     LandingJob,
@@ -375,6 +376,28 @@ class RepoAdmin(admin.ModelAdmin):
         return instance.worker_set.count()
 
 
+class AutoformatChangeAdmin(admin.ModelAdmin):
+    model = AutoformatChange
+    list_display = (
+        "id",
+        "landing_job",
+        "commit_sha",
+        "created_at",
+    )
+    list_filter = ("created_at",)
+    search_fields = ("commit_sha", "landing_job__id")
+    # The `diff` is shown on the detail page but kept out of `list_display`
+    # since it may be large.
+    readonly_fields = (
+        "landing_job",
+        "commit_sha",
+        "changed_files",
+        "diff",
+        "created_at",
+        "updated_at",
+    )
+
+
 class CommitMapAdmin(admin.ModelAdmin):
     model = CommitMap
     list_display = (
@@ -548,6 +571,7 @@ admin.site.register(UpliftJob, UpliftJobAdmin)
 admin.site.register(Revision, RevisionAdmin)
 admin.site.register(Worker, WorkerAdmin)
 admin.site.register(CommitMap, CommitMapAdmin)
+admin.site.register(AutoformatChange, AutoformatChangeAdmin)
 admin.site.register(ConfigurationVariable, ConfigurationVariableAdmin)
 admin.site.register(UpliftAssessment, UpliftAssessmentAdmin)
 admin.site.register(UpliftRevision, UpliftRevisionAdmin)

@@ -543,6 +543,23 @@ def test_GitSCM_describe_commit(git_repo: Path):
     assert "README" in prev_commit.files
 
 
+def test_GitSCM_changed_files_and_diff(git_repo: Path):
+    scm = GitSCM(str(git_repo))
+
+    assert scm.changed_files() == [], "A clean working tree should report no changes."
+    assert scm.working_directory_diff() == "", "A clean working tree should be empty."
+
+    (git_repo / "test.txt").write_text("modified content\n")
+
+    assert scm.changed_files() == ["test.txt"], (
+        "`changed_files` should list the modified file."
+    )
+
+    diff = scm.working_directory_diff()
+    assert "test.txt" in diff, "The diff should reference the modified file."
+    assert "modified content" in diff, "The diff should include the new content."
+
+
 def test_GitSCM_describe_local_changes(
     git_repo: Path,
     request: pytest.FixtureRequest,
@@ -1305,16 +1322,17 @@ def test_GitSCM_format_stack_amend_with_changes(
 
     if has_changes:
         assert result is not None, (
-            "`format_stack_amend` should return a list when changes exist."
+            "`format_stack_amend` should return a SHA when changes exist."
         )
-        assert isinstance(result, list), "`format_stack_amend` should return a list."
-        assert len(result) == 1, "Should return exactly one commit SHA."
+        assert isinstance(result, str), (
+            "`format_stack_amend` should return a SHA string."
+        )
 
         new_commit = scm.head_ref()
         assert new_commit != original_commit, (
             "Commit SHA should change when amending with changes"
         )
-        assert result[0] == new_commit, "Returned SHA should match the new HEAD"
+        assert result == new_commit, "Returned SHA should match the new HEAD"
     else:
         assert result is None, (
             "`format_stack_amend` should return `None` when no changes exist."
