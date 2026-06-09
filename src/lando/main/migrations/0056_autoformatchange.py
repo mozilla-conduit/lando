@@ -20,7 +20,7 @@ class Migration(migrations.Migration):
                 ('commit_sha', models.CharField(max_length=40)),
                 ('changed_files', models.JSONField(default=list)),
                 ('diff', models.TextField(blank=True, default='')),
-                ('landing_job', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='autoformat_changes', to='main.landingjob')),
+                ('landing_job', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='autoformat_changes', to='main.landingjob')),
             ],
             options={
                 'abstract': False,

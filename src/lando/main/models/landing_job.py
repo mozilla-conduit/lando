@@ -303,7 +303,8 @@ class AutoformatChange(BaseModel):
 
     landing_job = models.ForeignKey(
         "LandingJob",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
         related_name="autoformat_changes",
     )
 
