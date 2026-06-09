@@ -280,17 +280,17 @@ class AbstractSCM(ABC):
         """Determine wether the target repository is supported by this concrete implementation."""
 
     @abstractmethod
-    def format_stack_amend(self) -> list[str] | None:
+    def format_stack_amend(self) -> str | None:
         """Amend the top commit in the patch stack with changes from formatting.
 
-        Returns a list containing a single string representing the ID of the amended commit.
+        Returns the SHA of the amended commit, or `None` when nothing changed.
         """
 
     @abstractmethod
-    def format_stack_tip(self, commit_message: str) -> list[str] | None:
+    def format_stack_tip(self, commit_message: str) -> str | None:
         """Add an autoformat commit to the top of the patch stack.
 
-        Returns a list containing a single string representing the ID of the newly created commit.
+        Returns the SHA of the newly created commit, or `None` when nothing changed.
         """
 
     @abstractmethod

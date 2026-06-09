@@ -1322,16 +1322,15 @@ def test_GitSCM_format_stack_amend_with_changes(
 
     if has_changes:
         assert result is not None, (
-            "`format_stack_amend` should return a list when changes exist."
+            "`format_stack_amend` should return a SHA when changes exist."
         )
-        assert isinstance(result, list), "`format_stack_amend` should return a list."
-        assert len(result) == 1, "Should return exactly one commit SHA."
+        assert isinstance(result, str), "`format_stack_amend` should return a SHA string."
 
         new_commit = scm.head_ref()
         assert new_commit != original_commit, (
             "Commit SHA should change when amending with changes"
         )
-        assert result[0] == new_commit, "Returned SHA should match the new HEAD"
+        assert result == new_commit, "Returned SHA should match the new HEAD"
     else:
         assert result is None, (
             "`format_stack_amend` should return `None` when no changes exist."

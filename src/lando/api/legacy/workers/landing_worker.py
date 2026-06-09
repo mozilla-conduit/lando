@@ -450,7 +450,7 @@ class LandingWorker(Worker):
             diff = ""
 
         try:
-            replacements = self.commit_autoformatting_changes(
+            commit_sha = self.commit_autoformatting_changes(
                 scm, should_amend_autoformat, bug_ids
             )
         except SCMException as exc:
@@ -460,11 +460,11 @@ class LandingWorker(Worker):
             raise AutoformattingException(msg, exc.out, exc.err) from exc
 
         # Autoformatting made no changes, so there is nothing to commit or record.
-        if not replacements:
+        if commit_sha is None:
             return None
 
         return AutoformatResult(
-            commit_sha=replacements[0],
+            commit_sha=commit_sha,
             changed_files=changed_files,
             diff=diff,
         )
@@ -575,12 +575,14 @@ class LandingWorker(Worker):
 
     def commit_autoformatting_changes(
         self, scm: AbstractSCM, should_amend_autoformat: bool, bug_ids: list[str]
-    ) -> list[str] | None:
+    ) -> str | None:
         """Call the SCM implementation to commit pending autoformatting changes.
 
         If `should_amend_autoformat` is `True`, formatting changes will be amended into
         the tip commit. Otherwise, a new commit will be created on top of the stack
         (referencing all bugs involved in the stack).
+
+        Return the SHA of the resulting commit, or `None` when nothing changed.
         """
         if should_amend_autoformat:
             return scm.format_stack_amend()

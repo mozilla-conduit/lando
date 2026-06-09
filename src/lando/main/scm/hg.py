@@ -576,16 +576,16 @@ class HgSCM(AbstractSCM):
         return cset
 
     @override
-    def format_stack_amend(self) -> list[str] | None:
+    def format_stack_amend(self) -> str | None:
         """Amend the top commit in the patch stack with changes from formatting.
 
-        Returns a list containing a single string representing the ID of the amended commit.
+        Returns the SHA of the amended commit, or `None` when nothing changed.
         """
         try:
             # Amend the current commit, using `--no-edit` to keep the existing commit message.
             self.run_hg(["commit", "--amend", "--no-edit"])
 
-            return [self.head_ref()]
+            return self.head_ref()
         except HgCommandError as exc:
             if "nothing changed" in exc.out:
                 # If nothing changed after formatting we can just return.
@@ -594,8 +594,11 @@ class HgSCM(AbstractSCM):
             raise exc
 
     @override
-    def format_stack_tip(self, commit_message: str) -> list[str] | None:
-        """Add an autoformat commit to the top of the patch stack."""
+    def format_stack_tip(self, commit_message: str) -> str | None:
+        """Add an autoformat commit to the top of the patch stack.
+
+        Returns the SHA of the newly created commit, or `None` when nothing changed.
+        """
         try:
             # Create a new commit.
             self.run_hg(
@@ -606,12 +609,12 @@ class HgSCM(AbstractSCM):
                 ]
             )
 
-            return [self.head_ref()]
+            return self.head_ref()
 
         except HgCommandError as exc:
             if "nothing changed" in exc.out:
                 # If nothing changed after formatting we can just return.
-                return
+                return None
 
             raise exc
 
