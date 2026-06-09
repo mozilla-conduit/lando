@@ -1324,7 +1324,9 @@ def test_GitSCM_format_stack_amend_with_changes(
         assert result is not None, (
             "`format_stack_amend` should return a SHA when changes exist."
         )
-        assert isinstance(result, str), "`format_stack_amend` should return a SHA string."
+        assert isinstance(result, str), (
+            "`format_stack_amend` should return a SHA string."
+        )
 
         new_commit = scm.head_ref()
         assert new_commit != original_commit, (
