@@ -154,3 +154,10 @@
         {% endif %}
     </main>
 {% endblock %}
+{% block scripts %}
+    {% if user_is_authenticated and revision_repo and revision_repo.approval_required %}
+        {# Vite-built bundle for the uplift train-selector widget. Rebuild with
+           `make build-js` after changing the Vue sources in `frontend/`. #}
+        <script src="{{ static_url }}dist/uplift.js" type="module" charset="utf-8"></script>
+    {% endif %}
+{% endblock %}
