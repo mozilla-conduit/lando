@@ -50,6 +50,30 @@ Base64Patch = Annotated[
 ]
 
 
+def get_commit_map(try_repo_scm_type: str, repo_name: str, repo_scm_type: str) -> str:
+    """Return the repo to use for commit mapping, or raise `ValueError` if unsupported."""
+    mapping_repo = CommitMap.TRY_REPO_MAPPING.get(repo_name)
+    if not mapping_repo:
+        error = f"Unable to lookup commits from {try_repo_scm_type} to {repo_scm_type}. {repo_name} is not supported."
+        logger.info(error)
+        raise ValueError(error)
+    return mapping_repo
+
+
+def get_commit_hash(
+    mapping_repo: str, target_commit_hash: str, repo_scm_type: str
+) -> str:
+    """Return the equivalent commit hash in `repo_scm_type`, or raise `ValueError`."""
+    try:
+        if repo_scm_type == SCMType.HG:
+            return CommitMap.git2hg(mapping_repo, target_commit_hash)
+        return CommitMap.hg2git(mapping_repo, target_commit_hash)
+    except CommitMap.DoesNotExist as exc:
+        error = f"Could not determine the equivalent base commit for {target_commit_hash} in {repo_scm_type} for {mapping_repo}. Please try again later."
+        logger.warning(error)
+        raise ValueError(error) from exc
+
+
 class PatchesRequest(Schema):
     """Provide the content of the push for submission to Lando."""
 
@@ -152,32 +176,23 @@ def patches(
 
     target_commit_hash = patches_request.base_commit
     if patches_request.base_commit_vcs != repo.scm_type:
-        mapping_repo = CommitMap.TRY_REPO_MAPPING.get(repo.name)
-        if not mapping_repo:
-            status = 400
-            error = f"Unable to lookup commits from {patches_request.base_commit_vcs} to {repo.scm_type}. {repo_name} is not supported."
-            logger.info(
-                error,
-            )
-            return status, ProblemDetail(
-                title="CommitMap not found", detail=error, status=status
-            )
-
         try:
-            if repo.scm_type == SCMType.HG:
-                target_commit_hash = CommitMap.git2hg(mapping_repo, target_commit_hash)
-            else:
-                target_commit_hash = CommitMap.hg2git(mapping_repo, target_commit_hash)
-        except CommitMap.DoesNotExist:
-            status = 400
-            error = f"Could not determine the equivalent base commit for {target_commit_hash} in {repo.scm_type} for {mapping_repo}. Please try again later."
-            logger.warning(
-                error,
+            mapping_repo = get_commit_map(
+                patches_request.base_commit_vcs, repo.name, repo.scm_type
             )
+        except ValueError as exc:
+            status = 400
             return status, ProblemDetail(
-                title="Error converting SCM commit IDs",
-                detail=error,
-                status=status,
+                title="CommitMap not found", detail=exc, status=status
+            )
+        try:
+            target_commit_hash = get_commit_hash(
+                mapping_repo, target_commit_hash, repo.scm_type
+            )
+        except ValueError as exc:
+            status = 400
+            return status, ProblemDetail(
+                title="Error converting SCM commit IDs", detail=exc, status=status
             )
 
     # Create PatchHelpers and run the checks prior to creating any DB object.

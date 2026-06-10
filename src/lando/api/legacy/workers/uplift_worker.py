@@ -3,7 +3,9 @@ import logging
 import os
 import subprocess
 import tempfile
+import time
 
+from django.db import transaction
 from typing_extensions import override
 
 from lando.api.legacy.workers.base import Worker
@@ -15,7 +17,10 @@ from lando.main.models import (
     TemporaryFailureException,
     WorkerType,
 )
+from lando.main.models.landing_job import LandingJob, add_revisions_to_job
+from lando.main.models.repo import Repo
 from lando.main.models.uplift import UpliftJob, UpliftRevision
+from lando.try_api.api import get_commit_hash, get_commit_map
 from lando.utils.tasks import (
     send_uplift_failure_email,
     send_uplift_success_email,
@@ -154,6 +159,80 @@ class UpliftWorker(Worker):
         # `LANDED` is the same as "success".
         job.status = JobStatus.LANDED
         job.save()
+
+        try:
+            try_repo = Repo.objects.get(name="try")
+            target_commit_hash = base_revision
+
+            if try_repo.scm_type != repo.scm_type:
+                try:
+                    mapping_repo = get_commit_map(
+                        try_repo.scm_type, repo.name, repo.scm_type
+                    )
+                except ValueError:
+                    logger.exception(
+                        "CommitMap not found",
+                        extra={"job_id": job.id},
+                    )
+                    return created_revision_ids
+                try:
+                    target_commit_hash = get_commit_hash(
+                        mapping_repo, target_commit_hash, repo.scm_type
+                    )
+                except ValueError:
+                    logger.exception(
+                        "Error converting SCM commit IDs",
+                        extra={"job_id": job.id},
+                    )
+
+                    return created_revision_ids
+
+            patch_data = {
+                "author_name": "Lando",
+                "author_email": job.requester_email,
+                "commit_message": "try_task_config",
+                "timestamp": str(int(time.time())),
+            }
+
+            # create fresh revisions using uplift revision diffs
+            revisions = []
+            for revision in job.revisions.all():
+                revisions.append(
+                    Revision.new_from_patch(
+                        raw_diff=revision.diff, patch_data=patch_data
+                    )
+                )
+
+            # create and append config file revisions
+
+            with open("try_task_config.json", "r") as file:
+                raw_diff = file.read()
+
+            try_revision = Revision.new_from_patch(
+                raw_diff=raw_diff, patch_data=patch_data
+            )
+            revisions.append(try_revision)
+
+            # now that i have the list of revisions, can call add revisions to job
+            # to create a new landingjob
+            with transaction.atomic():
+                try_job = LandingJob.objects.create(
+                    target_repo=try_repo,
+                    requester_email=job.requester_email,
+                    target_commit_hash=target_commit_hash,
+                    # We are in a transaction, so we can mark this job as SUBMITTED rather than
+                    # having a two-step process starting with CREATED.
+                    status=JobStatus.SUBMITTED,
+                )
+
+                add_revisions_to_job(revisions, try_job)
+                try_job.save()
+
+        except Exception:
+            logger.exception(
+                "Failed to create try push for uplift job.",
+                extra={"job_id": job.id},
+            )
 
         return created_revision_ids
 

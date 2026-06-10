@@ -16,6 +16,7 @@ from lando.api.legacy.uplift import (
 )
 from lando.api.tests.test_landings import PATCH_CHANGE_MISSING_CONTENT
 from lando.main.models import JobStatus, PermanentFailureException
+from lando.main.models.landing_job import LandingJob
 from lando.main.models.revision import Revision, RevisionLandingJob
 from lando.main.models.uplift import (
     LowMediumHighChoices,
@@ -730,6 +731,7 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     monkeypatch,
     make_uplift_job_with_revisions,
     mock_uplift_email_tasks,
+    tmp_path,
 ):
     def mock_write_update_commits(commits):
         def _write_uplift_commits(job_arg, base_rev, env, output_path):
@@ -744,6 +746,10 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         return _write_uplift_commits
 
     repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
+
+    try_repo = repo_mc(SCMType.GIT, name="try", is_try=True)
+    (tmp_path / "try_task_config.json").write_text(normal_patch(0))
+    monkeypatch.chdir(tmp_path)
 
     revisions = [
         create_patch_revision(0, patch=normal_patch(0)),
@@ -848,6 +854,23 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     )
     assert ur.assessment_id == job.submission.assessment_id, (
         "Created UpliftRevision should link back to the original assessment."
+    )
+
+    try_jobs = LandingJob.objects.filter(target_repo=try_repo)
+    assert try_jobs.count() == 1, "A single try-push `LandingJob` should be created."
+
+    try_job = try_jobs.get()
+    assert try_job.status == JobStatus.SUBMITTED, (
+        "Try-push job should be submitted for processing."
+    )
+    assert try_job.requester_email == user.email, (
+        "Try-push job should record the original requester."
+    )
+    assert try_job.target_commit_hash, "Try-push job should have a base commit hash."
+
+    # One revision per uplift revision, plus the try_task_config revision.
+    assert try_job.revisions.count() == len(revisions) + 1, (
+        "Try-push job should bundle the uplift revisions and the config revision."
     )
 
     # Mock `moz-phab uplift` again with new created commits.
