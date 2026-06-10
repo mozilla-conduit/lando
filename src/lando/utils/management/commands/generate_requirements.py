@@ -22,6 +22,7 @@ class Command(BaseCommand):
             "-m",
             "piptools",
             "compile",
+            "--pip-args=--uploaded-prior-to=P7D",
             "--generate-hashes",
             "--allow-unsafe",
             "--extra=code-quality,testing",
