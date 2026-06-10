@@ -201,6 +201,7 @@ $.fn.stack = function () {
         fetch(`/api/pulls/${repo_name}/${pull_number}/landing_jobs`, {
           method: "POST",
           body: JSON.stringify({ head_sha: head_sha }),
+          //list of warnings:
           headers: {
             Accept: "application/json",
             "Content-Type": "application/json",
@@ -293,11 +294,13 @@ $.fn.stack = function () {
               $("#commit-title-error").text(result.title);
               $("#commit-title-error").addClass("help is-danger");
               $("#commit-title").prop("disabled", false);
+              $("#commit-body").prop("disabled", false);
               $("#commit-title").addClass("is-danger");
             }
             if (result.body) {
               $("#commit-body-error").text(result.body);
               $("#commit-body-error").addClass("help is-danger");
+              $("#commit-title").prop("disabled", false);
               $("#commit-body").prop("disabled", false);
               $("#commit-body").addClass("is-danger");
             }
