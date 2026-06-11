@@ -97,20 +97,15 @@ function helpClass(level: GuidanceLevel): string {
       Could not load release-train guidance. Select repositories manually below.
     </p>
     <template v-else>
-      <div class="field">
-        <label class="label"
-          >How do you want to choose the uplift target?</label
-        >
-        <div class="control">
-          <label class="radio">
-            <input type="radio" value="version" v-model="mode" />
-            Select by Firefox version
-          </label>
-          <label class="radio">
-            <input type="radio" value="manual" v-model="mode" />
-            Select repositories manually
-          </label>
-        </div>
+      <div class="tabs">
+        <ul>
+          <li :class="{ 'is-active': mode === 'version' }">
+            <a @click="mode = 'version'">Select Firefox Version</a>
+          </li>
+          <li :class="{ 'is-active': mode === 'manual' }">
+            <a @click="mode = 'manual'">Select Uplift Train</a>
+          </li>
+        </ul>
       </div>
       <div v-if="mode === 'version'" class="field">
         <label class="label">Target Firefox version</label>

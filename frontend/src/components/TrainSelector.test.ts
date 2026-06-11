@@ -124,12 +124,13 @@ describe("TrainSelector", () => {
     const wrapper = mount(TrainSelector, { props: { apiUrl: "/api/train" } });
     await flushPromises();
 
-    await wrapper.find('input[value="manual"]').setValue();
+    // The second tab ("Select Uplift Train") switches to manual mode.
+    await wrapper.findAll(".tabs li a")[1].trigger("click");
     await flushPromises();
 
     expect(
       repositoriesField().style.display,
-      "Manual mode should reveal the native repositories field.",
+      "The train tab should reveal the native repositories field.",
     ).toBe("");
 
     const release = repoCheckbox("firefox-release");
