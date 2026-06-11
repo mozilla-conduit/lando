@@ -19,7 +19,7 @@ class AccessTokenAuth(HttpBearer):
     """Ninja bearer token-based authenticator delegating verification to the OIDC backend."""
 
     @override
-    def authenticate(self, request: WSGIRequest, token: str) -> User:
+    def authenticate(self, request: WSGIRequest, token: str) -> User | None:
         """Forward the authenticate request to the LandoOIDCAuthenticationBackend."""
         # The token is extracted in the LandoOIDCAuthenticationBackend, so we don't need
         # to pass it. But we need to inherit from HttpBearer for auth to work with Ninja.
@@ -28,10 +28,14 @@ class AccessTokenAuth(HttpBearer):
         # Django-Ninja sets `request.auth` to the verified token, since
         # some APIs may have authentication without user management. Our
         # access tokens always correspond to a specific user, so set that on
-        # the request here.
-        request.user = oidc_auth.authenticate(request)
+        # the request here. Only overwrite `request.user` on success; on failure
+        # leave the `AnonymousUser` set by `AuthenticationMiddleware` in place so
+        # downstream code never sees `request.user` as `None`.
+        user = oidc_auth.authenticate(request)
+        if user:
+            request.user = user
 
-        return request.user
+        return user
 
 
 #

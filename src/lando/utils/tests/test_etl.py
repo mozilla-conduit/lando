@@ -11,7 +11,7 @@ from django.core.management.base import CommandError
 from google.api_core.exceptions import NotFound
 
 from lando.headless_api.models.automation_job import AutomationAction, AutomationJob
-from lando.main.models.landing_job import LandingJob
+from lando.main.models.landing_job import AutoformatChange, LandingJob
 from lando.main.models.revision import Revision, RevisionLandingJob
 from lando.main.models.uplift import (
     RevisionUpliftJob,
@@ -21,6 +21,7 @@ from lando.main.models.uplift import (
     UpliftSubmission,
 )
 from lando.utils.management.commands.etl import (
+    AutoformatChangeTransformer,
     AutomationActionTransformer,
     AutomationJobTransformer,
     BigQueryLoader,
@@ -459,6 +460,47 @@ def test_transform_revision_landing_job(make_repo):
     assert result["diff_id"] == 200, "`diff_id` should exist and match expected value."
     assert result["commit_id"] == "abc123", (
         "`commit_id` should exist and match expected value."
+    )
+    assert result["created_at"] is not None, (
+        "`created_at` should exist and not be `None`."
+    )
+    assert result["updated_at"] is not None, (
+        "`updated_at` should exist and not be `None`."
+    )
+
+
+@pytest.mark.django_db
+def test_transform_autoformat_change(make_repo):
+    repo = make_repo(1)
+    landing_job = LandingJob.objects.create(
+        status="LANDED",
+        requester_email="lander@example.com",
+        target_repo=repo,
+    )
+    autoformat_change = AutoformatChange.objects.create(
+        landing_job=landing_job,
+        commit_sha="abc123",
+        changed_files=["foo.py", "bar.py"],
+        diff="--- a/foo.py\n+++ b/foo.py\n",
+    )
+
+    transformer = AutoformatChangeTransformer()
+    result = transformer.transform(autoformat_change)
+
+    assert result["id"] == autoformat_change.id, (
+        "`id` should exist and match expected value."
+    )
+    assert result["landing_job_id"] == landing_job.id, (
+        "`landing_job_id` should exist and match expected value."
+    )
+    assert result["commit_sha"] == "abc123", (
+        "`commit_sha` should exist and match expected value."
+    )
+    assert result["changed_files"] == ["foo.py", "bar.py"], (
+        "`changed_files` should be passed through as a list for the REPEATED field."
+    )
+    assert result["diff"] == "--- a/foo.py\n+++ b/foo.py\n", (
+        "`diff` should exist and match expected value."
     )
     assert result["created_at"] is not None, (
         "`created_at` should exist and not be `None`."

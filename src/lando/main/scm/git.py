@@ -573,7 +573,7 @@ class GitSCM(AbstractSCM):
         return self._git_run("rev-parse", "--absolute-git-dir", cwd=self.path)
 
     @override
-    def format_stack_amend(self) -> list[str] | None:
+    def format_stack_amend(self) -> str | None:
         """Amend the top commit in the patch stack with changes from formatting."""
         status = self._git_run("status", "--porcelain", cwd=self.path)
         if not status:
@@ -581,10 +581,10 @@ class GitSCM(AbstractSCM):
             return None
 
         self._git_run("commit", "--all", "--amend", "--no-edit", cwd=self.path)
-        return [self.head_ref()]
+        return self.head_ref()
 
     @override
-    def format_stack_tip(self, commit_message: str) -> list[str] | None:
+    def format_stack_tip(self, commit_message: str) -> str | None:
         """Add an autoformat commit to the top of the patch stack."""
         try:
             self._git_run("commit", "--all", "--message", commit_message, cwd=self.path)
@@ -593,7 +593,18 @@ class GitSCM(AbstractSCM):
                 return None
             else:
                 raise exc
-        return [self.head_ref()]
+        return self.head_ref()
+
+    @override
+    def changed_files(self) -> list[str]:
+        """Return paths of files with uncommitted changes in the working directory."""
+        output = self._git_run("diff", "--name-only", cwd=self.path)
+        return output.splitlines() if output else []
+
+    @override
+    def working_directory_diff(self) -> str:
+        """Return the unified diff of uncommitted working-directory changes."""
+        return self._git_run("diff", cwd=self.path)
 
     @property
     @override

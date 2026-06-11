@@ -2,6 +2,7 @@ import configparser
 import logging
 import os
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 import sentry_sdk
@@ -17,6 +18,7 @@ from lando.api.legacy.uplift import (
 )
 from lando.api.legacy.workers.base import Worker
 from lando.main.models import (
+    AutoformatChange,
     JobAction,
     LandingJob,
     PermanentFailureException,
@@ -48,6 +50,20 @@ AUTOFORMAT_COMMIT_MESSAGE = """
 
 # ignore-this-changeset
 """.strip()
+
+
+@dataclass
+class AutoformatResult:
+    """The results of an autoformatting run that amended or added a commit."""
+
+    # The commit SHA autoformatting amended or added.
+    commit_sha: str
+
+    # File paths modified by autoformatting. Empty when the SCM cannot report them (e.g. Hg).
+    changed_files: list[str]
+
+    # Unified diff of the autoformatting changes. Empty when the SCM cannot report it (e.g. Hg).
+    diff: str
 
 
 class LandingWorker(Worker):
@@ -366,7 +382,7 @@ class LandingWorker(Worker):
         should_amend_autoformat = len(changeset_titles) == 1
 
         try:
-            replacements = self.apply_autoformatting(
+            result = self.apply_autoformatting(
                 scm,
                 landoini_config,
                 bug_ids,
@@ -384,15 +400,25 @@ class LandingWorker(Worker):
 
             return message
 
-        # If autoformatting added any changesets, note those in the job.
-        if replacements:
-            job.formatted_replacements = replacements
+        # If autoformatting added any changesets, note those in the job and record
+        # the changed files and diff for later analysis.
+        if result is not None:
+            job.formatted_replacements = [result.commit_sha]
+
+            # `changed_files` is empty when the SCM cannot capture the changes (e.g. Hg).
+            if result.changed_files:
+                AutoformatChange.objects.create(
+                    landing_job=job,
+                    commit_sha=result.commit_sha,
+                    changed_files=result.changed_files,
+                    diff=result.diff,
+                )
 
             if should_amend_autoformat:
                 # Update the `commit_id` field to reflect the new commit SHA after
                 # applying autoformatting changes.
                 revision = job.revisions.first()
-                revision.commit_id = replacements[0]
+                revision.commit_id = result.commit_sha
                 revision.save()
 
         return
@@ -404,7 +430,7 @@ class LandingWorker(Worker):
         bug_ids: list[str],
         should_amend_autoformat: bool,
         extra_env: dict[str, str] | None = None,
-    ) -> list[str] | None:
+    ) -> AutoformatResult | None:
         try:
             self.format_stack(landoini_config, scm.path, extra_env=extra_env)
         except AutoformattingException as exc:
@@ -412,8 +438,19 @@ class LandingWorker(Worker):
             logger.exception(exc)
             raise exc
 
+        # Capture the changes before committing, while they exist in the working
+        # directory. After an amend the pre-amend state is no longer available.
+        # Both are empty when the SCM does not support capture (e.g. Hg).
         try:
-            replacements = self.commit_autoformatting_changes(
+            changed_files = scm.changed_files()
+            diff = scm.working_directory_diff()
+        except NotImplementedError:
+            logger.warning("SCM does not support capturing autoformat changes.")
+            changed_files = []
+            diff = ""
+
+        try:
+            commit_sha = self.commit_autoformatting_changes(
                 scm, should_amend_autoformat, bug_ids
             )
         except SCMException as exc:
@@ -422,7 +459,15 @@ class LandingWorker(Worker):
             logger.exception(exc)
             raise AutoformattingException(msg, exc.out, exc.err) from exc
 
-        return replacements
+        # Autoformatting made no changes, so there is nothing to commit or record.
+        if commit_sha is None:
+            return None
+
+        return AutoformatResult(
+            commit_sha=commit_sha,
+            changed_files=changed_files,
+            diff=diff,
+        )
 
     def format_stack(
         self,
@@ -530,12 +575,14 @@ class LandingWorker(Worker):
 
     def commit_autoformatting_changes(
         self, scm: AbstractSCM, should_amend_autoformat: bool, bug_ids: list[str]
-    ) -> list[str] | None:
+    ) -> str | None:
         """Call the SCM implementation to commit pending autoformatting changes.
 
         If `should_amend_autoformat` is `True`, formatting changes will be amended into
         the tip commit. Otherwise, a new commit will be created on top of the stack
         (referencing all bugs involved in the stack).
+
+        Return the SHA of the resulting commit, or `None` when nothing changed.
         """
         if should_amend_autoformat:
             return scm.format_stack_amend()

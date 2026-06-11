@@ -1027,6 +1027,9 @@ def test_format_patch_success_unchanged(
     assert job.formatted_replacements is None, (
         "Autoformat making no changes should leave `formatted_replacements` empty."
     )
+    assert job.autoformat_changes.count() == 0, (
+        "Autoformat making no changes should record no `AutoformatChange` rows."
+    )
 
 
 @pytest.mark.parametrize(
@@ -1112,6 +1115,22 @@ def test_format_single_success_changed(
         "Autoformat via amending should only land a single commit."
     )
 
+    if repo_type == SCMType.GIT:
+        autoformat_change = job.autoformat_changes.get()
+        assert autoformat_change.commit_sha == job.formatted_replacements[0], (
+            "`AutoformatChange` should reference the amended commit SHA."
+        )
+        assert autoformat_change.changed_files == ["test.txt"], (
+            "`AutoformatChange` should list the reformatted file."
+        )
+        assert autoformat_change.diff, (
+            "`AutoformatChange` should record a non-empty diff."
+        )
+    else:
+        assert job.autoformat_changes.count() == 0, (
+            "Hg does not support capturing autoformat changes."
+        )
+
 
 @pytest.mark.parametrize(
     "repo_type",
@@ -1183,6 +1202,22 @@ def test_format_stack_success_changed(
     assert desc == AUTOFORMAT_COMMIT_MESSAGE.format(bugs="Bug 123"), (
         "Autoformat commit has incorrect commit message."
     )
+
+    if repo_type == SCMType.GIT:
+        autoformat_change = job.autoformat_changes.get()
+        assert autoformat_change.commit_sha == job.formatted_replacements[0], (
+            "`AutoformatChange` should reference the autoformat tip commit SHA."
+        )
+        assert autoformat_change.changed_files == ["test.txt"], (
+            "`AutoformatChange` should list the reformatted file."
+        )
+        assert autoformat_change.diff, (
+            "`AutoformatChange` should record a non-empty diff."
+        )
+    else:
+        assert job.autoformat_changes.count() == 0, (
+            "Hg does not support capturing autoformat changes."
+        )
 
 
 @pytest.mark.django_db
