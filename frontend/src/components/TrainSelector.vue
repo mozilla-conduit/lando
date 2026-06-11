@@ -131,7 +131,6 @@ function helpClass(level: GuidanceLevel): string {
         </ul>
       </div>
       <div v-if="mode === 'version'" class="field">
-        <label class="label">Target Firefox version</label>
         <div class="control">
           <div class="select">
             <select v-model.number="selectedVersion">

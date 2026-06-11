@@ -68,12 +68,12 @@
                             <p class="help">Deselect any revisions you don't want to include in the uplift request.</p>
                         </div>
                     {% endif %}
+                    <label class="label">Select uplift target</label>
                     {# Vue train-selector widget mounts here and progressively
                        enhances the repository checkboxes below. #}
                     <div id="uplift-train-selector"
                          data-train-api-url="{{ uplift.train_api_url }}"></div>
                     <div class="field" data-uplift-repositories>
-                        <label class="label">Uplift repositories</label>
                         <div class="field is-grouped is-grouped-multiline m-0">
                             {% for checkbox in uplift.request_form.repositories %}
                                 <p class="control">
