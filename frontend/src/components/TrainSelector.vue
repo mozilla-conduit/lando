@@ -3,10 +3,9 @@ import { ref, computed, watch, onMounted } from "vue";
 import {
   versionChoices,
   resolveVersion,
-  hintForRepo,
+  summarizeRepos,
   trainForRepo,
   type ReleaseSchedule,
-  type GuidanceLevel,
   type Train,
 } from "../trainGuidance";
 import { useUpliftRepositories } from "../composables/useUpliftRepositories";
@@ -28,7 +27,9 @@ const choices = computed(() =>
   schedule.value ? versionChoices(schedule.value) : [],
 );
 
-const recommendation = computed(() =>
+// The repositories a chosen version resolves to, used both to tick the
+// checkboxes and to describe where the patch will land.
+const selectedRepos = computed(() =>
   selectedVersion.value !== null && schedule.value
     ? resolveVersion(selectedVersion.value, schedule.value)
     : null,
@@ -37,11 +38,11 @@ const recommendation = computed(() =>
 // Name the uplift train(s) the chosen version resolved to, so it is clear that
 // selecting a version also selects beta, release, or both.
 const selectionSummary = computed(() => {
-  const current = recommendation.value;
-  if (!current) {
+  const repos = selectedRepos.value;
+  if (!repos) {
     return "";
   }
-  const labels = current.repos
+  const labels = repos
     .map((repo) => trainForRepo(repo))
     .filter((train): train is Train => train !== null)
     .map((train) => train.charAt(0).toUpperCase() + train.slice(1));
@@ -56,29 +57,23 @@ const selectionSummary = computed(() => {
 });
 
 // A single informational line for the version tab, combining which train(s)
-// were selected with where the patch will land.
+// were selected with where the patch will land (the same landing description
+// the train tab shows).
 const versionMessage = computed(() => {
-  const current = recommendation.value;
-  if (!current) {
+  const repos = selectedRepos.value;
+  if (!repos || !schedule.value) {
     return "";
   }
-  return [selectionSummary.value, current.note].filter(Boolean).join(" ");
+  const { landing } = summarizeRepos(repos, schedule.value);
+  return [selectionSummary.value, landing].filter(Boolean).join(" ");
 });
 
-// Guidance for the manually-selected repositories, omitting any without a
-// train-specific hint (e.g. ESR).
-const activeHints = computed(() => {
-  const currentSchedule = schedule.value;
-  if (!currentSchedule) {
-    return [];
-  }
-  return repositories.checkedRepos.value
-    .map((repo) => {
-      const hint = hintForRepo(repo, currentSchedule);
-      return hint ? { repo, ...hint } : null;
-    })
-    .filter((hint) => hint !== null);
-});
+// Combined guidance for the manually-selected repositories.
+const manualGuidance = computed(() =>
+  schedule.value
+    ? summarizeRepos(repositories.checkedRepos.value, schedule.value)
+    : { landing: "", warnings: [] },
+);
 
 // The native checkbox field is shown in manual mode, and whenever the guidance
 // is unavailable so the form remains usable.
@@ -92,9 +87,9 @@ watch(nativeFieldVisible, (visible) => repositories.setFieldVisible(visible), {
 
 // Reapply the recommendation whenever it changes or the user re-enters version
 // mode, so the checkboxes always reflect the chosen version.
-watch([mode, recommendation], () => {
-  if (mode.value === "version" && recommendation.value) {
-    repositories.applyManaged(recommendation.value.repos, props.managedRepos);
+watch([mode, selectedRepos], () => {
+  if (mode.value === "version" && selectedRepos.value) {
+    repositories.applyManaged(selectedRepos.value, props.managedRepos);
   }
 });
 
@@ -117,10 +112,6 @@ async function loadSchedule(): Promise<void> {
 }
 
 onMounted(loadSchedule);
-
-function helpClass(level: GuidanceLevel): string {
-  return level === "warning" ? "is-warning" : "is-info";
-}
 </script>
 
 <template>
@@ -168,13 +159,15 @@ function helpClass(level: GuidanceLevel): string {
       </p>
     </template>
     <template v-else-if="!loading && !error">
+      <p v-if="manualGuidance.landing" class="help is-info">
+        {{ manualGuidance.landing }}
+      </p>
       <p
-        v-for="hint in activeHints"
-        :key="hint.repo"
-        class="help"
-        :class="helpClass(hint.level)"
+        v-for="warning in manualGuidance.warnings"
+        :key="warning"
+        class="help is-warning"
       >
-        {{ hint.message }}
+        {{ warning }}
       </p>
     </template>
   </Teleport>

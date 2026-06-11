@@ -5,7 +5,7 @@ import {
   cycleStage,
   versionChoices,
   resolveVersion,
-  hintForRepo,
+  summarizeRepos,
   type ReleaseSchedule,
 } from "./trainGuidance";
 
@@ -103,45 +103,28 @@ describe("versionChoices", () => {
 
 describe("resolveVersion", () => {
   test("targets both branches for the release version", () => {
-    const result = resolveVersion(151, BETA_SHIPPING);
     expect(
-      result?.repos,
+      resolveVersion(151, BETA_SHIPPING),
       "Choosing the release version should target both release and beta.",
     ).toEqual(["firefox-release", "firefox-beta"]);
   });
 
   test("targets beta when betas are still shipping", () => {
-    const result = resolveVersion(152, BETA_SHIPPING);
     expect(
-      result?.repos,
+      resolveVersion(152, BETA_SHIPPING),
       "During beta-shipping the beta version should target beta.",
     ).toEqual(["firefox-beta"]);
-    expect(
-      result?.note,
-      "The note should state the patch lands in Firefox 152.",
-    ).toBe("This will land in Firefox 152.");
   });
 
-  test("targets release for a major release during rc-shipping", () => {
-    const result = resolveVersion(152, RC_SHIPPING);
+  test("targets release once betas are closed", () => {
     expect(
-      result?.repos,
+      resolveVersion(152, RC_SHIPPING),
       "During rc-shipping the beta version should target release.",
     ).toEqual(["firefox-release"]);
-    expect(result?.note, "The note should mention the major release.").toBe(
-      "This will land in Firefox 152.0 (major release).",
-    );
-  });
-
-  test("targets release for a minor release once dot releases only remain", () => {
-    const result = resolveVersion(152, DOT_RELEASES_ONLY);
     expect(
-      result?.repos,
+      resolveVersion(152, DOT_RELEASES_ONLY),
       "Once only dot releases remain the beta version should target release.",
     ).toEqual(["firefox-release"]);
-    expect(result?.note, "The note should mention a minor release.").toBe(
-      "This will land in a Firefox 152.0.x minor release.",
-    );
   });
 
   test("returns null for a version that is not selectable", () => {
@@ -152,63 +135,56 @@ describe("resolveVersion", () => {
   });
 });
 
-describe("hintForRepo", () => {
-  test("hints the landing version when selecting beta during beta-shipping", () => {
+describe("summarizeRepos", () => {
+  test("combines multiple trains into a single landing sentence", () => {
+    const guidance = summarizeRepos(
+      ["firefox-beta", "firefox-release"],
+      BETA_SHIPPING,
+    );
     expect(
-      hintForRepo("firefox-beta", BETA_SHIPPING),
-      "Selecting beta while betas ship should hint the landing version.",
-    ).toEqual({ message: "This will land in Firefox 152.", level: "info" });
+      guidance.landing,
+      "Selecting both trains should yield one combined sentence.",
+    ).toBe(
+      "This will land in Firefox 152 and the next Firefox 151 dot release.",
+    );
+    expect(
+      guidance.warnings,
+      "There should be no warnings while betas are shipping.",
+    ).toEqual([]);
   });
 
-  test("warns when selecting beta after betas are done", () => {
+  test("describes the major release during rc-shipping", () => {
     expect(
-      hintForRepo("firefox-beta", RC_SHIPPING),
+      summarizeRepos(["firefox-release"], RC_SHIPPING).landing,
+      "Release during rc-shipping should mention the major release.",
+    ).toBe("This will land in Firefox 152.0 (major release).");
+  });
+
+  test("describes the next dot release during dot-releases-only", () => {
+    expect(
+      summarizeRepos(["firefox-release"], DOT_RELEASES_ONLY).landing,
+      "Release during dot-releases-only should mention the next dot release.",
+    ).toBe("This will land in the next Firefox 152 dot release.");
+  });
+
+  test("warns when beta is selected after betas are closed", () => {
+    const guidance = summarizeRepos(["firefox-beta"], RC_SHIPPING);
+    expect(
+      guidance.landing,
+      "Beta has no landing target once betas are closed.",
+    ).toBe("");
+    expect(
+      guidance.warnings,
       "Selecting beta with no betas left should warn and redirect to release.",
-    ).toEqual({
-      message:
-        "No betas remaining for Firefox 152; select release to land this in Firefox 152.",
-      level: "warning",
-    });
-    expect(
-      hintForRepo("firefox-beta", DOT_RELEASES_ONLY)?.level,
-      "Selecting beta during dot-releases-only should also warn.",
-    ).toBe("warning");
+    ).toEqual([
+      "No betas remaining for Firefox 152; select release to land this in Firefox 152.",
+    ]);
   });
 
-  test("hints the next dot release when selecting release during beta-shipping", () => {
+  test("ignores repositories without train-specific guidance", () => {
     expect(
-      hintForRepo("firefox-release", BETA_SHIPPING),
-      "Selecting release while betas ship should hint the next 151 dot release.",
-    ).toEqual({
-      message: "This will land in the next Firefox 151 dot release.",
-      level: "info",
-    });
-  });
-
-  test("hints the major release when selecting release during rc-shipping", () => {
-    expect(
-      hintForRepo("firefox-release", RC_SHIPPING),
-      "Selecting release during rc-shipping should hint the major release.",
-    ).toEqual({
-      message: "This will land in Firefox 152.0 (major release).",
-      level: "info",
-    });
-  });
-
-  test("hints the next dot release when selecting release during dot-releases-only", () => {
-    expect(
-      hintForRepo("firefox-release", DOT_RELEASES_ONLY),
-      "Selecting release during dot-releases-only should hint the next 152 dot release.",
-    ).toEqual({
-      message: "This will land in the next Firefox 152 dot release.",
-      level: "info",
-    });
-  });
-
-  test("returns null for repositories without train-specific guidance", () => {
-    expect(
-      hintForRepo("firefox-esr128", BETA_SHIPPING),
-      "ESR repositories should have no train hint.",
-    ).toBeNull();
+      summarizeRepos(["firefox-esr128"], BETA_SHIPPING),
+      "ESR repositories contribute no guidance.",
+    ).toEqual({ landing: "", warnings: [] });
   });
 });

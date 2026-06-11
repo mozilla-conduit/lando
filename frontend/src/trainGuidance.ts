@@ -6,8 +6,6 @@ export type Train = "nightly" | "beta" | "release";
 
 export type CycleStage = "beta-shipping" | "rc-shipping" | "dot-releases-only";
 
-export type GuidanceLevel = "info" | "warning";
-
 export interface TrainInfo {
   version: number;
   release_date: string;
@@ -29,15 +27,14 @@ export interface VersionChoice {
   train: Train;
 }
 
-export interface VersionRecommendation {
-  repos: string[];
-  note: string;
-  level: GuidanceLevel;
-}
-
-export interface RepoHint {
-  message: string;
-  level: GuidanceLevel;
+// Guidance describing where a set of selected repositories will land.
+export interface RepoGuidance {
+  // A single informational sentence covering every selected train, or "" when
+  // none of the selected repositories have train-specific guidance.
+  landing: string;
+  // Cautions for selected repositories that will not land as expected (e.g.
+  // selecting beta once no betas remain).
+  warnings: string[];
 }
 
 // Lando repository names for each mainline train. Only `beta` and `release`
@@ -85,101 +82,91 @@ export function versionChoices(schedule: ReleaseSchedule): VersionChoice[] {
   ];
 }
 
-// Map a chosen target version onto the repositories to select, with a note
-// explaining where the patch will land. Returns `null` for an unknown version.
+// Map a chosen target version onto the repositories to select. Returns `null`
+// for a version that is not a valid uplift target.
 export function resolveVersion(
   version: number,
   schedule: ReleaseSchedule,
-): VersionRecommendation | null {
+): string[] | null {
   if (version === schedule.release.version) {
-    return resolveReleaseVersion(schedule);
+    // The release version already shipped, so target both branches to cover the
+    // current release and the upcoming one.
+    return [repoForTrain("release")!, repoForTrain("beta")!];
   }
   if (version === schedule.beta.version) {
-    return resolveBetaVersion(schedule);
+    // During beta-shipping the patch rides the beta train; afterwards betas are
+    // closed, so it must target the release branch instead.
+    return cycleStage(schedule) === "beta-shipping"
+      ? [repoForTrain("beta")!]
+      : [repoForTrain("release")!];
   }
   return null;
 }
 
-// The release version is already shipped, so target both branches to cover the
-// current release and the upcoming one.
-function resolveReleaseVersion(
+// Summarize where the given repositories will land, combining every train's
+// landing target into a single sentence plus any cautionary warnings.
+export function summarizeRepos(
+  repos: string[],
   schedule: ReleaseSchedule,
-): VersionRecommendation {
-  return {
-    repos: [repoForTrain("release")!, repoForTrain("beta")!],
-    note: `This will land in both Firefox ${schedule.release.version} and Firefox ${schedule.beta.version}.`,
-    level: "info",
-  };
+): RepoGuidance {
+  const phrases = repos
+    .map((repo) => landingPhrase(repo, schedule))
+    .filter((phrase): phrase is string => phrase !== null);
+  const warnings = repos
+    .map((repo) => landingWarning(repo, schedule))
+    .filter((warning): warning is string => warning !== null);
+  const landing = phrases.length
+    ? `This will land in ${joinWithAnd(phrases)}.`
+    : "";
+  return { landing, warnings };
 }
 
-function resolveBetaVersion(schedule: ReleaseSchedule): VersionRecommendation {
-  const version = schedule.beta.version;
-  const stage = cycleStage(schedule);
-
-  if (stage === "beta-shipping") {
-    return {
-      repos: [repoForTrain("beta")!],
-      note: `This will land in Firefox ${version}.`,
-      level: "info",
-    };
-  }
-  if (stage === "rc-shipping") {
-    return {
-      repos: [repoForTrain("release")!],
-      note: `This will land in Firefox ${version}.0 (major release).`,
-      level: "info",
-    };
-  }
-  return {
-    repos: [repoForTrain("release")!],
-    note: `This will land in a Firefox ${version}.0.x minor release.`,
-    level: "info",
-  };
-}
-
-// Return guidance shown when a user manually selects a repository, or `null`
-// when the repository has no train-specific hint (e.g. ESR).
-export function hintForRepo(
-  repo: string,
-  schedule: ReleaseSchedule,
-): RepoHint | null {
+// Describe where a single repository's train will land, as a phrase that slots
+// into "This will land in ...". Returns `null` when there is nothing to say
+// (a non-mainline repo, or beta once betas are closed — see `landingWarning`).
+function landingPhrase(repo: string, schedule: ReleaseSchedule): string | null {
   const train = trainForRepo(repo);
+  const stage = cycleStage(schedule);
   if (train === "beta") {
-    return betaHint(schedule);
+    return stage === "beta-shipping"
+      ? `Firefox ${schedule.beta.version}`
+      : null;
   }
   if (train === "release") {
-    return releaseHint(schedule);
+    if (stage === "beta-shipping") {
+      return `the next Firefox ${schedule.release.version} dot release`;
+    }
+    if (stage === "rc-shipping") {
+      return `Firefox ${schedule.beta.version}.0 (major release)`;
+    }
+    return `the next Firefox ${schedule.beta.version} dot release`;
   }
   return null;
 }
 
-function betaHint(schedule: ReleaseSchedule): RepoHint {
-  const version = schedule.beta.version;
-  if (cycleStage(schedule) === "beta-shipping") {
-    return { message: `This will land in Firefox ${version}.`, level: "info" };
+// Warn when beta is selected after betas are closed, since it will not land.
+function landingWarning(
+  repo: string,
+  schedule: ReleaseSchedule,
+): string | null {
+  if (
+    trainForRepo(repo) === "beta" &&
+    cycleStage(schedule) !== "beta-shipping"
+  ) {
+    const version = schedule.beta.version;
+    return `No betas remaining for Firefox ${version}; select release to land this in Firefox ${version}.`;
   }
-  return {
-    message: `No betas remaining for Firefox ${version}; select release to land this in Firefox ${version}.`,
-    level: "warning",
-  };
+  return null;
 }
 
-function releaseHint(schedule: ReleaseSchedule): RepoHint {
-  const stage = cycleStage(schedule);
-  if (stage === "beta-shipping") {
-    return {
-      message: `This will land in the next Firefox ${schedule.release.version} dot release.`,
-      level: "info",
-    };
+// Join phrases into a natural-language list ("a", "a and b", "a, b, and c").
+function joinWithAnd(items: string[]): string {
+  if (items.length <= 1) {
+    return items.join("");
   }
-  if (stage === "rc-shipping") {
-    return {
-      message: `This will land in Firefox ${schedule.beta.version}.0 (major release).`,
-      level: "info",
-    };
+  if (items.length === 2) {
+    return `${items[0]} and ${items[1]}`;
   }
-  return {
-    message: `This will land in the next Firefox ${schedule.beta.version} dot release.`,
-    level: "info",
-  };
+  const last = items[items.length - 1];
+  return `${items.slice(0, -1).join(", ")}, and ${last}`;
 }

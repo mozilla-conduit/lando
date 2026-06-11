@@ -130,9 +130,13 @@ describe("TrainSelector", () => {
       messagesText(),
       "The summary should name both selected uplift trains.",
     ).toContain("Selected the Release and Beta uplift trains.");
+    expect(
+      messagesText(),
+      "The version summary should use the specific dot-release wording.",
+    ).toContain("the next Firefox 151 dot release");
   });
 
-  it("reveals the field and hints when manually selecting a repository", async () => {
+  it("combines manually selected trains into a single landing sentence", async () => {
     renderRepositoriesField();
     stubFetch(BETA_SHIPPING);
 
@@ -148,15 +152,23 @@ describe("TrainSelector", () => {
       "The train tab should reveal the native repositories field.",
     ).toBe("");
 
-    const release = repoCheckbox("firefox-release");
-    release.checked = true;
-    release.dispatchEvent(new Event("change", { bubbles: true }));
+    for (const value of ["firefox-beta", "firefox-release"]) {
+      const checkbox = repoCheckbox(value);
+      checkbox.checked = true;
+      checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+    }
     await flushPromises();
 
     expect(
       messagesText(),
-      "Selecting release during beta-shipping should hint the next dot release.",
-    ).toContain("This will land in the next Firefox 151 dot release.");
+      "Both selected trains should be described in one sentence.",
+    ).toContain(
+      "This will land in Firefox 152 and the next Firefox 151 dot release.",
+    );
+    expect(
+      document.querySelectorAll("#uplift-train-messages p"),
+      "The train tab should render a single combined line.",
+    ).toHaveLength(1);
   });
 
   it("falls back to manual mode when the guidance request fails", async () => {
