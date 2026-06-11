@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/dev/ref/settings/
 
 import os
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from lando.environments import Environment
 from lando.version import version
@@ -278,6 +279,16 @@ WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL = os.getenv(
     "WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL",
     # TODO(sheehan): remove test API endpoint
     "https://connor-sheehan.com/api/trains",
+)
+
+# The browser fetches the train guidance directly, so the page CSP must allow
+# connecting to its origin (see `ResponseHeadersMiddleware`). A relative,
+# same-origin URL yields an empty origin and needs no extra `connect-src` entry.
+_train_api_url_parts = urlsplit(WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL)
+WHATTRAINISITNOW_UPLIFT_TRAIN_API_ORIGIN = (
+    f"{_train_api_url_parts.scheme}://{_train_api_url_parts.netloc}"
+    if _train_api_url_parts.scheme and _train_api_url_parts.netloc
+    else ""
 )
 
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://lando.redis:6379")
