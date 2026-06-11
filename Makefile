@@ -70,7 +70,9 @@ test-use-suite: ## run the testsuite using the conduit-suite environment
 
 .PHONY: upgrade-npm-packages
 upgrade-npm-packages: ## upgrade-npm-packages update package-lock.json
-	$(BASE_COMMAND) npm install
+	# npm >= 11.x has support for min-release-age=7 in `.npmrc`,
+	# but we are still on 10.x from bookworm.
+	$(BASE_COMMAND) npm install --before="$(shell date -I -d '7 days ago')"
 
 .PHONY: upgrade-requirements
 upgrade-requirements: ## upgrade-requirements upgrade packages in requirements.txt
