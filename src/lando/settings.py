@@ -276,7 +276,8 @@ TREESTATUS_URL = os.getenv("TREESTATUS_URL", "http://treestatus.test")
 # server; override once a production endpoint is available.
 WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL = os.getenv(
     "WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL",
-    "https://fx-trains.herokuapp.com/api/lando/uplift/train/",
+    # TODO(sheehan): remove test API endpoint
+    "https://connor-sheehan.com/api/trains",
 )
 
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://lando.redis:6379")
