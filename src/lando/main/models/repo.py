@@ -67,6 +67,16 @@ def get_default_autoformat_setup_commands() -> list[list[str]]:
     ]
 
 
+def get_default_autoformat_run_command() -> list[str]:
+    """Return the default autoformat run command for a repo.
+
+    The returned list is a single `./mach` invocation (without the `./mach` prefix),
+    run against the patch stack to apply formatting. Repos that don't support the
+    `--skip-android` flag can override this with their own command.
+    """
+    return ["format", "--fix", "--outgoing", "--verbose", "--skip-android"]
+
+
 def get_default_hooks() -> list[str]:
     """Returns a list of all known hook names, suitable as a default value.
 
@@ -187,6 +197,17 @@ class Repo(BaseModel):
             "`./mach` (without `./mach` itself). Populated with the default "
             "`mach artifact` sequence on save when `autoformat_enabled` is set, unless "
             "explicitly provided; left empty otherwise."
+        ),
+    )
+    autoformat_run_command = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "Command arg-list run to apply autoformatting to the patch stack. The "
+            "entry is a list of arguments passed to `./mach` (without `./mach` "
+            "itself). Populated with the default `mach format` command on save when "
+            "`autoformat_enabled` is set, unless explicitly provided; left empty "
+            "otherwise."
         ),
     )
     commit_flags = ArrayField(
@@ -367,6 +388,11 @@ class Repo(BaseModel):
         # but leave non-autoformat repos with an empty sequence.
         if self.autoformat_enabled and not self.autoformat_setup_commands:
             self.autoformat_setup_commands = get_default_autoformat_setup_commands()
+
+        # Populate the default run command when autoformatting is enabled, but leave
+        # non-autoformat repos with an empty command.
+        if self.autoformat_enabled and not self.autoformat_run_command:
+            self.autoformat_run_command = get_default_autoformat_run_command()
 
         # Append a ".git" to the URL if this is a GitHub repo and is missing the suffix.
         if self.is_github and not self.url.endswith(".git"):

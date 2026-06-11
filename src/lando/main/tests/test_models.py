@@ -10,7 +10,10 @@ from django.contrib.auth.models import Permission, User
 from django.core.exceptions import ValidationError
 
 from lando.main.models import CommitMap, Repo
-from lando.main.models.repo import get_default_autoformat_setup_commands
+from lando.main.models.repo import (
+    get_default_autoformat_run_command,
+    get_default_autoformat_setup_commands,
+)
 from lando.main.models.revision import Revision
 from lando.main.scm import SCMType
 from lando.utils.landing_checks import (
@@ -400,6 +403,40 @@ def test__models__Repo__autoformat_setup_commands_not_overwritten():
 
     assert repo.autoformat_setup_commands == custom, (
         "An explicitly-set setup sequence should not be overwritten on save."
+    )
+
+
+@pytest.mark.django_db
+def test__models__Repo__autoformat_run_command_set_on_save():
+    """Enabling autoformatting populates the default `mach format` command on save."""
+    repo = Repo(
+        name="firefox-autoland",
+        url="http://example.com",
+        scm_type=SCMType.GIT,
+        autoformat_enabled=True,
+    )
+    repo.save()
+
+    assert repo.autoformat_run_command == get_default_autoformat_run_command(), (
+        "Enabling autoformatting should populate the default run command on save."
+    )
+
+
+@pytest.mark.django_db
+def test__models__Repo__autoformat_run_command_not_overwritten():
+    """An explicitly-set run command is preserved on save."""
+    custom = ["format", "--fix", "--outgoing"]
+    repo = Repo(
+        name="custom-autoland",
+        url="http://example.com",
+        scm_type=SCMType.GIT,
+        autoformat_enabled=True,
+        autoformat_run_command=custom,
+    )
+    repo.save()
+
+    assert repo.autoformat_run_command == custom, (
+        "An explicitly-set run command should not be overwritten on save."
     )
 
 
