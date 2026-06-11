@@ -55,6 +55,16 @@ const selectionSummary = computed(() => {
   return `Selected the ${labels.slice(0, -1).join(", ")} and ${last} uplift trains.`;
 });
 
+// A single informational line for the version tab, combining which train(s)
+// were selected with where the patch will land.
+const versionMessage = computed(() => {
+  const current = recommendation.value;
+  if (!current) {
+    return "";
+  }
+  return [selectionSummary.value, current.note].filter(Boolean).join(" ");
+});
+
 // Guidance for the manually-selected repositories, omitting any without a
 // train-specific hint (e.g. ESR).
 const activeHints = computed(() => {
@@ -153,15 +163,8 @@ function helpClass(level: GuidanceLevel): string {
        `uplift-train-messages` anchor in `uplift-form.html`). -->
   <Teleport to="#uplift-train-messages">
     <template v-if="!loading && !error && mode === 'version'">
-      <p
-        v-if="recommendation"
-        class="help"
-        :class="helpClass(recommendation.level)"
-      >
-        {{ recommendation.note }}
-      </p>
-      <p v-if="selectionSummary" class="help has-text-weight-semibold">
-        {{ selectionSummary }}
+      <p v-if="versionMessage" class="help is-info">
+        {{ versionMessage }}
       </p>
     </template>
     <template v-else-if="!loading && !error">
