@@ -19,7 +19,7 @@ from more_itertools import chunked
 
 from lando.headless_api.models.automation_job import AutomationAction, AutomationJob
 from lando.main.models import BaseModel
-from lando.main.models.landing_job import LandingJob
+from lando.main.models.landing_job import AutoformatChange, LandingJob
 from lando.main.models.repo import Repo
 from lando.main.models.revision import Revision, RevisionLandingJob
 from lando.main.models.uplift import (
@@ -291,6 +291,19 @@ class RevisionTransformer(ModelTransformer):
         return data
 
 
+class AutoformatChangeTransformer(ModelTransformer):
+    """Transformer for `AutoformatChange` model."""
+
+    model = AutoformatChange
+    table_id_env_var = "BQ_AUTOFORMAT_CHANGES_TABLE_ID"
+    fields = (
+        "landing_job_id",
+        "commit_sha",
+        "changed_files",
+        "diff",
+    )
+
+
 class AutomationJobTransformer(ModelTransformer):
     """Transformer for `AutomationJob` model."""
 
@@ -341,6 +354,7 @@ TRANSFORMERS = [
     LandingJobTransformer(),
     RevisionLandingJobTransformer(),
     RevisionTransformer(),
+    AutoformatChangeTransformer(),
     AutomationJobTransformer(),
     # AutomationActionTransformer(),
     UpliftAssessmentTransformer(),
