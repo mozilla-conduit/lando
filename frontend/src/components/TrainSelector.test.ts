@@ -94,6 +94,10 @@ describe("TrainSelector", () => {
       wrapper.text(),
       "The recommendation note should describe where the patch lands.",
     ).toContain("This will land in Firefox 152.");
+    expect(
+      wrapper.text(),
+      "The summary should name the selected uplift train.",
+    ).toContain("Selected the Beta uplift train.");
   });
 
   it("checks both branches when the release version is selected", async () => {
@@ -115,6 +119,10 @@ describe("TrainSelector", () => {
       repoCheckbox("firefox-esr128").checked,
       "Unmanaged ESR repositories should be left untouched.",
     ).toBe(false);
+    expect(
+      wrapper.text(),
+      "The summary should name both selected uplift trains.",
+    ).toContain("Selected the Release and Beta uplift trains.");
   });
 
   it("reveals the field and hints when manually selecting a repository", async () => {

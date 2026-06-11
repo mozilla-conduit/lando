@@ -4,8 +4,10 @@ import {
   versionChoices,
   resolveVersion,
   hintForRepo,
+  trainForRepo,
   type ReleaseSchedule,
   type GuidanceLevel,
+  type Train,
 } from "../trainGuidance";
 import { useUpliftRepositories } from "../composables/useUpliftRepositories";
 
@@ -31,6 +33,27 @@ const recommendation = computed(() =>
     ? resolveVersion(selectedVersion.value, schedule.value)
     : null,
 );
+
+// Name the uplift train(s) the chosen version resolved to, so it is clear that
+// selecting a version also selects beta, release, or both.
+const selectionSummary = computed(() => {
+  const current = recommendation.value;
+  if (!current) {
+    return "";
+  }
+  const labels = current.repos
+    .map((repo) => trainForRepo(repo))
+    .filter((train): train is Train => train !== null)
+    .map((train) => train.charAt(0).toUpperCase() + train.slice(1));
+  if (labels.length === 0) {
+    return "";
+  }
+  if (labels.length === 1) {
+    return `Selected the ${labels[0]} uplift train.`;
+  }
+  const last = labels[labels.length - 1];
+  return `Selected the ${labels.slice(0, -1).join(", ")} and ${last} uplift trains.`;
+});
 
 // Guidance for the manually-selected repositories, omitting any without a
 // train-specific hint (e.g. ESR).
@@ -129,6 +152,9 @@ function helpClass(level: GuidanceLevel): string {
           :class="helpClass(recommendation.level)"
         >
           {{ recommendation.note }}
+        </p>
+        <p v-if="selectionSummary" class="help has-text-weight-semibold">
+          {{ selectionSummary }}
         </p>
       </div>
       <div v-else-if="activeHints.length" class="field">
