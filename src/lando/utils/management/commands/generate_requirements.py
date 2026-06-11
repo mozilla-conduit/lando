@@ -36,7 +36,7 @@ class Command(BaseCommand):
 
         command.append("pyproject.toml")
 
-        env = os.environ
+        env = os.environ.copy()
         # Tell setuptools_scm to ignore git complaints about ownership of /code in
         # container [0].
         # [0] https://github.com/pypa/setuptools-scm/pull/1235
