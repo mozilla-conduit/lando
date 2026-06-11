@@ -146,27 +146,34 @@ function helpClass(level: GuidanceLevel): string {
             </select>
           </div>
         </div>
-        <p
-          v-if="recommendation"
-          class="help"
-          :class="helpClass(recommendation.level)"
-        >
-          {{ recommendation.note }}
-        </p>
-        <p v-if="selectionSummary" class="help has-text-weight-semibold">
-          {{ selectionSummary }}
-        </p>
-      </div>
-      <div v-else-if="activeHints.length" class="field">
-        <p
-          v-for="hint in activeHints"
-          :key="hint.repo"
-          class="help"
-          :class="helpClass(hint.level)"
-        >
-          {{ hint.message }}
-        </p>
       </div>
     </template>
   </div>
+
+  <!-- Guidance messages render below the selection widget (see the
+       `uplift-train-messages` anchor in `uplift-form.html`). -->
+  <Teleport to="#uplift-train-messages">
+    <template v-if="!loading && !error && mode === 'version'">
+      <p
+        v-if="recommendation"
+        class="help"
+        :class="helpClass(recommendation.level)"
+      >
+        {{ recommendation.note }}
+      </p>
+      <p v-if="selectionSummary" class="help has-text-weight-semibold">
+        {{ selectionSummary }}
+      </p>
+    </template>
+    <template v-else-if="!loading && !error">
+      <p
+        v-for="hint in activeHints"
+        :key="hint.repo"
+        class="help"
+        :class="helpClass(hint.level)"
+      >
+        {{ hint.message }}
+      </p>
+    </template>
+  </Teleport>
 </template>

@@ -23,7 +23,14 @@ function renderRepositoriesField(): void {
       <label><input type="checkbox" name="repositories" value="firefox-release"> firefox-release</label>
       <label><input type="checkbox" name="repositories" value="firefox-esr128"> firefox-esr128</label>
     </div>
+    <div id="uplift-train-messages"></div>
   `;
+}
+
+// The widget teleports its guidance messages to this anchor, so assertions read
+// from the document rather than the component wrapper.
+function messagesText(): string {
+  return document.querySelector("#uplift-train-messages")?.textContent ?? "";
 }
 
 function repoCheckbox(value: string): HTMLInputElement {
@@ -91,11 +98,11 @@ describe("TrainSelector", () => {
       "Release should not be checked for the beta version.",
     ).toBe(false);
     expect(
-      wrapper.text(),
+      messagesText(),
       "The recommendation note should describe where the patch lands.",
     ).toContain("This will land in Firefox 152.");
     expect(
-      wrapper.text(),
+      messagesText(),
       "The summary should name the selected uplift train.",
     ).toContain("Selected the Beta uplift train.");
   });
@@ -120,7 +127,7 @@ describe("TrainSelector", () => {
       "Unmanaged ESR repositories should be left untouched.",
     ).toBe(false);
     expect(
-      wrapper.text(),
+      messagesText(),
       "The summary should name both selected uplift trains.",
     ).toContain("Selected the Release and Beta uplift trains.");
   });
@@ -147,7 +154,7 @@ describe("TrainSelector", () => {
     await flushPromises();
 
     expect(
-      wrapper.text(),
+      messagesText(),
       "Selecting release during beta-shipping should hint the next dot release.",
     ).toContain("This will land in the next Firefox 151 dot release.");
   });
