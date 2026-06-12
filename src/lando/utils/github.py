@@ -1,4 +1,6 @@
 import asyncio
+import hashlib
+import hmac
 import io
 import logging
 import math
@@ -762,3 +764,16 @@ class PullRequestPatchHelper(PatchHelper):
     def get_timestamp(self) -> str:
         """Return an `hg export` formatted timestamp."""
         return self.get_header("date")
+
+
+def verify_github_signature(hmac_secret: str, payload: bytes, signature: str) -> bool:
+    """Verify the provided signature of the payload using the given hmac_secret."""
+    # NOTE: this was adapted from code provided in GitHub as an example.
+    # See: https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries.
+    hash_object = hmac.new(
+        hmac_secret.encode("utf-8"),
+        msg=payload,
+        digestmod=hashlib.sha256,
+    )
+    expected_signature = "sha256=" + hash_object.hexdigest()
+    return hmac.compare_digest(expected_signature, signature)
