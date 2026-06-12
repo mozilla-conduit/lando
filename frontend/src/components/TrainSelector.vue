@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import {
   versionChoices,
   resolveVersion,
@@ -27,6 +27,10 @@ const schedule = ref<ReleaseSchedule | null>(null);
 
 // Selected version in "version" mode.
 const selectedVersion = ref<number | null>(null);
+
+// The "Request Uplift" button that opens the modal. The API request is deferred
+// until it is first clicked, rather than firing on every stack page load.
+let openButton: Element | null = null;
 
 // Django-forms uplift repository selection.
 const repositories = useUpliftRepositories();
@@ -131,7 +135,15 @@ async function loadSchedule(): Promise<void> {
   }
 }
 
-onMounted(loadSchedule);
+// Fetch the schedule the first time the modal is opened, then leave it cached.
+onMounted(() => {
+  openButton = document.querySelector(".uplift-request-open");
+  openButton?.addEventListener("click", loadSchedule, { once: true });
+});
+
+onUnmounted(() => {
+  openButton?.removeEventListener("click", loadSchedule);
+});
 </script>
 
 <template>

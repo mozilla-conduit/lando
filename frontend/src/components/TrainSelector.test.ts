@@ -18,6 +18,7 @@ const BETA_SHIPPING: ReleaseSchedule = {
 // composable finds it via `document`, independent of where the widget mounts.
 function renderRepositoriesField(): void {
   document.body.innerHTML = `
+    <button class="uplift-request-open">Request Uplift</button>
     <div data-uplift-repositories>
       <label><input type="checkbox" name="repositories" value="firefox-beta"> firefox-beta</label>
       <label><input type="checkbox" name="repositories" value="firefox-release"> firefox-release</label>
@@ -25,6 +26,13 @@ function renderRepositoriesField(): void {
     </div>
     <div id="uplift-train-messages"></div>
   `;
+}
+
+// The widget fetches its schedule when the "Request Uplift" button is clicked,
+// so tests open the modal before asserting on the loaded state.
+async function openModal(): Promise<void> {
+  document.querySelector<HTMLButtonElement>(".uplift-request-open")!.click();
+  await flushPromises();
 }
 
 // The widget teleports its guidance messages to this anchor, so assertions read
@@ -65,7 +73,7 @@ describe("TrainSelector", () => {
     stubFetch(BETA_SHIPPING);
 
     const wrapper = mount(TrainSelector, { props: { apiUrl: "/api/train" } });
-    await flushPromises();
+    await openModal();
 
     expect(
       repositoriesField().classList.contains("is-hidden"),
@@ -84,7 +92,7 @@ describe("TrainSelector", () => {
     stubFetch(BETA_SHIPPING);
 
     const wrapper = mount(TrainSelector, { props: { apiUrl: "/api/train" } });
-    await flushPromises();
+    await openModal();
 
     await wrapper.find("select").setValue(152);
     await flushPromises();
@@ -112,7 +120,7 @@ describe("TrainSelector", () => {
     stubFetch(BETA_SHIPPING);
 
     const wrapper = mount(TrainSelector, { props: { apiUrl: "/api/train" } });
-    await flushPromises();
+    await openModal();
 
     await wrapper.find("select").setValue(151);
     await flushPromises();
@@ -141,7 +149,7 @@ describe("TrainSelector", () => {
     stubFetch(BETA_SHIPPING);
 
     const wrapper = mount(TrainSelector, { props: { apiUrl: "/api/train" } });
-    await flushPromises();
+    await openModal();
 
     // The second tab ("Select Uplift Train") switches to manual mode.
     await wrapper.findAll(".tabs li a")[1].trigger("click");
@@ -180,7 +188,7 @@ describe("TrainSelector", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     const wrapper = mount(TrainSelector, { props: { apiUrl: "/api/train" } });
-    await flushPromises();
+    await openModal();
 
     expect(
       repositoriesField().classList.contains("is-hidden"),
@@ -199,7 +207,7 @@ describe("TrainSelector", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     const wrapper = mount(TrainSelector, { props: { apiUrl: "/api/train" } });
-    await flushPromises();
+    await openModal();
 
     expect(
       repositoriesField().classList.contains("is-hidden"),
