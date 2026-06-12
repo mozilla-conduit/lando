@@ -6,14 +6,16 @@ import {
   summarizeRepos,
   trainForRepo,
   releaseScheduleSchema,
+  TRAIN_REPOS,
   type ReleaseSchedule,
+  type RepoName,
   type Train,
 } from "../trainGuidance";
 import { useUpliftRepositories } from "../composables/useUpliftRepositories";
 
 const props = withDefaults(
-  defineProps<{ apiUrl: string; managedRepos?: string[] }>(),
-  { managedRepos: () => ["firefox-beta", "firefox-release"] },
+  defineProps<{ apiUrl: string; managedRepos?: RepoName[] }>(),
+  { managedRepos: () => [TRAIN_REPOS.beta, TRAIN_REPOS.release] },
 );
 
 /** Current state of the API response retrieval. */
