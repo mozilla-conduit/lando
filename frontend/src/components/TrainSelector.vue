@@ -15,8 +15,7 @@ const props = withDefaults(
   { managedRepos: () => ["firefox-beta", "firefox-release"] },
 );
 
-const loading = ref(true);
-const error = ref(false);
+const status = ref<"loading" | "ready" | "error">("loading");
 const mode = ref<"version" | "manual">("version");
 const schedule = ref<ReleaseSchedule | null>(null);
 const selectedVersion = ref<number | null>(null);
@@ -78,7 +77,7 @@ const manualGuidance = computed(() =>
 // The native checkbox field is shown in manual mode, and whenever the guidance
 // is unavailable so the form remains usable.
 const nativeFieldVisible = computed(
-  () => error.value || mode.value === "manual",
+  () => status.value === "error" || mode.value === "manual",
 );
 
 watch(nativeFieldVisible, (visible) => repositories.setFieldVisible(visible), {
@@ -102,12 +101,11 @@ async function loadSchedule(): Promise<void> {
       throw new Error(`Unexpected response status ${response.status}.`);
     }
     schedule.value = (await response.json()) as ReleaseSchedule;
+    status.value = "ready";
   } catch (caught) {
     console.error("Could not load uplift train guidance.", caught);
-    error.value = true;
+    status.value = "error";
     mode.value = "manual";
-  } finally {
-    loading.value = false;
   }
 }
 
@@ -116,8 +114,10 @@ onMounted(loadSchedule);
 
 <template>
   <div class="block">
-    <p v-if="loading" class="help is-info">Loading release schedule…</p>
-    <p v-else-if="error" class="help is-warning">
+    <p v-if="status === 'loading'" class="help is-info">
+      Loading release schedule…
+    </p>
+    <p v-else-if="status === 'error'" class="help is-warning">
       Could not load release-train guidance. Select repositories manually below.
     </p>
     <template v-else>
@@ -153,12 +153,12 @@ onMounted(loadSchedule);
   <!-- Guidance messages render below the selection widget (see the
        `uplift-train-messages` anchor in `uplift-form.html`). -->
   <Teleport to="#uplift-train-messages">
-    <template v-if="!loading && !error && mode === 'version'">
+    <template v-if="status === 'ready' && mode === 'version'">
       <p v-if="versionMessage" class="help is-info">
         {{ versionMessage }}
       </p>
     </template>
-    <template v-else-if="!loading && !error">
+    <template v-else-if="status === 'ready'">
       <p v-if="manualGuidance.landing" class="help is-info">
         {{ manualGuidance.landing }}
       </p>
