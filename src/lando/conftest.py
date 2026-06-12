@@ -1273,7 +1273,7 @@ def user(
 ) -> User:
     """A User with all SCM permissions levels."""
     user = scm_user(conduit_permissions, user_plaintext_password)
-    user.profile.save_phabricator_api_key(user_phab_api_key)
+    user.profile.set_phabricator_api_key(user_phab_api_key)
 
     user.save()
     user.profile.save()

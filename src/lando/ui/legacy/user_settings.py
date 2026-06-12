@@ -47,7 +47,7 @@ def manage_api_key(request: WSGIRequest) -> JsonResponse:
 
     profile = request.user.profile
     if form.cleaned_data["reset_key"]:
-        profile.clear_phabricator_api_key()
+        profile.clear_phabricator_elements()
     else:
         api_key = form.cleaned_data["phabricator_api_key"]
 
@@ -71,7 +71,7 @@ def manage_api_key(request: WSGIRequest) -> JsonResponse:
             return phid_conflict_response(phid)
 
         try:
-            profile.save_phabricator_api_key(api_key, phid=phid)
+            profile.save_phabricator_elements(api_key, phid=phid)
         except IntegrityError:
             return phid_conflict_response(phid)
 
