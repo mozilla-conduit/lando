@@ -14,6 +14,7 @@ from lando.utils.github import (
     GitHubAPIClient,
     PullRequest,
     PullRequestPatchHelper,
+    verify_github_signature,
 )
 
 
@@ -550,3 +551,19 @@ def test_PullRequestPatchHelper(github_api_client_pr: mock.Mock):
         "Olivier Mehani",
         "omehani@mozilla.com",
     )
+
+
+@pytest.mark.parametrize(
+    "secret, payload, signature, is_valid",
+    (
+        (
+            "some secret",
+            b"some payload",
+            "sha256=22a2e09f97e933db48ba6ef24c6be11a5a10024bd9a6a18e662e94bf3c35f257",
+            True,
+        ),
+        ("some secret", b"some payload", "a" * 64, False),
+    ),
+)
+def test_verify_github_signature(secret, payload, signature, is_valid):
+    assert verify_github_signature(secret, payload, signature) is is_valid
