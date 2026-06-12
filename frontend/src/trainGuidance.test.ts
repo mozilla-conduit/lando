@@ -6,7 +6,7 @@ import {
   versionChoices,
   resolveVersion,
   summarizeRepos,
-  isReleaseSchedule,
+  releaseScheduleSchema,
   type ReleaseSchedule,
 } from "./trainGuidance";
 
@@ -183,28 +183,32 @@ describe("summarizeRepos", () => {
   });
 });
 
-describe("isReleaseSchedule", () => {
+describe("releaseScheduleSchema", () => {
   test("accepts a well-formed schedule", () => {
     expect(
-      isReleaseSchedule(BETA_SHIPPING),
+      releaseScheduleSchema.safeParse(BETA_SHIPPING).success,
       "A response with the expected shape should be accepted.",
     ).toBe(true);
   });
 
   test("rejects non-object payloads", () => {
-    expect(isReleaseSchedule(null), "`null` is not a schedule.").toBe(false);
-    expect(isReleaseSchedule("nope"), "A string is not a schedule.").toBe(
-      false,
-    );
+    expect(
+      releaseScheduleSchema.safeParse(null).success,
+      "`null` is not a schedule.",
+    ).toBe(false);
+    expect(
+      releaseScheduleSchema.safeParse("nope").success,
+      "A string is not a schedule.",
+    ).toBe(false);
   });
 
-  test("rejects a payload missing the release version", () => {
+  test("rejects a payload missing the release train", () => {
     const payload = {
       nightly: BETA_SHIPPING.nightly,
       beta: BETA_SHIPPING.beta,
     };
     expect(
-      isReleaseSchedule(payload),
+      releaseScheduleSchema.safeParse(payload).success,
       "A schedule without `release` should be rejected.",
     ).toBe(false);
   });
@@ -215,7 +219,7 @@ describe("isReleaseSchedule", () => {
       beta: { version: 152, release_date: "2026-06-16" },
     };
     expect(
-      isReleaseSchedule(payload),
+      releaseScheduleSchema.safeParse(payload).success,
       "A beta train without the stage booleans should be rejected.",
     ).toBe(false);
   });

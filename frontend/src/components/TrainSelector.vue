@@ -5,7 +5,7 @@ import {
   resolveVersion,
   summarizeRepos,
   trainForRepo,
-  isReleaseSchedule,
+  releaseScheduleSchema,
   type ReleaseSchedule,
   type Train,
 } from "../trainGuidance";
@@ -121,12 +121,14 @@ async function loadSchedule(): Promise<void> {
       throw new Error(`Unexpected response status ${response.status}.`);
     }
 
-    const data: unknown = await response.json();
-    if (!isReleaseSchedule(data)) {
-      throw new Error("Train guidance response had an unexpected shape.");
+    const result = releaseScheduleSchema.safeParse(await response.json());
+    if (!result.success) {
+      throw new Error(
+        `Train guidance response had an unexpected shape: ${result.error.message}`,
+      );
     }
 
-    schedule.value = data;
+    schedule.value = result.data;
     status.value = "ready";
   } catch (caught) {
     console.error("Could not load uplift train guidance.", caught);

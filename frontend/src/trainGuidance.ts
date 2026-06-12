@@ -2,29 +2,32 @@
 // for Lando's uplift repository checkboxes. The data is keyed by mainline train
 // (`nightly`, `beta`, `release`); see bug 2045812 for the response shape.
 
+import { z } from "zod";
+
 export type Train = "nightly" | "beta" | "release";
 
-// Cycle state derived from `BetaTrainInfo`.
+// Cycle state derived from the beta train's flags.
 export type CycleStage = "beta-shipping" | "rc-shipping" | "dot-releases-only";
 
-// API response content format common to each train.
-export interface TrainInfo {
-  version: number;
-  release_date: string;
-}
+// Schema for the whattrainisitnow.com response (see bug 2045812). This is the
+// single source of truth: the `ReleaseSchedule` type is inferred from it, and
+// the same schema validates the payload at runtime. Unknown keys are ignored,
+// so extra API fields will not fail validation.
+const trainInfoSchema = z.object({
+  version: z.number(),
+  release_date: z.string(),
+});
 
-// API response format content for beta.
-export interface BetaTrainInfo extends TrainInfo {
-  has_betas_left: boolean;
-  is_rc_shipped: boolean;
-}
+export const releaseScheduleSchema = z.object({
+  nightly: trainInfoSchema,
+  beta: trainInfoSchema.extend({
+    has_betas_left: z.boolean(),
+    is_rc_shipped: z.boolean(),
+  }),
+  release: trainInfoSchema,
+});
 
-// API response content format.
-export interface ReleaseSchedule {
-  nightly: TrainInfo;
-  beta: BetaTrainInfo;
-  release: TrainInfo;
-}
+export type ReleaseSchedule = z.infer<typeof releaseScheduleSchema>;
 
 // Mapping of release train <-> Firefox version.
 export interface VersionChoice {
@@ -62,34 +65,6 @@ export type RepoName = (typeof TRAIN_REPOS)[Train];
 export function trainForRepo(repo: string): Train | null {
   const match = Object.entries(TRAIN_REPOS).find(([, name]) => name === repo);
   return match ? (match[0] as Train) : null;
-}
-
-// Validate that an API payload has the fields the guidance logic relies on:
-// numeric `beta` and `release` versions plus the two beta cycle-stage booleans.
-// Guards against a `200` response with an unexpected shape, which would
-// otherwise throw later when the resolver reads missing fields.
-export function isReleaseSchedule(data: unknown): data is ReleaseSchedule {
-  if (typeof data !== "object" || data === null) {
-    return false;
-  }
-
-  const candidate = data as Record<string, unknown>;
-  const beta = candidate.beta as Record<string, unknown> | undefined;
-
-  return (
-    hasNumericVersion(candidate.release) &&
-    hasNumericVersion(beta) &&
-    typeof beta?.has_betas_left === "boolean" &&
-    typeof beta?.is_rc_shipped === "boolean"
-  );
-}
-
-function hasNumericVersion(value: unknown): boolean {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as Record<string, unknown>).version === "number"
-  );
 }
 
 // Return the current point in the release cycle, derived from the beta train.
