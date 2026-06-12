@@ -1114,9 +1114,9 @@ gql[aiohttp,requests]==4.0.0 \
     --hash=sha256:f22980844eb6a7c0266ffc70f111b9c7e7c7c13da38c3b439afc7eab3d7c9c8e \
     --hash=sha256:f3beed7c531218eb24d97cb7df031b4a84fdb462f4a2beb86e2633d395937479
     # via simple-github
-graphql-core==3.2.8 \
-    --hash=sha256:015457da5d996c924ddf57a43f4e959b0b94fb695b85ed4c29446e508ed65cf3 \
-    --hash=sha256:cbee07bee1b3ed5e531723685369039f32ff815ef60166686e0162f540f1520c
+graphql-core==3.2.9 \
+    --hash=sha256:5f7581879d2e934c4eaee46773010516b16502afe6a0cde96cacea07710b3528 \
+    --hash=sha256:7368b30bc3e2fa90978c598ea96be589b37abf846971f404630ba6b9b596e259
     # via gql
 grpcio==1.80.0 \
     --hash=sha256:00168469238b022500e486c1c33916acf2f2a9b2c022202cf8a1885d2e3073c1 \
