@@ -190,15 +190,19 @@ function landingPhrase(repo: string, schedule: ReleaseSchedule): string | null {
   }
 
   if (train === "release") {
-    if (stage === "beta-shipping") {
-      return `the next Firefox ${schedule.release.version} dot release`;
+    switch (stage) {
+      case "beta-shipping":
+        return `the next Firefox ${schedule.release.version} dot release`;
+      case "rc-shipping":
+        return `Firefox ${schedule.beta.version}.0 (major release)`;
+      case "dot-releases-only":
+        return `the next Firefox ${schedule.beta.version} dot release`;
+      default: {
+        // Exhaustiveness check: adding a `CycleStage` makes this a compile error.
+        const unhandled: never = stage;
+        return unhandled;
+      }
     }
-
-    if (stage === "rc-shipping") {
-      return `Firefox ${schedule.beta.version}.0 (major release)`;
-    }
-
-    return `the next Firefox ${schedule.beta.version} dot release`;
   }
 
   return null;
