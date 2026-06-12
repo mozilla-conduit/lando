@@ -10,7 +10,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import models
 
-from lando.main.models.base import BaseModel
+from lando.main.models.base import BaseModel, CryptographyMixin
 from lando.main.scm import (
     SCM_IMPLEMENTATIONS,
     AbstractSCM,
@@ -79,7 +79,7 @@ def get_default_hooks() -> list[str]:
     ]
 
 
-class Repo(BaseModel):
+class Repo(CryptographyMixin, BaseModel):
     """Represents the configuration of a particular repo."""
 
     _scm: AbstractSCM | None = None
@@ -269,6 +269,7 @@ class Repo(BaseModel):
     )
 
     pr_enabled = models.BooleanField(default=False)
+    encrypted_gh_hmac_secret = models.BinaryField(default=b"", blank=True)
 
     @property
     def is_legacy(self) -> bool:
