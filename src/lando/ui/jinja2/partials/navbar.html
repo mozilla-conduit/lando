@@ -43,16 +43,16 @@
                                     <i class="fa fa-cogs"></i>
                                 </a>
                             </p>
-                        {% endif %}
-                        {% if user_is_conduit_admin(request.user) %}
-                            <p class="control">
-                                <a class="button" href="{{ url('admin:index') }}">
-                                    <span class="icon">
-                                        <i class="fa fa-dashboard"></i>
-                                    </span>
-                                    <span>Admin</span>
-                                </a>
-                            </p>
+                            {% if user_is_conduit_admin(request.user) %}
+                                <p class="control">
+                                    <a class="button" href="{{ url('admin:index') }}">
+                                        <span class="icon">
+                                            <i class="fa fa-dashboard"></i>
+                                        </span>
+                                        <span>Admin</span>
+                                    </a>
+                                </p>
+                            {% endif %}
                         {% endif %}
                         {% if not in_maintenance %}
                             {% if user_is_authenticated %}

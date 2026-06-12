@@ -1,7 +1,7 @@
 version: 2
 updates:
 - package-ecosystem: pip
-  commit_message:
+  commit-message:
     prefix: Bug 1976221 - deps(pip)
   cooldown:
     default-days: 7
@@ -12,7 +12,7 @@ updates:
   allow:
     - dependency-type: all
 - package-ecosystem: npm
-  commit_message:
+  commit-message:
     prefix: Bug 1976221 - deps(npm)
   cooldown:
     default-days: 7
