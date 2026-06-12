@@ -15,11 +15,19 @@ const props = withDefaults(
   { managedRepos: () => ["firefox-beta", "firefox-release"] },
 );
 
+// Current state of the API response retrieval.
 const status = ref<"loading" | "ready" | "error">("loading");
+
+// Current mode in the component.
 const mode = ref<"version" | "manual">("version");
+
+// Stored API response.
 const schedule = ref<ReleaseSchedule | null>(null);
+
+// Selected version in "version" mode.
 const selectedVersion = ref<number | null>(null);
 
+// Django-forms uplift repository selection.
 const repositories = useUpliftRepositories();
 
 const choices = computed(() =>
@@ -41,16 +49,20 @@ const selectionSummary = computed(() => {
   if (!repos) {
     return "";
   }
+
   const labels = repos
     .map((repo) => trainForRepo(repo))
     .filter((train): train is Train => train !== null)
     .map((train) => train.charAt(0).toUpperCase() + train.slice(1));
+
   if (labels.length === 0) {
     return "";
   }
+
   if (labels.length === 1) {
     return `Selected the ${labels[0]} uplift train.`;
   }
+
   const last = labels[labels.length - 1];
   return `Selected the ${labels.slice(0, -1).join(", ")} and ${last} uplift trains.`;
 });
@@ -63,6 +75,7 @@ const versionMessage = computed(() => {
   if (!repos || !schedule.value) {
     return "";
   }
+
   const { landing } = summarizeRepos(repos, schedule.value);
   return [selectionSummary.value, landing].filter(Boolean).join(" ");
 });
@@ -92,14 +105,17 @@ watch([mode, selectedRepos], () => {
   }
 });
 
+// Make the API call to `whattrainisitnow.com`.
 async function loadSchedule(): Promise<void> {
   try {
     const response = await fetch(props.apiUrl, {
       headers: { Accept: "application/json" },
     });
+
     if (!response.ok) {
       throw new Error(`Unexpected response status ${response.status}.`);
     }
+
     schedule.value = (await response.json()) as ReleaseSchedule;
     status.value = "ready";
   } catch (caught) {
