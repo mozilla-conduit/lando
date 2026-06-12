@@ -6,7 +6,7 @@
   "dependencies": {
     "bulma": "^1.0.4",
     "font-awesome": "^4.7.0",
-    "jquery": "^3.7.1",
+    "jquery": "^4.0.0",
     "sass": "^1.97.0"
   },
   "//": [
@@ -15,7 +15,7 @@
     "so it is not actually excluded from production images."
   ],
   "devDependencies": {
-    "jquery": "^3.7.1",
+    "jquery": "^4.0.0",
     "jsdom": "^25.0.1",
     "prettier": "^3.4.2",
     "vitest": "^4.1.0"
