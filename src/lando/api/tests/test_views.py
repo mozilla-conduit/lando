@@ -3,6 +3,7 @@ from unittest import mock
 import pytest
 
 from lando.main.models import Repo, SCMType
+from lando.utils.github import PullRequest
 
 
 @pytest.mark.django_db(transaction=True)
@@ -162,3 +163,168 @@ def test__views__pull_request_api_view__private_repo(github_api_client, client):
     mock_github_api_client.repo_is_private = False
     test = client.get(f"/api/pulls/{repo.name}/1/landing_jobs")
     assert test.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "body, expected_body",
+    (
+        ("this is some commit body", "this is some commit body"),
+        # Extra whitespace before and after the commit message gets stripped.
+        (
+            "\nsomething with more characters\n\n < > <strong>test</strong> <script>\n",
+            "something with more characters\n\n < > <strong>test</strong> <script>",
+        ),
+    ),
+)
+class TestViewsPullRequestUpdateWebHook:
+    @pytest.fixture
+    def webhook_gh_client(self):
+        def wrapper(github_api_client, body):
+            data = {
+                "number": 1,
+                "title": "this is some title (bug 1111111, bug 2222222)",
+                "body": body,
+            }
+            mock_pr_data = mock.MagicMock()
+            mock_pr_data.__getitem__.side_effect = lambda k: (
+                data[k] if k in data else mock.MagicMock()
+            )
+
+            mock_github_api_client = mock.MagicMock()
+            mock_github_api_client.repo_is_private = False
+
+            mock_pr = PullRequest(mock_github_api_client, mock_pr_data)
+            mock_github_api_client.build_pull_request.return_value = mock_pr
+            github_api_client.return_value = mock_github_api_client
+
+            Repo.objects.create(
+                name="git-repo",
+                scm_type=SCMType.GIT,
+                pr_enabled=True,
+            )
+            return mock_github_api_client
+
+        return wrapper
+
+    @mock.patch("lando.api.views.generate_warnings_and_blockers")
+    @mock.patch("lando.api.views.GitHubAPIClient")
+    @pytest.mark.django_db(transaction=True)
+    def test__views__pull_request_update_webhook_warnings_and_blockers(
+        self,
+        github_api_client,
+        generate_warnings_and_blockers,
+        body,
+        expected_body,
+        client,
+        webhook_gh_client,
+    ):
+        """Test that the webhook is calling the GitHub API with the correct parameters."""
+        mock_github_api_client = webhook_gh_client(github_api_client, body)
+
+        generate_warnings_and_blockers.return_value = {
+            "warnings": ["a warning"],
+            "blockers": ["a blocker"],
+        }
+
+        test = client.post("/api/pulls/git-repo/1/webhook")
+
+        assert mock_github_api_client.update_pull_request_body.call_count == 1
+        pr_number, called_body = (
+            mock_github_api_client.update_pull_request_body.call_args[0]
+        )
+        assert pr_number == 1
+        assert called_body == "\n".join(
+            [
+                expected_body,
+                "<!--/ -+-+- DO NOT MODIFY THIS LINE - ENTER COMMIT MESSAGE ABOVE -+-+- /-->",
+                "---",
+                "Lando: [link](https://lando.test/pulls/git-repo/1/)",
+                "Bugzilla: [bug 1111111](http://bmo.test/show_bug.cgi?id=1111111), [bug 2222222](http://bmo.test/show_bug.cgi?id=2222222)",
+                "",
+                "|Warnings|",
+                "|---------|",
+                ":warning: a warning",
+                "",
+                "|Blockers|",
+                "|---------|",
+                ":no_entry_sign: a blocker",
+                "",
+            ]
+        )
+
+        assert test.status_code == 200
+        assert test.json() == {"status": "success"}
+
+    @mock.patch("lando.api.views.generate_warnings_and_blockers")
+    @mock.patch("lando.api.views.GitHubAPIClient")
+    @pytest.mark.django_db(transaction=True)
+    def test__views__pull_request_update_webhook_blockers_only(
+        self,
+        github_api_client,
+        generate_warnings_and_blockers,
+        body,
+        expected_body,
+        client,
+        webhook_gh_client,
+    ):
+        mock_github_api_client = webhook_gh_client(github_api_client, body)
+        generate_warnings_and_blockers.return_value = {
+            "warnings": [],
+            "blockers": ["a blocker"],
+        }
+
+        client.post("/api/pulls/git-repo/1/webhook")
+        assert mock_github_api_client.update_pull_request_body.call_count == 1
+        pr_number, called_body = (
+            mock_github_api_client.update_pull_request_body.call_args[0]
+        )
+
+        assert called_body == "\n".join(
+            [
+                expected_body,
+                "<!--/ -+-+- DO NOT MODIFY THIS LINE - ENTER COMMIT MESSAGE ABOVE -+-+- /-->",
+                "---",
+                "Lando: [link](https://lando.test/pulls/git-repo/1/)",
+                "Bugzilla: [bug 1111111](http://bmo.test/show_bug.cgi?id=1111111), [bug 2222222](http://bmo.test/show_bug.cgi?id=2222222)",
+                "",
+                "|Blockers|",
+                "|---------|",
+                ":no_entry_sign: a blocker",
+                "",
+            ]
+        )
+
+    @mock.patch("lando.api.views.generate_warnings_and_blockers")
+    @mock.patch("lando.api.views.GitHubAPIClient")
+    @pytest.mark.django_db(transaction=True)
+    def test__views__pull_request_update_webhook_no_warnings_or_blockers(
+        self,
+        github_api_client,
+        generate_warnings_and_blockers,
+        body,
+        expected_body,
+        client,
+        webhook_gh_client,
+    ):
+        mock_github_api_client = webhook_gh_client(github_api_client, body)
+        generate_warnings_and_blockers.return_value = {
+            "warnings": [],
+            "blockers": [],
+        }
+
+        client.post("/api/pulls/git-repo/1/webhook")
+        assert mock_github_api_client.update_pull_request_body.call_count == 1
+        pr_number, called_body = (
+            mock_github_api_client.update_pull_request_body.call_args[0]
+        )
+
+        assert called_body == "\n".join(
+            [
+                expected_body,
+                "<!--/ -+-+- DO NOT MODIFY THIS LINE - ENTER COMMIT MESSAGE ABOVE -+-+- /-->",
+                "---",
+                "Lando: [link](https://lando.test/pulls/git-repo/1/)",
+                "Bugzilla: [bug 1111111](http://bmo.test/show_bug.cgi?id=1111111), [bug 2222222](http://bmo.test/show_bug.cgi?id=2222222)",
+                ":white_check_mark: All Lando checks passed",
+            ]
+        )
