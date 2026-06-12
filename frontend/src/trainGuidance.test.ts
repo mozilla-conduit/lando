@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
 import {
-  repoForTrain,
+  TRAIN_REPOS,
   trainForRepo,
   cycleStage,
   versionChoices,
@@ -35,18 +35,15 @@ const DOT_RELEASES_ONLY: ReleaseSchedule = {
 };
 
 describe("train/repo mapping", () => {
-  test("maps mainline trains to their Lando repositories", () => {
-    expect(repoForTrain("beta"), "`beta` should map to `firefox-beta`.").toBe(
-      "firefox-beta",
-    );
+  test("maps each mainline train to its Lando repository", () => {
     expect(
-      repoForTrain("release"),
-      "`release` should map to `firefox-release`.",
-    ).toBe("firefox-release");
-    expect(
-      repoForTrain("nightly"),
-      "`nightly` should map to `firefox-main`.",
-    ).toBe("firefox-main");
+      TRAIN_REPOS,
+      "Each train should map to its Lando repository.",
+    ).toEqual({
+      nightly: "firefox-main",
+      beta: "firefox-beta",
+      release: "firefox-release",
+    });
   });
 
   test("maps repositories back to their train", () => {
@@ -60,11 +57,7 @@ describe("train/repo mapping", () => {
     ).toBe("release");
   });
 
-  test("returns null for unknown trains and repositories", () => {
-    expect(
-      repoForTrain("esr"),
-      "An unknown train should not resolve to a repository.",
-    ).toBeNull();
+  test("returns null for an unknown repository", () => {
     expect(
       trainForRepo("firefox-esr128"),
       "An ESR repository should have no mainline train.",
