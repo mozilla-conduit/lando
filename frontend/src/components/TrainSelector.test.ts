@@ -191,4 +191,23 @@ describe("TrainSelector", () => {
       "A failed fetch should explain that manual selection is needed.",
     ).toContain("Could not load release-train guidance");
   });
+
+  it("falls back to manual mode when the response shape is invalid", async () => {
+    renderRepositoriesField();
+    // A 200 response whose body is missing the expected fields.
+    stubFetch({ unexpected: true });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const wrapper = mount(TrainSelector, { props: { apiUrl: "/api/train" } });
+    await flushPromises();
+
+    expect(
+      repositoriesField().classList.contains("is-hidden"),
+      "A malformed response should leave the native field visible.",
+    ).toBe(false);
+    expect(
+      wrapper.text(),
+      "A malformed response should explain that manual selection is needed.",
+    ).toContain("Could not load release-train guidance");
+  });
 });

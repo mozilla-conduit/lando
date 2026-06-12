@@ -6,6 +6,7 @@ import {
   versionChoices,
   resolveVersion,
   summarizeRepos,
+  isReleaseSchedule,
   type ReleaseSchedule,
 } from "./trainGuidance";
 
@@ -179,5 +180,43 @@ describe("summarizeRepos", () => {
       summarizeRepos(["firefox-esr128"], BETA_SHIPPING),
       "ESR repositories contribute no guidance.",
     ).toEqual({ landing: "", warnings: [] });
+  });
+});
+
+describe("isReleaseSchedule", () => {
+  test("accepts a well-formed schedule", () => {
+    expect(
+      isReleaseSchedule(BETA_SHIPPING),
+      "A response with the expected shape should be accepted.",
+    ).toBe(true);
+  });
+
+  test("rejects non-object payloads", () => {
+    expect(isReleaseSchedule(null), "`null` is not a schedule.").toBe(false);
+    expect(isReleaseSchedule("nope"), "A string is not a schedule.").toBe(
+      false,
+    );
+  });
+
+  test("rejects a payload missing the release version", () => {
+    const payload = {
+      nightly: BETA_SHIPPING.nightly,
+      beta: BETA_SHIPPING.beta,
+    };
+    expect(
+      isReleaseSchedule(payload),
+      "A schedule without `release` should be rejected.",
+    ).toBe(false);
+  });
+
+  test("rejects a beta train missing its cycle-stage flags", () => {
+    const payload = {
+      ...BETA_SHIPPING,
+      beta: { version: 152, release_date: "2026-06-16" },
+    };
+    expect(
+      isReleaseSchedule(payload),
+      "A beta train without the stage booleans should be rejected.",
+    ).toBe(false);
   });
 });

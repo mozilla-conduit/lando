@@ -64,6 +64,34 @@ export function trainForRepo(repo: string): Train | null {
   return match ? (match[0] as Train) : null;
 }
 
+// Validate that an API payload has the fields the guidance logic relies on:
+// numeric `beta` and `release` versions plus the two beta cycle-stage booleans.
+// Guards against a `200` response with an unexpected shape, which would
+// otherwise throw later when the resolver reads missing fields.
+export function isReleaseSchedule(data: unknown): data is ReleaseSchedule {
+  if (typeof data !== "object" || data === null) {
+    return false;
+  }
+
+  const candidate = data as Record<string, unknown>;
+  const beta = candidate.beta as Record<string, unknown> | undefined;
+
+  return (
+    hasNumericVersion(candidate.release) &&
+    hasNumericVersion(beta) &&
+    typeof beta?.has_betas_left === "boolean" &&
+    typeof beta?.is_rc_shipped === "boolean"
+  );
+}
+
+function hasNumericVersion(value: unknown): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as Record<string, unknown>).version === "number"
+  );
+}
+
 // Return the current point in the release cycle, derived from the beta train.
 //   `beta-shipping`     - betas are still being released for the beta version.
 //   `rc-shipping`       - betas are done; the release candidate is in progress.
