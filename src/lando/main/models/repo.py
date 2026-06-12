@@ -71,8 +71,8 @@ def get_default_autoformat_run_command() -> list[str]:
     """Return the default autoformat run command for a repo.
 
     The returned list is a single `./mach` invocation (without the `./mach` prefix),
-    run against the patch stack to apply formatting. Repos that don't support the
-    `--skip-android` flag can override this with their own command.
+    run against the patch stack to apply formatting. Repos can override this with
+    their own command.
     """
     return ["format", "--fix", "--outgoing", "--verbose", "--skip-android"]
 
