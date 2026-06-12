@@ -87,6 +87,30 @@ describe("TrainSelector", () => {
     ).toEqual(["Choose a version…", "Firefox 152", "Firefox 151"]);
   });
 
+  it("marks the active tab with aria-selected", async () => {
+    renderRepositoriesField();
+    stubFetch(BETA_SHIPPING);
+
+    const wrapper = mount(TrainSelector, { props: { apiUrl: "/api/train" } });
+    await openModal();
+
+    const tabs = wrapper.findAll('[role="tab"]');
+    expect(
+      tabs[0].attributes("aria-selected"),
+      "The version tab starts selected.",
+    ).toBe("true");
+    expect(
+      tabs[1].attributes("aria-selected"),
+      "The train tab starts unselected.",
+    ).toBe("false");
+
+    await tabs[1].trigger("click");
+    expect(
+      tabs[1].attributes("aria-selected"),
+      "Clicking the train tab selects it.",
+    ).toBe("true");
+  });
+
   it("checks the beta repository when the beta version is selected", async () => {
     renderRepositoriesField();
     stubFetch(BETA_SHIPPING);

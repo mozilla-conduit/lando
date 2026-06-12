@@ -168,12 +168,28 @@ onUnmounted(() => {
     </p>
     <template v-else>
       <div class="tabs">
-        <ul>
+        <ul role="tablist" aria-label="Uplift target selection">
           <li :class="{ 'is-active': mode === 'version' }">
-            <a @click="mode = 'version'">Select Firefox Version</a>
+            <a
+              role="tab"
+              tabindex="0"
+              :aria-selected="mode === 'version'"
+              @click="mode = 'version'"
+              @keydown.enter.prevent="mode = 'version'"
+              @keydown.space.prevent="mode = 'version'"
+              >Select Firefox Version</a
+            >
           </li>
           <li :class="{ 'is-active': mode === 'manual' }">
-            <a @click="mode = 'manual'">Select Uplift Train</a>
+            <a
+              role="tab"
+              tabindex="0"
+              :aria-selected="mode === 'manual'"
+              @click="mode = 'manual'"
+              @keydown.enter.prevent="mode = 'manual'"
+              @keydown.space.prevent="mode = 'manual'"
+              >Select Uplift Train</a
+            >
           </li>
         </ul>
       </div>
