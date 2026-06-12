@@ -6,22 +6,26 @@ export type Train = "nightly" | "beta" | "release";
 
 export type CycleStage = "beta-shipping" | "rc-shipping" | "dot-releases-only";
 
+// API response content format common to each train.
 export interface TrainInfo {
   version: number;
   release_date: string;
 }
 
+// API response format content for beta.
 export interface BetaTrainInfo extends TrainInfo {
   has_betas_left: boolean;
   is_rc_shipped: boolean;
 }
 
+// API response content format.
 export interface ReleaseSchedule {
   nightly: TrainInfo;
   beta: BetaTrainInfo;
   release: TrainInfo;
 }
 
+// Mapping of release train <-> Firefox version.
 export interface VersionChoice {
   version: number;
   train: Train;
@@ -32,6 +36,7 @@ export interface RepoGuidance {
   // A single informational sentence covering every selected train, or "" when
   // none of the selected repositories have train-specific guidance.
   landing: string;
+
   // Cautions for selected repositories that will not land as expected (e.g.
   // selecting beta once no betas remain).
   warnings: string[];
