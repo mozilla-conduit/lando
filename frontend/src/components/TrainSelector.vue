@@ -16,39 +16,45 @@ const props = withDefaults(
   { managedRepos: () => ["firefox-beta", "firefox-release"] },
 );
 
-// Current state of the API response retrieval.
+/** Current state of the API response retrieval. */
 const status = ref<"loading" | "ready" | "error">("loading");
 
-// Current mode in the component.
+/** Current mode in the component. */
 const mode = ref<"version" | "manual">("version");
 
-// Stored API response.
+/** Stored API response. */
 const schedule = ref<ReleaseSchedule | null>(null);
 
-// Selected version in "version" mode.
+/** Selected version in "version" mode. */
 const selectedVersion = ref<number | null>(null);
 
-// The "Request Uplift" button that opens the modal. The API request is deferred
-// until it is first clicked, rather than firing on every stack page load.
+/**
+ * The "Request Uplift" button that opens the modal. The API request is deferred
+ * until it is first clicked, rather than firing on every stack page load.
+ */
 let openButton: Element | null = null;
 
-// Django-forms uplift repository selection.
+/** Django-forms uplift repository selection. */
 const repositories = useUpliftRepositories();
 
 const choices = computed(() =>
   schedule.value ? versionChoices(schedule.value) : [],
 );
 
-// The repositories a chosen version resolves to, used both to tick the
-// checkboxes and to describe where the patch will land.
+/**
+ * The repositories a chosen version resolves to, used both to tick the
+ * checkboxes and to describe where the patch will land.
+ */
 const selectedRepos = computed(() =>
   selectedVersion.value !== null && schedule.value
     ? resolveVersion(selectedVersion.value, schedule.value)
     : null,
 );
 
-// Name the uplift train(s) the chosen version resolved to, so it is clear that
-// selecting a version also selects beta, release, or both.
+/**
+ * Name the uplift train(s) the chosen version resolved to, so it is clear that
+ * selecting a version also selects beta, release, or both.
+ */
 const selectionSummary = computed(() => {
   const repos = selectedRepos.value;
   if (!repos) {
@@ -72,9 +78,11 @@ const selectionSummary = computed(() => {
   return `Selected the ${labels.slice(0, -1).join(", ")} and ${last} uplift trains.`;
 });
 
-// A single informational line for the version tab, combining which train(s)
-// were selected with where the patch will land (the same landing description
-// the train tab shows).
+/**
+ * A single informational line for the version tab, combining which train(s)
+ * were selected with where the patch will land (the same landing description
+ * the train tab shows).
+ */
 const versionMessage = computed(() => {
   const repos = selectedRepos.value;
   if (!repos || !schedule.value) {
@@ -85,15 +93,17 @@ const versionMessage = computed(() => {
   return [selectionSummary.value, landing].filter(Boolean).join(" ");
 });
 
-// Combined guidance for the manually-selected repositories.
+/** Combined guidance for the manually-selected repositories. */
 const manualGuidance = computed(() =>
   schedule.value
     ? summarizeRepos(repositories.checkedRepos.value, schedule.value)
     : { landing: "", warnings: [] },
 );
 
-// The native checkbox field is shown in manual mode, and whenever the guidance
-// is unavailable so the form remains usable.
+/**
+ * The native checkbox field is shown in manual mode, and whenever the guidance
+ * is unavailable so the form remains usable.
+ */
 const nativeFieldVisible = computed(
   () => status.value === "error" || mode.value === "manual",
 );
@@ -110,7 +120,7 @@ watch([mode, selectedRepos], () => {
   }
 });
 
-// Make the API call to `whattrainisitnow.com`.
+/** Fetch and validate the release-train guidance from the configured API. */
 async function loadSchedule(): Promise<void> {
   try {
     const response = await fetch(props.apiUrl, {

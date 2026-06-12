@@ -1,23 +1,28 @@
-// Translates whattrainisitnow.com release-train guidance into recommendations
-// for Lando's uplift repository checkboxes. The data is keyed by mainline train
-// (`nightly`, `beta`, `release`); see bug 2045812 for the response shape.
+/**
+ * Translates whattrainisitnow.com release-train guidance into recommendations
+ * for Lando's uplift repository checkboxes. The data is keyed by mainline train
+ * (`nightly`, `beta`, `release`); see bug 2045812 for the response shape.
+ */
 
 import { z } from "zod";
 
 export type Train = "nightly" | "beta" | "release";
 
-// Cycle state derived from the beta train's flags.
+/** Cycle state derived from the beta train's flags. */
 export type CycleStage = "beta-shipping" | "rc-shipping" | "dot-releases-only";
 
-// Schema for the whattrainisitnow.com response (see bug 2045812). This is the
-// single source of truth: the `ReleaseSchedule` type is inferred from it, and
-// the same schema validates the payload at runtime. Unknown keys are ignored,
-// so extra API fields will not fail validation.
+/** Per-train fields common to every train in the response. */
 const trainInfoSchema = z.object({
   version: z.number(),
   release_date: z.string(),
 });
 
+/**
+ * Schema for the whattrainisitnow.com response (see bug 2045812). This is the
+ * single source of truth: the `ReleaseSchedule` type is inferred from it, and
+ * the same schema validates the payload at runtime. Unknown keys are ignored,
+ * so extra API fields will not fail validation.
+ */
 export const releaseScheduleSchema = z.object({
   nightly: trainInfoSchema,
   beta: trainInfoSchema.extend({
@@ -27,50 +32,67 @@ export const releaseScheduleSchema = z.object({
   release: trainInfoSchema,
 });
 
+/** The validated shape of the train-guidance API response. */
 export type ReleaseSchedule = z.infer<typeof releaseScheduleSchema>;
 
-// Mapping of release train <-> Firefox version.
+/** Mapping of release train to Firefox version. */
 export interface VersionChoice {
   version: number;
   train: Train;
 }
 
-// Guidance describing where a set of selected repositories will land.
+/** Guidance describing where a set of selected repositories will land. */
 export interface RepoGuidance {
-  // A single informational sentence covering every selected train, or "" when
-  // none of the selected repositories have train-specific guidance.
+  /**
+   * A single informational sentence covering every selected train, or `""`
+   * when none of the selected repositories have train-specific guidance.
+   */
   landing: string;
 
-  // Cautions for selected repositories that will not land as expected (e.g.
-  // selecting beta once no betas remain).
+  /**
+   * Cautions for selected repositories that will not land as expected (e.g.
+   * selecting beta once no betas remain).
+   */
   warnings: string[];
 }
 
-// The Lando repository for each mainline train — the single source of truth for
-// the train <-> repository mapping. Only `beta` and `release` participate in
-// uplift recommendations; `nightly` is included for completeness since patches
-// landing there go through autoland, not uplift. `as const satisfies` keeps the
-// repository names as literal types so `RepoName` can be derived from them.
+/**
+ * The Lando repository for each mainline train — the single source of truth for
+ * the train `<->` repository mapping. Only `beta` and `release` participate in
+ * uplift recommendations; `nightly` is included for completeness since patches
+ * landing there go through autoland, not uplift. `as const satisfies` keeps the
+ * repository names as literal types so `RepoName` can be derived from them.
+ */
 export const TRAIN_REPOS = {
   nightly: "firefox-main",
   beta: "firefox-beta",
   release: "firefox-release",
 } as const satisfies Record<Train, string>;
 
-// The Lando repository names, derived from `TRAIN_REPOS`.
+/** The Lando repository names, derived from `TRAIN_REPOS`. */
 export type RepoName = (typeof TRAIN_REPOS)[Train];
 
-// Reverse lookup of `TRAIN_REPOS`. A linear scan over three entries avoids
-// maintaining a second mapping.
+/**
+ * Reverse lookup of `TRAIN_REPOS`. A linear scan over three entries avoids
+ * maintaining a second mapping.
+ *
+ * @param repo - A Lando repository name.
+ * @returns The train the repository belongs to, or `null` if it is not a
+ *   mainline repository.
+ */
 export function trainForRepo(repo: string): Train | null {
   const match = Object.entries(TRAIN_REPOS).find(([, name]) => name === repo);
   return match ? (match[0] as Train) : null;
 }
 
-// Return the current point in the release cycle, derived from the beta train.
-//   `beta-shipping`     - betas are still being released for the beta version.
-//   `rc-shipping`       - betas are done; the release candidate is in progress.
-//   `dot-releases-only` - the release candidate shipped; only dot releases remain.
+/**
+ * Return the current point in the release cycle, derived from the beta train.
+ *
+ * @remarks
+ * - `beta-shipping` — betas are still being released for the beta version.
+ * - `rc-shipping` — betas are done; the release candidate is in progress.
+ * - `dot-releases-only` — the release candidate shipped; only dot releases remain.
+ */
 export function cycleStage(schedule: ReleaseSchedule): CycleStage {
   const beta = schedule.beta;
   if (beta.has_betas_left) {
@@ -84,8 +106,10 @@ export function cycleStage(schedule: ReleaseSchedule): CycleStage {
   return "dot-releases-only";
 }
 
-// Return the Firefox versions a user may target for uplift, newest first.
-// Nightly is excluded because those patches land via autoland, not uplift.
+/**
+ * Return the Firefox versions a user may target for uplift, newest first.
+ * Nightly is excluded because those patches land via autoland, not uplift.
+ */
 export function versionChoices(schedule: ReleaseSchedule): VersionChoice[] {
   return [
     { version: schedule.beta.version, train: "beta" },
@@ -93,8 +117,14 @@ export function versionChoices(schedule: ReleaseSchedule): VersionChoice[] {
   ];
 }
 
-// Map a chosen target version onto the repositories to select. Returns `null`
-// for a version that is not a valid uplift target.
+/**
+ * Map a chosen target version onto the repositories to select.
+ *
+ * @param version - The Firefox major version the user selected.
+ * @param schedule - The current release schedule.
+ * @returns The repositories to tick, or `null` for a version that is not a
+ *   valid uplift target.
+ */
 export function resolveVersion(
   version: number,
   schedule: ReleaseSchedule,
@@ -116,8 +146,13 @@ export function resolveVersion(
   return null;
 }
 
-// Summarize where the given repositories will land, combining every train's
-// landing target into a single sentence plus any cautionary warnings.
+/**
+ * Summarize where the given repositories will land, combining every train's
+ * landing target into a single sentence plus any cautionary warnings.
+ *
+ * @param repos - The selected repository names.
+ * @param schedule - The current release schedule.
+ */
 export function summarizeRepos(
   repos: string[],
   schedule: ReleaseSchedule,
@@ -137,9 +172,13 @@ export function summarizeRepos(
   return { landing, warnings };
 }
 
-// Describe where a single repository's train will land, as a phrase that slots
-// into "This will land in ...". Returns `null` when there is nothing to say
-// (a non-mainline repo, or beta once betas are closed — see `landingWarning`).
+/**
+ * Describe where a single repository's train will land, as a phrase that slots
+ * into "This will land in …".
+ *
+ * @returns The landing phrase, or `null` when there is nothing to say (a
+ *   non-mainline repo, or beta once betas are closed — see `landingWarning`).
+ */
 function landingPhrase(repo: string, schedule: ReleaseSchedule): string | null {
   const train = trainForRepo(repo);
   const stage = cycleStage(schedule);
@@ -165,7 +204,7 @@ function landingPhrase(repo: string, schedule: ReleaseSchedule): string | null {
   return null;
 }
 
-// Warn when beta is selected after betas are closed, since it will not land.
+/** Warn when beta is selected after betas are closed, since it will not land. */
 function landingWarning(
   repo: string,
   schedule: ReleaseSchedule,
@@ -180,7 +219,7 @@ function landingWarning(
   return null;
 }
 
-// Join phrases into a natural-language list ("a", "a and b", "a, b, and c").
+/** Join phrases into a natural-language list (`a`, `a and b`, `a, b, and c`). */
 function joinWithAnd(items: string[]): string {
   if (items.length <= 1) {
     return items.join("");
