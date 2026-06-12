@@ -361,25 +361,23 @@ def test__models__Repo__mozbuild_state_path():
     assert repo.mozbuild_state_path == expected
 
 
+@pytest.mark.django_db
 # Each entry describes an autoformat field that `Repo.save` defaults from a factory
 # when autoformatting is enabled: `(field, default_factory, custom_value)`.
-AUTOFORMAT_DEFAULT_FIELDS = (
-    (
-        "autoformat_setup_commands",
-        get_default_autoformat_setup_commands,
-        [["artifact", "toolchain", "--from-build", "linux64-rust"]],
-    ),
-    (
-        "autoformat_run_command",
-        get_default_autoformat_run_command,
-        ["format", "--fix", "--outgoing"],
-    ),
-)
-
-
-@pytest.mark.django_db
 @pytest.mark.parametrize(
-    "field, default_factory, custom_value", AUTOFORMAT_DEFAULT_FIELDS
+    "field, default_factory, custom_value",
+    (
+        (
+            "autoformat_setup_commands",
+            get_default_autoformat_setup_commands,
+            [["artifact", "toolchain", "--from-build", "linux64-rust"]],
+        ),
+        (
+            "autoformat_run_command",
+            get_default_autoformat_run_command,
+            ["format", "--fix", "--outgoing"],
+        ),
+    ),
 )
 @pytest.mark.parametrize(
     "autoformat_enabled, explicit",
@@ -392,7 +390,7 @@ AUTOFORMAT_DEFAULT_FIELDS = (
 def test__models__Repo__autoformat_field_default(
     field, default_factory, custom_value, autoformat_enabled, explicit
 ):
-    """`Repo.save` defaults each autoformat field only when enabled and unset."""
+    """Test that `Repo.save` defaults each autoformat field only when enabled and unset."""
     overrides = {field: custom_value} if explicit else {}
     repo = Repo(
         name="firefox-autoland",
