@@ -11,7 +11,7 @@ from lando.main.models.landing_job import (
     get_jobs_for_pull,
 )
 from lando.ui.views import LandoView
-from lando.utils.github import GitHubAPIClient
+from lando.utils.github import PR_DELIMITER, GitHubAPIClient
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +49,7 @@ class PullRequestView(LandoView, PrivateRepoPermissionMixin):
             "target_repo": target_repo,
             "pull_request": pull_request,
             "landing_jobs": landing_jobs,
+            "pr_delimiter": PR_DELIMITER,
         }
 
         return TemplateResponse(

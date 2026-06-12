@@ -26,6 +26,7 @@ from lando.api.views import (
     LegacyDiffWarningView,
     PullRequestChecksAPIView,
     PullRequestContentAPIView,
+    PullRequestUpdateWebhook,
     git2hgCommitMapView,
     hg2gitCommitMapView,
 )
@@ -130,6 +131,11 @@ urlpatterns += [
         "api/pulls/<str:repo_name>/<int:pull_number>",
         PullRequestContentAPIView.as_view(),
         name="api-pull-request-update-content",
+    ),
+    path(
+        "api/pulls/<str:repo_name>/<int:pull_number>/webhook",
+        PullRequestUpdateWebhook.as_view(),
+        name="api-pull-request-description",
     ),
 ]
 

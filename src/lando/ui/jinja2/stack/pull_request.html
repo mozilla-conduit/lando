@@ -70,7 +70,7 @@
             <tr>
                 <th>Commit Body</th>
                 <td>
-                    <p id="commit-body">{{ pull_request.body }}</p>
+                    <p id="commit-body">{{ pull_request.commit_body|e }}</p>
                     <p id="commit-body-error"></p>
                 </td>
             </tr>
