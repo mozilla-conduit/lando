@@ -31,12 +31,12 @@ Here is an example, we have a widget and we want to style it:
 
 ```html
 <div>
-  <div class="left-title large"><h1>Hi!</h1></div>
-  <div class="main-content">
-    <p class="controls active">...</p>
-    ...
-  </div>
-  <div class="right-title"><button>Click me</button></div>
+    <div class="left-title large"><h1>Hi!</h1></div>
+    <div class="main-content">
+        <p class="controls active">...</p>
+        ...
+    </div>
+    <div class="right-title"><button>Click me</button></div>
 </div>
 ```
 
@@ -46,12 +46,12 @@ You can infer the css.
 
 ```html
 <div class="Widget">
-  <div class="Widget-left Widget-left--large"><h1>Hi!</h1></div>
-  <div class="Widget-main">
-    <p class="Widget-controls is-active">...</p>
-    ...
-  </div>
-  <div class="Widget-right"><button>Click me</button></div>
+    <div class="Widget-left Widget-left--large"><h1>Hi!</h1></div>
+    <div class="Widget-main">
+        <p class="Widget-controls is-active">...</p>
+        ...
+    </div>
+    <div class="Widget-right"><button>Click me</button></div>
 </div>
 ```
 
