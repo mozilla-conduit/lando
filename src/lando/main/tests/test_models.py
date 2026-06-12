@@ -10,6 +10,8 @@ from django.contrib.auth.models import Permission, User
 from django.core.exceptions import ValidationError
 
 from lando.main.models import CommitMap, Repo
+from lando.main.models.base import CryptographyMixin
+from lando.main.models.profile import Profile
 from lando.main.models.repo import (
     get_default_autoformat_run_command,
     get_default_autoformat_setup_commands,
@@ -30,6 +32,15 @@ diff --git a/test.txt b/test.txt
  TEST
 +adding another line
 """.lstrip()
+
+
+@pytest.fixture
+def mock_crypto_model():
+    class MockModel(CryptographyMixin):
+        save = MagicMock()
+        arbitrary_field = MagicMock()
+
+    return MockModel()
 
 
 @pytest.mark.parametrize(
@@ -536,3 +547,80 @@ def test_hook_choices_all_checks():
         assert hook.label == check_dict[hook.name], (
             f"Hook choice label doesn't match check description for {hook.name}"
         )
+
+
+@pytest.mark.django_db(transaction=True)
+def test_phabricator_api_key_encryption():
+    user = User.objects.create_user(username="test_user", password="test_password")
+    profile = Profile.objects.create(user=user)
+
+    assert profile.phabricator_api_key == ""
+
+    # Set an arbitrary key.
+    key = "test-key"
+    profile.set_phabricator_api_key(key)
+    assert key.encode("utf-8") not in profile.encrypted_phabricator_api_key
+    assert profile.phabricator_api_key == key
+
+    # Clear the key
+    profile.clear_phabricator_api_key()
+    assert profile.phabricator_api_key == ""
+
+
+@mock.patch("lando.main.models.base.cryptography")
+def test_cryptography_mixin__set_field(cryptography, mock_crypto_model):
+    mock_crypto_model.encrypted_made_up_field = None
+    mock_crypto_model.set_made_up_field("this is a test")
+    assert cryptography.encrypt.call_count == 1
+    assert cryptography.encrypt.call_args[0] == (b"this is a test",)
+    assert mock_crypto_model.save.call_count == 1
+
+
+@mock.patch("lando.main.models.base.cryptography")
+def test_cryptography_mixin__set_field_do_not_save(cryptography, mock_crypto_model):
+    mock_crypto_model.encrypted_made_up_field = None
+    mock_crypto_model.set_made_up_field("this is a test", save=False)
+    assert cryptography.encrypt.call_count == 1
+    assert cryptography.encrypt.call_args[0] == (b"this is a test",)
+    assert mock_crypto_model.save.call_count == 0
+
+
+@mock.patch("lando.main.models.base.cryptography")
+def test_cryptography_mixin__clear_field(cryptography, mock_crypto_model):
+    mock_crypto_model.encrypted_made_up_field = None
+    mock_crypto_model.clear_made_up_field()
+    assert cryptography.encrypt.call_count == 1
+    assert cryptography.encrypt.call_args[0] == (b"",)
+    assert mock_crypto_model.save.call_count == 1
+
+
+@mock.patch("lando.main.models.base.cryptography")
+def test_cryptography_mixin__rotate_field(cryptography, mock_crypto_model):
+    mock_crypto_model.encrypted_made_up_field = None
+    cryptography.encrypt.return_value = b"something encrypted"
+    mock_crypto_model.set_made_up_field("this is a test")
+    assert cryptography.encrypt.call_args[0] == (b"this is a test",)
+    assert mock_crypto_model.save.call_count == 1
+
+    mock_crypto_model.rotate_made_up_field()
+    assert cryptography.rotate.call_count == 1
+    assert cryptography.rotate.call_args[0] == (b"something encrypted",)
+    assert mock_crypto_model.save.call_count == 2
+
+
+def test_cryptography_mixin____getattr__(mock_crypto_model):
+    # Test that a non-existent attribute raises AttributeError.
+    with pytest.raises(AttributeError) as e:
+        mock_crypto_model.some_nonexistent_field  # noqa: B018 (unused not useless)
+    assert e.value.args[0].endswith("object has no attribute 'some_nonexistent_field'")
+
+    # Test that an arbitrary field with an encrypted equivalent falls back
+    # to concrete field.
+    original_field_id = id(mock_crypto_model.arbitrary_field)
+    mock_crypto_model.encrypted_arbitrary_field = ""
+    assert id(mock_crypto_model.arbitrary_field) == original_field_id
+
+    # Test some standard attributes on the mixin to ensure __getattr__ does not
+    # cause unexpected problems.
+    assert mock_crypto_model.__class__.__name__ == "MockModel"
+    assert mock_crypto_model.__dir__() == object.__dir__(mock_crypto_model)
