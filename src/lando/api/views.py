@@ -5,15 +5,18 @@ from functools import wraps
 from typing import Callable
 
 from django import forms
+from django.conf import settings
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import Http404, HttpRequest, JsonResponse
+from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.html import escape
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from requests import HTTPError
 
-from lando.api.legacy.commit_message import replace_reviewers
+from lando.api.legacy.commit_message import parse_bugs, replace_reviewers
 from lando.main.auth import PrivateRepoPermissionMixin, require_authenticated_user
 from lando.main.models import (
     CommitMap,
@@ -26,7 +29,12 @@ from lando.main.models import (
 from lando.main.models.landing_job import get_jobs_for_pull
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.main.scm import SCMType
-from lando.utils.github import GitHubAPIClient, PullRequest, PullRequestPatchHelper
+from lando.utils.github import (
+    PR_DELIMITER,
+    GitHubAPIClient,
+    PullRequest,
+    PullRequestPatchHelper,
+)
 from lando.utils.github_checks import (
     ALL_PULL_REQUEST_BLOCKERS,
     ALL_PULL_REQUEST_WARNINGS,
@@ -334,3 +342,42 @@ class PullRequestChecksAPIView(PullRequestAPIView):
             # The StaleMetadataException error message is safe for user consumption.
             return JsonResponse({"errors": [str(exc)]}, status=500)
         return JsonResponse(warnings_and_blockers)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class PullRequestUpdateWebhook(PullRequestAPIView):
+    """API method called by GitHub to update Lando data in pull request."""
+
+    def generate_context(self, request: HttpRequest) -> dict[str, str | list[str]]:
+        """Generate various context variables used in rendering the template."""
+        context = generate_warnings_and_blockers(
+            self.target_repo, self.pull_request, request
+        )
+
+        path = reverse(
+            "pull-request",
+            kwargs={
+                "repo_name": self.target_repo.name,
+                "number": self.pull_request.number,
+            },
+        )
+
+        context["lando_url"] = f"{settings.SITE_URL}{path}"
+        context["pr_delimiter"] = PR_DELIMITER
+        bugs = parse_bugs(self.pull_request.title)
+        context["bugs"] = bugs
+        context["title"] = self.pull_request.title
+
+        # This commit body refers to the portion of the description below the
+        # delimiter (i.e., user-inputted value).
+        context["commit_body"] = self.pull_request.commit_body
+        return context
+
+    def post(
+        self, request: WSGIRequest, repo_name: str, pull_number: int
+    ) -> JsonResponse:
+        """Generate content and update PR description."""
+        context = self.generate_context(request)
+        rendered = render_to_string("pr_description.md", context)
+        self.client.update_pull_request_body(pull_number, rendered)
+        return JsonResponse({"status": "success"})
