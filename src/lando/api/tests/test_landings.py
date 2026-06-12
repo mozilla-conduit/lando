@@ -1294,6 +1294,31 @@ def test_bootstrap_repos_uses_artifact_default(repo_mc, git_landing_worker):
     )
 
 
+@pytest.mark.django_db
+def test_format_stack_runs_configured_command(repo_mc, git_landing_worker):
+    """`format_stack` runs the repo's configured autoformat command."""
+    command = ["format", "--fix", "--outgoing", "--verbose"]
+    repo = repo_mc(
+        SCMType.GIT,
+        name="test-format-git",
+        autoformat_enabled=True,
+        autoformat_run_command=command,
+    )
+    extra_env = {"MOZBUILD_STATE_PATH": repo.mozbuild_state_path}
+
+    with (
+        mock.patch.object(git_landing_worker, "mach_path", return_value="mach"),
+        mock.patch.object(git_landing_worker, "run_mach_command") as run_mach,
+    ):
+        git_landing_worker.format_stack(
+            None, repo.path, repo.autoformat_run_command, extra_env=extra_env
+        )
+
+    assert run_mach.call_args_list == [
+        mock.call(repo.path, command, extra_env=extra_env)
+    ], "`format_stack` should run the repo's configured autoformat command."
+
+
 @pytest.mark.parametrize(
     "repo_type",
     [

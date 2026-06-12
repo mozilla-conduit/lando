@@ -387,6 +387,7 @@ class LandingWorker(Worker):
                 landoini_config,
                 bug_ids,
                 should_amend_autoformat,
+                job.target_repo.autoformat_run_command,
                 extra_env={"MOZBUILD_STATE_PATH": job.target_repo.mozbuild_state_path},
             )
         except AutoformattingException as exc:
@@ -429,10 +430,13 @@ class LandingWorker(Worker):
         landoini_config: configparser.ConfigParser | None,
         bug_ids: list[str],
         should_amend_autoformat: bool,
+        run_command: list[str],
         extra_env: dict[str, str] | None = None,
     ) -> AutoformatResult | None:
         try:
-            self.format_stack(landoini_config, scm.path, extra_env=extra_env)
+            self.format_stack(
+                landoini_config, scm.path, run_command, extra_env=extra_env
+            )
         except AutoformattingException as exc:
             logger.warning("Failed to format the stack.")
             logger.exception(exc)
@@ -473,6 +477,7 @@ class LandingWorker(Worker):
         self,
         landoini_config: configparser.ConfigParser,
         repo_path: str,
+        run_command: list[str],
         extra_env: dict[str, str] | None = None,
     ) -> None:
         """Format the patch stack for landing.
@@ -487,7 +492,7 @@ class LandingWorker(Worker):
             return None
 
         try:
-            self.run_code_formatters(repo_path, extra_env=extra_env)
+            self.run_code_formatters(repo_path, run_command, extra_env=extra_env)
         except subprocess.CalledProcessError as exc:
             logger.warning("Failed to run automated code formatters.")
             logger.exception(exc)
@@ -498,16 +503,20 @@ class LandingWorker(Worker):
             )
 
     def run_code_formatters(
-        self, repo_path: str, extra_env: dict[str, str] | None = None
+        self,
+        repo_path: str,
+        run_command: list[str],
+        extra_env: dict[str, str] | None = None,
     ) -> str:
         """Run automated code formatters, returning the output of the process.
 
         Changes made by code formatters are applied to the working directory and
-        are not committed into version control.
+        are not committed into version control. `run_command` is the repo's
+        configured `./mach` arg-list (without the `./mach` prefix).
         """
         return self.run_mach_command(
             repo_path,
-            ["format", "--fix", "--outgoing", "--verbose", "--skip-android"],
+            run_command,
             extra_env=extra_env,
         )
 
