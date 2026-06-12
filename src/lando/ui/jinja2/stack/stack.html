@@ -154,3 +154,12 @@
         {% endif %}
     </main>
 {% endblock %}
+{% block scripts %}
+    {# Load the widget wherever the uplift modal is rendered (see the matching
+       `user_is_authenticated` gate around the `uplift-form.html` include). The
+       widget no-ops if its mount point is absent. Rebuild the bundle with
+       `make build-js` after changing the Vue sources in `frontend/`. #}
+    {% if user_is_authenticated %}
+        <script src="{{ static_url }}dist/uplift.js" type="module" charset="utf-8"></script>
+    {% endif %}
+{% endblock %}

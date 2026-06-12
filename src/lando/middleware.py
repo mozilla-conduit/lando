@@ -38,8 +38,17 @@ class ResponseHeadersMiddleware:
         response["X-Frame-Options"] = "DENY"
         response["X-Content-Type-Options"] = "nosniff"
 
+        # The uplift train-selector widget fetches release guidance from an
+        # external API, so `connect-src` must allow that origin in addition to
+        # `'self'` (otherwise it falls back to `default-src 'self'`).
+        connect_src = "connect-src 'self'"
+        train_api_origin = settings.WHATTRAINISITNOW_UPLIFT_TRAIN_API_ORIGIN
+        if train_api_origin:
+            connect_src = f"{connect_src} {train_api_origin}"
+
         csp = [
             "default-src 'self'",
+            connect_src,
             "base-uri 'none'",
             "font-src 'self'  *.googleapis.com https://code.cdn.mozilla.net",
             "frame-ancestors 'none'",

@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/dev/ref/settings/
 
 import os
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from lando.environments import Environment
 from lando.version import version
@@ -260,8 +261,9 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 LINT_PATHS = (BASE_DIR,)
-# Currently used by Prettier for linting CSS/JS.
-STATIC_LINT_PATHS = (BASE_DIR / "static_src",)
+# Used by Prettier for linting CSS/JS and the Vue/TypeScript frontend. The
+# `frontend` source lives at the repository root (`BASE_DIR` is `src/lando`).
+STATIC_LINT_PATHS = (BASE_DIR / "static_src", BASE_DIR.parent.parent / "frontend")
 PHABRICATOR_URL = os.getenv("PHABRICATOR_URL", "http://phabricator.test")
 PHABRICATOR_ADMIN_API_KEY = os.getenv("PHABRICATOR_ADMIN_API_KEY", "")
 PHABRICATOR_UNPRIVILEGED_API_KEY = os.getenv("PHABRICATOR_UNPRIVILEGED_API_KEY", "")
@@ -269,6 +271,24 @@ PHABRICATOR_UNPRIVILEGED_API_KEY = os.getenv("PHABRICATOR_UNPRIVILEGED_API_KEY",
 TREEHERDER_URL = os.getenv("TREEHERDER_URL", "https://treeherder.mozilla.org")
 
 TREESTATUS_URL = os.getenv("TREESTATUS_URL", "http://treestatus.test")
+
+# Endpoint providing release-train guidance for the uplift target selector. The
+# browser fetches this directly. Defaults to the whattrainisitnow.com demo
+# server; override once a production endpoint is available.
+WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL = os.getenv(
+    "WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL",
+    "https://fx-trains.herokuapp.com/api/lando/uplift/train/",
+)
+
+# The browser fetches the train guidance directly, so the page CSP must allow
+# connecting to its origin (see `ResponseHeadersMiddleware`). A relative,
+# same-origin URL yields an empty origin and needs no extra `connect-src` entry.
+_train_api_url_parts = urlsplit(WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL)
+WHATTRAINISITNOW_UPLIFT_TRAIN_API_ORIGIN = (
+    f"{_train_api_url_parts.scheme}://{_train_api_url_parts.netloc}"
+    if _train_api_url_parts.scheme and _train_api_url_parts.netloc
+    else ""
+)
 
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://lando.redis:6379")
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL

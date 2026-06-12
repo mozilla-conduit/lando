@@ -112,5 +112,7 @@
         {% include "partials/notifications.html" %}
         {% block main %}{% endblock %}
         {% include "partials/footer.html" %}
+        {# Page-specific scripts, loaded after the global bundle in `<head>`. #}
+        {% block scripts %}{% endblock %}
     </body>
 </html>

@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Self, Sequence
 
+from django.conf import settings
 from django.core.handlers.wsgi import WSGIRequest
 from django.db.models import Prefetch, QuerySet
 
@@ -38,6 +39,7 @@ class UpliftContext:
     can_create_uplift_submission: bool
     revision_id: int
     docs_url: str
+    train_api_url: str
 
     @classmethod
     def build(
@@ -90,6 +92,7 @@ class UpliftContext:
             can_create_uplift_submission=cls.can_create_submission(request),
             revision_id=revision_id,
             docs_url=UPLIFT_DOCS_URL,
+            train_api_url=settings.WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL,
         )
 
     @staticmethod
