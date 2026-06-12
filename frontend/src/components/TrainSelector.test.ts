@@ -68,9 +68,9 @@ describe("TrainSelector", () => {
     await flushPromises();
 
     expect(
-      repositoriesField().style.display,
+      repositoriesField().classList.contains("is-hidden"),
       "Version mode should hide the native repositories field.",
-    ).toBe("none");
+    ).toBe(true);
 
     const options = wrapper.findAll("option").map((option) => option.text());
     expect(
@@ -148,9 +148,9 @@ describe("TrainSelector", () => {
     await flushPromises();
 
     expect(
-      repositoriesField().style.display,
+      repositoriesField().classList.contains("is-hidden"),
       "The train tab should reveal the native repositories field.",
-    ).toBe("");
+    ).toBe(false);
 
     for (const value of ["firefox-beta", "firefox-release"]) {
       const checkbox = repoCheckbox(value);
@@ -183,9 +183,9 @@ describe("TrainSelector", () => {
     await flushPromises();
 
     expect(
-      repositoriesField().style.display,
+      repositoriesField().classList.contains("is-hidden"),
       "A failed fetch should leave the native field visible.",
-    ).toBe("");
+    ).toBe(false);
     expect(
       wrapper.text(),
       "A failed fetch should explain that manual selection is needed.",

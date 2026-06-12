@@ -85,14 +85,15 @@ describe("useUpliftRepositories", () => {
       "[data-uplift-repositories]",
     )!;
     expect(
-      field.style.display,
-      "Hiding the field should set display none.",
-    ).toBe("none");
+      field.classList.contains("is-hidden"),
+      "Hiding the field should add the `is-hidden` class.",
+    ).toBe(true);
 
     repositories.setFieldVisible(true);
-    expect(field.style.display, "Showing the field should clear display.").toBe(
-      "",
-    );
+    expect(
+      field.classList.contains("is-hidden"),
+      "Showing the field should remove the `is-hidden` class.",
+    ).toBe(false);
   });
 
   it("tracks manual changes to the native checkboxes", async () => {
