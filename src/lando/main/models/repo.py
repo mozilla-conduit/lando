@@ -127,6 +127,10 @@ class Repo(BaseModel):
             "BugReferencesCheck",
             "Prevent commit messages referencing non-public bugs from try.",
         )
+        PreventEmptyBinaryCheck = (
+            "PreventEmptyBinaryCheck",
+            "Detect diffs that add a binary file with zero bytes.",
+        )
 
     @property
     def path(self) -> str:

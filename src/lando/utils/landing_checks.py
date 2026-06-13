@@ -337,6 +337,58 @@ class PreventHgDirectoryCheck(PatchCheck):
 
 
 @dataclass
+class PreventEmptyBinaryCheck(PatchCheck):
+    """Detect diffs that add a binary file with zero bytes.
+
+    Symptom of bug 1709608: when Lando lands using a Phabricator diff whose
+    `creationMethod` is `commit`, binary file payloads have been stripped
+    and the file would land as 0 bytes. The fix that landed for bug 1709608
+    only covers the uplift creation path; this check defends every landing
+    path by inspecting the rendered patch directly, so it is root-cause-
+    agnostic.
+
+    The check produces a list of offending filenames; callers decide whether
+    to surface this as a warning or a blocker.
+    """
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PreventEmptyBinaryCheck"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Detect diffs that add a binary file with zero bytes."
+
+    empty_binary_files: list[str] = field(default_factory=list)
+
+    def next_diff(self, diff: dict):
+        # Only flag *additions* of binary files. Modifications and deletions
+        # legitimately have zero or partial-binary payloads.
+        if not diff.get("binary") or diff.get("deleted") or not diff.get("new"):
+            return
+
+        # `binary_hunk_size` from `rs_parsepatch` is e.g. [("literal", 87)] or
+        # [("literal", N), ("delta", M)]. A pure-add of an empty file shows up
+        # as a single ("literal", 0) hunk; sum across hunks defensively.
+        total = sum(size for _kind, size in diff.get("binary_hunk_size") or [])
+        if total == 0:
+            self.empty_binary_files.append(diff["filename"])
+
+    def result(self) -> str | None:
+        if self.empty_binary_files:
+            return (
+                "Revision adds zero-byte binary files "
+                f"({wrap_filenames(self.empty_binary_files)}). This usually "
+                "means the active diff was sourced from a landed commit and "
+                "its binary payloads were stripped by Phabricator. Re-submit "
+                "the revision with `moz-phab` to restore the binary content. "
+                "See bug 1709608."
+            )
+
+
+@dataclass
 class PreventSymlinksCheck(PatchCheck):
     """Check for symlinks introduced in the diff."""
 

@@ -48,6 +48,7 @@ from lando.main.models import (
 from lando.main.support import LegacyAPIException
 from lando.utils.landing_checks import (
     DiffAssessor,
+    PreventEmptyBinaryCheck,
     PreventNSPRNSSCheck,
     PreventSubmodulesCheck,
     PreventSymlinksCheck,
@@ -536,6 +537,28 @@ def warning_multiple_authors(
         return f"Revision has multiple authors: {', '.join(author_usernames)}."
 
 
+@RevisionWarningCheck("Adds zero-byte binary files (bug 1709608).")
+def warning_empty_binary_files(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> str | None:
+    """Warn when the active diff adds binary files with zero bytes.
+
+    Symptom of bug 1709608: diffs sourced from a landed commit have their
+    binary payloads stripped by Phabricator, so a re-land using such a diff
+    silently produces empty binary files in the tree. This warning surfaces
+    the situation; the targeted blocker (later) catches the regression case
+    automatically. Implemented as a warning so legitimately-empty binary
+    fixtures (rare but real -- e.g. `empty.xpi`, `0_sized_file`) can still
+    be landed by acknowledging the warning.
+    """
+    diff_id = PhabricatorClient.expect(diff, "id")
+    parsed_diff = stack_state.parsed_diffs[diff_id]
+
+    diff_assessor = DiffAssessor(parsed_diff=parsed_diff)
+    if issues := diff_assessor.run_diff_checks([PreventEmptyBinaryCheck]):
+        return issues[0]
+
+
 def blocker_user_no_auth0_email(
     stack_state: StackAssessmentState,
 ) -> str | None:
@@ -899,6 +922,7 @@ WARNING_CHECKS = [
     warning_wip_commit_message,
     warning_unresolved_comments,
     warning_multiple_authors,
+    warning_empty_binary_files,
 ]
 
 
