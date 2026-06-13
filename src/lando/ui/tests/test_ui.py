@@ -10,7 +10,6 @@ from lando import test_settings as settings
 from lando.api.tests.mocks import TreeStatusDouble
 from lando.main import scm
 from lando.main.models import JobStatus, LandingJob
-from lando.main.models.commit_map import CommitMap
 from lando.main.scm import SCMType
 
 
@@ -56,12 +55,11 @@ def test_landed_landing_job_view(
     treestatusdouble: TreeStatusDouble,
     landing_worker_instance: Callable,
     make_landing_job: Callable,
-    commit_maps: list[CommitMap],
+    make_commit_maps: Callable,
 ):
-    cmap = commit_maps[0]
-
-    # This test assumes that the URL of the repo_mc matches commit_maps[].git_repo_name.
     repo = repo_mc(SCMType.GIT)
+    commit_maps = make_commit_maps(repo)
+    cmap = commit_maps[0]
     repo.treeherder_name = "autoland"
     repo.save()
     treestatusdouble.close_tree(repo.name)
