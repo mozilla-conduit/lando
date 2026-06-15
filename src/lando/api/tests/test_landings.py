@@ -20,6 +20,7 @@ from lando.main.models import (
 )
 from lando.main.scm import SCMType
 from lando.main.scm.exceptions import SCMInternalServerError
+from lando.main.scm.git import GitSCM
 from lando.main.scm.helpers import HgPatchHelper
 from lando.main.scm.hg import LostPushRace
 from lando.pushlog.models.commit import Commit
@@ -287,6 +288,42 @@ TRY_TASK_CONFIG_DIFF_SNIPPET = """
 +{{"parameters": {{"optimize_target_tasks": true, "target_tasks_method": "codereview", "try_mode": "try_task_config", "try_task_config": {{"github": {{"pull_number": 1, "pull_head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "repo_url": "{}", "branch": "main"}}}}}}, "version": 2}}
 \\ No newline at end of file
 """.lstrip()
+
+
+@pytest.mark.parametrize(
+    "target_commit_hash, supports_3way, base_revision, base_exists, expected",
+    [
+        # A known target commit short-circuits before consulting the SCM.
+        pytest.param("deadbeef", True, "abc123", True, None, id="target-commit-hash"),
+        # An SCM that can't rebase always applies at the tip.
+        pytest.param("", False, "abc123", True, None, id="scm-unsupported"),
+        # The recorded base is used when it exists in the repo.
+        pytest.param("", True, "abc123", True, "abc123", id="base-present"),
+        # A recorded base missing from the repo falls back to the tip.
+        pytest.param("", True, "abc123", False, None, id="base-missing"),
+        # No recorded base means there is nothing to reconstruct onto.
+        pytest.param("", True, "", False, None, id="no-recorded-base"),
+    ],
+)
+@pytest.mark.django_db
+def test_determine_rebase_base(
+    git_landing_worker,
+    target_commit_hash,
+    supports_3way,
+    base_revision,
+    base_exists,
+    expected,
+):
+    """`determine_rebase_base` returns the base only when every condition holds."""
+    job = mock.Mock(target_commit_hash=target_commit_hash)
+    job.revisions.first.return_value = mock.Mock(base_revision=base_revision)
+    scm = mock.Mock()
+    scm.supports_3way_apply.return_value = supports_3way
+    scm.commit_exists.return_value = base_exists
+
+    assert git_landing_worker.determine_rebase_base(job, scm) == expected, (
+        "`determine_rebase_base` should only return a base when all conditions hold."
+    )
 
 
 @pytest.mark.parametrize(
@@ -1470,4 +1507,208 @@ def test_worker_active_repos_updated_when_tree_closed(
     )
     assert repo in worker.enabled_repos, (
         f"The {scm_type} repo should still be enabled when its tree is closed."
+    )
+
+
+# Replaces the seeded single-line `test.txt` with enough lines that a hunk's
+# context window can be disturbed by an unrelated edit a few lines away.
+THREE_WAY_BASE_DIFF = """\
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1 +1,12 @@
+-TEST
++line1
++line2
++line3
++line4
++line5
++line6
++line7
++line8
++line9
++line10
++line11
++line12
+"""
+
+# Shifts line 6 on the tip, inside the patch's context window: this breaks a
+# 2-way apply but remains 3-way mergeable.
+CONTEXT_SHIFT_DIFF = """\
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -3,7 +3,7 @@
+ line3
+ line4
+ line5
+-line6
++line6 changed on tip
+ line7
+ line8
+ line9
+"""
+
+# Changes line 8 on the tip, the very line the patch changes, forcing a true
+# conflict that even a 3-way merge cannot resolve.
+CONFLICTING_SHIFT_DIFF = """\
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -5,7 +5,7 @@
+ line5
+ line6
+ line7
+-line8
++line8 changed on tip
+ line9
+ line10
+ line11
+"""
+
+# A patch, authored against THREE_WAY_BASE_DIFF's content, that modifies line 8.
+# Its context window spans lines 5-11.
+THREE_WAY_PATCH = """
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+Bug 123: modify line 8
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -5,7 +5,7 @@
+ line5
+ line6
+ line7
+-line8
++line8 modified by patch
+ line9
+ line10
+ line11
+""".lstrip()
+
+
+def setup_three_way_repo(git_repo, tip_diff: str) -> str:
+    """Seed `git_repo` with a multi-line base commit and a tip commit.
+
+    The tip commit applies `tip_diff`. Returns the base commit SHA the patch is
+    authored against.
+    """
+    scm = GitSCM(str(git_repo))
+    author = "Test User <test@example.com>"
+    date = "1970-01-01T00:00:00"
+
+    scm.apply_patch(THREE_WAY_BASE_DIFF, "Base content for 3-way test", author, date)
+    base_sha = scm.head_ref()
+
+    scm.apply_patch(tip_diff, "Change a line on the tip", author, date)
+
+    return base_sha
+
+
+@pytest.mark.parametrize(
+    "provide_base, expected_status",
+    [
+        # With the base available, the worker reconstructs and rebases, so the
+        # context shift is recovered and the landing succeeds.
+        pytest.param(True, JobStatus.LANDED, id="with-base-recovers"),
+        # Without it, the worker applies at the tip with a 2-way apply, which the
+        # context shift defeats.
+        pytest.param(False, JobStatus.FAILED, id="without-base-fails"),
+    ],
+)
+@pytest.mark.django_db
+def test_three_way_landing_handles_context_shift(
+    provide_base: bool,
+    expected_status: str,
+    repo_mc: Callable,
+    git_repo,
+    treestatusdouble: TreeStatusDouble,
+    mock_phab_trigger_repo_update_apply_async: mock.Mock,
+    create_patch_revision: Callable,
+    make_landing_job: Callable,
+    get_landing_worker: Callable,
+):
+    """A recorded base lets the worker recover a context shift that 2-way rejects."""
+    base_sha = setup_three_way_repo(git_repo, CONTEXT_SHIFT_DIFF)
+
+    repo = repo_mc(SCMType.GIT)
+    treestatusdouble.open_tree(repo.name)
+
+    revision = create_patch_revision(1, patch=THREE_WAY_PATCH)
+    if provide_base:
+        revision.base_revision = base_sha
+        revision.save()
+
+    job = make_landing_job(
+        revisions=[revision],
+        status=JobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        target_repo=repo,
+        attempts=1,
+    )
+
+    worker = get_landing_worker(SCMType.GIT)
+    assert worker.run_job(job), "`run_job` returns `True` in both permanent states."
+    assert job.status == expected_status, (
+        "Base availability should determine whether the context shift lands."
+    )
+
+    if expected_status != JobStatus.LANDED:
+        return
+
+    # The worker's checkout reflects the landed tip, with both changes 3-way merged.
+    landed = repo.scm.read_checkout_file("test.txt")
+    assert "line6 changed on tip" in landed, "Tip's change should be preserved."
+    assert "line8 modified by patch" in landed, "Patch's change should be applied."
+
+    revision.refresh_from_db()
+    assert revision.commit_id, "The post-rebase commit hash should be recorded."
+
+
+@pytest.mark.django_db
+def test_three_way_landing_conflict_reports_breakdown(
+    repo_mc: Callable,
+    git_repo,
+    treestatusdouble: TreeStatusDouble,
+    mock_phab_trigger_repo_update_apply_async: mock.Mock,
+    create_patch_revision: Callable,
+    make_landing_job: Callable,
+    get_landing_worker: Callable,
+):
+    """A genuine 3-way conflict fails with a populated `error_breakdown`."""
+    base_sha = setup_three_way_repo(git_repo, CONFLICTING_SHIFT_DIFF)
+
+    repo = repo_mc(SCMType.GIT)
+    treestatusdouble.open_tree(repo.name)
+
+    revision = create_patch_revision(1, patch=THREE_WAY_PATCH)
+    revision.base_revision = base_sha
+    revision.save()
+
+    job = make_landing_job(
+        revisions=[revision],
+        status=JobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        target_repo=repo,
+        attempts=1,
+    )
+
+    worker = get_landing_worker(SCMType.GIT)
+    assert worker.run_job(job), "`run_job` returns `True` after a permanent failure."
+    assert job.status == JobStatus.FAILED, "A true 3-way conflict should fail the job."
+
+    assert job.error_breakdown, "A conflict should produce an error breakdown."
+    rejects_paths = job.error_breakdown.get("rejects_paths")
+    assert rejects_paths, "The breakdown should record the conflicting paths."
+    assert "test.txt" in rejects_paths, "The conflicting file should be listed."
+    assert rejects_paths["test.txt"].get("content"), (
+        "The breakdown should include the conflict content for display."
+    )
+
+    failed_paths = [path["path"] for path in job.error_breakdown["failed_paths"]]
+    assert set(failed_paths) == set(rejects_paths.keys()), (
+        "`failed_paths` and `rejects_paths` should be consistent."
     )

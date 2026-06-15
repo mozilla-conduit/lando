@@ -245,11 +245,26 @@ class LandingWorker(Worker):
                 revision.timestamp,
             )
 
+        def rebase_stack(revision: Revision):
+            logger.debug(f"Rebasing stack ending at {revision} onto {landing_base}.")
+            scm.rebase_onto(landing_base, rebase_base)
+
         self.update_repo(repo, job, scm, job.target_commit_hash)
 
         if job.is_pull_request_job:
             self.convert_patches_to_diff(scm, job)
             self.update_repo(repo, job, scm, job.target_commit_hash)
+
+        # The work branch is currently at the commit we will ultimately land onto.
+        landing_base = scm.head_ref()
+
+        # When the patch's base commit is available, reconstruct the stack there
+        # so the final rebase performs a true 3-way merge against the correct
+        # ancestor. Otherwise, apply directly onto the landing base (2-way).
+        rebase_base = self.determine_rebase_base(job, scm)
+        if rebase_base:
+            logger.debug(f"Reconstructing stack at base {rebase_base}.")
+            scm.reset_to_commit(rebase_base)
 
         # Run through the patches one by one and try to apply them.
         logger.debug(
@@ -258,12 +273,17 @@ class LandingWorker(Worker):
         for revision in job.revisions.all():
             self.handle_new_commit_failures(apply_patch, repo, job, scm, revision)
 
-            new_commit = scm.describe_commit()
-            logger.debug(f"Created new commit {new_commit}")
+        # If we reconstructed at the base, rebase the stack onto the landing base
+        # to merge it against the target branch.
+        if rebase_base:
+            self.handle_new_commit_failures(
+                rebase_stack, repo, job, scm, job.revisions.last()
+            )
 
-            # Record the commit ID on the revision object.
-            revision.commit_id = new_commit.hash
-            revision.save()
+        # Record the final commit hash on each revision. Hashes change once the
+        # stack is rebased, so we read them only after it reaches its final
+        # position.
+        self.record_landed_commit_ids(job, scm, landing_base)
 
         # Get the changeset titles for the stack.
         changeset_titles = scm.changeset_descriptions()
@@ -347,6 +367,55 @@ class LandingWorker(Worker):
             pushlog.confirm()
 
         return bug_ids, commit_id
+
+    def determine_rebase_base(self, job: LandingJob, scm: AbstractSCM) -> str | None:
+        """Return the base commit to reconstruct the stack on, or `None`.
+
+        Returns `None` — applying directly onto the landing base — when the SCM
+        cannot rebase, when an exact target commit is already known
+        (`target_commit_hash`), or when the recorded base is missing from the
+        repo.
+        """
+        if job.target_commit_hash:
+            # The exact target commit is known, so apply onto it without rebasing.
+            return None
+
+        if not scm.supports_3way_apply():
+            return None
+
+        first_revision = job.revisions.first()
+        if not first_revision:
+            return None
+
+        base = first_revision.base_revision
+        if not base or not scm.commit_exists(base):
+            logger.debug(
+                f"Base revision {base!r} not available in repo; applying at tip."
+            )
+            return None
+
+        return base
+
+    def record_landed_commit_ids(
+        self, job: LandingJob, scm: AbstractSCM, landing_base: str
+    ):
+        """Store each revision's final commit hash after applying and rebasing.
+
+        Commits are read against `landing_base` in ascending topological order,
+        which matches the index order of `job.revisions`.
+        """
+        landed_commits = scm.describe_local_changes(landing_base)
+        revisions = list(job.revisions.all())
+
+        if len(landed_commits) != len(revisions):
+            logger.warning(
+                f"Expected {len(revisions)} commits after landing, found "
+                f"{len(landed_commits)}; commit IDs may be misaligned."
+            )
+
+        for revision, commit in zip(revisions, landed_commits, strict=False):
+            revision.commit_id = commit.hash
+            revision.save()
 
     def autoformat(
         self,

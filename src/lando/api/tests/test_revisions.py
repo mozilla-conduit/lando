@@ -5,6 +5,7 @@ from lando.api.legacy.revisions import (
     blocker_diff_author_is_known,
     ensure_revisions_from_phabricator,
     fetch_raw_diff_and_save,
+    get_base_revision_from_diff,
     revision_is_secure,
     revision_needs_testing_tag,
 )
@@ -108,6 +109,29 @@ def test_repo_does_not_have_testing_policy(phabdouble):
     )
 
 
+def test_get_base_revision_from_diff_returns_base_identifier():
+    """The `base` ref identifier is returned when present."""
+    diff = {"fields": {"refs": [{"type": "base", "identifier": "abc123"}]}}
+    assert get_base_revision_from_diff(diff) == "abc123", (
+        "`get_base_revision_from_diff` should return the base ref identifier."
+    )
+
+
+def test_get_base_revision_from_diff_ignores_other_refs():
+    """Non-`base` refs are ignored, returning the empty string."""
+    diff = {"fields": {"refs": [{"type": "branch", "name": "HEAD"}]}}
+    assert get_base_revision_from_diff(diff) == "", (
+        "`get_base_revision_from_diff` should ignore non-base refs."
+    )
+
+
+def test_get_base_revision_from_diff_handles_missing_refs():
+    """An empty string is returned when no refs are present."""
+    assert get_base_revision_from_diff({"fields": {}}) == "", (
+        "`get_base_revision_from_diff` should return an empty string without refs."
+    )
+
+
 @pytest.mark.django_db
 def test_fetch_raw_diff_and_save_creates_new_revision(phabdouble):
     """Creating a new `Revision` via `fetch_raw_diff_and_save`."""
@@ -127,6 +151,12 @@ def test_fetch_raw_diff_and_save_creates_new_revision(phabdouble):
     assert revision.diff_id == diff["id"], "`diff_id` should match the diff."
     assert revision.commit_message == "Bug 1 - Test commit", (
         "`commit_message` should be set from the provided message."
+    )
+    assert revision.base_revision == get_base_revision_from_diff(diff), (
+        "`base_revision` should be set from the diff's base ref."
+    )
+    assert revision.base_revision, (
+        "`base_revision` should be populated from the default diff base ref."
     )
 
 

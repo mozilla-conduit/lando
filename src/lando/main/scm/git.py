@@ -192,6 +192,62 @@ class GitSCM(AbstractSCM):
         self._git_run("cherry-pick", commit_id, cwd=self.path)
 
     @override
+    def supports_3way_apply(self) -> bool:
+        """Git can reconstruct a patch at its base and rebase onto the target."""
+        return True
+
+    def reset_to_commit(self, commit_id: str):
+        """Hard-reset the current work branch to the given commit."""
+        self._git_run("reset", "--hard", commit_id, cwd=self.path)
+
+    def rebase_onto(self, new_base: str, upstream: str):
+        """Rebase the commits in `upstream..HEAD` onto `new_base`.
+
+        Replays each commit as a 3-way merge against `new_base`, recovering the
+        context-shift failures that a 2-way apply would reject. On a genuine
+        same-line conflict, abort the rebase and raise `PatchConflict`.
+        """
+        try:
+            self._git_run("rebase", "--onto", new_base, upstream, cwd=self.path)
+        except SCMException as exc:
+            # Capture the conflict details before aborting discards the index.
+            conflicts = self._collect_conflicts()
+
+            try:
+                self._git_run("rebase", "--abort", cwd=self.path)
+            except SCMException:
+                # There may be no rebase in progress to abort; ignore.
+                pass
+
+            if conflicts:
+                paths = ", ".join(conflicts)
+                raise PatchConflict(
+                    f"Rebase onto {new_base} failed with conflicts in: {paths}\n\n"
+                    f"{exc.out}",
+                    conflicts=conflicts,
+                ) from exc
+
+            raise exc
+
+    def _collect_conflicts(self) -> dict[str, str]:
+        """Return a mapping of each conflicting path to its conflict diff.
+
+        Reads the unmerged paths from the index, so it must be called while the
+        conflict is still in progress (before any `rebase --abort`).
+        """
+        conflicting_paths = self._git_run(
+            "diff", "--name-only", "--diff-filter=U", cwd=self.path
+        ).split()
+
+        conflicts = {}
+        for path in conflicting_paths:
+            # `git diff` on an unmerged path shows the conflicting regions with
+            # markers, which is bounded and readable for display.
+            conflicts[path] = self._git_run("diff", "--", path, cwd=self.path)
+
+        return conflicts
+
+    @override
     @detect_patch_conflict
     def apply_patch_git(self, patch_bytes: bytes):
         """Apply the Git patch, provided as encoded bytes."""
@@ -336,9 +392,15 @@ class GitSCM(AbstractSCM):
         pull_path: str,
         revision_id: int,
         error_message: str,
+        conflicts: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Process merge conflict information captured in a PatchConflict, and return a
         parsed structure."""
+
+        # A 3-way rebase conflict provides its conflicting paths and content
+        # directly, since it leaves no `.rej` files for the parser below.
+        if conflicts:
+            return self.breakdown_from_conflicts(pull_path, revision_id, conflicts)
 
         breakdown = {
             "failed_paths": [],
@@ -378,6 +440,39 @@ class GitSCM(AbstractSCM):
                 )
 
             breakdown["rejects_paths"][path] = reject
+
+        return breakdown
+
+    def breakdown_from_conflicts(
+        self,
+        pull_path: str,
+        revision_id: int,
+        conflicts: dict[str, str],
+    ) -> dict[str, Any]:
+        """Build an error breakdown from a mapping of conflicting path to content.
+
+        Used for 3-way rebase conflicts, which report their conflicts in-memory
+        rather than as `.rej` files on disk.
+        """
+        breakdown: dict[str, Any] = {
+            "failed_paths": [],
+            "rejects_paths": {},
+            "revision_id": revision_id,
+        }
+
+        for path, content in conflicts.items():
+            commit = self.last_commit_for_path(path)
+            breakdown["failed_paths"].append(
+                {
+                    "path": path,
+                    "url": f"{pull_path}/tree/{commit}/{path}",
+                    "changeset_id": commit,
+                }
+            )
+            breakdown["rejects_paths"][path] = {
+                "path": f"{path}.rej",
+                "content": content,
+            }
 
         return breakdown
 

@@ -119,6 +119,15 @@ class AbstractSCM(ABC):
     def cherry_pick_commit(self, commit_id: str):
         """Cherry-pick the specified commit onto the current branch."""
 
+    def supports_3way_apply(self) -> bool:
+        """Whether this SCM can reconstruct a patch at its base then rebase.
+
+        When `True`, the landing worker may apply a stack onto its recorded base
+        commit and rebase it onto the target branch, yielding a true 3-way merge.
+        Defaults to `False`; SCMs opt in by overriding.
+        """
+        return False
+
     @abstractmethod
     def get_patch(self, revision_id: str) -> str | None:
         """Return a complete patch for the given revision, in the git extended diff format.
@@ -164,10 +173,18 @@ class AbstractSCM(ABC):
 
     @abstractmethod
     def process_merge_conflict(
-        self, pull_path: str, revision_id: int, error_message: str
+        self,
+        pull_path: str,
+        revision_id: int,
+        error_message: str,
+        conflicts: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Process merge conflict information captured in a PatchConflict, and return a
         parsed structure.
+
+        `conflicts` maps conflicting paths to their conflict content for SCMs and
+        code paths (e.g. a 3-way rebase) that report conflicts directly rather
+        than leaving `.rej` files on disk.
 
         The structure is a nested dict as follows:
 

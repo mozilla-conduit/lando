@@ -1381,6 +1381,207 @@ def test_GitSCM_commit_exists(
     )
 
 
+# A new file with enough surrounding lines that a hunk's context window can be
+# disturbed by an unrelated edit a few lines away.
+SHARED_FILE_DIFF = """\
+diff --git a/shared.txt b/shared.txt
+new file mode 100644
+--- /dev/null
++++ b/shared.txt
+@@ -0,0 +1,10 @@
++line 1
++line 2
++line 3
++line 4
++line 5
++line 6
++line 7
++line 8
++line 9
++line 10
+"""
+
+# Changes the first line; combined with `CHANGE_LAST_LINE_DIFF` the two edits
+# don't overlap and merge cleanly.
+CHANGE_FIRST_LINE_DIFF = """\
+diff --git a/shared.txt b/shared.txt
+--- a/shared.txt
++++ b/shared.txt
+@@ -1,4 +1,4 @@
+-line 1
++line 1 - changed on target
+ line 2
+ line 3
+ line 4
+"""
+
+CHANGE_LAST_LINE_DIFF = """\
+diff --git a/shared.txt b/shared.txt
+--- a/shared.txt
++++ b/shared.txt
+@@ -7,4 +7,4 @@
+ line 7
+ line 8
+ line 9
+-line 10
++line 10 - changed on work branch
+"""
+
+# Both of these change the same line, so applying them on diverging branches
+# produces a true conflict that a 3-way merge cannot resolve.
+CHANGE_MIDDLE_LINE_TARGET_DIFF = """\
+diff --git a/shared.txt b/shared.txt
+--- a/shared.txt
++++ b/shared.txt
+@@ -2,7 +2,7 @@
+ line 2
+ line 3
+ line 4
+-line 5
++line 5 - changed on target
+ line 6
+ line 7
+ line 8
+"""
+
+CHANGE_MIDDLE_LINE_WORK_DIFF = """\
+diff --git a/shared.txt b/shared.txt
+--- a/shared.txt
++++ b/shared.txt
+@@ -2,7 +2,7 @@
+ line 2
+ line 3
+ line 4
+-line 5
++line 5 - changed on work branch
+ line 6
+ line 7
+ line 8
+"""
+
+PATCH_AUTHOR = "Py Test <pytest@lando.example.net>"
+PATCH_DATE = "1970-01-01T00:00:00"
+
+
+def commit_diff(scm: GitSCM, diff: str, message: str):
+    """Apply `diff` and commit it via the production `apply_patch` path."""
+    scm.apply_patch(diff, message, PATCH_AUTHOR, PATCH_DATE)
+
+
+def clone_git_repo(
+    git_repo: Path, clone_path: Path, git_setup_user: Callable
+) -> GitSCM:
+    """Clone `git_repo` into `clone_path` and return a configured `GitSCM`."""
+    clone_path.mkdir()
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+    return scm
+
+
+def test_GitSCM_supports_3way_apply(git_repo: Path):
+    """Git supports the reconstruct-at-base 3-way landing flow."""
+    scm = GitSCM(str(git_repo))
+    assert scm.supports_3way_apply() is True, (
+        "`supports_3way_apply` should return `True` for Git."
+    )
+
+
+def test_GitSCM_reset_to_commit(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    """`reset_to_commit` moves the work branch back to the given commit."""
+    scm = clone_git_repo(git_repo, tmp_path / request.node.name, git_setup_user)
+
+    base_commit = scm.head_ref()
+    commit_diff(scm, SHARED_FILE_DIFF, "Add shared file")
+    assert scm.head_ref() != base_commit, "A new commit should advance `HEAD`."
+
+    scm.reset_to_commit(base_commit)
+    assert scm.head_ref() == base_commit, (
+        "`reset_to_commit` should move `HEAD` back to the base commit."
+    )
+
+
+def test_GitSCM_rebase_onto_recovers_context_shift(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    """`rebase_onto` 3-way merges across an unrelated context shift."""
+    scm = clone_git_repo(git_repo, tmp_path / request.node.name, git_setup_user)
+
+    commit_diff(scm, SHARED_FILE_DIFF, "Add shared file")
+    base_commit = scm.head_ref()
+
+    # On the target branch, change an unrelated line, shifting context.
+    commit_diff(scm, CHANGE_FIRST_LINE_DIFF, "Change first line on target")
+    target_tip = scm.head_ref()
+
+    # On a work branch from the base, change a different line.
+    scm.reset_to_commit(base_commit)
+    commit_diff(scm, CHANGE_LAST_LINE_DIFF, "Change last line on work branch")
+
+    scm.rebase_onto(target_tip, base_commit)
+
+    assert scm.describe_commit().parents == [target_tip], (
+        "Rebased commit's parent should be the target tip."
+    )
+    merged = scm.read_checkout_file("shared.txt")
+    assert "line 1 - changed on target" in merged, (
+        "Target change should survive the rebase."
+    )
+    assert "line 10 - changed on work branch" in merged, (
+        "Work-branch change should survive the rebase."
+    )
+
+
+def test_GitSCM_rebase_onto_raises_on_conflict(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    """`rebase_onto` raises `PatchConflict` and aborts on a true conflict."""
+    clone_path = tmp_path / request.node.name
+    scm = clone_git_repo(git_repo, clone_path, git_setup_user)
+
+    commit_diff(scm, SHARED_FILE_DIFF, "Add shared file")
+    base_commit = scm.head_ref()
+
+    # Both branches change the same line, so the rebase cannot merge cleanly.
+    commit_diff(scm, CHANGE_MIDDLE_LINE_TARGET_DIFF, "Change middle line on target")
+    target_tip = scm.head_ref()
+
+    scm.reset_to_commit(base_commit)
+    commit_diff(scm, CHANGE_MIDDLE_LINE_WORK_DIFF, "Change middle line on work branch")
+
+    with pytest.raises(PatchConflict) as exc_info:
+        scm.rebase_onto(target_tip, base_commit)
+
+    # The raised conflict should carry the conflicting path and its content so
+    # `process_merge_conflict` can build an error breakdown after the abort.
+    conflicts = exc_info.value.conflicts
+    assert "shared.txt" in conflicts, (
+        "`PatchConflict.conflicts` should record the conflicting path."
+    )
+    assert "<<<<<<<" in conflicts["shared.txt"], (
+        "Captured conflict content should include the conflict markers."
+    )
+
+    git_dir = clone_path / ".git"
+    assert not (git_dir / "rebase-merge").exists(), (
+        "A conflicting rebase should be aborted, leaving no rebase state."
+    )
+    assert not (git_dir / "rebase-apply").exists(), (
+        "A conflicting rebase should be aborted, leaving no rebase state."
+    )
+
+
 @pytest.mark.parametrize(
     "method_name, method_args",
     (
