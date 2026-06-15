@@ -22,3 +22,8 @@ updates:
   open-pull-requests-limit: 99
   allow:
     - dependency-type: all
+  ignore:
+    - update-types:
+      # Our package.json allows semver-compatible versions (with ^).
+      # This means no major bumps.
+      - "version-update:semver-major"
