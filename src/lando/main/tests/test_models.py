@@ -10,7 +10,10 @@ from django.contrib.auth.models import Permission, User
 from django.core.exceptions import ValidationError
 
 from lando.main.models import CommitMap, Repo
-from lando.main.models.repo import get_default_autoformat_setup_commands
+from lando.main.models.repo import (
+    get_default_autoformat_run_command,
+    get_default_autoformat_setup_commands,
+)
 from lando.main.models.revision import Revision
 from lando.main.scm import SCMType
 from lando.utils.landing_checks import (
@@ -359,47 +362,55 @@ def test__models__Repo__mozbuild_state_path():
 
 
 @pytest.mark.django_db
-def test__models__Repo__autoformat_setup_commands_empty_without_autoformat():
-    """A repo without autoformatting enabled keeps an empty setup sequence."""
-    repo = Repo(name="no-autoformat", url="http://example.com", scm_type=SCMType.GIT)
-    repo.save()
-
-    assert repo.autoformat_setup_commands == [], (
-        "A repo without `autoformat_enabled` should have no setup commands."
-    )
-
-
-@pytest.mark.django_db
-def test__models__Repo__autoformat_setup_commands_set_on_save():
-    """Enabling autoformatting populates the default `mach artifact` sequence on save."""
+# Each entry describes an autoformat field that `Repo.save` defaults from a factory
+# when autoformatting is enabled: `(field, default_factory, custom_value)`.
+@pytest.mark.parametrize(
+    "field, default_factory, custom_value",
+    (
+        (
+            "autoformat_setup_commands",
+            get_default_autoformat_setup_commands,
+            [["artifact", "toolchain", "--from-build", "linux64-rust"]],
+        ),
+        (
+            "autoformat_run_command",
+            get_default_autoformat_run_command,
+            ["format", "--fix", "--outgoing"],
+        ),
+    ),
+)
+@pytest.mark.parametrize(
+    "autoformat_enabled, explicit",
+    (
+        pytest.param(False, False, id="disabled-stays-empty"),
+        pytest.param(True, False, id="enabled-gets-default"),
+        pytest.param(True, True, id="explicit-preserved"),
+    ),
+)
+def test__models__Repo__autoformat_field_default(
+    field, default_factory, custom_value, autoformat_enabled, explicit
+):
+    """Test that `Repo.save` defaults each autoformat field only when enabled and unset."""
+    overrides = {field: custom_value} if explicit else {}
     repo = Repo(
         name="firefox-autoland",
         url="http://example.com",
         scm_type=SCMType.GIT,
-        autoformat_enabled=True,
+        autoformat_enabled=autoformat_enabled,
+        **overrides,
     )
     repo.save()
 
-    assert repo.autoformat_setup_commands == get_default_autoformat_setup_commands(), (
-        "Enabling autoformatting should populate the default setup sequence on save."
-    )
+    if not autoformat_enabled:
+        expected = []
+    elif explicit:
+        expected = custom_value
+    else:
+        expected = default_factory()
 
-
-@pytest.mark.django_db
-def test__models__Repo__autoformat_setup_commands_not_overwritten():
-    """An explicitly-set setup sequence is preserved on save."""
-    custom = [["artifact", "toolchain", "--from-build", "linux64-rust"]]
-    repo = Repo(
-        name="custom-autoland",
-        url="http://example.com",
-        scm_type=SCMType.GIT,
-        autoformat_enabled=True,
-        autoformat_setup_commands=custom,
-    )
-    repo.save()
-
-    assert repo.autoformat_setup_commands == custom, (
-        "An explicitly-set setup sequence should not be overwritten on save."
+    assert getattr(repo, field) == expected, (
+        f"`{field}` should be {expected!r} when "
+        f"`autoformat_enabled={autoformat_enabled}` and `explicit={explicit}`."
     )
 
 
