@@ -334,3 +334,31 @@ class PullRequestChecksAPIView(PullRequestAPIView):
             # The StaleMetadataException error message is safe for user consumption.
             return JsonResponse({"errors": [str(exc)]}, status=500)
         return JsonResponse(warnings_and_blockers)
+
+
+class PullRequestContentAPIView(PullRequestAPIView):
+    """Handle pull request content updates in the API."""
+
+    @method_decorator(require_authenticated_user)
+    def put(
+        self, request: WSGIRequest, repo_name: str, pull_number: int
+    ) -> JsonResponse:
+        """Update pull request content"""
+        if not self.target_repo.user_can_push(request.user):
+            return JsonResponse(
+                {"errors": ["You are not allowed to push to this repository."]},
+                status=403,
+            )
+
+        class Form(forms.Form):
+            body = forms.CharField(required=False)
+            title = forms.CharField(max_length=256)
+
+        form = Form(json.loads(request.body))
+        if not form.is_valid():
+            return JsonResponse(form.errors, status=400)
+
+        result = self.client.update_pull_request_content(
+            self.pull_request.number, **form.cleaned_data
+        )
+        return JsonResponse(result, status=200)

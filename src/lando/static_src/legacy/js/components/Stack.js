@@ -201,6 +201,7 @@ $.fn.stack = function () {
         fetch(`/api/pulls/${repo_name}/${pull_number}/landing_jobs`, {
           method: "POST",
           body: JSON.stringify({ head_sha: head_sha }),
+          //list of warnings:
           headers: {
             Accept: "application/json",
             "Content-Type": "application/json",
@@ -225,6 +226,122 @@ $.fn.stack = function () {
             pull_request_button.html("An unknown error occurred");
           }
         });
+      });
+
+      $("#save-edit-pr").on("click", function (e) {
+        var save_edit_pr_button = $(this);
+
+        if (save_edit_pr_button.attr("data-mode") === "edit") {
+          var body = $("#commit-body").val();
+          var title = $("#commit-title").val();
+          save_edit_pr_button.prop("disabled", true);
+          save_edit_pr_button.addClass("is-loading");
+          $("#cancel-edit-pr").prop("disabled", true);
+          $("#commit-title").prop("disabled", true);
+          $("#commit-body").prop("disabled", true);
+
+          fetch(`/api/pulls/${repo_name}/${pull_number}`, {
+            method: "PUT",
+            body: JSON.stringify({ body: body, title: title }),
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              "X-CSRFToken": csrf_token,
+            },
+          }).then(async (response) => {
+            if (response.status === 400) {
+              var result = await response.json();
+              save_edit_pr_button.removeClass("is-loading");
+              $("#cancel-edit-pr").prop("disabled", false);
+              if (result.title) {
+                $("#commit-title-error").text(result.title);
+                $("#commit-title-error").addClass("help is-danger");
+                $("#commit-title").prop("disabled", false);
+                $("#commit-body").prop("disabled", false);
+                $("#commit-title").addClass("is-danger");
+              }
+              if (result.body) {
+                $("#commit-body-error").text(result.body);
+                $("#commit-body-error").addClass("help is-danger");
+                $("#commit-title").prop("disabled", false);
+                $("#commit-body").prop("disabled", false);
+                $("#commit-body").addClass("is-danger");
+              }
+            } else if (response.status === 200) {
+              $("#commit-title-error").text("");
+              $("#commit-body-error").text("");
+              $("#commit-title").removeClass("is-danger");
+              $("#commit-body").removeClass("is-danger");
+              window.location.reload();
+            } else {
+              save_edit_pr_button
+                .prop("disabled", true)
+                .removeClass("is-danger is-loading")
+                .addClass("is-warning")
+                .text("An unknown error occurred");
+            }
+          });
+          return;
+        }
+
+        const pTitle = $("#commit-title");
+        const pBody = $("#commit-body");
+        const textareaTitle = $("<textarea>")
+          .attr("id", "commit-title")
+          .addClass("textarea")
+          .val(pTitle.text())
+          .attr("data-original", pTitle.text());
+        const textareaBody = $("<textarea>")
+          .attr("id", "commit-body")
+          .addClass("textarea")
+          .val(pBody.text())
+          .attr("data-original", pBody.text());
+
+        pTitle.replaceWith(textareaTitle);
+        pBody.replaceWith(textareaBody);
+
+        save_edit_pr_button
+          .attr("data-mode", "edit")
+          .text("Save Commit Message");
+        $("#cancel-edit-pr").removeClass("is-hidden");
+        $("#commit-title").focus();
+        $("#post-landing-job").prop("disabled", true);
+
+        textareaTitle.on("input", function () {
+          $("#commit-title").removeClass("is-danger");
+          $("#commit-title-error").text("");
+          save_edit_pr_button.prop("disabled", false);
+        });
+
+        textareaBody.on("input", function () {
+          $("#commit-body").removeClass("is-danger");
+          $("#commit-body-error").text("");
+          save_edit_pr_button.prop("disabled", false);
+        });
+      });
+
+      $("#cancel-edit-pr").on("click", function (e) {
+        const pTitle = document.createElement("p");
+        const pBody = document.createElement("p");
+        const textareaTitle = $("#commit-title");
+        const textareaBody = $("#commit-body");
+        pTitle.textContent = textareaTitle.data("original");
+        pBody.textContent = textareaBody.data("original");
+        pTitle.id = "commit-title";
+        pBody.id = "commit-body";
+        textareaTitle.replaceWith(pTitle);
+        textareaBody.replaceWith(pBody);
+
+        const save_edit_pr_button = $("#save-edit-pr");
+        save_edit_pr_button.prop("disabled", false);
+        save_edit_pr_button
+          .attr("data-mode", "saved")
+          .text("Edit Commit Message");
+
+        $("#commit-title-error").text("");
+        $("#commit-body-error").text("");
+        $("#cancel-edit-pr").addClass("is-hidden");
+        $("#post-landing-job").prop("disabled", false);
       });
     }
   });

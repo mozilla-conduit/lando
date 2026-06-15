@@ -150,6 +150,11 @@ class GitHubAPI(GitHub):
         url = f"{self.GITHUB_BASE_URL}/{path}"
         return self.session.post(url, *args, **kwargs)
 
+    def patch(self, path: str, *args, **kwargs) -> requests.Response:
+        """Send a PATCH request to the GitHub API with given args and kwargs."""
+        url = f"{self.GITHUB_BASE_URL}/{path}"
+        return self.session.patch(url, *args, **kwargs)
+
 
 class GitHubAPIClient:
     """A convenience client that provides various methods to interact with the GitHub API."""
@@ -239,6 +244,10 @@ class GitHubAPIClient:
 
     def _post(self, path: str, *args, **kwargs):
         result = self._api.post(path, *args, **kwargs)
+        return result.json()
+
+    def _patch(self, path: str, *args, **kwargs):
+        result = self._api.patch(path, *args, **kwargs)
         return result.json()
 
     def build_pull_request(self, pull_number: int) -> "PullRequest":
@@ -379,6 +388,15 @@ class GitHubAPIClient:
         return self._post(
             f"{self.repo_base_url}/issues/{pull_number}/comments",
             json={"body": comment},
+        )
+
+    def update_pull_request_content(
+        self, pull_number: int, body: str, title: str
+    ) -> dict:
+        """Update the pull request description with provided body and title."""
+        return self._patch(
+            f"{self.repo_base_url}/issues/{pull_number}",
+            json={"body": body, "title": title},
         )
 
     @classmethod
