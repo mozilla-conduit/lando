@@ -22,7 +22,7 @@ export interface UpliftRepositories {
  * Bridge the Vue widget to the server-rendered "Uplift repositories" checkboxes.
  * Those native inputs remain the source of truth for the Django form
  * submission; this composable reads their state and toggles them so the form
- * keeps working with JavaScript disabled or if the guidance fetch fails.
+ * keeps working if the guidance fetch fails.
  *
  * @param fieldSelector - Selector for the element wrapping the checkboxes.
  */
