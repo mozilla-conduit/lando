@@ -57,7 +57,7 @@ test-js: ## run the JavaScript test suite (Vitest)
 	$(BASE_COMMAND) npm test
 
 .PHONY: build-js
-build-js: ## build the Vue frontend bundle into static_src/dist
+build-js: ## build the Vue frontend bundle (output dir set by `build.outDir` in vite.config.ts)
 	$(BASE_COMMAND) npm run build
 
 .PHONY: test-py

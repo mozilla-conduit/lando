@@ -67,9 +67,9 @@ RUN mkdir -p /static_vendor \
 # Copy code into the container.
 COPY ./ /code
 
-# Build the Vue frontend bundle into `static_src/dist`, served by Django as a
-# static asset. Resolves dependencies via the `/node_modules` symlink created
-# above.
+# Build the Vue frontend bundle into the `build.outDir` directory configured in
+# `vite.config.ts`, served by Django as a static asset. Resolves dependencies
+# via the `/node_modules` symlink created above.
 RUN cd /code && npm run build
 
 # Create an empty directory to store version info.
