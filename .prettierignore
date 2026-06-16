@@ -1,5 +1,5 @@
 # Built Vue frontend bundle (minified output of `make build-js`).
-src/lando/static_src/dist
+src/lando/static_dist
 
 # Dependencies.
 node_modules

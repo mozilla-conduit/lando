@@ -194,10 +194,13 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = "staticfiles"
 
-# Directories to include in static file collection. `/static_vendor` is
-# populated from `node_modules` during the Docker build (see `Dockerfile`).
+# Directories to include in static file collection. `static_dist` holds the
+# built Vue frontend bundle (the `build.outDir` from `vite.config.ts`), and
+# `/static_vendor` is populated from `node_modules` during the Docker build
+# (see `Dockerfile`).
 STATICFILES_DIRS = [
     BASE_DIR / "static_src",
+    BASE_DIR / "static_dist",
     Path("/static_vendor"),
 ]
 
