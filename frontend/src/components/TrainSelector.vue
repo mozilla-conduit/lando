@@ -61,6 +61,8 @@ const selectionSummary = computed(() => {
         return "";
     }
 
+    // Turn the resolved repositories into capitalized train names (e.g.
+    // `firefox-beta` becomes `Beta`), dropping any repo without a mainline train.
     const labels = repos
         .map((repo) => trainForRepo(repo))
         .filter((train): train is Train => train !== null)
@@ -70,6 +72,8 @@ const selectionSummary = computed(() => {
         return "";
     }
 
+    // Phrase the selected train(s) as a sentence: a single train reads "the Beta
+    // uplift train", while several read "the Beta and Release uplift trains".
     if (labels.length === 1) {
         return `Selected the ${labels[0]} uplift train.`;
     }
