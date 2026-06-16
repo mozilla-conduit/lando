@@ -19,6 +19,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      "@": fileURLToPath(new URL("./frontend/src", import.meta.url)),
       "@static_src": fileURLToPath(
         new URL("./src/lando/static_src", import.meta.url),
       ),
