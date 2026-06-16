@@ -154,3 +154,10 @@
         {% endif %}
     </main>
 {% endblock %}
+{% block scripts %}
+    {# Load the widget wherever the uplift modal is rendered.
+       The widget no-ops if its mount point is absent. #}
+    {% if user_is_authenticated %}
+        <script src="{{ static_url }}uplift.js" type="module" charset="utf-8"></script>
+    {% endif %}
+{% endblock %}

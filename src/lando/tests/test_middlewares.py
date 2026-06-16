@@ -1,6 +1,27 @@
 import pytest
 from django.test.client import Client
 
+from lando.middleware import csp_origin
+
+
+@pytest.mark.parametrize(
+    "url,expected",
+    (
+        (
+            "https://fx-trains.herokuapp.com/api/lando/uplift/train/",
+            "https://fx-trains.herokuapp.com",
+        ),
+        ("http://example.test:8000/path", "http://example.test:8000"),
+        ("/api/lando/uplift/train/", ""),
+        ("//example.test/path", ""),
+        ("", ""),
+    ),
+)
+def test_csp_origin(url: str, expected: str):
+    assert csp_origin(url) == expected, (
+        f"`csp_origin({url!r})` should return {expected!r}."
+    )
+
 
 @pytest.mark.parametrize(
     "origin,path,expected_present",

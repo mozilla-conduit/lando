@@ -274,6 +274,14 @@ TREEHERDER_URL = os.getenv("TREEHERDER_URL", "https://treeherder.mozilla.org")
 
 TREESTATUS_URL = os.getenv("TREESTATUS_URL", "http://treestatus.test")
 
+# Endpoint providing release-train guidance for the uplift target selector. The
+# browser fetches this directly. Defaults to the whattrainisitnow.com demo
+# server; override once a production endpoint is available.
+WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL = os.getenv(
+    "WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL",
+    "https://fx-trains.herokuapp.com/api/lando/uplift/train/",
+)
+
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://lando.redis:6379")
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 CELERY_ACCEPT_CONTENT = ["json"]

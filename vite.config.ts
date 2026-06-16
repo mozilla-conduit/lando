@@ -4,8 +4,8 @@ import { defineConfig } from "vitest/config";
 import vue from "@vitejs/plugin-vue";
 
 // The frontend is built into `static_dist` and served by Django as a plain
-// static asset. There is no dev server; rebuild with `make build-js` after
-// changing the frontend sources.
+// static asset (see `stack.html`). There is no dev server; rebuild with
+// `make build-js` after changing the frontend sources.
 export default defineConfig({
   plugins: [vue()],
   build: {
@@ -15,6 +15,13 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: fileURLToPath(new URL("./frontend/src/main.ts", import.meta.url)),
+      output: {
+        // Stable, unhashed names so the Django template can reference them
+        // directly, consistent with the other vendored static assets.
+        entryFileNames: "uplift.js",
+        chunkFileNames: "uplift-[name].js",
+        assetFileNames: "uplift.[ext]",
+      },
     },
   },
   resolve: {
