@@ -14,13 +14,13 @@ export interface UpliftRepositories {
      */
     applyManaged(reposToCheck: string[], managed: string[]): void;
 
-    /** Show or hide the entire native checkbox field. */
+    /** Show or hide the entire server-rendered checkbox field. */
     setFieldVisible(visible: boolean): void;
 }
 
 /**
  * Bridge the Vue widget to the server-rendered "Uplift repositories" checkboxes.
- * Those native inputs remain the source of truth for the Django form
+ * Those server-rendered inputs remain the source of truth for the Django form
  * submission; this composable reads their state and toggles them so the form
  * keeps working if the guidance fetch fails.
  *
@@ -33,7 +33,7 @@ export function useUpliftRepositories(
     const checkedRepos = ref<string[]>([]);
 
     /**
-     * Return the native repository checkboxes, or an empty array when the field
+     * Return the server-rendered repository checkboxes, or an empty array when the field
      * is absent (e.g. a page without the uplift form).
      */
     function repoInputs(): HTMLInputElement[] {
@@ -50,7 +50,7 @@ export function useUpliftRepositories(
 
     /**
      * Refresh `checkedRepos` from the checkboxes' current state, since those
-     * native inputs remain the source of truth for the form submission.
+     * server-rendered inputs remain the source of truth for the form submission.
      */
     function syncCheckedRepos(): void {
         checkedRepos.value = repoInputs()
@@ -80,7 +80,7 @@ export function useUpliftRepositories(
     }
 
     /**
-     * Show or hide the entire native checkbox field, leaving the inputs in place
+     * Show or hide the entire server-rendered checkbox field, leaving the inputs in place
      * so they still submit with the form. Uses Bulma's `is-hidden` helper rather
      * than an inline style.
      */

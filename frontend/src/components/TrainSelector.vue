@@ -101,14 +101,14 @@ const manualGuidance = computed(() =>
 );
 
 /**
- * The native checkbox field is shown in manual mode, and whenever the guidance
+ * The server-rendered checkbox field is shown in manual mode, and whenever the guidance
  * is unavailable so the form remains usable.
  */
-const nativeFieldVisible = computed(
+const serverRenderedFieldVisible = computed(
     () => status.value === "error" || mode.value === "manual",
 );
 
-watch(nativeFieldVisible, (visible) => repositories.setFieldVisible(visible), {
+watch(serverRenderedFieldVisible, (visible) => repositories.setFieldVisible(visible), {
     immediate: true,
 });
 

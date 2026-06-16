@@ -77,7 +77,7 @@ describe("TrainSelector", () => {
 
         expect(
             repositoriesField().classList.contains("is-hidden"),
-            "Version mode should hide the native repositories field.",
+            "Version mode should hide the server-rendered repositories field.",
         ).toBe(true);
 
         const options = wrapper.findAll("option").map((option) => option.text());
@@ -181,7 +181,7 @@ describe("TrainSelector", () => {
 
         expect(
             repositoriesField().classList.contains("is-hidden"),
-            "The train tab should reveal the native repositories field.",
+            "The train tab should reveal the server-rendered repositories field.",
         ).toBe(false);
 
         for (const value of ["firefox-beta", "firefox-release"]) {
@@ -213,7 +213,7 @@ describe("TrainSelector", () => {
 
         expect(
             repositoriesField().classList.contains("is-hidden"),
-            "A failed fetch should leave the native field visible.",
+            "A failed fetch should leave the server-rendered field visible.",
         ).toBe(false);
         expect(
             wrapper.text(),
@@ -232,7 +232,7 @@ describe("TrainSelector", () => {
 
         expect(
             repositoriesField().classList.contains("is-hidden"),
-            "A malformed response should leave the native field visible.",
+            "A malformed response should leave the server-rendered field visible.",
         ).toBe(false);
         expect(
             wrapper.text(),

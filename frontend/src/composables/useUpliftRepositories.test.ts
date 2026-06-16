@@ -96,7 +96,7 @@ describe("useUpliftRepositories", () => {
         ).toBe(false);
     });
 
-    it("tracks manual changes to the native checkboxes", async () => {
+    it("tracks manual changes to the server-rendered checkboxes", async () => {
         renderRepositoriesField();
 
         const repositories = setupComposable();
