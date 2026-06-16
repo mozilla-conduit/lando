@@ -8,6 +8,22 @@ import { z } from "zod";
 
 export type Train = "nightly" | "beta" | "release";
 
+/**
+ * The Lando repository for each mainline train — the single source of truth for
+ * the train `<->` repository mapping. Only `beta` and `release` participate in
+ * uplift recommendations; `nightly` is included for completeness since patches
+ * landing there go through autoland, not uplift. `as const satisfies` keeps the
+ * repository names as literal types so `RepoName` can be derived from them.
+ */
+export const TRAIN_REPOS = {
+    nightly: "firefox-main",
+    beta: "firefox-beta",
+    release: "firefox-release",
+} as const satisfies Record<Train, string>;
+
+/** The Lando repository names, derived from `TRAIN_REPOS`. */
+export type RepoName = (typeof TRAIN_REPOS)[Train];
+
 /** Cycle state derived from the beta train's flags. */
 export type CycleStage = "beta-shipping" | "rc-shipping" | "dot-releases-only";
 
@@ -55,22 +71,6 @@ export interface RepoGuidance {
      */
     warnings: string[];
 }
-
-/**
- * The Lando repository for each mainline train — the single source of truth for
- * the train `<->` repository mapping. Only `beta` and `release` participate in
- * uplift recommendations; `nightly` is included for completeness since patches
- * landing there go through autoland, not uplift. `as const satisfies` keeps the
- * repository names as literal types so `RepoName` can be derived from them.
- */
-export const TRAIN_REPOS = {
-    nightly: "firefox-main",
-    beta: "firefox-beta",
-    release: "firefox-release",
-} as const satisfies Record<Train, string>;
-
-/** The Lando repository names, derived from `TRAIN_REPOS`. */
-export type RepoName = (typeof TRAIN_REPOS)[Train];
 
 /**
  * Reverse of `TRAIN_REPOS`, derived from it so the two mappings cannot drift.
