@@ -18,6 +18,10 @@ export default defineConfig({
     },
   },
   resolve: {
+    // `@` is the frontend source root, so modules can be imported as
+    // `@/components/...` instead of via relative paths. `@static_src` points at
+    // the legacy static assets directory, letting tests import the
+    // hand-written JS that predates this Vite build.
     alias: {
       "@": fileURLToPath(new URL("./frontend/src", import.meta.url)),
       "@static_src": fileURLToPath(
