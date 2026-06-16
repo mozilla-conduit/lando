@@ -73,16 +73,20 @@ export const TRAIN_REPOS = {
 export type RepoName = (typeof TRAIN_REPOS)[Train];
 
 /**
- * Reverse lookup of `TRAIN_REPOS`. A linear scan over three entries avoids
- * maintaining a second mapping.
+ * Reverse of `TRAIN_REPOS`, derived from it so the two mappings cannot drift.
+ */
+const TRAINS_BY_REPO: Record<string, Train> = Object.fromEntries(
+    Object.entries(TRAIN_REPOS).map(([train, repo]) => [repo, train as Train]),
+);
+
+/**
+ * Return the train a repository belongs to, or `null` if it is not a mainline
+ * repository.
  *
  * @param repo - A Lando repository name.
- * @returns The train the repository belongs to, or `null` if it is not a
- *   mainline repository.
  */
 export function trainForRepo(repo: string): Train | null {
-    const match = Object.entries(TRAIN_REPOS).find(([, name]) => name === repo);
-    return match ? (match[0] as Train) : null;
+    return TRAINS_BY_REPO[repo] ?? null;
 }
 
 /**
