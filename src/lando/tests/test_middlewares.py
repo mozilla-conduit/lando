@@ -1,7 +1,7 @@
 import pytest
 from django.test.client import Client
 
-from lando.middleware import csp_origin
+from lando.middleware import url_origin
 
 
 @pytest.mark.parametrize(
@@ -17,9 +17,9 @@ from lando.middleware import csp_origin
         ("", ""),
     ),
 )
-def test_csp_origin(url: str, expected: str):
-    assert csp_origin(url) == expected, (
-        f"`csp_origin({url!r})` should return {expected!r}."
+def test_url_origin(url: str, expected: str):
+    assert url_origin(url) == expected, (
+        f"`url_origin({url!r})` should return {expected!r}."
     )
 
 

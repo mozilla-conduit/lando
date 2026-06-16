@@ -41,9 +41,10 @@ class ResponseHeadersMiddleware:
 
         # The uplift train-selector widget fetches release guidance from an
         # external API, so `connect-src` must allow that origin in addition to
-        # `'self'` (otherwise it falls back to `default-src 'self'`).
+        # `'self'`. A same-origin or unset URL has no origin to add, so we fall
+        # back to just `'self'`.
         connect_src = "connect-src 'self'"
-        train_api_origin = csp_origin(settings.WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL)
+        train_api_origin = url_origin(settings.WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL)
         if train_api_origin:
             connect_src = f"{connect_src} {train_api_origin}"
 
@@ -80,11 +81,11 @@ class ResponseHeadersMiddleware:
         return response
 
 
-def csp_origin(url: str) -> str:
-    """Return the `scheme://host` origin of `url` for use in a CSP directive.
+def url_origin(url: str) -> str:
+    """Return the `scheme://host` origin of `url`, or `""` if it has none.
 
-    A relative or same-origin URL has no distinct origin to allow and yields an
-    empty string, so the caller can omit it and fall back to `'self'`.
+    A relative or same-origin URL has no distinct origin, so it yields an empty
+    string; deciding what to do with that is left to the caller.
     """
     parts = urlsplit(url)
     if parts.scheme and parts.netloc:
