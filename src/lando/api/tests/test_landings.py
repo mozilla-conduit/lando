@@ -1513,101 +1513,18 @@ def test_worker_active_repos_updated_when_tree_closed(
     )
 
 
-# Replaces the seeded single-line `test.txt` with enough lines that a hunk's
-# context window can be disturbed by an unrelated edit a few lines away.
-THREE_WAY_BASE_DIFF = """\
-diff --git a/test.txt b/test.txt
---- a/test.txt
-+++ b/test.txt
-@@ -1 +1,12 @@
--TEST
-+line1
-+line2
-+line3
-+line4
-+line5
-+line6
-+line7
-+line8
-+line9
-+line10
-+line11
-+line12
-"""
-
-# Shifts line 6 on the tip, inside the patch's context window: this breaks a
-# 2-way apply but remains 3-way mergeable.
-CONTEXT_SHIFT_DIFF = """\
-diff --git a/test.txt b/test.txt
---- a/test.txt
-+++ b/test.txt
-@@ -3,7 +3,7 @@
- line3
- line4
- line5
--line6
-+line6 changed on tip
- line7
- line8
- line9
-"""
-
-# Changes line 8 on the tip, the very line the patch changes, forcing a true
-# conflict that even a 3-way merge cannot resolve.
-CONFLICTING_SHIFT_DIFF = """\
-diff --git a/test.txt b/test.txt
---- a/test.txt
-+++ b/test.txt
-@@ -5,7 +5,7 @@
- line5
- line6
- line7
--line8
-+line8 changed on tip
- line9
- line10
- line11
-"""
-
-# A patch, authored against THREE_WAY_BASE_DIFF's content, that modifies line 8.
-# Its context window spans lines 5-11.
-THREE_WAY_PATCH = """
-# HG changeset patch
-# User Test User <test@example.com>
-# Date 0 0
-#      Thu Jan 01 00:00:00 1970 +0000
-# Diff Start Line 7
-Bug 123: modify line 8
-diff --git a/test.txt b/test.txt
---- a/test.txt
-+++ b/test.txt
-@@ -5,7 +5,7 @@
- line5
- line6
- line7
--line8
-+line8 modified by patch
- line9
- line10
- line11
-""".lstrip()
-
-
-def setup_three_way_repo(git_repo: Path, tip_diff: str) -> str:
+def setup_three_way_repo(
+    git_repo: Path, apply_patch: Callable, base_diff: str, tip_diff: str
+) -> str:
     """Seed `git_repo` with a multi-line base commit and a tip commit.
 
     The tip commit applies `tip_diff`. Returns the base commit SHA the patch is
     authored against.
     """
     scm = GitSCM(str(git_repo))
-    author = "Test User <test@example.com>"
-    date = "1970-01-01T00:00:00"
-
-    scm.apply_patch(THREE_WAY_BASE_DIFF, "Base content for 3-way test", author, date)
+    apply_patch(scm, base_diff, "Base content for 3-way test")
     base_sha = scm.head_ref()
-
-    scm.apply_patch(tip_diff, "Change a line on the tip", author, date)
-
+    apply_patch(scm, tip_diff, "Change a line on the tip")
     return base_sha
 
 
@@ -1633,14 +1550,20 @@ def test_three_way_landing_handles_context_shift(
     create_patch_revision: Callable,
     make_landing_job: Callable,
     get_landing_worker: Callable,
+    apply_patch: Callable,
+    three_way_base_diff: str,
+    three_way_context_shift_diff: str,
+    three_way_patch: str,
 ):
     """A recorded base lets the worker recover a context shift that 2-way rejects."""
-    base_sha = setup_three_way_repo(git_repo, CONTEXT_SHIFT_DIFF)
+    base_sha = setup_three_way_repo(
+        git_repo, apply_patch, three_way_base_diff, three_way_context_shift_diff
+    )
 
     repo = repo_mc(SCMType.GIT)
     treestatusdouble.open_tree(repo.name)
 
-    revision = create_patch_revision(1, patch=THREE_WAY_PATCH)
+    revision = create_patch_revision(1, patch=three_way_patch)
     if provide_base:
         revision.base_revision = base_sha
         revision.save()
@@ -1680,14 +1603,20 @@ def test_three_way_landing_conflict_reports_breakdown(
     create_patch_revision: Callable,
     make_landing_job: Callable,
     get_landing_worker: Callable,
+    apply_patch: Callable,
+    three_way_base_diff: str,
+    three_way_conflicting_diff: str,
+    three_way_patch: str,
 ):
     """A genuine 3-way conflict fails with a populated `error_breakdown`."""
-    base_sha = setup_three_way_repo(git_repo, CONFLICTING_SHIFT_DIFF)
+    base_sha = setup_three_way_repo(
+        git_repo, apply_patch, three_way_base_diff, three_way_conflicting_diff
+    )
 
     repo = repo_mc(SCMType.GIT)
     treestatusdouble.open_tree(repo.name)
 
-    revision = create_patch_revision(1, patch=THREE_WAY_PATCH)
+    revision = create_patch_revision(1, patch=three_way_patch)
     revision.base_revision = base_sha
     revision.save()
 
