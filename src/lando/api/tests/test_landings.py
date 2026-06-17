@@ -318,7 +318,8 @@ def test_determine_rebase_base(
     job = mock.Mock(target_commit_hash=target_commit_hash)
     job.revisions.first.return_value = mock.Mock(base_revision=base_revision)
     scm = mock.Mock()
-    scm.supports_3way_apply.return_value = supports_3way
+    # `supports_3way_apply` is a property, so assign the value directly.
+    scm.supports_3way_apply = supports_3way
     scm.commit_exists.return_value = base_exists
 
     assert git_landing_worker.determine_rebase_base(job, scm) == expected, (

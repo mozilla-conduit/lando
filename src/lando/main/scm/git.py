@@ -191,6 +191,7 @@ class GitSCM(AbstractSCM):
         """Use `git cherry-pick` to apply the commit to the current branch."""
         self._git_run("cherry-pick", commit_id, cwd=self.path)
 
+    @property
     @override
     def supports_3way_apply(self) -> bool:
         """Git can reconstruct a patch at its base and rebase onto the target."""
@@ -200,6 +201,7 @@ class GitSCM(AbstractSCM):
         """Hard-reset the current work branch to the given commit."""
         self._git_run("reset", "--hard", commit_id, cwd=self.path)
 
+    @override
     def rebase_onto(self, new_base: str, upstream: str):
         """Rebase the commits in `upstream..HEAD` onto `new_base`.
 

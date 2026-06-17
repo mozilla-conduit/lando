@@ -119,6 +119,7 @@ class AbstractSCM(ABC):
     def cherry_pick_commit(self, commit_id: str):
         """Cherry-pick the specified commit onto the current branch."""
 
+    @property
     def supports_3way_apply(self) -> bool:
         """Whether this SCM can reconstruct a patch at its base then rebase.
 
@@ -127,6 +128,17 @@ class AbstractSCM(ABC):
         Defaults to `False`; SCMs opt in by overriding.
         """
         return False
+
+    def rebase_onto(self, new_base: str, upstream: str):
+        """Rebase the commits in `upstream..HEAD` onto `new_base`.
+
+        Replays each commit as a 3-way merge against `new_base`, recovering the
+        context-shift failures that a 2-way apply would reject. Raise
+        `PatchConflict` on a genuine conflict. Not supported by all SCMs.
+        """
+        raise NotImplementedError(
+            f"`rebase_onto` is not implemented for {self.scm_name()}."
+        )
 
     @abstractmethod
     def get_patch(self, revision_id: str) -> str | None:

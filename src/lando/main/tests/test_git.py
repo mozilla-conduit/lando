@@ -1482,7 +1482,7 @@ def clone_git_repo(
 def test_GitSCM_supports_3way_apply(git_repo: Path):
     """Git supports the reconstruct-at-base 3-way landing flow."""
     scm = GitSCM(str(git_repo))
-    assert scm.supports_3way_apply() is True, (
+    assert scm.supports_3way_apply is True, (
         "`supports_3way_apply` should return `True` for Git."
     )
 

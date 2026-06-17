@@ -380,7 +380,7 @@ class LandingWorker(Worker):
             # The exact target commit is known, so apply onto it without rebasing.
             return None
 
-        if not scm.supports_3way_apply():
+        if not scm.supports_3way_apply:
             return None
 
         first_revision = job.revisions.first()
