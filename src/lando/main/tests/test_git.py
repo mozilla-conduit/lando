@@ -1463,7 +1463,7 @@ PATCH_AUTHOR = "Py Test <pytest@lando.example.net>"
 PATCH_DATE = "1970-01-01T00:00:00"
 
 
-def commit_diff(scm: GitSCM, diff: str, message: str):
+def commit_diff(scm: GitSCM, diff: str, message: str) -> None:
     """Apply `diff` and commit it via the production `apply_patch` path."""
     scm.apply_patch(diff, message, PATCH_AUTHOR, PATCH_DATE)
 

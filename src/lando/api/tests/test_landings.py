@@ -3,12 +3,14 @@ import itertools
 import re
 import subprocess
 import unittest.mock as mock
+from pathlib import Path
 from typing import Callable
 
 import pytest
 
 from lando.api.legacy.workers.landing_worker import (
     AUTOFORMAT_COMMIT_MESSAGE,
+    LandingWorker,
 )
 from lando.api.tests.mocks import TreeStatusDouble
 from lando.conftest import FAILING_CHECK_TYPES
@@ -307,12 +309,12 @@ TRY_TASK_CONFIG_DIFF_SNIPPET = """
 )
 @pytest.mark.django_db
 def test_determine_rebase_base(
-    git_landing_worker,
-    target_commit_hash,
-    supports_3way,
-    base_revision,
-    base_exists,
-    expected,
+    git_landing_worker: LandingWorker,
+    target_commit_hash: str,
+    supports_3way: bool,
+    base_revision: str,
+    base_exists: bool,
+    expected: str | None,
 ):
     """`determine_rebase_base` returns the base only when every condition holds."""
     job = mock.Mock(target_commit_hash=target_commit_hash)
@@ -1591,7 +1593,7 @@ diff --git a/test.txt b/test.txt
 """.lstrip()
 
 
-def setup_three_way_repo(git_repo, tip_diff: str) -> str:
+def setup_three_way_repo(git_repo: Path, tip_diff: str) -> str:
     """Seed `git_repo` with a multi-line base commit and a tip commit.
 
     The tip commit applies `tip_diff`. Returns the base commit SHA the patch is
@@ -1625,7 +1627,7 @@ def test_three_way_landing_handles_context_shift(
     provide_base: bool,
     expected_status: str,
     repo_mc: Callable,
-    git_repo,
+    git_repo: Path,
     treestatusdouble: TreeStatusDouble,
     mock_phab_trigger_repo_update_apply_async: mock.Mock,
     create_patch_revision: Callable,
@@ -1672,7 +1674,7 @@ def test_three_way_landing_handles_context_shift(
 @pytest.mark.django_db
 def test_three_way_landing_conflict_reports_breakdown(
     repo_mc: Callable,
-    git_repo,
+    git_repo: Path,
     treestatusdouble: TreeStatusDouble,
     mock_phab_trigger_repo_update_apply_async: mock.Mock,
     create_patch_revision: Callable,
