@@ -222,7 +222,7 @@ class GitSCM(AbstractSCM):
             )
         except SCMException as exc:
             # Capture the conflict details before aborting discards the index.
-            conflicts = self._collect_conflicts()
+            conflicts = self.collect_conflicts()
 
             try:
                 self._git_run("rebase", "--abort", cwd=self.path)
@@ -240,7 +240,7 @@ class GitSCM(AbstractSCM):
 
             raise exc
 
-    def _collect_conflicts(self) -> dict[str, str]:
+    def collect_conflicts(self) -> dict[str, str]:
         """Return a mapping of each conflicting path to its conflict diff.
 
         Reads the unmerged paths from the index, so it must be called while the
