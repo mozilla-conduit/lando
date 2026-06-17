@@ -1632,6 +1632,11 @@ def test_three_way_landing_conflict_reports_breakdown(
     assert worker.run_job(job), "`run_job` returns `True` after a permanent failure."
     assert job.status == JobStatus.FAILED, "A true 3-way conflict should fail the job."
 
+    assert "test.txt" in job.error, "The job error should name the conflicting file."
+    assert "conflict" in job.error.lower(), (
+        "The job error should indicate a merge conflict."
+    )
+
     assert job.error_breakdown, "A conflict should produce an error breakdown."
     rejects_paths = job.error_breakdown.get("rejects_paths")
     assert rejects_paths, "The breakdown should record the conflicting paths."
