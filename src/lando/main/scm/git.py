@@ -210,7 +210,16 @@ class GitSCM(AbstractSCM):
         same-line conflict, abort the rebase and raise `PatchConflict`.
         """
         try:
-            self._git_run("rebase", "--onto", new_base, upstream, cwd=self.path)
+            # `--no-autosquash` keeps `!fixup`/`!squash` commits in place rather
+            # than reordering them; this is the default, but we are explicit.
+            self._git_run(
+                "rebase",
+                "--no-autosquash",
+                "--onto",
+                new_base,
+                upstream,
+                cwd=self.path,
+            )
         except SCMException as exc:
             # Capture the conflict details before aborting discards the index.
             conflicts = self._collect_conflicts()
