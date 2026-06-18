@@ -19,6 +19,7 @@ const BETA_SHIPPING: ReleaseSchedule = {
 function renderRepositoriesField(): void {
     document.body.innerHTML = `
     <button class="uplift-request-open">Request Uplift</button>
+    <input type="hidden" id="id_target_selection_method" name="target_selection_method">
     <div data-uplift-repositories>
       <label><input type="checkbox" name="repositories" value="firefox-beta"> firefox-beta</label>
       <label><input type="checkbox" name="repositories" value="firefox-release"> firefox-release</label>
@@ -26,6 +27,11 @@ function renderRepositoriesField(): void {
     </div>
     <div id="uplift-train-messages"></div>
   `;
+}
+
+function selectionMethod(): string {
+    return document.querySelector<HTMLInputElement>("#id_target_selection_method")!
+        .value;
 }
 
 // The widget fetches its schedule when the "Request Uplift" button is clicked,
@@ -201,6 +207,41 @@ describe("TrainSelector", () => {
             document.querySelectorAll("#uplift-train-messages p"),
             "The train tab should render a single combined line.",
         ).toHaveLength(1);
+    });
+
+    it("records the selection method as the user moves between modes", async () => {
+        renderRepositoriesField();
+        stubFetch(BETA_SHIPPING);
+
+        const wrapper = mount(TrainSelector, { props: { apiUrl: "/api/train" } });
+        await openModal();
+
+        expect(
+            selectionMethod(),
+            "The version tab should record a widget-version selection.",
+        ).toBe("widget_version");
+
+        await wrapper.findAll(".tabs li a")[1].trigger("click");
+        await flushPromises();
+
+        expect(
+            selectionMethod(),
+            "The train tab should record a widget-manual selection.",
+        ).toBe("widget_manual");
+    });
+
+    it("records a server-rendered selection when the guidance request fails", async () => {
+        renderRepositoriesField();
+        vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
+        vi.spyOn(console, "error").mockImplementation(() => {});
+
+        mount(TrainSelector, { props: { apiUrl: "/api/train" } });
+        await openModal();
+
+        expect(
+            selectionMethod(),
+            "A failed fetch should record the server-rendered fallback.",
+        ).toBe("server_rendered");
     });
 
     it("falls back to manual mode when the guidance request fails", async () => {

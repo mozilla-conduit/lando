@@ -12,6 +12,10 @@ import {
     type Train,
 } from "@/trainGuidance";
 import { useUpliftRepositories } from "@/composables/useUpliftRepositories";
+import {
+    useTargetSelectionMethod,
+    type TargetSelectionMethod,
+} from "@/composables/useTargetSelectionMethod";
 
 const props = withDefaults(
     defineProps<{ apiUrl: string; managedRepos?: RepoName[] }>(),
@@ -38,6 +42,9 @@ let openButton: Element | null = null;
 
 /** Django-forms uplift repository selection. */
 const repositories = useUpliftRepositories();
+
+/** Hidden field recording how the uplift target was selected. */
+const targetSelection = useTargetSelectionMethod();
 
 const choices = computed(() => (schedule.value ? versionChoices(schedule.value) : []));
 
@@ -115,6 +122,32 @@ const serverRenderedFieldVisible = computed(
 watch(serverRenderedFieldVisible, (visible) => repositories.setFieldVisible(visible), {
     immediate: true,
 });
+
+/**
+ * How the target was selected, for attribution. Resolves to `server_rendered`
+ * when the guidance fails (the user falls back to the raw checkboxes), and is
+ * left unset while loading so the server default applies if the form is
+ * submitted early.
+ */
+const targetSelectionMethod = computed<TargetSelectionMethod | null>(() => {
+    if (status.value === "error") {
+        return "server_rendered";
+    }
+    if (status.value !== "ready") {
+        return null;
+    }
+    return mode.value === "manual" ? "widget_manual" : "widget_version";
+});
+
+watch(
+    targetSelectionMethod,
+    (method) => {
+        if (method) {
+            targetSelection.setMethod(method);
+        }
+    },
+    { immediate: true },
+);
 
 // Reapply the recommendation whenever it changes or the user re-enters version
 // mode, so the checkboxes always reflect the chosen version.
