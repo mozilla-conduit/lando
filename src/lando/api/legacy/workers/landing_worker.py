@@ -371,20 +371,22 @@ class LandingWorker(Worker):
     def determine_rebase_base(self, job: LandingJob, scm: AbstractSCM) -> str | None:
         """Return the base commit to reconstruct the stack on, or `None`.
 
-        Returns `None` — applying directly onto the landing base — when the
-        worker has the 3-way flow disabled, when the SCM cannot rebase, when an
-        exact target commit is already known (`target_commit_hash`), or when the
-        recorded base is missing from the repo.
+        Returns `None` when the worker has the 3-way flow disabled, when the SCM
+        cannot rebase, when an exact target commit is already known (i.e.
+        `target_commit_hash`), or when the recorded base is missing from the repo.
         """
         if not self.worker_instance.three_way_merge_enabled:
-            # The 3-way rebase landing flow is disabled for this worker.
+            logger.debug("3-way merge is disabled for this worker; applying at tip.")
             return None
 
         if job.target_commit_hash:
-            # The exact target commit is known, so apply onto it without rebasing.
+            logger.debug(
+                "`target_commit_hash` is set; applying at the target without rebasing."
+            )
             return None
 
         if not scm.supports_3way_apply:
+            logger.debug("SCM does not support 3-way apply; applying at tip.")
             return None
 
         first_revision = job.revisions.first()
