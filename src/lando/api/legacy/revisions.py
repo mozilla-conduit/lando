@@ -125,6 +125,20 @@ def select_diff_author(diff: dict) -> tuple[Optional[str], Optional[str]]:
     return authors[0][0] if authors else (None, None)
 
 
+def get_base_revision_from_diff(diff: dict) -> str:
+    """Return the patch's base git hash from a `differential.diff.search` result.
+
+    Phabricator records the commit a diff was authored against as a `base` ref
+    in the diff's `fields.refs`. Return its identifier, or the empty string when
+    no base ref is present.
+    """
+    refs = PhabricatorClient.expect(diff, "fields").get("refs", [])
+    for ref in refs:
+        if ref.get("type") == "base":
+            return ref.get("identifier", "")
+    return ""
+
+
 def get_bugzilla_bug(revision: dict) -> Optional[int]:
     bug = PhabricatorClient.expect(revision, "fields").get("bugzilla.bug-id")
     return int(bug) if bug else None
@@ -268,6 +282,7 @@ def fetch_raw_diff_and_save(
     """
     diff_id = PhabricatorClient.expect(diff, "id")
     author_name, author_email = select_diff_author(diff)
+    base_revision = get_base_revision_from_diff(diff)
 
     logger.debug("Fetching raw diff for D%s (diff %s).", revision_id, diff_id)
     raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff_id)
@@ -282,7 +297,7 @@ def fetch_raw_diff_and_save(
     with transaction.atomic():
         revision, created = Revision.objects.update_or_create(
             revision_id=revision_id,
-            defaults={"diff_id": diff_id},
+            defaults={"diff_id": diff_id, "base_revision": base_revision},
         )
         revision.set_patch(raw_diff, patch_data)
         revision.save()

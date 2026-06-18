@@ -445,6 +445,7 @@ class WorkerAdmin(admin.ModelAdmin):
         "repo_count",
         "is_paused",
         "is_stopped",
+        "three_way_merge_enabled",
         "updated_at",
     )
     inlines = (WorkerReposInline,)

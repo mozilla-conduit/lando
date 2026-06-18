@@ -18,6 +18,13 @@ from lando.main.models.revision import Revision, RevisionLandingJob
 logger = logging.getLogger(__name__)
 
 
+class LandingStrategy(models.TextChoices):
+    """How a landing job's patches were applied to the target branch."""
+
+    THREE_WAY = "THREE_WAY", "3-way merge (reconstructed at base and rebased)"
+    TWO_WAY = "TWO_WAY", "2-way apply (applied at the target tip)"
+
+
 class LandingJob(BaseJob):
     """A landing job for Phabricator revisions."""
 
@@ -39,6 +46,17 @@ class LandingJob(BaseJob):
     # eg.
     #    ["", ""]
     formatted_replacements = models.JSONField(null=True, blank=True, default=None)
+
+    # How the patches were applied: a 3-way merge (reconstructed at the recorded
+    # base and rebased onto the target) or a 2-way apply at the target tip.
+    # `None` until the apply step runs. See `LandingWorker.determine_rebase_base`.
+    landing_strategy = models.CharField(
+        max_length=16,
+        choices=LandingStrategy,
+        null=True,
+        blank=True,
+        default=None,
+    )
 
     # Identifier of the published commit which this job should land on top of.
     target_commit_hash = models.TextField(blank=True, default="")

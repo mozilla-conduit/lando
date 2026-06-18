@@ -211,6 +211,7 @@ def git_landing_worker(landing_worker_instance, treestatusdouble):
     worker = landing_worker_instance(
         name="test-git-worker",
         scm=SCMType.GIT,
+        three_way_merge_enabled=True,
     )
     return LandingWorker(worker)
 

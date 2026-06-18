@@ -39,6 +39,11 @@ class Worker(BaseModel):
         default=SCMType.HG,
     )
 
+    # Enable the 3-way rebase landing flow: apply a stack onto its recorded base
+    # commit and rebase it onto the target branch. Off by default so it can be
+    # enabled per worker during rollout; only the Git SCM supports it.
+    three_way_merge_enabled = models.BooleanField(default=False)
+
     def __str__(self) -> str:
         if self.is_stopped:
             state = "STOPPED"
