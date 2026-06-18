@@ -405,7 +405,10 @@ class Worker(ABC):
 
         except PatchConflict as exc:
             breakdown = scm.process_merge_conflict(
-                repo.normalized_url, revision.revision_id, str(exc)
+                repo.normalized_url,
+                revision.revision_id,
+                str(exc),
+                conflicts=exc.conflicts,
             )
             job.error_breakdown = breakdown
 

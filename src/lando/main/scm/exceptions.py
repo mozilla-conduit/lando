@@ -36,7 +36,20 @@ class NoDiffStartLine(PatchApplicationFailure):
 
 
 class PatchConflict(PatchApplicationFailure):
-    """Exception when patch fails to apply due to a conflict."""
+    """Exception when patch fails to apply due to a conflict.
+
+    `conflicts` maps each conflicting file path to its details (the conflict
+    `content`, e.g. a diff with conflict markers, and the `changeset_id` that
+    last touched it). It is populated by code paths, such as a 3-way rebase, that
+    detect conflicts without leaving `.rej` files on disk for
+    `process_merge_conflict` to parse.
+    """
+
+    def __init__(
+        self, *args: object, conflicts: dict[str, dict[str, str]] | None = None
+    ):
+        super().__init__(*args)
+        self.conflicts = conflicts or {}
 
 
 class SCMInternalServerError(SCMException):

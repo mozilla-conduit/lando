@@ -214,6 +214,135 @@ index 0000000..f04873a
 """  # noqa: W291, `git` adds a trailing whitespace after `--`.
 
 
+# Diffs for exercising the 3-way landing flow. They share a single `test.txt`
+# base with enough lines that a hunk's context window can be disturbed by an
+# unrelated edit a few lines away. `THREE_WAY_PATCH_DIFF` is the change a landing
+# makes (line 8); `THREE_WAY_CONTEXT_SHIFT_DIFF` is a non-overlapping edit a few
+# lines away (recovers via 3-way); `THREE_WAY_CONFLICTING_DIFF` edits the same
+# line as the patch (a true conflict).
+THREE_WAY_BASE_DIFF = """\
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1 +1,12 @@
+-TEST
++line1
++line2
++line3
++line4
++line5
++line6
++line7
++line8
++line9
++line10
++line11
++line12
+"""
+
+THREE_WAY_PATCH_DIFF = """\
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -5,7 +5,7 @@
+ line5
+ line6
+ line7
+-line8
++line8 modified by patch
+ line9
+ line10
+ line11
+"""
+
+THREE_WAY_CONTEXT_SHIFT_DIFF = """\
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -3,7 +3,7 @@
+ line3
+ line4
+ line5
+-line6
++line6 changed on tip
+ line7
+ line8
+ line9
+"""
+
+THREE_WAY_CONFLICTING_DIFF = """\
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -5,7 +5,7 @@
+ line5
+ line6
+ line7
+-line8
++line8 changed on tip
+ line9
+ line10
+ line11
+"""
+
+# An Hg-formatted patch wrapping `THREE_WAY_PATCH_DIFF`, for the landing flow
+# which stores revisions as Hg patches. The header is 6 lines, so the diff
+# starts on line 7.
+THREE_WAY_PATCH = (
+    """\
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+Bug 123: modify line 8
+"""
+    + THREE_WAY_PATCH_DIFF
+)
+
+
+@pytest.fixture
+def three_way_base_diff() -> str:
+    """A diff replacing the seeded `test.txt` with a multi-line base."""
+    return THREE_WAY_BASE_DIFF
+
+
+@pytest.fixture
+def three_way_patch_diff() -> str:
+    """A diff making the landing change (line 8) as a plain git diff."""
+    return THREE_WAY_PATCH_DIFF
+
+
+@pytest.fixture
+def three_way_context_shift_diff() -> str:
+    """A diff editing a line near, but not overlapping, the landing change."""
+    return THREE_WAY_CONTEXT_SHIFT_DIFF
+
+
+@pytest.fixture
+def three_way_conflicting_diff() -> str:
+    """A diff editing the same line as the landing change, forcing a conflict."""
+    return THREE_WAY_CONFLICTING_DIFF
+
+
+@pytest.fixture
+def three_way_patch() -> str:
+    """The landing change as an Hg-formatted patch."""
+    return THREE_WAY_PATCH
+
+
+@pytest.fixture
+def apply_patch() -> Callable:
+    """Return a helper that applies and commits a diff via `GitSCM.apply_patch`."""
+
+    def _apply_patch(scm: GitSCM, diff: str, message: str) -> None:
+        scm.apply_patch(
+            diff, message, "Test User <test@example.com>", "1970-01-01T00:00:00"
+        )
+
+    return _apply_patch
+
+
 @pytest.fixture
 def normal_patch():
     """Return a factory providing one of several Hg-formatted patches."""

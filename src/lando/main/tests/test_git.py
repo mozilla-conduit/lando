@@ -1381,6 +1381,161 @@ def test_GitSCM_commit_exists(
     )
 
 
+def clone_git_repo(
+    git_repo: Path, clone_path: Path, git_setup_user: Callable
+) -> GitSCM:
+    """Clone `git_repo` into `clone_path` and return a configured `GitSCM`."""
+    clone_path.mkdir()
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+    return scm
+
+
+def test_GitSCM_supports_3way_apply(git_repo: Path):
+    """Git supports the reconstruct-at-base 3-way landing flow."""
+    scm = GitSCM(str(git_repo))
+    assert scm.supports_3way_apply is True, (
+        "`supports_3way_apply` should return `True` for Git."
+    )
+
+
+def test_GitSCM_reset_to_commit(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+    apply_patch: Callable,
+    three_way_base_diff: str,
+):
+    """`reset_to_commit` moves the work branch back to the given commit."""
+    scm = clone_git_repo(git_repo, tmp_path / request.node.name, git_setup_user)
+
+    base_commit = scm.head_ref()
+    apply_patch(scm, three_way_base_diff, "Add base content")
+    assert scm.head_ref() != base_commit, "A new commit should advance `HEAD`."
+
+    scm.reset_to_commit(base_commit)
+    assert scm.head_ref() == base_commit, (
+        "`reset_to_commit` should move `HEAD` back to the base commit."
+    )
+
+
+def test_GitSCM_rebase_onto_recovers_context_shift(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+    apply_patch: Callable,
+    three_way_base_diff: str,
+    three_way_context_shift_diff: str,
+    three_way_patch_diff: str,
+):
+    """`rebase_onto` 3-way merges across an unrelated context shift."""
+    scm = clone_git_repo(git_repo, tmp_path / request.node.name, git_setup_user)
+
+    apply_patch(scm, three_way_base_diff, "Add base content")
+    base_commit = scm.head_ref()
+
+    # On the target branch, change an unrelated line, shifting context.
+    apply_patch(scm, three_way_context_shift_diff, "Shift context on target")
+    target_tip = scm.head_ref()
+
+    # On a work branch from the base, change a different line.
+    scm.reset_to_commit(base_commit)
+    apply_patch(scm, three_way_patch_diff, "Apply the patch on the work branch")
+
+    scm.rebase_onto(target_tip, base_commit)
+
+    assert scm.describe_commit().parents == [target_tip], (
+        "Rebased commit's parent should be the target tip."
+    )
+    merged = scm.read_checkout_file("test.txt")
+    assert "line6 changed on tip" in merged, "Target change should survive the rebase."
+    assert "line8 modified by patch" in merged, (
+        "Work-branch change should survive the rebase."
+    )
+
+
+def test_GitSCM_rebase_onto_raises_on_conflict(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+    apply_patch: Callable,
+    three_way_base_diff: str,
+    three_way_conflicting_diff: str,
+    three_way_patch_diff: str,
+):
+    """`rebase_onto` raises `PatchConflict` and aborts on a true conflict."""
+    clone_path = tmp_path / request.node.name
+    scm = clone_git_repo(git_repo, clone_path, git_setup_user)
+
+    apply_patch(scm, three_way_base_diff, "Add base content")
+    base_commit = scm.head_ref()
+
+    # Both branches change the same line, so the rebase cannot merge cleanly.
+    apply_patch(scm, three_way_conflicting_diff, "Change the patched line on target")
+    target_tip = scm.head_ref()
+
+    scm.reset_to_commit(base_commit)
+    apply_patch(scm, three_way_patch_diff, "Apply the patch on the work branch")
+
+    with pytest.raises(PatchConflict) as exc_info:
+        scm.rebase_onto(target_tip, base_commit)
+
+    # The raised conflict should carry the conflicting path, its content, and the
+    # changeset so `process_merge_conflict` can build a breakdown after the abort.
+    conflicts = exc_info.value.conflicts
+    assert "test.txt" in conflicts, (
+        "`PatchConflict.conflicts` should record the conflicting path."
+    )
+    assert "<<<<<<<" in conflicts["test.txt"]["content"], (
+        "Captured conflict content should include the conflict markers."
+    )
+    assert conflicts["test.txt"]["changeset_id"], (
+        "Captured conflict should include the changeset that last touched the path."
+    )
+
+    git_dir = clone_path / ".git"
+    assert not (git_dir / "rebase-merge").exists(), (
+        "A conflicting rebase should be aborted, leaving no rebase state."
+    )
+    assert not (git_dir / "rebase-apply").exists(), (
+        "A conflicting rebase should be aborted, leaving no rebase state."
+    )
+
+
+def test_GitSCM_breakdown_from_conflicts_is_pure(git_repo: Path):
+    """`breakdown_from_conflicts` builds the breakdown purely from its input.
+
+    The `changeset_id` is taken from the input, not looked up in the repo: the
+    fabricated value below does not exist in `git_repo`, yet it appears verbatim.
+    """
+    scm = GitSCM(str(git_repo))
+    conflicts = {
+        "dir/file.txt": {
+            "content": "<<<<<<< conflict diff",
+            "changeset_id": "deadbeef",
+        },
+    }
+
+    breakdown = scm.breakdown_from_conflicts("https://example.test/repo", 42, conflicts)
+
+    assert breakdown["revision_id"] == 42, "The revision ID should be carried through."
+    assert breakdown["failed_paths"] == [
+        {
+            "path": "dir/file.txt",
+            "url": "https://example.test/repo/tree/deadbeef/dir/file.txt",
+            "changeset_id": "deadbeef",
+        }
+    ], "`failed_paths` should be built from the input changeset."
+    assert breakdown["rejects_paths"]["dir/file.txt"] == {
+        "path": "dir/file.txt.rej",
+        "content": "<<<<<<< conflict diff",
+    }, "`rejects_paths` should carry the input content."
+
+
 @pytest.mark.parametrize(
     "method_name, method_args",
     (
