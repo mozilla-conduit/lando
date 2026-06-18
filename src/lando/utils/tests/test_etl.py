@@ -376,6 +376,7 @@ def test_transform_landing_job(make_repo):
         target_repo=repo,
         is_pull_request_job=True,
         target_commit_hash="aabbcc",
+        landing_strategy="THREE_WAY",
         error_breakdown={"failed_paths": ["/some/path"]},
     )
 
@@ -409,6 +410,9 @@ def test_transform_landing_job(make_repo):
     )
     assert result["target_commit_hash"] == "aabbcc", (
         "`target_commit_hash` should exist and match expected value."
+    )
+    assert result["landing_strategy"] == "THREE_WAY", (
+        "`landing_strategy` should exist and match expected value."
     )
     assert result["handover_repo_id"] is None, (
         "`handover_repo_id` should exist and be `None`."
