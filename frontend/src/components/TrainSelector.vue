@@ -111,6 +111,17 @@ const manualGuidance = computed(() =>
         : { landing: "", warnings: [] },
 );
 
+/** Status line shown while the guidance loads or after it fails; empty once ready. */
+const statusMessage = computed(() => {
+    if (status.value === "loading") {
+        return "Loading release schedule…";
+    }
+    if (status.value === "error") {
+        return "Could not load release-train guidance. Select repositories manually below.";
+    }
+    return "";
+});
+
 /**
  * The server-rendered checkbox field is shown in manual mode, and whenever the guidance
  * is unavailable so the form remains usable.
@@ -197,11 +208,12 @@ onUnmounted(() => {
 
 <template>
     <div class="block">
-        <p v-if="status === 'loading'" class="help is-info">
-            Loading release schedule…
-        </p>
-        <p v-else-if="status === 'error'" class="help is-warning">
-            Could not load release-train guidance. Select repositories manually below.
+        <p
+            v-if="statusMessage"
+            class="help"
+            :class="{ 'is-info': status === 'loading', 'is-warning': status === 'error' }"
+        >
+            {{ statusMessage }}
         </p>
         <template v-else>
             <div class="tabs">
