@@ -31,8 +31,8 @@ class CommitMap(BaseModel):
         "try-comm-central": "thunderbird",
     }
 
-    git_hash = models.CharField(default="", max_length=40)
-    hg_hash = models.CharField(default="", max_length=40)
+    git_hash = models.CharField(default="", max_length=40, db_index=True)
+    hg_hash = models.CharField(default="", max_length=40, db_index=True)
 
     # NOTE: This value is set because multiple Lando repos can map to a single hg repo.
     # This is because currently a separate repo object is created for each branch of a

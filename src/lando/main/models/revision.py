@@ -268,7 +268,7 @@ class DiffWarning(BaseModel):
 
     # A Phabricator revision and diff ID (NOTE: revision ID does not include a prefix.)
     revision_id = models.IntegerField()
-    diff_id = models.IntegerField()
+    diff_id = models.IntegerField(db_index=True)
 
     # An arbitary dictionary of data that will be determined by the client.
     # It is up to the UI to interpret this data and show it to the user.
