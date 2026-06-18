@@ -412,18 +412,25 @@ class LandingWorker(Worker):
         """Store each revision's final commit hash after applying and rebasing.
 
         Commits are read against `landing_base` in ascending topological order,
-        which matches the index order of `job.revisions`.
+        which matches the index order of `job.revisions`. Fail the job if the
+        landing produced no commits, or a count that does not match the
+        revisions: pushing an empty stack would "land" nothing, and a misaligned
+        `commit_id` would later misdirect the uplift cherry-pick workflow.
         """
         landed_commits = scm.describe_local_changes(landing_base)
         revisions = list(job.revisions.all())
 
-        if len(landed_commits) != len(revisions):
-            logger.warning(
-                f"Expected {len(revisions)} commits after landing, found "
-                f"{len(landed_commits)}; commit IDs may be misaligned."
+        if not landed_commits or len(landed_commits) != len(revisions):
+            message = (
+                f"Landing produced {len(landed_commits)} commit(s) for "
+                f"{len(revisions)} revision(s); expected a one-to-one match. "
+                f"Aborting before push to avoid an empty or misaligned landing."
             )
+            logger.error(message)
+            job.transition_status(JobAction.FAIL, message=message)
+            raise PermanentFailureException(message)
 
-        for revision, commit in zip(revisions, landed_commits, strict=False):
+        for revision, commit in zip(revisions, landed_commits, strict=True):
             revision.commit_id = commit.hash
             revision.save()
 

@@ -18,6 +18,7 @@ from lando.main.models import (
     JobStatus,
     LandingJob,
     LandingStrategy,
+    PermanentFailureException,
     Repo,
     RevisionLandingJob,
 )
@@ -1701,4 +1702,43 @@ def test_three_way_landing_conflict_reports_breakdown(
     failed_paths = [path["path"] for path in job.error_breakdown["failed_paths"]]
     assert set(failed_paths) == set(rejects_paths.keys()), (
         "`failed_paths` and `rejects_paths` should be consistent."
+    )
+
+
+@pytest.mark.parametrize(
+    "revision_count, landed_count",
+    [
+        # Fewer landed commits than revisions would record misaligned commit IDs.
+        pytest.param(2, 1, id="fewer-commits-than-revisions"),
+        # No commits at all would otherwise "land" an empty push.
+        pytest.param(1, 0, id="no-commits-produced"),
+    ],
+)
+@pytest.mark.django_db
+def test_record_landed_commit_ids_fails_on_count_mismatch(
+    git_landing_worker: LandingWorker,
+    make_landing_job: Callable,
+    create_patch_revision: Callable,
+    revision_count: int,
+    landed_count: int,
+):
+    """A commit/revision count mismatch fails the job rather than landing it."""
+    revisions = [create_patch_revision(number + 1) for number in range(revision_count)]
+    job = make_landing_job(
+        revisions=revisions,
+        status=JobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+    )
+
+    scm = mock.Mock()
+    scm.describe_local_changes.return_value = [
+        mock.Mock(hash=f"sha{number}") for number in range(landed_count)
+    ]
+
+    with pytest.raises(PermanentFailureException):
+        git_landing_worker.record_landed_commit_ids(job, scm, "landing-base")
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.FAILED, (
+        "A commit/revision count mismatch should fail the job."
     )
