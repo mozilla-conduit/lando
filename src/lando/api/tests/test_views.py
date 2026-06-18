@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import json
 from unittest import mock
 
 import pytest
@@ -91,14 +92,14 @@ def test__views__phabricator_auth_backend(
     phabdouble, client, user, user_phab_api_key, user_linked_to_phab, monkeypatch
 ):
     """Test that the Phabricator authentication backend behaves as expected."""
-    test = client.get("/__version__")
-    assert test.wsgi_request.user.is_anonymous
+    response = client.get("/__version__")
+    assert response.wsgi_request.user.is_anonymous
 
     # NOTE: due to limitations in phabdouble, the value of the token
     # is irrelevant here. This should be fixed in bug 2019413.
     headers = {"X-Phabricator-API-Key": user_phab_api_key}
-    test = client.get("/__version__", headers=headers)
-    assert test.wsgi_request.user.is_authenticated
+    response = client.get("/__version__", headers=headers)
+    assert response.wsgi_request.user.is_authenticated
 
 
 @pytest.mark.django_db(transaction=True)
@@ -111,8 +112,8 @@ def test__views__phabricator_auth_backend_unknown_phid(
     phabdouble.user(username="unknown_phab_user", email="unknown@example.com")
 
     headers = {"X-Phabricator-API-Key": user_phab_api_key}
-    test = client.get("/__version__", headers=headers)
-    assert not test.wsgi_request.user.is_authenticated, (
+    response = client.get("/__version__", headers=headers)
+    assert not response.wsgi_request.user.is_authenticated, (
         "A valid Phabricator token whose PHID and email do not match any local "
         "profile should not result in an authenticated request."
     )
@@ -132,8 +133,8 @@ def test__views__phabricator_auth_backend_email_fallback(
     )
 
     headers = {"X-Phabricator-API-Key": user_phab_api_key}
-    test = client.get("/__version__", headers=headers)
-    assert test.wsgi_request.user.is_authenticated, (
+    response = client.get("/__version__", headers=headers)
+    assert response.wsgi_request.user.is_authenticated, (
         "Email fallback should authenticate the user when the PHID is not yet stored."
     )
 
@@ -155,8 +156,8 @@ def test__views__phabricator_auth_backend_invalid_token(
     # or not. This should be fixed (see bug 2019413.)
 
     headers = {"X-Phabricator-API-Key": "INVALID_TOKEN"}
-    test = client.get("/__version__", headers=headers)
-    assert not test.wsgi_request.user.is_authenticated
+    response = client.get("/__version__", headers=headers)
+    assert not response.wsgi_request.user.is_authenticated
 
 
 @mock.patch("lando.api.views.GitHubAPIClient")
@@ -176,12 +177,12 @@ def test__views__pull_request_api_view__private_repo(github_api_client, client):
         scm_type=SCMType.GIT,
     )
 
-    test = client.get(f"/api/pulls/{repo.name}/1/landing_jobs")
-    assert test.status_code == 404
+    response = client.get(f"/api/pulls/{repo.name}/1/landing_jobs")
+    assert response.status_code == 404
 
     mock_github_api_client.repo_is_private = False
-    test = client.get(f"/api/pulls/{repo.name}/1/landing_jobs")
-    assert test.status_code == 200
+    response = client.get(f"/api/pulls/{repo.name}/1/landing_jobs")
+    assert response.status_code == 200
 
 
 @mock.patch("lando.api.views.GitHubAPIClient")
@@ -305,16 +306,21 @@ class TestViewsPullRequestUpdateWebHook:
 
     @pytest.fixture
     def hmac_headers(self):
-        def calculate_signature():
+        def calculate_signature(body=None):
+            if isinstance(body, dict):
+                body = json.dumps(body)
             _hmac = hmac.new(
                 self.hmac_secret.encode("utf-8"),
-                msg=b"--BoUnDaRyStRiNg--\r\n",
+                msg=body.encode("utf-8") or b"--BoUnDaRyStRiNg--\r\n",
                 digestmod=hashlib.sha256,
             )
             return f"sha256={_hmac.hexdigest()}"
 
-        def _headers(signature=""):
-            return {"X-Hub-Signature-256": signature or calculate_signature()}
+        def _headers(signature="", body=None):
+            return {
+                "X-Hub-Signature-256": signature or calculate_signature(body),
+                "content-type": "application/json",
+            }
 
         return _headers
 
@@ -348,6 +354,13 @@ class TestViewsPullRequestUpdateWebHook:
 
         return wrapper
 
+    @pytest.fixture
+    def webhook_content(self):
+        def _webhook_content(is_bot=False):
+            return {"sender": {"type": "User" if not is_bot else "Bot"}}
+
+        return _webhook_content
+
     @mock.patch("lando.api.views.generate_warnings_and_blockers")
     @mock.patch("lando.api.views.GitHubAPIClient")
     @pytest.mark.django_db(transaction=True)
@@ -356,8 +369,8 @@ class TestViewsPullRequestUpdateWebHook:
         github_api_client,
         generate_warnings_and_blockers,
         body,
-        expected_body,
         client,
+        expected_body,
         webhook_gh_client,
         hmac_headers,
     ):
@@ -369,10 +382,10 @@ class TestViewsPullRequestUpdateWebHook:
             "blockers": ["a blocker"],
         }
 
-        test = client.post("/api/pulls/git-repo/1/webhook")
+        response = client.post("/api/pulls/git-repo/1/webhook")
 
         assert mock_github_api_client.update_pull_request_body.call_count == 0
-        assert test.status_code == 403
+        assert response.status_code == 403
 
     @mock.patch("lando.api.views.generate_warnings_and_blockers")
     @mock.patch("lando.api.views.GitHubAPIClient")
@@ -386,6 +399,7 @@ class TestViewsPullRequestUpdateWebHook:
         client,
         webhook_gh_client,
         hmac_headers,
+        webhook_content,
     ):
         """Test that the webhook is calling the GitHub API with the correct parameters."""
         mock_github_api_client = webhook_gh_client(github_api_client, body)
@@ -394,8 +408,12 @@ class TestViewsPullRequestUpdateWebHook:
             "warnings": ["a warning"],
             "blockers": ["a blocker"],
         }
-
-        test = client.post("/api/pulls/git-repo/1/webhook", headers=hmac_headers())
+        response = client.post(
+            "/api/pulls/git-repo/1/webhook",
+            content := webhook_content(),
+            content_type="application/json",
+            headers=hmac_headers(body=content),
+        )
 
         assert mock_github_api_client.update_pull_request_content.call_count == 1
         pr_number, called_body = (
@@ -421,8 +439,8 @@ class TestViewsPullRequestUpdateWebHook:
             ]
         )
 
-        assert test.status_code == 200
-        assert test.json() == {"status": "success"}
+        assert response.status_code == 200
+        assert response.json() == {"status": "success"}
 
     @mock.patch("lando.api.views.generate_warnings_and_blockers")
     @mock.patch("lando.api.views.GitHubAPIClient")
@@ -436,6 +454,7 @@ class TestViewsPullRequestUpdateWebHook:
         client,
         webhook_gh_client,
         hmac_headers,
+        webhook_content,
     ):
         mock_github_api_client = webhook_gh_client(github_api_client, body)
         generate_warnings_and_blockers.return_value = {
@@ -443,7 +462,12 @@ class TestViewsPullRequestUpdateWebHook:
             "blockers": ["a blocker"],
         }
 
-        client.post("/api/pulls/git-repo/1/webhook", headers=hmac_headers())
+        client.post(
+            "/api/pulls/git-repo/1/webhook",
+            content := webhook_content(),
+            content_type="application/json",
+            headers=hmac_headers(body=content),
+        )
         assert mock_github_api_client.update_pull_request_content.call_count == 1
         pr_number, called_body = (
             mock_github_api_client.update_pull_request_content.call_args[0]
@@ -476,6 +500,7 @@ class TestViewsPullRequestUpdateWebHook:
         client,
         webhook_gh_client,
         hmac_headers,
+        webhook_content,
     ):
         mock_github_api_client = webhook_gh_client(github_api_client, body)
         generate_warnings_and_blockers.return_value = {
@@ -483,7 +508,12 @@ class TestViewsPullRequestUpdateWebHook:
             "blockers": [],
         }
 
-        client.post("/api/pulls/git-repo/1/webhook", headers=hmac_headers())
+        client.post(
+            "/api/pulls/git-repo/1/webhook",
+            content := webhook_content(),
+            content_type="application/json",
+            headers=hmac_headers(body=content),
+        )
         assert mock_github_api_client.update_pull_request_content.call_count == 1
         pr_number, called_body = (
             mock_github_api_client.update_pull_request_content.call_args[0]
@@ -499,3 +529,26 @@ class TestViewsPullRequestUpdateWebHook:
                 ":white_check_mark: All Lando checks passed",
             ]
         )
+
+    @mock.patch("lando.api.views.GitHubAPIClient")
+    @pytest.mark.django_db(transaction=True)
+    def test__views__pull_request_update_webhook_bot(
+        self,
+        github_api_client,
+        body,
+        expected_body,
+        client,
+        webhook_gh_client,
+        hmac_headers,
+        webhook_content,
+    ):
+        mock_github_api_client = webhook_gh_client(github_api_client, body)
+
+        response = client.post(
+            "/api/pulls/git-repo/1/webhook",
+            content := webhook_content(is_bot=True),
+            content_type="application/json",
+            headers=hmac_headers(body=content),
+        )
+        assert response.status_code == 202
+        assert mock_github_api_client.update_pull_request_body.call_count == 0
