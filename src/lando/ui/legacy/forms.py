@@ -7,6 +7,7 @@ from lando.api.legacy.validation import parse_revision_ids
 from lando.main.models import Repo, Revision
 from lando.main.models.uplift import (
     UpliftAssessment,
+    UpliftTargetSelectionMethod,
     YesNoChoices,
 )
 
@@ -158,12 +159,27 @@ class UpliftRequestForm(UpliftAssessmentForm):
         to_field_name="name",
     )
 
+    # Populated by the Vue widget to record how the target was selected. Stays
+    # empty (and defaults to server-rendered) when the widget never mounts.
+    target_selection_method = forms.ChoiceField(
+        choices=UpliftTargetSelectionMethod.choices,
+        widget=forms.widgets.HiddenInput(),
+        required=False,
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Set the rendered value of the repository to the
         # name, instead of the default `__str__` representation.
         self.fields["repositories"].label_from_instance = lambda repo: repo.name
+
+    def clean_target_selection_method(self) -> str:
+        """Default an absent selection method to the server-rendered fallback."""
+        return (
+            self.cleaned_data.get("target_selection_method")
+            or UpliftTargetSelectionMethod.SERVER_RENDERED
+        )
 
     def clean_source_revisions(self) -> list[Revision]:
         """Return source revisions in the same order they were submitted."""

@@ -69,6 +69,9 @@
                         </div>
                     {% endif %}
                     <label class="label">Select uplift target</label>
+                    {# Hidden field the Vue widget populates to record how the
+                       target was selected; stays empty without the widget. #}
+                    {{ uplift.request_form.target_selection_method }}
                     {# Vue train-selector widget mounts here and progressively
                        enhances the repository checkboxes below. #}
                     <div id="uplift-train-selector"
