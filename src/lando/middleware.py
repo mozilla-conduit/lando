@@ -41,12 +41,10 @@ class ResponseHeadersMiddleware:
 
         # The uplift train-selector widget fetches release guidance from an
         # external API, so `connect-src` must allow that origin in addition to
-        # `'self'`. A same-origin or unset URL has no origin to add, so we fall
-        # back to just `'self'`.
-        connect_src = "connect-src 'self'"
+        # `'self'`. A same-origin or unset URL yields an empty origin, which
+        # `strip` removes to leave just `'self'`.
         train_api_origin = url_origin(settings.WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL)
-        if train_api_origin:
-            connect_src = f"{connect_src} {train_api_origin}"
+        connect_src = f"connect-src 'self' {train_api_origin}".strip()
 
         csp = [
             "default-src 'self'",
