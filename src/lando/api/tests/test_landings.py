@@ -17,6 +17,7 @@ from lando.conftest import FAILING_CHECK_TYPES
 from lando.main.models import (
     JobStatus,
     LandingJob,
+    LandingStrategy,
     Repo,
     RevisionLandingJob,
 )
@@ -1560,20 +1561,31 @@ def setup_three_way_repo(
 
 
 @pytest.mark.parametrize(
-    "provide_base, expected_status",
+    "provide_base, expected_status, expected_strategy",
     [
         # With the base available, the worker reconstructs and rebases, so the
         # context shift is recovered and the landing succeeds.
-        pytest.param(True, JobStatus.LANDED, id="with-base-recovers"),
+        pytest.param(
+            True,
+            JobStatus.LANDED,
+            LandingStrategy.THREE_WAY,
+            id="with-base-recovers",
+        ),
         # Without it, the worker applies at the tip with a 2-way apply, which the
         # context shift defeats.
-        pytest.param(False, JobStatus.FAILED, id="without-base-fails"),
+        pytest.param(
+            False,
+            JobStatus.FAILED,
+            LandingStrategy.TWO_WAY,
+            id="without-base-fails",
+        ),
     ],
 )
 @pytest.mark.django_db
 def test_three_way_landing_handles_context_shift(
     provide_base: bool,
     expected_status: str,
+    expected_strategy: str,
     repo_mc: Callable,
     git_repo: Path,
     treestatusdouble: TreeStatusDouble,
@@ -1611,6 +1623,11 @@ def test_three_way_landing_handles_context_shift(
     assert worker.run_job(job), "`run_job` returns `True` in both permanent states."
     assert job.status == expected_status, (
         "Base availability should determine whether the context shift lands."
+    )
+
+    job.refresh_from_db()
+    assert job.landing_strategy == expected_strategy, (
+        "The job should record which apply strategy was used."
     )
 
     if expected_status != JobStatus.LANDED:
@@ -1662,6 +1679,11 @@ def test_three_way_landing_conflict_reports_breakdown(
     worker = get_landing_worker(SCMType.GIT)
     assert worker.run_job(job), "`run_job` returns `True` after a permanent failure."
     assert job.status == JobStatus.FAILED, "A true 3-way conflict should fail the job."
+
+    job.refresh_from_db()
+    assert job.landing_strategy == LandingStrategy.THREE_WAY, (
+        "A conflict during the rebase should still record the 3-way strategy."
+    )
 
     assert "test.txt" in job.error, "The job error should name the conflicting file."
     assert "conflict" in job.error.lower(), (

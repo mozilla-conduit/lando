@@ -21,6 +21,7 @@ from lando.main.models import (
     AutoformatChange,
     JobAction,
     LandingJob,
+    LandingStrategy,
     PermanentFailureException,
     Repo,
     Revision,
@@ -262,6 +263,9 @@ class LandingWorker(Worker):
         # so the final rebase performs a true 3-way merge against the correct
         # ancestor. Otherwise, apply directly onto the landing base (2-way).
         rebase_base = self.determine_rebase_base(job, scm)
+        job.landing_strategy = (
+            LandingStrategy.THREE_WAY if rebase_base else LandingStrategy.TWO_WAY
+        )
         if rebase_base:
             logger.debug(f"Reconstructing stack at base {rebase_base}.")
             scm.reset_to_commit(rebase_base)
