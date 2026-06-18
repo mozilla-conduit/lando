@@ -293,23 +293,28 @@ TRY_TASK_CONFIG_DIFF_SNIPPET = """
 
 
 @pytest.mark.parametrize(
-    "target_commit_hash, supports_3way, base_revision, base_exists, expected",
+    "worker_enabled, target_commit_hash, supports_3way, base_revision, base_exists, expected",
     [
+        # The worker flag gates the whole flow.
+        pytest.param(False, "", True, "abc123", True, None, id="worker-disabled"),
         # A known target commit short-circuits before consulting the SCM.
-        pytest.param("deadbeef", True, "abc123", True, None, id="target-commit-hash"),
+        pytest.param(
+            True, "deadbeef", True, "abc123", True, None, id="target-commit-hash"
+        ),
         # An SCM that can't rebase always applies at the tip.
-        pytest.param("", False, "abc123", True, None, id="scm-unsupported"),
+        pytest.param(True, "", False, "abc123", True, None, id="scm-unsupported"),
         # The recorded base is used when it exists in the repo.
-        pytest.param("", True, "abc123", True, "abc123", id="base-present"),
+        pytest.param(True, "", True, "abc123", True, "abc123", id="base-present"),
         # A recorded base missing from the repo falls back to the tip.
-        pytest.param("", True, "abc123", False, None, id="base-missing"),
+        pytest.param(True, "", True, "abc123", False, None, id="base-missing"),
         # No recorded base means there is nothing to reconstruct onto.
-        pytest.param("", True, "", False, None, id="no-recorded-base"),
+        pytest.param(True, "", True, "", False, None, id="no-recorded-base"),
     ],
 )
 @pytest.mark.django_db
 def test_determine_rebase_base(
     git_landing_worker: LandingWorker,
+    worker_enabled: bool,
     target_commit_hash: str,
     supports_3way: bool,
     base_revision: str,
@@ -317,6 +322,7 @@ def test_determine_rebase_base(
     expected: str | None,
 ):
     """`determine_rebase_base` returns the base only when every condition holds."""
+    git_landing_worker.worker_instance.three_way_merge_enabled = worker_enabled
     job = mock.Mock(target_commit_hash=target_commit_hash)
     job.revisions.first.return_value = mock.Mock(base_revision=base_revision)
     scm = mock.Mock()
