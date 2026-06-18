@@ -38,6 +38,7 @@ from lando.utils.github import (
     GitHubAPIClient,
     PullRequest,
     PullRequestPatchHelper,
+    ignore_bot_sender,
 )
 from lando.utils.github_checks import (
     ALL_PULL_REQUEST_BLOCKERS,
@@ -378,6 +379,7 @@ class PullRequestUpdateWebhook(PullRequestAPIView):
         return context
 
     @require_github_signature
+    @ignore_bot_sender
     def post(
         self, request: WSGIRequest, repo_name: str, pull_number: int
     ) -> JsonResponse:

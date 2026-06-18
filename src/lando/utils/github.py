@@ -1,7 +1,9 @@
 import asyncio
+import functools
 import hashlib
 import hmac
 import io
+import json
 import logging
 import math
 import re
@@ -10,9 +12,14 @@ from collections.abc import Iterator
 from datetime import datetime
 from enum import Enum
 from itertools import count
+from json.decoder import JSONDecodeError
+from typing import Callable
 
 import requests
 from django.conf import settings
+from django.core.handlers.wsgi import WSGIRequest
+from django.http import HttpResponse
+from django.views import View
 from simple_github import AppAuth, AppInstallationAuth
 from typing_extensions import override
 
@@ -777,3 +784,22 @@ def verify_github_signature(hmac_secret: str, payload: bytes, signature: str) ->
     )
     expected_signature = "sha256=" + hash_object.hexdigest()
     return hmac.compare_digest(expected_signature, signature)
+
+
+def ignore_bot_sender(post: Callable) -> Callable:
+    """Decorator that drops requests that originate from bots."""
+
+    @functools.wraps(post)
+    def _post(view: View, request: WSGIRequest, *args, **kwargs) -> HttpResponse:
+        """Drop the request if a bot triggered the original webhook."""
+        BOT_SENDER_TYPE = "Bot"
+        try:
+            sender_type = json.loads(request.body)["sender"]["type"]
+        except (JSONDecodeError, KeyError, ValueError, TypeError):
+            pass
+        else:
+            if sender_type == BOT_SENDER_TYPE:
+                return HttpResponse(status=202)
+        return post(view, request, *args, **kwargs)
+
+    return _post
