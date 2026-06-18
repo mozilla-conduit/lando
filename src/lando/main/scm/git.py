@@ -240,8 +240,8 @@ class GitSCM(AbstractSCM):
 
             raise exc
 
-    def collect_conflicts(self) -> dict[str, str]:
-        """Return a mapping of each conflicting path to its conflict diff.
+    def collect_conflicts(self) -> dict[str, dict[str, str]]:
+        """Return each conflicting path mapped to its conflict diff and changeset.
 
         Reads the unmerged paths from the index, so it must be called while the
         conflict is still in progress (before any `rebase --abort`).
@@ -252,9 +252,12 @@ class GitSCM(AbstractSCM):
 
         conflicts = {}
         for path in conflicting_paths:
-            # `git diff` on an unmerged path shows the conflicting regions with
-            # markers, which is bounded and readable for display.
-            conflicts[path] = self._git_run("diff", "--", path, cwd=self.path)
+            conflicts[path] = {
+                # `git diff` on an unmerged path shows the conflicting regions
+                # with markers, which is bounded and readable for display.
+                "content": self._git_run("diff", "--", path, cwd=self.path),
+                "changeset_id": self.last_commit_for_path(path),
+            }
 
         return conflicts
 
@@ -403,7 +406,7 @@ class GitSCM(AbstractSCM):
         pull_path: str,
         revision_id: int,
         error_message: str,
-        conflicts: dict[str, str] | None = None,
+        conflicts: dict[str, dict[str, str]] | None = None,
     ) -> dict[str, Any]:
         """Process merge conflict information captured in a PatchConflict, and return a
         parsed structure."""
@@ -458,12 +461,14 @@ class GitSCM(AbstractSCM):
         self,
         pull_path: str,
         revision_id: int,
-        conflicts: dict[str, str],
+        conflicts: dict[str, dict[str, str]],
     ) -> dict[str, Any]:
-        """Build an error breakdown from a mapping of conflicting path to content.
+        """Build an error breakdown from a mapping of conflicting path to details.
 
-        Used for 3-way rebase conflicts, which report their conflicts in-memory
-        rather than as `.rej` files on disk.
+        Each value carries the conflict `content` and the `changeset_id` that
+        last touched the path. This method only transforms its input; the repo
+        lookups happen in `collect_conflicts`. Used for 3-way rebase conflicts,
+        which report their conflicts in-memory rather than as `.rej` files on disk.
         """
         breakdown: dict[str, Any] = {
             "failed_paths": [],
@@ -471,18 +476,18 @@ class GitSCM(AbstractSCM):
             "revision_id": revision_id,
         }
 
-        for path, content in conflicts.items():
-            commit = self.last_commit_for_path(path)
+        for path, details in conflicts.items():
+            changeset_id = details["changeset_id"]
             breakdown["failed_paths"].append(
                 {
                     "path": path,
-                    "url": f"{pull_path}/tree/{commit}/{path}",
-                    "changeset_id": commit,
+                    "url": f"{pull_path}/tree/{changeset_id}/{path}",
+                    "changeset_id": changeset_id,
                 }
             )
             breakdown["rejects_paths"][path] = {
                 "path": f"{path}.rej",
-                "content": content,
+                "content": details["content"],
             }
 
         return breakdown

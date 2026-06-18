@@ -1484,14 +1484,17 @@ def test_GitSCM_rebase_onto_raises_on_conflict(
     with pytest.raises(PatchConflict) as exc_info:
         scm.rebase_onto(target_tip, base_commit)
 
-    # The raised conflict should carry the conflicting path and its content so
-    # `process_merge_conflict` can build an error breakdown after the abort.
+    # The raised conflict should carry the conflicting path, its content, and the
+    # changeset so `process_merge_conflict` can build a breakdown after the abort.
     conflicts = exc_info.value.conflicts
     assert "test.txt" in conflicts, (
         "`PatchConflict.conflicts` should record the conflicting path."
     )
-    assert "<<<<<<<" in conflicts["test.txt"], (
+    assert "<<<<<<<" in conflicts["test.txt"]["content"], (
         "Captured conflict content should include the conflict markers."
+    )
+    assert conflicts["test.txt"]["changeset_id"], (
+        "Captured conflict should include the changeset that last touched the path."
     )
 
     git_dir = clone_path / ".git"
@@ -1501,6 +1504,36 @@ def test_GitSCM_rebase_onto_raises_on_conflict(
     assert not (git_dir / "rebase-apply").exists(), (
         "A conflicting rebase should be aborted, leaving no rebase state."
     )
+
+
+def test_GitSCM_breakdown_from_conflicts_is_pure(git_repo: Path):
+    """`breakdown_from_conflicts` builds the breakdown purely from its input.
+
+    The `changeset_id` is taken from the input, not looked up in the repo: the
+    fabricated value below does not exist in `git_repo`, yet it appears verbatim.
+    """
+    scm = GitSCM(str(git_repo))
+    conflicts = {
+        "dir/file.txt": {
+            "content": "<<<<<<< conflict diff",
+            "changeset_id": "deadbeef",
+        },
+    }
+
+    breakdown = scm.breakdown_from_conflicts("https://example.test/repo", 42, conflicts)
+
+    assert breakdown["revision_id"] == 42, "The revision ID should be carried through."
+    assert breakdown["failed_paths"] == [
+        {
+            "path": "dir/file.txt",
+            "url": "https://example.test/repo/tree/deadbeef/dir/file.txt",
+            "changeset_id": "deadbeef",
+        }
+    ], "`failed_paths` should be built from the input changeset."
+    assert breakdown["rejects_paths"]["dir/file.txt"] == {
+        "path": "dir/file.txt.rej",
+        "content": "<<<<<<< conflict diff",
+    }, "`rejects_paths` should carry the input content."
 
 
 @pytest.mark.parametrize(
