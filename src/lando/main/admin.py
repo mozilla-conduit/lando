@@ -3,6 +3,7 @@ from typing import Callable, Self
 
 from django.contrib import admin
 from django.db.models import Field as DbField
+from django.db.models import Model
 from django.forms import CheckboxSelectMultiple, MultipleChoiceField
 from django.forms import Field as FormField
 from django.http import HttpRequest
@@ -63,7 +64,7 @@ class ReadOnlyInline(admin.TabularInline):
         [0] https://forum.djangoproject.com/t/show-all-the-fields-in-inline-of-the-many-to-many-model-instead-of-a-simple-dropdown/28062/7
         """
 
-        def getter(self: Self):
+        def getter(self: Self) -> object:
             return getattr(getattr(self, cls._target_object), f)
 
         getter.__name__ = f
@@ -76,15 +77,21 @@ class ReadOnlyInline(admin.TabularInline):
                 setattr(self, f, self._field_getter_factory(f))
         super().__init__(*args, **kwargs)
 
-    def has_add_permission(self, request, obj=None) -> bool:  # noqa: ANN001
+    def has_add_permission(
+        self, request: HttpRequest, obj: Model | None = None
+    ) -> bool:
         """Forbid addition of any pushlog object from the admin interface."""
         return self.can_add
 
-    def has_change_permission(self, request, obj=None) -> bool:  # noqa: ANN001
+    def has_change_permission(
+        self, request: HttpRequest, obj: Model | None = None
+    ) -> bool:
         """Forbid change of any pushlog object from the admin interface."""
         return self.can_change
 
-    def has_delete_permission(self, request, obj=None) -> bool:  # noqa: ANN001
+    def has_delete_permission(
+        self, request: HttpRequest, obj: Model | None = None
+    ) -> bool:
         """Forbid deletion of any pushlog object from the admin interface."""
         return self.can_delete
 
