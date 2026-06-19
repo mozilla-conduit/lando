@@ -222,7 +222,6 @@ def test_transform_uplift_submission():
         requested_by=user,
         assessment=assessment,
         requested_revision_ids=[100, 101, 102],
-        target_selection_method="widget_version",
     )
 
     transformer = UpliftSubmissionTransformer()
@@ -239,9 +238,6 @@ def test_transform_uplift_submission():
     ], "`requested_revision_ids` should exist and match expected value."
     assert result["assessment_id"] == assessment.id, (
         "`assessment_id` should exist and match expected value."
-    )
-    assert result["target_selection_method"] == "widget_version", (
-        "`target_selection_method` should exist and match expected value."
     )
     assert result["requested_by_email"] == "test@example.com", (
         "`requested_by_email` should exist and match expected value."

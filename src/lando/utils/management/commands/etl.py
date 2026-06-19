@@ -163,7 +163,6 @@ class UpliftSubmissionTransformer(ModelTransformer):
         "requested_by_id",
         "requested_revision_ids",
         "assessment_id",
-        "target_selection_method",
     )
     select_related = ("requested_by",)
 
