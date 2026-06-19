@@ -285,7 +285,7 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
         class Form(forms.Form):
             """Simple form to get clean some fields."""
 
-            def clean(self):
+            def clean(self) -> dict[str, Any]:
 
                 cleaned_data = self.cleaned_data
                 new_warnings = cleaned_data["new_warnings"] or []
