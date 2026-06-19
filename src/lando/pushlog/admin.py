@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.db.models import Model
+from django.http import HttpRequest
 
 from lando.main.admin import ReadOnlyInline
 from lando.pushlog.models import (
@@ -12,15 +14,21 @@ from lando.pushlog.models import (
 class PushLogAdmin(admin.ModelAdmin):
     """A base ModelAdmin class for PushLog-related admin parameters."""
 
-    def has_add_permission(self, request, obj=None) -> bool:  # noqa: ANN001
+    def has_add_permission(
+        self, request: HttpRequest, obj: Model | None = None
+    ) -> bool:
         """Forbid addition of any pushlog object from the admin interface."""
         return False
 
-    def has_change_permission(self, request, obj=None) -> bool:  # noqa: ANN001
+    def has_change_permission(
+        self, request: HttpRequest, obj: Model | None = None
+    ) -> bool:
         """Forbid change of any pushlog object from the admin interface."""
         return False
 
-    def has_delete_permission(self, request, obj=None) -> bool:  # noqa: ANN001
+    def has_delete_permission(
+        self, request: HttpRequest, obj: Model | None = None
+    ) -> bool:
         """Forbid deletion of any pushlog object from the admin interface."""
         return False
 
