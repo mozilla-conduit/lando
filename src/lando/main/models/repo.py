@@ -489,7 +489,7 @@ class Repo(BaseModel):
             user, str(self.required_automation_permission)
         )
 
-    def _user_has_direct_permission(self, user: User, permission: str):
+    def _user_has_direct_permission(self, user: User, permission: str) -> bool:
         """
         Test that the user has a specific permission directly rather than via a role.
 
