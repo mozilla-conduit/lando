@@ -8,8 +8,6 @@ lint.ignore = [
     "E501",
     "ANN002",  # Missing type annotation for *args
     "ANN003",  # Missing type annotation for **kwargs
-    "ANN202",  # Missing return type annotation for protected function
-
 ]
 exclude = [
     ".cache",
