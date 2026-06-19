@@ -416,7 +416,7 @@ def test__models__Repo__autoformat_field_default(
 
 @pytest.mark.django_db(transaction=True)
 def test__models__CommitMap___find_last_node(commit_maps):
-    assert commit_maps[-1] == CommitMap._find_last_node("git_repo")
+    assert commit_maps[-1] == CommitMap._find_last_node(commit_maps[-1].git_repo_name)
 
 
 @pytest.mark.django_db(transaction=True)
