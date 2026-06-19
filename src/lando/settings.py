@@ -278,6 +278,9 @@ CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://lando.redis:6379")
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
+# Pin the worker pool size; otherwise Celery sizes it to the node's CPU count,
+# inflating baseline CPU and tripping autoscaling (bug 2047652).
+CELERY_WORKER_CONCURRENCY = int(os.getenv("CELERY_WORKER_CONCURRENCY", "2"))
 
 
 PULSE_USERID = os.getenv("PULSE_USERID", "")
