@@ -170,15 +170,12 @@ class LandingJobAdmin(JobAdmin):
         "landing_strategy",
         "is_pull_request_job",
         "target_repo",
-        "handover_repo",
-        "is_handed_over",
         "created_at",
         "updated_at",
     )
     readonly_fields = JobAdmin.readonly_fields + (
         "formatted_replacements",
         "is_pull_request_job",
-        "is_handed_over",
         "landing_strategy",
     )
     search_fields = JobAdmin.search_fields + (
