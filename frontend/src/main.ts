@@ -6,10 +6,12 @@
 import { createApp } from "vue";
 import TrainSelector from "@/components/TrainSelector.vue";
 
-const mountElement = document.querySelector<HTMLElement>("#uplift-train-selector");
+const mountElement = document.querySelector<HTMLElement>(
+  "#uplift-train-selector",
+);
 
 if (mountElement?.dataset.trainApiUrl) {
-    createApp(TrainSelector, { apiUrl: mountElement.dataset.trainApiUrl }).mount(
-        mountElement,
-    );
+  createApp(TrainSelector, { apiUrl: mountElement.dataset.trainApiUrl }).mount(
+    mountElement,
+  );
 }
