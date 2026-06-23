@@ -17,7 +17,11 @@ from django.views.decorators.csrf import csrf_exempt
 from requests import HTTPError
 
 from lando.api.legacy.commit_message import parse_bugs, replace_reviewers
-from lando.main.auth import PrivateRepoPermissionMixin, require_authenticated_user
+from lando.main.auth import (
+    PrivateRepoPermissionMixin,
+    require_authenticated_user,
+    require_github_signature,
+)
 from lando.main.models import (
     CommitMap,
     JobStatus,
@@ -373,6 +377,7 @@ class PullRequestUpdateWebhook(PullRequestAPIView):
         context["commit_body"] = self.pull_request.commit_body
         return context
 
+    @require_github_signature
     def post(
         self, request: WSGIRequest, repo_name: str, pull_number: int
     ) -> JsonResponse:

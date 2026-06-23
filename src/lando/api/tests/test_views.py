@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 from unittest import mock
 
 import pytest
@@ -177,6 +179,23 @@ def test__views__pull_request_api_view__private_repo(github_api_client, client):
     ),
 )
 class TestViewsPullRequestUpdateWebHook:
+    hmac_secret = "test secret"
+
+    @pytest.fixture
+    def hmac_headers(self):
+        def calculate_signature():
+            _hmac = hmac.new(
+                self.hmac_secret.encode("utf-8"),
+                msg=b"--BoUnDaRyStRiNg--\r\n",
+                digestmod=hashlib.sha256,
+            )
+            return f"sha256={_hmac.hexdigest()}"
+
+        def _headers(signature=""):
+            return {"X-Hub-Signature-256": signature or calculate_signature()}
+
+        return _headers
+
     @pytest.fixture
     def webhook_gh_client(self):
         def wrapper(github_api_client, body):
@@ -197,14 +216,41 @@ class TestViewsPullRequestUpdateWebHook:
             mock_github_api_client.build_pull_request.return_value = mock_pr
             github_api_client.return_value = mock_github_api_client
 
-            Repo.objects.create(
+            repo = Repo.objects.create(
                 name="git-repo",
                 scm_type=SCMType.GIT,
                 pr_enabled=True,
             )
+            repo.set_gh_hmac_secret(self.hmac_secret)
             return mock_github_api_client
 
         return wrapper
+
+    @mock.patch("lando.api.views.generate_warnings_and_blockers")
+    @mock.patch("lando.api.views.GitHubAPIClient")
+    @pytest.mark.django_db(transaction=True)
+    def test__views__pull_request_update_webhook_no_hmac_header(
+        self,
+        github_api_client,
+        generate_warnings_and_blockers,
+        body,
+        expected_body,
+        client,
+        webhook_gh_client,
+        hmac_headers,
+    ):
+        """Test that the webhook fails when called without correct headers."""
+        mock_github_api_client = webhook_gh_client(github_api_client, body)
+
+        generate_warnings_and_blockers.return_value = {
+            "warnings": ["a warning"],
+            "blockers": ["a blocker"],
+        }
+
+        test = client.post("/api/pulls/git-repo/1/webhook")
+
+        assert mock_github_api_client.update_pull_request_body.call_count == 0
+        assert test.status_code == 403
 
     @mock.patch("lando.api.views.generate_warnings_and_blockers")
     @mock.patch("lando.api.views.GitHubAPIClient")
@@ -217,6 +263,7 @@ class TestViewsPullRequestUpdateWebHook:
         expected_body,
         client,
         webhook_gh_client,
+        hmac_headers,
     ):
         """Test that the webhook is calling the GitHub API with the correct parameters."""
         mock_github_api_client = webhook_gh_client(github_api_client, body)
@@ -226,7 +273,7 @@ class TestViewsPullRequestUpdateWebHook:
             "blockers": ["a blocker"],
         }
 
-        test = client.post("/api/pulls/git-repo/1/webhook")
+        test = client.post("/api/pulls/git-repo/1/webhook", headers=hmac_headers())
 
         assert mock_github_api_client.update_pull_request_body.call_count == 1
         pr_number, called_body = (
@@ -266,6 +313,7 @@ class TestViewsPullRequestUpdateWebHook:
         expected_body,
         client,
         webhook_gh_client,
+        hmac_headers,
     ):
         mock_github_api_client = webhook_gh_client(github_api_client, body)
         generate_warnings_and_blockers.return_value = {
@@ -273,7 +321,7 @@ class TestViewsPullRequestUpdateWebHook:
             "blockers": ["a blocker"],
         }
 
-        client.post("/api/pulls/git-repo/1/webhook")
+        client.post("/api/pulls/git-repo/1/webhook", headers=hmac_headers())
         assert mock_github_api_client.update_pull_request_body.call_count == 1
         pr_number, called_body = (
             mock_github_api_client.update_pull_request_body.call_args[0]
@@ -305,6 +353,7 @@ class TestViewsPullRequestUpdateWebHook:
         expected_body,
         client,
         webhook_gh_client,
+        hmac_headers,
     ):
         mock_github_api_client = webhook_gh_client(github_api_client, body)
         generate_warnings_and_blockers.return_value = {
@@ -312,7 +361,7 @@ class TestViewsPullRequestUpdateWebHook:
             "blockers": [],
         }
 
-        client.post("/api/pulls/git-repo/1/webhook")
+        client.post("/api/pulls/git-repo/1/webhook", headers=hmac_headers())
         assert mock_github_api_client.update_pull_request_body.call_count == 1
         pr_number, called_body = (
             mock_github_api_client.update_pull_request_body.call_args[0]
