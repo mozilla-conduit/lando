@@ -21,6 +21,7 @@ from lando.main.models import (
     AutoformatChange,
     JobAction,
     LandingJob,
+    LandingStrategy,
     PermanentFailureException,
     Repo,
     Revision,
@@ -245,11 +246,29 @@ class LandingWorker(Worker):
                 revision.timestamp,
             )
 
+        def rebase_stack(revision: Revision):
+            logger.debug(f"Rebasing stack ending at {revision} onto {landing_base}.")
+            scm.rebase_onto(landing_base, rebase_base)
+
         self.update_repo(repo, job, scm, job.target_commit_hash)
 
         if job.is_pull_request_job:
             self.convert_patches_to_diff(scm, job)
             self.update_repo(repo, job, scm, job.target_commit_hash)
+
+        # The work branch is currently at the commit we will ultimately land onto.
+        landing_base = scm.head_ref()
+
+        # When the patch's base commit is available, reconstruct the stack there
+        # so the final rebase performs a true 3-way merge against the correct
+        # ancestor. Otherwise, apply directly onto the landing base (2-way).
+        rebase_base = self.determine_rebase_base(job, scm)
+        job.landing_strategy = (
+            LandingStrategy.THREE_WAY if rebase_base else LandingStrategy.TWO_WAY
+        )
+        if rebase_base:
+            logger.debug(f"Reconstructing stack at base {rebase_base}.")
+            scm.reset_to_commit(rebase_base)
 
         # Run through the patches one by one and try to apply them.
         logger.debug(
@@ -258,12 +277,17 @@ class LandingWorker(Worker):
         for revision in job.revisions.all():
             self.handle_new_commit_failures(apply_patch, repo, job, scm, revision)
 
-            new_commit = scm.describe_commit()
-            logger.debug(f"Created new commit {new_commit}")
+        # If we reconstructed at the base, rebase the stack onto the landing base
+        # to merge it against the target branch.
+        if rebase_base:
+            self.handle_new_commit_failures(
+                rebase_stack, repo, job, scm, job.revisions.last()
+            )
 
-            # Record the commit ID on the revision object.
-            revision.commit_id = new_commit.hash
-            revision.save()
+        # Record the final commit hash on each revision. Hashes change once the
+        # stack is rebased, so we read them only after it reaches its final
+        # position.
+        self.record_landed_commit_ids(job, scm, landing_base)
 
         # Get the changeset titles for the stack.
         changeset_titles = scm.changeset_descriptions()
@@ -348,6 +372,68 @@ class LandingWorker(Worker):
 
         return bug_ids, commit_id
 
+    def determine_rebase_base(self, job: LandingJob, scm: AbstractSCM) -> str | None:
+        """Return the base commit to reconstruct the stack on, or `None`.
+
+        Returns `None` when the worker has the 3-way flow disabled, when the SCM
+        cannot rebase, when an exact target commit is already known (i.e.
+        `target_commit_hash`), or when the recorded base is missing from the repo.
+        """
+        if not self.worker_instance.three_way_merge_enabled:
+            logger.debug("3-way merge is disabled for this worker; applying at tip.")
+            return None
+
+        if job.target_commit_hash:
+            logger.debug(
+                "`target_commit_hash` is set; applying at the target without rebasing."
+            )
+            return None
+
+        if not scm.supports_3way_apply:
+            logger.debug("SCM does not support 3-way apply; applying at tip.")
+            return None
+
+        first_revision = job.revisions.first()
+        if not first_revision:
+            return None
+
+        base = first_revision.base_revision
+        if not base or not scm.commit_exists(base):
+            logger.debug(
+                f"Base revision {base!r} not available in repo; applying at tip."
+            )
+            return None
+
+        return base
+
+    def record_landed_commit_ids(
+        self, job: LandingJob, scm: AbstractSCM, landing_base: str
+    ):
+        """Store each revision's final commit hash after applying and rebasing.
+
+        Commits are read against `landing_base` in ascending topological order,
+        which matches the index order of `job.revisions`. Fail the job if the
+        landing produced no commits, or a count that does not match the
+        revisions: pushing an empty stack would "land" nothing, and a misaligned
+        `commit_id` would later misdirect the uplift cherry-pick workflow.
+        """
+        landed_commits = scm.describe_local_changes(landing_base)
+        revisions = list(job.revisions.all())
+
+        if not landed_commits or len(landed_commits) != len(revisions):
+            message = (
+                f"Landing produced {len(landed_commits)} commit(s) for "
+                f"{len(revisions)} revision(s); expected a one-to-one match. "
+                f"Aborting before push to avoid an empty or misaligned landing."
+            )
+            logger.error(message)
+            job.transition_status(JobAction.FAIL, message=message)
+            raise PermanentFailureException(message)
+
+        for revision, commit in zip(revisions, landed_commits, strict=True):
+            revision.commit_id = commit.hash
+            revision.save()
+
     def autoformat(
         self,
         job: LandingJob,
@@ -387,6 +473,7 @@ class LandingWorker(Worker):
                 landoini_config,
                 bug_ids,
                 should_amend_autoformat,
+                job.target_repo.autoformat_run_command,
                 extra_env={"MOZBUILD_STATE_PATH": job.target_repo.mozbuild_state_path},
             )
         except AutoformattingException as exc:
@@ -429,10 +516,13 @@ class LandingWorker(Worker):
         landoini_config: configparser.ConfigParser | None,
         bug_ids: list[str],
         should_amend_autoformat: bool,
+        run_command: list[str],
         extra_env: dict[str, str] | None = None,
     ) -> AutoformatResult | None:
         try:
-            self.format_stack(landoini_config, scm.path, extra_env=extra_env)
+            self.format_stack(
+                landoini_config, scm.path, run_command, extra_env=extra_env
+            )
         except AutoformattingException as exc:
             logger.warning("Failed to format the stack.")
             logger.exception(exc)
@@ -473,6 +563,7 @@ class LandingWorker(Worker):
         self,
         landoini_config: configparser.ConfigParser,
         repo_path: str,
+        run_command: list[str],
         extra_env: dict[str, str] | None = None,
     ) -> None:
         """Format the patch stack for landing.
@@ -487,7 +578,7 @@ class LandingWorker(Worker):
             return None
 
         try:
-            self.run_code_formatters(repo_path, extra_env=extra_env)
+            self.run_code_formatters(repo_path, run_command, extra_env=extra_env)
         except subprocess.CalledProcessError as exc:
             logger.warning("Failed to run automated code formatters.")
             logger.exception(exc)
@@ -498,16 +589,20 @@ class LandingWorker(Worker):
             )
 
     def run_code_formatters(
-        self, repo_path: str, extra_env: dict[str, str] | None = None
+        self,
+        repo_path: str,
+        run_command: list[str],
+        extra_env: dict[str, str] | None = None,
     ) -> str:
         """Run automated code formatters, returning the output of the process.
 
         Changes made by code formatters are applied to the working directory and
-        are not committed into version control.
+        are not committed into version control. `run_command` is the repo's
+        configured `./mach` arg-list (without the `./mach` prefix).
         """
         return self.run_mach_command(
             repo_path,
-            ["format", "--fix", "--outgoing", "--verbose", "--skip-android"],
+            run_command,
             extra_env=extra_env,
         )
 

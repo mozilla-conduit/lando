@@ -236,6 +236,7 @@ class LandingJobTransformer(ModelTransformer):
         "target_commit_hash",
         "handover_repo_id",
         "is_handed_over",
+        "landing_strategy",
     )
 
     def transform(self, instance: BaseModel) -> dict[str, Any]:

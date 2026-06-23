@@ -1,3 +1,7 @@
 gha-creds-*.json
 .env
 staticfiles
+
+# Dependencies and build artifacts are produced inside the image.
+node_modules
+src/lando/static_dist

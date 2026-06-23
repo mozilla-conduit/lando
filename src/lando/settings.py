@@ -194,10 +194,13 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = "staticfiles"
 
-# Directories to include in static file collection. `/static_vendor` is
-# populated from `node_modules` during the Docker build (see `Dockerfile`).
+# Directories to include in static file collection. `static_dist` holds the
+# built Vue frontend bundle (the `build.outDir` from `vite.config.ts`), and
+# `/static_vendor` is populated from `node_modules` during the Docker build
+# (see `Dockerfile`).
 STATICFILES_DIRS = [
     BASE_DIR / "static_src",
+    BASE_DIR / "static_dist",
     Path("/static_vendor"),
 ]
 
@@ -260,8 +263,9 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 LINT_PATHS = (BASE_DIR,)
-# Currently used by Prettier for linting CSS/JS.
-STATIC_LINT_PATHS = (BASE_DIR / "static_src",)
+# Used by Prettier for linting CSS/JS and the Vue/TypeScript frontend. The
+# `frontend` source lives at the repository root (`BASE_DIR` is `src/lando`).
+STATIC_LINT_PATHS = (BASE_DIR / "static_src", BASE_DIR.parent.parent / "frontend")
 PHABRICATOR_URL = os.getenv("PHABRICATOR_URL", "http://phabricator.test")
 PHABRICATOR_ADMIN_API_KEY = os.getenv("PHABRICATOR_ADMIN_API_KEY", "")
 PHABRICATOR_UNPRIVILEGED_API_KEY = os.getenv("PHABRICATOR_UNPRIVILEGED_API_KEY", "")
@@ -270,10 +274,21 @@ TREEHERDER_URL = os.getenv("TREEHERDER_URL", "https://treeherder.mozilla.org")
 
 TREESTATUS_URL = os.getenv("TREESTATUS_URL", "http://treestatus.test")
 
+# Endpoint providing release-train guidance for the uplift target selector. The
+# browser fetches this directly. Defaults to the whattrainisitnow.com production
+# endpoint.
+WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL = os.getenv(
+    "WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL",
+    "https://whattrainisitnow.com/api/lando/uplift/train/",
+)
+
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://lando.redis:6379")
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
+# Pin the worker pool size; otherwise Celery sizes it to the node's CPU count,
+# inflating baseline CPU and tripping autoscaling (bug 2047652).
+CELERY_WORKER_CONCURRENCY = int(os.getenv("CELERY_WORKER_CONCURRENCY", "2"))
 
 
 PULSE_USERID = os.getenv("PULSE_USERID", "")

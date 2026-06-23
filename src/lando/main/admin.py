@@ -151,8 +151,7 @@ class LandingJobAdmin(JobAdmin):
         "status",
         "is_pull_request_job",
         "target_repo__name",
-        "handover_repo__name",
-        "is_handed_over",
+        "landing_strategy",
         "created_at",
         "requester_email",
         "duration_seconds",
@@ -168,23 +167,22 @@ class LandingJobAdmin(JobAdmin):
         "priority",
         "requester_email",
         "target_commit_hash",
+        "landing_strategy",
         "is_pull_request_job",
         "target_repo",
-        "handover_repo",
-        "is_handed_over",
         "created_at",
         "updated_at",
     )
     readonly_fields = JobAdmin.readonly_fields + (
         "formatted_replacements",
         "is_pull_request_job",
-        "is_handed_over",
+        "landing_strategy",
     )
     search_fields = JobAdmin.search_fields + (
         "unsorted_revisions__revision_id",
         "requester_email",
     )
-    list_filter = JobAdmin.list_filter + ("is_pull_request_job",)
+    list_filter = JobAdmin.list_filter + ("is_pull_request_job", "landing_strategy")
 
     def revisions(self, instance: LandingJob) -> str:
         """Return a summary of revisions present in a LandingJob
@@ -445,6 +443,7 @@ class WorkerAdmin(admin.ModelAdmin):
         "repo_count",
         "is_paused",
         "is_stopped",
+        "three_way_merge_enabled",
         "updated_at",
     )
     inlines = (WorkerReposInline,)

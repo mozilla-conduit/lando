@@ -56,6 +56,10 @@ test: test-py test-js
 test-js: ## run the JavaScript test suite (Vitest)
 	$(BASE_COMMAND) npm test
 
+.PHONY: build-js
+build-js: ## build the Vue frontend bundle (output dir set by `build.outDir` in vite.config.ts)
+	$(BASE_COMMAND) npm run build
+
 .PHONY: test-py
 test-py: ##run the Python test suite
 	$(BASE_COMMAND) lando tests $(ARGS_TESTS)

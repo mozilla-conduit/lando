@@ -381,6 +381,7 @@ class HgSCM(AbstractSCM):
         pull_path: str,
         revision_id: int,
         error_message: str,
+        conflicts: dict[str, dict[str, str]] | None = None,
     ) -> dict[str, Any]:
         """Process merge conflict information captured in a PatchConflict, and return a
         parsed structure."""

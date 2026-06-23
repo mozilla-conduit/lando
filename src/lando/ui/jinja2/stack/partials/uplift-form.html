@@ -68,8 +68,15 @@
                             <p class="help">Deselect any revisions you don't want to include in the uplift request.</p>
                         </div>
                     {% endif %}
-                    <div class="field">
-                        <label class="label">Uplift repositories</label>
+                    <label class="label">Select uplift target</label>
+                    {# Hidden field the Vue widget populates to record how the
+                       target was selected; stays empty without the widget. #}
+                    {{ uplift.request_form.target_selection_method }}
+                    {# Vue train-selector widget mounts here and progressively
+                       enhances the repository checkboxes below. #}
+                    <div id="uplift-train-selector"
+                         data-train-api-url="{{ uplift.train_api_url }}"></div>
+                    <div class="field mt-4" data-uplift-repositories>
                         <div class="field is-grouped is-grouped-multiline m-0">
                             {% for checkbox in uplift.request_form.repositories %}
                                 <p class="control">
@@ -77,8 +84,10 @@
                                 </p>
                             {% endfor %}
                         </div>
-                        <p class="help m-0">Uplift jobs will be created for every repository you select here.</p>
                     </div>
+                    {# The train-selector widget teleports its guidance messages here,
+                       so they render below the version/repository selection. #}
+                    <div id="uplift-train-messages"></div>
                     <hr>
                     <div class="field">
                         <label class="label">Uplift Assessment</label>
