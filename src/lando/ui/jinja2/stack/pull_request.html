@@ -6,7 +6,8 @@
             <a href="{{ pull_request.html_url }}">{{ pull_request.title }}</a> #{{ pull_request.number }} ({{ target_repo.name }}@{{ target_repo.default_branch }})
         </h1>
         <p>
-            <button class="button is-large is-loading post-landing-job has-text-white"
+            <button id="post-landing-job"
+                    class="button is-large is-loading post-landing-job has-text-white"
                     disabled
                     data-anonymous="{{ '0' if request.user.is_authenticated else '1' }}"
                     data-pull-number="{{ pull_request.number }}"
@@ -61,13 +62,28 @@
             </tr>
             <tr>
                 <th>Commit Title</th>
-                <td>{{ pull_request.title }}</td>
+                <td>
+                    <p id="commit-title">{{ pull_request.title }}</p>
+                    <p id="commit-title-error"></p>
+                </td>
             </tr>
             <tr>
                 <th>Commit Body</th>
-                <td>{{ pull_request.body }}</td>
+                <td>
+                    <p id="commit-body">{{ pull_request.body }}</p>
+                    <p id="commit-body-error"></p>
+                </td>
             </tr>
         </table>
+        <p>
+            <button id="save-edit-pr"
+                    class="button"
+                    data-mode="saved"
+                    data-pull-number="{{ pull_request.number }}"
+                    data-repo-name="{{ target_repo.name }}"
+                    data-csrf-token="{{ csrf_token }}">Edit Commit Message</button>
+            <button id="cancel-edit-pr" class="button is-light is-hidden">Cancel</button>
+        </p>
     </div>
     <h1>Landings</h1>
     {% include "stack/partials/timeline.html" %}

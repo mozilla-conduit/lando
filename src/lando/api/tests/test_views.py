@@ -1,8 +1,25 @@
 from unittest import mock
 
 import pytest
+from django.test import Client
 
 from lando.main.models import Repo, SCMType
+
+
+@pytest.fixture
+def repo_mc_github_api_client(repo_mc):
+    repo_mc(SCMType.GIT, name="git-repo")
+
+    mock_github_api_client = mock.MagicMock()
+    mock_github_api_client.repo_is_private = False
+    return mock_github_api_client
+
+
+@pytest.fixture
+def csrf_client(user, user_plaintext_password):
+    csrf_client = Client(enforce_csrf_checks=True)
+    csrf_client.login(username=user.username, password=user_plaintext_password)
+    return csrf_client
 
 
 @pytest.mark.django_db(transaction=True)
@@ -162,3 +179,108 @@ def test__views__pull_request_api_view__private_repo(github_api_client, client):
     mock_github_api_client.repo_is_private = False
     test = client.get(f"/api/pulls/{repo.name}/1/landing_jobs")
     assert test.status_code == 200
+
+
+@mock.patch("lando.api.views.GitHubAPIClient")
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize(
+    "payload, expected_status, expected_response",
+    [
+        (
+            {
+                "title": "Valid New Title",
+                "body": "Valid New Body",
+            },
+            204,
+            b"",
+        ),
+        (
+            {
+                "title": "",
+                "body": "Valid New Body",
+            },
+            400,
+            {
+                "title": ["This field is required."],
+            },
+        ),
+        (
+            {
+                "title": "a" * 300,
+                "body": "Valid New Body",
+            },
+            400,
+            {
+                "title": ["Ensure this value has at most 256 characters (it has 300)."],
+            },
+        ),
+    ],
+)
+def test__views__pull_request_content_api_view(
+    github_api_client,
+    authenticated_client,
+    repo_mc_github_api_client,
+    payload,
+    expected_status,
+    expected_response,
+):
+    """Test PullRequestContentAPIView validation and success responses."""
+
+    github_api_client.return_value = repo_mc_github_api_client
+
+    mock_pull_request = mock.MagicMock()
+
+    repo_mc_github_api_client.build_pull_request.return_value = mock_pull_request
+    repo_mc_github_api_client.update_pull_request_content.return_value = payload
+
+    result = authenticated_client.put(
+        "/api/pulls/git-repo/100",
+        data=payload,
+        content_type="application/json",
+    )
+
+    assert result.status_code == expected_status
+
+    if expected_status == 204:
+        assert result.content == expected_response
+    else:
+        response_json = result.json()
+        for key, value in expected_response.items():
+            assert response_json.get(key) == value
+
+
+@mock.patch("lando.api.views.GitHubAPIClient")
+@pytest.mark.django_db(transaction=True)
+def test__views__pull_request_content_api_view__unauthenticated(
+    github_api_client, client, repo_mc_github_api_client
+):
+    """An anonymous PUT should be rejected by the auth decorator."""
+
+    github_api_client.return_value = repo_mc_github_api_client
+
+    result = client.put(
+        "/api/pulls/git-repo/100",
+        data={"title": "Valid New Title", "body": "Valid New Body"},
+        content_type="application/json",
+    )
+
+    # return 403 instead of 401 due to bug with django auth decorator. See: https://github.com/django/django/blob/main/django/core/handlers/exception.py#L75C51-L75C54
+    assert result.status_code == 403
+    assert b"403 Forbidden" in result.content
+
+
+@mock.patch("lando.api.views.GitHubAPIClient")
+@pytest.mark.django_db(transaction=True)
+def test__views__pull_request_content_api_view__missing_csrf_token(
+    github_api_client, csrf_client, repo_mc_github_api_client
+):
+    """An authenticated PUT without a CSRF token should be rejected."""
+    github_api_client.return_value = repo_mc_github_api_client
+
+    result = csrf_client.put(
+        "/api/pulls/git-repo/100",
+        data={"title": "Valid New Title", "body": "Valid New Body"},
+        content_type="application/json",
+    )
+    assert result.status_code == 403
+    assert b"403 Forbidden" in result.content
