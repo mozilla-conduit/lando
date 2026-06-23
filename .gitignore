@@ -9,3 +9,6 @@ staticfiles
 .test-use-suite
 .coverage*
 node_modules
+
+# Built Vue frontend bundle (produced by `make build-js`).
+src/lando/static_dist
