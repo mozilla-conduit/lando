@@ -148,6 +148,9 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
         123,
         456,
     ], "Both revisions should be tracked, in the correct order, in uplift request."
+    assert submission.target_selection_method == "server_rendered", (
+        "Without the widget field, the submission should default to server-rendered."
+    )
 
     jobs = list(
         UpliftJob.objects.select_related("target_repo").filter(submission=submission)
@@ -269,6 +272,33 @@ def test_uplift_creation_fails_when_seeding_fails(
     ), f"Should flash an error about the missing revision: {flash_messages=}"
     assert UpliftSubmission.objects.count() == 0, (
         "No `UpliftSubmission` should be created when seeding fails."
+    )
+
+
+@pytest.mark.django_db
+def test_uplift_creation_records_widget_target_selection(
+    authenticated_client, user, repo_mc, create_patch_revision, normal_patch, phabdouble
+):
+    """The widget-supplied `target_selection_method` is recorded on the submission."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
+    repo = repo_mc(scm_type=SCMType.GIT, name="firefox-beta", approval_required=True)
+    revision = create_patch_revision(123, patch=normal_patch(0))
+
+    url = reverse("uplift-page")
+    form_data = {
+        "source_revisions": [revision.revision_id],
+        "repositories": [repo.name],
+        "target_selection_method": "widget_version",
+    }
+    form_data |= CREATE_FORM_DATA
+
+    response = authenticated_client.post(url, data=form_data, HTTP_REFERER="/D123")
+
+    assert response.status_code == 302, "Successful creation should return 302."
+    submission = UpliftSubmission.objects.get()
+    assert submission.target_selection_method == "widget_version", (
+        "The widget-supplied selection method should be recorded on the submission."
     )
 
 

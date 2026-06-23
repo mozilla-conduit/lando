@@ -8,7 +8,8 @@
     "font-awesome": "^4.7.0",
     "jquery": "^3.7.1",
     "sass": "^1.97.0",
-    "vue": "^3.5.13"
+    "vue": "^3.5.13",
+    "zod": "^3.24.0"
   },
   "//": [
     "`prettier` is listed under `devDependencies` for semantic correctness",

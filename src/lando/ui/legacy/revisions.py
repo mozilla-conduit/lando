@@ -70,6 +70,9 @@ class UpliftRequestView(LandoView):
 
         source_revisions = uplift_request_form.cleaned_data["source_revisions"]
         repositories = uplift_request_form.cleaned_data["repositories"]
+        target_selection_method = uplift_request_form.cleaned_data[
+            "target_selection_method"
+        ]
 
         # Create DB rows for the uplift submission.
         with transaction.atomic():
@@ -86,6 +89,7 @@ class UpliftRequestView(LandoView):
                 requested_revision_ids=[
                     revision.revision_id for revision in source_revisions
                 ],
+                target_selection_method=target_selection_method,
             )
 
             # Create `UpliftJob`s and associate with this request.

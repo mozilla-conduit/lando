@@ -40,6 +40,21 @@ class LowMediumHighChoices(models.TextChoices):
     HIGH = "high", "High"
 
 
+class UpliftTargetSelectionMethod(models.TextChoices):
+    """How the uplift target repositories were selected at submission time."""
+
+    # The user chose a Firefox version in the Vue widget, which resolved to the
+    # target train(s).
+    WIDGET_VERSION = "widget_version", "Widget (version)"
+
+    # The user selected the target train(s) directly in the Vue widget.
+    WIDGET_MANUAL = "widget_manual", "Widget (manual)"
+
+    # The server-rendered checkboxes were used directly, e.g. with JavaScript
+    # disabled or when the widget failed to load.
+    SERVER_RENDERED = "server_rendered", "Server-rendered"
+
+
 class UpliftAssessment(BaseModel):
     """Represents the responses to the uplift request form."""
 
@@ -158,6 +173,14 @@ class UpliftSubmission(BaseModel):
         UpliftAssessment,
         on_delete=models.PROTECT,
         related_name="uplift_submission",
+    )
+
+    # Records how the uplift target repositories were selected, distinguishing
+    # the Vue widget from the server-rendered checkbox fallback.
+    target_selection_method = models.CharField(
+        max_length=20,
+        choices=UpliftTargetSelectionMethod.choices,
+        default=UpliftTargetSelectionMethod.SERVER_RENDERED,
     )
 
 

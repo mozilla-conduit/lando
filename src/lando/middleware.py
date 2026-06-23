@@ -4,6 +4,7 @@ import pstats
 from collections.abc import Callable
 from io import StringIO
 from typing import Optional
+from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.contrib.auth import authenticate
@@ -38,8 +39,16 @@ class ResponseHeadersMiddleware:
         response["X-Frame-Options"] = "DENY"
         response["X-Content-Type-Options"] = "nosniff"
 
+        # The uplift train-selector widget fetches release guidance from an
+        # external API, so `connect-src` must allow that origin in addition to
+        # `'self'`. A same-origin or unset URL yields an empty origin, which
+        # `strip` removes to leave just `'self'`.
+        train_api_origin = url_origin(settings.WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL)
+        connect_src = f"connect-src 'self' {train_api_origin}".strip()
+
         csp = [
             "default-src 'self'",
+            connect_src,
             "base-uri 'none'",
             "font-src 'self'  *.googleapis.com https://code.cdn.mozilla.net",
             "frame-ancestors 'none'",
@@ -68,6 +77,18 @@ class ResponseHeadersMiddleware:
         response["Content-Security-Policy"] = "; ".join(csp)
 
         return response
+
+
+def url_origin(url: str) -> str:
+    """Return the `scheme://host` origin of `url`, or `""` if it has none.
+
+    A relative or same-origin URL has no distinct origin, so it yields an empty
+    string; deciding what to do with that is left to the caller.
+    """
+    parts = urlsplit(url)
+    if parts.scheme and parts.netloc:
+        return f"{parts.scheme}://{parts.netloc}"
+    return ""
 
 
 class MaintenanceModeMiddleware:
