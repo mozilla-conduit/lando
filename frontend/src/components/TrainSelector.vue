@@ -1,25 +1,25 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import {
-  versionChoices,
-  resolveVersion,
-  summarizeRepos,
-  trainForRepo,
-  releaseScheduleSchema,
-  TRAIN_REPOS,
-  type ReleaseSchedule,
-  type RepoName,
-  type Train,
+    versionChoices,
+    resolveVersion,
+    summarizeRepos,
+    trainForRepo,
+    releaseScheduleSchema,
+    TRAIN_REPOS,
+    type ReleaseSchedule,
+    type RepoName,
+    type Train,
 } from "@/trainGuidance";
 import { useUpliftRepositories } from "@/composables/useUpliftRepositories";
 import {
-  useTargetSelectionMethod,
-  type TargetSelectionMethod,
+    useTargetSelectionMethod,
+    type TargetSelectionMethod,
 } from "@/composables/useTargetSelectionMethod";
 
 const props = withDefaults(
-  defineProps<{ apiUrl: string; managedRepos?: RepoName[] }>(),
-  { managedRepos: () => [TRAIN_REPOS.beta, TRAIN_REPOS.release] },
+    defineProps<{ apiUrl: string; managedRepos?: RepoName[] }>(),
+    { managedRepos: () => [TRAIN_REPOS.beta, TRAIN_REPOS.release] },
 );
 
 /** Current state of the API response retrieval. */
@@ -46,18 +46,16 @@ const repositories = useUpliftRepositories();
 /** Hidden field recording how the uplift target was selected. */
 const targetSelection = useTargetSelectionMethod();
 
-const choices = computed(() =>
-  schedule.value ? versionChoices(schedule.value) : [],
-);
+const choices = computed(() => (schedule.value ? versionChoices(schedule.value) : []));
 
 /**
  * The repositories a chosen version resolves to, used both to tick the
  * checkboxes and to describe where the patch will land.
  */
 const selectedRepos = computed(() =>
-  selectedVersion.value !== null && schedule.value
-    ? resolveVersion(selectedVersion.value, schedule.value)
-    : null,
+    selectedVersion.value !== null && schedule.value
+        ? resolveVersion(selectedVersion.value, schedule.value)
+        : null,
 );
 
 /**
@@ -65,30 +63,30 @@ const selectedRepos = computed(() =>
  * selecting a version also selects beta, release, or both.
  */
 const selectionSummary = computed(() => {
-  const repos = selectedRepos.value;
-  if (!repos) {
-    return "";
-  }
+    const repos = selectedRepos.value;
+    if (!repos) {
+        return "";
+    }
 
-  // Turn the resolved repositories into capitalized train names (e.g.
-  // `firefox-beta` becomes `Beta`), dropping any repo without a mainline train.
-  const labels = repos
-    .map((repo) => trainForRepo(repo))
-    .filter((train): train is Train => train !== null)
-    .map((train) => train.charAt(0).toUpperCase() + train.slice(1));
+    // Turn the resolved repositories into capitalized train names (e.g.
+    // `firefox-beta` becomes `Beta`), dropping any repo without a mainline train.
+    const labels = repos
+        .map((repo) => trainForRepo(repo))
+        .filter((train): train is Train => train !== null)
+        .map((train) => train.charAt(0).toUpperCase() + train.slice(1));
 
-  if (labels.length === 0) {
-    return "";
-  }
+    if (labels.length === 0) {
+        return "";
+    }
 
-  // Phrase the selected train(s) as a sentence: a single train reads "the Beta
-  // uplift train", while several read "the Beta and Release uplift trains".
-  if (labels.length === 1) {
-    return `Selected the ${labels[0]} uplift train.`;
-  }
+    // Phrase the selected train(s) as a sentence: a single train reads "the Beta
+    // uplift train", while several read "the Beta and Release uplift trains".
+    if (labels.length === 1) {
+        return `Selected the ${labels[0]} uplift train.`;
+    }
 
-  const last = labels[labels.length - 1];
-  return `Selected the ${labels.slice(0, -1).join(", ")} and ${last} uplift trains.`;
+    const last = labels[labels.length - 1];
+    return `Selected the ${labels.slice(0, -1).join(", ")} and ${last} uplift trains.`;
 });
 
 /**
@@ -97,31 +95,31 @@ const selectionSummary = computed(() => {
  * the train tab shows).
  */
 const versionMessage = computed(() => {
-  const repos = selectedRepos.value;
-  if (!repos || !schedule.value) {
-    return "";
-  }
+    const repos = selectedRepos.value;
+    if (!repos || !schedule.value) {
+        return "";
+    }
 
-  const { landing } = summarizeRepos(repos, schedule.value);
-  return [selectionSummary.value, landing].filter(Boolean).join(" ");
+    const { landing } = summarizeRepos(repos, schedule.value);
+    return [selectionSummary.value, landing].filter(Boolean).join(" ");
 });
 
 /** Combined guidance for the manually-selected repositories. */
 const manualGuidance = computed(() =>
-  schedule.value
-    ? summarizeRepos(repositories.checkedRepos.value, schedule.value)
-    : { landing: "", warnings: [] },
+    schedule.value
+        ? summarizeRepos(repositories.checkedRepos.value, schedule.value)
+        : { landing: "", warnings: [] },
 );
 
 /** Status line shown while the guidance loads or after it fails; empty once ready. */
 const statusMessage = computed(() => {
-  if (status.value === "loading") {
-    return "Loading release schedule…";
-  }
-  if (status.value === "error") {
-    return "Could not load release-train guidance. Select repositories manually below.";
-  }
-  return "";
+    if (status.value === "loading") {
+        return "Loading release schedule…";
+    }
+    if (status.value === "error") {
+        return "Could not load release-train guidance. Select repositories manually below.";
+    }
+    return "";
 });
 
 /**
@@ -129,16 +127,12 @@ const statusMessage = computed(() => {
  * is unavailable so the form remains usable.
  */
 const serverRenderedFieldVisible = computed(
-  () => status.value === "error" || mode.value === "manual",
+    () => status.value === "error" || mode.value === "manual",
 );
 
-watch(
-  serverRenderedFieldVisible,
-  (visible) => repositories.setFieldVisible(visible),
-  {
+watch(serverRenderedFieldVisible, (visible) => repositories.setFieldVisible(visible), {
     immediate: true,
-  },
-);
+});
 
 /**
  * How the target was selected, for attribution. Resolves to `server_rendered`
@@ -147,148 +141,148 @@ watch(
  * submitted early.
  */
 const targetSelectionMethod = computed<TargetSelectionMethod | null>(() => {
-  if (status.value === "error") {
-    return "server_rendered";
-  }
-  if (status.value !== "ready") {
-    return null;
-  }
-  return mode.value === "manual" ? "widget_manual" : "widget_version";
+    if (status.value === "error") {
+        return "server_rendered";
+    }
+    if (status.value !== "ready") {
+        return null;
+    }
+    return mode.value === "manual" ? "widget_manual" : "widget_version";
 });
 
 watch(
-  targetSelectionMethod,
-  (method) => {
-    if (method) {
-      targetSelection.setMethod(method);
-    }
-  },
-  { immediate: true },
+    targetSelectionMethod,
+    (method) => {
+        if (method) {
+            targetSelection.setMethod(method);
+        }
+    },
+    { immediate: true },
 );
 
 // Reapply the recommendation whenever it changes or the user re-enters version
 // mode, so the checkboxes always reflect the chosen version.
 watch([mode, selectedRepos], () => {
-  if (mode.value === "version" && selectedRepos.value) {
-    repositories.applyManaged(selectedRepos.value, props.managedRepos);
-  }
+    if (mode.value === "version" && selectedRepos.value) {
+        repositories.applyManaged(selectedRepos.value, props.managedRepos);
+    }
 });
 
 /** Fetch and validate the release-train guidance from the configured API. */
 async function loadSchedule(): Promise<void> {
-  try {
-    const response = await fetch(props.apiUrl, {
-      headers: { Accept: "application/json" },
-    });
+    try {
+        const response = await fetch(props.apiUrl, {
+            headers: { Accept: "application/json" },
+        });
 
-    if (!response.ok) {
-      throw new Error(`Unexpected response status ${response.status}.`);
+        if (!response.ok) {
+            throw new Error(`Unexpected response status ${response.status}.`);
+        }
+
+        const result = releaseScheduleSchema.safeParse(await response.json());
+        if (!result.success) {
+            throw new Error(
+                `Train guidance response had an unexpected shape: ${result.error.message}`,
+            );
+        }
+
+        schedule.value = result.data;
+        status.value = "ready";
+    } catch (caught) {
+        console.error("Could not load uplift train guidance.", caught);
+        status.value = "error";
+        mode.value = "manual";
     }
-
-    const result = releaseScheduleSchema.safeParse(await response.json());
-    if (!result.success) {
-      throw new Error(
-        `Train guidance response had an unexpected shape: ${result.error.message}`,
-      );
-    }
-
-    schedule.value = result.data;
-    status.value = "ready";
-  } catch (caught) {
-    console.error("Could not load uplift train guidance.", caught);
-    status.value = "error";
-    mode.value = "manual";
-  }
 }
 
 // Fetch the schedule the first time the modal is opened, then leave it cached.
 onMounted(() => {
-  openButton = document.querySelector(".uplift-request-open");
-  openButton?.addEventListener("click", loadSchedule, { once: true });
+    openButton = document.querySelector(".uplift-request-open");
+    openButton?.addEventListener("click", loadSchedule, { once: true });
 });
 
 onUnmounted(() => {
-  openButton?.removeEventListener("click", loadSchedule);
+    openButton?.removeEventListener("click", loadSchedule);
 });
 </script>
 
 <template>
-  <div class="block">
-    <p
-      v-if="statusMessage"
-      class="help"
-      :class="{
-        'is-info': status === 'loading',
-        'is-warning': status === 'error',
-      }"
-    >
-      {{ statusMessage }}
-    </p>
-    <template v-else>
-      <div class="tabs">
-        <ul role="tablist" aria-label="Uplift target selection">
-          <li :class="{ 'is-active': mode === 'version' }">
-            <a
-              role="tab"
-              tabindex="0"
-              :aria-selected="mode === 'version'"
-              @click="mode = 'version'"
-              @keydown.enter.prevent="mode = 'version'"
-              @keydown.space.prevent="mode = 'version'"
-              >Select Firefox Version</a
-            >
-          </li>
-          <li :class="{ 'is-active': mode === 'manual' }">
-            <a
-              role="tab"
-              tabindex="0"
-              :aria-selected="mode === 'manual'"
-              @click="mode = 'manual'"
-              @keydown.enter.prevent="mode = 'manual'"
-              @keydown.space.prevent="mode = 'manual'"
-              >Select Uplift Train</a
-            >
-          </li>
-        </ul>
-      </div>
-      <div v-if="mode === 'version'" class="field">
-        <div class="control">
-          <div class="select">
-            <select v-model.number="selectedVersion">
-              <option :value="null" disabled>Choose a version…</option>
-              <option
-                v-for="choice in choices"
-                :key="choice.version"
-                :value="choice.version"
-              >
-                Firefox {{ choice.version }}
-              </option>
-            </select>
-          </div>
-        </div>
-      </div>
-    </template>
-  </div>
+    <div class="block">
+        <p
+            v-if="statusMessage"
+            class="help"
+            :class="{
+                'is-info': status === 'loading',
+                'is-warning': status === 'error',
+            }"
+        >
+            {{ statusMessage }}
+        </p>
+        <template v-else>
+            <div class="tabs">
+                <ul role="tablist" aria-label="Uplift target selection">
+                    <li :class="{ 'is-active': mode === 'version' }">
+                        <a
+                            role="tab"
+                            tabindex="0"
+                            :aria-selected="mode === 'version'"
+                            @click="mode = 'version'"
+                            @keydown.enter.prevent="mode = 'version'"
+                            @keydown.space.prevent="mode = 'version'"
+                            >Select Firefox Version</a
+                        >
+                    </li>
+                    <li :class="{ 'is-active': mode === 'manual' }">
+                        <a
+                            role="tab"
+                            tabindex="0"
+                            :aria-selected="mode === 'manual'"
+                            @click="mode = 'manual'"
+                            @keydown.enter.prevent="mode = 'manual'"
+                            @keydown.space.prevent="mode = 'manual'"
+                            >Select Uplift Train</a
+                        >
+                    </li>
+                </ul>
+            </div>
+            <div v-if="mode === 'version'" class="field">
+                <div class="control">
+                    <div class="select">
+                        <select v-model.number="selectedVersion">
+                            <option :value="null" disabled>Choose a version…</option>
+                            <option
+                                v-for="choice in choices"
+                                :key="choice.version"
+                                :value="choice.version"
+                            >
+                                Firefox {{ choice.version }}
+                            </option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
 
-  <!-- Guidance messages render below the selection widget (see the
+    <!-- Guidance messages render below the selection widget (see the
        `uplift-train-messages` anchor in `uplift-form.html`). -->
-  <Teleport to="#uplift-train-messages">
-    <template v-if="status === 'ready' && mode === 'version'">
-      <p v-if="versionMessage" class="help is-info">
-        {{ versionMessage }}
-      </p>
-    </template>
-    <template v-else-if="status === 'ready'">
-      <p v-if="manualGuidance.landing" class="help is-info">
-        {{ manualGuidance.landing }}
-      </p>
-      <p
-        v-for="warning in manualGuidance.warnings"
-        :key="warning"
-        class="help is-warning"
-      >
-        {{ warning }}
-      </p>
-    </template>
-  </Teleport>
+    <Teleport to="#uplift-train-messages">
+        <template v-if="status === 'ready' && mode === 'version'">
+            <p v-if="versionMessage" class="help is-info">
+                {{ versionMessage }}
+            </p>
+        </template>
+        <template v-else-if="status === 'ready'">
+            <p v-if="manualGuidance.landing" class="help is-info">
+                {{ manualGuidance.landing }}
+            </p>
+            <p
+                v-for="warning in manualGuidance.warnings"
+                :key="warning"
+                class="help is-warning"
+            >
+                {{ warning }}
+            </p>
+        </template>
+    </Teleport>
 </template>
