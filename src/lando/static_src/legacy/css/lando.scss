@@ -8,43 +8,43 @@
 // Customize Bulma using CSS variables (Bulma 1.0+ feature)
 // These override Bulma's default colors and fonts at runtime
 :root {
-  // Mozilla color scheme
-  --bulma-primary-h: 214deg;
-  --bulma-primary-s: 100%;
-  --bulma-primary-l: 52%; // #0a84ff
+    // Mozilla color scheme
+    --bulma-primary-h: 214deg;
+    --bulma-primary-s: 100%;
+    --bulma-primary-l: 52%; // #0a84ff
 
-  --bulma-info-h: 189deg;
-  --bulma-info-s: 100%;
-  --bulma-info-l: 33%; // #008ea4 (turquoise)
+    --bulma-info-h: 189deg;
+    --bulma-info-s: 100%;
+    --bulma-info-l: 33%; // #008ea4 (turquoise)
 
-  --bulma-success-h: 127deg;
-  --bulma-success-s: 100%;
-  --bulma-success-l: 20%; // #058b00 (green)
+    --bulma-success-h: 127deg;
+    --bulma-success-s: 100%;
+    --bulma-success-l: 20%; // #058b00 (green)
 
-  --bulma-warning-h: 28deg;
-  --bulma-warning-s: 100%;
-  --bulma-warning-l: 50%; // #ff7700 (orange)
+    --bulma-warning-h: 28deg;
+    --bulma-warning-s: 100%;
+    --bulma-warning-l: 50%; // #ff7700 (orange)
 
-  --bulma-danger-h: 351deg;
-  --bulma-danger-s: 98%;
-  --bulma-danger-l: 42%; // #d70022 (red)
+    --bulma-danger-h: 351deg;
+    --bulma-danger-s: 98%;
+    --bulma-danger-l: 42%; // #d70022 (red)
 
-  // Force white text on colored backgrounds
-  // The -invert-l variable controls text lightness (0% = black, 100% = white)
-  --bulma-primary-invert-l: 100%; // White text on primary blue
-  --bulma-info-invert-l: 100%; // White text on info turquoise
-  --bulma-link-invert-l: 100%; // White text on link blue
+    // Force white text on colored backgrounds
+    // The -invert-l variable controls text lightness (0% = black, 100% = white)
+    --bulma-primary-invert-l: 100%; // White text on primary blue
+    --bulma-info-invert-l: 100%; // White text on info turquoise
+    --bulma-link-invert-l: 100%; // White text on link blue
 
-  // Make inline code more neutral.
-  --bulma-code-background: var(--bulma-background);
-  --bulma-code: var(--bulma-text);
+    // Make inline code more neutral.
+    --bulma-code-background: var(--bulma-background);
+    --bulma-code: var(--bulma-text);
 
-  // Mozilla typography
-  --bulma-family-primary: "Fira Sans", Arial, Helvetica, sans-serif;
-  --bulma-family-code: "Fira Mono", monospace;
+    // Mozilla typography
+    --bulma-family-primary: "Fira Sans", Arial, Helvetica, sans-serif;
+    --bulma-family-code: "Fira Mono", monospace;
 
-  // Force light mode and disable automatic dark mode
-  color-scheme: light only;
+    // Force light mode and disable automatic dark mode
+    color-scheme: light only;
 }
 
 // ============================================================================
@@ -96,39 +96,39 @@
 // Custom application styles
 // Makes sure the footer stays near the bottom of the page.
 body {
-  display: flex;
-  min-height: 100vh;
-  flex-direction: column;
+    display: flex;
+    min-height: 100vh;
+    flex-direction: column;
 }
 
 main {
-  flex: 1 0 auto;
-  padding: 1em;
+    flex: 1 0 auto;
+    padding: 1em;
 }
 
 h1 {
-  font-size: 2em;
-  font-weight: bold;
-  margin-bottom: 0.25em;
-  margin-top: 0.5em;
+    font-size: 2em;
+    font-weight: bold;
+    margin-bottom: 0.25em;
+    margin-top: 0.5em;
 }
 
 p {
-  margin-bottom: 1em;
+    margin-bottom: 1em;
 }
 
 // The banner that appears at the top of every page
 section.hero {
-  padding: 0.25rem 0 0.25rem 0.25rem;
+    padding: 0.25rem 0 0.25rem 0.25rem;
 
-  // add a border.
-  border-bottom: 1px solid hsl(0, 0%, 86%);
+    // add a border.
+    border-bottom: 1px solid hsl(0, 0%, 86%);
 
-  p {
-    font-size: 1.25rem;
-  }
+    p {
+        font-size: 1.25rem;
+    }
 }
 
 .hidden-content {
-  display: none;
+    display: none;
 }
