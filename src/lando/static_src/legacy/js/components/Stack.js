@@ -137,7 +137,7 @@ $.fn.stack = function () {
               method: "GET",
             }).then(async (response) => {
               $("#save-edit-pr").prop("disabled", false);
-              if (response.status == 204) {
+              if (response.status == 200) {
                 var result = await response.json();
                 var blockers = result.blockers;
                 var warnings = result.warnings;
@@ -264,7 +264,7 @@ $.fn.stack = function () {
               "X-CSRFToken": csrf_token,
             },
           }).then(async (response) => {
-            if (response.status === 200) {
+            if (response.status === 204) {
               $("#commit-title-error").text("");
               $("#commit-body-error").text("");
               $("#commit-title").removeClass("is-danger");
