@@ -2,7 +2,6 @@ import copy
 import io
 import logging
 import os
-import posixpath
 import re
 import shlex
 import subprocess
@@ -18,7 +17,6 @@ from typing import (
 )
 
 import hglib
-import rs_parsepatch
 from django.conf import settings
 from typing_extensions import override
 
@@ -248,8 +246,6 @@ class HgSCM(AbstractSCM):
             f_diff.write(diff)
             f_diff.flush()
 
-            similarity_args = ["-s", "95"]
-
             # NOTE: Using `hg import` here is less than ideal because
             # it does not use a 3-way merge. It would be better
             # to use `hg import --exact` then `hg rebase`, however we
@@ -257,9 +253,14 @@ class HgSCM(AbstractSCM):
             # in the local repo.
             # Also, Apply the patch, with file rename detection (similarity).
             # Using 95 as the similarity to match automv's default.
-            import_cmd = ["import", "--no-commit"]
+            import_cmd = ["import", "-s", "95", "--no-commit"]
 
-            self._run_hg_patch(import_cmd, f_diff, similarity_args=similarity_args)
+            try:
+                self._run_hg_import(import_cmd, f_diff)
+            except HgPatchConflict as exc:
+                logger.info("import failed", exc_info=exc)
+                self.clean_repo()
+                raise exc
 
             if re.match("^[0-9]+$", commit_date):
                 # If the commit_date is a unix timestamp, convert to Hg internal format.
@@ -276,17 +277,16 @@ class HgSCM(AbstractSCM):
     def apply_patch_git(self, patch_bytes: bytes):
         """Apply the Git patch, provided as encoded bytes."""
         f_patch = tempfile.NamedTemporaryFile(mode="w+b", suffix=".patch")
-        import_cmd = ["import"]
+        import_cmd = ["import", "-s", "95"]
 
         with f_patch:
             f_patch.write(patch_bytes)
             f_patch.flush()
 
             # `hg import` supports git-formatted patches natively.
-            self._run_hg_patch(
+            self._run_hg_import(
                 import_cmd,
                 f_patch,
-                similarity_args=["-s", "95"],
                 preserve_git_date=True,
             )
 
@@ -294,15 +294,14 @@ class HgSCM(AbstractSCM):
     def cherry_pick_commit(self, commit_id: str):
         raise NotImplementedError("`cherry_pick_commit` not implemented for hg.")
 
-    def _run_hg_patch(
+    def _run_hg_import(
         self,
         import_cmd: list[str],
         patch_or_diff: IO,
         *,
-        similarity_args: list | None = None,
         preserve_git_date: bool = False,
     ):
-        """Run an `hg import` command, with fallback on using external `patch`.
+        """Run an `hg import` command.
 
         Due to the nature of `hg import`, this supports both native HG patches, as well
         as git-format-patch output.
@@ -318,43 +317,8 @@ class HgSCM(AbstractSCM):
             patch_helper = GitPatchHelper.from_string_io(patch_iostr)
             patch_ts = patch_helper.get_timestamp()
             import_cmd += ["--date", f"{patch_ts} 0"]
-            if similarity_args:
-                import_cmd += similarity_args
-        try:
-            self.run_hg(import_cmd + [patch_or_diff.name])
-        except HgPatchConflict as exc:
-            # Try again using 'patch' instead of hg's internal patch utility.
-            # But first reset to a clean working directory as hg's attempt
-            # might have partially applied the patch.
-            logger.info("import failed, retrying with 'patch'", exc_info=exc)
-            import_cmd += ["--config", "ui.patch=patch"]
-            self.clean_repo()
 
-            self._prevent_hg_modifications(patch_or_diff.name)
-
-            try:
-                self.run_hg(import_cmd + similarity_args + [patch_or_diff.name])
-                # When using an external patch util mercurial won't
-                # automatically handle add/remove/renames.
-                self.run_hg(["addremove"] + (similarity_args or []))
-            except HgException as exc2:
-                # Re-raise the original exception from import with the built-in
-                # patcher since both attempts failed.
-                # NOTE: the order of the `raise ... from` is inverted here, so we retain the
-                # exception with the conflict information at the top of the exception
-                # chain.
-                raise exc from exc2
-
-    def _prevent_hg_modifications(self, diff_name: str) -> None:
-        """Inspect the patch data and raise an exception if any file is in .hg."""
-        with open(diff_name) as f:
-            diff = f.read()
-
-        parsed_diff = rs_parsepatch.get_diffs(diff)
-        filenames = [posixpath.normpath(d["filename"]) for d in parsed_diff]
-
-        if any(f == ".hg" or f.startswith(".hg/") for f in filenames):
-            raise ValueError("Patch modifies forbidden path.")
+        self.run_hg(import_cmd + [patch_or_diff.name])
 
     @override
     def get_patch(self, revision_id: str) -> str | None:

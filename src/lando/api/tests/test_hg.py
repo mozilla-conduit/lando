@@ -5,7 +5,6 @@ import textwrap
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
-from unittest import mock
 
 import hglib
 import pytest
@@ -90,29 +89,6 @@ diff --git a/not-real.txt b/not-real.txt
 @@ -1,1 +1,2 @@
  TEST
 +This line doesn't exist
-""".strip()
-
-
-PATCH_WITH_HG_CHANGES = """
-# HG changeset patch
-# User Test User <test@example.com>
-# Date 0 0
-#      Thu Jan 01 00:00:00 1970 +0000
-# Diff Start Line 7
-Modify hgrc
-diff --git a/not-real.txt b/not-real.txt
---- a/not-real.txt
-+++ b/not-real.txt
-@@ -1,1 +1,2 @@
- TEST
-+This line doesn't exist
-diff --git a/{filename} b/{filename}
---- a/{filename}
-+++ b/{filename}
-@@ -1,2 +1,3 @@
- # name and email (local to this repository, optional), e.g.
- # username = Jane Doe <jdoe@example.com>
-+# modified hgrc
 """.strip()
 
 
@@ -204,44 +180,6 @@ def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
 
 
 @pytest.mark.parametrize(
-    "reference",
-    (
-        ".hg/hgrc",
-        "./.hg/hgrc",
-        "./testdir/../.hg/hgrc",
-        "./././.hg/hgrc",
-    ),
-)
-def test_integrated_hgrepo_patch_hg_changes_failure(
-    hg_clone: os.PathLike, reference: str
-):
-    # Patches with changes in .hg should raise a ValueError exception.
-    # .hg/hgrc should also not be modified.
-    repo = HgSCM(hg_clone.strpath)
-
-    hgrc_file = hg_clone.strpath + "/.hg/hgrc"
-
-    with open(hgrc_file) as f:
-        hgrc_orig = f.read()
-
-    ph = HgPatchHelper.from_string_io(
-        io.StringIO(PATCH_WITH_HG_CHANGES.format(filename=reference))
-    )
-    with repo.for_pull():
-        with pytest.raises(ValueError, match="Patch modifies forbidden path."):
-            repo.apply_patch(
-                ph.get_diff(),
-                ph.get_commit_description(),
-                ph.get_header("User"),
-                ph.get_header("Date"),
-            )
-        with open(hgrc_file) as f:
-            hgrc_new = f.read()
-
-    assert hgrc_new == hgrc_orig, "hgrc file was modified"
-
-
-@pytest.mark.parametrize(
     "name, patch, expected_log",
     (
         ("normal", PATCH_NORMAL, ""),
@@ -271,64 +209,9 @@ def test_integrated_hgrepo_patch_success(
         assert expected_log in log_output.decode("utf-8")
 
 
-def test_integrated_hgrepo_patch_hgimport_fail_success(
-    monkeypatch: pytest.MonkeyPatch, hg_clone: os.PathLike
-):
-    """Test the re-application of a patch with `patch` if the Hg-internal method failed.
-
-    XXX: Due to making the first import fail artificially, rather than with a genuine
-    patch that would fail to import, we don't fully test all aspects of the failover
-    code. Most notably the use of `addremove` isn't adequately tested. Hg
-    successfully applies the supplied patch the second time round, and is able to detect
-    file additions without the need for `addremove`.
-    """
-    scm = HgSCM(hg_clone.strpath)
-
-    # Mock the internal method, so the public method can do exception conversion.
-    original_run_hg = scm._run_hg
-
-    def run_hg_conflict_on_import(*args):
-        # Fail the native import, but not the one using `patch`
-        if args[0][0] == "import" and "ui.patch=patch" not in args[0]:
-            raise hglib.error.CommandError(
-                (),
-                1,
-                b"",
-                b"forced fail: hunk FAILED -- saving rejects to file",
-            )
-        return original_run_hg(*args)
-
-    run_hg = mock.MagicMock()
-    run_hg.side_effect = run_hg_conflict_on_import
-    monkeypatch.setattr(scm, "_run_hg", run_hg)
-
-    patch_str = PATCH_NORMAL
-
-    with scm.for_pull():
-        ph = HgPatchHelper.from_string_io(io.StringIO(patch_str))
-        scm.apply_patch(
-            ph.get_diff(),
-            ph.get_commit_description(),
-            ph.get_header("User"),
-            ph.get_header("Date"),
-        )
-
-        # Commit created.
-        assert scm.run_hg(["outgoing"]), (
-            "No outgoing commit after non-hg importable patch has been applied"
-        )
-
-        commit = scm.describe_commit()
-
-        new_patch = scm.get_patch(commit.hash)
-
-    assert _trim_variable_patch_parts(new_patch) == _trim_variable_patch_parts(
-        patch_str
-    )
-
-    assert run_hg.mock_calls
-
-
+@pytest.mark.xfail(
+    reason="Fails with Hg 7.2+ (see bug 1941591), without the patch fallback removed in bug 2049227"
+)
 def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
     """Test newline bug in Mercurial
 
@@ -580,50 +463,6 @@ def test_HgSCM_apply_patch_git(hg_clone: Path, git_patch: Callable):
     assert new_patch, f"Empty patch unexpectedly generated for {commit.hash}"
 
     assert new_patch == PATCH_HG_PATCH_GIT_1
-
-
-def test_HgSCM_apply_patch_git_conflict(
-    hg_clone: os.PathLike, git_patch: Callable, monkeypatch: pytest.MonkeyPatch
-):
-    scm = HgSCM(str(hg_clone))
-
-    # Mock the internal method, so the public method can do exception conversion.
-    original_run_hg = scm._run_hg
-
-    def run_hg_conflict_on_import(*args):
-        # Fail the native import, but not the one using `patch`
-        if args[0][0] == "import" and "ui.patch=patch" not in args[0]:
-            raise hglib.error.CommandError(
-                (),
-                1,
-                b"",
-                b"forced fail: hunk FAILED -- saving rejects to file",
-            )
-        return original_run_hg(*args)
-
-    run_hg = mock.MagicMock()
-    run_hg.side_effect = run_hg_conflict_on_import
-    monkeypatch.setattr(scm, "_run_hg", run_hg)
-
-    # Get git-format-patch patch content as bytes
-    patch_str = git_patch()
-    patch_bytes = patch_str.encode("utf-8")
-
-    # Apply patch using the new method
-    with scm.for_push("user@example.com"):
-        scm.apply_patch_git(patch_bytes)
-
-        commit = scm.describe_commit()
-
-        new_patch = scm.get_patch(commit.hash)
-
-    assert new_patch, f"Empty patch unexpectedly generated for {commit.hash}"
-
-    assert _trim_variable_patch_parts(new_patch) == _trim_variable_patch_parts(
-        PATCH_HG_PATCH_GIT_1
-    )
-
-    assert run_hg.mock_calls
 
 
 def test_HgSCM_describe_commit(hg_clone):
