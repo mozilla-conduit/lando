@@ -137,7 +137,7 @@ $.fn.stack = function () {
               method: "GET",
             }).then(async (response) => {
               $("#save-edit-pr").prop("disabled", false);
-              if (response.status == 200) {
+              if (response.status == 204) {
                 var result = await response.json();
                 var blockers = result.blockers;
                 var warnings = result.warnings;
