@@ -223,10 +223,10 @@ for branch in ["main", "autoland", "beta", "release", "esr115", "esr128", "esr14
 for branch in ["main", "beta", "release", "esr140"]:
     REPOS[Environment.staging].append(
         {
-            "name": f"staging-thunderbird-desktop-{branch}",
+            "name": f"thunderbird-infra-testing-{branch}",
             "default_branch": branch,
-            "url": "https://github.com/thunderbird/thunderbird-desktop-staging.git",
-            "short_name": f"staging-thunderbird-desktop-{branch}",
+            "url": "https://github.com/thunderbird/infra-testing.git",
+            "short_name": f"thunderbird-infra-testing-{branch}",
             "required_permission": SCM_LEVEL_3,
             "automation_enabled": True,
         }
