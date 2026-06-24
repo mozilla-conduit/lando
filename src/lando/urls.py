@@ -25,6 +25,7 @@ from lando.api.views import (
     LandingJobPullRequestAPIView,
     LegacyDiffWarningView,
     PullRequestChecksAPIView,
+    PullRequestContentAPIView,
     git2hgCommitMapView,
     hg2gitCommitMapView,
 )
@@ -124,6 +125,11 @@ urlpatterns += [
         "api/pulls/<str:repo_name>/<int:pull_number>/checks",
         PullRequestChecksAPIView.as_view(),
         name="api-pull-request-checks",
+    ),
+    path(
+        "api/pulls/<str:repo_name>/<int:pull_number>",
+        PullRequestContentAPIView.as_view(),
+        name="api-pull-request-update-content",
     ),
 ]
 
