@@ -19,6 +19,7 @@ from lando.main.models.uplift import (
     UpliftJob,
     UpliftRevision,
     UpliftSubmission,
+    UpliftTargetSelectionMethod,
 )
 from lando.utils.management.commands.etl import (
     AutoformatChangeTransformer,
@@ -222,6 +223,7 @@ def test_transform_uplift_submission():
         requested_by=user,
         assessment=assessment,
         requested_revision_ids=[100, 101, 102],
+        target_selection_method=UpliftTargetSelectionMethod.WIDGET_VERSION,
     )
 
     transformer = UpliftSubmissionTransformer()
@@ -247,6 +249,9 @@ def test_transform_uplift_submission():
     )
     assert result["updated_at"] is not None, (
         "`updated_at` should exist and not be `None`."
+    )
+    assert result["target_selection_method"] == "widget_version", (
+        "`target_selection_method` should exist and match expected value."
     )
 
 

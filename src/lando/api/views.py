@@ -6,7 +6,7 @@ from typing import Callable
 
 from django import forms
 from django.core.handlers.wsgi import WSGIRequest
-from django.http import Http404, HttpRequest, JsonResponse
+from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.utils.decorators import method_decorator
 from django.utils.html import escape
 from django.views import View
@@ -214,7 +214,11 @@ class PullRequestAPIView(View, PrivateRepoPermissionMixin):
     def dispatch(
         self, request: WSGIRequest, repo_name: str, pull_number: int, *args, **kwargs
     ) -> JsonResponse:
-        self.target_repo = Repo.objects.get(name=repo_name)
+        try:
+            self.target_repo = Repo.objects.get(name=repo_name)
+        except Repo.DoesNotExist as e:
+            raise Http404 from e
+
         self.client = GitHubAPIClient(self.target_repo.url)
         self.raise_404_if_needed(request, self.client)
 
@@ -334,3 +338,33 @@ class PullRequestChecksAPIView(PullRequestAPIView):
             # The StaleMetadataException error message is safe for user consumption.
             return JsonResponse({"errors": [str(exc)]}, status=500)
         return JsonResponse(warnings_and_blockers)
+
+
+class PullRequestContentAPIView(PullRequestAPIView):
+    """Handle pull request content updates in the API."""
+
+    @method_decorator(require_authenticated_user)
+    def put(
+        self, request: WSGIRequest, repo_name: str, pull_number: int
+    ) -> JsonResponse:
+        """Update pull request content"""
+        if not self.target_repo.user_can_push(request.user):
+            return JsonResponse(
+                {"errors": ["You do not have permission to modify this pull request."]},
+                status=403,
+            )
+
+        class Form(forms.Form):
+            body = forms.CharField(required=False)
+            title = forms.CharField(max_length=256)
+
+        form = Form(json.loads(request.body))
+        if not form.is_valid():
+            return JsonResponse(form.errors, status=400)
+
+        self.client.update_pull_request_content(
+            self.pull_request.number,
+            form.cleaned_data["body"],
+            form.cleaned_data["title"],
+        )
+        return HttpResponse(status=204)
