@@ -1,8 +1,10 @@
 import json
+import logging
 from collections import defaultdict
 from datetime import datetime
 from functools import wraps
-from typing import Callable
+from json.decoder import JSONDecodeError
+from typing import Any, Callable
 
 from django import forms
 from django.conf import settings
@@ -47,6 +49,8 @@ from lando.utils.github_checks import (
 )
 from lando.utils.landing_checks import LandingChecks
 from lando.utils.phabricator import PHABRICATOR_API_KEY_HEADER, get_phabricator_client
+
+logger = logging.getLogger(__name__)
 
 
 class APIView(View):
@@ -384,8 +388,42 @@ class PullRequestContentAPIView(PullRequestAPIView):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class PullRequestUpdateWebhook(PullRequestAPIView):
+class PullRequestUpdateWebhook(View, PrivateRepoPermissionMixin):
     """API method called by GitHub to update Lando data in pull request."""
+
+    @staticmethod
+    def _get_pull_request_data(request_body: str) -> dict[str, Any]:
+        """Return arguments that will be redirected to dispatch."""
+        try:
+            post_data = json.loads(request_body)
+        except JSONDecodeError as e:
+            raise ValueError("Could not load JSON content") from e
+
+        if "pull_request" not in post_data:
+            raise ValueError("Could not find pull request data in JSON")
+
+        return post_data["pull_request"]
+
+    def dispatch(self, request: WSGIRequest) -> JsonResponse:
+        try:
+            pull_request_data = self._get_pull_request_data(request.body)
+        except ValueError as e:
+            logger.exception(e)
+            return JsonResponse({"message": str(e)}, status=202)
+
+        try:
+            self.target_repo = Repo.objects.get(
+                url=pull_request_data["base"]["repo"]["clone_url"],
+                default_branch=pull_request_data["base"]["ref"],
+            )
+        except (Repo.DoesNotExist, Repo.MultipleObjectsReturned) as e:
+            raise Http404 from e
+
+        self.client = GitHubAPIClient(self.target_repo.url)
+        self.raise_404_if_needed(request, self.client)
+        self.pull_request = PullRequest(self.client, pull_request_data)
+
+        return super().dispatch(request)
 
     def generate_context(self, request: HttpRequest) -> dict[str, str | list[str]]:
         """Generate various context variables used in rendering the template."""
@@ -414,11 +452,9 @@ class PullRequestUpdateWebhook(PullRequestAPIView):
 
     @require_github_signature
     @ignore_bot_sender
-    def post(
-        self, request: WSGIRequest, repo_name: str, pull_number: int
-    ) -> JsonResponse:
+    def post(self, request: WSGIRequest, *args, **kwargs) -> JsonResponse:
         """Generate content and update PR description."""
         context = self.generate_context(request)
         rendered = render_to_string("pr_description.md", context)
-        self.client.update_pull_request_content(pull_number, rendered)
+        self.client.update_pull_request_content(self.pull_request.number, rendered)
         return JsonResponse({"status": "success"})
