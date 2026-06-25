@@ -189,22 +189,22 @@ class UpliftWorker(Worker):
 
                     return created_revision_ids
 
-            patch_data = {
-                "author_name": "Lando",
-                "author_email": job.requester_email,
-                "commit_message": "try_task_config",
-                "timestamp": str(int(time.time())),
-            }
-
             # create fresh revisions using uplift revision diffs
             revisions = []
+
             for revision in job.revisions.all():
+                patch_data = {
+                    "author_name": revision.author_name,
+                    "author_email": revision.author_email,
+                    "commit_message": revision.commit_message,
+                    "timestamp": revision.timestamp,
+                }
                 revisions.append(
                     Revision.new_from_patch(
                         raw_diff=revision.diff, patch_data=patch_data
                     )
                 )
-            breakpoint()
+
             # create and append config file revisions
             try_config_path = settings.BASE_DIR / "api" / "legacy" / "workers" / "try_task_config.json"
             with open(try_config_path, "r") as file:
@@ -221,8 +221,16 @@ class UpliftWorker(Worker):
             added_lines = [f"+{line}" for line in config_lines]
             raw_diff = "\n".join(diff_header_lines + added_lines) + "\n"
 
+
+            try_patch_data = {
+                "author_name": "Lando",
+                "author_email": job.requester_email,
+                "commit_message": "try_task_config",
+                "timestamp": str(int(time.time())),
+            }
+
             try_revision = Revision.new_from_patch(
-                raw_diff=raw_diff, patch_data=patch_data
+                raw_diff=raw_diff, patch_data=try_patch_data
             )
             revisions.append(try_revision)
 
