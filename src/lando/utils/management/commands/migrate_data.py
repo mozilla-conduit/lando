@@ -97,3 +97,31 @@ class Command(BaseCommand):
                 self.stdout.write(f"{repo.name} ", ending="")
 
         self.stdout.write("done.")
+
+    def migrate_2_bug1709608_enable_prevent_empty_binary_hook(
+        self, ask_confirm: bool = True
+    ):
+        """
+        Enable the `PreventEmptyBinaryCheck` hook for all Phabricator repos.
+
+        See bug 1709608: a Phabricator diff whose `creationMethod` is `commit`
+        can land binary files as zero bytes. The hook defends every landing
+        path, but it only fires when enabled on a repo.
+        """
+        hook = Repo.HooksChoices.PreventEmptyBinaryCheck.value
+        phab_repos = Repo.objects.filter(is_phabricator_repo=True).exclude(
+            hooks__contains=[hook]
+        )
+        if not phab_repos:
+            self.stdout.write(f"No Phabricator repo found without the {hook} hook.")
+            raise SystemExit()
+
+        repo_names = ", ".join(repo.name for repo in phab_repos)
+        self._get_confirmation(ask_confirm, f"Enabling {hook} hook for: ", repo_names)
+
+        for repo in phab_repos:
+            repo.hooks = (repo.hooks or []) + [hook]
+            repo.save()
+            self.stdout.write(f"{repo.name} ", ending="")
+
+        self.stdout.write("done.")
