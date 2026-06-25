@@ -183,7 +183,7 @@ def patches(
         except ValueError as exc:
             status = 400
             return status, ProblemDetail(
-                title="CommitMap not found", detail=exc, status=status
+                title="CommitMap not found", detail=str(exc), status=status
             )
         try:
             target_commit_hash = get_commit_hash(
@@ -192,7 +192,7 @@ def patches(
         except ValueError as exc:
             status = 400
             return status, ProblemDetail(
-                title="Error converting SCM commit IDs", detail=exc, status=status
+                title="Error converting SCM commit IDs", detail=str(exc), status=status
             )
 
     # Create PatchHelpers and run the checks prior to creating any DB object.

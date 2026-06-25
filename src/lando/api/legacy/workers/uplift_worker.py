@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import time
 
+from django.conf import settings
 from django.db import transaction
 from typing_extensions import override
 
@@ -26,7 +27,6 @@ from lando.utils.tasks import (
     send_uplift_success_email,
     set_uplift_request_form_on_revision,
 )
-from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +161,6 @@ class UpliftWorker(Worker):
         job.status = JobStatus.LANDED
         job.save()
 
-        breakpoint()
         try:
             try_repo = Repo.objects.get(name="try")
             target_commit_hash = base_revision
@@ -169,7 +168,7 @@ class UpliftWorker(Worker):
             if try_repo.scm_type != repo.scm_type:
                 try:
                     mapping_repo = get_commit_map(
-                        try_repo.scm_type, repo.name, repo.scm_type
+                        try_repo.scm_type, try_repo.name, repo.scm_type
                     )
                 except ValueError:
                     logger.exception(
@@ -179,7 +178,7 @@ class UpliftWorker(Worker):
                     return created_revision_ids
                 try:
                     target_commit_hash = get_commit_hash(
-                        mapping_repo, target_commit_hash, repo.scm_type
+                        mapping_repo, target_commit_hash, try_repo.scm_type
                     )
                 except ValueError:
                     logger.exception(
@@ -206,11 +205,17 @@ class UpliftWorker(Worker):
                 )
 
             # create and append config file revisions
-            try_config_path = settings.BASE_DIR / "api" / "legacy" / "workers" / "try_task_config.json"
+            try_config_path = (
+                settings.BASE_DIR
+                / "api"
+                / "legacy"
+                / "workers"
+                / "try_task_config.json"
+            )
             with open(try_config_path, "r") as file:
                 config_contents = file.read()
-            
-            config_lines = config_contents. splitlines()
+
+            config_lines = config_contents.splitlines()
             diff_header_lines = [
                 "diff --git a/try_task_config.json b/try_task_config.json",
                 "new file mode 100644",
@@ -220,7 +225,6 @@ class UpliftWorker(Worker):
             ]
             added_lines = [f"+{line}" for line in config_lines]
             raw_diff = "\n".join(diff_header_lines + added_lines) + "\n"
-
 
             try_patch_data = {
                 "author_name": "Lando",
