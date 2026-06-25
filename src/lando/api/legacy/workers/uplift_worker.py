@@ -162,93 +162,7 @@ class UpliftWorker(Worker):
         job.save()
 
         try:
-            try_repo = Repo.objects.get(name="try")
-            target_commit_hash = base_revision
-
-            if try_repo.scm_type != repo.scm_type:
-                try:
-                    mapping_repo = get_commit_map(
-                        try_repo.scm_type, try_repo.name, repo.scm_type
-                    )
-                except ValueError:
-                    logger.exception(
-                        "CommitMap not found",
-                        extra={"job_id": job.id},
-                    )
-                    return created_revision_ids
-                try:
-                    target_commit_hash = get_commit_hash(
-                        mapping_repo, target_commit_hash, try_repo.scm_type
-                    )
-                except ValueError:
-                    logger.exception(
-                        "Error converting SCM commit IDs",
-                        extra={"job_id": job.id},
-                    )
-
-                    return created_revision_ids
-
-            # create fresh revisions using uplift revision diffs
-            revisions = []
-
-            for revision in job.revisions.all():
-                patch_data = {
-                    "author_name": revision.author_name,
-                    "author_email": revision.author_email,
-                    "commit_message": revision.commit_message,
-                    "timestamp": revision.timestamp,
-                }
-                revisions.append(
-                    Revision.new_from_patch(
-                        raw_diff=revision.diff, patch_data=patch_data
-                    )
-                )
-
-            # create and append config file revisions
-            try_config_path = (
-                settings.BASE_DIR
-                / "api"
-                / "legacy"
-                / "workers"
-                / "try_task_config.json"
-            )
-            with open(try_config_path, "r") as file:
-                config_contents = file.read()
-
-            config_lines = config_contents.splitlines()
-            diff_header_lines = [
-                "diff --git a/try_task_config.json b/try_task_config.json",
-                "new file mode 100644",
-                "--- /dev/null",
-                "+++ b/try_task_config.json",
-                f"@@ -0,0 +1,{len(config_lines)} @@",
-            ]
-            added_lines = [f"+{line}" for line in config_lines]
-            raw_diff = "\n".join(diff_header_lines + added_lines) + "\n"
-
-            try_patch_data = {
-                "author_name": "Lando",
-                "author_email": job.requester_email,
-                "commit_message": "try_task_config",
-                "timestamp": str(int(time.time())),
-            }
-
-            try_revision = Revision.new_from_patch(
-                raw_diff=raw_diff, patch_data=try_patch_data
-            )
-            revisions.append(try_revision)
-
-            with transaction.atomic():
-                try_job = LandingJob.objects.create(
-                    target_repo=try_repo,
-                    requester_email=job.requester_email,
-                    target_commit_hash=target_commit_hash,
-                    status=JobStatus.SUBMITTED,
-                )
-
-                add_revisions_to_job(revisions, try_job)
-                try_job.save()
-
+            self.create_uplift_try_push(base_revision, repo.scm_type, job)
         except Exception:
             logger.exception(
                 "Failed to create try push for uplift job.",
@@ -380,3 +294,87 @@ class UpliftWorker(Worker):
             )
             job.transition_status(JobAction.FAIL, message=message)
             raise PermanentFailureException(message) from exc
+
+    def create_uplift_try_push(
+        self, base_revision: str, repo_scm_type: str, job: UpliftJob
+    ) -> None:
+        try_repo = Repo.objects.get(name="try")
+        target_commit_hash = base_revision
+
+        if try_repo.scm_type != repo_scm_type:
+            try:
+                mapping_repo = get_commit_map(
+                    try_repo.scm_type, try_repo.name, repo_scm_type
+                )
+            except ValueError:
+                logger.exception(
+                    "CommitMap not found",
+                    extra={"job_id": job.id},
+                )
+                return
+            try:
+                target_commit_hash = get_commit_hash(
+                    mapping_repo, target_commit_hash, try_repo.scm_type
+                )
+            except ValueError:
+                logger.exception(
+                    "Error converting SCM commit IDs",
+                    extra={"job_id": job.id},
+                )
+
+                return
+
+        # create fresh revisions using uplift revision diffs
+        revisions = []
+
+        for revision in job.revisions.all():
+            patch_data = {
+                "author_name": revision.author_name,
+                "author_email": revision.author_email,
+                "commit_message": revision.commit_message,
+                "timestamp": revision.timestamp,
+            }
+            revisions.append(
+                Revision.new_from_patch(raw_diff=revision.diff, patch_data=patch_data)
+            )
+
+        # create and append config file revisions
+        try_config_path = (
+            settings.BASE_DIR / "api" / "legacy" / "workers" / "try_task_config.json"
+        )
+        with open(try_config_path, "r") as file:
+            config_contents = file.read()
+
+        config_lines = config_contents.splitlines()
+        diff_header_lines = [
+            "diff --git a/try_task_config.json b/try_task_config.json",
+            "new file mode 100644",
+            "--- /dev/null",
+            "+++ b/try_task_config.json",
+            f"@@ -0,0 +1,{len(config_lines)} @@",
+        ]
+        added_lines = [f"+{line}" for line in config_lines]
+        raw_diff = "\n".join(diff_header_lines + added_lines) + "\n"
+
+        try_patch_data = {
+            "author_name": "Lando",
+            "author_email": job.requester_email,
+            "commit_message": "try_task_config",
+            "timestamp": str(int(time.time())),
+        }
+
+        try_revision = Revision.new_from_patch(
+            raw_diff=raw_diff, patch_data=try_patch_data
+        )
+        revisions.append(try_revision)
+
+        with transaction.atomic():
+            try_job = LandingJob.objects.create(
+                target_repo=try_repo,
+                requester_email=job.requester_email,
+                target_commit_hash=target_commit_hash,
+                status=JobStatus.SUBMITTED,
+            )
+
+            add_revisions_to_job(revisions, try_job)
+            try_job.save()
