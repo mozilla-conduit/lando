@@ -3,6 +3,7 @@ import argparse
 from django.core.management import BaseCommand, CommandError, CommandParser
 
 from lando.main.models import SCM_ALLOW_DIRECT_PUSH
+from lando.main.models.commit_map import CommitMap
 from lando.main.models.repo import Repo
 
 
@@ -95,5 +96,33 @@ class Command(BaseCommand):
                 repo.required_automation_permission = SCM_ALLOW_DIRECT_PUSH
                 repo.save()
                 self.stdout.write(f"{repo.name} ", ending="")
+
+        self.stdout.write("done.")
+
+    def migrate_2_bug2050335_update_commit_map_thunderbird_desktop(
+        self, ask_confirm: bool = True
+    ):
+        """
+        Update CommitMap entries for `thunderbird`, to use `thunderbird-desktop`
+        instead.
+
+        This is to match the implicit use of the git_repo_name for lookups.
+        """
+        tbird_commit_maps = CommitMap.objects.filter(git_repo_name="thunderbird")
+        if not tbird_commit_maps:
+            self.stdout.write("No CommitMaps entries for `thunderbird`.")
+            raise SystemExit()
+
+        self._get_confirmation(
+            ask_confirm,
+            f"Updating {len(tbird_commit_maps)} CommitMaps to use `thunderbird-desktop` instead of `thunderbird`.",
+            "",
+        )
+
+        tbird_commit_maps = CommitMap.objects.raw("""
+            UPDATE main_commitmap
+            SET git_repo_name='thunderbird-desktop'
+            WHERE git_repo_name='thunderbird'
+            """)
 
         self.stdout.write("done.")
