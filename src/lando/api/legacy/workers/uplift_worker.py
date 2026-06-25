@@ -26,6 +26,7 @@ from lando.utils.tasks import (
     send_uplift_success_email,
     set_uplift_request_form_on_revision,
 )
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +161,7 @@ class UpliftWorker(Worker):
         job.status = JobStatus.LANDED
         job.save()
 
+        breakpoint()
         try:
             try_repo = Repo.objects.get(name="try")
             target_commit_hash = base_revision
@@ -202,26 +204,33 @@ class UpliftWorker(Worker):
                         raw_diff=revision.diff, patch_data=patch_data
                     )
                 )
-
+            breakpoint()
             # create and append config file revisions
-
-            with open("try_task_config.json", "r") as file:
-                raw_diff = file.read()
+            try_config_path = settings.BASE_DIR / "api" / "legacy" / "workers" / "try_task_config.json"
+            with open(try_config_path, "r") as file:
+                config_contents = file.read()
+            
+            config_lines = config_contents. splitlines()
+            diff_header_lines = [
+                "diff --git a/try_task_config.json b/try_task_config.json",
+                "new file mode 100644",
+                "--- /dev/null",
+                "+++ b/try_task_config.json",
+                f"@@ -0,0 +1,{len(config_lines)} @@",
+            ]
+            added_lines = [f"+{line}" for line in config_lines]
+            raw_diff = "\n".join(diff_header_lines + added_lines) + "\n"
 
             try_revision = Revision.new_from_patch(
                 raw_diff=raw_diff, patch_data=patch_data
             )
             revisions.append(try_revision)
 
-            # now that i have the list of revisions, can call add revisions to job
-            # to create a new landingjob
             with transaction.atomic():
                 try_job = LandingJob.objects.create(
                     target_repo=try_repo,
                     requester_email=job.requester_email,
                     target_commit_hash=target_commit_hash,
-                    # We are in a transaction, so we can mark this job as SUBMITTED rather than
-                    # having a two-step process starting with CREATED.
                     status=JobStatus.SUBMITTED,
                 )
 
