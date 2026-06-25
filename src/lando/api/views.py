@@ -1,13 +1,15 @@
 import json
+import logging
 from collections import defaultdict
 from datetime import datetime
 from functools import wraps
+from json.decoder import JSONDecodeError
 from typing import Callable
 
 from django import forms
 from django.conf import settings
 from django.core.handlers.wsgi import WSGIRequest
-from django.http import Http404, HttpRequest, JsonResponse
+from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.decorators import method_decorator
@@ -47,6 +49,8 @@ from lando.utils.github_checks import (
 )
 from lando.utils.landing_checks import LandingChecks
 from lando.utils.phabricator import PHABRICATOR_API_KEY_HEADER, get_phabricator_client
+
+logger = logging.getLogger(__name__)
 
 
 class APIView(View):
@@ -353,6 +357,35 @@ class PullRequestChecksAPIView(PullRequestAPIView):
 class PullRequestUpdateWebhook(PullRequestAPIView):
     """API method called by GitHub to update Lando data in pull request."""
 
+    @staticmethod
+    def _get_dispatch_args(request_body: str) -> tuple[str]:
+        """Return arguments that will be redirected to dispatch."""
+        POST = json.loads(request_body)
+        pull_number = POST["pull_request"]["number"]
+        branch = POST["pull_request"]["base"]["ref"]
+        clone_url = POST["repository"]["clone_url"]
+        return {
+            "pull_number": pull_number,
+            "repo_name": Repo.objects.get(url=clone_url, default_branch=branch).name,
+        }
+
+    def dispatch(self, request: WSGIRequest) -> JsonResponse:
+        """Fetch repo_name from data and call super."""
+        try:
+            dispatch_args = self._get_dispatch_args(request.body)
+        except (
+            JSONDecodeError,
+            IndexError,
+            KeyError,
+            Repo.DoesNotExist,
+        ) as e:
+            # Something in the webhook is not right, but we should accept the request to prevent
+            # errors from bubbling up to GitHub.
+            logger.exception(e)
+            return HttpResponse(status=202)
+
+        return super().dispatch(request, **dispatch_args)
+
     def generate_context(self, request: HttpRequest) -> dict[str, str | list[str]]:
         """Generate various context variables used in rendering the template."""
         context = generate_warnings_and_blockers(
@@ -380,11 +413,9 @@ class PullRequestUpdateWebhook(PullRequestAPIView):
 
     @require_github_signature
     @ignore_bot_sender
-    def post(
-        self, request: WSGIRequest, repo_name: str, pull_number: int
-    ) -> JsonResponse:
+    def post(self, request: WSGIRequest, *args, **kwargs) -> JsonResponse:
         """Generate content and update PR description."""
         context = self.generate_context(request)
         rendered = render_to_string("pr_description.md", context)
-        self.client.update_pull_request_body(pull_number, rendered)
+        self.client.update_pull_request_body(self.pull_request.number, rendered)
         return JsonResponse({"status": "success"})

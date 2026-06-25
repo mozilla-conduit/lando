@@ -224,6 +224,8 @@ class TestViewsPullRequestUpdateWebHook:
 
             repo = Repo.objects.create(
                 name="git-repo",
+                default_branch="test_branch",
+                url="https://github.com/test-repo.git",
                 scm_type=SCMType.GIT,
                 pr_enabled=True,
             )
@@ -235,7 +237,11 @@ class TestViewsPullRequestUpdateWebHook:
     @pytest.fixture
     def webhook_content(self):
         def _webhook_content(is_bot=False):
-            return {"sender": {"type": "User" if not is_bot else "Bot"}}
+            return {
+                "sender": {"type": "User" if not is_bot else "Bot"},
+                "pull_request": {"number": 1, "base": {"ref": "test_branch"}},
+                "repository": {"clone_url": "https://github.com/test-repo.git"},
+            }
 
         return _webhook_content
 
@@ -250,6 +256,7 @@ class TestViewsPullRequestUpdateWebHook:
         client,
         expected_body,
         webhook_gh_client,
+        webhook_content,
         hmac_headers,
     ):
         """Test that the webhook fails when called without correct headers."""
@@ -260,7 +267,14 @@ class TestViewsPullRequestUpdateWebHook:
             "blockers": ["a blocker"],
         }
 
-        response = client.post("/api/pulls/git-repo/1/webhook")
+        content = webhook_content()
+
+        response = client.post(
+            "/api/pulls/webhook",
+            content,
+            content_type="application/json",
+            headers={},
+        )
 
         assert mock_github_api_client.update_pull_request_body.call_count == 0
         assert response.status_code == 403
@@ -286,9 +300,10 @@ class TestViewsPullRequestUpdateWebHook:
             "warnings": ["a warning"],
             "blockers": ["a blocker"],
         }
+        content = webhook_content()
         response = client.post(
-            "/api/pulls/git-repo/1/webhook",
-            content := webhook_content(),
+            "/api/pulls/webhook",
+            content,
             content_type="application/json",
             headers=hmac_headers(body=content),
         )
@@ -340,9 +355,10 @@ class TestViewsPullRequestUpdateWebHook:
             "blockers": ["a blocker"],
         }
 
+        content = webhook_content()
         client.post(
-            "/api/pulls/git-repo/1/webhook",
-            content := webhook_content(),
+            "/api/pulls/webhook",
+            content,
             content_type="application/json",
             headers=hmac_headers(body=content),
         )
@@ -386,9 +402,10 @@ class TestViewsPullRequestUpdateWebHook:
             "blockers": [],
         }
 
+        content = webhook_content()
         client.post(
-            "/api/pulls/git-repo/1/webhook",
-            content := webhook_content(),
+            "/api/pulls/webhook",
+            content,
             content_type="application/json",
             headers=hmac_headers(body=content),
         )
@@ -422,9 +439,10 @@ class TestViewsPullRequestUpdateWebHook:
     ):
         mock_github_api_client = webhook_gh_client(github_api_client, body)
 
+        content = webhook_content(is_bot=True)
         response = client.post(
-            "/api/pulls/git-repo/1/webhook",
-            content := webhook_content(is_bot=True),
+            "/api/pulls/webhook",
+            content,
             content_type="application/json",
             headers=hmac_headers(body=content),
         )
