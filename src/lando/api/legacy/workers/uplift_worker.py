@@ -4,6 +4,7 @@ import os
 import subprocess
 import tempfile
 import time
+from typing import Iterable
 
 from django.conf import settings
 from django.db import transaction
@@ -21,16 +22,15 @@ from lando.main.models import (
 from lando.main.models.landing_job import LandingJob, add_revisions_to_job
 from lando.main.models.repo import Repo
 from lando.main.models.uplift import UpliftJob, UpliftRevision
+from lando.main.scm import GitSCM
+from lando.main.scm.commit import CommitData
+from lando.main.scm.helpers import PatchHelper
 from lando.try_api.api import get_commit_hash, get_commit_map
 from lando.utils.tasks import (
     send_uplift_failure_email,
     send_uplift_success_email,
     set_uplift_request_form_on_revision,
 )
-from lando.main.scm.commit import CommitData
-from typing import Iterable
-from lando.main.scm import GitSCM
-from lando.main.scm.helpers import PatchHelper
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +167,9 @@ class UpliftWorker(Worker):
         job.save()
 
         try:
-            try_job = self.create_uplift_try_push(base_revision, repo.scm_type, job, scm, new_commits)      
+            try_job = self.create_uplift_try_push(
+                base_revision, repo.scm_type, job, scm, new_commits
+            )
         except Exception:
             logger.exception(
                 "Failed to create try push for uplift job.",
@@ -305,8 +307,14 @@ class UpliftWorker(Worker):
             raise PermanentFailureException(message) from exc
 
     def create_uplift_try_push(
-        self, target_commit_hash: str, repo_scm_type: str, job: UpliftJob, scm: GitSCM, new_commits: Iterable[CommitData]
+        self,
+        target_commit_hash: str,
+        repo_scm_type: str,
+        job: UpliftJob,
+        scm: GitSCM,
+        new_commits: Iterable[CommitData],
     ) -> LandingJob:
+        """Create a Try `LandingJob` for the commits landed by an uplift job."""
         try_repo = Repo.objects.get(name="try")
 
         if try_repo.scm_type != repo_scm_type:
@@ -329,14 +337,15 @@ class UpliftWorker(Worker):
                     "Error converting SCM commit IDs",
                     extra={"job_id": job.id},
                 )
-                raise 
+                raise
 
         with transaction.atomic():
             revisions = []
             patch_helpers = scm.get_patch_helpers_for_commits(new_commits)
             for patch_helper in patch_helpers:
                 revisions.append(self.create_revisions_from_patch_helpers(patch_helper))
-            revisions.append(self.create_try_revision(job.requester_email))
+            try_revision = self.create_try_revision(job.requester_email)
+            revisions.append(try_revision)
 
             try_job = LandingJob.objects.create(
                 target_repo=try_repo,
@@ -344,18 +353,15 @@ class UpliftWorker(Worker):
                 target_commit_hash=target_commit_hash,
                 status=JobStatus.SUBMITTED,
             )
-
             add_revisions_to_job(revisions, try_job)
             try_job.save()
         return try_job
 
     def create_try_diff_from_json(self) -> str:
         try_config_path = (
-                settings.BASE_DIR / "api" / "legacy" / "workers" / "try_task_config.json"
-            )
-
+            settings.BASE_DIR / "api" / "legacy" / "workers" / "try_task_config.json"
+        )
         config_contents = try_config_path.read_text()
-
         config_lines = config_contents.splitlines()
         diff_header_lines = [
             "diff --git a/try_task_config.json b/try_task_config.json",
@@ -368,7 +374,8 @@ class UpliftWorker(Worker):
         raw_diff = "\n".join(diff_header_lines + added_lines) + "\n"
         return raw_diff
 
-    def create_try_revision (self, requester_email:str) -> Revision:
+    def create_try_revision(self, requester_email: str) -> Revision:
+        """Build the `Revision` carrying the `try_task_config.json` change."""
         try_patch_data = {
             "author_name": "Lando",
             "author_email": requester_email,
@@ -376,10 +383,11 @@ class UpliftWorker(Worker):
             "timestamp": str(int(time.time())),
         }
         raw_diff = self.create_try_diff_from_json()
-        return Revision.new_from_patch(
-            raw_diff=raw_diff, patch_data=try_patch_data
-        )
-    def create_revisions_from_patch_helpers(self, patch_helper: PatchHelper) -> Revision:
+        return Revision.new_from_patch(raw_diff=raw_diff, patch_data=try_patch_data)
+
+    def create_revisions_from_patch_helpers(
+        self, patch_helper: PatchHelper
+    ) -> Revision:
         """Build a `Revision` from a single landed commit's `PatchHelper`."""
         author_name, author_email = patch_helper.parse_author_information()
         timestamp = patch_helper.get_timestamp()

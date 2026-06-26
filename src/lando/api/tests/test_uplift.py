@@ -750,9 +750,11 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
 
     try_repo = repo_mc(SCMType.HG, name="try", is_try=True)
 
+    # Hardcode the mapping between the Git base commit to it's Hg equivalent that would exist in the database in production so the lookup succeeds.
     mapped_hg_hash = "a" * 40
+    base_git_hash = GitSCM(repo.pull_path).head_ref()
     CommitMap.objects.create(
-        git_hash="c82f7a174ed50727f951a6ea4aaee192eba1787a",
+        git_hash=base_git_hash,
         hg_hash=mapped_hg_hash,
         git_repo_name="firefox",
     )
