@@ -29,7 +29,7 @@ from lando.api.legacy.stacks import (
     request_extended_revision_data,
 )
 from lando.api.legacy.transplants import build_stack_assessment_state
-from lando.api.tests.mocks import PhabricatorDouble, TreeStatusDouble
+from lando.api.tests.mocks import PhabricatorDouble
 from lando.headless_api.models.automation_job import AutomationJob
 from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import (
@@ -1358,18 +1358,6 @@ def create_state(
         )
 
     return create_state_handler
-
-
-@pytest.fixture
-def treestatus_url():
-    """A string holding the Tree Status base URL."""
-    return settings.TREESTATUS_URL
-
-
-@pytest.fixture
-def treestatusdouble(monkeypatch, treestatus_url):
-    """Mock the Tree Status service and build fake responses."""
-    yield TreeStatusDouble(monkeypatch, treestatus_url)
 
 
 @pytest.fixture

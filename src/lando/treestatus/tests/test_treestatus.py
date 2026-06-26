@@ -1,9 +1,15 @@
 import datetime
 
 import pytest
+import requests_mock
+from django.core.cache import caches
+from django.core.management import call_command
+from django.test import override_settings
+from django.utils.dateparse import parse_datetime
 
-from lando.treestatus.models import CombinedTree, TreeCategory, TreeStatus
+from lando.treestatus.models import CombinedTree, Log, Tree, TreeCategory, TreeStatus
 from lando.treestatus.views.api import (
+    TREESTATUS_CACHE,
     LogEntry,
     StackEntry,
     TreeData,
@@ -12,6 +18,7 @@ from lando.treestatus.views.api import (
     apply_tree_updates,
     create_new_tree,
     get_combined_tree,
+    get_tree_by_name,
     is_open,
     remove_tree_by_name,
     revert_status_change,
@@ -57,6 +64,42 @@ def test_is_open_for_approval_required_tree(new_treestatus_tree):
     new_treestatus_tree(tree="mozilla-central", status=TreeStatus.APPROVAL_REQUIRED)
     assert is_open("mozilla-central"), (
         "`is_open` should return `True` for approval required tree."
+    )
+
+
+# Enable the local memory cache for the `db` alias `get_tree_by_name` uses, since
+# tests otherwise use the dummy cache.
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "test-cache-default",
+        },
+        TREESTATUS_CACHE: {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "test-cache-db",
+        },
+    }
+)
+@pytest.mark.django_db
+def test_is_open_bypasses_stale_cache(new_treestatus_tree):
+    """`is_open` reads fresh state even when `get_tree_by_name` is cached stale."""
+    caches[TREESTATUS_CACHE].clear()
+    tree = new_treestatus_tree(tree="mozilla-central", status=TreeStatus.OPEN)
+
+    # Populate the cache with the open state, then close the tree directly so the
+    # cached `CombinedTree` is left stale (no invalidation).
+    assert get_tree_by_name("mozilla-central").status.is_open(), (
+        "The tree should be cached as open."
+    )
+    tree.status = TreeStatus.CLOSED
+    tree.save()
+
+    assert get_tree_by_name("mozilla-central").status.is_open(), (
+        "`get_tree_by_name` should still return the stale cached open state."
+    )
+    assert not is_open("mozilla-central"), (
+        "`is_open` should bypass the cache and observe the tree is now closed."
     )
 
 
@@ -958,3 +1001,119 @@ def test_api_get_stack(client, new_treestatus_tree):
     assert result is not None, "Response should contain `result` key."
     for entry in result:
         assert StackEntry(**entry)
+
+
+# Base URL of a fake source Treestatus instance used by the import command tests.
+IMPORT_BASE_URL = "http://old-lando.test/treestatus"
+
+
+def mock_source_treestatus(mock: requests_mock.Mocker):
+    """Register fake `/trees` and `/logs_all` responses for the import command.
+
+    The `autoland` tree carries a category and message of the day to exercise
+    importing those fields, while the `try` tree has no logs.
+    """
+    mock.get(
+        f"{IMPORT_BASE_URL}/trees",
+        json={
+            "result": {
+                "autoland": {
+                    "tree": "autoland",
+                    "status": "approval required",
+                    "reason": "soft freeze",
+                    "message_of_the_day": "soft freeze in effect",
+                    "tags": [],
+                    "category": "development",
+                    "log_id": 2,
+                },
+                "try": {
+                    "tree": "try",
+                    "status": "open",
+                    "reason": "",
+                    "message_of_the_day": "",
+                    "tags": [],
+                    "category": "try",
+                    "log_id": None,
+                },
+            }
+        },
+    )
+    mock.get(
+        f"{IMPORT_BASE_URL}/trees/autoland/logs_all",
+        json={
+            "result": [
+                {
+                    "tree": "autoland",
+                    "who": "user2",
+                    "status": "approval required",
+                    "reason": "soft freeze",
+                    "tags": ["sometag"],
+                    "when": "2025-02-01T00:00:00+00:00",
+                },
+                {
+                    "tree": "autoland",
+                    "who": "user1",
+                    "status": "open",
+                    "reason": "reopened",
+                    "tags": [],
+                    "when": "2025-01-01T00:00:00+00:00",
+                },
+            ]
+        },
+    )
+    mock.get(f"{IMPORT_BASE_URL}/trees/try/logs_all", json={"result": []})
+
+
+@pytest.mark.django_db
+def test_import_treestatus_data_creates_trees_and_logs():
+    with requests_mock.Mocker() as mock:
+        mock_source_treestatus(mock)
+        call_command("import_treestatus_data", IMPORT_BASE_URL)
+
+    assert Tree.objects.count() == 2, "Both source trees should be imported."
+
+    autoland = Tree.objects.get(tree="autoland")
+    assert autoland.category == TreeCategory.DEVELOPMENT, (
+        "`autoland`'s category should be imported from the API response."
+    )
+    assert autoland.message_of_the_day == "soft freeze in effect", (
+        "`autoland`'s message of the day should be imported from the API response."
+    )
+    assert autoland.status == TreeStatus.APPROVAL_REQUIRED, (
+        "`autoland`'s status should be seeded from the API response."
+    )
+    assert Tree.objects.get(tree="try").category == TreeCategory.TRY, (
+        "`try`'s category should be imported from the API response."
+    )
+
+    logs = list(Log.objects.filter(tree="autoland").order_by("created_at"))
+    assert len(logs) == 2, "Both `autoland` log entries should be imported."
+    assert logs[0].created_at == parse_datetime("2025-01-01T00:00:00+00:00"), (
+        "The original log timestamp should be preserved on import."
+    )
+    assert logs[1].status == TreeStatus.APPROVAL_REQUIRED, (
+        "The log status should be imported directly from the API response."
+    )
+
+    assert is_open("autoland"), (
+        "`autoland` should be open since its latest log is `approval required`."
+    )
+
+
+@pytest.mark.django_db
+def test_import_treestatus_data_skips_existing_trees(new_treestatus_tree):
+    new_treestatus_tree(tree="autoland", status=TreeStatus.OPEN)
+
+    with requests_mock.Mocker() as mock:
+        mock_source_treestatus(mock)
+        call_command("import_treestatus_data", IMPORT_BASE_URL)
+
+    assert Tree.objects.filter(tree="autoland").count() == 1, (
+        "An already-existing tree should not be duplicated."
+    )
+    assert not Log.objects.filter(tree="autoland").exists(), (
+        "Logs should not be imported for a skipped tree."
+    )
+    assert Tree.objects.filter(tree="try").exists(), (
+        "New trees should still be imported alongside skipped ones."
+    )
