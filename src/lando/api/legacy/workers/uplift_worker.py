@@ -30,6 +30,24 @@ from lando.utils.tasks import (
 
 logger = logging.getLogger(__name__)
 
+def create_try_diff_from_json() -> str:
+    try_config_path = (
+            settings.BASE_DIR / "api" / "legacy" / "workers" / "try_task_config.json"
+        )
+    with open(try_config_path, "r") as file:
+        config_contents = file.read()
+
+    config_lines = config_contents.splitlines()
+    diff_header_lines = [
+        "diff --git a/try_task_config.json b/try_task_config.json",
+        "new file mode 100644",
+        "--- /dev/null",
+        "+++ b/try_task_config.json",
+        f"@@ -0,0 +1,{len(config_lines)} @@",
+    ]
+    added_lines = [f"+{line}" for line in config_lines]
+    raw_diff = "\n".join(diff_header_lines + added_lines) + "\n"
+    return raw_diff
 
 class UpliftWorker(Worker):
     """Worker to execute uplift jobs.
@@ -339,23 +357,7 @@ class UpliftWorker(Worker):
             )
 
         # create and append config file revisions
-        try_config_path = (
-            settings.BASE_DIR / "api" / "legacy" / "workers" / "try_task_config.json"
-        )
-        with open(try_config_path, "r") as file:
-            config_contents = file.read()
-
-        config_lines = config_contents.splitlines()
-        diff_header_lines = [
-            "diff --git a/try_task_config.json b/try_task_config.json",
-            "new file mode 100644",
-            "--- /dev/null",
-            "+++ b/try_task_config.json",
-            f"@@ -0,0 +1,{len(config_lines)} @@",
-        ]
-        added_lines = [f"+{line}" for line in config_lines]
-        raw_diff = "\n".join(diff_header_lines + added_lines) + "\n"
-
+        raw_diff = create_try_diff_from_json()
         try_patch_data = {
             "author_name": "Lando",
             "author_email": job.requester_email,
