@@ -27,6 +27,10 @@ from lando.utils.tasks import (
     send_uplift_success_email,
     set_uplift_request_form_on_revision,
 )
+from lando.main.scm.commit import CommitData
+from typing import Iterable
+from lando.main.scm import GitSCM
+from lando.main.scm.helpers import PatchHelper
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +64,9 @@ def create_try_revision (requester_email) -> Revision:
     return Revision.new_from_patch(
         raw_diff=raw_diff, patch_data=try_patch_data
     )
+
+
+
 class UpliftWorker(Worker):
     """Worker to execute uplift jobs.
 
@@ -155,12 +162,13 @@ class UpliftWorker(Worker):
 
         # Update to the latest commit in the target train.
         base_revision = self.update_repo(repo, job, scm, target_cset=None)
-
+        new_commits = []
         for uplift_revision in job.revisions.all():
             self.handle_new_commit_failures(
                 apply_uplift_revision, repo, job, scm, uplift_revision
             )
             new_commit = scm.describe_commit()
+            new_commits.append(new_commit)
             logger.debug(f"Created new commit {new_commit}")
 
         # On success: create patches.
@@ -191,7 +199,7 @@ class UpliftWorker(Worker):
         job.save()
 
         try:
-            try_job = self.create_uplift_try_push(base_revision, repo.scm_type, job)      
+            try_job = self.create_uplift_try_push(base_revision, repo.scm_type, job, scm, new_commits)      
         except Exception:
             logger.exception(
                 "Failed to create try push for uplift job.",
@@ -329,7 +337,7 @@ class UpliftWorker(Worker):
             raise PermanentFailureException(message) from exc
 
     def create_uplift_try_push(
-        self, target_commit_hash: str, repo_scm_type: str, job: UpliftJob
+        self, target_commit_hash: str, repo_scm_type: str, job: UpliftJob, scm: GitSCM, new_commits: Iterable[CommitData]
     ) -> LandingJob:
         try_repo = Repo.objects.get(name="try")
 
@@ -355,24 +363,26 @@ class UpliftWorker(Worker):
                 )
                 raise 
 
-        # create fresh revisions using uplift revision diffs
-        revisions = []
-
-        for revision in job.revisions.all():
-            patch_data = {
-                "author_name": revision.author_name,
-                "author_email": revision.author_email,
-                "commit_message": revision.commit_message,
-                "timestamp": revision.timestamp,
-            }
-            revisions.append(
-                Revision.new_from_patch(raw_diff=revision.diff, patch_data=patch_data)
-            )
-
-        try_revision = create_try_revision(job.requester_email)
-        revisions.append(try_revision)
-
         with transaction.atomic():
+            revisions = []
+            patch_helpers = scm.get_patch_helpers_for_commits(new_commits)
+            for patch_helper in patch_helpers:
+                author_name, author_email = patch_helper.parse_author_information()
+                timestamp = patch_helper.get_timestamp()
+                commit_message = patch_helper.get_commit_description()
+                diff = patch_helper.get_diff()
+                patch_data = {
+                    "author_name": author_name,
+                    "author_email": author_email,
+                    "commit_message": commit_message,
+                    "timestamp": timestamp,
+                }
+                revisions.append(
+                    Revision.new_from_patch(raw_diff=diff, patch_data=patch_data)
+                )
+
+            revisions.append(create_try_revision(job.requester_email))
+
             try_job = LandingJob.objects.create(
                 target_repo=try_repo,
                 requester_email=job.requester_email,
