@@ -191,13 +191,17 @@ class UpliftWorker(Worker):
         job.save()
 
         try:
-            self.create_uplift_try_push(base_revision, repo.scm_type, job)
+            try_job = self.create_uplift_try_push(base_revision, repo.scm_type, job)      
         except Exception:
             logger.exception(
                 "Failed to create try push for uplift job.",
                 extra={"job_id": job.id},
             )
-
+        else:
+            logger.info(
+                "Created try landing job for uplift job.",
+                extra={"job_id": job.id, "try_job_id": try_job.id},
+            )
         return created_revision_ids
 
     def notify_uplift_success(
@@ -326,7 +330,7 @@ class UpliftWorker(Worker):
 
     def create_uplift_try_push(
         self, target_commit_hash: str, repo_scm_type: str, job: UpliftJob
-    ) -> None:
+    ) -> LandingJob:
         try_repo = Repo.objects.get(name="try")
 
         if try_repo.scm_type != repo_scm_type:
@@ -339,7 +343,7 @@ class UpliftWorker(Worker):
                     "CommitMap not found",
                     extra={"job_id": job.id},
                 )
-                return
+                raise
             try:
                 target_commit_hash = get_commit_hash(
                     mapping_repo, target_commit_hash, try_repo.scm_type
@@ -349,8 +353,7 @@ class UpliftWorker(Worker):
                     "Error converting SCM commit IDs",
                     extra={"job_id": job.id},
                 )
-
-                return
+                raise 
 
         # create fresh revisions using uplift revision diffs
         revisions = []
@@ -379,3 +382,4 @@ class UpliftWorker(Worker):
 
             add_revisions_to_job(revisions, try_job)
             try_job.save()
+        return try_job
