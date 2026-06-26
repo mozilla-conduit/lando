@@ -190,7 +190,10 @@ def is_open(tree_name: str) -> bool:
     The tree is open for landing when it is `open` or `approval required`.
     If the tree cannot be found in Treestatus it is considered open.
     """
-    tree = get_tree_by_name(tree_name)
+    # Read directly from the database rather than via the cached
+    # `get_tree_by_name`, so landing decisions always reflect the latest
+    # committed state without depending on the cache being invalidated in time.
+    tree = fetch_tree_by_name(tree_name)
 
     # We assume missing trees are open.
     return not tree or tree.status.is_open()
@@ -203,7 +206,17 @@ def tree_cache_key(tree_name: str) -> str:
 
 @cache_method(tree_cache_key, cache_alias=TREESTATUS_CACHE)
 def get_tree_by_name(tree_name: str) -> Optional[CombinedTree]:
-    """Retrieve a `CombinedTree` representation of a tree by name.
+    """Cached lookup of a tree by name.
+
+    Returns `None` if no tree can be found. Suitable for display surfaces where
+    a brief staleness window is acceptable; landing decisions should use
+    `fetch_tree_by_name` instead.
+    """
+    return fetch_tree_by_name(tree_name)
+
+
+def fetch_tree_by_name(tree_name: str) -> Optional[CombinedTree]:
+    """Retrieve a `CombinedTree` representation of a tree by name from the database.
 
     Returns `None` if no tree can be found.
     """

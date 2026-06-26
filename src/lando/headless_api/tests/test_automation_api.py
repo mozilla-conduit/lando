@@ -15,7 +15,6 @@ from django.test.client import Client
 from pydantic import ValidationError
 
 from lando.api.legacy.workers.automation_worker import AutomationWorker
-from lando.api.tests.mocks import TreeStatusDouble
 from lando.conftest import FAILING_CHECK_TYPES
 from lando.headless_api.api import (
     MergeOntoAction,
@@ -601,7 +600,6 @@ def automation_worker(landing_worker_instance):
 
 @pytest.mark.django_db
 def test_automation_job_add_commit_success_git(
-    treestatusdouble,
     automation_worker,
     repo_mc,
     mock_phab_trigger_repo_update_apply_async,
@@ -649,7 +647,6 @@ def test_automation_job_add_commit_success_git(
 
 @pytest.mark.django_db
 def test_automation_job_add_commit_base64_success_git(
-    treestatusdouble,
     automation_worker,
     repo_mc,
     mock_phab_trigger_repo_update_apply_async,
@@ -693,7 +690,6 @@ def test_automation_job_add_commit_base64_success_git(
 @pytest.mark.django_db
 def test_automation_job_add_commit_fail(
     repo_mc,
-    treestatusdouble,
     automation_worker,
     mock_phab_trigger_repo_update_apply_async,
     automation_job,
@@ -727,7 +723,6 @@ def test_automation_job_add_commit_fail(
 @pytest.mark.django_db
 def test_automation_job_create_commit_success(
     repo_mc,
-    treestatusdouble,
     automation_worker,
     mock_phab_trigger_repo_update_apply_async,
     get_failing_check_diff,
@@ -770,7 +765,6 @@ def test_automation_job_create_commit_success(
 @pytest.mark.django_db
 def test_automation_job_create_commit_failed_check_hooks_enabled(
     repo_mc,
-    treestatusdouble,
     automation_worker,
     mock_phab_trigger_repo_update_apply_async,
     get_failing_check_action_reason: Callable,
@@ -808,7 +802,6 @@ def test_automation_job_create_commit_failed_check_hooks_enabled(
 @pytest.mark.django_db
 def test_automation_job_create_commit_failed_check_hooks_disabled(
     repo_mc,
-    treestatusdouble,
     automation_worker,
     mock_phab_trigger_repo_update_apply_async,
     get_failing_check_action_reason: Callable,
@@ -861,7 +854,6 @@ def get_failing_check_action_reason(get_failing_check_commit_reason):
 @pytest.mark.django_db
 def test_automation_job_create_commit_failed_check_override(
     repo_mc,
-    treestatusdouble,
     automation_worker,
     mock_phab_trigger_repo_update_apply_async: mock.Mock,
     get_failing_check_action_reason: Callable,
@@ -907,7 +899,6 @@ def mock_landing_checks_run(monkeypatch: pytest.MonkeyPatch):
 @pytest.mark.django_db
 def test_automation_job_create_commit_failed_check_unchecked(
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
     automation_worker: AutomationWorker,
     mock_phab_trigger_repo_update_apply_async: mock.Mock,
     mock_landing_checks_run: mock.Mock,
@@ -956,7 +947,6 @@ def test_automation_job_create_commit_failed_check_unchecked(
 @pytest.mark.django_db
 def test_automation_job_create_commit_patch_conflict(
     repo_mc,
-    treestatusdouble,
     automation_worker,
     monkeypatch,
     get_failing_check_diff,
@@ -1020,7 +1010,6 @@ def _create_split_branches_for_merge(
 def test_automation_job_merge_onto_success_git(
     strategy: str | None,
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
     automation_worker: AutomationWorker,
     create_git_commit: Callable,
     automation_job: Callable,
@@ -1059,7 +1048,6 @@ def test_automation_job_merge_onto_success_git(
 @pytest.mark.django_db
 def test_automation_job_merge_onto_fast_forward_git(
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
     mock_landing_checks_run: mock.Mock,
     create_git_commit: Callable,
     automation_worker: AutomationWorker,
@@ -1127,7 +1115,6 @@ def test_automation_job_merge_onto_fast_forward_git(
 @pytest.mark.django_db
 def test_automation_job_merge_onto_fail(
     repo_mc,
-    treestatusdouble,
     automation_worker,
     monkeypatch,
     automation_job,
@@ -1158,7 +1145,6 @@ def test_automation_job_merge_onto_fail(
 @pytest.mark.django_db
 def test_automation_job_tag_success_git_tip_commit(
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
     automation_worker: AutomationWorker,
     create_git_commit: Callable,
     automation_job: Callable,
@@ -1209,7 +1195,6 @@ def test_automation_job_tag_success_git_tip_commit(
 @pytest.mark.django_db
 def test_automation_job_tag_retag_success_git(
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,  # pyright: ignore[reportUnusedParameter] Mock with side-effect
     active_mock: Callable,
     create_git_commit: Callable,
     automation_worker: AutomationWorker,
@@ -1281,7 +1266,6 @@ def test_automation_job_tag_retag_success_git(
 @pytest.mark.django_db
 def test_automation_job_tag_success_git_new_commit(
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
     mock_landing_checks_run: mock.Mock,
     automation_worker: AutomationWorker,
     create_git_commit: Callable,
@@ -1334,7 +1318,6 @@ def test_automation_job_tag_success_git_new_commit(
 @pytest.mark.django_db
 def test_automation_job_tag_failure_git(
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
     automation_worker: AutomationWorker,
     create_git_commit: Callable,
     git_patch: Callable,
@@ -1544,7 +1527,6 @@ def test_reject_cli_flags_rejects_newlines(value: str):
 @pytest.mark.django_db
 def test_create_and_push_to_new_relbranch(
     client,
-    treestatusdouble,
     repo_mc,
     automation_worker,
     headless_user,
@@ -1679,7 +1661,6 @@ def test_create_and_push_to_new_relbranch(
 @pytest.mark.django_db
 def test_push_to_existing_relbranch(
     client,
-    treestatusdouble,
     repo_mc,
     automation_worker,
     headless_user,
