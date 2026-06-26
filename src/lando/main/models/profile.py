@@ -1,10 +1,9 @@
-from cryptography.fernet import Fernet, MultiFernet
 from django.conf import settings
 from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
-from django.db import models
+from django.db import models, transaction
 
-from lando.main.models.base import BaseModel
+from lando.main.models.base import BaseModel, CryptographyMixin
 
 SCM_PERMISSIONS = (
     ("scm_allow_direct_push", "SCM_ALLOW_DIRECT_PUSH"),
@@ -62,16 +61,13 @@ def filter_claims(claims: dict) -> dict:
     return claims
 
 
-class Profile(BaseModel):
+class Profile(CryptographyMixin, BaseModel):
     """A model to store additional information about users."""
 
     class Meta:
         permissions = SCM_PERMISSIONS + (
             ("can_view_private_repos", "CAN_VIEW_PRIVATE_REPOS"),
         )
-
-    # Provide encryption/decryption functionality.
-    cryptography = MultiFernet([Fernet(key) for key in settings.ENCRYPTION_KEYS])
 
     user = models.OneToOneField(User, null=True, on_delete=models.SET_NULL)
 
@@ -86,18 +82,6 @@ class Profile(BaseModel):
     phabricator_phid = models.CharField(
         max_length=255, null=True, blank=True, unique=True
     )
-
-    def _encrypt_value(self, value: str) -> bytes:
-        """Encrypt a given string value."""
-        return self.cryptography.encrypt(value.encode("utf-8"))
-
-    def _decrypt_value(self, value: bytes) -> str:
-        """Decrypt a given bytes value."""
-        return self.cryptography.decrypt(value).decode("utf-8")
-
-    def _rotate_value(self, value: bytes) -> bytes:
-        """Return a rotated encrypted bytes value."""
-        return self.cryptography.rotate(value)
 
     def _has_scm_permission_groups(self, codename: str, groups: list[str]) -> bool:
         """Return whether the group membership provides the correct permission.
@@ -123,30 +107,19 @@ class Profile(BaseModel):
 
         return permissions
 
-    @property
-    def phabricator_api_key(self) -> str:
-        """Decrypt and return the value of the Phabricator API key."""
-        encrypted_key = bytes(self.encrypted_phabricator_api_key)
-        if encrypted_key:
-            return self._decrypt_value(encrypted_key)
-        else:
-            return ""
-
-    def clear_phabricator_api_key(self):
+    def clear_phabricator_elements(self):
         """Clear the phabricator API key and PHID."""
-        self.save_phabricator_api_key("", phid=None)
+        with transaction.atomic():
+            self.clear_phabricator_api_key(save=False)
+            self.phabricator_phid = None
+            self.save()
 
-    def save_phabricator_api_key(self, key: str, phid: str | None = None):
+    def save_phabricator_elements(self, key: str, phid: str | None = None):
         """Given a raw API key and PHID, encrypt the key and store both."""
-        self.encrypted_phabricator_api_key = self._encrypt_value(key)
-        self.phabricator_phid = phid or None
-        self.save()
-
-    def rotate_phabricator_api_key_encryption(self):
-        self.encrypted_phabricator_api_key = self._rotate_value(
-            bytes(self.encrypted_phabricator_api_key)
-        )
-        self.save()
+        with transaction.atomic():
+            self.set_phabricator_api_key(key, save=False)
+            self.phabricator_phid = phid or None
+            self.save()
 
     def update_permissions(self):
         """Remove SCM permissions and re-add them based on userinfo."""
