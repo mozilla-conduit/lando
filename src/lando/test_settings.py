@@ -19,7 +19,10 @@ ENVIRONMENT = Environment.test
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.dummy.DummyCache",
-    }
+    },
+    "db": {
+        "BACKEND": "django.core.cache.backends.dummy.DummyCache",
+    },
 }
 
 DEFAULT_FROM_EMAIL = "Lando <lando@lando.test>"
