@@ -278,7 +278,6 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
 
                 return cleaned_data
 
-            # add new fields that captures list of warnings
             head_sha = forms.CharField()
             warnings = forms.JSONField()
             old_warnings = forms.JSONField()
@@ -296,18 +295,14 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
         )
 
         if blockers:
-            # Pull request has blockers that prevent it from landing.
             return JsonResponse({"errors": blockers}, status=400)
 
         data = json.loads(request.body)
         data["warnings"] = warnings
         form = Form(data)
 
-        # confirmation token and the check
-        # return the new list of warnings
 
         if not form.is_valid():
-            # return new warnings, and error?
             return JsonResponse(
                 {"errors": form.errors, "warnings": warnings}, status=400
             )
