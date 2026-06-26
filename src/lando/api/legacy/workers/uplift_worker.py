@@ -367,20 +367,7 @@ class UpliftWorker(Worker):
             revisions = []
             patch_helpers = scm.get_patch_helpers_for_commits(new_commits)
             for patch_helper in patch_helpers:
-                author_name, author_email = patch_helper.parse_author_information()
-                timestamp = patch_helper.get_timestamp()
-                commit_message = patch_helper.get_commit_description()
-                diff = patch_helper.get_diff()
-                patch_data = {
-                    "author_name": author_name,
-                    "author_email": author_email,
-                    "commit_message": commit_message,
-                    "timestamp": timestamp,
-                }
-                revisions.append(
-                    Revision.new_from_patch(raw_diff=diff, patch_data=patch_data)
-                )
-
+                revisions.append(self.create_revisions_from_patch_helpers(patch_helper))
             revisions.append(create_try_revision(job.requester_email))
 
             try_job = LandingJob.objects.create(
@@ -393,3 +380,17 @@ class UpliftWorker(Worker):
             add_revisions_to_job(revisions, try_job)
             try_job.save()
         return try_job
+
+    def create_revisions_from_patch_helpers(self, patch_helper: PatchHelper) -> Revision:
+        """Build a `Revision` from a single landed commit's `PatchHelper`."""
+        author_name, author_email = patch_helper.parse_author_information()
+        timestamp = patch_helper.get_timestamp()
+        commit_message = patch_helper.get_commit_description()
+        diff = patch_helper.get_diff()
+        patch_data = {
+            "author_name": author_name,
+            "author_email": author_email,
+            "commit_message": commit_message,
+            "timestamp": timestamp,
+        }
+        return Revision.new_from_patch(raw_diff=diff, patch_data=patch_data)
