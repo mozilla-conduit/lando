@@ -34,38 +34,6 @@ from lando.main.scm.helpers import PatchHelper
 
 logger = logging.getLogger(__name__)
 
-def create_try_diff_from_json() -> str:
-    try_config_path = (
-            settings.BASE_DIR / "api" / "legacy" / "workers" / "try_task_config.json"
-        )
-
-    config_contents = try_config_path.read_text()
-
-    config_lines = config_contents.splitlines()
-    diff_header_lines = [
-        "diff --git a/try_task_config.json b/try_task_config.json",
-        "new file mode 100644",
-        "--- /dev/null",
-        "+++ b/try_task_config.json",
-        f"@@ -0,0 +1,{len(config_lines)} @@",
-    ]
-    added_lines = [f"+{line}" for line in config_lines]
-    raw_diff = "\n".join(diff_header_lines + added_lines) + "\n"
-    return raw_diff
-
-def create_try_revision (requester_email) -> Revision:
-    try_patch_data = {
-        "author_name": "Lando",
-        "author_email": requester_email,
-        "commit_message": "try_task_config",
-        "timestamp": str(int(time.time())),
-    }
-    raw_diff = create_try_diff_from_json()
-    return Revision.new_from_patch(
-        raw_diff=raw_diff, patch_data=try_patch_data
-    )
-
-
 
 class UpliftWorker(Worker):
     """Worker to execute uplift jobs.
@@ -368,7 +336,7 @@ class UpliftWorker(Worker):
             patch_helpers = scm.get_patch_helpers_for_commits(new_commits)
             for patch_helper in patch_helpers:
                 revisions.append(self.create_revisions_from_patch_helpers(patch_helper))
-            revisions.append(create_try_revision(job.requester_email))
+            revisions.append(self.create_try_revision(job.requester_email))
 
             try_job = LandingJob.objects.create(
                 target_repo=try_repo,
@@ -381,6 +349,36 @@ class UpliftWorker(Worker):
             try_job.save()
         return try_job
 
+    def create_try_diff_from_json(self) -> str:
+        try_config_path = (
+                settings.BASE_DIR / "api" / "legacy" / "workers" / "try_task_config.json"
+            )
+
+        config_contents = try_config_path.read_text()
+
+        config_lines = config_contents.splitlines()
+        diff_header_lines = [
+            "diff --git a/try_task_config.json b/try_task_config.json",
+            "new file mode 100644",
+            "--- /dev/null",
+            "+++ b/try_task_config.json",
+            f"@@ -0,0 +1,{len(config_lines)} @@",
+        ]
+        added_lines = [f"+{line}" for line in config_lines]
+        raw_diff = "\n".join(diff_header_lines + added_lines) + "\n"
+        return raw_diff
+
+    def create_try_revision (self, requester_email:str) -> Revision:
+        try_patch_data = {
+            "author_name": "Lando",
+            "author_email": requester_email,
+            "commit_message": "try_task_config",
+            "timestamp": str(int(time.time())),
+        }
+        raw_diff = self.create_try_diff_from_json()
+        return Revision.new_from_patch(
+            raw_diff=raw_diff, patch_data=try_patch_data
+        )
     def create_revisions_from_patch_helpers(self, patch_helper: PatchHelper) -> Revision:
         """Build a `Revision` from a single landed commit's `PatchHelper`."""
         author_name, author_email = patch_helper.parse_author_information()
