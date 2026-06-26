@@ -159,6 +159,7 @@ def test__views__phabricator_auth_backend_invalid_token(
 @mock.patch("lando.api.views.GitHubAPIClient")
 @pytest.mark.django_db(transaction=True)
 def test__views__pull_request_api_view__private_repo(github_api_client, client):
+
     mock_github_api_client = mock.MagicMock()
     mock_pr = mock.MagicMock()
 
@@ -284,3 +285,104 @@ def test__views__pull_request_content_api_view__missing_csrf_token(
     )
     assert result.status_code == 403
     assert b"403 Forbidden" in result.content
+
+
+@mock.patch("lando.api.views.generate_warnings_and_blockers")
+@mock.patch("lando.api.views.GitHubAPIClient")
+@pytest.mark.django_db(transaction=True)
+def test__views_landing_job_pull_request_view__warnings(
+    github_api_client, mock_warnings_and_blockers, authenticated_client, repo_mc
+):
+    repo = repo_mc(SCMType.GIT)
+    mock_github_api_client = mock.MagicMock()
+    github_api_client.return_value = mock_github_api_client
+    mock_github_api_client.repo_is_private = False
+
+    mock_pr = mock_github_api_client.build_pull_request.return_value
+    mock_pr.author = ("Test Author", "test@email.com")
+    mock_pr.commit_message = "Test Commit Message"
+    mock_pr.number = 1
+    mock_pr.head_sha = "aaa123"
+    mock_pr.base_sha = "bbb123"
+    mock_pr.patch = "diff --git a/abc b/def\n"
+    mock_pr.reviews_summary = {}
+
+    mock_warnings_and_blockers.return_value = {
+        "warnings": ["warning-1", "warning-2"],
+        "blockers": [],
+    }
+
+    old_warnings = authenticated_client.get(
+        f"/api/pulls/{repo.name}/1/checks",
+        content_type="application/json",
+    ).json()["warnings"]
+
+    response = authenticated_client.post(
+        f"/api/pulls/{repo.name}/1/landing_jobs",
+        data={
+            "head_sha": "aaa123",
+            "base_sha": "bbb123",
+            "pull_number": 1,
+            "old_warnings": old_warnings,
+        },
+        content_type="application/json",
+    )
+
+    new_warnings = response.json()["warnings"]
+
+    assert new_warnings == old_warnings
+    assert response.status_code == 201
+
+
+@mock.patch("lando.api.views.generate_warnings_and_blockers")
+@mock.patch("lando.api.views.GitHubAPIClient")
+@pytest.mark.django_db(transaction=True)
+def test__views_landing_job_pull_request_view__warnings_mismatch(
+    github_api_client, mock_warnings_and_blockers, authenticated_client, repo_mc
+):
+
+    mock_github_api_client = mock.MagicMock()
+    github_api_client.return_value = mock_github_api_client
+    mock_github_api_client.repo_is_private = False
+    repo = repo_mc(SCMType.GIT)
+
+    mock_pr = mock_github_api_client.build_pull_request.return_value
+    mock_pr.author = ("Test Author", "test@email.com")
+    mock_pr.commit_message = "Test Commit Message"
+    mock_pr.number = 1
+    mock_pr.head_sha = "aaa123"
+    mock_pr.base_sha = "bbb123"
+    mock_pr.patch = "diff --git a/abc b/def\n"
+    mock_pr.reviews_summary = {}
+
+    mock_warnings_and_blockers.return_value = {
+        "warnings": ["warning-1", "warning-2"],
+        "blockers": [],
+    }
+
+    old_warnings = authenticated_client.get(
+        f"/api/pulls/{repo.name}/1/checks",
+        content_type="application/json",
+    ).json()["warnings"]
+
+    mock_warnings_and_blockers.return_value = {
+        "warnings": ["warning-2", "warning-3"],
+        "blockers": [],
+    }
+
+    response = authenticated_client.post(
+        f"/api/pulls/{repo.name}/1/landing_jobs",
+        data={
+            "head_sha": "aaa123",
+            "base_sha": "bbb123",
+            "pull_number": 1,
+            "old_warnings": old_warnings,
+        },
+        content_type="application/json",
+    )
+
+    new_warnings = response.json()["warnings"]
+
+    assert new_warnings == mock_warnings_and_blockers.return_value["warnings"]
+    assert response.status_code == 400
+    assert response.json()["errors"] == {"warnings": ["mismatch"]}
