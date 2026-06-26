@@ -22,6 +22,7 @@ from lando.main.models.uplift import (
     UpliftRevision,
     UpliftSubmission,
 )
+from lando.treestatus.views.api import get_tree_by_name
 from lando.ui.legacy.forms import (
     LinkUpliftAssessmentForm,
     TransplantRequestForm,
@@ -32,7 +33,6 @@ from lando.ui.legacy.forms import (
 from lando.ui.legacy.stacks import Edge, draw_stack_graph, sort_stack_topological
 from lando.ui.uplift.context import UpliftContext
 from lando.ui.views import LandoView
-from lando.utils import treestatus
 from lando.utils.phabricator import PhabricatorClient
 from lando.utils.tasks import set_uplift_request_form_on_revision
 
@@ -528,9 +528,7 @@ class RevisionView(LandoView):
             "existing_flags": existing_flags,
             "uplift": uplift_context,
             "treestatus": (
-                treestatus.get_treestatus_data(
-                    landing_jobs.last().target_repo.short_name
-                )
+                get_tree_by_name(landing_jobs.last().target_repo.short_name)
                 if landing_jobs
                 else None
             ),

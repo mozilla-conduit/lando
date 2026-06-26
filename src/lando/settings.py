@@ -283,8 +283,6 @@ PHABRICATOR_UNPRIVILEGED_API_KEY = os.getenv("PHABRICATOR_UNPRIVILEGED_API_KEY",
 
 TREEHERDER_URL = os.getenv("TREEHERDER_URL", "https://treeherder.mozilla.org")
 
-TREESTATUS_URL = os.getenv("TREESTATUS_URL", "http://treestatus.test")
-
 # Endpoint providing release-train guidance for the uplift target selector. The
 # browser fetches this directly. Defaults to the whattrainisitnow.com production
 # endpoint.

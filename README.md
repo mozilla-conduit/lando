@@ -53,7 +53,6 @@ Parameters of interest are the following.
   - `PHABRICATOR_ADMIN_API_KEY`
   - `PHABRICATOR_UNPRIVILEGED_API_KEY`
   - `PHABRICATOR_URL` (URL)
-  - `TREESTATUS_URL` (URL)
 - OIDC parameters
   - `OIDC_DOMAIN` (domain name, no scheme)
   - `OIDC_RP_CLIENT_ID`

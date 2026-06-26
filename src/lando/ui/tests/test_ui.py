@@ -7,23 +7,25 @@ import pytest
 from django.test import Client
 
 from lando import test_settings as settings
-from lando.api.tests.mocks import TreeStatusDouble
 from lando.main import scm
 from lando.main.models import JobStatus, LandingJob
 from lando.main.models.commit_map import CommitMap
 from lando.main.scm import SCMType
+from lando.treestatus.models import TreeStatus
 
 
 @pytest.mark.django_db
 def test_queued_landing_job_view(
     client: Client,
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
+    new_treestatus_tree: Callable,
     landing_worker_instance: Callable,
     make_landing_job: Callable,
 ):
     repo = repo_mc(SCMType.GIT)
-    treestatusdouble.close_tree(repo.name)
+    new_treestatus_tree(
+        tree=repo.name, status=TreeStatus.CLOSED, reason="testing closed"
+    )
 
     # We need a landing worker to exist so the queue can be built, but we don't use it
     # directly in the test.
@@ -53,7 +55,7 @@ def test_queued_landing_job_view(
 def test_landed_landing_job_view(
     client: Client,
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
+    new_treestatus_tree: Callable,
     landing_worker_instance: Callable,
     make_landing_job: Callable,
     commit_maps: list[CommitMap],
@@ -64,7 +66,9 @@ def test_landed_landing_job_view(
     repo = repo_mc(SCMType.GIT)
     repo.treeherder_name = "autoland"
     repo.save()
-    treestatusdouble.close_tree(repo.name)
+    new_treestatus_tree(
+        tree=repo.name, status=TreeStatus.CLOSED, reason="testing closed"
+    )
 
     # We need a landing worker to exist so the queue can be built, but we don't use it
     # directly in the test.
@@ -187,13 +191,15 @@ def test_landed_landing_job_view(
 def test_error_landing_job_view(
     client: Client,
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
+    new_treestatus_tree: Callable,
     make_landing_job: Callable,
     error: str,
     error_breakdown: str,
 ):
     repo = repo_mc(SCMType.GIT)
-    treestatusdouble.close_tree(repo.name)
+    new_treestatus_tree(
+        tree=repo.name, status=TreeStatus.CLOSED, reason="testing closed"
+    )
 
     job = make_landing_job(
         target_repo=repo,

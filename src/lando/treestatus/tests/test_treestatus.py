@@ -1,9 +1,12 @@
 import datetime
 
 import pytest
+from django.core.cache import caches
+from django.test import override_settings
 
 from lando.treestatus.models import CombinedTree, TreeCategory, TreeStatus
 from lando.treestatus.views.api import (
+    TREESTATUS_CACHE,
     LogEntry,
     StackEntry,
     TreeData,
@@ -12,6 +15,7 @@ from lando.treestatus.views.api import (
     apply_tree_updates,
     create_new_tree,
     get_combined_tree,
+    get_tree_by_name,
     is_open,
     remove_tree_by_name,
     revert_status_change,
@@ -57,6 +61,42 @@ def test_is_open_for_approval_required_tree(new_treestatus_tree):
     new_treestatus_tree(tree="mozilla-central", status=TreeStatus.APPROVAL_REQUIRED)
     assert is_open("mozilla-central"), (
         "`is_open` should return `True` for approval required tree."
+    )
+
+
+# Enable the local memory cache for the `db` alias `get_tree_by_name` uses, since
+# tests otherwise use the dummy cache.
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "test-cache-default",
+        },
+        TREESTATUS_CACHE: {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "test-cache-db",
+        },
+    }
+)
+@pytest.mark.django_db
+def test_is_open_bypasses_stale_cache(new_treestatus_tree):
+    """`is_open` reads fresh state even when `get_tree_by_name` is cached stale."""
+    caches[TREESTATUS_CACHE].clear()
+    tree = new_treestatus_tree(tree="mozilla-central", status=TreeStatus.OPEN)
+
+    # Populate the cache with the open state, then close the tree directly so the
+    # cached `CombinedTree` is left stale (no invalidation).
+    assert get_tree_by_name("mozilla-central").status.is_open(), (
+        "The tree should be cached as open."
+    )
+    tree.status = TreeStatus.CLOSED
+    tree.save()
+
+    assert get_tree_by_name("mozilla-central").status.is_open(), (
+        "`get_tree_by_name` should still return the stale cached open state."
+    )
+    assert not is_open("mozilla-central"), (
+        "`is_open` should bypass the cache and observe the tree is now closed."
     )
 
 

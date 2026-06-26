@@ -10,8 +10,8 @@ from lando.headless_api.models.automation_job import AutomationJob
 from lando.main.models import JobStatus, LandingJob, Worker, WorkerType
 from lando.main.models.jobs import BaseJob
 from lando.main.models.uplift import UpliftJob
+from lando.treestatus.views.api import get_tree_by_name
 from lando.ui.views import LandoView
-from lando.utils import treestatus
 
 logger = logging.getLogger(__name__)  # noqa: F821
 
@@ -81,9 +81,7 @@ class LandingJobView(LandoView):
 
         context = {
             "job": landing_job,
-            "treestatus": treestatus.get_treestatus_data(
-                landing_job.target_repo.short_name
-            ),
+            "treestatus": get_tree_by_name(landing_job.target_repo.short_name),
         }
 
         if landing_job.status not in JobStatus.final():

@@ -51,9 +51,6 @@ def filter_claims(claims: dict) -> dict:
     claims = {key: value for key, value in claims.items() if key in keep_keys}
 
     # Remove reference to any groups not currently used in Lando.
-    # NOTE: currently these are SCM group, however in the future other
-    # groups will need to be added here, for example "treestatus users",
-    # and other lando permissions.
     # This filter is only applicable to remote environments at this time.
     if settings.ENVIRONMENT.is_remote:
         claims[CLAIM_GROUPS_KEY] = [
