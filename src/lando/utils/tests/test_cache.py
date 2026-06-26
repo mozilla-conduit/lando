@@ -44,16 +44,10 @@ def test_cache_method():
     assert result3 == "Hello, Bob!"
     assert call_counter["count"] == 2
 
-    # Confirm cache has both keys stored
-    assert (
-        cache.get(
-            "cache_method_test_cache_method.<locals>.expensive_function_test-cache-Alice"
-        )
-        == "Hello, Alice!"
+    # Confirm the cache is keyed purely on the key function's output.
+    assert cache.get("test-cache-Alice") == "Hello, Alice!", (
+        "The cached value should be stored under the key function's output."
     )
-    assert (
-        cache.get(
-            "cache_method_test_cache_method.<locals>.expensive_function_test-cache-Bob"
-        )
-        == "Hello, Bob!"
+    assert cache.get("test-cache-Bob") == "Hello, Bob!", (
+        "The cached value should be stored under the key function's output."
     )

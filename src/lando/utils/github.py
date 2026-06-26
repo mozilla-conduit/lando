@@ -4,7 +4,7 @@ import logging
 import math
 import re
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import datetime
 from enum import Enum
 from itertools import count
@@ -405,17 +405,21 @@ class GitHubAPIClient:
         return str(math.floor(timestamp_datetime.timestamp()))
 
 
-def pr_cache_key(self: "PullRequest", *args, **kwargs) -> str:
-    """Provide a cache key for PR methods that fetch data from GitHub.
+def pr_cache_method(func: Callable) -> Callable:
+    """Cache a `PullRequest` method, keyed by the method and the PR's version.
 
-    This method-like function cannot be part of the PullRequest, as it is used by method
-    decorators when declaring the class.
+    The wrapped function's name namespaces the key so the several PR methods
+    sharing this decorator do not collide on a single key, and changes to
+    `updated_at` naturally invalidate the entry.
+
+    This decorator cannot be part of `PullRequest`, as it is used when declaring
+    the class.
     """
-    return f"{self.id}{self.updated_at}"
 
+    def pr_cache_key(self: "PullRequest", *args, **kwargs) -> str:
+        return f"pr-{func.__name__}-{self.id}{self.updated_at}"
 
-# Specialised decorator which embeds the PR-specific cache-key builder.
-pr_cache_method = cache_method(pr_cache_key)
+    return cache_method(pr_cache_key)(func)
 
 
 class PullRequest:
