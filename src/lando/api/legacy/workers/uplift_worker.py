@@ -34,8 +34,8 @@ def create_try_diff_from_json() -> str:
     try_config_path = (
             settings.BASE_DIR / "api" / "legacy" / "workers" / "try_task_config.json"
         )
-    with open(try_config_path, "r") as file:
-        config_contents = file.read()
+
+    config_contents = try_config_path.read_text()
 
     config_lines = config_contents.splitlines()
     diff_header_lines = [
@@ -49,6 +49,17 @@ def create_try_diff_from_json() -> str:
     raw_diff = "\n".join(diff_header_lines + added_lines) + "\n"
     return raw_diff
 
+def create_try_revision (requester_email) -> Revision:
+    try_patch_data = {
+        "author_name": "Lando",
+        "author_email": requester_email,
+        "commit_message": "try_task_config",
+        "timestamp": str(int(time.time())),
+    }
+    raw_diff = create_try_diff_from_json()
+    return Revision.new_from_patch(
+        raw_diff=raw_diff, patch_data=try_patch_data
+    )
 class UpliftWorker(Worker):
     """Worker to execute uplift jobs.
 
@@ -314,10 +325,9 @@ class UpliftWorker(Worker):
             raise PermanentFailureException(message) from exc
 
     def create_uplift_try_push(
-        self, base_revision: str, repo_scm_type: str, job: UpliftJob
+        self, target_commit_hash: str, repo_scm_type: str, job: UpliftJob
     ) -> None:
         try_repo = Repo.objects.get(name="try")
-        target_commit_hash = base_revision
 
         if try_repo.scm_type != repo_scm_type:
             try:
@@ -356,18 +366,7 @@ class UpliftWorker(Worker):
                 Revision.new_from_patch(raw_diff=revision.diff, patch_data=patch_data)
             )
 
-        # create and append config file revisions
-        raw_diff = create_try_diff_from_json()
-        try_patch_data = {
-            "author_name": "Lando",
-            "author_email": job.requester_email,
-            "commit_message": "try_task_config",
-            "timestamp": str(int(time.time())),
-        }
-
-        try_revision = Revision.new_from_patch(
-            raw_diff=raw_diff, patch_data=try_patch_data
-        )
+        try_revision = create_try_revision(job.requester_email)
         revisions.append(try_revision)
 
         with transaction.atomic():
