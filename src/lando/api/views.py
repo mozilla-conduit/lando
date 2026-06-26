@@ -268,24 +268,49 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
         class Form(forms.Form):
             """Simple form to get clean some fields."""
 
+            def clean(self):
+
+                cleaned_data = self.cleaned_data
+                warnings = cleaned_data["warnings"]
+                old_warnings = cleaned_data["old_warnings"]
+                if warnings != old_warnings:
+                    self.errors["warnings"] = ["mismatch"]
+
+                return cleaned_data
+
+            # add new fields that captures list of warnings
             head_sha = forms.CharField()
+            warnings = forms.JSONField()
+            old_warnings = forms.JSONField()
             # TODO: use this for verification later, see bug 1996571.
             # base_ref = forms.CharField()
 
         ldap_username = request.user.email
 
-        blockers = generate_warnings_and_blockers(
+        warnings_and_blockers = generate_warnings_and_blockers(
             self.target_repo, self.pull_request, request
-        )["blockers"]
+        )
+        warnings, blockers = (
+            warnings_and_blockers["warnings"],
+            warnings_and_blockers["blockers"],
+        )
 
         if blockers:
             # Pull request has blockers that prevent it from landing.
             return JsonResponse({"errors": blockers}, status=400)
 
-        form = Form(json.loads(request.body))
+        data = json.loads(request.body)
+        data["warnings"] = warnings
+        form = Form(data)
+
+        # confirmation token and the check
+        # return the new list of warnings
 
         if not form.is_valid():
-            return JsonResponse(form.errors, 400)
+            # return new warnings, and error?
+            return JsonResponse(
+                {"errors": form.errors, "warnings": warnings}, status=400
+            )
 
         job = LandingJob.objects.create(
             target_repo=self.target_repo,
@@ -323,7 +348,7 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
         job.status = JobStatus.SUBMITTED
         job.save()
 
-        return JsonResponse({"id": job.id}, status=201)
+        return JsonResponse({"id": job.id, "warnings": warnings}, status=201)
 
 
 class PullRequestChecksAPIView(PullRequestAPIView):
