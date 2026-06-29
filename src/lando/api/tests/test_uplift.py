@@ -732,7 +732,6 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     monkeypatch,
     make_uplift_job_with_revisions,
     mock_uplift_email_tasks,
-    tmp_path,
 ):
     def mock_write_update_commits(commits):
         def _write_uplift_commits(job_arg, base_rev, env, output_path):
@@ -750,7 +749,9 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
 
     try_repo = repo_mc(SCMType.HG, name="try", is_try=True)
 
-    # Hardcode the mapping between the Git base commit to it's Hg equivalent that would exist in the database in production so the lookup succeeds.
+    # Hardcode the mapping between the Git base commit to it's Hg
+    # equivalent that would exist in the database in production so
+    # the lookup succeeds.
     mapped_hg_hash = "a" * 40
     base_git_hash = GitSCM(repo.pull_path).head_ref()
     CommitMap.objects.create(

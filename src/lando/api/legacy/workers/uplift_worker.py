@@ -343,7 +343,7 @@ class UpliftWorker(Worker):
             revisions = []
             patch_helpers = scm.get_patch_helpers_for_commits(new_commits)
             for patch_helper in patch_helpers:
-                revisions.append(self.create_revisions_from_patch_helpers(patch_helper))
+                revisions.append(self.create_revisions_from_patch_helper(patch_helper))
             try_revision = self.create_try_revision(job.requester_email)
             revisions.append(try_revision)
 
@@ -385,9 +385,7 @@ class UpliftWorker(Worker):
         raw_diff = self.create_try_diff_from_json()
         return Revision.new_from_patch(raw_diff=raw_diff, patch_data=try_patch_data)
 
-    def create_revisions_from_patch_helpers(
-        self, patch_helper: PatchHelper
-    ) -> Revision:
+    def create_revisions_from_patch_helper(self, patch_helper: PatchHelper) -> Revision:
         """Build a `Revision` from a single landed commit's `PatchHelper`."""
         author_name, author_email = patch_helper.parse_author_information()
         timestamp = patch_helper.get_timestamp()
