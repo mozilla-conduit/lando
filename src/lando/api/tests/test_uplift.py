@@ -749,7 +749,7 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
 
     try_repo = repo_mc(SCMType.HG, name="try", is_try=True)
 
-    # Hardcode the mapping between the Git base commit to it's Hg
+    # Hardcode the mapping between the Git base commit to its Hg
     # equivalent that would exist in the database in production so
     # the lookup succeeds.
     mapped_hg_hash = "a" * 40
