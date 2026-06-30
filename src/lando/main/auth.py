@@ -226,7 +226,7 @@ def force_auth_refresh(f: Callable) -> Callable:
     Decorator which forces authenticated session to be refreshed.
     """
 
-    def wrapper(*args, **kwargs):
+    def wrapper(*args, **kwargs) -> HttpResponse:
         """Set oidc_id_token_expiration to 0, forcing session refresh."""
         # First check that SessionRefresh is indeed enabled.
         if "mozilla_django_oidc.middleware.SessionRefresh" not in settings.MIDDLEWARE:

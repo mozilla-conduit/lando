@@ -319,7 +319,9 @@ class RevisionWarningCheck:
 
     def __call__(self, f: Callable) -> Callable:
         @functools.wraps(f)
-        def wrapped(revision: dict, diff: dict, stack_state: StackAssessmentState):
+        def wrapped(
+            revision: dict, diff: dict, stack_state: StackAssessmentState
+        ) -> RevisionWarning | None:
             result = f(revision, diff, stack_state)
             return (
                 None

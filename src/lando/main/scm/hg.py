@@ -705,7 +705,7 @@ class HgSCM(AbstractSCM):
             self.path, encoding=self.ENCODING, configs=self._config_to_list()
         )
 
-    def _config_to_list(self):
+    def _config_to_list(self) -> list[str]:
         """Reformat the object's config, to a list of strings suitable for hglib"""
         return ["{}={}".format(k, v) for k, v in self.config.items() if v is not None]
 

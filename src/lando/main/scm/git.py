@@ -680,7 +680,7 @@ class GitSCM(AbstractSCM):
         self._git_run("clean", "-fdx", cwd=self.path)
 
     @property
-    def _git_dir(self):
+    def _git_dir(self) -> str:
         return self._git_run("rev-parse", "--absolute-git-dir", cwd=self.path)
 
     @override

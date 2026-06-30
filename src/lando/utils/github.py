@@ -242,7 +242,7 @@ class GitHubAPIClient:
         elif content_type == "application/vnd.github.diff; charset=utf-8":
             return result.text
 
-    def _post(self, path: str, *args, **kwargs):
+    def _post(self, path: str, *args, **kwargs) -> dict:
         result = self._api.post(path, *args, **kwargs)
         return result.json()
 
