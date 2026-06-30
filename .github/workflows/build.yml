@@ -1,29 +1,29 @@
 name: Build and test
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - "**"
-  workflow_dispatch:
+    push:
+        branches:
+            - main
+    pull_request:
+        branches:
+            - "**"
+    workflow_dispatch:
 
 jobs:
-  build-and-run-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build
-        run: docker build -t lando .
-      - name: Test
-        run: make test-py
+    build-and-run-tests:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Build
+              run: docker build -t lando .
+            - name: Test
+              run: make test-py
 
-  test-js:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build
-        run: docker build -t lando .
-      - name: Test
-        run: make test-js
+    test-js:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Build
+              run: docker build -t lando .
+            - name: Test
+              run: make test-js
