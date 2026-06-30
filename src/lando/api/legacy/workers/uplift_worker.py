@@ -3,7 +3,11 @@ import logging
 import os
 import subprocess
 import tempfile
+import time
+from typing import Iterable
 
+from django.conf import settings
+from django.db import transaction
 from typing_extensions import override
 
 from lando.api.legacy.workers.base import Worker
@@ -15,7 +19,13 @@ from lando.main.models import (
     TemporaryFailureException,
     WorkerType,
 )
+from lando.main.models.landing_job import LandingJob, add_revisions_to_job
+from lando.main.models.repo import Repo
 from lando.main.models.uplift import UpliftJob, UpliftRevision
+from lando.main.scm import GitSCM
+from lando.main.scm.commit import CommitData
+from lando.main.scm.helpers import PatchHelper
+from lando.try_api.api import get_commit_hash, get_commit_map
 from lando.utils.tasks import (
     send_uplift_failure_email,
     send_uplift_success_email,
@@ -120,12 +130,13 @@ class UpliftWorker(Worker):
 
         # Update to the latest commit in the target train.
         base_revision = self.update_repo(repo, job, scm, target_cset=None)
-
+        new_commits = []
         for uplift_revision in job.revisions.all():
             self.handle_new_commit_failures(
                 apply_uplift_revision, repo, job, scm, uplift_revision
             )
             new_commit = scm.describe_commit()
+            new_commits.append(new_commit)
             logger.debug(f"Created new commit {new_commit}")
 
         # On success: create patches.
@@ -155,6 +166,20 @@ class UpliftWorker(Worker):
         job.status = JobStatus.LANDED
         job.save()
 
+        try:
+            try_job = self.create_uplift_try_push(
+                base_revision, repo.scm_type, job, scm, new_commits
+            )
+        except Exception:
+            logger.exception(
+                "Failed to create try push for uplift job.",
+                extra={"job_id": job.id},
+            )
+        else:
+            logger.info(
+                "Created try landing job for uplift job.",
+                extra={"job_id": job.id, "try_job_id": try_job.id},
+            )
         return created_revision_ids
 
     def notify_uplift_success(
@@ -280,3 +305,96 @@ class UpliftWorker(Worker):
             )
             job.transition_status(JobAction.FAIL, message=message)
             raise PermanentFailureException(message) from exc
+
+    def create_uplift_try_push(
+        self,
+        target_commit_hash: str,
+        repo_scm_type: str,
+        job: UpliftJob,
+        scm: GitSCM,
+        new_commits: Iterable[CommitData],
+    ) -> LandingJob:
+        """Create a Try `LandingJob` for the commits landed by an uplift job."""
+        try_repo = Repo.objects.get(name="try")
+
+        if try_repo.scm_type != repo_scm_type:
+            try:
+                mapping_repo = get_commit_map(
+                    try_repo.scm_type, try_repo.name, repo_scm_type
+                )
+            except ValueError:
+                logger.exception(
+                    "CommitMap not found",
+                    extra={"job_id": job.id},
+                )
+                raise
+            try:
+                target_commit_hash = get_commit_hash(
+                    mapping_repo, target_commit_hash, try_repo.scm_type
+                )
+            except ValueError:
+                logger.exception(
+                    "Error converting SCM commit IDs",
+                    extra={"job_id": job.id},
+                )
+                raise
+
+        with transaction.atomic():
+            revisions = []
+            patch_helpers = scm.get_patch_helpers_for_commits(new_commits)
+            for patch_helper in patch_helpers:
+                revisions.append(self.create_revisions_from_patch_helper(patch_helper))
+            try_revision = self.create_try_revision(job.requester_email)
+            revisions.append(try_revision)
+
+            try_job = LandingJob.objects.create(
+                target_repo=try_repo,
+                requester_email=job.requester_email,
+                target_commit_hash=target_commit_hash,
+                status=JobStatus.SUBMITTED,
+            )
+            add_revisions_to_job(revisions, try_job)
+            try_job.save()
+        return try_job
+
+    def create_try_diff_from_json(self) -> str:
+        try_config_path = (
+            settings.BASE_DIR / "api" / "legacy" / "workers" / "try_task_config.json"
+        )
+        config_contents = try_config_path.read_text()
+        config_lines = config_contents.splitlines()
+        diff_header_lines = [
+            "diff --git a/try_task_config.json b/try_task_config.json",
+            "new file mode 100644",
+            "--- /dev/null",
+            "+++ b/try_task_config.json",
+            f"@@ -0,0 +1,{len(config_lines)} @@",
+        ]
+        added_lines = [f"+{line}" for line in config_lines]
+        raw_diff = "\n".join(diff_header_lines + added_lines) + "\n"
+        return raw_diff
+
+    def create_try_revision(self, requester_email: str) -> Revision:
+        """Build the `Revision` carrying the `try_task_config.json` change."""
+        try_patch_data = {
+            "author_name": "Lando",
+            "author_email": requester_email,
+            "commit_message": "try_task_config",
+            "timestamp": str(int(time.time())),
+        }
+        raw_diff = self.create_try_diff_from_json()
+        return Revision.new_from_patch(raw_diff=raw_diff, patch_data=try_patch_data)
+
+    def create_revisions_from_patch_helper(self, patch_helper: PatchHelper) -> Revision:
+        """Build a `Revision` from a single landed commit's `PatchHelper`."""
+        author_name, author_email = patch_helper.parse_author_information()
+        timestamp = patch_helper.get_timestamp()
+        commit_message = patch_helper.get_commit_description()
+        diff = patch_helper.get_diff()
+        patch_data = {
+            "author_name": author_name,
+            "author_email": author_email,
+            "commit_message": commit_message,
+            "timestamp": timestamp,
+        }
+        return Revision.new_from_patch(raw_diff=diff, patch_data=patch_data)
