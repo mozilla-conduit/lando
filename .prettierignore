@@ -3,3 +3,18 @@ src/lando/static_dist
 
 # Dependencies.
 node_modules
+
+# HTML templates are formatted by djlint, not Prettier.
+*.html
+
+# Generated lockfile.
+package-lock.json
+
+# Captured API-response fixtures that must stay byte-for-byte.
+src/lando/**/tests/data/
+
+# Coverage report output.
+htmlcov
+
+# Swagger spec whose duplicate keys Prettier's YAML parser rejects.
+src/lando/treestatus/treestatus.yml

@@ -274,9 +274,12 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 LINT_PATHS = (BASE_DIR,)
-# Used by Prettier for linting CSS/JS and the Vue/TypeScript frontend. The
-# `frontend` source lives at the repository root (`BASE_DIR` is `src/lando`).
-STATIC_LINT_PATHS = (BASE_DIR / "static_src", BASE_DIR.parent.parent / "frontend")
+# Used by Prettier for linting CSS/JS, the Vue/TypeScript frontend, and the
+# root-level build/tooling config. Prettier scans the whole repository
+# (`BASE_DIR` is `src/lando`); files it should not own (HTML templates, which
+# djlint formats, the generated `package-lock.json`, test fixtures, etc.) are
+# excluded via `.prettierignore`.
+STATIC_LINT_PATHS = (BASE_DIR.parent.parent,)
 PHABRICATOR_URL = os.getenv("PHABRICATOR_URL", "http://phabricator.test")
 PHABRICATOR_ADMIN_API_KEY = os.getenv("PHABRICATOR_ADMIN_API_KEY", "")
 PHABRICATOR_UNPRIVILEGED_API_KEY = os.getenv("PHABRICATOR_UNPRIVILEGED_API_KEY", "")
