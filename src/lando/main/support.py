@@ -1,3 +1,4 @@
+from django.core.files.base import File
 from django.core.files.storage import storages
 from storages.backends.gcloud import GoogleCloudStorage
 
@@ -15,14 +16,14 @@ class CachedGoogleCloudStorage(GoogleCloudStorage):
             {"BACKEND": "compressor.storage.CompressorFileStorage"}
         )
 
-    def save(self, name, content):  # noqa: ANN001, ANN201
+    def save(self, name: str, content: File) -> str:
         self.local_storage.save(name, content)
         super().save(name, self.local_storage._open(name))
         return name
 
 
 class LegacyAPIException(Exception):
-    def __init__(self, status, detail, extra=None):  # noqa: ANN001
+    def __init__(self, status: int, detail: str, extra: dict | None = None):
         self.status = status
         self.detail = detail
         self.extra = extra
