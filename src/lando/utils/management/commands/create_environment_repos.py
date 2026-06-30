@@ -160,6 +160,41 @@ REPOS = {
             "required_permission": SCM_CONDUIT,
             "push_target": "@",
         },
+        #
+        # `ff-test` branches stand in for Firefox's trunk and uplift branches.
+        # `ff-test-dev` is the autoland/trunk equivalent, while `ff-test-beta`
+        # and `ff-test-release` require approval to land (uplifts).
+        #
+        {
+            "name": "ff-test-dev",
+            "default_branch": "dev",
+            "url": "https://github.com/mozilla-conduit/ff-test.git",
+            "push_path": "https://github.com/mozilla-conduit/ff-test.git",
+            "scm_type": GitSCM.scm_type(),
+            "required_permission": SCM_CONDUIT,
+            "required_automation_permission": SCM_CONDUIT,
+            "automation_enabled": True,
+        },
+        {
+            "name": "ff-test-beta",
+            "default_branch": "beta",
+            "url": "https://github.com/mozilla-conduit/ff-test.git",
+            "push_path": "https://github.com/mozilla-conduit/ff-test.git",
+            "scm_type": GitSCM.scm_type(),
+            "required_permission": SCM_CONDUIT,
+            "approval_required": True,
+            "milestone_tracking_flag_template": "cf_status_firefox{milestone}",
+        },
+        {
+            "name": "ff-test-release",
+            "default_branch": "release",
+            "url": "https://github.com/mozilla-conduit/ff-test.git",
+            "push_path": "https://github.com/mozilla-conduit/ff-test.git",
+            "scm_type": GitSCM.scm_type(),
+            "required_permission": SCM_CONDUIT,
+            "approval_required": True,
+            "milestone_tracking_flag_template": "cf_status_firefox{milestone}",
+        },
         # Use real `try` for testing since `try` is a testing environment anyway.
         {
             "name": "try",
