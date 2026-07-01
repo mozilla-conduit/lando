@@ -1050,9 +1050,9 @@ frozenlist==1.8.0 \
     # via
     #   aiohttp
     #   aiosignal
-glean-parser==17.3.0 \
-    --hash=sha256:84d975d40333e97d9f6e0ce0f22db4e1e3d8e088b2da678e34cc7ab3361f071d \
-    --hash=sha256:f70fb4496436068f81ef786029a1b369f61ae2f9327eeb2fa50335dba59ee214
+glean-parser==20.0.1 \
+    --hash=sha256:7ba77840ca8e47cffb17f4ecb64edc1ff6a3d6ce0067223e052e409dec1e3ca9 \
+    --hash=sha256:9d7b7bb908f25c62321bb4890a43fe04d50927dea5e06001047657c1f8cfc2df
     # via glean-sdk
 glean-sdk==65.2.3 \
     --hash=sha256:182eaa29eba7096c751353eac8faec1916ea6b81445ea688874b732d45727b7a \
