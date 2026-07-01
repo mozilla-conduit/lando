@@ -1232,9 +1232,9 @@ jinja2==3.1.6 \
     #   glean-parser
     #   lando (pyproject.toml)
     #   mots
-jsbeautifier==1.15.4 \
-    --hash=sha256:5bb18d9efb9331d825735fbc5360ee8f1aac5e52780042803943aa7f854f7592 \
-    --hash=sha256:72f65de312a3f10900d7685557f84cb61a9733c50dcc27271a39f5b0051bf528
+jsbeautifier==2.0.1 \
+    --hash=sha256:45603b2097410feee8d3a6ef8ad5a8e0a0e89f347331888a97e46f332ce8d953 \
+    --hash=sha256:e70bad11b394d538139e05b02ace5706a0125c580a1ec9f8599cb75bf609e6f7
     # via
     #   cssbeautifier
     #   djlint
