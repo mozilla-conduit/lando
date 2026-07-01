@@ -2654,9 +2654,9 @@ urllib3==2.7.0 \
 uwsgi==2.0.31 \
     --hash=sha256:e8f8b350ccc106ff93a65247b9136f529c14bf96b936ac5b264c6ff9d0c76257
     # via lando (pyproject.toml)
-vcs-versioning==1.1.1 \
-    --hash=sha256:b541e2ba79fc6aaa3850f8a7f88af43d97c1c80649c01142ee4146eddbc599e4 \
-    --hash=sha256:fabd75a3cab7dd8ac02fe24a3a9ba936bf258667b5a62ed468c9a1da0f5775bc
+vcs-versioning==2.1.2 \
+    --hash=sha256:7282122aee5de69d520a9dbe56ebac705a0be7e2cc9b1b97dde4333c45fe782c \
+    --hash=sha256:d559440f0cb46b6672e65492c34eadd45a736d61d5b28d43ae1ad37bc4a9f06f
     # via setuptools-scm
 vine==5.1.0 \
     --hash=sha256:40fdf3c48b2cfe1c38a49e9ae2da6fda88e4794c810050a728bd7413811fb1dc \
