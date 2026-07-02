@@ -162,14 +162,22 @@ def build_revisions_from_patch_helpers(patch_helpers: list) -> list[Revision]:
 def create_git_backing_reference_revision(
     git_job: LandingJob, requester_email: str
 ) -> Revision:
-    """Build a `Revision` recording the paired Git backing landing job ID.
+    """Build a `Revision` recording the paired Git backing push details.
 
     Adds a small JSON file on top of the Hg Try push referencing the Git backing
-    job, so the two pushes can be correlated. We add a new commit rather than
-    rewriting the push's existing `try_task_config.json`, whose opaque diff
-    cannot be reliably edited here.
+    job, so the two pushes can be correlated and CI knows which Git revision and
+    branch to clone from. We add a new commit rather than rewriting the push's
+    existing `try_task_config.json`, whose opaque diff cannot be reliably edited
+    here.
     """
-    contents = json.dumps({"git_landing_job_id": git_job.id}, indent=2)
+    contents = json.dumps(
+        {
+            "git_landing_job_id": git_job.id,
+            "git_base_commit_hash": git_job.target_commit_hash,
+            "git_branch": git_job.git_branch,
+        },
+        indent=2,
+    )
     content_lines = contents.splitlines()
     diff_header_lines = [
         f"diff --git a/{GIT_BACKING_JOB_FILE} b/{GIT_BACKING_JOB_FILE}",

@@ -468,9 +468,16 @@ def test_try_api_patches_creates_git_backing_job(
         "Hg job should carry the patch plus the Git backing reference revision."
     )
     reference_revision = try_job.revisions.last()
+    assert "lando_git_backing.json" in reference_revision.diff, (
+        "Reference revision should write the Git backing reference file."
+    )
     assert str(git_job.id) in reference_revision.diff, (
         "Reference revision should record the Git backing landing job ID."
     )
-    assert "lando_git_backing.json" in reference_revision.diff, (
-        "Reference revision should write the Git backing reference file."
+    assert commit_maps[0].git_hash in reference_revision.diff, (
+        "Reference revision should record the Git base commit hash so CI can "
+        "clone the right revision."
+    )
+    assert git_job.git_branch in reference_revision.diff, (
+        "Reference revision should record the Git backing push branch."
     )
