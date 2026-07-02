@@ -669,6 +669,47 @@ def test_integrated_execute_job_with_bookmark(
     ],
 )
 @pytest.mark.django_db
+def test_integrated_execute_job_with_git_branch(
+    repo_mc,
+    treestatusdouble,
+    mock_phab_trigger_repo_update_apply_async,
+    create_patch_revision,
+    make_landing_job,
+    get_landing_worker,
+    repo_type: str,
+):
+    """A job's `git_branch` overrides the repo's `push_target` when pushing."""
+    repo = repo_mc(repo_type, push_target="@")
+    treestatusdouble.open_tree(repo.name)
+    scm = repo.scm
+
+    job_params = {
+        "status": JobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "target_repo": repo,
+        "attempts": 1,
+        "git_branch": "try-push-42",
+    }
+    job = make_landing_job(revisions=[create_patch_revision(1)], **job_params)
+
+    scm.push = mock.MagicMock()
+    worker = get_landing_worker(repo_type)
+    assert worker.run_job(job)
+    assert scm.push.call_count == 1
+    assert scm.push.call_args[1] == {
+        "push_target": "try-push-42",
+        "force_push": False,
+    }, "`git_branch` should be used as the `push_target` for the push."
+
+
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        SCMType.GIT,
+        SCMType.HG,
+    ],
+)
+@pytest.mark.django_db
 def test_integrated_execute_job_with_scm_internal_error(
     active_mock: Callable,
     repo_mc: Callable,

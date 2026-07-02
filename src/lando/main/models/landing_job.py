@@ -61,6 +61,11 @@ class LandingJob(BaseJob):
     # Identifier of the published commit which this job should land on top of.
     target_commit_hash = models.TextField(blank=True, default="")
 
+    # When set, push to this branch instead of the target repo's `default_branch`.
+    # Used to land a job on a job-specific branch, e.g. a per-push branch on the
+    # Git backing repo for Try.
+    git_branch = models.CharField(blank=True, default="")
+
     unsorted_revisions = models.ManyToManyField(
         Revision, through="RevisionLandingJob", related_name="landing_jobs"
     )

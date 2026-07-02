@@ -339,10 +339,14 @@ class LandingWorker(Worker):
         for commit in new_commits:
             pushlog.add_commit(commit)
         repo_push_info = f"tree: {repo.tree}, push path: {repo.push_path}"
+        # A job-specific branch takes precedence over the repo's `push_target`,
+        # allowing a single job to land on its own branch (e.g. a per-push branch
+        # on the Git backing repo for Try).
+        push_target = job.git_branch or repo.push_target
         try:
             scm.push(
                 repo.push_path,
-                push_target=repo.push_target,
+                push_target=push_target,
                 force_push=repo.force_push,
             )
         except (
