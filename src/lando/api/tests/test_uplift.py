@@ -734,6 +734,7 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     monkeypatch,
     make_uplift_job_with_revisions,
     mock_uplift_email_tasks,
+    tmp_path,
 ):
     def mock_write_update_commits(commits):
         def _write_uplift_commits(job_arg, base_rev, env, output_path):
@@ -748,6 +749,13 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         return _write_uplift_commits
 
     repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
+
+    dir = tmp_path / "firefox-beta"
+    dir.mkdir()
+    mach_file = dir / "mach"
+    mach_file.write_text('#!/bin/sh\necho "fake try config"')
+    mach_file.chmod(0o755)
+    repo.system_path = str(dir)
 
     try_repo = repo_mc(SCMType.HG, name="try", is_try=True)
 
