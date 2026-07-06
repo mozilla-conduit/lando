@@ -184,7 +184,10 @@ class Repo(BaseModel):
         blank=True,
         help_text="Name of the repo in TreeHerder",
     )
-    url = models.CharField()
+    commit_map_name = models.CharField(
+        blank=True,
+        help_text="Name of the CommitMap to use (matches the git_repo_name of the entries)",
+    )
 
     approval_required = models.BooleanField(default=False)
     autoformat_enabled = models.BooleanField(default=False)
