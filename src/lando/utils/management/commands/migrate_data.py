@@ -97,3 +97,39 @@ class Command(BaseCommand):
                 self.stdout.write(f"{repo.name} ", ending="")
 
         self.stdout.write("done.")
+
+    def migrate_2_bug2050335_set_repo_commit_map_name(self, ask_confirm: bool = True):
+        """
+        Explicitly set the  `commit_map_name` for all Firefox and Thunderbird repos.
+        """
+        fx_repos = Repo.objects.filter(
+            name__startswith="firefox-", commit_map_name=""
+        ) | Repo.objects.filter(name="try", commit_map_name="")
+        tb_repos = Repo.objects.filter(
+            name__startswith="thunderbird-", commit_map_name=""
+        ) | Repo.objects.filter(name="try-comm-central", commit_map_name="")
+
+        all_repos = fx_repos | tb_repos
+
+        if not all_repos:
+            self.stdout.write("No firefox or thunderbird repos found.")
+            raise SystemExit()
+
+        repo_names = ", ".join(repo.name for repo in all_repos)
+        self._get_confirmation(
+            ask_confirm, "Updating commit_map_name for: ", repo_names
+        )
+
+        for repo in fx_repos:
+            if not repo.commit_map_name:
+                repo.commit_map_name = "firefox"
+                repo.save()
+                self.stdout.write(f"{repo.name} ", ending="")
+
+        for repo in tb_repos:
+            if not repo.commit_map_name:
+                repo.commit_map_name = "thunderbird"
+                repo.save()
+                self.stdout.write(f"{repo.name} ", ending="")
+
+        self.stdout.write("done.")
