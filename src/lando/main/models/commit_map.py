@@ -6,6 +6,7 @@ import sentry_sdk
 from django.db import IntegrityError, models
 
 from lando.main.models.base import BaseModel
+from lando.main.models.repo import Repo
 from lando.main.scm.consts import SCMType
 
 logger = logging.getLogger(__name__)
@@ -47,7 +48,23 @@ class CommitMap(BaseModel):
 
     @classmethod
     def get_hg_repo_name(cls, git_repo_name: str) -> str:
-        """Return mapped repo name or `git_repo_name` by default."""
+        """Return mapped repo name or `git_repo_name` by default.
+
+        Params:
+
+        git_repo_name: str
+
+        Either a simple repo name like `firefox` or `thunderbird`, or a full Lando repo
+        name. If a Lando repo by that name is found, its commit_map_name attribute will
+        be used it not empty.
+        """
+        try:
+            r = Repo.objects.get(name=git_repo_name)
+            if r.commit_map_name:
+                git_repo_name = r.commit_map_name
+        except Repo.DoesNotExist:
+            pass
+
         return dict(cls.REPO_MAPPING).get(git_repo_name, git_repo_name)
 
     @classmethod
