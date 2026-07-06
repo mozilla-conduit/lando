@@ -43,11 +43,6 @@ def test_CommitMap_hg2git_catchup(monkeypatch):
     )
 
 
-def test_CommitMap_get_git_repo_name():
-    repo_map = CommitMap.REPO_MAPPING[0]
-    assert CommitMap.get_git_repo_name(repo_map[1]) == repo_map[0]
-
-
 def test_CommitMap_get_hg_repo_name():
     repo_map = CommitMap.REPO_MAPPING[0]
     assert CommitMap.get_hg_repo_name(repo_map[0]) == repo_map[1]

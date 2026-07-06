@@ -51,11 +51,6 @@ class CommitMap(BaseModel):
         return dict(cls.REPO_MAPPING).get(git_repo_name, git_repo_name)
 
     @classmethod
-    def get_git_repo_name(cls, hg_repo_name: str) -> str:
-        """Return mapped repo name or `hg_repo_name` by default."""
-        return {hg: git for git, hg in cls.REPO_MAPPING}.get(hg_repo_name, hg_repo_name)
-
-    @classmethod
     def get_pushlog_url(cls, git_repo_name: str) -> str:
         """Return pushlog URL based on provided repo name."""
         return cls.HGMO_PUSHLOG_TEMPLATE.format(cls.get_hg_repo_name(git_repo_name))
