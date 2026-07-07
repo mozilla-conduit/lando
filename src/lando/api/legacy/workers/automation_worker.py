@@ -198,7 +198,7 @@ def comment_on_reverted_prs(
 
 
 class AutomationWorker(Worker):
-    """Worker to execute automation job s.
+    """Worker to execute automation jobs.
 
     This worker runs `AutomationJob`s on enabled repositories.
     These jobs include a set of actions which are to be run on the repository,
@@ -247,11 +247,11 @@ class AutomationWorker(Worker):
             actions = job.actions.all()
             for action_row in actions:
                 # Turn the row action into a Pydantic action.
-                action = resolve_action(action_row.data)  # look into here
+                action = resolve_action(action_row.data) 
 
                 # Execute the action locally.
                 try:
-                    action.process(job, repo, scm, action_row.order)  # look into here
+                    action.process(job, repo, scm, action_row.order)
 
                 except AutomationActionException as exc:
                     logger.exception(exc.message)
