@@ -247,7 +247,7 @@ class AutomationWorker(Worker):
             actions = job.actions.all()
             for action_row in actions:
                 # Turn the row action into a Pydantic action.
-                action = resolve_action(action_row.data) 
+                action = resolve_action(action_row.data)
 
                 # Execute the action locally.
                 try:
