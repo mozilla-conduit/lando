@@ -14,7 +14,14 @@ from django.contrib.auth.models import Permission, User
 from django.test.client import Client
 from pydantic import ValidationError
 
-from lando.api.legacy.workers.automation_worker import AutomationWorker
+from lando.api.legacy.workers.automation_worker import (
+    AutomationWorker,
+    find_revert_commits,
+    find_reverted_commit_hashes,
+    get_pr_errors,
+    parse_pr_url,
+    parse_push_path,
+)
 from lando.api.tests.mocks import TreeStatusDouble
 from lando.conftest import FAILING_CHECK_TYPES
 from lando.headless_api.api import (
@@ -1897,3 +1904,512 @@ def test_automation_job_processing(automation_job):
     assert job_from_db.duration_seconds > 0, (
         "`processing` should set and save the job duration."
     )
+
+
+@pytest.mark.parametrize(
+    "commit_message,expected",
+    [
+        (
+            "Pull request: https://github.com/mozilla-conduit/test-repo/pull/42",
+            {"owner": "mozilla-conduit", "repo": "test-repo", "number": "42"},
+        ),
+        ("No pull request trailer here.", None),
+        ("Pull request: https://wronghost.com/owner/repo/pull/1", None),
+    ],
+    ids=["valid_https_trailer", "no_trailer", "wrong_host"],
+)
+def test_parse_pr_url(commit_message, expected):
+    """`parse_pr_url` extracts owner/repo/number from a PR trailer, or returns `None`."""
+    assert parse_pr_url(commit_message) == expected, (
+        "`parse_pr_url` should return the expected owner/repo/number mapping."
+    )
+
+
+def test_parse_push_path():
+    push_path = "https://github.com/mozilla-conduit/test-repo/pull/1"
+    expected = ("mozilla-conduit", "test-repo")
+    """`parse_push_path` returns the `(owner, repo)` named in a GitHub push path."""
+    assert parse_push_path(push_path) == expected, (
+        "`parse_push_path` should extract the owner and repo from the push path."
+    )
+
+
+FULL_SHA = "a" * 40
+ANOTHER_FULL_SHA = "b" * 40
+
+
+@pytest.mark.parametrize(
+    "revert_commit_message,expected_hashes",
+    [
+        (f"This reverts commit {FULL_SHA}.", [FULL_SHA]),
+        # A squashed revert names several commits in one message.
+        (
+            f"This reverts commit {FULL_SHA}.\nThis reverts commit {ANOTHER_FULL_SHA}.",
+            [FULL_SHA, ANOTHER_FULL_SHA],
+        ),
+        ("A commit message with no revert trailer.", []),
+    ],
+    ids=[
+        "one_full_sha",
+        "two_full_shas_squashed",
+        "no_revert_trailer",
+    ],
+)
+def test_find_reverted_commit_hashes(revert_commit_message, expected_hashes):
+    """`find_reverted_commit_hashes` returns every reverted SHA."""
+    assert find_reverted_commit_hashes(revert_commit_message) == expected_hashes, (
+        "`find_reverted_commit_hashes` should match every reverted SHA."
+    )
+
+
+@pytest.mark.parametrize(
+    "descriptions,expected_messages",
+    [
+        (['Revert "Bug 1 - a thing"'], ['Revert "Bug 1 - a thing"']),
+        (["Bug 1 - a normal commit"], []),
+        (
+            ['Revert "Bug 1"', "Bug 2 - normal", 'Revert "Bug 3"'],
+            ['Revert "Bug 1"', 'Revert "Bug 3"'],
+        ),
+    ],
+    ids=[
+        "single_revert",
+        "no_revert",
+        "reverts_among_normal_commits",
+    ],
+)
+def test_find_revert_commits(descriptions, expected_messages):
+    """`find_revert_commits` returns the full message of each commit that is a revert."""
+    commit_data = []
+    for description in descriptions:
+        mock_commit = mock.MagicMock()
+        mock_commit.desc = description
+        commit_data.append(mock_commit)
+    assert find_revert_commits(commit_data) == expected_messages, (
+        "`find_revert_commits` should return one full message per revert commit."
+    )
+
+
+def make_pull_request(
+    head_ref: str = "main", title: str = "Bug 1234 - add a line"
+) -> mock.MagicMock:
+    """Build a stand-in pull request exposing the attributes `get_pr_errors` reads."""
+    pull_request = mock.MagicMock()
+    pull_request.head_ref = head_ref
+    pull_request.title = title
+    return pull_request
+
+
+VALID_PR_URL_DATA = {"owner": "mozilla-conduit", "repo": "test-repo", "number": "1"}
+
+
+@pytest.mark.parametrize(
+    "pr_url_data,pull_request,original_commit_message,expected_substring",
+    [
+        # A valid reverted PR produces no error.
+        (
+            VALID_PR_URL_DATA,
+            make_pull_request(),
+            'Revert "Bug 1234 - add a line"',
+            None,
+        ),
+        # The trailer points at a repo the worker is not acting on.
+        (
+            {"owner": "someone-else", "repo": "diff-repo", "number": "1"},
+            make_pull_request(),
+            'Revert "Bug 1234 - add a line"',
+            "unexpected repo",
+        ),
+        # The PR is on a branch other than the one the worker expects.
+        (
+            VALID_PR_URL_DATA,
+            make_pull_request(head_ref="some-feature-branch"),
+            'Revert "Bug 1234 - add a line"',
+            "expected PRs to be on branch",
+        ),
+        # The PR's title does not appear in the reverted commit message.
+        (
+            VALID_PR_URL_DATA,
+            make_pull_request(title="Bug 9999 - unrelated"),
+            'Revert "Bug 1234 - add a line"',
+            "title of that PR does not appear in the revert commit message.",
+        ),
+    ],
+    ids=[
+        "valid",
+        "wrong_repo",
+        "wrong_branch",
+        "title_not_in_message",
+    ],
+)
+def test_get_pr_errors(
+    pr_url_data, pull_request, original_commit_message, expected_substring
+):
+    """`get_pr_errors` returns a descriptive error string, or `None` when the PR is valid."""
+    error = get_pr_errors(
+        pr_url_data,
+        pull_request,
+        original_commit_message,
+        expected_owner="mozilla-conduit",
+        expected_repo="test-repo",
+        expected_branch="main",
+    )
+    if expected_substring is None:
+        assert error is None, "A valid reverted PR should produce no error."
+    else:
+        assert error is not None and expected_substring in error, (
+            f"Error message should mention `{expected_substring}`."
+        )
+
+
+@mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
+@pytest.mark.django_db
+def test_automation_job_pipeline(
+    github_api_client,
+    client,
+    git_repo_automation,
+    treestatusdouble,
+    automation_worker,
+    mock_phab_trigger_repo_update_apply_async,
+    automation_job,
+    headless_user,
+):
+
+    user, token = headless_user
+
+    repo = git_repo_automation
+    seed_dir = repo.pull_path
+
+    mock_github_api_client = mock.MagicMock()
+    pull_request = mock.MagicMock()
+    pull_request.head_ref = "main"
+    pull_request.title = "Bug 1234 - add a line"
+    pull_request.body = "test description"
+    pull_request.number = 1
+    mock_github_api_client.build_pull_request.return_value = pull_request
+
+    github_api_client.return_value = mock_github_api_client
+
+    commit_message = "\n\nBug 1234 - add a line\n\ntest description\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
+
+    test_file = Path(seed_dir) / "test.txt"
+    test_file.write_text(test_file.read_text() + "added line\n")
+
+    subprocess.run(["git", "add", "test.txt"], check=True, cwd=seed_dir)
+    subprocess.run(
+        ["git", "commit", "-m", commit_message],
+        check=True,
+        cwd=seed_dir,
+    )
+
+    subprocess.run(
+        ["git", "revert", "--no-edit", "HEAD"],
+        check=True,
+        cwd=seed_dir,
+    )
+    revert_patch = subprocess.run(
+        ["git", "format-patch", "-1", "--stdout"],
+        check=True,
+        capture_output=True,
+        cwd=seed_dir,
+    ).stdout
+
+    subprocess.run(
+        ["git", "reset", "--hard", "HEAD~1"],
+        check=True,
+        cwd=seed_dir,
+    )
+
+    patch_b64 = base64.b64encode(revert_patch).decode("ascii")
+
+    response = client.post(
+        f"/api/repo/{repo.name}",
+        data=json.dumps(
+            {
+                "actions": [{"action": "add-commit-base64", "content": patch_b64}],
+            }
+        ),
+        content_type="application/json",
+        headers={
+            "User-Agent": "Lando-User/testuser@example.org",
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 202, f"Unexpected status code: {response.content}"
+
+    job_id = response.json()["job_id"]
+    job = AutomationJob.objects.get(id=job_id)
+    automation_worker.worker_instance.applicable_repos.add(repo)
+    job.target_repo.scm.push = mock.MagicMock()
+
+    assert automation_worker.run_job(job)
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.LANDED, f"Job failed with error: {job.error}"
+
+    mock_github_api_client.add_comment_to_pull_request.assert_called_once()
+
+    print(mock_github_api_client.add_comment_to_pull_request.call_args_list)
+
+
+@mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
+@pytest.mark.django_db
+def test_automation_job_pipeline_2_commits_reverted(
+    github_api_client,
+    client,
+    git_repo_automation,
+    treestatusdouble,
+    automation_worker,
+    mock_phab_trigger_repo_update_apply_async,
+    automation_job,
+    headless_user,
+):
+
+    user, token = headless_user
+
+    repo = git_repo_automation
+
+    seed_dir = repo.pull_path
+
+    mock_github_api_client = mock.MagicMock()
+    pr_1 = mock.MagicMock()
+    pr_1.head_ref = "main"
+    pr_1.title = "Bug 1234 - add a line"
+    pr_1.body = "test description"
+    pr_1.number = 1
+
+    pr_2 = mock.MagicMock()
+    pr_2.head_ref = "main"
+    pr_2.title = "Bug 5678 - add another line"
+    pr_2.body = ""
+    pr_2.number = 2
+
+    prs_by_number = {"1": pr_1, "2": pr_2}
+    mock_github_api_client.build_pull_request.side_effect = lambda pr_number: (
+        prs_by_number[pr_number]
+    )
+
+    github_api_client.return_value = mock_github_api_client
+
+    commit_message_1 = "\n\nBug 1234 - add a line\n\ntest description\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
+
+    test_file = Path(seed_dir) / "test.txt"
+    test_file.write_text(test_file.read_text() + "added line\n")
+
+    subprocess.run(["git", "add", "test.txt"], check=True, cwd=seed_dir)
+    subprocess.run(
+        ["git", "commit", "-m", commit_message_1],
+        check=True,
+        cwd=seed_dir,
+    )
+
+    commit_message_2 = "\n\nBug 5678 - add another line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/2\n\n\n"
+    test_file.write_text(test_file.read_text() + "added another line\n")
+
+    subprocess.run(["git", "add", "test.txt"], check=True, cwd=seed_dir)
+    subprocess.run(
+        ["git", "commit", "-m", commit_message_2],
+        check=True,
+        cwd=seed_dir,
+    )
+
+    subprocess.run(
+        ["git", "revert", "--no-edit", "HEAD~2..HEAD"],
+        check=True,
+        cwd=seed_dir,
+    )
+
+    combined_message = subprocess.run(
+        ["git", "log", "--reverse", "--format=%B", "HEAD~2..HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+        cwd=seed_dir,
+    ).stdout.strip()
+
+    # Undo the two revert commits but keep their combined changes staged, so we
+    # can collapse them into one commit.
+    subprocess.run(["git", "reset", "--soft", "HEAD~2"], check=True, cwd=seed_dir)
+
+    # Re-commit the staged changes as a single revert commit carrying both revert
+    # messages. This simulates one new PR that reverts two commits from two
+    # different PRs at once.
+    subprocess.run(
+        ["git", "commit", "-m", combined_message],
+        check=True,
+        cwd=seed_dir,
+    )
+
+    revert_patch = subprocess.run(
+        ["git", "format-patch", "-1", "--stdout"],
+        check=True,
+        capture_output=True,
+        cwd=seed_dir,
+    ).stdout
+
+    subprocess.run(
+        ["git", "reset", "--hard", "HEAD~1"],
+        check=True,
+        cwd=seed_dir,
+    )
+
+    patch_b64 = base64.b64encode(revert_patch).decode("ascii")
+
+    response = client.post(
+        f"/api/repo/{repo.name}",
+        data=json.dumps(
+            {
+                "actions": [{"action": "add-commit-base64", "content": patch_b64}],
+            }
+        ),
+        content_type="application/json",
+        headers={
+            "User-Agent": "Lando-User/testuser@example.org",
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 202, f"Unexpected status code: {response.content}"
+
+    job_id = response.json()["job_id"]
+    job = AutomationJob.objects.get(id=job_id)
+    automation_worker.worker_instance.applicable_repos.add(repo)
+    job.target_repo.scm.push = mock.MagicMock()
+
+    assert automation_worker.run_job(job)
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.LANDED, f"Job failed with error: {job.error}"
+
+    assert mock_github_api_client.add_comment_to_pull_request.call_count == 2
+
+    print(mock_github_api_client.add_comment_to_pull_request.call_args_list)
+
+
+@mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
+@pytest.mark.django_db
+def test_automation_job_pipeline_sandwiched_revert(
+    github_api_client,
+    client,
+    git_repo_automation,
+    treestatusdouble,
+    automation_worker,
+    mock_phab_trigger_repo_update_apply_async,
+    automation_job,
+    headless_user,
+):
+
+    user, token = headless_user
+
+    repo = git_repo_automation
+    seed_dir = repo.pull_path
+
+    mock_github_api_client = mock.MagicMock()
+    mock_pr = mock.MagicMock()
+    mock_pr.head_ref = "main"
+    mock_pr.title = "Bug 1234 - add a line"
+    mock_pr.body = "test description"
+    mock_pr.number = 1
+
+    mock_github_api_client.build_pull_request.return_value = mock_pr
+    github_api_client.return_value = mock_github_api_client
+
+    commit_message_1 = "\n\nBug 1234 - add a line\n\ntest description\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
+
+    test_file1 = Path(seed_dir) / "test.txt"
+    test_file1.write_text(test_file1.read_text() + "added line to pr 1\n")
+
+    subprocess.run(["git", "add", "test.txt"], check=True, cwd=seed_dir)
+    subprocess.run(
+        ["git", "commit", "-m", commit_message_1],
+        check=True,
+        cwd=seed_dir,
+    )
+
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=seed_dir,
+    )
+    original_sha = result.stdout.strip()
+
+    commit_message_2 = "\n\nBug 5678 - add another line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/2\n\n\n"
+
+    test_file2 = Path(seed_dir) / "test2.txt"
+    test_file2.write_text("added line to pr 2\n")
+
+    subprocess.run(["git", "add", "test2.txt"], check=True, cwd=seed_dir)
+    subprocess.run(
+        ["git", "commit", "-m", commit_message_2],
+        check=True,
+        cwd=seed_dir,
+    )
+
+    subprocess.run(
+        ["git", "revert", "--no-edit", original_sha],
+        check=True,
+        cwd=seed_dir,
+    )
+
+    commit_message_3 = "\n\nBug 91011 - add a third line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/3\n\n\n"
+
+    test_file3 = Path(seed_dir) / "test3.txt"
+    test_file3.write_text("added line to pr 3\n")
+
+    subprocess.run(["git", "add", "test3.txt"], check=True, cwd=seed_dir)
+
+    subprocess.run(
+        ["git", "commit", "-m", commit_message_3],
+        check=True,
+        cwd=seed_dir,
+    )
+
+    revert_patch = subprocess.run(
+        ["git", "format-patch", "-3", "--stdout"],
+        check=True,
+        capture_output=True,
+        cwd=seed_dir,
+    ).stdout
+
+    subprocess.run(
+        ["git", "reset", "--hard", f"{original_sha}"],
+        check=True,
+        cwd=seed_dir,
+    )
+
+    patch_b64 = base64.b64encode(revert_patch).decode("ascii")
+
+    response = client.post(
+        f"/api/repo/{repo.name}",
+        data=json.dumps(
+            {
+                "actions": [
+                    {"action": "add-commit-base64", "content": patch_b64},
+                ]
+            }
+        ),
+        content_type="application/json",
+        headers={
+            "User-Agent": "Lando-User/testuser@example.org",
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 202, f"Unexpected status code: {response.content}"
+
+    job_id = response.json()["job_id"]
+    job = AutomationJob.objects.get(id=job_id)
+    automation_worker.worker_instance.applicable_repos.add(repo)
+    job.target_repo.scm.push = mock.MagicMock()
+
+    assert automation_worker.run_job(job)
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.LANDED, f"Job failed with error: {job.error}"
+
+    mock_github_api_client.add_comment_to_pull_request.assert_called_once()
+
+    print(mock_github_api_client.add_comment_to_pull_request.call_args_list)

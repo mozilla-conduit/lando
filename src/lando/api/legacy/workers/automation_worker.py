@@ -1,4 +1,5 @@
 import logging
+import re
 
 from typing_extensions import override
 
@@ -25,15 +26,179 @@ from lando.main.scm import (
     TreeApprovalRequired,
     TreeClosed,
 )
+from lando.main.scm.abstract_scm import AbstractSCM
 from lando.pushlog.pushlog import PushLogForRepo
+from lando.utils.github import GitHubAPIClient, PullRequest
 from lando.utils.landing_checks import LandingChecks
 from lando.utils.tasks import phab_trigger_repo_update
 
 logger = logging.getLogger(__name__)
 
 
+REVERT_SUMMARY_RE = re.compile(r"^Revert \"?(?P<summary>.*)\"?", re.MULTILINE)
+REVERT_RE = re.compile(r"This reverts commit (?P<commit>[0-9a-f]{40})")
+PULL_REQUEST_RE = re.compile(
+    r"Pull request: https?:\/\/github\.com\/(?P<owner>[^\/]+)\/(?P<repo>[^\/]+)\/pull\/(?P<number>\d+)",
+    re.MULTILINE,
+)
+PUSH_PATH_RE = re.compile(
+    r"https?:\/\/github\.com\/(?P<owner>[^\/]+)\/(?P<repo>[^\/]+)"
+)
+
+
+def get_pr_errors(
+    pr_url_data: dict,
+    pull_request: PullRequest,
+    original_commit_message: str,
+    expected_owner: str,
+    expected_repo: str,
+    expected_branch: str,
+) -> str | None:
+    """Return a validation error for a reverted pull request, or `None` if valid."""
+    pr_owner = pr_url_data["owner"]
+    pr_repo = pr_url_data["repo"]
+    pr_number = pr_url_data["number"]
+
+    # The trailer URL points at a different repo than the worker is acting on.
+    if pr_owner != expected_owner or pr_repo != expected_repo:
+        return (
+            f"PR URL in commit message points to unexpected repo: "
+            f"{pr_owner}/{pr_repo}, automation worker expected PRs to be from "
+            f"{expected_owner}/{expected_repo}."
+        )
+
+    # The PR is on a different branch than the worker is acting on.
+    if pull_request.head_ref != expected_branch:
+        return (
+            f"PR URL in commit message points to PR #{pr_number} which is on "
+            f"branch {pull_request.head_ref}, but automation worker expected PRs "
+            f"to be on branch {expected_branch}."
+        )
+    # The PR exists but its commit message does not appear in the reverted commit.
+    pr_commit_title = f"{pull_request.title}"
+    if pr_commit_title not in original_commit_message:
+        return (
+            f"PR URL in commit message points to PR #{pr_number} but the commit "
+            f"title of that PR does not appear in the revert commit message."
+        )
+
+    return None
+
+
+def find_revert_commits(commit_data: list[CommitData]) -> list[str]:
+    """Return the full commit messages of any commits that are reverts."""
+    revert_commits = []
+    for data in commit_data:
+        commit_message = data.desc
+        if REVERT_SUMMARY_RE.search(commit_message):
+            revert_commits.append(commit_message)
+    return revert_commits
+
+
+def parse_pr_url(commit_message: str) -> dict | None:
+    """Return the owner/repo/number from a commit's PR trailer, or `None`."""
+    pr_match = PULL_REQUEST_RE.search(commit_message)
+    return pr_match.groupdict() if pr_match else None
+
+
+def parse_push_path(push_path: str) -> tuple[str, str]:
+    """Return the `(owner, repo)` named in a repo push path."""
+    match = PUSH_PATH_RE.search(push_path)
+    return match.group("owner"), match.group("repo")
+
+
+def find_reverted_commit_hashes(revert_commit_message: str) -> list[str]:
+    """Return the full SHAs named in `This reverts commit <sha>.` lines."""
+    return REVERT_RE.findall(revert_commit_message)
+
+
+def reverted_pr_number_for_commit(
+    original_commit_message: str,
+    original_commit_hash: str,
+    expected_owner: str,
+    expected_repo: str,
+    expected_branch: str,
+    github_client: GitHubAPIClient,
+) -> str | None:
+    """Return the PR number to comment on for one reverted commit, or `None` to skip it."""
+
+    pr_url_data = parse_pr_url(original_commit_message)
+    if not pr_url_data:
+        logger.warning(
+            f"Skipping commit {original_commit_hash}: reverted commit has no "
+            f"parseable PR URL in commit message."
+        )
+        return None
+
+    pr_number = pr_url_data["number"]
+
+    try:
+        pull_request = github_client.build_pull_request(pr_number)
+    except Exception:
+        logger.warning(
+            f"Skipping commit {original_commit_hash}: PR #{pr_number} could not "
+            f"be found via the GitHub API."
+        )
+        return None
+
+    error = get_pr_errors(
+        pr_url_data,
+        pull_request,
+        original_commit_message,
+        expected_owner,
+        expected_repo,
+        expected_branch,
+    )
+
+    if error:
+        logger.warning(
+            f"Skipping commit {original_commit_hash} because validation failed: {error}"
+        )
+        return None
+
+    return pr_number
+
+
+def find_reverted_pr_numbers(
+    revert_commit_message: str,
+    push_path: str,
+    default_branch: str,
+    scm: AbstractSCM,
+    github_client: GitHubAPIClient,
+) -> list[str]:
+    """Return PR numbers named in a revert commit that should be commented on."""
+    original_commit_hashes = find_reverted_commit_hashes(revert_commit_message)
+    repo_owner, repo_name = parse_push_path(push_path)
+
+    reverted_pr_numbers = []
+    for original_commit_hash in original_commit_hashes:
+        original_commit_message = scm.describe_commit(original_commit_hash).desc
+
+        pr_number = reverted_pr_number_for_commit(
+            original_commit_message,
+            original_commit_hash,
+            repo_owner,
+            repo_name,
+            default_branch,
+            github_client,
+        )
+        if pr_number:
+            reverted_pr_numbers.append(pr_number)
+    return list(set(reverted_pr_numbers))
+
+
+def comment_on_reverted_prs(
+    reverted_pr_numbers: list[str], github_client: GitHubAPIClient
+):
+    """Post a 'has been reverted' comment on each reverted pull request."""
+    for pr_number in reverted_pr_numbers:
+        github_client.add_comment_to_pull_request(
+            pr_number, f"This pull request (#{pr_number}) has been reverted."
+        )
+
+
 class AutomationWorker(Worker):
-    """Worker to execute automation jobs.
+    """Worker to execute automation job s.
 
     This worker runs `AutomationJob`s on enabled repositories.
     These jobs include a set of actions which are to be run on the repository,
@@ -82,11 +247,11 @@ class AutomationWorker(Worker):
             actions = job.actions.all()
             for action_row in actions:
                 # Turn the row action into a Pydantic action.
-                action = resolve_action(action_row.data)
+                action = resolve_action(action_row.data)  # look into here
 
                 # Execute the action locally.
                 try:
-                    action.process(job, repo, scm, action_row.order)
+                    action.process(job, repo, scm, action_row.order)  # look into here
 
                 except AutomationActionException as exc:
                     logger.exception(exc.message)
@@ -138,6 +303,7 @@ class AutomationWorker(Worker):
                 pushlog.add_tag(tag_name, tag_commitdata)
 
             repo_push_info = f"tree: {repo.tree}, push path: {repo.push_path}"
+
             try:
                 scm.push(
                     repo.push_path,
@@ -174,6 +340,19 @@ class AutomationWorker(Worker):
             commit_id = scm.head_ref()
 
         job.transition_status(JobAction.LAND, commit_id=commit_id)
+
+        # If any of the new commits are reverts, comment on the reverted PRs.
+        revert_commits = find_revert_commits(new_commits)
+        if revert_commits:
+            reverted_pr_numbers = []
+            github_client = GitHubAPIClient(repo.push_path)
+            for commit in revert_commits:
+                pr_numbers = find_reverted_pr_numbers(
+                    commit, repo.push_path, repo.default_branch, scm, github_client
+                )
+                if pr_numbers:
+                    reverted_pr_numbers.extend(pr_numbers)
+            comment_on_reverted_prs(reverted_pr_numbers, github_client)
 
         # Trigger update of repo in Phabricator so patches are closed quicker.
         # Especially useful on low-traffic repositories.

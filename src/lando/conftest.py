@@ -960,6 +960,20 @@ def repo_mc(
 
 
 @pytest.fixture
+def git_repo_automation(
+    git_repo: pathlib.Path,
+    tmp_path: pathlib.Path,
+) -> Repo:
+    repo = git_repo_mc(
+        git_repo,
+        tmp_path,
+    )
+    repo.push_path = "https://github.com/mozilla-conduit/test-repo"
+    repo.save()
+    return repo
+
+
+@pytest.fixture
 def mock_repo_config(monkeypatch):
     def set_repo_config(config):
         monkeypatch.setattr("lando.api.legacy.repos.REPO_CONFIG", config)
