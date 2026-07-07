@@ -132,12 +132,12 @@ class JobResponse(Schema):
             },
             201: {
                 "description": "Push was submitted successfully.",
-                "content": {"application/json": {"schema": JobResponse.schema()}},
+                "content": {"application/json": {"schema": JobResponse.json_schema()}},
             },
             400: {
                 "description": "Invalid request.",
                 "content": {
-                    "application/problem+json": {"schema": ProblemDetail.schema()}
+                    "application/problem+json": {"schema": ProblemDetail.json_schema()}
                 },
             },
         }
