@@ -24,10 +24,10 @@ Lando: [link]({{ lando_url }})
 {%- endif %}
 {% if warnings %}
 
-{{ _table("Warnings", warnings, _warning) }}
+:warning: This pull request has {{ warnings|count }} {{ "warning" if warnings|count == 1 else "warnings" }}.
 {%- endif %}
 {% if blockers %}
 
-{{ _table("Blockers", blockers, _blocker) }}
+:no_entry_sign: This pull request has {{ blockers|count }} {{ "blocker" if blockers|count == 1 else "blockers" }}.
 {%- endif %}
 {% endblock %}

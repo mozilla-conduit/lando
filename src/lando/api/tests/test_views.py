@@ -419,8 +419,8 @@ class TestViewsPullRequestUpdateWebHook:
         mock_github_api_client = webhook_gh_client(github_api_client)
 
         generate_warnings_and_blockers.return_value = {
-            "warnings": ["a warning"],
-            "blockers": ["a blocker"],
+            "warnings": ["a warning", "another warning"],
+            "blockers": ["a blocker", "another blocker", "and a third one"],
         }
         response = client.post(
             "/api/pulls/webhook",
@@ -442,14 +442,8 @@ class TestViewsPullRequestUpdateWebHook:
                 "Lando: [link](https://lando.test/pulls/git-repo/1/)",
                 "Bugzilla: [bug 1111111](http://bmo.test/show_bug.cgi?id=1111111), [bug 2222222](http://bmo.test/show_bug.cgi?id=2222222)",
                 "",
-                "|Warnings|",
-                "|---------|",
-                ":warning: a warning",
-                "",
-                "|Blockers|",
-                "|---------|",
-                ":no_entry_sign: a blocker",
-                "",
+                ":warning: This pull request has 2 warnings.",
+                ":no_entry_sign: This pull request has 3 blockers.",
             ]
         )
 
@@ -496,10 +490,7 @@ class TestViewsPullRequestUpdateWebHook:
                 "Lando: [link](https://lando.test/pulls/git-repo/1/)",
                 "Bugzilla: [bug 1111111](http://bmo.test/show_bug.cgi?id=1111111), [bug 2222222](http://bmo.test/show_bug.cgi?id=2222222)",
                 "",
-                "|Blockers|",
-                "|---------|",
-                ":no_entry_sign: a blocker",
-                "",
+                ":no_entry_sign: This pull request has 1 blocker.",
             ]
         )
 
