@@ -1,6 +1,7 @@
 from datetime import datetime
-from typing import Callable, Self
+from typing import Callable, Self, override
 
+from django import forms
 from django.contrib import admin
 from django.db.models import Field as DbField
 from django.forms import CheckboxSelectMultiple, MultipleChoiceField
@@ -326,6 +327,26 @@ class RevisionAdmin(admin.ModelAdmin):
 
 
 class RepoAdmin(admin.ModelAdmin):
+    @override
+    class form(forms.ModelForm):
+        class Meta:
+            model = Repo
+            fields = "__all__"
+            exclude = ("encrypted_gh_hmac_secret",)
+
+        gh_hmac_secret = forms.CharField(
+            required=False,
+            help_text="Enter a new value that will be encrypted. Enter '-' to clear.",
+        )
+
+        def save(self, *args, **kwargs) -> Repo:
+            gh_hmac_secret = self.cleaned_data.get("gh_hmac_secret", None)
+            if gh_hmac_secret == "-":
+                self.instance.clear_gh_hmac_secret(save=False)
+            else:
+                self.instance.set_gh_hmac_secret(gh_hmac_secret, save=False)
+            return super().save(*args, **kwargs)
+
     class Media:
         # By default, labels in full-width views are limited to a fixed width left
         # column.
@@ -349,6 +370,7 @@ class RepoAdmin(admin.ModelAdmin):
     )
     inlines = (RepoWorkersInline,)
     readonly_fields = (
+        "gh_hmac_secret_is_set",
         "commit_flags",
         "system_path",
         "scm_type",
@@ -372,6 +394,10 @@ class RepoAdmin(admin.ModelAdmin):
     def worker_count(self, instance: Repo) -> int:
         """Return the count of repositories associated to the Worker."""
         return instance.worker_set.count()
+
+    def gh_hmac_secret_is_set(self, instance: Repo) -> bool:
+        """Return True if gh_hmac_secret is set."""
+        return bool(instance.gh_hmac_secret)
 
 
 class AutoformatChangeAdmin(admin.ModelAdmin):
