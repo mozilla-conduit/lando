@@ -16,6 +16,7 @@ ConfigurationValueType = bool | dict | int | str
 class ConfigurationKey(enum.Enum):
     """Configuration keys used throughout the system."""
 
+    UPLIFT_TRY_ENABLED = "UPLIFT_TRY_ENABLED"
     API_IN_MAINTENANCE = "API_IN_MAINTENANCE"
     GITHUB_REVIEWERS_MAP = "GITHUB_REVIEWERS_MAP"
     MAINTENANCE_MESSAGE = "MAINTENANCE_MESSAGE"

@@ -19,6 +19,7 @@ from lando.main.models import (
     TemporaryFailureException,
     WorkerType,
 )
+from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 from lando.main.models.landing_job import LandingJob, add_revisions_to_job
 from lando.main.models.repo import Repo
 from lando.main.models.uplift import UpliftJob, UpliftRevision
@@ -166,20 +167,21 @@ class UpliftWorker(Worker):
         job.status = JobStatus.LANDED
         job.save()
 
-        try:
-            try_job = self.create_uplift_try_push(
-                base_revision, repo.scm_type, job, scm, new_commits
-            )
-        except Exception:
-            logger.exception(
-                "Failed to create try push for uplift job.",
-                extra={"job_id": job.id},
-            )
-        else:
-            logger.info(
-                "Created try landing job for uplift job.",
-                extra={"job_id": job.id, "try_job_id": try_job.id},
-            )
+        if ConfigurationVariable.get(ConfigurationKey.UPLIFT_TRY_ENABLED, True):
+            try:
+                try_job = self.create_uplift_try_push(
+                    base_revision, repo.scm_type, job, scm, new_commits
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to create try push for uplift job.",
+                    extra={"job_id": job.id},
+                )
+            else:
+                logger.info(
+                    "Created try landing job for uplift job.",
+                    extra={"job_id": job.id, "try_job_id": try_job.id},
+                )
         return created_revision_ids
 
     def notify_uplift_success(
