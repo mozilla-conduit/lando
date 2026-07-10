@@ -133,7 +133,7 @@ urlpatterns += [
         name="api-pull-request-update-content",
     ),
     path(
-        "api/pulls/<str:repo_name>/<int:pull_number>/webhook",
+        "api/pulls/webhook",
         PullRequestUpdateWebhook.as_view(),
         name="api-pull-request-description",
     ),

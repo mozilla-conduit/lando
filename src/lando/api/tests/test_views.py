@@ -7,7 +7,6 @@ import pytest
 from django.test import Client
 
 from lando.main.models import Repo, SCMType
-from lando.utils.github import PullRequest
 
 
 @pytest.fixture
@@ -326,26 +325,15 @@ class TestViewsPullRequestUpdateWebHook:
 
     @pytest.fixture
     def webhook_gh_client(self):
-        def wrapper(github_api_client, body):
-            data = {
-                "number": 1,
-                "title": "this is some title (bug 1111111, bug 2222222)",
-                "body": body,
-            }
-            mock_pr_data = mock.MagicMock()
-            mock_pr_data.__getitem__.side_effect = lambda k: (
-                data[k] if k in data else mock.MagicMock()
-            )
-
+        def wrapper(github_api_client):
             mock_github_api_client = mock.MagicMock()
             mock_github_api_client.repo_is_private = False
-
-            mock_pr = PullRequest(mock_github_api_client, mock_pr_data)
-            mock_github_api_client.build_pull_request.return_value = mock_pr
             github_api_client.return_value = mock_github_api_client
 
             repo = Repo.objects.create(
                 name="git-repo",
+                default_branch="test_branch",
+                url="https://example.org/test-org/test-repo.git",
                 scm_type=SCMType.GIT,
                 pr_enabled=True,
             )
@@ -355,9 +343,27 @@ class TestViewsPullRequestUpdateWebHook:
         return wrapper
 
     @pytest.fixture
-    def webhook_content(self):
-        def _webhook_content(is_bot=False):
-            return {"sender": {"type": "User" if not is_bot else "Bot"}}
+    def webhook_content(self, pull_request_data, update_dict):
+        def _webhook_content(is_bot=False, overrides=None):
+            data = {
+                "sender": {"type": "User" if not is_bot else "Bot"},
+                "pull_request": pull_request_data(
+                    **{
+                        "number": 1,
+                        "base": {
+                            "ref": "test_branch",
+                            "repo": {
+                                "clone_url": "https://example.org/test-org/test-repo.git"
+                            },
+                        },
+                    }
+                ),
+            }
+
+            if overrides:
+                update_dict(data, overrides)
+
+            return data
 
         return _webhook_content
 
@@ -372,17 +378,24 @@ class TestViewsPullRequestUpdateWebHook:
         client,
         expected_body,
         webhook_gh_client,
+        webhook_content,
         hmac_headers,
     ):
         """Test that the webhook fails when called without correct headers."""
-        mock_github_api_client = webhook_gh_client(github_api_client, body)
+        content = webhook_content(overrides={"pull_request": {"body": body}})
+        mock_github_api_client = webhook_gh_client(github_api_client)
 
         generate_warnings_and_blockers.return_value = {
             "warnings": ["a warning"],
             "blockers": ["a blocker"],
         }
 
-        response = client.post("/api/pulls/git-repo/1/webhook")
+        response = client.post(
+            "/api/pulls/webhook",
+            content,
+            content_type="application/json",
+            headers={},
+        )
 
         assert mock_github_api_client.update_pull_request_body.call_count == 0
         assert response.status_code == 403
@@ -402,15 +415,16 @@ class TestViewsPullRequestUpdateWebHook:
         webhook_content,
     ):
         """Test that the webhook is calling the GitHub API with the correct parameters."""
-        mock_github_api_client = webhook_gh_client(github_api_client, body)
+        content = webhook_content(overrides={"pull_request": {"body": body}})
+        mock_github_api_client = webhook_gh_client(github_api_client)
 
         generate_warnings_and_blockers.return_value = {
             "warnings": ["a warning"],
             "blockers": ["a blocker"],
         }
         response = client.post(
-            "/api/pulls/git-repo/1/webhook",
-            content := webhook_content(),
+            "/api/pulls/webhook",
+            content,
             content_type="application/json",
             headers=hmac_headers(body=content),
         )
@@ -456,15 +470,16 @@ class TestViewsPullRequestUpdateWebHook:
         hmac_headers,
         webhook_content,
     ):
-        mock_github_api_client = webhook_gh_client(github_api_client, body)
+        content = webhook_content(overrides={"pull_request": {"body": body}})
+        mock_github_api_client = webhook_gh_client(github_api_client)
         generate_warnings_and_blockers.return_value = {
             "warnings": [],
             "blockers": ["a blocker"],
         }
 
         client.post(
-            "/api/pulls/git-repo/1/webhook",
-            content := webhook_content(),
+            "/api/pulls/webhook",
+            content,
             content_type="application/json",
             headers=hmac_headers(body=content),
         )
@@ -502,15 +517,16 @@ class TestViewsPullRequestUpdateWebHook:
         hmac_headers,
         webhook_content,
     ):
-        mock_github_api_client = webhook_gh_client(github_api_client, body)
+        content = webhook_content(overrides={"pull_request": {"body": body}})
+        mock_github_api_client = webhook_gh_client(github_api_client)
         generate_warnings_and_blockers.return_value = {
             "warnings": [],
             "blockers": [],
         }
 
         client.post(
-            "/api/pulls/git-repo/1/webhook",
-            content := webhook_content(),
+            "/api/pulls/webhook",
+            content,
             content_type="application/json",
             headers=hmac_headers(body=content),
         )
@@ -542,11 +558,13 @@ class TestViewsPullRequestUpdateWebHook:
         hmac_headers,
         webhook_content,
     ):
-        mock_github_api_client = webhook_gh_client(github_api_client, body)
-
+        content = webhook_content(
+            overrides={"pull_request": {"body": body}}, is_bot=True
+        )
+        mock_github_api_client = webhook_gh_client(github_api_client)
         response = client.post(
-            "/api/pulls/git-repo/1/webhook",
-            content := webhook_content(is_bot=True),
+            "/api/pulls/webhook",
+            content,
             content_type="application/json",
             headers=hmac_headers(body=content),
         )
