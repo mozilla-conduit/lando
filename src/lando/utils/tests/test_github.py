@@ -8,9 +8,11 @@ from django.conf import settings
 from requests import Response
 
 from lando.utils.github import (
+    PR_DELIMITER,
     GitHub,
     GitHubAPI,
     GitHubAPIClient,
+    PullRequest,
     PullRequestPatchHelper,
 )
 
@@ -445,6 +447,26 @@ def test_api_client_get_pull_request_commits(
         {"sha": "commit_21"},
         {"sha": "commit_22"},
     ], "Unexpected commit data"
+
+
+@pytest.mark.parametrize(
+    "body, expected_output",
+    (
+        ("some random text", "some random text"),
+        (
+            f"some random text{PR_DELIMITER}some other text",
+            "some random text",
+        ),
+        (
+            f"some random text{PR_DELIMITER}some other text{PR_DELIMITER}more text",
+            "some random text",
+        ),
+        ("", ""),
+    ),
+)
+def test__PullRequest___parse_body_segments__no_delimiter(body, expected_output):
+    output = PullRequest._parse_body_segments(body)
+    assert output == expected_output
 
 
 @pytest.fixture
