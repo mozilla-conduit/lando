@@ -28,7 +28,7 @@ from lando.main.scm import (
 )
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.pushlog.pushlog import PushLogForRepo
-from lando.utils.github import GitHubAPIClient, PullRequest
+from lando.utils.github import GitHubAPIClient, PullRequest, GITHUB_URL_RE
 from lando.utils.landing_checks import LandingChecks
 from lando.utils.tasks import phab_trigger_repo_update
 
@@ -41,10 +41,6 @@ PULL_REQUEST_RE = re.compile(
     r"Pull request: https?:\/\/github\.com\/(?P<owner>[^\/]+)\/(?P<repo>[^\/]+)\/pull\/(?P<number>\d+)",
     re.MULTILINE,
 )
-PUSH_PATH_RE = re.compile(
-    r"https?:\/\/github\.com\/(?P<owner>[^\/]+)\/(?P<repo>[^\/]+)"
-)
-
 
 def get_pr_errors(
     pr_url_data: dict,
@@ -103,7 +99,7 @@ def parse_pr_url(commit_message: str) -> dict | None:
 
 def parse_push_path(push_path: str) -> tuple[str, str]:
     """Return the `(owner, repo)` named in a repo push path."""
-    match = PUSH_PATH_RE.search(push_path)
+    match = GITHUB_URL_RE.search(push_path)
     return match.group("owner"), match.group("repo")
 
 

@@ -33,14 +33,12 @@ logger = logging.getLogger(__name__)
 PR_DELIMITER = (
     "<!--/ -+-+- DO NOT MODIFY THIS LINE - ENTER COMMIT MESSAGE ABOVE -+-+- /-->"
 )
-
+GITHUB_URL_RE = re.compile(
+        rf"https://{URL_USERINFO_RE.pattern}?github.com/(?P<owner>[-A-Za-z0-9]+)/(?P<repo>[^/]+?)(?:\.git)?(?:/|$)"
+    )
 
 class GitHub:
     """Work with authentication to GitHub repositories."""
-
-    GITHUB_URL_RE = re.compile(
-        rf"https://{URL_USERINFO_RE.pattern}?github.com/(?P<owner>[-A-Za-z0-9]+)/(?P<repo>[^/]+?)(?:\.git)?(?:/|$)"
-    )
 
     repo_url: str
     repo_owner: str
@@ -70,7 +68,7 @@ class GitHub:
 
         Note: no normalisation is performed on the URL
         """
-        return re.match(cls.GITHUB_URL_RE, url)
+        return re.match(GITHUB_URL_RE, url)
 
     @property
     def authenticated_url(self) -> str:
