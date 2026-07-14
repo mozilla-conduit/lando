@@ -28,7 +28,7 @@ from lando.main.scm import (
 )
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.pushlog.pushlog import PushLogForRepo
-from lando.utils.github import GitHubAPIClient, PullRequest, GITHUB_URL_RE
+from lando.utils.github import GitHubAPIClient, PullRequest, GITHUB_URL_RE, PULL_REQUEST_RE
 from lando.utils.landing_checks import LandingChecks
 from lando.utils.tasks import phab_trigger_repo_update
 
@@ -37,10 +37,6 @@ logger = logging.getLogger(__name__)
 
 REVERT_SUMMARY_RE = re.compile(r"^Revert \"?(?P<summary>.*)\"?", re.MULTILINE)
 REVERT_RE = re.compile(r"This reverts commit (?P<commit>[0-9a-f]{40})")
-PULL_REQUEST_RE = re.compile(
-    r"Pull request: https?:\/\/github\.com\/(?P<owner>[^\/]+)\/(?P<repo>[^\/]+)\/pull\/(?P<number>\d+)",
-    re.MULTILINE,
-)
 
 def get_pr_errors(
     pr_url_data: dict,

@@ -29,6 +29,7 @@ from lando.utils.const import URL_USERINFO_RE
 
 logger = logging.getLogger(__name__)
 
+PR_TRAILER_PREFIX = "Pull request: "
 
 PR_DELIMITER = (
     "<!--/ -+-+- DO NOT MODIFY THIS LINE - ENTER COMMIT MESSAGE ABOVE -+-+- /-->"
@@ -36,7 +37,10 @@ PR_DELIMITER = (
 GITHUB_URL_RE = re.compile(
         rf"https://{URL_USERINFO_RE.pattern}?github.com/(?P<owner>[-A-Za-z0-9]+)/(?P<repo>[^/]+?)(?:\.git)?(?:/|$)"
     )
-
+PULL_REQUEST_RE = re.compile(
+    rf"{PR_TRAILER_PREFIX}{GITHUB_URL_RE.pattern}pull/(?P<number>\d+)",
+    re.MULTILINE,
+)
 class GitHub:
     """Work with authentication to GitHub repositories."""
 
@@ -669,7 +673,7 @@ class PullRequest:
         if self.commit_body:
             lines += [self.commit_body, ""]
 
-        lines.append(f"Pull request: {self.html_url}")
+        lines.append(f"{PR_TRAILER_PREFIX}{self.html_url}")
 
         return "\n".join(lines)
 
