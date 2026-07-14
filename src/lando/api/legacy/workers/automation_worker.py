@@ -28,7 +28,7 @@ from lando.main.scm import (
 )
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.pushlog.pushlog import PushLogForRepo
-from lando.utils.github import GitHubAPIClient, PullRequest, GITHUB_URL_RE, PULL_REQUEST_RE
+from lando.utils.github import GitHubAPIClient, PullRequest, GITHUB_URL_RE
 from lando.utils.landing_checks import LandingChecks
 from lando.utils.tasks import phab_trigger_repo_update
 
@@ -87,12 +87,6 @@ def find_revert_commits(commit_data: list[CommitData]) -> list[str]:
     return revert_commits
 
 
-def parse_pr_url(commit_message: str) -> dict | None:
-    """Return the owner/repo/number from a commit's PR trailer, or `None`."""
-    pr_match = PULL_REQUEST_RE.search(commit_message)
-    return pr_match.groupdict() if pr_match else None
-
-
 def parse_push_path(push_path: str) -> tuple[str, str]:
     """Return the `(owner, repo)` named in a repo push path."""
     match = GITHUB_URL_RE.search(push_path)
@@ -114,7 +108,7 @@ def reverted_pr_number_for_commit(
 ) -> str | None:
     """Return the PR number to comment on for one reverted commit, or `None` to skip it."""
 
-    pr_url_data = parse_pr_url(original_commit_message)
+    pr_url_data = PullRequest.parse_pr_url(original_commit_message)
     if not pr_url_data:
         logger.warning(
             f"Skipping commit {original_commit_hash}: reverted commit has no "
