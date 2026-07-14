@@ -343,7 +343,7 @@ class RepoAdmin(admin.ModelAdmin):
             gh_hmac_secret = self.cleaned_data.get("gh_hmac_secret", None)
             if gh_hmac_secret == "-":
                 self.instance.clear_gh_hmac_secret(save=False)
-            else:
+            elif gh_hmac_secret:
                 self.instance.set_gh_hmac_secret(gh_hmac_secret, save=False)
             return super().save(*args, **kwargs)
 
