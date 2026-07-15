@@ -1,5 +1,16 @@
 "use strict";
 
+// Label shown on the landing button when unacknowledged warnings block landing.
+const ACKNOWLEDGE_WARNINGS_LABEL = "Acknowledge warnings to continue";
+
+// Put the landing button into the state that requires the user to acknowledge
+// warnings before landing can proceed.
+function need_warnings_acknowledgements(button) {
+    button.prop("disabled", true);
+    button.removeClass("is-loading is-danger").addClass("is-warning");
+    button.html(ACKNOWLEDGE_WARNINGS_LABEL);
+}
+
 $.fn.stack = function () {
     return this.each(function () {
         let $stack = $(this);
@@ -87,8 +98,7 @@ $.fn.stack = function () {
                     pull_request_button.prop("disabled", false);
                     pull_request_button.html("Request landing despite warnings");
                 } else {
-                    pull_request_button.prop("disabled", true);
-                    pull_request_button.html("Acknowledge warnings to continue");
+                    need_warnings_acknowledgements(pull_request_button);
                 }
             });
 
@@ -103,6 +113,7 @@ $.fn.stack = function () {
             var head_sha = pull_request_button.data("head-sha");
             var repo_name = pull_request_button.data("repo-name");
             var csrf_token = pull_request_button.data("csrf-token");
+            var old_warnings = [];
 
             fetch(`/api/pulls/${repo_name}/${pull_number}/landing_jobs`, {
                 method: "GET",
@@ -143,7 +154,7 @@ $.fn.stack = function () {
                                 var result = await response.json();
                                 var blockers = result.blockers;
                                 var warnings = result.warnings;
-
+                                old_warnings = warnings;
                                 var has_blockers = blockers.length !== 0;
                                 var has_warnings = warnings.length !== 0;
                                 var success_placeholder = `<li><span class="fa-li has-text-success"><i class="fa fa-check"></i></span>None found.</li>`;
@@ -184,13 +195,7 @@ $.fn.stack = function () {
                                     pull_request_button.html("Landing is blocked");
                                 } else if (has_warnings) {
                                     $(".acknowledge-warnings-section").show();
-                                    pull_request_button.prop("disabled", true);
-                                    pull_request_button
-                                        .removeClass("is-loading")
-                                        .addClass("is-warning");
-                                    pull_request_button.html(
-                                        "Acknowledge warnings to continue",
-                                    );
+                                    need_warnings_acknowledgements(pull_request_button);
                                 }
                                 saved_landing_state = {
                                     html: pull_request_button.html(),
@@ -217,22 +222,42 @@ $.fn.stack = function () {
                 pull_request_button.addClass("is-loading");
                 fetch(`/api/pulls/${repo_name}/${pull_number}/landing_jobs`, {
                     method: "POST",
-                    body: JSON.stringify({ head_sha: head_sha }),
+                    body: JSON.stringify({
+                        head_sha: head_sha,
+                        old_warnings: old_warnings,
+                    }),
                     headers: {
                         Accept: "application/json",
                         "Content-Type": "application/json",
                         "X-CSRFToken": csrf_token,
                     },
-                }).then((response) => {
+                }).then(async (response) => {
                     if (response.status == 201) {
                         window.location.reload();
                     } else if (response.status == 400) {
-                        pull_request_button.prop("disabled", true);
+                        var result = await response.json();
                         pull_request_button
                             .removeClass("is-danger")
                             .removeClass("is-loading")
                             .addClass("is-warning");
-                        pull_request_button.html("Could not create landing job");
+                        pull_request_button.prop("disabled", true);
+
+                        if ("new_warnings" in result) {
+                            $("#warnings-mismatch").append(
+                                `<li>${result["errors"]["warnings"]}</li>`,
+                            );
+                            $("#warnings").empty();
+                            $("#acknowledge-warnings").prop("checked", false);
+                            need_warnings_acknowledgements(pull_request_button);
+                            var new_warnings = result["new_warnings"];
+                            for (var warning of new_warnings) {
+                                $("#warnings").append(
+                                    `<li><span class="fa-li has-text-warning"><i class="fa fa-warning"></i></span>${warning}</li>`,
+                                );
+                            }
+                        } else {
+                            pull_request_button.html("Could not create landing job");
+                        }
                     } else {
                         pull_request_button.prop("disabled", true);
                         pull_request_button
