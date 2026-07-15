@@ -187,6 +187,7 @@ class Repo(CryptographyMixin, BaseModel):
     commit_map_name = models.CharField(
         blank=True,
         help_text="Name of the CommitMap to use (matches the git_repo_name of the entries)",
+        default="",
     )
 
     approval_required = models.BooleanField(default=False)
