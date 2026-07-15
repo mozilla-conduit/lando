@@ -267,7 +267,7 @@ def set_uplift_request_form_on_revision(
     """
     try:
         user = User.objects.select_related("profile").get(pk=user_id)
-    except User.NotFoundError as exc:
+    except User.DoesNotExist as exc:
         raise RuntimeError(f"User {user_id} does not exist.") from exc
 
     logging.info(f"Sending uplift request form update to {revision_id=}.")

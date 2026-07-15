@@ -1,3 +1,6 @@
+import hashlib
+import hmac
+import json
 from unittest import mock
 
 import pytest
@@ -88,14 +91,14 @@ def test__views__phabricator_auth_backend(
     phabdouble, client, user, user_phab_api_key, user_linked_to_phab, monkeypatch
 ):
     """Test that the Phabricator authentication backend behaves as expected."""
-    test = client.get("/__version__")
-    assert test.wsgi_request.user.is_anonymous
+    response = client.get("/__version__")
+    assert response.wsgi_request.user.is_anonymous
 
     # NOTE: due to limitations in phabdouble, the value of the token
     # is irrelevant here. This should be fixed in bug 2019413.
     headers = {"X-Phabricator-API-Key": user_phab_api_key}
-    test = client.get("/__version__", headers=headers)
-    assert test.wsgi_request.user.is_authenticated
+    response = client.get("/__version__", headers=headers)
+    assert response.wsgi_request.user.is_authenticated
 
 
 @pytest.mark.django_db(transaction=True)
@@ -108,8 +111,8 @@ def test__views__phabricator_auth_backend_unknown_phid(
     phabdouble.user(username="unknown_phab_user", email="unknown@example.com")
 
     headers = {"X-Phabricator-API-Key": user_phab_api_key}
-    test = client.get("/__version__", headers=headers)
-    assert not test.wsgi_request.user.is_authenticated, (
+    response = client.get("/__version__", headers=headers)
+    assert not response.wsgi_request.user.is_authenticated, (
         "A valid Phabricator token whose PHID and email do not match any local "
         "profile should not result in an authenticated request."
     )
@@ -129,8 +132,8 @@ def test__views__phabricator_auth_backend_email_fallback(
     )
 
     headers = {"X-Phabricator-API-Key": user_phab_api_key}
-    test = client.get("/__version__", headers=headers)
-    assert test.wsgi_request.user.is_authenticated, (
+    response = client.get("/__version__", headers=headers)
+    assert response.wsgi_request.user.is_authenticated, (
         "Email fallback should authenticate the user when the PHID is not yet stored."
     )
 
@@ -152,8 +155,8 @@ def test__views__phabricator_auth_backend_invalid_token(
     # or not. This should be fixed (see bug 2019413.)
 
     headers = {"X-Phabricator-API-Key": "INVALID_TOKEN"}
-    test = client.get("/__version__", headers=headers)
-    assert not test.wsgi_request.user.is_authenticated
+    response = client.get("/__version__", headers=headers)
+    assert not response.wsgi_request.user.is_authenticated
 
 
 @mock.patch("lando.api.views.GitHubAPIClient")
@@ -173,12 +176,12 @@ def test__views__pull_request_api_view__private_repo(github_api_client, client):
         scm_type=SCMType.GIT,
     )
 
-    test = client.get(f"/api/pulls/{repo.name}/1/landing_jobs")
-    assert test.status_code == 404
+    response = client.get(f"/api/pulls/{repo.name}/1/landing_jobs")
+    assert response.status_code == 404
 
     mock_github_api_client.repo_is_private = False
-    test = client.get(f"/api/pulls/{repo.name}/1/landing_jobs")
-    assert test.status_code == 200
+    response = client.get(f"/api/pulls/{repo.name}/1/landing_jobs")
+    assert response.status_code == 200
 
 
 @mock.patch("lando.api.views.GitHubAPIClient")
@@ -284,3 +287,277 @@ def test__views__pull_request_content_api_view__missing_csrf_token(
     )
     assert result.status_code == 403
     assert b"403 Forbidden" in result.content
+
+
+@pytest.mark.parametrize(
+    "body, expected_body",
+    (
+        ("this is some commit body", "this is some commit body"),
+        # Extra whitespace before and after the commit message gets stripped.
+        (
+            "\nsomething with more characters\n\n < > <strong>test</strong> <script>\n",
+            "something with more characters\n\n < > <strong>test</strong> <script>",
+        ),
+    ),
+)
+class TestViewsPullRequestUpdateWebHook:
+    hmac_secret = "test secret"
+
+    @pytest.fixture
+    def hmac_headers(self):
+        def calculate_signature(body=None):
+            if isinstance(body, dict):
+                body = json.dumps(body)
+            _hmac = hmac.new(
+                self.hmac_secret.encode("utf-8"),
+                msg=body.encode("utf-8") or b"--BoUnDaRyStRiNg--\r\n",
+                digestmod=hashlib.sha256,
+            )
+            return f"sha256={_hmac.hexdigest()}"
+
+        def _headers(signature="", body=None):
+            return {
+                "X-Hub-Signature-256": signature or calculate_signature(body),
+                "content-type": "application/json",
+            }
+
+        return _headers
+
+    @pytest.fixture
+    def webhook_gh_client(self):
+        def wrapper(github_api_client):
+            mock_github_api_client = mock.MagicMock()
+            mock_github_api_client.repo_is_private = False
+            github_api_client.return_value = mock_github_api_client
+
+            repo = Repo.objects.create(
+                name="git-repo",
+                default_branch="test_branch",
+                url="https://example.org/test-org/test-repo.git",
+                scm_type=SCMType.GIT,
+                pr_enabled=True,
+            )
+            repo.set_gh_hmac_secret(self.hmac_secret)
+            return mock_github_api_client
+
+        return wrapper
+
+    @pytest.fixture
+    def webhook_content(self, pull_request_data, update_dict):
+        def _webhook_content(is_bot=False, overrides=None):
+            data = {
+                "sender": {"type": "User" if not is_bot else "Bot"},
+                "pull_request": pull_request_data(
+                    **{
+                        "number": 1,
+                        "base": {
+                            "ref": "test_branch",
+                            "repo": {
+                                "clone_url": "https://example.org/test-org/test-repo.git"
+                            },
+                        },
+                    }
+                ),
+            }
+
+            if overrides:
+                update_dict(data, overrides)
+
+            return data
+
+        return _webhook_content
+
+    @mock.patch("lando.api.views.generate_warnings_and_blockers")
+    @mock.patch("lando.api.views.GitHubAPIClient")
+    @pytest.mark.django_db(transaction=True)
+    def test__views__pull_request_update_webhook_no_hmac_header(
+        self,
+        github_api_client,
+        generate_warnings_and_blockers,
+        body,
+        client,
+        expected_body,
+        webhook_gh_client,
+        webhook_content,
+        hmac_headers,
+    ):
+        """Test that the webhook fails when called without correct headers."""
+        content = webhook_content(overrides={"pull_request": {"body": body}})
+        mock_github_api_client = webhook_gh_client(github_api_client)
+
+        generate_warnings_and_blockers.return_value = {
+            "warnings": ["a warning"],
+            "blockers": ["a blocker"],
+        }
+
+        response = client.post(
+            "/api/pulls/webhook",
+            content,
+            content_type="application/json",
+            headers={},
+        )
+
+        assert mock_github_api_client.update_pull_request_body.call_count == 0
+        assert response.status_code == 403
+
+    @mock.patch("lando.api.views.generate_warnings_and_blockers")
+    @mock.patch("lando.api.views.GitHubAPIClient")
+    @pytest.mark.django_db(transaction=True)
+    def test__views__pull_request_update_webhook_warnings_and_blockers(
+        self,
+        github_api_client,
+        generate_warnings_and_blockers,
+        body,
+        expected_body,
+        client,
+        webhook_gh_client,
+        hmac_headers,
+        webhook_content,
+    ):
+        """Test that the webhook is calling the GitHub API with the correct parameters."""
+        content = webhook_content(overrides={"pull_request": {"body": body}})
+        mock_github_api_client = webhook_gh_client(github_api_client)
+
+        generate_warnings_and_blockers.return_value = {
+            "warnings": ["a warning", "another warning"],
+            "blockers": ["a blocker", "another blocker", "and a third one"],
+        }
+        response = client.post(
+            "/api/pulls/webhook",
+            content,
+            content_type="application/json",
+            headers=hmac_headers(body=content),
+        )
+
+        assert mock_github_api_client.update_pull_request_content.call_count == 1
+        pr_number, called_body = (
+            mock_github_api_client.update_pull_request_content.call_args[0]
+        )
+        assert pr_number == 1
+        assert called_body == "\n".join(
+            [
+                expected_body,
+                "<!--/ -+-+- DO NOT MODIFY THIS LINE - ENTER COMMIT MESSAGE ABOVE -+-+- /-->",
+                "---",
+                "Lando: [link](https://lando.test/pulls/git-repo/1/)",
+                "Bugzilla: [bug 1111111](http://bmo.test/show_bug.cgi?id=1111111), [bug 2222222](http://bmo.test/show_bug.cgi?id=2222222)",
+                "",
+                ":warning: This pull request has 2 warnings.",
+                ":no_entry_sign: This pull request has 3 blockers.",
+            ]
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "success"}
+
+    @mock.patch("lando.api.views.generate_warnings_and_blockers")
+    @mock.patch("lando.api.views.GitHubAPIClient")
+    @pytest.mark.django_db(transaction=True)
+    def test__views__pull_request_update_webhook_blockers_only(
+        self,
+        github_api_client,
+        generate_warnings_and_blockers,
+        body,
+        expected_body,
+        client,
+        webhook_gh_client,
+        hmac_headers,
+        webhook_content,
+    ):
+        content = webhook_content(overrides={"pull_request": {"body": body}})
+        mock_github_api_client = webhook_gh_client(github_api_client)
+        generate_warnings_and_blockers.return_value = {
+            "warnings": [],
+            "blockers": ["a blocker"],
+        }
+
+        client.post(
+            "/api/pulls/webhook",
+            content,
+            content_type="application/json",
+            headers=hmac_headers(body=content),
+        )
+        assert mock_github_api_client.update_pull_request_content.call_count == 1
+        pr_number, called_body = (
+            mock_github_api_client.update_pull_request_content.call_args[0]
+        )
+
+        assert called_body == "\n".join(
+            [
+                expected_body,
+                "<!--/ -+-+- DO NOT MODIFY THIS LINE - ENTER COMMIT MESSAGE ABOVE -+-+- /-->",
+                "---",
+                "Lando: [link](https://lando.test/pulls/git-repo/1/)",
+                "Bugzilla: [bug 1111111](http://bmo.test/show_bug.cgi?id=1111111), [bug 2222222](http://bmo.test/show_bug.cgi?id=2222222)",
+                "",
+                ":no_entry_sign: This pull request has 1 blocker.",
+            ]
+        )
+
+    @mock.patch("lando.api.views.generate_warnings_and_blockers")
+    @mock.patch("lando.api.views.GitHubAPIClient")
+    @pytest.mark.django_db(transaction=True)
+    def test__views__pull_request_update_webhook_no_warnings_or_blockers(
+        self,
+        github_api_client,
+        generate_warnings_and_blockers,
+        body,
+        expected_body,
+        client,
+        webhook_gh_client,
+        hmac_headers,
+        webhook_content,
+    ):
+        content = webhook_content(overrides={"pull_request": {"body": body}})
+        mock_github_api_client = webhook_gh_client(github_api_client)
+        generate_warnings_and_blockers.return_value = {
+            "warnings": [],
+            "blockers": [],
+        }
+
+        client.post(
+            "/api/pulls/webhook",
+            content,
+            content_type="application/json",
+            headers=hmac_headers(body=content),
+        )
+        assert mock_github_api_client.update_pull_request_content.call_count == 1
+        pr_number, called_body = (
+            mock_github_api_client.update_pull_request_content.call_args[0]
+        )
+
+        assert called_body == "\n".join(
+            [
+                expected_body,
+                "<!--/ -+-+- DO NOT MODIFY THIS LINE - ENTER COMMIT MESSAGE ABOVE -+-+- /-->",
+                "---",
+                "Lando: [link](https://lando.test/pulls/git-repo/1/)",
+                "Bugzilla: [bug 1111111](http://bmo.test/show_bug.cgi?id=1111111), [bug 2222222](http://bmo.test/show_bug.cgi?id=2222222)",
+                ":white_check_mark: All Lando checks passed",
+            ]
+        )
+
+    @mock.patch("lando.api.views.GitHubAPIClient")
+    @pytest.mark.django_db(transaction=True)
+    def test__views__pull_request_update_webhook_bot(
+        self,
+        github_api_client,
+        body,
+        expected_body,
+        client,
+        webhook_gh_client,
+        hmac_headers,
+        webhook_content,
+    ):
+        content = webhook_content(
+            overrides={"pull_request": {"body": body}}, is_bot=True
+        )
+        mock_github_api_client = webhook_gh_client(github_api_client)
+        response = client.post(
+            "/api/pulls/webhook",
+            content,
+            content_type="application/json",
+            headers=hmac_headers(body=content),
+        )
+        assert response.status_code == 202
+        assert mock_github_api_client.update_pull_request_body.call_count == 0
