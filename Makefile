@@ -47,6 +47,10 @@ format: ## run ruff and djLint on source code
 .PHONY: migrations
 migrations: ## generates migration files to reflect model changes in the database
 	$(BASE_COMMAND) lando makemigrations
+migrations-show: ## show currently applied migrations
+	$(BASE_COMMAND) lando showmigrations
+migrations-rollback: ## rollback to the app and migration specified in ROLLBACK_TO argument (e.g. make migrations-rollback ROLLBACK_TO="main 0001_initial"
+	$(BASE_COMMAND) lando migrate ${ROLLBACK_TO}
 
 .PHONY: test
 test: ## run the Python and JavaScript test suites
