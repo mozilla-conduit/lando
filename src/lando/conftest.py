@@ -1053,6 +1053,7 @@ def mocked_repo_config_try(mock_repo_config):
         is_try=True,
         hooks=TRY_HOOKS,
         force_push=True,
+        commit_map_name="firefox",
     )
 
 

@@ -50,18 +50,18 @@ Base64Patch = Annotated[
 ]
 
 
-def get_commit_map(try_repo_scm_type: str, repo_name: str, repo_scm_type: str) -> str:
+def get_commit_map(repo: Repo) -> str:
     """Return the repo to use for commit mapping, or raise `ValueError` if unsupported."""
-    mapping_repo = CommitMap.TRY_REPO_MAPPING.get(repo_name)
-    if not mapping_repo:
-        error = f"Unable to lookup commits from {try_repo_scm_type} to {repo_scm_type}. {repo_name} is not supported."
-        logger.info(error)
-        raise ValueError(error)
-    return mapping_repo
+    # XXX: cases where the repo is Hg are not handled, and we don't expect to push to a
+    if repo.scm_type != SCMType.GIT and not repo.commit_map_name:
+        raise ValueError(
+            f"Non-git repo should have explicit commit_map_name: {repo.name}"
+        )
+    return repo.commit_map_name or repo.git_repo_name
 
 
 def get_commit_hash(
-    mapping_repo: str, target_commit_hash: str, repo_scm_type: str
+    mapping_repo: str, target_commit_hash: str, repo_scm_type: SCMType
 ) -> str:
     """Return the equivalent commit hash in `repo_scm_type`, or raise `ValueError`."""
     try:
@@ -177,9 +177,7 @@ def patches(
     target_commit_hash = patches_request.base_commit
     if patches_request.base_commit_vcs != repo.scm_type:
         try:
-            mapping_repo = get_commit_map(
-                patches_request.base_commit_vcs, repo.name, repo.scm_type
-            )
+            mapping_repo = get_commit_map(repo)
         except ValueError as exc:
             status = 400
             return status, ProblemDetail(

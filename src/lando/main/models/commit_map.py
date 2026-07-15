@@ -25,13 +25,6 @@ class CommitMap(BaseModel):
         ("thunderbird", "comm-unified"),
     )
 
-    # The TRY_REPO_MAPPING is used to determine which repository to use for
-    # inspecting relevant CommitMap for a Try repository.
-    TRY_REPO_MAPPING = {
-        "try": "firefox",
-        "try-comm-central": "thunderbird",
-    }
-
     git_hash = models.CharField(default="", max_length=40, db_index=True)
     hg_hash = models.CharField(default="", max_length=40, db_index=True)
 

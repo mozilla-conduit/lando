@@ -747,7 +747,7 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
 
     repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
 
-    try_repo = repo_mc(SCMType.HG, name="try", is_try=True)
+    try_repo = repo_mc(SCMType.HG, name="try", commit_map_name="firefox", is_try=True)
 
     # Hardcode the mapping between the Git base commit to its Hg
     # equivalent that would exist in the database in production so

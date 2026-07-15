@@ -321,9 +321,7 @@ class UpliftWorker(Worker):
 
         if try_repo.scm_type != repo_scm_type:
             try:
-                mapping_repo = get_commit_map(
-                    try_repo.scm_type, try_repo.name, repo_scm_type
-                )
+                mapping_repo = get_commit_map(try_repo)
             except ValueError:
                 logger.exception(
                     "CommitMap not found",
