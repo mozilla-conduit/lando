@@ -56,7 +56,7 @@ class CommitMap(BaseModel):
 
         Either a simple repo name like `firefox` or `thunderbird`, or a full Lando repo
         name. If a Lando repo by that name is found, its commit_map_name attribute will
-        be used it not empty.
+        be used if not empty.
         """
         try:
             r = Repo.objects.get(name=git_repo_name)
