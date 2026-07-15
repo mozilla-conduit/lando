@@ -172,9 +172,9 @@ class UpliftWorker(Worker):
                 try_job = self.create_uplift_try_push(
                     base_revision, repo.scm_type, job, scm, new_commits
                 )
-            except Exception:
+            except Exception as exc:
                 logger.exception(
-                    "Failed to create try push for uplift job.",
+                    f"Failed to create try push for uplift job: {exc}",
                     extra={"job_id": job.id},
                 )
             else:
