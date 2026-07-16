@@ -52,7 +52,6 @@ Base64Patch = Annotated[
 
 def get_commit_map(repo: Repo) -> str:
     """Return the repo to use for commit mapping, or raise `ValueError` if unsupported."""
-    # XXX: cases where the repo is Hg are not handled, and we don't expect to push to a
     if repo.scm_type != SCMType.GIT and not repo.commit_map_name:
         raise ValueError(
             f"Non-git repo should have explicit commit_map_name: {repo.name}"
