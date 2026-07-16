@@ -23,7 +23,7 @@ from simple_github import AppAuth, AppInstallationAuth
 from typing_extensions import override
 
 from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
-from lando.main.scm.helpers import PatchHelper
+from lando.main.scm.helpers import PatchHelper, PatchHelperMetadata
 from lando.utils.cache import cache_method
 from lando.utils.const import URL_USERINFO_RE
 
@@ -736,6 +736,8 @@ class PullRequestPatchHelper(PatchHelper):
             "from": f"{author_name} <{author_email}>",
             "subject": pr.title,
         }
+
+        self.metadata = PatchHelperMetadata()
 
     @classmethod
     def _get_timestamp_from_github_timestamp(cls, timestamp: str) -> str:
