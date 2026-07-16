@@ -39,6 +39,33 @@ class CommitMap(BaseModel):
             ("git_repo_name", "hg_hash"),
         )
 
+    @staticmethod
+    def get_commit_map_name(repo: Repo) -> str:
+        """Return the repo to use for commit mapping, or raise `ValueError` if unsupported.
+
+        Iff the Repo is a Git repo AND the commit_map_name is not set, return the
+        git_repo_name as a default.
+        """
+        if repo.scm_type != SCMType.GIT and not repo.commit_map_name:
+            raise ValueError(
+                f"Non-git repo should have explicit commit_map_name: {repo.name}"
+            )
+        return str(repo.commit_map_name) or str(repo.git_repo_name)
+
+    @staticmethod
+    def get_commit_hash(
+        commit_map_name: str, target_commit_hash: str, target_repo_scm_type: SCMType
+    ) -> str:
+        """Return the equivalent commit hash in `repo_scm_type`, or raise `ValueError`."""
+        try:
+            if target_repo_scm_type == SCMType.HG:
+                return CommitMap.git2hg(commit_map_name, target_commit_hash)
+            return CommitMap.hg2git(commit_map_name, target_commit_hash)
+        except CommitMap.DoesNotExist as exc:
+            error = f"Could not determine the equivalent base commit for {target_commit_hash} in {target_repo_scm_type} for {commit_map_name}. Please try again later."
+            logger.warning(error)
+            raise ValueError(error) from exc
+
     @classmethod
     def get_hg_repo_name(cls, git_repo_name: str) -> str:
         """Return mapped repo name or `git_repo_name` by default.

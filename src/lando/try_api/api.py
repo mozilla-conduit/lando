@@ -50,29 +50,6 @@ Base64Patch = Annotated[
 ]
 
 
-def get_commit_map(repo: Repo) -> str:
-    """Return the repo to use for commit mapping, or raise `ValueError` if unsupported."""
-    if repo.scm_type != SCMType.GIT and not repo.commit_map_name:
-        raise ValueError(
-            f"Non-git repo should have explicit commit_map_name: {repo.name}"
-        )
-    return repo.commit_map_name or repo.git_repo_name
-
-
-def get_commit_hash(
-    mapping_repo: str, target_commit_hash: str, repo_scm_type: SCMType
-) -> str:
-    """Return the equivalent commit hash in `repo_scm_type`, or raise `ValueError`."""
-    try:
-        if repo_scm_type == SCMType.HG:
-            return CommitMap.git2hg(mapping_repo, target_commit_hash)
-        return CommitMap.hg2git(mapping_repo, target_commit_hash)
-    except CommitMap.DoesNotExist as exc:
-        error = f"Could not determine the equivalent base commit for {target_commit_hash} in {repo_scm_type} for {mapping_repo}. Please try again later."
-        logger.warning(error)
-        raise ValueError(error) from exc
-
-
 class PatchesRequest(Schema):
     """Provide the content of the push for submission to Lando."""
 
@@ -149,7 +126,7 @@ def patches(
     # Get the repo object.
     repo_name = patches_request.repo_name
     try:
-        repo = Repo.objects.get(name=repo_name)
+        target_repo = Repo.objects.get(name=repo_name)
     except Repo.DoesNotExist:
         status = 400
         error = f"Repo {repo_name} does not exist."
@@ -160,7 +137,7 @@ def patches(
             title="Repository not found", detail=error, status=status
         )
 
-    if not repo.is_try:
+    if not target_repo.is_try:
         status = 400
         error = f"Repo {repo_name} is not a Try repository."
         logger.info(
@@ -170,21 +147,23 @@ def patches(
             title="Not a Try repository", detail=error, status=status
         )
 
-    if not repo.user_can_push(request.user):
-        raise PermissionDenied(f"Missing permissions: {repo.required_permission}")
+    if not target_repo.user_can_push(request.user):
+        raise PermissionDenied(
+            f"Missing permissions: {target_repo.required_permission}"
+        )
 
     target_commit_hash = patches_request.base_commit
-    if patches_request.base_commit_vcs != repo.scm_type:
+    if patches_request.base_commit_vcs != target_repo.scm_type:
         try:
-            mapping_repo = get_commit_map(repo)
+            commit_map_name = CommitMap.get_commit_map_name(target_repo)
         except ValueError as exc:
             status = 400
             return status, ProblemDetail(
                 title="CommitMap not found", detail=str(exc), status=status
             )
         try:
-            target_commit_hash = get_commit_hash(
-                mapping_repo, target_commit_hash, repo.scm_type
+            target_commit_hash = CommitMap.get_commit_hash(
+                commit_map_name, target_commit_hash, target_repo.scm_type
             )
         except ValueError as exc:
             status = 400
@@ -221,9 +200,9 @@ def patches(
 
         patch_helpers.append(ph)
 
-    landing_checks = LandingChecks(request.user.email, repo.name)
+    landing_checks = LandingChecks(request.user.email, target_repo.name)
     errors = landing_checks.run(
-        repo.hooks,
+        target_repo.hooks,
         patch_helpers,
     )
 
@@ -237,7 +216,7 @@ def patches(
 
     with transaction.atomic():
         try_job = LandingJob.objects.create(
-            target_repo=repo,
+            target_repo=target_repo,
             requester_email=request.user.email,
             target_commit_hash=target_commit_hash,
             # We are in a transaction, so we can mark this job as SUBMITTED rather than
