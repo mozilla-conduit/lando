@@ -1,5 +1,6 @@
 import logging
 import random
+import re
 import string
 from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager
@@ -12,6 +13,7 @@ from lando.main.scm.helpers import PatchHelper
 
 logger = logging.getLogger(__name__)
 
+REVERT_SUMMARY_RE = re.compile(r"^Revert \"?(?P<summary>.*)\"?", re.MULTILINE)
 
 class AbstractSCM(ABC):
     """An abstract class defining the interface an SCM needs to expose use by the Repo and LandingWorkers."""
@@ -355,3 +357,12 @@ class AbstractSCM(ABC):
 
         If `target` is `None`, use the currently checked out commit.
         """
+    @staticmethod
+    def find_revert_commits(commit_data: list[CommitData]) -> list[str]:
+        """Return the full commit messages of any commits that are reverts."""
+        revert_commits = []
+        for data in commit_data:
+            commit_message = data.desc
+            if REVERT_SUMMARY_RE.search(commit_message):
+                revert_commits.append(commit_message)
+        return revert_commits

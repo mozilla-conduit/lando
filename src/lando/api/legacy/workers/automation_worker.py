@@ -35,7 +35,7 @@ from lando.utils.tasks import phab_trigger_repo_update
 logger = logging.getLogger(__name__)
 
 
-REVERT_SUMMARY_RE = re.compile(r"^Revert \"?(?P<summary>.*)\"?", re.MULTILINE)
+
 REVERT_RE = re.compile(r"This reverts commit (?P<commit>[0-9a-f]{40})")
 
 def get_pr_errors(
@@ -76,15 +76,6 @@ def get_pr_errors(
 
     return None
 
-
-def find_revert_commits(commit_data: list[CommitData]) -> list[str]:
-    """Return the full commit messages of any commits that are reverts."""
-    revert_commits = []
-    for data in commit_data:
-        commit_message = data.desc
-        if REVERT_SUMMARY_RE.search(commit_message):
-            revert_commits.append(commit_message)
-    return revert_commits
 
 
 def parse_push_path(push_path: str) -> tuple[str, str]:
@@ -328,7 +319,7 @@ class AutomationWorker(Worker):
         job.transition_status(JobAction.LAND, commit_id=commit_id)
 
         # If any of the new commits are reverts, comment on the reverted PRs.
-        revert_commits = find_revert_commits(new_commits)
+        revert_commits = AbstractSCM.find_revert_commits(new_commits)
         if revert_commits:
             reverted_pr_numbers = []
             github_client = GitHubAPIClient(repo.push_path)
