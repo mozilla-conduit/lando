@@ -415,8 +415,8 @@ def post_repo_actions(
         )
         return 400, {"details": error}
 
-    if not repo.automation_enabled:
-        error = f"Repo {repo_name} is not enabled for automation."
+    if not repo.automation_enabled or not repo.required_automation_permission:
+        error = f"Repo {repo_name} is not enabled for automation, or the required permission is not set."
         logger.info(
             error,
             extra={"user": request.user.email, "token": request.auth.token_prefix},

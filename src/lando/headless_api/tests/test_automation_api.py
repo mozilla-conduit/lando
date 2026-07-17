@@ -280,18 +280,32 @@ def test_automation_job_create_hg_repo_rejected(
     )
 
 
+@pytest.mark.parametrize(
+    "automation_enabled,empty_automation_permission_required",
+    (
+        (False, False),
+        (False, True),
+        (True, True),
+    ),
+)
 @pytest.mark.django_db
 def test_automation_job_create_repo_automation_disabled(
-    client,
-    headless_user,
-    repo_mc,
+    client: Client,
+    headless_user: tuple[User, str],
+    repo_mc: Callable,
+    automation_enabled: bool,
+    empty_automation_permission_required: bool,
 ):
     user, token = headless_user
 
-    repo_mc(
+    repo = repo_mc(
         scm_type=SCMType.GIT,
-        automation_enabled=False,
+        automation_enabled=automation_enabled,
     )
+
+    if empty_automation_permission_required:
+        repo.required_automation_permission = ""
+        repo.save()
 
     body = {
         "actions": [
@@ -323,18 +337,13 @@ def test_automation_job_create_repo_automation_disabled(
     )
     assert (
         response.json()["details"]
-        == "Repo mozilla-central-git is not enabled for automation."
+        == "Repo mozilla-central-git is not enabled for automation, or the required permission is not set."
     ), "Details should indicate automation API is disabled for repo."
 
 
 @pytest.mark.parametrize(
-    "as_superuser,repo_permission_set",
-    (
-        (False, False),
-        (False, True),
-        (True, False),
-        (True, True),
-    ),
+    "as_superuser",
+    (False, True),
 )
 @pytest.mark.django_db
 def test_automation_job_create_user_no_repo_required_automation_permission(
@@ -344,7 +353,6 @@ def test_automation_job_create_user_no_repo_required_automation_permission(
     direct_push_permission: Permission,
     repo_mc: Callable,
     as_superuser: bool,
-    repo_permission_set: bool,
 ):
     user, token = headless_user
 
@@ -360,10 +368,6 @@ def test_automation_job_create_user_no_repo_required_automation_permission(
         scm_type=SCMType.GIT,
         automation_enabled=True,
     )
-
-    if not repo_permission_set:
-        repo.required_automation_permission = ""
-        repo.save()
 
     # Send a valid request.
     body = {
