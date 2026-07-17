@@ -70,6 +70,32 @@ class CommitMap(BaseModel):
         """Return hg hash of last CommitMap object for given repo."""
         return cls._find_last_node(git_repo_name).hg_hash
 
+    @staticmethod
+    def get_commit_map(
+        try_repo_scm_type: str, repo_name: str, repo_scm_type: str
+    ) -> str:
+        """Return the repo to use for commit mapping, or raise `ValueError` if unsupported."""
+        mapping_repo = CommitMap.TRY_REPO_MAPPING.get(repo_name)
+        if not mapping_repo:
+            error = f"Unable to lookup commits from {try_repo_scm_type} to {repo_scm_type}. {repo_name} is not supported."
+            logger.info(error)
+            raise ValueError(error)
+        return mapping_repo
+
+    @staticmethod
+    def get_commit_hash(
+        mapping_repo: str, target_commit_hash: str, repo_scm_type: str
+    ) -> str:
+        """Return the equivalent commit hash in `repo_scm_type`, or raise `ValueError`."""
+        try:
+            if repo_scm_type == SCMType.HG:
+                return CommitMap.git2hg(mapping_repo, target_commit_hash)
+            return CommitMap.hg2git(mapping_repo, target_commit_hash)
+        except CommitMap.DoesNotExist as exc:
+            error = f"Could not determine the equivalent base commit for {target_commit_hash} in {repo_scm_type} for {mapping_repo}. Please try again later."
+            logger.warning(error)
+            raise ValueError(error) from exc
+
     @classmethod
     def git2hg(cls, git_repo_name: str, commit_hash: str) -> str:
         """Return Hg hash for the given repo and Git hash."""
