@@ -36,7 +36,6 @@ logger = logging.getLogger(__name__)
 
 
 
-REVERT_RE = re.compile(r"This reverts commit (?P<commit>[0-9a-f]{40})")
 
 def get_pr_errors(
     pr_url_data: dict,
@@ -83,10 +82,6 @@ def parse_push_path(push_path: str) -> tuple[str, str]:
     match = GITHUB_URL_RE.search(push_path)
     return match.group("owner"), match.group("repo")
 
-
-def find_reverted_commit_hashes(revert_commit_message: str) -> list[str]:
-    """Return the full SHAs named in `This reverts commit <sha>.` lines."""
-    return REVERT_RE.findall(revert_commit_message)
 
 
 def reverted_pr_number_for_commit(
@@ -144,7 +139,7 @@ def find_reverted_pr_numbers(
     github_client: GitHubAPIClient,
 ) -> list[str]:
     """Return PR numbers named in a revert commit that should be commented on."""
-    original_commit_hashes = find_reverted_commit_hashes(revert_commit_message)
+    original_commit_hashes = AbstractSCM.find_reverted_commit_hashes(revert_commit_message)
     repo_owner, repo_name = parse_push_path(push_path)
 
     reverted_pr_numbers = []
