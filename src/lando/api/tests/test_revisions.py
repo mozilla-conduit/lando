@@ -2,6 +2,7 @@ import pytest
 
 from lando.api.legacy.api import stacks
 from lando.api.legacy.revisions import (
+    blocker_diff_author_is_hackbot,
     blocker_diff_author_is_known,
     ensure_revisions_from_phabricator,
     fetch_raw_diff_and_save,
@@ -30,6 +31,29 @@ def test_check_diff_author_is_known_with_unknown_author(phabdouble):
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
     assert blocker_diff_author_is_known(diff=diff) is not None
+
+
+@pytest.mark.parametrize(
+    "username,email,is_blocked",
+    [
+        ("Hackbot", "hackbot@mozilla.tld", True),
+        ("HaCkbOt", "hAckbOt@mOzilla.TLD", True),
+        ("Something else", "hackbot@mozilla.tld", True),
+        ("Something else", "something_else@mozilla.tld", False),
+    ],
+)
+def test_check_diff_author_is_hackbot(username, email, is_blocked, phabdouble):
+    author = phabdouble.user(username=username, email=email)
+    d = phabdouble.diff(author=author)
+    phabdouble.revision(diff=d, repo=phabdouble.repo())
+    diff = phabdouble.api_object_for(d, attachments={"commits": True})
+
+    if is_blocked:
+        assert (
+            blocker_diff_author_is_hackbot(diff=diff) == "Diff is authored by Hackbot."
+        )
+    else:
+        assert blocker_diff_author_is_hackbot(diff=diff) is None
 
 
 def test_secure_api_flag_on_public_revision_is_false(

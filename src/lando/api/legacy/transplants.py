@@ -24,6 +24,7 @@ from lando.api.legacy.reviews import (
     reviewer_identity,
 )
 from lando.api.legacy.revisions import (
+    blocker_diff_author_is_hackbot,
     blocker_diff_author_is_known,
     gather_involved_phids,
     revision_has_needs_data_classification_tag,
@@ -877,6 +878,7 @@ REVISION_BLOCKER_CHECKS = [
     blocker_latest_diffs,
     blocker_author_planned_changes,
     blocker_diff_author_is_known,
+    blocker_diff_author_is_hackbot,
     blocker_uplift_approval,
     blocker_revision_data_classification,
     # Diff-based checks.
