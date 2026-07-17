@@ -166,7 +166,7 @@ def blocker_diff_author_is_hackbot(*, diff: dict, **kwargs) -> Optional[str]:
     if hackbot_email not in emails:
         return None
 
-    return "Diff is authored by Hackbot."
+    return "Diff contains commit authored by Hackbot."
 
 
 def revision_has_needs_data_classification_tag(

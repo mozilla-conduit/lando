@@ -50,7 +50,8 @@ def test_check_diff_author_is_hackbot(username, email, is_blocked, phabdouble):
 
     if is_blocked:
         assert (
-            blocker_diff_author_is_hackbot(diff=diff) == "Diff is authored by Hackbot."
+            blocker_diff_author_is_hackbot(diff=diff)
+            == "Diff contains commit authored by Hackbot."
         )
     else:
         assert blocker_diff_author_is_hackbot(diff=diff) is None
