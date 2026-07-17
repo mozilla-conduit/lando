@@ -16,10 +16,7 @@ from pydantic import ValidationError
 
 from lando.api.legacy.workers.automation_worker import (
     AutomationWorker,
-    find_revert_commits,
-    find_reverted_commit_hashes,
     get_pr_errors,
-    parse_pr_url,
     parse_push_path,
 )
 from lando.api.tests.mocks import TreeStatusDouble
@@ -40,6 +37,7 @@ from lando.main.scm import PatchConflict, SCMType
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.exceptions import SCMInternalServerError
 from lando.pushlog.models import Push
+from lando.utils.github import PullRequest
 
 
 @pytest.fixture
@@ -1911,7 +1909,12 @@ def test_automation_job_processing(automation_job):
     [
         (
             "Pull request: https://github.com/mozilla-conduit/test-repo/pull/42",
-            {"owner": "mozilla-conduit", "repo": "test-repo", "number": "42"},
+            {
+                "userinfo": None,
+                "owner": "mozilla-conduit",
+                "repo": "test-repo",
+                "number": "42",
+            },
         ),
         ("No pull request trailer here.", None),
         ("Pull request: https://wronghost.com/owner/repo/pull/1", None),
@@ -1920,7 +1923,7 @@ def test_automation_job_processing(automation_job):
 )
 def test_parse_pr_url(commit_message, expected):
     """`parse_pr_url` extracts owner/repo/number from a PR trailer, or returns `None`."""
-    assert parse_pr_url(commit_message) == expected, (
+    assert PullRequest.parse_pr_url(commit_message) == expected, (
         "`parse_pr_url` should return the expected owner/repo/number mapping."
     )
 
@@ -1957,9 +1960,10 @@ ANOTHER_FULL_SHA = "b" * 40
 )
 def test_find_reverted_commit_hashes(revert_commit_message, expected_hashes):
     """`find_reverted_commit_hashes` returns every reverted SHA."""
-    assert find_reverted_commit_hashes(revert_commit_message) == expected_hashes, (
-        "`find_reverted_commit_hashes` should match every reverted SHA."
-    )
+    assert (
+        AbstractSCM.find_reverted_commit_hashes(revert_commit_message)
+        == expected_hashes
+    ), "`find_reverted_commit_hashes` should match every reverted SHA."
 
 
 @pytest.mark.parametrize(
@@ -1985,7 +1989,7 @@ def test_find_revert_commits(descriptions, expected_messages):
         mock_commit = mock.MagicMock()
         mock_commit.desc = description
         commit_data.append(mock_commit)
-    assert find_revert_commits(commit_data) == expected_messages, (
+    assert AbstractSCM.find_revert_commits(commit_data) == expected_messages, (
         "`find_revert_commits` should return one full message per revert commit."
     )
 

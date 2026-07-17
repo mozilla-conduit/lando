@@ -1,5 +1,4 @@
 import logging
-import re
 
 from typing_extensions import override
 
@@ -28,145 +27,11 @@ from lando.main.scm import (
 )
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.pushlog.pushlog import PushLogForRepo
-from lando.utils.github import GitHubAPIClient, PullRequest, GITHUB_URL_RE
+from lando.utils.github import GitHub, GitHubAPIClient, PullRequest
 from lando.utils.landing_checks import LandingChecks
 from lando.utils.tasks import phab_trigger_repo_update
 
 logger = logging.getLogger(__name__)
-
-
-
-
-def get_pr_errors(
-    pr_url_data: dict,
-    pull_request: PullRequest,
-    original_commit_message: str,
-    expected_owner: str,
-    expected_repo: str,
-    expected_branch: str,
-) -> str | None:
-    """Return a validation error for a reverted pull request, or `None` if valid."""
-    pr_owner = pr_url_data["owner"]
-    pr_repo = pr_url_data["repo"]
-    pr_number = pr_url_data["number"]
-
-    # The trailer URL points at a different repo than the worker is acting on.
-    if pr_owner != expected_owner or pr_repo != expected_repo:
-        return (
-            f"PR URL in commit message points to unexpected repo: "
-            f"{pr_owner}/{pr_repo}, automation worker expected PRs to be from "
-            f"{expected_owner}/{expected_repo}."
-        )
-
-    # The PR is on a different branch than the worker is acting on.
-    if pull_request.head_ref != expected_branch:
-        return (
-            f"PR URL in commit message points to PR #{pr_number} which is on "
-            f"branch {pull_request.head_ref}, but automation worker expected PRs "
-            f"to be on branch {expected_branch}."
-        )
-    # The PR exists but its commit message does not appear in the reverted commit.
-    pr_commit_title = f"{pull_request.title}"
-    if pr_commit_title not in original_commit_message:
-        return (
-            f"PR URL in commit message points to PR #{pr_number} but the commit "
-            f"title of that PR does not appear in the revert commit message."
-        )
-
-    return None
-
-
-
-def parse_push_path(push_path: str) -> tuple[str, str]:
-    """Return the `(owner, repo)` named in a repo push path."""
-    match = GITHUB_URL_RE.search(push_path)
-    return match.group("owner"), match.group("repo")
-
-
-
-def reverted_pr_number_for_commit(
-    original_commit_message: str,
-    original_commit_hash: str,
-    expected_owner: str,
-    expected_repo: str,
-    expected_branch: str,
-    github_client: GitHubAPIClient,
-) -> str | None:
-    """Return the PR number to comment on for one reverted commit, or `None` to skip it."""
-
-    pr_url_data = PullRequest.parse_pr_url(original_commit_message)
-    if not pr_url_data:
-        logger.warning(
-            f"Skipping commit {original_commit_hash}: reverted commit has no "
-            f"parseable PR URL in commit message."
-        )
-        return None
-
-    pr_number = pr_url_data["number"]
-
-    try:
-        pull_request = github_client.build_pull_request(pr_number)
-    except Exception:
-        logger.warning(
-            f"Skipping commit {original_commit_hash}: PR #{pr_number} could not "
-            f"be found via the GitHub API."
-        )
-        return None
-
-    error = get_pr_errors(
-        pr_url_data,
-        pull_request,
-        original_commit_message,
-        expected_owner,
-        expected_repo,
-        expected_branch,
-    )
-
-    if error:
-        logger.warning(
-            f"Skipping commit {original_commit_hash} because validation failed: {error}"
-        )
-        return None
-
-    return pr_number
-
-
-def find_reverted_pr_numbers(
-    revert_commit_message: str,
-    push_path: str,
-    default_branch: str,
-    scm: AbstractSCM,
-    github_client: GitHubAPIClient,
-) -> list[str]:
-    """Return PR numbers named in a revert commit that should be commented on."""
-    original_commit_hashes = AbstractSCM.find_reverted_commit_hashes(revert_commit_message)
-    repo_owner, repo_name = parse_push_path(push_path)
-
-    reverted_pr_numbers = []
-    for original_commit_hash in original_commit_hashes:
-        original_commit_message = scm.describe_commit(original_commit_hash).desc
-
-        pr_number = reverted_pr_number_for_commit(
-            original_commit_message,
-            original_commit_hash,
-            repo_owner,
-            repo_name,
-            default_branch,
-            github_client,
-        )
-        if pr_number:
-            reverted_pr_numbers.append(pr_number)
-    return list(set(reverted_pr_numbers))
-
-
-def comment_on_reverted_prs(
-    reverted_pr_numbers: list[str], github_client: GitHubAPIClient
-):
-    """Post a 'has been reverted' comment on each reverted pull request."""
-    for pr_number in reverted_pr_numbers:
-        github_client.add_comment_to_pull_request(
-            pr_number, f"This pull request (#{pr_number}) has been reverted."
-        )
 
 
 class AutomationWorker(Worker):
@@ -332,3 +197,135 @@ class AutomationWorker(Worker):
             self.call_task(phab_trigger_repo_update, repo.phab_identifier)
 
         return True
+
+
+def find_reverted_pr_numbers(
+    revert_commit_message: str,
+    push_path: str,
+    default_branch: str,
+    scm: AbstractSCM,
+    github_client: GitHubAPIClient,
+) -> list[str]:
+    """Return PR numbers named in a revert commit that should be commented on."""
+    original_commit_hashes = AbstractSCM.find_reverted_commit_hashes(
+        revert_commit_message
+    )
+    repo_owner, repo_name = parse_push_path(push_path)
+
+    reverted_pr_numbers = []
+    for original_commit_hash in original_commit_hashes:
+        original_commit_message = scm.describe_commit(original_commit_hash).desc
+
+        pr_number = reverted_pr_number_for_commit(
+            original_commit_message,
+            original_commit_hash,
+            repo_owner,
+            repo_name,
+            default_branch,
+            github_client,
+        )
+        if pr_number:
+            reverted_pr_numbers.append(pr_number)
+    return list(set(reverted_pr_numbers))
+
+
+def parse_push_path(push_path: str) -> tuple[str, str]:
+    """Return the `(owner, repo)` named in a repo push path."""
+    match = GitHub.GITHUB_URL_RE.search(push_path)
+    return match.group("owner"), match.group("repo")
+
+
+def reverted_pr_number_for_commit(
+    original_commit_message: str,
+    original_commit_hash: str,
+    expected_owner: str,
+    expected_repo: str,
+    expected_branch: str,
+    github_client: GitHubAPIClient,
+) -> str | None:
+    """Return the PR number to comment on for one reverted commit, or `None` to skip it."""
+
+    pr_url_data = PullRequest.parse_pr_url(original_commit_message)
+    if not pr_url_data:
+        logger.warning(
+            f"Skipping commit {original_commit_hash}: reverted commit has no "
+            f"parseable PR URL in commit message."
+        )
+        return None
+
+    pr_number = pr_url_data["number"]
+
+    try:
+        pull_request = github_client.build_pull_request(pr_number)
+    except Exception:
+        logger.warning(
+            f"Skipping commit {original_commit_hash}: PR #{pr_number} could not "
+            f"be found via the GitHub API."
+        )
+        return None
+
+    error = get_pr_errors(
+        pr_url_data,
+        pull_request,
+        original_commit_message,
+        expected_owner,
+        expected_repo,
+        expected_branch,
+    )
+
+    if error:
+        logger.warning(
+            f"Skipping commit {original_commit_hash} because validation failed: {error}"
+        )
+        return None
+
+    return pr_number
+
+
+def get_pr_errors(
+    pr_url_data: dict,
+    pull_request: PullRequest,
+    original_commit_message: str,
+    expected_owner: str,
+    expected_repo: str,
+    expected_branch: str,
+) -> str | None:
+    """Return a validation error for a reverted pull request, or `None` if valid."""
+    pr_owner = pr_url_data["owner"]
+    pr_repo = pr_url_data["repo"]
+    pr_number = pr_url_data["number"]
+
+    # The trailer URL points at a different repo than the worker is acting on.
+    if pr_owner != expected_owner or pr_repo != expected_repo:
+        return (
+            f"PR URL in commit message points to unexpected repo: "
+            f"{pr_owner}/{pr_repo}, automation worker expected PRs to be from "
+            f"{expected_owner}/{expected_repo}."
+        )
+
+    # The PR is on a different branch than the worker is acting on.
+    if pull_request.head_ref != expected_branch:
+        return (
+            f"PR URL in commit message points to PR #{pr_number} which is on "
+            f"branch {pull_request.head_ref}, but automation worker expected PRs "
+            f"to be on branch {expected_branch}."
+        )
+    # The PR exists but its commit message does not appear in the reverted commit.
+    pr_commit_title = f"{pull_request.title}"
+    if pr_commit_title not in original_commit_message:
+        return (
+            f"PR URL in commit message points to PR #{pr_number} but the commit "
+            f"title of that PR does not appear in the revert commit message."
+        )
+
+    return None
+
+
+def comment_on_reverted_prs(
+    reverted_pr_numbers: list[str], github_client: GitHubAPIClient
+):
+    """Post a 'has been reverted' comment on each reverted pull request."""
+    for pr_number in reverted_pr_numbers:
+        github_client.add_comment_to_pull_request(
+            pr_number, f"This pull request (#{pr_number}) has been reverted."
+        )
