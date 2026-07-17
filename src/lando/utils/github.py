@@ -35,8 +35,10 @@ PR_DELIMITER = (
     "<!--/ -+-+- DO NOT MODIFY THIS LINE - ENTER COMMIT MESSAGE ABOVE -+-+- /-->"
 )
 
+
 class GitHub:
     """Work with authentication to GitHub repositories."""
+
     GITHUB_URL_RE = re.compile(
         rf"https://{URL_USERINFO_RE.pattern}?github.com/(?P<owner>[-A-Za-z0-9]+)/(?P<repo>[^/]+?)(?:\.git)?(?:/|$)"
     )
@@ -69,7 +71,7 @@ class GitHub:
 
         Note: no normalisation is performed on the URL
         """
-        return re.match(GITHUB_URL_RE, url)
+        return re.match(cls.GITHUB_URL_RE, url)
 
     @property
     def authenticated_url(self) -> str:
@@ -439,10 +441,12 @@ def pr_cache_method(func: Callable) -> Callable:
 
 class PullRequest:
     """A class that parses data returned from the GitHub API for pull requests."""
+
     PULL_REQUEST_RE = re.compile(
-        rf"{PR_TRAILER_PREFIX}{GitHubAPIClient.GITHUB_URL_RE.pattern}pull/(?P<number>\d+)",
+        rf"{PR_TRAILER_PREFIX}{GitHub.GITHUB_URL_RE.pattern}pull/(?P<number>\d+)",
         re.MULTILINE,
-        )
+    )
+
     class StaleMetadataException(Exception):
         pass
 
@@ -709,8 +713,9 @@ class PullRequest:
             "user_html_url": self.user_html_url,
             "user_login": self.user_login,
         }
+
     @staticmethod
-    def parse_pr_url(self, commit_message: str) -> dict | None:
+    def parse_pr_url(commit_message: str) -> dict | None:
         """Return the owner/repo/number from a commit's PR trailer, or `None`."""
         pr_match = PullRequest.PULL_REQUEST_RE.search(commit_message)
         return pr_match.groupdict() if pr_match else None
