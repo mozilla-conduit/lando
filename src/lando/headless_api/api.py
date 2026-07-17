@@ -80,11 +80,6 @@ class HeadlessAPIAuthentication(HttpBearer):
         except ValueError as exc:
             raise APIPermissionDenied(str(exc))
 
-        if not api_key.user.has_perm("headless_api.add_automationjob"):
-            raise APIPermissionDenied(
-                f"User {api_key.user.email} is not permitted to make automation changes."
-            )
-
         # Django-Ninja sets `request.auth` to the verified token, since
         # some APIs may have authentication without user management. Our
         # API tokens always correspond to a specific user, so set that on

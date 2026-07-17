@@ -327,58 +327,15 @@ def test_automation_job_create_repo_automation_disabled(
     ), "Details should indicate automation API is disabled for repo."
 
 
-@pytest.mark.django_db
-def test_automation_job_create_user_automation_disabled(
-    client, headless_user, repo_mc, headless_permission
-):
-    user, token = headless_user
-
-    # Disable automation enabled for user.
-    user.user_permissions.remove(headless_permission)
-    user.save()
-    user.profile.save()
-
-    repo_mc(
-        scm_type=SCMType.GIT,
-        automation_enabled=True,
-    )
-
-    # Send a valid request.
-    body = {
-        "actions": [
-            {
-                "action": "add-commit",
-                "content": "0",
-                "patch_format": "git-format-patch",
-            },
-            {
-                "action": "add-commit",
-                "content": "1",
-                "patch_format": "git-format-patch",
-            },
-        ],
-    }
-    response = client.post(
-        "/api/repo/mozilla-central-git",
-        data=json.dumps(body),
-        content_type="application/json",
-        headers={
-            "User-Agent": "Lando-User/testuser@example.org",
-            "Authorization": f"Bearer {token}",
-        },
-    )
-
-    assert response.status_code == 401, (
-        "User disabled for automation should return 401 status code."
-    )
-    response_json = response.json()
-    assert (
-        response_json["details"]
-        == "User testuser@example.org is not permitted to make automation changes."
-    )
-
-
-@pytest.mark.parametrize("as_superuser", (True, False))
+@pytest.mark.parametrize(
+    "as_superuser,repo_permission_set",
+    (
+        (False, False),
+        (False, True),
+        (True, False),
+        (True, True),
+    ),
+)
 @pytest.mark.django_db
 def test_automation_job_create_user_no_repo_required_automation_permission(
     client: Client,
@@ -387,6 +344,7 @@ def test_automation_job_create_user_no_repo_required_automation_permission(
     direct_push_permission: Permission,
     repo_mc: Callable,
     as_superuser: bool,
+    repo_permission_set: bool,
 ):
     user, token = headless_user
 
@@ -394,6 +352,7 @@ def test_automation_job_create_user_no_repo_required_automation_permission(
     user.user_permissions.remove(direct_push_permission)
     if as_superuser:
         user = make_superuser(user)
+
     user.save()
     user.profile.save()
 
@@ -401,6 +360,10 @@ def test_automation_job_create_user_no_repo_required_automation_permission(
         scm_type=SCMType.GIT,
         automation_enabled=True,
     )
+
+    if not repo_permission_set:
+        repo.required_automation_permission = ""
+        repo.save()
 
     # Send a valid request.
     body = {

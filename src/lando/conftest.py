@@ -30,7 +30,6 @@ from lando.api.legacy.stacks import (
 )
 from lando.api.legacy.transplants import build_stack_assessment_state
 from lando.api.tests.mocks import PhabricatorDouble, TreeStatusDouble
-from lando.headless_api.models.automation_job import AutomationJob
 from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import (
     SCM_LEVEL_1,
@@ -1295,14 +1294,6 @@ def make_superuser() -> Callable:
 
 
 @pytest.fixture
-def headless_permission():
-    content_type = ContentType.objects.get_for_model(AutomationJob)
-    return Permission.objects.get(
-        codename="add_automationjob", content_type=content_type
-    )
-
-
-@pytest.fixture
 def direct_push_permission():
     content_type = ContentType.objects.get_for_model(Profile)
     perm = Permission.objects.get(
@@ -1312,10 +1303,7 @@ def direct_push_permission():
 
 
 @pytest.fixture
-def headless_user(
-    user, headless_permission, direct_push_permission
-) -> tuple[User, str]:
-    user.user_permissions.add(headless_permission)
+def headless_user(user, direct_push_permission) -> tuple[User, str]:
     user.user_permissions.add(direct_push_permission)
     user.profile.save()
     user.save()
