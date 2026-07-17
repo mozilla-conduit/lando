@@ -215,7 +215,7 @@ for branch in ["main", "autoland", "beta", "release", "esr115", "esr140", "esr15
             "push_path": "https://github.com/mozilla-releng/staging-firefox.git",
             "short_name": f"staging-firefox-{branch}",
             "required_permission": SCM_LEVEL_1,
-            "required_automation_permission": SCM_LEVEL_1,
+            "required_automation_permission": SCM_LEVEL_3,
             "automation_enabled": True,
         }
     )
