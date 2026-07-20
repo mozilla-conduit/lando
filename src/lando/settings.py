@@ -22,13 +22,24 @@ ENVIRONMENT = Environment(os.getenv("ENVIRONMENT", "test"))
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent
 
+# The `db` cache is a shared cache used by Treestatus so that invalidation from
+# one process is visible to the others; remote environments back it with the
+# database (see `remote_settings`), while locally it is per-process.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    },
+    "db": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    },
+}
+
+# Use a shared Redis cache for the default cache when configured.
 # Syntax: redis://[username:password@]127.0.0.1:6379
 if lando_cache_redis := os.getenv("LANDO_CACHE_REDIS"):
-    CACHES = {
-        "default": {
-            "BACKEND": "django.core.cache.backends.redis.RedisCache",
-            "LOCATION": lando_cache_redis,
-        }
+    CACHES["default"] = {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": lando_cache_redis,
     }
 
 SECRET_KEY = os.getenv(

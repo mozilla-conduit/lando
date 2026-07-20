@@ -155,6 +155,20 @@ def blocker_diff_author_is_known(*, diff: dict, **kwargs) -> Optional[str]:
     )
 
 
+def blocker_diff_author_is_hackbot(*, diff: dict, **kwargs) -> Optional[str]:
+    """Block revisions that contain commits by Hackbot."""
+    hackbot_email = "hackbot@mozilla.tld"
+    commits = PhabricatorClient.expect(diff, "attachments", "commits", "commits")
+    if not commits:
+        return None
+
+    emails = (c.get("author", {}).get("email", "").lower() for c in commits)
+    if hackbot_email not in emails:
+        return None
+
+    return "Diff contains commit authored by Hackbot."
+
+
 def revision_has_needs_data_classification_tag(
     revision: dict, data_policy_review_phid: str
 ) -> bool:

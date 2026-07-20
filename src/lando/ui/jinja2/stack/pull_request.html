@@ -25,6 +25,13 @@
         </p>
         <table>
             <tr>
+                <th></th>
+                <td>
+                    <ul id="warnings-mismatch" class="has-text-warning">
+                    </ul>
+                </td>
+            </tr>
+            <tr>
                 <th>Warnings</th>
                 <td>
                     <ul id="warnings" class="fa-ul">
@@ -70,7 +77,7 @@
             <tr>
                 <th>Commit Body</th>
                 <td>
-                    <p id="commit-body">{{ pull_request.body }}</p>
+                    <p id="commit-body">{{ pull_request.commit_body|e }}</p>
                     <p id="commit-body-error"></p>
                 </td>
             </tr>

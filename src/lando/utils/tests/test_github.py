@@ -8,10 +8,13 @@ from django.conf import settings
 from requests import Response
 
 from lando.utils.github import (
+    PR_DELIMITER,
     GitHub,
     GitHubAPI,
     GitHubAPIClient,
+    PullRequest,
     PullRequestPatchHelper,
+    verify_github_signature,
 )
 
 
@@ -447,6 +450,26 @@ def test_api_client_get_pull_request_commits(
     ], "Unexpected commit data"
 
 
+@pytest.mark.parametrize(
+    "body, expected_output",
+    (
+        ("some random text", "some random text"),
+        (
+            f"some random text{PR_DELIMITER}some other text",
+            "some random text",
+        ),
+        (
+            f"some random text{PR_DELIMITER}some other text{PR_DELIMITER}more text",
+            "some random text",
+        ),
+        ("", ""),
+    ),
+)
+def test__PullRequest___parse_body_segments__no_delimiter(body, expected_output):
+    output = PullRequest._parse_body_segments(body)
+    assert output == expected_output
+
+
 @pytest.fixture
 def github_api_client(
     mock_github_fetch_token: mock.Mock,  # pyright: ignore[reportUnusedParameter]
@@ -528,3 +551,19 @@ def test_PullRequestPatchHelper(github_api_client_pr: mock.Mock):
         "Olivier Mehani",
         "omehani@mozilla.com",
     )
+
+
+@pytest.mark.parametrize(
+    "secret, payload, signature, is_valid",
+    (
+        (
+            "some secret",
+            b"some payload",
+            "sha256=22a2e09f97e933db48ba6ef24c6be11a5a10024bd9a6a18e662e94bf3c35f257",
+            True,
+        ),
+        ("some secret", b"some payload", "a" * 64, False),
+    ),
+)
+def test_verify_github_signature(secret, payload, signature, is_valid):
+    assert verify_github_signature(secret, payload, signature) is is_valid

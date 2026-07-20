@@ -9,7 +9,7 @@ from typing import (
     TypeVar,
 )
 
-from django.core.cache import cache
+from django.core.cache import caches
 from django.core.handlers.wsgi import WSGIRequest
 from django.db.models import OuterRef, Subquery
 from django.db.utils import IntegrityError
@@ -42,6 +42,11 @@ treestatus_api = NinjaAPI(auth=None, urls_namespace="treestatus-api")
 treestatus_api.exception_handler(ProblemException)(problem_exception_handler)
 
 TREE_SUMMARY_LOG_LIMIT = 5
+
+# Treestatus caches tree lookups in the shared database cache so that an
+# invalidation from one process (e.g. a tree update on one web head) is visible
+# to every other web head and the worker, unlike the per-process default cache.
+TREESTATUS_CACHE = "db"
 
 
 # Generic type variable for the data contained in a result field.
@@ -196,7 +201,7 @@ def tree_cache_key(tree_name: str) -> str:
     return f"tree-cache-{tree_name}"
 
 
-@cache_method(tree_cache_key)
+@cache_method(tree_cache_key, cache_alias=TREESTATUS_CACHE)
 def get_tree_by_name(tree_name: str) -> Optional[CombinedTree]:
     """Retrieve a `CombinedTree` representation of a tree by name.
 
@@ -247,7 +252,7 @@ def remove_tree_by_name(tree_name: str):
 
     StatusChangeTree.objects.filter(tree=tree_name).delete()
 
-    cache.delete(tree_cache_key(tree_name))
+    caches[TREESTATUS_CACHE].delete(tree_cache_key(tree_name))
 
 
 def update_tree_log(
@@ -271,7 +276,7 @@ def update_tree_log(
         log.reason = reason
 
     log.save()
-    cache.delete(tree_cache_key(log.tree.tree))
+    caches[TREESTATUS_CACHE].delete(tree_cache_key(log.tree.tree))
 
 
 def get_combined_trees(trees: Optional[list[str]] = None) -> list[CombinedTree]:
@@ -331,7 +336,7 @@ def apply_tree_update_to_model(
             tags=tags,
         )
 
-    cache.delete(tree_cache_key(tree.tree))
+    caches[TREESTATUS_CACHE].delete(tree_cache_key(tree.tree))
 
 
 @treestatus_api.get(
