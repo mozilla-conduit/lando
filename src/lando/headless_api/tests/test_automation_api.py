@@ -35,6 +35,7 @@ from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import JobStatus
 from lando.main.scm import PatchConflict, SCMType
 from lando.main.scm.abstract_scm import AbstractSCM
+from lando.main.scm.commit import CommitData
 from lando.main.scm.exceptions import SCMInternalServerError
 from lando.pushlog.models import Push
 from lando.utils.github import PullRequest
@@ -1961,8 +1962,7 @@ ANOTHER_FULL_SHA = "b" * 40
 def test_find_reverted_commit_hashes(revert_commit_message, expected_hashes):
     """`find_reverted_commit_hashes` returns every reverted SHA."""
     assert (
-        AbstractSCM.find_reverted_commit_hashes(revert_commit_message)
-        == expected_hashes
+        CommitData.find_reverted_commit_hashes(revert_commit_message) == expected_hashes
     ), "`find_reverted_commit_hashes` should match every reverted SHA."
 
 
@@ -1989,7 +1989,7 @@ def test_find_revert_commits(descriptions, expected_messages):
         mock_commit = mock.MagicMock()
         mock_commit.desc = description
         commit_data.append(mock_commit)
-    assert AbstractSCM.find_revert_commits(commit_data) == expected_messages, (
+    assert CommitData.find_revert_commits(commit_data) == expected_messages, (
         "`find_revert_commits` should return one full message per revert commit."
     )
 
