@@ -1949,10 +1949,12 @@ ANOTHER_FULL_SHA = "b" * 40
         "no_revert_trailer",
     ],
 )
-def test_find_reverted_commit_hashes(revert_commit_message, expected_hashes):
+def test_reverted_commit_hashes(revert_commit_message, expected_hashes, make_scm_commit):
     """`find_reverted_commit_hashes` returns every reverted SHA."""
+    commit = make_scm_commit(1)
+    commit.desc = revert_commit_message
     assert (
-        CommitData.find_reverted_commit_hashes(revert_commit_message) == expected_hashes
+       commit.reverted_commit_hashes() == expected_hashes
     ), "`find_reverted_commit_hashes` should match every reverted SHA."
 
 
