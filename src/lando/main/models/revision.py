@@ -85,22 +85,33 @@ class Revision(BaseModel):
     _patch_helper: HgPatchHelper | None = None
 
     def __str__(self) -> str:
-        if self.is_phabricator_revision:
-            return f"D{self.revision_id} (diff {self.diff_id})"
-        s = f"Revision {self.id}"
-        if desc := self.patch_data.get("commit_message"):
-            s = f"{s} ({desc})"
+        """Return a pretty string representing the revision, with commit information."""
+        s = self.descriptor
+
+        # Get the first line of the commit message, if present.
+        if desc := next(
+            iter(self.patch_data.get("commit_message", "").splitlines()), ""
+        ).strip():
+            s = f"{s}: {desc}"
+
         return s
 
     def __repr__(self) -> str:
         """Return a human-readable representation of the instance."""
         # Add an identifier for the Phabricator revision if it exists.
-        phab_identifier = (
-            f" [D{self.revision_id}-{self.diff_id}]>"
-            if self.is_phabricator_revision
-            else ""
-        )
-        return f"<{self.__class__.__name__}: {self.id}{phab_identifier}>"
+        descriptor = self.descriptor
+        return f"<{self.__class__.__name__}: {self.id}[{descriptor}]>"
+
+    @property
+    def descriptor(self) -> str:
+        """Returns a short string identifying the revision by type and ID."""
+        if self.is_phabricator_revision:
+            return f"D{self.revision_id} (diff {self.diff_id})"
+
+        if self.is_pull_request:
+            return f"PR#{self.pull_number}"
+        else:
+            return f"Lando rev. {self.id}"
 
     def url(self) -> str:
         """Return a public URL for the Revision."""
@@ -116,6 +127,11 @@ class Revision(BaseModel):
     def is_phabricator_revision(self) -> bool:
         """Indicate if this revision is tied to Phabricator."""
         return self.revision_id is not None
+
+    @property
+    def is_pull_request(self) -> bool:
+        """Indicate if this revision is tied to a Pull Request."""
+        return self.pull_number is not None
 
     @property
     def patch_bytes(self) -> bytes:
