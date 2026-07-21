@@ -259,7 +259,7 @@ def reverted_pr_number_for_commit(
         expected_branch,
     )
     if error:
-        logger.warning(
+        logger.info(
             f"Skipping commit {original_commit_hash} because validation failed: {error}"
         )
         return None
