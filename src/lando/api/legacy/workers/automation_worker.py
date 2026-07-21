@@ -181,15 +181,13 @@ class AutomationWorker(Worker):
         # If any of the new commits are reverts, comment on the reverted PRs.
         revert_commits = CommitData.find_revert_commits(new_commits)
         if revert_commits:
-            reverted_pr_numbers = []
             github_client = GitHubAPIClient(repo.push_path)
             for commit in revert_commits:
                 pr_numbers = find_reverted_pr_numbers(
                     commit, repo.default_branch, scm, github_client
                 )
                 if pr_numbers:
-                    reverted_pr_numbers.extend(pr_numbers)
-            comment_on_reverted_prs(reverted_pr_numbers, github_client)
+                    comment_on_reverted_prs(pr_numbers, github_client, commit.hash)
 
         # Trigger update of repo in Phabricator so patches are closed quicker.
         # Especially useful on low-traffic repositories.
@@ -218,7 +216,7 @@ def find_reverted_pr_numbers(
             github_client,
         )
         if pr_number:
-            reverted_pr_numbers.append(pr_number)
+            reverted_pr_numbers.add(pr_number)
     return list(reverted_pr_numbers)
 
 
@@ -252,8 +250,8 @@ def reverted_pr_number_for_commit(
     error = get_pr_errors(
         pr_url_data,
         pull_request,
-        original_commit_message,
         original_commit_hash,
+        original_commit_message,
         github_client.repo_owner,
         github_client.repo_name,
         expected_branch,
@@ -309,10 +307,10 @@ def get_pr_errors(
 
 
 def comment_on_reverted_prs(
-    reverted_pr_numbers: list[str], github_client: GitHubAPIClient
+    reverted_pr_numbers: list[str], github_client: GitHubAPIClient, commit_hash: str
 ):
     """Post a 'has been reverted' comment on each reverted pull request."""
     for pr_number in reverted_pr_numbers:
         github_client.add_comment_to_pull_request(
-            pr_number, f"This pull request (#{pr_number}) has been reverted."
+            pr_number, f"This pull request (#{pr_number}) has been reverted by commit {commit_hash}."
         )
