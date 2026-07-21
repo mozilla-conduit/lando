@@ -242,11 +242,11 @@ def reverted_pr_number_for_commit(
 
     try:
         pull_request = github_client.build_pull_request(pr_number)
-    except Exception:
-        logger.warning(
+    except Exception as e:
+        logger.exception(
             f"Skipping commit {original_commit_hash}: PR #{pr_number} could not "
-            f"be found via the GitHub API."
-        )
+            f"be found via the GitHub API. \n{e}"
+        )   
         return None
 
     error = get_pr_errors(
