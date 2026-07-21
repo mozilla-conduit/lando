@@ -246,13 +246,14 @@ def reverted_pr_number_for_commit(
         logger.exception(
             f"Skipping commit {original_commit_hash}: PR #{pr_number} could not "
             f"be found via the GitHub API. \n{e}"
-        )   
+        )
         return None
 
     error = get_pr_errors(
         pr_url_data,
         pull_request,
         original_commit_message,
+        original_commit_hash,
         github_client.repo_owner,
         github_client.repo_name,
         expected_branch,
@@ -269,6 +270,7 @@ def reverted_pr_number_for_commit(
 def get_pr_errors(
     pr_url_data: dict,
     pull_request: PullRequest,
+    original_commit_hash: str,
     original_commit_message: str,
     expected_owner: str,
     expected_repo: str,
@@ -282,24 +284,25 @@ def get_pr_errors(
     # The trailer URL points at a different repo than the worker is acting on.
     if pr_owner != expected_owner or pr_repo != expected_repo:
         return (
-            f"PR URL in commit message points to unexpected repo: "
-            f"{pr_owner}/{pr_repo}, automation worker expected PRs to be from "
-            f"{expected_owner}/{expected_repo}."
+            f"PR URL in commit {original_commit_hash} message {original_commit_message} "
+            f"points to unexpected repo: {pr_owner}/{pr_repo}, but "
+            f"automation worker expected PRs to be from {expected_owner}/{expected_repo}."
         )
 
     # The PR is on a different branch than the worker is acting on.
     if pull_request.head_ref != expected_branch:
         return (
-            f"PR URL in commit message points to PR #{pr_number} which is on "
-            f"branch {pull_request.head_ref}, but automation worker expected PRs "
-            f"to be on branch {expected_branch}."
+            f"PR URL in commit {original_commit_hash} message {original_commit_message} "
+            f"points to PR #{pr_number} which is on branch {pull_request.head_ref}, but "
+            f"automation worker expected PRs to be on branch {expected_branch}."
         )
     # The PR exists but its commit message does not appear in the reverted commit.
     pr_commit_title = f"{pull_request.title}"
     if pr_commit_title not in original_commit_message:
         return (
-            f"PR URL in commit message points to PR #{pr_number} but the commit "
-            f"title of that PR does not appear in the revert commit message."
+            f"PR URL in commit {original_commit_hash} message {original_commit_message} "
+            f"points to PR #{pr_number}, but the commit title of that PR "
+            f"does not appear in the revert commit message."
         )
 
     return None
