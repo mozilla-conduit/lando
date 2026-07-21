@@ -24,7 +24,6 @@ class CommitData:
         """Return any commits that are reverts."""
         return [commit for commit in commit_data if commit.is_revert_commit()]
 
-
     def is_revert_commit(self) -> bool:
         """Return whether this commit's message marks it as a revert."""
         return bool(GIT_REVERT_SUMMARY_RE.match(self.desc))

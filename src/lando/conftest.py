@@ -960,10 +960,11 @@ def repo_mc(
 
 
 @pytest.fixture
-def git_repo_automation(
+def git_repo_github_push_path(
     git_repo: pathlib.Path,
     tmp_path: pathlib.Path,
 ) -> Repo:
+    """A git `Repo` whose `push_path` is a GitHub URL distinct from its local test repo `url`."""
     repo = git_repo_mc(
         git_repo,
         tmp_path,
@@ -1156,9 +1157,13 @@ def create_git_commit(
     request: pytest.FixtureRequest, git_signing_key: tuple[Path, str]
 ) -> Callable:
     def _create_git_commit(
-        clone_path: Path, signed: bool = False, message: str | None = None, name: str | None = None, content: str | None = None
+        clone_path: Path,
+        signed: bool = False,
+        message: str | None = None,
+        name: str | None = None,
+        content: str | None = None,
     ) -> str:
-        new_file = clone_path / name or str(uuid.uuid4()) 
+        new_file = clone_path / name or str(uuid.uuid4())
         new_file.write_text(content or request.node.name, encoding="utf-8")
 
         subprocess.run(["git", "add", new_file.name], cwd=str(clone_path), check=True)

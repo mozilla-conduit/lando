@@ -312,5 +312,6 @@ def comment_on_reverted_prs(
     """Post a 'has been reverted' comment on each reverted pull request."""
     for pr_number in reverted_pr_numbers:
         github_client.add_comment_to_pull_request(
-            pr_number, f"This pull request (#{pr_number}) has been reverted by commit {commit_hash}."
+            pr_number,
+            f"This pull request (#{pr_number}) has been reverted by commit {commit_hash}.",
         )
