@@ -21,14 +21,14 @@ class CommitMap(BaseModel):
     # Use what Repo.git_commit_map() would return as the Git name.
     REPO_MAPPING = (
         ("firefox", "mozilla-unified"),
-        ("thunderbird", "comm-unified"),
+        ("thunderbird-desktop", "comm-unified"),
     )
 
     # The TRY_REPO_MAPPING is used to determine which repository to use for
     # inspecting relevant CommitMap for a Try repository.
     TRY_REPO_MAPPING = {
         "try": "firefox",
-        "try-comm-central": "thunderbird",
+        "try-comm-central": "thunderbird-desktop",
     }
 
     git_hash = models.CharField(default="", max_length=40, db_index=True)

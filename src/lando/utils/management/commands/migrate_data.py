@@ -1,8 +1,10 @@
 import argparse
+from itertools import batched
 
 from django.core.management import BaseCommand, CommandError, CommandParser
 
 from lando.main.models import SCM_ALLOW_DIRECT_PUSH
+from lando.main.models.commit_map import CommitMap
 from lando.main.models.repo import Repo
 
 
@@ -95,5 +97,36 @@ class Command(BaseCommand):
                 repo.required_automation_permission = SCM_ALLOW_DIRECT_PUSH
                 repo.save()
                 self.stdout.write(f"{repo.name} ", ending="")
+
+        self.stdout.write("done.")
+
+    def migrate_2_bug2050335_update_commit_map_thunderbird_desktop(
+        self, ask_confirm: bool = True
+    ):
+        """
+        Update CommitMap entries for `thunderbird`, to use `thunderbird-desktop`
+        instead.
+
+        This is to match the implicit use of the git_repo_name for lookups.
+        """
+        from_git_repo_name = "thunderbird"
+        to_git_repo_name = "thunderbird-desktop"
+
+        tbird_commit_maps = CommitMap.objects.filter(git_repo_name=from_git_repo_name)
+        if not tbird_commit_maps:
+            self.stdout.write("No CommitMaps entries for `thunderbird`.")
+            raise SystemExit()
+
+        self._get_confirmation(
+            ask_confirm,
+            f"Updating {len(tbird_commit_maps)} CommitMaps to use `{to_git_repo_name}` instead of `{from_git_repo_name}`.",
+            "",
+        )
+
+        batch_size = 100
+        for batch in batched(tbird_commit_maps, batch_size):
+            for map in batch:
+                map.git_repo_name = to_git_repo_name
+            CommitMap.objects.bulk_update(batch, ["git_repo_name"])
 
         self.stdout.write("done.")
