@@ -6,7 +6,7 @@ from datetime import datetime
 
 from lando.api.legacy.commit_message import parse_bugs
 
-GIT_REVERT_SUMMARY_RE = re.compile(r"^Revert \"?(?P<summary>.*)\"?", re.MULTILINE)
+GIT_REVERT_SUMMARY_RE = re.compile(r"^Revert \"?(?P<summary>.*)\"?")
 GIT_REVERT_RE = re.compile(r"This reverts commit (?P<commit>[0-9a-f]{40})")
 
 
@@ -33,7 +33,7 @@ class CommitData:
         revert_commits = []
         for data in commit_data:
             commit_message = data.desc
-            if GIT_REVERT_SUMMARY_RE.search(commit_message):
+            if GIT_REVERT_SUMMARY_RE.match(commit_message):
                 revert_commits.append(commit_message)
         return revert_commits
 
