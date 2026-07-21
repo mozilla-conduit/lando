@@ -279,25 +279,11 @@ class GitSCM(AbstractSCM):
             tmp_file.write(patch_bytes)
             tmp_file.flush()
 
-            try:
-                self._git_run("am", "--keep-cr", tmp_file.name, cwd=self.path)
-            except SCMException as exc:
-                try:
-                    # Clean up failed `git am`.
-                    self._git_run("am", "--abort", cwd=self.path)
-                except SCMException:
-                    pass
-
-                # Re-raise the exception from the failed `git am`.
-                raise exc
+            self._git_am(tmp_file.name)
 
     @detect_patch_conflict
     def add_diff_from_patches(self, patches: str) -> str:
         """Apply multiple patches and return the diff output."""
-        # TODO: add error handling so that if something goes wrong here,
-        # a meaningful error is stored in the landing job. This would be
-        # the same as what is done when actually applying the patches.
-        # See bug 2000268.
         with tempfile.NamedTemporaryFile(
             encoding="utf-8", mode="w+", suffix=".patch"
         ) as patch_file:
@@ -305,7 +291,7 @@ class GitSCM(AbstractSCM):
             patch_file.flush()
 
             base_commit_sha = self._git_run("rev-parse", "HEAD", cwd=self.path)
-            self._git_run("am", "--keep-cr", "--reject", patch_file.name, cwd=self.path)
+            self._git_am(patch_file.name, keep_rejects=True)
 
             # Write to a temp file instead of stdout so the diff stays out of command logs.
             with tempfile.NamedTemporaryFile(suffix=".diff") as diff_file:
@@ -328,6 +314,25 @@ class GitSCM(AbstractSCM):
             diff = diff_bytes.decode("latin-1")
 
         return diff.lstrip()
+
+    def _git_am(self, diff_name: str, *, keep_rejects: bool = False):
+        """Run git am with a fallback to clean-up on error."""
+        command = ["am", "--keep-cr"]
+        if keep_rejects:
+            command.append("--reject")
+        command.append(diff_name)
+
+        try:
+            self._git_run(*command, cwd=self.path)
+        except SCMException as exc:
+            try:
+                # Clean up failed `git am`.
+                self._git_run("am", "--abort", cwd=self.path)
+            except SCMException:
+                pass
+
+            # Re-raise the exception from the failed `git am`.
+            raise exc
 
     @override
     def get_patch(self, revision_id: str) -> str | None:
