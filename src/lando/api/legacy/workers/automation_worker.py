@@ -27,7 +27,7 @@ from lando.main.scm import (
 )
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.pushlog.pushlog import PushLogForRepo
-from lando.utils.github import GitHub, GitHubAPIClient, PullRequest
+from lando.utils.github import GitHubAPIClient, PullRequest
 from lando.utils.landing_checks import LandingChecks
 from lando.utils.tasks import phab_trigger_repo_update
 
@@ -179,13 +179,13 @@ class AutomationWorker(Worker):
         job.transition_status(JobAction.LAND, commit_id=commit_id)
 
         # If any of the new commits are reverts, comment on the reverted PRs.
-        revert_commits = AbstractSCM.find_revert_commits(new_commits)
+        revert_commits = CommitData.find_revert_commits(new_commits)
         if revert_commits:
             reverted_pr_numbers = []
             github_client = GitHubAPIClient(repo.push_path)
             for commit in revert_commits:
                 pr_numbers = find_reverted_pr_numbers(
-                    commit, repo.push_path, repo.default_branch, scm, github_client
+                    commit, repo.default_branch, scm, github_client
                 )
                 if pr_numbers:
                     reverted_pr_numbers.extend(pr_numbers)
@@ -201,17 +201,14 @@ class AutomationWorker(Worker):
 
 def find_reverted_pr_numbers(
     revert_commit_message: str,
-    push_path: str,
     default_branch: str,
     scm: AbstractSCM,
     github_client: GitHubAPIClient,
 ) -> list[str]:
     """Return PR numbers named in a revert commit that should be commented on."""
-    original_commit_hashes = AbstractSCM.find_reverted_commit_hashes(
+    original_commit_hashes = CommitData.find_reverted_commit_hashes(
         revert_commit_message
     )
-    repo_owner, repo_name = parse_push_path(push_path)
-
     reverted_pr_numbers = []
     for original_commit_hash in original_commit_hashes:
         original_commit_message = scm.describe_commit(original_commit_hash).desc
@@ -219,8 +216,6 @@ def find_reverted_pr_numbers(
         pr_number = reverted_pr_number_for_commit(
             original_commit_message,
             original_commit_hash,
-            repo_owner,
-            repo_name,
             default_branch,
             github_client,
         )
@@ -229,17 +224,10 @@ def find_reverted_pr_numbers(
     return list(set(reverted_pr_numbers))
 
 
-def parse_push_path(push_path: str) -> tuple[str, str]:
-    """Return the `(owner, repo)` named in a repo push path."""
-    match = GitHub.GITHUB_URL_RE.search(push_path)
-    return match.group("owner"), match.group("repo")
-
 
 def reverted_pr_number_for_commit(
     original_commit_message: str,
     original_commit_hash: str,
-    expected_owner: str,
-    expected_repo: str,
     expected_branch: str,
     github_client: GitHubAPIClient,
 ) -> str | None:
@@ -268,11 +256,10 @@ def reverted_pr_number_for_commit(
         pr_url_data,
         pull_request,
         original_commit_message,
-        expected_owner,
-        expected_repo,
+        github_client.repo_owner,
+        github_client.repo_name,
         expected_branch,
     )
-
     if error:
         logger.warning(
             f"Skipping commit {original_commit_hash} because validation failed: {error}"
