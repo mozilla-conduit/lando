@@ -130,3 +130,26 @@ class Command(BaseCommand):
             CommitMap.objects.bulk_update(batch, ["git_repo_name"])
 
         self.stdout.write("done.")
+
+    def migrate_3_bug2054804_enable_PreventSignedCommitsCheck(
+        self, ask_confirm: bool = True
+    ):
+        """Enable the PreventSignedCommitsCheck on all repos."""
+        repos = Repo.objects.all()
+
+        if not repos:
+            self.stdout.write("No repo found.")
+            raise SystemExit()
+
+        repo_names = ", ".join(repo.name for repo in repos)
+        self._get_confirmation(
+            ask_confirm, "Enabling PreventSignedCommitsCheck for: ", repo_names
+        )
+
+        for repo in repos:
+            if "PreventSignedCommitsCheck" not in repo.hooks:
+                repo.hooks.append("PreventSignedCommitsCheck")
+                repo.save()
+                self.stdout.write(f"{repo.name} ", ending="")
+
+        self.stdout.write("done.")
