@@ -265,16 +265,6 @@ class GitSCM(AbstractSCM):
     @detect_patch_conflict
     def apply_patch_git(self, patch_bytes: bytes):
         """Apply the Git patch, provided as encoded bytes."""
-        try:
-            # Clean up existing failed `git am`.
-            self._git_run("am", "--abort", cwd=self.path)
-        except SCMException as exc:
-            # Command will return exit code 1 if there is no failed `git am` in progress.
-            # Look for the expected error message and ignore the exception.
-            if "Resolve operation not in progress" not in exc.err:
-                # Real error, re-raise the exception.
-                raise exc
-
         with tempfile.NamedTemporaryFile(mode="wb", suffix=".patch") as tmp_file:
             tmp_file.write(patch_bytes)
             tmp_file.flush()

@@ -415,25 +415,6 @@ def test_GitSCM_apply_patch_git_aborts_on_failure(
         "`rebase-apply` dir was not cleaned up after failed git am"
     )
 
-    # Create `rebase-apply` directory.
-    rebase_apply.mkdir()
-
-    # Create a good patch.
-    good_patch_str = git_patch()
-    good_patch_b64 = base64.b64encode(good_patch_str.encode("utf-8")).decode("ascii")
-    good_patch_bytes = base64.b64decode(good_patch_b64)
-
-    # Apply a good patch with failed `git am` state present.
-    scm.apply_patch_git(good_patch_bytes)
-
-    # Ensure the `rebase-apply` directory is gone.
-    assert not rebase_apply.exists(), (
-        "`rebase-apply` dir was not cleaned up after failed git am"
-    )
-
-    commit = scm.describe_commit()
-    assert commit.hash, "Valid patch did not land after recovering from failure"
-
 
 DIFF_WITH_IGNORED_JSON = """\
 diff --git a/ignored.json b/ignored.json
@@ -1549,7 +1530,7 @@ def test_GitSCM_breakdown_from_conflicts_is_pure(git_repo: Path):
                 "commit_date": "",
             },
         ),
-        ("apply_patch_git", {"patch_bytes": ""}),
+        ("apply_patch_git", {"patch_bytes": b""}),
     ),
 )
 def test_GitSCM__detect_patch_conflict(
