@@ -207,7 +207,7 @@ def find_reverted_pr_numbers(
 ) -> list[str]:
     """Return PR numbers named in a revert commit that should be commented on."""
     original_commit_hashes = revert_commit.reverted_commit_hashes()
-    reverted_pr_numbers = []
+    reverted_pr_numbers = set()
     for original_commit_hash in original_commit_hashes:
         original_commit_message = scm.describe_commit(original_commit_hash).desc
 
@@ -219,7 +219,7 @@ def find_reverted_pr_numbers(
         )
         if pr_number:
             reverted_pr_numbers.append(pr_number)
-    return list(set(reverted_pr_numbers))
+    return list(reverted_pr_numbers)
 
 
 def reverted_pr_number_for_commit(
@@ -232,7 +232,7 @@ def reverted_pr_number_for_commit(
 
     pr_url_data = PullRequest.parse_pr_url(original_commit_message)
     if not pr_url_data:
-        logger.warning(
+        logger.debug(
             f"Skipping commit {original_commit_hash}: reverted commit has no "
             f"parseable PR URL in commit message."
         )
