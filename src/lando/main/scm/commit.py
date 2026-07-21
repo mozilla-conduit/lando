@@ -22,11 +22,8 @@ class CommitData:
     @staticmethod
     def find_revert_commits(commit_data: list[CommitData]) -> list[CommitData]:
         """Return any commits that are reverts."""
-        revert_commits = []
-        for commit in commit_data:
-            if commit.is_revert_commit():
-                revert_commits.append(commit)
-        return revert_commits
+        return [commit for commit in commit_data if commit.is_revert_commit()]
+
 
     def is_revert_commit(self) -> bool:
         """Return whether this commit's message marks it as a revert."""
