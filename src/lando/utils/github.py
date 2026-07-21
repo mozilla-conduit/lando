@@ -29,7 +29,7 @@ from lando.utils.const import URL_USERINFO_RE
 
 logger = logging.getLogger(__name__)
 
-PR_TRAILER_PREFIX = "Pull request: "
+
 
 PR_DELIMITER = (
     "<!--/ -+-+- DO NOT MODIFY THIS LINE - ENTER COMMIT MESSAGE ABOVE -+-+- /-->"
@@ -441,7 +441,7 @@ def pr_cache_method(func: Callable) -> Callable:
 
 class PullRequest:
     """A class that parses data returned from the GitHub API for pull requests."""
-
+    PR_TRAILER_PREFIX = "Pull request: "
     PULL_REQUEST_RE = re.compile(
         rf"{PR_TRAILER_PREFIX}{GitHub.GITHUB_URL_RE.pattern}pull/(?P<number>\d+)",
         re.MULTILINE,
@@ -677,7 +677,7 @@ class PullRequest:
         if self.commit_body:
             lines += [self.commit_body, ""]
 
-        lines.append(f"{PR_TRAILER_PREFIX}{self.html_url}")
+        lines.append(f"{PullRequest.PR_TRAILER_PREFIX}{self.html_url}")
 
         return "\n".join(lines)
 
