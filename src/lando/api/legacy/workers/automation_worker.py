@@ -200,15 +200,13 @@ class AutomationWorker(Worker):
 
 
 def find_reverted_pr_numbers(
-    revert_commit_message: str,
+    revert_commit: CommitData,
     default_branch: str,
     scm: AbstractSCM,
     github_client: GitHubAPIClient,
 ) -> list[str]:
     """Return PR numbers named in a revert commit that should be commented on."""
-    original_commit_hashes = CommitData.find_reverted_commit_hashes(
-        revert_commit_message
-    )
+    original_commit_hashes = revert_commit.reverted_commit_hashes()
     reverted_pr_numbers = []
     for original_commit_hash in original_commit_hashes:
         original_commit_message = scm.describe_commit(original_commit_hash).desc

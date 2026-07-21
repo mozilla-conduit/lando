@@ -20,16 +20,18 @@ class CommitData:
     files: list[str]
 
     @staticmethod
-    def find_revert_commits(commit_data: list[CommitData]) -> list[str]:
-        """Return the full commit messages of any commits that are reverts."""
+    def find_revert_commits(commit_data: list[CommitData]) -> list[CommitData]:
+        """Return any commits that are reverts."""
         revert_commits = []
-        for data in commit_data:
-            commit_message = data.desc
-            if GIT_REVERT_SUMMARY_RE.match(commit_message):
-                revert_commits.append(commit_message)
+        for commit in commit_data:
+            if commit.is_revert_commit():
+                revert_commits.append(commit)
         return revert_commits
 
-    @staticmethod
-    def find_reverted_commit_hashes(revert_commit_message: str) -> list[str]:
-        """Return the full SHAs named in `This reverts commit <sha>.` lines."""
-        return GIT_REVERT_RE.findall(revert_commit_message)
+    def is_revert_commit(self) -> bool:
+        """Return whether this commit's message marks it as a revert."""
+        return bool(GIT_REVERT_SUMMARY_RE.match(self.desc))
+
+    def reverted_commit_hashes(self) -> list[str]:
+        """Return the full SHAs this commit reverts."""
+        return GIT_REVERT_RE.findall(self.desc)
