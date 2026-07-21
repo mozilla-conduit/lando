@@ -224,7 +224,6 @@ def find_reverted_pr_numbers(
     return list(set(reverted_pr_numbers))
 
 
-
 def reverted_pr_number_for_commit(
     original_commit_message: str,
     original_commit_hash: str,

@@ -17,7 +17,6 @@ from pydantic import ValidationError
 from lando.api.legacy.workers.automation_worker import (
     AutomationWorker,
     get_pr_errors,
-    parse_push_path,
 )
 from lando.api.tests.mocks import TreeStatusDouble
 from lando.conftest import FAILING_CHECK_TYPES
@@ -1929,15 +1928,6 @@ def test_parse_pr_url(commit_message, expected):
     )
 
 
-def test_parse_push_path():
-    push_path = "https://github.com/mozilla-conduit/test-repo/pull/1"
-    expected = ("mozilla-conduit", "test-repo")
-    """`parse_push_path` returns the `(owner, repo)` named in a GitHub push path."""
-    assert parse_push_path(push_path) == expected, (
-        "`parse_push_path` should extract the owner and repo from the push path."
-    )
-
-
 FULL_SHA = "a" * 40
 ANOTHER_FULL_SHA = "b" * 40
 
@@ -2091,6 +2081,8 @@ def test_automation_job_pipeline(
     pull_request.body = "test description"
     pull_request.number = 1
     mock_github_api_client.build_pull_request.return_value = pull_request
+    mock_github_api_client.repo_owner = "mozilla-conduit"
+    mock_github_api_client.repo_name = "test-repo"
 
     github_api_client.return_value = mock_github_api_client
 
@@ -2194,6 +2186,9 @@ def test_automation_job_pipeline_2_commits_reverted(
         prs_by_number[pr_number]
     )
 
+    mock_github_api_client.repo_owner = "mozilla-conduit"
+    mock_github_api_client.repo_name = "test-repo"
+    
     github_api_client.return_value = mock_github_api_client
 
     commit_message_1 = "\n\nBug 1234 - add a line\n\ntest description\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
@@ -2315,8 +2310,10 @@ def test_automation_job_pipeline_sandwiched_revert(
     mock_pr.title = "Bug 1234 - add a line"
     mock_pr.body = "test description"
     mock_pr.number = 1
-
     mock_github_api_client.build_pull_request.return_value = mock_pr
+    mock_github_api_client.repo_owner = "mozilla-conduit"
+    mock_github_api_client.repo_name = "test-repo"
+    
     github_api_client.return_value = mock_github_api_client
 
     commit_message_1 = "\n\nBug 1234 - add a line\n\ntest description\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
