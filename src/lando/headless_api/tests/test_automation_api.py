@@ -2331,7 +2331,7 @@ def test_automation_job_pipeline(
     automation_worker.worker_instance.applicable_repos.add(repo)
     job.target_repo.scm.push = mock.MagicMock()
 
-    assert automation_worker.run_job(job)
+    assert automation_worker.run_job(job), job.error
 
     job.refresh_from_db()
     assert job.status == JobStatus.LANDED, f"Job failed with error: {job.error}"
@@ -2463,7 +2463,7 @@ def test_automation_job_pipeline_2_commits_reverted(
     automation_worker.worker_instance.applicable_repos.add(repo)
     job.target_repo.scm.push = mock.MagicMock()
 
-    assert automation_worker.run_job(job)
+    assert automation_worker.run_job(job), job.error
 
     job.refresh_from_db()
     assert job.status == JobStatus.LANDED, f"Job failed with error: {job.error}"
@@ -2581,7 +2581,7 @@ def test_automation_job_pipeline_sandwiched_revert(
     automation_worker.worker_instance.applicable_repos.add(repo)
     job.target_repo.scm.push = mock.MagicMock()
 
-    assert automation_worker.run_job(job)
+    assert automation_worker.run_job(job), job.error
 
     job.refresh_from_db()
     assert job.status == JobStatus.LANDED, f"Job failed with error: {job.error}"
