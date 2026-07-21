@@ -1959,31 +1959,21 @@ def test_reverted_commit_hashes(revert_commit_message, expected_hashes, make_scm
 
 
 @pytest.mark.parametrize(
-    "descriptions,expected_messages",
+    "description, is_revert",
     [
-        (['Revert "Bug 1 - a thing"'], ['Revert "Bug 1 - a thing"']),
-        (["Bug 1 - a normal commit"], []),
-        (
-            ['Revert "Bug 1"', "Bug 2 - normal", 'Revert "Bug 3"'],
-            ['Revert "Bug 1"', 'Revert "Bug 3"'],
-        ),
+        ('Revert "Bug 1 - a thing"', True),
+        ("Bug 1 - a normal commit", False),
     ],
     ids=[
-        "single_revert",
+        "revert",
         "no_revert",
-        "reverts_among_normal_commits",
     ],
 )
-def test_find_revert_commits(descriptions, expected_messages):
+def test_is_revert_commit(description, is_revert, make_scm_commit):
     """`find_revert_commits` returns the full message of each commit that is a revert."""
-    commit_data = []
-    for description in descriptions:
-        mock_commit = mock.MagicMock()
-        mock_commit.desc = description
-        commit_data.append(mock_commit)
-    assert CommitData.find_revert_commits(commit_data) == expected_messages, (
-        "`find_revert_commits` should return one full message per revert commit."
-    )
+    commit = make_scm_commit(1)
+    commit.desc = description
+    assert commit.is_revert_commit() == is_revert, "`is_revert_commit` should match expected value"
 
 
 def make_pull_request(
