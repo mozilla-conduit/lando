@@ -2067,6 +2067,7 @@ def test_automation_job_pipeline(
     mock_phab_trigger_repo_update_apply_async,
     automation_job,
     headless_user,
+    create_git_commit,
 ):
 
     user, token = headless_user
@@ -2087,16 +2088,7 @@ def test_automation_job_pipeline(
     github_api_client.return_value = mock_github_api_client
 
     commit_message = "\n\nBug 1234 - add a line\n\ntest description\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
-
-    test_file = Path(seed_dir) / "test.txt"
-    test_file.write_text(test_file.read_text() + "added line\n")
-
-    subprocess.run(["git", "add", "test.txt"], check=True, cwd=seed_dir)
-    subprocess.run(
-        ["git", "commit", "-m", commit_message],
-        check=True,
-        cwd=seed_dir,
-    )
+    create_git_commit(Path(seed_dir), message=commit_message)
 
     subprocess.run(
         ["git", "revert", "--no-edit", "HEAD"],
@@ -2160,6 +2152,7 @@ def test_automation_job_pipeline_2_commits_reverted(
     mock_phab_trigger_repo_update_apply_async,
     automation_job,
     headless_user,
+    create_git_commit,
 ):
 
     user, token = headless_user
@@ -2188,30 +2181,14 @@ def test_automation_job_pipeline_2_commits_reverted(
 
     mock_github_api_client.repo_owner = "mozilla-conduit"
     mock_github_api_client.repo_name = "test-repo"
-    
+
     github_api_client.return_value = mock_github_api_client
 
     commit_message_1 = "\n\nBug 1234 - add a line\n\ntest description\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
-
-    test_file = Path(seed_dir) / "test.txt"
-    test_file.write_text(test_file.read_text() + "added line\n")
-
-    subprocess.run(["git", "add", "test.txt"], check=True, cwd=seed_dir)
-    subprocess.run(
-        ["git", "commit", "-m", commit_message_1],
-        check=True,
-        cwd=seed_dir,
-    )
+    create_git_commit(Path(seed_dir), message=commit_message_1)
 
     commit_message_2 = "\n\nBug 5678 - add another line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/2\n\n\n"
-    test_file.write_text(test_file.read_text() + "added another line\n")
-
-    subprocess.run(["git", "add", "test.txt"], check=True, cwd=seed_dir)
-    subprocess.run(
-        ["git", "commit", "-m", commit_message_2],
-        check=True,
-        cwd=seed_dir,
-    )
+    create_git_commit(Path(seed_dir), message=commit_message_2)
 
     subprocess.run(
         ["git", "revert", "--no-edit", "HEAD~2..HEAD"],
@@ -2297,6 +2274,7 @@ def test_automation_job_pipeline_sandwiched_revert(
     mock_phab_trigger_repo_update_apply_async,
     automation_job,
     headless_user,
+    create_git_commit,
 ):
 
     user, token = headless_user
@@ -2313,20 +2291,11 @@ def test_automation_job_pipeline_sandwiched_revert(
     mock_github_api_client.build_pull_request.return_value = mock_pr
     mock_github_api_client.repo_owner = "mozilla-conduit"
     mock_github_api_client.repo_name = "test-repo"
-    
+
     github_api_client.return_value = mock_github_api_client
 
     commit_message_1 = "\n\nBug 1234 - add a line\n\ntest description\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
-
-    test_file1 = Path(seed_dir) / "test.txt"
-    test_file1.write_text(test_file1.read_text() + "added line to pr 1\n")
-
-    subprocess.run(["git", "add", "test.txt"], check=True, cwd=seed_dir)
-    subprocess.run(
-        ["git", "commit", "-m", commit_message_1],
-        check=True,
-        cwd=seed_dir,
-    )
+    create_git_commit(Path(seed_dir), message=commit_message_1)
 
     result = subprocess.run(
         ["git", "rev-parse", "HEAD"],
@@ -2338,16 +2307,7 @@ def test_automation_job_pipeline_sandwiched_revert(
     original_sha = result.stdout.strip()
 
     commit_message_2 = "\n\nBug 5678 - add another line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/2\n\n\n"
-
-    test_file2 = Path(seed_dir) / "test2.txt"
-    test_file2.write_text("added line to pr 2\n")
-
-    subprocess.run(["git", "add", "test2.txt"], check=True, cwd=seed_dir)
-    subprocess.run(
-        ["git", "commit", "-m", commit_message_2],
-        check=True,
-        cwd=seed_dir,
-    )
+    create_git_commit(Path(seed_dir), message=commit_message_2)
 
     subprocess.run(
         ["git", "revert", "--no-edit", original_sha],
@@ -2356,18 +2316,8 @@ def test_automation_job_pipeline_sandwiched_revert(
     )
 
     commit_message_3 = "\n\nBug 91011 - add a third line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/3\n\n\n"
-
-    test_file3 = Path(seed_dir) / "test3.txt"
-    test_file3.write_text("added line to pr 3\n")
-
-    subprocess.run(["git", "add", "test3.txt"], check=True, cwd=seed_dir)
-
-    subprocess.run(
-        ["git", "commit", "-m", commit_message_3],
-        check=True,
-        cwd=seed_dir,
-    )
-
+    create_git_commit(Path(seed_dir), message=commit_message_3)
+    
     revert_patch = subprocess.run(
         ["git", "format-patch", "-3", "--stdout"],
         check=True,
