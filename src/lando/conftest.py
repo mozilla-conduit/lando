@@ -1163,7 +1163,7 @@ def create_git_commit(
         name: str | None = None,
         content: str | None = None,
     ) -> str:
-        new_file = clone_path / name or str(uuid.uuid4())
+        new_file = clone_path / (name or str(uuid.uuid4()))
         new_file.write_text(content or request.node.name, encoding="utf-8")
 
         subprocess.run(["git", "add", new_file.name], cwd=str(clone_path), check=True)
