@@ -34,7 +34,6 @@ from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import JobStatus
 from lando.main.scm import PatchConflict, SCMType
 from lando.main.scm.abstract_scm import AbstractSCM
-from lando.main.scm.commit import CommitData
 from lando.main.scm.exceptions import SCMInternalServerError
 from lando.pushlog.models import Push
 from lando.utils.github import PullRequest
@@ -1949,13 +1948,15 @@ ANOTHER_FULL_SHA = "b" * 40
         "no_revert_trailer",
     ],
 )
-def test_reverted_commit_hashes(revert_commit_message, expected_hashes, make_scm_commit):
+def test_reverted_commit_hashes(
+    revert_commit_message, expected_hashes, make_scm_commit
+):
     """`find_reverted_commit_hashes` returns every reverted SHA."""
     commit = make_scm_commit(1)
     commit.desc = revert_commit_message
-    assert (
-       commit.reverted_commit_hashes() == expected_hashes
-    ), "`find_reverted_commit_hashes` should match every reverted SHA."
+    assert commit.reverted_commit_hashes() == expected_hashes, (
+        "`find_reverted_commit_hashes` should match every reverted SHA."
+    )
 
 
 @pytest.mark.parametrize(
@@ -1973,7 +1974,9 @@ def test_is_revert_commit(description, is_revert, make_scm_commit):
     """`find_revert_commits` returns the full message of each commit that is a revert."""
     commit = make_scm_commit(1)
     commit.desc = description
-    assert commit.is_revert_commit() == is_revert, "`is_revert_commit` should match expected value"
+    assert commit.is_revert_commit() == is_revert, (
+        "`is_revert_commit` should match expected value"
+    )
 
 
 def make_pull_request(
@@ -2035,6 +2038,7 @@ def test_get_pr_errors(
     error = get_pr_errors(
         pr_url_data,
         pull_request,
+        "a" * 40,
         original_commit_message,
         expected_owner="mozilla-conduit",
         expected_repo="test-repo",
