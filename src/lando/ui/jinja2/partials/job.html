@@ -54,7 +54,7 @@
                         <a id="r{{ revision.id }}" href="{{ revision.url }}">{{ revision.descriptor }}</a>
                     {%- endfor %}
                 </p>
-            {% elif job.is_pull_request_job %}
+            {%- elif job.is_pull_request_job %}
                 {% if page_context != "timeline" %}
                     <p>
                         <strong>Pull request:</strong>
@@ -66,16 +66,13 @@
                     {{- "" if loop.first else " ← " -}}
                     <a id="r{{ revision.id }}" href="{{ revision.url }}">{{ revision }}</a>
                 {%- endfor %}
-            {% else %}
+            {%- else %}
                 <strong>Revisions:</strong>
-                {% for i in job.serialized_landing_path -%}
+                {% for revision in job.revisions -%}
                     {{- "" if loop.first else " ← " -}}
-                    <a href="{{ i['revision_id']|phabricator_revision_url(diff_id=i['diff_id']) }}">
-                        {{ i['revision_id'] }}
-                        {% if i['diff_id'] %}diff {{ i['diff_id'] }}{% endif %}
-                    </a>
+                    <a id="r{{ revision.id }}" href="{{ revision.url }}">{{ revision }}</a>
                 {%- endfor %}
-            {% endif %}
+            {%- endif %}
         {% endif %}
         {% include "partials/error-breakdown.html" %}
         <div>
@@ -97,7 +94,7 @@
                         {{ treeherder_link(job.landed_treeherder_revision, job.target_repo, "Treeherder") |safe }}
                     {% endif %}
                 </p>
-            {% elif job.status.lower() == 'submitted' and treestatus and page_context=="job" %}
+            {%- elif job.status.lower() == 'submitted' and treestatus and page_context=="job" %}
                 <div>
                     <p>
                         <strong><a href="https://firefox-source-docs.mozilla.org/testing/automated-testing/tree-closure.html"
@@ -106,7 +103,7 @@
                         {% if treestatus.reason %}({{ treestatus.reason }}){% endif %}
                     </p>
                 </div>
-            {% elif job.error %}
+            {%- elif job.error %}
                 <div class="StackPage-timeline-item-error">
                     {% if job.error_breakdown %}
                         <div>
@@ -123,7 +120,7 @@
                         </div>
                     {% endif %}
                 </div>
-            {% endif %}
+            {%- endif %}
             {% if job.status in ("SUBMITTED", "DEFERRED") %}
                 <button data-landing_job_id="{{ job.id }}"
                         class="cancel-landing-job button is-small is-danger has-text-white"
