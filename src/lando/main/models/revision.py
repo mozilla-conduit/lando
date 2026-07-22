@@ -99,8 +99,7 @@ class Revision(BaseModel):
     def __repr__(self) -> str:
         """Return a human-readable representation of the instance."""
         # Add an identifier for the Phabricator revision if it exists.
-        descriptor = self.descriptor
-        return f"<{self.__class__.__name__}: {self.id}[{descriptor}]>"
+        return f"<{self.__class__.__name__}: {self.id}[{self.descriptor}]>"
 
     @property
     def descriptor(self) -> str:
@@ -110,8 +109,8 @@ class Revision(BaseModel):
 
         if self.is_pull_request:
             return f"PR#{self.pull_number}"
-        else:
-            return f"Lando rev. {self.id}"
+
+        return f"Lando rev. {self.id}"
 
     @property
     def url(self) -> str:
