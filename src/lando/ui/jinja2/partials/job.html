@@ -75,9 +75,15 @@
                         <div>
                             <button type="button" class="is-light button toggle-content">Show raw error output</button>
                         </div>
-                        <pre class="hidden-content"><strong>Raw error output:</strong>{{ "\n" + job.error}}</pre>
+                        <div class="hidden-content">
+                            <strong>Raw error output:</strong>
+                            <pre>{{ "\n" + job.error}}</pre>
+                        </div>
                     {% else %}
-                        <pre><strong>Raw error output:</strong>{{ "\n" + job.error}}</pre>
+                        <div>
+                            <strong>Raw error output:</strong>
+                            <pre>{{ "\n" + job.error}}</pre>
+                        </div>
                     {% endif %}
                 </div>
             {% endif %}
