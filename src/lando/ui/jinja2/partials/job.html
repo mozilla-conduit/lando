@@ -39,6 +39,10 @@
                 <a href="{{ url('jobs-page', args=[job.id]) }}">{{ job.id }}</a>
             </p>
         {% endif %}
+        <p>
+            <strong>Target repository:</strong>
+            <code>{{ job.target_repo.name }}</code>
+        </p>
         {% if has_revisions %}
             {% if job.has_phabricator_revisions %}
                 {% if page_context != "timeline" %}
