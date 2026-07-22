@@ -371,7 +371,6 @@ class RepoAdmin(admin.ModelAdmin):
     inlines = (RepoWorkersInline,)
     readonly_fields = (
         "gh_hmac_secret_is_set",
-        "commit_flags",
         "system_path",
         "scm_type",
         "created_at",
