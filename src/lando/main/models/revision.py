@@ -113,15 +113,22 @@ class Revision(BaseModel):
         else:
             return f"Lando rev. {self.id}"
 
+    @property
     def url(self) -> str:
         """Return a public URL for the Revision."""
         if self.is_phabricator_revision:
-            return f"{settings.PHABRICATOR_URL}/D{self.revision_id}"
+            phab_url = f"{settings.PHABRICATOR_URL}/D{self.revision_id}"
+            if self.diff_id:
+                phab_url = phab_url + f"?id={self.diff_id}"
+            return phab_url
 
-        if job := self.landing_jobs.first():
-            return f"{settings.SITE_URL}/landings/{job.id}#r{self.id}"
+        if not (job := self.landing_jobs.first()):
+            return f"No URL for Revision #{self.id}"
 
-        return f"No URL for Revision #{self.id}"
+        if self.is_pull_request and job.target_repo:
+            return f"{job.target_repo.normalized_url}/pull/{self.pull_number}"
+
+        return f"{settings.SITE_URL}/landings/{job.id}#r{self.id}"
 
     @property
     def is_phabricator_revision(self) -> bool:
