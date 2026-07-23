@@ -234,9 +234,20 @@ def get_reverted_pr(
         return None
 
     pr_number = pr_url_data["number"]
+    pr_owner = pr_url_data["owner"]
+    pr_repo = pr_url_data["repo"]
+    expected_owner = github_client.repo_owner
+    expected_repo = github_client.repo_name
+
+    if pr_owner != expected_owner or expected_repo:
+        return (
+            f"Skipping commit {original_commit_hash} because PR URL in commit message "
+            f"[{original_commit_message}] points to unexpected repo: {pr_owner}/{pr_repo}, "
+            f"but automation worker expected PRs to be from {expected_owner}/{expected_repo}."
+        )
 
     try:
-        pull_request = github_client.build_pull_request(pr_number)
+        pr_to_revert = github_client.build_pull_request(pr_number)
     except Exception as e:
         logger.exception(
             f"Skipping commit {original_commit_hash}: PR #{pr_number} could not "
@@ -244,44 +255,7 @@ def get_reverted_pr(
         )
         return None
 
-    error = get_pr_errors(
-        pr_url_data,
-        original_commit_hash,
-        original_commit_message,
-        github_client.repo_owner,
-        github_client.repo_name,
-    )
-    if error:
-        logger.info(
-            f"Skipping commit {original_commit_hash} because validation failed: {error}"
-        )
-        return None
-
-    return pull_request
-
-
-def get_pr_errors(
-    pr_url_data: dict,
-    original_commit_hash: str,
-    original_commit_message: str,
-    expected_owner: str,
-    expected_repo: str,
-) -> str | None:
-    """Return a validation error for a reverted pull request, or `None` if valid."""
-    pr_owner = pr_url_data["owner"]
-    pr_repo = pr_url_data["repo"]
-    pr_number = pr_url_data["number"]
-
-    # The trailer URL points at a different repo than the worker is acting on.
-    if pr_owner != expected_owner or pr_repo != expected_repo:
-        return (
-            f"PR URL in commit {original_commit_hash} message {original_commit_message} "
-            f"points to unexpected repo: {pr_owner}/{pr_repo}, but "
-            f"automation worker expected PRs to be from {expected_owner}/{expected_repo}."
-        )
-
-    return None
-
+    return pr_to_revert
 
 def comment_on_reverted_prs(
     reverted_prs: list[PullRequest], commit_hash: str

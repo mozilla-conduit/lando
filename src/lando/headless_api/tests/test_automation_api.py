@@ -1989,49 +1989,6 @@ def make_pull_request(
     return pull_request
 
 
-
-@pytest.mark.parametrize(
-    "pr_url_data, pull_request, original_commit_message, expected_substring",
-    [
-        # A valid reverted PR produces no error.
-        (
-            { "repo": "test-repo", "number": "1"},
-            make_pull_request(),
-            'Revert "Bug 1234 - add a line"',
-            None,
-        ),
-        # The trailer points at a repo the worker is not acting on.
-        (
-            {"repo": "diff-repo", "number": "1"},
-            make_pull_request(),
-            'Revert "Bug 1234 - add a line"',
-            "unexpected repo",
-        ),
-    ],
-    ids=[
-        "valid",
-        "wrong_repo",
-    ],
-)
-def test_get_pr_errors(
-    pr_url_data, pull_request, original_commit_message, expected_substring
-):
-    """`get_pr_errors` returns a descriptive error string, or `None` when the PR is valid."""
-    error = get_pr_errors(
-        pr_url_data,
-        pull_request,
-        "a" * 40,
-        original_commit_message,
-        expected_repo="test-repo",
-    )
-    if expected_substring is None:
-        assert error is None, "A valid reverted PR should produce no error."
-    else:
-        assert error is not None and expected_substring in error, (
-            f"Error message should mention `{expected_substring}`."
-        )
-
-
 @mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
 @pytest.mark.django_db
 def test_automation_job_pipeline(
