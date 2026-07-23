@@ -16,7 +16,6 @@ from pydantic import ValidationError
 
 from lando.api.legacy.workers.automation_worker import (
     AutomationWorker,
-    get_pr_errors,
 )
 from lando.api.tests.mocks import TreeStatusDouble
 from lando.conftest import FAILING_CHECK_TYPES

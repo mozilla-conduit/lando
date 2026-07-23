@@ -183,9 +183,7 @@ class AutomationWorker(Worker):
         if revert_commits:
             github_client = GitHubAPIClient(repo.push_path)
             for commit in revert_commits:
-                pull_requests = find_reverted_prs(
-                    commit, scm, github_client
-                )
+                pull_requests = find_reverted_prs(commit, scm, github_client)
                 if pull_requests:
                     comment_on_reverted_prs(pull_requests, commit.hash)
 
@@ -254,12 +252,10 @@ def get_reverted_pr(
             f"be found via the GitHub API. \n{e}"
         )
         return None
-
     return pr_to_revert
 
-def comment_on_reverted_prs(
-    reverted_prs: list[PullRequest], commit_hash: str
-):
+
+def comment_on_reverted_prs(reverted_prs: list[PullRequest], commit_hash: str):
     """Post a 'has been reverted' comment on each reverted pull request."""
     for pr in reverted_prs:
         pr.add_comment_to_pull_request(
