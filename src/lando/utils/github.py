@@ -396,6 +396,13 @@ class GitHubAPIClient:
             f"{self.repo_base_url}/pulls/{pull_number}", json={"state": "closed"}
         )
 
+    def add_comment_to_pull_request(self, pull_number: int, comment: str) -> dict:
+        """Add a comment to the given pull request."""
+        return self._post(
+            f"{self.repo_base_url}/issues/{pull_number}/comments",
+            json={"body": comment},
+        )
+
     def update_pull_request_content(
         self, pull_number: int, body: str, title: str | None = None
     ) -> dict:
@@ -713,11 +720,7 @@ class PullRequest:
         return pr_match.groupdict() if pr_match else None
 
     def add_comment_to_pull_request(self, pull_number: int, comment: str) -> dict:
-        """Add a comment to the given pull request."""
-        return self.client._post(
-            f"{self.client.repo_base_url}/issues/{pull_number}/comments",
-            json={"body": comment},
-        )
+        return self.client.add_comment_to_pull_request(pull_number, comment)
 
 
 class PullRequestPatchHelper(PatchHelper):
