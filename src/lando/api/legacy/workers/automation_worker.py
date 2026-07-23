@@ -258,7 +258,7 @@ def get_reverted_pr(
 def comment_on_reverted_prs(reverted_prs: list[PullRequest], commit_hash: str):
     """Post a 'has been reverted' comment on each reverted pull request."""
     for pr in reverted_prs:
-        pr.add_comment_to_pull_request(
+        pr.add_comment(
             pr.number,
             f"This pull request (#{pr.number}) has been reverted by commit {commit_hash}.",
         )

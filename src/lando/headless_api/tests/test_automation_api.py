@@ -2068,9 +2068,9 @@ def test_automation_job_pipeline(
     job.refresh_from_db()
     assert job.status == JobStatus.LANDED, f"Job failed with error: {job.error}"
 
-    mock_pr.add_comment_to_pull_request.assert_called_once()
+    mock_pr.add_comment.assert_called_once()
 
-    print(mock_pr.add_comment_to_pull_request.call_args_list)
+    print(mock_pr.add_comment.call_args_list)
 
 
 @mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
@@ -2200,11 +2200,11 @@ def test_automation_job_pipeline_2_commits_reverted(
     job.refresh_from_db()
     assert job.status == JobStatus.LANDED, f"Job failed with error: {job.error}"
 
-    pr_1.add_comment_to_pull_request.assert_called_once()
-    pr_2.add_comment_to_pull_request.assert_called_once()
+    pr_1.add_comment.assert_called_once()
+    pr_2.add_comment.assert_called_once()
 
-    print(pr_1.add_comment_to_pull_request.call_args_list)
-    print(pr_2.add_comment_to_pull_request.call_args_list)
+    print(pr_1.add_comment.call_args_list)
+    print(pr_2.add_comment.call_args_list)
 
 
 @mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
@@ -2320,6 +2320,6 @@ def test_automation_job_pipeline_sandwiched_revert(
     job.refresh_from_db()
     assert job.status == JobStatus.LANDED, f"Job failed with error: {job.error}"
 
-    mock_pr.add_comment_to_pull_request.assert_called_once()
+    mock_pr.add_comment.assert_called_once()
 
-    print(mock_pr.add_comment_to_pull_request.call_args_list)
+    print(mock_pr.add_comment.call_args_list)
