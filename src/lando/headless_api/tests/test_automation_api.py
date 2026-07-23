@@ -2052,12 +2052,12 @@ def test_automation_job_pipeline(
     seed_dir = repo.pull_path
 
     mock_github_api_client = mock.MagicMock()
-    pull_request = mock.MagicMock()
-    pull_request.head_ref = "main"
-    pull_request.title = "Bug 1234 - add a line"
-    pull_request.body = "test description"
-    pull_request.number = 1
-    mock_github_api_client.build_pull_request.return_value = pull_request
+    mock_pr = mock.MagicMock()
+    mock_pr.head_ref = "main"
+    mock_pr.title = "Bug 1234 - add a line"
+    mock_pr.body = "test description"
+    mock_pr.number = 1
+    mock_github_api_client.build_pull_request.return_value = mock_pr
     mock_github_api_client.repo_owner = "mozilla-conduit"
     mock_github_api_client.repo_name = "test-repo"
 
@@ -2112,9 +2112,9 @@ def test_automation_job_pipeline(
     job.refresh_from_db()
     assert job.status == JobStatus.LANDED, f"Job failed with error: {job.error}"
 
-    pull_request.add_comment_to_pull_request.assert_called_once()
+    mock_pr.add_comment_to_pull_request.assert_called_once()
 
-    print(pull_request.add_comment_to_pull_request.call_args_list)
+    print(mock_pr.add_comment_to_pull_request.call_args_list)
 
 
 @mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
@@ -2244,9 +2244,11 @@ def test_automation_job_pipeline_2_commits_reverted(
     job.refresh_from_db()
     assert job.status == JobStatus.LANDED, f"Job failed with error: {job.error}"
 
-    assert pull_request.add_comment_to_pull_request.call_count == 2
+    pr_1.add_comment_to_pull_request.assert_called_once()
+    pr_2.add_comment_to_pull_request.assert_called_once()
 
-    print(pull_request.add_comment_to_pull_request.call_args_list)
+    print(pr_1.add_comment_to_pull_request.call_args_list)
+    print(pr_2.add_comment_to_pull_request.call_args_list)
 
 
 @mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
@@ -2362,6 +2364,6 @@ def test_automation_job_pipeline_sandwiched_revert(
     job.refresh_from_db()
     assert job.status == JobStatus.LANDED, f"Job failed with error: {job.error}"
 
-    mock_github_api_client.add_comment_to_pull_request.assert_called_once()
+    mock_pr.add_comment_to_pull_request.assert_called_once()
 
-    print(mock_github_api_client.add_comment_to_pull_request.call_args_list)
+    print(mock_pr.add_comment_to_pull_request.call_args_list)

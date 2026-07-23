@@ -183,7 +183,6 @@ class AutomationWorker(Worker):
         if revert_commits:
             github_client = GitHubAPIClient(repo.push_path)
             for commit in revert_commits:
-                breakpoint()
                 pull_requests = find_reverted_prs(
                     commit, scm, github_client
                 )
