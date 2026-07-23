@@ -287,22 +287,6 @@ def get_pr_errors(
             f"automation worker expected PRs to be from {expected_owner}/{expected_repo}."
         )
 
-    # The PR is on a different branch than the worker is acting on.
-    if pull_request.head_ref != expected_branch:
-        return (
-            f"PR URL in commit {original_commit_hash} message {original_commit_message} "
-            f"points to PR #{pr_number} which is on branch {pull_request.head_ref}, but "
-            f"automation worker expected PRs to be on branch {expected_branch}."
-        )
-    # The PR exists but its commit message does not appear in the reverted commit.
-    pr_commit_title = f"{pull_request.title}"
-    if pr_commit_title not in original_commit_message:
-        return (
-            f"PR URL in commit {original_commit_hash} message {original_commit_message} "
-            f"points to PR #{pr_number}, but the commit title of that PR "
-            f"does not appear in the revert commit message."
-        )
-
     return None
 
 
