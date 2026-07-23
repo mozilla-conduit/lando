@@ -237,7 +237,7 @@ def get_reverted_pr(
     expected_owner = github_client.repo_owner
     expected_repo = github_client.repo_name
 
-    if pr_owner != expected_owner or expected_repo:
+    if pr_owner != expected_owner or pr_repo != expected_repo:
         return (
             f"Skipping commit {original_commit_hash} because PR URL in commit message "
             f"[{original_commit_message}] points to unexpected repo: {pr_owner}/{pr_repo}, "
