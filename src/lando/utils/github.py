@@ -396,12 +396,6 @@ class GitHubAPIClient:
             f"{self.repo_base_url}/pulls/{pull_number}", json={"state": "closed"}
         )
 
-    def add_comment_to_pull_request(self, pull_number: int, comment: str) -> dict:
-        """Add a comment to the given pull request."""
-        return self._post(
-            f"{self.repo_base_url}/issues/{pull_number}/comments",
-            json={"body": comment},
-        )
 
     def update_pull_request_content(
         self, pull_number: int, body: str, title: str | None = None
@@ -719,6 +713,12 @@ class PullRequest:
         pr_match = PullRequest.PULL_REQUEST_RE.search(commit_message)
         return pr_match.groupdict() if pr_match else None
 
+    def add_comment_to_pull_request(self, pull_number: int, comment: str) -> dict:
+        """Add a comment to the given pull request."""
+        return self.client._post(
+            f"{self.client.repo_base_url}/issues/{pull_number}/comments",
+            json={"body": comment},
+        )
 
 class PullRequestPatchHelper(PatchHelper):
     """A PatchHelper-like wrapper for GitHub pull requests.
