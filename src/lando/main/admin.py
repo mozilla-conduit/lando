@@ -369,6 +369,13 @@ class RepoAdmin(admin.ModelAdmin):
         "required_permission",
         "updated_at",
     )
+    list_filter = (
+        "approval_required",
+        "scm_type",
+        "is_try",
+        "required_permission",
+        "required_automation_permission",
+    )
     inlines = (RepoWorkersInline,)
     readonly_fields = (
         "gh_hmac_secret_is_set",
