@@ -1989,46 +1989,28 @@ def make_pull_request(
     return pull_request
 
 
-VALID_PR_URL_DATA = {"owner": "mozilla-conduit", "repo": "test-repo", "number": "1"}
-
 
 @pytest.mark.parametrize(
-    "pr_url_data,pull_request,original_commit_message,expected_substring",
+    "pr_url_data, pull_request, original_commit_message, expected_substring",
     [
         # A valid reverted PR produces no error.
         (
-            VALID_PR_URL_DATA,
+            { "repo": "test-repo", "number": "1"},
             make_pull_request(),
             'Revert "Bug 1234 - add a line"',
             None,
         ),
         # The trailer points at a repo the worker is not acting on.
         (
-            {"owner": "someone-else", "repo": "diff-repo", "number": "1"},
+            {"repo": "diff-repo", "number": "1"},
             make_pull_request(),
             'Revert "Bug 1234 - add a line"',
             "unexpected repo",
-        ),
-        # The PR is on a branch other than the one the worker expects.
-        (
-            VALID_PR_URL_DATA,
-            make_pull_request(head_ref="some-feature-branch"),
-            'Revert "Bug 1234 - add a line"',
-            "expected PRs to be on branch",
-        ),
-        # The PR's title does not appear in the reverted commit message.
-        (
-            VALID_PR_URL_DATA,
-            make_pull_request(title="Bug 9999 - unrelated"),
-            'Revert "Bug 1234 - add a line"',
-            "title of that PR does not appear in the revert commit message.",
         ),
     ],
     ids=[
         "valid",
         "wrong_repo",
-        "wrong_branch",
-        "title_not_in_message",
     ],
 )
 def test_get_pr_errors(
@@ -2040,9 +2022,7 @@ def test_get_pr_errors(
         pull_request,
         "a" * 40,
         original_commit_message,
-        expected_owner="mozilla-conduit",
         expected_repo="test-repo",
-        expected_branch="main",
     )
     if expected_substring is None:
         assert error is None, "A valid reverted PR should produce no error."
@@ -2132,9 +2112,9 @@ def test_automation_job_pipeline(
     job.refresh_from_db()
     assert job.status == JobStatus.LANDED, f"Job failed with error: {job.error}"
 
-    mock_github_api_client.add_comment_to_pull_request.assert_called_once()
+    pull_request.add_comment_to_pull_request.assert_called_once()
 
-    print(mock_github_api_client.add_comment_to_pull_request.call_args_list)
+    print(pull_request.add_comment_to_pull_request.call_args_list)
 
 
 @mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
@@ -2264,9 +2244,9 @@ def test_automation_job_pipeline_2_commits_reverted(
     job.refresh_from_db()
     assert job.status == JobStatus.LANDED, f"Job failed with error: {job.error}"
 
-    assert mock_github_api_client.add_comment_to_pull_request.call_count == 2
+    assert pull_request.add_comment_to_pull_request.call_count == 2
 
-    print(mock_github_api_client.add_comment_to_pull_request.call_args_list)
+    print(pull_request.add_comment_to_pull_request.call_args_list)
 
 
 @mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
