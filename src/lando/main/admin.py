@@ -364,6 +364,7 @@ class RepoAdmin(admin.ModelAdmin):
         "name",
         "scm_type",
         "worker_count",
+        "approval_required",
         "url",
         "required_permission",
         "updated_at",
