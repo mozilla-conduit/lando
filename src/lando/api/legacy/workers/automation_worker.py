@@ -183,11 +183,12 @@ class AutomationWorker(Worker):
         if revert_commits:
             github_client = GitHubAPIClient(repo.push_path)
             for commit in revert_commits:
-                pr_numbers = find_reverted_pr_numbers(
-                    commit, repo.default_branch, scm, github_client
+                breakpoint()
+                pull_requests = find_reverted_prs(
+                    commit, scm, github_client
                 )
-                if pr_numbers:
-                    comment_on_reverted_prs(pr_numbers, github_client, commit.hash)
+                if pull_requests:
+                    comment_on_reverted_prs(pull_requests, commit.hash)
 
         # Trigger update of repo in Phabricator so patches are closed quicker.
         # Especially useful on low-traffic repositories.
@@ -197,35 +198,32 @@ class AutomationWorker(Worker):
         return True
 
 
-def find_reverted_pr_numbers(
+def find_reverted_prs(
     revert_commit: CommitData,
-    default_branch: str,
     scm: AbstractSCM,
     github_client: GitHubAPIClient,
-) -> list[str]:
+) -> list[PullRequest]:
     """Return PR numbers named in a revert commit that should be commented on."""
     original_commit_hashes = revert_commit.reverted_commit_hashes()
-    reverted_pr_numbers = set()
+    reverted_prs = set()
     for original_commit_hash in original_commit_hashes:
         original_commit_message = scm.describe_commit(original_commit_hash).desc
 
-        pr_number = reverted_pr_number_for_commit(
+        pr = get_reverted_pr(
             original_commit_message,
             original_commit_hash,
-            default_branch,
             github_client,
         )
-        if pr_number:
-            reverted_pr_numbers.add(pr_number)
-    return list(reverted_pr_numbers)
+        if pr:
+            reverted_prs.add(pr)
+    return list(reverted_prs)
 
 
-def reverted_pr_number_for_commit(
+def get_reverted_pr(
     original_commit_message: str,
     original_commit_hash: str,
-    expected_branch: str,
     github_client: GitHubAPIClient,
-) -> str | None:
+) -> PullRequest | None:
     """Return the PR number to comment on for one reverted commit, or `None` to skip it."""
 
     pr_url_data = PullRequest.parse_pr_url(original_commit_message)
@@ -249,12 +247,10 @@ def reverted_pr_number_for_commit(
 
     error = get_pr_errors(
         pr_url_data,
-        pull_request,
         original_commit_hash,
         original_commit_message,
         github_client.repo_owner,
         github_client.repo_name,
-        expected_branch,
     )
     if error:
         logger.info(
@@ -262,17 +258,15 @@ def reverted_pr_number_for_commit(
         )
         return None
 
-    return pr_number
+    return pull_request
 
 
 def get_pr_errors(
     pr_url_data: dict,
-    pull_request: PullRequest,
     original_commit_hash: str,
     original_commit_message: str,
     expected_owner: str,
     expected_repo: str,
-    expected_branch: str,
 ) -> str | None:
     """Return a validation error for a reverted pull request, or `None` if valid."""
     pr_owner = pr_url_data["owner"]
@@ -291,11 +285,11 @@ def get_pr_errors(
 
 
 def comment_on_reverted_prs(
-    reverted_pr_numbers: list[str], github_client: GitHubAPIClient, commit_hash: str
+    reverted_prs: list[PullRequest], commit_hash: str
 ):
     """Post a 'has been reverted' comment on each reverted pull request."""
-    for pr_number in reverted_pr_numbers:
-        github_client.add_comment_to_pull_request(
-            pr_number,
-            f"This pull request (#{pr_number}) has been reverted by commit {commit_hash}.",
+    for pr in reverted_prs:
+        pr.add_comment_to_pull_request(
+            pr.number,
+            f"This pull request (#{pr.number}) has been reverted by commit {commit_hash}.",
         )
