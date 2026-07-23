@@ -84,8 +84,6 @@ class Command(BaseCommand):
             self.stdout.write(f"Admin user ({user}) created.")
         user.is_staff = True
         user.save()
-        add_automationjob = Permission.objects.get(codename="add_automationjob")
-        user.user_permissions.add(add_automationjob)
         Group.objects.get(name=CONDUIT_ADMIN_GROUP_NAME).user_set.add(user)
         token = "a" * 128
 

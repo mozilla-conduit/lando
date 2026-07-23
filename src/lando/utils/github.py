@@ -1,5 +1,9 @@
 import asyncio
+import functools
+import hashlib
+import hmac
 import io
+import json
 import logging
 import math
 import re
@@ -8,18 +12,27 @@ from collections.abc import Callable, Iterator
 from datetime import datetime
 from enum import Enum
 from itertools import count
+from json.decoder import JSONDecodeError
 
 import requests
 from django.conf import settings
+from django.core.handlers.wsgi import WSGIRequest
+from django.http import HttpResponse
+from django.views import View
 from simple_github import AppAuth, AppInstallationAuth
 from typing_extensions import override
 
 from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
-from lando.main.scm.helpers import PatchHelper
+from lando.main.scm.helpers import PatchHelper, PatchHelperMetadata
 from lando.utils.cache import cache_method
 from lando.utils.const import URL_USERINFO_RE
 
 logger = logging.getLogger(__name__)
+
+
+PR_DELIMITER = (
+    "<!--/ -+-+- DO NOT MODIFY THIS LINE - ENTER COMMIT MESSAGE ABOVE -+-+- /-->"
+)
 
 
 class GitHub:
@@ -242,11 +255,11 @@ class GitHubAPIClient:
         elif content_type == "application/vnd.github.diff; charset=utf-8":
             return result.text
 
-    def _post(self, path: str, *args, **kwargs):
+    def _post(self, path: str, *args, **kwargs) -> dict:
         result = self._api.post(path, *args, **kwargs)
         return result.json()
 
-    def _patch(self, path: str, *args, **kwargs):
+    def _patch(self, path: str, *args, **kwargs) -> dict:
         result = self._api.patch(path, *args, **kwargs)
         return result.json()
 
@@ -391,12 +404,15 @@ class GitHubAPIClient:
         )
 
     def update_pull_request_content(
-        self, pull_number: int, body: str, title: str
+        self, pull_number: int, body: str, title: str | None = None
     ) -> dict:
-        """Update the pull request description with provided body and title."""
+        """Update the pull request description with provided body and optional title."""
+        params = {"body": body}
+        if title is not None:
+            params["title"] = title
         return self._patch(
             f"{self.repo_base_url}/issues/{pull_number}",
-            json={"body": body, "title": title},
+            json=params,
         )
 
     @classmethod
@@ -466,6 +482,16 @@ class PullRequest:
     def __repr__(self) -> str:
         return f"Pull request #{self.number} ({self.head_repo_git_url})"
 
+    @staticmethod
+    def _parse_body_segments(body: str) -> tuple[str, str]:
+        """Return the commit body, delimited by the PR_DELIMITER or an empty string when not possible."""
+        if not body:
+            return ""
+        parts = body.split(PR_DELIMITER)
+
+        # Return the user-controlled portion.
+        return parts[0].strip()
+
     def __init__(self, client: GitHubAPIClient, data: dict):
         self.client = client
 
@@ -484,6 +510,7 @@ class PullRequest:
         self.diff_url = data["diff_url"]
         self.patch_url = data["patch_url"]
         self.body = data["body"] or ""  # description
+        self.commit_body = self._parse_body_segments(self.body)
         self.is_draft = data["draft"]
         self.comments_url = data["comments_url"]
         self.commits_url = data["commits_url"]
@@ -641,8 +668,8 @@ class PullRequest:
 
         lines = [self.title, ""]
 
-        if self.body:
-            lines += [self.body, ""]
+        if self.commit_body:
+            lines += [self.commit_body, ""]
 
         lines.append(f"Pull request: {self.html_url}")
 
@@ -710,6 +737,8 @@ class PullRequestPatchHelper(PatchHelper):
             "subject": pr.title,
         }
 
+        self.metadata = PatchHelperMetadata()
+
     @classmethod
     def _get_timestamp_from_github_timestamp(cls, timestamp: str) -> str:
         timestamp_datetime = datetime.fromisoformat(timestamp)
@@ -751,3 +780,35 @@ class PullRequestPatchHelper(PatchHelper):
     def get_timestamp(self) -> str:
         """Return an `hg export` formatted timestamp."""
         return self.get_header("date")
+
+
+def verify_github_signature(hmac_secret: str, payload: bytes, signature: str) -> bool:
+    """Verify the provided signature of the payload using the given hmac_secret."""
+    # NOTE: this was adapted from code provided in GitHub as an example.
+    # See: https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries.
+    hash_object = hmac.new(
+        hmac_secret.encode("utf-8"),
+        msg=payload,
+        digestmod=hashlib.sha256,
+    )
+    expected_signature = "sha256=" + hash_object.hexdigest()
+    return hmac.compare_digest(expected_signature, signature)
+
+
+def ignore_bot_sender(post: Callable) -> Callable:
+    """Decorator that drops requests that originate from bots."""
+
+    @functools.wraps(post)
+    def _post(view: View, request: WSGIRequest, *args, **kwargs) -> HttpResponse:
+        """Drop the request if a bot triggered the original webhook."""
+        BOT_SENDER_TYPE = "Bot"
+        try:
+            sender_type = json.loads(request.body)["sender"]["type"]
+        except (JSONDecodeError, KeyError, ValueError, TypeError):
+            pass
+        else:
+            if sender_type == BOT_SENDER_TYPE:
+                return HttpResponse(status=202)
+        return post(view, request, *args, **kwargs)
+
+    return _post

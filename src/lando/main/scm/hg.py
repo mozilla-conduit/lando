@@ -227,6 +227,7 @@ class HgSCM(AbstractSCM):
                 "{node}",
                 "-l",
                 "1",
+                "--",
                 path,
             ]
         ).decode()

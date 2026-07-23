@@ -10,12 +10,13 @@ from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied, SuspiciousOperation
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import Http404, HttpResponse
+from django.views import View
 from mozilla_django_oidc.auth import OIDCAuthenticationBackend
 
 # requests is a transitive dependency of mozilla-django-oidc.
 from lando.environments import Environment
 from lando.main.models.profile import Profile, filter_claims
-from lando.utils.github import GitHubAPIClient
+from lando.utils.github import GitHubAPIClient, verify_github_signature
 from lando.utils.phabricator import PhabricatorClient
 
 logger = logging.getLogger(__name__)
@@ -243,6 +244,33 @@ def force_auth_refresh(f: Callable) -> Callable:
         return f(*args, **kwargs)
 
     return wrapper
+
+
+def require_github_signature(post: Callable) -> Callable:
+    """Decorator to block requests requiring a valid signature header."""
+
+    @functools.wraps(post)
+    def _post(view: View, request: WSGIRequest, *args, **kwargs):
+        signature_header = "X-Hub-Signature-256"
+        if signature_header not in request.headers:
+            raise PermissionDenied(f"{signature_header} header is required")
+
+        if not view.target_repo.gh_hmac_secret:
+            # This is technically a configuration error, should surface as a 500.
+            raise ValueError("HMAC secret is not set on repo")
+
+        is_valid = verify_github_signature(
+            view.target_repo.gh_hmac_secret,
+            request.body,
+            request.headers[signature_header],
+        )
+
+        if not is_valid:
+            raise PermissionDenied("Invalid signature")
+
+        return post(view, request, *args, **kwargs)
+
+    return _post
 
 
 class require_permission:
