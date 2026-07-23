@@ -443,8 +443,7 @@ class PullRequest:
 
     PR_TRAILER_PREFIX = "Pull request: "
     PULL_REQUEST_RE = re.compile(
-        rf"{PR_TRAILER_PREFIX}{GitHub.GITHUB_URL_RE.pattern}pull/(?P<number>\d+)",
-        re.MULTILINE,
+        rf"{PR_TRAILER_PREFIX}{GitHub.GITHUB_URL_RE.pattern}pull/(?P<number>\d+)$",
     )
 
     class StaleMetadataException(Exception):
