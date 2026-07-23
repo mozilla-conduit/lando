@@ -396,7 +396,6 @@ class GitHubAPIClient:
             f"{self.repo_base_url}/pulls/{pull_number}", json={"state": "closed"}
         )
 
-
     def update_pull_request_content(
         self, pull_number: int, body: str, title: str | None = None
     ) -> dict:
@@ -719,6 +718,7 @@ class PullRequest:
             f"{self.client.repo_base_url}/issues/{pull_number}/comments",
             json={"body": comment},
         )
+
 
 class PullRequestPatchHelper(PatchHelper):
     """A PatchHelper-like wrapper for GitHub pull requests.
