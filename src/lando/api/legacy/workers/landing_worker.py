@@ -200,30 +200,22 @@ class LandingWorker(Worker):
             logger.debug(f"Converting paches to single diff for {revision} ...")
             return scm.add_diff_from_patches(revision.patches)
 
-        # NOTE: this is only supported for jobs with a single revision at this time.
-        # See bug 2001185.
-
-        if len(job.revisions) > 1:
-            raise NotImplementedError(
-                "This method is not supported when job has more than 1 revision."
-            )
         if len(job.revisions) == 0:
             raise ValueError("No revisions found in job.")
 
-        revision = job.revisions[0]
-        if not revision.patches:
-            raise ValueError("Revision is missing patches.")
+        for revision in job.revisions.all():
+            if not revision.patches:
+                raise ValueError("Revision is missing patches.")
 
-        diff = self.handle_new_commit_failures(
-            add_diff_from_patches,
-            job.target_repo,
-            job,
-            scm,
-            revision,
-        )
-
-        revision.set_patch(diff)
-        revision.save()
+            diff = self.handle_new_commit_failures(
+                add_diff_from_patches,
+                job.target_repo,
+                job,
+                scm,
+                revision,
+            )
+            revision.set_patch(diff)
+            revision.save()
 
     def apply_and_push(
         self,
