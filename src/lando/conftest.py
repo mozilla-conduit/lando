@@ -30,7 +30,6 @@ from lando.api.legacy.stacks import (
 )
 from lando.api.legacy.transplants import build_stack_assessment_state
 from lando.api.tests.mocks import PhabricatorDouble
-from lando.headless_api.models.automation_job import AutomationJob
 from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import (
     SCM_LEVEL_1,
