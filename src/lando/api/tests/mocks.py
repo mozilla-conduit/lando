@@ -462,7 +462,8 @@ class PhabricatorDouble:
             author_email = author["email"]
             for c in commits:
                 c["author"]["name"] = author_name
-                c["author"]["email"] = author_name
+                c["author"]["email"] = author_email
+                c["author"]["raw"] = f"{author_name} <{author_email}>"
         elif commits:
             author_name = commits[0]["author"]["name"]
             author_email = commits[0]["author"]["email"]

@@ -32,7 +32,9 @@
     <div class="StackPage-landingPreview-section StackPage-landingPreview-commitList">
         {% for phid in series %}
             {% set revision = revisions[phid] %}
-            {% if not loop.first %}<hr>{% endif %}
+            {% if not loop.first %}
+                <hr>
+            {% endif %}
             <div class="StackPage-landingPreview-revision">
                 <div class="StackPage-landingPreview-commitDetails">
                     <div>

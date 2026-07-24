@@ -1273,7 +1273,7 @@ def user(
 ) -> User:
     """A User with all SCM permissions levels."""
     user = scm_user(conduit_permissions, user_plaintext_password)
-    user.profile.save_phabricator_api_key(user_phab_api_key)
+    user.profile.set_phabricator_api_key(user_phab_api_key)
 
     user.save()
     user.profile.save()
@@ -1295,14 +1295,6 @@ def make_superuser() -> Callable:
 
 
 @pytest.fixture
-def headless_permission():
-    content_type = ContentType.objects.get_for_model(AutomationJob)
-    return Permission.objects.get(
-        codename="add_automationjob", content_type=content_type
-    )
-
-
-@pytest.fixture
 def direct_push_permission():
     content_type = ContentType.objects.get_for_model(Profile)
     perm = Permission.objects.get(
@@ -1312,10 +1304,7 @@ def direct_push_permission():
 
 
 @pytest.fixture
-def headless_user(
-    user, headless_permission, direct_push_permission
-) -> tuple[User, str]:
-    user.user_permissions.add(headless_permission)
+def headless_user(user, direct_push_permission) -> tuple[User, str]:
     user.user_permissions.add(direct_push_permission)
     user.profile.save()
     user.save()
@@ -1669,3 +1658,78 @@ def mock_response() -> Callable:
         )
 
     return _mock_response
+
+
+@pytest.fixture
+def update_dict():
+    def _update_dict(original, overrides):
+        """Helper to update nested dictionary values"""
+        for key, value in overrides.items():
+            if (
+                key in original
+                and isinstance(original[key], dict)
+                and isinstance(value, dict)
+            ):
+                original[key].update(value)
+            else:
+                original[key] = value
+        return original
+
+    return _update_dict
+
+
+@pytest.fixture
+def pull_request_data(update_dict) -> Callable:
+    def _pull_request_data(domain="example.org", **overrides):
+        data = {}
+        data["base"] = {}
+        data["base"]["user"] = {}
+        data["head"] = {}
+        data["head"]["repo"] = {}
+        data["user"] = {}
+
+        data["url"] = f"https://{domain}/"
+        data["base"]["ref"] = "main"
+        data["base"]["sha"] = "a" * 40
+        data["head"]["ref"] = "working_branch"
+        data["head"]["sha"] = "b" * 40
+
+        data["base"]["user"]["login"] = "test_user"
+        data["base"]["user"]["id"] = 1234
+        data["created_at"] = "2026-06-22T17:49:16Z"
+        data["updated_at"] = "2026-07-07T19:32:32Z"
+        data["closed_at"] = None
+        data["merged_at"] = None
+        data["diff_url"] = f"https://{domain}/test-org/test-repo/pull/31.diff"
+        data["patch_url"] = f"https://{domain}/test-org/test-repo/pull/31.patch"
+        data["body"] = None
+
+        data["draft"] = False
+        data["comments_url"] = (
+            f"https://api.{domain}/repos/test-org/test-repo/issues/31/comments"
+        )
+        data["commits_url"] = (
+            f"https://api.{domain}/repos/test-org/test-repo/issues/31/commits"
+        )
+
+        data["head"]["repo"]["git_url"] = f"git://{domain}/test-org/test-repo.git"
+        data["html_url"] = f"https://{domain}/test-org/test-repo"
+        data["id"] = 2345
+        data["labels"] = []
+        data["mergeable_state"] = "clean"
+        data["number"] = 1
+        data["requested_reviewers"] = []
+        data["requested_teams"] = []
+
+        data["state"] = "open"
+        data["title"] = "this is some title (bug 1111111, bug 2222222)"
+
+        data["user"]["id"] = 1234
+        data["user"]["html_url"] = f"https://{domain}/test_user"
+        data["user"]["login"] = "test_user"
+
+        update_dict(data, overrides)
+
+        return data
+
+    return _pull_request_data

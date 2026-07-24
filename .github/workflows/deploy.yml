@@ -1,44 +1,44 @@
 name: Lando Deployment
 
 on:
-  push:
-    branches:
-      - develop
-      - staging
-  release:
-    types:
-      - published
+    push:
+        branches:
+            - develop
+            - staging
+    release:
+        types:
+            - published
 
 jobs:
-  compute-tag-metadata:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    outputs:
-      metadata: ${{ steps.metadata.outputs.value }}
-    steps:
-      - name: Compute tag metadata
-        id: metadata
-        env:
-          REF_TYPE: ${{ github.ref_type }}
-          REF_NAME: ${{ github.ref_name }}
-        run: |
-          if [[ "$REF_TYPE" == "branch" ]]; then
-            echo "value=$REF_NAME" >> $GITHUB_OUTPUT
-          else
-            echo "value=" >> $GITHUB_OUTPUT
-          fi
+    compute-tag-metadata:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+        outputs:
+            metadata: ${{ steps.metadata.outputs.value }}
+        steps:
+            - name: Compute tag metadata
+              id: metadata
+              env:
+                  REF_TYPE: ${{ github.ref_type }}
+                  REF_NAME: ${{ github.ref_name }}
+              run: |
+                  if [[ "$REF_TYPE" == "branch" ]]; then
+                    echo "value=$REF_NAME" >> $GITHUB_OUTPUT
+                  else
+                    echo "value=" >> $GITHUB_OUTPUT
+                  fi
 
-  deploy:
-    needs: compute-tag-metadata
-    permissions:
-      contents: read
-      id-token: write
-    uses: mozilla/deploy-actions/.github/workflows/build-and-push.yml@47edfe10709f2978fdcb5fd3037599d72aa10661 #v6.2.3
-    with:
-      image_name: 'lando'
-      gar_name: 'lando-prod'
-      project_id: 'moz-fx-lando-prod'
-      gar_location: 'us'
-      image_tag_metadata: ${{ needs.compute-tag-metadata.outputs.metadata }}
-    secrets: inherit
+    deploy:
+        needs: compute-tag-metadata
+        permissions:
+            contents: read
+            id-token: write
+        uses: mozilla/deploy-actions/.github/workflows/build-and-push.yml@47edfe10709f2978fdcb5fd3037599d72aa10661 #v6.2.3
+        with:
+            image_name: "lando"
+            gar_name: "lando-prod"
+            project_id: "moz-fx-lando-prod"
+            gar_location: "us"
+            image_tag_metadata: ${{ needs.compute-tag-metadata.outputs.metadata }}
+        secrets: inherit
