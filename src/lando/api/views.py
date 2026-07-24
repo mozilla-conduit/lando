@@ -362,6 +362,64 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
 
         return JsonResponse({"id": job.id}, status=201)
 
+class LandingJobStacksAPIView(PullRequestAPIView):
+    def post(
+        self, request: WSGIRequest, repo_name: str, stack_number: int
+    ) -> JsonResponse:
+        """Create a new landing job for a stack"""
+        ldap_username = request.user.email
+
+        warnings_and_blockers = generate_warnings_and_blockers(
+            self.target_repo, self.pull_request, request
+        )
+        new_warnings = warnings_and_blockers["warnings"]
+
+        if blockers := warnings_and_blockers["blockers"]:
+            return JsonResponse({"errors": blockers}, status=400)
+
+        data = json.loads(request.body)
+        # add new warnings to the data so that the form can validate that they match the old warnings
+        data["new_warnings"] = new_warnings
+        form = Form(data)
+
+        if not form.is_valid():
+            return JsonResponse(
+                {"errors": form.errors, "new_warnings": new_warnings}, status=400
+            )
+
+        job = LandingJob.objects.create(
+            target_repo=self.target_repo,
+            requester_email=ldap_username,
+            is_pull_request_job=True,
+        )
+        author_name, author_email = self.pull_request.author
+
+        reviews_summary = self.pull_request.reviews_summary
+        reviewers = [
+            u
+            for u in reviews_summary
+            if reviews_summary.get(u) == self.pull_request.Review.APPROVED
+        ]
+        approvals = []
+
+        commit_message = replace_reviewers(
+            self.pull_request.commit_message, reviewers, approvals
+        )
+
+        patch_data = {
+            "author_name": author_name,
+            "author_email": author_email,
+            "commit_message": commit_message,
+            "timestamp": int(datetime.now().timestamp()),
+        }
+        revision = Revision.objects.create(
+            pull_number=self.pull_request.number,
+            pull_head_sha=self.pull_request.head_sha,
+            pull_base_sha=self.pull_request.base_sha,
+            patches=self.pull_request.patch,
+            patch_data=patch_data,
+        )
+        add_revisions_to_job([revision], job)
 
 class PullRequestChecksAPIView(PullRequestAPIView):
     def get(
