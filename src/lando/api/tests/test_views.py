@@ -439,7 +439,9 @@ class TestViewsPullRequestUpdateWebHook:
             [
                 expected_body,
                 "<!--/ -+-+- DO NOT MODIFY THIS LINE - ENTER COMMIT MESSAGE ABOVE -+-+- /-->",
+                "",
                 "---",
+                "",
                 "Lando: [link](https://lando.test/pulls/git-repo/1/)",
                 "Bugzilla: [bug 1111111](http://bmo.test/show_bug.cgi?id=1111111), [bug 2222222](http://bmo.test/show_bug.cgi?id=2222222)",
                 "",
@@ -487,7 +489,9 @@ class TestViewsPullRequestUpdateWebHook:
             [
                 expected_body,
                 "<!--/ -+-+- DO NOT MODIFY THIS LINE - ENTER COMMIT MESSAGE ABOVE -+-+- /-->",
+                "",
                 "---",
+                "",
                 "Lando: [link](https://lando.test/pulls/git-repo/1/)",
                 "Bugzilla: [bug 1111111](http://bmo.test/show_bug.cgi?id=1111111), [bug 2222222](http://bmo.test/show_bug.cgi?id=2222222)",
                 "",
@@ -531,7 +535,9 @@ class TestViewsPullRequestUpdateWebHook:
             [
                 expected_body,
                 "<!--/ -+-+- DO NOT MODIFY THIS LINE - ENTER COMMIT MESSAGE ABOVE -+-+- /-->",
+                "",
                 "---",
+                "",
                 "Lando: [link](https://lando.test/pulls/git-repo/1/)",
                 "Bugzilla: [bug 1111111](http://bmo.test/show_bug.cgi?id=1111111), [bug 2222222](http://bmo.test/show_bug.cgi?id=2222222)",
                 ":white_check_mark: All Lando checks passed",

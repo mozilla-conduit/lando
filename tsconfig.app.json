@@ -1,17 +1,17 @@
 {
-  "extends": "@vue/tsconfig/tsconfig.dom.json",
-  "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
-    "types": ["vite/client", "node"],
+    "extends": "@vue/tsconfig/tsconfig.dom.json",
+    "compilerOptions": {
+        "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+        "types": ["vite/client", "node"],
 
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "erasableSyntaxOnly": true,
+        "noFallthroughCasesInSwitch": true,
 
-    "paths": {
-      "@/*": ["./frontend/src/*"]
-    }
-  },
-  "include": ["frontend/src/**/*.ts", "frontend/src/**/*.vue"]
+        "paths": {
+            "@/*": ["./frontend/src/*"]
+        }
+    },
+    "include": ["frontend/src/**/*.ts", "frontend/src/**/*.vue"]
 }
