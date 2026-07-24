@@ -719,8 +719,8 @@ class PullRequest:
         pr_match = PullRequest.PULL_REQUEST_RE.search(commit_message)
         return pr_match.groupdict() if pr_match else None
 
-    def add_comment(self, pull_number: int, comment: str) -> dict:
-        return self.client.add_comment_to_pull_request(pull_number, comment)
+    def add_comment(self, comment: str) -> dict:
+        return self.client.add_comment_to_pull_request(self.number, comment)
 
 
 class PullRequestPatchHelper(PatchHelper):
