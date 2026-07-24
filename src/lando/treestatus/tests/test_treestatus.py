@@ -3,6 +3,7 @@ import datetime
 import pytest
 import requests_mock
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.utils.dateparse import parse_datetime
 
 from lando.treestatus.models import CombinedTree, Log, Tree, TreeCategory, TreeStatus
@@ -1007,6 +1008,7 @@ def mock_source_treestatus(
             "result": (extra_autoland_logs or [])
             + [
                 {
+                    "id": 2,
                     "tree": "autoland",
                     "who": "user2",
                     "status": "approval required",
@@ -1015,6 +1017,7 @@ def mock_source_treestatus(
                     "when": "2025-02-01T00:00:00+00:00",
                 },
                 {
+                    "id": 1,
                     "tree": "autoland",
                     "who": "user1",
                     "status": "open",
@@ -1052,6 +1055,9 @@ def test_import_treestatus_data_creates_trees_and_logs():
 
     logs = list(Log.objects.filter(tree="autoland").order_by("created_at"))
     assert len(logs) == 2, "Both `autoland` log entries should be imported."
+    assert [log.id for log in logs] == [1, 2], (
+        "Logs should reuse the source ids as their primary keys."
+    )
     assert logs[0].created_at == parse_datetime("2025-01-01T00:00:00+00:00"), (
         "The original log timestamp should be preserved on import."
     )
@@ -1110,6 +1116,7 @@ def test_import_treestatus_data_imports_new_logs_on_rerun():
     )
 
     new_source_log = {
+        "id": 3,
         "tree": "autoland",
         "who": "user3",
         "status": "closed",
@@ -1123,6 +1130,50 @@ def test_import_treestatus_data_imports_new_logs_on_rerun():
 
     logs = list(Log.objects.filter(tree="autoland").order_by("created_at"))
     assert len(logs) == 3, "Only the newly added source log should be imported."
+    assert logs[-1].id == 3, "The new log should reuse its source id."
     assert logs[-1].reason == "burning", (
         "The most recent log should be the newly added source entry."
+    )
+
+
+@pytest.mark.django_db
+def test_import_treestatus_data_aborts_on_id_misalignment(new_treestatus_tree):
+    """Import aborts if a source log id already maps to a different local tree."""
+    existing_tree = new_treestatus_tree(tree="try", status=TreeStatus.OPEN)
+    # Occupy id `1` with a log on a different tree than the source's log `1`,
+    # which belongs to `autoland`.
+    Log.objects.create(
+        id=1,
+        tree=existing_tree,
+        changed_by="someone",
+        status=TreeStatus.OPEN,
+        reason="unrelated",
+        tags=[],
+    )
+
+    with requests_mock.Mocker() as mock:
+        mock_source_treestatus(mock)
+        with pytest.raises(CommandError, match="misaligned"):
+            call_command("import_treestatus_data", IMPORT_BASE_URL)
+
+
+@pytest.mark.django_db
+def test_import_treestatus_data_advances_id_sequence():
+    """New logs created after an import do not collide with imported ids."""
+    with requests_mock.Mocker() as mock:
+        mock_source_treestatus(mock)
+        call_command("import_treestatus_data", IMPORT_BASE_URL)
+
+    # A log inserted through the normal auto-increment path should land past the
+    # imported ids rather than colliding with them.
+    autoland = Tree.objects.get(tree="autoland")
+    new_log = Log.objects.create(
+        tree=autoland,
+        changed_by="user4",
+        status=TreeStatus.OPEN,
+        reason="post-import",
+        tags=[],
+    )
+    assert new_log.id > 2, (
+        "The id sequence should be advanced past the imported log ids."
     )

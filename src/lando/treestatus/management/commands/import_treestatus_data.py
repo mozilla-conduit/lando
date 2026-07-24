@@ -3,7 +3,8 @@ import logging
 
 import requests
 from django.core.management.base import BaseCommand, CommandError
-from django.db import transaction
+from django.core.management.color import no_style
+from django.db import connection, transaction
 from django.utils.dateparse import parse_datetime
 
 from lando.treestatus.models import (
@@ -45,9 +46,12 @@ class Command(BaseCommand):
         if not trees_data:
             raise CommandError(f"No trees returned from {base_url}.")
 
+        # Import in a single transaction so a detected id misalignment rolls the
+        # whole run back rather than leaving the databases half-migrated.
         with transaction.atomic():
             for tree_info in trees_data.values():
                 self.import_tree(base_url, tree_info)
+            self.reset_log_id_sequence()
 
         self.stdout.write(self.style.SUCCESS("Finished importing Treestatus data."))
 
@@ -78,11 +82,7 @@ class Command(BaseCommand):
         logs_response.raise_for_status()
         logs = logs_response.json()["result"]
 
-        # The API returns logs newest-first; reverse so they are recreated in
-        # chronological order.
-        imported = sum(
-            1 for log_entry in reversed(logs) if self.import_log(tree, log_entry)
-        )
+        imported = sum(self.import_log(tree, log_entry) for log_entry in logs)
 
         self.stdout.write(
             f"Imported {imported} new log(s) for {tree_name} "
@@ -90,25 +90,51 @@ class Command(BaseCommand):
         )
 
     def import_log(self, tree: Tree, log_entry: dict) -> bool:
-        """Create a `Log` entry unless a matching one already exists.
+        """Recreate a source `Log` under its original id, if not already imported.
 
-        Deduplicates on the tree and the source `when` timestamp so re-runs do
-        not recreate logs. Returns `True` when a new `Log` is created and `False`
-        when a matching entry is already present.
+        The source `id` is a unique, ordered identifier, so it is reused as the
+        primary key: this deduplicates re-runs without any timestamp comparison
+        and keeps references such as `log_id` valid. Returns `True` when a new
+        `Log` is created and `False` when the entry is already present.
         """
-        when = parse_datetime(log_entry["when"])
-        if Log.objects.filter(tree=tree, created_at=when).exists():
-            return False
-
-        log = Log.objects.create(
-            tree=tree,
-            changed_by=log_entry["who"],
-            status=TreeStatus(log_entry["status"]),
-            reason=log_entry["reason"],
-            tags=log_entry["tags"],
+        source_id = log_entry["id"]
+        log, created = Log.objects.get_or_create(
+            id=source_id,
+            defaults={
+                "tree": tree,
+                "changed_by": log_entry["who"],
+                "status": TreeStatus(log_entry["status"]),
+                "reason": log_entry["reason"],
+                "tags": log_entry["tags"],
+            },
         )
+
+        # A row already stored under this id must describe the same source entry;
+        # otherwise the two databases have diverged and references are corrupt.
+        if log.tree_id != tree.tree:
+            raise CommandError(
+                f"Log {source_id} maps to tree {log.tree_id} locally but "
+                f"{tree.tree} in the source; the databases are misaligned."
+            )
+
+        if not created:
+            return False
 
         # `created_at`/`updated_at` use `auto_now_add`/`auto_now`, so a queryset
         # update is needed to retain the historical timestamp from the source.
+        when = parse_datetime(log_entry["when"])
         Log.objects.filter(pk=log.pk).update(created_at=when, updated_at=when)
         return True
+
+    def reset_log_id_sequence(self):
+        """Advance the `Log` id sequence past the imported primary keys.
+
+        Logs are inserted with their source ids, which leaves the sequence
+        untouched, so without this the next non-imported insert would collide
+        with an imported row.
+        """
+        logger.debug("Resetting the `Log` id sequence.")
+        reset_statements = connection.ops.sequence_reset_sql(no_style(), [Log])
+        with connection.cursor() as cursor:
+            for statement in reset_statements:
+                cursor.execute(statement)
