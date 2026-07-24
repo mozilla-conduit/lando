@@ -151,11 +151,12 @@ class LandingWorker(Worker):
         if job.is_pull_request_job:
             # TODO: move this to different method, and retry if needed.
             # NOTE: This may need to happen on the revision-level when stack support is added.
-            pull_number = job.revisions.first().pull_number
-            message = f"Pull request closed by commit {commit_id}"
-            client = GitHubAPIClient(job.target_repo.url)
-            client.add_comment_to_pull_request(pull_number, message)
-            client.close_pull_request(pull_number)
+            for revision in job.revisions.all():
+                pull_number =  revision.pull_number
+                message = f"Pull request closed by commit {commit_id}"
+                client = GitHubAPIClient(job.target_repo.url)
+                client.add_comment_to_pull_request(pull_number, message)
+                client.close_pull_request(pull_number)
 
         mots_path = Path(repo.path) / "mots.yaml"
         if mots_path.exists():
