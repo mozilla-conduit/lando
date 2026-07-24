@@ -1,5 +1,5 @@
 import logging
-from typing import Self
+from typing import Any, Self
 
 import requests
 import sentry_sdk
@@ -121,7 +121,7 @@ class CommitMap(BaseModel):
         cls.fetch_push_data(git_repo_name=git_repo_name, **params)
 
     @classmethod
-    def fetch_push_data(cls, git_repo_name: str, **kwargs) -> dict:
+    def fetch_push_data(cls, git_repo_name: str, **kwargs: dict[str, Any]):
         """Query the pushlog and create corresponding CommitMap objects."""
         url = cls.get_pushlog_url(git_repo_name)
         response = requests.get(url, params=kwargs)
@@ -130,9 +130,11 @@ class CommitMap(BaseModel):
         except Exception as exc:
             sentry_sdk.capture_exception(exc)
             logger.warning(f"Cannot fetch pushlog data from {url}: {exc}")
-            return {}
+            return
 
         push_data = response.json()
+        if not push_data:
+            return
 
         # We don't care about the key, as it is just the push ID.
         # NOTE: multiple changesets may be included in the response.
@@ -166,3 +168,7 @@ class CommitMap(BaseModel):
                         logger.warning(
                             f"Could not create complete CommitMap entry for {params}, skipping ..."
                         )
+
+        logger.info(
+            f"CommitMap for {git_repo_name} caught up {len(pushes)} pushes from {url} up to {push_data[pushes[-1]]}"
+        )
