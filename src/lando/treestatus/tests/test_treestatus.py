@@ -1,8 +1,11 @@
 import datetime
 
 import pytest
+import requests_mock
+from django.core.management import call_command
+from django.utils.dateparse import parse_datetime
 
-from lando.treestatus.models import CombinedTree, TreeCategory, TreeStatus
+from lando.treestatus.models import CombinedTree, Log, Tree, TreeCategory, TreeStatus
 from lando.treestatus.views.api import (
     LogEntry,
     StackEntry,
@@ -958,3 +961,168 @@ def test_api_get_stack(client, new_treestatus_tree):
     assert result is not None, "Response should contain `result` key."
     for entry in result:
         assert StackEntry(**entry)
+
+
+IMPORT_BASE_URL = "http://old-lando.test/treestatus"
+
+
+def mock_source_treestatus(
+    mock: requests_mock.Mocker, extra_autoland_logs: list[dict] | None = None
+):
+    """Register fake `/trees` and `/logs_all` responses for the import command.
+
+    The `autoland` tree carries a category and message of the day to exercise
+    importing those fields, while the `try` tree has no logs. `extra_autoland_logs`
+    are prepended (newest-first) to `autoland`'s logs to simulate rows added to
+    the source since a previous import.
+    """
+    mock.get(
+        f"{IMPORT_BASE_URL}/trees",
+        json={
+            "result": {
+                "autoland": {
+                    "tree": "autoland",
+                    "status": "approval required",
+                    "reason": "soft freeze",
+                    "message_of_the_day": "soft freeze in effect",
+                    "tags": [],
+                    "category": "development",
+                    "log_id": 2,
+                },
+                "try": {
+                    "tree": "try",
+                    "status": "open",
+                    "reason": "",
+                    "message_of_the_day": "",
+                    "tags": [],
+                    "category": "try",
+                    "log_id": None,
+                },
+            }
+        },
+    )
+    mock.get(
+        f"{IMPORT_BASE_URL}/trees/autoland/logs_all",
+        json={
+            "result": (extra_autoland_logs or [])
+            + [
+                {
+                    "tree": "autoland",
+                    "who": "user2",
+                    "status": "approval required",
+                    "reason": "soft freeze",
+                    "tags": ["sometag"],
+                    "when": "2025-02-01T00:00:00+00:00",
+                },
+                {
+                    "tree": "autoland",
+                    "who": "user1",
+                    "status": "open",
+                    "reason": "reopened",
+                    "tags": [],
+                    "when": "2025-01-01T00:00:00+00:00",
+                },
+            ]
+        },
+    )
+    mock.get(f"{IMPORT_BASE_URL}/trees/try/logs_all", json={"result": []})
+
+
+@pytest.mark.django_db
+def test_import_treestatus_data_creates_trees_and_logs():
+    with requests_mock.Mocker() as mock:
+        mock_source_treestatus(mock)
+        call_command("import_treestatus_data", IMPORT_BASE_URL)
+
+    assert Tree.objects.count() == 2, "Both source trees should be imported."
+
+    autoland = Tree.objects.get(tree="autoland")
+    assert autoland.category == TreeCategory.DEVELOPMENT, (
+        "`autoland`'s category should be imported from the API response."
+    )
+    assert autoland.message_of_the_day == "soft freeze in effect", (
+        "`autoland`'s message of the day should be imported from the API response."
+    )
+    assert autoland.status == TreeStatus.APPROVAL_REQUIRED, (
+        "`autoland`'s status should be seeded from the API response."
+    )
+    assert Tree.objects.get(tree="try").category == TreeCategory.TRY, (
+        "`try`'s category should be imported from the API response."
+    )
+
+    logs = list(Log.objects.filter(tree="autoland").order_by("created_at"))
+    assert len(logs) == 2, "Both `autoland` log entries should be imported."
+    assert logs[0].created_at == parse_datetime("2025-01-01T00:00:00+00:00"), (
+        "The original log timestamp should be preserved on import."
+    )
+    assert logs[1].status == TreeStatus.APPROVAL_REQUIRED, (
+        "The log status should be imported directly from the API response."
+    )
+
+    assert is_open("autoland"), (
+        "`autoland` should be open since its latest log is `approval required`."
+    )
+
+
+@pytest.mark.django_db
+def test_import_treestatus_data_imports_logs_for_existing_tree(new_treestatus_tree):
+    """Logs are imported for a tree that already exists locally."""
+    new_treestatus_tree(tree="autoland", status=TreeStatus.OPEN)
+
+    with requests_mock.Mocker() as mock:
+        mock_source_treestatus(mock)
+        call_command("import_treestatus_data", IMPORT_BASE_URL)
+
+    assert Tree.objects.filter(tree="autoland").count() == 1, (
+        "An already-existing tree should not be duplicated."
+    )
+    assert Log.objects.filter(tree="autoland").count() == 2, (
+        "Logs should be imported for an already-existing tree."
+    )
+    assert Tree.objects.filter(tree="try").exists(), (
+        "New trees should still be imported alongside existing ones."
+    )
+
+
+@pytest.mark.django_db
+def test_import_treestatus_data_is_rerunnable():
+    """Re-running the import does not duplicate trees or logs."""
+    for _ in range(2):
+        with requests_mock.Mocker() as mock:
+            mock_source_treestatus(mock)
+            call_command("import_treestatus_data", IMPORT_BASE_URL)
+
+    assert Tree.objects.count() == 2, "Re-running should not duplicate trees."
+    assert Log.objects.filter(tree="autoland").count() == 2, (
+        "Re-running should not duplicate log entries."
+    )
+
+
+@pytest.mark.django_db
+def test_import_treestatus_data_imports_new_logs_on_rerun():
+    """A later run imports log entries added to the source since the last run."""
+    with requests_mock.Mocker() as mock:
+        mock_source_treestatus(mock)
+        call_command("import_treestatus_data", IMPORT_BASE_URL)
+
+    assert Log.objects.filter(tree="autoland").count() == 2, (
+        "The initial import should create the two source logs."
+    )
+
+    new_source_log = {
+        "tree": "autoland",
+        "who": "user3",
+        "status": "closed",
+        "reason": "burning",
+        "tags": ["checkin_test"],
+        "when": "2025-03-01T00:00:00+00:00",
+    }
+    with requests_mock.Mocker() as mock:
+        mock_source_treestatus(mock, extra_autoland_logs=[new_source_log])
+        call_command("import_treestatus_data", IMPORT_BASE_URL)
+
+    logs = list(Log.objects.filter(tree="autoland").order_by("created_at"))
+    assert len(logs) == 3, "Only the newly added source log should be imported."
+    assert logs[-1].reason == "burning", (
+        "The most recent log should be the newly added source entry."
+    )
