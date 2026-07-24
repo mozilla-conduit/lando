@@ -186,7 +186,10 @@ class Repo(CryptographyMixin, BaseModel):
     )
     url = models.CharField()
 
-    approval_required = models.BooleanField(default=False)
+    approval_required = models.BooleanField(
+        default=False,
+        help_text="Mark this repo as accepting Uplifts. If True, this repo will be presented to users as a train to uplift to.",
+    )
     autoformat_enabled = models.BooleanField(default=False)
     autoformat_setup_commands = models.JSONField(
         default=list,

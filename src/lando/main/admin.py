@@ -364,9 +364,17 @@ class RepoAdmin(admin.ModelAdmin):
         "name",
         "scm_type",
         "worker_count",
+        "approval_required",
         "url",
         "required_permission",
         "updated_at",
+    )
+    list_filter = (
+        "approval_required",
+        "scm_type",
+        "is_try",
+        "required_permission",
+        "required_automation_permission",
     )
     inlines = (RepoWorkersInline,)
     readonly_fields = (
