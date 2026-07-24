@@ -8,11 +8,17 @@ from dataclasses import dataclass
 from typing import Any, Callable, Self
 
 import networkx as nx
+import requests
 import rs_parsepatch
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.cache import cache
 
+from lando.api.legacy.bmo import (
+    security_keyword,
+    unset_status_flags,
+    uplift_get_bug,
+)
 from lando.api.legacy.projects import (
     get_secure_project_phid,
     get_testing_policy_phid,
@@ -27,6 +33,7 @@ from lando.api.legacy.reviews import (
 from lando.api.legacy.revisions import (
     blocker_diff_author_is_known,
     gather_involved_phids,
+    get_bugzilla_bug,
     revision_has_needs_data_classification_tag,
     revision_is_secure,
     revision_needs_testing_tag,
@@ -139,6 +146,7 @@ class StackAssessmentState:
     secure_project_phid: str
     testing_tag_project_phids: list[str]
     testing_policy_phid: str
+    bugs_by_id: dict[int, dict] | None = None
 
     # State required for assessing landing requests.
     landing_assessment: LandingAssessmentState | None = None
@@ -160,12 +168,15 @@ class StackAssessmentState:
         secure_project_phid: str,
         testing_tag_project_phids: list[str],
         testing_policy_phid: str,
+        bugs_by_id: dict[int, dict] | None = None,
         landing_assessment: LandingAssessmentState | None = None,
     ) -> Self:
         """Build a `StackAssessmentState` from passed arguments.
 
         Build any fields that are shared between checks but are derived from
-        existing fields.
+        existing fields. External data (Phabricator lookups, the BMO bug fetch)
+        is performed by `build_stack_assessment_state` and passed in, keeping this
+        constructor free of network IO and trivially mockable.
         """
         # Create a copy of the stack so that revisions that are blocked from landing
         # can be removed from it when running landing checks. After all checks have run
@@ -198,6 +209,7 @@ class StackAssessmentState:
             testing_tag_project_phids=testing_tag_project_phids,
             testing_policy_phid=testing_policy_phid,
             landing_assessment=landing_assessment,
+            bugs_by_id=bugs_by_id,
         )
 
     def assessment_blocking_pairs(self) -> set[str]:
@@ -494,6 +506,57 @@ def warning_revision_secure(
     return (
         "This revision is tied to a secure bug. Ensure that you are following the "
         "Security Bug Approval Process guidelines before landing this changeset."
+    )
+
+
+def requires_firefox_status_flags(
+    revision: dict, stack_state: StackAssessmentState
+) -> bool:
+    """Return whether `revision` lands on a Firefox repo.
+
+    Firefox status flags (`cf_status_firefox*`) only apply to Firefox repos, so
+    the security status-flag checks are scoped to them. Non-Firefox repos
+    (Thunderbird, NSS, ...) are out of scope. We have no explicit "is Firefox"
+    flag, so the repo name (`firefox`, `firefox-beta`, `firefox-esr...`, ...) is
+    used as a proxy.
+    """
+    repo = stack_state.get_repo_for_revision(revision)
+    if repo is None:
+        return False
+    return repo.name == "firefox" or repo.name.startswith("firefox-")
+
+
+@RevisionWarningCheck("Security bug status flags could not be verified in Bugzilla.")
+def warning_security_bug_status_flags_unverified(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> str | None:
+    """Warn when status flags cannot be verified for a secure revision.
+
+    When `blocker_security_bug_status_flags` cannot run — because BMO was
+    unavailable, or because the referenced bug was absent from the BMO response
+    (e.g. a restricted bug Lando's key cannot read) — we degrade to an
+    acknowledgeable warning rather than silently allowing the landing.
+
+    Scoped to repos requiring status flags and to secure revisions.
+    """
+    if not requires_firefox_status_flags(revision, stack_state):
+        return None
+
+    if stack_state.secure_project_phid is None or not revision_is_secure(
+        revision, stack_state.secure_project_phid
+    ):
+        return None
+
+    bug_id = get_bugzilla_bug(revision)
+    if bug_id is None:
+        return None
+
+    if stack_state.bugs_by_id is not None and bug_id in stack_state.bugs_by_id:
+        return None
+
+    return (
+        f"Lando could not verify the Firefox status flags on bug {bug_id} in "
+        "Bugzilla. Please ensure its status flags are set before landing."
     )
 
 
@@ -901,6 +964,47 @@ def blocker_try_task_config(
         return issues[0]
 
 
+def blocker_security_bug_status_flags(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> str | None:
+    """Block sec-critical/sec-high revisions whose Firefox status flags are unset.
+
+    Scoped to Firefox repos, where `cf_status_firefox*` flags apply. When BMO data
+    was unavailable, or the bug was absent from the response, this returns `None`
+    and defers to `warning_security_bug_status_flags_unverified`.
+    """
+    if not requires_firefox_status_flags(revision, stack_state):
+        return None
+
+    if stack_state.bugs_by_id is None:
+        # BMO data was unavailable; the warning check handles this.
+        return None
+
+    bug_id = get_bugzilla_bug(revision)
+    if bug_id is None:
+        return None
+
+    bug = stack_state.bugs_by_id.get(bug_id)
+    if bug is None:
+        # Bug absent from the BMO response; the warning check handles this.
+        return None
+
+    keyword = security_keyword(bug)
+    if keyword is None:
+        return None
+
+    missing_flags = unset_status_flags(bug)
+    if not missing_flags:
+        return None
+
+    return (
+        f"Bug {bug_id} is marked {keyword} but is missing Firefox status flags: "
+        f"{', '.join(missing_flags)}. Set the status flag (e.g. affected, "
+        "unaffected, or disabled) for every Firefox branch in Bugzilla, then "
+        "reload this page."
+    )
+
+
 STACK_BLOCKER_CHECKS = [
     # This check needs to be first.
     blocker_stack_landing_path_valid,
@@ -924,6 +1028,7 @@ REVISION_BLOCKER_CHECKS = [
     blocker_try_task_config,
     blocker_prevent_submodules,
     blocker_prevent_nsprnss_files,
+    blocker_security_bug_status_flags,
     # This check needs to be last.
     blocker_open_ancestor,
 ]
@@ -940,6 +1045,7 @@ WARNING_CHECKS = [
     warning_unresolved_comments,
     warning_multiple_authors,
     warning_diff_author_is_hackbot,
+    warning_security_bug_status_flags_unverified,
 ]
 
 
@@ -1056,6 +1162,51 @@ def get_parsed_diffs(
     }
 
 
+def fetch_bugs_for_stack(stack_data: RevisionData) -> dict[int, dict] | None:
+    """Fetch BMO bug data for every bug referenced by the stack, keyed by bug id.
+
+    Returns the mapping (empty if the stack references no bugs), or `None` if the
+    fetch failed. On failure the security status-flag checks degrade to an
+    acknowledgeable warning rather than 500ing the stack page:
+
+    - Connection errors and 5xx responses are transient outages.
+    - 4xx responses (e.g. an expired or misconfigured ``BUGZILLA_API_KEY``) get a
+      distinct message so the misconfiguration is identifiable, rather than
+      looking like a generic outage.
+    - A malformed payload (missing ``bugs`` key, non-integer id) is also caught so
+      it cannot crash the assessment.
+    """
+    bug_ids = {
+        bug_id
+        for revision in stack_data.revisions.values()
+        if (bug_id := get_bugzilla_bug(revision)) is not None
+    }
+    if not bug_ids:
+        return {}
+
+    params = {"id": ",".join(str(bug) for bug in sorted(bug_ids))}
+    try:
+        bugs = uplift_get_bug(params)["bugs"]
+        return {int(bug["id"]): bug for bug in bugs}
+    except requests.exceptions.HTTPError as exc:
+        status_code = exc.response.status_code if exc.response is not None else None
+        if status_code is not None and 400 <= status_code < 500:
+            logger.warning(
+                "BMO rejected the Lando status-flag request with HTTP %s; check "
+                "BUGZILLA_API_KEY. Security status-flag checks will degrade to a "
+                "warning until this is resolved.",
+                status_code,
+            )
+        else:
+            logger.warning("BMO returned an error fetching bug status flags.")
+    except requests.exceptions.RequestException:
+        logger.warning("Failed to reach BMO for bug status flags.")
+    except (KeyError, TypeError, ValueError):
+        logger.exception("BMO returned a malformed bug status-flag payload.")
+
+    return None
+
+
 def build_stack_assessment_state(
     phab: PhabricatorClient,
     supported_repos: dict[str, Repo],
@@ -1088,6 +1239,8 @@ def build_stack_assessment_state(
     testing_tag_project_phids = get_testing_tag_project_phids(phab)
     testing_policy_phid = get_testing_policy_phid(phab)
 
+    bugs_by_id = fetch_bugs_for_stack(stack_data)
+
     stack_state = StackAssessmentState.from_assessment(
         phab=phab,
         stack_data=stack_data,
@@ -1103,6 +1256,7 @@ def build_stack_assessment_state(
         secure_project_phid=secure_project_phid,
         testing_tag_project_phids=testing_tag_project_phids,
         testing_policy_phid=testing_policy_phid,
+        bugs_by_id=bugs_by_id,
         landing_assessment=landing_assessment,
     )
     return stack_state
