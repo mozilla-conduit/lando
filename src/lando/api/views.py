@@ -416,34 +416,38 @@ class LandingJobStacksAPIView(View, PrivateRepoPermissionMixin):
             requester_email=ldap_username,
             is_pull_request_job=True,
         )
-        author_name, author_email = self.pull_request.author
 
-        reviews_summary = self.pull_request.reviews_summary
-        reviewers = [
-            u
-            for u in reviews_summary
-            if reviews_summary.get(u) == self.pull_request.Review.APPROVED
-        ]
-        approvals = []
+        revisions = []
+        for pull_request in self.stack.pull_requests:
+            author_name, author_email = pull_request.author
 
-        commit_message = replace_reviewers(
-            self.pull_request.commit_message, reviewers, approvals
-        )
+            reviews_summary = pull_request.reviews_summary
+            reviewers = [
+                u
+                for u in reviews_summary
+                if reviews_summary.get(u) == self.pull_request.Review.APPROVED
+            ]
+            approvals = []
 
-        patch_data = {
-            "author_name": author_name,
-            "author_email": author_email,
-            "commit_message": commit_message,
-            "timestamp": int(datetime.now().timestamp()),
-        }
-        revision = Revision.objects.create(
-            pull_number=self.pull_request.number,
-            pull_head_sha=self.pull_request.head_sha,
-            pull_base_sha=self.pull_request.base_sha,
-            patches=self.pull_request.patch,
-            patch_data=patch_data,
-        )
-        add_revisions_to_job([revision], job)
+            commit_message = replace_reviewers(
+                pull_request.commit_message, reviewers, approvals
+            )
+
+            patch_data = {
+                "author_name": author_name,
+                "author_email": author_email,
+                "commit_message": commit_message,
+                "timestamp": int(datetime.now().timestamp()),
+            }
+            revision = Revision.objects.create(
+                pull_number=pull_request.number,
+                pull_head_sha=pull_request.head_sha,
+                pull_base_sha=pull_request.base_sha,
+                patches=pull_request.patch,
+                patch_data=patch_data,
+            )
+            revisions.append(revision)
+        add_revisions_to_job(revisions, job)
 
 class PullRequestChecksAPIView(PullRequestAPIView):
     def get(
