@@ -383,7 +383,12 @@ class UpliftWorker(Worker):
             args=["try", "fuzzy", "-q", "^build-", "--no-push"],
             extra_env={"MOZBUILD_STATE_PATH": repo.mozbuild_state_path},
         )
-        config_lines = config_contents.splitlines()
+
+        json_start = config_contents.index("{")
+        json_text = config_contents[json_start:]
+        config_json = json.dumps(json.loads(json_text))
+        config_lines = config_json.splitlines()
+
         diff_header_lines = [
             "diff --git a/try_task_config.json b/try_task_config.json",
             "new file mode 100644",
