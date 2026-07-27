@@ -643,11 +643,12 @@ class Worker(ABC):
         is created before the subprocess runs so `mach` can write bootstrapped
         toolchains and state there instead of the worker's homedir.
         """
-        if not self.mach_path(repo_path):
+        mach_path = self.mach_path(repo_path)
+        if not mach_path:
             raise Exception("No `mach` found in local repo!")
 
         # Convert to `str` here so we can log the mach path.
-        command_args = [str(self.mach_path(repo_path))] + args
+        command_args = [str(mach_path)] + args
 
         subprocess_env = os.environ.copy()
         subprocess_env.update(extra_env or {})
