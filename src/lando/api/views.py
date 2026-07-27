@@ -41,6 +41,7 @@ from lando.utils.github import (
     PullRequest,
     PullRequestPatchHelper,
     ignore_bot_sender,
+    Stack,
 )
 from lando.utils.github_checks import (
     ALL_PULL_REQUEST_BLOCKERS,
@@ -365,10 +366,10 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
 class LandingJobStacksAPIView(View, PrivateRepoPermissionMixin):
     target_repo: Repo
     client: GitHubAPIClient
-    pull_requests: list[PullRequest]
+    stack: Stack
 
     def dispatch(
-        self, request: WSGIRequest, repo_name: str, pull_numbers: list[int], *args, **kwargs
+        self, request: WSGIRequest, repo_name: str, stack_number: int, *args, **kwargs
     ) -> JsonResponse:
         try:
             self.target_repo = Repo.objects.get(name=repo_name)
@@ -379,12 +380,12 @@ class LandingJobStacksAPIView(View, PrivateRepoPermissionMixin):
         self.raise_404_if_needed(request, self.client)
 
         try:
-            self.pull_requests = self.client.build_pull_request(pull_number)
+            self.stack = self.client.build_stack(stack_number)
         except HTTPError as e:
             if e.response.status_code == 404:
                 raise Http404 from e
             raise
-        return super().dispatch(request, repo_name, pull_numbers, *args, **kwargs)
+        return super().dispatch(request, repo_name, stack_number, *args, **kwargs)
         
     def post(
         self, request: WSGIRequest, repo_name: str, stack_number: int
