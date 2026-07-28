@@ -33,8 +33,8 @@ from lando.api.views import (
 from lando.headless_api.api import (
     api as headless_api,
 )
-from lando.treestatus.views.api import treestatus_api
-from lando.treestatus.views.ui import (
+from lando.treestatus.api import treestatus_api
+from lando.treestatus.views import (
     TreestatusDashboardView,
     TreestatusLogUpdateView,
     TreestatusNewTreeView,

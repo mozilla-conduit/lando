@@ -4,6 +4,11 @@ import pytest
 from django.core.cache import caches
 from django.test import override_settings
 
+from lando.treestatus.api import (
+    LogEntry,
+    StackEntry,
+    TreeData,
+)
 from lando.treestatus.models import CombinedTree, TreeCategory, TreeStatus
 from lando.treestatus.utils import (
     TREESTATUS_CACHE,
@@ -16,11 +21,6 @@ from lando.treestatus.utils import (
     is_open,
     remove_tree_by_name,
     revert_status_change,
-)
-from lando.treestatus.views.api import (
-    LogEntry,
-    StackEntry,
-    TreeData,
 )
 from lando.utils.exceptions import ProblemException
 
