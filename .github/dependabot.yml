@@ -23,7 +23,8 @@ updates:
       allow:
           - dependency-type: all
       ignore:
-          - update-types:
-                # Our package.json allows semver-compatible versions (with ^).
-                # This means no major bumps.
+          # Our package.json allows semver-compatible versions (with ^).
+          # This means no major bumps.
+          - dependency-name: "*"
+            update-types:
                 - "version-update:semver-major"
