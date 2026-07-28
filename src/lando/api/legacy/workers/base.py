@@ -33,7 +33,7 @@ from lando.main.scm.exceptions import (
     SCMException,
     SCMInternalServerError,
 )
-from lando.treestatus.views.api import is_open
+from lando.treestatus.utils import is_open
 
 logger = logging.getLogger(__name__)
 

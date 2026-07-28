@@ -22,7 +22,7 @@ from lando.main.models.uplift import (
     UpliftRevision,
     UpliftSubmission,
 )
-from lando.treestatus.views.api import get_tree_by_name
+from lando.treestatus.utils import get_tree_by_name
 from lando.ui.legacy.forms import (
     LinkUpliftAssessmentForm,
     TransplantRequestForm,

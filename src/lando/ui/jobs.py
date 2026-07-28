@@ -10,7 +10,7 @@ from lando.headless_api.models.automation_job import AutomationJob
 from lando.main.models import JobStatus, LandingJob, Worker, WorkerType
 from lando.main.models.jobs import BaseJob
 from lando.main.models.uplift import UpliftJob
-from lando.treestatus.views.api import get_tree_by_name
+from lando.treestatus.utils import get_tree_by_name
 from lando.ui.views import LandoView
 
 logger = logging.getLogger(__name__)  # noqa: F821
