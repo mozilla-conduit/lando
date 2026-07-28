@@ -34,11 +34,19 @@ from lando.main.scm.exceptions import (
     PatchConflict,
     SCMException,
     SCMInternalServerError,
+    TreeApprovalRequired,
+    TreeClosed,
 )
+from lando.utils.tasks import send_job_aborted_email
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+# Failures which are expected to be resolved without anyone looking at the job, e.g.
+# by a sheriff reopening the tree. Jobs deferred for these reasons are retried
+# indefinitely, rather than being aborted after `BaseJob.max_attempts` attempts.
+NON_ABORTABLE_FAILURES = (TreeClosed, TreeApprovalRequired)
 
 
 class Worker(ABC):
@@ -227,15 +235,14 @@ class Worker(ABC):
             if job.status not in [JobStatus.SUBMITTED, JobStatus.DEFERRED]:
                 logger.warning(f"Unexpected status for {job}")
 
-            job.status = JobStatus.IN_PROGRESS
-            job.attempts += 1
-            # Make sure the status and attempt count are updated in the database
-            job.save()
+            job.start_attempt()
 
             try:
                 self.last_job_finished = self.run_job(job)
             except TemporaryFailureException as exc:
-                job.transition_status(JobAction.DEFER, message=str(exc))
+                job.transition_status(
+                    JobAction.DEFER, message=str(exc), abortable=exc.abortable
+                )
                 self.last_job_finished = False
                 logger.warning(
                     f"Temporary failure for {job}: {exc}",
@@ -266,6 +273,28 @@ class Worker(ABC):
                     f"Finished processing {job}",
                     extra={"id": job.id},
                 )
+
+            if job.status == JobStatus.ABORTED:
+                # The job deferred too many times and was given up on. It is in a
+                # final state, so the worker can move on to the next job.
+                self.last_job_finished = True
+                self.notify_user_of_job_abort(job)
+
+    @staticmethod
+    def is_abortable_failure(exception: Exception) -> bool:
+        """Whether a job deferred because of `exception` may eventually be aborted."""
+        return not isinstance(exception, NON_ABORTABLE_FAILURES)
+
+    def notify_user_of_job_abort(self, job: BaseJob):
+        """Tell the requester of `job` that Lando gave up on it."""
+        self.call_task(
+            send_job_aborted_email,
+            job.requester_email,
+            job.type,
+            job.id,
+            job.url(),
+            job.error,
+        )
 
     @property
     def throttle_seconds(self) -> int:

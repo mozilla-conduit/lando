@@ -111,7 +111,7 @@ def uplift_status_tag_class(job: UpliftJob) -> str:
 
     if status == JobStatus.LANDED:
         return "is-success"
-    if status == JobStatus.FAILED:
+    if status in (JobStatus.FAILED, JobStatus.ABORTED):
         return "is-danger"
     if status == JobStatus.IN_PROGRESS:
         return "is-info"
@@ -140,6 +140,8 @@ def uplift_status_icon_class(job: UpliftJob) -> str:
         return "fa fa-hourglass-start"
     if status == JobStatus.CANCELLED:
         return "fa fa-ban"
+    if status == JobStatus.ABORTED:
+        return "fa fa-exclamation-triangle"
     return ""
 
 

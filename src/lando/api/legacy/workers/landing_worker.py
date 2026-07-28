@@ -126,6 +126,8 @@ class LandingWorker(Worker):
             job.transition_status(
                 JobAction.DEFER,
                 message=f"Tree {repo.tree} is closed - retrying later.",
+                # The tree will reopen without anyone looking at this job.
+                abortable=False,
             )
             return False
 
@@ -357,8 +359,9 @@ class LandingWorker(Worker):
                 f"encountered while pushing to {repo_push_info}: {e}"
             )
             logger.exception(message)
-            job.transition_status(JobAction.DEFER, message=message)
-            raise TemporaryFailureException(message)
+            abortable = self.is_abortable_failure(e)
+            job.transition_status(JobAction.DEFER, message=message, abortable=abortable)
+            raise TemporaryFailureException(message, abortable=abortable)
         except Exception as exc:
             message = f"Unexpected error while pushing to {repo.name}."
             logger.exception(message)
