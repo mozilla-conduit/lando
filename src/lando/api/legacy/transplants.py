@@ -337,6 +337,11 @@ class RevisionWarningCheck:
 def warning_blocking_reviews(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> str | None:
+    """Warn if some blocking reviewers or teams haven't provided a review.
+
+    Note: blocking reviewers are warnings by design, as it is expected that users with
+    the necessary permission to land (generally SCM3) are trusted to do the right thing.
+    """
     reviewer_extra_state = {
         phid: calculate_review_extra_state(diff["phid"], r["status"], r["diffPHID"])
         for phid, r in stack_state.reviewers[revision["phid"]].items()
