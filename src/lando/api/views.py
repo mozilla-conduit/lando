@@ -277,14 +277,8 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
 
         return JsonResponse({"status": status}, status=200)
 
-    @method_decorator(require_authenticated_user)
-    def post(
-        self, request: WSGIRequest, repo_name: int, pull_number: int
-    ) -> JsonResponse:
-        """Create a new landing job for a pull request."""
-
-        class Form(forms.Form):
-            """Simple form to get clean some fields."""
+class Form(forms.Form):
+    """Simple form to get clean some fields."""
 
             def clean(self) -> dict[str, Any]:
 
@@ -298,13 +292,19 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
                         "Please acknowledge the new warnings and try again."
                     ]
 
-                return cleaned_data
+        return cleaned_data
 
             head_sha = forms.CharField()
             new_warnings = forms.JSONField(required=False)
             old_warnings = forms.JSONField(required=False)
             # TODO: use this for verification later, see bug 1996571.
             # base_ref = forms.CharField()
+
+    @method_decorator(require_authenticated_user)
+    def post(
+        self, request: WSGIRequest, repo_name: int, pull_number: int
+    ) -> JsonResponse:
+        """Create a new landing job for a pull request."""
 
         ldap_username = request.user.email
 
@@ -393,30 +393,30 @@ class LandingJobStacksAPIView(View, PrivateRepoPermissionMixin):
         """Create a new landing job for a stack"""
         ldap_username = request.user.email
 
-        # warnings_and_blockers = generate_warnings_and_blockers(
-        #     self.target_repo, self.pull_request, request
-        # )
-        # new_warnings = warnings_and_blockers["warnings"]
+        warnings_and_blockers = {}
+        for pull_request in self.stack.pull_requests:
+            warnings_and_blockers[pull_request.number] = generate_warnings_and_blockers(
+                self.target_repo, self.pull_request, request
+            )
+            new_warnings = warnings_and_blockers[pull_request.number]["warnings"]
 
-        # if blockers := warnings_and_blockers["blockers"]:
-        #     return JsonResponse({"errors": blockers}, status=400)
+            if blockers := warnings_and_blockers[pull_request.number]["blockers"]:
+                return JsonResponse({"errors": blockers, "pull_request": pull_request.number}, status=400)
 
-        # data = json.loads(request.body)
-        # # add new warnings to the data so that the form can validate that they match the old warnings
-        # data["new_warnings"] = new_warnings
-        # form = Form(data)
+            data = json.loads(request.body)
+            data["new_warnings"] = new_warnings
+            form = Form(data)
 
-        # if not form.is_valid():
-        #     return JsonResponse(
-        #         {"errors": form.errors, "new_warnings": new_warnings}, status=400
-        #     )
+            if not form.is_valid():
+                return JsonResponse(
+                    {"errors": form.errors, "new_warnings": new_warnings, "pull_request": pull_request.number}, status=400
+                )
 
         job = LandingJob.objects.create(
-            target_repo=self.target_repo,
-            requester_email=ldap_username,
-            is_pull_request_job=True,
-        )
-
+                target_repo=self.target_repo,
+                requester_email=ldap_username,
+                is_pull_request_job=True,
+            )
         revisions = []
         for pull_request in self.stack.pull_requests:
             author_name, author_email = pull_request.author
@@ -425,7 +425,7 @@ class LandingJobStacksAPIView(View, PrivateRepoPermissionMixin):
             reviewers = [
                 u
                 for u in reviews_summary
-                if reviews_summary.get(u) == self.pull_request.Review.APPROVED
+                if reviews_summary.get(u) == pull_request.Review.APPROVED
             ]
             approvals = []
 
