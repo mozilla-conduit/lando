@@ -15,6 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
+from lando.api.views import LandingJobStacksAPIView
 from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path, re_path
@@ -137,6 +138,11 @@ urlpatterns += [
         PullRequestUpdateWebhook.as_view(),
         name="api-pull-request-description",
     ),
+    path(
+        "api/stacks/<str:repo_name>/<int::stack_number>/landing_jobs",
+        LandingJobStacksAPIView.as_view(),
+        name="api-landing-job-stack"
+    )
 ]
 
 # "API" endpoints ported from legacy API app.
