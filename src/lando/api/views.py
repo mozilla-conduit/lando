@@ -491,7 +491,21 @@ class PullRequestChecksAPIView(PullRequestAPIView):
             return JsonResponse({"errors": [str(exc)]}, status=500)
         return JsonResponse(warnings_and_blockers)
 
-
+class StacksChecksAPIView(StacksAPIView):
+    def get(
+        self, request: WSGIRequest, repo_name: str, stack_number: int
+    ) -> JsonResponse:
+        warnings_and_blockers = {}
+        for pull_request in self.stack.pull_requests:
+            try:
+                warnings_and_blockers[pull_request.number] = generate_warnings_and_blockers(
+                    self.target_repo, pull_request, request
+                )
+            except PullRequest.StaleMetadataException as exc:
+            # The StaleMetadataException error message is safe for user consumption.
+                return JsonResponse({"errors": [str(exc)]}, status=500)
+        return JsonResponse(warnings_and_blockers)
+        
 class PullRequestContentAPIView(PullRequestAPIView):
     """Handle pull request content updates in the API."""
 
