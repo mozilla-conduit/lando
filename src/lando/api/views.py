@@ -448,6 +448,28 @@ class LandingJobStacksAPIView(View, PrivateRepoPermissionMixin):
             )
             revisions.append(revision)
         add_revisions_to_job(revisions, job)
+        
+class Form(forms.Form):
+    """Simple form to get clean some fields."""
+
+    def clean(self):
+
+        cleaned_data = self.cleaned_data
+        new_warnings = cleaned_data["new_warnings"]
+        old_warnings = cleaned_data["old_warnings"]
+        if sorted(new_warnings) != sorted(old_warnings):
+            self.errors["warnings"] = [
+                "The warnings present when the request was constructed have changed. "
+                "Please acknowledge the new warnings and try again."
+            ]
+
+        return cleaned_data
+
+    head_sha = forms.CharField()
+    new_warnings = forms.JSONField()
+    old_warnings = forms.JSONField()
+    # TODO: use this for verification later, see bug 1996571.
+    # base_ref = forms.CharField()
 
 class PullRequestChecksAPIView(PullRequestAPIView):
     def get(
