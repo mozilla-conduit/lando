@@ -248,6 +248,29 @@ class PullRequestAPIView(View, PrivateRepoPermissionMixin):
             raise
         return super().dispatch(request, repo_name, pull_number, *args, **kwargs)
 
+class StacksAPIView(View, PrivateRepoPermissionMixin):
+    target_repo: Repo
+    client: GitHubAPIClient
+    stack: Stack
+
+    def dispatch(
+        self, request: WSGIRequest, repo_name: str, stack_number: int, *args, **kwargs
+    ) -> JsonResponse:
+        try:
+            self.target_repo = Repo.objects.get(name=repo_name)
+        except Repo.DoesNotExist as e:
+            raise Http404 from e
+
+        self.client = GitHubAPIClient(self.target_repo.url)
+        self.raise_404_if_needed(request, self.client)
+
+        try:
+            self.stack = self.client.build_stack(stack_number)
+        except HTTPError as e:
+            if e.response.status_code == 404:
+                raise Http404 from e
+            raise
+        return super().dispatch(request, repo_name, stack_number, *args, **kwargs)
 
 class LandingJobPullRequestAPIView(PullRequestAPIView):
     """Handle pull request landing jobs in the API."""
@@ -363,30 +386,7 @@ class Form(forms.Form):
 
         return JsonResponse({"id": job.id}, status=201)
 
-class LandingJobStacksAPIView(View, PrivateRepoPermissionMixin):
-    target_repo: Repo
-    client: GitHubAPIClient
-    stack: Stack
-
-    def dispatch(
-        self, request: WSGIRequest, repo_name: str, stack_number: int, *args, **kwargs
-    ) -> JsonResponse:
-        try:
-            self.target_repo = Repo.objects.get(name=repo_name)
-        except Repo.DoesNotExist as e:
-            raise Http404 from e
-
-        self.client = GitHubAPIClient(self.target_repo.url)
-        self.raise_404_if_needed(request, self.client)
-
-        try:
-            self.stack = self.client.build_stack(stack_number)
-        except HTTPError as e:
-            if e.response.status_code == 404:
-                raise Http404 from e
-            raise
-        return super().dispatch(request, repo_name, stack_number, *args, **kwargs)
-        
+class LandingJobStacksAPIView(StacksAPIView):        
     def post(
         self, request: WSGIRequest, repo_name: str, stack_number: int
     ) -> JsonResponse:
