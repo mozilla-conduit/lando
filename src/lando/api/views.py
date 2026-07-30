@@ -40,8 +40,8 @@ from lando.utils.github import (
     GitHubAPIClient,
     PullRequest,
     PullRequestPatchHelper,
-    ignore_bot_sender,
     Stack,
+    ignore_bot_sender,
 )
 from lando.utils.github_checks import (
     ALL_PULL_REQUEST_BLOCKERS,
@@ -248,6 +248,7 @@ class PullRequestAPIView(View, PrivateRepoPermissionMixin):
             raise
         return super().dispatch(request, repo_name, pull_number, *args, **kwargs)
 
+
 class LandingJobPullRequestAPIView(PullRequestAPIView):
     """Handle pull request landing jobs in the API."""
 
@@ -329,11 +330,14 @@ class Form(forms.Form):
             requester_email=ldap_username,
             is_pull_request_job=True,
         )
-        add_revisions_to_job([create_revision_from_pull_request(self.pull_request)], job)
+        add_revisions_to_job(
+            [create_revision_from_pull_request(self.pull_request)], job
+        )
         job.status = JobStatus.SUBMITTED
         job.save()
 
         return JsonResponse({"id": job.id}, status=201)
+
 
 class StacksAPIView(View, PrivateRepoPermissionMixin):
     target_repo: Repo
@@ -358,8 +362,9 @@ class StacksAPIView(View, PrivateRepoPermissionMixin):
                 raise Http404 from e
             raise
         return super().dispatch(request, repo_name, stack_number, *args, **kwargs)
-        
-class LandingJobStacksAPIView(StacksAPIView):        
+
+
+class LandingJobStacksAPIView(StacksAPIView):
     def post(
         self, request: WSGIRequest, repo_name: str, stack_number: int
     ) -> JsonResponse:
@@ -374,7 +379,10 @@ class LandingJobStacksAPIView(StacksAPIView):
             new_warnings = warnings_and_blockers[pull_request.number]["warnings"]
 
             if blockers := warnings_and_blockers[pull_request.number]["blockers"]:
-                return JsonResponse({"errors": blockers, "pull_request": pull_request.number}, status=400)
+                return JsonResponse(
+                    {"errors": blockers, "pull_request": pull_request.number},
+                    status=400,
+                )
 
             data = json.loads(request.body)
             data["new_warnings"] = new_warnings
@@ -382,24 +390,30 @@ class LandingJobStacksAPIView(StacksAPIView):
 
             if not form.is_valid():
                 return JsonResponse(
-                    {"errors": form.errors, "new_warnings": new_warnings, "pull_request": pull_request.number}, status=400
+                    {
+                        "errors": form.errors,
+                        "new_warnings": new_warnings,
+                        "pull_request": pull_request.number,
+                    },
+                    status=400,
                 )
 
         job = LandingJob.objects.create(
-                target_repo=self.target_repo,
-                requester_email=ldap_username,
-                is_pull_request_job=True,
-            )
+            target_repo=self.target_repo,
+            requester_email=ldap_username,
+            is_pull_request_job=True,
+        )
         revisions = []
         for pull_request in self.stack.pull_requests:
             revisions.append(create_revision_from_pull_request(pull_request))
 
         add_revisions_to_job(revisions, job)
 
+
 class Form(forms.Form):
     """Simple form to get clean some fields."""
 
-    def clean(self):
+    def clean(self) -> dict:
 
         cleaned_data = self.cleaned_data
         new_warnings = cleaned_data["new_warnings"]
@@ -417,6 +431,7 @@ class Form(forms.Form):
     old_warnings = forms.JSONField()
     # TODO: use this for verification later, see bug 1996571.
     # base_ref = forms.CharField()
+
 
 def create_revision_from_pull_request(pull_request: PullRequest) -> Revision:
     author_name, author_email = pull_request.author
@@ -445,6 +460,7 @@ def create_revision_from_pull_request(pull_request: PullRequest) -> Revision:
         patches=pull_request.patch,
         patch_data=patch_data,
     )
+
 
 class PullRequestChecksAPIView(PullRequestAPIView):
     def get(
