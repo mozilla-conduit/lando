@@ -576,7 +576,24 @@ class TestViewsPullRequestUpdateWebHook:
 @pytest.mark.parametrize(
     "warnings_1, warnings_2, expected_status, expected_response",
     [
+        ([], [], 201, b""),
         (["warning-1", "warning-2"], ["warning-1", "warning-2"], 201, b""),
+        (
+            [],
+            ["warning-1", "warning-2"],
+            400,
+            [
+                "The warnings present when the request was constructed have changed. Please acknowledge the new warnings and try again."
+            ],
+        ),
+        (
+            ["warning-1", "warning-2"],
+            [],
+            400,
+            [
+                "The warnings present when the request was constructed have changed. Please acknowledge the new warnings and try again."
+            ],
+        ),
         (
             ["warning-1", "warning-2"],
             ["warning-3", "warning-4"],
