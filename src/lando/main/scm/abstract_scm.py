@@ -3,7 +3,7 @@ import random
 import string
 from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Self, override
 
@@ -17,24 +17,20 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class FailedPath:
+    path: str
+    url: str
+    changeset_id: str
+
+
+@dataclass
+class RejectPath:
+    path: str
+    content: str
+
+
+@dataclass
 class ScmErrorBreakdown(dict):
-    @dataclass
-    class FailedPath:
-        path: str
-        url: str
-        changeset_id: str
-
-        def to_dict(self) -> dict[str, str]:
-            return self.__dict__
-
-    @dataclass
-    class RejectPath:
-        path: str
-        content: str
-
-        def to_dict(self) -> dict[str, str]:
-            return self.__dict__
-
     revision_id: int | None = None
     failed_paths: list[FailedPath] = field(default_factory=list)
     # failed_paths: list[dict[str, str]]
@@ -55,10 +51,10 @@ class ScmErrorBreakdown(dict):
         breakdown = cls(revision_id=error_breakdown_dict.get("revision_id"))
 
         for fp in error_breakdown_dict.get("failed_paths", []):
-            breakdown.failed_paths.append(cls.FailedPath(**fp))
+            breakdown.failed_paths.append(FailedPath(**fp))
 
         for rp_key in error_breakdown_dict.get("reject_paths", []):
-            breakdown.rejects_paths[rp_key] = cls.RejectPath(
+            breakdown.rejects_paths[rp_key] = RejectPath(
                 **error_breakdown_dict["rejects_paths"][rp_key]
             )
 
@@ -70,9 +66,9 @@ class ScmErrorBreakdown(dict):
         if key == "revision_id":
             return self.revision_id
         if key == "failed_paths":
-            return [fp.to_dict() for fp in self.failed_paths]
+            return [asdict(fp) for fp in self.failed_paths]
         if key == "rejects_paths":
-            return {k: self.rejects_paths[k].to_dict() for k in self.rejects_paths}
+            return {k: asdict(self.rejects_paths[k]) for k in self.rejects_paths}
         raise KeyError(f"{key} is not a member of ScmErrorBreakdown")
 
     @deprecated("Don't use ScmErrorBreakdown as a dict")
@@ -81,9 +77,9 @@ class ScmErrorBreakdown(dict):
         if key == "revision_id":
             self.revision_id = item
         if key == "failed_paths":
-            self.failed_paths = [self.FailedPath(**v) for v in item]
+            self.failed_paths = [FailedPath(**v) for v in item]
         if key == "rejects_paths":
-            self.rejects_paths = {k: self.RejectPath(**item[k]) for k in item}
+            self.rejects_paths = {k: RejectPath(**item[k]) for k in item}
         raise KeyError(f"{key} is not a member of ScmErrorBreakdown")
 
     @deprecated("Don't use ScmErrorBreakdown as a dict")
