@@ -575,7 +575,7 @@ class TestViewsPullRequestUpdateWebHook:
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize(
     "warnings_1, warnings_2, expected_status, expected_response",
-    [
+    [   ([], [], 201, b""),
         (["warning-1", "warning-2"], ["warning-1", "warning-2"], 201, b""),
         (
             ["warning-1", "warning-2"],
