@@ -431,7 +431,7 @@ def test_integrated_execute_job_pull_request(
     mocked.
     * This doesn't re-test side effects already tested in test_integrated_execute_job.
     """
-    pr_numbers = [1,2]
+    pr_numbers = [1, 2]
     repo_type = SCMType.GIT
     repo: Repo = repo_mc(repo_type)
     repo.is_phabricator_repo = False
@@ -441,7 +441,10 @@ def test_integrated_execute_job_pull_request(
 
     # We use git_patch(1) here, as it inserts a line in the middle of an existing file,
     # potentially triggering bug 2002094.
-    revisions = [create_pull_request_revision(pr_numbers[0], git_patch(1)), create_pull_request_revision(pr_numbers[1], git_patch(2))]
+    revisions = [
+        create_pull_request_revision(pr_numbers[0], git_patch(1)),
+        create_pull_request_revision(pr_numbers[1], git_patch(2)),
+    ]
 
     job_params = {
         "status": JobStatus.IN_PROGRESS,

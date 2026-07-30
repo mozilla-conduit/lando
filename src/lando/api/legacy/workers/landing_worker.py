@@ -152,7 +152,7 @@ class LandingWorker(Worker):
             # TODO: move this to different method, and retry if needed.
             # NOTE: This may need to happen on the revision-level when stack support is added.
             for revision in job.revisions.all():
-                pull_number =  revision.pull_number
+                pull_number = revision.pull_number
                 message = f"Pull request closed by commit {commit_id}"
                 client = GitHubAPIClient(job.target_repo.url)
                 client.add_comment_to_pull_request(pull_number, message)
