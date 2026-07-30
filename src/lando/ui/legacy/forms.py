@@ -1,5 +1,8 @@
+from typing import Any
+
 from django import forms
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.forms.widgets import RadioSelect
 from django.utils import timezone
 
@@ -10,14 +13,68 @@ from lando.main.models.uplift import (
     UpliftTargetSelectionMethod,
     YesNoChoices,
 )
+from lando.main.support import DISALLOWED_AUTHOR_EMAILS
 
 
 class TransplantRequestForm(forms.Form):
+    def validate_author(value):
+        if value in DISALLOWED_AUTHOR_EMAILS:
+            raise ValidationError("The email provided is not allowed")
+
     landing_path = forms.JSONField(widget=forms.widgets.HiddenInput)
     confirmation_token = forms.CharField(
         widget=forms.widgets.HiddenInput, required=False
     )
     flags = forms.JSONField(widget=forms.widgets.HiddenInput, required=False)
+
+    # Mailbox fields.
+    author_name = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={"class": "input"})
+    )
+
+    author_email = forms.EmailField(
+        required=False,
+        widget=forms.TextInput(attrs={"class": "input"}),
+        validators=[validate_author],
+    )
+
+    def clean(self) -> dict[str, Any]:
+        """
+        Peform custom validation on mailbox input.
+
+        The author name and email fields are optional, however, if one is provided
+        then the other must be provided as well. This is how the mailbox value is
+        determined and set in cleaned data at the end of this process.
+
+        """
+        cleaned_data = super().clean()
+
+        # If a validation error was raised on one of the fields, it's important to
+        # retain those original errors.
+        self.errors["author_email"] = self.errors.get("author_email", [])
+        self.errors["author_name"] = self.errors.get("author_name", [])
+
+        name, email = cleaned_data.get("author_name"), cleaned_data.get("author_email")
+
+        if name and not email:
+            self.errors["author_email"].append("This field is required.")
+        if email and not name:
+            self.errors["author_name"].append("This field is required.")
+
+        if name and email:
+            cleaned_data["mailbox"] = (name, email)
+            del cleaned_data["author_name"]
+            del cleaned_data["author_email"]
+        else:
+            cleaned_data["mailbox"] = None
+
+        # This removes the error entries from these fields, if no errors were found.
+        if not self.errors["author_email"]:
+            del self.errors["author_email"]
+        if not self.errors["author_name"]:
+            del self.errors["author_name"]
+
+        return cleaned_data
 
 
 class UpliftAssessmentForm(forms.ModelForm):

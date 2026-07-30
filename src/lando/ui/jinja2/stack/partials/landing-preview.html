@@ -8,6 +8,21 @@
         {{ blocker|escape_html|linkify_faq|safe }}
     </div>
 {% elif series %}
+    {% if revisions_with_disallowed_authors %}
+        <span class="has-text-danger">Commit Author must be changed before landing. This will only affect revisions with disallowed authors (
+            {% for _rev in revisions_with_disallowed_authors %}{{ _rev.id|linkify_phabricator_revision_ids|safe }}{% endfor %}
+        ).</span>
+        <div>
+            <div class="field">
+                <label class="label">New Commit Author Name</label>
+                <div class="control">{{ form.author_name }}</div>
+            </div>
+            <div class="field">
+                <label class="label">New Commit Author Email</label>
+                <div class="control">{{ form.author_email }}</div>
+            </div>
+        </div>
+    {% endif %}
     <h3 class="StackPage-landingPreview-sectionLabel">
         Landing To: &nbsp;
         <a class="StackPage-landingPreview-landingTo"

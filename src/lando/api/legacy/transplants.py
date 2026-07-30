@@ -24,7 +24,6 @@ from lando.api.legacy.reviews import (
     reviewer_identity,
 )
 from lando.api.legacy.revisions import (
-    blocker_diff_author_is_hackbot,
     blocker_diff_author_is_known,
     gather_involved_phids,
     revision_has_needs_data_classification_tag,
@@ -46,7 +45,7 @@ from lando.main.models import (
     LandingJob,
     Repo,
 )
-from lando.main.support import LegacyAPIException
+from lando.main.support import DISALLOWED_AUTHOR_EMAILS, LegacyAPIException
 from lando.utils.landing_checks import (
     DiffAssessor,
     PreventNSPRNSSCheck,
@@ -331,6 +330,20 @@ class RevisionWarningCheck:
             )
 
         return wrapped
+
+
+@RevisionWarningCheck("Commit contains author that will be modified before landing.")
+def warning_diff_author_is_hackbot(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> str | None:
+    """Warn when revisions contain commits by disallowed authors (e.g., Hackbot)."""
+    commits = PhabricatorClient.expect(diff, "attachments", "commits", "commits")
+    if not commits:
+        return None
+
+    emails = (c.get("author", {}).get("email", "").lower() for c in commits)
+    if set(emails).intersection(DISALLOWED_AUTHOR_EMAILS):
+        return "Diff contains commit authored by disallowed email."
 
 
 @RevisionWarningCheck("Has a review intended to block landing.")
@@ -878,7 +891,6 @@ REVISION_BLOCKER_CHECKS = [
     blocker_latest_diffs,
     blocker_author_planned_changes,
     blocker_diff_author_is_known,
-    blocker_diff_author_is_hackbot,
     blocker_uplift_approval,
     blocker_revision_data_classification,
     # Diff-based checks.
@@ -901,6 +913,7 @@ WARNING_CHECKS = [
     warning_wip_commit_message,
     warning_unresolved_comments,
     warning_multiple_authors,
+    warning_diff_author_is_hackbot,
 ]
 
 

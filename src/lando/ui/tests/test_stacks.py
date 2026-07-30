@@ -103,3 +103,70 @@ def test_draw_stack_graph_complex():
         {"above": [0], "below": [0], "node": "PHID-DREV-9", "other": [], "pos": 0},
         {"above": [], "below": [0], "node": "PHID-DREV-8", "other": [], "pos": 0},
     ]
+
+
+@pytest.mark.parametrize(
+    "username,email,trigger",
+    [
+        ("Hackbot", "hackbot@mozilla.tld", True),
+        ("Someone else", "test@example.org", False),
+    ],
+)
+@pytest.mark.django_db(transaction=True)
+def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
+    username,
+    email,
+    trigger,
+    user,
+    authenticated_client,
+    mocked_repo_config,
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    scm_user,
+):
+    author = phabdouble.user(username=username, email=email)
+    phabrepo = phabdouble.repo(name="mozilla-central")
+    reviewer = phabdouble.user(username="reviewer")
+
+    d1 = phabdouble.diff(author=author)
+    r1 = phabdouble.revision(diff=d1, repo=phabrepo)
+    phabdouble.reviewer(r1, reviewer)
+
+    data = {"landing_path": '[{"revision_id": "D1", "diff_id": 1}]'}
+    if trigger:
+        revision_author = phabdouble.api_object_for(phabdouble.user())
+        form = authenticated_client.get(f"/D{r1['id']}/").context_data["form"]
+        assert (
+            form.fields["author_name"].initial == revision_author["fields"]["realName"]
+        )
+        assert form.fields["author_email"].initial is None
+        data["confirmation_token"] = (
+            "49a7ae3b20dacee70c9e02407a3d5e80dafe7fe3ea5527a48cb43311ed078a65"
+        )
+        with pytest.raises(ValueError) as e:
+            authenticated_client.post(f"/D{r1['id']}/", data=data)
+        assert (
+            str(e.value)
+            == "Mailbox values should be present if and only if disallowed authors are persent."
+        )
+
+        # Associate Lando user with the phabricator user and try again.
+        user.profile.phabricator_phid = r1["authorPHID"]
+        user.profile.save()
+        form = authenticated_client.get(f"/D{r1['id']}/").context_data["form"]
+        assert form.fields["author_name"].initial == user.profile.userinfo["name"]
+        assert form.fields["author_email"].initial == user.profile.userinfo["email"]
+
+        data["author_name"] = form.fields["author_name"].initial
+        data["author_email"] = form.fields["author_email"].initial
+        response = authenticated_client.post(f"/D{r1['id']}/", data=data)
+        messages = list(response.wsgi_request._messages)
+        assert len(messages) == 0
+    else:
+        form = authenticated_client.get(f"/D{r1['id']}/").context_data["form"]
+        assert form.fields["author_name"].initial is None
+        assert form.fields["author_email"].initial is None
+        response = authenticated_client.post(f"/D{r1['id']}/", data=data)
+        messages = list(response.wsgi_request._messages)
+        assert len(messages) == 0

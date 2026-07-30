@@ -53,7 +53,7 @@ from lando.main.models import (
     Repo,
     add_revisions_to_job,
 )
-from lando.main.support import LegacyAPIException
+from lando.main.support import LegacyAPIException, diff_has_disallowed_author
 from lando.utils.phabricator import PhabricatorClient
 from lando.utils.tasks import admin_remove_phab_project
 
@@ -218,6 +218,20 @@ def post(phab: PhabricatorClient, user: User, data: dict) -> tuple[dict[str, int
         )
         raise LegacyAPIException(400, error_message)
 
+    mailbox = data.get("mailbox", None)
+    has_disallowed_author_diffs = any(
+        diff_has_disallowed_author(diff) for revision, diff in to_land
+    )
+    if (has_disallowed_author_diffs and not mailbox) or (
+        not has_disallowed_author_diffs and mailbox
+    ):
+        # TODO: it would be more ideal if this is a validation error, however, we do not have the
+        # necessary information at the time of form submission to determine this without performing
+        # additional redundant processing outside the form.
+        raise ValueError(
+            "Mailbox values should be present if and only if disallowed authors are persent."
+        )
+
     if assessment.warnings:
         # Log any warnings that were acknowledged, for auditing.
         logger.info(
@@ -296,9 +310,14 @@ def post(phab: PhabricatorClient, user: User, data: dict) -> tuple[dict[str, int
             ),
             flags,
         )[1]
-        lando_revision = fetch_raw_diff_and_save(
-            phab, revision["id"], diff, commit_message
-        )
+
+        args = (phab, revision["id"], diff, commit_message)
+        kwargs = {}
+
+        if diff_has_disallowed_author(diff):
+            kwargs["mailbox"] = mailbox
+
+        lando_revision = fetch_raw_diff_and_save(*args, **kwargs)
 
         revision_reviewers[lando_revision.id] = get_approved_by_ids(
             phab,

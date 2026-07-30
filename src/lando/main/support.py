@@ -1,6 +1,10 @@
 from django.core.files.storage import storages
 from storages.backends.gcloud import GoogleCloudStorage
 
+from lando.api.legacy.revisions import select_diff_author
+
+DISALLOWED_AUTHOR_EMAILS = ("hackbot@mozilla.tld",)
+
 
 class CachedGoogleCloudStorage(GoogleCloudStorage):
     """
@@ -31,3 +35,15 @@ class LegacyAPIException(Exception):
         }
         if self.extra:
             self.json_detail.update(self.extra)
+
+
+def get_revisions_with_disallowed_authors(revisions: dict[str, dict]) -> list[dict]:
+    return [r for r in revisions.values() if revision_has_disallowed_author(r)]
+
+
+def revision_has_disallowed_author(revision: dict) -> bool:
+    return revision["diff"]["author"]["email"].lower() in DISALLOWED_AUTHOR_EMAILS
+
+
+def diff_has_disallowed_author(diff: dict) -> bool:
+    return select_diff_author(diff)[1] in DISALLOWED_AUTHOR_EMAILS
