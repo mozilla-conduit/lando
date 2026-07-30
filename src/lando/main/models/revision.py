@@ -105,12 +105,12 @@ class Revision(BaseModel):
     def descriptor(self) -> str:
         """Returns a short string identifying the revision by type and ID."""
         if self.is_phabricator_revision:
-            return f"D{self.revision_id} (diff {self.diff_id})"
+            return f"Revision D{self.revision_id} (diff {self.diff_id})"
 
         if self.is_pull_request:
-            return f"PR#{self.pull_number}"
+            return f"Pull Request #{self.pull_number}"
 
-        return f"Lando rev. {self.id}"
+        return f"Lando Revision {self.id}"
 
     @property
     def url(self) -> str:
