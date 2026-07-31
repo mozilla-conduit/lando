@@ -12,6 +12,7 @@ from django.shortcuts import redirect
 from ninja import NinjaAPI, Schema
 from pydantic import Field, StringConstraints
 
+from lando.headless_api.api import HeadlessAPIAuthentication
 from lando.main.models import Repo
 from lando.main.models.commit_map import CommitMap
 from lando.main.models.jobs import JobStatus
@@ -31,7 +32,9 @@ from lando.utils.ninja_auth import AccessTokenAuth
 
 logger = logging.getLogger(__name__)
 
-api = NinjaAPI(auth=AccessTokenAuth(), urls_namespace="try")
+api = NinjaAPI(
+    auth=[HeadlessAPIAuthentication(), AccessTokenAuth()], urls_namespace="try"
+)
 
 
 @api.exception_handler(PermissionDenied)

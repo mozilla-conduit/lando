@@ -8,6 +8,7 @@ from django.contrib.auth.models import Permission, User
 from django.core.handlers.wsgi import WSGIRequest
 from django.test.client import Client
 
+from lando.headless_api.models.tokens import ApiToken
 from lando.main.models.commit_map import CommitMap
 from lando.main.models.jobs import JobStatus
 from lando.main.models.landing_job import LandingJob
@@ -367,6 +368,139 @@ def test_try_api_patches_success(
     )
 
     assert mock_authenticate.called, "Authentication backend should be called"
+    assert response.status_code == 201, (
+        f"Valid request to Try API should result in 201: {response.text}"
+    )
+
+    rj = response.json()
+    assert "id" in rj, "Missing job id in success response"
+
+    job = LandingJob.objects.get(id=rj["id"])
+
+    assert job, "Try LandingJob should have been created"
+    assert job.status == JobStatus.SUBMITTED, "Try LandingJob not in the expected state"
+    assert job.target_repo == Repo.objects.get(name="try"), (
+        "Try LandingJob not against the Try repo"
+    )
+    assert job.requester_email == user.email, (
+        "Try LandingJob request email not as expected"
+    )
+    assert len(job.revisions) == 2, (
+        "Unexpected number of revisions associated to Try LandingJob"
+    )
+    assert job.target_commit_hash == commit_maps[0].hg_hash, (
+        "Target commit hash not correctly converted"
+    )
+
+
+#
+# API TOKEN (M2M) AUTH TESTS
+#
+
+
+@pytest.mark.django_db()
+def test_try_api_patches_m2m_auth_invalid_token(
+    mock_authenticate_builder: Callable,
+    scm_user: Callable,
+    client_post: Callable,
+):
+    user = scm_user([Permission.objects.get(codename="scm_level_1")], "password")
+    token = ApiToken.create_token(user)
+
+    mock_authenticate = mock_authenticate_builder(None)
+    mock_authenticate.return_value = None
+
+    response = client_post(
+        "/try/patches",
+        headers={"AuThOrIzAtIoN": f"bEaReR {token}-ish"},
+    )
+
+    assert mock_authenticate.called, "Authentication backend should be called"
+    assert response.status_code == 401, "Invalid token to Try API should result in 401"
+
+
+@pytest.mark.django_db()
+@pytest.mark.parametrize(
+    "group_scm_1,superuser",
+    (
+        (False, False),
+        (False, True),
+        (True, False),
+        (True, True),
+    ),
+)
+def test_try_api_patches_m2m_auth_no_scm1(
+    mocked_repo_config_try: Mock,
+    scm_user: Callable,
+    client_post: Callable,
+    make_superuser: Callable,
+    group_scm_1: bool,
+    superuser: bool,
+):
+    if group_scm_1:
+        user = scm_user(
+            [],
+            "password",
+            [Permission.objects.get(codename="scm_level_1")],
+        )
+    else:
+        user = scm_user([], "password")
+
+    if superuser:
+        user = make_superuser(user)
+
+    token = ApiToken.create_token(user)
+
+    response = client_post(
+        "/api/try/patches",
+        headers={"AuThOrIzAtIoN": f"bEaReR {token}"},
+    )
+
+    assert response.status_code == 403, (
+        "Missing permissions to Try API should result in 403"
+    )
+
+    rj = response.json()
+    assert rj, "Error response should be a parseable (RFC 7807) JSON payload"
+    assert "title" in rj, f"Missing title in error 400 response: {response.text}"
+    assert rj["title"] == "Forbidden"
+    assert "detail" in rj, f"Missing detail in error 400 response: {response.text}"
+    assert rj["detail"] == "Missing permissions: main.scm_level_1"
+
+
+@pytest.mark.django_db()
+def test_try_api_patches_m2m_auth_success(
+    mocked_repo_config_try: Mock,
+    scm_user: Callable,
+    commit_maps: list[CommitMap],
+    git_patch: Callable,
+    client_post: Callable,
+):
+    user = scm_user([Permission.objects.get(codename="scm_level_1")], "password")
+    token = ApiToken.create_token(user)
+
+    for map in commit_maps:
+        # This is hardcoded for now.
+        map.git_repo_name = "firefox"
+        map.save()
+
+    request_payload = {
+        # "repo": "some",  # defaults to try, from the mocked_repo_config
+        "base_commit": commit_maps[0].git_hash,
+        "base_commit_vcs": "git",
+        "patches": [
+            base64.b64encode(git_patch(0).encode()).decode(),
+            base64.b64encode(git_patch(1).encode()).decode(),
+        ],
+        "patch_format": "git-format-patch",
+    }
+
+    response = client_post(
+        "/api/try/patches",
+        data=json.dumps(request_payload),
+        headers={"AuThOrIzAtIoN": f"bEaReR {token}"},
+    )
+
     assert response.status_code == 201, (
         f"Valid request to Try API should result in 201: {response.text}"
     )
