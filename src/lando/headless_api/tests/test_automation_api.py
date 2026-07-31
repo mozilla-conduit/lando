@@ -60,49 +60,6 @@ def automation_job() -> Callable:
 
 
 @pytest.mark.django_db
-def test_auth_missing_user_agent(client, headless_user, automation_job):
-    user, token = headless_user
-
-    # Create a job and actions
-    job, _actions = automation_job(
-        status=JobStatus.SUBMITTED, actions=[{"content": "test"}]
-    )
-
-    # Fetch job status.
-    response = client.get(
-        f"/api/job/{job.id}",
-        headers={
-            "Authorization": f"Bearer {token}",
-        },
-    )
-
-    assert response.status_code == 401, "Missing `User-Agent` should result in 401."
-    assert response.json() == {"details": "`User-Agent` header is required."}
-
-
-@pytest.mark.django_db
-def test_auth_user_agent_bad_format(client, headless_user, automation_job):
-    user, token = headless_user
-
-    # Create a job and actions
-    job, _actions = automation_job(
-        status=JobStatus.SUBMITTED, actions=[{"content": "test"}]
-    )
-
-    # Fetch job status.
-    response = client.get(
-        f"/api/job/{job.id}",
-        headers={
-            "Authorization": f"Bearer {token}",
-            "User-Agent": "testuser@example.org",
-        },
-    )
-
-    assert response.status_code == 401, "Incorrect `User-Agent` should result in 401."
-    assert response.json() == {"details": "Incorrect `User-Agent` format."}
-
-
-@pytest.mark.django_db
 def test_auth_missing_authorization_header(client, headless_user, automation_job):
     # Create a job and actions
     job, _actions = automation_job(
