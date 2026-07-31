@@ -97,7 +97,7 @@ def test_auth_invalid_token(client, headless_user, automation_job):
     assert response.status_code == 401, (
         "Invalid API key should result in 401 status code."
     )
-    assert response.json() == {"details": "Token api-bad-key was not found."}
+    assert response.json() == {"detail": "Unauthorized"}
 
 
 @pytest.mark.django_db
