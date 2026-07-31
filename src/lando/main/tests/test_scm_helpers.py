@@ -12,6 +12,8 @@ from lando.main.scm.helpers import (
     GitPatchHelper,
     HgPatchHelper,
     build_patch_for_revision,
+    get_timestamp_from_git_date_header,
+    parse_git_author_information,
 )
 from lando.main.scm.hg import HgSCM
 
@@ -270,6 +272,27 @@ unavailable at the moment and is not broken.
 --
 2.31.1
 """
+
+
+def test_get_timestamp_from_date():
+    assert (
+        get_timestamp_from_git_date_header("Wed, 6 Jul 2022 16:36:09 -0400")
+        == "1657139769"
+    ), "Timestamp from `git format-patch` should properly convert to `str`."
+
+
+def test_parse_git_author_information_well_formed():
+    assert parse_git_author_information("User Name <user@example.com>") == (
+        "User Name",
+        "user@example.com",
+    ), "Name and email information should be parsed into separate strings."
+
+
+def test_parse_git_author_information_no_email():
+    assert parse_git_author_information("ffxbld") == (
+        "ffxbld",
+        "",
+    ), "Name without email address should return the username and empty email."
 
 
 def test_build_patch():
