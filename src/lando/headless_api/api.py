@@ -68,13 +68,6 @@ class HeadlessAPIAuthentication(HttpBearer):
     """Authentication class to verify API token."""
 
     def authenticate(self, request: WSGIRequest, token: str) -> ApiToken:
-        user_agent = request.headers.get("User-Agent")
-        if not user_agent:
-            raise APIPermissionDenied("`User-Agent` header is required.")
-
-        if not user_agent.startswith("Lando-User/"):
-            raise APIPermissionDenied("Incorrect `User-Agent` format.")
-
         try:
             api_key = ApiToken.verify_token(token)
         except ValueError as exc:
