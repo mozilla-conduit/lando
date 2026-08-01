@@ -777,9 +777,9 @@ cssbeautifier==2.0.3 \
     --hash=sha256:14650d9c8a47adcb80a7697a866a3921fe0332ef74a92e1039d09086aa0c5001 \
     --hash=sha256:2c2fd129342561029de86b1744efa231c9fafe26023dbc988a1deb0ca0f5c845
     # via djlint
-datadog==0.52.2 \
-    --hash=sha256:60fcc90ee7be3b767af878de4d5a6774a80c386cde1f15e900e66e42d2c6aaf9 \
-    --hash=sha256:a74b1704ce37f3d9a0c36b1a87127c45032171726a01960bd210a549f1400849
+datadog==0.53.0 \
+    --hash=sha256:9f69a18089c852e20edff7e55226a6f4ca9749e162cfa4ae88c949dd722ebef8 \
+    --hash=sha256:e42467bad752c4739a232986e4ebdb8e4690134e901965557f2eaff0f40eb177
     # via lando (pyproject.toml)
 diskcache==5.6.3 \
     --hash=sha256:2c3a3fa2743d8535d832ec61c2054a1641f41775aa7c556758a109941e33e4fc \
