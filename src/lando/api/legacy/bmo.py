@@ -4,12 +4,12 @@ import requests
 from django.conf import settings
 
 SECURITY_KEYWORDS = ("sec-critical", "sec-high")
-STATUS_FLAG_PREFIX = "cf_status_firefox"
 UNSET_STATUS_FLAG_VALUES = ("", "---")
 
 
 def security_keyword(bug: dict) -> str | None:
     """Return the bug's sec-critical/sec-high keyword, or `None` if it has neither.
+
     When both are somehow present, `sec-critical` takes precedence.
     """
     keywords = set(bug.get("keywords", []))
@@ -19,17 +19,16 @@ def security_keyword(bug: dict) -> str | None:
     return None
 
 
-def is_security_bug(bug: dict) -> bool:
-    """Return whether a BMO bug dict carries a sec-critical/sec-high keyword."""
-    return security_keyword(bug) is not None
+def unset_status_flags(bug: dict, prefix: str) -> list[str]:
+    """Return the sorted names of unset status flags matching `prefix` on a bug.
 
-
-def unset_status_flags(bug: dict) -> list[str]:
-    """Return the sorted names of unset Firefox status flags on a BMO bug dict."""
+    `prefix` is the target repo's configured status-flag prefix (e.g.
+    `cf_status_firefox`).
+    """
     return sorted(
         name
         for name, value in bug.items()
-        if name.startswith(STATUS_FLAG_PREFIX)
+        if name.startswith(prefix)
         and (value is None or value in UNSET_STATUS_FLAG_VALUES)
     )
 

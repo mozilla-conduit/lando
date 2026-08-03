@@ -153,3 +153,43 @@ class Command(BaseCommand):
                 self.stdout.write(f"{repo.name} ", ending="")
 
         self.stdout.write("done.")
+
+    def migrate_4_bug2055604_set_firefox_status_flag_prefix(
+        self, ask_confirm: bool = True
+    ):
+        """Set `status_flag_prefix` to `cf_status_firefox` on the Firefox repos.
+
+        This enables the security status-flag landing check (bug 2055604), which
+        blocks sec-high/sec-critical bugs whose Firefox status flags are unset. The
+        Firefox train repos follow the `firefox-<branch>` naming convention; they
+        are listed explicitly here rather than matched by a name prefix.
+        """
+        firefox_repo_names = [
+            "firefox-autoland",
+            "firefox-main",
+            "firefox-beta",
+            "firefox-release",
+            "firefox-esr115",
+            "firefox-esr128",
+            "firefox-esr140",
+            "firefox-esr153",
+        ]
+        fx_repos = Repo.objects.filter(
+            name__in=firefox_repo_names,
+            status_flag_prefix="",
+        )
+        if not fx_repos:
+            self.stdout.write("No Firefox repo found with an empty status_flag_prefix.")
+            raise SystemExit()
+
+        fx_repo_names = ", ".join(repo.name for repo in fx_repos)
+        self._get_confirmation(
+            ask_confirm, "Setting status_flag_prefix for: ", fx_repo_names
+        )
+
+        for repo in fx_repos:
+            repo.status_flag_prefix = "cf_status_firefox"
+            repo.save()
+            self.stdout.write(f"{repo.name} ", ending="")
+
+        self.stdout.write("done.")

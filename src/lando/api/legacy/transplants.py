@@ -509,21 +509,17 @@ def warning_revision_secure(
     )
 
 
-def requires_firefox_status_flags(
+def status_flag_prefix_for_revision(
     revision: dict, stack_state: StackAssessmentState
-) -> bool:
-    """Return whether `revision` lands on a Firefox repo.
+) -> str:
+    """Return the status-flag prefix configured on the revision's target repo.
 
-    Firefox status flags (`cf_status_firefox*`) only apply to Firefox repos, so
-    the security status-flag checks are scoped to them. Non-Firefox repos
-    (Thunderbird, NSS, ...) are out of scope. We have no explicit "is Firefox"
-    flag, so the repo name (`firefox`, `firefox-beta`, `firefox-esr...`, ...) is
-    used as a proxy.
+    An empty string means the security status-flag check is disabled for that repo
+    (or the repo is unknown). Only repos with a `status_flag_prefix` set (e.g.
+    Firefox repos with `cf_status_firefox`) are subject to it.
     """
     repo = stack_state.get_repo_for_revision(revision)
-    if repo is None:
-        return False
-    return repo.name == "firefox" or repo.name.startswith("firefox-")
+    return repo.status_flag_prefix if repo else ""
 
 
 @RevisionWarningCheck("Security bug status flags could not be verified in Bugzilla.")
@@ -539,7 +535,7 @@ def warning_security_bug_status_flags_unverified(
 
     Scoped to repos requiring status flags and to secure revisions.
     """
-    if not requires_firefox_status_flags(revision, stack_state):
+    if not status_flag_prefix_for_revision(revision, stack_state):
         return None
 
     if stack_state.secure_project_phid is None or not revision_is_secure(
@@ -555,8 +551,8 @@ def warning_security_bug_status_flags_unverified(
         return None
 
     return (
-        f"Lando could not verify the Firefox status flags on bug {bug_id} in "
-        "Bugzilla. Please ensure its status flags are set before landing."
+        f"Lando could not verify the status flags on bug {bug_id} in Bugzilla. "
+        "Please ensure its status flags are set before landing."
     )
 
 
@@ -967,13 +963,14 @@ def blocker_try_task_config(
 def blocker_security_bug_status_flags(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> str | None:
-    """Block sec-critical/sec-high revisions whose Firefox status flags are unset.
+    """Block sec-critical/sec-high revisions whose status flags are unset.
 
-    Scoped to Firefox repos, where `cf_status_firefox*` flags apply. When BMO data
-    was unavailable, or the bug was absent from the response, this returns `None`
-    and defers to `warning_security_bug_status_flags_unverified`.
+    Scoped to repos with a `status_flag_prefix` configured. When BMO data was
+    unavailable, or the bug was absent from the response, this returns `None` and
+    defers to `warning_security_bug_status_flags_unverified`.
     """
-    if not requires_firefox_status_flags(revision, stack_state):
+    prefix = status_flag_prefix_for_revision(revision, stack_state)
+    if not prefix:
         return None
 
     if stack_state.bugs_by_id is None:
@@ -993,14 +990,14 @@ def blocker_security_bug_status_flags(
     if keyword is None:
         return None
 
-    missing_flags = unset_status_flags(bug)
+    missing_flags = unset_status_flags(bug, prefix)
     if not missing_flags:
         return None
 
     return (
-        f"Bug {bug_id} is marked {keyword} but is missing Firefox status flags: "
+        f"Bug {bug_id} is marked {keyword} but is missing status flags: "
         f"{', '.join(missing_flags)}. Set the status flag (e.g. affected, "
-        "unaffected, or disabled) for every Firefox branch in Bugzilla, then "
+        "unaffected, or disabled) for every affected branch in Bugzilla, then "
         "reload this page."
     )
 

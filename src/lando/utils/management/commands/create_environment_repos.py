@@ -71,6 +71,7 @@ REPOS = {
             "pull_path": "http://hg.test/third-repo",
             "approval_required": True,
             "milestone_tracking_flag_template": "cf_status_firefox{milestone}",
+            "status_flag_prefix": "cf_status_firefox",
         },
         # # Approval is required for the uplift dev repo
         # {
@@ -160,6 +161,7 @@ REPOS = {
             "commit_flags": [DONTBUILD],
             "approval_required": True,
             "milestone_tracking_flag_template": "cf_status_firefox{milestone}",
+            "status_flag_prefix": "cf_status_firefox",
         },
         {
             "name": "large-repo",
@@ -167,6 +169,7 @@ REPOS = {
             "required_permission": SCM_CONDUIT,
             "commit_flags": [DONTBUILD],
             "milestone_tracking_flag_template": "cf_status_firefox{milestone}",
+            "status_flag_prefix": "cf_status_firefox",
         },
         {
             "name": "vct",
@@ -276,6 +279,7 @@ for branch in ["main", "autoland", "beta", "release", "esr115", "esr140", "esr15
             "required_permission": SCM_LEVEL_1,
             "required_automation_permission": SCM_LEVEL_3,
             "automation_enabled": True,
+            "status_flag_prefix": "cf_status_firefox",
         }
     )
 

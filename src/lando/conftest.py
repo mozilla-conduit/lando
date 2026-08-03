@@ -798,6 +798,7 @@ def hg_repo_mc(
     autoformat_run_command: list[str] | None = None,
     name: str = "",
     push_target: str = "",
+    status_flag_prefix: str = "",
 ) -> Repo:
     params = {
         "name": name or "mozilla-central-hg",
@@ -815,6 +816,7 @@ def hg_repo_mc(
         "is_try": is_try,
         # We only set "hooks" below, if not empty.
         "push_target": push_target,
+        "status_flag_prefix": status_flag_prefix,
     }
     if autoformat_setup_commands is not None:
         # There's a sane default on the model, so only override when explicitly given.
@@ -856,6 +858,7 @@ def git_repo_mc(
     name: str = "",
     pr_enabled: bool = False,
     push_target: str = "",
+    status_flag_prefix: str = "",
 ) -> Repo:
     repos_dir = tmp_path / "repos"
     repos_dir.mkdir(exist_ok=True)
@@ -878,6 +881,7 @@ def git_repo_mc(
         "pr_enabled": pr_enabled,
         # We only set "hooks" below, if not empty.
         "push_target": push_target,
+        "status_flag_prefix": status_flag_prefix,
     }
     if autoformat_setup_commands is not None:
         # There's a sane default on the model, so only override when explicitly given.
@@ -927,6 +931,7 @@ def repo_mc(
         name: str = "",
         pr_enabled: bool = False,
         push_target: str = "",
+        status_flag_prefix: str = "",
     ) -> Repo:
         # The BMO reference check 1) requires access to a BMO instance to test with and
         # 2) is only needed for Try. We disable it here to be closer to a normal MC
@@ -946,6 +951,7 @@ def repo_mc(
             "force_push": force_push,
             "name": name,
             "push_target": push_target,
+            "status_flag_prefix": status_flag_prefix,
         }
 
         if scm_type == SCMType.GIT:
@@ -1007,6 +1013,7 @@ def mocked_repo_config(mock_repo_config):
         url="http://git.test/firefox",
         required_permission=SCM_LEVEL_3,
         approval_required=False,
+        status_flag_prefix="cf_status_firefox",
     )
     Repo.objects.create(
         scm_type=SCMType.GIT,
@@ -1014,6 +1021,7 @@ def mocked_repo_config(mock_repo_config):
         url="http://git.test/firefox-uplift",
         required_permission=SCM_LEVEL_3,
         approval_required=True,
+        status_flag_prefix="cf_status_firefox",
     )
     Repo.objects.create(
         scm_type=SCMType.GIT,
@@ -1021,6 +1029,7 @@ def mocked_repo_config(mock_repo_config):
         url="http://git.test/firefox-new",
         required_permission=SCM_LEVEL_3,
         commit_flags=[("VALIDFLAG1", "testing"), ("VALIDFLAG2", "testing")],
+        status_flag_prefix="cf_status_firefox",
     )
     Repo.objects.create(
         scm_type=SCMType.GIT,
@@ -1029,6 +1038,7 @@ def mocked_repo_config(mock_repo_config):
         required_permission=SCM_LEVEL_1,
         approval_required=True,
         milestone_tracking_flag_template="cf_status_firefox{milestone}",
+        status_flag_prefix="cf_status_firefox",
     )
 
 
