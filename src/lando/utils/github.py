@@ -471,12 +471,14 @@ class Stack(GitHubObject):
         self.number = data["number"]
 
         # TODO: base / head refs
-
+    def __repr__(self) -> str:
+        return f"Stack #{self.number}"
     @property
     def pull_requests(self) -> list["PullRequest"]:
         # TODO: note that the stacks endpoint returns partial PR data, but it could
         # be usable for display purposes as-is without having to re-fetch every PR.
-        pass
+        pull_numbers = self.data["pull_requests"]["number"]
+        return [self.client.build_pull_request(pull_number) for pull_number in pull_numbers]
 
 
 class PullRequest(GitHubObject):
