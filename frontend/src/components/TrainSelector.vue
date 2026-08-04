@@ -25,13 +25,10 @@ const props = withDefaults(
 /** Current state of the API response retrieval. */
 const status = ref<"loading" | "ready" | "error">("loading");
 
-/** Current mode in the component. */
-const mode = ref<"version" | "manual">("version");
-
 /** Stored API response. */
 const schedule = ref<ReleaseSchedule | null>(null);
 
-/** Selected version in "version" mode. */
+/** Firefox version selected in the dropdown, if any. */
 const selectedVersion = ref<number | null>(null);
 
 /**
@@ -58,13 +55,39 @@ const selectedRepos = computed(() =>
         : null,
 );
 
+/** Whether the widget is allowed to tick the given repository's checkbox. */
+function isManaged(repo: string): boolean {
+    return (props.managedRepos as readonly string[]).includes(repo);
+}
+
+/**
+ * Whether the checked trains still match the ones the chosen version resolved
+ * to. Ticking an unmanaged repository (e.g. ESR) alongside the recommendation
+ * leaves the version selection in effect, while changing a managed checkbox
+ * overrides it.
+ */
+const versionSelectionApplied = computed(() => {
+    const repos = selectedRepos.value;
+    if (!repos) {
+        return false;
+    }
+
+    const recommended = new Set(repos.filter(isManaged));
+    const checked = repositories.checkedRepos.value.filter(isManaged);
+
+    return (
+        checked.length === recommended.size &&
+        checked.every((repo) => recommended.has(repo))
+    );
+});
+
 /**
  * Name the uplift train(s) the chosen version resolved to, so it is clear that
  * selecting a version also selects beta, release, or both.
  */
 const selectionSummary = computed(() => {
     const repos = selectedRepos.value;
-    if (!repos) {
+    if (!repos || !versionSelectionApplied.value) {
         return "";
     }
 
@@ -90,25 +113,21 @@ const selectionSummary = computed(() => {
 });
 
 /**
- * A single informational line for the version tab, combining which train(s)
- * were selected with where the patch will land (the same landing description
- * the train tab shows).
+ * Guidance for the repositories that are currently checked, which are the
+ * source of truth whether they were ticked by the version dropdown or by hand.
  */
-const versionMessage = computed(() => {
-    const repos = selectedRepos.value;
-    if (!repos || !schedule.value) {
-        return "";
-    }
-
-    const { landing } = summarizeRepos(repos, schedule.value);
-    return [selectionSummary.value, landing].filter(Boolean).join(" ");
-});
-
-/** Combined guidance for the manually-selected repositories. */
-const manualGuidance = computed(() =>
+const guidance = computed(() =>
     schedule.value
         ? summarizeRepos(repositories.checkedRepos.value, schedule.value)
         : { landing: "", warnings: [] },
+);
+
+/**
+ * A single informational line combining which train(s) a chosen version
+ * resolved to with where the patch will land.
+ */
+const landingMessage = computed(() =>
+    [selectionSummary.value, guidance.value.landing].filter(Boolean).join(" "),
 );
 
 /** Status line shown while the guidance loads or after it fails; empty once ready. */
@@ -123,22 +142,11 @@ const statusMessage = computed(() => {
 });
 
 /**
- * The server-rendered checkbox field is shown in manual mode, and whenever the guidance
- * is unavailable so the form remains usable.
- */
-const serverRenderedFieldVisible = computed(
-    () => status.value === "error" || mode.value === "manual",
-);
-
-watch(serverRenderedFieldVisible, (visible) => repositories.setFieldVisible(visible), {
-    immediate: true,
-});
-
-/**
  * How the target was selected, for attribution. Resolves to `server_rendered`
  * when the guidance fails (the user falls back to the raw checkboxes), and is
  * left unset while loading so the server default applies if the form is
- * submitted early.
+ * submitted early. A submission only counts as `widget_version` while the
+ * checked trains are the ones the version dropdown picked.
  */
 const targetSelectionMethod = computed<TargetSelectionMethod | null>(() => {
     if (status.value === "error") {
@@ -147,7 +155,7 @@ const targetSelectionMethod = computed<TargetSelectionMethod | null>(() => {
     if (status.value !== "ready") {
         return null;
     }
-    return mode.value === "manual" ? "widget_manual" : "widget_version";
+    return versionSelectionApplied.value ? "widget_version" : "widget_manual";
 });
 
 watch(
@@ -160,11 +168,11 @@ watch(
     { immediate: true },
 );
 
-// Reapply the recommendation whenever it changes or the user re-enters version
-// mode, so the checkboxes always reflect the chosen version.
-watch([mode, selectedRepos], () => {
-    if (mode.value === "version" && selectedRepos.value) {
-        repositories.applyManaged(selectedRepos.value, props.managedRepos);
+// Tick the recommended trains whenever the chosen version resolves to a new set
+// of repositories.
+watch(selectedRepos, (repos) => {
+    if (repos) {
+        repositories.applyManaged(repos, props.managedRepos);
     }
 });
 
@@ -191,7 +199,6 @@ async function loadSchedule(): Promise<void> {
     } catch (caught) {
         console.error("Could not load uplift train guidance.", caught);
         status.value = "error";
-        mode.value = "manual";
     }
 }
 
@@ -218,66 +225,40 @@ onUnmounted(() => {
         >
             {{ statusMessage }}
         </p>
-        <template v-else>
-            <div class="tabs">
-                <ul role="tablist" aria-label="Uplift target selection">
-                    <li :class="{ 'is-active': mode === 'version' }">
-                        <a
-                            role="tab"
-                            tabindex="0"
-                            :aria-selected="mode === 'version'"
-                            @click="mode = 'version'"
-                            @keydown.enter.prevent="mode = 'version'"
-                            @keydown.space.prevent="mode = 'version'"
-                            >Select Firefox Version</a
+        <div v-else class="field">
+            <label class="label is-small" for="uplift-version-select">
+                Firefox version
+            </label>
+            <div class="control">
+                <div class="select">
+                    <select id="uplift-version-select" v-model.number="selectedVersion">
+                        <option :value="null" disabled>Choose a version…</option>
+                        <option
+                            v-for="choice in choices"
+                            :key="choice.version"
+                            :value="choice.version"
                         >
-                    </li>
-                    <li :class="{ 'is-active': mode === 'manual' }">
-                        <a
-                            role="tab"
-                            tabindex="0"
-                            :aria-selected="mode === 'manual'"
-                            @click="mode = 'manual'"
-                            @keydown.enter.prevent="mode = 'manual'"
-                            @keydown.space.prevent="mode = 'manual'"
-                            >Select Uplift Train</a
-                        >
-                    </li>
-                </ul>
-            </div>
-            <div v-if="mode === 'version'" class="field">
-                <div class="control">
-                    <div class="select">
-                        <select v-model.number="selectedVersion">
-                            <option :value="null" disabled>Choose a version…</option>
-                            <option
-                                v-for="choice in choices"
-                                :key="choice.version"
-                                :value="choice.version"
-                            >
-                                Firefox {{ choice.version }}
-                            </option>
-                        </select>
-                    </div>
+                            Firefox {{ choice.version }}
+                        </option>
+                    </select>
                 </div>
             </div>
-        </template>
+            <p class="help">
+                Choosing a version checks the matching uplift trains below. ESR branches
+                are not covered by version selection and must be checked directly.
+            </p>
+        </div>
     </div>
 
     <!-- Guidance messages render below the selection widget (see the
        `uplift-train-messages` anchor in `uplift-form.html`). -->
     <Teleport to="#uplift-train-messages">
-        <template v-if="status === 'ready' && mode === 'version'">
-            <p v-if="versionMessage" class="help is-info">
-                {{ versionMessage }}
-            </p>
-        </template>
-        <template v-else-if="status === 'ready'">
-            <p v-if="manualGuidance.landing" class="help is-info">
-                {{ manualGuidance.landing }}
+        <template v-if="status === 'ready'">
+            <p v-if="landingMessage" class="help is-info">
+                {{ landingMessage }}
             </p>
             <p
-                v-for="warning in manualGuidance.warnings"
+                v-for="warning in guidance.warnings"
                 :key="warning"
                 class="help is-warning"
             >
