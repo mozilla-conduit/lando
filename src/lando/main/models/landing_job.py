@@ -314,7 +314,7 @@ def get_jobs_for_pull(target_repo: Repo, pull_number: int) -> QuerySet[LandingJo
     return LandingJob.objects.filter(unsorted_revisions__in=revisions).order_by(
         "-created_at"
     )
-    
+
 
 class AutoformatChange(BaseModel):
     """Record of autoformatting changes applied to a commit during landing."""

@@ -15,7 +15,6 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
-from lando.ui import github_stacks
 from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path, re_path
@@ -50,7 +49,7 @@ from lando.try_api.api import (
 from lando.try_api.api import (
     legacy_api as legacy_try_api,
 )
-from lando.ui import jobs, pull_requests, github_stacks
+from lando.ui import github_stacks, jobs, pull_requests
 from lando.ui.legacy import pages, revisions, user_settings
 from lando.utils.ninja_auth import api as auth_api
 
@@ -102,7 +101,7 @@ urlpatterns += [
         "stacks/<str:repo_name>/<int:stack_number>/",
         github_stacks.StackView.as_view(),
         name="stack",
-    )
+    ),
 ]
 
 urlpatterns += [

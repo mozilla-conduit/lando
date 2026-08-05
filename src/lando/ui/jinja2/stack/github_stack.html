@@ -2,56 +2,68 @@
 {% block page_title %}{{ stack }}{% endblock %}
 {% block main %}
     <main class="StackPage container fullhd">
-            <div class="StackPage-errors">
-                <span>Landing Failed</span>
-                <ul>
-                </ul>
-            </div>
+        <div class="StackPage-errors">
+            <span>Landing Failed</span>
+            <ul>
+            </ul>
+        </div>
         <h1>Landings for Stack {{ stack.number }}</h1>
         {% include "stack/partials/timeline.html" %}
-        <h1>Stack containing PR {{ 1  }}</h1>
+        <h1>Stack {{ stack.number }}</h1>
         <div class="StackPage-stack">
             <table class="table">
                 <thead>
                     <tr>
                         <th>Land</th>
-                        <th></th>
-                        <th>Bug</th>
-                        <th>Status</th>
-                        <th>Revision</th>
-                        <th>Reviewers</th>
+                        <th>Pull Request</th>
                     </tr>
                 </thead>
+                <tbody>
+                    {% for pr in stack.pull_requests %}
+                        <tr class="StackPage-pr">
+                            <td class="StackPage-pr-land">
+                                    <input class="StackPage-revision-land-radio"
+                                           id="{{ pr.number }}"
+                                           type="radio">
+                            </td>
+                            <td class="StackPage-pr-title">
+                                <div class="StackPage-revision-title-text">
+                                    <a href="{{ pr.html_url }}">{{ pr.number }}</a>: {{ pr.title }}
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
             </table>
         </div>
         <div class="StackPage-landing-info">
             {% if user_is_authenticated %}
                 <h2>Landing is blocked:</h2>
                 <ul class="StackPage-blockers">
-            {% endif %}
-        </div>
-        <div class="StackPage-actions">
-            {% if not user_is_authenticated %}
-                <button disabled>
-                    <div class="StackPage-actions-headline">Preview Landing</div>
-                    <div class="StackPage-actions-subtitle">You must log in first</div>
-                </button>
-            {% elif not user_has_phabricator_token and (not series or dryrun is none) %}
-                <button disabled>
-                    <div class="StackPage-actions-headline">Landing Blocked</div>
-                    <div class="StackPage-actions-subtitle">This revision is blocked from landing</div>
-                </button>
-            {% else %}
-                <button class="StackPage-preview-button">
-                    <div class="StackPage-actions-headline">Preview Landing</div>
-                </button>
-            {% endif %}
-    </main>
-{% endblock %}
-{% block scripts %}
-    {# Load the widget wherever the uplift modal is rendered.
+                {% endif %}
+            </div>
+            <div class="StackPage-actions">
+                {% if not user_is_authenticated %}
+                    <button disabled>
+                        <div class="StackPage-actions-headline">Preview Landing</div>
+                        <div class="StackPage-actions-subtitle">You must log in first</div>
+                    </button>
+                {% elif not user_has_phabricator_token and (not series or dryrun is none) %}
+                    <button disabled>
+                        <div class="StackPage-actions-headline">Landing Blocked</div>
+                        <div class="StackPage-actions-subtitle">This revision is blocked from landing</div>
+                    </button>
+                {% else %}
+                    <button class="StackPage-preview-button">
+                        <div class="StackPage-actions-headline">Preview Landing</div>
+                    </button>
+                {% endif %}
+            </main>
+        {% endblock %}
+        {% block scripts %}
+            {# Load the widget wherever the uplift modal is rendered.
        The widget no-ops if its mount point is absent. #}
-    {% if user_is_authenticated %}
-        <script src="{{ static_url }}GitHubStack.js" type="module" charset="utf-8"></script>
-    {% endif %}
-{% endblock %}
+            {% if user_is_authenticated %}
+                <script src="{{ static_url }}GitHubStack.js" type="module" charset="utf-8"></script>
+            {% endif %}
+        {% endblock %}
