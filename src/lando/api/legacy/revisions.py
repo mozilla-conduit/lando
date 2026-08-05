@@ -280,6 +280,7 @@ def fetch_raw_diff_and_save(
         revision_id: The integer revision ID (e.g. 123 for D123).
         diff: A Phabricator diff dict with the `commits` attachment.
         commit_message: The full commit message to embed in the patch.
+        mailbox: A tuple consisting of the author name and email.
     """
     diff_id = PhabricatorClient.expect(diff, "id")
     author_name, author_email = mailbox or select_diff_author(diff)

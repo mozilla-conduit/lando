@@ -41,8 +41,7 @@ class TransplantRequestForm(forms.Form):
         return value
 
     def clean(self) -> dict[str, Any]:
-        """
-        Peform custom validation on mailbox input.
+        """Perform custom validation on mailbox input.
 
         The author name and email fields are optional, however, if one is provided
         then the other must be provided as well. This is how the mailbox value is
@@ -53,15 +52,12 @@ class TransplantRequestForm(forms.Form):
 
         # If a validation error was raised on one of the fields, it's important to
         # retain those original errors.
-        self.errors["author_email"] = self.errors.get("author_email", [])
-        self.errors["author_name"] = self.errors.get("author_name", [])
-
         name, email = cleaned_data.get("author_name"), cleaned_data.get("author_email")
 
         if name and not email:
-            self.errors["author_email"].append("This field is required.")
+            self.add_error("author_email", "This field is required.")
         if email and not name:
-            self.errors["author_name"].append("This field is required.")
+            self.add_error("author_name", "This field is required.")
 
         if name and email:
             cleaned_data["mailbox"] = (name, email)
@@ -69,12 +65,6 @@ class TransplantRequestForm(forms.Form):
             del cleaned_data["author_email"]
         else:
             cleaned_data["mailbox"] = None
-
-        # This removes the error entries from these fields, if no errors were found.
-        if not self.errors["author_email"]:
-            del self.errors["author_email"]
-        if not self.errors["author_name"]:
-            del self.errors["author_name"]
 
         return cleaned_data
 

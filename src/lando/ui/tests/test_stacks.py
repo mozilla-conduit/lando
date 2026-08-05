@@ -1,5 +1,7 @@
 import pytest
 
+from lando.api.legacy.api.transplants import LegacyAPIException
+from lando.main.models import Revision
 from lando.ui.legacy.stacks import (
     Edge,
     draw_stack_graph,
@@ -114,7 +116,7 @@ def test_draw_stack_graph_complex():
     ],
 )
 @pytest.mark.django_db(transaction=True)
-def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
+def test_transplant_disallowed_author_requires_author_override(
     username,
     email,
     trigger,
@@ -138,19 +140,20 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
     data = {"landing_path": '[{"revision_id": "D1", "diff_id": 1}]'}
     if trigger:
         revision_author = phabdouble.api_object_for(r1_author)
-        form = authenticated_client.get(f"/D{r1['id']}/").context_data["form"]
+        context_data = authenticated_client.get(f"/D{r1['id']}/").context_data
+
+        form = context_data["form"]
         assert (
             form.fields["author_name"].initial == revision_author["fields"]["realName"]
         )
         assert form.fields["author_email"].initial is None
-        data["confirmation_token"] = (
-            "49a7ae3b20dacee70c9e02407a3d5e80dafe7fe3ea5527a48cb43311ed078a65"
-        )
-        with pytest.raises(ValueError) as e:
+
+        data["confirmation_token"] = context_data["dryrun"]["confirmation_token"]
+        with pytest.raises(LegacyAPIException) as e:
             authenticated_client.post(f"/D{r1['id']}/", data=data)
-        assert (
-            str(e.value)
-            == "Mailbox values should be present if and only if disallowed authors are persent."
+        assert e.value.args == (
+            400,
+            "Mailbox values should be present if and only if disallowed authors are present.",
         )
 
         # Associate Lando user with the phabricator user and try again.
@@ -164,7 +167,11 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
         data["author_email"] = form.fields["author_email"].initial
         response = authenticated_client.post(f"/D{r1['id']}/", data=data)
         messages = list(response.wsgi_request._messages)
+        revision = Revision.objects.get(revision_id=r1["id"], diff_id=d1["id"])
         assert len(messages) == 0
+
+        assert revision.patch_data["author_name"] == data["author_name"]
+        assert revision.patch_data["author_email"] == data["author_email"]
     else:
         form = authenticated_client.get(f"/D{r1['id']}/").context_data["form"]
         assert form.fields["author_name"].initial is None
@@ -172,3 +179,7 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
         response = authenticated_client.post(f"/D{r1['id']}/", data=data)
         messages = list(response.wsgi_request._messages)
         assert len(messages) == 0
+
+        revision = Revision.objects.get(revision_id=r1["id"], diff_id=d1["id"])
+        assert revision.patch_data["author_name"] == d1["authorName"]
+        assert revision.patch_data["author_email"] == d1["authorEmail"]

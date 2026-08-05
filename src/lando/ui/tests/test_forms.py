@@ -1,7 +1,11 @@
 import pytest
 from django.contrib.auth.models import User
 
-from lando.ui.legacy.forms import UpliftAssessmentLinkForm, UserSettingsForm
+from lando.ui.legacy.forms import (
+    TransplantRequestForm,
+    UpliftAssessmentLinkForm,
+    UserSettingsForm,
+)
 
 
 @pytest.mark.parametrize(
@@ -127,8 +131,6 @@ def test_uplift_assessment_link_form_revision_ids(
     ),
 )
 def test__TransplantRequestForm(data, mailbox, errors):
-    from lando.ui.legacy.forms import TransplantRequestForm
-
     form = TransplantRequestForm(data)
     if not errors:
         assert form.is_valid()

@@ -37,12 +37,18 @@ class LegacyAPIException(Exception):
 
 
 def get_revisions_with_disallowed_authors(revisions: dict[str, dict]) -> list[dict]:
-    """Return a list of revisions with disallowed authors."""
+    """Return a list of revisions with disallowed authors.
+
+    An author is disallowed if it is present in the DISALLOWED_AUTHOR_EMAILS setting.
+    """
     return [r for r in revisions.values() if revision_has_disallowed_author(r)]
 
 
 def revision_has_disallowed_author(revision: dict) -> bool:
-    """Return True if a revision has a disallowed author, otherwise False."""
+    """Return True if a revision has a disallowed author, otherwise False.
+
+    An author is disallowed if it is present in the DISALLOWED_AUTHOR_EMAILS setting.
+    """
     return (
         revision["diff"]["author"]["email"].strip().lower()
         in settings.DISALLOWED_AUTHOR_EMAILS
@@ -50,7 +56,10 @@ def revision_has_disallowed_author(revision: dict) -> bool:
 
 
 def diff_has_disallowed_author(diff: dict) -> bool:
-    """Return True if a diff has a disallowed author, otherwise False."""
+    """Return True if a diff has a disallowed author, otherwise False.
+
+    An author is disallowed if it is present in the DISALLOWED_AUTHOR_EMAILS setting.
+    """
     return (
-        select_diff_author(diff)[1].strip().lower() in settings.DISALLOWED_AUTHOR_EMAILS
-    )
+        select_diff_author(diff)[1] or ""
+    ).strip().lower() in settings.DISALLOWED_AUTHOR_EMAILS

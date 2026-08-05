@@ -228,8 +228,9 @@ def post(phab: PhabricatorClient, user: User, data: dict) -> tuple[dict[str, int
         # TODO: it would be more ideal if this is a validation error, however, we do not have the
         # necessary information at the time of form submission to determine this without performing
         # additional redundant processing outside the form.
-        raise ValueError(
-            "Mailbox values should be present if and only if disallowed authors are persent."
+        raise LegacyAPIException(
+            400,
+            "Mailbox values should be present if and only if disallowed authors are present.",
         )
 
     if assessment.warnings:
@@ -311,13 +312,14 @@ def post(phab: PhabricatorClient, user: User, data: dict) -> tuple[dict[str, int
             flags,
         )[1]
 
-        args = (phab, revision["id"], diff, commit_message)
-        kwargs = {}
-
         if diff_has_disallowed_author(diff):
-            kwargs["mailbox"] = mailbox
-
-        lando_revision = fetch_raw_diff_and_save(*args, **kwargs)
+            lando_revision = fetch_raw_diff_and_save(
+                phab, revision["id"], diff, commit_message, mailbox=mailbox
+            )
+        else:
+            lando_revision = fetch_raw_diff_and_save(
+                phab, revision["id"], diff, commit_message
+            )
 
         revision_reviewers[lando_revision.id] = get_approved_by_ids(
             phab,
