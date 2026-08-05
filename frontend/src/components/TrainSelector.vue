@@ -62,9 +62,9 @@ function isManaged(repo: string): boolean {
 
 /**
  * Whether the checked trains still match the ones the chosen version resolved
- * to. Ticking an unmanaged repository (e.g. ESR) alongside the recommendation
- * leaves the version selection in effect, while changing a managed checkbox
- * overrides it.
+ * to, which decides whether the version summary still describes the selection.
+ * Ticking an unmanaged repository (e.g. ESR) alongside the recommendation
+ * leaves it in effect, while changing a managed checkbox overrides it.
  */
 const versionSelectionApplied = computed(() => {
     const repos = selectedRepos.value;
@@ -145,8 +145,8 @@ const statusMessage = computed(() => {
  * How the target was selected, for attribution. Resolves to `server_rendered`
  * when the guidance fails (the user falls back to the raw checkboxes), and is
  * left unset while loading so the server default applies if the form is
- * submitted early. A submission only counts as `widget_version` while the
- * checked trains are the ones the version dropdown picked.
+ * submitted early. Touching the version dropdown counts as `widget_version`
+ * for the rest of the submission, even if the checkboxes are adjusted after.
  */
 const targetSelectionMethod = computed<TargetSelectionMethod | null>(() => {
     if (status.value === "error") {
@@ -155,7 +155,7 @@ const targetSelectionMethod = computed<TargetSelectionMethod | null>(() => {
     if (status.value !== "ready") {
         return null;
     }
-    return versionSelectionApplied.value ? "widget_version" : "widget_manual";
+    return selectedVersion.value !== null ? "widget_version" : "widget_manual";
 });
 
 watch(

@@ -16,15 +16,22 @@ const BETA_SHIPPING: ReleaseSchedule = {
 
 // Render the server-side repositories field the widget reaches out to. The
 // composable finds it via `document`, independent of where the widget mounts.
-function renderRepositoriesField(): void {
+// Deployments only offer the repositories that require approval, so the
+// checkboxes are configurable.
+function renderRepositoriesField(
+    repos = ["firefox-beta", "firefox-release", "firefox-esr128"],
+): void {
+    const checkboxes = repos
+        .map(
+            (repo) =>
+                `<label><input type="checkbox" name="repositories" value="${repo}"> ${repo}</label>`,
+        )
+        .join("\n");
+
     document.body.innerHTML = `
     <button class="uplift-request-open">Request Uplift</button>
     <input type="hidden" id="id_target_selection_method" name="target_selection_method">
-    <div data-uplift-repositories>
-      <label><input type="checkbox" name="repositories" value="firefox-beta"> firefox-beta</label>
-      <label><input type="checkbox" name="repositories" value="firefox-release"> firefox-release</label>
-      <label><input type="checkbox" name="repositories" value="firefox-esr128"> firefox-esr128</label>
-    </div>
+    <div data-uplift-repositories>${checkboxes}</div>
     <div id="uplift-train-messages"></div>
   `;
 }
@@ -208,7 +215,7 @@ describe("TrainSelector", () => {
         ).toBe("widget_version");
     });
 
-    it("records a manual selection when the version recommendation is overridden", async () => {
+    it("keeps the version attribution when the recommendation is overridden", async () => {
         renderRepositoriesField();
         stubFetch(BETA_SHIPPING);
 
@@ -222,8 +229,8 @@ describe("TrainSelector", () => {
 
         expect(
             selectionMethod(),
-            "Checking a train the version did not recommend overrides the version.",
-        ).toBe("widget_manual");
+            "Adjusting the checkboxes afterwards still counts as using the dropdown.",
+        ).toBe("widget_version");
         expect(
             messagesText(),
             "An overridden recommendation should drop the version summary.",
@@ -232,8 +239,24 @@ describe("TrainSelector", () => {
         await checkRepos("firefox-beta");
 
         expect(
+            messagesText(),
+            "Restoring the recommended trains should bring the summary back.",
+        ).toContain("Selected the Beta uplift train.");
+    });
+
+    it("records the version even when no train checkbox matches it", async () => {
+        renderRepositoriesField(["firefox-esr128"]);
+        stubFetch(BETA_SHIPPING);
+
+        const wrapper = mount(TrainSelector, { props: { apiUrl: "/api/train" } });
+        await openModal();
+
+        await wrapper.find("select").setValue(152);
+        await flushPromises();
+
+        expect(
             selectionMethod(),
-            "Restoring the recommended trains should record the version again.",
+            "Attribution follows the dropdown, not which checkboxes exist.",
         ).toBe("widget_version");
     });
 
