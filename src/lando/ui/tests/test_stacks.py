@@ -109,6 +109,7 @@ def test_draw_stack_graph_complex():
     "username,email,trigger",
     [
         ("Hackbot", "hackbot@mozilla.tld", True),
+        ("Hackbot", " haCkbOt@moziLla.Tld ", True),
         ("Someone else", "test@example.org", False),
     ],
 )
@@ -125,17 +126,18 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
     needs_data_classification_project,
     scm_user,
 ):
-    author = phabdouble.user(username=username, email=email)
+    r1_author = phabdouble.user()
+    d1_author = phabdouble.user(username=username, email=email)
     phabrepo = phabdouble.repo(name="mozilla-central")
     reviewer = phabdouble.user(username="reviewer")
 
-    d1 = phabdouble.diff(author=author)
+    d1 = phabdouble.diff(author=d1_author)
     r1 = phabdouble.revision(diff=d1, repo=phabrepo)
     phabdouble.reviewer(r1, reviewer)
 
     data = {"landing_path": '[{"revision_id": "D1", "diff_id": 1}]'}
     if trigger:
-        revision_author = phabdouble.api_object_for(phabdouble.user())
+        revision_author = phabdouble.api_object_for(r1_author)
         form = authenticated_client.get(f"/D{r1['id']}/").context_data["form"]
         assert (
             form.fields["author_name"].initial == revision_author["fields"]["realName"]

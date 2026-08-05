@@ -352,3 +352,5 @@ AUDITLOG_EXCLUDE_TRACKING_FIELDS = (
     "created_at",
     "updated_at",
 )
+
+DISALLOWED_AUTHOR_EMAILS = ("hackbot@mozilla.tld",)

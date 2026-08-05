@@ -9,6 +9,7 @@ from typing import Any, Callable, Self
 
 import networkx as nx
 import rs_parsepatch
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.cache import cache
 
@@ -45,7 +46,7 @@ from lando.main.models import (
     LandingJob,
     Repo,
 )
-from lando.main.support import DISALLOWED_AUTHOR_EMAILS, LegacyAPIException
+from lando.main.support import LegacyAPIException
 from lando.utils.landing_checks import (
     DiffAssessor,
     PreventNSPRNSSCheck,
@@ -341,8 +342,8 @@ def warning_diff_author_is_hackbot(
     if not commits:
         return None
 
-    emails = (c.get("author", {}).get("email", "").lower() for c in commits)
-    if set(emails).intersection(DISALLOWED_AUTHOR_EMAILS):
+    emails = (c.get("author", {}).get("email", "").strip().lower() for c in commits)
+    if set(emails).intersection(settings.DISALLOWED_AUTHOR_EMAILS):
         return "Diff contains commit authored by disallowed email."
 
 

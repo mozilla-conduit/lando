@@ -1,6 +1,7 @@
 from typing import Any
 
 from django import forms
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.forms.widgets import RadioSelect
@@ -13,14 +14,9 @@ from lando.main.models.uplift import (
     UpliftTargetSelectionMethod,
     YesNoChoices,
 )
-from lando.main.support import DISALLOWED_AUTHOR_EMAILS
 
 
 class TransplantRequestForm(forms.Form):
-    def validate_author(value):
-        if value in DISALLOWED_AUTHOR_EMAILS:
-            raise ValidationError("The email provided is not allowed")
-
     landing_path = forms.JSONField(widget=forms.widgets.HiddenInput)
     confirmation_token = forms.CharField(
         widget=forms.widgets.HiddenInput, required=False
@@ -35,8 +31,14 @@ class TransplantRequestForm(forms.Form):
     author_email = forms.EmailField(
         required=False,
         widget=forms.TextInput(attrs={"class": "input"}),
-        validators=[validate_author],
     )
+
+    def clean_author_email(self) -> str:
+        """Normalize author_email by lower-casing and stripping, then validating the value."""
+        value = self.cleaned_data.get("author_email", "").strip().lower()
+        if value in settings.DISALLOWED_AUTHOR_EMAILS:
+            raise ValidationError("The email provided is not allowed")
+        return value
 
     def clean(self) -> dict[str, Any]:
         """

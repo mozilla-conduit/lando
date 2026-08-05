@@ -1,4 +1,3 @@
-import json
 import logging
 
 from django.contrib import messages
@@ -459,8 +458,7 @@ class RevisionView(LandoView):
                 }
                 for phid in series
             ]
-            landing_path_json = json.dumps(landing_path)
-            form.fields["landing_path"].initial = landing_path_json
+            form.fields["landing_path"].initial = landing_path
 
             dryrun = legacy_api.transplants.dryrun(
                 phab, lando_user, data={"landing_path": landing_path}
