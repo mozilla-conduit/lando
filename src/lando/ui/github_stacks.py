@@ -41,13 +41,12 @@ class StackView(LandoView, PrivateRepoPermissionMixin):
             if e.response.status_code == 404:
                 raise Http404() from e
             raise e
-
-       # landing_jobs = [get_jobs_for_pull(target_repo, pull_request.pull_number) for pull_request in stack.pull_requests]
+        landing_jobs = [get_jobs_for_pull(target_repo, pull_request.number) for pull_request in stack.pull_requests]
 
         context = {
             "target_repo": target_repo,
             "stack": stack,
-            #"landing_jobs": landing_jobs,
+            "landing_jobs": landing_jobs,
             "pr_delimiter": PR_DELIMITER,
         }
 
