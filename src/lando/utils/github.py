@@ -755,8 +755,8 @@ class PullRequestPatchHelper(PatchHelper):
         raise NotImplementedError("`from_bytes_io` not implemented.")
 
     def get_commit_description(self) -> str:
-        """Returns the commit description."""
-        return self.get_header("subject")
+        """Reconstruct the commit description from the PR metadata"""
+        return self._pr.title + "\n\n" + self._pr.commit_body
 
     @override
     def get_diff(self) -> str:
