@@ -79,5 +79,6 @@ upgrade-npm-packages: ## upgrade-npm-packages update package-lock.json
 	$(BASE_COMMAND) npm install --before="$(shell date -I -d '7 days ago')"
 
 .PHONY: upgrade-requirements
-upgrade-requirements: ## upgrade-requirements upgrade packages in requirements.txt
-	$(BASE_COMMAND) lando generate_requirements --upgrade
+upgrade-requirements: UPGRADE_ARGS=--upgrade
+upgrade-requirements: ## upgrade-requirements upgrade packages in requirements.txt. Pass `UPGRADE_ARGS=` to the `make` call to only regenerate the file without upgrades. `--no-cooldown` Is also available.
+	$(BASE_COMMAND) lando generate_requirements $(UPGRADE_ARGS)
