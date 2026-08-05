@@ -268,7 +268,7 @@ def fetch_raw_diff_and_save(
     revision_id: int,
     diff: dict,
     commit_message: str,
-    mailbox: tuple[str] | None = None,
+    mailbox: tuple[str, str] | None = None,
 ) -> Revision:
     """Fetch the raw diff from Phabricator and save a `Revision` record.
 
