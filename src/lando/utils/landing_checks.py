@@ -67,7 +67,7 @@ class PatchCheck(Check, ABC):
         """Pass the next `rs_parsepatch` diff `dict` into the check."""
 
     @abstractmethod
-    def result(self) -> str | None:
+    def result(self) -> list[str]:
         """Calculate and return the result of the check."""
 
 
@@ -139,13 +139,13 @@ class PreventPathCheckMixin(ABC):
             ):
                 self.disallowed_changes.append(filename)
 
-    def result(self) -> str | None:
+    def result(self) -> list[str]:
         """Calculate and return the result of the check."""
         if not self.disallowed_changes:
             # Return early if no disallowed changes were found.
-            return
+            return []
 
-        return self.build_error_message()
+        return [self.build_error_message()]
 
 
 @dataclass
@@ -270,16 +270,16 @@ class PreventNSPRNSSCheck(PatchCheck):
         self._prevent_nspr_check.next_diff(diff)
         self._prevent_nss_check.next_diff(diff)
 
-    def result(self) -> str | None:
+    def result(self) -> list[str]:
         """Calculate and return the result of the check."""
         if (
             not self._prevent_nspr_check.disallowed_changes
             and not self._prevent_nss_check.disallowed_changes
         ):
             # Return early if no disallowed changes were found.
-            return
+            return []
 
-        return self.build_prevent_nspr_nss_error_message()
+        return [self.build_prevent_nspr_nss_error_message()]
 
 
 @dataclass
@@ -303,10 +303,12 @@ class PreventSubmodulesCheck(PatchCheck):
         if diff["filename"] == ".gitmodules":
             self.includes_gitmodules = True
 
-    def result(self) -> str | None:
+    def result(self) -> list[str]:
         """Return an error if the `.gitmodules` file was found."""
-        if self.includes_gitmodules:
-            return "Revision introduces a Git submodule into the repository."
+        if not self.includes_gitmodules:
+            return []
+
+        return ["Revision introduces a Git submodule into the repository."]
 
 
 @dataclass
@@ -330,11 +332,14 @@ class PreventHgDirectoryCheck(PatchCheck):
         if filename.startswith(".hg/") or filename == ".hg":
             self.hg_files.append(filename)
 
-    def result(self) -> str | None:
-        if self.hg_files:
-            return "Patch attempts to modify repository metadata: " + wrap_filenames(
-                self.hg_files
-            )
+    def result(self) -> list[str]:
+        if not self.hg_files:
+            return []
+
+        return [
+            "Patch attempts to modify repository metadata: "
+            + f"{wrap_filenames(self.hg_files)}."
+        ]
 
 
 @dataclass
@@ -365,12 +370,14 @@ class PreventSymlinksCheck(PatchCheck):
         if "new" in modes and modes["new"] == self.SYMLINK_MODE:
             self.symlinked_files.append(diff["filename"])
 
-    def result(self) -> str | None:
-        if self.symlinked_files:
-            return (
-                "Revision introduces symlinks in the files "
-                f"{wrap_filenames(self.symlinked_files)}."
-            )
+    def result(self) -> list[str]:
+        if not self.symlinked_files:
+            return []
+
+        return [
+            "Revision introduces symlinks in the files "
+            + f"{wrap_filenames(self.symlinked_files)}."
+        ]
 
 
 @dataclass
@@ -394,10 +401,12 @@ class TryTaskConfigCheck(PatchCheck):
         if diff["filename"] == "try_task_config.json":
             self.includes_try_task_config = True
 
-    def result(self) -> str | None:
+    def result(self) -> list[str]:
         """Return an error if the `try_task_config.json` was found."""
-        if self.includes_try_task_config:
-            return "Revision introduces the `try_task_config.json` file."
+        if not self.includes_try_task_config:
+            return []
+
+        return ["Revision introduces the `try_task_config.json` file."]
 
 
 @dataclass
@@ -432,8 +441,8 @@ class DiffAssessor:
 
         # Collect the results from each check.
         for check in checks:
-            if issue := check.result():
-                issues.append(issue)
+            if check_issues := check.result():
+                issues.extend(check_issues)
 
         return issues
 
@@ -455,7 +464,7 @@ class PatchCollectionCheck(Check, ABC):
         """Pass the next `PatchHelper` into the check."""
 
     @abstractmethod
-    def result(self) -> str | None:
+    def result(self) -> list[str]:
         """Calculate and return the result of the check."""
 
 
@@ -481,6 +490,8 @@ class CommitMessagesCheck(PatchCollectionCheck):
         commit_message = patch_helper.get_commit_description()
         author, _email = patch_helper.parse_author_information()
 
+        current_commit_issues = []
+
         if not commit_message:
             self.commit_message_issues.append("Revision has an empty commit message.")
             return
@@ -495,11 +506,10 @@ class CommitMessagesCheck(PatchCollectionCheck):
         if is_backout(firstline):
             backouts = parse_backouts(firstline, strict=True)
             if not backouts or not backouts[0]:
-                self.commit_message_issues.append(
+                current_commit_issues.append(
                     "Revision is a backout but commit message "
-                    f"does not indicate backed out revisions: {commit_message}"
+                    + f"does not indicate backed out revisions: {commit_message.partition('\n')[0]}"
                 )
-                return
 
         # Avoid checks for the merge automation users.
         if author in {"ffxbld", "seabld", "tbirdbld", "cltbld"}:
@@ -507,41 +517,39 @@ class CommitMessagesCheck(PatchCollectionCheck):
 
         # Match against [PATCH] and [PATCH n/m].
         if "[PATCH" in firstline:
-            self.commit_message_issues.append(
-                "Revision contains git-format-patch '[PATCH]' cruft. Use "
-                f"git-format-patch -k to avoid this: {commit_message}"
+            current_commit_issues.append(
+                "Revision contains git-format-patch '[PATCH]' cruft. "
+                + f"Use git-format-patch -k to avoid this: {commit_message.partition('\n')[0]}"
             )
-            return
 
         if match := REPO_FLAG_RE.findall(firstline):
             for repo in match:
                 if "/" in repo:
-                    self.commit_message_issues.append(
-                        f"Push contains commits intended to be locked to {repo} but the repo name is badly formatted. '/' is not allowed: {commit_message}"
+                    current_commit_issues.append(
+                        f"Push contains commits intended to be locked to {repo} but the repo name is badly formatted. '/' is not allowed: {commit_message.partition('\n')[0]}"
                     )
-                    return
             if self.repo_name not in match:
-                self.commit_message_issues.append(
-                    f"Commit locked to a repo other than {self.repo_name}: {commit_message}"
+                current_commit_issues.append(
+                    f"Commit locked to a repo other than {self.repo_name}: {commit_message.partition('\n')[0]}"
                 )
-                return
 
         if INVALID_REVIEW_FLAG_RE.search(firstline):
-            self.commit_message_issues.append(
-                f"Revision contains 'r?' in the commit message. Please use 'r=' instead: {commit_message}"
+            current_commit_issues.append(
+                f"Revision contains 'r?' in the commit message. Please use 'r=' instead: {commit_message.partition('\n')[0]}"
             )
-            return
 
         if firstline.lower().startswith("wip:"):
-            self.commit_message_issues.append(
-                f"Revision seems to be marked as WIP: {commit_message}"
+            current_commit_issues.append(
+                f"Revision seems to be marked as WIP: {commit_message.partition('\n')[0]}"
             )
-            return
 
         if re.search(RE_DIFF, commit_message):
-            self.commit_message_issues.append(
-                f"Suspected diff found in commit message. Please indent the diff if this is on purpose: {commit_message}"
+            current_commit_issues.append(
+                f"Suspected diff found in commit message. Please indent the diff if this is on purpose: {commit_message.partition('\n')[0]}"
             )
+
+        if current_commit_issues:
+            self.commit_message_issues.extend(current_commit_issues)
             return
 
         if any(regex.search(firstline) for regex in ACCEPTABLE_MESSAGE_FORMAT_RES):
@@ -552,19 +560,22 @@ class CommitMessagesCheck(PatchCollectionCheck):
         if firstline.lower().startswith(("back", "revert")):
             # Purposely ambiguous: it's ok to say "backed out rev N" or
             # "reverted to rev N-1"
-            self.commit_message_issues.append(
-                f"Backout revision needs a bug number or a rev id: {commit_message}"
+            current_commit_issues.append(
+                f"Backout revision needs a bug number or a rev id: {commit_message.partition('\n')[0]}"
             )
-            return
 
-        self.commit_message_issues.append(
-            f"Revision needs 'Bug N' or 'No bug' in the commit message: {commit_message}"
+        current_commit_issues.append(
+            f"Revision needs 'Bug N' or 'No bug' in the commit message: {commit_message.partition('\n')[0]}"
         )
 
-    def result(self) -> str | None:
+        self.commit_message_issues.extend(current_commit_issues)
+
+    def result(self) -> list[str]:
         """Calculate and return the result of the check."""
-        if not self.ignore_bad_commit_message and self.commit_message_issues:
-            return ", ".join(self.commit_message_issues)
+        if self.ignore_bad_commit_message:
+            return []
+
+        return self.commit_message_issues
 
 
 @dataclass
@@ -588,11 +599,14 @@ class PreventSignedCommitsCheck(PatchCollectionCheck):
         if patch_helper.metadata.signature:
             self.signed_commits.append(patch_helper.get_commit_title())
 
-    def result(self) -> str | None:
-        if self.signed_commits:
-            return "Patch introduces one or more signed commits: " + ", ".join(
-                self.signed_commits
-            )
+    def result(self) -> list[str]:
+        if not self.signed_commits:
+            return []
+
+        return [
+            "Patch introduces one or more signed commits: "
+            + ", ".join(self.signed_commits)
+        ]
 
 
 @dataclass
@@ -627,13 +641,17 @@ class WPTSyncCheck(PatchCollectionCheck):
             if not self.WPTSYNC_ALLOWED_PATHS_RE.match(filename):
                 self.wpt_disallowed_files.append(filename)
 
-    def result(self) -> str | None:
+    def result(self) -> list[str]:
         """Return an error if the WPTSync bot touched disallowed files."""
-        if self.wpt_disallowed_files:
-            return (
+        if not self.wpt_disallowed_files:
+            return []
+
+        return [
+            (
                 "Revision has WPTSync bot making changes to disallowed files "
-                f"{wrap_filenames(self.wpt_disallowed_files)}."
+                + f"{wrap_filenames(self.wpt_disallowed_files)}."
             )
+        ]
 
 
 BMO_SKIP_HINT = "Use `SKIP_BMO_CHECK` in your commit message to push anyway."
@@ -676,44 +694,50 @@ class BugReferencesCheck(PatchCollectionCheck):
 
         self.bug_ids |= set(parse_bugs(commit_message))
 
-    def result(self) -> str | None:
+    def result(self) -> list[str]:
         """Ensure all bug numbers detected in commit messages reference public bugs."""
         if self.skip_check or not self.bug_ids:
-            return
+            return []
 
         try:
             found_bugs = search_bugs(self.bug_ids)
         except requests.exceptions.RequestException as exc:
-            return BUG_REFERENCES_BMO_ERROR_TEMPLATE.format(error=str(exc))
+            return [BUG_REFERENCES_BMO_ERROR_TEMPLATE.format(error=str(exc))]
 
         invalid_bugs = self.bug_ids - found_bugs
         if not invalid_bugs:
-            return
+            return []
 
         # Check a single bug to determine which error to return.
         bug_id = invalid_bugs.pop()
         try:
             status_code = get_status_code_for_bug(bug_id)
         except requests.exceptions.RequestException as exc:
-            return BUG_REFERENCES_BMO_ERROR_TEMPLATE.format(error=str(exc))
+            return [BUG_REFERENCES_BMO_ERROR_TEMPLATE.format(error=str(exc))]
 
         if status_code == 401:
-            return (
-                f"Your commit message references bug {bug_id}, which is currently private. To avoid "
-                "disclosing the nature of this bug publicly, please remove the affected bug ID "
-                f"from the commit message. {BMO_SKIP_HINT}"
-            )
+            return [
+                (
+                    f"Your commit message references bug {bug_id}, which is currently private. To avoid "
+                    "disclosing the nature of this bug publicly, please remove the affected bug ID "
+                    f"from the commit message. {BMO_SKIP_HINT}"
+                )
+            ]
 
         if status_code == 404:
-            return (
-                f"Your commit message references bug {bug_id}, which does not exist. "
-                f"Please check your commit message and try again. {BMO_SKIP_HINT}"
-            )
+            return [
+                (
+                    f"Your commit message references bug {bug_id}, which does not exist. "
+                    f"Please check your commit message and try again. {BMO_SKIP_HINT}"
+                )
+            ]
 
-        return (
-            f"While checking if bug {bug_id} in your commit message is a security bug, "
-            f"an error occurred and the bug could not be verified. {BMO_SKIP_HINT}"
-        )
+        return [
+            (
+                f"While checking if bug {bug_id} in your commit message is a security bug, "
+                f"an error occurred and the bug could not be verified. {BMO_SKIP_HINT}"
+            )
+        ]
 
 
 @dataclass
@@ -763,8 +787,8 @@ class PatchCollectionAssessor:
 
         # Collect the result of the push-wide checks.
         for check in checks:
-            if issue := check.result():
-                issues.append(issue)
+            if check_issues := check.result():
+                issues.extend(check_issues)
 
         return issues
 

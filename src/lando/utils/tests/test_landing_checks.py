@@ -358,16 +358,15 @@ def test_check_commit_message_repolocked(
     ]
     assessor = PatchCollectionAssessor(patch_helpers=patch_helpers, repo_name="foo")
 
-    expected = []
-    if return_string:
-        expected = [return_string + commit_message]
+    check_issues = assessor.run_patch_collection_checks(
+        patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
+    )
 
-    assert (
-        assessor.run_patch_collection_checks(
-            patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
-        )
-        == expected
-    ), error_message
+    if return_string:
+        expected = return_string + commit_message.partition("\n")[0]
+        assert expected in check_issues, error_message
+    else:
+        assert not check_issues, error_message
 
 
 def test_check_commit_message_repolocked_multiple():
@@ -403,15 +402,12 @@ def test_check_commit_message_repolocked_multiple():
     ]
     assessor = PatchCollectionAssessor(patch_helpers=patch_helpers, repo_name="foo")
 
-    expected = []
+    expected = ""
     if return_string:
-        expected = [return_string + commit_message]
+        expected = return_string + commit_message.partition("\n")[0]
 
-    assert (
-        assessor.run_patch_collection_checks(
-            patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
-        )
-        == expected
+    assert expected in assessor.run_patch_collection_checks(
+        patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
     ), error_message
 
 
@@ -469,10 +465,13 @@ def test_check_prevent_dot_github():
     )
     for diff in parsed_diff:
         prevent_dot_github_check.next_diff(diff)
-    assert prevent_dot_github_check.result() == (
+
+    expected = (
         "Revision makes changes to restricted directories: GitHub workflows directory: "
-        "`.github/workflows/workflow.yaml`."
-    ), (
+        + "`.github/workflows/workflow.yaml`."
+    )
+
+    assert expected in prevent_dot_github_check.result(), (
         "Check should disallow changes to GitHub workflows without proper commit message."
     )
 
@@ -482,7 +481,7 @@ def test_check_prevent_dot_github():
     )
     for diff in parsed_diff:
         prevent_dot_github_check.next_diff(diff)
-    assert prevent_dot_github_check.result() is None, (
+    assert not prevent_dot_github_check.result(), (
         "Check should allow changes to GitHub workflows with proper commit message."
     )
 
@@ -497,10 +496,11 @@ def test_check_prevent_hg_directory():
     )
     for diff in parsed_diff:
         prevent_hg_directory_check.next_diff(diff)
-    assert (
-        prevent_hg_directory_check.result()
-        == "Patch attempts to modify repository metadata: `.hg/hgrc`"
-    ), "Check should not allow changes to .hg directory"
+
+    expected = "Patch attempts to modify repository metadata: `.hg/hgrc`."
+    assert expected in prevent_hg_directory_check.result(), (
+        "Check should not allow changes to .hg directory"
+    )
 
 
 def test_check_prevent_nspr_nss_missing_fields():
@@ -512,7 +512,7 @@ def test_check_prevent_nspr_nss_missing_fields():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() is None, (
+    assert not prevent_nspr_nss_check.result(), (
         "Missing commit message should result in passing check."
     )
 
@@ -527,10 +527,13 @@ def test_check_prevent_nspr_nss_nss():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() == (
+    expected = (
         "Revision makes changes to restricted directories: vendored NSS directories: "
         "`security/nss/testfile.txt`."
-    ), "Check should disallow changes to NSS without proper commit message."
+    )
+    assert expected in prevent_nspr_nss_check.result(), (
+        "Check should disallow changes to NSS without proper commit message."
+    )
 
     prevent_nspr_nss_check = PreventNSPRNSSCheck(
         email="testuser@mozilla.com",
@@ -538,7 +541,7 @@ def test_check_prevent_nspr_nss_nss():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() is None, (
+    assert not prevent_nspr_nss_check.result(), (
         "Check should allow changes to NSS with proper commit message."
     )
 
@@ -553,10 +556,13 @@ def test_check_prevent_nspr_nss_nspr():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() == (
+    expected = (
         "Revision makes changes to restricted directories: vendored NSPR directories: "
         "`nsprpub/testfile.txt`."
-    ), "Check should disallow changes to NSPR without proper commit message."
+    )
+    assert expected in prevent_nspr_nss_check.result(), (
+        "Check should disallow changes to NSPR without proper commit message."
+    )
 
     prevent_nspr_nss_check = PreventNSPRNSSCheck(
         email="testuser@mozilla.com",
@@ -564,7 +570,7 @@ def test_check_prevent_nspr_nss_nspr():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() is None, (
+    assert not prevent_nspr_nss_check.result(), (
         "Check should allow changes to NSPR with proper commit message."
     )
 
@@ -581,10 +587,11 @@ def test_check_prevent_nspr_nss_combined():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() == (
+    expected = (
         "Revision makes changes to restricted directories: vendored NSS directories: "
         "`security/nss/testfile.txt` vendored NSPR directories: `nsprpub/testfile.txt`."
-    ), (
+    )
+    assert expected in prevent_nspr_nss_check.result(), (
         "Check should disallow changes to both NSS and NSPR without proper commit message."
     )
 
@@ -594,10 +601,13 @@ def test_check_prevent_nspr_nss_combined():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() == (
+    expected = (
         "Revision makes changes to restricted directories: "
         "vendored NSS directories: `security/nss/testfile.txt`."
-    ), "Check should allow changes to NSPR with proper commit message."
+    )
+    assert expected in prevent_nspr_nss_check.result(), (
+        "Check should allow changes to NSPR with proper commit message."
+    )
 
     prevent_nspr_nss_check = PreventNSPRNSSCheck(
         email="testuser@mozilla.com",
@@ -605,10 +615,13 @@ def test_check_prevent_nspr_nss_combined():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() == (
+    expected = (
         "Revision makes changes to restricted directories: "
         "vendored NSPR directories: `nsprpub/testfile.txt`."
-    ), "Check should allow changes to NSPR with proper commit message."
+    )
+    assert expected in prevent_nspr_nss_check.result(), (
+        "Check should allow changes to NSPR with proper commit message."
+    )
 
     prevent_nspr_nss_check = PreventNSPRNSSCheck(
         email="testuser@mozilla.com",
@@ -616,7 +629,7 @@ def test_check_prevent_nspr_nss_combined():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() is None, (
+    assert not prevent_nspr_nss_check.result(), (
         "Check should allow changes to NSPR with proper commit message."
     )
 
@@ -629,7 +642,7 @@ def test_check_prevent_submodules():
     for diff in parsed_diff:
         prevent_submodules_check.next_diff(diff)
 
-    assert prevent_submodules_check.result() is None, (
+    assert not prevent_submodules_check.result(), (
         "Check should pass when no submodules are introduced."
     )
 
@@ -639,11 +652,10 @@ def test_check_prevent_submodules():
     prevent_submodules_check = PreventSubmodulesCheck()
     for diff in parsed_diff:
         prevent_submodules_check.next_diff(diff)
-
-    assert (
-        prevent_submodules_check.result()
-        == "Revision introduces a Git submodule into the repository."
-    ), "Check should prevent revisions from introducing submodules."
+    expected = "Revision introduces a Git submodule into the repository."
+    assert expected in prevent_submodules_check.result(), (
+        "Check should prevent revisions from introducing submodules."
+    )
 
 
 def test_check_bug_references_public_bugs():
@@ -817,7 +829,7 @@ def test_check_try_task_config():
     for diff in parsed_diff:
         try_task_config_check.next_diff(diff)
 
-    assert try_task_config_check.result() is None, (
+    assert not try_task_config_check.result(), (
         "Check should pass when no try_task_config.json is introduced."
     )
 
@@ -827,11 +839,10 @@ def test_check_try_task_config():
     try_task_config_check = TryTaskConfigCheck()
     for diff in parsed_diff:
         try_task_config_check.next_diff(diff)
-
-    assert (
-        try_task_config_check.result()
-        == "Revision introduces the `try_task_config.json` file."
-    ), "Check should prevent revisions from adding try_task_config.json."
+    expected = "Revision introduces the `try_task_config.json` file."
+    assert expected in try_task_config_check.result(), (
+        "Check should prevent revisions from adding try_task_config.json."
+    )
 
 
 def test_landing_checks_run():
@@ -847,7 +858,7 @@ def test_landing_checks_run():
         ),
         GitPatchHelper.from_string_io(
             io.StringIO(
-                # PreventNSPRNSSCheck will get triggered.
+                # PreventNSPRNSSCheck and PreventNSPRCheck will get triggered.
                 GIT_PATCH_FILENAME_TEMPLATE.format(filename="nsprpub/testfile.txt"),
             )
         ),
@@ -855,4 +866,4 @@ def test_landing_checks_run():
 
     names_run = landing_checks.run([chk.name() for chk in ALL_CHECKS], patch_helpers)
 
-    assert len(names_run) == 4
+    assert len(names_run) == 5
