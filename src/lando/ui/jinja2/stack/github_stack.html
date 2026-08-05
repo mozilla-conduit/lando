@@ -22,9 +22,9 @@
                     {% for pr in stack.pull_requests %}
                         <tr class="StackPage-pr">
                             <td class="StackPage-pr-land">
-                                    <input class="StackPage-revision-land-radio"
-                                           id="{{ pr.number }}"
-                                           type="radio">
+                                <input class="StackPage-revision-land-radio"
+                                       id="{{ pr.number }}"
+                                       type="radio">
                             </td>
                             <td class="StackPage-pr-title">
                                 <div class="StackPage-revision-title-text">
@@ -58,12 +58,59 @@
                         <div class="StackPage-actions-headline">Preview Landing</div>
                     </button>
                 {% endif %}
-            </main>
-        {% endblock %}
-        {% block scripts %}
-            {# Load the widget wherever the uplift modal is rendered.
-       The widget no-ops if its mount point is absent. #}
+            </div>
             {% if user_is_authenticated %}
-                <script src="{{ static_url }}GitHubStack.js" type="module" charset="utf-8"></script>
-            {% endif %}
-        {% endblock %}
+                <div class="StackPage-landingPreview modal">
+                    <div class="modal-background"></div>
+                    <div class="modal-card">
+                        <header class="modal-card-head">
+                            <p class="modal-card-title">Preview landing</p>
+                            <button class="StackPage-landingPreview-close delete" aria-label="close"></button>
+                        </header>
+                        <section class="modal-card-body">
+                            <label class="checkbox">
+                                <input type="checkbox" id="acknowledge-warnings" autocomplete="off" />
+                                Acknowledge all warnings below to continue.
+                            </label>
+                            <h3 class="StackPage-landingPreview-sectionLabel">Warnings:</h3>
+                            <div class="StackPage-landingPreview-section StackPage-landingPreview-warnings">
+                                <ul class="StackPage-landingPreview-warningsList">
+                                    <li class="StackPage-landingPreview-warning">
+                                        <span class="fa-li"><i class="fa fa-spinner fa-pulse"></i></span>Checking...
+                                    </li>
+                                </ul>
+                            </div>
+                            <h3 class="StackPage-landingPreview-sectionLabel">Blockers:</h3>
+                            <div class="StackPage-landingPreview-section StackPage-landingPreview-blockers">
+                                <ul class="StackPage-landingPreview-blockersList">
+                                    <li class="StackPage-landingPreview-blocker">
+                                        <span class="fa-li"><i class="fa fa-spinner fa-pulse"></i></span>Checking...
+                                    </li>
+                                </ul>
+                            </div>
+                        </section>
+                    {% endif %}
+                    <footer class="modal-card-foot">
+                        <form class="StackPage-form" action="" method="post">
+                            <button class="StackPage-landingPreview-land button"
+                                    data-target-repo="{{ target_repo.url }}"
+                                    data-target-scm-type="{{ target_repo.scm_type }}"
+                                    data-target-branch="{{ target_repo.default_branch }}"
+                                    disabled>
+                                Land to {{ target_repo.url }}
+                                {% if target_repo.is_git %}@{{ target_repo.default_branch }}{% endif %}
+                            </button>
+                            <button class="StackPage-landingPreview-close button">Cancel</button>
+                        </form>
+                    </footer>
+                </div>
+            </div>
+        </main>
+    {% endblock %}
+    {% block scripts %}
+        {# Load the widget wherever the uplift modal is rendered.
+       The widget no-ops if its mount point is absent. #}
+        {% if user_is_authenticated %}
+            <script src="{{ static_url }}GitHubStack.js" type="module" charset="utf-8"></script>
+        {% endif %}
+    {% endblock %}
