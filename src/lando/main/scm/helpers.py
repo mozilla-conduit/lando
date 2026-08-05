@@ -270,6 +270,9 @@ class HgPatchHelper(PatchHelper):
                     break
                 self.header_end_line_no += 1
                 for name in HG_HEADER_NAMES:
+                    if self.headers.get(name.lower()):
+                        # We already have a value for this header.
+                        continue
                     value = self._header_value(line, name)
                     if value:
                         self.set_header(name, value)
