@@ -477,8 +477,7 @@ class Stack(GitHubObject):
     def pull_requests(self) -> list["PullRequest"]:
         # TODO: note that the stacks endpoint returns partial PR data, but it could
         # be usable for display purposes as-is without having to re-fetch every PR.
-        pull_numbers = self.data["pull_requests"]["number"]
-        return [self.client.build_pull_request(pull_number) for pull_number in pull_numbers]
+        return [self.client.build_pull_request(pr["number"]) for pr in self.data["pull_requests"]]
 
 
 class PullRequest(GitHubObject):
