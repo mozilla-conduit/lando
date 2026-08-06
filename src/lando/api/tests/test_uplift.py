@@ -773,7 +773,7 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     job = make_uplift_job_with_revisions(repo, user, revisions)
     mock_task = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.api.legacy.workers.uplift_worker.set_uplift_request_form_on_revision",
+        "lando.workers.uplift_worker.set_uplift_request_form_on_revision",
         mock_task,
     )
 
@@ -1000,7 +1000,7 @@ def test_uplift_worker_fallback_to_patch_when_no_landing_commit_id(
     job = make_uplift_job_with_revisions(repo, user, revisions)
     mock_task = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.api.legacy.workers.uplift_worker.set_uplift_request_form_on_revision",
+        "lando.workers.uplift_worker.set_uplift_request_form_on_revision",
         mock_task,
     )
 

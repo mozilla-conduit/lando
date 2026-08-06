@@ -8,10 +8,6 @@ from typing import Callable
 
 import pytest
 
-from lando.api.legacy.workers.landing_worker import (
-    AUTOFORMAT_COMMIT_MESSAGE,
-    LandingWorker,
-)
 from lando.api.tests.mocks import TreeStatusDouble
 from lando.conftest import FAILING_CHECK_TYPES
 from lando.main.models import (
@@ -29,6 +25,10 @@ from lando.main.scm.helpers import HgPatchHelper
 from lando.main.scm.hg import LostPushRace
 from lando.pushlog.models.commit import Commit
 from lando.pushlog.models.push import Push
+from lando.workers.landing_worker import (
+    AUTOFORMAT_COMMIT_MESSAGE,
+    LandingWorker,
+)
 
 LARGE_UTF8_THING = "😁" * 1000000
 
@@ -1012,7 +1012,7 @@ def test_failed_landing_job_notification(
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.notify_user_of_landing_failure",
+        "lando.workers.landing_worker.notify_user_of_landing_failure",
         mock_notify,
     )
 
@@ -1405,7 +1405,7 @@ def test_format_patch_fail(
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.notify_user_of_landing_failure",
+        "lando.workers.landing_worker.notify_user_of_landing_failure",
         mock_notify,
     )
 
@@ -1467,7 +1467,7 @@ def test_format_patch_no_landoini(
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.api.legacy.workers.landing_worker.notify_user_of_landing_failure",
+        "lando.workers.landing_worker.notify_user_of_landing_failure",
         mock_notify,
     )
 

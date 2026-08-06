@@ -14,7 +14,6 @@ from django.contrib.auth.models import Permission, User
 from django.test.client import Client
 from pydantic import ValidationError
 
-from lando.api.legacy.workers.automation_worker import AutomationWorker
 from lando.api.tests.mocks import TreeStatusDouble
 from lando.conftest import FAILING_CHECK_TYPES
 from lando.headless_api.api import (
@@ -33,6 +32,7 @@ from lando.main.scm import PatchConflict, SCMType
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.exceptions import SCMInternalServerError
 from lando.pushlog.models import Push
+from lando.workers.automation_worker import AutomationWorker
 
 
 @pytest.fixture
