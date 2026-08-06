@@ -4,7 +4,7 @@ from typing import Callable, Self, override
 from django import forms
 from django.contrib import admin
 from django.db.models import Field as DbField
-from django.forms import CheckboxSelectMultiple, MultipleChoiceField
+from django.forms import CheckboxSelectMultiple, Form, MultipleChoiceField
 from django.forms import Field as FormField
 from django.http import HttpRequest
 from django.urls import reverse
@@ -451,6 +451,17 @@ class CommitMapAdmin(admin.ModelAdmin):
 
 
 class ConfigurationVariableAdmin(admin.ModelAdmin):
+    def save_model(
+        self,
+        request: HttpRequest,
+        instance: ConfigurationVariable | None,
+        form: Form,
+        change: bool,
+    ):
+        # Use the existing ConfigurationVariable API to ensure field is
+        # set and cleaned correctly.
+        ConfigurationVariable.set(**form.cleaned_data)
+
     model = ConfigurationVariable
     list_display = (
         "key",
@@ -459,6 +470,7 @@ class ConfigurationVariableAdmin(admin.ModelAdmin):
         "updated_at",
     )
     readonly_fields = (
+        "value",
         "created_at",
         "updated_at",
     )
