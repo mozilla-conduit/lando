@@ -150,9 +150,7 @@ def dryrun(phab: PhabricatorClient, user: User, data: dict) -> dict[str, Any]:
     return assessment.to_dict()
 
 
-def submit_landing_job(
-    phab: PhabricatorClient, user: User, data: dict
-) -> tuple[dict[str, int], int]:
+def submit_landing_job(phab: PhabricatorClient, user: User, data: dict) -> LandingJob:
     """Submit a landing request."""
     parsed_transplant_request = _parse_transplant_request(data)
     confirmation_token = parsed_transplant_request["confirmation_token"]
@@ -380,7 +378,7 @@ def submit_landing_job(
             # these changes so it's better to return properly from the request.
             pass
 
-    return {"id": job.id}, 202
+    return job
 
 
 def get_list(phab: PhabricatorClient, stack_revision_id: str) -> list[LandingJob]:
