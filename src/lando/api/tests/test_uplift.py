@@ -33,7 +33,7 @@ from lando.main.models.uplift import (
 from lando.main.scm import SCMType
 from lando.main.scm.git import GitSCM
 from lando.main.scm.helpers import HgPatchHelper
-from lando.ui.legacy.forms import (
+from lando.ui.forms import (
     UpliftAssessmentForm,
 )
 from lando.ui.uplift.context import uplift_context_for_revision
@@ -443,7 +443,7 @@ def test_get_latest_landing_commit_id_with_null_commit_id():
     )
 
 
-@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@mock.patch("lando.ui.views.revisions.set_uplift_request_form_on_revision.apply_async")
 @pytest.mark.django_db
 def test_patch_assessment_creates_and_updates(
     mock_apply_async, authenticated_client, user, phabdouble
@@ -535,7 +535,7 @@ def test_patch_assessment_creates_and_updates(
     )
 
 
-@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@mock.patch("lando.ui.views.revisions.set_uplift_request_form_on_revision.apply_async")
 @pytest.mark.django_db
 def test_patch_assessment_updates_in_place(
     mock_apply_async, authenticated_client, user, phabdouble
@@ -568,7 +568,7 @@ def test_patch_assessment_updates_in_place(
     mock_apply_async.assert_called()
 
 
-@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@mock.patch("lando.ui.views.revisions.set_uplift_request_form_on_revision.apply_async")
 @pytest.mark.django_db
 def test_patch_assessment_form_invalid(
     mock_apply_async, authenticated_client, user, phabdouble
@@ -611,7 +611,7 @@ def test_patch_assessment_form_invalid(
     assert mock_apply_async.call_count == 0, "Uplift form task should not be called."
 
 
-@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@mock.patch("lando.ui.views.revisions.set_uplift_request_form_on_revision.apply_async")
 @pytest.mark.django_db
 def test_link_assessment_links_existing_form(
     mock_apply_async, authenticated_client, user, phabdouble
@@ -663,7 +663,7 @@ def test_link_assessment_links_existing_form(
     assert user_id == user.id, "Celery task should run under the submitting user."
 
 
-@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@mock.patch("lando.ui.views.revisions.set_uplift_request_form_on_revision.apply_async")
 @pytest.mark.django_db
 def test_link_assessment_replaces_existing_form(
     mock_apply_async, authenticated_client, user, phabdouble

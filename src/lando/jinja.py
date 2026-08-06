@@ -20,7 +20,7 @@ from lando.treestatus.models import (
     TreeCategory,
     TreeStatus,
 )
-from lando.ui.legacy.forms import UserSettingsForm
+from lando.ui.forms import UserSettingsForm
 
 FAQ_URL = "https://wiki.mozilla.org/Phabricator/FAQ#Lando"
 SEC_BUG_DOCS = (

@@ -19,17 +19,8 @@ from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path, re_path
 
+from lando.api import views as api_views
 from lando.api.uplift_api import api as uplift_api
-from lando.api.views import (
-    LandingJobApiView,
-    LandingJobPullRequestAPIView,
-    LegacyDiffWarningView,
-    PullRequestChecksAPIView,
-    PullRequestContentAPIView,
-    PullRequestUpdateWebhook,
-    git2hgCommitMapView,
-    hg2gitCommitMapView,
-)
 from lando.headless_api.api import (
     api as headless_api,
 )
@@ -47,8 +38,8 @@ from lando.try_api.api import (
 from lando.try_api.api import (
     legacy_api as legacy_try_api,
 )
-from lando.ui import jobs, pull_requests, views
-from lando.ui.legacy import revisions, user_settings
+from lando.ui import views as ui_views
+from lando.ui.legacy import user_settings
 from lando.utils.ninja_auth import api as auth_api
 
 urlpatterns = [
@@ -64,52 +55,73 @@ if settings.ENVIRONMENT.is_lower:
 
 
 urlpatterns += [
-    path("", views.IndexView.as_view()),
-    path("D<int:revision_id>/", views.RevisionView.as_view(), name="revisions-page"),
+    path("", ui_views.index.IndexView.as_view()),
+    path(
+        "D<int:revision_id>/",
+        ui_views.revisions.RevisionView.as_view(),
+        name="revisions-page",
+    ),
     path(
         "pulls/<str:repo_name>/<int:number>/",
-        pull_requests.PullRequestView.as_view(),
+        ui_views.pull_requests.PullRequestView.as_view(),
         name="pull-request",
     ),
     path("manage_api_key/", user_settings.manage_api_key, name="user-settings"),
-    path("uplift/", revisions.UpliftRequestView.as_view(), name="uplift-page"),
+    path("uplift/", ui_views.revisions.UpliftRequestView.as_view(), name="uplift-page"),
     path(
         "uplift/request/",
-        revisions.UpliftAssessmentBatchLinkView.as_view(),
+        ui_views.revisions.UpliftAssessmentBatchLinkView.as_view(),
         name="uplift-request-page",
     ),
     path(
         "uplift/<int:revision_id>/assessment/",
-        revisions.UpliftAssessmentCreateOrEditView.as_view(),
+        ui_views.revisions.UpliftAssessmentCreateOrEditView.as_view(),
         name="uplift-assessment-page",
     ),
     path(
         "uplift/<int:revision_id>/assessment/link/",
-        revisions.UpliftAssessmentLinkView.as_view(),
+        ui_views.revisions.UpliftAssessmentLinkView.as_view(),
         name="uplift-assessment-link-page",
     ),
     path(
         "uplift/jobs/<int:job_id>/",
-        jobs.UpliftJobView.as_view(),
+        ui_views.jobs.UpliftJobView.as_view(),
         name="uplift-jobs-page",
+    ),
+    path(
+        "D<int:revision_id>/landings/<int:job_id>/",
+        ui_views.jobs.LandingJobView.as_view(),
+        name="revision-jobs-page",
+    ),
+    # Allow to find a landing job by ID only. The page will redirect to the canonical
+    # URL including the revision.
+    path(
+        "landings/<int:job_id>/",
+        ui_views.jobs.LandingJobView.as_view(),
+        {"revision_id": None},
+        name="jobs-page",
     ),
 ]
 
 urlpatterns += [
-    path("api/diff_warnings/", LegacyDiffWarningView.as_view(), name="diff-warnings"),
+    path(
+        "api/diff_warnings/",
+        api_views.LegacyDiffWarningView.as_view(),
+        name="diff-warnings",
+    ),
     path(
         "api/diff_warnings/<int:diff_warning_id>/",
-        LegacyDiffWarningView.as_view(),
+        api_views.LegacyDiffWarningView.as_view(),
         name="diff-warnings",
     ),
     re_path(
         r"api/git2hg/(?P<git_repo_name>.*)/(?P<commit_hash>[0-9a-f]{7,40})",
-        git2hgCommitMapView.as_view(),
+        api_views.git2hgCommitMapView.as_view(),
         name="git2hg",
     ),
     re_path(
         r"api/hg2git/(?P<git_repo_name>.*)/(?P<commit_hash>[0-9a-f]{40})",
-        hg2gitCommitMapView.as_view(),
+        api_views.hg2gitCommitMapView.as_view(),
         name="hg2git",
     ),
 ]
@@ -117,22 +129,22 @@ urlpatterns += [
 urlpatterns += [
     path(
         "api/pulls/<str:repo_name>/<int:pull_number>/landing_jobs",
-        LandingJobPullRequestAPIView.as_view(),
+        api_views.LandingJobPullRequestAPIView.as_view(),
         name="api-landing-job-pull-request",
     ),
     path(
         "api/pulls/<str:repo_name>/<int:pull_number>/checks",
-        PullRequestChecksAPIView.as_view(),
+        api_views.PullRequestChecksAPIView.as_view(),
         name="api-pull-request-checks",
     ),
     path(
         "api/pulls/<str:repo_name>/<int:pull_number>",
-        PullRequestContentAPIView.as_view(),
+        api_views.PullRequestContentAPIView.as_view(),
         name="api-pull-request-update-content",
     ),
     path(
         "api/pulls/webhook",
-        PullRequestUpdateWebhook.as_view(),
+        api_views.PullRequestUpdateWebhook.as_view(),
         name="api-pull-request-description",
     ),
 ]
@@ -141,21 +153,8 @@ urlpatterns += [
 urlpatterns += [
     path(
         "landing_jobs/<int:job_id>/",
-        LandingJobApiView.as_view(),
+        api_views.LandingJobApiView.as_view(),
         name="landing-jobs",
-    ),
-    path(
-        "D<int:revision_id>/landings/<int:job_id>/",
-        jobs.LandingJobView.as_view(),
-        name="revision-jobs-page",
-    ),
-    # Allow to find a landing job by ID only. The page will redirect to the canonical
-    # URL including the revision.
-    path(
-        "landings/<int:job_id>/",
-        jobs.LandingJobView.as_view(),
-        {"revision_id": None},
-        name="jobs-page",
     ),
 ]
 
@@ -164,7 +163,7 @@ urlpatterns += [
     path("api/uplift/", uplift_api.urls, name="uplift-api"),
     path(
         "api/jobs/<int:job_id>/",
-        jobs.AutomationJobView.as_view(),
+        ui_views.jobs.AutomationJobView.as_view(),
         name="api-jobs-page",
     ),
 ]

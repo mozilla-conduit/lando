@@ -17,7 +17,7 @@ from lando.main.models.uplift import (
     UpliftRevision,
     UpliftSubmission,
 )
-from lando.ui.legacy.forms import (
+from lando.ui.forms import (
     LinkUpliftAssessmentForm,
     UpliftAssessmentForm,
     UpliftRequestForm,
