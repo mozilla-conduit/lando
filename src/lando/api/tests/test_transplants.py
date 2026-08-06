@@ -24,7 +24,7 @@ from lando.api.legacy.transplants import (
     warning_revision_secure,
     warning_wip_commit_message,
 )
-from lando.api.support import dryrun, get_list, submit_landing_job
+from lando.api.support import dryrun, get_stack_landing_jobs, submit_landing_job
 from lando.api.tests.mocks import PhabricatorDouble
 from lando.main.models import (
     JobStatus,
@@ -336,7 +336,7 @@ def test_get_transplants_for_entire_stack(phabdouble, make_landing_job, repo_mc)
         status=JobStatus.LANDED,
     )
 
-    result = get_list(
+    result = get_stack_landing_jobs(
         phabdouble.get_phabricator_client(), stack_revision_id=f"D{r2['id']}"
     )
     assert len(result) == 4
@@ -362,7 +362,7 @@ def test_get_transplant_from_middle_revision(phabdouble, make_landing_job):
         status=JobStatus.FAILED,
     )
 
-    result = get_list(
+    result = get_stack_landing_jobs(
         phabdouble.get_phabricator_client(), stack_revision_id=f"D{r2['id']}"
     )
     assert len(result) == 1
@@ -381,7 +381,9 @@ def test_get_transplant_not_authorized_to_view_revision(
     )
 
     with pytest.raises(LegacyAPIException) as exc_info:
-        get_list(phabdouble.get_phabricator_client(), stack_revision_id="D1")
+        get_stack_landing_jobs(
+            phabdouble.get_phabricator_client(), stack_revision_id="D1"
+        )
     assert exc_info.value.status == 404
 
 
