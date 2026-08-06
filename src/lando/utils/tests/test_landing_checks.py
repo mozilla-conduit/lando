@@ -254,9 +254,10 @@ def test_check_commit_message_invalid_message(
         patch_helpers=patch_helpers, repo_name="firefox-autoland"
     )
 
-    assert assessor.run_patch_collection_checks(
+    errors = assessor.run_patch_collection_checks(
         patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
-    ) == [return_string + commit_message], error_message
+    )
+    assert errors == [return_string + commit_message], error_message
 
 
 @pytest.mark.parametrize("signed_disallowed", (False, True))

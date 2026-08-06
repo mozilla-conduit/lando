@@ -48,23 +48,31 @@ REVIEWERS_RE = re.compile(
 # Currently just MozReview-Commit-ID
 METADATA_RE = re.compile("^MozReview-Commit-ID: ")
 
-ACCEPTABLE_MESSAGE_FORMAT_RES = [
+BUG_RES = [
     re.compile(format, re.I)
     for format in [
         r"bug [0-9]+",
         r"no bug",
+    ]
+]
+BACKOUT_RES = [
+    re.compile(format, re.I)
+    for format in [
         r"^(back(ing|ed)?\s+out|backout).*(\s+|\:)[0-9a-f]{12}",
         r"^(revert(ed|ing)?).*(\s+|\:)[0-9a-f]{12}",
         r"^add(ed|ing)? tag",
     ]
 ]
+ACCEPTABLE_MESSAGE_FORMAT_RES = BUG_RES + BACKOUT_RES
 INVALID_REVIEW_FLAG_RE = re.compile(r"[\s.;]r\?(?:\w|$)")
+
+ADD_TAG_RE = re.compile(r"^add(ed|ing)? tag", re.I)
 
 CHANGESET_KEYWORD = r"(?:\b(?:changeset|revision|change|cset|of)\b)"
 CHANGESETS_KEYWORD = r"(?:\b(?:changesets|revisions|changes|csets|of)\b)"
 SHORT_NODE = r"([0-9a-f]{12}\b)"
 SHORT_NODE_RE = re.compile(SHORT_NODE, re.I)
-BACKOUT_KEYWORD = r"^(?:backed out|backout|back out)\b"
+BACKOUT_KEYWORD = r"^(?:backed out|backout|back out|revert(?:ed|ing)?(?: to)?)\b"
 BACKOUT_KEYWORD_RE = re.compile(BACKOUT_KEYWORD, re.I)
 BACKOUT_SINGLE_RE = re.compile(
     BACKOUT_KEYWORD
@@ -103,6 +111,11 @@ def is_backout(commit_desc: str) -> bool:
     True here and None from parse_backouts().
     """
     return BACKOUT_KEYWORD_RE.match(commit_desc) is not None
+
+
+def is_tag(commit_desc: str) -> bool:
+    """Returns True if commit description indicates the changeset adds an (Hg) tag."""
+    return ADD_TAG_RE.match(commit_desc) is not None
 
 
 def parse_backouts(

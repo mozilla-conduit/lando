@@ -12,11 +12,12 @@ from lando.api.legacy.bmo import (
     search_bugs,
 )
 from lando.api.legacy.commit_message import (
-    ACCEPTABLE_MESSAGE_FORMAT_RES,
+    BUG_RES,
     INVALID_REVIEW_FLAG_RE,
     RE_DIFF,
     REPO_FLAG_RE,
     is_backout,
+    is_tag,
     parse_backouts,
     parse_bugs,
 )
@@ -547,25 +548,13 @@ class CommitMessagesCheck(PatchCollectionCheck):
                 f"Suspected diff found in commit message. Please indent the diff if this is on purpose: {firstline}"
             )
 
-        if current_commit_issues:
-            self.commit_message_issues.extend(current_commit_issues)
-            return
-
-        if any(regex.search(firstline) for regex in ACCEPTABLE_MESSAGE_FORMAT_RES):
-            # Exit if the commit message matches any of our acceptable formats.
-            # Conditions after this are failure states.
-            return
-
-        if firstline.lower().startswith(("back", "revert")):
-            # Purposely ambiguous: it's ok to say "backed out rev N" or
-            # "reverted to rev N-1"
+        # Backouts and Hg tags don't need bug numbers.
+        if not is_backout(firstline) and not is_tag(firstline) and not any(
+            re.search(firstline) for re in BUG_RES
+        ):
             current_commit_issues.append(
-                f"Backout revision needs a bug number or a rev id: {firstline}"
+                f"Revision needs 'Bug N' or 'No bug' in the commit message: {firstline}"
             )
-
-        current_commit_issues.append(
-            f"Revision needs 'Bug N' or 'No bug' in the commit message: {firstline}"
-        )
 
         self.commit_message_issues.extend(current_commit_issues)
 
