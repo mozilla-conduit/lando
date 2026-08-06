@@ -1,3 +1,3 @@
-from lando.api.legacy.api import stacks, transplants
+from lando.api.legacy.api import stacks, support
 
-__all__ = ["stacks", "transplants"]
+__all__ = ["stacks", "support"]

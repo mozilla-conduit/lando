@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 from django.contrib.auth.models import Permission
 
-from lando.api.legacy.api import transplants as legacy_api_transplants
+from lando.api.legacy.api import support as legacy_api_transplants
 from lando.api.legacy.transplants import (
     RevisionWarning,
     StackAssessment,
@@ -983,7 +983,7 @@ def test_integrated_transplant_with_flags(
     mock_format_commit_message = MagicMock()
     mock_format_commit_message.return_value = "Mock formatted commit message."
     monkeypatch.setattr(
-        "lando.api.legacy.api.transplants.format_commit_message",
+        "lando.api.legacy.api.support.format_commit_message",
         mock_format_commit_message,
     )
 
@@ -1054,7 +1054,7 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
 
     mock_remove = MagicMock(admin_remove_phab_project)
     monkeypatch.setattr(
-        "lando.api.legacy.api.transplants.admin_remove_phab_project", mock_remove
+        "lando.api.legacy.api.support.admin_remove_phab_project", mock_remove
     )
 
     result, status_code = legacy_api_transplants.submit_landing_job(
@@ -1087,7 +1087,7 @@ def test_integrated_transplant_repo_checkin_project_removed(
 
     mock_remove = MagicMock(admin_remove_phab_project)
     monkeypatch.setattr(
-        "lando.api.legacy.api.transplants.admin_remove_phab_project", mock_remove
+        "lando.api.legacy.api.support.admin_remove_phab_project", mock_remove
     )
 
     result, status_code = legacy_api_transplants.submit_landing_job(

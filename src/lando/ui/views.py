@@ -57,7 +57,7 @@ class RevisionView(LandoView):
             )
 
         # Request all previous landing jobs for the stack.
-        landing_jobs = legacy_api.transplants.get_list(phab, f"D{revision_id}")
+        landing_jobs = legacy_api.support.get_list(phab, f"D{revision_id}")
 
         # The revision may appear in many `landable_paths`` if it has
         # multiple children, or any of its landable descendents have
@@ -91,7 +91,7 @@ class RevisionView(LandoView):
             ]
             form.fields["landing_path"].initial = landing_path
 
-            dryrun = legacy_api.transplants.dryrun(
+            dryrun = legacy_api.support.dryrun(
                 phab, lando_user, data={"landing_path": landing_path}
             )
             form.fields["confirmation_token"].initial = dryrun["confirmation_token"]
@@ -217,7 +217,7 @@ class RevisionView(LandoView):
             form.cleaned_data["flags"] = (
                 form.cleaned_data["flags"] if form.cleaned_data["flags"] else []
             )
-            legacy_api.transplants.submit_landing_job(
+            legacy_api.support.submit_landing_job(
                 phab, request.user, data=form.cleaned_data
             )
             # We don't actually need any of the data from the
