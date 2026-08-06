@@ -2,7 +2,7 @@ import pytest
 
 from lando.api.support import LegacyAPIException
 from lando.main.models import Revision
-from lando.ui.legacy.stacks import (
+from lando.ui.stacks import (
     Edge,
     draw_stack_graph,
     sort_stack_topological,
