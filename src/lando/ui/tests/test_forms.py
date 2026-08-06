@@ -1,7 +1,7 @@
 import pytest
 from django.contrib.auth.models import User
 
-from lando.ui.legacy.forms import (
+from lando.ui.forms import (
     TransplantRequestForm,
     UpliftAssessmentLinkForm,
     UserSettingsForm,

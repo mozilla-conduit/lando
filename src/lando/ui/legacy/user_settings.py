@@ -6,7 +6,7 @@ from django.http import HttpResponseNotAllowed, JsonResponse
 
 from lando.main.auth import require_authenticated_user
 from lando.main.models.profile import Profile
-from lando.ui.legacy.forms import UserSettingsForm
+from lando.ui.forms import UserSettingsForm
 from lando.utils.phabricator import get_phabricator_client
 
 logger = logging.getLogger(__name__)

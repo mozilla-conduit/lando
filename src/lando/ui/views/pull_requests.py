@@ -10,7 +10,7 @@ from lando.main.models import Repo
 from lando.main.models.landing_job import (
     get_jobs_for_pull,
 )
-from lando.ui.views import LandoView
+from lando.ui.views.base import LandoView
 from lando.utils.github import PR_DELIMITER, GitHubAPIClient
 
 logger = logging.getLogger(__name__)
