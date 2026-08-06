@@ -542,18 +542,22 @@ def test_PullRequestPatchHelper(github_api_client_pr: mock.Mock):
     # PatchHelper
     pr_patch_helper = PullRequestPatchHelper(pr)
 
-    assert (
-        pr_patch_helper.get_commit_title()
-        == "WIP: test pull request with multiple commits"
-    )
-    assert (
-        pr_patch_helper.get_commit_description()
-        == "WIP: test pull request with multiple commits\n\ntest description"
-    )
+    expected_commit_title = "WIP: test pull request with multiple commits"
+
+    assert pr_patch_helper.get_commit_title() == expected_commit_title
     assert pr_patch_helper.get_timestamp() == "1761017419"
     assert pr_patch_helper.parse_author_information() == (
         "Olivier Mehani",
         "omehani@mozilla.com",
+    )
+    assert (
+        pr_patch_helper.get_commit_description()
+        == f"{expected_commit_title}\n\ntest description"
+    ), "Commit description should be the full commit message"
+
+    pr_patch_helper._pr.commit_body = ""
+    assert pr_patch_helper.get_commit_description() == expected_commit_title, (
+        "Commit description with empty commit body should have no stray newlines"
     )
 
 
