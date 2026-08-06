@@ -16,15 +16,22 @@ const BETA_SHIPPING: ReleaseSchedule = {
 
 // Render the server-side repositories field the widget reaches out to. The
 // composable finds it via `document`, independent of where the widget mounts.
-function renderRepositoriesField(): void {
+// Deployments only offer the repositories that require approval, so the
+// checkboxes are configurable.
+function renderRepositoriesField(
+    repos = ["firefox-beta", "firefox-release", "firefox-esr128"],
+): void {
+    const checkboxes = repos
+        .map(
+            (repo) =>
+                `<label><input type="checkbox" name="repositories" value="${repo}"> ${repo}</label>`,
+        )
+        .join("\n");
+
     document.body.innerHTML = `
     <button class="uplift-request-open">Request Uplift</button>
     <input type="hidden" id="id_target_selection_method" name="target_selection_method">
-    <div data-uplift-repositories>
-      <label><input type="checkbox" name="repositories" value="firefox-beta"> firefox-beta</label>
-      <label><input type="checkbox" name="repositories" value="firefox-release"> firefox-release</label>
-      <label><input type="checkbox" name="repositories" value="firefox-esr128"> firefox-esr128</label>
-    </div>
+    <div data-uplift-repositories>${checkboxes}</div>
     <div id="uplift-train-messages"></div>
   `;
 }
@@ -53,6 +60,22 @@ function repoCheckbox(value: string): HTMLInputElement {
     )!;
 }
 
+// Set the checkboxes to exactly the given repositories, as a user clicking them
+// would, so the widget observes the resulting `change` events.
+async function checkRepos(...values: string[]): Promise<void> {
+    document
+        .querySelectorAll<HTMLInputElement>('input[name="repositories"]')
+        .forEach((checkbox) => {
+            const shouldCheck = values.includes(checkbox.value);
+            if (checkbox.checked !== shouldCheck) {
+                checkbox.checked = shouldCheck;
+                checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+        });
+
+    await flushPromises();
+}
+
 function repositoriesField(): HTMLElement {
     return document.querySelector<HTMLElement>("[data-uplift-repositories]")!;
 }
@@ -74,7 +97,7 @@ afterEach(() => {
 });
 
 describe("TrainSelector", () => {
-    it("hides the manual field and offers the selectable versions after loading", async () => {
+    it("shows the version dropdown alongside the train checkboxes", async () => {
         renderRepositoriesField();
         stubFetch(BETA_SHIPPING);
 
@@ -83,38 +106,14 @@ describe("TrainSelector", () => {
 
         expect(
             repositoriesField().classList.contains("is-hidden"),
-            "Version mode should hide the server-rendered repositories field.",
-        ).toBe(true);
+            "The train checkboxes should stay visible next to the version dropdown.",
+        ).toBe(false);
 
         const options = wrapper.findAll("option").map((option) => option.text());
         expect(
             options,
             "The version dropdown should offer the beta and release versions.",
         ).toEqual(["Choose a version…", "Firefox 152", "Firefox 151"]);
-    });
-
-    it("marks the active tab with aria-selected", async () => {
-        renderRepositoriesField();
-        stubFetch(BETA_SHIPPING);
-
-        const wrapper = mount(TrainSelector, { props: { apiUrl: "/api/train" } });
-        await openModal();
-
-        const tabs = wrapper.findAll('[role="tab"]');
-        expect(
-            tabs[0].attributes("aria-selected"),
-            "The version tab starts selected.",
-        ).toBe("true");
-        expect(
-            tabs[1].attributes("aria-selected"),
-            "The train tab starts unselected.",
-        ).toBe("false");
-
-        await tabs[1].trigger("click");
-        expect(
-            tabs[1].attributes("aria-selected"),
-            "Clicking the train tab selects it.",
-        ).toBe("true");
     });
 
     it("checks the beta repository when the beta version is selected", async () => {
@@ -178,24 +177,10 @@ describe("TrainSelector", () => {
         renderRepositoriesField();
         stubFetch(BETA_SHIPPING);
 
-        const wrapper = mount(TrainSelector, { props: { apiUrl: "/api/train" } });
+        mount(TrainSelector, { props: { apiUrl: "/api/train" } });
         await openModal();
 
-        // The second tab ("Select Uplift Train") switches to manual mode.
-        await wrapper.findAll(".tabs li a")[1].trigger("click");
-        await flushPromises();
-
-        expect(
-            repositoriesField().classList.contains("is-hidden"),
-            "The train tab should reveal the server-rendered repositories field.",
-        ).toBe(false);
-
-        for (const value of ["firefox-beta", "firefox-release"]) {
-            const checkbox = repoCheckbox(value);
-            checkbox.checked = true;
-            checkbox.dispatchEvent(new Event("change", { bubbles: true }));
-        }
-        await flushPromises();
+        await checkRepos("firefox-beta", "firefox-release");
 
         expect(
             messagesText(),
@@ -205,11 +190,11 @@ describe("TrainSelector", () => {
         );
         expect(
             document.querySelectorAll("#uplift-train-messages p"),
-            "The train tab should render a single combined line.",
+            "Manually selected trains should render a single combined line.",
         ).toHaveLength(1);
     });
 
-    it("records the selection method as the user moves between modes", async () => {
+    it("records a manual selection until a version is chosen", async () => {
         renderRepositoriesField();
         stubFetch(BETA_SHIPPING);
 
@@ -218,16 +203,79 @@ describe("TrainSelector", () => {
 
         expect(
             selectionMethod(),
-            "The version tab should record a widget-version selection.",
-        ).toBe("widget_version");
+            "Checking trains without using the dropdown is a manual selection.",
+        ).toBe("widget_manual");
 
-        await wrapper.findAll(".tabs li a")[1].trigger("click");
+        await wrapper.find("select").setValue(152);
         await flushPromises();
 
         expect(
             selectionMethod(),
-            "The train tab should record a widget-manual selection.",
-        ).toBe("widget_manual");
+            "Choosing a version should record a widget-version selection.",
+        ).toBe("widget_version");
+    });
+
+    it("keeps the version attribution when the recommendation is overridden", async () => {
+        renderRepositoriesField();
+        stubFetch(BETA_SHIPPING);
+
+        const wrapper = mount(TrainSelector, { props: { apiUrl: "/api/train" } });
+        await openModal();
+
+        await wrapper.find("select").setValue(152);
+        await flushPromises();
+
+        await checkRepos("firefox-beta", "firefox-release");
+
+        expect(
+            selectionMethod(),
+            "Adjusting the checkboxes afterwards still counts as using the dropdown.",
+        ).toBe("widget_version");
+        expect(
+            messagesText(),
+            "An overridden recommendation should drop the version summary.",
+        ).not.toContain("Selected the");
+
+        await checkRepos("firefox-beta");
+
+        expect(
+            messagesText(),
+            "Restoring the recommended trains should bring the summary back.",
+        ).toContain("Selected the Beta uplift train.");
+    });
+
+    it("records the version even when no train checkbox matches it", async () => {
+        renderRepositoriesField(["firefox-esr128"]);
+        stubFetch(BETA_SHIPPING);
+
+        const wrapper = mount(TrainSelector, { props: { apiUrl: "/api/train" } });
+        await openModal();
+
+        await wrapper.find("select").setValue(152);
+        await flushPromises();
+
+        expect(
+            selectionMethod(),
+            "Attribution follows the dropdown, not which checkboxes exist.",
+        ).toBe("widget_version");
+    });
+
+    it("keeps the version selection when an unmanaged repository is added", async () => {
+        renderRepositoriesField();
+        stubFetch(BETA_SHIPPING);
+
+        const wrapper = mount(TrainSelector, { props: { apiUrl: "/api/train" } });
+        await openModal();
+
+        await wrapper.find("select").setValue(152);
+        await flushPromises();
+
+        await checkRepos("firefox-beta", "firefox-esr128");
+
+        expect(
+            selectionMethod(),
+            "An ESR branch is not managed by the widget, so the version still applies.",
+        ).toBe("widget_version");
     });
 
     it("records a server-rendered selection when the guidance request fails", async () => {
@@ -253,10 +301,6 @@ describe("TrainSelector", () => {
         await openModal();
 
         expect(
-            repositoriesField().classList.contains("is-hidden"),
-            "A failed fetch should leave the server-rendered field visible.",
-        ).toBe(false);
-        expect(
             wrapper.text(),
             "A failed fetch should explain that manual selection is needed.",
         ).toContain("Could not load release-train guidance");
@@ -271,10 +315,6 @@ describe("TrainSelector", () => {
         const wrapper = mount(TrainSelector, { props: { apiUrl: "/api/train" } });
         await openModal();
 
-        expect(
-            repositoriesField().classList.contains("is-hidden"),
-            "A malformed response should leave the server-rendered field visible.",
-        ).toBe(false);
         expect(
             wrapper.text(),
             "A malformed response should explain that manual selection is needed.",
