@@ -7,6 +7,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 
 from lando.api.legacy import api as legacy_api
+from lando.api.support import dryrun, get_list, submit_landing_job
 from lando.main.auth import force_auth_refresh, require_phabricator_api_key
 from lando.main.models import JobStatus, LandingJob, Profile, Repo
 from lando.main.support import get_revisions_with_disallowed_authors
@@ -57,7 +58,7 @@ class RevisionView(LandoView):
             )
 
         # Request all previous landing jobs for the stack.
-        landing_jobs = legacy_api.support.get_list(phab, f"D{revision_id}")
+        landing_jobs = get_list(phab, f"D{revision_id}")
 
         # The revision may appear in many `landable_paths`` if it has
         # multiple children, or any of its landable descendents have
@@ -79,7 +80,7 @@ class RevisionView(LandoView):
             except ValueError:
                 pass
 
-        dryrun = None
+        dryrun_result = None
         target_repo = None
         if series and lando_user.is_authenticated:
             landing_path = [
@@ -91,10 +92,12 @@ class RevisionView(LandoView):
             ]
             form.fields["landing_path"].initial = landing_path
 
-            dryrun = legacy_api.support.dryrun(
+            dryrun_result = dryrun(
                 phab, lando_user, data={"landing_path": landing_path}
             )
-            form.fields["confirmation_token"].initial = dryrun["confirmation_token"]
+            form.fields["confirmation_token"].initial = dryrun_result[
+                "confirmation_token"
+            ]
             series = list(reversed(series))
             revision_repo = repositories.get(revisions[series[0]]["repo_phid"])
             target_repo = (
@@ -167,7 +170,7 @@ class RevisionView(LandoView):
             "revision_id": "D{}".format(revision_id),
             "series": series,
             "landable": landable,
-            "dryrun": dryrun,
+            "dryrun": dryrun_result,
             "stack": stack,
             "rows": list(zip(reversed(order), reversed(drawing_rows), strict=False)),
             "drawing_width": drawing_width,
@@ -217,9 +220,7 @@ class RevisionView(LandoView):
             form.cleaned_data["flags"] = (
                 form.cleaned_data["flags"] if form.cleaned_data["flags"] else []
             )
-            legacy_api.support.submit_landing_job(
-                phab, request.user, data=form.cleaned_data
-            )
+            submit_landing_job(phab, request.user, data=form.cleaned_data)
             # We don't actually need any of the data from the
             # the submission. As long as an exception wasn't
             # raised we're successful.
