@@ -26,7 +26,6 @@ from lando.main.models.uplift import UpliftJob, UpliftRevision
 from lando.main.scm import GitSCM
 from lando.main.scm.commit import CommitData
 from lando.main.scm.helpers import PatchHelper
-from lando.try_api.api import get_commit_hash, get_commit_map
 from lando.utils.tasks import (
     send_uplift_failure_email,
     send_uplift_success_email,
@@ -321,7 +320,7 @@ class UpliftWorker(Worker):
 
         if try_repo.scm_type != repo_scm_type:
             try:
-                mapping_repo = get_commit_map(
+                mapping_repo = CommitMap.get_commit_map(
                     try_repo.scm_type, try_repo.name, repo_scm_type
                 )
             except ValueError:
@@ -331,7 +330,7 @@ class UpliftWorker(Worker):
                 )
                 raise
             try:
-                target_commit_hash = get_commit_hash(
+                target_commit_hash = CommitMap.get_commit_hash(
                     mapping_repo, target_commit_hash, try_repo.scm_type
                 )
             except ValueError:
