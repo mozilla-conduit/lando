@@ -150,7 +150,9 @@ def dryrun(phab: PhabricatorClient, user: User, data: dict) -> dict[str, Any]:
     return assessment.to_dict()
 
 
-def post(phab: PhabricatorClient, user: User, data: dict) -> tuple[dict[str, int], int]:
+def submit_landing_job(
+    phab: PhabricatorClient, user: User, data: dict
+) -> tuple[dict[str, int], int]:
     """Submit a landing request."""
     parsed_transplant_request = _parse_transplant_request(data)
     confirmation_token = parsed_transplant_request["confirmation_token"]
