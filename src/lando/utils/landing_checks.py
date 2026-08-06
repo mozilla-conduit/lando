@@ -490,17 +490,17 @@ class CommitMessagesCheck(PatchCollectionCheck):
         commit_message = patch_helper.get_commit_description()
         author, _email = patch_helper.parse_author_information()
 
-        current_commit_issues = []
-
         if not commit_message:
             self.commit_message_issues.append("Revision has an empty commit message.")
             return
 
-        firstline = commit_message.splitlines()[0]
+        firstline = commit_message.partition("\n")[0]
 
         if self.ignore_bad_commit_message or "IGNORE BAD COMMIT MESSAGES" in firstline:
             self.ignore_bad_commit_message = True
             return
+
+        current_commit_issues = []
 
         # Ensure backout commit descriptions are well formed.
         if is_backout(firstline):
@@ -508,7 +508,7 @@ class CommitMessagesCheck(PatchCollectionCheck):
             if not backouts or not backouts[0]:
                 current_commit_issues.append(
                     "Revision is a backout but commit message "
-                    + f"does not indicate backed out revisions: {commit_message.partition('\n')[0]}"
+                    + f"does not indicate backed out revisions: {firstline}"
                 )
 
         # Avoid checks for the merge automation users.
@@ -519,33 +519,35 @@ class CommitMessagesCheck(PatchCollectionCheck):
         if "[PATCH" in firstline:
             current_commit_issues.append(
                 "Revision contains git-format-patch '[PATCH]' cruft. "
-                + f"Use git-format-patch -k to avoid this: {commit_message.partition('\n')[0]}"
+                + f"Use git-format-patch -k to avoid this: {firstline}"
             )
 
         if match := REPO_FLAG_RE.findall(firstline):
+            malformed = False
             for repo in match:
                 if "/" in repo:
                     current_commit_issues.append(
-                        f"Push contains commits intended to be locked to {repo} but the repo name is badly formatted. '/' is not allowed: {commit_message.partition('\n')[0]}"
+                        f"Push contains commits intended to be locked to {repo} but the repo name is badly formatted. '/' is not allowed: {firstline}"
                     )
-            if self.repo_name not in match:
+                    malformed = True
+            if not malformed and self.repo_name not in match:
                 current_commit_issues.append(
-                    f"Commit locked to a repo other than {self.repo_name}: {commit_message.partition('\n')[0]}"
+                    f"Commit locked to a repo other than {self.repo_name}: {firstline}"
                 )
 
         if INVALID_REVIEW_FLAG_RE.search(firstline):
             current_commit_issues.append(
-                f"Revision contains 'r?' in the commit message. Please use 'r=' instead: {commit_message.partition('\n')[0]}"
+                f"Revision contains 'r?' in the commit message. Please use 'r=' instead: {firstline}"
             )
 
         if firstline.lower().startswith("wip:"):
             current_commit_issues.append(
-                f"Revision seems to be marked as WIP: {commit_message.partition('\n')[0]}"
+                f"Revision seems to be marked as WIP: {firstline}"
             )
 
         if re.search(RE_DIFF, commit_message):
             current_commit_issues.append(
-                f"Suspected diff found in commit message. Please indent the diff if this is on purpose: {commit_message.partition('\n')[0]}"
+                f"Suspected diff found in commit message. Please indent the diff if this is on purpose: {firstline}"
             )
 
         if current_commit_issues:
@@ -561,11 +563,11 @@ class CommitMessagesCheck(PatchCollectionCheck):
             # Purposely ambiguous: it's ok to say "backed out rev N" or
             # "reverted to rev N-1"
             current_commit_issues.append(
-                f"Backout revision needs a bug number or a rev id: {commit_message.partition('\n')[0]}"
+                f"Backout revision needs a bug number or a rev id: {firstline}"
             )
 
         current_commit_issues.append(
-            f"Revision needs 'Bug N' or 'No bug' in the commit message: {commit_message.partition('\n')[0]}"
+            f"Revision needs 'Bug N' or 'No bug' in the commit message: {firstline}"
         )
 
         self.commit_message_issues.extend(current_commit_issues)
@@ -575,7 +577,7 @@ class CommitMessagesCheck(PatchCollectionCheck):
         if self.ignore_bad_commit_message:
             return []
 
-        return self.commit_message_issues
+        return list(self.commit_message_issues)
 
 
 @dataclass
