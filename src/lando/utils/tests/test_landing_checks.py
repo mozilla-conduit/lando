@@ -212,7 +212,7 @@ def test_check_commit_message_valid_message(commit_message: str, error_message: 
             "WIP revisions should be rejected.",
         ),
         (
-            "[PATCH 1/2] first part of my git patch",
+            "[PATCH 1/2] bug 1: first part of my git patch",
             (
                 "Revision contains git-format-patch '[PATCH]' cruft. "
                 "Use git-format-patch -k to avoid this: "
@@ -364,7 +364,7 @@ def test_check_commit_message_repolocked(
 
     if return_string:
         expected = return_string + commit_message.partition("\n")[0]
-        assert expected in check_issues, error_message
+        assert [expected] == check_issues, error_message
     else:
         assert not check_issues, error_message
 
@@ -858,12 +858,21 @@ def test_landing_checks_run():
         ),
         GitPatchHelper.from_string_io(
             io.StringIO(
-                # PreventNSPRNSSCheck and PreventNSPRCheck will get triggered.
+                # Both PreventNSPRNSSCheck and PreventNSPRCheck will get triggered.
+                # For now, we only use the grouped one in the Repo. See Bug 2061086.
                 GIT_PATCH_FILENAME_TEMPLATE.format(filename="nsprpub/testfile.txt"),
             )
         ),
     ]
 
+    expected = [
+        "Revision introduces the `try_task_config.json` file.",
+        "Revision makes changes to restricted directories: vendored NSPR directories: `nsprpub/testfile.txt`.",
+        "Revision makes changes to restricted directories: vendored NSPR directories: `nsprpub/testfile.txt`.",
+        "Revision needs 'Bug N' or 'No bug' in the commit message: Change things",
+        "Revision needs 'Bug N' or 'No bug' in the commit message: Change things",
+    ]
+
     names_run = landing_checks.run([chk.name() for chk in ALL_CHECKS], patch_helpers)
 
-    assert len(names_run) == 5
+    assert names_run == expected
