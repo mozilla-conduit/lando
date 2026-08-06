@@ -1,7 +1,6 @@
 import pytest
 from django.http import Http404
 
-from lando.api.legacy.api import stacks
 from lando.api.legacy.stacks import (
     RevisionStack,
     build_stack_graph,
@@ -12,6 +11,7 @@ from lando.api.legacy.transplants import (
     build_stack_assessment_state,
     run_landing_checks,
 )
+from lando.api.phabricator import get_revision_stack
 from lando.main.models import Repo
 from lando.utils.phabricator import PhabricatorRevisionStatus
 
@@ -808,7 +808,7 @@ def test_integrated_stack_endpoint_simple(
     r3 = phabdouble.revision(repo=repo, depends_on=[r1])
     r4 = phabdouble.revision(repo=unsupported_repo, depends_on=[r2, r3])
 
-    result = stacks.get(phabdouble.get_phabricator_client(), r3["id"])
+    result = get_revision_stack(phabdouble.get_phabricator_client(), r3["id"])
 
     assert len(result["edges"]) == 4
     assert (r2["phid"], r1["phid"]) in result["edges"]
@@ -848,7 +848,7 @@ def test_integrated_stack_endpoint_repos(
     r3 = phabdouble.revision(repo=repo, depends_on=[r1])
     r4 = phabdouble.revision(repo=unsupported_repo, depends_on=[r2, r3])
 
-    result = stacks.get(phabdouble.get_phabricator_client(), r4["id"])
+    result = get_revision_stack(phabdouble.get_phabricator_client(), r4["id"])
 
     assert len(result["repositories"]) == 2
 
@@ -879,7 +879,9 @@ def test_integrated_stack_has_revision_security_status(
         repo=repo, projects=[secure_project], depends_on=[public_revision]
     )
 
-    result = stacks.get(phabdouble.get_phabricator_client(), secure_revision["id"])
+    result = get_revision_stack(
+        phabdouble.get_phabricator_client(), secure_revision["id"]
+    )
 
     revisions = {r["phid"]: r for r in result["revisions"]}
     assert not revisions[public_revision["phid"]]["is_secure"]
@@ -904,7 +906,7 @@ def test_integrated_stack_response_mismatch_returns_404(
     r2 = phabdouble.revision(repo=repo, depends_on=[r1])
 
     phab = phabdouble.get_phabricator_client()
-    result = stacks.get(phab, r1["id"])
+    result = get_revision_stack(phab, r1["id"])
     assert len(result["edges"]) == 1
     assert len(result["revisions"]) == 2
 
@@ -914,12 +916,12 @@ def test_integrated_stack_response_mismatch_returns_404(
     ]
 
     with pytest.raises(Http404):
-        stacks.get(phab, r1["id"])
+        get_revision_stack(phab, r1["id"])
 
     # Remove dependency on r2.
     phabdouble.update_revision_dependencies(r1["phid"], [])
 
-    result = stacks.get(phab, r1["id"])
+    result = get_revision_stack(phab, r1["id"])
     assert len(result["edges"]) == 0
     assert len(result["revisions"]) == 1
 
