@@ -2,7 +2,6 @@ import logging
 
 from typing_extensions import override
 
-from lando.api.legacy.workers.base import Worker
 from lando.headless_api.api import (
     AutomationActionException,
     resolve_action,
@@ -28,6 +27,7 @@ from lando.main.scm import (
 from lando.pushlog.pushlog import PushLogForRepo
 from lando.utils.landing_checks import LandingChecks
 from lando.utils.tasks import phab_trigger_repo_update
+from lando.workers.base import Worker
 
 logger = logging.getLogger(__name__)
 

@@ -1,9 +1,9 @@
 import logging
 
-from lando.api.legacy.workers.landing_worker import LandingWorker
 from lando.main.management.commands.start_worker import (
     Command as StartWorkerCommand,
 )
+from lando.workers.landing_worker import LandingWorker
 
 logger = logging.getLogger(__name__)
 

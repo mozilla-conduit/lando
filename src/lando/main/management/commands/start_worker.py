@@ -3,10 +3,10 @@ from argparse import ArgumentParser
 
 from django.core.management.base import BaseCommand, CommandError
 
-from lando.api.legacy.workers.base import Worker
-from lando.api.legacy.workers.landing_worker import LandingWorker
 from lando.main.models import Worker as WorkerModel
 from lando.main.scm import SCMType
+from lando.workers.base import Worker
+from lando.workers.landing_worker import LandingWorker
 
 logger = logging.getLogger(__name__)
 

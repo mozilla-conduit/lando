@@ -4,9 +4,9 @@ from unittest import mock
 
 import pytest
 
-from lando.api.legacy.workers.landing_worker import LandingWorker
 from lando.main.scm import SCMType
 from lando.main.scm.exceptions import SCMException
+from lando.workers.landing_worker import LandingWorker
 
 
 @pytest.mark.parametrize(

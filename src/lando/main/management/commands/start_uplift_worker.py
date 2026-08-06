@@ -4,10 +4,10 @@ from pathlib import Path
 
 from django.core.management.base import CommandError
 
-from lando.api.legacy.workers.uplift_worker import UpliftWorker
 from lando.main.management.commands.start_worker import (
     Command as StartWorkerCommand,
 )
+from lando.workers.uplift_worker import UpliftWorker
 
 logger = logging.getLogger(__name__)
 

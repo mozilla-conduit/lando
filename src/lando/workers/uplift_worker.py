@@ -10,7 +10,6 @@ from django.conf import settings
 from django.db import transaction
 from typing_extensions import override
 
-from lando.api.legacy.workers.base import Worker
 from lando.main.models import (
     JobAction,
     JobStatus,
@@ -33,6 +32,7 @@ from lando.utils.tasks import (
     send_uplift_success_email,
     set_uplift_request_form_on_revision,
 )
+from lando.workers.base import Worker
 
 logger = logging.getLogger(__name__)
 
@@ -376,9 +376,7 @@ class UpliftWorker(Worker):
         return secure_check.result()
 
     def create_try_diff_from_json(self) -> str:
-        try_config_path = (
-            settings.BASE_DIR / "api" / "legacy" / "workers" / "try_task_config.json"
-        )
+        try_config_path = settings.BASE_DIR / "workers" / "try_task_config.json"
         config_contents = try_config_path.read_text()
         config_lines = config_contents.splitlines()
         diff_header_lines = [

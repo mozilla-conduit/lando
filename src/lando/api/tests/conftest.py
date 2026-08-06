@@ -18,10 +18,6 @@ from lando.api.legacy.projects import (
     SEC_APPROVAL_PROJECT_SLUG,
     SEC_PROJ_SLUG,
 )
-from lando.api.legacy.workers.landing_worker import LandingWorker
-from lando.api.legacy.workers.uplift_worker import (
-    UpliftWorker,
-)
 from lando.main.models import JobStatus, Repo, Revision
 from lando.main.models.uplift import (
     RevisionUpliftJob,
@@ -31,6 +27,10 @@ from lando.main.models.uplift import (
 )
 from lando.main.scm import SCMType
 from lando.utils.phabricator import PhabricatorClient
+from lando.workers.landing_worker import LandingWorker
+from lando.workers.uplift_worker import (
+    UpliftWorker,
+)
 
 
 @pytest.fixture
@@ -138,11 +138,11 @@ def mock_uplift_email_tasks(monkeypatch):
     success_task = mock.MagicMock()
     failure_task = mock.MagicMock()
     monkeypatch.setattr(
-        "lando.api.legacy.workers.uplift_worker.send_uplift_success_email",
+        "lando.workers.uplift_worker.send_uplift_success_email",
         success_task,
     )
     monkeypatch.setattr(
-        "lando.api.legacy.workers.uplift_worker.send_uplift_failure_email",
+        "lando.workers.uplift_worker.send_uplift_failure_email",
         failure_task,
     )
     return success_task, failure_task

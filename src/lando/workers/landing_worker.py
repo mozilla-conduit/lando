@@ -16,7 +16,6 @@ from lando.api.legacy.notifications import (
 from lando.api.legacy.uplift import (
     update_bugs_for_uplift,
 )
-from lando.api.legacy.workers.base import Worker
 from lando.main.models import (
     AutoformatChange,
     JobAction,
@@ -43,6 +42,7 @@ from lando.utils.config import read_lando_config
 from lando.utils.github import GitHubAPIClient
 from lando.utils.landing_checks import LandingChecks
 from lando.utils.tasks import phab_trigger_repo_update
+from lando.workers.base import Worker
 
 logger = logging.getLogger(__name__)
 
