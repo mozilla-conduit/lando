@@ -47,8 +47,8 @@ from lando.try_api.api import (
 from lando.try_api.api import (
     legacy_api as legacy_try_api,
 )
-from lando.ui import jobs, pull_requests
-from lando.ui.legacy import pages, revisions, user_settings
+from lando.ui import jobs, pull_requests, views
+from lando.ui.legacy import revisions, user_settings
 from lando.utils.ninja_auth import api as auth_api
 
 urlpatterns = [
@@ -64,10 +64,8 @@ if settings.ENVIRONMENT.is_lower:
 
 
 urlpatterns += [
-    path("", pages.IndexView.as_view()),
-    path(
-        "D<int:revision_id>/", revisions.RevisionView.as_view(), name="revisions-page"
-    ),
+    path("", views.IndexView.as_view()),
+    path("D<int:revision_id>/", views.RevisionView.as_view(), name="revisions-page"),
     path(
         "pulls/<str:repo_name>/<int:number>/",
         pull_requests.PullRequestView.as_view(),
