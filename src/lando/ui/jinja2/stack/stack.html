@@ -104,15 +104,15 @@
             <div class="StackPage-landingPreview modal">
                 <div class="modal-background"></div>
                 <div class="modal-card">
-                    <header class="modal-card-head">
-                        <p class="modal-card-title">Preview landing</p>
-                        <button class="StackPage-landingPreview-close delete" aria-label="close"></button>
-                    </header>
-                    <section class="modal-card-body">
-                        {% include "stack/partials/landing-preview.html" %}
-                    </section>
-                    <footer class="modal-card-foot">
-                        <form class="StackPage-form" action="" method="post">
+                    <form class="StackPage-form" action="" method="post">
+                        <header class="modal-card-head">
+                            <p class="modal-card-title">Preview landing</p>
+                            <button class="StackPage-landingPreview-close delete" aria-label="close"></button>
+                        </header>
+                        <section class="modal-card-body">
+                            {% include "stack/partials/landing-preview.html" %}
+                        </section>
+                        <footer class="modal-card-foot">
                             {{ csrf_input }}
                             {{ form.landing_path }}
                             {{ form.confirmation_token }}
@@ -126,8 +126,8 @@
                                 {% if target_repo.is_git %}@{{ target_repo.default_branch }}{% endif %}
                             </button>
                             <button class="StackPage-landingPreview-close button">Cancel</button>
-                        </form>
-                    </footer>
+                        </footer>
+                    </form>
                 </div>
             </div>
         {% endif %}
