@@ -19,7 +19,7 @@ class Command(BaseCommand):
             "--cooldown",
             action=argparse.BooleanOptionalAction,
             default=True,
-            help="Whether to apply a cooldown an upgrades",
+            help="Only consider packages uploaded more than 7 days ago (default)",
         )
 
     def handle(self, *args, **options):
