@@ -6,7 +6,6 @@ import kombu
 from django.conf import settings
 from django.contrib.auth.models import User
 
-from lando.api.legacy.api.stacks import HTTP_404_STRING
 from lando.api.legacy.commit_message import format_commit_message
 from lando.api.legacy.projects import (
     CHECKIN_PROJ_SLUG,
@@ -47,6 +46,7 @@ from lando.api.legacy.validation import (
     parse_landing_path,
     revision_id_to_int,
 )
+from lando.api.phabricator import HTTP_404_STRING
 from lando.main.models import (
     JobStatus,
     LandingJob,

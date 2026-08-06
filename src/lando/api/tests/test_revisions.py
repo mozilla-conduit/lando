@@ -1,6 +1,5 @@
 import pytest
 
-from lando.api.legacy.api import stacks
 from lando.api.legacy.revisions import (
     blocker_diff_author_is_known,
     ensure_revisions_from_phabricator,
@@ -10,6 +9,7 @@ from lando.api.legacy.revisions import (
     revision_needs_testing_tag,
 )
 from lando.api.legacy.transplants import warning_diff_author_is_hackbot
+from lando.api.phabricator import get_revision_stack
 from lando.main.models.revision import Revision
 
 pytestmark = pytest.mark.usefixtures("docker_env_vars")
@@ -77,7 +77,7 @@ def test_secure_api_flag_on_public_revision_is_false(
     public_project = phabdouble.project("public")
     revision = phabdouble.revision(projects=[public_project], repo=repo)
 
-    result = stacks.get(phabdouble.get_phabricator_client(), revision["id"])
+    result = get_revision_stack(phabdouble.get_phabricator_client(), revision["id"])
     response_revision = result["revisions"].pop()
     assert not response_revision["is_secure"]
 
@@ -93,7 +93,7 @@ def test_secure_api_flag_on_secure_revision_is_true(
     repo = phabdouble.repo(name="test-repo")
     revision = phabdouble.revision(projects=[secure_project], repo=repo)
 
-    result = stacks.get(phabdouble.get_phabricator_client(), revision["id"])
+    result = get_revision_stack(phabdouble.get_phabricator_client(), revision["id"])
     response_revision = result["revisions"].pop()
     assert response_revision["is_secure"]
 

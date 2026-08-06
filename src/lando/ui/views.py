@@ -6,7 +6,7 @@ from django.template.response import TemplateResponse
 from django.utils.decorators import method_decorator
 from django.views import View
 
-from lando.api.legacy import api as legacy_api
+from lando.api.phabricator import get_revision_stack
 from lando.api.support import dryrun, get_stack_landing_jobs, submit_landing_job
 from lando.main.auth import force_auth_refresh, require_phabricator_api_key
 from lando.main.models import JobStatus, LandingJob, Profile, Repo
@@ -35,7 +35,7 @@ class RevisionView(LandoView):
         lando_user = request.user
 
         # This is added for backwards compatibility.
-        stack = legacy_api.stacks.get(phab, revision_id)
+        stack = get_revision_stack(phab, revision_id)
 
         form = TransplantRequestForm()
         errors = []
