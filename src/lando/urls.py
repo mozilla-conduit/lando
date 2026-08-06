@@ -39,7 +39,6 @@ from lando.try_api.api import (
     legacy_api as legacy_try_api,
 )
 from lando.ui import views as ui_views
-from lando.ui.legacy import user_settings
 from lando.utils.ninja_auth import api as auth_api
 
 urlpatterns = [
@@ -66,7 +65,7 @@ urlpatterns += [
         ui_views.pull_requests.PullRequestView.as_view(),
         name="pull-request",
     ),
-    path("manage_api_key/", user_settings.manage_api_key, name="user-settings"),
+    path("manage_api_key/", api_views.manage_api_key, name="user-settings"),
     path("uplift/", ui_views.revisions.UpliftRequestView.as_view(), name="uplift-page"),
     path(
         "uplift/request/",

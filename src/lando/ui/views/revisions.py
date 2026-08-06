@@ -31,7 +31,7 @@ from lando.ui.forms import (
     UpliftAssessmentLinkForm,
     UpliftRequestForm,
 )
-from lando.ui.legacy.stacks import Edge, draw_stack_graph, sort_stack_topological
+from lando.ui.stacks import Edge, draw_stack_graph, sort_stack_topological
 from lando.ui.uplift.context import UpliftContext
 from lando.ui.views.base import LandoView
 from lando.utils import treestatus
