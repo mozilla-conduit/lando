@@ -221,7 +221,7 @@ def get_reverted_pr(
     original_commit_hash: str,
     github_client: GitHubAPIClient,
 ) -> PullRequest | None:
-    """Return the PR number to comment on for one reverted commit, or `None` to skip it."""
+    """Return the PR to comment on for one reverted commit, or `None` to skip it."""
 
     pr_url_data = PullRequest.parse_pr_url(original_commit_message)
     if not pr_url_data:
