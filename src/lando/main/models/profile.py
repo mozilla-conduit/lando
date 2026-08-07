@@ -83,6 +83,9 @@ class Profile(CryptographyMixin, BaseModel):
         max_length=255, null=True, blank=True, unique=True
     )
 
+    def __str__(self) -> str:
+        return f"Profile for {self.user.email}"
+
     def _has_scm_permission_groups(self, codename: str, groups: list[str]) -> bool:
         """Return whether the group membership provides the correct permission.
 
