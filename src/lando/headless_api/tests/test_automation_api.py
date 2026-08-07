@@ -1902,6 +1902,20 @@ def test_automation_job_processing(automation_job):
     )
 
 
+MULTITRAILER_COMMIT_MESSAGE = """Bug 1234567 - do something
+
+This PR fixes a problem that was introduced in
+Pull request https://github.com/mozilla-conduit/test-repo/pull/12345
+
+Pull request: https://github.com/mozilla-conduit/test-repo/pull/98765"""
+
+MULTILINE_COMMIT_MESSAGE = """Bug 1234567 - do something
+
+Something something
+
+Pull request: https://github.com/mozilla-conduit/test-repo/pull/11111"""
+
+
 @pytest.mark.parametrize(
     "commit_message,expected",
     [
@@ -1916,8 +1930,32 @@ def test_automation_job_processing(automation_job):
         ),
         ("No pull request trailer here.", None),
         ("Pull request: https://wronghost.com/owner/repo/pull/1", None),
+        (
+            MULTITRAILER_COMMIT_MESSAGE,
+            {
+                "userinfo": None,
+                "owner": "mozilla-conduit",
+                "repo": "test-repo",
+                "number": "98765",
+            },
+        ),
+        (
+            MULTILINE_COMMIT_MESSAGE,
+            {
+                "userinfo": None,
+                "owner": "mozilla-conduit",
+                "repo": "test-repo",
+                "number": "11111",
+            },
+        ),
     ],
-    ids=["valid_https_trailer", "no_trailer", "wrong_host"],
+    ids=[
+        "valid_https_trailer",
+        "no_trailer",
+        "wrong_host",
+        "multiple_trailers",
+        "multiline_message",
+    ],
 )
 def test_parse_pr_url(commit_message, expected):
     """`parse_pr_url` extracts owner/repo/number from a PR trailer, or returns `None`."""
