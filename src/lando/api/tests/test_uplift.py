@@ -922,11 +922,11 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
             "Try-push job should bundle the uplift revisions and the config revision."
         )
 
-    try_revision = try_job.revisions.last()
+        try_revision = try_job.revisions.last()
 
-    assert config_json in try_revision.diff, (
-        "Try revision diff should contain the parsed `try_task_config.json` contents."
-    )
+        assert config_json in try_revision.diff, (
+            "Try revision diff should contain the parsed `try_task_config.json` contents."
+        )
 
     # Mock `moz-phab uplift` again with new created commits.
     monkeypatch.setattr(
