@@ -445,8 +445,6 @@ class PullRequest:
     PULL_REQUEST_RE = re.compile(
         rf"{PR_TRAILER_PREFIX}{GitHub.GITHUB_URL_RE.pattern}pull/(?P<number>\d+)$",
     )
-    # A group-free variant of `PULL_REQUEST_RE`, so `findall` yields whole trailers
-    # rather than tuples of groups.
     PR_TRAILER_RE = re.compile(rf"^{PR_TRAILER_PREFIX}.+$", flags=re.MULTILINE)
 
     class StaleMetadataException(Exception):
