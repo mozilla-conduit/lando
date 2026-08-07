@@ -445,6 +445,9 @@ class PullRequest:
     PULL_REQUEST_RE = re.compile(
         rf"{PR_TRAILER_PREFIX}{GitHub.GITHUB_URL_RE.pattern}pull/(?P<number>\d+)$",
     )
+    # A group-free variant of `PULL_REQUEST_RE`, so `findall` yields whole trailers
+    # rather than tuples of groups.
+    PR_TRAILER_RE = re.compile(rf"^{PR_TRAILER_PREFIX}.+$", flags=re.MULTILINE)
 
     class StaleMetadataException(Exception):
         pass
@@ -716,7 +719,10 @@ class PullRequest:
     @staticmethod
     def parse_pr_url(commit_message: str) -> dict | None:
         """Return the owner/repo/number from a commit's PR trailer, or `None`."""
-        pr_match = PullRequest.PULL_REQUEST_RE.search(commit_message)
+        pr_urls = PullRequest.PR_TRAILER_RE.findall(commit_message)
+        if not pr_urls:
+            return None
+        pr_match = PullRequest.PULL_REQUEST_RE.match(pr_urls[-1].strip())
         return pr_match.groupdict() if pr_match else None
 
     def add_comment(self, comment: str) -> dict:
