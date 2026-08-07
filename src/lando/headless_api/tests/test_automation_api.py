@@ -2028,7 +2028,7 @@ def make_pull_request(
 
 @mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
 @pytest.mark.django_db
-def test_automation_job_pipeline(
+def test_comment_on_reverted_pr_single_revert(
     github_api_client,
     client,
     git_repo_github_push_path,
@@ -2039,6 +2039,7 @@ def test_automation_job_pipeline(
     headless_user,
     create_git_commit,
 ):
+    """Test that a comment is added to a PR when it is reverted by an automation job."""
 
     user, token = headless_user
 
@@ -2113,7 +2114,7 @@ def test_automation_job_pipeline(
 
 @mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
 @pytest.mark.django_db
-def test_automation_job_pipeline_2_commits_reverted(
+def test_comment_on_reverted_prs_multiple_reverts_in_one_commit(
     github_api_client,
     client,
     git_repo_github_push_path,
@@ -2124,7 +2125,7 @@ def test_automation_job_pipeline_2_commits_reverted(
     headless_user,
     create_git_commit,
 ):
-
+    """Test that comments are added to multiple PRs when they are reverted by a single automation job."""
     user, token = headless_user
 
     repo = git_repo_github_push_path
@@ -2247,7 +2248,7 @@ def test_automation_job_pipeline_2_commits_reverted(
 
 @mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
 @pytest.mark.django_db
-def test_automation_job_pipeline_sandwiched_revert(
+def test_comment_on_reverted_pr_among_non_revert_commits(
     github_api_client,
     client,
     git_repo_github_push_path,
@@ -2258,7 +2259,7 @@ def test_automation_job_pipeline_sandwiched_revert(
     headless_user,
     create_git_commit,
 ):
-
+    """Test that a comment is added to a PR when it is reverted by an automation job, even if the revert commit is not the most recent commit."""
     user, token = headless_user
 
     repo = git_repo_github_push_path
