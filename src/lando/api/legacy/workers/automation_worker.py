@@ -200,19 +200,15 @@ def find_reverted_prs(
     github_client: GitHubAPIClient,
 ) -> list[PullRequest]:
     """Return PR numbers named in a revert commit that should be commented on."""
-    original_commit_hashes = revert_commit.reverted_commit_hashes()
-    reverted_prs = set()
-    for original_commit_hash in original_commit_hashes:
-        original_commit_message = scm.describe_commit(original_commit_hash).desc
-
-        pr = get_reverted_pr(
-            original_commit_message,
-            original_commit_hash,
-            github_client,
-        )
-        if pr:
-            reverted_prs.add(pr)
-    return list(reverted_prs)
+    original_commits = {
+        commit_hash: scm.describe_commit(commit_hash).desc
+        for commit_hash in revert_commit.reverted_commit_hashes()
+    }
+    reverted_prs = [
+        get_reverted_pr(commit_hash, commit_message, github_client)
+        for commit_hash, commit_message in original_commits.items()
+    ]
+    return [pr for pr in reverted_prs if pr]
 
 
 def get_reverted_pr(
