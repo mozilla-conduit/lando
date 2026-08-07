@@ -274,7 +274,7 @@ unavailable at the moment and is not broken.
 """
 
 
-def test_get_timestamp_from_date():
+def test_get_timestamp_from_git_date_header():
     assert (
         get_timestamp_from_git_date_header("Wed, 6 Jul 2022 16:36:09 -0400")
         == "1657139769"
