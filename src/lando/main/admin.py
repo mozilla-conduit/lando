@@ -3,6 +3,8 @@ from typing import Callable, Self, override
 
 from django import forms
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.models import User
 from django.db.models import Field as DbField
 from django.db.models import Model
 from django.forms import CheckboxSelectMultiple, MultipleChoiceField
@@ -16,6 +18,7 @@ from lando.main.models import (
     CommitMap,
     ConfigurationVariable,
     LandingJob,
+    Profile,
     Repo,
     Revision,
     RevisionLandingJob,
@@ -632,6 +635,26 @@ class UpliftSubmissionAdmin(admin.ModelAdmin):
         return instance.uplift_jobs.count()
 
 
+class ProfileInline(admin.TabularInline):
+    model = Profile
+    readonly_fields = (
+        "pk",
+        "userinfo",
+        "phabricator_phid",
+        "phabricator_api_key_is_set",
+    )
+
+    @staticmethod
+    def phabricator_api_key_is_set(instance: Profile) -> bool:
+        """Return True if phabricator_api_key is set."""
+        return bool(instance.phabricator_api_key)
+
+
+class UserAdmin(UserAdmin):
+    model = User
+    inlines = (ProfileInline,)
+
+
 admin.site.register(Repo, RepoAdmin)
 admin.site.register(LandingJob, LandingJobAdmin)
 admin.site.register(UpliftJob, UpliftJobAdmin)
@@ -643,3 +666,6 @@ admin.site.register(ConfigurationVariable, ConfigurationVariableAdmin)
 admin.site.register(UpliftAssessment, UpliftAssessmentAdmin)
 admin.site.register(UpliftRevision, UpliftRevisionAdmin)
 admin.site.register(UpliftSubmission, UpliftSubmissionAdmin)
+admin.site.register(Profile, admin.ModelAdmin)
+admin.site.unregister(User)
+admin.site.register(User, UserAdmin)
