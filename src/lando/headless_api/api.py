@@ -63,6 +63,11 @@ class HeadlessAPIAuthentication(HttpBearer):
         try:
             api_key = ApiToken.verify_token(token)
         except ValueError:
+            # Shorten the token so we don't show it all.
+            prefix_length = 8
+            if (tl := len(token)) <= prefix_length:
+                prefix_length = tl // 2
+            logger.debug("Invalid headless token f{token[:l]}")
             # Allow subsequent authentication methods to be tested.
             return None
 
