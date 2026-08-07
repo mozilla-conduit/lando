@@ -1,6 +1,7 @@
 import base64
 import datetime
 import json
+import re
 import secrets
 import subprocess
 import time
@@ -2026,6 +2027,26 @@ def make_pull_request(
     return pull_request
 
 
+def assert_reverted_pr_comment(pull_request: mock.MagicMock, pr_number: int) -> str:
+    """Assert one "has been reverted" comment was posted, and return the commit hash.
+
+    """
+    pull_request.add_comment.assert_called_once()
+
+    (comment,) = pull_request.add_comment.call_args.args
+    match = re.fullmatch(
+        rf"This pull request \(#{pr_number}\) has been reverted "
+        rf"by commit ([0-9a-f]{{40}})\.",
+        comment,
+    )
+    assert match, (
+        f"Comment on PR #{pr_number} should name the PR and the reverting commit, "
+        f"got: {comment!r}"
+    )
+
+    return match.group(1)
+
+
 @mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
 @pytest.mark.django_db
 def test_comment_on_reverted_pr_single_revert(
@@ -2107,9 +2128,7 @@ def test_comment_on_reverted_pr_single_revert(
     job.refresh_from_db()
     assert job.status == JobStatus.LANDED, f"Job failed with error: {job.error}"
 
-    mock_pr.add_comment.assert_called_once()
-
-    print(mock_pr.add_comment.call_args_list)
+    assert_reverted_pr_comment(mock_pr, pr_number=1)
 
 
 @mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
@@ -2239,11 +2258,12 @@ def test_comment_on_reverted_prs_multiple_reverts_in_one_commit(
     job.refresh_from_db()
     assert job.status == JobStatus.LANDED, f"Job failed with error: {job.error}"
 
-    pr_1.add_comment.assert_called_once()
-    pr_2.add_comment.assert_called_once()
+    pr_1_revert_hash = assert_reverted_pr_comment(pr_1, pr_number=1)
+    pr_2_revert_hash = assert_reverted_pr_comment(pr_2, pr_number=2)
 
-    print(pr_1.add_comment.call_args_list)
-    print(pr_2.add_comment.call_args_list)
+    assert pr_1_revert_hash == pr_2_revert_hash, (
+        "Both PRs were reverted by the same commit, so both comments should name it."
+    )
 
 
 @mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
@@ -2359,6 +2379,6 @@ def test_comment_on_reverted_pr_among_non_revert_commits(
     job.refresh_from_db()
     assert job.status == JobStatus.LANDED, f"Job failed with error: {job.error}"
 
-    mock_pr.add_comment.assert_called_once()
-
-    print(mock_pr.add_comment.call_args_list)
+    # Only the reverted PR is commented on; the two surrounding non-revert commits
+    # are ignored.
+    assert_reverted_pr_comment(mock_pr, pr_number=1)
