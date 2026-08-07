@@ -182,10 +182,9 @@ class AutomationWorker(Worker):
         revert_commits = CommitData.find_revert_commits(new_commits)
         if revert_commits:
             github_client = GitHubAPIClient(repo.push_path)
-            for commit in revert_commits:
-                pull_requests = find_reverted_prs(commit, scm, github_client)
-                if pull_requests:
-                    comment_on_reverted_prs(pull_requests, commit.hash)
+            reverts = {commit.hash: find_reverted_prs(commit, scm, github_client) for commit in revert_commits}
+            for commit_hash, pull_requests in reverts:
+                comment_on_reverted_prs(pull_requests, commit_hash)
 
         # Trigger update of repo in Phabricator so patches are closed quicker.
         # Especially useful on low-traffic repositories.
