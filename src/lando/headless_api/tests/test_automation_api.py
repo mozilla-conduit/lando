@@ -2017,14 +2017,6 @@ def test_is_revert_commit(description, is_revert, make_scm_commit):
     )
 
 
-def make_pull_request(
-    head_ref: str = "main", title: str = "Bug 1234 - add a line"
-) -> mock.MagicMock:
-    """Build a stand-in pull request exposing the attributes `get_pr_errors` reads."""
-    pull_request = mock.MagicMock()
-    pull_request.head_ref = head_ref
-    pull_request.title = title
-    return pull_request
 
 
 def assert_reverted_pr_comment(pull_request: mock.MagicMock, pr_number: int) -> str:
