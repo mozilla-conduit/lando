@@ -1,4 +1,5 @@
 import base64
+import itertools
 import json
 from typing import Callable
 from unittest.mock import MagicMock, Mock
@@ -116,13 +117,8 @@ def test_try_api_patches_invalid_user(
 
 @pytest.mark.django_db()
 @pytest.mark.parametrize(
-    "group_scm_1,superuser",
-    (
-        (False, False),
-        (False, True),
-        (True, False),
-        (True, True),
-    ),
+    "group_scm_1,superuser,auth_type",
+    itertools.product((False, True), (False, True), ("oauth", "headless")),
 )
 def test_try_api_patches_no_scm1(
     mock_authenticate_builder: Callable,
@@ -132,6 +128,7 @@ def test_try_api_patches_no_scm1(
     make_superuser: Callable,
     group_scm_1: bool,
     superuser: bool,
+    auth_type: str,
 ):
     if group_scm_1:
         user = scm_user(
@@ -145,14 +142,19 @@ def test_try_api_patches_no_scm1(
     if superuser:
         user = make_superuser(user)
 
-    mock_authenticate = mock_authenticate_builder(user)
+    token = "token no_scm1"
+    if auth_type == "oauth":
+        mock_authenticate = mock_authenticate_builder(user)
+    elif auth_type == "headless":
+        token = ApiToken.create_token(user)
 
     response = client_post(
         "/api/try/patches",
-        headers={"AuThOrIzAtIoN": "bEaReR token no_scm1"},
+        headers={"AuThOrIzAtIoN": f"bEaReR {token}"},
     )
 
-    assert mock_authenticate.called, "Authentication backend should be called"
+    if auth_type == "auth0":
+        assert mock_authenticate.called, "Authentication backend should be called"
 
     assert response.status_code == 403, (
         "Missing permissions to Try API should result in 403"
@@ -333,6 +335,7 @@ def test_try_api_patches_failed_checks(
 
 
 @pytest.mark.django_db()
+@pytest.mark.parametrize("auth_type", ("oauth", "headless"))
 def test_try_api_patches_success(
     mock_authenticate_builder: Callable,
     mocked_repo_config_try: Mock,
@@ -340,10 +343,17 @@ def test_try_api_patches_success(
     commit_maps: list[CommitMap],
     git_patch: Callable,
     client_post: Callable,
+    auth_type: str,
 ):
     user = scm_user([Permission.objects.get(codename="scm_level_1")], "password")
 
-    mock_authenticate = mock_authenticate_builder(user)
+    token = "token success"
+    if auth_type == "oauth":
+        mock_authenticate = mock_authenticate_builder(user)
+    elif auth_type == "headless":
+        token = ApiToken.create_token(user)
+    else:
+        raise ValueError(f"Unknown {auth_type=}")
 
     for map in commit_maps:
         # This is hardcoded for now.
@@ -364,10 +374,11 @@ def test_try_api_patches_success(
     response = client_post(
         "/api/try/patches",
         data=json.dumps(request_payload),
-        headers={"AuThOrIzAtIoN": "bEaReR token success"},
+        headers={"AuThOrIzAtIoN": f"bEaReR {token}"},
     )
 
-    assert mock_authenticate.called, "Authentication backend should be called"
+    if auth_type == "auth0":
+        assert mock_authenticate.called, "Authentication backend should be called"
     assert response.status_code == 201, (
         f"Valid request to Try API should result in 201: {response.text}"
     )
@@ -411,116 +422,9 @@ def test_try_api_patches_m2m_auth_invalid_token(
     mock_authenticate.return_value = None
 
     response = client_post(
-        "/try/patches",
+        "/api/try/patches",
         headers={"AuThOrIzAtIoN": f"bEaReR {token}-ish"},
     )
 
     assert mock_authenticate.called, "Authentication backend should be called"
     assert response.status_code == 401, "Invalid token to Try API should result in 401"
-
-
-@pytest.mark.django_db()
-@pytest.mark.parametrize(
-    "group_scm_1,superuser",
-    (
-        (False, False),
-        (False, True),
-        (True, False),
-        (True, True),
-    ),
-)
-def test_try_api_patches_m2m_auth_no_scm1(
-    mocked_repo_config_try: Mock,
-    scm_user: Callable,
-    client_post: Callable,
-    make_superuser: Callable,
-    group_scm_1: bool,
-    superuser: bool,
-):
-    if group_scm_1:
-        user = scm_user(
-            [],
-            "password",
-            [Permission.objects.get(codename="scm_level_1")],
-        )
-    else:
-        user = scm_user([], "password")
-
-    if superuser:
-        user = make_superuser(user)
-
-    token = ApiToken.create_token(user)
-
-    response = client_post(
-        "/api/try/patches",
-        headers={"AuThOrIzAtIoN": f"bEaReR {token}"},
-    )
-
-    assert response.status_code == 403, (
-        "Missing permissions to Try API should result in 403"
-    )
-
-    rj = response.json()
-    assert rj, "Error response should be a parseable (RFC 7807) JSON payload"
-    assert "title" in rj, f"Missing title in error 400 response: {response.text}"
-    assert rj["title"] == "Forbidden"
-    assert "detail" in rj, f"Missing detail in error 400 response: {response.text}"
-    assert rj["detail"] == "Missing permissions: main.scm_level_1"
-
-
-@pytest.mark.django_db()
-def test_try_api_patches_m2m_auth_success(
-    mocked_repo_config_try: Mock,
-    scm_user: Callable,
-    commit_maps: list[CommitMap],
-    git_patch: Callable,
-    client_post: Callable,
-):
-    user = scm_user([Permission.objects.get(codename="scm_level_1")], "password")
-    token = ApiToken.create_token(user)
-
-    for map in commit_maps:
-        # This is hardcoded for now.
-        map.git_repo_name = "firefox"
-        map.save()
-
-    request_payload = {
-        # "repo": "some",  # defaults to try, from the mocked_repo_config
-        "base_commit": commit_maps[0].git_hash,
-        "base_commit_vcs": "git",
-        "patches": [
-            base64.b64encode(git_patch(0).encode()).decode(),
-            base64.b64encode(git_patch(1).encode()).decode(),
-        ],
-        "patch_format": "git-format-patch",
-    }
-
-    response = client_post(
-        "/api/try/patches",
-        data=json.dumps(request_payload),
-        headers={"AuThOrIzAtIoN": f"bEaReR {token}"},
-    )
-
-    assert response.status_code == 201, (
-        f"Valid request to Try API should result in 201: {response.text}"
-    )
-
-    rj = response.json()
-    assert "id" in rj, "Missing job id in success response"
-
-    job = LandingJob.objects.get(id=rj["id"])
-
-    assert job, "Try LandingJob should have been created"
-    assert job.status == JobStatus.SUBMITTED, "Try LandingJob not in the expected state"
-    assert job.target_repo == Repo.objects.get(name="try"), (
-        "Try LandingJob not against the Try repo"
-    )
-    assert job.requester_email == user.email, (
-        "Try LandingJob request email not as expected"
-    )
-    assert len(job.revisions) == 2, (
-        "Unexpected number of revisions associated to Try LandingJob"
-    )
-    assert job.target_commit_hash == commit_maps[0].hg_hash, (
-        "Target commit hash not correctly converted"
-    )
