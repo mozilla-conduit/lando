@@ -2221,6 +2221,21 @@ def test_is_revert_commit(description, is_revert, make_scm_commit):
     )
 
 
+@pytest.fixture
+def mock_pull_request() -> Callable:
+    """Build a mock pull request."""
+
+    def mock_pull_request(
+        number: int, title: str, body: str = "", head_ref: str = "main"
+    ) -> mock.MagicMock:
+        pull_request = mock.MagicMock()
+        pull_request.number = number
+        pull_request.title = title
+        pull_request.body = body
+        pull_request.head_ref = head_ref
+        return pull_request
+
+    return mock_pull_request
 
 
 def assert_reverted_pr_comment(pull_request: mock.MagicMock, pr_number: int) -> str:
@@ -2255,6 +2270,7 @@ def test_comment_on_reverted_pr_single_revert(
     automation_job,
     headless_user,
     create_git_commit,
+    mock_pull_request,
 ):
     """Test that a comment is added to a PR when it is reverted by an automation job."""
 
@@ -2264,11 +2280,9 @@ def test_comment_on_reverted_pr_single_revert(
     seed_dir = repo.pull_path
 
     mock_github_api_client = mock.MagicMock()
-    mock_pr = mock.MagicMock()
-    mock_pr.head_ref = "main"
-    mock_pr.title = "Bug 1234 - add a line"
-    mock_pr.body = "test description"
-    mock_pr.number = 1
+    mock_pr = mock_pull_request(
+        number=1, title="Bug 1234 - add a line", body="test description"
+    )
     mock_github_api_client.build_pull_request.return_value = mock_pr
     mock_github_api_client.repo_owner = "mozilla-conduit"
     mock_github_api_client.repo_name = "test-repo"
@@ -2339,6 +2353,7 @@ def test_comment_on_reverted_prs_multiple_reverts_in_one_commit(
     automation_job,
     headless_user,
     create_git_commit,
+    mock_pull_request,
 ):
     """Test that comments are added to multiple PRs when they are reverted by a single automation job."""
     user, token = headless_user
@@ -2348,17 +2363,10 @@ def test_comment_on_reverted_prs_multiple_reverts_in_one_commit(
     seed_dir = repo.pull_path
 
     mock_github_api_client = mock.MagicMock()
-    pr_1 = mock.MagicMock()
-    pr_1.head_ref = "main"
-    pr_1.title = "Bug 1234 - add a line"
-    pr_1.body = "test description"
-    pr_1.number = 1
-
-    pr_2 = mock.MagicMock()
-    pr_2.head_ref = "main"
-    pr_2.title = "Bug 5678 - add another line"
-    pr_2.body = ""
-    pr_2.number = 2
+    pr_1 = mock_pull_request(
+        number=1, title="Bug 1234 - add a line", body="test description"
+    )
+    pr_2 = mock_pull_request(number=2, title="Bug 5678 - add another line")
 
     prs_by_number = {"1": pr_1, "2": pr_2}
     mock_github_api_client.build_pull_request.side_effect = lambda pr_number: (
@@ -2474,6 +2482,7 @@ def test_comment_on_reverted_pr_among_non_revert_commits(
     automation_job,
     headless_user,
     create_git_commit,
+    mock_pull_request,
 ):
     """Test that a comment is added to a PR when it is reverted by an automation job, even if the revert commit is not the most recent commit."""
     user, token = headless_user
@@ -2482,11 +2491,9 @@ def test_comment_on_reverted_pr_among_non_revert_commits(
     seed_dir = repo.pull_path
 
     mock_github_api_client = mock.MagicMock()
-    mock_pr = mock.MagicMock()
-    mock_pr.head_ref = "main"
-    mock_pr.title = "Bug 1234 - add a line"
-    mock_pr.body = "test description"
-    mock_pr.number = 1
+    mock_pr = mock_pull_request(
+        number=1, title="Bug 1234 - add a line", body="test description"
+    )
     mock_github_api_client.build_pull_request.return_value = mock_pr
     mock_github_api_client.repo_owner = "mozilla-conduit"
     mock_github_api_client.repo_name = "test-repo"
