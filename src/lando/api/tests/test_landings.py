@@ -30,7 +30,7 @@ from lando.main.models.configuration import (
 )
 from lando.main.models.jobs import DEFAULT_MAX_JOB_ATTEMPTS
 from lando.main.scm import SCMType
-from lando.main.scm.exceptions import SCMInternalServerError
+from lando.main.scm.exceptions import SCMInternalServerError, TreeApprovalRequired
 from lando.main.scm.git import GitSCM
 from lando.main.scm.helpers import HgPatchHelper
 from lando.main.scm.hg import LostPushRace
@@ -749,8 +749,15 @@ def test_aborted_job_notifies_requester(
     worker.worker_instance.applicable_repos.add(repo)
     worker.refresh_active_repos()
 
-    for _attempt in range(2):
-        worker.loop()
+    worker.start(max_loops=1)
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.DEFERRED, (
+        "Job should be deferred while it has attempts left."
+    )
+    assert not mail.outbox, "No notification should be sent before the abort."
+
+    worker.start(max_loops=1)
 
     job.refresh_from_db()
     assert job.status == JobStatus.ABORTED, (
@@ -789,6 +796,9 @@ def test_closed_tree_deferrals_do_not_abort_job(
         target_repo=repo,
     )
 
+    # `run_job` is called directly, as the worker loop never picks a job up for a
+    # closed tree. See `test_non_abortable_failures_do_not_abort_job` for a
+    # non-abortable deferral through the full worker flow.
     worker = get_landing_worker(SCMType.GIT)
     for _attempt in range(DEFAULT_MAX_JOB_ATTEMPTS + 1):
         # Stop early on an abort, so the next run cannot defer the job back.
@@ -803,6 +813,52 @@ def test_closed_tree_deferrals_do_not_abort_job(
     assert job.attempts == 0, (
         "Attempts deferred for a closed tree should be given back."
     )
+
+
+@pytest.mark.django_db
+def test_non_abortable_failures_do_not_abort_job(
+    monkeypatch: pytest.MonkeyPatch,
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    create_patch_revision: Callable,
+    make_landing_job: Callable,
+    get_landing_worker: Callable,
+):
+    """Bug 2021999: a push failure that resolves on its own is retried indefinitely."""
+    repo = repo_mc(SCMType.GIT)
+    treestatusdouble.open_tree(repo.name)
+
+    job = make_landing_job(
+        revisions=[create_patch_revision(1)],
+        status=JobStatus.SUBMITTED,
+        requester_email="test@example.com",
+        target_repo=repo,
+    )
+
+    # The worker loop fetches its own `Repo` instance, so mock the SCM class.
+    monkeypatch.setattr(
+        GitSCM,
+        "push",
+        mock.MagicMock(side_effect=TreeApprovalRequired("approval required", "")),
+    )
+
+    worker = get_landing_worker(SCMType.GIT)
+    worker.worker_instance.applicable_repos.add(repo)
+    worker.refresh_active_repos()
+
+    worker.start(max_loops=DEFAULT_MAX_JOB_ATTEMPTS + 1)
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.DEFERRED, (
+        "A job deferred for a non-abortable failure should never be aborted."
+    )
+    assert job.attempts == 0, (
+        "Attempts deferred for a non-abortable failure should be given back."
+    )
+    assert "approval required" in job.error, (
+        "The job should have been deferred for the mocked push failure."
+    )
+    assert not mail.outbox, "No abort notification should be sent to the requester."
 
 
 @pytest.mark.parametrize(
