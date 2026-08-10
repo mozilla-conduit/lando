@@ -2089,9 +2089,7 @@ def test_comment_on_reverted_pr_single_revert(
     create_git_commit(Path(seed_dir), message=commit_message)
 
     generate_revert_commits(Path(seed_dir), repo.scm.head_ref())
-    revert_patch = generate_revert_patch(Path(seed_dir), repo.scm.head_ref(), 1)
-
-    patch_b64 = base64.b64encode(revert_patch).decode("ascii")
+    patch_b64 = generate_revert_patch(Path(seed_dir), repo.scm.head_ref(), 1)
 
     response = client.post(
         f"/api/repo/{repo.name}",
@@ -2178,9 +2176,7 @@ def test_comment_on_reverted_prs_multiple_reverts_in_one_commit(
     generate_revert_commits(Path(seed_dir), "HEAD~2..HEAD")
     squash_commits(Path(seed_dir))
 
-    revert_patch = generate_revert_patch(Path(seed_dir), "HEAD~1", 1)
-
-    patch_b64 = base64.b64encode(revert_patch).decode("ascii")
+    patch_b64 = generate_revert_patch(Path(seed_dir), "HEAD~1", 1)
 
     response = client.post(
         f"/api/repo/{repo.name}",
@@ -2280,9 +2276,7 @@ def test_comment_on_reverted_pr_among_non_revert_commits(
         content="added line to pr 3\n",
     )
 
-    revert_patch = generate_revert_patch(Path(seed_dir), original_sha, 3)
-
-    patch_b64 = base64.b64encode(revert_patch).decode("ascii")
+    patch_b64 = generate_revert_patch(Path(seed_dir), original_sha, 3)
 
     response = client.post(
         f"/api/repo/{repo.name}",
@@ -2337,7 +2331,7 @@ def generate_revert_patch(repo_path: Path, commit_hash: str, num_commits: int) -
         check=True,
         cwd=repo_path,
     )
-    return revert_patch
+    return base64.b64encode(revert_patch).decode("ascii")
 
 def squash_commits(seed_dir: Path):
     combined_message = subprocess.run(
