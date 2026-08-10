@@ -666,7 +666,7 @@ def test__views__landing_job_pull_request_view__status(
     job_status,
     expected_status,
 ):
-    """Bug 2021999: every terminal job status is reported for the pull request."""
+    """Every job status is reported for the pull request."""
     repo = repo_mc(SCMType.GIT)
     github_api_client.return_value = repo_mc_github_api_client
 
