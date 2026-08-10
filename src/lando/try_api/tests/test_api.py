@@ -142,19 +142,19 @@ def test_try_api_patches_no_scm1(
     if superuser:
         user = make_superuser(user)
 
-    token = "token no_scm1"
-    if auth_type == "oauth":
-        mock_authenticate = mock_authenticate_builder(user)
-    elif auth_type == "headless":
+    token = f"token no_scm1 {auth_type}"
+    mock_authenticate = mock_authenticate_builder(user)
+    if auth_type == "headless":
         token = ApiToken.create_token(user)
+    elif auth_type != "oauth":
+        raise ValueError(f"Unknown {auth_type=}")
 
     response = client_post(
         "/api/try/patches",
         headers={"AuThOrIzAtIoN": f"bEaReR {token}"},
     )
 
-    if auth_type == "auth0":
-        assert mock_authenticate.called, "Authentication backend should be called"
+    assert mock_authenticate.called, "Authentication backend should be called"
 
     assert response.status_code == 403, (
         "Missing permissions to Try API should result in 403"
@@ -347,12 +347,11 @@ def test_try_api_patches_success(
 ):
     user = scm_user([Permission.objects.get(codename="scm_level_1")], "password")
 
-    token = "token success"
-    if auth_type == "oauth":
-        mock_authenticate = mock_authenticate_builder(user)
-    elif auth_type == "headless":
+    token = f"token success {auth_type}"
+    mock_authenticate = mock_authenticate_builder(user)
+    if auth_type == "headless":
         token = ApiToken.create_token(user)
-    else:
+    elif auth_type != "oauth":
         raise ValueError(f"Unknown {auth_type=}")
 
     for map in commit_maps:
@@ -377,8 +376,7 @@ def test_try_api_patches_success(
         headers={"AuThOrIzAtIoN": f"bEaReR {token}"},
     )
 
-    if auth_type == "auth0":
-        assert mock_authenticate.called, "Authentication backend should be called"
+    assert mock_authenticate.called, "OAuth authentication backend should be called"
     assert response.status_code == 201, (
         f"Valid request to Try API should result in 201: {response.text}"
     )
@@ -419,7 +417,6 @@ def test_try_api_patches_m2m_auth_invalid_token(
     token = ApiToken.create_token(user)
 
     mock_authenticate = mock_authenticate_builder(None)
-    mock_authenticate.return_value = None
 
     response = client_post(
         "/api/try/patches",
