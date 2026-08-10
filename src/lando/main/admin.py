@@ -616,7 +616,9 @@ class ProfileInline(admin.TabularInline):
         return bool(instance.phabricator_api_key)
 
 
-class UserAdmin(UserAdmin):
+class CustomUserAdmin(UserAdmin):
+    """Customize the default UserAdmin by adding a Profile tabular inline."""
+
     model = User
     inlines = (ProfileInline,)
 
@@ -634,4 +636,4 @@ admin.site.register(UpliftRevision, UpliftRevisionAdmin)
 admin.site.register(UpliftSubmission, UpliftSubmissionAdmin)
 admin.site.register(Profile, admin.ModelAdmin)
 admin.site.unregister(User)
-admin.site.register(User, UserAdmin)
+admin.site.register(User, CustomUserAdmin)
