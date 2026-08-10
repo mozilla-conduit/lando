@@ -786,8 +786,7 @@ class PatchCollectionAssessor:
 
         # Collect the result of the push-wide checks.
         for check in checks:
-            if check_issues := check.result():
-                issues.extend(check_issues)
+            issues.extend(check.result())
 
         return issues
 
