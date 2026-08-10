@@ -2253,8 +2253,14 @@ def test_comment_on_reverted_pr_among_non_revert_commits(
         name="test.txt",
         content="added line\n",
     )
-
-    original_sha = repo.scm.head_ref()
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=seed_dir,
+    )
+    original_sha = result.stdout.strip()
 
     commit_message_2 = "\n\nBug 5678 - add another line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/2\n\n\n"
     create_git_commit(
