@@ -30,7 +30,7 @@ class LandingJob(BaseJob):
 
     type: str = "Landing"
 
-    url_name: str = "jobs-page"
+    view_name: str = "jobs-page"
 
     # revision_to_diff_id and revision_order are deprecated and kept for historical reasons.
     revision_to_diff_id = models.JSONField(null=True, blank=True, default=dict)

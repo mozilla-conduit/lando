@@ -198,7 +198,7 @@ class UpliftJob(BaseJob):
 
     type: str = "Uplift"
 
-    url_name: str = "uplift-jobs-page"
+    view_name: str = "uplift-jobs-page"
 
     # Phabricator uplift revision IDs as an ordered list of integers.
     # Example: If D1->D2->D3 is requested for uplift to beta, which

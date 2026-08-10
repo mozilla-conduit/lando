@@ -139,16 +139,20 @@ class BaseJob(BaseModel):
     # To be overridden by subclasses.
     type: str = "undefined"
 
-    # Name of the URL pattern which displays the details of this type of job.
+    # Name of the view which displays the details of this type of job.
     # To be overridden by subclasses.
-    url_name: str = ""
+    view_name: str = ""
 
     def __str__(self) -> str:
         return f"{self.__class__.__name__} {self.id} [{self.status}]"
 
+    def path(self) -> str:
+        """Return the path of the details page for this job."""
+        return reverse(self.view_name, args=[self.id])
+
     def url(self) -> str:
         """Return a URL for this job."""
-        return urljoin(settings.SITE_URL, reverse(self.url_name, args=[self.id]))
+        return urljoin(settings.SITE_URL, self.path())
 
     # Current status of the job.
     status = models.CharField(

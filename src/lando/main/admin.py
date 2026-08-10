@@ -12,6 +12,7 @@ from django.utils.translation import gettext_lazy
 
 from lando.main.models import (
     AutoformatChange,
+    BaseJob,
     CommitMap,
     ConfigurationVariable,
     LandingJob,
@@ -138,9 +139,8 @@ class JobAdmin(admin.ModelAdmin):
     )
     search_fields = ("requester_email", "landed_commit_id")
 
-    def view_on_site(self, instance: LandingJob) -> str:
-        url = reverse("jobs-page", kwargs={"job_id": instance.id})
-        return url
+    def view_on_site(self, instance: BaseJob) -> str:
+        return instance.path()
 
 
 class LandingJobAdmin(JobAdmin):
