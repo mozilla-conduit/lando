@@ -543,6 +543,7 @@ def test_PullRequestPatchHelper(github_api_client_pr: mock.Mock):
     pr_patch_helper = PullRequestPatchHelper(pr)
 
     expected_commit_title = "WIP: test pull request with multiple commits"
+    expected_full_commit_message = f"{expected_commit_title}\n\ntest description"
 
     assert pr_patch_helper.get_commit_title() == expected_commit_title
     assert pr_patch_helper.get_timestamp() == "1761017419"
