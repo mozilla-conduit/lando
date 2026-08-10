@@ -551,10 +551,9 @@ def test_PullRequestPatchHelper(github_api_client_pr: mock.Mock):
         "Olivier Mehani",
         "omehani@mozilla.com",
     )
-    assert (
-        pr_patch_helper.get_commit_description()
-        == expected_full_commit_message
-    ), "Commit description should be the full commit message"
+    assert pr_patch_helper.get_commit_description() == expected_full_commit_message, (
+        "Commit description should be the full commit message"
+    )
 
     pr_patch_helper._pr.commit_body = ""
     assert pr_patch_helper.get_commit_description() == expected_commit_title, (
