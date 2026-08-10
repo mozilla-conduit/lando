@@ -553,7 +553,7 @@ def test_PullRequestPatchHelper(github_api_client_pr: mock.Mock):
     )
     assert (
         pr_patch_helper.get_commit_description()
-        == f"{expected_commit_title}\n\ntest description"
+        == expected_full_commit_message
     ), "Commit description should be the full commit message"
 
     pr_patch_helper._pr.commit_body = ""
