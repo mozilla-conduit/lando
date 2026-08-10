@@ -1232,13 +1232,16 @@ def scm_user() -> Callable:
         group_perms: list[Permission] | None = None,
     ) -> User:
         """Return a user with the selected Permissions and password."""
+        email = "testuser@example.org"
         user = User.objects.create_user(
             username="test_user",
             password=password,
-            email="testuser@example.org",
+            email=email,
         )
 
-        user.profile = Profile(user=user, userinfo={"name": "test user"})
+        user.profile = Profile(
+            user=user, userinfo={"name": "test user", "email": email}
+        )
 
         for permission in perms:
             user.user_permissions.add(permission)
@@ -1315,6 +1318,14 @@ def headless_user(user, direct_push_permission) -> tuple[User, str]:
 @pytest.fixture
 def needs_data_classification_project(phabdouble):
     return phabdouble.project(NEEDS_DATA_CLASSIFICATION_SLUG)
+
+
+@pytest.fixture
+def release_management_project(phabdouble):
+    return phabdouble.project(
+        RELMAN_PROJECT_SLUG,
+        attachments={"members": {"members": [{"phid": "PHID-USER-1"}]}},
+    )
 
 
 @pytest.fixture
@@ -1744,3 +1755,9 @@ def pull_request_data(update_dict) -> Callable:
         return data
 
     return _pull_request_data
+
+
+@pytest.fixture
+def authenticated_client(user, user_plaintext_password, client):
+    client.login(username=user.username, password=user_plaintext_password)
+    return client

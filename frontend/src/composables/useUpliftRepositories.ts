@@ -13,9 +13,6 @@ export interface UpliftRepositories {
      * @param managed - The repositories the widget is allowed to change.
      */
     applyManaged(reposToCheck: string[], managed: string[]): void;
-
-    /** Show or hide the entire server-rendered checkbox field. */
-    setFieldVisible(visible: boolean): void;
 }
 
 /**
@@ -79,17 +76,6 @@ export function useUpliftRepositories(
         syncCheckedRepos();
     }
 
-    /**
-     * Show or hide the entire server-rendered checkbox field, leaving the inputs in place
-     * so they still submit with the form. Uses Bulma's `is-hidden` helper rather
-     * than an inline style.
-     */
-    function setFieldVisible(visible: boolean): void {
-        if (fieldElement) {
-            fieldElement.classList.toggle("is-hidden", !visible);
-        }
-    }
-
     onMounted(() => {
         repoInputs().forEach((input) => {
             input.addEventListener("change", syncCheckedRepos);
@@ -103,5 +89,5 @@ export function useUpliftRepositories(
         });
     });
 
-    return { checkedRepos, applyManaged, setFieldVisible };
+    return { checkedRepos, applyManaged };
 }

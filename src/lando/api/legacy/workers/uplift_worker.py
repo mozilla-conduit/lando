@@ -27,6 +27,7 @@ from lando.main.scm import GitSCM
 from lando.main.scm.commit import CommitData
 from lando.main.scm.helpers import PatchHelper
 from lando.try_api.api import get_commit_hash, get_commit_map
+from lando.utils.landing_checks import BugReferencesCheck
 from lando.utils.tasks import (
     send_uplift_failure_email,
     send_uplift_success_email,
@@ -166,12 +167,12 @@ class UpliftWorker(Worker):
         # `LANDED` is the same as "success".
         job.status = JobStatus.LANDED
         job.save()
-
         if ConfigurationVariable.get(ConfigurationKey.UPLIFT_TRY_ENABLED, True):
             try:
                 try_job = self.create_uplift_try_push(
                     base_revision, repo.scm_type, job, scm, new_commits
                 )
+
             except Exception:
                 logger.exception(
                     "Failed to create try push for uplift job.",
@@ -317,6 +318,11 @@ class UpliftWorker(Worker):
         new_commits: Iterable[CommitData],
     ) -> LandingJob:
         """Create a Try `LandingJob` for the commits landed by an uplift job."""
+        patch_helpers = list(scm.get_patch_helpers_for_commits(new_commits))
+        result = self.check_uplift_bug_references(patch_helpers)
+        if result:
+            raise ValueError(result)
+
         try_repo = Repo.objects.get(name="try")
 
         if try_repo.scm_type != repo_scm_type:
@@ -342,13 +348,12 @@ class UpliftWorker(Worker):
                 raise
 
         with transaction.atomic():
-            revisions = []
-            patch_helpers = scm.get_patch_helpers_for_commits(new_commits)
-            for patch_helper in patch_helpers:
-                revisions.append(self.create_revisions_from_patch_helper(patch_helper))
+            revisions = [
+                self.create_revisions_from_patch_helper(patch_helper)
+                for patch_helper in patch_helpers
+            ]
             try_revision = self.create_try_revision(job.requester_email)
             revisions.append(try_revision)
-
             try_job = LandingJob.objects.create(
                 target_repo=try_repo,
                 requester_email=job.requester_email,
@@ -358,6 +363,17 @@ class UpliftWorker(Worker):
             add_revisions_to_job(revisions, try_job)
             try_job.save()
         return try_job
+
+    def check_uplift_bug_references(
+        self, patch_helpers: list[PatchHelper]
+    ) -> str | None:
+        """Check if uplift job contains references to non-public bugs.
+
+        Return the error message when a referenced bug is not public, and `None` otherwise."""
+        secure_check = BugReferencesCheck()
+        for patch_helper in patch_helpers:
+            secure_check.next_diff(patch_helper)
+        return secure_check.result()
 
     def create_try_diff_from_json(self) -> str:
         try_config_path = (

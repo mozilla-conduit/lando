@@ -9,6 +9,7 @@ from typing import Any, Callable, Self
 
 import networkx as nx
 import rs_parsepatch
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.cache import cache
 
@@ -24,7 +25,6 @@ from lando.api.legacy.reviews import (
     reviewer_identity,
 )
 from lando.api.legacy.revisions import (
-    blocker_diff_author_is_hackbot,
     blocker_diff_author_is_known,
     gather_involved_phids,
     revision_has_needs_data_classification_tag,
@@ -331,6 +331,20 @@ class RevisionWarningCheck:
             )
 
         return wrapped
+
+
+@RevisionWarningCheck("Commit contains author that will be modified before landing.")
+def warning_diff_author_is_hackbot(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> str | None:
+    """Warn when revisions contain commits by disallowed authors (e.g., Hackbot)."""
+    commits = PhabricatorClient.expect(diff, "attachments", "commits", "commits")
+    if not commits:
+        return None
+
+    emails = (c.get("author", {}).get("email", "").strip().lower() for c in commits)
+    if set(emails).intersection(settings.DISALLOWED_AUTHOR_EMAILS):
+        return "Diff contains commit authored by disallowed email."
 
 
 @RevisionWarningCheck("Has a review intended to block landing.")
@@ -883,7 +897,6 @@ REVISION_BLOCKER_CHECKS = [
     blocker_latest_diffs,
     blocker_author_planned_changes,
     blocker_diff_author_is_known,
-    blocker_diff_author_is_hackbot,
     blocker_uplift_approval,
     blocker_revision_data_classification,
     # Diff-based checks.
@@ -906,6 +919,7 @@ WARNING_CHECKS = [
     warning_wip_commit_message,
     warning_unresolved_comments,
     warning_multiple_authors,
+    warning_diff_author_is_hackbot,
 ]
 
 

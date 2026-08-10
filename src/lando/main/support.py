@@ -1,5 +1,8 @@
+from django.conf import settings
 from django.core.files.storage import storages
 from storages.backends.gcloud import GoogleCloudStorage
+
+from lando.api.legacy.revisions import select_diff_author
 
 
 class CachedGoogleCloudStorage(GoogleCloudStorage):
@@ -31,3 +34,32 @@ class LegacyAPIException(Exception):
         }
         if self.extra:
             self.json_detail.update(self.extra)
+
+
+def get_revisions_with_disallowed_authors(revisions: dict[str, dict]) -> list[dict]:
+    """Return a list of revisions with disallowed authors.
+
+    An author is disallowed if it is present in the DISALLOWED_AUTHOR_EMAILS setting.
+    """
+    return [r for r in revisions.values() if revision_has_disallowed_author(r)]
+
+
+def revision_has_disallowed_author(revision: dict) -> bool:
+    """Return True if a revision has a disallowed author, otherwise False.
+
+    An author is disallowed if it is present in the DISALLOWED_AUTHOR_EMAILS setting.
+    """
+    return (
+        revision["diff"]["author"]["email"].strip().lower()
+        in settings.DISALLOWED_AUTHOR_EMAILS
+    )
+
+
+def diff_has_disallowed_author(diff: dict) -> bool:
+    """Return True if a diff has a disallowed author, otherwise False.
+
+    An author is disallowed if it is present in the DISALLOWED_AUTHOR_EMAILS setting.
+    """
+    return (
+        select_diff_author(diff)[1] or ""
+    ).strip().lower() in settings.DISALLOWED_AUTHOR_EMAILS
