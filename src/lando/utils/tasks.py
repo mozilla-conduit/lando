@@ -136,7 +136,9 @@ def send_job_aborted_email(
         error: The error recorded on the job when it was aborted.
     """
     if not recipient_email:
-        logger.info(f"Skipping aborted email for job {job_id} without a requester.")
+        logger.warning(
+            f"Skipping aborted email for {job_type} job {job_id} without a requester."
+        )
         return
 
     with mail.get_connection() as connection:
@@ -152,7 +154,9 @@ def send_job_aborted_email(
             ]
         )
 
-    logger.info(f"Aborted job notification email sent to {recipient_email}")
+    logger.info(
+        f"Aborted {job_type} job {job_id} notification email sent to {recipient_email}"
+    )
 
 
 @celery_app.task(
