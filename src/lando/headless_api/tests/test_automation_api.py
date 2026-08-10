@@ -2088,23 +2088,8 @@ def test_comment_on_reverted_pr_single_revert(
     commit_message = "\n\nBug 1234 - add a line\n\ntest description\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
     create_git_commit(Path(seed_dir), message=commit_message)
 
-    subprocess.run(
-        ["git", "revert", "--no-edit", "HEAD"],
-        check=True,
-        cwd=seed_dir,
-    )
-    revert_patch = subprocess.run(
-        ["git", "format-patch", "-1", "--stdout"],
-        check=True,
-        capture_output=True,
-        cwd=seed_dir,
-    ).stdout
-
-    subprocess.run(
-        ["git", "reset", "--hard", "HEAD~1"],
-        check=True,
-        cwd=seed_dir,
-    )
+    generate_revert_commits(Path(seed_dir), repo.scm.head_ref())
+    revert_patch = generate_revert_patch(Path(seed_dir), repo.scm.head_ref(), 1)
 
     patch_b64 = base64.b64encode(revert_patch).decode("ascii")
 
@@ -2159,6 +2144,10 @@ def test_comment_on_reverted_prs_multiple_reverts_in_one_commit(
     seed_dir = repo.pull_path
 
     mock_github_api_client = mock.MagicMock()
+    mock_github_api_client.repo_owner = "mozilla-conduit"
+    mock_github_api_client.repo_name = "test-repo"
+    github_api_client.return_value = mock_github_api_client
+
     pr_1 = mock_pull_request(
         number=1, title="Bug 1234 - add a line", body="test description"
     )
@@ -2169,10 +2158,6 @@ def test_comment_on_reverted_prs_multiple_reverts_in_one_commit(
         prs_by_number[pr_number]
     )
 
-    mock_github_api_client.repo_owner = "mozilla-conduit"
-    mock_github_api_client.repo_name = "test-repo"
-
-    github_api_client.return_value = mock_github_api_client
 
     commit_message_1 = "\n\nBug 1234 - add a line\n\ntest description\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
     create_git_commit(
@@ -2190,45 +2175,10 @@ def test_comment_on_reverted_prs_multiple_reverts_in_one_commit(
         content="added line\n added another line\n",
     )
 
-    subprocess.run(
-        ["git", "revert", "--no-edit", "HEAD~2..HEAD"],
-        check=True,
-        cwd=seed_dir,
-    )
+    generate_revert_commits(Path(seed_dir), "HEAD~2..HEAD")
+    squash_commits(Path(seed_dir))
 
-    combined_message = subprocess.run(
-        ["git", "log", "--reverse", "--format=%B", "HEAD~2..HEAD"],
-        check=True,
-        capture_output=True,
-        text=True,
-        cwd=seed_dir,
-    ).stdout.strip()
-
-    # Undo the two revert commits but keep their combined changes staged, so we
-    # can collapse them into one commit.
-    subprocess.run(["git", "reset", "--soft", "HEAD~2"], check=True, cwd=seed_dir)
-
-    # Re-commit the staged changes as a single revert commit carrying both revert
-    # messages. This simulates one new PR that reverts two commits from two
-    # different PRs at once.
-    subprocess.run(
-        ["git", "commit", "-m", combined_message],
-        check=True,
-        cwd=seed_dir,
-    )
-
-    revert_patch = subprocess.run(
-        ["git", "format-patch", "-1", "--stdout"],
-        check=True,
-        capture_output=True,
-        cwd=seed_dir,
-    ).stdout
-
-    subprocess.run(
-        ["git", "reset", "--hard", "HEAD~1"],
-        check=True,
-        cwd=seed_dir,
-    )
+    revert_patch = generate_revert_patch(Path(seed_dir), "HEAD~1", 1)
 
     patch_b64 = base64.b64encode(revert_patch).decode("ascii")
 
@@ -2304,14 +2254,7 @@ def test_comment_on_reverted_pr_among_non_revert_commits(
         content="added line\n",
     )
 
-    result = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        capture_output=True,
-        text=True,
-        check=True,
-        cwd=seed_dir,
-    )
-    original_sha = result.stdout.strip()
+    original_sha = repo.scm.head_ref()
 
     commit_message_2 = "\n\nBug 5678 - add another line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/2\n\n\n"
     create_git_commit(
@@ -2321,11 +2264,7 @@ def test_comment_on_reverted_pr_among_non_revert_commits(
         content="added line to pr 2\n",
     )
 
-    subprocess.run(
-        ["git", "revert", "--no-edit", original_sha],
-        check=True,
-        cwd=seed_dir,
-    )
+    generate_revert_commits(Path(seed_dir), original_sha)
 
     commit_message_3 = "\n\nBug 91011 - add a third line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/3\n\n\n"
     create_git_commit(
@@ -2335,18 +2274,7 @@ def test_comment_on_reverted_pr_among_non_revert_commits(
         content="added line to pr 3\n",
     )
 
-    revert_patch = subprocess.run(
-        ["git", "format-patch", "-3", "--stdout"],
-        check=True,
-        capture_output=True,
-        cwd=seed_dir,
-    ).stdout
-
-    subprocess.run(
-        ["git", "reset", "--hard", f"{original_sha}"],
-        check=True,
-        cwd=seed_dir,
-    )
+    revert_patch = generate_revert_patch(Path(seed_dir), original_sha, 3)
 
     patch_b64 = base64.b64encode(revert_patch).decode("ascii")
 
@@ -2381,3 +2309,11 @@ def test_comment_on_reverted_pr_among_non_revert_commits(
     # Only the reverted PR is commented on; the two surrounding non-revert commits
     # are ignored.
     assert_reverted_pr_comment(mock_pr, pr_number=1)
+
+def generate_revert_commits(repo_path: Path, commit_hash: str):
+    """Generate a revert commit for a given commit hash in the specified repo."""
+    subprocess.run(
+        ["git", "revert", "--no-edit", commit_hash],
+        check=True,
+        cwd=repo_path,
+    )
