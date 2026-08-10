@@ -755,7 +755,7 @@ class PullRequestPatchHelper(PatchHelper):
         raise NotImplementedError("`from_bytes_io` not implemented.")
 
     def get_commit_description(self) -> str:
-        """Returns the full commit description."""
+        """Return the full commit description."""
         # We can't use pr.commit_message here,
         # as it also appends a trailer with the PR URL.
         lines = [self._pr.title]
