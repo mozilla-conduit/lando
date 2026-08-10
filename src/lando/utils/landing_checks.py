@@ -494,7 +494,7 @@ class CommitMessagesCheck(PatchCollectionCheck):
             self.commit_message_issues.append("Revision has an empty commit message.")
             return
 
-        firstline = commit_message.partition("\n")[0]
+        firstline = commit_message.splitlines()[0]
 
         if self.ignore_bad_commit_message or "IGNORE BAD COMMIT MESSAGES" in firstline:
             self.ignore_bad_commit_message = True
@@ -523,14 +523,12 @@ class CommitMessagesCheck(PatchCollectionCheck):
             )
 
         if match := REPO_FLAG_RE.findall(firstline):
-            malformed = False
-            for repo in match:
-                if "/" in repo:
-                    current_commit_issues.append(
-                        f"Push contains commits intended to be locked to {repo} but the repo name is badly formatted. '/' is not allowed: {firstline}"
-                    )
-                    malformed = True
-            if not malformed and self.repo_name not in match:
+            malformed = [repo for repo in match if "/" in repo]
+            if malformed:
+                current_commit_issues.append(
+                    f"Push contains commits intended to be locked to {', '.join(malformed)} but the repo name is badly formatted. '/' is not allowed: {firstline}"
+                )
+            elif self.repo_name not in match:
                 current_commit_issues.append(
                     f"Commit locked to a repo other than {self.repo_name}: {firstline}"
                 )
