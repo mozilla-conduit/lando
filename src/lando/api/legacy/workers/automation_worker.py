@@ -182,7 +182,10 @@ class AutomationWorker(Worker):
         revert_commits = CommitData.find_revert_commits(new_commits)
         if revert_commits:
             github_client = GitHubAPIClient(repo.push_path)
-            reverts = {commit.hash: find_reverted_prs(commit, scm, github_client) for commit in revert_commits}
+            reverts = {
+                commit.hash: find_reverted_prs(commit, scm, github_client)
+                for commit in revert_commits
+            }
             for commit_hash, pull_requests in reverts:
                 comment_on_reverted_prs(pull_requests, commit_hash)
 
@@ -242,7 +245,7 @@ def get_reverted_pr(
 
     try:
         pr_to_revert = github_client.build_pull_request(pr_number)
-    except Exception as e:
+    except Exception:
         logger.exception(
             f"Skipping commit {original_commit_hash}: PR #{pr_number} could not "
             f"be found via the GitHub API."
