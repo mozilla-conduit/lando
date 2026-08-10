@@ -2332,3 +2332,25 @@ def generate_revert_patch(repo_path: Path, commit_hash: str, num_commits: int) -
         cwd=repo_path,
     )
     return revert_patch
+
+def squash_commits(seed_dir: Path):
+    combined_message = subprocess.run(
+        ["git", "log", "--reverse", "--format=%B", "HEAD~2..HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+        cwd=seed_dir,
+    ).stdout.strip()
+
+    # Undo the two revert commits but keep their combined changes staged, so we
+    # can collapse them into one commit.
+    subprocess.run(["git", "reset", "--soft", "HEAD~2"], check=True, cwd=seed_dir)
+
+    # Re-commit the staged changes as a single revert commit carrying both revert
+    # messages. This simulates one new PR that reverts two commits from two
+    # different PRs at once.
+    subprocess.run(
+        ["git", "commit", "-m", combined_message],
+        check=True,
+        cwd=seed_dir,
+    )
