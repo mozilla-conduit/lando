@@ -19,7 +19,7 @@ from lando.headless_api.models.automation_job import (
     AutomationAction,
     AutomationJob,
 )
-from lando.headless_api.models.tokens import ApiToken
+from lando.headless_api.models.tokens import API_TOKEN_PREFIX_LENGTH, ApiToken
 from lando.main.models import JobAction, JobStatus, Repo
 from lando.main.scm import (
     AbstractSCM,
@@ -64,10 +64,10 @@ class HeadlessAPIAuthentication(HttpBearer):
             api_key = ApiToken.verify_token(token)
         except ValueError:
             # Shorten the token so we don't show it all.
-            prefix_length = 8
+            prefix_length = API_TOKEN_PREFIX_LENGTH
             if (tl := len(token)) <= prefix_length:
                 prefix_length = tl // 2
-            logger.debug("Invalid headless token f{token[:l]}")
+            logger.info(f"Invalid headless token {token[:prefix_length]}")
             # Allow subsequent authentication methods to be tested.
             return None
 
