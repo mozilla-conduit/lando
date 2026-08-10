@@ -441,8 +441,7 @@ class DiffAssessor:
 
         # Collect the results from each check.
         for check in checks:
-            if check_issues := check.result():
-                issues.extend(check_issues)
+            issues.extend(check.result())
 
         return issues
 
