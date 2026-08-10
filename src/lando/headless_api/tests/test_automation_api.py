@@ -2035,9 +2035,7 @@ def mock_pull_request() -> Callable:
 
 
 def assert_reverted_pr_comment(pull_request: mock.MagicMock, pr_number: int) -> str:
-    """Assert one "has been reverted" comment was posted, and return the commit hash.
-
-    """
+    """Assert one "has been reverted" comment was posted, and return the commit hash."""
     pull_request.add_comment.assert_called_once()
 
     (comment,) = pull_request.add_comment.call_args.args
@@ -2155,7 +2153,6 @@ def test_comment_on_reverted_prs_multiple_reverts_in_one_commit(
     mock_github_api_client.build_pull_request.side_effect = lambda pr_number: (
         prs_by_number[pr_number]
     )
-
 
     commit_message_1 = "\n\nBug 1234 - add a line\n\ntest description\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
     create_git_commit(
@@ -2310,6 +2307,7 @@ def test_comment_on_reverted_pr_among_non_revert_commits(
     # are ignored.
     assert_reverted_pr_comment(mock_pr, pr_number=1)
 
+
 def generate_revert_commits(repo_path: Path, commit_hash: str):
     """Generate a revert commit for a given commit hash in the specified repo."""
     subprocess.run(
@@ -2317,6 +2315,7 @@ def generate_revert_commits(repo_path: Path, commit_hash: str):
         check=True,
         cwd=repo_path,
     )
+
 
 def generate_revert_patch(repo_path: Path, commit_hash: str, num_commits: int) -> bytes:
     """Generate a revert patch for a given commit hash in the specified repo."""
@@ -2332,6 +2331,7 @@ def generate_revert_patch(repo_path: Path, commit_hash: str, num_commits: int) -
         cwd=repo_path,
     )
     return base64.b64encode(revert_patch).decode("ascii")
+
 
 def squash_commits(seed_dir: Path):
     combined_message = subprocess.run(
