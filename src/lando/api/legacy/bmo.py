@@ -25,7 +25,7 @@ def api_request(
     url = f"{settings.BUGZILLA_URL}/rest/{path}"
 
     common_headers = {
-        "User-Agent": "Lando-API",
+        "User-Agent": settings.HTTP_USER_AGENT,
     }
     if headers:
         common_headers.update(headers)

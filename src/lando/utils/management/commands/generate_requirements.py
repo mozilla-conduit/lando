@@ -15,6 +15,12 @@ class Command(BaseCommand):
             action="store_true",
             help="Upgrade all packages to latest versions",
         )
+        parser.add_argument(
+            "--cooldown",
+            action=argparse.BooleanOptionalAction,
+            default=True,
+            help="Only consider packages uploaded more than 7 days ago (default)",
+        )
 
     def handle(self, *args, **options):
         """Run piptools compile with relevant arguments."""
@@ -23,7 +29,6 @@ class Command(BaseCommand):
             "-m",
             "piptools",
             "compile",
-            "--pip-args=--uploaded-prior-to=P7D",
             "--generate-hashes",
             "--allow-unsafe",
             "--extra=code-quality,testing",
@@ -33,6 +38,9 @@ class Command(BaseCommand):
 
         if options["upgrade"]:
             command.append("--upgrade")
+
+        if options["cooldown"]:
+            command.append("--pip-args=--uploaded-prior-to=P7D")
 
         command.append("pyproject.toml")
 
