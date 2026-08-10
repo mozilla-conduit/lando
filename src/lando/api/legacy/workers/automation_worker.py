@@ -208,7 +208,7 @@ def find_reverted_prs(
         for commit_hash in revert_commit.reverted_commit_hashes()
     }
     reverted_prs = [
-        get_reverted_pr(commit_hash, commit_message, github_client)
+        get_reverted_pr(commit_message, commit_hash, github_client)
         for commit_hash, commit_message in original_commits.items()
     ]
     return [pr for pr in reverted_prs if pr]
