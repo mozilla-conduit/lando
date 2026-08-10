@@ -245,7 +245,7 @@ def get_reverted_pr(
     except Exception as e:
         logger.exception(
             f"Skipping commit {original_commit_hash}: PR #{pr_number} could not "
-            f"be found via the GitHub API. \n{e}"
+            f"be found via the GitHub API."
         )
         return None
     return pr_to_revert
