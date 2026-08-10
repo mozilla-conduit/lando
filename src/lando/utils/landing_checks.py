@@ -781,8 +781,7 @@ class PatchCollectionAssessor:
                 commit_message=patch_helper.get_commit_description(),
                 parsed_diff=parsed_diff,
             )
-            if diff_issues := diff_assessor.run_diff_checks(patch_checks):
-                issues.extend(diff_issues)
+            issues.extend(diff_assessor.run_diff_checks(patch_checks))
 
         # Collect the result of the push-wide checks.
         for check in checks:
