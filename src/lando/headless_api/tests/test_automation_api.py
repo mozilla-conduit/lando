@@ -2040,13 +2040,12 @@ def assert_reverted_pr_comment(pull_request: mock.MagicMock, pr_number: int) -> 
 
     (comment,) = pull_request.add_comment.call_args.args
     match = re.fullmatch(
-        rf"This pull request \(#{pr_number}\) has been reverted "
-        rf"by commit ([0-9a-f]{{40}})\.",
+        r"This pull request has been reverted "
+        r"by commit ([0-9a-f]{40})\.",
         comment,
     )
     assert match, (
-        f"Comment on PR #{pr_number} should name the PR and the reverting commit, "
-        f"got: {comment!r}"
+        f"Comment on PR #{pr_number} should name the reverting commit, got: {comment!r}"
     )
 
     return match.group(1)
