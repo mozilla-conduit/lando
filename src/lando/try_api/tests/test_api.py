@@ -118,7 +118,7 @@ def test_try_api_patches_invalid_user(
 @pytest.mark.django_db()
 @pytest.mark.parametrize(
     "group_scm_1,superuser,auth_type",
-    itertools.product((False, True), (False, True), ("oauth", "headless")),
+    tuple(itertools.product((False, True), (False, True), ("oauth", "headless"))),
 )
 def test_try_api_patches_no_scm1(
     mock_authenticate_builder: Callable,
