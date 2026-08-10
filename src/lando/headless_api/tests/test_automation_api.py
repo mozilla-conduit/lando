@@ -2086,8 +2086,8 @@ def test_comment_on_reverted_pr_single_revert(
     commit_message = "\n\nBug 1234 - add a line\n\ntest description\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
     create_git_commit(Path(seed_dir), message=commit_message)
 
-    generate_revert_commits(Path(seed_dir), repo.scm.head_ref())
-    patch_b64 = generate_revert_patch(Path(seed_dir), repo.scm.head_ref(), 1)
+    generate_revert_commits(Path(seed_dir), "HEAD")
+    patch_b64 = generate_revert_patch(Path(seed_dir), "HEAD~1", 1)
 
     response = client.post(
         f"/api/repo/{repo.name}",
