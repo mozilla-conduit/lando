@@ -2317,3 +2317,18 @@ def generate_revert_commits(repo_path: Path, commit_hash: str):
         check=True,
         cwd=repo_path,
     )
+
+def generate_revert_patch(repo_path: Path, commit_hash: str, num_commits: int) -> bytes:
+    """Generate a revert patch for a given commit hash in the specified repo."""
+    revert_patch = subprocess.run(
+        ["git", "format-patch", f"-{num_commits}", "--stdout"],
+        check=True,
+        capture_output=True,
+        cwd=repo_path,
+    ).stdout
+    subprocess.run(
+        ["git", "reset", "--hard", commit_hash],
+        check=True,
+        cwd=repo_path,
+    )
+    return revert_patch
