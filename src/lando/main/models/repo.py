@@ -222,7 +222,10 @@ class Repo(CryptographyMixin, BaseModel):
         null=True,
         default=None,
     )
-    force_push = models.BooleanField(default=False)
+    force_push = models.BooleanField(
+        default=False,
+        help_text="Allow force-pushes to the repo (e.g., change of history or new heads). Necessary for try repos.",
+    )
     is_phabricator_repo = models.BooleanField(default=True)
     milestone_tracking_flag_template = models.CharField(blank=True, default="")
 
