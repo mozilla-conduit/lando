@@ -32,6 +32,7 @@ from lando.main.models import (
     Revision,
     add_revisions_to_job,
 )
+from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 from lando.main.models.landing_job import get_jobs_for_pull
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.main.scm import SCMType
@@ -39,14 +40,13 @@ from lando.utils.github import (
     PR_DELIMITER,
     GitHubAPIClient,
     PullRequest,
-    PullRequestPatchHelper,
-    ignore_bot_sender,
 )
 from lando.utils.github_checks import (
     ALL_PULL_REQUEST_BLOCKERS,
     ALL_PULL_REQUEST_WARNINGS,
     PullRequestChecks,
 )
+from lando.utils.github_helpers import PullRequestPatchHelper, ignore_bot_sender
 from lando.utils.landing_checks import LandingChecks
 from lando.utils.phabricator import PHABRICATOR_API_KEY_HEADER, get_phabricator_client
 
@@ -332,8 +332,13 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
         author_name, author_email = self.pull_request.author
 
         reviews_summary = self.pull_request.reviews_summary
+
+        reviewer_map = ConfigurationVariable.get(
+            ConfigurationKey.GITHUB_REVIEWERS_MAP, {}
+        )
+
         reviewers = [
-            u
+            reviewer_map.get(u, u)
             for u in reviews_summary
             if reviews_summary.get(u) == self.pull_request.Review.APPROVED
         ]
