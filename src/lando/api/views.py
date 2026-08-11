@@ -374,7 +374,7 @@ class LandingJobStacksAPIView(StacksAPIView):
         warnings_and_blockers = {}
         for pull_request in self.stack.pull_requests:
             warnings_and_blockers[pull_request.number] = generate_warnings_and_blockers(
-                self.target_repo, self.pull_request, request
+                self.target_repo, pull_request, request
             )
             new_warnings = warnings_and_blockers[pull_request.number]["warnings"]
 
