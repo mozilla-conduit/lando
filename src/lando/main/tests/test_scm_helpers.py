@@ -295,6 +295,13 @@ def test_parse_git_author_information_no_email():
     ), "Name without email address should return the username and empty email."
 
 
+def test_build_patch():
+    patch = build_patch_for_revision(
+        GIT_DIFF_FROM_REVISION,
+        "Joe User",
+        "joe@example.com",
+        COMMIT_MESSAGE,
+        "1496239141",
     )
 
     assert patch == HG_PATCH
