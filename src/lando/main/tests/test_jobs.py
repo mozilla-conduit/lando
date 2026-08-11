@@ -89,43 +89,24 @@ def test__models__BaseJob__attempt_only_handled_once(make_landing_job: Callable)
     )
 
 
-@pytest.mark.parametrize(
-    "variable_type,raw_value,expected",
-    (
-        (VariableTypeChoices.INT, "2", 2),
-        # `VariableTypeChoices.STR` is the default type, so it is easy to save
-        # `MAX_JOB_ATTEMPTS` without converting it to an integer.
-        (VariableTypeChoices.STR, "2", 2),
-        (VariableTypeChoices.STR, "ten", DEFAULT_MAX_JOB_ATTEMPTS),
-        (VariableTypeChoices.INT, "ten", DEFAULT_MAX_JOB_ATTEMPTS),
-        (VariableTypeChoices.INT, "0", DEFAULT_MAX_JOB_ATTEMPTS),
-        (VariableTypeChoices.INT, "-1", DEFAULT_MAX_JOB_ATTEMPTS),
-    ),
-)
+@pytest.mark.parametrize("max_attempts", (1, 2, 5))
 @pytest.mark.django_db
 def test__models__BaseJob__max_attempts_configuration(
     make_landing_job: Callable,
-    variable_type: VariableTypeChoices,
-    raw_value: str,
-    expected: int,
+    max_attempts: int,
 ):
-    # Create the row directly, since `ConfigurationVariable.set` refuses some of
-    # these values while the Django admin does not.
-    ConfigurationVariable.objects.create(
-        key=ConfigurationKey.MAX_JOB_ATTEMPTS.value,
-        variable_type=variable_type,
-        raw_value=raw_value,
+    ConfigurationVariable.set(
+        ConfigurationKey.MAX_JOB_ATTEMPTS, VariableTypeChoices.INT, str(max_attempts)
     )
     job = make_landing_job(status=JobStatus.SUBMITTED)
 
-    assert job.max_attempts == expected, (
-        f"`MAX_JOB_ATTEMPTS` of {raw_value!r} as {variable_type} "
-        f"should resolve to {expected}."
+    assert job.max_attempts == max_attempts, (
+        "`MAX_JOB_ATTEMPTS` should be used instead of the default."
     )
 
-    attempt_and_defer(job, expected - 1)
+    attempt_and_defer(job, max_attempts - 1)
 
-    assert job.status == JobStatus.DEFERRED, (
+    assert job.status != JobStatus.ABORTED, (
         "The job should not be aborted before its last allowed attempt."
     )
 

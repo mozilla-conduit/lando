@@ -299,30 +299,10 @@ class BaseJob(BaseModel):
 
     @property
     def max_attempts(self) -> int:
-        """Number of attempts a job may make before it is aborted.
-
-        A `MAX_JOB_ATTEMPTS` which is not a positive integer, such as one saved with
-        the default `VariableTypeChoices.STR` type, falls back to the default rather
-        than breaking every deferral.
-        """
-        try:
-            max_attempts = int(
-                ConfigurationVariable.get(
-                    ConfigurationKey.MAX_JOB_ATTEMPTS, DEFAULT_MAX_JOB_ATTEMPTS
-                )
-            )
-        except (TypeError, ValueError):
-            # Fall through to the invalid-value branch below.
-            max_attempts = 0
-
-        if max_attempts < 1:
-            logger.error(
-                "`MAX_JOB_ATTEMPTS` is not a positive integer, falling back to "
-                f"{DEFAULT_MAX_JOB_ATTEMPTS}."
-            )
-            return DEFAULT_MAX_JOB_ATTEMPTS
-
-        return max_attempts
+        """Number of attempts a job may make before it is aborted."""
+        return ConfigurationVariable.get(
+            ConfigurationKey.MAX_JOB_ATTEMPTS, DEFAULT_MAX_JOB_ATTEMPTS
+        )
 
     @property
     def landed_treeherder_revision(self) -> str | None:
