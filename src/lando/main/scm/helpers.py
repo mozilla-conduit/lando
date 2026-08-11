@@ -187,7 +187,7 @@ class PatchHelper(ABC):
 
     @abstractmethod
     def get_commit_description(self) -> str:
-        """Returns the commit description."""
+        """Returns the full commit description."""
         raise NotImplementedError("`get_commit_description` not implemented.")
 
     @abstractmethod
@@ -270,6 +270,9 @@ class HgPatchHelper(PatchHelper):
                     break
                 self.header_end_line_no += 1
                 for name in HG_HEADER_NAMES:
+                    if self.headers.get(name.lower()):
+                        # We already have a value for this header.
+                        continue
                     value = self._header_value(line, name)
                     if value:
                         self.set_header(name, value)
@@ -282,7 +285,7 @@ class HgPatchHelper(PatchHelper):
 
     @override
     def get_commit_description(self) -> str:
-        """Returns the commit description."""
+        """Returns the full commit description."""
         commit_desc = []
 
         try:
@@ -479,7 +482,7 @@ class GitPatchHelper(PatchHelper):
 
     @override
     def get_commit_description(self) -> str:
-        """Returns the commit description."""
+        """Returns the full commit description."""
         return self.commit_message
 
     @override

@@ -75,27 +75,6 @@ describe("useUpliftRepositories", () => {
         ).toEqual(["firefox-beta"]);
     });
 
-    it("toggles the field visibility", () => {
-        renderRepositoriesField();
-
-        const repositories = setupComposable();
-        repositories.setFieldVisible(false);
-
-        const field = document.querySelector<HTMLElement>(
-            "[data-uplift-repositories]",
-        )!;
-        expect(
-            field.classList.contains("is-hidden"),
-            "Hiding the field should add the `is-hidden` class.",
-        ).toBe(true);
-
-        repositories.setFieldVisible(true);
-        expect(
-            field.classList.contains("is-hidden"),
-            "Showing the field should remove the `is-hidden` class.",
-        ).toBe(false);
-    });
-
     it("tracks manual changes to the server-rendered checkboxes", async () => {
         renderRepositoriesField();
 

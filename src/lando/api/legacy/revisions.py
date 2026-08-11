@@ -155,20 +155,6 @@ def blocker_diff_author_is_known(*, diff: dict, **kwargs) -> Optional[str]:
     )
 
 
-def blocker_diff_author_is_hackbot(*, diff: dict, **kwargs) -> Optional[str]:
-    """Block revisions that contain commits by Hackbot."""
-    hackbot_email = "hackbot@mozilla.tld"
-    commits = PhabricatorClient.expect(diff, "attachments", "commits", "commits")
-    if not commits:
-        return None
-
-    emails = (c.get("author", {}).get("email", "").lower() for c in commits)
-    if hackbot_email not in emails:
-        return None
-
-    return "Diff contains commit authored by Hackbot."
-
-
 def revision_has_needs_data_classification_tag(
     revision: dict, data_policy_review_phid: str
 ) -> bool:
@@ -282,6 +268,7 @@ def fetch_raw_diff_and_save(
     revision_id: int,
     diff: dict,
     commit_message: str,
+    mailbox: tuple[str, str] | None = None,
 ) -> Revision:
     """Fetch the raw diff from Phabricator and save a `Revision` record.
 
@@ -293,9 +280,10 @@ def fetch_raw_diff_and_save(
         revision_id: The integer revision ID (e.g. 123 for D123).
         diff: A Phabricator diff dict with the `commits` attachment.
         commit_message: The full commit message to embed in the patch.
+        mailbox: A tuple consisting of the author name and email.
     """
     diff_id = PhabricatorClient.expect(diff, "id")
-    author_name, author_email = select_diff_author(diff)
+    author_name, author_email = mailbox or select_diff_author(diff)
     base_revision = get_base_revision_from_diff(diff)
 
     logger.debug("Fetching raw diff for D%s (diff %s).", revision_id, diff_id)

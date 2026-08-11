@@ -72,11 +72,13 @@
                     {# Hidden field the Vue widget populates to record how the
                        target was selected; stays empty without the widget. #}
                     {{ uplift.request_form.target_selection_method }}
-                    {# Vue train-selector widget mounts here and progressively
-                       enhances the repository checkboxes below. #}
+                    {# Vue train-selector widget mounts here, rendering a Firefox
+                       version dropdown above the repository checkboxes and
+                       ticking the trains that version resolves to. #}
                     <div id="uplift-train-selector"
                          data-train-api-url="{{ uplift.train_api_url }}"></div>
                     <div class="field mt-4" data-uplift-repositories>
+                        <label class="label is-small">Uplift trains</label>
                         <div class="field is-grouped is-grouped-multiline m-0">
                             {% for checkbox in uplift.request_form.repositories %}
                                 <p class="control">

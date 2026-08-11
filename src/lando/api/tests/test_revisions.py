@@ -2,7 +2,6 @@ import pytest
 
 from lando.api.legacy.api import stacks
 from lando.api.legacy.revisions import (
-    blocker_diff_author_is_hackbot,
     blocker_diff_author_is_known,
     ensure_revisions_from_phabricator,
     fetch_raw_diff_and_save,
@@ -10,6 +9,7 @@ from lando.api.legacy.revisions import (
     revision_is_secure,
     revision_needs_testing_tag,
 )
+from lando.api.legacy.transplants import warning_diff_author_is_hackbot
 from lando.main.models.revision import Revision
 
 pytestmark = pytest.mark.usefixtures("docker_env_vars")
@@ -34,7 +34,7 @@ def test_check_diff_author_is_known_with_unknown_author(phabdouble):
 
 
 @pytest.mark.parametrize(
-    "username,email,is_blocked",
+    "username,email,has_warning",
     [
         ("Hackbot", "hackbot@mozilla.tld", True),
         ("HaCkbOt", "hAckbOt@mOzilla.TLD", True),
@@ -42,19 +42,27 @@ def test_check_diff_author_is_known_with_unknown_author(phabdouble):
         ("Something else", "something_else@mozilla.tld", False),
     ],
 )
-def test_check_diff_author_is_hackbot(username, email, is_blocked, phabdouble):
+def test_check_diff_author_is_hackbot(username, email, has_warning, phabdouble):
     author = phabdouble.user(username=username, email=email)
     d = phabdouble.diff(author=author)
-    phabdouble.revision(diff=d, repo=phabdouble.repo())
+    r = phabdouble.revision(diff=d, repo=phabdouble.repo())
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
+    revision = phabdouble.api_object_for(r)
 
-    if is_blocked:
+    if has_warning:
         assert (
-            blocker_diff_author_is_hackbot(diff=diff)
-            == "Diff contains commit authored by Hackbot."
+            warning_diff_author_is_hackbot(
+                revision=revision, diff=diff, stack_state=None
+            ).display
+            == "Commit contains author that will be modified before landing."
         )
     else:
-        assert blocker_diff_author_is_hackbot(diff=diff) is None
+        assert (
+            warning_diff_author_is_hackbot(
+                revision=revision, diff=diff, stack_state=None
+            )
+            is None
+        )
 
 
 def test_secure_api_flag_on_public_revision_is_false(

@@ -1,4 +1,3 @@
-import json
 import logging
 
 from django.contrib import messages
@@ -14,7 +13,7 @@ from lando.api.legacy import api as legacy_api
 from lando.api.legacy.revisions import seed_revisions_from_phabricator
 from lando.api.legacy.validation import parse_revision_ids
 from lando.main.auth import force_auth_refresh, require_phabricator_api_key
-from lando.main.models import Repo
+from lando.main.models import Profile, Repo
 from lando.main.models.jobs import JobStatus
 from lando.main.models.uplift import (
     UpliftAssessment,
@@ -22,6 +21,7 @@ from lando.main.models.uplift import (
     UpliftRevision,
     UpliftSubmission,
 )
+from lando.main.support import get_revisions_with_disallowed_authors
 from lando.treestatus.utils import get_tree_by_name
 from lando.ui.legacy.forms import (
     LinkUpliftAssessmentForm,
@@ -458,8 +458,7 @@ class RevisionView(LandoView):
                 }
                 for phid in series
             ]
-            landing_path_json = json.dumps(landing_path)
-            form.fields["landing_path"].initial = landing_path_json
+            form.fields["landing_path"].initial = landing_path
 
             dryrun = legacy_api.transplants.dryrun(
                 phab, lando_user, data={"landing_path": landing_path}
@@ -493,6 +492,30 @@ class RevisionView(LandoView):
             revisions=revisions,
             stack=stack["stack"],
         )
+
+        # Hackbot check
+        revisions_with_disallowed_authors = get_revisions_with_disallowed_authors(
+            revisions
+        )
+        if revisions_with_disallowed_authors:
+            # Take the first revision author, try to find an associated user in Lando.
+            # If this is not possible, set the mailbox to the name of the user, which
+            # must be modified before submitting.
+            author_phid = revisions_with_disallowed_authors[0]["author"]["phid"]
+            try:
+                lando_user = Profile.objects.get(phabricator_phid=author_phid).user
+            except Profile.DoesNotExist:
+                form.fields["author_name"].initial = revisions_with_disallowed_authors[
+                    0
+                ]["author"]["real_name"]
+            else:
+                form.fields["author_name"].initial = lando_user.profile.userinfo["name"]
+                form.fields["author_email"].initial = lando_user.profile.userinfo[
+                    "email"
+                ]
+        else:
+            form.fields["author_name"].initial = None
+            form.fields["author_email"].initial = None
 
         # Current implementation requires that all commits have the flags appended.
         # This may change in the future. What we do here is:
@@ -532,6 +555,7 @@ class RevisionView(LandoView):
                 if landing_jobs
                 else None
             ),
+            "revisions_with_disallowed_authors": revisions_with_disallowed_authors,
         }
 
         return TemplateResponse(
@@ -557,9 +581,6 @@ class RevisionView(LandoView):
             errors.append("You must be logged in to request a landing")
 
         if form.is_valid() and not errors:
-            form.cleaned_data["landing_path"] = json.loads(
-                form.cleaned_data["landing_path"]
-            )
             form.cleaned_data["flags"] = (
                 form.cleaned_data["flags"] if form.cleaned_data["flags"] else []
             )
