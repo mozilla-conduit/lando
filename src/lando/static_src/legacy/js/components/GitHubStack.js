@@ -18,10 +18,8 @@ $.fn.gh_stack = function () {
         var head_sha = request_land_button.data("head-sha");
         var repo_name = request_land_button.data("repo-name");
         var csrf_token = request_land_button.data("csrf-token");
-        if (document.getElementById("pull-request-page")) {
-            var saved_landing_state = null;
-            $("#save-edit-pr").prop("disabled", true);
-            $("#acknowledge-warnings").on("click", function () {
+
+         $("#acknowledge-warnings").on("click", function () {
                 if (this.checked) {
                     request_land_button.prop("disabled", false);
                     request_land_button.html("Request landing despite warnings");
@@ -36,6 +34,10 @@ $.fn.gh_stack = function () {
                 request_land_button.html("Log in to request landing");
                 return;
             }
+
+        if (document.getElementById("pull-request-page")) {
+            var saved_landing_state = null;
+            $("#save-edit-pr").prop("disabled", true);
 
             var pull_number = request_land_button.data("pull-number");
             var old_warnings = [];
@@ -330,6 +332,7 @@ $.fn.gh_stack = function () {
         }
 
         if (document.getElementById("stack-page")) {
+            var old_warnings = [];
             var stack_number = request_land_button.data("stack-number");
             var repo_url = request_land_button.data("repo-url");
             fetch(`/api/stacks/${repo_name}/${stack_number}/checks`, {
@@ -341,7 +344,7 @@ $.fn.gh_stack = function () {
                     var warnings = result["warnings"];
                     var has_blockers = blockers.length !== 0;
                     var has_warnings = warnings.length !== 0;
-
+                    old_warnings = warnings;
                     var success_placeholder = `<li><span class="fa-li has-text-success"><i class="fa fa-check"></i></span>None found.</li>`;
 
                     if (!has_blockers) {
@@ -388,12 +391,12 @@ $.fn.gh_stack = function () {
                         .removeClass("is-loading")
                         .addClass("is-success");
                     request_land_button.html("Request landing");
-                    } else if (has_blockers) {
-                        request_land_button.prop("disabled", true);
-                        request_land_button
-                            .removeClass("is-loading")
-                            .addClass("is-danger");
-                        request_land_button.html("Landing is blocked");
+                    // } else if (has_blockers) {
+                    //     request_land_button.prop("disabled", true);
+                    //     request_land_button
+                    //         .removeClass("is-loading")
+                    //         .addClass("is-danger");
+                    //     request_land_button.html("Landing is blocked");
                     } else if (has_warnings) {
                         $(".acknowledge-warnings-section").show();
                         need_warnings_acknowledgements(request_land_button);
@@ -409,7 +412,7 @@ $.fn.gh_stack = function () {
                 fetch(`/api/stacks/${repo_name}/${stack_number}/landing_jobs`, {
                     method: "POST",
                     body: JSON.stringify({
-                        old_warnings: [],
+                        old_warnings: old_warnings,
                     }),
                     headers: {
                         Accept: "application/json",
