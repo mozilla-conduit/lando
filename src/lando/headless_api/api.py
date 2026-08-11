@@ -5,10 +5,8 @@ import logging
 from io import StringIO
 from typing import Annotated, Literal
 
-from django.core.exceptions import PermissionDenied
 from django.core.handlers.wsgi import WSGIRequest
 from django.db import transaction
-from django.http import HttpResponse
 from ninja import (
     NinjaAPI,
     Schema,
@@ -21,7 +19,7 @@ from lando.headless_api.models.automation_job import (
     AutomationAction,
     AutomationJob,
 )
-from lando.headless_api.models.tokens import ApiToken
+from lando.headless_api.models.tokens import API_TOKEN_PREFIX_LENGTH, ApiToken
 from lando.main.models import JobAction, JobStatus, Repo
 from lando.main.scm import (
     AbstractSCM,
@@ -58,27 +56,20 @@ def reject_cli_flags(value: str) -> str:
 SafeGitRef = Annotated[str, AfterValidator(reject_cli_flags)]
 
 
-class APIPermissionDenied(PermissionDenied):
-    """Custom exception type to allow JSON responses for invalid auth."""
-
-    pass
-
-
 class HeadlessAPIAuthentication(HttpBearer):
     """Authentication class to verify API token."""
 
-    def authenticate(self, request: WSGIRequest, token: str) -> ApiToken:
-        user_agent = request.headers.get("User-Agent")
-        if not user_agent:
-            raise APIPermissionDenied("`User-Agent` header is required.")
-
-        if not user_agent.startswith("Lando-User/"):
-            raise APIPermissionDenied("Incorrect `User-Agent` format.")
-
+    def authenticate(self, request: WSGIRequest, token: str) -> ApiToken | None:
         try:
             api_key = ApiToken.verify_token(token)
-        except ValueError as exc:
-            raise APIPermissionDenied(str(exc))
+        except ValueError:
+            # Shorten the token so we don't show it all.
+            prefix_length = API_TOKEN_PREFIX_LENGTH
+            if (tl := len(token)) <= prefix_length:
+                prefix_length = tl // 2
+            logger.info(f"Invalid headless token {token[:prefix_length]}")
+            # Allow subsequent authentication methods to be tested.
+            return None
 
         # Django-Ninja sets `request.auth` to the verified token, since
         # some APIs may have authentication without user management. Our
@@ -90,12 +81,6 @@ class HeadlessAPIAuthentication(HttpBearer):
 
 
 api = NinjaAPI(auth=HeadlessAPIAuthentication(), urls_namespace="headless-api")
-
-
-@api.exception_handler(APIPermissionDenied)
-def on_invalid_token(request: WSGIRequest, exc: Exception) -> HttpResponse:
-    """Create a JSON response when the API returns a 401."""
-    return api.create_response(request, {"details": str(exc)}, status=401)
 
 
 class AutomationActionException(Exception):
