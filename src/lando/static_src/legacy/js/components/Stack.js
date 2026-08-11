@@ -404,5 +404,91 @@ $.fn.stack = function () {
                 $("#cancel-edit-pr").addClass("is-hidden");
             });
         }
+        var is_gh_stack_page = Boolean($("button.StackPage-preview-button").length);
+        if (is_gh_stack_page) {
+            var gh_stack_land_button = $("button.gh-StackPage-landingPreview-land");
+
+            var stack_number = gh_stack_land_button.data("stack-number");
+            var repo_name = gh_stack_land_button.data("repo-name");
+            var csrf_token = gh_stack_land_button.data("csrf-token");
+            var old_warnings = [];
+
+
+            fetch(`/api/stacks/${repo_name}/${stack_number}/checks`, {
+                method: "GET",
+            }).then(async (response) => {
+                if (response.status == 200) {
+                    var result = await response.json();
+                    var blockers = result["blockers"];
+                    var warnings = result["warnings"];
+                    var has_blockers = blockers.length !== 0;
+                    var has_warnings = warnings.length !== 0;
+
+                    var success_placeholder = `<li><span class="fa-li has-text-success"><i class="fa fa-check"></i></span>None found.</li>`;
+
+                    if (!has_blockers) {
+                        $("#blockers").html(success_placeholder);
+                    } else {
+                        $("#blockers").html("");
+                        
+                        $("#blockers").append(
+                        `<ul>
+                            ${Object.entries(blockers)
+                            .map(([blocker, numbers]) => 
+                                `<li>${blocker}: ${numbers.map((number) => 
+                                    `<a href="https://lando.test/stacks/${repo_name}/${number}">${number}</a>`).join(', ')}</li>`)
+                            .join('')}
+                        </ul>`
+                        );
+                    }
+
+                    if (!has_warnings) {
+                        $("#warnings").html(success_placeholder);
+                    } else {
+                        $("#warnings").html("");
+                            $("#warnings").append(
+                            `<ul>
+                                ${Object.entries(warnings)
+                                .map(([warning, numbers]) => `<li>${warning.map((number) => `<a href="https://lando.test/stacks/${repo_name}/${number}">${number}</a>`).join(', ')}</li>`)
+                                .join('')}
+                            </ul>`
+                            );
+                    }
+
+                    if (!has_blockers && !has_warnings) {
+                        gh_stack_land_button.prop("disabled", false);
+                        gh_stack_land_button
+                            .removeClass("is-loading")
+                            .addClass("is-success");
+                        gh_stack_land_button.html("Request landing");
+                    } else if (has_blockers) {
+                        gh_stack_land_button.prop("disabled", true);
+                        gh_stack_land_button
+                            .removeClass("is-loading")
+                            .addClass("is-danger");
+                        gh_stack_land_button.html("Landing is blocked");
+                    } else if (has_warnings) {
+                        $(".acknowledge-warnings-section").show();
+                        // need_warnings_acknowledgements(gh_stack_land_button);
+                    }
+                    // saved_landing_state = {
+                    //     html: gh_stack_land_button.html(),
+                    //     disabled: gh_stack_land_button.prop("disabled"),
+                    //     classes: gh_stack_land_button.attr("class"),
+                    //     ack_section_visible: $(
+                    //         ".acknowledge-warnings-section",
+                    //     ).is(":visible"),
+                    //     ack_checked: $("#acknowledge-warnings").prop(
+                    //         "checked",
+                    //     ),
+                    // };
+                } else {
+                    // TODO: handle this case. See bug 1996000.
+                }
+            });
+        }
+
+            
+        
     });
 };

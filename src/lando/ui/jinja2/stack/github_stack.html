@@ -73,44 +73,29 @@
                                 Acknowledge all warnings below to continue.
                             </label>
                             <h3 class="StackPage-landingPreview-sectionLabel">Warnings:</h3>
-                            <div class="StackPage-landingPreview-section StackPage-landingPreview-warnings">
-                                <ul class="StackPage-landingPreview-warningsList">
-                                    <li class="StackPage-landingPreview-warning">
-                                        <span class="fa-li"><i class="fa fa-spinner fa-pulse"></i></span>Checking...
-                                    </li>
-                                </ul>
+                            <div id="warnings" class="StackPage-landingPreview-section StackPage-landingPreview-warnings">
+
                             </div>
                             <h3 class="StackPage-landingPreview-sectionLabel">Blockers:</h3>
-                            <div class="StackPage-landingPreview-section StackPage-landingPreview-blockers">
-                                <ul class="StackPage-landingPreview-blockersList">
-                                    <li class="StackPage-landingPreview-blocker">
-                                        <span class="fa-li"><i class="fa fa-spinner fa-pulse"></i></span>Checking...
-                                    </li>
-                                </ul>
+                            <div id="blockers"class="StackPage-landingPreview-section StackPage-landingPreview-blockers">
+
                             </div>
                         </section>
                     {% endif %}
                     <footer class="modal-card-foot">
                         <form class="StackPage-form" action="" method="post">
-                            <button class="StackPage-landingPreview-land button"
-                                    data-target-repo="{{ target_repo.url }}"
-                                    data-target-scm-type="{{ target_repo.scm_type }}"
-                                    data-target-branch="{{ target_repo.default_branch }}"
+                            <button class="gh-StackPage-landingPreview-land button"
+                                    data-repo-name="{{ target_repo.name }}"
+                                    data-csrf-token="{{ csrf_token }}"
+                                    data-stack-number="{{ stack.number }}"
                                     disabled>
                                 Land to {{ target_repo.url }}
                                 {% if target_repo.is_git %}@{{ target_repo.default_branch }}{% endif %}
                             </button>
-                            <button class="StackPage-landingPreview-close button">Cancel</button>
+                            <button class="gh-StackPage-landingPreview-close button">Cancel</button>
                         </form>
                     </footer>
                 </div>
             </div>
         </main>
-    {% endblock %}
-    {% block scripts %}
-        {# Load the widget wherever the uplift modal is rendered.
-       The widget no-ops if its mount point is absent. #}
-        {% if user_is_authenticated %}
-            <script src="{{ static_url }}GitHubStack.js" type="module" charset="utf-8"></script>
-        {% endif %}
     {% endblock %}

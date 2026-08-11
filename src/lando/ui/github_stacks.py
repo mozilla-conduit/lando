@@ -46,12 +46,10 @@ class StackView(LandoView, PrivateRepoPermissionMixin):
             for pull_request in stack.pull_requests
             for job in get_jobs_for_pull(target_repo, pull_request.number)
         ]
-
         context = {
             "target_repo": target_repo,
             "stack": stack,
             "landing_jobs": landing_jobs,
-            "pr_delimiter": PR_DELIMITER,
         }
 
         return TemplateResponse(
