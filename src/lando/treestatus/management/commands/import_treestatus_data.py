@@ -21,7 +21,12 @@ DEFAULT_BASE_URL = "https://treestatus.prod.lando.prod.cloudops.mozgcp.net/"
 
 
 class Command(BaseCommand):
-    help = "Import Treestatus data (trees and logs) from another Treestatus instance."
+    help = (
+        "Import Treestatus data (trees and logs) from another Treestatus instance. "
+        "Every local log entry is replaced by the source's, so this command is only "
+        "usable while the source instance remains the source of truth: after the "
+        "cutover it would discard changes made in Lando."
+    )
     name = "import_treestatus_data"
 
     def add_arguments(self, parser: argparse.ArgumentParser):
@@ -46,24 +51,35 @@ class Command(BaseCommand):
         if not trees_data:
             raise CommandError(f"No trees returned from {base_url}.")
 
-        # Import in a single transaction so a detected id misalignment rolls the
-        # whole run back rather than leaving the databases half-migrated.
+        # Import in a single transaction so a failed run leaves the existing data
+        # untouched instead of a half-imported database.
         with transaction.atomic():
+            self.delete_logs()
+
             for tree_info in trees_data.values():
-                self.import_tree(base_url, tree_info)
+                self.import_tree(tree_info)
+                self.import_logs(base_url, tree_info["tree"])
+
             self.reset_log_id_sequence()
 
         self.stdout.write(self.style.SUCCESS("Finished importing Treestatus data."))
 
-    def import_tree(self, base_url: str, tree_info: dict):
-        """Import a single tree and any log entries not yet imported.
+    def delete_logs(self):
+        """Drop every local log entry so the import is a fresh copy of the source.
 
-        The command is safe to re-run: an existing tree is reused as-is and only
-        log entries missing from the local database are created, so subsequent
-        runs pick up rows added to the source since the last import.
+        Re-running the command is a full re-import rather than a merge: any log
+        created locally since the last run is dropped, which keeps the local ids
+        aligned with the source's and avoids reconciling diverged rows.
         """
+        logger.debug("Deleting existing logs.")
+        deleted, _ = Log.objects.all().delete()
+        if deleted:
+            self.stdout.write(f"Deleted {deleted} existing log(s).")
+
+    def import_tree(self, tree_info: dict):
+        """Create a single tree, or re-sync an existing one with the source."""
         tree_name = tree_info["tree"]
-        tree, created = Tree.objects.get_or_create(
+        tree, created = Tree.objects.update_or_create(
             tree=tree_name,
             defaults={
                 "status": TreeStatus(tree_info["status"]),
@@ -72,59 +88,44 @@ class Command(BaseCommand):
                 "category": TreeCategory(tree_info["category"]),
             },
         )
-        if created:
-            self.stdout.write(f"Created tree {tree_name}.")
-        else:
-            self.stdout.write(f"Tree {tree_name} already exists, importing new logs.")
+        action = "Created" if created else "Updated"
+        self.stdout.write(f"{action} tree {tree.tree}.")
 
+    def import_logs(self, base_url: str, tree_name: str):
+        """Recreate the source's log entries for a tree under their original ids.
+
+        Log ids are part of the Treestatus API: they are returned as a tree's
+        `log_id` and are what clients pass back to amend a log entry. Reusing the
+        source ids keeps those references pointing at the same entry in both
+        services, both for API clients and for stack entries recording a
+        `log_id`.
+        """
         logger.debug(f"Fetching logs for {tree_name}.")
         logs_response = requests.get(f"{base_url}/trees/{tree_name}/logs_all")
         logs_response.raise_for_status()
-        logs = logs_response.json()["result"]
+        log_entries = logs_response.json()["result"]
 
-        imported = sum(self.import_log(tree, log_entry) for log_entry in logs)
-
-        self.stdout.write(
-            f"Imported {imported} new log(s) for {tree_name} "
-            f"({len(logs) - imported} already present)."
-        )
-
-    def import_log(self, tree: Tree, log_entry: dict) -> bool:
-        """Recreate a source `Log` under its original id, if not already imported.
-
-        The source `id` is a unique, ordered identifier, so it is reused as the
-        primary key: this deduplicates re-runs without any timestamp comparison
-        and keeps references such as `log_id` valid. Returns `True` when a new
-        `Log` is created and `False` when the entry is already present.
-        """
-        source_id = log_entry["id"]
-        log, created = Log.objects.get_or_create(
-            id=source_id,
-            defaults={
-                "tree": tree,
-                "changed_by": log_entry["who"],
-                "status": TreeStatus(log_entry["status"]),
-                "reason": log_entry["reason"],
-                "tags": log_entry["tags"],
-            },
-        )
-
-        # A row already stored under this id must describe the same source entry;
-        # otherwise the two databases have diverged and references are corrupt.
-        if log.tree_id != tree.tree:
-            raise CommandError(
-                f"Log {source_id} maps to tree {log.tree_id} locally but "
-                f"{tree.tree} in the source; the databases are misaligned."
+        logs = [
+            Log(
+                id=log_entry["id"],
+                tree_id=tree_name,
+                changed_by=log_entry["who"],
+                status=TreeStatus(log_entry["status"]),
+                reason=log_entry["reason"],
+                tags=log_entry["tags"],
             )
+            for log_entry in log_entries
+        ]
+        Log.objects.bulk_create(logs)
 
-        if not created:
-            return False
+        # `created_at` is `auto_now_add`, so the source's `when` has to be set after
+        # insertion. `updated_at` keeps its local meaning of "when this row was last
+        # written", which for an imported log is the time of the import.
+        for log, log_entry in zip(logs, log_entries, strict=True):
+            log.created_at = parse_datetime(log_entry["when"])
+        Log.objects.bulk_update(logs, ["created_at"])
 
-        # `created_at`/`updated_at` use `auto_now_add`/`auto_now`, so a queryset
-        # update is needed to retain the historical timestamp from the source.
-        when = parse_datetime(log_entry["when"])
-        Log.objects.filter(pk=log.pk).update(created_at=when, updated_at=when)
-        return True
+        self.stdout.write(f"Imported {len(logs)} log(s) for {tree_name}.")
 
     def reset_log_id_sequence(self):
         """Advance the `Log` id sequence past the imported primary keys.
