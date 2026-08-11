@@ -55,15 +55,6 @@ BUG_RES = [
         r"no bug",
     ]
 ]
-BACKOUT_RES = [
-    re.compile(format, re.I)
-    for format in [
-        r"^(back(ing|ed)?\s+out|backout).*(\s+|\:)[0-9a-f]{12}",
-        r"^(revert(ed|ing)?).*(\s+|\:)[0-9a-f]{12}",
-        r"^add(ed|ing)? tag",
-    ]
-]
-ACCEPTABLE_MESSAGE_FORMAT_RES = BUG_RES + BACKOUT_RES
 INVALID_REVIEW_FLAG_RE = re.compile(r"[\s.;]r\?(?:\w|$)")
 
 ADD_TAG_RE = re.compile(r"^add(ed|ing)? tag", re.I)
@@ -97,8 +88,6 @@ BACKOUT_MULTI_ONELINE_RE = re.compile(
     + r")+)",
     re.I,
 )
-RE_SOURCE_REPO = re.compile(r"^Source-Repo: (https?:\/\/.*)$", re.MULTILINE)
-RE_SOURCE_REVISION = re.compile(r"^Source-Revision: (.*)$", re.MULTILINE)
 
 RE_DIFF = re.compile(r"[\n^]diff .*\n.*\n(\+\+\+|---).*\n", re.DOTALL)
 
