@@ -391,12 +391,12 @@ $.fn.gh_stack = function () {
                         .removeClass("is-loading")
                         .addClass("is-success");
                     request_land_button.html("Request landing");
-                    // } else if (has_blockers) {
-                    //     request_land_button.prop("disabled", true);
-                    //     request_land_button
-                    //         .removeClass("is-loading")
-                    //         .addClass("is-danger");
-                    //     request_land_button.html("Landing is blocked");
+                    } else if (has_blockers) {
+                        request_land_button.prop("disabled", true);
+                        request_land_button
+                            .removeClass("is-loading")
+                            .addClass("is-danger");
+                        request_land_button.html("Landing is blocked");
                     } else if (has_warnings) {
                         $(".acknowledge-warnings-section").show();
                         need_warnings_acknowledgements(request_land_button);
