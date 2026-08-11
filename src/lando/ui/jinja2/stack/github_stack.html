@@ -1,106 +1,107 @@
 {% extends "partials/layout.html" %}
 {% block page_title %}{{ stack }}{% endblock %}
 {% block main %}
-    <main class="StackPage container fullhd">
-        <div class="StackPage-errors">
-            <span>Landing Failed</span>
-            <ul>
-            </ul>
-        </div>
-        <h1>Landings for Stack {{ stack.number }}</h1>
-        {% include "stack/partials/timeline.html" %}
-        <h1>Stack {{ stack.number }}</h1>
-        <div class="StackPage-stack">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Land</th>
-                        <th>Pull Request</th>
+    <main id="stack-page" class="StackPage StackPage-gh-stack container fullhd">
+        <p>
+            <button id="post-landing-job"
+                    class="button is-large is-loading post-landing-job has-text-white"
+                    disabled
+                    data-anonymous="{{ '0' if request.user.is_authenticated else '1' }}"
+                    data-repo-name="{{ target_repo.name }}"
+                    data-csrf-token="{{ csrf_token }}"
+                    data-stack-number="{{ stack.number }}"
+                    data-repo-url="{{ target_repo.normalized_url }}">Loading</button>
+        </p>
+    </p>
+    <div class="StackPage-stack">
+        <p class="acknowledge-warnings-section">
+            <label class="checkbox">
+                <input type="checkbox" id="acknowledge-warnings" autocomplete="off" />
+                Acknowledge all warnings below to continue.
+            </label>
+        </p>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Pull Request</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pr in stack.pull_requests %}
+                    <tr class="StackPage-pr">
+                        <td class="StackPage-pr-title">
+                            <div class="StackPage-revision-title-text">
+                                <a href="{{ pr.html_url }}">{{ pr.number }}</a>: {{ pr.title }}
+                            </div>
+                        </td>
                     </tr>
-                </thead>
-                <tbody>
-                    {% for pr in stack.pull_requests %}
-                        <tr class="StackPage-pr">
-                            <td class="StackPage-pr-land">
-                                <input class="StackPage-revision-land-radio"
-                                       id="{{ pr.number }}"
-                                       type="radio">
-                            </td>
-                            <td class="StackPage-pr-title">
-                                <div class="StackPage-revision-title-text">
-                                    <a href="{{ pr.html_url }}">{{ pr.number }}</a>: {{ pr.title }}
-                                </div>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <div class="StackPage-landing-info">
-            {% if user_is_authenticated %}
-                <h2>Landing is blocked:</h2>
-                <ul class="StackPage-blockers">
+                {% endfor %}
+            </tbody>
+        </table>
+        <table>
+            <tr>
+                <th></th>
+                <td>
+                    <ul id="warnings-mismatch" class="has-text-warning">
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <th>Warnings</th>
+                <td>
+                    <ul id="warnings" class="fa-ul">
+                        <li>
+                            <span class="fa-li"><i class="fa fa-spinner fa-pulse"></i></span>Checking...
+                        </li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                <th>Blockers</th>
+                <td>
+                    <ul id="blockers" class="fa-ul">
+                        <li>
+                            <span class="fa-li"><i class="fa fa-spinner fa-pulse"></i></span>Checking...
+                        </li>
+                    </ul>
+                </td>
+            </tr>
+            <tr>
+                
+                <th>Branches</th>
 
-                {% endif %}
-            </div>
-            <div class="StackPage-actions">
-                {% if not user_is_authenticated %}
-                    <button disabled>
-                        <div class="StackPage-actions-headline">Preview Landing</div>
-                        <div class="StackPage-actions-subtitle">You must log in first</div>
-                    </button>
-                {% elif not user_has_phabricator_token and (not series or dryrun is none) %}
-                    <button disabled>
-                        <div class="StackPage-actions-headline">Landing Blocked</div>
-                        <div class="StackPage-actions-subtitle">This revision is blocked from landing</div>
-                    </button>
-                {% else %}
-                    <button class="gh-StackPage-preview-button">
-                        <div class="StackPage-actions-headline">Preview Landing</div>
-                    </button>
-                {% endif %}
-            </div>
-            {% if user_is_authenticated %}
-                <div class="gh-StackPage-landingPreview modal">
-                    <div class="modal-background"></div>
-                    <div class="modal-card">
-                        <header class="modal-card-head">
-                            <p class="modal-card-title">Preview landing</p>
-                            <button type="button"
-                                    class="gh-StackPage-landingPreview-close delete"
-                                    aria-label="close"></button>
-                        </header>
-                        <section class="modal-card-body">
-                            <label class="checkbox">
-                                <input type="checkbox" id="acknowledge-warnings" autocomplete="off" />
-                                Acknowledge all warnings below to continue.
-                            </label>
-                            <h3 class="StackPage-landingPreview-sectionLabel">Warnings:</h3>
-                            <div id="warnings" class="StackPage-landingPreview-section StackPage-landingPreview-warnings">
+            </tr>
+            <tr>
+                <th>Repo</th>
 
-                            </div>
-                            <h3 class="StackPage-landingPreview-sectionLabel">Blockers:</h3>
-                            <div id="blockers" class="StackPage-landingPreview-section StackPage-landingPreview-blockers">
+            </tr>
+            <tr>
+                <th>Author</th>
 
-                            </div>
-                        </section>
-                    {% endif %}
-                    <footer class="modal-card-foot">
-                        <form class="gh-StackPage-form" action="" method="post">
-                            <button type="button"
-                                    class="gh-StackPage-landingPreview-land button"
-                                    data-repo-name="{{ target_repo.name }}"
-                                    data-csrf-token="{{ csrf_token }}"
-                                    data-stack-number="{{ stack.number }}"
-                                    data-repo-url="{{ target_repo.normalized_url }}"
-                                    disabled>
-                                Land to {{ target_repo.url }}
-                                {% if target_repo.is_git %}@{{ target_repo.default_branch }}{% endif %}
-                            </button>
-                            <button type="button" class="gh-StackPage-landingPreview-close button">Close</button>
-                        </form>
-                    </footer>
-                </div>
-            </div>
-        </main>
-    {% endblock %}
+            </tr>
+            <tr>
+                <th>State</th>
+
+            </tr>
+            {% for pull_request in stack.pull_requests %}
+                <tr>
+                    <th>Commit Title</th>
+                    <td>
+                        <p id="commit-title">{{ pull_request.title }}</p>
+                        <p id="commit-title-error"></p>
+                    </td>   
+                </tr>
+                <tr>
+                    <th>Commit Body</th>
+                    <td>
+                        <p id="commit-body">{{ pull_request.commit_body|e }}</p>
+                        <p id="commit-body-error"></p>
+                    </td>
+                </tr>
+            {% endfor %}
+        </table>
+    </div>
+    <h1>Landings</h1>
+    {% include "stack/partials/timeline.html" %}
+</main>
+{% endblock %}
