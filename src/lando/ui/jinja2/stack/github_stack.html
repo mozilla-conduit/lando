@@ -85,6 +85,11 @@
             </tr>
             {% for pull_request in stack.pull_requests %}
                 <tr>
+                    <th>Pull Request: </th>
+                    <td><a href="{{ pull_request.html_url }}">{{ pull_request.number }}</a></td>
+                </tr>
+                <div class="pr-description">
+                <tr>
                     <th>Commit Title</th>
                     <td>
                         <p id="commit-title">{{ pull_request.title }}</p>
@@ -98,6 +103,7 @@
                         <p id="commit-body-error"></p>
                     </td>
                 </tr>
+                </div>
             {% endfor %}
         </table>
     </div>
