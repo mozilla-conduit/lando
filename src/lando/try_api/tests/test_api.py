@@ -349,9 +349,11 @@ def test_try_api_patches_success(
 ):
     user = scm_user([Permission.objects.get(codename="scm_level_1")], "password")
 
-    token = f"token success {auth_type}"
-    mock_authenticate = mock_authenticate_builder(user)
-    if auth_type == "headless":
+    if auth_type == "oauth":
+        mock_authenticate = mock_authenticate_builder(user)
+        token = f"token success {auth_type}"
+    elif auth_type == "headless":
+        mock_authenticate = mock_authenticate_builder(None)
         token = ApiToken.create_token(user)
     elif auth_type != "oauth":
         raise ValueError(f"Unknown {auth_type=}")
