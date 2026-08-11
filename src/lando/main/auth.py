@@ -227,7 +227,7 @@ def force_auth_refresh(f: Callable) -> Callable:
     Decorator which forces authenticated session to be refreshed.
     """
 
-    def wrapper(*args, **kwargs):
+    def wrapper(*args, **kwargs) -> HttpResponse:
         """Set oidc_id_token_expiration to 0, forcing session refresh."""
         # First check that SessionRefresh is indeed enabled.
         if "mozilla_django_oidc.middleware.SessionRefresh" not in settings.MIDDLEWARE:
@@ -250,7 +250,7 @@ def require_github_signature(post: Callable) -> Callable:
     """Decorator to block requests requiring a valid signature header."""
 
     @functools.wraps(post)
-    def _post(view: View, request: WSGIRequest, *args, **kwargs):
+    def _post(view: View, request: WSGIRequest, *args, **kwargs) -> HttpResponse:
         signature_header = "X-Hub-Signature-256"
         if signature_header not in request.headers:
             raise PermissionDenied(f"{signature_header} header is required")
