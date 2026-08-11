@@ -148,7 +148,7 @@ def test_try_api_patches_no_scm1(
     elif auth_type == "headless":
         mock_authenticate = mock_authenticate_builder(None)
         token = ApiToken.create_token(user)
-    elif auth_type != "oauth":
+    else:
         raise ValueError(f"Unknown {auth_type=}")
 
     response = client_post(
