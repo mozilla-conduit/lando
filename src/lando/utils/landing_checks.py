@@ -511,8 +511,9 @@ class CommitMessagesCheck(PatchCollectionCheck):
                     + f"does not indicate backed out revisions: {firstline}"
                 )
 
-        # Avoid checks for the merge automation users.
+        # Avoid further checks for the merge automation users.
         if author in {"ffxbld", "seabld", "tbirdbld", "cltbld"}:
+            self.commit_message_issues.extend(current_commit_issues)
             return
 
         # Match against [PATCH] and [PATCH n/m].
