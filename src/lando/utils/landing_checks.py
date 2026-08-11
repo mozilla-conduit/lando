@@ -549,8 +549,10 @@ class CommitMessagesCheck(PatchCollectionCheck):
             )
 
         # Backouts and Hg tags don't need bug numbers.
-        if not is_backout(firstline) and not is_tag(firstline) and not any(
-            re.search(firstline) for re in BUG_RES
+        if (
+            not is_backout(firstline)
+            and not is_tag(firstline)
+            and not any(re.search(firstline) for re in BUG_RES)
         ):
             current_commit_issues.append(
                 f"Revision needs 'Bug N' or 'No bug' in the commit message: {firstline}"
