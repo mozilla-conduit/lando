@@ -173,7 +173,7 @@ urlpatterns += [
 
 # Treestatus URLs.
 urlpatterns += [
-    path("", treestatus_api.urls, name="treestatus-api"),
+    path("api/treestatus/", treestatus_api.urls, name="treestatus-api"),
     path("treestatus/", TreestatusDashboardView.as_view(), name="treestatus-dashboard"),
     path(
         "treestatus/new_tree/",
