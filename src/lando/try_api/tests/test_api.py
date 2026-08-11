@@ -355,7 +355,7 @@ def test_try_api_patches_success(
     elif auth_type == "headless":
         mock_authenticate = mock_authenticate_builder(None)
         token = ApiToken.create_token(user)
-    elif auth_type != "oauth":
+    else:
         raise ValueError(f"Unknown {auth_type=}")
 
     for map in commit_maps:
