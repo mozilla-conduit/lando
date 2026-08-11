@@ -40,6 +40,7 @@
             {% if user_is_authenticated %}
                 <h2>Landing is blocked:</h2>
                 <ul class="StackPage-blockers">
+
                 {% endif %}
             </div>
             <div class="StackPage-actions">
@@ -54,18 +55,20 @@
                         <div class="StackPage-actions-subtitle">This revision is blocked from landing</div>
                     </button>
                 {% else %}
-                    <button class="StackPage-preview-button">
+                    <button class="gh-StackPage-preview-button">
                         <div class="StackPage-actions-headline">Preview Landing</div>
                     </button>
                 {% endif %}
             </div>
             {% if user_is_authenticated %}
-                <div class="StackPage-landingPreview modal">
+                <div class="gh-StackPage-landingPreview modal">
                     <div class="modal-background"></div>
                     <div class="modal-card">
                         <header class="modal-card-head">
                             <p class="modal-card-title">Preview landing</p>
-                            <button class="StackPage-landingPreview-close delete" aria-label="close"></button>
+                            <button type="button"
+                                    class="gh-StackPage-landingPreview-close delete"
+                                    aria-label="close"></button>
                         </header>
                         <section class="modal-card-body">
                             <label class="checkbox">
@@ -77,22 +80,24 @@
 
                             </div>
                             <h3 class="StackPage-landingPreview-sectionLabel">Blockers:</h3>
-                            <div id="blockers"class="StackPage-landingPreview-section StackPage-landingPreview-blockers">
+                            <div id="blockers" class="StackPage-landingPreview-section StackPage-landingPreview-blockers">
 
                             </div>
                         </section>
                     {% endif %}
                     <footer class="modal-card-foot">
-                        <form class="StackPage-form" action="" method="post">
-                            <button class="gh-StackPage-landingPreview-land button"
+                        <form class="gh-StackPage-form" action="" method="post">
+                            <button type="button"
+                                    class="gh-StackPage-landingPreview-land button"
                                     data-repo-name="{{ target_repo.name }}"
                                     data-csrf-token="{{ csrf_token }}"
                                     data-stack-number="{{ stack.number }}"
+                                    data-repo-url="{{ target_repo.normalized_url }}"
                                     disabled>
                                 Land to {{ target_repo.url }}
                                 {% if target_repo.is_git %}@{{ target_repo.default_branch }}{% endif %}
                             </button>
-                            <button class="gh-StackPage-landingPreview-close button">Cancel</button>
+                            <button type="button" class="gh-StackPage-landingPreview-close button">Close</button>
                         </form>
                     </footer>
                 </div>

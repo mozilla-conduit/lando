@@ -404,15 +404,23 @@ $.fn.stack = function () {
                 $("#cancel-edit-pr").addClass("is-hidden");
             });
         }
-        var is_gh_stack_page = Boolean($("button.StackPage-preview-button").length);
+        var is_gh_stack_page = Boolean($("button.gh-StackPage-preview-button").length);
         if (is_gh_stack_page) {
             var gh_stack_land_button = $("button.gh-StackPage-landingPreview-land");
+            var gh_stack_modal = $(".gh-StackPage-landingPreview");
 
             var stack_number = gh_stack_land_button.data("stack-number");
             var repo_name = gh_stack_land_button.data("repo-name");
             var csrf_token = gh_stack_land_button.data("csrf-token");
-            var old_warnings = [];
+            var repo_url = gh_stack_land_button.data("repo-url");
 
+
+            $(".gh-StackPage-preview-button").on("click", function (e) {
+                gh_stack_modal.addClass("is-active");
+            });
+            $(".gh-StackPage-landingPreview-close").on("click", function (e) {
+                gh_stack_modal.removeClass("is-active");
+            });
 
             fetch(`/api/stacks/${repo_name}/${stack_number}/checks`, {
                 method: "GET",
@@ -430,15 +438,21 @@ $.fn.stack = function () {
                         $("#blockers").html(success_placeholder);
                     } else {
                         $("#blockers").html("");
-                        
+
                         $("#blockers").append(
-                        `<ul>
+                            `<ul>
                             ${Object.entries(blockers)
-                            .map(([blocker, numbers]) => 
-                                `<li>${blocker}: ${numbers.map((number) => 
-                                    `<a href="https://lando.test/stacks/${repo_name}/${number}">${number}</a>`).join(', ')}</li>`)
-                            .join('')}
-                        </ul>`
+                                .map(
+                                    ([blocker, numbers]) =>
+                                        `<li>${blocker}: ${numbers
+                                            .map(
+                                                (number) =>
+                                                    `<a href="${repo_url}/pull/${number}">${number}</a>`,
+                                            )
+                                            .join(", ")}</li>`,
+                                )
+                                .join("")}
+                        </ul>`,
                         );
                     }
 
@@ -446,13 +460,16 @@ $.fn.stack = function () {
                         $("#warnings").html(success_placeholder);
                     } else {
                         $("#warnings").html("");
-                            $("#warnings").append(
+                        $("#warnings").append(
                             `<ul>
                                 ${Object.entries(warnings)
-                                .map(([warning, numbers]) => `<li>${warning.map((number) => `<a href="https://lando.test/stacks/${repo_name}/${number}">${number}</a>`).join(', ')}</li>`)
-                                .join('')}
-                            </ul>`
-                            );
+                                    .map(
+                                        ([warning, numbers]) =>
+                                            `<li>${warning}: ${numbers.map((number) => `<a href="${repo_url}/pull/${number}">${number}</a>`).join(", ")}</li>`,
+                                    )
+                                    .join("")}
+                            </ul>`,
+                        );
                     }
 
                     if (!has_blockers && !has_warnings) {
@@ -468,7 +485,7 @@ $.fn.stack = function () {
                             .addClass("is-danger");
                         gh_stack_land_button.html("Landing is blocked");
                     } else if (has_warnings) {
-                        $(".acknowledge-warnings-section").show();
+                        $("#acknowledge-warnings").show();
                         // need_warnings_acknowledgements(gh_stack_land_button);
                     }
                     // saved_landing_state = {
@@ -486,9 +503,33 @@ $.fn.stack = function () {
                     // TODO: handle this case. See bug 1996000.
                 }
             });
-        }
 
-            
-        
+            gh_stack_land_button.on("click", function (e) {
+                e.preventDefault();
+                gh_stack_land_button.addClass("is-loading");
+                fetch(`/api/stacks/${repo_name}/${stack_number}/landing_jobs`, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        old_warnings: [],
+                    }),
+                    headers: {
+                        Accept: "application/json",
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": csrf_token,
+                    },
+                }).then(async (response) => {
+                    if (response.status == 201) {
+                        window.location.reload();
+                    } else if (response.status == 400) {
+                        var result = await response.json();
+                        gh_stack_land_button
+                            .removeClass("is-danger")
+                            .removeClass("is-loading")
+                            .addClass("is-warning");
+                        gh_stack_land_button.prop("disabled", true);
+                    }
+                });
+            });
+        }
     });
 };

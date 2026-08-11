@@ -191,6 +191,11 @@ ul.StackPage-blockers {
     transition-delay: 0.75s;
 }
 
+.gh-StackPage-landingPreview .modal-card {
+    width: 1344px;
+    max-width: calc(100vw - 20px);
+}
+
 .StackPage-landingPreview {
     .modal-card {
         width: 1344px;
