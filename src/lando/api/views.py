@@ -421,6 +421,10 @@ class LandingJobStacksAPIView(StacksAPIView):
 
         add_revisions_to_job(revisions, job)
 
+        job.status = JobStatus.SUBMITTED
+        job.save()
+
+        return JsonResponse({"id": job.id}, status=201)
 
 class Form(forms.Form):
     """Simple form to get clean some fields."""
