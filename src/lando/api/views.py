@@ -343,6 +343,35 @@ class StacksAPIView(View, PrivateRepoPermissionMixin):
 PR_BASE_BRANCH_MISMATCH_BLOCKER = "The base branch for this PR doesn't match this Tree."
 
 class LandingJobStacksAPIView(StacksAPIView):
+    def get(
+        self, request: WSGIRequest, repo_name: int, stack_number: int
+    ) -> JsonResponse:
+        """Return the status of a stack based on landing job counts."""
+
+        landing_jobs = [
+            job
+            for pull_request in self.stack.pull_requests
+            for job in get_jobs_for_pull(self.target_repo, pull_request.number)
+        ]
+        landing_jobs_by_status = defaultdict(list)
+        for landing_job in landing_jobs:
+            landing_jobs_by_status[landing_job.status].append(landing_job.id)
+
+        status = None
+        # Return the first encountered status in this list.
+        for _status in [
+            JobStatus.LANDED,
+            JobStatus.CREATED,
+            JobStatus.SUBMITTED,
+            JobStatus.IN_PROGRESS,
+            JobStatus.FAILED,
+        ]:
+            if landing_jobs_by_status[_status]:
+                status = str(_status).lower()
+                break
+
+        return JsonResponse({"status": status}, status=200)
+        
     def post(
         self, request: WSGIRequest, repo_name: str, stack_number: int
     ) -> JsonResponse:
