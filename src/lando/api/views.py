@@ -505,7 +505,7 @@ class StacksChecksAPIView(StacksAPIView):
             # The StaleMetadataException error message is safe for user consumption.
                 return JsonResponse({"errors": [str(exc)]}, status=500) 
             if PR_BASE_BRANCH_MISMATCH_BLOCKER in warnings_and_blockers[pull_request.number]["blockers"]:
-                del warnings_and_blockers[pull_request.number]["blockers"][PR_BASE_BRANCH_MISMATCH_BLOCKER]
+                warnings_and_blockers[pull_request.number]["blockers"].remove(PR_BASE_BRANCH_MISMATCH_BLOCKER)
 
         return JsonResponse(warnings_and_blockers)
         
