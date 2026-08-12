@@ -237,7 +237,7 @@ def avatar_url(url: str) -> str:
         parsed_url = urllib.parse.urlsplit(url)
         if not parsed_url.netloc:
             raise ValueError("Avatar URLs should not be relative")
-    except (AttributeError, ValueError):
+    except AttributeError, ValueError:
         logger.debug("Invalid avatar url provided", extra={"url": url})
         return ""
 

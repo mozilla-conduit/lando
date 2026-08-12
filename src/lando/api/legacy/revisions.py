@@ -380,7 +380,7 @@ def seed_revisions_from_phabricator(
     for raw_id in raw_revision_ids:
         try:
             revision_ids.append(int(raw_id))
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             raise ValueError(f"Invalid revision ID: {raw_id}")
 
     if revision_ids:
