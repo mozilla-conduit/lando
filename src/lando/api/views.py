@@ -277,29 +277,6 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
 
         return JsonResponse({"status": status}, status=200)
 
-class Form(forms.Form):
-    """Simple form to get clean some fields."""
-
-            def clean(self) -> dict[str, Any]:
-
-                cleaned_data = self.cleaned_data
-                new_warnings = cleaned_data["new_warnings"] or []
-                old_warnings = cleaned_data["old_warnings"] or []
-
-                if sorted(new_warnings) != sorted(old_warnings):
-                    self.errors["warnings"] = [
-                        "The warnings present when the request was constructed have changed. "
-                        "Please acknowledge the new warnings and try again."
-                    ]
-
-        return cleaned_data
-
-            head_sha = forms.CharField()
-            new_warnings = forms.JSONField(required=False)
-            old_warnings = forms.JSONField(required=False)
-            # TODO: use this for verification later, see bug 1996571.
-            # base_ref = forms.CharField()
-
     @method_decorator(require_authenticated_user)
     def post(
         self, request: WSGIRequest, repo_name: int, pull_number: int
@@ -419,11 +396,12 @@ class LandingJobStacksAPIView(StacksAPIView):
 class Form(forms.Form):
     """Simple form to get clean some fields."""
 
-    def clean(self) -> dict:
+    def clean(self) -> dict[str, Any]:
 
         cleaned_data = self.cleaned_data
-        new_warnings = cleaned_data["new_warnings"]
-        old_warnings = cleaned_data["old_warnings"]
+        new_warnings = cleaned_data["new_warnings"] or []
+        old_warnings = cleaned_data["old_warnings"] or []
+
         if sorted(new_warnings) != sorted(old_warnings):
             self.errors["warnings"] = [
                 "The warnings present when the request was constructed have changed. "
@@ -433,11 +411,10 @@ class Form(forms.Form):
         return cleaned_data
 
     head_sha = forms.CharField()
-    new_warnings = forms.JSONField()
-    old_warnings = forms.JSONField()
+    new_warnings = forms.JSONField(required=False)
+    old_warnings = forms.JSONField(required=False)
     # TODO: use this for verification later, see bug 1996571.
     # base_ref = forms.CharField()
-
 
 def create_revision_from_pull_request(pull_request: PullRequest) -> Revision:
     author_name, author_email = pull_request.author
