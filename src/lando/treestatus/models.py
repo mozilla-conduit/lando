@@ -258,7 +258,7 @@ class CombinedTree:
         """Return the tags as a `ReasonCategory`."""
         try:
             return ReasonCategory(self.tags[0])
-        except (IndexError, ValueError):
+        except IndexError, ValueError:
             return ReasonCategory.NO_CATEGORY
 
     def to_dict(self) -> dict:

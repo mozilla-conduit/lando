@@ -811,7 +811,7 @@ def ignore_bot_sender(post: Callable) -> Callable:
         BOT_SENDER_TYPE = "Bot"
         try:
             sender_type = json.loads(request.body)["sender"]["type"]
-        except (JSONDecodeError, KeyError, ValueError, TypeError):
+        except JSONDecodeError, KeyError, ValueError, TypeError:
             pass
         else:
             if sender_type == BOT_SENDER_TYPE:

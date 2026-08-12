@@ -257,7 +257,7 @@ class UpliftAssessmentBatchLinkView(LandoView):
                     id=assessment_id,
                     user=request.user,
                 )
-            except (ValueError, UpliftAssessment.DoesNotExist):
+            except ValueError, UpliftAssessment.DoesNotExist:
                 messages.add_message(
                     request,
                     messages.ERROR,
@@ -319,7 +319,7 @@ class UpliftAssessmentBatchLinkView(LandoView):
                     id=int(assessment_id),
                     user=request.user,
                 )
-            except (ValueError, UpliftAssessment.DoesNotExist):
+            except ValueError, UpliftAssessment.DoesNotExist:
                 messages.add_message(
                     request,
                     messages.ERROR,
