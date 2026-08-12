@@ -355,19 +355,3 @@ def make_uplift_job_with_revisions() -> Callable[
         return job
 
     return _make_uplift_job_with_revisions
-
-@pytest.fixture
-def mock_github_pull_request() -> Callable:
-    """Build a mock pull request."""
-
-    def _mock_github_pull_request(
-        number: int, title: str, body: str = "", head_ref: str = "main"
-    ) -> mock.MagicMock:
-        pull_request = mock.MagicMock()
-        pull_request.number = number
-        pull_request.title = title
-        pull_request.body = body
-        pull_request.head_ref = head_ref
-        return pull_request
-
-    return _mock_github_pull_request
