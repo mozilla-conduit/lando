@@ -1784,6 +1784,7 @@ def authenticated_client(user, user_plaintext_password, client):
     client.login(username=user.username, password=user_plaintext_password)
     return client
 
+
 @pytest.fixture
 def mock_github_pull_request() -> Callable:
     """Build a mock pull request."""

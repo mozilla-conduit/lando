@@ -2320,6 +2320,7 @@ def squash_commits(seed_dir: Path):
         cwd=seed_dir,
     )
 
+
 def assert_reverted_pr_comment(pull_request: mock.MagicMock, pr_number: int) -> str:
     """Assert one "has been reverted" comment was posted, and return the commit hash."""
     pull_request.add_comment.assert_called_once()
