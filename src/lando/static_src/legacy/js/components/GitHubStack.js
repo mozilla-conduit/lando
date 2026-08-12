@@ -335,6 +335,7 @@ $.fn.gh_stack = function () {
             var old_warnings = [];
             var stack_number = request_land_button.data("stack-number");
             var repo_url = request_land_button.data("repo-url");
+            var head_sha = request_land_button.data("head-sha");
             fetch(`/api/stacks/${repo_name}/${stack_number}/checks`, {
                 method: "GET",
             }).then(async (response) => {
@@ -342,8 +343,8 @@ $.fn.gh_stack = function () {
                     var result = await response.json();
                     var blockers = result["blockers"];
                     var warnings = result["warnings"];
-                    var has_blockers = blockers.length !== 0;
-                    var has_warnings = warnings.length !== 0;
+                    var has_blockers = Object.keys(blockers).length !== 0;
+                    var has_warnings = Object.keys(warnings).length !== 0;
                     old_warnings = warnings;
                     var success_placeholder = `<li><span class="fa-li has-text-success"><i class="fa fa-check"></i></span>None found.</li>`;
 
@@ -407,12 +408,12 @@ $.fn.gh_stack = function () {
             });
 
             request_land_button.on("click", function (e) {
-                e.preventDefault();
                 request_land_button.addClass("is-loading");
                 fetch(`/api/stacks/${repo_name}/${stack_number}/landing_jobs`, {
                     method: "POST",
                     body: JSON.stringify({
                         old_warnings: old_warnings,
+                        head_sha: head_sha,
                     }),
                     headers: {
                         Accept: "application/json",
