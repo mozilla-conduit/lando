@@ -363,6 +363,7 @@ class StacksAPIView(View, PrivateRepoPermissionMixin):
             raise
         return super().dispatch(request, repo_name, stack_number, *args, **kwargs)
 
+PR_BASE_BRANCH_MISMATCH_BLOCKER = "The base branch for this PR doesn't match this Tree."
 
 class LandingJobStacksAPIView(StacksAPIView):
     def post(
@@ -377,8 +378,13 @@ class LandingJobStacksAPIView(StacksAPIView):
                 self.target_repo, pull_request, request
             )
             new_warnings = warnings_and_blockers[pull_request.number]["warnings"]
+            blockers = warnings_and_blockers[pull_request.number]["blockers"]
+            if [PR_BASE_BRANCH_MISMATCH_BLOCKER] in blockers:
+                blockers.remove(
+                    [PR_BASE_BRANCH_MISMATCH_BLOCKER]
+                )
 
-            if blockers := warnings_and_blockers[pull_request.number]["blockers"]:
+            if blockers:
                 return JsonResponse(
                     {"errors": blockers, "pull_request": pull_request.number},
                     status=400,
