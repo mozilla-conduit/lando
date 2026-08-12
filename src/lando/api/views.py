@@ -518,9 +518,8 @@ class StacksChecksAPIView(StacksAPIView):
 
             for blocker in categories["blockers"]:
                 warnings_and_blockers["blockers"][blocker].append(number)
-
-            if PR_BASE_BRANCH_MISMATCH_BLOCKER in warnings_and_blockers[pull_request.number]["blockers"]:
-                warnings_and_blockers[pull_request.number]["blockers"].remove(PR_BASE_BRANCH_MISMATCH_BLOCKER)
+        if PR_BASE_BRANCH_MISMATCH_BLOCKER in warnings_and_blockers["blockers"]:
+           del warnings_and_blockers["blockers"][PR_BASE_BRANCH_MISMATCH_BLOCKER]
 
         return JsonResponse(warnings_and_blockers)
 
