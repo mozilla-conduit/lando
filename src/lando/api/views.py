@@ -340,7 +340,7 @@ class StacksAPIView(View, PrivateRepoPermissionMixin):
             raise
         return super().dispatch(request, repo_name, stack_number, *args, **kwargs)
 
-PR_BASE_BRANCH_MISMATCH_BLOCKER = "The base branch for this PR doesn't match this Tree."
+PR_BASE_BRANCH_MISMATCH_BLOCKER = "The base branch for this PR doesn&#x27;t match this Tree."
 
 class LandingJobStacksAPIView(StacksAPIView):
     def get(
