@@ -2048,7 +2048,7 @@ def test_comment_on_reverted_pr_single_revert(
 
     github_api_client.return_value = mock_github_api_client
 
-    commit_message = "Bug 1234 - add a line\n\ntest description\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
+    commit_message = "Bug 1234 - add a line\n\ntest description\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1"
     create_git_commit(Path(seed_dir), message=commit_message)
 
     generate_revert_commits(Path(seed_dir), "HEAD")
@@ -2119,7 +2119,7 @@ def test_comment_on_reverted_prs_multiple_reverts_in_one_commit(
         prs_by_number[pr_number]
     )
 
-    commit_message_1 = "Bug 1234 - add a line\n\ntest description\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
+    commit_message_1 = "Bug 1234 - add a line\n\ntest description\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1"
     create_git_commit(
         Path(seed_dir),
         message=commit_message_1,
@@ -2127,7 +2127,7 @@ def test_comment_on_reverted_prs_multiple_reverts_in_one_commit(
         content="added line\n",
     )
 
-    commit_message_2 = "Bug 5678 - add another line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/2\n\n\n"
+    commit_message_2 = "Bug 5678 - add another line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/2"
     create_git_commit(
         Path(seed_dir),
         message=commit_message_2,
@@ -2204,7 +2204,7 @@ def test_comment_on_reverted_pr_among_non_revert_commits(
 
     github_api_client.return_value = mock_github_api_client
 
-    commit_message_1 = "Bug 1234 - add a line\n\ntest description\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
+    commit_message_1 = "Bug 1234 - add a line\n\ntest description\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1"
     create_git_commit(
         Path(seed_dir),
         message=commit_message_1,
@@ -2220,7 +2220,7 @@ def test_comment_on_reverted_pr_among_non_revert_commits(
     )
     original_sha = result.stdout.strip()
 
-    commit_message_2 = "Bug 5678 - add another line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/2\n\n\n"
+    commit_message_2 = "Bug 5678 - add another line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/2"
     create_git_commit(
         Path(seed_dir),
         message=commit_message_2,
@@ -2230,7 +2230,7 @@ def test_comment_on_reverted_pr_among_non_revert_commits(
 
     generate_revert_commits(Path(seed_dir), original_sha)
 
-    commit_message_3 = "Bug 91011 - add a third line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/3\n\n\n"
+    commit_message_3 = "Bug 91011 - add a third line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/3"
     create_git_commit(
         Path(seed_dir),
         message=commit_message_3,
