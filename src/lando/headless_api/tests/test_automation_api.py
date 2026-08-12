@@ -1906,7 +1906,7 @@ def test_automation_job_processing(automation_job):
 MULTITRAILER_COMMIT_MESSAGE = """Bug 1234567 - do something
 
 This PR fixes a problem that was introduced in
-Pull request https://github.com/mozilla-conduit/test-repo/pull/12345
+Pull request: https://github.com/mozilla-conduit/test-repo/pull/12345
 
 Pull request: https://github.com/mozilla-conduit/test-repo/pull/98765"""
 
