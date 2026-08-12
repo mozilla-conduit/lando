@@ -2017,25 +2017,6 @@ def test_is_revert_commit(description, is_revert, make_scm_commit):
     )
 
 
-
-
-def assert_reverted_pr_comment(pull_request: mock.MagicMock, pr_number: int) -> str:
-    """Assert one "has been reverted" comment was posted, and return the commit hash."""
-    pull_request.add_comment.assert_called_once()
-
-    (comment,) = pull_request.add_comment.call_args.args
-    match = re.fullmatch(
-        r"This pull request has been reverted "
-        r"by commit ([0-9a-f]{40})\.",
-        comment,
-    )
-    assert match, (
-        f"Comment on PR #{pr_number} should name the reverting commit, got: {comment!r}"
-    )
-
-    return match.group(1)
-
-
 @mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
 @pytest.mark.django_db
 def test_comment_on_reverted_pr_single_revert(
@@ -2067,7 +2048,7 @@ def test_comment_on_reverted_pr_single_revert(
 
     github_api_client.return_value = mock_github_api_client
 
-    commit_message = "\n\nBug 1234 - add a line\n\ntest description\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
+    commit_message = "Bug 1234 - add a line\n\ntest description\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
     create_git_commit(Path(seed_dir), message=commit_message)
 
     generate_revert_commits(Path(seed_dir), "HEAD")
@@ -2138,7 +2119,7 @@ def test_comment_on_reverted_prs_multiple_reverts_in_one_commit(
         prs_by_number[pr_number]
     )
 
-    commit_message_1 = "\n\nBug 1234 - add a line\n\ntest description\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
+    commit_message_1 = "Bug 1234 - add a line\n\ntest description\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
     create_git_commit(
         Path(seed_dir),
         message=commit_message_1,
@@ -2146,7 +2127,7 @@ def test_comment_on_reverted_prs_multiple_reverts_in_one_commit(
         content="added line\n",
     )
 
-    commit_message_2 = "\n\nBug 5678 - add another line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/2\n\n\n"
+    commit_message_2 = "Bug 5678 - add another line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/2\n\n\n"
     create_git_commit(
         Path(seed_dir),
         message=commit_message_2,
@@ -2223,7 +2204,7 @@ def test_comment_on_reverted_pr_among_non_revert_commits(
 
     github_api_client.return_value = mock_github_api_client
 
-    commit_message_1 = "\n\nBug 1234 - add a line\n\ntest description\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
+    commit_message_1 = "Bug 1234 - add a line\n\ntest description\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1\n\n\n"
     create_git_commit(
         Path(seed_dir),
         message=commit_message_1,
@@ -2239,7 +2220,7 @@ def test_comment_on_reverted_pr_among_non_revert_commits(
     )
     original_sha = result.stdout.strip()
 
-    commit_message_2 = "\n\nBug 5678 - add another line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/2\n\n\n"
+    commit_message_2 = "Bug 5678 - add another line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/2\n\n\n"
     create_git_commit(
         Path(seed_dir),
         message=commit_message_2,
@@ -2249,7 +2230,7 @@ def test_comment_on_reverted_pr_among_non_revert_commits(
 
     generate_revert_commits(Path(seed_dir), original_sha)
 
-    commit_message_3 = "\n\nBug 91011 - add a third line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/3\n\n\n"
+    commit_message_3 = "Bug 91011 - add a third line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/3\n\n\n"
     create_git_commit(
         Path(seed_dir),
         message=commit_message_3,
@@ -2338,3 +2319,19 @@ def squash_commits(seed_dir: Path):
         check=True,
         cwd=seed_dir,
     )
+
+def assert_reverted_pr_comment(pull_request: mock.MagicMock, pr_number: int) -> str:
+    """Assert one "has been reverted" comment was posted, and return the commit hash."""
+    pull_request.add_comment.assert_called_once()
+
+    (comment,) = pull_request.add_comment.call_args.args
+    match = re.fullmatch(
+        r"This pull request has been reverted "
+        r"by commit ([0-9a-f]{40})\.",
+        comment,
+    )
+    assert match, (
+        f"Comment on PR #{pr_number} should name the reverting commit, got: {comment!r}"
+    )
+
+    return match.group(1)
