@@ -503,7 +503,10 @@ class StacksChecksAPIView(StacksAPIView):
                 )
             except PullRequest.StaleMetadataException as exc:
             # The StaleMetadataException error message is safe for user consumption.
-                return JsonResponse({"errors": [str(exc)]}, status=500)
+                return JsonResponse({"errors": [str(exc)]}, status=500) 
+            if PR_BASE_BRANCH_MISMATCH_BLOCKER in warnings_and_blockers[pull_request.number]["blockers"]:
+                del warnings_and_blockers[pull_request.number]["blockers"][PR_BASE_BRANCH_MISMATCH_BLOCKER]
+
         return JsonResponse(warnings_and_blockers)
         
 class PullRequestContentAPIView(PullRequestAPIView):
