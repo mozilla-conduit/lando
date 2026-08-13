@@ -793,7 +793,7 @@ def test_lose_push_race(
     "repo_type, expected_error_log, patch",
     # Can't use itertools.product without similar overhead as this,
     # as we have more than one element in the first set.
-    (
+    tuple(
         scm + (patch,)
         for scm in (
             (SCMType.GIT, "Rejected hunk"),
@@ -869,10 +869,12 @@ def test_merge_conflict(
     # We make a cross-product of all the SCM and all the bad actions.
     # As we don't want a cross-product of bad actions and reasons, we bundle them in a
     # tuple, that we deconstruct in the test.
-    itertools.product(
-        [SCMType.HG, SCMType.GIT],
-        # All of FAILING_CHECK_TYPES, except for wpt
-        [check_type for check_type in FAILING_CHECK_TYPES if check_type != "wpt"],
+    tuple(
+        itertools.product(
+            [SCMType.HG, SCMType.GIT],
+            # All of FAILING_CHECK_TYPES, except for wpt
+            [check_type for check_type in FAILING_CHECK_TYPES if check_type != "wpt"],
+        )
     ),
 )
 @pytest.mark.django_db
