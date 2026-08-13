@@ -37,6 +37,10 @@ from lando.utils.tasks import (
 logger = logging.getLogger(__name__)
 
 
+class SecurityBugReferenceException(Exception):
+    """Raised when a commit message references a bug that is not public."""
+
+
 class UpliftWorker(Worker):
     """Worker to execute uplift jobs.
 
@@ -172,7 +176,11 @@ class UpliftWorker(Worker):
                 try_job = self.create_uplift_try_push(
                     base_revision, repo.scm_type, job, scm, new_commits
                 )
-
+            except SecurityBugReferenceException as e:
+                logger.warning(
+                    f"Skipping try push for uplift job: {e}",
+                    extra={"job_id": job.id},
+                )
             except Exception:
                 logger.exception(
                     "Failed to create try push for uplift job.",
@@ -319,9 +327,8 @@ class UpliftWorker(Worker):
     ) -> LandingJob:
         """Create a Try `LandingJob` for the commits landed by an uplift job."""
         patch_helpers = list(scm.get_patch_helpers_for_commits(new_commits))
-        result = self.check_uplift_bug_references(patch_helpers)
-        if result:
-            raise ValueError(result)
+        if result := self.check_uplift_bug_references(patch_helpers):
+            raise SecurityBugReferenceException(result)
 
         try_repo = Repo.objects.get(name="try")
 
@@ -366,10 +373,11 @@ class UpliftWorker(Worker):
 
     def check_uplift_bug_references(
         self, patch_helpers: list[PatchHelper]
-    ) -> list[str]:
+    ) -> str | None:
         """Check if uplift job contains references to non-public bugs.
 
-        Return the error message when a referenced bug is not public, and `None` otherwise."""
+        Return the error message when a referenced bug is not public, and `None` otherwise.
+        """
         secure_check = BugReferencesCheck()
         for patch_helper in patch_helpers:
             secure_check.next_diff(patch_helper)
