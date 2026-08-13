@@ -247,7 +247,10 @@ class Worker(ABC):
             # We refresh again after a throttle, in case trees were closed or re-opened.
             self.refresh_active_repos()
 
-        self.log_queue_size()
+        queue_size = self.queue_size()
+        self.log_queue_size(queue_size)
+        if queue_size.total > self.queue_size_alert_threshold:
+            self.warn_queue_size(queue_size)
 
         with transaction.atomic():
             job = self.job_type.next_job(repositories=self.active_repos).first()
@@ -302,35 +305,39 @@ class Worker(ABC):
                     extra={"id": job.id},
                 )
 
-    def log_queue_size(self):
+    def log_queue_size(self, queue_size: QueueSize):
         """Log the number of jobs waiting to be processed by this worker.
 
-        The size is logged on every loop so a log-based metric can graph the depth of
-        each worker's queue over time. It is split into the jobs on open trees, which
-        this worker can drain now, and the jobs held behind closed trees, which it
-        cannot. Both delay landings from a user's perspective, so the total is what
-        gets compared against
-        `ConfigurationKey.WORKER_QUEUE_SIZE_ALERT_THRESHOLD`. Exceeding the threshold
-        logs a warning, which a log-based metric matches to raise an alert.
+        Logged on every loop so a log-based metric can graph the depth of each
+        worker's queue over time.
         """
-        queue_size = self.queue_size()
         worker_name = self.worker_instance.name
-        log_fields = {"worker": worker_name, **queue_size.log_fields}
-
         logger.info(
-            f"Queue size for worker {worker_name} is {queue_size}.", extra=log_fields
+            f"Queue size for worker {worker_name} is {queue_size}.",
+            extra={"worker": worker_name, **queue_size.log_fields},
         )
 
-        threshold = ConfigurationVariable.get(
+    def warn_queue_size(self, queue_size: QueueSize):
+        """Warn that this worker's queue has grown past the alert threshold.
+
+        A log-based metric matches this message to raise an alert. The total is what
+        gets compared, as jobs held behind a closed tree delay landings from a user's
+        perspective just as much as the jobs the worker can drain now.
+        """
+        worker_name = self.worker_instance.name
+        logger.warning(
+            f"Queue size for worker {worker_name} exceeds alert threshold: "
+            f"{queue_size} queued, threshold is {self.queue_size_alert_threshold}.",
+            extra={"worker": worker_name, **queue_size.log_fields},
+        )
+
+    @property
+    def queue_size_alert_threshold(self) -> int:
+        """The queue size above which `loop` logs a queue size warning."""
+        return ConfigurationVariable.get(
             ConfigurationKey.WORKER_QUEUE_SIZE_ALERT_THRESHOLD,
             DEFAULT_QUEUE_SIZE_ALERT_THRESHOLD,
         )
-        if queue_size.total > threshold:
-            logger.warning(
-                f"Queue size for worker {worker_name} exceeds alert threshold: "
-                f"{queue_size} queued, threshold is {threshold}.",
-                extra=log_fields,
-            )
 
     def queue_size(self) -> QueueSize:
         """Return the number of queued jobs, split by whether their tree is open.

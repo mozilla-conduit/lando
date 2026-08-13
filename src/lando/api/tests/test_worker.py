@@ -5,7 +5,11 @@ from unittest import mock
 
 import pytest
 
-from lando.api.legacy.workers.base import QueueSize
+from lando.api.legacy.workers.base import (
+    DEFAULT_QUEUE_SIZE_ALERT_THRESHOLD,
+    QueueSize,
+    Worker,
+)
 from lando.api.legacy.workers.landing_worker import LandingWorker
 from lando.main.models import JobStatus
 from lando.main.models.configuration import (
@@ -136,62 +140,62 @@ def test_Worker_queue_size_ignores_repos_the_worker_does_not_handle(
     )
 
 
-@pytest.mark.django_db
-def test_Worker_log_queue_size_logs_size(
-    caplog, worker_with_open_trees, make_landing_job
-):
+def worker_stub(name="test-worker"):
+    """Return a stand-in for a `Worker`, for testing its logging in isolation."""
+    stub = mock.MagicMock()
+    stub.worker_instance.name = name
+    return stub
+
+
+def test_QueueSize_totals_open_and_closed_trees():
+    queue_size = QueueSize(open_trees=74, closed_trees=5)
+
+    assert queue_size.total == 79, "`total` should sum both tallies."
+    assert str(queue_size) == "79 (74 on open trees, 5 behind closed trees)", (
+        "A `QueueSize` should describe its own breakdown."
+    )
+    assert queue_size.log_fields == {
+        "queue_size": 79,
+        "open_queue_size": 74,
+        "closed_queue_size": 5,
+    }, "Each tally should be available as a separate log field for metrics."
+
+
+def test_Worker_log_queue_size_logs_size(caplog):
     caplog.set_level(logging.INFO)
-    for _ in range(3):
-        make_landing_job(
-            status=JobStatus.SUBMITTED,
-            target_repo=worker_with_open_trees.enabled_repos[0],
-        )
 
-    worker_with_open_trees.log_queue_size()
+    Worker.log_queue_size(worker_stub("try"), QueueSize(open_trees=74, closed_trees=5))
 
-    name = worker_with_open_trees.worker_instance.name
     assert (
-        f"Queue size for worker {name} is 3 "
-        "(3 on open trees, 0 behind closed trees)." in caplog.text
-    ), "The queue size should be logged on every call."
+        "Queue size for worker try is 79 "
+        "(74 on open trees, 5 behind closed trees)." in caplog.text
+    ), "The queue size and its breakdown should be logged."
 
 
-@pytest.mark.django_db
-def test_Worker_log_queue_size_warns_above_threshold(
-    caplog, worker_with_open_trees, make_landing_job
-):
-    set_queue_threshold(2)
-    for _ in range(3):
-        make_landing_job(
-            status=JobStatus.SUBMITTED,
-            target_repo=worker_with_open_trees.enabled_repos[0],
-        )
+def test_Worker_warn_queue_size_names_the_threshold(caplog):
+    stub = worker_stub("try")
+    stub.queue_size_alert_threshold = 25
 
-    worker_with_open_trees.log_queue_size()
+    Worker.warn_queue_size(stub, QueueSize(open_trees=74, closed_trees=5))
 
-    name = worker_with_open_trees.worker_instance.name
     assert (
-        f"Queue size for worker {name} exceeds alert threshold: 3 "
-        "(3 on open trees, 0 behind closed trees) queued, threshold is 2."
+        "Queue size for worker try exceeds alert threshold: 79 "
+        "(74 on open trees, 5 behind closed trees) queued, threshold is 25."
         in caplog.text
-    ), "Exceeding the configured threshold should log a warning."
+    ), "The warning should report the breakdown and the threshold it crossed."
 
 
 @pytest.mark.django_db
-def test_Worker_log_queue_size_does_not_warn_at_threshold(
-    caplog, worker_with_open_trees, make_landing_job
-):
-    set_queue_threshold(3)
-    for _ in range(3):
-        make_landing_job(
-            status=JobStatus.SUBMITTED,
-            target_repo=worker_with_open_trees.enabled_repos[0],
-        )
+def test_Worker_queue_size_alert_threshold_defaults(git_landing_worker):
+    threshold = git_landing_worker.queue_size_alert_threshold
+    assert threshold == DEFAULT_QUEUE_SIZE_ALERT_THRESHOLD, (
+        "The default should apply when the configuration variable is unset."
+    )
 
-    worker_with_open_trees.log_queue_size()
+    set_queue_threshold(5)
 
-    assert "exceeds alert threshold" not in caplog.text, (
-        "A queue size equal to the threshold should not warn."
+    assert git_landing_worker.queue_size_alert_threshold == 5, (
+        "The configuration variable should override the default."
     )
 
 
@@ -206,6 +210,30 @@ def test_Worker_loop_logs_queue_size(caplog, worker_with_open_trees):
     name = worker_with_open_trees.worker_instance.name
     assert f"Queue size for worker {name} is 0 " in caplog.text, (
         "`loop` should report the queue size before picking up the next job."
+    )
+    assert "exceeds alert threshold" not in caplog.text, (
+        "An empty queue should not warn."
+    )
+
+
+@pytest.mark.django_db
+def test_Worker_loop_warns_above_threshold(
+    caplog, worker_with_open_trees, make_landing_job
+):
+    worker_with_open_trees.run_idle_maintenance = mock.MagicMock()
+    worker_with_open_trees.run_job = mock.MagicMock(return_value=True)
+    set_queue_threshold(2)
+    for _ in range(3):
+        make_landing_job(
+            status=JobStatus.SUBMITTED,
+            target_repo=worker_with_open_trees.enabled_repos[0],
+        )
+
+    worker_with_open_trees.loop()
+
+    name = worker_with_open_trees.worker_instance.name
+    assert f"Queue size for worker {name} exceeds alert threshold: 3 " in caplog.text, (
+        "`loop` should warn once the queue passes the threshold."
     )
 
 
