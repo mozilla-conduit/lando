@@ -1,4 +1,5 @@
 import json
+import logging
 import subprocess
 from io import StringIO
 from unittest import mock
@@ -890,8 +891,11 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         )
         assert (
             "Skipping try push for uplift job:\nYour commit message references bug"
-            in caplog.text
+            in caplog.records[-1].message
         ), "Secure uplift should log a message about not creating a public Try push."
+        assert caplog.records[-1].levelno == logging.WARNING, (
+            "Secure uplift should log a warning message."
+        )
     else:
         try_jobs = LandingJob.objects.filter(target_repo=try_repo)
         assert try_jobs.count() == 1, (
