@@ -716,7 +716,7 @@ class BugReferencesCheck(PatchCollectionCheck):
                         f"Please check your commit message and try again. {BMO_SKIP_HINT}"
                     )
                 ]
-                
+
             if status_code == 401:
                 self.private_bug_ids.add(bug_id)
                 continue
