@@ -669,6 +669,7 @@ class BugReferencesCheck(PatchCollectionCheck):
 
     bug_ids: set[int] = field(default_factory=set)
     skip_check: bool = False
+    private_bug_ids: set[int] = field(default_factory=set)
 
     def next_diff(self, patch_helper: PatchHelper):
         """Parse each diff for bug references information.
@@ -699,34 +700,40 @@ class BugReferencesCheck(PatchCollectionCheck):
         if not invalid_bugs:
             return []
 
-        # Check a single bug to determine which error to return.
-        bug_id = invalid_bugs.pop()
-        try:
-            status_code = get_status_code_for_bug(bug_id)
-        except requests.exceptions.RequestException as exc:
-            return [BUG_REFERENCES_BMO_ERROR_TEMPLATE.format(error=str(exc))]
+        # Check every invalid bug so a "does not exist" or "could not verify" error
+        # takes precedence over a "private bug" error.
 
-        if status_code == 401:
+        for bug_id in invalid_bugs:
+            try:
+                status_code = get_status_code_for_bug(bug_id)
+            except requests.exceptions.RequestException as exc:
+                return [BUG_REFERENCES_BMO_ERROR_TEMPLATE.format(error=str(exc))]
+
+            if status_code == 404:
+                return [
+                    (
+                        f"Your commit message references bug {bug_id}, which does not exist. "
+                        f"Please check your commit message and try again. {BMO_SKIP_HINT}"
+                    )
+                ]
+                
+            if status_code == 401:
+                self.private_bug_ids.add(bug_id)
+                continue
+
             return [
                 (
-                    f"Your commit message references bug {bug_id}, which is currently private. To avoid "
-                    "disclosing the nature of this bug publicly, please remove the affected bug ID "
-                    f"from the commit message. {BMO_SKIP_HINT}"
+                    f"While checking if bug {bug_id} in your commit message is a security bug, "
+                    f"an error occurred and the bug could not be verified. {BMO_SKIP_HINT}"
                 )
             ]
 
-        if status_code == 404:
-            return [
-                (
-                    f"Your commit message references bug {bug_id}, which does not exist. "
-                    f"Please check your commit message and try again. {BMO_SKIP_HINT}"
-                )
-            ]
-
+        bug_id = list(self.private_bug_ids)[0]
         return [
             (
-                f"While checking if bug {bug_id} in your commit message is a security bug, "
-                f"an error occurred and the bug could not be verified. {BMO_SKIP_HINT}"
+                f"Your commit message references bug {bug_id}, which is currently private. To avoid "
+                "disclosing the nature of this bug publicly, please remove the affected bug ID "
+                f"from the commit message. {BMO_SKIP_HINT}"
             )
         ]
 
