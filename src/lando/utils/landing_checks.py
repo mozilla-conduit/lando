@@ -664,6 +664,7 @@ class BugReferencesCheck(PatchCollectionCheck):
 
     bug_ids: set[int] = field(default_factory=set)
     skip_check: bool = False
+    private_bug_ids: set[int] = field(default_factory=set)
 
     def next_diff(self, patch_helper: PatchHelper):
         """Parse each diff for bug references information.
