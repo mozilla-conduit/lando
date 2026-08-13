@@ -329,7 +329,9 @@ class UpliftWorker(Worker):
         patch_helpers = list(scm.get_patch_helpers_for_commits(new_commits))
         result = self.check_uplift_bug_references(patch_helpers)
         if any("which is currently private" in error for error in result):
-            raise SecurityBugReferenceException("Skipping try push for uplift job:\n" + "\n".join(result))
+            raise SecurityBugReferenceException(
+                "Skipping try push for uplift job:\n" + "\n".join(result)
+            )
 
         try_repo = Repo.objects.get(name="try")
 
