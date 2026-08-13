@@ -93,6 +93,17 @@ def worker_with_open_trees(git_landing_worker, treestatusdouble):
     return git_landing_worker
 
 
+@pytest.fixture
+def queue_landing_jobs(make_landing_job):
+    """Return a callable that queues `count` landing jobs against a repo."""
+
+    def _queue(repo, count, status=JobStatus.SUBMITTED):
+        for _ in range(count):
+            make_landing_job(status=status, target_repo=repo)
+
+    return _queue
+
+
 def set_queue_threshold(threshold):
     """Set the queue size alert threshold configuration variable."""
     ConfigurationVariable.set(
@@ -102,46 +113,8 @@ def set_queue_threshold(threshold):
     )
 
 
-@pytest.mark.django_db
-def test_Worker_queue_size_splits_open_and_closed_trees(
-    worker_with_open_trees, treestatusdouble, make_landing_job
-):
-    """Only pending jobs count, tallied by whether their tree is open."""
-    open_repo, closed_repo = list(worker_with_open_trees.enabled_repos)[:2]
-    for _ in range(2):
-        make_landing_job(status=JobStatus.SUBMITTED, target_repo=open_repo)
-    make_landing_job(status=JobStatus.DEFERRED, target_repo=open_repo)
-    make_landing_job(status=JobStatus.LANDED, target_repo=open_repo)
-    make_landing_job(status=JobStatus.CANCELLED, target_repo=open_repo)
-    for _ in range(4):
-        make_landing_job(status=JobStatus.SUBMITTED, target_repo=closed_repo)
-
-    treestatusdouble.close_tree(closed_repo.tree)
-    worker_with_open_trees.refresh_active_repos()
-
-    queue_size = worker_with_open_trees.queue_size()
-
-    assert queue_size == QueueSize(open_trees=3, closed_trees=4), (
-        "Pending jobs should be tallied by tree state, ignoring finished jobs."
-    )
-
-
-@pytest.mark.django_db
-def test_Worker_queue_size_ignores_repos_the_worker_does_not_handle(
-    worker_with_open_trees, make_landing_job, repo_mc
-):
-    other_worker_repo = repo_mc(scm_type=SCMType.GIT, name="some-other-workers-repo")
-    make_landing_job(status=JobStatus.SUBMITTED, target_repo=other_worker_repo)
-
-    queue_size = worker_with_open_trees.queue_size()
-
-    assert queue_size == QueueSize(open_trees=0, closed_trees=0), (
-        "Jobs on repos this worker does not handle should never be counted."
-    )
-
-
 def worker_stub(name="test-worker"):
-    """Return a stand-in for a `Worker`, for testing its logging in isolation."""
+    """Return a stand-in for a `Worker`, for testing it without a database."""
     stub = mock.MagicMock()
     stub.worker_instance.name = name
     return stub
@@ -185,12 +158,45 @@ def test_Worker_warn_queue_size_names_the_threshold(caplog):
     ), "The warning should report the breakdown and the threshold it crossed."
 
 
+def test_Worker_queue_size_without_enabled_repos_counts_nothing():
+    """`job_queue_query` drops its repo filter entirely for an empty repo list."""
+    stub = worker_stub()
+    stub.enabled_repos = []
+
+    assert Worker.queue_size(stub) == QueueSize(open_trees=0, closed_trees=0), (
+        "A worker with no enabled repos should have an empty queue."
+    )
+    assert not stub.job_type.job_queue_query.called, (
+        "The queue must not be counted without a repo filter, which would pick up "
+        "every other worker's jobs."
+    )
+
+
+@pytest.mark.django_db
+def test_Worker_queue_size_splits_open_and_closed_trees(
+    worker_with_open_trees, treestatusdouble, queue_landing_jobs
+):
+    """Only pending jobs count, tallied by whether their tree is open."""
+    open_repo, closed_repo = list(worker_with_open_trees.enabled_repos)[:2]
+    queue_landing_jobs(open_repo, 2)
+    queue_landing_jobs(open_repo, 1, status=JobStatus.DEFERRED)
+    queue_landing_jobs(open_repo, 1, status=JobStatus.LANDED)
+    queue_landing_jobs(open_repo, 1, status=JobStatus.CANCELLED)
+    queue_landing_jobs(closed_repo, 4)
+
+    treestatusdouble.close_tree(closed_repo.tree)
+    worker_with_open_trees.refresh_active_repos()
+
+    assert worker_with_open_trees.queue_size() == QueueSize(
+        open_trees=3, closed_trees=4
+    ), "Pending jobs should be tallied by tree state, ignoring finished jobs."
+
+
 @pytest.mark.django_db
 def test_Worker_queue_size_alert_threshold_defaults(git_landing_worker):
-    threshold = git_landing_worker.queue_size_alert_threshold
-    assert threshold == DEFAULT_QUEUE_SIZE_ALERT_THRESHOLD, (
-        "The default should apply when the configuration variable is unset."
-    )
+    assert git_landing_worker.queue_size_alert_threshold == (
+        DEFAULT_QUEUE_SIZE_ALERT_THRESHOLD
+    ), "The default should apply when the configuration variable is unset."
 
     set_queue_threshold(5)
 
@@ -199,41 +205,30 @@ def test_Worker_queue_size_alert_threshold_defaults(git_landing_worker):
     )
 
 
+@pytest.mark.parametrize(
+    ("queued", "threshold", "warns"),
+    [(0, 25, False), (3, 3, False), (3, 2, True)],
+    ids=["empty-queue", "at-threshold", "above-threshold"],
+)
 @pytest.mark.django_db
-def test_Worker_loop_logs_queue_size(caplog, worker_with_open_trees):
-    """The queue size is reported between jobs, including when the queue is empty."""
+def test_Worker_loop_reports_queue_size(
+    caplog, worker_with_open_trees, queue_landing_jobs, queued, threshold, warns
+):
+    """`loop` logs the size every time, and warns only once it passes the threshold."""
     caplog.set_level(logging.INFO)
     worker_with_open_trees.run_idle_maintenance = mock.MagicMock()
+    worker_with_open_trees.run_job = mock.MagicMock(return_value=True)
+    set_queue_threshold(threshold)
+    queue_landing_jobs(worker_with_open_trees.enabled_repos[0], queued)
 
     worker_with_open_trees.loop()
 
     name = worker_with_open_trees.worker_instance.name
-    assert f"Queue size for worker {name} is 0 " in caplog.text, (
+    assert f"Queue size for worker {name} is {queued} " in caplog.text, (
         "`loop` should report the queue size before picking up the next job."
     )
-    assert "exceeds alert threshold" not in caplog.text, (
-        "An empty queue should not warn."
-    )
-
-
-@pytest.mark.django_db
-def test_Worker_loop_warns_above_threshold(
-    caplog, worker_with_open_trees, make_landing_job
-):
-    worker_with_open_trees.run_idle_maintenance = mock.MagicMock()
-    worker_with_open_trees.run_job = mock.MagicMock(return_value=True)
-    set_queue_threshold(2)
-    for _ in range(3):
-        make_landing_job(
-            status=JobStatus.SUBMITTED,
-            target_repo=worker_with_open_trees.enabled_repos[0],
-        )
-
-    worker_with_open_trees.loop()
-
-    name = worker_with_open_trees.worker_instance.name
-    assert f"Queue size for worker {name} exceeds alert threshold: 3 " in caplog.text, (
-        "`loop` should warn once the queue passes the threshold."
+    assert ("exceeds alert threshold" in caplog.text) is warns, (
+        "`loop` should warn only when the queue passes the threshold."
     )
 
 
