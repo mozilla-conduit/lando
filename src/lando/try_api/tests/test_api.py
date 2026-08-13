@@ -411,20 +411,28 @@ def test_try_api_patches_success(
 #
 
 
+@pytest.mark.parametrize("invalidated", (False, True))
 @pytest.mark.django_db()
 def test_try_api_patches_m2m_auth_invalid_token(
     mock_authenticate_builder: Callable,
     scm_user: Callable,
     client_post: Callable,
+    invalidated: True,
 ):
     user = scm_user([Permission.objects.get(codename="scm_level_1")], "password")
     token = ApiToken.create_token(user)
+    if invalidated:
+        api_token = ApiToken.verify_token(token)
+        api_token.is_valid = False
+        api_token.save()
+    else:
+        token = f"{token}-ish"
 
     mock_authenticate = mock_authenticate_builder(None)
 
     response = client_post(
         "/api/try/patches",
-        headers={"AuThOrIzAtIoN": f"bEaReR {token}-ish"},
+        headers={"AuThOrIzAtIoN": f"bEaReR {token}"},
     )
 
     assert mock_authenticate.called, "Authentication backend should be called"

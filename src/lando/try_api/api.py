@@ -34,9 +34,10 @@ logger = logging.getLogger(__name__)
 
 api = NinjaAPI(
     # We expect orders of magnitude more authentication with OAuth access tokens rather
-    # than Headless API token. So we put the former first, even though it requires network
-    # interactions that the latter doesn't. The latter also does log at INFO level when a
-    # token is not found, which would otherwise create a lot of noise in the logs.
+    # than Headless API token. So we put the former first, even though it requires
+    # network interactions that the latter doesn't. The latter also does log at INFO
+    # level when a token is not found, which would otherwise create a lot of noise in
+    # the logs.
     auth=[AccessTokenAuth(), HeadlessAPIAuthentication()],
     urls_namespace="try",
 )
