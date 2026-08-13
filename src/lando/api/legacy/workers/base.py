@@ -5,9 +5,10 @@ import os
 import re
 import subprocess
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from time import sleep
-from typing import Callable, NamedTuple, TypeVar
+from typing import Callable, TypeVar
 
 from celery import Task
 from django.db import transaction
@@ -47,7 +48,8 @@ T = TypeVar("T")
 DEFAULT_QUEUE_SIZE_ALERT_THRESHOLD = 25
 
 
-class QueueSize(NamedTuple):
+@dataclass(frozen=True)
+class QueueSize:
     """The number of jobs queued for a worker, split by the state of their tree."""
 
     open_trees: int
