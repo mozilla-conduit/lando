@@ -22,6 +22,7 @@ from lando.main.models import (
     WorkerType,
 )
 from lando.main.models import Worker as WorkerModel
+from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 from lando.main.models.jobs import (
     JobAction,
     PermanentFailureException,
@@ -39,6 +40,10 @@ from lando.main.scm.exceptions import (
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+# Queue size above which `Worker.log_queue_size` emits a warning, used when
+# `ConfigurationKey.WORKER_QUEUE_SIZE_ALERT_THRESHOLD` is unset.
+DEFAULT_QUEUE_SIZE_ALERT_THRESHOLD = 25
 
 
 class Worker(ABC):
@@ -214,6 +219,8 @@ class Worker(ABC):
             # We refresh again after a throttle, in case trees were closed or re-opened.
             self.refresh_active_repos()
 
+        self.log_queue_size()
+
         with transaction.atomic():
             job = self.job_type.next_job(repositories=self.active_repos).first()
 
@@ -266,6 +273,66 @@ class Worker(ABC):
                     f"Finished processing {job}",
                     extra={"id": job.id},
                 )
+
+    def log_queue_size(self):
+        """Log the number of jobs waiting to be processed by this worker.
+
+        The size is logged on every loop so a log-based metric can graph the depth of
+        each worker's queue over time. It is split into the jobs on open trees, which
+        this worker can drain now, and the jobs held behind closed trees, which it
+        cannot. Both delay landings from a user's perspective, so the total is what
+        gets compared against
+        `ConfigurationKey.WORKER_QUEUE_SIZE_ALERT_THRESHOLD`. Exceeding the threshold
+        logs a warning, which a log-based metric matches to raise an alert.
+        """
+        open_queue_size = self.queue_size(self.active_repos)
+        closed_repos = [
+            repo for repo in self.enabled_repos if repo not in self.active_repos
+        ]
+        closed_queue_size = self.queue_size(closed_repos)
+        queue_size = open_queue_size + closed_queue_size
+
+        worker_name = self.worker_instance.name
+        log_fields = {
+            "queue_size": queue_size,
+            "open_queue_size": open_queue_size,
+            "closed_queue_size": closed_queue_size,
+            "worker": worker_name,
+        }
+        breakdown = (
+            f"{open_queue_size} on open trees, {closed_queue_size} behind closed trees"
+        )
+
+        logger.info(
+            f"Queue size for worker {worker_name} is {queue_size} ({breakdown}).",
+            extra=log_fields,
+        )
+
+        threshold = ConfigurationVariable.get(
+            ConfigurationKey.WORKER_QUEUE_SIZE_ALERT_THRESHOLD,
+            DEFAULT_QUEUE_SIZE_ALERT_THRESHOLD,
+        )
+        if queue_size > threshold:
+            logger.warning(
+                f"Queue size for worker {worker_name} exceeds alert threshold: "
+                f"{queue_size} jobs queued ({breakdown}), threshold is {threshold}.",
+                extra=log_fields,
+            )
+
+    def queue_size(self, repositories: list[Repo]) -> int:
+        """Return the number of jobs waiting on `repositories`.
+
+        `grace_seconds` is set to `0` so the size is the true backlog rather than the
+        subset the worker is currently willing to claim. An empty `repositories` is
+        short-circuited because `job_queue_query` skips the repo filter entirely in
+        that case, which would count every other worker's jobs too.
+        """
+        if not repositories:
+            return 0
+
+        return self.job_type.job_queue_query(
+            repositories=repositories, grace_seconds=0
+        ).count()
 
     @property
     def throttle_seconds(self) -> int:

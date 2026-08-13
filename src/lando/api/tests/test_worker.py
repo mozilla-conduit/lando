@@ -1,10 +1,18 @@
+import logging
 import os
 from datetime import datetime, timedelta
 from unittest import mock
 
 import pytest
 
+from lando.api.legacy.workers.base import DEFAULT_QUEUE_SIZE_ALERT_THRESHOLD
 from lando.api.legacy.workers.landing_worker import LandingWorker
+from lando.main.models import JobStatus, LandingJob
+from lando.main.models.configuration import (
+    ConfigurationKey,
+    ConfigurationVariable,
+    VariableTypeChoices,
+)
 from lando.main.scm import SCMType
 from lando.main.scm.exceptions import SCMException
 
@@ -66,6 +74,254 @@ def mocked_enabled_repos(get_landing_worker, monkeypatch):
         return landing_worker, repos
 
     return _setup
+
+
+@pytest.fixture
+def worker_with_queue(get_landing_worker, treestatusdouble, monkeypatch):
+    """Return a callable giving a landing worker and a factory for queued jobs.
+
+    The worker's trees all start open so `active_repos` is populated. Tests that
+    need a closed tree should call `treestatusdouble.close_tree` followed by
+    `landing_worker.refresh_active_repos`.
+
+    The returned factory queues `count` jobs, defaulting to the first enabled repo.
+    """
+
+    def _setup(scm_type):
+        landing_worker = get_landing_worker(scm_type)
+        for repo in landing_worker.enabled_repos:
+            treestatusdouble.open_tree(repo.tree)
+        landing_worker.refresh_active_repos()
+        monkeypatch.setattr(landing_worker, "throttle", mock.MagicMock())
+
+        def queue_jobs(count, status=JobStatus.SUBMITTED, repo=None):
+            target_repo = repo or landing_worker.enabled_repos[0]
+            return [
+                LandingJob.objects.create(
+                    status=status,
+                    requester_email="tuser@example.com",
+                    target_repo=target_repo,
+                )
+                for _ in range(count)
+            ]
+
+        return landing_worker, queue_jobs
+
+    return _setup
+
+
+def set_queue_threshold(threshold):
+    """Set the queue size alert threshold configuration variable."""
+    ConfigurationVariable.set(
+        ConfigurationKey.WORKER_QUEUE_SIZE_ALERT_THRESHOLD,
+        VariableTypeChoices.INT,
+        str(threshold),
+    )
+
+
+@pytest.mark.parametrize("scm_type", [SCMType.HG, SCMType.GIT])
+@pytest.mark.django_db
+def test_Worker_log_queue_size_logs_size(caplog, scm_type, worker_with_queue):
+    caplog.set_level(logging.INFO)
+    landing_worker, queue_jobs = worker_with_queue(scm_type)
+    queue_jobs(3)
+
+    landing_worker.log_queue_size()
+
+    name = landing_worker.worker_instance.name
+    assert (
+        f"Queue size for worker {name} is 3 "
+        "(3 on open trees, 0 behind closed trees)." in caplog.text
+    ), "The queue size should be logged on every call."
+
+
+@pytest.mark.parametrize("scm_type", [SCMType.HG, SCMType.GIT])
+@pytest.mark.django_db
+def test_Worker_log_queue_size_counts_jobs_inside_grace_period(
+    caplog, scm_type, worker_with_queue
+):
+    """`LandingJob.job_queue_query` can hide recently created jobs.
+
+    The reported queue size should be the true backlog, so jobs inside the grace
+    period are still counted. Note that `LANDING_WORKER_DEFAULT_GRACE_SECONDS` is
+    `0` under test settings, so the grace period is passed explicitly here.
+    """
+    caplog.set_level(logging.INFO)
+    landing_worker, queue_jobs = worker_with_queue(scm_type)
+    queue_jobs(2)
+
+    hidden_by_grace_period = LandingJob.job_queue_query(
+        repositories=landing_worker.active_repos, grace_seconds=120
+    ).count()
+    assert hidden_by_grace_period == 0, (
+        "Jobs created just now should be hidden by a grace period."
+    )
+
+    landing_worker.log_queue_size()
+
+    name = landing_worker.worker_instance.name
+    assert f"Queue size for worker {name} is 2 " in caplog.text, (
+        "Jobs inside the grace period should still count toward the queue size."
+    )
+
+
+@pytest.mark.parametrize("scm_type", [SCMType.HG, SCMType.GIT])
+@pytest.mark.django_db
+def test_Worker_log_queue_size_excludes_finished_jobs(
+    caplog, scm_type, worker_with_queue
+):
+    caplog.set_level(logging.INFO)
+    landing_worker, queue_jobs = worker_with_queue(scm_type)
+    queue_jobs(1)
+    queue_jobs(4, status=JobStatus.LANDED)
+    queue_jobs(2, status=JobStatus.CANCELLED)
+
+    landing_worker.log_queue_size()
+
+    name = landing_worker.worker_instance.name
+    assert f"Queue size for worker {name} is 1 " in caplog.text, (
+        "Only pending jobs should count toward the queue size."
+    )
+
+
+@pytest.mark.parametrize("scm_type", [SCMType.HG, SCMType.GIT])
+@pytest.mark.django_db
+def test_Worker_log_queue_size_splits_open_and_closed_trees(
+    caplog, scm_type, worker_with_queue, treestatusdouble
+):
+    caplog.set_level(logging.INFO)
+    landing_worker, queue_jobs = worker_with_queue(scm_type)
+    open_repo, closed_repo = list(landing_worker.enabled_repos)[:2]
+    queue_jobs(2, repo=open_repo)
+    queue_jobs(5, repo=closed_repo)
+
+    treestatusdouble.close_tree(closed_repo.tree)
+    landing_worker.refresh_active_repos()
+
+    landing_worker.log_queue_size()
+
+    name = landing_worker.worker_instance.name
+    assert (
+        f"Queue size for worker {name} is 7 "
+        "(2 on open trees, 5 behind closed trees)." in caplog.text
+    ), "Jobs behind a closed tree should be counted and reported separately."
+
+
+@pytest.mark.parametrize("scm_type", [SCMType.HG, SCMType.GIT])
+@pytest.mark.django_db
+def test_Worker_log_queue_size_warns_on_closed_tree_backlog(
+    caplog, scm_type, worker_with_queue, treestatusdouble
+):
+    """A backlog behind a closed tree still delays landings, so it should alert."""
+    landing_worker, queue_jobs = worker_with_queue(scm_type)
+    set_queue_threshold(2)
+    closed_repo = landing_worker.enabled_repos[0]
+    queue_jobs(3, repo=closed_repo)
+
+    treestatusdouble.close_tree(closed_repo.tree)
+    landing_worker.refresh_active_repos()
+
+    landing_worker.log_queue_size()
+
+    assert (
+        "exceeds alert threshold: 3 jobs queued (0 on open trees, 3 behind closed "
+        "trees), threshold is 2." in caplog.text
+    ), "A queue held behind a closed tree should count toward the alert threshold."
+
+
+@pytest.mark.parametrize("scm_type", [SCMType.HG, SCMType.GIT])
+@pytest.mark.django_db
+def test_Worker_log_queue_size_ignores_other_workers_when_all_trees_closed(
+    caplog, scm_type, worker_with_queue, treestatusdouble, repo_mc
+):
+    """An empty repo list makes `job_queue_query` drop its repo filter entirely.
+
+    Every tree being closed must not be reported as a queue containing jobs that
+    belong to some other worker.
+    """
+    caplog.set_level(logging.INFO)
+    landing_worker, queue_jobs = worker_with_queue(scm_type)
+    for repo in landing_worker.enabled_repos:
+        treestatusdouble.close_tree(repo.tree)
+    landing_worker.refresh_active_repos()
+    assert not landing_worker.active_repos, "Test requires every tree to be closed."
+
+    other_worker_repo = repo_mc(scm_type=SCMType.GIT, name="some-other-workers-repo")
+    queue_jobs(4, repo=other_worker_repo)
+
+    landing_worker.log_queue_size()
+
+    name = landing_worker.worker_instance.name
+    assert (
+        f"Queue size for worker {name} is 0 "
+        "(0 on open trees, 0 behind closed trees)." in caplog.text
+    ), "Jobs on repos this worker does not handle should never be counted."
+
+
+@pytest.mark.parametrize("scm_type", [SCMType.HG, SCMType.GIT])
+@pytest.mark.django_db
+def test_Worker_log_queue_size_warns_above_threshold(
+    caplog, scm_type, worker_with_queue
+):
+    landing_worker, queue_jobs = worker_with_queue(scm_type)
+    set_queue_threshold(2)
+    queue_jobs(3)
+
+    landing_worker.log_queue_size()
+
+    name = landing_worker.worker_instance.name
+    assert (
+        f"Queue size for worker {name} exceeds alert threshold: 3 jobs queued "
+        "(3 on open trees, 0 behind closed trees), threshold is 2." in caplog.text
+    ), "Exceeding the configured threshold should log a warning."
+
+
+@pytest.mark.parametrize("scm_type", [SCMType.HG, SCMType.GIT])
+@pytest.mark.django_db
+def test_Worker_log_queue_size_does_not_warn_at_threshold(
+    caplog, scm_type, worker_with_queue
+):
+    landing_worker, queue_jobs = worker_with_queue(scm_type)
+    set_queue_threshold(3)
+    queue_jobs(3)
+
+    landing_worker.log_queue_size()
+
+    assert "exceeds alert threshold" not in caplog.text, (
+        "A queue size equal to the threshold should not warn."
+    )
+
+
+@pytest.mark.parametrize("scm_type", [SCMType.HG, SCMType.GIT])
+@pytest.mark.django_db
+def test_Worker_log_queue_size_uses_default_threshold(
+    caplog, scm_type, worker_with_queue
+):
+    """With no configuration variable set, `DEFAULT_QUEUE_SIZE_ALERT_THRESHOLD` applies."""
+    landing_worker, queue_jobs = worker_with_queue(scm_type)
+    queue_jobs(DEFAULT_QUEUE_SIZE_ALERT_THRESHOLD + 1)
+
+    landing_worker.log_queue_size()
+
+    assert f"threshold is {DEFAULT_QUEUE_SIZE_ALERT_THRESHOLD}." in caplog.text, (
+        "The default threshold should apply when the configuration variable is unset."
+    )
+
+
+@pytest.mark.parametrize("scm_type", [SCMType.HG, SCMType.GIT])
+@pytest.mark.django_db
+def test_Worker_loop_logs_queue_size(caplog, scm_type, worker_with_queue):
+    """The queue size is reported between jobs, including when the queue is empty."""
+    caplog.set_level(logging.INFO)
+    landing_worker, _ = worker_with_queue(scm_type)
+    landing_worker.run_idle_maintenance = mock.MagicMock()
+
+    landing_worker.loop()
+
+    name = landing_worker.worker_instance.name
+    assert f"Queue size for worker {name} is 0 " in caplog.text, (
+        "`loop` should report the queue size before picking up the next job."
+    )
 
 
 @pytest.mark.parametrize("scm_type", [SCMType.HG, SCMType.GIT])
