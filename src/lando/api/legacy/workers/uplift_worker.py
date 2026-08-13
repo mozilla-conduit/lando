@@ -327,11 +327,13 @@ class UpliftWorker(Worker):
     ) -> LandingJob:
         """Create a Try `LandingJob` for the commits landed by an uplift job."""
         patch_helpers = list(scm.get_patch_helpers_for_commits(new_commits))
-        result = self.check_uplift_bug_references(patch_helpers)
-        if any("which is currently private" in error for error in result):
+        error, private_bugs = self.check_uplift_bug_references(patch_helpers)
+        if private_bugs:
             raise SecurityBugReferenceException(
-                "Skipping try push for uplift job:\n" + "\n".join(result)
+                "Skipping try push for uplift job:\n" + "\n".join(error)
             )
+        if error:
+            raise ValueError(error)
 
         try_repo = Repo.objects.get(name="try")
 
@@ -376,15 +378,16 @@ class UpliftWorker(Worker):
 
     def check_uplift_bug_references(
         self, patch_helpers: list[PatchHelper]
-    ) -> list[str] | None:
+    ) -> tuple[list[str], set[int]]:
         """Check if uplift job contains references to non-public bugs.
 
-        Return the error message when a referenced bug is not public, and `None` otherwise.
+        Return the error message and set of private bug IDs when a referenced bug is not public.
         """
         secure_check = BugReferencesCheck()
         for patch_helper in patch_helpers:
             secure_check.next_diff(patch_helper)
-        return secure_check.result()
+        error_message = secure_check.result()
+        return error_message, secure_check.private_bug_ids
 
     def create_try_diff_from_json(self) -> str:
         try_config_path = (
