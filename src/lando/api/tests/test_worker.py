@@ -224,8 +224,8 @@ def test_Worker_log_queue_size_warns_on_closed_tree_backlog(
     landing_worker.log_queue_size()
 
     assert (
-        "exceeds alert threshold: 3 jobs queued (0 on open trees, 3 behind closed "
-        "trees), threshold is 2." in caplog.text
+        "exceeds alert threshold: 3 (0 on open trees, 3 behind closed trees) "
+        "queued, threshold is 2." in caplog.text
     ), "A queue held behind a closed tree should count toward the alert threshold."
 
 
@@ -271,8 +271,9 @@ def test_Worker_log_queue_size_warns_above_threshold(
 
     name = landing_worker.worker_instance.name
     assert (
-        f"Queue size for worker {name} exceeds alert threshold: 3 jobs queued "
-        "(3 on open trees, 0 behind closed trees), threshold is 2." in caplog.text
+        f"Queue size for worker {name} exceeds alert threshold: 3 "
+        "(3 on open trees, 0 behind closed trees) queued, threshold is 2."
+        in caplog.text
     ), "Exceeding the configured threshold should log a warning."
 
 

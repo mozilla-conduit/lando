@@ -7,10 +7,11 @@ import subprocess
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from time import sleep
-from typing import Callable, TypeVar
+from typing import Callable, NamedTuple, TypeVar
 
 from celery import Task
 from django.db import transaction
+from django.db.models import Count
 from kombu.exceptions import OperationalError
 
 import lando.utils.treestatus
@@ -41,9 +42,36 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-# Queue size above which `Worker.log_queue_size` emits a warning, used when
+# Queue size above which a worker logs a queue size warning, used when
 # `ConfigurationKey.WORKER_QUEUE_SIZE_ALERT_THRESHOLD` is unset.
 DEFAULT_QUEUE_SIZE_ALERT_THRESHOLD = 25
+
+
+class QueueSize(NamedTuple):
+    """The number of jobs queued for a worker, split by the state of their tree."""
+
+    open_trees: int
+    closed_trees: int
+
+    @property
+    def total(self) -> int:
+        """The number of queued jobs, wherever they are held."""
+        return self.open_trees + self.closed_trees
+
+    @property
+    def log_fields(self) -> dict[str, int]:
+        """The queue size as `extra` fields for a log record."""
+        return {
+            "queue_size": self.total,
+            "open_queue_size": self.open_trees,
+            "closed_queue_size": self.closed_trees,
+        }
+
+    def __str__(self) -> str:
+        return (
+            f"{self.total} ({self.open_trees} on open trees, "
+            f"{self.closed_trees} behind closed trees)"
+        )
 
 
 class Worker(ABC):
@@ -285,54 +313,58 @@ class Worker(ABC):
         `ConfigurationKey.WORKER_QUEUE_SIZE_ALERT_THRESHOLD`. Exceeding the threshold
         logs a warning, which a log-based metric matches to raise an alert.
         """
-        open_queue_size = self.queue_size(self.active_repos)
-        closed_repos = [
-            repo for repo in self.enabled_repos if repo not in self.active_repos
-        ]
-        closed_queue_size = self.queue_size(closed_repos)
-        queue_size = open_queue_size + closed_queue_size
-
+        queue_size = self.queue_size()
         worker_name = self.worker_instance.name
-        log_fields = {
-            "queue_size": queue_size,
-            "open_queue_size": open_queue_size,
-            "closed_queue_size": closed_queue_size,
-            "worker": worker_name,
-        }
-        breakdown = (
-            f"{open_queue_size} on open trees, {closed_queue_size} behind closed trees"
-        )
+        log_fields = {"worker": worker_name, **queue_size.log_fields}
 
         logger.info(
-            f"Queue size for worker {worker_name} is {queue_size} ({breakdown}).",
-            extra=log_fields,
+            f"Queue size for worker {worker_name} is {queue_size}.", extra=log_fields
         )
 
         threshold = ConfigurationVariable.get(
             ConfigurationKey.WORKER_QUEUE_SIZE_ALERT_THRESHOLD,
             DEFAULT_QUEUE_SIZE_ALERT_THRESHOLD,
         )
-        if queue_size > threshold:
+        if queue_size.total > threshold:
             logger.warning(
                 f"Queue size for worker {worker_name} exceeds alert threshold: "
-                f"{queue_size} jobs queued ({breakdown}), threshold is {threshold}.",
+                f"{queue_size} queued, threshold is {threshold}.",
                 extra=log_fields,
             )
 
-    def queue_size(self, repositories: list[Repo]) -> int:
-        """Return the number of jobs waiting on `repositories`.
+    def queue_size(self) -> QueueSize:
+        """Return the number of queued jobs, split by whether their tree is open.
 
-        `grace_seconds` is set to `0` so the size is the true backlog rather than the
-        subset the worker is currently willing to claim. An empty `repositories` is
-        short-circuited because `job_queue_query` skips the repo filter entirely in
-        that case, which would count every other worker's jobs too.
+        A single query counts the pending jobs across every enabled repo and groups
+        them by repo, which are then tallied into the jobs this worker can drain now
+        and the jobs held behind a closed tree. `grace_seconds` is set to `0` so the
+        size is the true backlog rather than the subset the worker is currently
+        willing to claim. An empty `enabled_repos` is short-circuited because
+        `job_queue_query` skips the repo filter entirely in that case, which would
+        count every other worker's jobs too.
         """
-        if not repositories:
-            return 0
+        if not self.enabled_repos:
+            return QueueSize(open_trees=0, closed_trees=0)
 
-        return self.job_type.job_queue_query(
-            repositories=repositories, grace_seconds=0
-        ).count()
+        counts_by_repo = (
+            self.job_type.job_queue_query(
+                repositories=self.enabled_repos, grace_seconds=0
+            )
+            # Drop the queue ordering, which would otherwise group by its annotations.
+            .order_by()
+            .values("target_repo")
+            .annotate(job_count=Count("id"))
+        )
+
+        active_repo_ids = {repo.id for repo in self.active_repos}
+        open_trees = closed_trees = 0
+        for row in counts_by_repo:
+            if row["target_repo"] in active_repo_ids:
+                open_trees += row["job_count"]
+            else:
+                closed_trees += row["job_count"]
+
+        return QueueSize(open_trees=open_trees, closed_trees=closed_trees)
 
     @property
     def throttle_seconds(self) -> int:
