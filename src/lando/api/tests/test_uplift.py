@@ -734,6 +734,7 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     monkeypatch,
     make_uplift_job_with_revisions,
     mock_uplift_email_tasks,
+    caplog,
 ):
     def mock_write_update_commits(commits):
         def _write_uplift_commits(job_arg, base_rev, env, output_path):
@@ -886,6 +887,9 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     if secure:
         assert not LandingJob.objects.filter(target_repo__name="try").exists(), (
             "Secure uplift should not create a public Try push."
+        )
+        assert "Skipping try push for uplift job:\nYour commit message references bug" in caplog.text, (
+            "Secure uplift should log a message about not creating a public Try push."
         )
     else:
         try_jobs = LandingJob.objects.filter(target_repo=try_repo)
