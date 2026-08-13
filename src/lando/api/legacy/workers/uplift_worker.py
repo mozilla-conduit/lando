@@ -178,7 +178,7 @@ class UpliftWorker(Worker):
                 )
             except SecurityBugReferenceException as e:
                 logger.warning(
-                    f"Skipping try push for uplift job: {e}",
+                    str(e),
                     extra={"job_id": job.id},
                 )
             except Exception:
@@ -327,8 +327,9 @@ class UpliftWorker(Worker):
     ) -> LandingJob:
         """Create a Try `LandingJob` for the commits landed by an uplift job."""
         patch_helpers = list(scm.get_patch_helpers_for_commits(new_commits))
-        if result := self.check_uplift_bug_references(patch_helpers):
-            raise SecurityBugReferenceException(result)
+        result = self.check_uplift_bug_references(patch_helpers)
+        if any("which is currently private" in error for error in result):
+            raise SecurityBugReferenceException("Skipping try push for uplift job:\n" + "\n".join(result))
 
         try_repo = Repo.objects.get(name="try")
 
