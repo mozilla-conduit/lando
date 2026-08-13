@@ -1,6 +1,11 @@
 import pytest
 from django.test.client import Client
 
+from lando.main.models import (
+    ConfigurationKey,
+    ConfigurationVariable,
+    VariableTypeChoices,
+)
 from lando.middleware import url_origin
 
 
@@ -21,6 +26,38 @@ def test_url_origin(url: str, expected: str):
     assert url_origin(url) == expected, (
         f"`url_origin({url!r})` should return {expected!r}."
     )
+
+
+@pytest.mark.parametrize(
+    "path,available_in_maintenance",
+    (
+        ("/treestatus/", False),
+        ("/api/treestatus/trees", True),
+        ("/api/treestatus/stack", True),
+    ),
+)
+@pytest.mark.django_db
+def test_maintenance_mode_treestatus_api_exception(
+    client: Client, path: str, available_in_maintenance: bool
+):
+    """The Treestatus API stays available while Lando is under maintenance."""
+    ConfigurationVariable.set(
+        ConfigurationKey.API_IN_MAINTENANCE, VariableTypeChoices.BOOL, "1"
+    )
+
+    response = client.get(path)
+
+    if available_in_maintenance:
+        assert response.status_code == 200, (
+            f"`{path}` should be served during maintenance."
+        )
+        assert "maintenance" not in response.content.decode(), (
+            f"`{path}` should not return the maintenance page during maintenance."
+        )
+    else:
+        assert "maintenance" in response.content.decode(), (
+            f"`{path}` should return the maintenance page during maintenance."
+        )
 
 
 @pytest.mark.parametrize(
