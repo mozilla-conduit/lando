@@ -61,8 +61,10 @@ ADD_TAG_RE = re.compile(r"^add(ed|ing)? tag", re.I)
 
 CHANGESET_KEYWORD = r"(?:\b(?:changeset|revision|change|cset|of)\b)"
 CHANGESETS_KEYWORD = r"(?:\b(?:changesets|revisions|changes|csets|of)\b)"
+FULL_NODE = r"(?:[0-9a-f]{40}\b)"
 SHORT_NODE = r"([0-9a-f]{12}\b)"
 SHORT_NODE_RE = re.compile(SHORT_NODE, re.I)
+
 BACKOUT_KEYWORD = r"^(?:backed out|backout|back out|revert(?:ed|ing)?(?: to)?)\b"
 BACKOUT_KEYWORD_RE = re.compile(BACKOUT_KEYWORD, re.I)
 BACKOUT_SINGLE_RE = re.compile(
@@ -87,6 +89,9 @@ BACKOUT_MULTI_ONELINE_RE = re.compile(
     + SHORT_NODE
     + r")+)",
     re.I,
+)
+BACKOUT_GIT_RE = re.compile(
+    r"This reverts commit (?P<node>" + FULL_NODE + r")."
 )
 
 RE_DIFF = re.compile(r"[\n^]diff .*\n.*\n(\+\+\+|---).*\n", re.DOTALL)
@@ -154,6 +159,12 @@ def parse_backouts(
         return SHORT_NODE_RE.findall(backout_match.group("nodes")), parse_bugs(
             first_line
         )
+
+    # Git-style reverts, with one or more nodes mentioned on individual lines in the commit
+    # message.
+    backout_match = BACKOUT_GIT_RE.findall(commit_desc)
+    if backout_match:
+        return backout_match, parse_bugs(commit_desc)
 
     return
 

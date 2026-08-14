@@ -23,6 +23,7 @@ from lando.utils.landing_checks import (
     TryTaskConfigCheck,
     WPTSyncCheck,
 )
+from src.lando.api.tests.test_commit_message import GIT_STYLE_REVERT, HG_STYLE_BACKOUT
 
 GIT_DIFF_FILENAME_TEMPLATE = r"""\
 diff --git a/{filename} b/{filename}
@@ -140,6 +141,14 @@ def test_check_commit_message_merge_automation_bad_message():
         (
             "Revert to changeset 41f80b316d60 due to incomplete backout",
             "'Revert to' backout syntax is accepted.",
+        ),
+        (
+            HG_STYLE_BACKOUT,
+            "Hg-style backout with multiple changesets is accepted.",
+        ),
+        (
+            GIT_STYLE_REVERT,
+            "Git-style revert is accepted.",
         ),
         (
             "Backout changesets  9e4ab3907b29, 3abc0dbbf710 due to m-oth permaorange",

@@ -3,6 +3,8 @@ import pytest
 from lando.api.legacy.commit_message import (
     bug_list_to_commit_string,
     format_commit_message,
+    is_backout,
+    parse_backouts,
     parse_bugs,
     split_title_and_summary,
 )
@@ -232,3 +234,88 @@ def test_parse_bugs():
     assert parse_bugs(BUG_COMMIT_MESSAGE) == [1803416], (
         "`parse_bugs` should only return the appropriate bug numbers."
     )
+
+
+HG_STYLE_BACKOUT = """\
+Backed out 5 changesets (bug 1965330) for reftest failures
+
+Backed out changeset 586f132b2ad7 (bug 1965330)
+Backed out changeset 6cd2e3e3e11c (bug 1965330)
+Backed out changeset 57b4521b3f44 (bug 1965330)
+Backed out changeset f758a758914e (bug 1965330)
+Backed out changeset cd6ed268f238 (bug 1965330)
+
+Differential Revision: https://phabricator.services.mozilla.com/D252667
+"""
+
+GIT_STYLE_REVERT = """\
+Revert "Bug 2030542, Bug 2062193, Bug 2062191, Bug 2062186, Bug 2062189 - Wait for the favicon to reach the top sites list in browser_ext_topSites.js, and re-enable the test on linux x11 opt, r=extension-reviewers,rpl." for causing bc failures @browser_ext_url_overrides_newtab.js. IGNORE BAD COMMIT MESSAGES
+
+This reverts commit ba2c3a5b0735e67b4fd904a6fd324a9f79c44cf1.
+
+Revert "Bug 2062193 - Expect windows.update() to clamp an off-screen position to the screen's available area in browser_ext_windows_size.js, and re-enable the test on mac, r=extension-reviewers,rpl."
+
+This reverts commit 36ffcad0ba0cb10d8348d99fbe0095359e03fcf4.
+
+Revert "Bug 2062191 - Use fake media streams in browser_ext_webrtc.js and re-enable it on mac, r=extension-reviewers,rpl."
+
+This reverts commit f22844d2d7c424875ac74b56d88590f8d489e9f6.
+
+Revert "Bug 2062186 - Fix the intermittent stale about:preferences tab in browser_ext_url_overrides_newtab.js, r=extension-reviewers,rpl."
+
+This reverts commit c02ebe1d487482c3ddfdffde9be1c46be1ce4f6d.
+
+Revert "Bug 2062189 - Wait for the parent process to register the menu item before opening a context menu in the browserAction, pageAction and sidebarAction contextMenu tests, r=extension-reviewers,rpl."
+
+This reverts commit e3f81fcb94c16422e2643009af485d88647fdfd8.
+"""
+
+
+@pytest.mark.parametrize(
+    "commit_message,expected_parsed",
+    (
+        ("Backed out changeset 4910f543acd8", (["4910f543acd8"], [])),
+        ("Backout of ceac31c0ce89 due to bustage", (["ceac31c0ce89"], [])),
+        (
+            "Revert to changeset 41f80b316d60 due to incomplete backout",
+            (["41f80b316d60"], []),
+        ),
+        (
+            "Backout changesets  9e4ab3907b29, 3abc0dbbf710 due to m-oth permaorange",
+            (["9e4ab3907b29", "3abc0dbbf710"], []),
+        ),
+        (
+            HG_STYLE_BACKOUT,
+            (
+                [
+                    "586f132b2ad7",
+                    "6cd2e3e3e11c",
+                    "57b4521b3f44",
+                    "f758a758914e",
+                    "cd6ed268f238",
+                ],
+                [1965330],
+            ),
+        ),
+        (
+            GIT_STYLE_REVERT,
+            (
+                [
+                    "ba2c3a5b0735e67b4fd904a6fd324a9f79c44cf1",
+                    "36ffcad0ba0cb10d8348d99fbe0095359e03fcf4",
+                    "f22844d2d7c424875ac74b56d88590f8d489e9f6",
+                    "c02ebe1d487482c3ddfdffde9be1c46be1ce4f6d",
+                    "e3f81fcb94c16422e2643009af485d88647fdfd8",
+                ],
+                [2030542, 2062193, 2062191, 2062186, 2062189],
+            ),
+        ),
+    ),
+)
+def test_backouts_parsing(
+    commit_message: str, expected_parsed: tuple[list[str], list[str]]
+):
+    assert is_backout(commit_message), "Backout message not recognised as such"
+
+    parsed = parse_backouts(commit_message)
+    assert parsed == expected_parsed, "Backout message incorrectly parsed"

@@ -504,7 +504,7 @@ class CommitMessagesCheck(PatchCollectionCheck):
 
         # Ensure backout commit descriptions are well formed.
         if is_backout(firstline):
-            backouts = parse_backouts(firstline, strict=True)
+            backouts = parse_backouts(commit_message, strict=True)
             if not backouts or not backouts[0]:
                 current_commit_issues.append(
                     "Revision is a backout but commit message "
