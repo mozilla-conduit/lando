@@ -87,10 +87,11 @@ def test_landed_landing_job_view(
 
 @pytest.mark.parametrize(
     "error,error_breakdown",
-    itertools.product(
-        (
+    tuple(
+        itertools.product(
             (
-                dedent("""\
+                (
+                    dedent("""\
                     Problem while applying patch in revision 264890:
 
                     Checking patch browser/components/preferences/widgets/setting-group/setting-group.mjs...
@@ -124,23 +125,23 @@ def test_landed_landing_job_view(
                     Applied patch browser/components/preferences/tests/chrome/test_setting_group.html cleanly.
                     Applied patch browser/components/preferences/main.js cleanly.
                 """).strip(),
-            )
-        ),
-        (
-            None,
-            {
-                "revision_id": 264890,
-                "failed_paths": [
-                    {
-                        "url": "https://github.com/mozilla-firefox/firefox/tree/9d7faf035e9590310b3f6c86171a06aa30c29132/browser/components/preferences/widgets/setting-control/setting-control.mjs",
-                        "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs",
-                        "changeset_id": "9d7faf035e9590310b3f6c86171a06aa30c29132",
-                    }
-                ],
-                "rejects_paths": {
-                    "browser/components/preferences/widgets/setting-control/setting-control.mjs": {
-                        "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs.rej",
-                        "content": dedent("""\
+                )
+            ),
+            (
+                None,
+                {
+                    "revision_id": 264890,
+                    "failed_paths": [
+                        {
+                            "url": "https://github.com/mozilla-firefox/firefox/tree/9d7faf035e9590310b3f6c86171a06aa30c29132/browser/components/preferences/widgets/setting-control/setting-control.mjs",
+                            "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs",
+                            "changeset_id": "9d7faf035e9590310b3f6c86171a06aa30c29132",
+                        }
+                    ],
+                    "rejects_paths": {
+                        "browser/components/preferences/widgets/setting-control/setting-control.mjs": {
+                            "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs.rej",
+                            "content": dedent("""\
                             diff a/browser/components/preferences/widgets/setting-control/setting-control.mjs b/browser/components/preferences/widgets/setting-control/setting-control.mjs\t(rejected hunks)
                             @@ -209,13 +209,20 @@
                                    }
@@ -165,26 +166,27 @@ def test_landed_landing_job_view(
                                /**
 
                                 """).strip(),
-                    }
+                        }
+                    },
                 },
-            },
-            {
-                "revision_id": 264890,
-                "failed_paths": [
-                    {
-                        "url": "https://github.com/mozilla-firefox/firefox/tree/9d7faf035e9590310b3f6c86171a06aa30c29132/browser/components/preferences/widgets/setting-control/setting-control.mjs",
-                        "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs",
-                        "changeset_id": "9d7faf035e9590310b3f6c86171a06aa30c29132",
-                    }
-                ],
-                "rejects_paths": {
-                    "browser/components/preferences/widgets/setting-control/setting-control.mjs": {
-                        "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs.rej",
-                        # content removed
-                    }
+                {
+                    "revision_id": 264890,
+                    "failed_paths": [
+                        {
+                            "url": "https://github.com/mozilla-firefox/firefox/tree/9d7faf035e9590310b3f6c86171a06aa30c29132/browser/components/preferences/widgets/setting-control/setting-control.mjs",
+                            "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs",
+                            "changeset_id": "9d7faf035e9590310b3f6c86171a06aa30c29132",
+                        }
+                    ],
+                    "rejects_paths": {
+                        "browser/components/preferences/widgets/setting-control/setting-control.mjs": {
+                            "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs.rej",
+                            # content removed
+                        }
+                    },
                 },
-            },
-        ),
+            ),
+        )
     ),
 )
 @pytest.mark.django_db

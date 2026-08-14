@@ -124,7 +124,7 @@ class Command(BaseCommand):
         )
 
         batch_size = 100
-        for batch in batched(tbird_commit_maps, batch_size):
+        for batch in batched(tbird_commit_maps, batch_size, strict=False):
             for map in batch:
                 map.git_repo_name = to_git_repo_name
             CommitMap.objects.bulk_update(batch, ["git_repo_name"])
