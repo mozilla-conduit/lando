@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 HTTP_404_STRING = "Revision does not exist or you do not have permission to view it"
 
 
-def get(phab: PhabricatorClient, revision_id: int) -> dict[str, Any]:
+def get_revision_stack(phab: PhabricatorClient, revision_id: int) -> dict[str, Any]:
     """Get the stack a revision is part of.
 
     Args:
