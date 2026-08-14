@@ -628,7 +628,7 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     r3 = phabdouble.revision(diff=d3, repo=phabrepo, depends_on=[r2])
     phabdouble.reviewer(r3, reviewer)
 
-    result, status_code = legacy_api_transplants.post(
+    result, status_code = legacy_api_transplants.submit_landing_job(
         phabdouble.get_phabricator_client(),
         user,
         {
@@ -684,7 +684,7 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
 
     # Request a transplant, but only for 2/3 revisions in the stack.
 
-    result, status_code = legacy_api_transplants.post(
+    result, status_code = legacy_api_transplants.submit_landing_job(
         phabdouble.get_phabricator_client(),
         user,
         {
@@ -758,7 +758,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     r2 = phabdouble.revision(diff=d2, repo=phabrepo, depends_on=[r1])
     phabdouble.reviewer(r2, user2)
 
-    result, status_code = legacy_api_transplants.post(
+    result, status_code = legacy_api_transplants.submit_landing_job(
         phabdouble.get_phabricator_client(),
         user,
         {
@@ -839,7 +839,7 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_phabricator_r
     r1 = phabdouble.revision(diff=d1a, repo=repo)
     phabdouble.reviewer(r1, reviewer)
 
-    result, status_code = legacy_api_transplants.post(
+    result, status_code = legacy_api_transplants.submit_landing_job(
         phabdouble.get_phabricator_client(),
         user,
         {
@@ -912,7 +912,7 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_phabricator_r
     d1b = phabdouble.diff(revision=r1)
     phabdouble.reviewer(r1, reviewer)
 
-    result, status_code = legacy_api_transplants.post(
+    result, status_code = legacy_api_transplants.submit_landing_job(
         phabdouble.get_phabricator_client(),
         user,
         {
@@ -987,7 +987,7 @@ def test_integrated_transplant_with_flags(
         mock_format_commit_message,
     )
 
-    result, status_code = legacy_api_transplants.post(
+    result, status_code = legacy_api_transplants.submit_landing_job(
         phabdouble.get_phabricator_client(),
         user,
         {
@@ -1021,7 +1021,7 @@ def test_integrated_transplant_with_invalid_flags(
     test_flags = ["VALIDFLAG1", "INVALIDFLAG"]
 
     with pytest.raises(LegacyAPIException) as exc_info:
-        legacy_api_transplants.post(
+        legacy_api_transplants.submit_landing_job(
             phabdouble.get_phabricator_client(),
             user,
             {
@@ -1057,7 +1057,7 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
         "lando.api.legacy.api.transplants.admin_remove_phab_project", mock_remove
     )
 
-    result, status_code = legacy_api_transplants.post(
+    result, status_code = legacy_api_transplants.submit_landing_job(
         phabdouble.get_phabricator_client(),
         user,
         {"landing_path": [{"revision_id": "D{}".format(r["id"]), "diff_id": d["id"]}]},
@@ -1090,7 +1090,7 @@ def test_integrated_transplant_repo_checkin_project_removed(
         "lando.api.legacy.api.transplants.admin_remove_phab_project", mock_remove
     )
 
-    result, status_code = legacy_api_transplants.post(
+    result, status_code = legacy_api_transplants.submit_landing_job(
         phabdouble.get_phabricator_client(),
         user,
         {"landing_path": [{"revision_id": "D{}".format(r["id"]), "diff_id": d["id"]}]},
@@ -1139,7 +1139,7 @@ def test_integrated_transplant_without_permissions(
     r1 = phabdouble.revision(diff=d1, repo=repo)
 
     with pytest.raises(LegacyAPIException) as exc_info:
-        legacy_api_transplants.post(
+        legacy_api_transplants.submit_landing_job(
             phabdouble.get_phabricator_client(),
             user_without_perms,
             {
@@ -1159,7 +1159,7 @@ def test_integrated_transplant_without_permissions(
 @pytest.mark.django_db(transaction=True)
 def test_transplant_wrong_landing_path_format(user, phabdouble):
     with pytest.raises(LegacyAPIException) as exc_info:
-        legacy_api_transplants.post(
+        legacy_api_transplants.submit_landing_job(
             phabdouble.get_phabricator_client(),
             user,
             {"landing_path": [{"revision_id": 1, "diff_id": 1}]},
@@ -1167,7 +1167,7 @@ def test_transplant_wrong_landing_path_format(user, phabdouble):
     assert exc_info.value.status == 400
 
     with pytest.raises(LegacyAPIException) as exc_info:
-        legacy_api_transplants.post(
+        legacy_api_transplants.submit_landing_job(
             phabdouble.get_phabricator_client(),
             user,
             {"landing_path": [{"revision_id": "1", "diff_id": 1}]},
@@ -1175,7 +1175,7 @@ def test_transplant_wrong_landing_path_format(user, phabdouble):
     assert exc_info.value.status == 400
 
     with pytest.raises(LegacyAPIException) as exc_info:
-        legacy_api_transplants.post(
+        legacy_api_transplants.submit_landing_job(
             phabdouble.get_phabricator_client(),
             user,
             {"landing_path": [{"revision_id": "D1"}]},
@@ -1198,7 +1198,7 @@ def test_integrated_transplant_diff_not_in_revision(
     phabdouble.revision(diff=d2, repo=repo)
 
     with pytest.raises(LegacyAPIException) as exc_info:
-        legacy_api_transplants.post(
+        legacy_api_transplants.submit_landing_job(
             phabdouble.get_phabricator_client(),
             user,
             {
@@ -1219,7 +1219,7 @@ def test_transplant_nonexisting_revision_returns_404(
     needs_data_classification_project,
 ):
     with pytest.raises(LegacyAPIException) as exc_info:
-        legacy_api_transplants.post(
+        legacy_api_transplants.submit_landing_job(
             phabdouble.get_phabricator_client(),
             user,
             {"landing_path": [{"revision_id": "D1", "diff_id": 1}]},
@@ -1239,7 +1239,7 @@ def test_integrated_transplant_revision_with_no_repo(
     r1 = phabdouble.revision(diff=d1)
 
     with pytest.raises(LegacyAPIException) as exc_info:
-        legacy_api_transplants.post(
+        legacy_api_transplants.submit_landing_job(
             phabdouble.get_phabricator_client(),
             user,
             {
@@ -1267,7 +1267,7 @@ def test_integrated_transplant_revision_with_unmapped_repo(
     r1 = phabdouble.revision(diff=d1, repo=repo)
 
     with pytest.raises(LegacyAPIException) as exc_info:
-        legacy_api_transplants.post(
+        legacy_api_transplants.submit_landing_job(
             phabdouble.get_phabricator_client(),
             user,
             {
@@ -1302,7 +1302,7 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     phabdouble.reviewer(revision, reviewer)
     phabdouble.reviewer(revision, sec_approval_project)
 
-    result, status_code = legacy_api_transplants.post(
+    result, status_code = legacy_api_transplants.submit_landing_job(
         phabdouble.get_phabricator_client(),
         user,
         {
@@ -1973,7 +1973,7 @@ def test_transplant_on_linked_legacy_repo(
 
     phabdouble.reviewer(r3, reviewer)
 
-    result, status_code = legacy_api_transplants.post(
+    result, status_code = legacy_api_transplants.submit_landing_job(
         phabdouble.get_phabricator_client(),
         user,
         {

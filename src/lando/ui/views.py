@@ -217,7 +217,9 @@ class RevisionView(LandoView):
             form.cleaned_data["flags"] = (
                 form.cleaned_data["flags"] if form.cleaned_data["flags"] else []
             )
-            legacy_api.transplants.post(phab, request.user, data=form.cleaned_data)
+            legacy_api.transplants.submit_landing_job(
+                phab, request.user, data=form.cleaned_data
+            )
             # We don't actually need any of the data from the
             # the submission. As long as an exception wasn't
             # raised we're successful.
