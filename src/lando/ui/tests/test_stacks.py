@@ -1,6 +1,6 @@
 import pytest
 
-from lando.api.legacy.api.support import LegacyAPIException
+from lando.api.support import LegacyAPIException
 from lando.main.models import Revision
 from lando.ui.legacy.stacks import (
     Edge,
