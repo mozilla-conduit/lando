@@ -7,7 +7,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 
 from lando.api.legacy import api as legacy_api
-from lando.api.support import dryrun, get_list, submit_landing_job
+from lando.api.support import dryrun, get_stack_landing_jobs, submit_landing_job
 from lando.main.auth import force_auth_refresh, require_phabricator_api_key
 from lando.main.models import JobStatus, LandingJob, Profile, Repo
 from lando.main.support import get_revisions_with_disallowed_authors
@@ -58,7 +58,7 @@ class RevisionView(LandoView):
             )
 
         # Request all previous landing jobs for the stack.
-        landing_jobs = get_list(phab, f"D{revision_id}")
+        landing_jobs = get_stack_landing_jobs(phab, f"D{revision_id}")
 
         # The revision may appear in many `landable_paths`` if it has
         # multiple children, or any of its landable descendents have

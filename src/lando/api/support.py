@@ -381,8 +381,10 @@ def submit_landing_job(phab: PhabricatorClient, user: User, data: dict) -> Landi
     return job
 
 
-def get_list(phab: PhabricatorClient, stack_revision_id: str) -> list[LandingJob]:
-    """Return a list of landing jobs related to the revision."""
+def get_stack_landing_jobs(
+    phab: PhabricatorClient, stack_revision_id: str
+) -> list[LandingJob]:
+    """Return a QuerySet of landing jobs related to the revision."""
     revision_id_int = revision_id_to_int(stack_revision_id)
 
     revision = phab.call_conduit(
