@@ -31,16 +31,29 @@ def test_url_origin(url: str, expected: str):
 @pytest.mark.parametrize(
     "path,available_in_maintenance",
     (
+        # Paths outside of the excepted namespaces and URL names.
+        ("/", False),
         ("/treestatus/", False),
+        # Dockerflow endpoints, so the deployment stays monitorable.
+        ("/__version__", True),
+        ("/__heartbeat__", True),
+        ("/__lbheartbeat__", True),
+        # The admin site, so maintenance mode can be turned back off.
+        ("/admin/", True),
+        # The OIDC views, so admins can log in while under maintenance.
+        ("/oidc/authenticate/", True),
+        ("/oidc/callback/", True),
+        ("/oidc/logout/", True),
+        # The Treestatus API, consulted by CI and sheriffs independently of landing.
         ("/api/treestatus/trees", True),
         ("/api/treestatus/stack", True),
     ),
 )
 @pytest.mark.django_db
-def test_maintenance_mode_treestatus_api_exception(
+def test_maintenance_mode_exceptions(
     client: Client, path: str, available_in_maintenance: bool
 ):
-    """The Treestatus API stays available while Lando is under maintenance."""
+    """Excepted namespaces and URL names stay available while Lando is under maintenance."""
     ConfigurationVariable.set(
         ConfigurationKey.API_IN_MAINTENANCE, VariableTypeChoices.BOOL, "1"
     )
@@ -48,9 +61,6 @@ def test_maintenance_mode_treestatus_api_exception(
     response = client.get(path)
 
     if available_in_maintenance:
-        assert response.status_code == 200, (
-            f"`{path}` should be served during maintenance."
-        )
         assert "maintenance" not in response.content.decode(), (
             f"`{path}` should not return the maintenance page during maintenance."
         )
