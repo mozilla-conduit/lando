@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from time import sleep
@@ -52,8 +53,8 @@ DEFAULT_QUEUE_SIZE_ALERT_THRESHOLD = 25
 class QueueSize:
     """The number of jobs queued for a worker, split by the state of their tree."""
 
-    open_trees: int
-    closed_trees: int
+    open_trees: int = 0
+    closed_trees: int = 0
 
     @property
     def total(self) -> int:
@@ -346,7 +347,7 @@ class Worker(ABC):
         count every other worker's jobs too.
         """
         if not self.enabled_repos:
-            return QueueSize(open_trees=0, closed_trees=0)
+            return QueueSize()
 
         counts_by_repo = (
             self.job_type.job_queue_query(
@@ -359,14 +360,13 @@ class Worker(ABC):
         )
 
         active_repo_ids = {repo.id for repo in self.active_repos}
-        open_trees = closed_trees = 0
+        counts_by_tree_state = defaultdict(int)
         for row in counts_by_repo:
-            if row["target_repo"] in active_repo_ids:
-                open_trees += row["job_count"]
-            else:
-                closed_trees += row["job_count"]
+            tree_is_open = row["target_repo"] in active_repo_ids
+            tree_state = "open_trees" if tree_is_open else "closed_trees"
+            counts_by_tree_state[tree_state] += row["job_count"]
 
-        return QueueSize(open_trees=open_trees, closed_trees=closed_trees)
+        return QueueSize(**counts_by_tree_state)
 
     @property
     def throttle_seconds(self) -> int:

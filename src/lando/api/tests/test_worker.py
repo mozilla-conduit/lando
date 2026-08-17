@@ -162,7 +162,7 @@ def test_Worker_queue_size_without_enabled_repos_counts_nothing():
     stub = worker_stub()
     stub.enabled_repos = []
 
-    assert Worker.queue_size(stub) == QueueSize(open_trees=0, closed_trees=0), (
+    assert Worker.queue_size(stub) == QueueSize(), (
         "A worker with no enabled repos should have an empty queue."
     )
     assert not stub.job_type.job_queue_query.called, (
