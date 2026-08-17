@@ -1,30 +1,50 @@
 version: 2
 updates:
     - package-ecosystem: pip
+      allow:
+          - dependency-type: all
       commit-message:
           prefix: Bug 1976221 - deps(pip)
       cooldown:
           default-days: 7
       directory: "/"
+      groups:
+          production-dependencies:
+              applies-to: version-updates
+              dependency-type: "production"
+              update-types:
+                  - patch
+                  - minor
+          development-dependencies:
+              applies-to: version-updates
+              dependency-type: "development"
       schedule:
           interval: monthly
       open-pull-requests-limit: 99
+    - package-ecosystem: npm
       allow:
           - dependency-type: all
-    - package-ecosystem: npm
       commit-message:
           prefix: Bug 1976221 - deps(npm)
       cooldown:
           default-days: 7
       directory: "/"
-      schedule:
-          interval: monthly
-      open-pull-requests-limit: 99
-      allow:
-          - dependency-type: all
+      groups:
+          production-dependencies:
+              applies-to: version-updates
+              dependency-type: "production"
+              update-types:
+                  - patch
+                  - minor
+          development-dependencies:
+              applies-to: version-updates
+              dependency-type: "development"
       ignore:
           # Our package.json allows semver-compatible versions (with ^).
           # This means no major bumps.
           - dependency-name: "*"
             update-types:
                 - "version-update:semver-major"
+      open-pull-requests-limit: 99
+      schedule:
+          interval: monthly
