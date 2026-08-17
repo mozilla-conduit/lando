@@ -145,17 +145,16 @@ def test_Worker_log_queue_size_logs_size(caplog):
     ), "The queue size and its breakdown should be logged."
 
 
-def test_Worker_warn_queue_size_names_the_threshold(caplog):
-    stub = worker_stub("try")
-    stub.queue_size_alert_threshold = 25
+def test_Worker_log_queue_size_logs_at_the_given_level(caplog):
+    caplog.set_level(logging.INFO)
 
-    Worker.warn_queue_size(stub, QueueSize(open_trees=74, closed_trees=5))
+    Worker.log_queue_size(
+        worker_stub("try"), QueueSize(open_trees=74, closed_trees=5), logging.WARNING
+    )
 
-    assert (
-        "Queue size for worker try exceeds alert threshold: 79 "
-        "(74 on open trees, 5 behind closed trees) queued, threshold is 25."
-        in caplog.text
-    ), "The warning should report the breakdown and the threshold it crossed."
+    assert [record.levelno for record in caplog.records] == [logging.WARNING], (
+        "The queue size should be logged once, at the requested level."
+    )
 
 
 def test_Worker_queue_size_without_enabled_repos_counts_nothing():
@@ -224,11 +223,18 @@ def test_Worker_loop_reports_queue_size(
     worker_with_open_trees.loop()
 
     name = worker_with_open_trees.worker_instance.name
-    assert f"Queue size for worker {name} is {queued} " in caplog.text, (
-        "`loop` should report the queue size before picking up the next job."
+    queue_records = [
+        record
+        for record in caplog.records
+        if record.getMessage().startswith(f"Queue size for worker {name} is {queued} ")
+    ]
+
+    assert len(queue_records) == 1, (
+        "`loop` should report the queue size once before picking up the next job."
     )
-    assert ("exceeds alert threshold" in caplog.text) is warns, (
-        "`loop` should warn only when the queue passes the threshold."
+    assert queue_records[0].levelno == (logging.WARNING if warns else logging.INFO), (
+        "`loop` should log the queue size as a warning only once it passes the "
+        "threshold."
     )
 
 
