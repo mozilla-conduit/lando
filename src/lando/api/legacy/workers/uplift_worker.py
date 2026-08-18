@@ -330,7 +330,7 @@ class UpliftWorker(Worker):
         error, private_bugs = self.check_uplift_bug_references(patch_helpers)
         if private_bugs:
             raise SecurityBugReferenceException(
-                "Skipping try push for uplift job:\n" + "\n".join(error)
+                "Skipping try push for uplift job:\n" + error
             )
         if error:
             raise ValueError(error)
@@ -378,7 +378,7 @@ class UpliftWorker(Worker):
 
     def check_uplift_bug_references(
         self, patch_helpers: list[PatchHelper]
-    ) -> tuple[list[str], set[int]]:
+    ) -> tuple[str | None, set[int]]:
         """Check if uplift job contains references to non-public bugs.
 
         Return the error message and set of private bug IDs when a referenced bug is not public.
