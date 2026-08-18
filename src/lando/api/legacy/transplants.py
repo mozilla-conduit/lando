@@ -282,14 +282,12 @@ class StackAssessment:
             bucketed_warnings[display] = {
                 "display": display,
                 "instances": [],
-                "articulated": False,
             }
 
         bucketed_warnings[display]["instances"].append(
             {
                 "revision_id": revision_id,
                 "details": details,
-                "articulated": False,
             }
         )
         return bucketed_warnings

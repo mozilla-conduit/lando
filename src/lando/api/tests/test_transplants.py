@@ -1997,12 +1997,10 @@ def test_diffwarnings_aggregation(
     dw_both = [w for w in result["warnings"] if w["display"] == dw_message]
     assert len(dw_both) == 1
     assert len(dw_both[0]["instances"]) == 2
-    assert not dw_both[0]["articulated"]
 
     dw_one = [w for w in result["warnings"] if w["display"] == dw_message_other]
     assert len(dw_one) == 1
     assert len(dw_one[0]["instances"]) == 1
-    assert not dw_both[0]["articulated"]
 
 
 @pytest.mark.django_db(transaction=True)
