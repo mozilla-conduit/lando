@@ -42,22 +42,31 @@ def attempt_and_defer(job: LandingJob, times: int, abortable: bool = True):
 
 
 @pytest.mark.django_db
-def test__models__BaseJob__job_aborted_after_max_attempts(make_landing_job: Callable):
+def test__models__BaseJob__has_attempts_remaining(make_landing_job: Callable):
     job = make_landing_job(status=JobStatus.SUBMITTED)
 
     attempt_and_defer(job, DEFAULT_MAX_JOB_ATTEMPTS - 1)
-    assert job.status == JobStatus.DEFERRED, (
-        "Job should still be deferred below the maximum number of attempts."
+    assert job.has_attempts_remaining(), (
+        "A job below the maximum number of attempts should have attempts remaining."
     )
 
     attempt_and_defer(job, 1)
-    assert job.status == JobStatus.ABORTED, (
-        "Job should be aborted once it reaches the maximum number of attempts."
+    assert not job.has_attempts_remaining(), (
+        "A job at the maximum number of attempts should have no attempts remaining."
     )
+
+
+@pytest.mark.django_db
+def test__models__BaseJob__abort_sets_templated_error(make_landing_job: Callable):
+    job = make_landing_job(status=JobStatus.IN_PROGRESS, attempts=3)
+
+    job.transition_status(JobAction.ABORT, message="the last failure")
+
+    assert job.status == JobStatus.ABORTED, "`ABORT` should abort the job."
     assert "Lando gave up on this job" in job.error, (
         "Error message should explain that the job was aborted."
     )
-    assert "failure 0" in job.error, (
+    assert "the last failure" in job.error, (
         "Error message should include the reason for the last failure."
     )
 
@@ -74,18 +83,22 @@ def test__models__BaseJob__non_abortable_deferrals_do_not_abort_job(
         "Non-abortable deferrals should never abort the job."
     )
     assert job.attempts == 0, "Non-abortable deferrals should give their attempt back."
+    assert job.has_attempts_remaining(), (
+        "Non-abortable deferrals should keep the job's attempts available."
+    )
 
 
 @pytest.mark.django_db
-def test__models__BaseJob__attempt_only_handled_once(make_landing_job: Callable):
-    """A single attempt may defer through more than one code path."""
+def test__models__BaseJob__non_abortable_deferral_clamps_attempts_at_zero(
+    make_landing_job: Callable,
+):
     job = make_landing_job(status=JobStatus.IN_PROGRESS, attempts=1)
 
     job.transition_status(JobAction.DEFER, message="failure", abortable=False)
     job.transition_status(JobAction.DEFER, message="failure", abortable=False)
 
     assert job.attempts == 0, (
-        "Re-deferring an already deferred job should not give another attempt back."
+        "Non-abortable deferrals should not push attempts below zero."
     )
 
 
@@ -106,14 +119,14 @@ def test__models__BaseJob__max_attempts_configuration(
 
     attempt_and_defer(job, max_attempts - 1)
 
-    assert job.status != JobStatus.ABORTED, (
-        "The job should not be aborted before its last allowed attempt."
+    assert job.has_attempts_remaining(), (
+        "The job should have attempts remaining before its last allowed attempt."
     )
 
     attempt_and_defer(job, 1)
 
-    assert job.status == JobStatus.ABORTED, (
-        "The job should be aborted on its last allowed attempt."
+    assert not job.has_attempts_remaining(), (
+        "The job should have no attempts remaining after its last allowed attempt."
     )
 
 

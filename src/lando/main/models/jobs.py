@@ -256,7 +256,6 @@ class BaseJob(BaseModel):
         if unknown_params := kwargs.keys() - required_params - optional_params:
             raise ValueError(f"Unknown {unknown_params} params")
 
-        was_deferred = self.status == JobStatus.DEFERRED
         self.status = actions[action]["status"]
 
         if action in (JobAction.FAIL, JobAction.DEFER):
@@ -274,44 +273,15 @@ class BaseJob(BaseModel):
         if action == JobAction.LAND:
             self.landed_commit_id = kwargs["commit_id"]
 
-        # A single attempt may defer through more than one code path, so only its
-        # first deferral is taken into account.
-        if action == JobAction.DEFER and not was_deferred:
-            self.handle_deferral(
-                kwargs["message"], abortable=kwargs.get("abortable", True)
-            )
-
-        self.save()
-
-    def handle_deferral(self, message: str, abortable: bool):
-        """Abort the job once it has been attempted too many times.
-
-        A job which keeps deferring blocks every other job for its repository, so it
-        is moved to `JobStatus.ABORTED` once it runs out of attempts. A deferral which
-        is not `abortable` gives its attempt back, so a job waiting on something that
-        resolves on its own is retried indefinitely.
-        """
-        if not abortable:
+        # A deferral which is expected to resolve on its own, such as a closed tree,
+        # gives its attempt back so the job is retried indefinitely.
+        if action == JobAction.DEFER and not kwargs.get("abortable", True):
             logger.debug(
                 f"Deferral of {self} is not abortable, giving the attempt back."
             )
             self.attempts = max(0, self.attempts - 1)
-            return
 
-        max_attempts = self.max_attempts
-
-        if self.attempts < max_attempts:
-            logger.debug(f"{self} has used {self.attempts}/{max_attempts} attempts.")
-            return
-
-        logger.warning(
-            f"Aborting {self} after {self.attempts} attempts.",
-            extra={"id": self.id},
-        )
-        self.status = JobStatus.ABORTED
-        self.error = ABORTED_ERROR_TEMPLATE.format(
-            attempts=self.attempts, message=message
-        )
+        self.save()
 
     @property
     def max_attempts(self) -> int:
