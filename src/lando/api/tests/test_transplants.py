@@ -27,6 +27,8 @@ from lando.api.legacy.transplants import (
 )
 from lando.api.tests.mocks import PhabricatorDouble
 from lando.main.models import (
+    DiffWarning,
+    DiffWarningGroup,
     JobStatus,
     LandingJob,
     Repo,
@@ -1941,6 +1943,66 @@ def test_warning_multiple_authors(phabdouble, mocked_repo_config, create_state):
     assert warning.details == "Revision has multiple authors: alice, bob.", (
         "Multiple authors on a revision should return a warning."
     )
+
+
+@pytest.mark.django_db(transaction=True)
+def test_diffwarnings_aggregation(
+    user,
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
+):
+    d1 = phabdouble.diff()
+    d2 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
+    r2 = phabdouble.revision(diff=d2, repo=phabdouble.repo(), depends_on=[r1])
+
+    dws = []
+
+    dw_message = "Some aggregatable message"
+    for r in [r1, r2]:
+        phabdouble.reviewer(r, phabdouble.user(username="reviewer"))
+        phabdouble.reviewer(r, phabdouble.project("reviewer2"))
+        dws.append(
+            DiffWarning.objects.create(
+                revision_id=r["id"],
+                diff_id=r["id"],
+                group=DiffWarningGroup.GENERAL,
+                data={"message": dw_message},
+            )
+        )
+
+    dw_message_other = "Some other message"
+    dws.append(
+        DiffWarning.objects.create(
+            revision_id=r1["id"],
+            diff_id=r1["id"],
+            group=DiffWarningGroup.GENERAL,
+            data={"message": dw_message_other},
+        )
+    )
+
+    result = legacy_api_transplants.dryrun(
+        phabdouble.get_phabricator_client(),
+        user,
+        {
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]},
+                {"revision_id": "D{}".format(r2["id"]), "diff_id": d2["id"]},
+            ]
+        },
+    )
+
+    dw_both = [w for w in result["warnings"] if w["display"] == dw_message]
+    assert len(dw_both) == 1
+    assert len(dw_both[0]["instances"]) == 2
+    assert not dw_both[0]["articulated"]
+
+    dw_one = [w for w in result["warnings"] if w["display"] == dw_message_other]
+    assert len(dw_one) == 1
+    assert len(dw_one[0]["instances"]) == 1
+    assert not dw_both[0]["articulated"]
 
 
 @pytest.mark.django_db(transaction=True)

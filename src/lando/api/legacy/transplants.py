@@ -253,19 +253,16 @@ class StackAssessment:
     def to_dict(self) -> dict[str, Any]:
         bucketed_warnings = {}
         for w in self.warnings:
-            if w.display not in bucketed_warnings:
-                bucketed_warnings[w.display] = {
-                    "display": w.display,
-                    "instances": [],
-                    "articulated": w.articulated,
-                }
+            if w.articulated:
+                for aw in w.details:
+                    display = aw["message"]
+                    bucketed_warnings = self._add_to_bucket(
+                        bucketed_warnings, display, w.revision_id, aw
+                    )
+                continue
 
-            bucketed_warnings[w.display]["instances"].append(
-                {
-                    "revision_id": w.revision_id,
-                    "details": w.details,
-                    "articulated": w.articulated,
-                }
+            bucketed_warnings = self._add_to_bucket(
+                bucketed_warnings, w.display, w.revision_id, w.details
             )
 
         return {
@@ -273,6 +270,29 @@ class StackAssessment:
             "warnings": list(bucketed_warnings.values()),
             "confirmation_token": self.confirmation_token(self.warnings),
         }
+
+    @staticmethod
+    def _add_to_bucket(
+        bucketed_warnings: dict[str, Any],
+        display: str,
+        revision_id: int,
+        details: str | dict[str, Any],
+    ) -> dict[str, Any]:
+        if display not in bucketed_warnings:
+            bucketed_warnings[display] = {
+                "display": display,
+                "instances": [],
+                "articulated": False,
+            }
+
+        bucketed_warnings[display]["instances"].append(
+            {
+                "revision_id": revision_id,
+                "details": details,
+                "articulated": False,
+            }
+        )
+        return bucketed_warnings
 
     @staticmethod
     def confirmation_token(warnings: list[RevisionWarning]) -> str | None:
