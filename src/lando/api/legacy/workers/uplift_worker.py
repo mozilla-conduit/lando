@@ -347,10 +347,10 @@ class UpliftWorker(Worker):
                 raise
 
         with transaction.atomic():
-            revisions = []
-            patch_helpers = scm.get_patch_helpers_for_commits(new_commits)
-            for patch_helper in patch_helpers:
-                revisions.append(self.create_revisions_from_patch_helper(patch_helper))
+            revisions = [
+                self.create_revisions_from_patch_helper(patch_helper)
+                for patch_helper in patch_helpers
+            ]
             try_revision = self.create_try_revision(
                 job.target_repo, job.requester_email
             )
