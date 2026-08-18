@@ -698,38 +698,28 @@ class BugReferencesCheck(PatchCollectionCheck):
             try:
                 status_code = get_status_code_for_bug(bug_id)
             except requests.exceptions.RequestException as exc:
-                return [BUG_REFERENCES_BMO_ERROR_TEMPLATE.format(error=str(exc))]
+                return BUG_REFERENCES_BMO_ERROR_TEMPLATE.format(error=str(exc))
 
             if status_code == 404:
-                return [
-                    (
-                        f"Your commit message references bug {bug_id}, which does not exist. "
-                        f"Please check your commit message and try again. {BMO_SKIP_HINT}"
-                    )
-                ]
+                return (
+                    f"Your commit message references bug {bug_id}, which does not exist. "
+                    f"Please check your commit message and try again. {BMO_SKIP_HINT}"
+                )
 
             if status_code == 401:
                 self.private_bug_ids.add(bug_id)
                 continue
 
-            return [
-                (
-                    f"While checking if bug {bug_id} in your commit message is a security bug, "
-                    f"an error occurred and the bug could not be verified. {BMO_SKIP_HINT}"
-                )
-            ]
-
-        bug_id = list(self.private_bug_ids)[0]
-        return [
-            (
-                f"Your commit message references bug {bug_id}, which is currently private. To avoid "
-                "disclosing the nature of this bug publicly, please remove the affected bug ID "
-                f"from the commit message. {BMO_SKIP_HINT}"
+            return (
+                f"While checking if bug {bug_id} in your commit message is a security bug, "
+                f"an error occurred and the bug could not be verified. {BMO_SKIP_HINT}"
             )
 
+        bug_id = list(self.private_bug_ids)[0]
         return (
-            f"While checking if bug {bug_id} in your commit message is a security bug, "
-            f"an error occurred and the bug could not be verified. {BMO_SKIP_HINT}"
+            f"Your commit message references bug {bug_id}, which is currently private. To avoid "
+            "disclosing the nature of this bug publicly, please remove the affected bug ID "
+            f"from the commit message. {BMO_SKIP_HINT}"
         )
 
 
