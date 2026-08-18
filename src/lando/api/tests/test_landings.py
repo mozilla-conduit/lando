@@ -431,7 +431,7 @@ def test_integrated_execute_job_pull_request(
     mocked.
     * This doesn't re-test side effects already tested in test_integrated_execute_job.
     """
-    pr_number = 1
+    pr_numbers = [1, 2]
     repo_type = SCMType.GIT
     repo: Repo = repo_mc(repo_type)
     repo.is_phabricator_repo = False
@@ -441,7 +441,10 @@ def test_integrated_execute_job_pull_request(
 
     # We use git_patch(1) here, as it inserts a line in the middle of an existing file,
     # potentially triggering bug 2002094.
-    revisions = [create_pull_request_revision(pr_number, git_patch(1))]
+    revisions = [
+        create_pull_request_revision(pr_numbers[0], git_patch(1)),
+        create_pull_request_revision(pr_numbers[1], git_patch(2)),
+    ]
 
     job_params = {
         "status": JobStatus.IN_PROGRESS,
@@ -465,16 +468,17 @@ def test_integrated_execute_job_pull_request(
     for kall in GitHubAPI.mock_calls:
         if kall == mock.call().post(mock.ANY, json={"body": mock.ANY}):
             if (
-                f"/issues/{pr_number}/comments" in kall[1][0]
+                f"/issues/{pr_numbers[0]}/comments" in kall[1][0]
                 and "Pull request closed by commit" in kall[2]["json"]["body"]
             ):
                 did_comment = True
         elif kall == mock.call().post(mock.ANY, json={"state": "closed"}):
             if (
-                f"/pulls/{pr_number}" in kall[1][0]
+                f"/pulls/{pr_numbers[0]}" in kall[1][0]
                 and kall[2]["json"]["state"] == "closed"
             ):
                 did_close = True
+            pr_numbers.pop()
 
     assert did_comment, "Successful landing did not add comment to PR"
     assert did_close, "Successful landing did not close PR"
