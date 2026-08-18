@@ -380,7 +380,7 @@ class UpliftWorker(Worker):
         """Create a raw diff for the `try_task_config.json` file."""
         config_contents = self.run_mach_command(
             repo_path=repo.path,
-            args=["try", "fuzzy", "-q", "^build-", "--no-push"],
+            args=["try", "fuzzy", "-q", "^build-", "--no-push", "--disable-pgo"],
             extra_env={"MOZBUILD_STATE_PATH": repo.mozbuild_state_path},
         )
 
