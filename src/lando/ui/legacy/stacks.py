@@ -110,7 +110,7 @@ def draw_stack_graph(
     next_node = []
     drawing = SimpleNamespace(rows=[], width=0)
 
-    def empty_column_or_new():
+    def empty_column_or_new() -> int:
         """Return the index of an empty column or create a new one."""
         if not next_node.count(None):
             next_node.append(None)

@@ -4,7 +4,7 @@ FROM node:20-slim AS node
 # Copy Rust from official image to avoid running third-party install scripts.
 FROM rust:1.84-slim AS rust
 
-FROM python:3.12-bookworm
+FROM python:3.14-bookworm
 
 EXPOSE 80
 ENV PYTHONUNBUFFERED=1

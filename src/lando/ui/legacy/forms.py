@@ -1,5 +1,9 @@
+from typing import Any
+
 from django import forms
+from django.conf import settings
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.forms.widgets import RadioSelect
 from django.utils import timezone
 
@@ -18,6 +22,51 @@ class TransplantRequestForm(forms.Form):
         widget=forms.widgets.HiddenInput, required=False
     )
     flags = forms.JSONField(widget=forms.widgets.HiddenInput, required=False)
+
+    # Mailbox fields.
+    author_name = forms.CharField(
+        required=False, widget=forms.TextInput(attrs={"class": "input"})
+    )
+
+    author_email = forms.EmailField(
+        required=False,
+        widget=forms.TextInput(attrs={"class": "input"}),
+    )
+
+    def clean_author_email(self) -> str:
+        """Normalize author_email by lower-casing and stripping, then validating the value."""
+        value = self.cleaned_data.get("author_email", "").strip().lower()
+        if value in settings.DISALLOWED_AUTHOR_EMAILS:
+            raise ValidationError("The email provided is not allowed")
+        return value
+
+    def clean(self) -> dict[str, Any]:
+        """Perform custom validation on mailbox input.
+
+        The author name and email fields are optional, however, if one is provided
+        then the other must be provided as well. This is how the mailbox value is
+        determined and set in cleaned data at the end of this process.
+
+        """
+        cleaned_data = super().clean()
+
+        # If a validation error was raised on one of the fields, it's important to
+        # retain those original errors.
+        name, email = cleaned_data.get("author_name"), cleaned_data.get("author_email")
+
+        if name and not email:
+            self.add_error("author_email", "This field is required.")
+        if email and not name:
+            self.add_error("author_name", "This field is required.")
+
+        if name and email:
+            cleaned_data["mailbox"] = (name, email)
+            del cleaned_data["author_name"]
+            del cleaned_data["author_email"]
+        else:
+            cleaned_data["mailbox"] = None
+
+        return cleaned_data
 
 
 class UpliftAssessmentForm(forms.ModelForm):

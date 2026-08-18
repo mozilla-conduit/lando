@@ -1,4 +1,5 @@
 import base64
+import itertools
 import json
 from typing import Callable
 from unittest.mock import MagicMock, Mock
@@ -8,6 +9,7 @@ from django.contrib.auth.models import Permission, User
 from django.core.handlers.wsgi import WSGIRequest
 from django.test.client import Client
 
+from lando.headless_api.models.tokens import ApiToken
 from lando.main.models.commit_map import CommitMap
 from lando.main.models.jobs import JobStatus
 from lando.main.models.landing_job import LandingJob
@@ -115,13 +117,8 @@ def test_try_api_patches_invalid_user(
 
 @pytest.mark.django_db()
 @pytest.mark.parametrize(
-    "group_scm_1,superuser",
-    (
-        (False, False),
-        (False, True),
-        (True, False),
-        (True, True),
-    ),
+    "group_scm_1,superuser,auth_type",
+    tuple(itertools.product((False, True), (False, True), ("oauth", "headless"))),
 )
 def test_try_api_patches_no_scm1(
     mock_authenticate_builder: Callable,
@@ -131,6 +128,7 @@ def test_try_api_patches_no_scm1(
     make_superuser: Callable,
     group_scm_1: bool,
     superuser: bool,
+    auth_type: str,
 ):
     if group_scm_1:
         user = scm_user(
@@ -144,11 +142,18 @@ def test_try_api_patches_no_scm1(
     if superuser:
         user = make_superuser(user)
 
-    mock_authenticate = mock_authenticate_builder(user)
+    if auth_type == "oauth":
+        mock_authenticate = mock_authenticate_builder(user)
+        token = f"token no_scm1 {auth_type}"
+    elif auth_type == "headless":
+        mock_authenticate = mock_authenticate_builder(None)
+        token = ApiToken.create_token(user)
+    else:
+        raise ValueError(f"Unknown {auth_type=}")
 
     response = client_post(
         "/api/try/patches",
-        headers={"AuThOrIzAtIoN": "bEaReR token no_scm1"},
+        headers={"AuThOrIzAtIoN": f"bEaReR {token}"},
     )
 
     assert mock_authenticate.called, "Authentication backend should be called"
@@ -332,6 +337,7 @@ def test_try_api_patches_failed_checks(
 
 
 @pytest.mark.django_db()
+@pytest.mark.parametrize("auth_type", ("oauth", "headless"))
 def test_try_api_patches_success(
     mock_authenticate_builder: Callable,
     mocked_repo_config_try: Mock,
@@ -339,10 +345,18 @@ def test_try_api_patches_success(
     commit_maps: list[CommitMap],
     git_patch: Callable,
     client_post: Callable,
+    auth_type: str,
 ):
     user = scm_user([Permission.objects.get(codename="scm_level_1")], "password")
 
-    mock_authenticate = mock_authenticate_builder(user)
+    if auth_type == "oauth":
+        mock_authenticate = mock_authenticate_builder(user)
+        token = f"token success {auth_type}"
+    elif auth_type == "headless":
+        mock_authenticate = mock_authenticate_builder(None)
+        token = ApiToken.create_token(user)
+    else:
+        raise ValueError(f"Unknown {auth_type=}")
 
     for map in commit_maps:
         # This is hardcoded for now.
@@ -363,10 +377,10 @@ def test_try_api_patches_success(
     response = client_post(
         "/api/try/patches",
         data=json.dumps(request_payload),
-        headers={"AuThOrIzAtIoN": "bEaReR token success"},
+        headers={"AuThOrIzAtIoN": f"bEaReR {token}"},
     )
 
-    assert mock_authenticate.called, "Authentication backend should be called"
+    assert mock_authenticate.called, "OAuth authentication backend should be called"
     assert response.status_code == 201, (
         f"Valid request to Try API should result in 201: {response.text}"
     )
@@ -390,3 +404,36 @@ def test_try_api_patches_success(
     assert job.target_commit_hash == commit_maps[0].hg_hash, (
         "Target commit hash not correctly converted"
     )
+
+
+#
+# API TOKEN (M2M) AUTH TESTS
+#
+
+
+@pytest.mark.parametrize("invalidated", (False, True))
+@pytest.mark.django_db()
+def test_try_api_patches_m2m_auth_invalid_token(
+    mock_authenticate_builder: Callable,
+    scm_user: Callable,
+    client_post: Callable,
+    invalidated: True,
+):
+    user = scm_user([Permission.objects.get(codename="scm_level_1")], "password")
+    token = ApiToken.create_token(user)
+    if invalidated:
+        api_token = ApiToken.verify_token(token)
+        api_token.is_valid = False
+        api_token.save()
+    else:
+        token = f"{token}-ish"
+
+    mock_authenticate = mock_authenticate_builder(None)
+
+    response = client_post(
+        "/api/try/patches",
+        headers={"AuThOrIzAtIoN": f"bEaReR {token}"},
+    )
+
+    assert mock_authenticate.called, "Authentication backend should be called"
+    assert response.status_code == 401, "Invalid token to Try API should result in 401"

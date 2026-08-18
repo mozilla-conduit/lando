@@ -41,10 +41,11 @@ class UpliftTargetSelectionMethod(models.TextChoices):
     """How the uplift target repositories were selected at submission time."""
 
     # The user chose a Firefox version in the Vue widget, which resolved to the
-    # target train(s).
+    # target train(s). The train checkboxes may have been adjusted afterwards.
     WIDGET_VERSION = "widget_version", "Widget (version)"
 
-    # The user selected the target train(s) directly in the Vue widget.
+    # The Vue widget loaded, but the user checked the target train(s) directly
+    # without ever choosing a Firefox version.
     WIDGET_MANUAL = "widget_manual", "Widget (manual)"
 
     # The server-rendered checkboxes were used directly, e.g. with JavaScript

@@ -92,6 +92,8 @@ BACKOUT_MULTI_ONELINE_RE = re.compile(
 RE_SOURCE_REPO = re.compile(r"^Source-Repo: (https?:\/\/.*)$", re.MULTILINE)
 RE_SOURCE_REVISION = re.compile(r"^Source-Revision: (.*)$", re.MULTILINE)
 
+RE_DIFF = re.compile(r"[\n^]diff .*\n.*\n(\+\+\+|---).*\n", re.DOTALL)
+
 
 def is_backout(commit_desc: str) -> bool:
     """Returns True if commit description indicates the changeset is a backout.

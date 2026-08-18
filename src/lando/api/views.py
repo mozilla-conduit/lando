@@ -286,11 +286,12 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
         class Form(forms.Form):
             """Simple form to get clean some fields."""
 
-            def clean(self):
+            def clean(self) -> dict[str, Any]:
 
                 cleaned_data = self.cleaned_data
-                new_warnings = cleaned_data["new_warnings"]
-                old_warnings = cleaned_data["old_warnings"]
+                new_warnings = cleaned_data["new_warnings"] or []
+                old_warnings = cleaned_data["old_warnings"] or []
+
                 if sorted(new_warnings) != sorted(old_warnings):
                     self.errors["warnings"] = [
                         "The warnings present when the request was constructed have changed. "
@@ -300,8 +301,8 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
                 return cleaned_data
 
             head_sha = forms.CharField()
-            new_warnings = forms.JSONField()
-            old_warnings = forms.JSONField()
+            new_warnings = forms.JSONField(required=False)
+            old_warnings = forms.JSONField(required=False)
             # TODO: use this for verification later, see bug 1996571.
             # base_ref = forms.CharField()
 
@@ -310,16 +311,15 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
         warnings_and_blockers = generate_warnings_and_blockers(
             self.target_repo, self.pull_request, request
         )
-        new_warnings = warnings_and_blockers["warnings"]
 
         if blockers := warnings_and_blockers["blockers"]:
             return JsonResponse({"errors": blockers}, status=400)
 
         data = json.loads(request.body)
         # add new warnings to the data so that the form can validate that they match the old warnings
+        new_warnings = warnings_and_blockers["warnings"]
         data["new_warnings"] = new_warnings
         form = Form(data)
-
         if not form.is_valid():
             return JsonResponse(
                 {"errors": form.errors, "new_warnings": new_warnings}, status=400

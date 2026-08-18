@@ -1,13 +1,19 @@
 import logging
 import time
+from collections.abc import Callable
 from functools import wraps
+
+from django.http import HttpRequest, HttpResponse
+from django.views import View
 
 request_logger = logging.getLogger("__name__")
 
 
-def log_request(view):  # noqa: ANN001, ANN201
+def log_request(view: Callable) -> Callable:
     @wraps(view)
-    def _wrapped_view(self, request, *args, **kwargs):  # noqa: ANN001
+    def _wrapped_view(
+        self: View, request: HttpRequest, *args, **kwargs
+    ) -> HttpResponse:
         start_time = time.time()
         response = view(self, request, *args, **kwargs)
         end_time = time.time()
@@ -29,9 +35,11 @@ def log_request(view):  # noqa: ANN001, ANN201
     return _wrapped_view
 
 
-def disable_caching(view):  # noqa: ANN001, ANN201
+def disable_caching(view: Callable) -> Callable:
     @wraps(view)
-    def _wrapped_view(self, request, *args, **kwargs):  # noqa: ANN001
+    def _wrapped_view(
+        self: View, request: HttpRequest, *args, **kwargs
+    ) -> HttpResponse:
         response = view(self, request, *args, **kwargs)
 
         response["Cache-Control"] = "no-cache, no-store, must-revalidate"

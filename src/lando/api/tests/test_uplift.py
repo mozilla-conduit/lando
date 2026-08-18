@@ -10,6 +10,7 @@ from packaging.version import (
     Version,
 )
 
+from lando.api.legacy.commit_message import parse_bugs
 from lando.api.legacy.uplift import (
     create_uplift_bug_update_payload,
     parse_milestone_version,
@@ -105,7 +106,6 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
         create_patch_revision(123, patch=normal_patch(0)),
     ]
     revisions_ordered = reversed(revisions_created)
-
     url = reverse("uplift-page")
     form_data = {
         "source_revisions": [revision.revision_id for revision in revisions_ordered],
@@ -723,10 +723,12 @@ def test_link_assessment_replaces_existing_form(
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize("secure", [True, False])
 def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     repo_mc,
     user,
     uplift_worker,
+    secure,
     create_patch_revision,
     normal_patch,
     monkeypatch,
@@ -775,6 +777,22 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         mock_task,
     )
 
+    mock_bug_search = mock.MagicMock()
+    mock_status_code = mock.MagicMock()
+    if secure:
+        mock_bug_search.return_value = set()
+        mock_status_code.return_value = 401
+
+    else:
+        bug_ids = parse_bugs(revisions[0].commit_message)
+        mock_bug_search.return_value = set(bug_ids)
+        mock_status_code.return_value = 200
+
+    monkeypatch.setattr(
+        "lando.utils.landing_checks.get_status_code_for_bug",
+        mock_status_code,
+    )
+    monkeypatch.setattr("lando.utils.landing_checks.search_bugs", mock_bug_search)
     # Let update_repo/apply_patch run for real and only mock moz-phab uplift to return new tip D-IDs.
     monkeypatch.setattr(
         uplift_worker,
@@ -865,25 +883,32 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         "Created UpliftRevision should link back to the original assessment."
     )
 
-    try_jobs = LandingJob.objects.filter(target_repo=try_repo)
-    assert try_jobs.count() == 1, "A single try-push `LandingJob` should be created."
-
-    try_job = try_jobs.get()
-    assert try_job.target_commit_hash == mapped_hg_hash, (
-        "Try-push base should be converted to the try repo's SCM via CommitMap."
-    )
-    assert try_job.status == JobStatus.SUBMITTED, (
-        "Try-push job should be submitted for processing."
-    )
-    assert try_job.requester_email == user.email, (
-        "Try-push job should record the original requester."
-    )
-    assert try_job.target_commit_hash, "Try-push job should have a base commit hash."
-
-    # One revision per uplift revision, plus the try_task_config revision.
-    assert try_job.revisions.count() == len(revisions) + 1, (
-        "Try-push job should bundle the uplift revisions and the config revision."
-    )
+    if secure:
+        assert not LandingJob.objects.filter(target_repo__name="try").exists(), (
+            "Secure uplift should not create a public Try push."
+        )
+    else:
+        try_jobs = LandingJob.objects.filter(target_repo=try_repo)
+        assert try_jobs.count() == 1, (
+            "A single try-push `LandingJob` should be created."
+        )
+        try_job = try_jobs.get()
+        assert try_job.target_commit_hash == mapped_hg_hash, (
+            "Try-push base should be converted to the try repo's SCM via CommitMap."
+        )
+        assert try_job.status == JobStatus.SUBMITTED, (
+            "Try-push job should be submitted for processing."
+        )
+        assert try_job.requester_email == user.email, (
+            "Try-push job should record the original requester."
+        )
+        assert try_job.target_commit_hash, (
+            "Try-push job should have a base commit hash."
+        )
+        # One revision per uplift revision, plus the try_task_config revision.
+        assert try_job.revisions.count() == len(revisions) + 1, (
+            "Try-push job should bundle the uplift revisions and the config revision."
+        )
 
     # Mock `moz-phab uplift` again with new created commits.
     monkeypatch.setattr(
