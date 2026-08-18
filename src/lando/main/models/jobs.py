@@ -122,6 +122,9 @@ class JobAction(enum.Enum):
     # A permanent issue occurred and this requires user intervention
     FAIL = "FAIL"
 
+    # Give up on a job which keeps deferring, so it stops blocking the queue.
+    ABORT = "ABORT"
+
     # A user has requested a cancellation
     CANCEL = "CANCEL"
 
@@ -231,6 +234,10 @@ class BaseJob(BaseModel):
                 "optional_params": ["abortable"],
                 "status": JobStatus.DEFERRED,
             },
+            JobAction.ABORT: {
+                "required_params": ["message"],
+                "status": JobStatus.ABORTED,
+            },
             JobAction.CANCEL: {
                 "required_params": [],
                 "status": JobStatus.CANCELLED,
@@ -254,6 +261,15 @@ class BaseJob(BaseModel):
 
         if action in (JobAction.FAIL, JobAction.DEFER):
             self.error = kwargs["message"]
+
+        if action == JobAction.ABORT:
+            logger.warning(
+                f"Aborting {self} after {self.attempts} attempts.",
+                extra={"id": self.id},
+            )
+            self.error = ABORTED_ERROR_TEMPLATE.format(
+                attempts=self.attempts, message=kwargs["message"]
+            )
 
         if action == JobAction.LAND:
             self.landed_commit_id = kwargs["commit_id"]
@@ -303,6 +319,10 @@ class BaseJob(BaseModel):
         return ConfigurationVariable.get(
             ConfigurationKey.MAX_JOB_ATTEMPTS, DEFAULT_MAX_JOB_ATTEMPTS
         )
+
+    def has_attempts_remaining(self) -> bool:
+        """Whether the job may be retried, or has run out of attempts."""
+        return self.attempts < self.max_attempts
 
     @property
     def landed_treeherder_revision(self) -> str | None:

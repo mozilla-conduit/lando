@@ -240,9 +240,7 @@ class Worker(ABC):
             try:
                 self.last_job_finished = self.run_job(job)
             except TemporaryFailureException as exc:
-                job.transition_status(
-                    JobAction.DEFER, message=str(exc), abortable=exc.abortable
-                )
+                self.defer_or_abort(job, exc, message=str(exc))
                 self.last_job_finished = False
                 logger.warning(
                     f"Temporary failure for {job}: {exc}",
@@ -284,6 +282,26 @@ class Worker(ABC):
     def is_abortable_failure(exception: Exception) -> bool:
         """Whether a job deferred because of `exception` may eventually be aborted."""
         return not isinstance(exception, NON_ABORTABLE_FAILURES)
+
+    def should_abort(self, exception: Exception, job: BaseJob) -> bool:
+        """Whether `exception` should abort `job` rather than defer it again.
+
+        A job which keeps deferring blocks every other job for its repository, so it
+        is aborted once it hits an abortable failure with no attempts left.
+        """
+        return self.is_abortable_failure(exception) and not job.has_attempts_remaining()
+
+    def defer_or_abort(self, job: BaseJob, exception: Exception, message: str):
+        """Abort `job` if it has run out of attempts, otherwise defer it."""
+        if self.should_abort(exception, job):
+            job.transition_status(JobAction.ABORT, message=message)
+            return
+
+        job.transition_status(
+            JobAction.DEFER,
+            message=message,
+            abortable=self.is_abortable_failure(exception),
+        )
 
     def notify_user_of_job_abort(self, job: BaseJob):
         """Tell the requester of `job` that Lando gave up on it."""
@@ -395,7 +413,7 @@ class Worker(ABC):
                 f"encountered while pulling from {repo_pull_info}: {e}"
             )
             logger.exception(message)
-            job.transition_status(JobAction.DEFER, message=message)
+            self.defer_or_abort(job, e, message=message)
 
             # Try again, this is a temporary failure.
             raise TemporaryFailureException(message) from e

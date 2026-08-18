@@ -157,11 +157,7 @@ class AutomationWorker(Worker):
                     f"encountered while pushing to {repo_push_info}: {e}"
                 )
                 logger.exception(message)
-                job.transition_status(
-                    JobAction.DEFER,
-                    message=message,
-                    abortable=self.is_abortable_failure(e),
-                )
+                self.defer_or_abort(job, e, message=message)
                 return False  # Try again, this is a temporary failure.
             except Exception as e:
                 message = f"Unexpected error while pushing to {repo.push_path}.\n{e}"

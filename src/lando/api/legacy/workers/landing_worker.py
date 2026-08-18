@@ -359,9 +359,10 @@ class LandingWorker(Worker):
                 f"encountered while pushing to {repo_push_info}: {e}"
             )
             logger.exception(message)
-            abortable = self.is_abortable_failure(e)
-            job.transition_status(JobAction.DEFER, message=message, abortable=abortable)
-            raise TemporaryFailureException(message, abortable=abortable)
+            self.defer_or_abort(job, e, message=message)
+            raise TemporaryFailureException(
+                message, abortable=self.is_abortable_failure(e)
+            )
         except Exception as exc:
             message = f"Unexpected error while pushing to {repo.name}."
             logger.exception(message)
