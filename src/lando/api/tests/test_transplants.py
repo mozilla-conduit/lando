@@ -2003,8 +2003,10 @@ def test_diffwarnings_aggregation(
     dw_one = [w for w in result["warnings"] if w["display"] == dw_message_other]
     assert len(dw_one) == 1
     assert len(dw_one[0]["instances"]) == 1
-
-
+    assert len(dw_one) == 1, f'Unexpected number of warning(s) for "{dw_message_other}"'
+    assert len(dw_one[0]["instances"]) == 1, (
+        f'Unexpected number of instance(s) for "{dw_message_other}"'
+    )
 @pytest.mark.django_db(transaction=True)
 def test_transplant_on_linked_legacy_repo(
     app,
