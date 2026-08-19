@@ -23,7 +23,6 @@ from lando.utils.landing_checks import (
     TryTaskConfigCheck,
     WPTSyncCheck,
 )
-from src.lando.api.tests.test_commit_message import GIT_STYLE_REVERT, HG_STYLE_BACKOUT
 
 GIT_DIFF_FILENAME_TEMPLATE = r"""\
 diff --git a/{filename} b/{filename}
