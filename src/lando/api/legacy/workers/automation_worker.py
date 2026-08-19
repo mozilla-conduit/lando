@@ -2,6 +2,7 @@ import logging
 
 from typing_extensions import override
 
+from lando.api.legacy.commit_message import parse_bugs
 from lando.api.legacy.workers.base import Worker
 from lando.headless_api.api import (
     AutomationActionException,
@@ -30,6 +31,12 @@ from lando.utils.landing_checks import LandingChecks
 from lando.utils.tasks import phab_trigger_repo_update
 
 logger = logging.getLogger(__name__)
+
+
+def parse_bug_ids(commits: list[CommitData]) -> list[str]:
+    """Return the bug IDs referenced by the first line of each commit message."""
+    titles = [commit.desc.splitlines()[0] for commit in commits if commit.desc.strip()]
+    return [str(bug) for title in titles for bug in parse_bugs(title)]
 
 
 class AutomationWorker(Worker):
@@ -174,6 +181,9 @@ class AutomationWorker(Worker):
             commit_id = scm.head_ref()
 
         job.transition_status(JobAction.LAND, commit_id=commit_id)
+
+        # Extra steps for post-uplift landings.
+        self.update_bugs_after_uplift(job, repo, scm, parse_bug_ids(new_commits))
 
         # Trigger update of repo in Phabricator so patches are closed quicker.
         # Especially useful on low-traffic repositories.

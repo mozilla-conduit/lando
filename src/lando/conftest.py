@@ -515,6 +515,16 @@ index 0000000..e44d36d
 +{"env": {"TRY_SELECTOR": "fuzzy"}, "version": 1, "tasks": ["source-test-cram-tryselect"]}
 """.lstrip()
 
+PATCH_MILESTONE_DIFF = """
+diff --git a/config/milestone.txt b/config/milestone.txt
+new file mode 100644
+--- /dev/null
++++ b/config/milestone.txt
+@@ -0,0 +1,2 @@
++# Holds the current milestone.
++142.0a1
+""".lstrip()
+
 PATCH_NSS_DIFF = """
 diff --git a/security/nss/.keep b/security/nss/.keep
 new file mode 100644
@@ -796,6 +806,7 @@ def hg_repo_mc(
     is_try: bool = True,
     autoformat_setup_commands: list[list[str]] | None = None,
     autoformat_run_command: list[str] | None = None,
+    milestone_tracking_flag_template: str = "",
     name: str = "",
     push_target: str = "",
 ) -> Repo:
@@ -813,6 +824,7 @@ def hg_repo_mc(
         "force_push": force_push,
         "hooks_enabled": hooks_enabled,
         "is_try": is_try,
+        "milestone_tracking_flag_template": milestone_tracking_flag_template,
         # We only set "hooks" below, if not empty.
         "push_target": push_target,
     }
@@ -853,6 +865,7 @@ def git_repo_mc(
     is_try: bool = False,
     autoformat_setup_commands: list[list[str]] | None = None,
     autoformat_run_command: list[str] | None = None,
+    milestone_tracking_flag_template: str = "",
     name: str = "",
     pr_enabled: bool = False,
     push_target: str = "",
@@ -875,6 +888,7 @@ def git_repo_mc(
         "force_push": force_push,
         "hooks_enabled": hooks_enabled,
         "is_try": is_try,
+        "milestone_tracking_flag_template": milestone_tracking_flag_template,
         "pr_enabled": pr_enabled,
         # We only set "hooks" below, if not empty.
         "push_target": push_target,
@@ -924,6 +938,7 @@ def repo_mc(
         is_try: bool = False,
         autoformat_setup_commands: list[list[str]] | None = None,
         autoformat_run_command: list[str] | None = None,
+        milestone_tracking_flag_template: str = "",
         name: str = "",
         pr_enabled: bool = False,
         push_target: str = "",
@@ -944,6 +959,7 @@ def repo_mc(
             "autoformat_setup_commands": autoformat_setup_commands,
             "autoformat_run_command": autoformat_run_command,
             "force_push": force_push,
+            "milestone_tracking_flag_template": milestone_tracking_flag_template,
             "name": name,
             "push_target": push_target,
         }
@@ -1476,11 +1492,13 @@ def make_push():
 
 @pytest.fixture
 def make_scm_commit(make_hash):
-    def scm_commit_factory(seqno: int):
+    def scm_commit_factory(seqno: int, desc: str | None = None):
         return CommitData(
             hash=make_hash(seqno),
             author=f"author-{seqno}",
-            desc=f"""SCM Commit {seqno}
+            desc=desc
+            if desc is not None
+            else f"""SCM Commit {seqno}
 
 Another line""",
             datetime=datetime.now(tz=timezone.utc),
