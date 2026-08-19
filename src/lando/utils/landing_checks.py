@@ -528,7 +528,7 @@ class CommitMessagesCheck(PatchCollectionCheck):
                     f"Push contains commits intended to be locked to {', '.join(malformed)} but the repo name is badly formatted. '/' is not allowed: {firstline}"
                 )
             elif self.repo_name not in match:
-                current_commit_issues.append(
+                self.commit_message_issues.append(
                     f"Commit locked to a repo other than {self.repo_name}: {firstline}"
                 )
 
