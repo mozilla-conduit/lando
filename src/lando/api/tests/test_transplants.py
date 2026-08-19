@@ -1966,7 +1966,7 @@ def test_diffwarnings_aggregation(
             revision_id=r["id"],
             diff_id=d["id"],
             group=DiffWarningGroup.GENERAL,
-            data={"message": dw_message_other},
+            data={"message": dw_message},
         )
     )
 
