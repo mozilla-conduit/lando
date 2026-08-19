@@ -2,10 +2,10 @@
 {% extends "partials/layout.html" %}
 {% block page_title %}{{ job_type }} Job {{ job.id }}{% endblock %}
 {% block main %}
-    <main class="StackPage container fullhd">
+    <main class="StackPage container fullhd content">
         <h1>{{ job_type }} Job {{ job.id }}</h1>
         <div class="StackPage-timeline">
-            {% set embedded = False %}
+            {% set page_context = "job" %}
             {% include "partials/job.html" %}
         </div>
         {% if queue %}
@@ -19,7 +19,7 @@
             {% set main_job = job %}
             {% for job in queue %}
                 {% if job.id != main_job.id %}
-                    {% set embedded = True %}
+                    {% set page_context = "stack" %}
                     {% include "partials/job.html" %}
                 {% endif %}
             {% endfor %}
