@@ -1997,7 +1997,9 @@ def test_diffwarnings_aggregation(
     )
 
     dw_both = [w for w in result["warnings"] if w["display"] == dw_message]
-    assert len(dw_both) == 1, f'Multiple warnings for "{dw_message}" should be aggregated in a single warning'
+    assert len(dw_both) == 1, (
+        f'Multiple warnings for "{dw_message}" should be aggregated in a single warning'
+    )
     assert len(dw_both[0]["instances"]) == 3, (
         f'Unexpected number of instance(s) for "{dw_message}"'
     )
