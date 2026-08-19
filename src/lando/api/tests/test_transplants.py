@@ -1968,6 +1968,21 @@ def test_diffwarnings_aggregation(
             group=DiffWarningGroup.GENERAL,
             data={"message": dw_message},
         )
+
+    # r1 has the same DiffWarning twice.
+    DiffWarning.objects.create(
+        revision_id=r1["id"],
+        diff_id=d1["id"],
+        group=DiffWarningGroup.GENERAL,
+        data={"message": dw_message},
+    )
+
+    dw_message_other = "Some other message"
+    DiffWarning.objects.create(
+        revision_id=r1["id"],
+        diff_id=d1["id"],
+        group=DiffWarningGroup.GENERAL,
+        data={"message": dw_message_other},
     )
 
     result = legacy_api_transplants.dryrun(
