@@ -270,7 +270,7 @@ This reverts commit c02ebe1d487482c3ddfdffde9be1c46be1ce4f6d.
 
 Revert "Bug 2062189 - Wait for the parent process to register the menu item before opening a context menu in the browserAction, pageAction and sidebarAction contextMenu tests, r=extension-reviewers,rpl."
 
-This reverts commit e3f81fcb94c16422e2643009af485d88647fdfd8.
+This reverts commit e3f81fcb94c16422e2643009af485d88647fdfd8
 """
 
 
