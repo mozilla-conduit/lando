@@ -90,9 +90,7 @@ BACKOUT_MULTI_ONELINE_RE = re.compile(
     + r")+)",
     re.I,
 )
-BACKOUT_GIT_RE = re.compile(
-    r"This reverts commit (?P<node>" + FULL_NODE + r")."
-)
+BACKOUT_GIT_RE = re.compile(r"This reverts commit (?P<node>" + FULL_NODE + r")")
 
 RE_DIFF = re.compile(r"[\n^]diff .*\n.*\n(\+\+\+|---).*\n", re.DOTALL)
 
