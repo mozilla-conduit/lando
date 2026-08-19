@@ -39,7 +39,7 @@ DONTBUILD = (
 SHIPPING = (
     "SHIPPING",
     (
-        "Should be used for changes intended to be shipped (uplift, chemspills, etc.),"
+        "Should be used for changes intended to be shipped (dot-releases, chemspills, etc.),"
         + " and for which results should be available as quickly as possible"
         + " (and this needs the job and CI to be processed with higher priority)."
     ),
