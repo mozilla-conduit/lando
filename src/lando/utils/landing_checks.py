@@ -500,8 +500,6 @@ class CommitMessagesCheck(PatchCollectionCheck):
             self.ignore_bad_commit_message = True
             return
 
-        current_commit_issues = []
-
         # Ensure backout commit descriptions are well formed.
         if is_backout(firstline):
             backouts = parse_backouts(commit_message, strict=True)
