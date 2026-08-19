@@ -538,7 +538,7 @@ class CommitMessagesCheck(PatchCollectionCheck):
             )
 
         if firstline.lower().startswith("wip:"):
-            current_commit_issues.append(
+            self.commit_message_issues.append(
                 f"Revision seems to be marked as WIP: {firstline}"
             )
 
