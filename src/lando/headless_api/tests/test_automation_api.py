@@ -1,6 +1,7 @@
 import base64
 import datetime
 import json
+import re
 import secrets
 import subprocess
 import time
@@ -14,7 +15,9 @@ from django.contrib.auth.models import Permission, User
 from django.test.client import Client
 from pydantic import ValidationError
 
-from lando.api.legacy.workers.automation_worker import AutomationWorker
+from lando.api.legacy.workers.automation_worker import (
+    AutomationWorker,
+)
 from lando.api.tests.mocks import TreeStatusDouble
 from lando.conftest import FAILING_CHECK_TYPES
 from lando.headless_api.api import (
@@ -33,6 +36,7 @@ from lando.main.scm import PatchConflict, SCMType
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.exceptions import SCMInternalServerError
 from lando.pushlog.models import Push
+from lando.utils.github import PullRequest
 
 
 @pytest.fixture
@@ -1897,3 +1901,438 @@ def test_automation_job_processing(automation_job):
     assert job_from_db.duration_seconds > 0, (
         "`processing` should set and save the job duration."
     )
+
+
+MULTITRAILER_COMMIT_MESSAGE = """Bug 1234567 - do something
+
+This PR fixes a problem that was introduced in
+Pull request: https://github.com/mozilla-conduit/test-repo/pull/12345
+
+Pull request: https://github.com/mozilla-conduit/test-repo/pull/98765"""
+
+MULTILINE_COMMIT_MESSAGE = """Bug 1234567 - do something
+
+Something something
+
+Pull request: https://github.com/mozilla-conduit/test-repo/pull/11111"""
+
+
+@pytest.mark.parametrize(
+    "commit_message,expected",
+    [
+        (
+            "Pull request: https://github.com/mozilla-conduit/test-repo/pull/42",
+            {
+                "userinfo": None,
+                "owner": "mozilla-conduit",
+                "repo": "test-repo",
+                "number": "42",
+            },
+        ),
+        ("No pull request trailer here.", None),
+        ("Pull request: https://wronghost.com/owner/repo/pull/1", None),
+        (
+            MULTITRAILER_COMMIT_MESSAGE,
+            {
+                "userinfo": None,
+                "owner": "mozilla-conduit",
+                "repo": "test-repo",
+                "number": "98765",
+            },
+        ),
+        (
+            MULTILINE_COMMIT_MESSAGE,
+            {
+                "userinfo": None,
+                "owner": "mozilla-conduit",
+                "repo": "test-repo",
+                "number": "11111",
+            },
+        ),
+    ],
+    ids=[
+        "valid_https_trailer",
+        "no_trailer",
+        "wrong_host",
+        "multiple_trailers",
+        "multiline_message",
+    ],
+)
+def test_parse_pr_url(commit_message, expected):
+    """`parse_pr_url` extracts owner/repo/number from a PR trailer, or returns `None`."""
+    assert PullRequest.parse_pr_url(commit_message) == expected, (
+        "`parse_pr_url` should return the expected owner/repo/number mapping."
+    )
+
+
+FULL_SHA = "a" * 40
+ANOTHER_FULL_SHA = "b" * 40
+
+
+@pytest.mark.parametrize(
+    "revert_commit_message,expected_hashes",
+    [
+        (f"This reverts commit {FULL_SHA}.", [FULL_SHA]),
+        # A squashed revert names several commits in one message.
+        (
+            f"This reverts commit {FULL_SHA}.\nThis reverts commit {ANOTHER_FULL_SHA}.",
+            [FULL_SHA, ANOTHER_FULL_SHA],
+        ),
+        ("A commit message with no revert trailer.", []),
+    ],
+    ids=[
+        "one_full_sha",
+        "two_full_shas_squashed",
+        "no_revert_trailer",
+    ],
+)
+def test_reverted_commit_hashes(
+    revert_commit_message, expected_hashes, make_scm_commit
+):
+    """`find_reverted_commit_hashes` returns every reverted SHA."""
+    commit = make_scm_commit(1)
+    commit.desc = revert_commit_message
+    assert commit.reverted_commit_hashes() == expected_hashes, (
+        "`find_reverted_commit_hashes` should match every reverted SHA."
+    )
+
+
+@pytest.mark.parametrize(
+    "description, is_revert",
+    [
+        ('Revert "Bug 1 - a thing"', True),
+        ("Bug 1 - a normal commit", False),
+    ],
+    ids=[
+        "revert",
+        "no_revert",
+    ],
+)
+def test_is_revert_commit(description, is_revert, make_scm_commit):
+    """`is_revert_commit` returns true if a commit is a revert."""
+    commit = make_scm_commit(1)
+    commit.desc = description
+    assert commit.is_revert_commit() == is_revert, (
+        "`is_revert_commit` should match expected value"
+    )
+
+
+@mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
+@pytest.mark.django_db
+def test_comment_on_reverted_pr_single_revert(
+    github_api_client,
+    client,
+    git_repo_github_push_path,
+    treestatusdouble,
+    automation_worker,
+    mock_phab_trigger_repo_update_apply_async,
+    automation_job,
+    headless_user,
+    create_git_commit,
+    mock_github_pull_request,
+):
+    """Test that a comment is added to a PR when it is reverted by an automation job."""
+
+    user, token = headless_user
+
+    repo = git_repo_github_push_path
+    seed_dir = repo.pull_path
+
+    mock_github_api_client = mock.MagicMock()
+    mock_pr = mock_github_pull_request(
+        number=1, title="Bug 1234 - add a line", body="test description"
+    )
+    mock_github_api_client.build_pull_request.return_value = mock_pr
+    mock_github_api_client.repo_owner = "mozilla-conduit"
+    mock_github_api_client.repo_name = "test-repo"
+
+    github_api_client.return_value = mock_github_api_client
+
+    commit_message = "Bug 1234 - add a line\n\ntest description\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1"
+    create_git_commit(Path(seed_dir), message=commit_message)
+
+    generate_revert_commits(Path(seed_dir), "HEAD")
+    patch_b64 = generate_revert_patch(Path(seed_dir), "HEAD~1", 1)
+
+    response = client.post(
+        f"/api/repo/{repo.name}",
+        data=json.dumps(
+            {
+                "actions": [{"action": "add-commit-base64", "content": patch_b64}],
+            }
+        ),
+        content_type="application/json",
+        headers={
+            "User-Agent": "Lando-User/testuser@example.org",
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 202, f"Unexpected status code: {response.content}"
+
+    job_id = response.json()["job_id"]
+    job = AutomationJob.objects.get(id=job_id)
+    automation_worker.worker_instance.applicable_repos.add(repo)
+    job.target_repo.scm.push = mock.MagicMock()
+
+    assert automation_worker.run_job(job), job.error
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.LANDED, f"Job failed with error: {job.error}"
+
+    assert_reverted_pr_comment(mock_pr, pr_number=1)
+
+
+@mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
+@pytest.mark.django_db
+def test_comment_on_reverted_prs_multiple_reverts_in_one_commit(
+    github_api_client,
+    client,
+    git_repo_github_push_path,
+    treestatusdouble,
+    automation_worker,
+    mock_phab_trigger_repo_update_apply_async,
+    automation_job,
+    headless_user,
+    create_git_commit,
+    mock_github_pull_request,
+):
+    """Test that comments are added to multiple PRs when they are reverted by a single automation job."""
+    user, token = headless_user
+
+    repo = git_repo_github_push_path
+
+    seed_dir = repo.pull_path
+
+    mock_github_api_client = mock.MagicMock()
+    mock_github_api_client.repo_owner = "mozilla-conduit"
+    mock_github_api_client.repo_name = "test-repo"
+    github_api_client.return_value = mock_github_api_client
+
+    pr_1 = mock_github_pull_request(
+        number=1, title="Bug 1234 - add a line", body="test description"
+    )
+    pr_2 = mock_github_pull_request(number=2, title="Bug 5678 - add another line")
+
+    prs_by_number = {"1": pr_1, "2": pr_2}
+    mock_github_api_client.build_pull_request.side_effect = lambda pr_number: (
+        prs_by_number[pr_number]
+    )
+
+    commit_message_1 = "Bug 1234 - add a line\n\ntest description\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1"
+    create_git_commit(
+        Path(seed_dir),
+        message=commit_message_1,
+        name="test.txt",
+        content="added line\n",
+    )
+
+    commit_message_2 = "Bug 5678 - add another line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/2"
+    create_git_commit(
+        Path(seed_dir),
+        message=commit_message_2,
+        name="test.txt",
+        content="added line\n added another line\n",
+    )
+
+    generate_revert_commits(Path(seed_dir), "HEAD~2..HEAD")
+    squash_commits(Path(seed_dir))
+
+    patch_b64 = generate_revert_patch(Path(seed_dir), "HEAD~1", 1)
+
+    response = client.post(
+        f"/api/repo/{repo.name}",
+        data=json.dumps(
+            {
+                "actions": [{"action": "add-commit-base64", "content": patch_b64}],
+            }
+        ),
+        content_type="application/json",
+        headers={
+            "User-Agent": "Lando-User/testuser@example.org",
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 202, f"Unexpected status code: {response.content}"
+
+    job_id = response.json()["job_id"]
+    job = AutomationJob.objects.get(id=job_id)
+    automation_worker.worker_instance.applicable_repos.add(repo)
+    job.target_repo.scm.push = mock.MagicMock()
+
+    assert automation_worker.run_job(job), job.error
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.LANDED, f"Job failed with error: {job.error}"
+
+    pr_1_revert_hash = assert_reverted_pr_comment(pr_1, pr_number=1)
+    pr_2_revert_hash = assert_reverted_pr_comment(pr_2, pr_number=2)
+
+    assert pr_1_revert_hash == pr_2_revert_hash, (
+        "Both PRs were reverted by the same commit, so both comments should name it."
+    )
+
+
+@mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
+@pytest.mark.django_db
+def test_comment_on_reverted_pr_among_non_revert_commits(
+    github_api_client,
+    client,
+    git_repo_github_push_path,
+    treestatusdouble,
+    automation_worker,
+    mock_phab_trigger_repo_update_apply_async,
+    automation_job,
+    headless_user,
+    create_git_commit,
+    mock_github_pull_request,
+):
+    """Test that a comment is added to a PR when it is reverted by an automation job, even if the revert commit is not the most recent commit."""
+    user, token = headless_user
+
+    repo = git_repo_github_push_path
+    seed_dir = repo.pull_path
+
+    mock_github_api_client = mock.MagicMock()
+    mock_pr = mock_github_pull_request(
+        number=1, title="Bug 1234 - add a line", body="test description"
+    )
+    mock_github_api_client.build_pull_request.return_value = mock_pr
+    mock_github_api_client.repo_owner = "mozilla-conduit"
+    mock_github_api_client.repo_name = "test-repo"
+
+    github_api_client.return_value = mock_github_api_client
+
+    commit_message_1 = "Bug 1234 - add a line\n\ntest description\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1"
+    create_git_commit(
+        Path(seed_dir),
+        message=commit_message_1,
+        name="test.txt",
+        content="added line\n",
+    )
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=seed_dir,
+    )
+    original_sha = result.stdout.strip()
+
+    commit_message_2 = "Bug 5678 - add another line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/2"
+    create_git_commit(
+        Path(seed_dir),
+        message=commit_message_2,
+        name="test2.txt",
+        content="added line to pr 2\n",
+    )
+
+    generate_revert_commits(Path(seed_dir), original_sha)
+
+    commit_message_3 = "Bug 91011 - add a third line\n\nPull request: https://github.com/mozilla-conduit/test-repo/pull/3"
+    create_git_commit(
+        Path(seed_dir),
+        message=commit_message_3,
+        name="test3.txt",
+        content="added line to pr 3\n",
+    )
+
+    patch_b64 = generate_revert_patch(Path(seed_dir), original_sha, 3)
+
+    response = client.post(
+        f"/api/repo/{repo.name}",
+        data=json.dumps(
+            {
+                "actions": [
+                    {"action": "add-commit-base64", "content": patch_b64},
+                ]
+            }
+        ),
+        content_type="application/json",
+        headers={
+            "User-Agent": "Lando-User/testuser@example.org",
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 202, f"Unexpected status code: {response.content}"
+
+    job_id = response.json()["job_id"]
+    job = AutomationJob.objects.get(id=job_id)
+    automation_worker.worker_instance.applicable_repos.add(repo)
+    job.target_repo.scm.push = mock.MagicMock()
+
+    assert automation_worker.run_job(job), job.error
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.LANDED, f"Job failed with error: {job.error}"
+
+    # Only the reverted PR is commented on; the two surrounding non-revert commits
+    # are ignored.
+    assert_reverted_pr_comment(mock_pr, pr_number=1)
+
+
+def generate_revert_commits(repo_path: Path, commit_hash: str):
+    """Generate a revert commit for a given commit hash in the specified repo."""
+    subprocess.run(
+        ["git", "revert", "--no-edit", commit_hash],
+        check=True,
+        cwd=repo_path,
+    )
+
+
+def generate_revert_patch(repo_path: Path, commit_hash: str, num_commits: int) -> bytes:
+    """Generate a revert patch for a given commit hash in the specified repo."""
+    revert_patch = subprocess.run(
+        ["git", "format-patch", f"-{num_commits}", "--stdout"],
+        check=True,
+        capture_output=True,
+        cwd=repo_path,
+    ).stdout
+    subprocess.run(
+        ["git", "reset", "--hard", commit_hash],
+        check=True,
+        cwd=repo_path,
+    )
+    return base64.b64encode(revert_patch).decode("ascii")
+
+
+def squash_commits(seed_dir: Path):
+    combined_message = subprocess.run(
+        ["git", "log", "--reverse", "--format=%B", "HEAD~2..HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+        cwd=seed_dir,
+    ).stdout.strip()
+
+    # Undo the two revert commits but keep their combined changes staged, so we
+    # can collapse them into one commit.
+    subprocess.run(["git", "reset", "--soft", "HEAD~2"], check=True, cwd=seed_dir)
+
+    # Re-commit the staged changes as a single revert commit carrying both revert
+    # messages. This simulates one new PR that reverts two commits from two
+    # different PRs at once.
+    subprocess.run(
+        ["git", "commit", "-m", combined_message],
+        check=True,
+        cwd=seed_dir,
+    )
+
+
+def assert_reverted_pr_comment(pull_request: mock.MagicMock, pr_number: int) -> str:
+    """Assert one "has been reverted" comment was posted, and return the commit hash."""
+    pull_request.add_comment.assert_called_once()
+
+    (comment,) = pull_request.add_comment.call_args.args
+    match = re.fullmatch(
+        r"This pull request has been reverted "
+        r"by commit ([0-9a-f]{40})\.",
+        comment,
+    )
+    assert match, (
+        f"Comment on PR #{pr_number} should name the reverting commit, got: {comment!r}"
+    )
+
+    return match.group(1)

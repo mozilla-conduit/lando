@@ -960,6 +960,21 @@ def repo_mc(
 
 
 @pytest.fixture
+def git_repo_github_push_path(
+    git_repo: pathlib.Path,
+    tmp_path: pathlib.Path,
+) -> Repo:
+    """A git `Repo` whose `push_path` is a GitHub URL distinct from its local test repo `url`."""
+    repo = git_repo_mc(
+        git_repo,
+        tmp_path,
+    )
+    repo.push_path = "https://github.com/mozilla-conduit/test-repo"
+    repo.save()
+    return repo
+
+
+@pytest.fixture
 def mock_repo_config(monkeypatch):
     def set_repo_config(config):
         monkeypatch.setattr("lando.api.legacy.repos.REPO_CONFIG", config)
@@ -1141,16 +1156,23 @@ def git_signing_key(tmp_path: Path) -> Path:
 def create_git_commit(
     request: pytest.FixtureRequest, git_signing_key: tuple[Path, str]
 ) -> Callable:
-    def _create_git_commit(clone_path: Path, signed: bool = False) -> str:
-        new_file = clone_path / str(uuid.uuid4())
-        new_file.write_text(request.node.name, encoding="utf-8")
+    def _create_git_commit(
+        clone_path: Path,
+        signed: bool = False,
+        message: str | None = None,
+        name: str | None = None,
+        content: str | None = None,
+    ) -> str:
+        new_file = clone_path / (name or str(uuid.uuid4()))
+        new_file.write_text(content or request.node.name, encoding="utf-8")
 
         subprocess.run(["git", "add", new_file.name], cwd=str(clone_path), check=True)
+        commit_message = message or f"No bug: adding {new_file} (signed: {signed})"
         commit_command = [
             "git",
             "commit",
             "-m",
-            f"No bug: adding {new_file} (signed: {signed})",
+            commit_message,
             "--author",
             f"{request.node.name} <pytest@lando>",
         ]
@@ -1761,3 +1783,20 @@ def pull_request_data(update_dict) -> Callable:
 def authenticated_client(user, user_plaintext_password, client):
     client.login(username=user.username, password=user_plaintext_password)
     return client
+
+
+@pytest.fixture
+def mock_github_pull_request() -> Callable:
+    """Build a mock pull request."""
+
+    def _mock_github_pull_request(
+        number: int, title: str, body: str = "", head_ref: str = "main"
+    ) -> mock.MagicMock:
+        pull_request = mock.MagicMock()
+        pull_request.number = number
+        pull_request.title = title
+        pull_request.body = body
+        pull_request.head_ref = head_ref
+        return pull_request
+
+    return _mock_github_pull_request

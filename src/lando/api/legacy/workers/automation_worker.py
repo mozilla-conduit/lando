@@ -25,7 +25,9 @@ from lando.main.scm import (
     TreeApprovalRequired,
     TreeClosed,
 )
+from lando.main.scm.abstract_scm import AbstractSCM
 from lando.pushlog.pushlog import PushLogForRepo
+from lando.utils.github import GitHubAPIClient, PullRequest
 from lando.utils.landing_checks import LandingChecks
 from lando.utils.tasks import phab_trigger_repo_update
 
@@ -138,6 +140,7 @@ class AutomationWorker(Worker):
                 pushlog.add_tag(tag_name, tag_commitdata)
 
             repo_push_info = f"tree: {repo.tree}, push path: {repo.push_path}"
+
             try:
                 scm.push(
                     repo.push_path,
@@ -175,9 +178,85 @@ class AutomationWorker(Worker):
 
         job.transition_status(JobAction.LAND, commit_id=commit_id)
 
+        # If any of the new commits are reverts, comment on the reverted PRs.
+        revert_commits = CommitData.find_revert_commits(new_commits)
+        if revert_commits:
+            github_client = GitHubAPIClient(repo.push_path)
+            reverts = {
+                commit.hash: find_reverted_prs(commit, scm, github_client)
+                for commit in revert_commits
+            }
+            for commit_hash, pull_requests in reverts.items():
+                comment_on_reverted_prs(pull_requests, commit_hash)
+
         # Trigger update of repo in Phabricator so patches are closed quicker.
         # Especially useful on low-traffic repositories.
         if repo.phab_identifier:
             self.call_task(phab_trigger_repo_update, repo.phab_identifier)
 
         return True
+
+
+def find_reverted_prs(
+    revert_commit: CommitData,
+    scm: AbstractSCM,
+    github_client: GitHubAPIClient,
+) -> list[PullRequest]:
+    """Return PR numbers named in a revert commit that should be commented on."""
+    original_commits = {
+        commit_hash: scm.describe_commit(commit_hash).desc
+        for commit_hash in revert_commit.reverted_commit_hashes()
+    }
+    reverted_prs = [
+        get_reverted_pr(commit_message, commit_hash, github_client)
+        for commit_hash, commit_message in original_commits.items()
+    ]
+    return [pr for pr in reverted_prs if pr]
+
+
+def get_reverted_pr(
+    original_commit_message: str,
+    original_commit_hash: str,
+    github_client: GitHubAPIClient,
+) -> PullRequest | None:
+    """Return the PR to comment on for one reverted commit, or `None` to skip it."""
+
+    pr_url_data = PullRequest.parse_pr_url(original_commit_message)
+    if not pr_url_data:
+        logger.debug(
+            f"Skipping commit {original_commit_hash}: reverted commit has no "
+            f"parseable PR URL in commit message."
+        )
+        return None
+
+    pr_number = pr_url_data["number"]
+    pr_owner = pr_url_data["owner"]
+    pr_repo = pr_url_data["repo"]
+    expected_owner = github_client.repo_owner
+    expected_repo = github_client.repo_name
+
+    if pr_owner != expected_owner or pr_repo != expected_repo:
+        logger.warning(
+            f"Skipping commit {original_commit_hash} because PR URL in commit message "
+            f"[{original_commit_message}] points to unexpected repo: {pr_owner}/{pr_repo}, "
+            f"but automation worker expected PRs to be from {expected_owner}/{expected_repo}."
+        )
+        return None
+
+    try:
+        pr_to_revert = github_client.build_pull_request(pr_number)
+    except Exception:
+        logger.exception(
+            f"Skipping commit {original_commit_hash}: PR #{pr_number} could not "
+            f"be found via the GitHub API."
+        )
+        return None
+    return pr_to_revert
+
+
+def comment_on_reverted_prs(reverted_prs: list[PullRequest], commit_hash: str):
+    """Post a 'has been reverted' comment on each reverted pull request."""
+    for pr in reverted_prs:
+        pr.add_comment(
+            f"This pull request has been reverted by commit {commit_hash}.",
+        )

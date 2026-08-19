@@ -441,6 +441,12 @@ def pr_cache_method(func: Callable) -> Callable:
 class PullRequest:
     """A class that parses data returned from the GitHub API for pull requests."""
 
+    PR_TRAILER_PREFIX = "Pull request: "
+    PULL_REQUEST_RE = re.compile(
+        rf"{PR_TRAILER_PREFIX}{GitHub.GITHUB_URL_RE.pattern}pull/(?P<number>\d+)$",
+    )
+    PR_TRAILER_RE = re.compile(rf"^{PR_TRAILER_PREFIX}.+$", flags=re.MULTILINE)
+
     class StaleMetadataException(Exception):
         pass
 
@@ -671,7 +677,7 @@ class PullRequest:
         if self.commit_body:
             lines += [self.commit_body, ""]
 
-        lines.append(f"Pull request: {self.html_url}")
+        lines.append(f"{PullRequest.PR_TRAILER_PREFIX}{self.html_url}")
 
         return "\n".join(lines)
 
@@ -707,6 +713,18 @@ class PullRequest:
             "user_html_url": self.user_html_url,
             "user_login": self.user_login,
         }
+
+    @staticmethod
+    def parse_pr_url(commit_message: str) -> dict | None:
+        """Return the owner/repo/number from a commit's PR trailer, or `None`."""
+        pr_urls = PullRequest.PR_TRAILER_RE.findall(commit_message)
+        if not pr_urls:
+            return None
+        pr_match = PullRequest.PULL_REQUEST_RE.match(pr_urls[-1].strip())
+        return pr_match.groupdict() if pr_match else None
+
+    def add_comment(self, comment: str) -> dict:
+        return self.client.add_comment_to_pull_request(self.number, comment)
 
 
 class PullRequestPatchHelper(PatchHelper):
