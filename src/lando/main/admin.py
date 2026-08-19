@@ -42,6 +42,28 @@ class ArrayFieldMultipleChoiceField(MultipleChoiceField):
         super().__init__(**kwargs)
 
 
+class ReadOnlyModelAdmin(admin.ModelAdmin):
+    """A base ModelAdmin class for models which should never be edited."""
+
+    def has_add_permission(
+        self, request: HttpRequest, obj: Model | None = None
+    ) -> bool:
+        """Forbid addition of any object from the admin interface."""
+        return False
+
+    def has_change_permission(
+        self, request: HttpRequest, obj: Model | None = None
+    ) -> bool:
+        """Forbid change of any object from the admin interface."""
+        return False
+
+    def has_delete_permission(
+        self, request: HttpRequest, obj: Model | None = None
+    ) -> bool:
+        """Forbid deletion of any object from the admin interface."""
+        return False
+
+
 class ReadOnlyInline(admin.TabularInline):
     """
     A Tabular Inline that supports a readonly_fields to disallow editing linked models.
