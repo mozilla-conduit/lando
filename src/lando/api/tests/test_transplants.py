@@ -1962,17 +1962,6 @@ def test_diffwarnings_aggregation(
     for r, d in [(r1, d1), (r2, d2)]:
         phabdouble.reviewer(r, phabdouble.user(username="reviewer"))
         phabdouble.reviewer(r, phabdouble.project("reviewer2"))
-        dws.append(
-            DiffWarning.objects.create(
-                revision_id=r["id"],
-                diff_id=r["id"],
-                group=DiffWarningGroup.GENERAL,
-                data={"message": dw_message},
-            )
-        )
-
-    dw_message_other = "Some other message"
-    dws.append(
         DiffWarning.objects.create(
             revision_id=r1["id"],
             diff_id=r1["id"],
