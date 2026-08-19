@@ -104,6 +104,9 @@ class MaintenanceModeMiddleware:
         excepted_namespaces = (
             "dockerflow",
             "admin",
+            # Treestatus is consulted by CI and sheriffs independently of landing,
+            # so it should stay available while Lando is under maintenance.
+            "treestatus-api",
         )
 
         excepted_url_names = (

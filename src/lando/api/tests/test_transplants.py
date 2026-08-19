@@ -720,7 +720,6 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     scm_type,
     user,
     authenticated_client,
-    treestatusdouble,
     release_management_project,
     needs_data_classification_project,
     register_codefreeze_uri,
@@ -733,7 +732,6 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
 ):
     landing_worker = get_landing_worker(scm_type)
     repo = repo_mc(scm_type)
-    treestatusdouble.open_tree(repo.name)
     landing_worker.worker_instance.applicable_repos.add(repo)
 
     phabrepo = phabdouble.repo(name=repo.name)
@@ -2016,7 +2014,6 @@ def test_transplant_on_linked_legacy_repo(
     app,
     user,
     phabdouble,
-    treestatusdouble,
     register_codefreeze_uri,
     mocked_repo_config,
     repo_mc,

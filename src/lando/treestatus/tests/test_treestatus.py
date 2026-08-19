@@ -2,19 +2,25 @@ import datetime
 
 import pytest
 import requests_mock
+from django.core.cache import caches
 from django.core.management import call_command
+from django.test import override_settings
 from django.utils.dateparse import parse_datetime
 
-from lando.treestatus.models import CombinedTree, Log, Tree, TreeCategory, TreeStatus
-from lando.treestatus.views.api import (
+from lando.treestatus.api import (
     LogEntry,
     StackEntry,
     TreeData,
+)
+from lando.treestatus.models import CombinedTree, Log, Tree, TreeCategory, TreeStatus
+from lando.treestatus.utils import (
+    TREESTATUS_CACHE,
     apply_log_and_stack_update,
     apply_status_change_update,
     apply_tree_updates,
     create_new_tree,
     get_combined_tree,
+    get_tree_by_name,
     is_open,
     remove_tree_by_name,
     revert_status_change,
@@ -63,6 +69,42 @@ def test_is_open_for_approval_required_tree(new_treestatus_tree):
     )
 
 
+# Enable the local memory cache for the `db` alias `get_tree_by_name` uses, since
+# tests otherwise use the dummy cache.
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "test-cache-default",
+        },
+        TREESTATUS_CACHE: {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "test-cache-db",
+        },
+    }
+)
+@pytest.mark.django_db
+def test_is_open_bypasses_stale_cache(new_treestatus_tree):
+    """`is_open` reads fresh state even when `get_tree_by_name` is cached stale."""
+    caches[TREESTATUS_CACHE].clear()
+    tree = new_treestatus_tree(tree="mozilla-central", status=TreeStatus.OPEN)
+
+    # Populate the cache with the open state, then close the tree directly so the
+    # cached `CombinedTree` is left stale (no invalidation).
+    assert get_tree_by_name("mozilla-central").status.is_open(), (
+        "The tree should be cached as open."
+    )
+    tree.status = TreeStatus.CLOSED
+    tree.save()
+
+    assert get_tree_by_name("mozilla-central").status.is_open(), (
+        "`get_tree_by_name` should still return the stale cached open state."
+    )
+    assert not is_open("mozilla-central"), (
+        "`is_open` should bypass the cache and observe the tree is now closed."
+    )
+
+
 @pytest.mark.django_db
 def test_get_combined_tree(new_treestatus_tree):
     tree = new_treestatus_tree(
@@ -85,11 +127,24 @@ def test_get_combined_tree(new_treestatus_tree):
 
 
 @pytest.mark.django_db
+def test_api_is_served_under_api_treestatus(client, new_treestatus_tree):
+    """The API is mounted under `/api/treestatus/`, not at the base endpoint."""
+    new_treestatus_tree(tree="mozilla-central")
+
+    assert client.get("/api/treestatus/trees").status_code == 200, (
+        "The API should be served under `/api/treestatus/`."
+    )
+    assert client.get("/trees").status_code == 404, (
+        "The API should no longer be served from the base endpoint."
+    )
+
+
+@pytest.mark.django_db
 def test_get_tree_exists(client, new_treestatus_tree):
     tree = new_treestatus_tree(
         tree="mozilla-central", status=TreeStatus.OPEN, reason="reason", motd="message"
     )
-    response = client.get("/trees/mozilla-central")
+    response = client.get("/api/treestatus/trees/mozilla-central")
     assert "result" in response.json(), (
         "Response should be contained in the `result` key."
     )
@@ -108,7 +163,7 @@ def test_get_tree_exists(client, new_treestatus_tree):
 
 @pytest.mark.django_db
 def test_get_tree_missing(client):
-    response = client.get("/trees/missingtree")
+    response = client.get("/api/treestatus/trees/missingtree")
 
     assert response.status_code == 404
 
@@ -121,7 +176,7 @@ def test_get_tree_missing(client):
 @pytest.mark.django_db
 def test_api_get_trees2(client, new_treestatus_tree):
     """API test for `GET /trees2`."""
-    response = client.get("/trees2")
+    response = client.get("/api/treestatus/trees2")
     assert response.status_code == 200, (
         "`GET /trees2` should return 200 even when no trees are found."
     )
@@ -129,7 +184,7 @@ def test_api_get_trees2(client, new_treestatus_tree):
     assert response.json()["result"] == [], "Result from Treestatus should be empty."
 
     new_treestatus_tree(tree="mozilla-central")
-    response = client.get("/trees2")
+    response = client.get("/api/treestatus/trees2")
     assert response.status_code == 200, (
         "`GET /trees2` should return 200 when trees are found."
     )
@@ -228,7 +283,7 @@ def test_api_get_logs(client, new_treestatus_tree):
     )
 
     # Check the most recent logs are returned.
-    response = client.get("/trees/tree/logs")
+    response = client.get("/api/treestatus/trees/tree/logs")
 
     assert response.status_code == 200, "Requesting all logs should return `200`."
     result = response.json().get("result")
@@ -277,7 +332,7 @@ def test_api_get_logs(client, new_treestatus_tree):
         )
 
     # Check all results are returned from `logs_all`.
-    response = client.get("/trees/tree/logs_all")
+    response = client.get("/api/treestatus/trees/tree/logs_all")
 
     assert response.status_code == 200, "Requesting all logs should return `200`."
     result = response.json().get("result")
@@ -368,7 +423,7 @@ def test_remove_tree_by_name_known(client, new_treestatus_tree):
     remove_tree_by_name(tree_name="mozilla-central")
 
     # Check that tree is deleted.
-    response = client.get("/trees/mozilla-central")
+    response = client.get("/api/treestatus/trees/mozilla-central")
     assert response.status_code == 404, "Tree should be Not Found after delete."
 
 
@@ -381,7 +436,7 @@ def test_make_tree(client):
     )
 
     # Tree can be retrieved from the API after being added.
-    response = client.get("/trees/tree")
+    response = client.get("/api/treestatus/trees/tree")
     assert response.status_code == 200, (
         "Retrieving tree after addition should return 200 status code."
     )
@@ -412,7 +467,7 @@ def test_make_tree(client):
 @pytest.mark.django_db
 def test_api_get_trees_single_not_found(client):
     """API test for `GET /trees/{tree}` with an unknown tree."""
-    response = client.get("/trees/unknowntree")
+    response = client.get("/api/treestatus/trees/unknowntree")
     assert response.status_code == 404, (
         "Response code for unknown tree should be `404`."
     )
@@ -429,7 +484,7 @@ def test_api_get_trees_single_exists(client, new_treestatus_tree):
     """API test for `GET /trees/{tree}` with a known tree."""
     new_treestatus_tree(tree="mozilla-central")
 
-    response = client.get("/trees/mozilla-central")
+    response = client.get("/api/treestatus/trees/mozilla-central")
     assert response.status_code == 200, (
         "Response code when a tree is found should be `200`."
     )
@@ -578,7 +633,7 @@ def test_apply_tree_updates_success_remember(client, new_treestatus_tree):
     )
 
     # Ensure the statuses were both updated as expected.
-    response = client.get("/trees")
+    response = client.get("/api/treestatus/trees")
     result = response.json().get("result")
     assert result is not None, "Response should contain a `result` key."
 
@@ -590,7 +645,7 @@ def test_apply_tree_updates_success_remember(client, new_treestatus_tree):
         assert tree_data.status == "closed", "Tree status should be set to closed."
         assert tree_data.reason == "somereason", "Tree reason should be set."
 
-    response = client.get("/stack")
+    response = client.get("/api/treestatus/stack")
     assert response.status_code == 200
 
     result = response.json().get("result")
@@ -627,7 +682,7 @@ def test_apply_tree_updates_success_no_remember(client, new_treestatus_tree):
     )
 
     # Ensure the statuses were both updated as expected.
-    response = client.get("/trees")
+    response = client.get("/api/treestatus/trees")
     result = response.json().get("result")
     assert result is not None, "Response should contain a result key."
     assert len(result) == 2, "Two trees should be returned."
@@ -637,7 +692,7 @@ def test_apply_tree_updates_success_no_remember(client, new_treestatus_tree):
         assert tree_data.reason == "somereason", "Status should be updated on the tree."
         assert tree_data.status == "closed", "Status should be updated on the tree."
 
-    response = client.get("/stack")
+    response = client.get("/api/treestatus/stack")
     assert response.status_code == 200
     assert response.json()["result"] == [], (
         "Status should not have been added to the stack."
@@ -647,7 +702,7 @@ def test_apply_tree_updates_success_no_remember(client, new_treestatus_tree):
 @pytest.mark.django_db
 def test_api_get_trees(client, new_treestatus_tree):
     """API test for `GET /trees`."""
-    response = client.get("/trees")
+    response = client.get("/api/treestatus/trees")
     assert response.status_code == 200, (
         "`GET /trees` should return 200 even when no trees are found."
     )
@@ -655,7 +710,7 @@ def test_api_get_trees(client, new_treestatus_tree):
     assert response.json()["result"] == {}, "Result from Treestatus should be empty."
 
     new_treestatus_tree(tree="mozilla-central")
-    response = client.get("/trees")
+    response = client.get("/api/treestatus/trees")
     assert response.status_code == 200, (
         "`GET /trees` should return 200 when trees are found."
     )
@@ -692,7 +747,7 @@ def test_revert_change_revert(client, new_treestatus_tree):
         trees=["autoland", "mozilla-central"],
     )
 
-    response = client.get("/stack")
+    response = client.get("/api/treestatus/stack")
 
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."
@@ -717,13 +772,13 @@ def test_revert_change_revert(client, new_treestatus_tree):
 
     revert_status_change(latest_stack_entry.id, "user@example.com", revert=True)
 
-    response = client.get("/stack")
+    response = client.get("/api/treestatus/stack")
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."
     assert len(result) == 1, "Restoring stack should remove a stack entry."
 
     # Check current tree state.
-    response = client.get("/trees/autoland")
+    response = client.get("/api/treestatus/trees/autoland")
     assert response.status_code == 200
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."
@@ -762,7 +817,7 @@ def test_revert_change_no_revert(client, new_treestatus_tree):
         trees=["autoland", "mozilla-central"],
     )
 
-    response = client.get("/stack")
+    response = client.get("/api/treestatus/stack")
 
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."
@@ -787,12 +842,12 @@ def test_revert_change_no_revert(client, new_treestatus_tree):
 
     revert_status_change(latest_stack_entry.id, "user@example.com", revert=False)
 
-    response = client.get("/stack")
+    response = client.get("/api/treestatus/stack")
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."
     assert len(result) == 1, "Discarding should remove an entry from the stack."
 
-    response = client.get("/trees/autoland")
+    response = client.get("/api/treestatus/trees/autoland")
     assert response.status_code == 200
 
     result = response.json().get("result")
@@ -836,7 +891,7 @@ def test_update_status_change(client, new_treestatus_tree):
     )
 
     # Get information about the stack.
-    response = client.get("/stack")
+    response = client.get("/api/treestatus/stack")
     assert response.status_code == 200
 
     result = response.json().get("result")
@@ -860,7 +915,7 @@ def test_update_status_change(client, new_treestatus_tree):
     )
 
     # Check the stack has been updated.
-    response = client.get("/stack")
+    response = client.get("/api/treestatus/stack")
     assert response.status_code == 200
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."
@@ -891,7 +946,7 @@ def test_update_log_and_stack(client, new_treestatus_tree):
         trees=["autoland"],
     )
 
-    response = client.get("/trees/autoland/logs")
+    response = client.get("/api/treestatus/trees/autoland/logs")
 
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."
@@ -902,7 +957,7 @@ def test_update_log_and_stack(client, new_treestatus_tree):
 
     apply_log_and_stack_update(log_id=log.id, tags=["new tag 1", "new tag 2"])
 
-    response = client.get("/trees/autoland/logs")
+    response = client.get("/api/treestatus/trees/autoland/logs")
     assert response.status_code == 200
 
     result = response.json().get("result")
@@ -915,7 +970,7 @@ def test_update_log_and_stack(client, new_treestatus_tree):
         "new tag 2",
     ], "Fetching logs should show updated tags."
 
-    response = client.get("/stack")
+    response = client.get("/api/treestatus/stack")
     assert response.status_code == 200
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."
@@ -955,7 +1010,7 @@ def test_api_get_stack(client, new_treestatus_tree):
         remember=True,
     )
 
-    response = client.get("/stack")
+    response = client.get("/api/treestatus/stack")
     assert response.status_code == 200
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."

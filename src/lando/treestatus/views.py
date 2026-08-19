@@ -21,7 +21,7 @@ from lando.treestatus.models import (
     TreeCategory,
     TreeStatus,
 )
-from lando.treestatus.views.api import (
+from lando.treestatus.utils import (
     apply_log_and_stack_update,
     apply_status_change_update,
     apply_tree_updates,

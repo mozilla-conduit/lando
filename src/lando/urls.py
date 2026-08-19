@@ -33,8 +33,8 @@ from lando.api.views import (
 from lando.headless_api.api import (
     api as headless_api,
 )
-from lando.treestatus.views.api import treestatus_api
-from lando.treestatus.views.ui import (
+from lando.treestatus.api import treestatus_api
+from lando.treestatus.views import (
     TreestatusDashboardView,
     TreestatusLogUpdateView,
     TreestatusNewTreeView,
@@ -173,7 +173,7 @@ urlpatterns += [
 
 # Treestatus URLs.
 urlpatterns += [
-    path("", treestatus_api.urls, name="treestatus-api"),
+    path("api/treestatus/", treestatus_api.urls, name="treestatus-api"),
     path("treestatus/", TreestatusDashboardView.as_view(), name="treestatus-dashboard"),
     path(
         "treestatus/new_tree/",
