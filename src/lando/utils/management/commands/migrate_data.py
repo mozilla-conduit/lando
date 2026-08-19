@@ -155,7 +155,7 @@ class Command(BaseCommand):
         self.stdout.write("done.")
 
     def migrate_4_bug2064629_firefox_SHIPPING_flag(self, ask_confirm: bool = True):
-        """Enable the PreventSignedCommitsCheck on all repos."""
+        """Enable the SHIPPING flag on firefox repos."""
         repos = Repo.objects.get(
             name__in=[
                 "firefox-beta",
