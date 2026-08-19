@@ -533,7 +533,7 @@ class CommitMessagesCheck(PatchCollectionCheck):
                 )
 
         if INVALID_REVIEW_FLAG_RE.search(firstline):
-            current_commit_issues.append(
+            self.commit_message_issues.append(
                 f"Revision contains 'r?' in the commit message. Please use 'r=' instead: {firstline}"
             )
 
