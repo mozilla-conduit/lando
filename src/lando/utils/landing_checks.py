@@ -557,8 +557,6 @@ class CommitMessagesCheck(PatchCollectionCheck):
                 f"Revision needs 'Bug N' or 'No bug' in the commit message: {firstline}"
             )
 
-        self.commit_message_issues.extend(current_commit_issues)
-
     def result(self) -> list[str]:
         """Calculate and return the result of the check."""
         if self.ignore_bad_commit_message:
