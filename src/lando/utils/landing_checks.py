@@ -553,7 +553,7 @@ class CommitMessagesCheck(PatchCollectionCheck):
             and not is_tag(firstline)
             and not any(re.search(firstline) for re in BUG_RES)
         ):
-            current_commit_issues.append(
+            self.commit_message_issues.append(
                 f"Revision needs 'Bug N' or 'No bug' in the commit message: {firstline}"
             )
 
