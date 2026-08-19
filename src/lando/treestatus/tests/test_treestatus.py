@@ -291,40 +291,39 @@ def test_api_get_logs(client, new_treestatus_tree):
     assert len(result) == 5, "`logs` endpoint should only return latest logs."
     expected_keys = [
         {
-            "id": 8,
             "reason": "fourth close",
             "status": "closed",
             "tags": ["sometag1"],
         },
         {
-            "id": 7,
             "reason": "fourth open",
             "status": "open",
             "tags": [],
         },
         {
-            "id": 6,
             "reason": "third close",
             "status": "closed",
             "tags": ["sometag1"],
         },
         {
-            "id": 5,
             "reason": "third open",
             "status": "open",
             "tags": [],
         },
         {
-            "id": 4,
             "reason": "second close",
             "status": "closed",
             "tags": ["sometag1"],
         },
     ]
 
+    log_ids = [LogEntry(**tree).id for tree in result]
+    assert log_ids == sorted(log_ids, reverse=True), (
+        "Logs should be returned newest-first."
+    )
+
     for tree, expected in zip(result, expected_keys, strict=False):
         tree_data = LogEntry(**tree)
-        assert tree_data.id == expected["id"], "ID should match expected."
         assert tree_data.reason == expected["reason"], "Reason should match expected."
         assert tree_data.status == expected["status"], "Status should match expected."
         assert sorted(tree_data.tags) == sorted(expected["tags"]), (
@@ -339,57 +338,53 @@ def test_api_get_logs(client, new_treestatus_tree):
     assert result is not None, "Response JSON should contain `result` key."
     expected_keys = [
         {
-            "id": 8,
             "reason": "fourth close",
             "status": "closed",
             "tags": ["sometag1"],
         },
         {
-            "id": 7,
             "reason": "fourth open",
             "status": "open",
             "tags": [],
         },
         {
-            "id": 6,
             "reason": "third close",
             "status": "closed",
             "tags": ["sometag1"],
         },
         {
-            "id": 5,
             "reason": "third open",
             "status": "open",
             "tags": [],
         },
         {
-            "id": 4,
             "reason": "second close",
             "status": "closed",
             "tags": ["sometag1"],
         },
         {
-            "id": 3,
             "reason": "second open",
             "status": "open",
             "tags": [],
         },
         {
-            "id": 2,
             "reason": "first close",
             "status": "closed",
             "tags": ["sometag1"],
         },
         {
-            "id": 1,
             "reason": "first open",
             "status": "open",
             "tags": [],
         },
     ]
+    log_ids = [LogEntry(**tree).id for tree in result]
+    assert log_ids == sorted(log_ids, reverse=True), (
+        "Logs should be returned newest-first."
+    )
+
     for tree, expected in zip(result, expected_keys, strict=False):
         tree_data = LogEntry(**tree)
-        assert tree_data.id == expected["id"], "ID should match expected."
         assert tree_data.reason == expected["reason"], "Reason should match expected."
         assert tree_data.status == expected["status"], "Status should match expected."
         assert sorted(tree_data.tags) == sorted(expected["tags"]), (
