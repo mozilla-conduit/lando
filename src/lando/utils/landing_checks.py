@@ -543,7 +543,7 @@ class CommitMessagesCheck(PatchCollectionCheck):
             )
 
         if re.search(RE_DIFF, commit_message):
-            current_commit_issues.append(
+            self.commit_message_issues.append(
                 f"Suspected diff found in commit message. Please indent the diff if this is on purpose: {firstline}"
             )
 

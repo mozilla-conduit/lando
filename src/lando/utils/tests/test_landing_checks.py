@@ -5,6 +5,7 @@ import pytest
 import requests
 import rs_parsepatch
 
+from lando.api.tests.test_commit_message import GIT_STYLE_REVERT, HG_STYLE_BACKOUT
 from lando.main.scm.helpers import (
     GitPatchHelper,
     HgPatchHelper,
