@@ -524,7 +524,7 @@ class CommitMessagesCheck(PatchCollectionCheck):
         if match := REPO_FLAG_RE.findall(firstline):
             malformed = [repo for repo in match if "/" in repo]
             if malformed:
-                current_commit_issues.append(
+                self.commit_message_issues.append(
                     f"Push contains commits intended to be locked to {', '.join(malformed)} but the repo name is badly formatted. '/' is not allowed: {firstline}"
                 )
             elif self.repo_name not in match:
