@@ -316,7 +316,7 @@ This reverts commit e3f81fcb94c16422e2643009af485d88647fdfd8
     ),
 )
 def test_backouts_parsing(
-    commit_message: str, expected_parsed: tuple[list[str], list[str]]
+    commit_message: str, expected_parsed: tuple[list[str], list[int]]
 ):
     assert is_backout(commit_message), "Backout message not recognised as such"
 
