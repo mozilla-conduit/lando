@@ -516,7 +516,7 @@ class CommitMessagesCheck(PatchCollectionCheck):
 
         # Match against [PATCH] and [PATCH n/m].
         if "[PATCH" in firstline:
-            current_commit_issues.append(
+            self.commit_message_issues.append(
                 "Revision contains git-format-patch '[PATCH]' cruft. "
                 + f"Use git-format-patch -k to avoid this: {firstline}"
             )
