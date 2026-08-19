@@ -1958,8 +1958,6 @@ def test_diffwarnings_aggregation(
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
     r2 = phabdouble.revision(diff=d2, repo=phabdouble.repo(), depends_on=[r1])
 
-    dws = []
-
     dw_message = "Some aggregatable message"
     for r in [r1, r2]:
         phabdouble.reviewer(r, phabdouble.user(username="reviewer"))
