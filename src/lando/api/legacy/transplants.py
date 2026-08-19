@@ -275,7 +275,7 @@ class StackAssessment:
     def _add_to_bucket(
         bucketed_warnings: dict[str, Any],
         display: str,
-        revision_id: int,
+        revision_id: str,
         details: str | dict[str, Any],
     ) -> dict[str, Any]:
         if display not in bucketed_warnings:
