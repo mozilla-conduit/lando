@@ -175,7 +175,7 @@ class Command(BaseCommand):
 
         for repo in repos:
             if "SHIPPING" not in [flag[0] for flag in repo.commit_flags]:
-                repo.commit_flages.append(SHIPPING)
+                repo.commit_flags.append(SHIPPING)
                 repo.save()
                 self.stdout.write(f"{repo.name} ", ending="")
 
