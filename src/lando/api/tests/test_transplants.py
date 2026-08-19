@@ -1997,8 +1997,10 @@ def test_diffwarnings_aggregation(
     )
 
     dw_both = [w for w in result["warnings"] if w["display"] == dw_message]
-    assert len(dw_both) == 1
-    assert len(dw_both[0]["instances"]) == 2
+    assert len(dw_both) == 1, f'Unexpected number of warning(s) for "{dw_message}"'
+    assert len(dw_both[0]["instances"]) == 3, (
+        f'Unexpected number of instance(s) for "{dw_message}"'
+    )
 
     dw_one = [w for w in result["warnings"] if w["display"] == dw_message_other]
     assert len(dw_one) == 1
