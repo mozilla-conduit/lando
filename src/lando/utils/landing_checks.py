@@ -504,7 +504,7 @@ class CommitMessagesCheck(PatchCollectionCheck):
         if is_backout(firstline):
             backouts = parse_backouts(commit_message, strict=True)
             if not backouts or not backouts[0]:
-                current_commit_issues.append(
+                self.commit_message_issues.append(
                     "Revision is a backout but commit message "
                     + f"does not indicate backed out revisions: {firstline}"
                 )
