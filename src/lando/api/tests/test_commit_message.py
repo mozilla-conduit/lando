@@ -252,7 +252,7 @@ Differential Revision: https://phabricator.services.mozilla.com/D252667
 # to account for potential manual editing of revert messages containing all the needed
 # information but not strictly adhering to the automatic format from Git.
 GIT_STYLE_REVERT = """\
-Revert "Bug 2030542, Bug 2062193, Bug 2062191, Bug 2062186, Bug 2062189 - Wait for the favicon to reach the top sites list in browser_ext_topSites.js, and re-enable the test on linux x11 opt, r=extension-reviewers,rpl." for causing bc failures @browser_ext_url_overrides_newtab.js. IGNORE BAD COMMIT MESSAGES
+Revert "Bug 2030542, Bug 2062193, Bug 2062191, Bug 2062186, Bug 2062189 - Wait for the favicon to reach the top sites list in browser_ext_topSites.js, and re-enable the test on linux x11 opt, r=extension-reviewers,rpl." for causing bc failures @browser_ext_url_overrides_newtab.js.
 
 This reverts commit ba2c3a5b0735e67b4fd904a6fd324a9f79c44cf1.
 
