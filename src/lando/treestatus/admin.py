@@ -1,9 +1,7 @@
 from django.contrib import admin
-from django.db.models import Model
-from django.http import HttpRequest
 from django.urls import reverse
 
-from lando.main.admin import ReadOnlyModelAdmin
+from lando.main.admin import ReadOnlyInline, ReadOnlyModelAdmin
 from lando.treestatus.models import (
     Log,
     StatusChange,
@@ -81,21 +79,13 @@ class LogAdmin(ReadOnlyModelAdmin):
         return summarize(instance.reason)
 
 
-class StatusChangeTreeInline(admin.TabularInline):
+class StatusChangeTreeInline(ReadOnlyInline):
     """Show the trees affected by a `StatusChange`, along with their prior state."""
 
     model = StatusChangeTree
     fields = ("tree", "last_state")
     readonly_fields = fields
-    extra = 0
-    can_delete = False
     show_change_link = True
-
-    def has_add_permission(
-        self, request: HttpRequest, obj: Model | None = None
-    ) -> bool:
-        """Forbid addition of any status change tree from the admin interface."""
-        return False
 
 
 class StatusChangeAdmin(ReadOnlyModelAdmin):
