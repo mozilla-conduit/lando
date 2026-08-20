@@ -19,6 +19,7 @@ from lando.main.models.configuration import (
 )
 from lando.main.scm import SCMType
 from lando.main.scm.exceptions import SCMException
+from lando.treestatus.models import TreeStatus
 
 
 @pytest.mark.parametrize(
@@ -78,14 +79,13 @@ def mocked_enabled_repos(get_landing_worker, monkeypatch):
 
 
 @pytest.fixture
-def worker_with_open_trees(git_landing_worker, treestatusdouble):
+def worker_with_open_trees(git_landing_worker):
     """Return a landing worker whose enabled repos all have open trees.
 
-    Tests that need a closed tree call `treestatusdouble.close_tree` followed by
+    A repo without a tree in Treestatus is considered open, so tests that need a
+    closed tree create one with `new_treestatus_tree` followed by
     `landing_worker.refresh_active_repos`.
     """
-    for repo in git_landing_worker.enabled_repos:
-        treestatusdouble.open_tree(repo.tree)
     git_landing_worker.refresh_active_repos()
     return git_landing_worker
 
@@ -180,7 +180,7 @@ def test_Worker_queue_size_without_enabled_repos_counts_nothing(worker_stub):
 
 @pytest.mark.django_db
 def test_Worker_queue_size_splits_open_and_closed_trees(
-    worker_with_open_trees, treestatusdouble, bulk_add_landing_jobs
+    worker_with_open_trees, new_treestatus_tree, bulk_add_landing_jobs
 ):
     """Only pending jobs count, tallied by whether their tree is open."""
     open_repo, closed_repo = list(worker_with_open_trees.enabled_repos)[:2]
@@ -190,7 +190,7 @@ def test_Worker_queue_size_splits_open_and_closed_trees(
     bulk_add_landing_jobs(open_repo, 1, status=JobStatus.CANCELLED)
     bulk_add_landing_jobs(closed_repo, 4)
 
-    treestatusdouble.close_tree(closed_repo.tree)
+    new_treestatus_tree(tree=closed_repo.tree, status=TreeStatus.CLOSED)
     worker_with_open_trees.refresh_active_repos()
 
     assert worker_with_open_trees.queue_size() == QueueSize(
