@@ -9,6 +9,13 @@ from lando.main.auth import CONDUIT_ADMIN_GROUP_NAME
 from lando.main.models import Repo, Worker
 from lando.main.models.worker import WorkerType
 from lando.main.scm import SCMType
+from lando.treestatus.models import Tree, TreeCategory, TreeStatus
+from lando.treestatus.utils import create_new_tree
+
+# Credentials of the administrator account created on the local environment.
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "password"
+ADMIN_EMAIL = "test@example.org"
 
 
 class Command(BaseCommand):
@@ -67,6 +74,36 @@ class Command(BaseCommand):
             )
         )
 
+    def setup_treestatus_trees(self):
+        """Ensure every local repo has an open tree in Treestatus.
+
+        Landing treats an unknown tree as open, so without these the Treestatus
+        dashboard comes up empty and closing a tree can not be exercised locally.
+        """
+        self._raise_if_not_local()
+
+        for repo in Repo.objects.all():
+            if Tree.objects.filter(tree=repo.tree).exists():
+                self.stdout.write(f"Found {repo.tree} tree.")
+                continue
+
+            category = TreeCategory.TRY if repo.is_try else TreeCategory.DEVELOPMENT
+            create_new_tree(
+                # Tree changes are attributed to the email of the acting user.
+                user_id=ADMIN_EMAIL,
+                tree=repo.tree,
+                status=TreeStatus.OPEN,
+                reason="Created by `setup_dev`",
+                category=category,
+            )
+            self.stdout.write(f"Created {repo.tree} tree ({category}).")
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Treestatus initialized with {Tree.objects.count()} trees."
+            )
+        )
+
     def setup_users(self):
         """Ensure there is an administrator account on the local system."""
         # In case someone is trying to run this manually for whatever reason on a
@@ -75,11 +112,11 @@ class Command(BaseCommand):
         self._raise_if_not_local()
 
         try:
-            user = User.objects.get(username="admin")
+            user = User.objects.get(username=ADMIN_USERNAME)
             self.stdout.write(f"Admin user ({user}) found, resetting settings.")
         except User.DoesNotExist:
             user = User.objects.create_user(
-                "admin", password="password", email="test@example.org"
+                ADMIN_USERNAME, password=ADMIN_PASSWORD, email=ADMIN_EMAIL
             )
             self.stdout.write(f"Admin user ({user}) created.")
         user.is_staff = True
@@ -97,7 +134,7 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 "Superuser created with the following username and password: "
-                '"admin", "password".'
+                f'"{ADMIN_USERNAME}", "{ADMIN_PASSWORD}".'
             )
         )
 
@@ -117,6 +154,7 @@ class Command(BaseCommand):
         call_command("migrate")
         call_command("create_environment_repos", Environment.local.value)
         self.setup_workers()
+        self.setup_treestatus_trees()
         self.setup_groups()
         self.setup_users()
         self.stdout.write(

@@ -1,20 +1,23 @@
 import datetime
 
 import pytest
-import requests_mock
-from django.core.management import call_command
-from django.utils.dateparse import parse_datetime
+from django.core.cache import caches
+from django.test import override_settings
 
-from lando.treestatus.models import CombinedTree, Log, Tree, TreeCategory, TreeStatus
-from lando.treestatus.views.api import (
+from lando.treestatus.api import (
     LogEntry,
     StackEntry,
     TreeData,
+)
+from lando.treestatus.models import CombinedTree, TreeCategory, TreeStatus
+from lando.treestatus.utils import (
+    TREESTATUS_CACHE,
     apply_log_and_stack_update,
     apply_status_change_update,
     apply_tree_updates,
     create_new_tree,
     get_combined_tree,
+    get_tree_by_name,
     is_open,
     remove_tree_by_name,
     revert_status_change,
@@ -63,6 +66,42 @@ def test_is_open_for_approval_required_tree(new_treestatus_tree):
     )
 
 
+# Enable the local memory cache for the `db` alias `get_tree_by_name` uses, since
+# tests otherwise use the dummy cache.
+@override_settings(
+    CACHES={
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "test-cache-default",
+        },
+        TREESTATUS_CACHE: {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "test-cache-db",
+        },
+    }
+)
+@pytest.mark.django_db
+def test_is_open_bypasses_stale_cache(new_treestatus_tree):
+    """`is_open` reads fresh state even when `get_tree_by_name` is cached stale."""
+    caches[TREESTATUS_CACHE].clear()
+    tree = new_treestatus_tree(tree="mozilla-central", status=TreeStatus.OPEN)
+
+    # Populate the cache with the open state, then close the tree directly so the
+    # cached `CombinedTree` is left stale (no invalidation).
+    assert get_tree_by_name("mozilla-central").status.is_open(), (
+        "The tree should be cached as open."
+    )
+    tree.status = TreeStatus.CLOSED
+    tree.save()
+
+    assert get_tree_by_name("mozilla-central").status.is_open(), (
+        "`get_tree_by_name` should still return the stale cached open state."
+    )
+    assert not is_open("mozilla-central"), (
+        "`is_open` should bypass the cache and observe the tree is now closed."
+    )
+
+
 @pytest.mark.django_db
 def test_get_combined_tree(new_treestatus_tree):
     tree = new_treestatus_tree(
@@ -85,11 +124,24 @@ def test_get_combined_tree(new_treestatus_tree):
 
 
 @pytest.mark.django_db
+def test_api_is_served_under_api_treestatus(client, new_treestatus_tree):
+    """The API is mounted under `/api/treestatus/`, not at the base endpoint."""
+    new_treestatus_tree(tree="mozilla-central")
+
+    assert client.get("/api/treestatus/trees").status_code == 200, (
+        "The API should be served under `/api/treestatus/`."
+    )
+    assert client.get("/trees").status_code == 404, (
+        "The API should no longer be served from the base endpoint."
+    )
+
+
+@pytest.mark.django_db
 def test_get_tree_exists(client, new_treestatus_tree):
     tree = new_treestatus_tree(
         tree="mozilla-central", status=TreeStatus.OPEN, reason="reason", motd="message"
     )
-    response = client.get("/trees/mozilla-central")
+    response = client.get("/api/treestatus/trees/mozilla-central")
     assert "result" in response.json(), (
         "Response should be contained in the `result` key."
     )
@@ -108,7 +160,7 @@ def test_get_tree_exists(client, new_treestatus_tree):
 
 @pytest.mark.django_db
 def test_get_tree_missing(client):
-    response = client.get("/trees/missingtree")
+    response = client.get("/api/treestatus/trees/missingtree")
 
     assert response.status_code == 404
 
@@ -121,7 +173,7 @@ def test_get_tree_missing(client):
 @pytest.mark.django_db
 def test_api_get_trees2(client, new_treestatus_tree):
     """API test for `GET /trees2`."""
-    response = client.get("/trees2")
+    response = client.get("/api/treestatus/trees2")
     assert response.status_code == 200, (
         "`GET /trees2` should return 200 even when no trees are found."
     )
@@ -129,7 +181,7 @@ def test_api_get_trees2(client, new_treestatus_tree):
     assert response.json()["result"] == [], "Result from Treestatus should be empty."
 
     new_treestatus_tree(tree="mozilla-central")
-    response = client.get("/trees2")
+    response = client.get("/api/treestatus/trees2")
     assert response.status_code == 200, (
         "`GET /trees2` should return 200 when trees are found."
     )
@@ -228,7 +280,7 @@ def test_api_get_logs(client, new_treestatus_tree):
     )
 
     # Check the most recent logs are returned.
-    response = client.get("/trees/tree/logs")
+    response = client.get("/api/treestatus/trees/tree/logs")
 
     assert response.status_code == 200, "Requesting all logs should return `200`."
     result = response.json().get("result")
@@ -236,40 +288,39 @@ def test_api_get_logs(client, new_treestatus_tree):
     assert len(result) == 5, "`logs` endpoint should only return latest logs."
     expected_keys = [
         {
-            "id": 8,
             "reason": "fourth close",
             "status": "closed",
             "tags": ["sometag1"],
         },
         {
-            "id": 7,
             "reason": "fourth open",
             "status": "open",
             "tags": [],
         },
         {
-            "id": 6,
             "reason": "third close",
             "status": "closed",
             "tags": ["sometag1"],
         },
         {
-            "id": 5,
             "reason": "third open",
             "status": "open",
             "tags": [],
         },
         {
-            "id": 4,
             "reason": "second close",
             "status": "closed",
             "tags": ["sometag1"],
         },
     ]
 
+    log_ids = [LogEntry(**tree).id for tree in result]
+    assert log_ids == sorted(log_ids, reverse=True), (
+        "Logs should be returned newest-first."
+    )
+
     for tree, expected in zip(result, expected_keys, strict=False):
         tree_data = LogEntry(**tree)
-        assert tree_data.id == expected["id"], "ID should match expected."
         assert tree_data.reason == expected["reason"], "Reason should match expected."
         assert tree_data.status == expected["status"], "Status should match expected."
         assert sorted(tree_data.tags) == sorted(expected["tags"]), (
@@ -277,64 +328,60 @@ def test_api_get_logs(client, new_treestatus_tree):
         )
 
     # Check all results are returned from `logs_all`.
-    response = client.get("/trees/tree/logs_all")
+    response = client.get("/api/treestatus/trees/tree/logs_all")
 
     assert response.status_code == 200, "Requesting all logs should return `200`."
     result = response.json().get("result")
     assert result is not None, "Response JSON should contain `result` key."
     expected_keys = [
         {
-            "id": 8,
             "reason": "fourth close",
             "status": "closed",
             "tags": ["sometag1"],
         },
         {
-            "id": 7,
             "reason": "fourth open",
             "status": "open",
             "tags": [],
         },
         {
-            "id": 6,
             "reason": "third close",
             "status": "closed",
             "tags": ["sometag1"],
         },
         {
-            "id": 5,
             "reason": "third open",
             "status": "open",
             "tags": [],
         },
         {
-            "id": 4,
             "reason": "second close",
             "status": "closed",
             "tags": ["sometag1"],
         },
         {
-            "id": 3,
             "reason": "second open",
             "status": "open",
             "tags": [],
         },
         {
-            "id": 2,
             "reason": "first close",
             "status": "closed",
             "tags": ["sometag1"],
         },
         {
-            "id": 1,
             "reason": "first open",
             "status": "open",
             "tags": [],
         },
     ]
+    log_ids = [LogEntry(**tree).id for tree in result]
+    assert log_ids == sorted(log_ids, reverse=True), (
+        "Logs should be returned newest-first."
+    )
+
     for tree, expected in zip(result, expected_keys, strict=False):
         tree_data = LogEntry(**tree)
-        assert tree_data.id == expected["id"], "ID should match expected."
         assert tree_data.reason == expected["reason"], "Reason should match expected."
         assert tree_data.status == expected["status"], "Status should match expected."
         assert sorted(tree_data.tags) == sorted(expected["tags"]), (
@@ -368,7 +415,7 @@ def test_remove_tree_by_name_known(client, new_treestatus_tree):
     remove_tree_by_name(tree_name="mozilla-central")
 
     # Check that tree is deleted.
-    response = client.get("/trees/mozilla-central")
+    response = client.get("/api/treestatus/trees/mozilla-central")
     assert response.status_code == 404, "Tree should be Not Found after delete."
 
 
@@ -381,7 +428,7 @@ def test_make_tree(client):
     )
 
     # Tree can be retrieved from the API after being added.
-    response = client.get("/trees/tree")
+    response = client.get("/api/treestatus/trees/tree")
     assert response.status_code == 200, (
         "Retrieving tree after addition should return 200 status code."
     )
@@ -412,7 +459,7 @@ def test_make_tree(client):
 @pytest.mark.django_db
 def test_api_get_trees_single_not_found(client):
     """API test for `GET /trees/{tree}` with an unknown tree."""
-    response = client.get("/trees/unknowntree")
+    response = client.get("/api/treestatus/trees/unknowntree")
     assert response.status_code == 404, (
         "Response code for unknown tree should be `404`."
     )
@@ -429,7 +476,7 @@ def test_api_get_trees_single_exists(client, new_treestatus_tree):
     """API test for `GET /trees/{tree}` with a known tree."""
     new_treestatus_tree(tree="mozilla-central")
 
-    response = client.get("/trees/mozilla-central")
+    response = client.get("/api/treestatus/trees/mozilla-central")
     assert response.status_code == 200, (
         "Response code when a tree is found should be `200`."
     )
@@ -578,7 +625,7 @@ def test_apply_tree_updates_success_remember(client, new_treestatus_tree):
     )
 
     # Ensure the statuses were both updated as expected.
-    response = client.get("/trees")
+    response = client.get("/api/treestatus/trees")
     result = response.json().get("result")
     assert result is not None, "Response should contain a `result` key."
 
@@ -590,7 +637,7 @@ def test_apply_tree_updates_success_remember(client, new_treestatus_tree):
         assert tree_data.status == "closed", "Tree status should be set to closed."
         assert tree_data.reason == "somereason", "Tree reason should be set."
 
-    response = client.get("/stack")
+    response = client.get("/api/treestatus/stack")
     assert response.status_code == 200
 
     result = response.json().get("result")
@@ -627,7 +674,7 @@ def test_apply_tree_updates_success_no_remember(client, new_treestatus_tree):
     )
 
     # Ensure the statuses were both updated as expected.
-    response = client.get("/trees")
+    response = client.get("/api/treestatus/trees")
     result = response.json().get("result")
     assert result is not None, "Response should contain a result key."
     assert len(result) == 2, "Two trees should be returned."
@@ -637,7 +684,7 @@ def test_apply_tree_updates_success_no_remember(client, new_treestatus_tree):
         assert tree_data.reason == "somereason", "Status should be updated on the tree."
         assert tree_data.status == "closed", "Status should be updated on the tree."
 
-    response = client.get("/stack")
+    response = client.get("/api/treestatus/stack")
     assert response.status_code == 200
     assert response.json()["result"] == [], (
         "Status should not have been added to the stack."
@@ -647,7 +694,7 @@ def test_apply_tree_updates_success_no_remember(client, new_treestatus_tree):
 @pytest.mark.django_db
 def test_api_get_trees(client, new_treestatus_tree):
     """API test for `GET /trees`."""
-    response = client.get("/trees")
+    response = client.get("/api/treestatus/trees")
     assert response.status_code == 200, (
         "`GET /trees` should return 200 even when no trees are found."
     )
@@ -655,7 +702,7 @@ def test_api_get_trees(client, new_treestatus_tree):
     assert response.json()["result"] == {}, "Result from Treestatus should be empty."
 
     new_treestatus_tree(tree="mozilla-central")
-    response = client.get("/trees")
+    response = client.get("/api/treestatus/trees")
     assert response.status_code == 200, (
         "`GET /trees` should return 200 when trees are found."
     )
@@ -692,7 +739,7 @@ def test_revert_change_revert(client, new_treestatus_tree):
         trees=["autoland", "mozilla-central"],
     )
 
-    response = client.get("/stack")
+    response = client.get("/api/treestatus/stack")
 
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."
@@ -717,13 +764,13 @@ def test_revert_change_revert(client, new_treestatus_tree):
 
     revert_status_change(latest_stack_entry.id, "user@example.com", revert=True)
 
-    response = client.get("/stack")
+    response = client.get("/api/treestatus/stack")
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."
     assert len(result) == 1, "Restoring stack should remove a stack entry."
 
     # Check current tree state.
-    response = client.get("/trees/autoland")
+    response = client.get("/api/treestatus/trees/autoland")
     assert response.status_code == 200
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."
@@ -762,7 +809,7 @@ def test_revert_change_no_revert(client, new_treestatus_tree):
         trees=["autoland", "mozilla-central"],
     )
 
-    response = client.get("/stack")
+    response = client.get("/api/treestatus/stack")
 
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."
@@ -787,12 +834,12 @@ def test_revert_change_no_revert(client, new_treestatus_tree):
 
     revert_status_change(latest_stack_entry.id, "user@example.com", revert=False)
 
-    response = client.get("/stack")
+    response = client.get("/api/treestatus/stack")
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."
     assert len(result) == 1, "Discarding should remove an entry from the stack."
 
-    response = client.get("/trees/autoland")
+    response = client.get("/api/treestatus/trees/autoland")
     assert response.status_code == 200
 
     result = response.json().get("result")
@@ -836,7 +883,7 @@ def test_update_status_change(client, new_treestatus_tree):
     )
 
     # Get information about the stack.
-    response = client.get("/stack")
+    response = client.get("/api/treestatus/stack")
     assert response.status_code == 200
 
     result = response.json().get("result")
@@ -860,7 +907,7 @@ def test_update_status_change(client, new_treestatus_tree):
     )
 
     # Check the stack has been updated.
-    response = client.get("/stack")
+    response = client.get("/api/treestatus/stack")
     assert response.status_code == 200
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."
@@ -891,7 +938,7 @@ def test_update_log_and_stack(client, new_treestatus_tree):
         trees=["autoland"],
     )
 
-    response = client.get("/trees/autoland/logs")
+    response = client.get("/api/treestatus/trees/autoland/logs")
 
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."
@@ -902,7 +949,7 @@ def test_update_log_and_stack(client, new_treestatus_tree):
 
     apply_log_and_stack_update(log_id=log.id, tags=["new tag 1", "new tag 2"])
 
-    response = client.get("/trees/autoland/logs")
+    response = client.get("/api/treestatus/trees/autoland/logs")
     assert response.status_code == 200
 
     result = response.json().get("result")
@@ -915,7 +962,7 @@ def test_update_log_and_stack(client, new_treestatus_tree):
         "new tag 2",
     ], "Fetching logs should show updated tags."
 
-    response = client.get("/stack")
+    response = client.get("/api/treestatus/stack")
     assert response.status_code == 200
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."
@@ -955,214 +1002,9 @@ def test_api_get_stack(client, new_treestatus_tree):
         remember=True,
     )
 
-    response = client.get("/stack")
+    response = client.get("/api/treestatus/stack")
     assert response.status_code == 200
     result = response.json().get("result")
     assert result is not None, "Response should contain `result` key."
     for entry in result:
         assert StackEntry(**entry)
-
-
-IMPORT_BASE_URL = "http://old-lando.test/treestatus"
-
-
-def mock_source_treestatus(
-    mock: requests_mock.Mocker, extra_autoland_logs: list[dict] | None = None
-):
-    """Register fake `/trees` and `/logs_all` responses for the import command.
-
-    The `autoland` tree carries a category and message of the day to exercise
-    importing those fields, while the `try` tree has no logs. `extra_autoland_logs`
-    are prepended (newest-first) to `autoland`'s logs to simulate rows added to
-    the source since a previous import.
-    """
-    mock.get(
-        f"{IMPORT_BASE_URL}/trees",
-        json={
-            "result": {
-                "autoland": {
-                    "tree": "autoland",
-                    "status": "approval required",
-                    "reason": "soft freeze",
-                    "message_of_the_day": "soft freeze in effect",
-                    "tags": [],
-                    "category": "development",
-                    "log_id": 2,
-                },
-                "try": {
-                    "tree": "try",
-                    "status": "open",
-                    "reason": "",
-                    "message_of_the_day": "",
-                    "tags": [],
-                    "category": "try",
-                    "log_id": None,
-                },
-            }
-        },
-    )
-    mock.get(
-        f"{IMPORT_BASE_URL}/trees/autoland/logs_all",
-        json={
-            "result": (extra_autoland_logs or [])
-            + [
-                {
-                    "id": 2,
-                    "tree": "autoland",
-                    "who": "user2",
-                    "status": "approval required",
-                    "reason": "soft freeze",
-                    "tags": ["sometag"],
-                    "when": "2025-02-01T00:00:00+00:00",
-                },
-                {
-                    "id": 1,
-                    "tree": "autoland",
-                    "who": "user1",
-                    "status": "open",
-                    "reason": "reopened",
-                    "tags": [],
-                    "when": "2025-01-01T00:00:00+00:00",
-                },
-            ]
-        },
-    )
-    mock.get(f"{IMPORT_BASE_URL}/trees/try/logs_all", json={"result": []})
-
-
-@pytest.mark.django_db
-def test_import_treestatus_data_creates_trees_and_logs():
-    with requests_mock.Mocker() as mock:
-        mock_source_treestatus(mock)
-        call_command("import_treestatus_data", IMPORT_BASE_URL)
-
-    assert Tree.objects.count() == 2, "Both source trees should be imported."
-
-    autoland = Tree.objects.get(tree="autoland")
-    assert autoland.category == TreeCategory.DEVELOPMENT, (
-        "`autoland`'s category should be imported from the API response."
-    )
-    assert autoland.message_of_the_day == "soft freeze in effect", (
-        "`autoland`'s message of the day should be imported from the API response."
-    )
-    assert autoland.status == TreeStatus.APPROVAL_REQUIRED, (
-        "`autoland`'s status should be seeded from the API response."
-    )
-    assert Tree.objects.get(tree="try").category == TreeCategory.TRY, (
-        "`try`'s category should be imported from the API response."
-    )
-
-    logs = list(Log.objects.filter(tree="autoland").order_by("created_at"))
-    assert len(logs) == 2, "Both `autoland` log entries should be imported."
-    assert [log.id for log in logs] == [1, 2], (
-        "Logs should reuse the source ids as their primary keys."
-    )
-    assert logs[0].created_at == parse_datetime("2025-01-01T00:00:00+00:00"), (
-        "The source `when` should be preserved as `created_at` on import."
-    )
-    assert logs[0].updated_at > logs[0].created_at, (
-        "`updated_at` should record the import time, not the source `when`."
-    )
-    assert logs[1].status == TreeStatus.APPROVAL_REQUIRED, (
-        "The log status should be imported directly from the API response."
-    )
-
-    assert is_open("autoland"), (
-        "`autoland` should be open since its latest log is `approval required`."
-    )
-
-
-@pytest.mark.django_db
-def test_import_treestatus_data_updates_existing_tree(new_treestatus_tree):
-    """An existing tree is re-synced with the source instead of duplicated."""
-    new_treestatus_tree(tree="autoland", status=TreeStatus.OPEN)
-
-    with requests_mock.Mocker() as mock:
-        mock_source_treestatus(mock)
-        call_command("import_treestatus_data", IMPORT_BASE_URL)
-
-    assert Tree.objects.filter(tree="autoland").count() == 1, (
-        "An already-existing tree should not be duplicated."
-    )
-
-    autoland = Tree.objects.get(tree="autoland")
-    assert autoland.status == TreeStatus.APPROVAL_REQUIRED, (
-        "An already-existing tree should be updated with the source status."
-    )
-    assert autoland.category == TreeCategory.DEVELOPMENT, (
-        "An already-existing tree should be updated with the source category."
-    )
-    assert Log.objects.filter(tree="autoland").count() == 2, (
-        "Logs should be imported for an already-existing tree."
-    )
-    assert Tree.objects.filter(tree="try").exists(), (
-        "New trees should still be imported alongside existing ones."
-    )
-
-
-@pytest.mark.django_db
-def test_import_treestatus_data_rerun_replaces_logs_with_source():
-    """Re-running replaces the local logs with a fresh copy of the source's."""
-    with requests_mock.Mocker() as mock:
-        mock_source_treestatus(mock)
-        call_command("import_treestatus_data", IMPORT_BASE_URL)
-
-    assert Log.objects.filter(tree="autoland").count() == 2, (
-        "The initial import should create the two source logs."
-    )
-
-    # A log created locally between runs is discarded: the source remains
-    # authoritative until the cutover, and dropping the log keeps the local ids
-    # aligned with the source's.
-    Log.objects.create(
-        tree=Tree.objects.get(tree="autoland"),
-        changed_by="local-user",
-        status=TreeStatus.CLOSED,
-        reason="added locally",
-        tags=[],
-    )
-
-    new_source_log = {
-        "id": 3,
-        "tree": "autoland",
-        "who": "user3",
-        "status": "closed",
-        "reason": "burning",
-        "tags": ["checkin_test"],
-        "when": "2025-03-01T00:00:00+00:00",
-    }
-    with requests_mock.Mocker() as mock:
-        mock_source_treestatus(mock, extra_autoland_logs=[new_source_log])
-        call_command("import_treestatus_data", IMPORT_BASE_URL)
-
-    assert Tree.objects.count() == 2, "Re-running should not duplicate trees."
-
-    logs = list(Log.objects.filter(tree="autoland").order_by("created_at"))
-    assert [log.id for log in logs] == [1, 2, 3], (
-        "The local logs should be an exact copy of the source's, under source ids."
-    )
-    assert logs[-1].reason == "burning", (
-        "A log added to the source since the last run should be imported."
-    )
-
-
-@pytest.mark.django_db
-def test_import_treestatus_data_advances_id_sequence():
-    """New logs created after an import do not collide with imported ids."""
-    with requests_mock.Mocker() as mock:
-        mock_source_treestatus(mock)
-        call_command("import_treestatus_data", IMPORT_BASE_URL)
-
-    # A log inserted through the normal auto-increment path should land past the
-    # imported ids rather than colliding with them.
-    autoland = Tree.objects.get(tree="autoland")
-    new_log = Log.objects.create(
-        tree=autoland,
-        changed_by="user4",
-        status=TreeStatus.OPEN,
-        reason="post-import",
-        tags=[],
-    )
-    assert new_log.id > 2, (
-        "The id sequence should be advanced past the imported log ids."
-    )

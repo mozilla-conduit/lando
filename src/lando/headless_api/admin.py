@@ -6,20 +6,33 @@ from lando.main.admin import JobAdmin, ReadOnlyInline
 
 
 class ApiTokenAdmin(admin.ModelAdmin):
-    list_display = ("token_prefix", "user_email", "created_at")
+    list_display = (
+        "token_prefix",
+        "is_valid",
+        "user_email",
+        "user_scm_permissions",
+        "created_at",
+    )
 
     # Mark these fields as read-only in the admin.
     readonly_fields = ("token_prefix", "token_hash", "created_at")
 
     search_fields = (
         "token_prefix",
+        "is_valid",
         "user__email",
     )
 
-    list_filter = ("created_at",)
+    list_filter = ("created_at", "is_valid")
 
     def user_email(self, instance: ApiToken) -> str:
         return instance.user.email
+
+    def user_scm_permissions(self, instance: ApiToken) -> list[str]:
+        return [
+            p.name
+            for p in instance.user.user_permissions.filter(name__startswith="SCM")
+        ]
 
 
 class AutomationActionJobInline(ReadOnlyInline):
