@@ -104,20 +104,30 @@ def bulk_add_landing_jobs(make_landing_job):
     return _bulk_add
 
 
-def set_queue_threshold(threshold):
-    """Set the queue size alert threshold configuration variable."""
-    ConfigurationVariable.set(
-        ConfigurationKey.WORKER_QUEUE_SIZE_ALERT_THRESHOLD,
-        VariableTypeChoices.INT,
-        str(threshold),
-    )
+@pytest.fixture
+def set_queue_threshold():
+    """Return a callable that sets the queue size alert threshold."""
+
+    def _set(threshold):
+        ConfigurationVariable.set(
+            ConfigurationKey.WORKER_QUEUE_SIZE_ALERT_THRESHOLD,
+            VariableTypeChoices.INT,
+            str(threshold),
+        )
+
+    return _set
 
 
-def worker_stub(name="test-worker"):
-    """Return a stand-in for a `Worker`, for testing it without a database."""
-    stub = mock.MagicMock()
-    stub.worker_instance.name = name
-    return stub
+@pytest.fixture
+def worker_stub():
+    """Return a callable building a `Worker` stand-in, for testing without a DB."""
+
+    def _stub(name="test-worker"):
+        stub = mock.MagicMock()
+        stub.worker_instance.name = name
+        return stub
+
+    return _stub
 
 
 def test_QueueSize_totals_open_and_closed_trees():
@@ -134,7 +144,7 @@ def test_QueueSize_totals_open_and_closed_trees():
     }, "Each tally should be available as a separate log field for metrics."
 
 
-def test_Worker_log_queue_size_logs_size(caplog):
+def test_Worker_log_queue_size_logs_size(caplog, worker_stub):
     caplog.set_level(logging.INFO)
 
     Worker.log_queue_size(worker_stub("try"), QueueSize(open_trees=74, closed_trees=5))
@@ -145,7 +155,7 @@ def test_Worker_log_queue_size_logs_size(caplog):
     ), "The queue size and its breakdown should be logged."
 
 
-def test_Worker_log_queue_size_logs_at_the_given_level(caplog):
+def test_Worker_log_queue_size_logs_at_the_given_level(caplog, worker_stub):
     caplog.set_level(logging.INFO)
 
     Worker.log_queue_size(
@@ -157,7 +167,7 @@ def test_Worker_log_queue_size_logs_at_the_given_level(caplog):
     )
 
 
-def test_Worker_queue_size_without_enabled_repos_counts_nothing():
+def test_Worker_queue_size_without_enabled_repos_counts_nothing(worker_stub):
     """`job_queue_query` drops its repo filter entirely for an empty repo list."""
     stub = worker_stub()
     stub.enabled_repos = []
@@ -192,7 +202,9 @@ def test_Worker_queue_size_splits_open_and_closed_trees(
 
 
 @pytest.mark.django_db
-def test_Worker_queue_size_alert_threshold_defaults(git_landing_worker):
+def test_Worker_queue_size_alert_threshold_defaults(
+    git_landing_worker, set_queue_threshold
+):
     assert git_landing_worker.queue_size_alert_threshold == (
         DEFAULT_QUEUE_SIZE_ALERT_THRESHOLD
     ), "The default should apply when the configuration variable is unset."
@@ -211,7 +223,13 @@ def test_Worker_queue_size_alert_threshold_defaults(git_landing_worker):
 )
 @pytest.mark.django_db
 def test_Worker_loop_reports_queue_size(
-    caplog, worker_with_open_trees, bulk_add_landing_jobs, queued, threshold, warns
+    caplog,
+    worker_with_open_trees,
+    bulk_add_landing_jobs,
+    set_queue_threshold,
+    queued,
+    threshold,
+    warns,
 ):
     """`loop` logs the size every time, and warns only once it passes the threshold."""
     caplog.set_level(logging.INFO)
