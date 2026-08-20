@@ -112,6 +112,16 @@ class Tree(BaseModel):
         blank=False,
     )
 
+    is_retired = models.BooleanField(
+        default=False,
+        null=False,
+        blank=True,
+        help_text=(
+            "Retired trees are hidden from the Treestatus web view and API, "
+            "though their historical data is retained."
+        ),
+    )
+
     def to_dict(self) -> dict[str, Any]:
         """Convert a `Tree` into a dict."""
         return {
@@ -123,6 +133,9 @@ class Tree(BaseModel):
         }
 
     def __str__(self) -> str:
+        if self.is_retired:
+            return f"{self.tree} ({self.status}, retired)"
+
         return f"{self.tree} ({self.status})"
 
 

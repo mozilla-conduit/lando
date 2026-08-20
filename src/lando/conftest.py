@@ -1572,12 +1572,14 @@ def new_treestatus_tree():
         status: TreeStatus = TreeStatus.OPEN,
         reason: str = "",
         motd: str = "",
+        is_retired: bool = False,
     ):
         new_tree = Tree.objects.create(
             tree=tree,
             status=status,
             reason=reason,
             message_of_the_day=motd,
+            is_retired=is_retired,
         )
         return new_tree
 

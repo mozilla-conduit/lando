@@ -1,4 +1,8 @@
 from django.contrib import admin
+from django.core.cache import caches
+from django.core.handlers.wsgi import WSGIRequest
+from django.db.models import QuerySet
+from django.forms import ModelForm
 from django.urls import reverse
 
 from lando.main.admin import ReadOnlyInline, ReadOnlyModelAdmin
@@ -8,6 +12,7 @@ from lando.treestatus.models import (
     StatusChangeTree,
     Tree,
 )
+from lando.treestatus.utils import TREESTATUS_CACHE, tree_cache_key
 
 
 def summarize(text: str, length: int = 80) -> str:
@@ -22,20 +27,27 @@ def summarize(text: str, length: int = 80) -> str:
     return f"{first_line[:length]}..."
 
 
+def invalidate_tree_cache(tree_name: str):
+    """Drop the cached lookup of the tree, so admin edits are visible immediately."""
+    caches[TREESTATUS_CACHE].delete(tree_cache_key(tree_name))
+
+
 class TreeAdmin(admin.ModelAdmin):
     model = Tree
     list_display = (
         "tree",
         "status",
         "category",
+        "is_retired",
         "reason_summary",
         "created_at",
         "updated_at",
     )
-    list_filter = ("status", "category")
+    list_filter = ("status", "category", "is_retired")
     search_fields = ("tree", "reason", "message_of_the_day")
     readonly_fields = ("created_at", "updated_at")
     ordering = ("tree",)
+    actions = ("retire_trees", "unretire_trees")
 
     def view_on_site(self, instance: Tree) -> str:
         url = reverse("treestatus-tree-logs", kwargs={"tree": instance.tree})
@@ -45,6 +57,31 @@ class TreeAdmin(admin.ModelAdmin):
     def reason_summary(self, instance: Tree) -> str:
         """Return a shortened version of the reason the tree is in its current state."""
         return summarize(instance.reason)
+
+    @admin.action(description="Retire selected trees")
+    def retire_trees(self, request: WSGIRequest, queryset: QuerySet):
+        """Mark the selected trees as retired."""
+        self.set_retired(queryset, is_retired=True)
+
+    @admin.action(description="Unretire selected trees")
+    def unretire_trees(self, request: WSGIRequest, queryset: QuerySet):
+        """Mark the selected trees as no longer retired."""
+        self.set_retired(queryset, is_retired=False)
+
+    def set_retired(self, queryset: QuerySet, is_retired: bool):
+        """Set `is_retired` on each tree in `queryset` and invalidate their caches."""
+        tree_names = list(queryset.values_list("tree", flat=True))
+        queryset.update(is_retired=is_retired)
+
+        for tree_name in tree_names:
+            invalidate_tree_cache(tree_name)
+
+    def save_model(
+        self, request: WSGIRequest, instance: Tree, form: ModelForm, change: bool
+    ):
+        """Save the tree, invalidating the cached view of it."""
+        super().save_model(request, instance, form, change)
+        invalidate_tree_cache(instance.tree)
 
 
 class LogAdmin(ReadOnlyModelAdmin):
