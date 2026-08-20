@@ -9,7 +9,7 @@ from django.db import models
 from django.db.models import Case, IntegerField, QuerySet, When
 from django.utils.translation import gettext_lazy
 
-from lando.main.models.base import BaseModel
+from lando.main.basemodel import BaseModel
 from lando.main.models.commit_map import CommitMap
 from lando.main.models.repo import Repo
 from lando.main.scm.consts import SCMType

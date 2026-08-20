@@ -5,7 +5,7 @@ import requests
 import sentry_sdk
 from django.db import IntegrityError, models
 
-from lando.main.models.base import BaseModel
+from lando.main.basemodel import BaseModel
 from lando.main.scm.consts import SCMType
 
 logger = logging.getLogger(__name__)

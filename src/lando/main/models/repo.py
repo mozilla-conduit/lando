@@ -10,12 +10,13 @@ from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import models
 
-from lando.main.models.base import BaseModel, CryptographyMixin
+from lando.main.basemodel import BaseModel, CryptographyMixin
 from lando.main.scm import (
     SCM_IMPLEMENTATIONS,
     AbstractSCM,
     SCMType,
 )
+from lando.treestatus.utils import is_open
 from lando.utils.landing_checks import (
     BugReferencesCheck,
     CommitMessagesCheck,
@@ -466,6 +467,14 @@ class Repo(CryptographyMixin, BaseModel):
     def tree(self) -> str:
         """Backwards-compatibility alias for tree name."""
         return self.name
+
+    @property
+    def is_tree_open(self) -> bool:
+        """Return `True` if this repo's tree is open for landing in Treestatus.
+
+        Repos without a corresponding tree in Treestatus are considered open.
+        """
+        return is_open(self.tree)
 
     @property
     def access_group(self):

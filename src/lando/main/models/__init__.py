@@ -1,5 +1,5 @@
 # flake8: noqa
-from lando.main.models.base import *
+from lando.main.basemodel import *
 from lando.main.models.configuration import *
 from lando.main.models.jobs import *
 from lando.main.models.landing_job import *
