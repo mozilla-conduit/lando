@@ -161,7 +161,7 @@ class Command(BaseCommand):
                 "firefox-beta",
                 "firefox-release",
                 "firefox-esr115",
-                "firefox-esr-140",
+                "firefox-esr140",
                 "firefox-esr153",
             ]
         )
