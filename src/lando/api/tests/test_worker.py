@@ -94,14 +94,14 @@ def worker_with_open_trees(git_landing_worker, treestatusdouble):
 
 
 @pytest.fixture
-def queue_landing_jobs(make_landing_job):
-    """Return a callable that queues `count` landing jobs against a repo."""
+def bulk_add_landing_jobs(make_landing_job):
+    """Return a callable that adds `count` landing jobs against a repo."""
 
-    def _queue(repo, count, status=JobStatus.SUBMITTED):
+    def _bulk_add(repo, count, status=JobStatus.SUBMITTED):
         for _ in range(count):
             make_landing_job(status=status, target_repo=repo)
 
-    return _queue
+    return _bulk_add
 
 
 def set_queue_threshold(threshold):
@@ -173,15 +173,15 @@ def test_Worker_queue_size_without_enabled_repos_counts_nothing():
 
 @pytest.mark.django_db
 def test_Worker_queue_size_splits_open_and_closed_trees(
-    worker_with_open_trees, treestatusdouble, queue_landing_jobs
+    worker_with_open_trees, treestatusdouble, bulk_add_landing_jobs
 ):
     """Only pending jobs count, tallied by whether their tree is open."""
     open_repo, closed_repo = list(worker_with_open_trees.enabled_repos)[:2]
-    queue_landing_jobs(open_repo, 2)
-    queue_landing_jobs(open_repo, 1, status=JobStatus.DEFERRED)
-    queue_landing_jobs(open_repo, 1, status=JobStatus.LANDED)
-    queue_landing_jobs(open_repo, 1, status=JobStatus.CANCELLED)
-    queue_landing_jobs(closed_repo, 4)
+    bulk_add_landing_jobs(open_repo, 2)
+    bulk_add_landing_jobs(open_repo, 1, status=JobStatus.DEFERRED)
+    bulk_add_landing_jobs(open_repo, 1, status=JobStatus.LANDED)
+    bulk_add_landing_jobs(open_repo, 1, status=JobStatus.CANCELLED)
+    bulk_add_landing_jobs(closed_repo, 4)
 
     treestatusdouble.close_tree(closed_repo.tree)
     worker_with_open_trees.refresh_active_repos()
@@ -211,14 +211,14 @@ def test_Worker_queue_size_alert_threshold_defaults(git_landing_worker):
 )
 @pytest.mark.django_db
 def test_Worker_loop_reports_queue_size(
-    caplog, worker_with_open_trees, queue_landing_jobs, queued, threshold, warns
+    caplog, worker_with_open_trees, bulk_add_landing_jobs, queued, threshold, warns
 ):
     """`loop` logs the size every time, and warns only once it passes the threshold."""
     caplog.set_level(logging.INFO)
     worker_with_open_trees.run_idle_maintenance = mock.MagicMock()
     worker_with_open_trees.run_job = mock.MagicMock(return_value=True)
     set_queue_threshold(threshold)
-    queue_landing_jobs(worker_with_open_trees.enabled_repos[0], queued)
+    bulk_add_landing_jobs(worker_with_open_trees.enabled_repos[0], queued)
 
     worker_with_open_trees.loop()
 
