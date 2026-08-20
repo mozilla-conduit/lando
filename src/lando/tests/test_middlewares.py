@@ -78,6 +78,7 @@ def test_maintenance_mode_exceptions(
         ("treeherder", "/landing_jobs/1", True),
         ("", "/api/1", False),
         ("treeherder", "/api/1", False),
+        ("treeherder", "/api/treestatus/trees/try", True),
     ),
 )
 @pytest.mark.django_db
