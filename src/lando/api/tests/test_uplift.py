@@ -734,6 +734,7 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     monkeypatch,
     make_uplift_job_with_revisions,
     mock_uplift_email_tasks,
+    tmp_path,
 ):
     def mock_write_update_commits(commits):
         def _write_uplift_commits(job_arg, base_rev, env, output_path):
@@ -748,6 +749,17 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         return _write_uplift_commits
 
     repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
+
+    try_task_config = {"parameters": [], "version": 1}
+    config_json = json.dumps(try_task_config)
+
+    repo_dir = tmp_path / "firefox-beta"
+    repo_dir.mkdir()
+    mach_file = repo_dir / "mach"
+    mach_file.write_text(f"#!/bin/sh\necho '{config_json}'\n")
+
+    mach_file.chmod(0o755)
+    repo.system_path = str(repo_dir)
 
     try_repo = repo_mc(SCMType.HG, name="try", is_try=True)
 
@@ -908,6 +920,12 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         # One revision per uplift revision, plus the try_task_config revision.
         assert try_job.revisions.count() == len(revisions) + 1, (
             "Try-push job should bundle the uplift revisions and the config revision."
+        )
+
+        try_revision = try_job.revisions.last()
+
+        assert config_json in try_revision.diff, (
+            "Try revision diff should contain the parsed `try_task_config.json` contents."
         )
 
     # Mock `moz-phab uplift` again with new created commits.

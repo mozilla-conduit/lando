@@ -6,6 +6,7 @@ import re
 import subprocess
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
+from pathlib import Path
 from time import sleep
 from typing import Callable, TypeVar
 
@@ -445,3 +446,66 @@ class Worker(ABC):
             # Log the exception but continue gracefully.
             logger.exception(f"Failed sending {task.__name__} task to Celery.")
             logger.exception(e)
+
+    def run_mach_command(
+        self, repo_path: str, args: list[str], extra_env: dict[str, str] | None = None
+    ) -> str:
+        """Run a command using the local `mach`, raising if it is missing.
+
+        `extra_env` is merged on top of the current process environment rather
+        than replacing it. If it contains `MOZBUILD_STATE_PATH`, the directory
+        is created before the subprocess runs so `mach` can write bootstrapped
+        toolchains and state there instead of the worker's homedir.
+        """
+        mach_path = self.mach_path(repo_path)
+        if not mach_path:
+            raise Exception("No `mach` found in local repo!")
+
+        # Convert to `str` here so we can log the mach path.
+        command_args = [str(mach_path)] + args
+
+        subprocess_env = os.environ.copy()
+        subprocess_env.update(extra_env or {})
+
+        if extra_env and (mozbuild_state_path := extra_env.get("MOZBUILD_STATE_PATH")):
+            Path(mozbuild_state_path).mkdir(parents=True, exist_ok=True)
+
+        try:
+            logger.info("running mach command", extra={"command": command_args})
+
+            output = subprocess.run(
+                command_args,
+                capture_output=True,
+                check=True,
+                cwd=repo_path,
+                encoding="utf-8",
+                universal_newlines=True,
+                env=subprocess_env,
+            )
+
+            logger.info(
+                "output from mach command",
+                extra={
+                    "output": output.stdout,
+                },
+            )
+
+            return output.stdout
+
+        except subprocess.CalledProcessError as exc:
+            logger.exception(
+                "Failed to run mach command",
+                extra={
+                    "command": command_args,
+                    "err": exc.stderr,
+                    "output": exc.stdout,
+                },
+            )
+
+            raise exc
+
+    def mach_path(self, path: str) -> Path | None:
+        """Return the `Path` to `mach`, if it exists."""
+        mach_path = Path(path) / "mach"
+        if mach_path.exists():
+            return mach_path
