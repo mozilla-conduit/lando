@@ -17,17 +17,17 @@
         "so it is not actually excluded from production images."
     ],
     "devDependencies": {
-        "@types/node": "^24.12.3",
-        "@vitejs/plugin-vue": "^6.0.6",
+        "@types/node": "^24.13.3",
+        "@vitejs/plugin-vue": "^6.0.8",
         "@vue/test-utils": "^2.4.10",
         "@vue/tsconfig": "^0.9.1",
         "jquery": "^3.7.1",
         "jsdom": "^25.0.1",
-        "prettier": "^3.4.2",
+        "prettier": "^3.9.6",
         "typescript": "~6.0.2",
-        "vite": "^8.0.12",
-        "vitest": "^4.1.0",
-        "vue-tsc": "^3.2.8"
+        "vite": "^8.2.1",
+        "vitest": "^4.1.10",
+        "vue-tsc": "^3.3.9"
     },
     "scripts": {
         "postinstall": "echo 'Bulma and Dart Sass installed successfully'",
