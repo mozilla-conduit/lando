@@ -27,6 +27,8 @@ from lando.api.legacy.transplants import (
 )
 from lando.api.tests.mocks import PhabricatorDouble
 from lando.main.models import (
+    DiffWarning,
+    DiffWarningGroup,
     JobStatus,
     LandingJob,
     Repo,
@@ -718,7 +720,6 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     scm_type,
     user,
     authenticated_client,
-    treestatusdouble,
     release_management_project,
     needs_data_classification_project,
     register_codefreeze_uri,
@@ -731,7 +732,6 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
 ):
     landing_worker = get_landing_worker(scm_type)
     repo = repo_mc(scm_type)
-    treestatusdouble.open_tree(repo.name)
     landing_worker.worker_instance.applicable_repos.add(repo)
 
     phabrepo = phabdouble.repo(name=repo.name)
@@ -1944,11 +1944,76 @@ def test_warning_multiple_authors(phabdouble, mocked_repo_config, create_state):
 
 
 @pytest.mark.django_db(transaction=True)
+def test_diffwarnings_aggregation(
+    user,
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    mocked_repo_config,
+):
+    d1 = phabdouble.diff()
+    d2 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
+    r2 = phabdouble.revision(diff=d2, repo=phabdouble.repo(), depends_on=[r1])
+
+    dw_message = "Some aggregatable message"
+    for r, d in [(r1, d1), (r2, d2)]:
+        phabdouble.reviewer(r, phabdouble.user(username="reviewer"))
+        phabdouble.reviewer(r, phabdouble.project("reviewer2"))
+        DiffWarning.objects.create(
+            revision_id=r["id"],
+            diff_id=d["id"],
+            group=DiffWarningGroup.GENERAL,
+            data={"message": dw_message},
+        )
+
+    # r1 has the same DiffWarning twice.
+    DiffWarning.objects.create(
+        revision_id=r1["id"],
+        diff_id=d1["id"],
+        group=DiffWarningGroup.GENERAL,
+        data={"message": dw_message},
+    )
+
+    dw_message_other = "Some other message"
+    DiffWarning.objects.create(
+        revision_id=r1["id"],
+        diff_id=d1["id"],
+        group=DiffWarningGroup.GENERAL,
+        data={"message": dw_message_other},
+    )
+
+    result = legacy_api_transplants.dryrun(
+        phabdouble.get_phabricator_client(),
+        user,
+        {
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]},
+                {"revision_id": "D{}".format(r2["id"]), "diff_id": d2["id"]},
+            ]
+        },
+    )
+
+    dw_both = [w for w in result["warnings"] if w["display"] == dw_message]
+    assert len(dw_both) == 1, (
+        f'Multiple warnings for "{dw_message}" should be aggregated in a single warning'
+    )
+    assert len(dw_both[0]["instances"]) == 3, (
+        f'Unexpected number of instance(s) for "{dw_message}"'
+    )
+
+    dw_one = [w for w in result["warnings"] if w["display"] == dw_message_other]
+    assert len(dw_one) == 1, f'Unexpected number of warning(s) for "{dw_message_other}"'
+    assert len(dw_one[0]["instances"]) == 1, (
+        f'Unexpected number of instance(s) for "{dw_message_other}"'
+    )
+
+
+@pytest.mark.django_db(transaction=True)
 def test_transplant_on_linked_legacy_repo(
     app,
     user,
     phabdouble,
-    treestatusdouble,
     register_codefreeze_uri,
     mocked_repo_config,
     repo_mc,

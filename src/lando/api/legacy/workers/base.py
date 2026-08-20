@@ -13,9 +13,7 @@ from celery import Task
 from django.db import transaction
 from kombu.exceptions import OperationalError
 
-import lando.utils.treestatus
 from lando.api.legacy.notifications import notify_user_of_bug_update_failure
-from lando.api.legacy.treestatus import TreeStatus
 from lando.api.legacy.uplift import update_bugs_for_uplift
 from lando.main.models import (
     BaseJob,
@@ -37,6 +35,7 @@ from lando.main.scm.exceptions import (
     SCMException,
     SCMInternalServerError,
 )
+from lando.treestatus.utils import is_open
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +72,6 @@ class Worker(ABC):
 
     ssh_private_key: str | None
 
-    treestatus_client: TreeStatus
-
     # The list of all repos that have open trees; refreshed when needed via
     # `self.refresh_active_repos`.
     active_repos: list[Repo]
@@ -90,10 +87,6 @@ class Worker(ABC):
         with_ssh: bool = True,
     ):
         self.worker_instance = worker_instance
-
-        self.treestatus_client = lando.utils.treestatus.get_treestatus_client()
-        if not self.treestatus_client.ping():
-            raise ConnectionError("Could not connect to Treestatus")
 
         self.last_maintenance_at: dict[int, datetime] = {}
 
@@ -285,9 +278,7 @@ class Worker(ABC):
 
     def refresh_active_repos(self):
         """Refresh the list of repositories based on treestatus."""
-        self.active_repos = [
-            r for r in self.enabled_repos if self.treestatus_client.is_open(r.tree)
-        ]
+        self.active_repos = [repo for repo in self.enabled_repos if is_open(repo.tree)]
         logger.info(f"{len(self.active_repos)} enabled repos: {self.active_repos}")
 
     def run_idle_maintenance(self):
