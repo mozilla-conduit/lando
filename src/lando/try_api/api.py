@@ -234,10 +234,16 @@ def patches(
         patch_helpers.append(ph)
 
     landing_checks = LandingChecks(request.user.email, repo.name)
-    errors = landing_checks.run(
-        repo.hooks,
-        patch_helpers,
-    )
+    try:
+        errors = landing_checks.run(
+            repo.hooks,
+            patch_helpers,
+        )
+    except Exception:
+        message = "Unexpected error while performing pre-submission patch checks."
+        logger.exception(message)
+        # Prepare message to be handled as a normal error just below.
+        errors = [message]
 
     if errors:
         bulleted_errors = "\n  - ".join(errors)

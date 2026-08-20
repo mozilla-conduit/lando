@@ -2,7 +2,7 @@ import base64
 import itertools
 import json
 from typing import Callable
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from django.contrib.auth.models import Permission, User
@@ -334,6 +334,60 @@ def test_try_api_patches_failed_checks(
     assert rj["title"] == "Errors found in pre-submission patch checks."
     assert "Patch failed checks:" in rj["detail"]
     assert "Revision introduces symlinks" in rj["detail"]
+
+
+@patch("lando.utils.landing_checks.LandingChecks.run")
+@pytest.mark.django_db()
+def test_try_api_patches_exception(
+    mock_landing_checks: Mock,
+    mock_authenticate_builder: Callable,
+    mocked_repo_config_try: Mock,
+    scm_user: Callable,
+    commit_maps: list[CommitMap],
+    get_failing_check_diff: Callable,
+    diff_to_git_patch: Callable,
+    client_post: Callable,
+):
+    user = scm_user([Permission.objects.get(codename="scm_level_1")], "password")
+
+    mock_authenticate = mock_authenticate_builder(user)
+
+    mock_landing_checks.side_effect = Exception("failure running checks")
+
+    for map in commit_maps:
+        # This is hardcoded for now.
+        map.git_repo_name = "firefox"
+        map.save()
+
+    patch_data = diff_to_git_patch(get_failing_check_diff("symlink"))
+    request_payload = {
+        # "repo": "some",  # defaults to try, from the mocked_repo_config
+        "base_commit": commit_maps[0].git_hash,
+        "base_commit_vcs": "git",
+        "patches": [
+            # Use a patch known to trigger the default set of checks.
+            base64.b64encode(patch_data.encode()).decode(),
+        ],
+        "patch_format": "git-format-patch",
+    }
+
+    response = client_post(
+        "/api/try/patches",
+        data=json.dumps(request_payload),
+        headers={"AuThOrIzAtIoN": "bEaReR token success"},
+    )
+
+    assert mock_authenticate.called, "Authentication backend should be called"
+    assert response.status_code == 400, (
+        f"Request to Try API with checks raising exceptions should result in 400: {response.text}"
+    )
+
+    rj = response.json()
+    assert rj["title"] == "Errors found in pre-submission patch checks."
+    assert (
+        rj["detail"]
+        == "Patch failed checks:\n\n  - Unexpected error while performing pre-submission patch checks."
+    )
 
 
 @pytest.mark.django_db()

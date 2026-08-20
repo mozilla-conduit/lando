@@ -42,15 +42,41 @@ class ArrayFieldMultipleChoiceField(MultipleChoiceField):
         super().__init__(**kwargs)
 
 
+class ReadOnlyModelAdmin(admin.ModelAdmin):
+    """A base ModelAdmin class for models which should never be edited."""
+
+    def has_add_permission(
+        self, request: HttpRequest, obj: Model | None = None
+    ) -> bool:
+        """Forbid addition of any object from the admin interface."""
+        return False
+
+    def has_change_permission(
+        self, request: HttpRequest, obj: Model | None = None
+    ) -> bool:
+        """Forbid change of any object from the admin interface."""
+        return False
+
+    def has_delete_permission(
+        self, request: HttpRequest, obj: Model | None = None
+    ) -> bool:
+        """Forbid deletion of any object from the admin interface."""
+        return False
+
+
 class ReadOnlyInline(admin.TabularInline):
     """
     A Tabular Inline that supports a readonly_fields to disallow editing linked models.
 
-    The `_target_object` *string* property needs to be set on child classes so fields are
-    automatically discovered for the target model. This string should be the name of the
-    attribute on the `model` class that contains the link.
+    The `_target_object` *string* property needs to be set on child classes whose
+    `readonly_fields` live on a linked model, so those fields are automatically
+    discovered. This string should be the name of the attribute on the `model` class that
+    contains the link. Inlines whose `readonly_fields` are all concrete fields of `model`
+    can leave it unset.
 
     """
+
+    _target_object: str | None = None
 
     extra = 0
     can_add = False
@@ -59,23 +85,24 @@ class ReadOnlyInline(admin.TabularInline):
     show_change_link = False
 
     @classmethod
-    def _field_getter_factory(cls, f: str) -> Callable:
+    def _field_getter_factory(cls, field_name: str) -> Callable:
         """Programatically add getters for all readonly fields which don't have one.
 
         [0] https://forum.djangoproject.com/t/show-all-the-fields-in-inline-of-the-many-to-many-model-instead-of-a-simple-dropdown/28062/7
         """
 
         def getter(self: Self) -> object:
-            return getattr(getattr(self, cls._target_object), f)
+            return getattr(getattr(self, cls._target_object), field_name)
 
-        getter.__name__ = f
+        getter.__name__ = field_name
 
         return getter
 
     def __init__(self, *args, **kwargs):
-        for f in self.readonly_fields:
-            if not hasattr(self, f):
-                setattr(self, f, self._field_getter_factory(f))
+        if self._target_object:
+            for field_name in self.readonly_fields:
+                if not hasattr(self, field_name):
+                    setattr(self, field_name, self._field_getter_factory(field_name))
         super().__init__(*args, **kwargs)
 
     def has_add_permission(
