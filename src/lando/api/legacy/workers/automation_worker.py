@@ -2,7 +2,7 @@ import logging
 
 from typing_extensions import override
 
-from lando.api.legacy.workers.base import Worker
+from lando.api.legacy.workers.base import NON_ABORTABLE_FAILURES, Worker
 from lando.headless_api.api import (
     AutomationActionException,
     resolve_action,
@@ -22,8 +22,6 @@ from lando.main.scm import (
     SCMInternalServerError,
     SCMLostPushRace,
     SCMPushTimeoutException,
-    TreeApprovalRequired,
-    TreeClosed,
 )
 from lando.pushlog.pushlog import PushLogForRepo
 from lando.utils.landing_checks import LandingChecks
@@ -145,9 +143,15 @@ class AutomationWorker(Worker):
                     force_push=repo.force_push,
                     tags=created_tags,
                 )
+            except NON_ABORTABLE_FAILURES as e:
+                message = (
+                    f"Temporary error ({e.__class__}) "
+                    f"encountered while pushing to {repo_push_info}: {e}"
+                )
+                logger.exception(message)
+                job.transition_status(JobAction.DEFER, message=message)
+                return False  # Try again, this is a temporary failure.
             except (
-                TreeClosed,
-                TreeApprovalRequired,
                 SCMLostPushRace,
                 SCMPushTimeoutException,
                 SCMInternalServerError,
@@ -157,8 +161,9 @@ class AutomationWorker(Worker):
                     f"encountered while pushing to {repo_push_info}: {e}"
                 )
                 logger.exception(message)
-                self.defer_or_abort(job, e, message=message)
-                return False  # Try again, this is a temporary failure.
+
+                # An aborted job is in a final state, a deferred one is tried again.
+                return self.defer_or_abort(job, message)
             except Exception as e:
                 message = f"Unexpected error while pushing to {repo.push_path}.\n{e}"
                 logger.exception(message)

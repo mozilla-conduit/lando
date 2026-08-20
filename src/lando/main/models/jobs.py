@@ -37,15 +37,6 @@ Reason for the last failure:
 class TemporaryFailureException(Exception):
     """Signal an error that should be retried"""
 
-    def __init__(self, *args, abortable: bool = True):
-        """Set `abortable` to `False` to retry the job indefinitely.
-
-        Non-abortable failures are those which are expected to resolve on their own
-        without anyone looking at the job, such as a closed tree.
-        """
-        super().__init__(*args)
-        self.abortable = abortable
-
 
 class PermanentFailureException(Exception):
     """Signal an error that should not be retried"""
@@ -173,8 +164,7 @@ class BaseJob(BaseModel):
     # LDAP email of the user who created the job.
     requester_email = models.CharField(default="", max_length=255)
 
-    # Number of attempts made to complete the job. Attempts which end in a deferral
-    # that is expected to resolve on its own, such as a closed tree, are given back.
+    # Number of attempts made to complete the job.
     attempts = models.IntegerField(default=0)
 
     # Priority of the job. Higher values are processed first.
@@ -218,7 +208,7 @@ class BaseJob(BaseModel):
             action (JobAction): the action to take, e.g. "land" or "fail"
             **kwargs:
                 Additional arguments required by each action, e.g. `message` or
-                `commit_id`, along with any optional arguments such as `abortable`.
+                `commit_id`.
         """
         actions = {
             JobAction.LAND: {
@@ -231,7 +221,6 @@ class BaseJob(BaseModel):
             },
             JobAction.DEFER: {
                 "required_params": ["message"],
-                "optional_params": ["abortable"],
                 "status": JobStatus.DEFERRED,
             },
             JobAction.ABORT: {
@@ -248,12 +237,11 @@ class BaseJob(BaseModel):
             raise ValueError(f"{action} is not a valid action")
 
         required_params = set(actions[action]["required_params"])
-        optional_params = set(actions[action].get("optional_params", []))
 
         if missing_params := required_params - kwargs.keys():
             raise ValueError(f"Missing {missing_params} params")
 
-        if unknown_params := kwargs.keys() - required_params - optional_params:
+        if unknown_params := kwargs.keys() - required_params:
             raise ValueError(f"Unknown {unknown_params} params")
 
         self.status = actions[action]["status"]
@@ -272,14 +260,6 @@ class BaseJob(BaseModel):
 
         if action == JobAction.LAND:
             self.landed_commit_id = kwargs["commit_id"]
-
-        # A deferral which is expected to resolve on its own, such as a closed tree,
-        # gives its attempt back so the job is retried indefinitely.
-        if action == JobAction.DEFER and not kwargs.get("abortable", True):
-            logger.debug(
-                f"Deferral of {self} is not abortable, giving the attempt back."
-            )
-            self.attempts = max(0, self.attempts - 1)
 
         self.save()
 

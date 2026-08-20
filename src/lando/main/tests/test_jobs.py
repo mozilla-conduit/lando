@@ -32,13 +32,11 @@ def test__models__BaseJob__url(job_class: type, expected_path: str):
     )
 
 
-def attempt_and_defer(job: LandingJob, times: int, abortable: bool = True):
+def attempt_and_defer(job: LandingJob, times: int):
     """Attempt and defer `job` `times` times, as the worker would."""
     for attempt in range(times):
         job.start_attempt()
-        job.transition_status(
-            JobAction.DEFER, message=f"failure {attempt}", abortable=abortable
-        )
+        job.transition_status(JobAction.DEFER, message=f"failure {attempt}")
 
 
 @pytest.mark.django_db
@@ -68,37 +66,6 @@ def test__models__BaseJob__abort_sets_templated_error(make_landing_job: Callable
     )
     assert "the last failure" in job.error, (
         "Error message should include the reason for the last failure."
-    )
-
-
-@pytest.mark.django_db
-def test__models__BaseJob__non_abortable_deferrals_do_not_abort_job(
-    make_landing_job: Callable,
-):
-    job = make_landing_job(status=JobStatus.SUBMITTED)
-
-    attempt_and_defer(job, DEFAULT_MAX_JOB_ATTEMPTS * 2, abortable=False)
-
-    assert job.status == JobStatus.DEFERRED, (
-        "Non-abortable deferrals should never abort the job."
-    )
-    assert job.attempts == 0, "Non-abortable deferrals should give their attempt back."
-    assert job.has_attempts_remaining(), (
-        "Non-abortable deferrals should keep the job's attempts available."
-    )
-
-
-@pytest.mark.django_db
-def test__models__BaseJob__non_abortable_deferral_clamps_attempts_at_zero(
-    make_landing_job: Callable,
-):
-    job = make_landing_job(status=JobStatus.IN_PROGRESS, attempts=1)
-
-    job.transition_status(JobAction.DEFER, message="failure", abortable=False)
-    job.transition_status(JobAction.DEFER, message="failure", abortable=False)
-
-    assert job.attempts == 0, (
-        "Non-abortable deferrals should not push attempts below zero."
     )
 
 

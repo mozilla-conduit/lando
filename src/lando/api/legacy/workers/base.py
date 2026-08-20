@@ -240,8 +240,9 @@ class Worker(ABC):
             try:
                 self.last_job_finished = self.run_job(job)
             except TemporaryFailureException as exc:
-                self.defer_or_abort(job, exc, message=str(exc))
-                self.last_job_finished = False
+                # An aborted job is in a final state, so the worker can move on to the
+                # next job rather than sleeping.
+                self.last_job_finished = self.defer_or_abort(job, str(exc))
                 logger.warning(
                     f"Temporary failure for {job}: {exc}",
                     extra={"id": job.id},
@@ -273,35 +274,20 @@ class Worker(ABC):
                 )
 
             if job.status == JobStatus.ABORTED:
-                # The job deferred too many times and was given up on. It is in a
-                # final state, so the worker can move on to the next job.
-                self.last_job_finished = True
                 self.notify_user_of_job_abort(job)
 
-    @staticmethod
-    def is_abortable_failure(exception: Exception) -> bool:
-        """Whether a job deferred because of `exception` may eventually be aborted."""
-        return not isinstance(exception, NON_ABORTABLE_FAILURES)
-
-    def should_abort(self, exception: Exception, job: BaseJob) -> bool:
-        """Whether `exception` should abort `job` rather than defer it again.
+    def defer_or_abort(self, job: BaseJob, message: str) -> bool:
+        """Abort `job` if it has run out of attempts, otherwise defer it.
 
         A job which keeps deferring blocks every other job for its repository, so it
-        is aborted once it hits an abortable failure with no attempts left.
+        is given up on once it runs out of attempts. Returns whether it was aborted.
         """
-        return self.is_abortable_failure(exception) and not job.has_attempts_remaining()
+        if job.has_attempts_remaining():
+            job.transition_status(JobAction.DEFER, message=message)
+            return False
 
-    def defer_or_abort(self, job: BaseJob, exception: Exception, message: str):
-        """Abort `job` if it has run out of attempts, otherwise defer it."""
-        if self.should_abort(exception, job):
-            job.transition_status(JobAction.ABORT, message=message)
-            return
-
-        job.transition_status(
-            JobAction.DEFER,
-            message=message,
-            abortable=self.is_abortable_failure(exception),
-        )
+        job.transition_status(JobAction.ABORT, message=message)
+        return True
 
     def notify_user_of_job_abort(self, job: BaseJob):
         """Tell the requester of `job` that Lando gave up on it."""
@@ -413,7 +399,7 @@ class Worker(ABC):
                 f"encountered while pulling from {repo_pull_info}: {e}"
             )
             logger.exception(message)
-            self.defer_or_abort(job, e, message=message)
+            self.defer_or_abort(job, message)
 
             # Try again, this is a temporary failure.
             raise TemporaryFailureException(message) from e

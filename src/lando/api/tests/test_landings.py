@@ -810,8 +810,8 @@ def test_closed_tree_deferrals_do_not_abort_job(
     assert job.status == JobStatus.DEFERRED, (
         "A job deferred for a closed tree should never be aborted."
     )
-    assert job.attempts == 0, (
-        "Attempts deferred for a closed tree should be given back."
+    assert not job.has_attempts_remaining(), (
+        "A job deferred for a closed tree should keep deferring past its attempts."
     )
 
 
@@ -852,8 +852,8 @@ def test_non_abortable_failures_do_not_abort_job(
     assert job.status == JobStatus.DEFERRED, (
         "A job deferred for a non-abortable failure should never be aborted."
     )
-    assert job.attempts == 0, (
-        "Attempts deferred for a non-abortable failure should be given back."
+    assert not job.has_attempts_remaining(), (
+        "A non-abortable failure should keep deferring past the job's attempts."
     )
     assert "approval required" in job.error, (
         "The job should have been deferred for the mocked push failure."
