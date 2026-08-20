@@ -3,14 +3,93 @@ import random
 import string
 from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Self, override
+
+from typing_extensions import deprecated
 
 from lando.main.scm.commit import CommitData
 from lando.main.scm.consts import MergeStrategy, SCMType
 from lando.main.scm.helpers import PatchHelper
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class FailedPath:
+    path: str
+    url: str
+    changeset_id: str
+
+
+@dataclass
+class RejectPath:
+    path: str
+    content: str
+
+
+@dataclass
+class ScmErrorBreakdown(dict):
+    revision_id: int | None = None
+    failed_paths: list[FailedPath] = field(default_factory=list)
+    # failed_paths: list[dict[str, str]]
+    #     path: str
+    #     url: str
+    #     changeset_id: str
+
+    # rejects_paths: dict[str, dict[str,str]]
+    rejects_paths: dict[str, RejectPath] = field(default_factory=dict)
+    # key: conflicted file path from failed_paths[].path
+    # value keys:
+    # path
+    # content
+
+    @classmethod
+    def from_dict(cls, error_breakdown_dict: dict[str, Any]) -> Self:
+        """Parse old-style error breakdowns into an ScmErrorBreakdown."""
+        breakdown = cls(revision_id=error_breakdown_dict.get("revision_id"))
+
+        for fp in error_breakdown_dict.get("failed_paths", []):
+            breakdown.failed_paths.append(FailedPath(**fp))
+
+        for rp_key in error_breakdown_dict.get("reject_paths", []):
+            breakdown.rejects_paths[rp_key] = RejectPath(
+                **error_breakdown_dict["rejects_paths"][rp_key]
+            )
+
+        return breakdown
+
+    @deprecated("Don't use ScmErrorBreakdown as a dict")
+    @override
+    def __getitem__(self, key: str) -> Any:
+        if key == "revision_id":
+            return self.revision_id
+        if key == "failed_paths":
+            return [asdict(fp) for fp in self.failed_paths]
+        if key == "rejects_paths":
+            return {k: asdict(self.rejects_paths[k]) for k in self.rejects_paths}
+        raise KeyError(f"{key} is not a member of ScmErrorBreakdown")
+
+    @deprecated("Don't use ScmErrorBreakdown as a dict")
+    @override
+    def __setitem__(self, key: str, item: Any):
+        if key == "revision_id":
+            self.revision_id = item
+        if key == "failed_paths":
+            self.failed_paths = [FailedPath(**v) for v in item]
+        if key == "rejects_paths":
+            self.rejects_paths = {k: RejectPath(**item[k]) for k in item}
+        raise KeyError(f"{key} is not a member of ScmErrorBreakdown")
+
+    @deprecated("Don't use ScmErrorBreakdown as a dict")
+    @override
+    def __len__(self) -> int:
+        return 3
+
+    @deprecated("Don't use ScmErrorBreakdown as a dict")
+    def __iter__(self):
+        raise NotImplementedError("ScmErrorBreakdown is not iterable")
 
 
 class AbstractSCM(ABC):
@@ -190,25 +269,13 @@ class AbstractSCM(ABC):
         revision_id: int,
         error_message: str,
         conflicts: dict[str, dict[str, str]] | None = None,
-    ) -> dict[str, Any]:
+    ) -> ScmErrorBreakdown:
         """Process merge conflict information captured in a PatchConflict, and return a
         parsed structure.
 
         `conflicts` maps conflicting paths to their conflict content for SCMs and
         code paths (e.g. a 3-way rebase) that report conflicts directly rather
         than leaving `.rej` files on disk.
-
-        The structure is a nested dict as follows:
-
-            revision_id: revision_id
-            failed paths: list[dict]
-                path: str
-                url: str
-                changeset_id: str
-            rejects_paths: dict[str, dict]
-                <str>: dict[str, str] (conflicted file path)
-                    path: str (reject file path)
-                    content: str
         """
 
     @abstractmethod
