@@ -148,7 +148,8 @@ class LandingWorker(Worker):
             logger.info(f"{mots_path} not found, skipping setting reviewer data.")
 
         # Extra steps for post-uplift landings.
-        self.update_bugs_after_uplift(job, repo, scm, bug_ids)
+        if repo.approval_required:
+            self.update_bugs_after_uplift(job, repo, scm, bug_ids)
 
         # Trigger update of repo in Phabricator so patches are closed quicker.
         # Especially useful on low-traffic repositories.
