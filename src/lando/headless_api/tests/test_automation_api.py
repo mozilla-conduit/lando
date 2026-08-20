@@ -709,30 +709,37 @@ def make_bmo_bug(bug_id: str) -> dict:
 
 
 @pytest.fixture
-def mock_bmo_uplift_calls(monkeypatch) -> tuple[mock.MagicMock, mock.MagicMock]:
-    """Stub out the BMO uplift endpoints, returning the `get` and `update` mocks."""
+def mock_uplift_get_bug(monkeypatch) -> mock.MagicMock:
+    """Stub out the BMO bug fetch made when updating bugs after an uplift."""
     mock_get_bug = mock.MagicMock()
     mock_get_bug.return_value = {"bugs": [make_bmo_bug("123456")]}
-    mock_update_bug = mock.MagicMock()
 
     monkeypatch.setattr("lando.api.legacy.uplift.bmo.uplift_get_bug", mock_get_bug)
+
+    return mock_get_bug
+
+
+@pytest.fixture
+def mock_uplift_update_bug(monkeypatch) -> mock.MagicMock:
+    """Stub out the BMO bug update made when updating bugs after an uplift."""
+    mock_update_bug = mock.MagicMock()
+
     monkeypatch.setattr(
         "lando.api.legacy.uplift.bmo.uplift_update_bug", mock_update_bug
     )
 
-    return mock_get_bug, mock_update_bug
+    return mock_update_bug
 
 
 @pytest.fixture
 def run_uplift_automation_job(automation_worker, automation_job) -> Callable:
     """Run an automation job landing one commit per given commit message."""
 
-    def run_job(
-        repo: Repo, commitmsgs: list[str], assert_success: bool = True
-    ) -> AutomationJob:
-        assert len(commitmsgs) <= len(UPLIFT_JOB_DIFFS), (
-            f"This fixture can land at most {len(UPLIFT_JOB_DIFFS)} commits."
-        )
+    def run_job(repo: Repo, commitmsgs: list[str]) -> AutomationJob:
+        if len(commitmsgs) > len(UPLIFT_JOB_DIFFS):
+            raise ValueError(
+                f"This fixture can land at most {len(UPLIFT_JOB_DIFFS)} commits."
+            )
 
         job, _actions = automation_job(
             actions=[
@@ -754,11 +761,7 @@ def run_uplift_automation_job(automation_worker, automation_job) -> Callable:
 
         repo.scm.push = mock.MagicMock()
 
-        permanent = automation_worker.run_job(job)
-
-        if assert_success:
-            assert permanent, "Job should be in a permanent state."
-            assert job.status == JobStatus.LANDED, job.error
+        automation_worker.run_job(job)
 
         return job
 
@@ -770,24 +773,23 @@ def test_automation_job_updates_bugs_for_uplift(
     mock_phab_trigger_repo_update_apply_async,
     repo_mc,
     run_uplift_automation_job,
-    mock_bmo_uplift_calls,
+    mock_uplift_get_bug,
+    mock_uplift_update_bug,
 ):
     """Bug 1979090: an uplift pushed via the CLI updates the bug tracking flags."""
-    _mock_get_bug, mock_update_bug = mock_bmo_uplift_calls
     repo = repo_mc(
         SCMType.GIT,
         approval_required=True,
         milestone_tracking_flag_template=MILESTONE_TRACKING_FLAG_TEMPLATE,
     )
 
-    run_uplift_automation_job(
-        repo, ["Bug 123456: uplift a fix r=reviewer"], assert_success=True
-    )
+    job = run_uplift_automation_job(repo, ["Bug 123456: uplift a fix r=reviewer"])
 
-    assert mock_update_bug.call_count == 1, (
+    assert job.status == JobStatus.LANDED, job.error
+    assert mock_uplift_update_bug.call_count == 1, (
         "Bugs should be updated after landing an uplift."
     )
-    assert mock_update_bug.call_args[0][0] == {
+    assert mock_uplift_update_bug.call_args[0][0] == {
         "ids": [123456],
         "cf_status_firefox142": "fixed",
         "whiteboard": "",
@@ -799,11 +801,11 @@ def test_automation_job_updates_bugs_for_uplift_multiple_commits(
     mock_phab_trigger_repo_update_apply_async,
     repo_mc,
     run_uplift_automation_job,
-    mock_bmo_uplift_calls,
+    mock_uplift_get_bug,
+    mock_uplift_update_bug,
 ):
     """Every bug referenced by the commits of an uplift push should be updated."""
-    mock_get_bug, mock_update_bug = mock_bmo_uplift_calls
-    mock_get_bug.return_value = {
+    mock_uplift_get_bug.return_value = {
         "bugs": [make_bmo_bug("123456"), make_bmo_bug("234567")]
     }
     repo = repo_mc(
@@ -812,19 +814,19 @@ def test_automation_job_updates_bugs_for_uplift_multiple_commits(
         milestone_tracking_flag_template=MILESTONE_TRACKING_FLAG_TEMPLATE,
     )
 
-    run_uplift_automation_job(
+    job = run_uplift_automation_job(
         repo,
         [
             "Bug 123456: uplift a fix r=reviewer",
             "Bug 234567: uplift another fix r=reviewer",
         ],
-        assert_success=True,
     )
 
-    assert mock_get_bug.call_args[0][0] == {"id": "123456,234567"}, (
+    assert job.status == JobStatus.LANDED, job.error
+    assert mock_uplift_get_bug.call_args[0][0] == {"id": "123456,234567"}, (
         "Bugs from every commit in the push should be fetched."
     )
-    assert [call[0][0]["ids"] for call in mock_update_bug.call_args_list] == [
+    assert [call[0][0]["ids"] for call in mock_uplift_update_bug.call_args_list] == [
         [123456],
         [234567],
     ], "Each bug referenced by the push should be updated."
@@ -846,23 +848,28 @@ def test_automation_job_skips_bug_update(
     mock_phab_trigger_repo_update_apply_async,
     repo_mc,
     run_uplift_automation_job,
-    mock_bmo_uplift_calls,
+    mock_uplift_get_bug,
+    mock_uplift_update_bug,
     approval_required: bool,
     commitmsg: str,
     reason: str,
 ):
     """Bugs should only be updated for uplift landings which reference bugs."""
-    mock_get_bug, mock_update_bug = mock_bmo_uplift_calls
     repo = repo_mc(
         SCMType.GIT,
         approval_required=approval_required,
         milestone_tracking_flag_template=MILESTONE_TRACKING_FLAG_TEMPLATE,
     )
 
-    run_uplift_automation_job(repo, [commitmsg], assert_success=True)
+    job = run_uplift_automation_job(repo, [commitmsg])
 
-    assert mock_get_bug.call_count == 0, f"Bugs should not be fetched when {reason}."
-    assert mock_update_bug.call_count == 0, f"Bugs should not be updated when {reason}."
+    assert job.status == JobStatus.LANDED, job.error
+    assert mock_uplift_get_bug.call_count == 0, (
+        f"Bugs should not be fetched when {reason}."
+    )
+    assert mock_uplift_update_bug.call_count == 0, (
+        f"Bugs should not be updated when {reason}."
+    )
 
 
 @pytest.mark.django_db
@@ -890,10 +897,9 @@ def test_automation_job_notifies_user_of_bug_update_failure(
         milestone_tracking_flag_template=MILESTONE_TRACKING_FLAG_TEMPLATE,
     )
 
-    job = run_uplift_automation_job(
-        repo, ["Bug 123456: uplift a fix r=reviewer"], assert_success=True
-    )
+    job = run_uplift_automation_job(repo, ["Bug 123456: uplift a fix r=reviewer"])
 
+    assert job.status == JobStatus.LANDED, job.error
     assert mock_notify.call_count == 1, (
         "Requester should be notified of the bug update failure."
     )
