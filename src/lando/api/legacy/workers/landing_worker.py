@@ -77,7 +77,7 @@ class LandingWorker(Worker):
                 notification parameters.
         """
         notify_user_of_landing_failure(
-            job.requester_email, job.landing_job_identifier, job.error, job.id
+            job.requester_email, job.human_friendly_identifier, job.error, job.id
         )
 
     @override

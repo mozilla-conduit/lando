@@ -443,7 +443,7 @@ class Worker(ABC):
         """
         notify_user_of_bug_update_failure(
             job.requester_email,
-            job.landing_job_identifier,
+            job.human_friendly_identifier,
             f"Failed to update Bugzilla after landing uplift revisions: {str(exception)}",
             job.id,
         )

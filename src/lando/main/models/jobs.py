@@ -141,7 +141,7 @@ class BaseJob(BaseModel):
     target_repo = models.ForeignKey(Repo, on_delete=models.SET_NULL, null=True)
 
     @property
-    def landing_job_identifier(self) -> str:
+    def human_friendly_identifier(self) -> str:
         """Human-readable representation of this job, for use in notifications."""
         return f"{self.type.lower()} job {self.id}"
 
