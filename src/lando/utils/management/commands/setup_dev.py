@@ -12,6 +12,11 @@ from lando.main.scm import SCMType
 from lando.treestatus.models import Tree, TreeCategory, TreeStatus
 from lando.treestatus.utils import create_new_tree
 
+# Credentials of the administrator account created on the local environment.
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "password"
+ADMIN_EMAIL = "test@example.org"
+
 
 class Command(BaseCommand):
     help = "Generate required database records used in dev."
@@ -84,7 +89,8 @@ class Command(BaseCommand):
 
             category = TreeCategory.TRY if repo.is_try else TreeCategory.DEVELOPMENT
             create_new_tree(
-                user_id="setup_dev",
+                # Tree changes are attributed to the email of the acting user.
+                user_id=ADMIN_EMAIL,
                 tree=repo.tree,
                 status=TreeStatus.OPEN,
                 reason="Created by `setup_dev`",
@@ -106,11 +112,11 @@ class Command(BaseCommand):
         self._raise_if_not_local()
 
         try:
-            user = User.objects.get(username="admin")
+            user = User.objects.get(username=ADMIN_USERNAME)
             self.stdout.write(f"Admin user ({user}) found, resetting settings.")
         except User.DoesNotExist:
             user = User.objects.create_user(
-                "admin", password="password", email="test@example.org"
+                ADMIN_USERNAME, password=ADMIN_PASSWORD, email=ADMIN_EMAIL
             )
             self.stdout.write(f"Admin user ({user}) created.")
         user.is_staff = True
@@ -128,7 +134,7 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 "Superuser created with the following username and password: "
-                '"admin", "password".'
+                f'"{ADMIN_USERNAME}", "{ADMIN_PASSWORD}".'
             )
         )
 

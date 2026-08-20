@@ -5,7 +5,7 @@ from lando.environments import Environment
 from lando.main.models import Repo
 from lando.main.scm import SCMType
 from lando.treestatus.models import Log, Tree, TreeCategory, TreeStatus
-from lando.utils.management.commands.setup_dev import Command
+from lando.utils.management.commands.setup_dev import ADMIN_EMAIL, Command
 
 
 @pytest.fixture
@@ -43,6 +43,8 @@ def test_setup_treestatus_trees_creates_a_tree_per_repo(new_repo):
     assert Tree.objects.get(tree="try").category == TreeCategory.TRY, (
         "A try repo should be categorized as a try tree."
     )
-    assert Log.objects.filter(tree="first-repo").count() == 1, (
-        "Seeding a tree should record an initial log entry."
+    logs = Log.objects.filter(tree="first-repo")
+    assert logs.count() == 1, "Seeding a tree should record an initial log entry."
+    assert logs.get().changed_by == ADMIN_EMAIL, (
+        "The initial log entry should be attributed to the local admin user."
     )
