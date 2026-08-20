@@ -156,7 +156,7 @@ class Command(BaseCommand):
 
     def migrate_4_bug2064629_firefox_SHIPPING_flag(self, ask_confirm: bool = True):
         """Enable the SHIPPING flag on firefox repos."""
-        repos = Repo.objects.get(
+        repos = Repo.objects.filter(
             name__in=[
                 "firefox-beta",
                 "firefox-release",
