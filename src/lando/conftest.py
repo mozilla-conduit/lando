@@ -32,8 +32,10 @@ from lando.api.legacy.transplants import build_stack_assessment_state
 from lando.api.tests.mocks import PhabricatorDouble, TreeStatusDouble
 from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import (
+    DONTBUILD,
     SCM_LEVEL_1,
     SCM_LEVEL_3,
+    SHIPPING,
     CommitMap,
     Profile,
     Repo,
@@ -975,6 +977,7 @@ def mocked_repo_config(mock_repo_config):
         url="http://hg.test",
         required_permission=SCM_LEVEL_3,
         approval_required=False,
+        commit_flags=[DONTBUILD, SHIPPING],
     )
     Repo.objects.create(
         scm_type=SCMType.HG,
