@@ -33,7 +33,6 @@ from lando.main.scm.exceptions import (
     SCMException,
     SCMInternalServerError,
 )
-from lando.treestatus.utils import is_open
 
 logger = logging.getLogger(__name__)
 
@@ -276,7 +275,7 @@ class Worker(ABC):
 
     def refresh_active_repos(self):
         """Refresh the list of repositories based on treestatus."""
-        self.active_repos = [repo for repo in self.enabled_repos if is_open(repo.tree)]
+        self.active_repos = [repo for repo in self.enabled_repos if repo.is_tree_open]
         logger.info(f"{len(self.active_repos)} enabled repos: {self.active_repos}")
 
     def run_idle_maintenance(self):

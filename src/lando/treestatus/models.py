@@ -11,7 +11,7 @@ from typing import (
 
 from django.db import models
 
-from lando.main.models import BaseModel
+from lando.main.basemodel import BaseModel
 
 
 class TreeStatus(models.TextChoices):

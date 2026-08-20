@@ -14,7 +14,7 @@ from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy
 
-from lando.main.models.base import BaseModel
+from lando.main.basemodel import BaseModel
 from lando.main.scm.exceptions import NoDiffStartLine
 from lando.main.scm.helpers import HgPatchHelper, build_patch_for_revision
 

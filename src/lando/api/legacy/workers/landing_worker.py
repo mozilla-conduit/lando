@@ -39,7 +39,6 @@ from lando.main.scm import (
     TreeClosed,
 )
 from lando.pushlog.pushlog import PushLog, PushLogForRepo
-from lando.treestatus.utils import is_open
 from lando.utils.config import read_lando_config
 from lando.utils.github import GitHubAPIClient
 from lando.utils.landing_checks import LandingChecks
@@ -123,7 +122,7 @@ class LandingWorker(Worker):
                 "Pull Requests are not supported for this repository."
             )
 
-        if not is_open(repo.tree):
+        if not repo.is_tree_open:
             job.transition_status(
                 JobAction.DEFER,
                 message=f"Tree {repo.tree} is closed - retrying later.",

@@ -9,8 +9,8 @@ from django.conf import settings
 from django.contrib.auth.models import Permission, User
 from django.core.exceptions import ValidationError
 
+from lando.main.basemodel import CryptographyMixin
 from lando.main.models import CommitMap, Repo
-from lando.main.models.base import CryptographyMixin
 from lando.main.models.profile import Profile
 from lando.main.models.repo import (
     get_default_autoformat_run_command,
@@ -18,6 +18,7 @@ from lando.main.models.repo import (
 )
 from lando.main.models.revision import Revision
 from lando.main.scm import SCMType
+from lando.treestatus.models import TreeStatus
 from lando.utils.landing_checks import (
     ALL_CHECKS,
     PreventNSPRCheck,
@@ -567,7 +568,7 @@ def test_phabricator_api_key_encryption():
     assert profile.phabricator_api_key == ""
 
 
-@mock.patch("lando.main.models.base.cryptography")
+@mock.patch("lando.main.basemodel.cryptography")
 def test_cryptography_mixin__set_field(cryptography, mock_crypto_model):
     mock_crypto_model.encrypted_made_up_field = None
     mock_crypto_model.set_made_up_field("this is a test")
@@ -576,7 +577,7 @@ def test_cryptography_mixin__set_field(cryptography, mock_crypto_model):
     assert mock_crypto_model.save.call_count == 1
 
 
-@mock.patch("lando.main.models.base.cryptography")
+@mock.patch("lando.main.basemodel.cryptography")
 def test_cryptography_mixin__set_field_do_not_save(cryptography, mock_crypto_model):
     mock_crypto_model.encrypted_made_up_field = None
     mock_crypto_model.set_made_up_field("this is a test", save=False)
@@ -585,7 +586,7 @@ def test_cryptography_mixin__set_field_do_not_save(cryptography, mock_crypto_mod
     assert mock_crypto_model.save.call_count == 0
 
 
-@mock.patch("lando.main.models.base.cryptography")
+@mock.patch("lando.main.basemodel.cryptography")
 def test_cryptography_mixin__clear_field(cryptography, mock_crypto_model):
     mock_crypto_model.encrypted_made_up_field = None
     mock_crypto_model.clear_made_up_field()
@@ -594,7 +595,7 @@ def test_cryptography_mixin__clear_field(cryptography, mock_crypto_model):
     assert mock_crypto_model.save.call_count == 1
 
 
-@mock.patch("lando.main.models.base.cryptography")
+@mock.patch("lando.main.basemodel.cryptography")
 def test_cryptography_mixin__rotate_field(cryptography, mock_crypto_model):
     mock_crypto_model.encrypted_made_up_field = None
     cryptography.encrypt.return_value = b"something encrypted"
@@ -624,3 +625,34 @@ def test_cryptography_mixin____getattr__(mock_crypto_model):
     # cause unexpected problems.
     assert mock_crypto_model.__class__.__name__ == "MockModel"
     assert mock_crypto_model.__dir__() == object.__dir__(mock_crypto_model)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "status, expected",
+    (
+        pytest.param(TreeStatus.OPEN, True, id="open"),
+        pytest.param(TreeStatus.APPROVAL_REQUIRED, True, id="approval-required"),
+        pytest.param(TreeStatus.CLOSED, False, id="closed"),
+    ),
+)
+def test__models__Repo__is_tree_open(
+    new_treestatus_tree, status: TreeStatus, expected: bool
+):
+    """`is_tree_open` should reflect the Treestatus state of the repo's tree."""
+    new_treestatus_tree(tree="firefox-autoland", status=status)
+    repo = Repo(name="firefox-autoland")
+
+    assert repo.is_tree_open is expected, (
+        f"`is_tree_open` should be `{expected}` for a {status} tree."
+    )
+
+
+@pytest.mark.django_db
+def test__models__Repo__is_tree_open_unknown_tree():
+    """`is_tree_open` should be `True` for a repo with no tree in Treestatus."""
+    repo = Repo(name="repo-without-a-tree")
+
+    assert repo.is_tree_open is True, (
+        "`is_tree_open` should be `True` when the tree is missing from Treestatus."
+    )
