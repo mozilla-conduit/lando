@@ -1492,13 +1492,12 @@ def make_push():
 
 @pytest.fixture
 def make_scm_commit(make_hash):
-    def scm_commit_factory(seqno: int, desc: str | None = None):
+    def scm_commit_factory(seqno: int, desc: str = ""):
         return CommitData(
             hash=make_hash(seqno),
             author=f"author-{seqno}",
             desc=desc
-            if desc is not None
-            else f"""SCM Commit {seqno}
+            or f"""SCM Commit {seqno}
 
 Another line""",
             datetime=datetime.now(tz=timezone.utc),
