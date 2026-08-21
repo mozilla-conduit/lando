@@ -159,8 +159,7 @@ def get_combined_trees(
         log_id=Subquery(latest_log.values("id")[:1]),
     )
 
-    if filters:
-        qs = qs.filter(**filters)
+    qs = qs.filter(**filters)
 
     if trees:
         qs = qs.filter(tree__in=trees)
