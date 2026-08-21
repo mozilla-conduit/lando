@@ -1062,16 +1062,22 @@ def test_inactive_tree_hidden_from_dashboard(client, new_treestatus_tree):
 
 
 @pytest.mark.django_db
-def test_inactive_tree_missing_from_api_get_tree(client, new_treestatus_tree):
-    """An inactive tree is treated as missing by `GET /trees/{tree}`."""
-    new_treestatus_tree(tree="firefox-esr128", is_active=False)
+def test_inactive_tree_served_by_api_get_tree(client, new_treestatus_tree):
+    """An inactive tree is still served by `GET /trees/{tree}`.
+
+    Clients which request a tree by name get a definite status, rather than a 404
+    which they may interpret as the tree being open.
+    """
+    new_treestatus_tree(
+        tree="firefox-esr128", status=TreeStatus.CLOSED, is_active=False
+    )
 
     response = client.get("/api/treestatus/trees/firefox-esr128")
-    assert response.status_code == 404, (
-        "`GET /trees/{tree}` should return 404 for an inactive tree."
+    assert response.status_code == 200, (
+        "`GET /trees/{tree}` should return 200 for an inactive tree."
     )
-    assert response.json()["detail"] == "No tree firefox-esr128 found.", (
-        "An inactive tree should be reported as missing."
+    assert response.json()["result"]["status"] == TreeStatus.CLOSED, (
+        "An inactive tree should report its status."
     )
 
 
@@ -1099,7 +1105,11 @@ def test_inactive_tree_logs_are_retained(client, new_treestatus_tree):
 
 @pytest.mark.django_db
 def test_inactive_tree_is_not_assumed_open(new_treestatus_tree):
-    """Deactivating a closed tree does not make it open for landing."""
+    """Deactivating a closed tree does not make it open for landing.
+
+    `is_open` assumes an unknown tree is open, so an inactive tree must keep
+    reporting its real status rather than reading as missing.
+    """
     new_treestatus_tree(
         tree="firefox-esr128", status=TreeStatus.CLOSED, is_active=False
     )

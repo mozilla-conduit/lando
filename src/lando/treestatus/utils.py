@@ -44,8 +44,7 @@ def is_open(tree_name: str) -> bool:
     # Read directly from the database rather than via the cached
     # `get_tree_by_name`, so landing decisions always reflect the latest
     # committed state without depending on the cache being invalidated in time.
-    # Inactive trees are included, so deactivating a tree never silently opens it.
-    tree = fetch_tree_by_name(tree_name, include_inactive=True)
+    tree = fetch_tree_by_name(tree_name)
 
     # We assume missing trees are open.
     return not tree or tree.status.is_open()
@@ -60,27 +59,24 @@ def tree_cache_key(tree_name: str) -> str:
 def get_tree_by_name(tree_name: str) -> Optional[CombinedTree]:
     """Cached lookup of a tree by name.
 
-    Returns `None` if no tree can be found, or if the tree is inactive. Suitable
-    for display surfaces where a brief staleness window is acceptable; landing
-    decisions should use `fetch_tree_by_name` instead.
+    Returns `None` if no tree can be found. Suitable for display surfaces where
+    a brief staleness window is acceptable; landing decisions should use
+    `fetch_tree_by_name` instead.
     """
     return fetch_tree_by_name(tree_name)
 
 
-def fetch_tree_by_name(
-    tree_name: str, include_inactive: bool = False
-) -> Optional[CombinedTree]:
+def fetch_tree_by_name(tree_name: str) -> Optional[CombinedTree]:
     """Retrieve a `CombinedTree` representation of a tree by name from the database.
 
-    Returns `None` if no tree can be found. Inactive trees are treated as missing
-    unless `include_inactive` is set.
+    Returns `None` if no tree can be found. Inactive trees are returned like any
+    other, so clients which request a tree by name always get a definite status.
     """
     latest_log = Log.objects.filter(tree=OuterRef("tree")).order_by("-created_at")
 
     # Create a `Tree` object annotated with `Log` values.
     tree = (
-        visible_trees(include_inactive)
-        .filter(tree=tree_name)
+        Tree.objects.filter(tree=tree_name)
         .annotate(
             log_tags=Subquery(latest_log.values("tags")[:1]),
             log_status=Subquery(latest_log.values("status")[:1]),
