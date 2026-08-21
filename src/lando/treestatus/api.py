@@ -1,6 +1,7 @@
 import functools
 from datetime import datetime
 from typing import (
+    Any,
     Callable,
     Generic,
     Optional,
@@ -127,9 +128,9 @@ def api_get_stack(request: WSGIRequest) -> list[dict]:
 
 @treestatus_api.get("/trees", response={200: Result[dict[str, TreeData]]})
 @result_object_wrap
-def api_get_trees(request: WSGIRequest, include_inactive: bool = False) -> dict:
+def api_get_trees(request: WSGIRequest, is_active: Optional[bool] = None) -> dict:
     """Handler for `GET /trees`."""
-    trees = get_combined_trees(filters={} if include_inactive else DEFAULT_TREES_FILTER)
+    trees = get_combined_trees(filters=trees_filter(is_active))
     return {tree.tree: tree.to_dict() for tree in trees}
 
 
@@ -137,10 +138,24 @@ def api_get_trees(request: WSGIRequest, include_inactive: bool = False) -> dict:
     "/trees2", response={200: Result[list[TreeData]], codes_4xx: ProblemDetail}
 )
 @result_object_wrap
-def api_get_trees2(request: WSGIRequest, include_inactive: bool = False) -> list[dict]:
+def api_get_trees2(
+    request: WSGIRequest, is_active: Optional[bool] = None
+) -> list[dict]:
     """Handler for `GET /trees2`."""
-    trees = get_combined_trees(filters={} if include_inactive else DEFAULT_TREES_FILTER)
+    trees = get_combined_trees(filters=trees_filter(is_active))
     return [tree.to_dict() for tree in trees]
+
+
+def trees_filter(is_active: Optional[bool]) -> dict[str, Any]:
+    """Turn the `is_active` query parameter into a `get_combined_trees` filter.
+
+    Trees are filtered on whichever state is requested, and default to the
+    trees which are still in use when the parameter is omitted.
+    """
+    if is_active is None:
+        return DEFAULT_TREES_FILTER
+
+    return {"is_active": is_active}
 
 
 @treestatus_api.get("/trees/{tree}", response={200: Result[TreeData]})
