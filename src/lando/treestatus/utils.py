@@ -5,7 +5,7 @@ from typing import (
 )
 
 from django.core.cache import caches
-from django.db.models import OuterRef, QuerySet, Subquery
+from django.db.models import OuterRef, Subquery
 from django.db.utils import IntegrityError
 
 from lando.treestatus.models import (
@@ -134,22 +134,25 @@ def get_combined_tree(
 
 
 def get_combined_trees(
-    trees: Optional[list[str]] = None, include_inactive: bool = False
+    trees: Optional[list[str]] = None, is_active: Optional[bool] = True
 ) -> list[CombinedTree]:
     """Return a `CombinedTree` representation of trees.
 
     If `trees` is set, return the `CombinedTree` for those trees, otherwise
-    return all known trees. Inactive trees are omitted unless `include_inactive`
-    is set.
+    return all known trees. Trees are filtered on `is_active`, which defaults
+    to active trees only; pass `None` to return trees in either state.
     """
     latest_log = Log.objects.filter(tree=OuterRef("tree")).order_by("-created_at")
 
-    qs = visible_trees(include_inactive).annotate(
+    qs = Tree.objects.annotate(
         log_tags=Subquery(latest_log.values("tags")[:1]),
         log_status=Subquery(latest_log.values("status")[:1]),
         log_reason=Subquery(latest_log.values("reason")[:1]),
         log_id=Subquery(latest_log.values("id")[:1]),
     )
+
+    if is_active is not None:
+        qs = qs.filter(is_active=is_active)
 
     if trees:
         qs = qs.filter(tree__in=trees)
@@ -160,14 +163,6 @@ def get_combined_trees(
         )
         for tree in qs
     ]
-
-
-def visible_trees(include_inactive: bool = False) -> QuerySet[Tree]:
-    """Return a `Tree` queryset, excluding inactive trees unless asked for them."""
-    if include_inactive:
-        return Tree.objects.all()
-
-    return Tree.objects.filter(is_active=True)
 
 
 def get_tree_logs_by_name(tree_name: str, limit_logs: bool = True) -> list[dict]:

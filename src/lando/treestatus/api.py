@@ -126,18 +126,20 @@ def api_get_stack(request: WSGIRequest) -> list[dict]:
 
 @treestatus_api.get("/trees", response={200: Result[dict[str, TreeData]]})
 @result_object_wrap
-def api_get_trees(request: WSGIRequest) -> dict:
+def api_get_trees(request: WSGIRequest, include_inactive: bool = False) -> dict:
     """Handler for `GET /trees`."""
-    return {tree.tree: tree.to_dict() for tree in get_combined_trees()}
+    trees = get_combined_trees(is_active=None if include_inactive else True)
+    return {tree.tree: tree.to_dict() for tree in trees}
 
 
 @treestatus_api.get(
     "/trees2", response={200: Result[list[TreeData]], codes_4xx: ProblemDetail}
 )
 @result_object_wrap
-def api_get_trees2(request: WSGIRequest) -> list[dict]:
+def api_get_trees2(request: WSGIRequest, include_inactive: bool = False) -> list[dict]:
     """Handler for `GET /trees2`."""
-    return [tree.to_dict() for tree in get_combined_trees()]
+    trees = get_combined_trees(is_active=None if include_inactive else True)
+    return [tree.to_dict() for tree in trees]
 
 
 @treestatus_api.get("/trees/{tree}", response={200: Result[TreeData]})

@@ -1022,7 +1022,7 @@ def test_api_get_stack(client, new_treestatus_tree):
 
 @pytest.mark.django_db
 def test_inactive_tree_hidden_from_get_combined_trees(new_treestatus_tree):
-    """Inactive trees are omitted from `get_combined_trees` unless asked for."""
+    """`get_combined_trees` filters on `is_active`, defaulting to active trees."""
     new_treestatus_tree(tree="mozilla-central")
     new_treestatus_tree(tree="firefox-esr128", is_active=False)
 
@@ -1030,11 +1030,16 @@ def test_inactive_tree_hidden_from_get_combined_trees(new_treestatus_tree):
         "Inactive trees should be omitted from `get_combined_trees`."
     )
 
-    all_trees = get_combined_trees(include_inactive=True)
+    all_trees = get_combined_trees(is_active=None)
     assert sorted(tree.tree for tree in all_trees) == [
         "firefox-esr128",
         "mozilla-central",
-    ], "Inactive trees should be returned when `include_inactive` is set."
+    ], "Passing `is_active=None` should return trees in either state."
+
+    inactive_trees = get_combined_trees(is_active=False)
+    assert [tree.tree for tree in inactive_trees] == ["firefox-esr128"], (
+        "Passing `is_active=False` should return only inactive trees."
+    )
 
 
 @pytest.mark.django_db
@@ -1054,6 +1059,26 @@ def test_inactive_tree_hidden_from_api_trees(client, new_treestatus_tree):
     assert [tree["tree"] for tree in response.json()["result"]] == [
         "mozilla-central"
     ], "Inactive trees should not be returned from `GET /trees2`."
+
+
+@pytest.mark.django_db
+def test_api_trees_include_inactive(client, new_treestatus_tree):
+    """`include_inactive` asks the list endpoints for trees in either state."""
+    new_treestatus_tree(tree="mozilla-central")
+    new_treestatus_tree(tree="firefox-esr128", is_active=False)
+
+    response = client.get("/api/treestatus/trees?include_inactive=1")
+    assert response.status_code == 200, "`GET /trees` should return 200."
+    assert sorted(response.json()["result"]) == ["firefox-esr128", "mozilla-central"], (
+        "`GET /trees` should return inactive trees when `include_inactive` is set."
+    )
+
+    response = client.get("/api/treestatus/trees2?include_inactive=1")
+    assert response.status_code == 200, "`GET /trees2` should return 200."
+    assert sorted(tree["tree"] for tree in response.json()["result"]) == [
+        "firefox-esr128",
+        "mozilla-central",
+    ], "`GET /trees2` should return inactive trees when `include_inactive` is set."
 
 
 @pytest.mark.django_db
