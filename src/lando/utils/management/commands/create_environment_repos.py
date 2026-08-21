@@ -10,6 +10,7 @@ from lando.main.models import (
     SCM_CONDUIT,
     SCM_LEVEL_1,
     SCM_LEVEL_3,
+    SHIPPING,
     Repo,
 )
 from lando.main.models.repo import TRY_HOOKS
@@ -56,7 +57,7 @@ REPOS = {
             "url": "http://hg.test/first-repo",
             "push_path": "ssh://autoland.hg/repos/first-repo",
             "required_permission": SCM_LEVEL_1,
-            "commit_flags": [DONTBUILD],
+            "commit_flags": [DONTBUILD, SHIPPING],
         },
         {
             "name": "second-repo",
@@ -157,7 +158,7 @@ REPOS = {
             "name": "m-c",
             "url": "https://hg.mozilla.org/conduit-testing/m-c",
             "required_permission": SCM_CONDUIT,
-            "commit_flags": [DONTBUILD],
+            "commit_flags": [DONTBUILD, SHIPPING],
             "approval_required": True,
             "milestone_tracking_flag_template": "cf_status_firefox{milestone}",
         },
@@ -165,7 +166,7 @@ REPOS = {
             "name": "large-repo",
             "url": "https://hg.mozilla.org/conduit-testing/m-c",
             "required_permission": SCM_CONDUIT,
-            "commit_flags": [DONTBUILD],
+            "commit_flags": [DONTBUILD, SHIPPING],
             "milestone_tracking_flag_template": "cf_status_firefox{milestone}",
         },
         {
