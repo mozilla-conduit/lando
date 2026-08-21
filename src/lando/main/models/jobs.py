@@ -4,17 +4,34 @@ from collections.abc import Iterable
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, Self
+from urllib.parse import urljoin
 
+from django.conf import settings
 from django.db import models
 from django.db.models import Case, IntegerField, QuerySet, When
+from django.urls import reverse
 from django.utils.translation import gettext_lazy
 
 from lando.main.models.base import BaseModel
 from lando.main.models.commit_map import CommitMap
+from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 from lando.main.models.repo import Repo
 from lando.main.scm.consts import SCMType
 
 logger = logging.getLogger(__name__)
+
+# Number of attempts a job may make before it is aborted. Used when the
+# `MAX_JOB_ATTEMPTS` configuration variable is unset.
+DEFAULT_MAX_JOB_ATTEMPTS = 10
+
+ABORTED_ERROR_TEMPLATE = """
+Lando gave up on this job after {attempts} attempts, so it would stop blocking
+other jobs for this repository. Please retry the job, and file a bug if the
+problem persists.
+
+Reason for the last failure:
+{message}
+""".strip()
 
 
 class TemporaryFailureException(Exception):
@@ -37,6 +54,9 @@ class JobStatus(models.TextChoices):
     FAILED = "FAILED", gettext_lazy("Failed")
     LANDED = "LANDED", gettext_lazy("Landed")
     CANCELLED = "CANCELLED", gettext_lazy("Cancelled")
+    # A job which kept hitting temporary failures and was given up on, so it
+    # would stop blocking the queue for its repository.
+    ABORTED = "ABORTED", gettext_lazy("Aborted")
 
     @classmethod
     def ordering(cls) -> Case:
@@ -57,7 +77,8 @@ class JobStatus(models.TextChoices):
             When(status=cls.FAILED, then=4),
             When(status=cls.LANDED, then=5),
             When(status=cls.CANCELLED, then=6),
-            When(status=cls.CREATED, then=7),
+            When(status=cls.ABORTED, then=7),
+            When(status=cls.CREATED, then=8),
             default=0,
             output_field=IntegerField(),
         )
@@ -73,7 +94,7 @@ class JobStatus(models.TextChoices):
     @classmethod
     def final(cls) -> list[Self]:
         """Group of Job statuses that will not change without manual intervention."""
-        return [cls.FAILED, cls.LANDED, cls.CANCELLED]
+        return [cls.FAILED, cls.LANDED, cls.CANCELLED, cls.ABORTED]
 
 
 @enum.unique
@@ -92,6 +113,9 @@ class JobAction(enum.Enum):
     # A permanent issue occurred and this requires user intervention
     FAIL = "FAIL"
 
+    # Give up on a job which keeps deferring, so it stops blocking the queue.
+    ABORT = "ABORT"
+
     # A user has requested a cancellation
     CANCEL = "CANCEL"
 
@@ -109,8 +133,20 @@ class BaseJob(BaseModel):
     # To be overridden by subclasses.
     type: str = "undefined"
 
+    # Name of the view which displays the details page of this type of job.
+    # To be overridden by subclasses.
+    details_view_name: str = ""
+
     def __str__(self) -> str:
         return f"{self.__class__.__name__} {self.id} [{self.status}]"
+
+    def path(self) -> str:
+        """Return the path of the details page for this job."""
+        return reverse(self.details_view_name, args=[self.id])
+
+    def url(self) -> str:
+        """Return a URL for this job."""
+        return urljoin(settings.SITE_URL, self.path())
 
     # Current status of the job.
     status = models.CharField(
@@ -154,6 +190,13 @@ class BaseJob(BaseModel):
             self.duration_seconds = (datetime.now() - start_time).seconds
             self.save()
 
+    def start_attempt(self):
+        """Count a new attempt at running this job and mark it as in progress."""
+        self.status = JobStatus.IN_PROGRESS
+        self.attempts += 1
+        logger.debug(f"Starting attempt {self.attempts} of {self}.")
+        self.save()
+
     def transition_status(
         self,
         action: JobAction,
@@ -180,6 +223,10 @@ class BaseJob(BaseModel):
                 "required_params": ["message"],
                 "status": JobStatus.DEFERRED,
             },
+            JobAction.ABORT: {
+                "required_params": ["message"],
+                "status": JobStatus.ABORTED,
+            },
             JobAction.CANCEL: {
                 "required_params": [],
                 "status": JobStatus.CANCELLED,
@@ -189,20 +236,43 @@ class BaseJob(BaseModel):
         if action not in actions:
             raise ValueError(f"{action} is not a valid action")
 
-        required_params = actions[action]["required_params"]
-        if sorted(required_params) != sorted(kwargs.keys()):
-            missing_params = required_params - kwargs.keys()
+        required_params = set(actions[action]["required_params"])
+
+        if missing_params := required_params - kwargs.keys():
             raise ValueError(f"Missing {missing_params} params")
+
+        if unknown_params := kwargs.keys() - required_params:
+            raise ValueError(f"Unknown {unknown_params} params")
 
         self.status = actions[action]["status"]
 
         if action in (JobAction.FAIL, JobAction.DEFER):
             self.error = kwargs["message"]
 
+        if action == JobAction.ABORT:
+            logger.warning(
+                f"Aborting {self} after {self.attempts} attempts.",
+                extra={"id": self.id},
+            )
+            self.error = ABORTED_ERROR_TEMPLATE.format(
+                attempts=self.attempts, message=kwargs["message"]
+            )
+
         if action == JobAction.LAND:
             self.landed_commit_id = kwargs["commit_id"]
 
         self.save()
+
+    @property
+    def max_attempts(self) -> int:
+        """Number of attempts a job may make before it is aborted."""
+        return ConfigurationVariable.get(
+            ConfigurationKey.MAX_JOB_ATTEMPTS, DEFAULT_MAX_JOB_ATTEMPTS
+        )
+
+    def has_attempts_remaining(self) -> bool:
+        """Whether the job may be retried, or has run out of attempts."""
+        return self.attempts < self.max_attempts
 
     @property
     def landed_treeherder_revision(self) -> str | None:

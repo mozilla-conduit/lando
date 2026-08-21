@@ -1,5 +1,4 @@
 from django.contrib import admin
-from django.urls import reverse
 
 from lando.headless_api.models.automation_job import AutomationAction, AutomationJob
 from lando.headless_api.models.tokens import ApiToken
@@ -71,10 +70,6 @@ class AutomationJobAdmin(JobAdmin):
     def action_types(self, instance: AutomationJob) -> str:
         """Return a summary string of the action types associated to a given job."""
         return str([a.action_type for a in instance.actions.all()])
-
-    def view_on_site(self, instance: AutomationJob) -> str:
-        url = reverse("api-jobs-page", kwargs={"job_id": instance.id})
-        return url
 
 
 class AutomationActionAdmin(admin.ModelAdmin):

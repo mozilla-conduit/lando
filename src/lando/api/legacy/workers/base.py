@@ -32,12 +32,20 @@ from lando.main.scm.exceptions import (
     PatchConflict,
     SCMException,
     SCMInternalServerError,
+    TreeApprovalRequired,
+    TreeClosed,
 )
 from lando.treestatus.utils import is_open
+from lando.utils.tasks import send_job_aborted_email
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+# Failures which are expected to be resolved without anyone looking at the job, e.g.
+# by a sheriff reopening the tree. Jobs deferred for these reasons are retried
+# indefinitely, rather than being aborted after `BaseJob.max_attempts` attempts.
+NON_ABORTABLE_FAILURES = (TreeClosed, TreeApprovalRequired)
 
 
 class Worker(ABC):
@@ -220,16 +228,14 @@ class Worker(ABC):
             if job.status not in [JobStatus.SUBMITTED, JobStatus.DEFERRED]:
                 logger.warning(f"Unexpected status for {job}")
 
-            job.status = JobStatus.IN_PROGRESS
-            job.attempts += 1
-            # Make sure the status and attempt count are updated in the database
-            job.save()
+            job.start_attempt()
 
             try:
                 self.last_job_finished = self.run_job(job)
             except TemporaryFailureException as exc:
-                job.transition_status(JobAction.DEFER, message=str(exc))
-                self.last_job_finished = False
+                # An aborted job is in a final state, so the worker can move on to the
+                # next job rather than sleeping.
+                self.last_job_finished = self.defer_or_abort(job, str(exc))
                 logger.warning(
                     f"Temporary failure for {job}: {exc}",
                     extra={"id": job.id},
@@ -259,6 +265,33 @@ class Worker(ABC):
                     f"Finished processing {job}",
                     extra={"id": job.id},
                 )
+
+            if job.status == JobStatus.ABORTED:
+                self.notify_user_of_job_abort(job)
+
+    def defer_or_abort(self, job: BaseJob, message: str) -> bool:
+        """Abort `job` if it has run out of attempts, otherwise defer it.
+
+        A job which keeps deferring blocks every other job for its repository, so it
+        is given up on once it runs out of attempts. Returns whether it was aborted.
+        """
+        if job.has_attempts_remaining():
+            job.transition_status(JobAction.DEFER, message=message)
+            return False
+
+        job.transition_status(JobAction.ABORT, message=message)
+        return True
+
+    def notify_user_of_job_abort(self, job: BaseJob):
+        """Tell the requester of `job` that Lando gave up on it."""
+        self.call_task(
+            send_job_aborted_email,
+            job.requester_email,
+            job.type,
+            job.id,
+            job.url(),
+            job.error,
+        )
 
     @property
     def throttle_seconds(self) -> int:
@@ -357,7 +390,7 @@ class Worker(ABC):
                 f"encountered while pulling from {repo_pull_info}: {e}"
             )
             logger.exception(message)
-            job.transition_status(JobAction.DEFER, message=message)
+            self.defer_or_abort(job, message)
 
             # Try again, this is a temporary failure.
             raise TemporaryFailureException(message) from e
