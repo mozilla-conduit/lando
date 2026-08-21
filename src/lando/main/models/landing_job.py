@@ -151,7 +151,7 @@ class LandingJob(BaseJob):
         return self.unsorted_revisions.first().is_phabricator_revision
 
     @property
-    def landing_job_identifier(self) -> str:
+    def human_friendly_identifier(self) -> str:
         """Human-readable representation of the branch head.
 
         Returns a Phabricator revision ID if the revisions are associated with a Phabricator

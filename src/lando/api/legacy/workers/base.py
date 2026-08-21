@@ -13,6 +13,8 @@ from celery import Task
 from django.db import transaction
 from kombu.exceptions import OperationalError
 
+from lando.api.legacy.notifications import notify_user_of_bug_update_failure
+from lando.api.legacy.uplift import update_bugs_for_uplift
 from lando.main.models import (
     BaseJob,
     JobStatus,
@@ -421,6 +423,56 @@ class Worker(ABC):
                 message=message,
             )
             raise PermanentFailureException(message) from exc
+
+    @staticmethod
+    def notify_user_of_bug_update_failure(job: BaseJob):
+        """Wrapper around `notify_user_of_bug_update_failure` for convenience.
+
+        Args:
+            job (BaseJob): A job instance to use when fetching the
+                notification parameters.
+        """
+        notify_user_of_bug_update_failure(
+            job.requester_email,
+            job.human_friendly_identifier,
+            "Failed to update Bugzilla after landing uplift revisions. Please "
+            "update the relevant bugs manually.",
+            job.id,
+        )
+
+    def update_bugs_after_uplift(
+        self, job: BaseJob, repo: Repo, scm: AbstractSCM, bug_ids: list[str]
+    ):
+        """Update the bugs referenced by an uplift landing.
+
+        Callers are responsible for checking the target repo requires approval
+        (i.e. is an uplift train). No-op if the landed commits reference no bugs.
+        """
+        if not repo.approval_required:
+            raise ValueError(
+                f"Repo {repo.name} does not require approval, refusing to update bugs."
+            )
+
+        if not bug_ids:
+            return
+
+        logger.debug(f"Updating bugs after uplift landing: {bug_ids}.")
+        try:
+            update_bugs_for_uplift(
+                # Use the `legacy source` shortname here, since the new repos
+                # use the `firefox-` prefix naming convention. For `firefox-beta`
+                # this should return `beta`, etc.
+                repo.default_branch,
+                scm.read_checkout_file("config/milestone.txt"),
+                repo.milestone_tracking_flag_template,
+                bug_ids,
+            )
+        except Exception:
+            # The changesets will have gone through even if updating the bugs fails.
+            # Notify the landing user so they are aware and can update the bugs
+            # themselves.
+            logger.exception("Failed to update bugs after uplift landing.")
+            self.notify_user_of_bug_update_failure(job)
 
     def start(self, max_loops: int | None = None):
         """Run setup sequence and start the event loop."""
