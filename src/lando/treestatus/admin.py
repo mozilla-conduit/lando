@@ -1,7 +1,6 @@
 from django.contrib import admin
 from django.core.cache import caches
 from django.core.handlers.wsgi import WSGIRequest
-from django.db.models import QuerySet
 from django.forms import ModelForm
 from django.urls import reverse
 
@@ -43,11 +42,11 @@ class TreeAdmin(admin.ModelAdmin):
         "created_at",
         "updated_at",
     )
+    list_editable = ("is_active",)
     list_filter = ("status", "category", "is_active")
     search_fields = ("tree", "reason", "message_of_the_day")
     readonly_fields = ("created_at", "updated_at")
     ordering = ("tree",)
-    actions = ("deactivate_trees", "activate_trees")
 
     def view_on_site(self, instance: Tree) -> str:
         url = reverse("treestatus-tree-logs", kwargs={"tree": instance.tree})
@@ -57,24 +56,6 @@ class TreeAdmin(admin.ModelAdmin):
     def reason_summary(self, instance: Tree) -> str:
         """Return a shortened version of the reason the tree is in its current state."""
         return summarize(instance.reason)
-
-    @admin.action(description="Deactivate selected trees")
-    def deactivate_trees(self, request: WSGIRequest, queryset: QuerySet):
-        """Mark the selected trees as inactive."""
-        self.set_active(queryset, is_active=False)
-
-    @admin.action(description="Activate selected trees")
-    def activate_trees(self, request: WSGIRequest, queryset: QuerySet):
-        """Mark the selected trees as active again."""
-        self.set_active(queryset, is_active=True)
-
-    def set_active(self, queryset: QuerySet, is_active: bool):
-        """Set `is_active` on each tree in `queryset` and invalidate their caches."""
-        tree_names = list(queryset.values_list("tree", flat=True))
-        queryset.update(is_active=is_active)
-
-        for tree_name in tree_names:
-            invalidate_tree_cache(tree_name)
 
     def save_model(
         self, request: WSGIRequest, instance: Tree, form: ModelForm, change: bool
