@@ -450,6 +450,47 @@ def test_api_client_get_pull_request_commits(
     ], "Unexpected commit data"
 
 
+@pytest.fixture
+def pull_request(github_pr_response: str) -> PullRequest:
+    """A real `PullRequest` built from a canned API payload, with a mock client.
+
+    `PullRequest.__init__` only parses the payload (no network), so this exercises
+    the real object; the two tests below override the one property they care about.
+    """
+    return PullRequest(mock.Mock(), json.loads(github_pr_response))
+
+
+def test_pull_request_bug_ids(pull_request: PullRequest):
+    """`PullRequest.bug_ids` parses (and de-duplicates) bugs from commit messages."""
+    commits = [
+        {"commit": {"message": "Bug 123: do a thing"}},
+        {"commit": {"message": "Bug 456 - another; bug 123 again"}},
+        {"commit": {"message": "No bug: cleanup"}},
+    ]
+    with mock.patch.object(
+        PullRequest,
+        "commits",
+        new_callable=mock.PropertyMock,
+        return_value=commits,
+    ):
+        assert pull_request.bug_ids == {123, 456}
+
+
+def test_pull_request_bugs_by_id_is_fetched_once(pull_request: PullRequest):
+    """`bugs_by_id` caches, so the two status-flag checks share a single BMO fetch."""
+    with (
+        mock.patch.object(
+            PullRequest, "bug_ids", new_callable=mock.PropertyMock, return_value={123}
+        ),
+        mock.patch(
+            "lando.utils.github.fetch_bugs", return_value={123: {"id": 123}}
+        ) as fetch_bugs,
+    ):
+        assert pull_request.bugs_by_id == {123: {"id": 123}}
+        assert pull_request.bugs_by_id == {123: {"id": 123}}
+        assert fetch_bugs.call_count == 1, "bugs_by_id should fetch at most once"
+
+
 @pytest.mark.parametrize(
     "body, expected_output",
     (

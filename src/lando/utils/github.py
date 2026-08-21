@@ -22,6 +22,8 @@ from django.views import View
 from simple_github import AppAuth, AppInstallationAuth
 from typing_extensions import override
 
+from lando.api.legacy.bmo import BugFetchError, fetch_bugs
+from lando.api.legacy.commit_message import parse_bugs
 from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 from lando.main.scm.helpers import PatchHelper, PatchHelperMetadata
 from lando.utils.cache import cache_method
@@ -608,6 +610,21 @@ class PullRequest:
             )
 
         return commits
+
+    @property
+    def bug_ids(self) -> set[int]:
+        bug_ids: set[int] = set()
+        for commit in self.commits:
+            bug_ids.update(parse_bugs(commit["commit"]["message"]))
+        return bug_ids
+
+    @functools.cached_property
+    def bugs_by_id(self) -> dict[int, dict] | None:
+        """BMO bug data for the PR's referenced bugs, keyed by id (`None` on failure)."""
+        try:
+            return fetch_bugs(self.bug_ids)
+        except BugFetchError:
+            return None
 
     @property
     @pr_cache_method
