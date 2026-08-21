@@ -112,12 +112,12 @@ class Tree(BaseModel):
         blank=False,
     )
 
-    is_retired = models.BooleanField(
-        default=False,
+    is_active = models.BooleanField(
+        default=True,
         null=False,
         blank=True,
         help_text=(
-            "Retired trees are hidden from the Treestatus web view and API, "
+            "Inactive trees are hidden from the Treestatus web view and API, "
             "though their historical data is retained."
         ),
     )
@@ -133,8 +133,8 @@ class Tree(BaseModel):
         }
 
     def __str__(self) -> str:
-        if self.is_retired:
-            return f"{self.tree} ({self.status}, retired)"
+        if not self.is_active:
+            return f"{self.tree} ({self.status}, inactive)"
 
         return f"{self.tree} ({self.status})"
 

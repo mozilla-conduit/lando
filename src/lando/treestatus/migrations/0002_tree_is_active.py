@@ -11,11 +11,11 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddField(
             model_name="tree",
-            name="is_retired",
+            name="is_active",
             field=models.BooleanField(
                 blank=True,
-                default=False,
-                help_text="Retired trees are hidden from the Treestatus web view and API, though their historical data is retained.",
+                default=True,
+                help_text="Inactive trees are hidden from the Treestatus web view and API, though their historical data is retained.",
             ),
         ),
     ]

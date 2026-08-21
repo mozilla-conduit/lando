@@ -44,8 +44,8 @@ def is_open(tree_name: str) -> bool:
     # Read directly from the database rather than via the cached
     # `get_tree_by_name`, so landing decisions always reflect the latest
     # committed state without depending on the cache being invalidated in time.
-    # Retired trees are included, so retiring a tree never silently opens it.
-    tree = fetch_tree_by_name(tree_name, include_retired=True)
+    # Inactive trees are included, so deactivating a tree never silently opens it.
+    tree = fetch_tree_by_name(tree_name, include_inactive=True)
 
     # We assume missing trees are open.
     return not tree or tree.status.is_open()
@@ -60,7 +60,7 @@ def tree_cache_key(tree_name: str) -> str:
 def get_tree_by_name(tree_name: str) -> Optional[CombinedTree]:
     """Cached lookup of a tree by name.
 
-    Returns `None` if no tree can be found, or if the tree is retired. Suitable
+    Returns `None` if no tree can be found, or if the tree is inactive. Suitable
     for display surfaces where a brief staleness window is acceptable; landing
     decisions should use `fetch_tree_by_name` instead.
     """
@@ -68,18 +68,18 @@ def get_tree_by_name(tree_name: str) -> Optional[CombinedTree]:
 
 
 def fetch_tree_by_name(
-    tree_name: str, include_retired: bool = False
+    tree_name: str, include_inactive: bool = False
 ) -> Optional[CombinedTree]:
     """Retrieve a `CombinedTree` representation of a tree by name from the database.
 
-    Returns `None` if no tree can be found. Retired trees are treated as missing
-    unless `include_retired` is set.
+    Returns `None` if no tree can be found. Inactive trees are treated as missing
+    unless `include_inactive` is set.
     """
     latest_log = Log.objects.filter(tree=OuterRef("tree")).order_by("-created_at")
 
     # Create a `Tree` object annotated with `Log` values.
     tree = (
-        visible_trees(include_retired)
+        visible_trees(include_inactive)
         .filter(tree=tree_name)
         .annotate(
             log_tags=Subquery(latest_log.values("tags")[:1]),
@@ -138,17 +138,17 @@ def get_combined_tree(
 
 
 def get_combined_trees(
-    trees: Optional[list[str]] = None, include_retired: bool = False
+    trees: Optional[list[str]] = None, include_inactive: bool = False
 ) -> list[CombinedTree]:
     """Return a `CombinedTree` representation of trees.
 
     If `trees` is set, return the `CombinedTree` for those trees, otherwise
-    return all known trees. Retired trees are omitted unless `include_retired`
+    return all known trees. Inactive trees are omitted unless `include_inactive`
     is set.
     """
     latest_log = Log.objects.filter(tree=OuterRef("tree")).order_by("-created_at")
 
-    qs = visible_trees(include_retired).annotate(
+    qs = visible_trees(include_inactive).annotate(
         log_tags=Subquery(latest_log.values("tags")[:1]),
         log_status=Subquery(latest_log.values("status")[:1]),
         log_reason=Subquery(latest_log.values("reason")[:1]),
@@ -166,12 +166,12 @@ def get_combined_trees(
     ]
 
 
-def visible_trees(include_retired: bool = False) -> QuerySet[Tree]:
-    """Return a `Tree` queryset, excluding retired trees unless asked for them."""
-    if include_retired:
+def visible_trees(include_inactive: bool = False) -> QuerySet[Tree]:
+    """Return a `Tree` queryset, excluding inactive trees unless asked for them."""
+    if include_inactive:
         return Tree.objects.all()
 
-    return Tree.objects.filter(is_retired=False)
+    return Tree.objects.filter(is_active=True)
 
 
 def get_tree_logs_by_name(tree_name: str, limit_logs: bool = True) -> list[dict]:
