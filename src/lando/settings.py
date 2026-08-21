@@ -73,7 +73,7 @@ CSRF_COOKIE_SECURE = True
 # Configure the django-cors-headers middleware.
 CORS_ALLOW_ALL_ORIGINS = True
 # Only set the CORS header for those paths.
-CORS_URLS_REGEX = r"^(/landing_jobs|/api/treestatus/trees)"
+CORS_URLS_REGEX = r"^(/landing_jobs|/api/treestatus)"
 
 # Set the default upload memory size to a large value, to support large uploads from
 # lando-cli.
