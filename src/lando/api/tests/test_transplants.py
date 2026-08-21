@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 import requests
 from django.contrib.auth.models import Permission
+from django.core.cache import cache
 
 from lando.api.legacy.api import transplants as legacy_api_transplants
 from lando.api.legacy.transplants import (
@@ -508,6 +509,9 @@ def security_flags_state(phabdouble, create_state):
         secure_project=None,
         repo_name="firefox",
     ):
+        # `fetch_bugs` briefly caches results keyed by bug id; clear it so tests
+        # reusing the same bug id don't see a prior test's cached payload.
+        cache.clear()
         repo = phabdouble.repo(name=repo_name)
         projects = [secure_project] if secure_project is not None else []
         revision = phabdouble.api_object_for(
@@ -517,12 +521,12 @@ def security_flags_state(phabdouble, create_state):
 
         if bmo_down:
             patched = mock.patch(
-                "lando.api.legacy.transplants.uplift_get_bug",
+                "lando.api.legacy.bmo.uplift_get_bug",
                 side_effect=requests.exceptions.RequestException("boom"),
             )
         else:
             patched = mock.patch(
-                "lando.api.legacy.transplants.uplift_get_bug",
+                "lando.api.legacy.bmo.uplift_get_bug",
                 return_value={"bugs": bugs if bugs is not None else []},
             )
 
@@ -712,9 +716,9 @@ def test_security_flags_blocker_surfaces_in_assessment(security_flags_state):
 
     assessment = run_landing_checks(stack_state)
 
-    assert any(
-        "missing Firefox status flags" in blocker for blocker in assessment.blockers
-    ), "the blocker should surface in the assessment"
+    assert any("missing status flags" in blocker for blocker in assessment.blockers), (
+        "the blocker should surface in the assessment"
+    )
     assert revision["phid"] not in stack_state.landable_stack, (
         "a blocked revision should be removed from the landable stack"
     )
