@@ -646,7 +646,6 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
 
     # Get LandingJob object by its id
     job = LandingJob.objects.get(pk=job_id)
-    assert job.id == job_id
     assert [
         (revision.revision_id, revision.diff_id) for revision in job.revisions.all()
     ] == [
@@ -692,7 +691,6 @@ def test_integrated_transplant_SHIPPING_flag(
 
     # Get LandingJob object by its id
     job = LandingJob.objects.get(pk=job_id)
-    assert job.id == job_id
     assert [
         (revision.revision_id, revision.diff_id) for revision in job.revisions.all()
     ] == [
