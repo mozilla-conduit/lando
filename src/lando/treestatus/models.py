@@ -118,8 +118,8 @@ class Tree(BaseModel):
         blank=False,
         help_text=(
             "Inactive trees are hidden from the Treestatus web view and the API "
-            "list endpoints. They can still be requested by name, and their "
-            "historical data is retained."
+            "list endpoints, and are closed when they are deactivated. They can "
+            "still be requested by name, and their historical data is retained."
         ),
     )
 

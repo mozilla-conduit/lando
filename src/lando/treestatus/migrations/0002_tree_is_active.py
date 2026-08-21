@@ -14,7 +14,7 @@ class Migration(migrations.Migration):
             name="is_active",
             field=models.BooleanField(
                 default=True,
-                help_text="Inactive trees are hidden from the Treestatus web view and the API list endpoints. They can still be requested by name, and their historical data is retained.",
+                help_text="Inactive trees are hidden from the Treestatus web view and the API list endpoints, and are closed when they are deactivated. They can still be requested by name, and their historical data is retained.",
             ),
         ),
     ]

@@ -1,15 +1,24 @@
 import datetime
+from types import SimpleNamespace
 
 import pytest
+from django.contrib import admin
 from django.core.cache import caches
 from django.test import override_settings
 
+from lando.treestatus.admin import DEACTIVATED_TREE_REASON, TreeAdmin
 from lando.treestatus.api import (
     LogEntry,
     StackEntry,
     TreeData,
 )
-from lando.treestatus.models import CombinedTree, Tree, TreeCategory, TreeStatus
+from lando.treestatus.models import (
+    CombinedTree,
+    Log,
+    Tree,
+    TreeCategory,
+    TreeStatus,
+)
 from lando.treestatus.utils import (
     TREESTATUS_CACHE,
     apply_log_and_stack_update,
@@ -1132,3 +1141,51 @@ def test_inactive_tree_cannot_be_updated(new_treestatus_tree):
             tags=["planned"],
             reason="end of life",
         )
+
+
+@pytest.mark.django_db
+def test_deactivating_a_tree_from_the_admin_closes_it(rf, new_treestatus_tree):
+    """Deactivating a tree in the admin closes it and logs the change."""
+    tree = new_treestatus_tree(tree="firefox-esr128")
+
+    request = rf.post("/admin/treestatus/tree/")
+    request.user = SimpleNamespace(email="admin@example.com")
+
+    tree.is_active = False
+    TreeAdmin(Tree, admin.site).save_model(
+        request, tree, SimpleNamespace(changed_data=["is_active"]), change=True
+    )
+
+    tree.refresh_from_db()
+    assert not tree.is_active, "The tree should have been deactivated."
+    assert tree.status == TreeStatus.CLOSED, "A deactivated tree should be closed."
+    assert tree.reason == DEACTIVATED_TREE_REASON, (
+        "A deactivated tree should explain why it is closed."
+    )
+
+    log = Log.objects.filter(tree=tree.tree).order_by("-created_at").first()
+    assert log is not None, "Deactivating a tree should be logged."
+    assert log.status == TreeStatus.CLOSED, "The log should record the closure."
+    assert log.changed_by == "admin@example.com", (
+        "The log should record the admin who deactivated the tree."
+    )
+
+
+@pytest.mark.django_db
+def test_editing_an_active_tree_from_the_admin_keeps_its_status(
+    rf, new_treestatus_tree
+):
+    """Editing a tree in the admin without deactivating it leaves the status alone."""
+    tree = new_treestatus_tree(tree="mozilla-central", reason="bustage")
+
+    request = rf.post("/admin/treestatus/tree/")
+    request.user = SimpleNamespace(email="admin@example.com")
+
+    tree.message_of_the_day = "hello"
+    TreeAdmin(Tree, admin.site).save_model(
+        request, tree, SimpleNamespace(changed_data=["message_of_the_day"]), change=True
+    )
+
+    tree.refresh_from_db()
+    assert tree.status == TreeStatus.OPEN, "The tree should still be open."
+    assert tree.reason == "bustage", "The reason should be untouched."

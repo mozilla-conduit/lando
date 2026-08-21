@@ -10,8 +10,15 @@ from lando.treestatus.models import (
     StatusChange,
     StatusChangeTree,
     Tree,
+    TreeStatus,
 )
-from lando.treestatus.utils import TREESTATUS_CACHE, tree_cache_key
+from lando.treestatus.utils import (
+    TREESTATUS_CACHE,
+    apply_tree_update_to_model,
+    tree_cache_key,
+)
+
+DEACTIVATED_TREE_REASON = "This tree is no longer in use and is not being updated."
 
 
 def summarize(text: str, length: int = 80) -> str:
@@ -60,7 +67,21 @@ class TreeAdmin(admin.ModelAdmin):
     def save_model(
         self, request: WSGIRequest, instance: Tree, form: ModelForm, change: bool
     ):
-        """Save the tree, invalidating the cached view of it."""
+        """Save the tree, invalidating the cached view of it.
+
+        A tree which is being deactivated is closed at the same time, so clients
+        which request it by name see a definite status rather than the status it
+        happened to have when it fell out of use.
+        """
+        if "is_active" in form.changed_data and not instance.is_active:
+            apply_tree_update_to_model(
+                instance,
+                user_id=request.user.email,
+                status=TreeStatus.CLOSED.value,
+                reason=DEACTIVATED_TREE_REASON,
+            )
+            return
+
         super().save_model(request, instance, form, change)
         invalidate_tree_cache(instance.tree)
 
