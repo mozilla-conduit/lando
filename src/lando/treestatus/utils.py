@@ -34,6 +34,9 @@ TREE_SUMMARY_LOG_LIMIT = 5
 # to every other web head and the worker, unlike the per-process default cache.
 TREESTATUS_CACHE = "db"
 
+# The default `get_combined_trees` filter: trees which are still in use.
+DEFAULT_TREES_FILTER = {"is_active": True}
+
 
 def is_open(tree_name: str) -> bool:
     """Return `True` if the tree is considered open for landing.
@@ -69,7 +72,8 @@ def get_tree_by_name(tree_name: str) -> Optional[CombinedTree]:
 def fetch_tree_by_name(tree_name: str) -> Optional[CombinedTree]:
     """Retrieve a `CombinedTree` representation of a tree by name from the database.
 
-    Returns `None` if no tree can be found.
+    Returns `None` if no tree can be found. Inactive trees are returned like any
+    other, so clients which request a tree by name always get a definite status.
     """
     latest_log = Log.objects.filter(tree=OuterRef("tree")).order_by("-created_at")
 
@@ -132,12 +136,20 @@ def get_combined_tree(
     return CombinedTree(**result)
 
 
-def get_combined_trees(trees: Optional[list[str]] = None) -> list[CombinedTree]:
+def get_combined_trees(
+    trees: Optional[list[str]] = None,
+    filters: Optional[dict[str, Any]] = None,
+) -> list[CombinedTree]:
     """Return a `CombinedTree` representation of trees.
 
     If `trees` is set, return the `CombinedTree` for those trees, otherwise
-    return all known trees.
+    return all known trees. `filters` is passed through to the `Tree` queryset
+    and defaults to `DEFAULT_TREES_FILTER`; pass an empty dict to return every
+    tree.
     """
+    if filters is None:
+        filters = DEFAULT_TREES_FILTER
+
     latest_log = Log.objects.filter(tree=OuterRef("tree")).order_by("-created_at")
 
     qs = Tree.objects.annotate(
@@ -146,6 +158,8 @@ def get_combined_trees(trees: Optional[list[str]] = None) -> list[CombinedTree]:
         log_reason=Subquery(latest_log.values("reason")[:1]),
         log_id=Subquery(latest_log.values("id")[:1]),
     )
+
+    qs = qs.filter(**filters)
 
     if trees:
         qs = qs.filter(tree__in=trees)
