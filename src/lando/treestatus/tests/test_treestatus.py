@@ -1022,7 +1022,7 @@ def test_api_get_stack(client, new_treestatus_tree):
 
 @pytest.mark.django_db
 def test_inactive_tree_hidden_from_get_combined_trees(new_treestatus_tree):
-    """`get_combined_trees` filters on `is_active`, defaulting to active trees."""
+    """`get_combined_trees` passes `filters` through, defaulting to active trees."""
     new_treestatus_tree(tree="mozilla-central")
     new_treestatus_tree(tree="firefox-esr128", is_active=False)
 
@@ -1030,15 +1030,15 @@ def test_inactive_tree_hidden_from_get_combined_trees(new_treestatus_tree):
         "Inactive trees should be omitted from `get_combined_trees`."
     )
 
-    all_trees = get_combined_trees(is_active=None)
+    all_trees = get_combined_trees(filters={})
     assert sorted(tree.tree for tree in all_trees) == [
         "firefox-esr128",
         "mozilla-central",
-    ], "Passing `is_active=None` should return trees in either state."
+    ], "Passing an empty `filters` should return every tree."
 
-    inactive_trees = get_combined_trees(is_active=False)
+    inactive_trees = get_combined_trees(filters={"is_active": False})
     assert [tree.tree for tree in inactive_trees] == ["firefox-esr128"], (
-        "Passing `is_active=False` should return only inactive trees."
+        "`filters` should be passed through to the queryset."
     )
 
 

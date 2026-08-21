@@ -16,6 +16,7 @@ from lando.treestatus.models import (
     TreeStatus,
 )
 from lando.treestatus.utils import (
+    ACTIVE_TREES,
     get_combined_trees,
     get_tree_by_name,
     get_tree_logs_by_name,
@@ -128,7 +129,7 @@ def api_get_stack(request: WSGIRequest) -> list[dict]:
 @result_object_wrap
 def api_get_trees(request: WSGIRequest, include_inactive: bool = False) -> dict:
     """Handler for `GET /trees`."""
-    trees = get_combined_trees(is_active=None if include_inactive else True)
+    trees = get_combined_trees(filters={} if include_inactive else ACTIVE_TREES)
     return {tree.tree: tree.to_dict() for tree in trees}
 
 
@@ -138,7 +139,7 @@ def api_get_trees(request: WSGIRequest, include_inactive: bool = False) -> dict:
 @result_object_wrap
 def api_get_trees2(request: WSGIRequest, include_inactive: bool = False) -> list[dict]:
     """Handler for `GET /trees2`."""
-    trees = get_combined_trees(is_active=None if include_inactive else True)
+    trees = get_combined_trees(filters={} if include_inactive else ACTIVE_TREES)
     return [tree.to_dict() for tree in trees]
 
 
