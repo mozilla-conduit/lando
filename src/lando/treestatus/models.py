@@ -133,10 +133,8 @@ class Tree(BaseModel):
         }
 
     def __str__(self) -> str:
-        if not self.is_active:
-            return f"{self.tree} ({self.status}, inactive)"
-
-        return f"{self.tree} ({self.status})"
+        suffix = "" if self.is_active else ", inactive"
+        return f"{self.tree} ({self.status}{suffix})"
 
 
 class Log(BaseModel):
