@@ -13,7 +13,6 @@ class Migration(migrations.Migration):
             model_name="tree",
             name="is_active",
             field=models.BooleanField(
-                blank=True,
                 default=True,
                 help_text="Inactive trees are hidden from the Treestatus web view and API, though their historical data is retained.",
             ),

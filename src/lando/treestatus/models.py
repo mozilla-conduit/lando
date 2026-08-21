@@ -115,7 +115,7 @@ class Tree(BaseModel):
     is_active = models.BooleanField(
         default=True,
         null=False,
-        blank=True,
+        blank=False,
         help_text=(
             "Inactive trees are hidden from the Treestatus web view and API, "
             "though their historical data is retained."
