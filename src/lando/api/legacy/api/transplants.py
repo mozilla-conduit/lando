@@ -48,6 +48,7 @@ from lando.api.legacy.validation import (
     revision_id_to_int,
 )
 from lando.main.models import (
+    SHIPPING,
     JobStatus,
     LandingJob,
     Repo,
@@ -157,6 +158,8 @@ def post(phab: PhabricatorClient, user: User, data: dict) -> tuple[dict[str, int
     flags = parsed_transplant_request["flags"]
     landing_path = parsed_transplant_request["landing_path"]
 
+    extra_job_options = {}
+
     logger.info(
         "transplant requested by user",
         extra={
@@ -217,6 +220,9 @@ def post(phab: PhabricatorClient, user: User, data: dict) -> tuple[dict[str, int
             f"Flags must be one or more of {allowed_flags}; {invalid_flags} provided."
         )
         raise LegacyAPIException(400, error_message)
+
+    if SHIPPING[0] in flags:
+        extra_job_options["priority"] = 5
 
     mailbox = data.get("mailbox", None)
     has_disallowed_author_diffs = any(
@@ -349,6 +355,7 @@ def post(phab: PhabricatorClient, user: User, data: dict) -> tuple[dict[str, int
         job = LandingJob(
             requester_email=ldap_username,
             target_repo=landing_repo,
+            **extra_job_options,
         )
         job.save()
 
