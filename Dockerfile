@@ -10,15 +10,6 @@ EXPOSE 80
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-RUN addgroup --gid 10001 app \
-    && adduser \
-        --disabled-password \
-        --uid 10001 \
-        --gid 10001 \
-        --home /app \
-        --gecos "app,,," \
-        app
-
 # Install mercurial
 RUN apt-get update
 RUN apt-get install -y mercurial=6.3.2-1+deb12u1
@@ -75,6 +66,25 @@ RUN cd /code && npm run build
 # Create an empty directory to store version info.
 RUN mkdir -p /code/src/lando/version
 
+# Built as the caller by `compose.yaml`, so writes to the working copy stay
+# editable on the host. Created here rather than at the top of the file so that
+# changing the ids does not invalidate the cached dependency layers above.
+ARG APP_UID=10001
+ARG APP_GID=10001
+
+RUN addgroup --gid ${APP_GID} app \
+    && adduser \
+        --disabled-password \
+        --uid ${APP_UID} \
+        --gid ${APP_GID} \
+        --home /app \
+        --gecos "app,,," \
+        app
+
+# Docker populates a fresh `media` volume, mounted at `/files`, from the image.
+# Without this it is root-owned and unwritable by the user compose runs as.
+RUN mkdir -p /files/repos /files/mozbuilds && chown -R app:app /files
+
 RUN mkdir -p /code/.ruff_cache
 RUN chown -R app /code/.ruff_cache
 
@@ -82,7 +92,9 @@ RUN pip install -e /code
 
 USER app
 
-# Make sure we can detect SSH signatures, even if we can't validate them.
+# Make sure we can detect SSH signatures, even if we can't validate them. Run
+# from `/`: git fails to find a repository under `/code` in a worktree.
+WORKDIR /
 RUN git config --global gpg.ssh.allowedSignersFile /dev/null
 
 WORKDIR /code

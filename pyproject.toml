@@ -75,6 +75,8 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
 version_file = "src/lando/version/__init__.py"
+# A git worktree has no usable git metadata inside the Docker build context.
+fallback_version = "0.0.0.dev0"
 
 [tool.setuptools.packages.find]
 where = ["src"]

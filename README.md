@@ -115,6 +115,29 @@ and restore the default with
 
     make test-use-local
 
+### Working on several branches at once
+
+Each checkout runs as its own compose project, named after its directory, so
+`git worktree` checkouts can be built and tested in parallel:
+
+    git worktree add ../lando-bug-123456 -b bug-123456
+
+Building and testing in `../lando-bug-123456` produces `lando-bug-123456-*`
+images and its own database, Redis and volumes, leaving the ones belonging to
+the main checkout untouched. This applies to `docker compose` invoked directly
+as much as to the `make` targets. Create worktrees _beside_ the repository
+rather than inside it, so they stay out of the Docker build context.
+
+Three things are worth knowing about a new checkout:
+
+- Only one checkout at a time can publish the proxy on port 443. Set
+  `LANDO_PROXY_PORT` to something else in the others.
+- The Vue bundle is built into the working copy rather than into the image, so
+  run `make build-js` before serving the frontend.
+- There is no git metadata in the Docker build context of a worktree, so the
+  image reports the `fallback_version` from `pyproject.toml` rather than a
+  version derived from the tags.
+
 ## General Tips
 
 ### Add a new migration
