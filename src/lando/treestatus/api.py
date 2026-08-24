@@ -128,7 +128,7 @@ def api_get_stack(request: WSGIRequest) -> list[dict]:
 
 @treestatus_api.get("/trees", response={200: Result[dict[str, TreeData]]})
 @result_object_wrap
-def api_get_trees(request: WSGIRequest, is_active: Optional[bool] = None) -> dict:
+def api_get_trees(request: WSGIRequest, is_active: bool | None = None) -> dict:
     """Handler for `GET /trees`."""
     trees = get_combined_trees(filters=trees_filter(is_active))
     return {tree.tree: tree.to_dict() for tree in trees}
@@ -138,15 +138,13 @@ def api_get_trees(request: WSGIRequest, is_active: Optional[bool] = None) -> dic
     "/trees2", response={200: Result[list[TreeData]], codes_4xx: ProblemDetail}
 )
 @result_object_wrap
-def api_get_trees2(
-    request: WSGIRequest, is_active: Optional[bool] = None
-) -> list[dict]:
+def api_get_trees2(request: WSGIRequest, is_active: bool | None = None) -> list[dict]:
     """Handler for `GET /trees2`."""
     trees = get_combined_trees(filters=trees_filter(is_active))
     return [tree.to_dict() for tree in trees]
 
 
-def trees_filter(is_active: Optional[bool]) -> dict[str, Any]:
+def trees_filter(is_active: bool | None) -> dict[str, Any]:
     """Turn the `is_active` query parameter into a `get_combined_trees` filter.
 
     Trees are filtered on whichever state is requested, and default to the

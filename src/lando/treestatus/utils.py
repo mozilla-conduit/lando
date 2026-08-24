@@ -137,8 +137,8 @@ def get_combined_tree(
 
 
 def get_combined_trees(
-    trees: Optional[list[str]] = None,
-    filters: Optional[dict[str, Any]] = None,
+    trees: list[str] | None = None,
+    filters: dict[str, Any] | None = None,
 ) -> list[CombinedTree]:
     """Return a `CombinedTree` representation of trees.
 
