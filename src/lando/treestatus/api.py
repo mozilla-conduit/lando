@@ -1,6 +1,7 @@
 import functools
 from datetime import datetime
 from typing import (
+    Any,
     Callable,
     Generic,
     Optional,
@@ -126,18 +127,32 @@ def api_get_stack(request: WSGIRequest) -> list[dict]:
 
 @treestatus_api.get("/trees", response={200: Result[dict[str, TreeData]]})
 @result_object_wrap
-def api_get_trees(request: WSGIRequest) -> dict:
+def api_get_trees(request: WSGIRequest, is_active: bool | None = None) -> dict:
     """Handler for `GET /trees`."""
-    return {tree.tree: tree.to_dict() for tree in get_combined_trees()}
+    trees = get_combined_trees(filters=trees_filter(is_active))
+    return {tree.tree: tree.to_dict() for tree in trees}
 
 
 @treestatus_api.get(
     "/trees2", response={200: Result[list[TreeData]], codes_4xx: ProblemDetail}
 )
 @result_object_wrap
-def api_get_trees2(request: WSGIRequest) -> list[dict]:
+def api_get_trees2(request: WSGIRequest, is_active: bool | None = None) -> list[dict]:
     """Handler for `GET /trees2`."""
-    return [tree.to_dict() for tree in get_combined_trees()]
+    trees = get_combined_trees(filters=trees_filter(is_active))
+    return [tree.to_dict() for tree in trees]
+
+
+def trees_filter(is_active: bool | None) -> dict[str, Any] | None:
+    """Turn the `is_active` query parameter into a `get_combined_trees` filter.
+
+    Trees are filtered on whichever state is requested. Return `None` when the
+    parameter is omitted, to fall back to the `get_combined_trees` default.
+    """
+    if is_active is None:
+        return None
+
+    return {"is_active": is_active}
 
 
 @treestatus_api.get("/trees/{tree}", response={200: Result[TreeData]})

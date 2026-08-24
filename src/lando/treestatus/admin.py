@@ -1,4 +1,7 @@
 from django.contrib import admin
+from django.core.cache import caches
+from django.core.handlers.wsgi import WSGIRequest
+from django.forms import ModelForm
 from django.urls import reverse
 
 from lando.main.admin import ReadOnlyInline, ReadOnlyModelAdmin
@@ -7,7 +10,15 @@ from lando.treestatus.models import (
     StatusChange,
     StatusChangeTree,
     Tree,
+    TreeStatus,
 )
+from lando.treestatus.utils import (
+    TREESTATUS_CACHE,
+    apply_tree_update_to_model,
+    tree_cache_key,
+)
+
+DEACTIVATED_TREE_REASON = "This tree is no longer in use and is not being updated."
 
 
 def summarize(text: str, length: int = 80) -> str:
@@ -22,17 +33,24 @@ def summarize(text: str, length: int = 80) -> str:
     return f"{first_line[:length]}..."
 
 
+def invalidate_tree_cache(tree_name: str):
+    """Drop the cached lookup of the tree, so admin edits are visible immediately."""
+    caches[TREESTATUS_CACHE].delete(tree_cache_key(tree_name))
+
+
 class TreeAdmin(admin.ModelAdmin):
     model = Tree
     list_display = (
         "tree",
         "status",
         "category",
+        "is_active",
         "reason_summary",
         "created_at",
         "updated_at",
     )
-    list_filter = ("status", "category")
+    list_editable = ("is_active",)
+    list_filter = ("status", "category", "is_active")
     search_fields = ("tree", "reason", "message_of_the_day")
     readonly_fields = ("created_at", "updated_at")
     ordering = ("tree",)
@@ -45,6 +63,27 @@ class TreeAdmin(admin.ModelAdmin):
     def reason_summary(self, instance: Tree) -> str:
         """Return a shortened version of the reason the tree is in its current state."""
         return summarize(instance.reason)
+
+    def save_model(
+        self, request: WSGIRequest, instance: Tree, form: ModelForm, change: bool
+    ):
+        """Save the tree, invalidating the cached view of it.
+
+        A tree which is being deactivated is closed at the same time, so clients
+        which request it by name see a definite status rather than the status it
+        happened to have when it fell out of use.
+        """
+        if "is_active" in form.changed_data and not instance.is_active:
+            apply_tree_update_to_model(
+                instance,
+                user_id=request.user.email,
+                status=TreeStatus.CLOSED.value,
+                reason=DEACTIVATED_TREE_REASON,
+            )
+            return
+
+        super().save_model(request, instance, form, change)
+        invalidate_tree_cache(instance.tree)
 
 
 class LogAdmin(ReadOnlyModelAdmin):
