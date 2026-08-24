@@ -21,6 +21,7 @@ from lando.main.models.uplift import (
     UpliftSubmission,
     UpliftTargetSelectionMethod,
 )
+from lando.treestatus.models import Log, Tree, TreeCategory, TreeStatus
 from lando.utils.management.commands.etl import (
     AutoformatChangeTransformer,
     AutomationActionTransformer,
@@ -29,10 +30,12 @@ from lando.utils.management.commands.etl import (
     Command,
     JsonLinesLoader,
     LandingJobTransformer,
+    LogTransformer,
     RepoTransformer,
     RevisionLandingJobTransformer,
     RevisionTransformer,
     RevisionUpliftJobTransformer,
+    TreeTransformer,
     UpliftAssessmentTransformer,
     UpliftJobTransformer,
     UpliftRevisionTransformer,
@@ -669,6 +672,80 @@ def test_transform_automation_action(make_repo):
     assert result["data"] == json.dumps(
         {"diff": "some-diff-content", "message": "Bump version"}
     ), "`data` should be a JSON string."
+    assert result["created_at"] is not None, (
+        "`created_at` should exist and not be `None`."
+    )
+    assert result["updated_at"] is not None, (
+        "`updated_at` should exist and not be `None`."
+    )
+
+
+@pytest.mark.django_db
+def test_transform_tree():
+    tree = Tree.objects.create(
+        tree="autoland",
+        status=TreeStatus.CLOSED,
+        reason="Bustage",
+        message_of_the_day="Please be patient",
+        category=TreeCategory.DEVELOPMENT,
+    )
+
+    transformer = TreeTransformer()
+    result = transformer.transform(tree)
+
+    assert result["id"] == tree.id, "`id` should exist and match expected value."
+    assert result["tree"] == "autoland", "`tree` should exist and match expected value."
+    assert result["status"] == TreeStatus.CLOSED, (
+        "`status` should exist and match expected value."
+    )
+    assert result["reason"] == "Bustage", (
+        "`reason` should exist and match expected value."
+    )
+    assert result["message_of_the_day"] == "Please be patient", (
+        "`message_of_the_day` should exist and match expected value."
+    )
+    assert result["category"] == TreeCategory.DEVELOPMENT, (
+        "`category` should exist and match expected value."
+    )
+    assert result["created_at"] is not None, (
+        "`created_at` should exist and not be `None`."
+    )
+    assert result["updated_at"] is not None, (
+        "`updated_at` should exist and not be `None`."
+    )
+
+
+@pytest.mark.django_db
+def test_transform_log(new_treestatus_tree):
+    tree = new_treestatus_tree(tree="autoland")
+    log = Log.objects.create(
+        tree=tree,
+        changed_by="sheriff@example.com",
+        status=TreeStatus.CLOSED,
+        reason="Bustage",
+        tags=["checkin_compilation"],
+    )
+
+    transformer = LogTransformer()
+    result = transformer.transform(log)
+
+    assert result["id"] == log.id, "`id` should exist and match expected value."
+    assert result["tree"] == "autoland", (
+        "`tree` should be the tree name, since the foreign key points at `Tree.tree`."
+    )
+    assert "tree_id" not in result, "`tree_id` should be renamed to `tree`."
+    assert result["changed_by"] == "sheriff@example.com", (
+        "`changed_by` should exist and match expected value."
+    )
+    assert result["status"] == TreeStatus.CLOSED, (
+        "`status` should exist and match expected value."
+    )
+    assert result["reason"] == "Bustage", (
+        "`reason` should exist and match expected value."
+    )
+    assert result["tags"] == ["checkin_compilation"], (
+        "`tags` should be passed through as a list for the REPEATED field."
+    )
     assert result["created_at"] is not None, (
         "`created_at` should exist and not be `None`."
     )
