@@ -34,9 +34,6 @@ TREE_SUMMARY_LOG_LIMIT = 5
 # to every other web head and the worker, unlike the per-process default cache.
 TREESTATUS_CACHE = "db"
 
-# The default `get_combined_trees` filter: trees which are still in use.
-DEFAULT_TREES_FILTER = {"is_active": True}
-
 
 def is_open(tree_name: str) -> bool:
     """Return `True` if the tree is considered open for landing.
@@ -144,11 +141,11 @@ def get_combined_trees(
 
     If `trees` is set, return the `CombinedTree` for those trees, otherwise
     return all known trees. `filters` is passed through to the `Tree` queryset
-    and defaults to `DEFAULT_TREES_FILTER`; pass an empty dict to return every
-    tree.
+    and defaults to the trees which are still in use; pass an empty dict to
+    return every tree.
     """
     if filters is None:
-        filters = DEFAULT_TREES_FILTER
+        filters = {"is_active": True}
 
     latest_log = Log.objects.filter(tree=OuterRef("tree")).order_by("-created_at")
 

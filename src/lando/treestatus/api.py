@@ -17,7 +17,6 @@ from lando.treestatus.models import (
     TreeStatus,
 )
 from lando.treestatus.utils import (
-    DEFAULT_TREES_FILTER,
     get_combined_trees,
     get_tree_by_name,
     get_tree_logs_by_name,
@@ -144,14 +143,14 @@ def api_get_trees2(request: WSGIRequest, is_active: bool | None = None) -> list[
     return [tree.to_dict() for tree in trees]
 
 
-def trees_filter(is_active: bool | None) -> dict[str, Any]:
+def trees_filter(is_active: bool | None) -> dict[str, Any] | None:
     """Turn the `is_active` query parameter into a `get_combined_trees` filter.
 
-    Trees are filtered on whichever state is requested, and default to the
-    trees which are still in use when the parameter is omitted.
+    Trees are filtered on whichever state is requested. Return `None` when the
+    parameter is omitted, to fall back to the `get_combined_trees` default.
     """
     if is_active is None:
-        return DEFAULT_TREES_FILTER
+        return None
 
     return {"is_active": is_active}
 
