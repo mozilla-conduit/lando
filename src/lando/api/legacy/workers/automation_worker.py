@@ -180,6 +180,11 @@ class AutomationWorker(Worker):
 
         job.transition_status(JobAction.LAND, commit_id=commit_id)
 
+        # Extra steps for post-uplift landings.
+        if repo.approval_required:
+            bug_ids = [bug_id for commit in new_commits for bug_id in commit.bug_ids]
+            self.update_bugs_after_uplift(job, repo, scm, bug_ids)
+
         # Trigger update of repo in Phabricator so patches are closed quicker.
         # Especially useful on low-traffic repositories.
         if repo.phab_identifier:

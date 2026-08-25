@@ -10,11 +10,7 @@ from typing_extensions import override
 
 from lando.api.legacy.commit_message import bug_list_to_commit_string, parse_bugs
 from lando.api.legacy.notifications import (
-    notify_user_of_bug_update_failure,
     notify_user_of_landing_failure,
-)
-from lando.api.legacy.uplift import (
-    update_bugs_for_uplift,
 )
 from lando.api.legacy.workers.base import NON_ABORTABLE_FAILURES, Worker
 from lando.main.models import (
@@ -81,22 +77,7 @@ class LandingWorker(Worker):
                 notification parameters.
         """
         notify_user_of_landing_failure(
-            job.requester_email, job.landing_job_identifier, job.error, job.id
-        )
-
-    @staticmethod
-    def notify_user_of_bug_update_failure(job: LandingJob, exception: Exception):
-        """Wrapper around notify_user_of_bug_update_failure for convenience.
-
-        Args:
-            job (LandingJob): A LandingJob instance to use when fetching the
-                notification parameters.
-        """
-        notify_user_of_bug_update_failure(
-            job.requester_email,
-            job.landing_job_identifier,
-            f"Failed to update Bugzilla after landing uplift revisions: {str(exception)}",
-            job.id,
+            job.requester_email, job.human_friendly_identifier, job.error, job.id
         )
 
     @override
@@ -167,22 +148,8 @@ class LandingWorker(Worker):
             logger.info(f"{mots_path} not found, skipping setting reviewer data.")
 
         # Extra steps for post-uplift landings.
-        if repo.approval_required and bug_ids:
-            try:
-                # If we just landed an uplift, update the relevant bugs as appropriate.
-                update_bugs_for_uplift(
-                    # Use the `legacy source` shortname here, since the new repos
-                    # use the `firefox-` prefix naming convention. For `firefox-beta`
-                    # this should return `beta`, etc.
-                    repo.default_branch,
-                    scm.read_checkout_file("config/milestone.txt"),
-                    repo.milestone_tracking_flag_template,
-                    bug_ids,
-                )
-            except Exception as e:
-                # The changesets will have gone through even if updating the bugs fails. Notify
-                # the landing user so they are aware and can update the bugs themselves.
-                self.notify_user_of_bug_update_failure(job, e)
+        if repo.approval_required:
+            self.update_bugs_after_uplift(job, repo, scm, bug_ids)
 
         # Trigger update of repo in Phabricator so patches are closed quicker.
         # Especially useful on low-traffic repositories.

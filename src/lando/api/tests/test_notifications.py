@@ -100,7 +100,7 @@ def test_notify_user_of_landing_failure(app):
     job.unsorted_revisions.add(revision)
     notify_user_of_landing_failure(
         job.requester_email,
-        job.landing_job_identifier,
+        job.human_friendly_identifier,
         job.error,
         job.id,
     )

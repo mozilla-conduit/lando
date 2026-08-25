@@ -176,6 +176,11 @@ class BaseJob(BaseModel):
     # Reference to the target repo.
     target_repo = models.ForeignKey(Repo, on_delete=models.SET_NULL, null=True)
 
+    @property
+    def human_friendly_identifier(self) -> str:
+        """Human-readable representation of this job, for use in notifications."""
+        return f"{self.type.lower()} job {self.id}"
+
     @contextmanager
     def processing(self):
         """Mutex-like context manager that manages job processing miscellany.
