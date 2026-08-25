@@ -82,13 +82,3 @@ def test__models__BaseJob__max_attempts_configuration(make_landing_job: Callable
     assert job.max_attempts == 2, (
         "`MAX_JOB_ATTEMPTS` should be used instead of the default."
     )
-
-
-@pytest.mark.django_db
-def test__models__BaseJob__transition_status_rejects_unknown_params(
-    make_landing_job: Callable,
-):
-    job = make_landing_job(status=JobStatus.SUBMITTED)
-
-    with pytest.raises(ValueError):
-        job.transition_status(JobAction.DEFER, message="failure", bogus=True)

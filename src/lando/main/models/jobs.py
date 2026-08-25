@@ -236,13 +236,10 @@ class BaseJob(BaseModel):
         if action not in actions:
             raise ValueError(f"{action} is not a valid action")
 
-        required_params = set(actions[action]["required_params"])
-
-        if missing_params := required_params - kwargs.keys():
+        required_params = actions[action]["required_params"]
+        if sorted(required_params) != sorted(kwargs.keys()):
+            missing_params = required_params - kwargs.keys()
             raise ValueError(f"Missing {missing_params} params")
-
-        if unknown_params := kwargs.keys() - required_params:
-            raise ValueError(f"Unknown {unknown_params} params")
 
         self.status = actions[action]["status"]
 
