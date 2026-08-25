@@ -10,7 +10,7 @@ from django.db.models import Q, QuerySet
 from mots.config import FileConfig
 from mots.directory import Directory
 
-from lando.main.models.base import BaseModel
+from lando.main.basemodel import BaseModel
 from lando.main.models.jobs import BaseJob
 from lando.main.models.repo import Repo
 from lando.main.models.revision import Revision, RevisionLandingJob

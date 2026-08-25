@@ -3,7 +3,7 @@ from django.contrib.auth.models import Permission, User
 from django.contrib.contenttypes.models import ContentType
 from django.db import models, transaction
 
-from lando.main.models.base import BaseModel, CryptographyMixin
+from lando.main.basemodel import BaseModel, CryptographyMixin
 
 SCM_PERMISSIONS = (
     ("scm_allow_direct_push", "SCM_ALLOW_DIRECT_PUSH"),
