@@ -27,7 +27,7 @@ from lando.main.models.configuration import (
     ConfigurationVariable,
     VariableTypeChoices,
 )
-from lando.main.models.jobs import DEFAULT_MAX_JOB_ATTEMPTS
+from lando.main.models.jobs import ABORTED_ERROR_TEMPLATE, DEFAULT_MAX_JOB_ATTEMPTS
 from lando.main.scm import SCMType
 from lando.main.scm.exceptions import SCMInternalServerError, TreeApprovalRequired
 from lando.main.scm.git import GitSCM
@@ -722,7 +722,8 @@ def test_aborted_job_notifies_requester(
         target_repo=repo,
     )
 
-    # The worker loop fetches its own `Repo` instance, so mock the SCM class.
+    # Simulate a known temporary failure on push. The worker loop fetches its own
+    # `Repo` instance, so the mock goes on the SCM class rather than an instance.
     monkeypatch.setattr(
         GitSCM,
         "push",
@@ -739,7 +740,12 @@ def test_aborted_job_notifies_requester(
     assert job.status == JobStatus.DEFERRED, (
         "Job should be deferred while it has attempts left."
     )
+    assert "push failed" in job.error, (
+        "The deferral error should quote the mocked push failure."
+    )
     assert not mail.outbox, "No notification should be sent before the abort."
+
+    deferral_error = job.error
 
     worker.start(max_loops=1)
 
@@ -756,9 +762,9 @@ def test_aborted_job_notifies_requester(
     assert mail.outbox[0].subject == f"Lando: Landing job {job.id} was aborted!", (
         "The abort notification should identify the aborted job."
     )
-    assert "push failed" in job.error, (
-        "The job error should include the reason for the last failure."
-    )
+    assert job.error == ABORTED_ERROR_TEMPLATE.format(
+        attempts=2, message=deferral_error
+    ), "The job error should explain the abort and quote the last failure verbatim."
 
 
 @pytest.mark.django_db
@@ -819,7 +825,8 @@ def test_non_abortable_failures_do_not_abort_job(
         target_repo=repo,
     )
 
-    # The worker loop fetches its own `Repo` instance, so mock the SCM class.
+    # Simulate a non-abortable failure on push. The worker loop fetches its own
+    # `Repo` instance, so the mock goes on the SCM class rather than an instance.
     monkeypatch.setattr(
         GitSCM,
         "push",
