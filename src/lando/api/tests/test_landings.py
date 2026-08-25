@@ -709,7 +709,7 @@ def test_aborted_job_notifies_requester(
     make_landing_job: Callable,
     get_landing_worker: Callable,
 ):
-    """Bug 2021999: the requester is emailed when Lando gives up on their job."""
+    """The requester is emailed when Lando gives up on their job."""
     ConfigurationVariable.set(
         ConfigurationKey.MAX_JOB_ATTEMPTS, VariableTypeChoices.INT, "2"
     )
@@ -769,7 +769,7 @@ def test_closed_tree_deferrals_do_not_abort_job(
     make_landing_job: Callable,
     get_landing_worker: Callable,
 ):
-    """Bug 2021999: a closed tree resolves on its own, so the job keeps waiting."""
+    """A closed tree resolves on its own, so the job keeps waiting."""
     repo = repo_mc(SCMType.GIT)
     new_treestatus_tree(
         tree=repo.name, status=TreeStatus.CLOSED, reason="testing closed"
@@ -809,7 +809,7 @@ def test_non_abortable_failures_do_not_abort_job(
     make_landing_job: Callable,
     get_landing_worker: Callable,
 ):
-    """Bug 2021999: a push failure that resolves on its own is retried indefinitely."""
+    """A push failure that resolves on its own is retried indefinitely."""
     repo = repo_mc(SCMType.GIT)
 
     job = make_landing_job(
