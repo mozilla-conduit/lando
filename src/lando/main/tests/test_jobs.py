@@ -9,6 +9,7 @@ from lando.main.models.configuration import (
     VariableTypeChoices,
 )
 from lando.main.models.jobs import (
+    ABORTED_ERROR_TEMPLATE,
     DEFAULT_MAX_JOB_ATTEMPTS,
     JobAction,
     JobStatus,
@@ -61,12 +62,9 @@ def test__models__BaseJob__abort_sets_templated_error(make_landing_job: Callable
     job.transition_status(JobAction.ABORT, message="the last failure")
 
     assert job.status == JobStatus.ABORTED, "`ABORT` should abort the job."
-    assert "Lando gave up on this job" in job.error, (
-        "Error message should explain that the job was aborted."
-    )
-    assert "the last failure" in job.error, (
-        "Error message should include the reason for the last failure."
-    )
+    assert job.error == ABORTED_ERROR_TEMPLATE.format(
+        attempts=3, message="the last failure"
+    ), "The error should explain the abort and quote the last failure verbatim."
 
 
 @pytest.mark.parametrize("max_attempts", (1, 2, 5))
