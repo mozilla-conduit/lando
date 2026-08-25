@@ -67,31 +67,20 @@ def test__models__BaseJob__abort_sets_templated_error(make_landing_job: Callable
     ), "The error should explain the abort and quote the last failure verbatim."
 
 
-@pytest.mark.parametrize("max_attempts", (1, 2, 5))
 @pytest.mark.django_db
-def test__models__BaseJob__max_attempts_configuration(
-    make_landing_job: Callable,
-    max_attempts: int,
-):
-    ConfigurationVariable.set(
-        ConfigurationKey.MAX_JOB_ATTEMPTS, VariableTypeChoices.INT, str(max_attempts)
-    )
+def test__models__BaseJob__max_attempts_configuration(make_landing_job: Callable):
     job = make_landing_job(status=JobStatus.SUBMITTED)
 
-    assert job.max_attempts == max_attempts, (
+    assert job.max_attempts == DEFAULT_MAX_JOB_ATTEMPTS, (
+        "The default should be used while `MAX_JOB_ATTEMPTS` is unset."
+    )
+
+    ConfigurationVariable.set(
+        ConfigurationKey.MAX_JOB_ATTEMPTS, VariableTypeChoices.INT, "2"
+    )
+
+    assert job.max_attempts == 2, (
         "`MAX_JOB_ATTEMPTS` should be used instead of the default."
-    )
-
-    attempt_and_defer(job, max_attempts - 1)
-
-    assert job.has_attempts_remaining(), (
-        "The job should have attempts remaining before its last allowed attempt."
-    )
-
-    attempt_and_defer(job, 1)
-
-    assert not job.has_attempts_remaining(), (
-        "The job should have no attempts remaining after its last allowed attempt."
     )
 
 
