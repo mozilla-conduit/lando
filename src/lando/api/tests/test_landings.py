@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
+from django.core import mail
 
 from lando.api.legacy.workers.landing_worker import (
     AUTOFORMAT_COMMIT_MESSAGE,
@@ -21,8 +22,14 @@ from lando.main.models import (
     Repo,
     RevisionLandingJob,
 )
+from lando.main.models.configuration import (
+    ConfigurationKey,
+    ConfigurationVariable,
+    VariableTypeChoices,
+)
+from lando.main.models.jobs import ABORTED_ERROR_TEMPLATE, DEFAULT_MAX_JOB_ATTEMPTS
 from lando.main.scm import SCMType
-from lando.main.scm.exceptions import SCMInternalServerError
+from lando.main.scm.exceptions import SCMInternalServerError, TreeApprovalRequired
 from lando.main.scm.git import GitSCM
 from lando.main.scm.helpers import HgPatchHelper
 from lando.main.scm.hg import LostPushRace
@@ -692,6 +699,157 @@ def test_integrated_execute_job_with_scm_internal_error(
 
     assert worker.run_job(job)
     assert job.status == JobStatus.LANDED, "Job should have landed on second run."
+
+
+@pytest.mark.django_db
+def test_aborted_job_notifies_requester(
+    monkeypatch: pytest.MonkeyPatch,
+    repo_mc: Callable,
+    create_patch_revision: Callable,
+    make_landing_job: Callable,
+    get_landing_worker: Callable,
+):
+    """The requester is emailed when Lando gives up on their job."""
+    ConfigurationVariable.set(
+        ConfigurationKey.MAX_JOB_ATTEMPTS, VariableTypeChoices.INT, "2"
+    )
+    repo = repo_mc(SCMType.GIT)
+
+    job = make_landing_job(
+        revisions=[create_patch_revision(1)],
+        status=JobStatus.SUBMITTED,
+        requester_email="test@example.com",
+        target_repo=repo,
+    )
+
+    # Simulate a known temporary failure on push. The worker loop fetches its own
+    # `Repo` instance, so the mock goes on the SCM class rather than an instance.
+    monkeypatch.setattr(
+        GitSCM,
+        "push",
+        mock.MagicMock(side_effect=SCMInternalServerError("push failed", "500")),
+    )
+
+    worker = get_landing_worker(SCMType.GIT)
+    worker.worker_instance.applicable_repos.add(repo)
+    worker.refresh_active_repos()
+
+    worker.start(max_loops=1)
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.DEFERRED, (
+        "Job should be deferred while it has attempts left."
+    )
+    assert "push failed" in job.error, (
+        "The deferral error should quote the mocked push failure."
+    )
+    assert not mail.outbox, "No notification should be sent before the abort."
+
+    deferral_error = job.error
+
+    worker.start(max_loops=1)
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.ABORTED, (
+        "Job should have been aborted by the worker."
+    )
+    assert len(mail.outbox) == 1, (
+        "The requester should be emailed once about the abort."
+    )
+    assert mail.outbox[0].to == ["test@example.com"], (
+        "The abort notification should be sent to the requester."
+    )
+    assert mail.outbox[0].subject == f"Lando: Landing job {job.id} was aborted!", (
+        "The abort notification should identify the aborted job."
+    )
+    assert job.error == ABORTED_ERROR_TEMPLATE.format(
+        attempts=2, message=deferral_error
+    ), "The job error should explain the abort and quote the last failure verbatim."
+
+
+@pytest.mark.django_db
+def test_closed_tree_deferrals_do_not_abort_job(
+    repo_mc: Callable,
+    new_treestatus_tree: Callable,
+    create_patch_revision: Callable,
+    make_landing_job: Callable,
+    get_landing_worker: Callable,
+):
+    """A closed tree resolves on its own, so the job keeps waiting."""
+    repo = repo_mc(SCMType.GIT)
+    new_treestatus_tree(
+        tree=repo.name, status=TreeStatus.CLOSED, reason="testing closed"
+    )
+
+    job = make_landing_job(
+        revisions=[create_patch_revision(1)],
+        status=JobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        target_repo=repo,
+    )
+
+    # `run_job` is called directly, as the worker loop never picks a job up for a
+    # closed tree. See `test_non_abortable_failures_do_not_abort_job` for a
+    # non-abortable deferral through the full worker flow.
+    worker = get_landing_worker(SCMType.GIT)
+    for _attempt in range(DEFAULT_MAX_JOB_ATTEMPTS + 1):
+        # Stop early on an abort, so the next run cannot defer the job back.
+        if job.status in JobStatus.final():
+            break
+        job.start_attempt()
+        worker.run_job(job)
+
+    assert job.status == JobStatus.DEFERRED, (
+        "A job deferred for a closed tree should never be aborted."
+    )
+    assert not job.has_attempts_remaining(), (
+        "A job deferred for a closed tree should keep deferring past its attempts."
+    )
+
+
+@pytest.mark.django_db
+def test_non_abortable_failures_do_not_abort_job(
+    monkeypatch: pytest.MonkeyPatch,
+    repo_mc: Callable,
+    create_patch_revision: Callable,
+    make_landing_job: Callable,
+    get_landing_worker: Callable,
+):
+    """A push failure that resolves on its own is retried indefinitely."""
+    repo = repo_mc(SCMType.GIT)
+
+    job = make_landing_job(
+        revisions=[create_patch_revision(1)],
+        status=JobStatus.SUBMITTED,
+        requester_email="test@example.com",
+        target_repo=repo,
+    )
+
+    # Simulate a non-abortable failure on push. The worker loop fetches its own
+    # `Repo` instance, so the mock goes on the SCM class rather than an instance.
+    monkeypatch.setattr(
+        GitSCM,
+        "push",
+        mock.MagicMock(side_effect=TreeApprovalRequired("approval required", "")),
+    )
+
+    worker = get_landing_worker(SCMType.GIT)
+    worker.worker_instance.applicable_repos.add(repo)
+    worker.refresh_active_repos()
+
+    worker.start(max_loops=DEFAULT_MAX_JOB_ATTEMPTS + 1)
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.DEFERRED, (
+        "A job deferred for a non-abortable failure should never be aborted."
+    )
+    assert not job.has_attempts_remaining(), (
+        "A non-abortable failure should keep deferring past the job's attempts."
+    )
+    assert "approval required" in job.error, (
+        "The job should have been deferred for the mocked push failure."
+    )
+    assert not mail.outbox, "No abort notification should be sent to the requester."
 
 
 @pytest.mark.parametrize(

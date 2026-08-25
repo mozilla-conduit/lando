@@ -50,6 +50,44 @@ def make_failure_email(
     return msg
 
 
+JOB_ABORTED_EMAIL_TEMPLATE = """
+Your {job_type} job was aborted by Lando.
+
+{error}
+
+Job details: {job_url}
+""".strip()
+
+
+def make_job_aborted_email(
+    recipient_email: str,
+    job_type: str,
+    job_id: int,
+    job_url: str,
+    error: str,
+) -> EmailMessage:
+    """Build an EmailMessage announcing that a job was aborted.
+
+    Args:
+        recipient_email: The email of the user receiving the notification.
+        job_type: Human-friendly name of the type of job, e.g. "Landing".
+        job_id: The ID of the aborted job.
+        job_url: URL of the job details page.
+        error: The error recorded on the job when it was aborted.
+    """
+    body = JOB_ABORTED_EMAIL_TEMPLATE.format(
+        job_type=job_type.lower(),
+        error=error,
+        job_url=job_url,
+    )
+
+    return EmailMessage(
+        subject=f"Lando: {job_type} job {job_id} was aborted!",
+        body=body,
+        to=[recipient_email],
+    )
+
+
 UPLIFT_FAILURE_EMAIL_TEMPLATE = f"""
 Your uplift request for {{repo_name}} did not complete successfully.
 

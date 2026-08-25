@@ -21,6 +21,8 @@ class AutomationJob(BaseJob):
 
     type = "Automation"
 
+    details_view_name: str = "api-jobs-page"
+
     # Name of RelBranch to push changes to.
     relbranch_name = models.CharField(null=True, blank=True)
 

@@ -12,10 +12,11 @@ from lando.api.legacy.commit_message import bug_list_to_commit_string, parse_bug
 from lando.api.legacy.notifications import (
     notify_user_of_landing_failure,
 )
-from lando.api.legacy.workers.base import Worker
+from lando.api.legacy.workers.base import NON_ABORTABLE_FAILURES, Worker
 from lando.main.models import (
     AutoformatChange,
     JobAction,
+    JobStatus,
     LandingJob,
     LandingStrategy,
     PermanentFailureException,
@@ -31,8 +32,6 @@ from lando.main.scm import (
     SCMInternalServerError,
     SCMLostPushRace,
     SCMPushTimeoutException,
-    TreeApprovalRequired,
-    TreeClosed,
 )
 from lando.pushlog.pushlog import PushLog, PushLogForRepo
 from lando.treestatus.utils import is_open
@@ -121,7 +120,8 @@ class LandingWorker(Worker):
                 self.notify_user_of_landing_failure(job)
                 return True
             except TemporaryFailureException:
-                return False
+                # An aborted job is in a final state, a deferred one is tried again.
+                return job.status == JobStatus.ABORTED
             except Exception as e:
                 logger.exception(e)
                 self.notify_user_of_landing_failure(job)
@@ -313,9 +313,18 @@ class LandingWorker(Worker):
                 push_target=repo.push_target,
                 force_push=repo.force_push,
             )
+        except NON_ABORTABLE_FAILURES as e:
+            message = (
+                f"`Temporary error ({e.__class__}) "
+                f"encountered while pushing to {repo_push_info}: {e}"
+            )
+            logger.exception(message)
+
+            # The tree opens again without anyone looking at this job, so keep
+            # deferring it rather than ever giving up on it.
+            job.transition_status(JobAction.DEFER, message=message)
+            raise TemporaryFailureException(message) from e
         except (
-            TreeClosed,
-            TreeApprovalRequired,
             SCMLostPushRace,
             SCMPushTimeoutException,
             SCMInternalServerError,
@@ -325,8 +334,8 @@ class LandingWorker(Worker):
                 f"encountered while pushing to {repo_push_info}: {e}"
             )
             logger.exception(message)
-            job.transition_status(JobAction.DEFER, message=message)
-            raise TemporaryFailureException(message)
+            self.defer_or_abort(job, message)
+            raise TemporaryFailureException(message) from e
         except Exception as exc:
             message = f"Unexpected error while pushing to {repo.name}."
             logger.exception(message)

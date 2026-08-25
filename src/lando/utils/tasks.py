@@ -9,6 +9,7 @@ from django.core import mail
 
 from lando.api.legacy.email import (
     make_failure_email,
+    make_job_aborted_email,
     make_uplift_failure_email,
     make_uplift_success_email,
 )
@@ -113,6 +114,49 @@ def send_bug_update_failure_email(
         )
 
     logger.info(f"Notification email sent to {recipient_email}")
+
+
+@celery_app.task(
+    autoretry_for=(IOError, smtplib.SMTPException, ssl.SSLError),
+    default_retry_delay=60,
+    max_retries=60 * 24 * 3,
+    ignore_result=True,
+    acks_late=True,
+)
+def send_job_aborted_email(
+    recipient_email: str, job_type: str, job_id: int, job_url: str, error: str
+):
+    """Tell a user that Lando gave up retrying their job.
+
+    Args:
+        recipient_email: The email of the user receiving the notification.
+        job_type: Human-friendly name of the type of job, e.g. "Landing".
+        job_id: The ID of the aborted job.
+        job_url: URL of the job details page.
+        error: The error recorded on the job when it was aborted.
+    """
+    if not recipient_email:
+        logger.warning(
+            f"Skipping aborted email for {job_type} job {job_id} without a requester."
+        )
+        return
+
+    with mail.get_connection() as connection:
+        connection.send_messages(
+            [
+                make_job_aborted_email(
+                    recipient_email,
+                    job_type,
+                    job_id,
+                    job_url,
+                    error,
+                )
+            ]
+        )
+
+    logger.info(
+        f"Aborted {job_type} job {job_id} notification email sent to {recipient_email}"
+    )
 
 
 @celery_app.task(

@@ -269,6 +269,7 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
             JobStatus.SUBMITTED,
             JobStatus.IN_PROGRESS,
             JobStatus.FAILED,
+            JobStatus.ABORTED,
         ]:
             if landing_jobs_by_status[_status]:
                 status = str(_status).lower()
