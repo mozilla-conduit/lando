@@ -604,7 +604,6 @@ def test_confirmation_token_warning_order():
 
 
 # bug 1893453.
-@pytest.mark.xfail
 @pytest.mark.django_db(transaction=True)
 def test_integrated_transplant_simple_stack_saves_data_in_db(
     app,
@@ -647,7 +646,6 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
 
     # Get LandingJob object by its id
     job = LandingJob.objects.get(pk=job_id)
-    assert job.id == job_id
     assert [
         (revision.revision_id, revision.diff_id) for revision in job.revisions.all()
     ] == [
@@ -657,6 +655,50 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     ]
     assert job.status == JobStatus.SUBMITTED
     assert job.landed_phabricator_revisions == {1: 1, 2: 2, 3: 3}
+    assert job.priority == 0, "Incorrect job priority"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_integrated_transplant_SHIPPING_flag(
+    app,
+    user,
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    register_codefreeze_uri,
+    mocked_repo_config,
+):
+    phabrepo = phabdouble.repo(name="mozilla-central")
+    reviewer = phabdouble.user(username="reviewer")
+
+    d1 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=phabrepo)
+    phabdouble.reviewer(r1, reviewer)
+
+    result, status_code = legacy_api_transplants.post(
+        phabdouble.get_phabricator_client(),
+        user,
+        {
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]},
+            ],
+            "flags": ["SHIPPING"],
+        },
+    )
+    assert status_code == 202
+    assert "id" in result
+    job_id = result["id"]
+
+    # Get LandingJob object by its id
+    job = LandingJob.objects.get(pk=job_id)
+    assert [
+        (revision.revision_id, revision.diff_id) for revision in job.revisions.all()
+    ] == [
+        (r1["id"], d1["id"]),
+    ]
+    assert job.status == JobStatus.SUBMITTED
+    assert job.landed_phabricator_revisions == {1: 1}
+    assert job.priority == 5, "Incorrect job priority for SHIPPING request"
 
 
 @pytest.mark.django_db(transaction=True)

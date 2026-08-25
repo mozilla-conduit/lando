@@ -5,7 +5,7 @@ from django.core.management import BaseCommand, CommandError, CommandParser
 
 from lando.main.models import SCM_ALLOW_DIRECT_PUSH
 from lando.main.models.commit_map import CommitMap
-from lando.main.models.repo import Repo
+from lando.main.models.repo import SHIPPING, Repo
 
 
 class Command(BaseCommand):
@@ -149,6 +149,33 @@ class Command(BaseCommand):
         for repo in repos:
             if "PreventSignedCommitsCheck" not in repo.hooks:
                 repo.hooks.append("PreventSignedCommitsCheck")
+                repo.save()
+                self.stdout.write(f"{repo.name} ", ending="")
+
+        self.stdout.write("done.")
+
+    def migrate_4_bug2064629_firefox_SHIPPING_flag(self, ask_confirm: bool = True):
+        """Enable the SHIPPING flag on firefox repos."""
+        repos = Repo.objects.filter(
+            name__in=[
+                "firefox-beta",
+                "firefox-release",
+                "firefox-esr115",
+                "firefox-esr140",
+                "firefox-esr153",
+            ]
+        )
+
+        if not repos:
+            self.stdout.write("No repo found.")
+            raise SystemExit()
+
+        repo_names = ", ".join(repo.name for repo in repos)
+        self._get_confirmation(ask_confirm, "Adding SHIPPING flag to: ", repo_names)
+
+        for repo in repos:
+            if "SHIPPING" not in [flag[0] for flag in repo.commit_flags]:
+                repo.commit_flags.append(SHIPPING)
                 repo.save()
                 self.stdout.write(f"{repo.name} ", ending="")
 

@@ -35,6 +35,15 @@ DONTBUILD = (
         " new bug is close to none."
     ),
 )
+# SHIPPING flag (bug 2064629)
+SHIPPING = (
+    "SHIPPING",
+    (
+        "Should be used for changes intended to be shipped (dot-releases, chemspills, etc.),"
+        + " and for which results should be available as quickly as possible"
+        + " (i.e., the job and CI need to be processed with higher priority)."
+    ),
+)
 
 
 def validate_path_in_repo_root(value: str):

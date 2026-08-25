@@ -112,6 +112,17 @@ class Tree(BaseModel):
         blank=False,
     )
 
+    is_active = models.BooleanField(
+        default=True,
+        null=False,
+        blank=False,
+        help_text=(
+            "Inactive trees are hidden from the Treestatus web view and the API "
+            "list endpoints, and are closed when they are deactivated. They can "
+            "still be requested by name, and their historical data is retained."
+        ),
+    )
+
     def to_dict(self) -> dict[str, Any]:
         """Convert a `Tree` into a dict."""
         return {
@@ -123,7 +134,8 @@ class Tree(BaseModel):
         }
 
     def __str__(self) -> str:
-        return f"{self.tree} ({self.status})"
+        suffix = "" if self.is_active else ", inactive"
+        return f"{self.tree} ({self.status}{suffix})"
 
 
 class Log(BaseModel):

@@ -1,15 +1,24 @@
 import datetime
+from types import SimpleNamespace
 
 import pytest
+from django.contrib import admin
 from django.core.cache import caches
 from django.test import override_settings
 
+from lando.treestatus.admin import DEACTIVATED_TREE_REASON, TreeAdmin
 from lando.treestatus.api import (
     LogEntry,
     StackEntry,
     TreeData,
 )
-from lando.treestatus.models import CombinedTree, TreeCategory, TreeStatus
+from lando.treestatus.models import (
+    CombinedTree,
+    Log,
+    Tree,
+    TreeCategory,
+    TreeStatus,
+)
 from lando.treestatus.utils import (
     TREESTATUS_CACHE,
     apply_log_and_stack_update,
@@ -17,6 +26,7 @@ from lando.treestatus.utils import (
     apply_tree_updates,
     create_new_tree,
     get_combined_tree,
+    get_combined_trees,
     get_tree_by_name,
     is_open,
     remove_tree_by_name,
@@ -1008,3 +1018,204 @@ def test_api_get_stack(client, new_treestatus_tree):
     assert result is not None, "Response should contain `result` key."
     for entry in result:
         assert StackEntry(**entry)
+
+
+@pytest.mark.django_db
+def test_inactive_tree_hidden_from_get_combined_trees(new_treestatus_tree):
+    """`get_combined_trees` passes `filters` through, defaulting to active trees."""
+    new_treestatus_tree(tree="mozilla-central")
+    new_treestatus_tree(tree="firefox-esr128", is_active=False)
+
+    assert [tree.tree for tree in get_combined_trees()] == ["mozilla-central"], (
+        "Inactive trees should be omitted from `get_combined_trees`."
+    )
+
+    all_trees = get_combined_trees(filters={})
+    assert sorted(tree.tree for tree in all_trees) == [
+        "firefox-esr128",
+        "mozilla-central",
+    ], "Passing an empty `filters` should return every tree."
+
+    inactive_trees = get_combined_trees(filters={"is_active": False})
+    assert [tree.tree for tree in inactive_trees] == ["firefox-esr128"], (
+        "`filters` should be passed through to the queryset."
+    )
+
+
+@pytest.mark.django_db
+def test_inactive_tree_hidden_from_api_trees(client, new_treestatus_tree):
+    """Inactive trees are not present in `GET /trees` or `GET /trees2`."""
+    new_treestatus_tree(tree="mozilla-central")
+    new_treestatus_tree(tree="firefox-esr128", is_active=False)
+
+    response = client.get("/api/treestatus/trees")
+    assert response.status_code == 200, "`GET /trees` should return 200."
+    assert list(response.json()["result"].keys()) == ["mozilla-central"], (
+        "Inactive trees should not be returned from `GET /trees`."
+    )
+
+    response = client.get("/api/treestatus/trees2")
+    assert response.status_code == 200, "`GET /trees2` should return 200."
+    assert [tree["tree"] for tree in response.json()["result"]] == [
+        "mozilla-central"
+    ], "Inactive trees should not be returned from `GET /trees2`."
+
+
+@pytest.mark.django_db
+def test_api_trees_filter_on_is_active(client, new_treestatus_tree):
+    """`is_active` asks the list endpoints for trees in a particular state."""
+    new_treestatus_tree(tree="mozilla-central")
+    new_treestatus_tree(tree="firefox-esr128", is_active=False)
+
+    response = client.get("/api/treestatus/trees?is_active=false")
+    assert response.status_code == 200, "`GET /trees` should return 200."
+    assert list(response.json()["result"]) == ["firefox-esr128"], (
+        "`GET /trees` should return inactive trees when `is_active` is `false`."
+    )
+
+    response = client.get("/api/treestatus/trees2?is_active=false")
+    assert response.status_code == 200, "`GET /trees2` should return 200."
+    assert [tree["tree"] for tree in response.json()["result"]] == ["firefox-esr128"], (
+        "`GET /trees2` should return inactive trees when `is_active` is `false`."
+    )
+
+    response = client.get("/api/treestatus/trees?is_active=true")
+    assert response.status_code == 200, "`GET /trees` should return 200."
+    assert list(response.json()["result"]) == ["mozilla-central"], (
+        "`GET /trees` should return active trees when `is_active` is `true`."
+    )
+
+
+@pytest.mark.django_db
+def test_inactive_tree_hidden_from_dashboard(client, new_treestatus_tree):
+    """Inactive trees are not listed on the Treestatus dashboard."""
+    new_treestatus_tree(tree="mozilla-central")
+    new_treestatus_tree(tree="firefox-esr128", is_active=False)
+
+    response = client.get("/treestatus/")
+    assert response.status_code == 200, "The Treestatus dashboard should render."
+
+    content = response.content.decode()
+    assert "mozilla-central" in content, "Active trees should be displayed."
+    assert "firefox-esr128" not in content, "Inactive trees should not be displayed."
+
+
+@pytest.mark.django_db
+def test_inactive_tree_served_by_api_get_tree(client, new_treestatus_tree):
+    """An inactive tree is still served by `GET /trees/{tree}`.
+
+    Clients which request a tree by name get a definite status, rather than a 404
+    which they may interpret as the tree being open.
+    """
+    new_treestatus_tree(
+        tree="firefox-esr128", status=TreeStatus.CLOSED, is_active=False
+    )
+
+    response = client.get("/api/treestatus/trees/firefox-esr128")
+    assert response.status_code == 200, (
+        "`GET /trees/{tree}` should return 200 for an inactive tree."
+    )
+    assert response.json()["result"]["status"] == TreeStatus.CLOSED, (
+        "An inactive tree should report its status."
+    )
+
+
+@pytest.mark.django_db
+def test_inactive_tree_logs_are_retained(client, new_treestatus_tree):
+    """Logs for an inactive tree remain available for historical searches."""
+    new_treestatus_tree(tree="firefox-esr128")
+
+    apply_tree_updates(
+        user_id="ad|Example-LDAP|testuser",
+        trees=["firefox-esr128"],
+        status=TreeStatus.CLOSED,
+        tags=["planned"],
+        reason="end of life",
+    )
+
+    Tree.objects.filter(tree="firefox-esr128").update(is_active=False)
+
+    response = client.get("/api/treestatus/trees/firefox-esr128/logs_all")
+    assert response.status_code == 200, (
+        "Logs for an inactive tree should still be served."
+    )
+    assert response.json()["result"], "Logs for an inactive tree should be retained."
+
+
+@pytest.mark.django_db
+def test_inactive_tree_is_not_assumed_open(new_treestatus_tree):
+    """Deactivating a closed tree does not make it open for landing.
+
+    `is_open` assumes an unknown tree is open, so an inactive tree must keep
+    reporting its real status rather than reading as missing.
+    """
+    new_treestatus_tree(
+        tree="firefox-esr128", status=TreeStatus.CLOSED, is_active=False
+    )
+
+    assert not is_open("firefox-esr128"), (
+        "An inactive closed tree should still be closed for landing."
+    )
+
+
+@pytest.mark.django_db
+def test_inactive_tree_cannot_be_updated(new_treestatus_tree):
+    """Inactive trees are not updatable through the tree updating flow."""
+    new_treestatus_tree(tree="firefox-esr128", is_active=False)
+
+    with pytest.raises(ProblemException):
+        apply_tree_updates(
+            user_id="ad|Example-LDAP|testuser",
+            trees=["firefox-esr128"],
+            status=TreeStatus.CLOSED,
+            tags=["planned"],
+            reason="end of life",
+        )
+
+
+@pytest.mark.django_db
+def test_deactivating_a_tree_from_the_admin_closes_it(rf, new_treestatus_tree):
+    """Deactivating a tree in the admin closes it and logs the change."""
+    tree = new_treestatus_tree(tree="firefox-esr128")
+
+    request = rf.post("/admin/treestatus/tree/")
+    request.user = SimpleNamespace(email="admin@example.com")
+
+    tree.is_active = False
+    TreeAdmin(Tree, admin.site).save_model(
+        request, tree, SimpleNamespace(changed_data=["is_active"]), change=True
+    )
+
+    tree.refresh_from_db()
+    assert not tree.is_active, "The tree should have been deactivated."
+    assert tree.status == TreeStatus.CLOSED, "A deactivated tree should be closed."
+    assert tree.reason == DEACTIVATED_TREE_REASON, (
+        "A deactivated tree should explain why it is closed."
+    )
+
+    log = Log.objects.filter(tree=tree.tree).order_by("-created_at").first()
+    assert log is not None, "Deactivating a tree should be logged."
+    assert log.status == TreeStatus.CLOSED, "The log should record the closure."
+    assert log.changed_by == "admin@example.com", (
+        "The log should record the admin who deactivated the tree."
+    )
+
+
+@pytest.mark.django_db
+def test_editing_an_active_tree_from_the_admin_keeps_its_status(
+    rf, new_treestatus_tree
+):
+    """Editing a tree in the admin without deactivating it leaves the status alone."""
+    tree = new_treestatus_tree(tree="mozilla-central", reason="bustage")
+
+    request = rf.post("/admin/treestatus/tree/")
+    request.user = SimpleNamespace(email="admin@example.com")
+
+    tree.message_of_the_day = "hello"
+    TreeAdmin(Tree, admin.site).save_model(
+        request, tree, SimpleNamespace(changed_data=["message_of_the_day"]), change=True
+    )
+
+    tree.refresh_from_db()
+    assert tree.status == TreeStatus.OPEN, "The tree should still be open."
+    assert tree.reason == "bustage", "The reason should be untouched."
