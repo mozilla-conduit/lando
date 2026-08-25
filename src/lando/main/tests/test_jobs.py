@@ -17,6 +17,8 @@ from lando.main.models.jobs import (
 from lando.main.models.landing_job import LandingJob
 from lando.main.models.uplift import UpliftJob
 
+MAX_ATTEMPTS = 3
+
 
 @pytest.mark.parametrize(
     "job_class,expected_path",
@@ -33,25 +35,25 @@ def test__models__BaseJob__url(job_class: type, expected_path: str):
     )
 
 
-def attempt_and_defer(job: LandingJob, times: int):
-    """Attempt and defer `job` `times` times, as the worker would."""
-    for attempt in range(times):
-        job.start_attempt()
-        job.transition_status(JobAction.DEFER, message=f"failure {attempt}")
+@pytest.mark.parametrize(
+    "attempts,remaining",
+    (
+        (0, True),
+        (MAX_ATTEMPTS - 1, True),
+        (MAX_ATTEMPTS, False),
+        (MAX_ATTEMPTS + 1, False),
+    ),
+)
+def test__models__BaseJob__has_attempts_remaining(
+    monkeypatch: pytest.MonkeyPatch, attempts: int, remaining: bool
+):
+    # `max_attempts` reads a configuration variable, which would need the database.
+    monkeypatch.setattr(LandingJob, "max_attempts", MAX_ATTEMPTS)
+    job = LandingJob(status=JobStatus.SUBMITTED, attempts=attempts)
 
-
-@pytest.mark.django_db
-def test__models__BaseJob__has_attempts_remaining(make_landing_job: Callable):
-    job = make_landing_job(status=JobStatus.SUBMITTED)
-
-    attempt_and_defer(job, DEFAULT_MAX_JOB_ATTEMPTS - 1)
-    assert job.has_attempts_remaining(), (
-        "A job below the maximum number of attempts should have attempts remaining."
-    )
-
-    attempt_and_defer(job, 1)
-    assert not job.has_attempts_remaining(), (
-        "A job at the maximum number of attempts should have no attempts remaining."
+    assert job.has_attempts_remaining() is remaining, (
+        f"A job with {attempts} of {MAX_ATTEMPTS} attempts should have "
+        f"{'attempts' if remaining else 'no attempts'} remaining."
     )
 
 
