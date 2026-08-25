@@ -70,6 +70,12 @@ cannot be included in the repo. That file is listed in the `.gitignore` list.
 Note that, currently, this environment file is also used by the [Conduit suite]
 when running a lando stack from the local working copy.
 
+The container writes into the bind-mounted working copy, so it runs as the user
+that owns it: `compose.yaml` builds its `app` user from `UID` and `GID`. The
+`make` targets export both, so they need no setup. If you drive `docker compose`
+directly and your ids are not the usual 1000, set them in `.env` and rebuild,
+otherwise the container cannot write to your checkout.
+
 ## Testing
 
 To run the test suite, invoke the following command:
@@ -124,9 +130,10 @@ Each checkout runs as its own compose project, named after its directory, so
 
 Building and testing in `../lando-bug-123456` produces `lando-bug-123456-*`
 images and its own database, Redis and volumes, leaving the ones belonging to
-the main checkout untouched. This applies to `docker compose` invoked directly
-as much as to the `make` targets. Create worktrees _beside_ the repository
-rather than inside it, so they stay out of the Docker build context.
+the main checkout untouched. Projects are named from the directory, so this
+applies to `docker compose` invoked directly as much as to the `make` targets.
+Create worktrees _beside_ the repository rather than inside it, so they stay out
+of the Docker build context.
 
 Three things are worth knowing about a new checkout:
 
