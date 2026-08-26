@@ -29,11 +29,13 @@ from lando.api.legacy.stacks import (
     request_extended_revision_data,
 )
 from lando.api.legacy.transplants import build_stack_assessment_state
-from lando.api.tests.mocks import PhabricatorDouble, TreeStatusDouble
+from lando.api.tests.mocks import PhabricatorDouble
 from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import (
+    DONTBUILD,
     SCM_LEVEL_1,
     SCM_LEVEL_3,
+    SHIPPING,
     CommitMap,
     Profile,
     Repo,
@@ -515,6 +517,16 @@ index 0000000..e44d36d
 +{"env": {"TRY_SELECTOR": "fuzzy"}, "version": 1, "tasks": ["source-test-cram-tryselect"]}
 """.lstrip()
 
+PATCH_MILESTONE_DIFF = """
+diff --git a/config/milestone.txt b/config/milestone.txt
+new file mode 100644
+--- /dev/null
++++ b/config/milestone.txt
+@@ -0,0 +1,2 @@
++# Holds the current milestone.
++142.0a1
+""".lstrip()
+
 PATCH_NSS_DIFF = """
 diff --git a/security/nss/.keep b/security/nss/.keep
 new file mode 100644
@@ -796,6 +808,7 @@ def hg_repo_mc(
     is_try: bool = True,
     autoformat_setup_commands: list[list[str]] | None = None,
     autoformat_run_command: list[str] | None = None,
+    milestone_tracking_flag_template: str = "",
     name: str = "",
     push_target: str = "",
 ) -> Repo:
@@ -813,6 +826,7 @@ def hg_repo_mc(
         "force_push": force_push,
         "hooks_enabled": hooks_enabled,
         "is_try": is_try,
+        "milestone_tracking_flag_template": milestone_tracking_flag_template,
         # We only set "hooks" below, if not empty.
         "push_target": push_target,
     }
@@ -853,6 +867,7 @@ def git_repo_mc(
     is_try: bool = False,
     autoformat_setup_commands: list[list[str]] | None = None,
     autoformat_run_command: list[str] | None = None,
+    milestone_tracking_flag_template: str = "",
     name: str = "",
     pr_enabled: bool = False,
     push_target: str = "",
@@ -875,6 +890,7 @@ def git_repo_mc(
         "force_push": force_push,
         "hooks_enabled": hooks_enabled,
         "is_try": is_try,
+        "milestone_tracking_flag_template": milestone_tracking_flag_template,
         "pr_enabled": pr_enabled,
         # We only set "hooks" below, if not empty.
         "push_target": push_target,
@@ -924,6 +940,7 @@ def repo_mc(
         is_try: bool = False,
         autoformat_setup_commands: list[list[str]] | None = None,
         autoformat_run_command: list[str] | None = None,
+        milestone_tracking_flag_template: str = "",
         name: str = "",
         pr_enabled: bool = False,
         push_target: str = "",
@@ -944,6 +961,7 @@ def repo_mc(
             "autoformat_setup_commands": autoformat_setup_commands,
             "autoformat_run_command": autoformat_run_command,
             "force_push": force_push,
+            "milestone_tracking_flag_template": milestone_tracking_flag_template,
             "name": name,
             "push_target": push_target,
         }
@@ -975,6 +993,7 @@ def mocked_repo_config(mock_repo_config):
         url="http://hg.test",
         required_permission=SCM_LEVEL_3,
         approval_required=False,
+        commit_flags=[DONTBUILD, SHIPPING],
     )
     Repo.objects.create(
         scm_type=SCMType.HG,
@@ -1232,13 +1251,16 @@ def scm_user() -> Callable:
         group_perms: list[Permission] | None = None,
     ) -> User:
         """Return a user with the selected Permissions and password."""
+        email = "testuser@example.org"
         user = User.objects.create_user(
             username="test_user",
             password=password,
-            email="testuser@example.org",
+            email=email,
         )
 
-        user.profile = Profile(user=user, userinfo={"name": "test user"})
+        user.profile = Profile(
+            user=user, userinfo={"name": "test user", "email": email}
+        )
 
         for permission in perms:
             user.user_permissions.add(permission)
@@ -1318,6 +1340,14 @@ def needs_data_classification_project(phabdouble):
 
 
 @pytest.fixture
+def release_management_project(phabdouble):
+    return phabdouble.project(
+        RELMAN_PROJECT_SLUG,
+        attachments={"members": {"members": [{"phid": "PHID-USER-1"}]}},
+    )
+
+
+@pytest.fixture
 def create_state(
     phabdouble,
     mocked_repo_config,
@@ -1346,18 +1376,6 @@ def create_state(
         )
 
     return create_state_handler
-
-
-@pytest.fixture
-def treestatus_url():
-    """A string holding the Tree Status base URL."""
-    return settings.TREESTATUS_URL
-
-
-@pytest.fixture
-def treestatusdouble(monkeypatch, treestatus_url):
-    """Mock the Tree Status service and build fake responses."""
-    yield TreeStatusDouble(monkeypatch, treestatus_url)
 
 
 @pytest.fixture
@@ -1465,11 +1483,12 @@ def make_push():
 
 @pytest.fixture
 def make_scm_commit(make_hash):
-    def scm_commit_factory(seqno: int):
+    def scm_commit_factory(seqno: int, desc: str = ""):
         return CommitData(
             hash=make_hash(seqno),
             author=f"author-{seqno}",
-            desc=f"""SCM Commit {seqno}
+            desc=desc
+            or f"""SCM Commit {seqno}
 
 Another line""",
             datetime=datetime.now(tz=timezone.utc),
@@ -1573,12 +1592,14 @@ def new_treestatus_tree():
         status: TreeStatus = TreeStatus.OPEN,
         reason: str = "",
         motd: str = "",
+        is_active: bool = True,
     ):
         new_tree = Tree.objects.create(
             tree=tree,
             status=status,
             reason=reason,
             message_of_the_day=motd,
+            is_active=is_active,
         )
         return new_tree
 
@@ -1744,3 +1765,9 @@ def pull_request_data(update_dict) -> Callable:
         return data
 
     return _pull_request_data
+
+
+@pytest.fixture
+def authenticated_client(user, user_plaintext_password, client):
+    client.login(username=user.username, password=user_plaintext_password)
+    return client

@@ -30,6 +30,8 @@ class LandingJob(BaseJob):
 
     type: str = "Landing"
 
+    details_view_name: str = "jobs-page"
+
     # revision_to_diff_id and revision_order are deprecated and kept for historical reasons.
     revision_to_diff_id = models.JSONField(null=True, blank=True, default=dict)
     revision_order = models.JSONField(null=True, blank=True, default=dict)
@@ -151,7 +153,7 @@ class LandingJob(BaseJob):
         return self.unsorted_revisions.first().is_phabricator_revision
 
     @property
-    def landing_job_identifier(self) -> str:
+    def human_friendly_identifier(self) -> str:
         """Human-readable representation of the branch head.
 
         Returns a Phabricator revision ID if the revisions are associated with a Phabricator

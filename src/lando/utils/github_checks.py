@@ -286,7 +286,11 @@ class PullRequestWarning(PullRequestCheck, ABC):
 
 
 class PullRequestBlockingReviewersWarning(PullRequestWarning):
-    """Warn if some requested reviewers or teams haven't provided a review."""
+    """Warn if some requested reviewers or teams haven't provided a review.
+
+    Note: blocking reviewers are warnings by design, as it is expected that users with
+    the necessary permission to land (generally SCM3) are trusted to do the right thing.
+    """
 
     @override
     @classmethod

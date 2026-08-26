@@ -1,5 +1,4 @@
 from django.contrib import admin
-from django.urls import reverse
 
 from lando.headless_api.models.automation_job import AutomationAction, AutomationJob
 from lando.headless_api.models.tokens import ApiToken
@@ -7,20 +6,33 @@ from lando.main.admin import JobAdmin, ReadOnlyInline
 
 
 class ApiTokenAdmin(admin.ModelAdmin):
-    list_display = ("token_prefix", "user_email", "created_at")
+    list_display = (
+        "token_prefix",
+        "is_valid",
+        "user_email",
+        "user_scm_permissions",
+        "created_at",
+    )
 
     # Mark these fields as read-only in the admin.
     readonly_fields = ("token_prefix", "token_hash", "created_at")
 
     search_fields = (
         "token_prefix",
+        "is_valid",
         "user__email",
     )
 
-    list_filter = ("created_at",)
+    list_filter = ("created_at", "is_valid")
 
     def user_email(self, instance: ApiToken) -> str:
         return instance.user.email
+
+    def user_scm_permissions(self, instance: ApiToken) -> list[str]:
+        return [
+            p.name
+            for p in instance.user.user_permissions.filter(name__startswith="SCM")
+        ]
 
 
 class AutomationActionJobInline(ReadOnlyInline):
@@ -58,10 +70,6 @@ class AutomationJobAdmin(JobAdmin):
     def action_types(self, instance: AutomationJob) -> str:
         """Return a summary string of the action types associated to a given job."""
         return str([a.action_type for a in instance.actions.all()])
-
-    def view_on_site(self, instance: AutomationJob) -> str:
-        url = reverse("api-jobs-page", kwargs={"job_id": instance.id})
-        return url
 
 
 class AutomationActionAdmin(admin.ModelAdmin):

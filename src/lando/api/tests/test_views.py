@@ -6,7 +6,9 @@ from unittest import mock
 import pytest
 from django.test import Client
 
-from lando.main.models import Repo, SCMType
+from lando.main.models import JobStatus, Repo, SCMType
+from lando.main.models.landing_job import LandingJob, add_revisions_to_job
+from lando.main.models.revision import Revision
 
 
 @pytest.fixture
@@ -439,7 +441,9 @@ class TestViewsPullRequestUpdateWebHook:
             [
                 expected_body,
                 "<!--/ -+-+- DO NOT MODIFY THIS LINE - ENTER COMMIT MESSAGE ABOVE -+-+- /-->",
+                "",
                 "---",
+                "",
                 "Lando: [link](https://lando.test/pulls/git-repo/1/)",
                 "Bugzilla: [bug 1111111](http://bmo.test/show_bug.cgi?id=1111111), [bug 2222222](http://bmo.test/show_bug.cgi?id=2222222)",
                 "",
@@ -487,7 +491,9 @@ class TestViewsPullRequestUpdateWebHook:
             [
                 expected_body,
                 "<!--/ -+-+- DO NOT MODIFY THIS LINE - ENTER COMMIT MESSAGE ABOVE -+-+- /-->",
+                "",
                 "---",
+                "",
                 "Lando: [link](https://lando.test/pulls/git-repo/1/)",
                 "Bugzilla: [bug 1111111](http://bmo.test/show_bug.cgi?id=1111111), [bug 2222222](http://bmo.test/show_bug.cgi?id=2222222)",
                 "",
@@ -531,7 +537,9 @@ class TestViewsPullRequestUpdateWebHook:
             [
                 expected_body,
                 "<!--/ -+-+- DO NOT MODIFY THIS LINE - ENTER COMMIT MESSAGE ABOVE -+-+- /-->",
+                "",
                 "---",
+                "",
                 "Lando: [link](https://lando.test/pulls/git-repo/1/)",
                 "Bugzilla: [bug 1111111](http://bmo.test/show_bug.cgi?id=1111111), [bug 2222222](http://bmo.test/show_bug.cgi?id=2222222)",
                 ":white_check_mark: All Lando checks passed",
@@ -570,7 +578,24 @@ class TestViewsPullRequestUpdateWebHook:
 @pytest.mark.parametrize(
     "warnings_1, warnings_2, expected_status, expected_response",
     [
+        ([], [], 201, b""),
         (["warning-1", "warning-2"], ["warning-1", "warning-2"], 201, b""),
+        (
+            [],
+            ["warning-1", "warning-2"],
+            400,
+            [
+                "The warnings present when the request was constructed have changed. Please acknowledge the new warnings and try again."
+            ],
+        ),
+        (
+            ["warning-1", "warning-2"],
+            [],
+            400,
+            [
+                "The warnings present when the request was constructed have changed. Please acknowledge the new warnings and try again."
+            ],
+        ),
         (
             ["warning-1", "warning-2"],
             ["warning-3", "warning-4"],
@@ -637,3 +662,43 @@ def test__views_landing_job_pull_request_view__warnings(
 
         assert new_warnings == mock_warnings_and_blockers.return_value["warnings"]
         assert response.json()["errors"] == {"warnings": expected_response}
+
+
+@mock.patch("lando.api.views.GitHubAPIClient")
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize(
+    "job_status,expected_status",
+    [
+        (JobStatus.LANDED, "landed"),
+        (JobStatus.SUBMITTED, "submitted"),
+        (JobStatus.FAILED, "failed"),
+        (JobStatus.ABORTED, "aborted"),
+    ],
+)
+def test__views__landing_job_pull_request_view__status(
+    github_api_client,
+    client,
+    repo_mc_github_api_client,
+    repo_mc,
+    job_status,
+    expected_status,
+):
+    """Every job status is reported for the pull request."""
+    repo = repo_mc(SCMType.GIT)
+    github_api_client.return_value = repo_mc_github_api_client
+
+    pull_number = 1
+    repo_mc_github_api_client.build_pull_request.return_value = mock.MagicMock(
+        number=pull_number
+    )
+
+    job = LandingJob.objects.create(
+        target_repo=repo, status=job_status, is_pull_request_job=True
+    )
+    add_revisions_to_job([Revision.objects.create(pull_number=pull_number)], job)
+
+    response = client.get(f"/api/pulls/{repo.name}/{pull_number}/landing_jobs")
+
+    assert response.json() == {"status": expected_status}, (
+        f"A `{job_status}` job should be reported as `{expected_status}`."
+    )

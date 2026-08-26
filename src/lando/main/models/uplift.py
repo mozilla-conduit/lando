@@ -1,11 +1,8 @@
 import json
 from typing import Any
-from urllib.parse import urljoin
 
-from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import models
-from django.urls import reverse
 
 from lando.main.models import BaseModel
 from lando.main.models.jobs import BaseJob, JobStatus
@@ -44,10 +41,11 @@ class UpliftTargetSelectionMethod(models.TextChoices):
     """How the uplift target repositories were selected at submission time."""
 
     # The user chose a Firefox version in the Vue widget, which resolved to the
-    # target train(s).
+    # target train(s). The train checkboxes may have been adjusted afterwards.
     WIDGET_VERSION = "widget_version", "Widget (version)"
 
-    # The user selected the target train(s) directly in the Vue widget.
+    # The Vue widget loaded, but the user checked the target train(s) directly
+    # without ever choosing a Firefox version.
     WIDGET_MANUAL = "widget_manual", "Widget (manual)"
 
     # The server-rendered checkboxes were used directly, e.g. with JavaScript
@@ -201,6 +199,8 @@ class UpliftJob(BaseJob):
 
     type: str = "Uplift"
 
+    details_view_name: str = "uplift-jobs-page"
+
     # Phabricator uplift revision IDs as an ordered list of integers.
     # Example: If D1->D2->D3 is requested for uplift to beta, which
     # creates revisions D4->D5->D6, this field will be set to
@@ -244,10 +244,6 @@ class UpliftJob(BaseJob):
     def revisions(self) -> models.QuerySet:
         """Return and ordered list of revisions for this job."""
         return self.unsorted_revisions.all().order_by("revisionupliftjob__index")
-
-    def url(self) -> str:
-        """Return a URL for this job."""
-        return urljoin(settings.SITE_URL, reverse("uplift-jobs-page", args=[self.id]))
 
     @property
     def has_created_revisions(self) -> bool:

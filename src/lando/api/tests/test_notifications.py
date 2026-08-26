@@ -3,11 +3,11 @@ import inspect
 import pytest
 from django.core import mail
 
-from lando.api.legacy.email import make_failure_email
+from lando.api.legacy.email import make_failure_email, make_job_aborted_email
 from lando.api.legacy.notifications import notify_user_of_landing_failure
 from lando.main.models.landing_job import LandingJob
 from lando.main.models.revision import Revision
-from lando.utils.tasks import send_landing_failure_email
+from lando.utils.tasks import send_job_aborted_email, send_landing_failure_email
 
 dedent = inspect.cleandoc
 
@@ -53,6 +53,42 @@ def test_email_content_try():
     assert email.body == expected_body
 
 
+def test_send_job_aborted_email_task(app):
+    send_job_aborted_email(
+        "sadpanda@failure.test",
+        "Landing",
+        123,
+        "https://lando.test/landings/123/",
+        "Push failed!",
+    )
+    assert len(mail.outbox) == 1, "One notification email should be sent."
+
+
+def test_send_job_aborted_email_task_without_requester(app):
+    send_job_aborted_email(
+        "", "Landing", 123, "https://lando.test/landings/123/", "Push failed!"
+    )
+    assert not mail.outbox, "No email should be sent without a recipient."
+
+
+def test_email_content_job_aborted():
+    email = make_job_aborted_email(
+        "sadpanda@failure.test",
+        "Landing",
+        123,
+        "https://lando.test/landings/123/",
+        "Push failed!",
+    )
+    assert email.to == ["sadpanda@failure.test"]
+    assert email.subject == "Lando: Landing job 123 was aborted!"
+    expected_body = (
+        "Your landing job was aborted by Lando.\n\n"
+        "Push failed!\n\n"
+        "Job details: https://lando.test/landings/123/"
+    )
+    assert email.body == expected_body
+
+
 @pytest.mark.django_db(transaction=True)
 def test_notify_user_of_landing_failure(app):
     # Testing happy path only (as part of porting this test).
@@ -64,7 +100,7 @@ def test_notify_user_of_landing_failure(app):
     job.unsorted_revisions.add(revision)
     notify_user_of_landing_failure(
         job.requester_email,
-        job.landing_job_identifier,
+        job.human_friendly_identifier,
         job.error,
         job.id,
     )

@@ -35,6 +35,15 @@ DONTBUILD = (
         " new bug is close to none."
     ),
 )
+# SHIPPING flag (bug 2064629)
+SHIPPING = (
+    "SHIPPING",
+    (
+        "Should be used for changes intended to be shipped (dot-releases, chemspills, etc.),"
+        + " and for which results should be available as quickly as possible"
+        + " (i.e., the job and CI need to be processed with higher priority)."
+    ),
+)
 
 
 def validate_path_in_repo_root(value: str):
@@ -186,7 +195,10 @@ class Repo(CryptographyMixin, BaseModel):
     )
     url = models.CharField()
 
-    approval_required = models.BooleanField(default=False)
+    approval_required = models.BooleanField(
+        default=False,
+        help_text="Mark this repo as accepting Uplifts. If True, this repo will be presented to users as a train to uplift to.",
+    )
     autoformat_enabled = models.BooleanField(default=False)
     autoformat_setup_commands = models.JSONField(
         default=list,
@@ -219,7 +231,10 @@ class Repo(CryptographyMixin, BaseModel):
         null=True,
         default=None,
     )
-    force_push = models.BooleanField(default=False)
+    force_push = models.BooleanField(
+        default=False,
+        help_text="Allow force-pushes to the repo (e.g., change of history or new heads). Necessary for try repos.",
+    )
     is_phabricator_repo = models.BooleanField(default=True)
     milestone_tracking_flag_template = models.CharField(blank=True, default="")
 
@@ -490,7 +505,7 @@ class Repo(CryptographyMixin, BaseModel):
             user, str(self.required_automation_permission)
         )
 
-    def _user_has_direct_permission(self, user: User, permission: str):
+    def _user_has_direct_permission(self, user: User, permission: str) -> bool:
         """
         Test that the user has a specific permission directly rather than via a role.
 

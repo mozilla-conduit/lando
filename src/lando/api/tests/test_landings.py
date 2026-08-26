@@ -7,12 +7,12 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
+from django.core import mail
 
 from lando.api.legacy.workers.landing_worker import (
     AUTOFORMAT_COMMIT_MESSAGE,
     LandingWorker,
 )
-from lando.api.tests.mocks import TreeStatusDouble
 from lando.conftest import FAILING_CHECK_TYPES
 from lando.main.models import (
     JobStatus,
@@ -22,13 +22,20 @@ from lando.main.models import (
     Repo,
     RevisionLandingJob,
 )
+from lando.main.models.configuration import (
+    ConfigurationKey,
+    ConfigurationVariable,
+    VariableTypeChoices,
+)
+from lando.main.models.jobs import ABORTED_ERROR_TEMPLATE, DEFAULT_MAX_JOB_ATTEMPTS
 from lando.main.scm import SCMType
-from lando.main.scm.exceptions import SCMInternalServerError
+from lando.main.scm.exceptions import SCMInternalServerError, TreeApprovalRequired
 from lando.main.scm.git import GitSCM
 from lando.main.scm.helpers import HgPatchHelper
 from lando.main.scm.hg import LostPushRace
 from lando.pushlog.models.commit import Commit
 from lando.pushlog.models.push import Push
+from lando.treestatus.models import TreeStatus
 
 LARGE_UTF8_THING = "😁" * 1000000
 
@@ -367,7 +374,6 @@ def test_determine_rebase_base(
 @pytest.mark.django_db
 def test_integrated_execute_job(
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
     mock_phab_trigger_repo_update_apply_async: mock.Mock,
     create_patch_revision: Callable,
     make_landing_job: Callable,
@@ -376,7 +382,6 @@ def test_integrated_execute_job(
     get_landing_worker: Callable,
 ):
     repo = repo_mc(repo_type)
-    treestatusdouble.open_tree(repo.name)
 
     revisions = [
         create_patch_revision(number, **kwargs) for number, kwargs in revisions_params
@@ -417,7 +422,6 @@ def test_integrated_execute_job(
 def test_integrated_execute_job_pull_request(
     GitHubAPI: mock.Mock,
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
     create_pull_request_revision: Callable,
     make_landing_job: Callable,
     git_patch: Callable,
@@ -436,8 +440,6 @@ def test_integrated_execute_job_pull_request(
     repo: Repo = repo_mc(repo_type)
     repo.is_phabricator_repo = False
     repo.pr_enabled = True
-
-    treestatusdouble.open_tree(repo.name)
 
     # We use git_patch(1) here, as it inserts a line in the middle of an existing file,
     # potentially triggering bug 2002094.
@@ -490,7 +492,6 @@ def test_integrated_execute_job_pull_request(
 @pytest.mark.django_db
 def test_revisionlandingjob_commit_ids_updated_on_success(
     repo_mc,
-    treestatusdouble,
     mock_phab_trigger_repo_update_apply_async,
     create_patch_revision,
     make_landing_job,
@@ -499,7 +500,6 @@ def test_revisionlandingjob_commit_ids_updated_on_success(
 ):
     """Ensure landed commit SHAs are copied onto RevisionLandingJob rows."""
     repo = repo_mc(repo_type)
-    treestatusdouble.open_tree(repo.name)
 
     revisions = [
         create_patch_revision(1, patch=None),
@@ -540,7 +540,6 @@ def test_revisionlandingjob_commit_ids_updated_on_success(
 @pytest.mark.django_db
 def test_revisionlandingjob_commit_ids_unset_without_landing(
     repo_mc,
-    treestatusdouble,
     mock_phab_trigger_repo_update_apply_async,
     create_patch_revision,
     make_landing_job,
@@ -549,7 +548,6 @@ def test_revisionlandingjob_commit_ids_unset_without_landing(
 ):
     """Ensure `commit_id` is not tracked for incomplete job."""
     repo = repo_mc(repo_type)
-    treestatusdouble.open_tree(repo.name)
     scm = repo.scm
 
     job_params = {
@@ -588,7 +586,6 @@ def test_revisionlandingjob_commit_ids_unset_without_landing(
 @pytest.mark.django_db
 def test_integrated_execute_job_with_force_push(
     repo_mc,
-    treestatusdouble,
     mock_phab_trigger_repo_update_apply_async,
     create_patch_revision,
     make_landing_job,
@@ -596,7 +593,6 @@ def test_integrated_execute_job_with_force_push(
     repo_type: str,
 ):
     repo = repo_mc(repo_type, force_push=True)
-    treestatusdouble.open_tree(repo.name)
     scm = repo.scm
 
     job_params = {
@@ -632,7 +628,6 @@ def test_integrated_execute_job_with_force_push(
 @pytest.mark.django_db
 def test_integrated_execute_job_with_bookmark(
     repo_mc,
-    treestatusdouble,
     mock_phab_trigger_repo_update_apply_async,
     create_patch_revision,
     make_landing_job,
@@ -640,7 +635,6 @@ def test_integrated_execute_job_with_bookmark(
     repo_type: str,
 ):
     repo = repo_mc(repo_type, push_target="@")
-    treestatusdouble.open_tree(repo.name)
     scm = repo.scm
 
     job_params = {
@@ -672,7 +666,6 @@ def test_integrated_execute_job_with_bookmark(
 def test_integrated_execute_job_with_scm_internal_error(
     active_mock: Callable,
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,  # pyright: ignore[reportUnusedParameter] Mock with side-effect
     mock_phab_trigger_repo_update_apply_async,
     create_patch_revision: Callable,
     make_landing_job: Callable,
@@ -708,6 +701,157 @@ def test_integrated_execute_job_with_scm_internal_error(
     assert job.status == JobStatus.LANDED, "Job should have landed on second run."
 
 
+@pytest.mark.django_db
+def test_aborted_job_notifies_requester(
+    monkeypatch: pytest.MonkeyPatch,
+    repo_mc: Callable,
+    create_patch_revision: Callable,
+    make_landing_job: Callable,
+    get_landing_worker: Callable,
+):
+    """The requester is emailed when Lando gives up on their job."""
+    ConfigurationVariable.set(
+        ConfigurationKey.MAX_JOB_ATTEMPTS, VariableTypeChoices.INT, "2"
+    )
+    repo = repo_mc(SCMType.GIT)
+
+    job = make_landing_job(
+        revisions=[create_patch_revision(1)],
+        status=JobStatus.SUBMITTED,
+        requester_email="test@example.com",
+        target_repo=repo,
+    )
+
+    # Simulate a known temporary failure on push. The worker loop fetches its own
+    # `Repo` instance, so the mock goes on the SCM class rather than an instance.
+    monkeypatch.setattr(
+        GitSCM,
+        "push",
+        mock.MagicMock(side_effect=SCMInternalServerError("push failed", "500")),
+    )
+
+    worker = get_landing_worker(SCMType.GIT)
+    worker.worker_instance.applicable_repos.add(repo)
+    worker.refresh_active_repos()
+
+    worker.start(max_loops=1)
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.DEFERRED, (
+        "Job should be deferred while it has attempts left."
+    )
+    assert "push failed" in job.error, (
+        "The deferral error should quote the mocked push failure."
+    )
+    assert not mail.outbox, "No notification should be sent before the abort."
+
+    deferral_error = job.error
+
+    worker.start(max_loops=1)
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.ABORTED, (
+        "Job should have been aborted by the worker."
+    )
+    assert len(mail.outbox) == 1, (
+        "The requester should be emailed once about the abort."
+    )
+    assert mail.outbox[0].to == ["test@example.com"], (
+        "The abort notification should be sent to the requester."
+    )
+    assert mail.outbox[0].subject == f"Lando: Landing job {job.id} was aborted!", (
+        "The abort notification should identify the aborted job."
+    )
+    assert job.error == ABORTED_ERROR_TEMPLATE.format(
+        attempts=2, message=deferral_error
+    ), "The job error should explain the abort and quote the last failure verbatim."
+
+
+@pytest.mark.django_db
+def test_closed_tree_deferrals_do_not_abort_job(
+    repo_mc: Callable,
+    new_treestatus_tree: Callable,
+    create_patch_revision: Callable,
+    make_landing_job: Callable,
+    get_landing_worker: Callable,
+):
+    """A closed tree resolves on its own, so the job keeps waiting."""
+    repo = repo_mc(SCMType.GIT)
+    new_treestatus_tree(
+        tree=repo.name, status=TreeStatus.CLOSED, reason="testing closed"
+    )
+
+    job = make_landing_job(
+        revisions=[create_patch_revision(1)],
+        status=JobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        target_repo=repo,
+    )
+
+    # `run_job` is called directly, as the worker loop never picks a job up for a
+    # closed tree. See `test_non_abortable_failures_do_not_abort_job` for a
+    # non-abortable deferral through the full worker flow.
+    worker = get_landing_worker(SCMType.GIT)
+    for _attempt in range(DEFAULT_MAX_JOB_ATTEMPTS + 1):
+        # Stop early on an abort, so the next run cannot defer the job back.
+        if job.status in JobStatus.final():
+            break
+        job.start_attempt()
+        worker.run_job(job)
+
+    assert job.status == JobStatus.DEFERRED, (
+        "A job deferred for a closed tree should never be aborted."
+    )
+    assert not job.has_attempts_remaining(), (
+        "A job deferred for a closed tree should keep deferring past its attempts."
+    )
+
+
+@pytest.mark.django_db
+def test_non_abortable_failures_do_not_abort_job(
+    monkeypatch: pytest.MonkeyPatch,
+    repo_mc: Callable,
+    create_patch_revision: Callable,
+    make_landing_job: Callable,
+    get_landing_worker: Callable,
+):
+    """A push failure that resolves on its own is retried indefinitely."""
+    repo = repo_mc(SCMType.GIT)
+
+    job = make_landing_job(
+        revisions=[create_patch_revision(1)],
+        status=JobStatus.SUBMITTED,
+        requester_email="test@example.com",
+        target_repo=repo,
+    )
+
+    # Simulate a non-abortable failure on push. The worker loop fetches its own
+    # `Repo` instance, so the mock goes on the SCM class rather than an instance.
+    monkeypatch.setattr(
+        GitSCM,
+        "push",
+        mock.MagicMock(side_effect=TreeApprovalRequired("approval required", "")),
+    )
+
+    worker = get_landing_worker(SCMType.GIT)
+    worker.worker_instance.applicable_repos.add(repo)
+    worker.refresh_active_repos()
+
+    worker.start(max_loops=DEFAULT_MAX_JOB_ATTEMPTS + 1)
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.DEFERRED, (
+        "A job deferred for a non-abortable failure should never be aborted."
+    )
+    assert not job.has_attempts_remaining(), (
+        "A non-abortable failure should keep deferring past the job's attempts."
+    )
+    assert "approval required" in job.error, (
+        "The job should have been deferred for the mocked push failure."
+    )
+    assert not mail.outbox, "No abort notification should be sent to the requester."
+
+
 @pytest.mark.parametrize(
     "repo_type",
     [
@@ -717,7 +861,6 @@ def test_integrated_execute_job_with_scm_internal_error(
 )
 @pytest.mark.django_db
 def test_no_diff_start_line(
-    treestatusdouble,
     create_patch_revision,
     make_landing_job,
     caplog,
@@ -734,7 +877,6 @@ def test_no_diff_start_line(
         revisions=[create_patch_revision(1, patch=PATCH_WITHOUT_STARTLINE)],
         **job_params,
     )
-    treestatusdouble.open_tree(job.target_repo.name)
 
     worker = get_landing_worker(repo_type)
     assert worker.run_job(job)
@@ -753,14 +895,12 @@ def test_no_diff_start_line(
 def test_lose_push_race(
     monkeypatch,
     repo_mc,
-    treestatusdouble,
     create_patch_revision,
     make_landing_job,
     get_landing_worker,
     repo_type: str,
 ):
     repo = repo_mc(repo_type)
-    treestatusdouble.open_tree(repo.name)
     scm = repo.scm
 
     job_params = {
@@ -793,7 +933,7 @@ def test_lose_push_race(
     "repo_type, expected_error_log, patch",
     # Can't use itertools.product without similar overhead as this,
     # as we have more than one element in the first set.
-    (
+    tuple(
         scm + (patch,)
         for scm in (
             (SCMType.GIT, "Rejected hunk"),
@@ -808,7 +948,6 @@ def test_lose_push_race(
 @pytest.mark.django_db
 def test_merge_conflict(
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
     mock_phab_trigger_repo_update_apply_async: mock.Mock,
     create_patch_revision: Callable,
     make_landing_job: Callable,
@@ -819,7 +958,6 @@ def test_merge_conflict(
     patch: str,
 ):
     repo = repo_mc(repo_type)
-    treestatusdouble.open_tree(repo.name)
 
     job_params = {
         "id": 1234,
@@ -869,16 +1007,17 @@ def test_merge_conflict(
     # We make a cross-product of all the SCM and all the bad actions.
     # As we don't want a cross-product of bad actions and reasons, we bundle them in a
     # tuple, that we deconstruct in the test.
-    itertools.product(
-        [SCMType.HG, SCMType.GIT],
-        # All of FAILING_CHECK_TYPES, except for wpt
-        [check_type for check_type in FAILING_CHECK_TYPES if check_type != "wpt"],
+    tuple(
+        itertools.product(
+            [SCMType.HG, SCMType.GIT],
+            # All of FAILING_CHECK_TYPES, except for wpt
+            [check_type for check_type in FAILING_CHECK_TYPES if check_type != "wpt"],
+        )
     ),
 )
 @pytest.mark.django_db
 def test_failed_landing_job_checks(
     repo_mc,
-    treestatusdouble,
     create_patch_revision,
     make_landing_job,
     get_landing_worker,
@@ -890,7 +1029,6 @@ def test_failed_landing_job_checks(
 ):
     """Ensure that checks fail non-compliant landings."""
     repo = repo_mc(repo_type, approval_required=True, autoformat_enabled=False)
-    treestatusdouble.open_tree(repo.name)
 
     disallowed_revision, reason = get_failing_check_commit_reason(
         failing_check_commit_type
@@ -937,7 +1075,6 @@ def test_failed_landing_job_checks(
 )
 @pytest.mark.django_db
 def test_exception_landing_job_checks(
-    treestatusdouble,
     monkeypatch: pytest.MonkeyPatch,
     create_patch_revision,
     make_landing_job,
@@ -955,7 +1092,6 @@ def test_exception_landing_job_checks(
         revisions=[create_patch_revision(1)],
         **job_params,
     )
-    treestatusdouble.open_tree(job.target_repo.name)
 
     exception_message = "Forcing exception when running checks"
     mock_landing_checks_run = mock.MagicMock()
@@ -980,7 +1116,6 @@ def test_exception_landing_job_checks(
 @pytest.mark.django_db
 def test_failed_landing_job_notification(
     repo_mc,
-    treestatusdouble,
     monkeypatch,
     create_patch_revision,
     make_landing_job,
@@ -989,7 +1124,6 @@ def test_failed_landing_job_notification(
 ):
     """Ensure that a failed landings triggers a user notification."""
     repo = repo_mc(repo_type, approval_required=True, autoformat_enabled=False)
-    treestatusdouble.open_tree(repo.name)
     scm = repo.scm
 
     # Mock `scm.update_repo` so we can force a failed landing.
@@ -1032,7 +1166,6 @@ def test_failed_landing_job_notification(
 @pytest.mark.django_db
 def test_format_patch_success_unchanged(
     repo_mc,
-    treestatusdouble,
     mock_phab_trigger_repo_update_apply_async,
     create_patch_revision,
     make_landing_job,
@@ -1042,7 +1175,6 @@ def test_format_patch_success_unchanged(
 ):
     """Tests automated formatting happy path where formatters made no changes."""
     repo = repo_mc(repo_type, autoformat_enabled=True)
-    treestatusdouble.open_tree(repo.name)
 
     revisions = [
         create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_PASS),
@@ -1090,7 +1222,6 @@ def test_format_patch_success_unchanged(
 @pytest.mark.django_db
 def test_format_single_success_changed(
     repo_mc,
-    treestatusdouble,
     mock_phab_trigger_repo_update_apply_async,
     create_patch_revision,
     make_landing_job,
@@ -1099,7 +1230,6 @@ def test_format_single_success_changed(
 ):
     """Test formatting a single commit via amending."""
     repo = repo_mc(repo_type, autoformat_enabled=True)
-    treestatusdouble.open_tree(repo.name)
     scm = repo.scm
 
     # Push the `mach` formatting patch.
@@ -1190,7 +1320,6 @@ def test_format_single_success_changed(
 @pytest.mark.django_db
 def test_format_stack_success_changed(
     repo_mc,
-    treestatusdouble,
     mock_phab_trigger_repo_update_apply_async,
     create_patch_revision,
     make_landing_job,
@@ -1199,7 +1328,6 @@ def test_format_stack_success_changed(
 ):
     """Test formatting a stack via an autoformat tip commit."""
     repo = repo_mc(repo_type, autoformat_enabled=True)
-    treestatusdouble.open_tree(repo.name)
     scm = repo.scm
 
     revisions = [
@@ -1377,7 +1505,6 @@ def test_format_stack_runs_configured_command(repo_mc, git_landing_worker):
 @pytest.mark.django_db
 def test_format_patch_fail(
     repo_mc,
-    treestatusdouble,
     monkeypatch,
     create_patch_revision,
     make_landing_job,
@@ -1387,7 +1514,6 @@ def test_format_patch_fail(
 ):
     """Tests automated formatting failures before landing."""
     repo = repo_mc(repo_type, autoformat_enabled=True)
-    treestatusdouble.open_tree(repo.name)
 
     revisions = [
         create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_FAIL),
@@ -1438,7 +1564,6 @@ def test_format_patch_fail(
 @pytest.mark.django_db
 def test_format_patch_no_landoini(
     repo_mc,
-    treestatusdouble,
     monkeypatch,
     mock_phab_trigger_repo_update_apply_async,
     create_patch_revision,
@@ -1448,7 +1573,6 @@ def test_format_patch_no_landoini(
 ):
     """Tests behaviour of Lando when the `.lando.ini` file is missing."""
     repo = repo_mc(repo_type, autoformat_enabled=True)
-    treestatusdouble.open_tree(repo.name)
 
     revisions = [
         # Patch=None lets create_patch_revision determine the patch to use based on the
@@ -1520,12 +1644,11 @@ def test_landing_job_revisions_sorting(
 def test_worker_active_repos_updated_when_tree_closed(
     scm_type,
     repo_name,
-    treestatusdouble,
+    new_treestatus_tree: Callable,
     monkeypatch,
     get_landing_worker,
 ):
     repo = Repo.objects.get(name=repo_name)
-    treestatusdouble.open_tree(repo.name)
 
     worker = get_landing_worker(scm_type)
     worker.refresh_active_repos()
@@ -1536,7 +1659,9 @@ def test_worker_active_repos_updated_when_tree_closed(
         f"The {scm_type} repo should be enabled when its tree is open."
     )
 
-    treestatusdouble.close_tree(repo.name)
+    new_treestatus_tree(
+        tree=repo.name, status=TreeStatus.CLOSED, reason="testing closed"
+    )
     worker.refresh_active_repos()
     assert repo not in worker.active_repos, (
         f"The {scm_type} repo should not be active when its tree is closed."
@@ -1589,7 +1714,6 @@ def test_three_way_landing_handles_context_shift(
     expected_strategy: str,
     repo_mc: Callable,
     git_repo: Path,
-    treestatusdouble: TreeStatusDouble,
     mock_phab_trigger_repo_update_apply_async: mock.Mock,
     create_patch_revision: Callable,
     make_landing_job: Callable,
@@ -1605,7 +1729,6 @@ def test_three_way_landing_handles_context_shift(
     )
 
     repo = repo_mc(SCMType.GIT)
-    treestatusdouble.open_tree(repo.name)
 
     revision = create_patch_revision(1, patch=three_way_patch)
     if provide_base:
@@ -1647,7 +1770,6 @@ def test_three_way_landing_handles_context_shift(
 def test_three_way_landing_conflict_reports_breakdown(
     repo_mc: Callable,
     git_repo: Path,
-    treestatusdouble: TreeStatusDouble,
     mock_phab_trigger_repo_update_apply_async: mock.Mock,
     create_patch_revision: Callable,
     make_landing_job: Callable,
@@ -1663,7 +1785,6 @@ def test_three_way_landing_conflict_reports_breakdown(
     )
 
     repo = repo_mc(SCMType.GIT)
-    treestatusdouble.open_tree(repo.name)
 
     revision = create_patch_revision(1, patch=three_way_patch)
     revision.base_revision = base_sha

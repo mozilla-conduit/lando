@@ -3,7 +3,10 @@ from typing import Callable, Self, override
 
 from django import forms
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.models import User
 from django.db.models import Field as DbField
+from django.db.models import Model
 from django.forms import CheckboxSelectMultiple, MultipleChoiceField
 from django.forms import Field as FormField
 from django.http import HttpRequest
@@ -12,9 +15,11 @@ from django.utils.translation import gettext_lazy
 
 from lando.main.models import (
     AutoformatChange,
+    BaseJob,
     CommitMap,
     ConfigurationVariable,
     LandingJob,
+    Profile,
     Repo,
     Revision,
     RevisionLandingJob,
@@ -41,15 +46,41 @@ class ArrayFieldMultipleChoiceField(MultipleChoiceField):
         super().__init__(**kwargs)
 
 
+class ReadOnlyModelAdmin(admin.ModelAdmin):
+    """A base ModelAdmin class for models which should never be edited."""
+
+    def has_add_permission(
+        self, request: HttpRequest, obj: Model | None = None
+    ) -> bool:
+        """Forbid addition of any object from the admin interface."""
+        return False
+
+    def has_change_permission(
+        self, request: HttpRequest, obj: Model | None = None
+    ) -> bool:
+        """Forbid change of any object from the admin interface."""
+        return False
+
+    def has_delete_permission(
+        self, request: HttpRequest, obj: Model | None = None
+    ) -> bool:
+        """Forbid deletion of any object from the admin interface."""
+        return False
+
+
 class ReadOnlyInline(admin.TabularInline):
     """
     A Tabular Inline that supports a readonly_fields to disallow editing linked models.
 
-    The `_target_object` *string* property needs to be set on child classes so fields are
-    automatically discovered for the target model. This string should be the name of the
-    attribute on the `model` class that contains the link.
+    The `_target_object` *string* property needs to be set on child classes whose
+    `readonly_fields` live on a linked model, so those fields are automatically
+    discovered. This string should be the name of the attribute on the `model` class that
+    contains the link. Inlines whose `readonly_fields` are all concrete fields of `model`
+    can leave it unset.
 
     """
+
+    _target_object: str | None = None
 
     extra = 0
     can_add = False
@@ -58,34 +89,41 @@ class ReadOnlyInline(admin.TabularInline):
     show_change_link = False
 
     @classmethod
-    def _field_getter_factory(cls, f: str) -> Callable:
+    def _field_getter_factory(cls, field_name: str) -> Callable:
         """Programatically add getters for all readonly fields which don't have one.
 
         [0] https://forum.djangoproject.com/t/show-all-the-fields-in-inline-of-the-many-to-many-model-instead-of-a-simple-dropdown/28062/7
         """
 
-        def getter(self: Self):
-            return getattr(getattr(self, cls._target_object), f)
+        def getter(self: Self) -> object:
+            return getattr(getattr(self, cls._target_object), field_name)
 
-        getter.__name__ = f
+        getter.__name__ = field_name
 
         return getter
 
     def __init__(self, *args, **kwargs):
-        for f in self.readonly_fields:
-            if not hasattr(self, f):
-                setattr(self, f, self._field_getter_factory(f))
+        if self._target_object:
+            for field_name in self.readonly_fields:
+                if not hasattr(self, field_name):
+                    setattr(self, field_name, self._field_getter_factory(field_name))
         super().__init__(*args, **kwargs)
 
-    def has_add_permission(self, request, obj=None) -> bool:  # noqa: ANN001
+    def has_add_permission(
+        self, request: HttpRequest, obj: Model | None = None
+    ) -> bool:
         """Forbid addition of any pushlog object from the admin interface."""
         return self.can_add
 
-    def has_change_permission(self, request, obj=None) -> bool:  # noqa: ANN001
+    def has_change_permission(
+        self, request: HttpRequest, obj: Model | None = None
+    ) -> bool:
         """Forbid change of any pushlog object from the admin interface."""
         return self.can_change
 
-    def has_delete_permission(self, request, obj=None) -> bool:  # noqa: ANN001
+    def has_delete_permission(
+        self, request: HttpRequest, obj: Model | None = None
+    ) -> bool:
         """Forbid deletion of any pushlog object from the admin interface."""
         return self.can_delete
 
@@ -138,9 +176,8 @@ class JobAdmin(admin.ModelAdmin):
     )
     search_fields = ("requester_email", "landed_commit_id")
 
-    def view_on_site(self, instance: LandingJob) -> str:
-        url = reverse("jobs-page", kwargs={"job_id": instance.id})
-        return url
+    def view_on_site(self, instance: BaseJob) -> str:
+        return instance.path()
 
 
 class LandingJobAdmin(JobAdmin):
@@ -364,9 +401,17 @@ class RepoAdmin(admin.ModelAdmin):
         "name",
         "scm_type",
         "worker_count",
+        "approval_required",
         "url",
         "required_permission",
         "updated_at",
+    )
+    list_filter = (
+        "approval_required",
+        "scm_type",
+        "is_try",
+        "required_permission",
+        "required_automation_permission",
     )
     inlines = (RepoWorkersInline,)
     readonly_fields = (
@@ -590,6 +635,28 @@ class UpliftSubmissionAdmin(admin.ModelAdmin):
         return instance.uplift_jobs.count()
 
 
+class ProfileInline(admin.TabularInline):
+    model = Profile
+    readonly_fields = (
+        "pk",
+        "userinfo",
+        "phabricator_phid",
+        "phabricator_api_key_is_set",
+    )
+
+    @staticmethod
+    def phabricator_api_key_is_set(instance: Profile) -> bool:
+        """Return True if phabricator_api_key is set."""
+        return bool(instance.phabricator_api_key)
+
+
+class CustomUserAdmin(UserAdmin):
+    """Customize the default UserAdmin by adding a Profile tabular inline."""
+
+    model = User
+    inlines = (ProfileInline,)
+
+
 admin.site.register(Repo, RepoAdmin)
 admin.site.register(LandingJob, LandingJobAdmin)
 admin.site.register(UpliftJob, UpliftJobAdmin)
@@ -601,3 +668,6 @@ admin.site.register(ConfigurationVariable, ConfigurationVariableAdmin)
 admin.site.register(UpliftAssessment, UpliftAssessmentAdmin)
 admin.site.register(UpliftRevision, UpliftRevisionAdmin)
 admin.site.register(UpliftSubmission, UpliftSubmissionAdmin)
+admin.site.register(Profile, admin.ModelAdmin)
+admin.site.unregister(User)
+admin.site.register(User, CustomUserAdmin)

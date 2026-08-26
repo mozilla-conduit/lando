@@ -35,12 +35,12 @@ dependencies = [
     "rs-parsepatch",
     "sentry-sdk",
     "setuptools-scm",
-    "simple-github",
+    "simple-github >= 3.2.0",
     "uwsgi",
 ]
 name = "lando"
 # NOTE: When bumping this, also update the Dockerfile to match.
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dynamic = ["version"]
 
 [project.optional-dependencies]

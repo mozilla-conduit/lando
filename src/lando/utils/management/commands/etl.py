@@ -29,6 +29,7 @@ from lando.main.models.uplift import (
     UpliftRevision,
     UpliftSubmission,
 )
+from lando.treestatus.models import Log, Tree
 
 logger = logging.getLogger(__name__)
 
@@ -350,6 +351,45 @@ class AutomationActionTransformer(ModelTransformer):
         return data
 
 
+class TreeTransformer(ModelTransformer):
+    """Transformer for `Tree` model."""
+
+    model = Tree
+    table_id_env_var = "BQ_TREESTATUS_TREES_TABLE_ID"
+    fields = (
+        "tree",
+        "status",
+        "reason",
+        "message_of_the_day",
+        "category",
+    )
+
+
+class LogTransformer(ModelTransformer):
+    """Transformer for `Log` model."""
+
+    model = Log
+    table_id_env_var = "BQ_TREESTATUS_LOGS_TABLE_ID"
+    fields = (
+        "tree_id",
+        "changed_by",
+        "status",
+        "reason",
+        "tags",
+    )
+
+    def transform(self, instance: BaseModel) -> dict[str, Any]:
+        """Transform a `Log` instance for loading.
+
+        The `tree` foreign key points at `Tree.tree`, so the Django FK attribute
+        `tree_id` already holds the tree name. Rename it to `tree` to avoid
+        implying an integer ID in BigQuery.
+        """
+        data = super().transform(instance)
+        data["tree"] = data.pop("tree_id")
+        return data
+
+
 # All available transformers.
 TRANSFORMERS = [
     RepoTransformer(),
@@ -364,6 +404,8 @@ TRANSFORMERS = [
     UpliftSubmissionTransformer(),
     UpliftJobTransformer(),
     RevisionUpliftJobTransformer(),
+    TreeTransformer(),
+    LogTransformer(),
 ]
 
 

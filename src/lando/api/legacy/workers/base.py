@@ -5,16 +5,19 @@ import os
 import re
 import subprocess
 from abc import ABC, abstractmethod
+from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from time import sleep
 from typing import Callable, TypeVar
 
 from celery import Task
 from django.db import transaction
+from django.db.models import Count
 from kombu.exceptions import OperationalError
 
-import lando.utils.treestatus
-from lando.api.legacy.treestatus import TreeStatus
+from lando.api.legacy.notifications import notify_user_of_bug_update_failure
+from lando.api.legacy.uplift import update_bugs_for_uplift
 from lando.main.models import (
     BaseJob,
     JobStatus,
@@ -22,6 +25,7 @@ from lando.main.models import (
     WorkerType,
 )
 from lando.main.models import Worker as WorkerModel
+from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 from lando.main.models.jobs import (
     JobAction,
     PermanentFailureException,
@@ -34,11 +38,52 @@ from lando.main.scm.exceptions import (
     PatchConflict,
     SCMException,
     SCMInternalServerError,
+    TreeApprovalRequired,
+    TreeClosed,
 )
+from lando.treestatus.utils import is_open
+from lando.utils.tasks import send_job_aborted_email
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+# Failures which are expected to be resolved without anyone looking at the job, e.g.
+# by a sheriff reopening the tree. Jobs deferred for these reasons are retried
+# indefinitely, rather than being aborted after `BaseJob.max_attempts` attempts.
+NON_ABORTABLE_FAILURES = (TreeClosed, TreeApprovalRequired)
+
+# Queue size above which a worker logs a queue size warning, used when
+# `ConfigurationKey.WORKER_QUEUE_SIZE_ALERT_THRESHOLD` is unset.
+DEFAULT_QUEUE_SIZE_ALERT_THRESHOLD = 25
+
+
+@dataclass(frozen=True)
+class QueueSize:
+    """The number of jobs queued for a worker, split by the state of their tree."""
+
+    open_trees: int = 0
+    closed_trees: int = 0
+
+    @property
+    def total(self) -> int:
+        """The number of queued jobs, wherever they are held."""
+        return self.open_trees + self.closed_trees
+
+    @property
+    def log_fields(self) -> dict[str, int]:
+        """The queue size as `extra` fields for a log record."""
+        return {
+            "queue_size": self.total,
+            "open_queue_size": self.open_trees,
+            "closed_queue_size": self.closed_trees,
+        }
+
+    def __str__(self) -> str:
+        return (
+            f"{self.total} ({self.open_trees} on open trees, "
+            f"{self.closed_trees} behind closed trees)"
+        )
 
 
 class Worker(ABC):
@@ -71,8 +116,6 @@ class Worker(ABC):
 
     ssh_private_key: str | None
 
-    treestatus_client: TreeStatus
-
     # The list of all repos that have open trees; refreshed when needed via
     # `self.refresh_active_repos`.
     active_repos: list[Repo]
@@ -88,10 +131,6 @@ class Worker(ABC):
         with_ssh: bool = True,
     ):
         self.worker_instance = worker_instance
-
-        self.treestatus_client = lando.utils.treestatus.get_treestatus_client()
-        if not self.treestatus_client.ping():
-            raise ConnectionError("Could not connect to Treestatus")
 
         self.last_maintenance_at: dict[int, datetime] = {}
 
@@ -214,6 +253,12 @@ class Worker(ABC):
             # We refresh again after a throttle, in case trees were closed or re-opened.
             self.refresh_active_repos()
 
+        queue_size = self.queue_size()
+        above_threshold = queue_size.total > self.queue_size_alert_threshold
+        self.log_queue_size(
+            queue_size, logging.WARNING if above_threshold else logging.INFO
+        )
+
         with transaction.atomic():
             job = self.job_type.next_job(repositories=self.active_repos).first()
 
@@ -227,16 +272,14 @@ class Worker(ABC):
             if job.status not in [JobStatus.SUBMITTED, JobStatus.DEFERRED]:
                 logger.warning(f"Unexpected status for {job}")
 
-            job.status = JobStatus.IN_PROGRESS
-            job.attempts += 1
-            # Make sure the status and attempt count are updated in the database
-            job.save()
+            job.start_attempt()
 
             try:
                 self.last_job_finished = self.run_job(job)
             except TemporaryFailureException as exc:
-                job.transition_status(JobAction.DEFER, message=str(exc))
-                self.last_job_finished = False
+                # An aborted job is in a final state, so the worker can move on to the
+                # next job rather than sleeping.
+                self.last_job_finished = self.defer_or_abort(job, str(exc))
                 logger.warning(
                     f"Temporary failure for {job}: {exc}",
                     extra={"id": job.id},
@@ -267,6 +310,92 @@ class Worker(ABC):
                     extra={"id": job.id},
                 )
 
+            if job.status == JobStatus.ABORTED:
+                self.notify_user_of_job_abort(job)
+
+    def defer_or_abort(self, job: BaseJob, message: str) -> bool:
+        """Abort `job` if it has run out of attempts, otherwise defer it.
+
+        A job which keeps deferring blocks every other job for its repository, so it
+        is given up on once it runs out of attempts. Returns whether it was aborted.
+        """
+        if job.has_attempts_remaining():
+            job.transition_status(JobAction.DEFER, message=message)
+            return False
+
+        job.transition_status(JobAction.ABORT, message=message)
+        return True
+
+    def notify_user_of_job_abort(self, job: BaseJob):
+        """Tell the requester of `job` that Lando gave up on it."""
+        self.call_task(
+            send_job_aborted_email,
+            job.requester_email,
+            job.type,
+            job.id,
+            job.url(),
+            job.error,
+        )
+
+    def log_queue_size(self, queue_size: QueueSize, level: int = logging.INFO):
+        """Log the number of jobs waiting to be processed by this worker.
+
+        A log-based metric graphs the queue depth over time from these records, and
+        alerts on the ones logged at `logging.WARNING`.
+        """
+        worker_name = self.worker_instance.name
+        logger.log(
+            level,
+            f"Queue size for worker {worker_name} is {queue_size}.",
+            extra={"worker": worker_name, **queue_size.log_fields},
+        )
+
+    @property
+    def queue_size_alert_threshold(self) -> int:
+        """The queue size above which `loop` logs the queue size as a warning.
+
+        The total is what gets compared, as jobs held behind a closed tree delay
+        landings from a user's perspective just as much as the jobs the worker can
+        drain now.
+        """
+        return ConfigurationVariable.get(
+            ConfigurationKey.WORKER_QUEUE_SIZE_ALERT_THRESHOLD,
+            DEFAULT_QUEUE_SIZE_ALERT_THRESHOLD,
+        )
+
+    def queue_size(self) -> QueueSize:
+        """Return the number of queued jobs, split by whether their tree is open.
+
+        A single query counts the pending jobs across every enabled repo and groups
+        them by repo, which are then tallied into the jobs this worker can drain now
+        and the jobs held behind a closed tree. `grace_seconds` is set to `0` so the
+        size is the true backlog rather than the subset the worker is currently
+        willing to claim. An empty `enabled_repos` is short-circuited because
+        `job_queue_query` skips the repo filter entirely in that case, which would
+        count every other worker's jobs too.
+        """
+        if not self.enabled_repos:
+            return QueueSize()
+
+        counts_by_repo = (
+            self.job_type.job_queue_query(
+                repositories=self.enabled_repos, grace_seconds=0
+            )
+            # Drop the queue ordering, which would otherwise group by its annotations.
+            .order_by()
+            .values("target_repo")
+            .annotate(job_count=Count("id"))
+        )
+
+        active_repo_ids = {repo.id for repo in self.active_repos}
+        counts_by_tree_state = defaultdict(int)
+        for row in counts_by_repo:
+            tree_is_open = row["target_repo"] in active_repo_ids
+            tree_state = "open_trees" if tree_is_open else "closed_trees"
+            counts_by_tree_state[tree_state] += row["job_count"]
+
+        return QueueSize(**counts_by_tree_state)
+
     @property
     def throttle_seconds(self) -> int:
         """The duration to pause for when the worker is being throttled."""
@@ -283,9 +412,7 @@ class Worker(ABC):
 
     def refresh_active_repos(self):
         """Refresh the list of repositories based on treestatus."""
-        self.active_repos = [
-            r for r in self.enabled_repos if self.treestatus_client.is_open(r.tree)
-        ]
+        self.active_repos = [repo for repo in self.enabled_repos if is_open(repo.tree)]
         logger.info(f"{len(self.active_repos)} enabled repos: {self.active_repos}")
 
     def run_idle_maintenance(self):
@@ -366,7 +493,7 @@ class Worker(ABC):
                 f"encountered while pulling from {repo_pull_info}: {e}"
             )
             logger.exception(message)
-            job.transition_status(JobAction.DEFER, message=message)
+            self.defer_or_abort(job, message)
 
             # Try again, this is a temporary failure.
             raise TemporaryFailureException(message) from e
@@ -430,6 +557,56 @@ class Worker(ABC):
                 message=message,
             )
             raise PermanentFailureException(message) from exc
+
+    @staticmethod
+    def notify_user_of_bug_update_failure(job: BaseJob):
+        """Wrapper around `notify_user_of_bug_update_failure` for convenience.
+
+        Args:
+            job (BaseJob): A job instance to use when fetching the
+                notification parameters.
+        """
+        notify_user_of_bug_update_failure(
+            job.requester_email,
+            job.human_friendly_identifier,
+            "Failed to update Bugzilla after landing uplift revisions. Please "
+            "update the relevant bugs manually.",
+            job.id,
+        )
+
+    def update_bugs_after_uplift(
+        self, job: BaseJob, repo: Repo, scm: AbstractSCM, bug_ids: list[str]
+    ):
+        """Update the bugs referenced by an uplift landing.
+
+        Callers are responsible for checking the target repo requires approval
+        (i.e. is an uplift train). No-op if the landed commits reference no bugs.
+        """
+        if not repo.approval_required:
+            raise ValueError(
+                f"Repo {repo.name} does not require approval, refusing to update bugs."
+            )
+
+        if not bug_ids:
+            return
+
+        logger.debug(f"Updating bugs after uplift landing: {bug_ids}.")
+        try:
+            update_bugs_for_uplift(
+                # Use the `legacy source` shortname here, since the new repos
+                # use the `firefox-` prefix naming convention. For `firefox-beta`
+                # this should return `beta`, etc.
+                repo.default_branch,
+                scm.read_checkout_file("config/milestone.txt"),
+                repo.milestone_tracking_flag_template,
+                bug_ids,
+            )
+        except Exception:
+            # The changesets will have gone through even if updating the bugs fails.
+            # Notify the landing user so they are aware and can update the bugs
+            # themselves.
+            logger.exception("Failed to update bugs after uplift landing.")
+            self.notify_user_of_bug_update_failure(job)
 
     def start(self, max_loops: int | None = None):
         """Run setup sequence and start the event loop."""

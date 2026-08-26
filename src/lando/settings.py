@@ -74,7 +74,7 @@ CSRF_COOKIE_SECURE = True
 # Configure the django-cors-headers middleware.
 CORS_ALLOW_ALL_ORIGINS = True
 # Only set the CORS header for those paths.
-CORS_URLS_REGEX = r"^(/landing_jobs)"
+CORS_URLS_REGEX = r"^(/landing_jobs|/api/treestatus)"
 
 # Set the default upload memory size to a large value, to support large uploads from
 # lando-cli.
@@ -275,16 +275,17 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 LINT_PATHS = (BASE_DIR,)
-# Used by Prettier for linting CSS/JS and the Vue/TypeScript frontend. The
-# `frontend` source lives at the repository root (`BASE_DIR` is `src/lando`).
-STATIC_LINT_PATHS = (BASE_DIR / "static_src", BASE_DIR.parent.parent / "frontend")
+# Used by Prettier for linting CSS/JS, the Vue/TypeScript frontend, and the
+# root-level build/tooling config. Prettier scans the whole repository
+# (`BASE_DIR` is `src/lando`); files it should not own (HTML templates, which
+# djlint formats, the generated `package-lock.json`, test fixtures, etc.) are
+# excluded via `.prettierignore`.
+STATIC_LINT_PATHS = (BASE_DIR.parent.parent,)
 PHABRICATOR_URL = os.getenv("PHABRICATOR_URL", "http://phabricator.test")
 PHABRICATOR_ADMIN_API_KEY = os.getenv("PHABRICATOR_ADMIN_API_KEY", "")
 PHABRICATOR_UNPRIVILEGED_API_KEY = os.getenv("PHABRICATOR_UNPRIVILEGED_API_KEY", "")
 
 TREEHERDER_URL = os.getenv("TREEHERDER_URL", "https://treeherder.mozilla.org")
-
-TREESTATUS_URL = os.getenv("TREESTATUS_URL", "http://treestatus.test")
 
 # Endpoint providing release-train guidance for the uplift target selector. The
 # browser fetches this directly. Defaults to the whattrainisitnow.com production
@@ -355,3 +356,5 @@ AUDITLOG_EXCLUDE_TRACKING_FIELDS = (
     "created_at",
     "updated_at",
 )
+
+DISALLOWED_AUTHOR_EMAILS = ("hackbot@mozilla.tld",)

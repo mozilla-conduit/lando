@@ -14,6 +14,7 @@ from lando.api.legacy.bmo import (
 from lando.api.legacy.commit_message import (
     ACCEPTABLE_MESSAGE_FORMAT_RES,
     INVALID_REVIEW_FLAG_RE,
+    RE_DIFF,
     REPO_FLAG_RE,
     is_backout,
     parse_backouts,
@@ -534,6 +535,12 @@ class CommitMessagesCheck(PatchCollectionCheck):
         if firstline.lower().startswith("wip:"):
             self.commit_message_issues.append(
                 f"Revision seems to be marked as WIP: {commit_message}"
+            )
+            return
+
+        if re.search(RE_DIFF, commit_message):
+            self.commit_message_issues.append(
+                f"Suspected diff found in commit message. Please indent the diff if this is on purpose: {commit_message}"
             )
             return
 

@@ -1,97 +1,97 @@
 services:
-  db:
-    image: postgres:17
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "postgres"]
-      interval: 1s
-      timeout: 10s
-      retries: 10
-    volumes:
-      - postgres_db:/var/lib/postgresql/data
+    db:
+        image: postgres:17
+        environment:
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: postgres
+        healthcheck:
+            test: ["CMD", "pg_isready", "-U", "postgres", "-d", "postgres"]
+            interval: 1s
+            timeout: 10s
+            retries: 10
+        volumes:
+            - postgres_db:/var/lib/postgresql/data
 
-  lando:
-    user: ${UID}:${GID}
-    build:
-      context: .
-    stdin_open: true
-    tty: true
-    image: lando
-    command: bash -c "
-      lando migrate &&
-      lando collectstatic --clear --no-input &&
-      uwsgi --ini /code/uwsgi.ini:local"
-    volumes:
-      - ./:/code
-      - media:/files/
-      - /code/src/lando/version
-    env_file:
-      - path: .env
-        required: false
-    environment:
-      DEFAULT_DB_HOST: db
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    lando:
+        user: ${UID}:${GID}
+        build:
+            context: .
+        stdin_open: true
+        tty: true
+        image: lando
+        command: bash -c "
+            lando migrate &&
+            lando collectstatic --clear --no-input &&
+            uwsgi --ini /code/uwsgi.ini:local"
+        volumes:
+            - ./:/code
+            - media:/files/
+            - /code/src/lando/version
+        env_file:
+            - path: .env
+              required: false
+        environment:
+            DEFAULT_DB_HOST: db
+        depends_on:
+            db:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
 
-  hg-landing-worker:
-    image: lando
-    command: lando start_landing_worker hg
-    environment:
-      DEFAULT_GRACE_SECONDS: 10
-      LANDING_WORKER_USERNAME: app
-      LANDING_WORKER_TARGET_SSH_PORT: 8022
-      SSH_PRIVATE_KEY: |
-        -----BEGIN EC PRIVATE KEY-----
-        MHcCAQEEIMiMNKEkf0vr4HrhUIrq0e9NjGNPArN7L1uy/HQZ1dA8oAoGCCqGSM49
-        AwEHoUQDQgAEdakNgjerNLFXy1uMfwLjPd5/pBTbIEoZMdMV/o6s+uoMg776LF+v
-        gtbfIaZbhDcJElzHwpnqGfHYU+cM4KyurA==
-        -----END EC PRIVATE KEY-----
-    env_file:
-      - path: .env
-        required: false
-    depends_on:
-      db:
-        condition: service_healthy
+    hg-landing-worker:
+        image: lando
+        command: lando start_landing_worker hg
+        environment:
+            DEFAULT_GRACE_SECONDS: 10
+            LANDING_WORKER_USERNAME: app
+            LANDING_WORKER_TARGET_SSH_PORT: 8022
+            SSH_PRIVATE_KEY: |
+                -----BEGIN EC PRIVATE KEY-----
+                MHcCAQEEIMiMNKEkf0vr4HrhUIrq0e9NjGNPArN7L1uy/HQZ1dA8oAoGCCqGSM49
+                AwEHoUQDQgAEdakNgjerNLFXy1uMfwLjPd5/pBTbIEoZMdMV/o6s+uoMg776LF+v
+                gtbfIaZbhDcJElzHwpnqGfHYU+cM4KyurA==
+                -----END EC PRIVATE KEY-----
+        env_file:
+            - path: .env
+              required: false
+        depends_on:
+            db:
+                condition: service_healthy
 
-  git-landing-worker:
-    image: lando
-    command: lando start_landing_worker git
-    environment:
-      DEFAULT_GRACE_SECONDS: 10
-      LANDING_WORKER_USERNAME: app
-    env_file:
-      - path: .env
-        required: false
-    depends_on:
-      db:
-        condition: service_healthy
+    git-landing-worker:
+        image: lando
+        command: lando start_landing_worker git
+        environment:
+            DEFAULT_GRACE_SECONDS: 10
+            LANDING_WORKER_USERNAME: app
+        env_file:
+            - path: .env
+              required: false
+        depends_on:
+            db:
+                condition: service_healthy
 
-  proxy:
-    build: ./nginx
-    ports:
-      - 443:443
-    depends_on:
-      - lando
-    volumes:
-      - ./staticfiles:/code/staticfiles
+    proxy:
+        build: ./nginx
+        ports:
+            - 443:443
+        depends_on:
+            - lando
+        volumes:
+            - ./staticfiles:/code/staticfiles
 
-  redis:
-    image: redis:7.2
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+    redis:
+        image: redis:7.2
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
 
-  celery:
-    image: lando
-    command: lando start_celery_worker
-    depends_on:
-      redis:
-        condition: service_healthy
+    celery:
+        image: lando
+        command: lando start_celery_worker
+        depends_on:
+            redis:
+                condition: service_healthy
 
 volumes:
-  media:
-  postgres_db:
+    media:
+    postgres_db:

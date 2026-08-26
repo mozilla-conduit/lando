@@ -1,37 +1,37 @@
 {
-  "name": "Lando",
-  "description": "Unified Lando Project",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "bulma": "^1.0.4",
-    "font-awesome": "^4.7.0",
-    "jquery": "^3.7.1",
-    "sass": "^1.97.0",
-    "vue": "^3.5.13",
-    "zod": "^3.24.0"
-  },
-  "//": [
-    "`prettier` is listed under `devDependencies` for semantic correctness",
-    "only — the Docker build currently runs `npm install` without `--omit=dev`,",
-    "so it is not actually excluded from production images."
-  ],
-  "devDependencies": {
-    "@types/node": "^24.12.3",
-    "@vitejs/plugin-vue": "^6.0.6",
-    "@vue/test-utils": "^2.4.10",
-    "@vue/tsconfig": "^0.9.1",
-    "jquery": "^3.7.1",
-    "jsdom": "^25.0.1",
-    "prettier": "^3.4.2",
-    "typescript": "~6.0.2",
-    "vite": "^8.0.12",
-    "vitest": "^4.1.0",
-    "vue-tsc": "^3.2.8"
-  },
-  "scripts": {
-    "postinstall": "echo 'Bulma and Dart Sass installed successfully'",
-    "build": "vue-tsc -b && vite build",
-    "test": "TZ=UTC vitest run"
-  }
+    "name": "Lando",
+    "description": "Unified Lando Project",
+    "private": true,
+    "type": "module",
+    "dependencies": {
+        "bulma": "^1.0.4",
+        "font-awesome": "^4.7.0",
+        "jquery": "^3.7.1",
+        "sass": "^1.97.0",
+        "vue": "^3.5.13",
+        "zod": "^3.24.0"
+    },
+    "//": [
+        "`prettier` is listed under `devDependencies` for semantic correctness",
+        "only — the Docker build currently runs `npm install` without `--omit=dev`,",
+        "so it is not actually excluded from production images."
+    ],
+    "devDependencies": {
+        "@types/node": "^24.12.3",
+        "@vitejs/plugin-vue": "^6.0.6",
+        "@vue/test-utils": "^2.4.10",
+        "@vue/tsconfig": "^0.9.1",
+        "jquery": "^3.7.1",
+        "jsdom": "^25.0.1",
+        "prettier": "^3.4.2",
+        "typescript": "~6.0.2",
+        "vite": "^8.0.12",
+        "vitest": "^4.1.0",
+        "vue-tsc": "^3.2.8"
+    },
+    "scripts": {
+        "postinstall": "echo 'Bulma and Dart Sass installed successfully'",
+        "build": "vue-tsc -b && vite build",
+        "test": "TZ=UTC vitest run"
+    }
 }

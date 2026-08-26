@@ -50,9 +50,6 @@ def filter_claims(claims: dict) -> dict:
     claims = {key: value for key, value in claims.items() if key in keep_keys}
 
     # Remove reference to any groups not currently used in Lando.
-    # NOTE: currently these are SCM group, however in the future other
-    # groups will need to be added here, for example "treestatus users",
-    # and other lando permissions.
     # This filter is only applicable to remote environments at this time.
     if settings.ENVIRONMENT.is_remote:
         claims[CLAIM_GROUPS_KEY] = [
@@ -82,6 +79,9 @@ class Profile(CryptographyMixin, BaseModel):
     phabricator_phid = models.CharField(
         max_length=255, null=True, blank=True, unique=True
     )
+
+    def __str__(self) -> str:
+        return f"Profile for {self.user.email}"
 
     def _has_scm_permission_groups(self, codename: str, groups: list[str]) -> bool:
         """Return whether the group membership provides the correct permission.

@@ -7,23 +7,25 @@ import pytest
 from django.test import Client
 
 from lando import test_settings as settings
-from lando.api.tests.mocks import TreeStatusDouble
 from lando.main import scm
 from lando.main.models import JobStatus, LandingJob
 from lando.main.models.commit_map import CommitMap
 from lando.main.scm import SCMType
+from lando.treestatus.models import TreeStatus
 
 
 @pytest.mark.django_db
 def test_queued_landing_job_view(
     client: Client,
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
+    new_treestatus_tree: Callable,
     landing_worker_instance: Callable,
     make_landing_job: Callable,
 ):
     repo = repo_mc(SCMType.GIT)
-    treestatusdouble.close_tree(repo.name)
+    new_treestatus_tree(
+        tree=repo.name, status=TreeStatus.CLOSED, reason="testing closed"
+    )
 
     # We need a landing worker to exist so the queue can be built, but we don't use it
     # directly in the test.
@@ -53,7 +55,7 @@ def test_queued_landing_job_view(
 def test_landed_landing_job_view(
     client: Client,
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
+    new_treestatus_tree: Callable,
     landing_worker_instance: Callable,
     make_landing_job: Callable,
     commit_maps: list[CommitMap],
@@ -64,7 +66,9 @@ def test_landed_landing_job_view(
     repo = repo_mc(SCMType.GIT)
     repo.treeherder_name = "autoland"
     repo.save()
-    treestatusdouble.close_tree(repo.name)
+    new_treestatus_tree(
+        tree=repo.name, status=TreeStatus.CLOSED, reason="testing closed"
+    )
 
     # We need a landing worker to exist so the queue can be built, but we don't use it
     # directly in the test.
@@ -83,10 +87,11 @@ def test_landed_landing_job_view(
 
 @pytest.mark.parametrize(
     "error,error_breakdown",
-    itertools.product(
-        (
+    tuple(
+        itertools.product(
             (
-                dedent("""\
+                (
+                    dedent("""\
                     Problem while applying patch in revision 264890:
 
                     Checking patch browser/components/preferences/widgets/setting-group/setting-group.mjs...
@@ -120,23 +125,23 @@ def test_landed_landing_job_view(
                     Applied patch browser/components/preferences/tests/chrome/test_setting_group.html cleanly.
                     Applied patch browser/components/preferences/main.js cleanly.
                 """).strip(),
-            )
-        ),
-        (
-            None,
-            {
-                "revision_id": 264890,
-                "failed_paths": [
-                    {
-                        "url": "https://github.com/mozilla-firefox/firefox/tree/9d7faf035e9590310b3f6c86171a06aa30c29132/browser/components/preferences/widgets/setting-control/setting-control.mjs",
-                        "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs",
-                        "changeset_id": "9d7faf035e9590310b3f6c86171a06aa30c29132",
-                    }
-                ],
-                "rejects_paths": {
-                    "browser/components/preferences/widgets/setting-control/setting-control.mjs": {
-                        "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs.rej",
-                        "content": dedent("""\
+                )
+            ),
+            (
+                None,
+                {
+                    "revision_id": 264890,
+                    "failed_paths": [
+                        {
+                            "url": "https://github.com/mozilla-firefox/firefox/tree/9d7faf035e9590310b3f6c86171a06aa30c29132/browser/components/preferences/widgets/setting-control/setting-control.mjs",
+                            "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs",
+                            "changeset_id": "9d7faf035e9590310b3f6c86171a06aa30c29132",
+                        }
+                    ],
+                    "rejects_paths": {
+                        "browser/components/preferences/widgets/setting-control/setting-control.mjs": {
+                            "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs.rej",
+                            "content": dedent("""\
                             diff a/browser/components/preferences/widgets/setting-control/setting-control.mjs b/browser/components/preferences/widgets/setting-control/setting-control.mjs\t(rejected hunks)
                             @@ -209,13 +209,20 @@
                                    }
@@ -161,39 +166,42 @@ def test_landed_landing_job_view(
                                /**
 
                                 """).strip(),
-                    }
+                        }
+                    },
                 },
-            },
-            {
-                "revision_id": 264890,
-                "failed_paths": [
-                    {
-                        "url": "https://github.com/mozilla-firefox/firefox/tree/9d7faf035e9590310b3f6c86171a06aa30c29132/browser/components/preferences/widgets/setting-control/setting-control.mjs",
-                        "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs",
-                        "changeset_id": "9d7faf035e9590310b3f6c86171a06aa30c29132",
-                    }
-                ],
-                "rejects_paths": {
-                    "browser/components/preferences/widgets/setting-control/setting-control.mjs": {
-                        "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs.rej",
-                        # content removed
-                    }
+                {
+                    "revision_id": 264890,
+                    "failed_paths": [
+                        {
+                            "url": "https://github.com/mozilla-firefox/firefox/tree/9d7faf035e9590310b3f6c86171a06aa30c29132/browser/components/preferences/widgets/setting-control/setting-control.mjs",
+                            "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs",
+                            "changeset_id": "9d7faf035e9590310b3f6c86171a06aa30c29132",
+                        }
+                    ],
+                    "rejects_paths": {
+                        "browser/components/preferences/widgets/setting-control/setting-control.mjs": {
+                            "path": "browser/components/preferences/widgets/setting-control/setting-control.mjs.rej",
+                            # content removed
+                        }
+                    },
                 },
-            },
-        ),
+            ),
+        )
     ),
 )
 @pytest.mark.django_db
 def test_error_landing_job_view(
     client: Client,
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
+    new_treestatus_tree: Callable,
     make_landing_job: Callable,
     error: str,
     error_breakdown: str,
 ):
     repo = repo_mc(SCMType.GIT)
-    treestatusdouble.close_tree(repo.name)
+    new_treestatus_tree(
+        tree=repo.name, status=TreeStatus.CLOSED, reason="testing closed"
+    )
 
     job = make_landing_job(
         target_repo=repo,

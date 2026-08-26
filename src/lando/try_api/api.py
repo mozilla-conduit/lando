@@ -12,6 +12,7 @@ from django.shortcuts import redirect
 from ninja import NinjaAPI, Schema
 from pydantic import Field, StringConstraints
 
+from lando.headless_api.api import HeadlessAPIAuthentication
 from lando.main.models import Repo
 from lando.main.models.commit_map import CommitMap
 from lando.main.models.jobs import JobStatus
@@ -31,7 +32,15 @@ from lando.utils.ninja_auth import AccessTokenAuth
 
 logger = logging.getLogger(__name__)
 
-api = NinjaAPI(auth=AccessTokenAuth(), urls_namespace="try")
+api = NinjaAPI(
+    # We expect orders of magnitude more authentication with OAuth access tokens rather
+    # than Headless API token. So we put the former first, even though it requires
+    # network interactions that the latter doesn't. The latter also does log at INFO
+    # level when a token is not found, which would otherwise create a lot of noise in
+    # the logs.
+    auth=[AccessTokenAuth(), HeadlessAPIAuthentication()],
+    urls_namespace="try",
+)
 
 
 @api.exception_handler(PermissionDenied)
@@ -225,10 +234,16 @@ def patches(
         patch_helpers.append(ph)
 
     landing_checks = LandingChecks(request.user.email, repo.name)
-    errors = landing_checks.run(
-        repo.hooks,
-        patch_helpers,
-    )
+    try:
+        errors = landing_checks.run(
+            repo.hooks,
+            patch_helpers,
+        )
+    except Exception:
+        message = "Unexpected error while performing pre-submission patch checks."
+        logger.exception(message)
+        # Prepare message to be handled as a normal error just below.
+        errors = [message]
 
     if errors:
         bulleted_errors = "\n  - ".join(errors)

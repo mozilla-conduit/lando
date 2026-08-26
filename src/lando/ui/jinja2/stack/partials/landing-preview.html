@@ -8,6 +8,21 @@
         {{ blocker|escape_html|linkify_faq|safe }}
     </div>
 {% elif series %}
+    {% if revisions_with_disallowed_authors %}
+        <span class="has-text-danger">Commit Author must be changed before landing. This will only affect revisions with disallowed authors (
+            {%- for _rev in revisions_with_disallowed_authors %}{{ _rev.id|linkify_phabricator_revision_ids|safe }}{{ " " if not loop.last else "" }}{% endfor -%}
+        ).</span>
+        <div>
+            <div class="field">
+                <label class="label">New Commit Author Name</label>
+                <div class="control">{{ form.author_name }}</div>
+            </div>
+            <div class="field">
+                <label class="label">New Commit Author Email</label>
+                <div class="control">{{ form.author_email }}</div>
+            </div>
+        </div>
+    {% endif %}
     <h3 class="StackPage-landingPreview-sectionLabel">
         Landing To: &nbsp;
         <a class="StackPage-landingPreview-landingTo"
@@ -83,33 +98,19 @@
         {% if dryrun['warnings'] %}
             <ul class="StackPage-landingPreview-warningsList">
                 {% for warning in dryrun['warnings'] %}
-                    {% if warning.articulated %}
-                        {% for w in warning.instances %}
-                            {% for dw in w.details %}
-                                <li class="StackPage-landingPreview-warning">
-                                    <label>
-                                        <input type="checkbox" name="warnings[]" value="1" />
-                                        {{ dw.message|escape_html|linkify_bug_numbers|linkify_phabricator_revision_urls|linkify_faq|linkify_sec_bug_docs|safe }}
-                                        [{{ w.revision_id | linkify_phabricator_revision_ids | safe }}]
-                                    </label>
-                                </li>
+                    <li class="StackPage-landingPreview-warning">
+                        <label>
+                            <input type="checkbox" name="warnings[]" value="1" />
+                            {{ warning['display']|escape_html|linkify_bug_numbers|linkify_phabricator_revision_urls|linkify_faq|linkify_sec_bug_docs|safe }}
+                            [
+                            {% for instance in warning['instances'] %}
+                                {{
+                                ", " if not loop.first else ""
+                                }}{{ instance['revision_id'] | linkify_phabricator_revision_ids | safe }}
                             {% endfor %}
-                        {% endfor %}
-                    {% else %}
-                        <li class="StackPage-landingPreview-warning">
-                            <label>
-                                <input type="checkbox" name="warnings[]" value="1" />
-                                {{ warning['display']|escape_html|linkify_bug_numbers|linkify_phabricator_revision_urls|linkify_faq|linkify_sec_bug_docs|safe }}
-                                [
-                                {% for instance in warning['instances'] %}
-                                    {{
-                                    ", " if not loop.first else ""
-                                    }}{{ instance['revision_id'] | linkify_phabricator_revision_ids | safe }}
-                                {% endfor %}
-                                ]
-                            </label>
-                        </li>
-                    {% endif %}
+                            ]
+                        </label>
+                    </li>
                 {% endfor %}
             </ul>
         {% else %}

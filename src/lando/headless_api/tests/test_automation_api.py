@@ -15,8 +15,12 @@ from django.test.client import Client
 from pydantic import ValidationError
 
 from lando.api.legacy.workers.automation_worker import AutomationWorker
-from lando.api.tests.mocks import TreeStatusDouble
-from lando.conftest import FAILING_CHECK_TYPES
+from lando.conftest import (
+    FAILING_CHECK_TYPES,
+    PATCH_DIFF,
+    PATCH_DIFF_2,
+    PATCH_MILESTONE_DIFF,
+)
 from lando.headless_api.api import (
     MergeOntoAction,
     RelBranchSpecifier,
@@ -29,6 +33,7 @@ from lando.headless_api.models.automation_job import (
 )
 from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import JobStatus
+from lando.main.models.repo import Repo
 from lando.main.scm import PatchConflict, SCMType
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.main.scm.exceptions import SCMInternalServerError
@@ -57,49 +62,6 @@ def automation_job() -> Callable:
         return job, automation_actions
 
     return create_automation_job
-
-
-@pytest.mark.django_db
-def test_auth_missing_user_agent(client, headless_user, automation_job):
-    user, token = headless_user
-
-    # Create a job and actions
-    job, _actions = automation_job(
-        status=JobStatus.SUBMITTED, actions=[{"content": "test"}]
-    )
-
-    # Fetch job status.
-    response = client.get(
-        f"/api/job/{job.id}",
-        headers={
-            "Authorization": f"Bearer {token}",
-        },
-    )
-
-    assert response.status_code == 401, "Missing `User-Agent` should result in 401."
-    assert response.json() == {"details": "`User-Agent` header is required."}
-
-
-@pytest.mark.django_db
-def test_auth_user_agent_bad_format(client, headless_user, automation_job):
-    user, token = headless_user
-
-    # Create a job and actions
-    job, _actions = automation_job(
-        status=JobStatus.SUBMITTED, actions=[{"content": "test"}]
-    )
-
-    # Fetch job status.
-    response = client.get(
-        f"/api/job/{job.id}",
-        headers={
-            "Authorization": f"Bearer {token}",
-            "User-Agent": "testuser@example.org",
-        },
-    )
-
-    assert response.status_code == 401, "Incorrect `User-Agent` should result in 401."
-    assert response.json() == {"details": "Incorrect `User-Agent` format."}
 
 
 @pytest.mark.django_db
@@ -140,7 +102,7 @@ def test_auth_invalid_token(client, headless_user, automation_job):
     assert response.status_code == 401, (
         "Invalid API key should result in 401 status code."
     )
-    assert response.json() == {"details": "Token api-bad-key was not found."}
+    assert response.json() == {"detail": "Unauthorized"}
 
 
 @pytest.mark.django_db
@@ -568,7 +530,6 @@ def automation_worker(landing_worker_instance):
 
 @pytest.mark.django_db
 def test_automation_job_add_commit_success_git(
-    treestatusdouble,
     automation_worker,
     repo_mc,
     mock_phab_trigger_repo_update_apply_async,
@@ -616,7 +577,6 @@ def test_automation_job_add_commit_success_git(
 
 @pytest.mark.django_db
 def test_automation_job_add_commit_base64_success_git(
-    treestatusdouble,
     automation_worker,
     repo_mc,
     mock_phab_trigger_repo_update_apply_async,
@@ -660,7 +620,6 @@ def test_automation_job_add_commit_base64_success_git(
 @pytest.mark.django_db
 def test_automation_job_add_commit_fail(
     repo_mc,
-    treestatusdouble,
     automation_worker,
     mock_phab_trigger_repo_update_apply_async,
     automation_job,
@@ -694,7 +653,6 @@ def test_automation_job_add_commit_fail(
 @pytest.mark.django_db
 def test_automation_job_create_commit_success(
     repo_mc,
-    treestatusdouble,
     automation_worker,
     mock_phab_trigger_repo_update_apply_async,
     get_failing_check_diff,
@@ -733,11 +691,227 @@ def test_automation_job_create_commit_success(
     assert len(job.landed_commit_id) == 40, "Landed commit ID should be a 40-char SHA."
 
 
+MILESTONE_TRACKING_FLAG_TEMPLATE = "cf_status_firefox{milestone}"
+
+# Diffs applied to the commits of an uplift job, in order. The first commit adds
+# `config/milestone.txt`, which is read to build the tracking flag name.
+UPLIFT_JOB_DIFFS = (PATCH_MILESTONE_DIFF, PATCH_DIFF, PATCH_DIFF_2)
+
+
+def make_bmo_bug(bug_id: str) -> dict:
+    """Build the BMO representation of a bug awaiting an uplift landing."""
+    return {
+        "id": bug_id,
+        "keywords": [],
+        "whiteboard": "[checkin-needed-main]",
+        "cf_status_firefox142": "---",
+    }
+
+
+@pytest.fixture
+def mock_uplift_get_bug(monkeypatch) -> mock.MagicMock:
+    """Stub out the BMO bug fetch made when updating bugs after an uplift."""
+    mock_get_bug = mock.MagicMock()
+    mock_get_bug.return_value = {"bugs": [make_bmo_bug("123456")]}
+
+    monkeypatch.setattr("lando.api.legacy.uplift.bmo.uplift_get_bug", mock_get_bug)
+
+    return mock_get_bug
+
+
+@pytest.fixture
+def mock_uplift_update_bug(monkeypatch) -> mock.MagicMock:
+    """Stub out the BMO bug update made when updating bugs after an uplift."""
+    mock_update_bug = mock.MagicMock()
+
+    monkeypatch.setattr(
+        "lando.api.legacy.uplift.bmo.uplift_update_bug", mock_update_bug
+    )
+
+    return mock_update_bug
+
+
+@pytest.fixture
+def run_uplift_automation_job(automation_worker, automation_job) -> Callable:
+    """Run an automation job landing one commit per given commit message."""
+
+    def run_job(repo: Repo, commitmsgs: list[str]) -> AutomationJob:
+        if len(commitmsgs) > len(UPLIFT_JOB_DIFFS):
+            raise ValueError(
+                f"This fixture can land at most {len(UPLIFT_JOB_DIFFS)} commits."
+            )
+
+        job, _actions = automation_job(
+            actions=[
+                {
+                    "action": "create-commit",
+                    "author": "Test User <test@example.com>",
+                    "commitmsg": commitmsg,
+                    "date": 0,
+                    "diff": diff,
+                }
+                for commitmsg, diff in zip(commitmsgs, UPLIFT_JOB_DIFFS, strict=False)
+            ],
+            status=JobStatus.SUBMITTED,
+            requester_email="example@example.com",
+            target_repo=repo,
+        )
+
+        automation_worker.worker_instance.applicable_repos.add(repo)
+
+        repo.scm.push = mock.MagicMock()
+
+        automation_worker.run_job(job)
+
+        return job
+
+    return run_job
+
+
+@pytest.mark.django_db
+def test_automation_job_updates_bugs_for_uplift(
+    mock_phab_trigger_repo_update_apply_async,
+    repo_mc,
+    run_uplift_automation_job,
+    mock_uplift_get_bug,
+    mock_uplift_update_bug,
+):
+    """Bug 1979090: an uplift pushed via the CLI updates the bug tracking flags."""
+    repo = repo_mc(
+        SCMType.GIT,
+        approval_required=True,
+        milestone_tracking_flag_template=MILESTONE_TRACKING_FLAG_TEMPLATE,
+    )
+
+    job = run_uplift_automation_job(repo, ["Bug 123456: uplift a fix r=reviewer"])
+
+    assert job.status == JobStatus.LANDED, job.error
+    assert mock_uplift_update_bug.call_count == 1, (
+        "Bugs should be updated after landing an uplift."
+    )
+    assert mock_uplift_update_bug.call_args[0][0] == {
+        "ids": [123456],
+        "cf_status_firefox142": "fixed",
+        "whiteboard": "",
+    }, "Tracking flag and whiteboard should be updated for the landed bug."
+
+
+@pytest.mark.django_db
+def test_automation_job_updates_bugs_for_uplift_multiple_commits(
+    mock_phab_trigger_repo_update_apply_async,
+    repo_mc,
+    run_uplift_automation_job,
+    mock_uplift_get_bug,
+    mock_uplift_update_bug,
+):
+    """Every bug referenced by the commits of an uplift push should be updated."""
+    mock_uplift_get_bug.return_value = {
+        "bugs": [make_bmo_bug("123456"), make_bmo_bug("234567")]
+    }
+    repo = repo_mc(
+        SCMType.GIT,
+        approval_required=True,
+        milestone_tracking_flag_template=MILESTONE_TRACKING_FLAG_TEMPLATE,
+    )
+
+    job = run_uplift_automation_job(
+        repo,
+        [
+            "Bug 123456: uplift a fix r=reviewer",
+            "Bug 234567: uplift another fix r=reviewer",
+        ],
+    )
+
+    assert job.status == JobStatus.LANDED, job.error
+    assert mock_uplift_get_bug.call_args[0][0] == {"id": "123456,234567"}, (
+        "Bugs from every commit in the push should be fetched."
+    )
+    assert [call[0][0]["ids"] for call in mock_uplift_update_bug.call_args_list] == [
+        [123456],
+        [234567],
+    ], "Each bug referenced by the push should be updated."
+
+
+@pytest.mark.parametrize(
+    "approval_required,commitmsg,reason",
+    (
+        (
+            False,
+            "Bug 123456: land a fix r=reviewer",
+            "the repo does not require approval",
+        ),
+        (True, "No bug: uplift a fix r=reviewer", "no bugs are referenced"),
+    ),
+)
+@pytest.mark.django_db
+def test_automation_job_skips_bug_update(
+    mock_phab_trigger_repo_update_apply_async,
+    repo_mc,
+    run_uplift_automation_job,
+    mock_uplift_get_bug,
+    mock_uplift_update_bug,
+    approval_required: bool,
+    commitmsg: str,
+    reason: str,
+):
+    """Bugs should only be updated for uplift landings which reference bugs."""
+    repo = repo_mc(
+        SCMType.GIT,
+        approval_required=approval_required,
+        milestone_tracking_flag_template=MILESTONE_TRACKING_FLAG_TEMPLATE,
+    )
+
+    job = run_uplift_automation_job(repo, [commitmsg])
+
+    assert job.status == JobStatus.LANDED, job.error
+    assert mock_uplift_get_bug.call_count == 0, (
+        f"Bugs should not be fetched when {reason}."
+    )
+    assert mock_uplift_update_bug.call_count == 0, (
+        f"Bugs should not be updated when {reason}."
+    )
+
+
+@pytest.mark.django_db
+def test_automation_job_notifies_user_of_bug_update_failure(
+    mock_phab_trigger_repo_update_apply_async,
+    repo_mc,
+    run_uplift_automation_job,
+    monkeypatch,
+):
+    """A failed bug update should notify the requester without failing the job."""
+    mock_update_bugs = mock.MagicMock()
+    mock_update_bugs.side_effect = Exception("Forcing a failed bug update")
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.base.update_bugs_for_uplift", mock_update_bugs
+    )
+
+    mock_notify = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.base.notify_user_of_bug_update_failure", mock_notify
+    )
+
+    repo = repo_mc(
+        SCMType.GIT,
+        approval_required=True,
+        milestone_tracking_flag_template=MILESTONE_TRACKING_FLAG_TEMPLATE,
+    )
+
+    job = run_uplift_automation_job(repo, ["Bug 123456: uplift a fix r=reviewer"])
+
+    assert job.status == JobStatus.LANDED, job.error
+    assert mock_notify.call_count == 1, (
+        "Requester should be notified of the bug update failure."
+    )
+    assert mock_notify.call_args[0][1] == f"automation job {job.id}", (
+        "Notification should identify the automation job."
+    )
+
+
 @pytest.mark.parametrize("bad_action_type", FAILING_CHECK_TYPES)
 @pytest.mark.django_db
 def test_automation_job_create_commit_failed_check_hooks_enabled(
     repo_mc,
-    treestatusdouble,
     automation_worker,
     mock_phab_trigger_repo_update_apply_async,
     get_failing_check_action_reason: Callable,
@@ -775,7 +949,6 @@ def test_automation_job_create_commit_failed_check_hooks_enabled(
 @pytest.mark.django_db
 def test_automation_job_create_commit_failed_check_hooks_disabled(
     repo_mc,
-    treestatusdouble,
     automation_worker,
     mock_phab_trigger_repo_update_apply_async,
     get_failing_check_action_reason: Callable,
@@ -828,7 +1001,6 @@ def get_failing_check_action_reason(get_failing_check_commit_reason):
 @pytest.mark.django_db
 def test_automation_job_create_commit_failed_check_override(
     repo_mc,
-    treestatusdouble,
     automation_worker,
     mock_phab_trigger_repo_update_apply_async: mock.Mock,
     get_failing_check_action_reason: Callable,
@@ -874,7 +1046,6 @@ def mock_landing_checks_run(monkeypatch: pytest.MonkeyPatch):
 @pytest.mark.django_db
 def test_automation_job_create_commit_failed_check_unchecked(
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
     automation_worker: AutomationWorker,
     mock_phab_trigger_repo_update_apply_async: mock.Mock,
     mock_landing_checks_run: mock.Mock,
@@ -923,7 +1094,6 @@ def test_automation_job_create_commit_failed_check_unchecked(
 @pytest.mark.django_db
 def test_automation_job_create_commit_patch_conflict(
     repo_mc,
-    treestatusdouble,
     automation_worker,
     monkeypatch,
     get_failing_check_diff,
@@ -987,7 +1157,6 @@ def _create_split_branches_for_merge(
 def test_automation_job_merge_onto_success_git(
     strategy: str | None,
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
     automation_worker: AutomationWorker,
     create_git_commit: Callable,
     automation_job: Callable,
@@ -1026,7 +1195,6 @@ def test_automation_job_merge_onto_success_git(
 @pytest.mark.django_db
 def test_automation_job_merge_onto_fast_forward_git(
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
     mock_landing_checks_run: mock.Mock,
     create_git_commit: Callable,
     automation_worker: AutomationWorker,
@@ -1094,7 +1262,6 @@ def test_automation_job_merge_onto_fast_forward_git(
 @pytest.mark.django_db
 def test_automation_job_merge_onto_fail(
     repo_mc,
-    treestatusdouble,
     automation_worker,
     monkeypatch,
     automation_job,
@@ -1125,7 +1292,6 @@ def test_automation_job_merge_onto_fail(
 @pytest.mark.django_db
 def test_automation_job_tag_success_git_tip_commit(
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
     automation_worker: AutomationWorker,
     create_git_commit: Callable,
     automation_job: Callable,
@@ -1176,7 +1342,6 @@ def test_automation_job_tag_success_git_tip_commit(
 @pytest.mark.django_db
 def test_automation_job_tag_retag_success_git(
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,  # pyright: ignore[reportUnusedParameter] Mock with side-effect
     active_mock: Callable,
     create_git_commit: Callable,
     automation_worker: AutomationWorker,
@@ -1248,7 +1413,6 @@ def test_automation_job_tag_retag_success_git(
 @pytest.mark.django_db
 def test_automation_job_tag_success_git_new_commit(
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
     mock_landing_checks_run: mock.Mock,
     automation_worker: AutomationWorker,
     create_git_commit: Callable,
@@ -1301,7 +1465,6 @@ def test_automation_job_tag_success_git_new_commit(
 @pytest.mark.django_db
 def test_automation_job_tag_failure_git(
     repo_mc: Callable,
-    treestatusdouble: TreeStatusDouble,
     automation_worker: AutomationWorker,
     create_git_commit: Callable,
     git_patch: Callable,
@@ -1511,7 +1674,6 @@ def test_reject_cli_flags_rejects_newlines(value: str):
 @pytest.mark.django_db
 def test_create_and_push_to_new_relbranch(
     client,
-    treestatusdouble,
     repo_mc,
     automation_worker,
     headless_user,
@@ -1646,7 +1808,6 @@ def test_create_and_push_to_new_relbranch(
 @pytest.mark.django_db
 def test_push_to_existing_relbranch(
     client,
-    treestatusdouble,
     repo_mc,
     automation_worker,
     headless_user,

@@ -15,7 +15,6 @@ from django.test import Client
 
 from lando.api.legacy.projects import (
     CHECKIN_PROJ_SLUG,
-    RELMAN_PROJECT_SLUG,
     SEC_APPROVAL_PROJECT_SLUG,
     SEC_PROJ_SLUG,
 )
@@ -165,14 +164,6 @@ def sec_approval_project(phabdouble):
 
 
 @pytest.fixture
-def release_management_project(phabdouble):
-    return phabdouble.project(
-        RELMAN_PROJECT_SLUG,
-        attachments={"members": {"members": [{"phid": "PHID-USER-1"}]}},
-    )
-
-
-@pytest.fixture
 def versionfile(tmpdir):
     """Provide a temporary version.json on disk."""
     v = tmpdir.mkdir("app").join("version.json")
@@ -198,7 +189,7 @@ def mock_repo_config(monkeypatch):
 
 
 @pytest.fixture
-def hg_landing_worker(landing_worker_instance, treestatusdouble):
+def hg_landing_worker(landing_worker_instance):
     worker = landing_worker_instance(
         name="test-hg-worker",
         scm=SCMType.HG,
@@ -207,7 +198,7 @@ def hg_landing_worker(landing_worker_instance, treestatusdouble):
 
 
 @pytest.fixture
-def git_landing_worker(landing_worker_instance, treestatusdouble):
+def git_landing_worker(landing_worker_instance):
     worker = landing_worker_instance(
         name="test-git-worker",
         scm=SCMType.GIT,
@@ -230,7 +221,7 @@ def get_landing_worker(hg_landing_worker, git_landing_worker):
 
 
 @pytest.fixture
-def uplift_worker(landing_worker_instance, treestatusdouble):
+def uplift_worker(landing_worker_instance):
     worker = landing_worker_instance(
         name="uplift-worker-git",
         scm=SCMType.GIT,
@@ -314,12 +305,6 @@ def user_linked_to_phab(phabdouble, user):
     user.profile.phabricator_phid = phab_user["phid"]
     user.profile.save()
     return phab_user
-
-
-@pytest.fixture
-def authenticated_client(user, user_plaintext_password, client):
-    client.login(username=user.username, password=user_plaintext_password)
-    return client
 
 
 @pytest.fixture

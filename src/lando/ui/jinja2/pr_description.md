@@ -14,7 +14,9 @@
 {{ commit_body|safe }}
 {% endblock %}
 {{ pr_delimiter|safe }}
+
 ---
+
 {% block lower %}
 Lando: [link]({{ lando_url }})
 {% if bugs %}Bugzilla: {% for bug in bugs %}[bug {{ bug }}]({{ bug|bug_url }}){% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
