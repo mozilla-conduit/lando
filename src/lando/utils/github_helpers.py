@@ -4,9 +4,9 @@ import functools
 import io
 import json
 import math
+from collections.abc import Callable
 from datetime import datetime
 from json.decoder import JSONDecodeError
-from typing import Callable
 
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse
