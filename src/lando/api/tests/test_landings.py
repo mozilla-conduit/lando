@@ -412,7 +412,7 @@ def test_integrated_execute_job(
     assert new_push_count == 1, "Incorrect number of additional pushes in the PushLog"
 
 
-@mock.patch("lando.utils.github.GitHubAPI")
+@mock.patch("lando.utils.github.api.GitHubAPI")
 @pytest.mark.django_db
 def test_integrated_execute_job_pull_request(
     GitHubAPI: mock.Mock,
