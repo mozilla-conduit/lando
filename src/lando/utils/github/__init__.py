@@ -1,4 +1,4 @@
-from .github import (
+from .api import (
     PR_DELIMITER,
     GitHub,
     GitHubAPI,
