@@ -1,6 +1,6 @@
 """This file contains project-independent GitHub utils.
 
-WARNING: Do not import and lando- or django-namespaced modules here.
+WARNING: Do not import any lando- or django-namespaced modules here.
 
 """
 
@@ -20,14 +20,16 @@ from itertools import count
 import requests
 from simple_github import AppAuth, AppInstallationAuth
 
-from .cache import cache_method
-from .const import URL_USERINFO_RE
+# We deliberately import those without a fully-qualified import to allow portability of
+# the file away from Lando.
+from ..cache import cache_method
+from ..const import URL_USERINFO_RE
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class settings:
+class GitHubSettings:
     GITHUB_APP_ID: str | None = None
     GITHUB_APP_PRIVKEY: str | None = None
     HTTP_USER_AGENT: str = "Mozilla-GitHub-Util/v0.0.0-pre"
@@ -112,8 +114,8 @@ class GitHub:
         The app with ID GITHUB_APP_ID needs to be enabled for the target repo.
 
         """
-        app_id = settings.GITHUB_APP_ID
-        private_key = settings.GITHUB_APP_PRIVKEY
+        app_id = GitHubSettings.GITHUB_APP_ID
+        private_key = GitHubSettings.GITHUB_APP_PRIVKEY
 
         if not app_id or not private_key:
             logger.warning(
@@ -150,7 +152,7 @@ class GitHubAPI(GitHub):
         self.session.headers.update(
             {
                 "Authorization": f"Bearer {self._fetch_token()}",
-                "User-Agent": settings.HTTP_USER_AGENT,
+                "User-Agent": GitHubSettings.HTTP_USER_AGENT,
                 "Accept": "application/vnd.github+json",
                 "X-GitHub-Api-Version": "2022-11-28",
             }

@@ -68,9 +68,12 @@ def mock_github_api_get(
             f"repos/{repo}/pulls/{pr_no}/commits?page=0"
         ]
 
-        def _mock_api_get(url: str, headers: dict = dict, **kwargs) -> Response:
+        def _mock_api_get(url: str, headers: dict | None = None, **kwargs) -> Response:
             # We don't use 'get' here, as we'd rather it failed loudly if something's
             # missing.
+            if headers is None:
+                headers = {}
+
             response = response_map[url]
 
             if isinstance(response, dict) and (content_type := headers.get("Accept")):
