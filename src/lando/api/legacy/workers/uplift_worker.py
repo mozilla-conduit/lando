@@ -327,12 +327,12 @@ class UpliftWorker(Worker):
     ) -> LandingJob:
         """Create a Try `LandingJob` for the commits landed by an uplift job."""
         patch_helpers = list(scm.get_patch_helpers_for_commits(new_commits))
-        error, private_bugs = self.check_uplift_bug_references(patch_helpers)
-        if private_bugs:
+        error, status_code = self.check_uplift_bug_references(patch_helpers)
+        if status_code == 401:
             raise SecurityBugReferenceException(
                 "Skipping try push for uplift job:\n" + error
             )
-        if error:
+        elif error:
             raise ValueError(error)
 
         try_repo = Repo.objects.get(name="try")
@@ -387,7 +387,7 @@ class UpliftWorker(Worker):
         for patch_helper in patch_helpers:
             secure_check.next_diff(patch_helper)
         error_message = secure_check.result()
-        return error_message, secure_check.private_bug_ids
+        return error_message, secure_check.status_code
 
     def create_try_diff_from_json(self) -> str:
         try_config_path = (
