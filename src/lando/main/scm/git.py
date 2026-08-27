@@ -5,10 +5,12 @@ import re
 import subprocess
 import tempfile
 import uuid
+from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import datetime
+from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from typing_extensions import override
 
@@ -42,6 +44,7 @@ T = TypeVar("T")
 def detect_patch_conflict(fn: Callable[..., T]) -> Callable[..., T]:
     """Decorator transforming SCMExceptions to PatchConflict as appropriate."""
 
+    @wraps(fn)
     def wrapper(*args, **kwargs) -> T:
         try:
             return fn(*args, **kwargs)

@@ -1,6 +1,7 @@
 import io
 import os
 import re
+import subprocess
 import textwrap
 from datetime import datetime
 from pathlib import Path
@@ -22,6 +23,7 @@ from lando.main.scm import (
     TreeClosed,
 )
 from lando.main.scm.helpers import HgPatchHelper
+from lando.main.scm.hg import HgRecoverNeeded
 
 
 def test_integrated_hgrepo_clean_repo(hg_clone):
@@ -269,25 +271,31 @@ def test_HgSCM_apply_get_patch(hg_clone: Path, normal_patch: Callable):
     assert new_patch == expected_patch
 
 
-def test_hg_exceptions():
-    """Ensure the correct exception is raised if a particular snippet is present."""
-    snippet_exception_mapping = {
-        b"abort: push creates new remote head": SCMLostPushRace,
-        b"APPROVAL REQUIRED!": TreeApprovalRequired,
-        b"is CLOSED!": TreeClosed,
-        b"unresolved conflicts (see hg resolve": PatchConflict,
-        b"timed out waiting for lock held by": SCMPushTimeoutException,
-        b"abort: HTTP Error 500: Internal Server Error": SCMInternalServerError,
+@pytest.mark.parametrize(
+    "snippet,exception",
+    (
+        (b"abort: push creates new remote head", SCMLostPushRace),
+        (b"APPROVAL REQUIRED!", TreeApprovalRequired),
+        (b"is CLOSED!", TreeClosed),
+        (b"unresolved conflicts (see hg resolve", PatchConflict),
+        (b"timed out waiting for lock held by", SCMPushTimeoutException),
+        (b"abort: HTTP Error 500: Internal Server Error", SCMInternalServerError),
         (
-            b"remote: could not complete push due to pushlog operational errors; "
-            b"please retry, and file a bug if the issue persists"
-        ): SCMInternalServerError,
-    }
+            (
+                b"remote: could not complete push due to pushlog operational errors; "
+                b"please retry, and file a bug if the issue persists"
+            ),
+            SCMInternalServerError,
+        ),
+        (b"(run 'hg recover' to clean up transaction)", HgRecoverNeeded),
+    ),
+)
+def test_hg_exceptions(snippet: str, exception: Exception):
+    """Ensure the correct exception is raised if a particular snippet is present."""
 
-    for snippet, exception in snippet_exception_mapping.items():
-        exc = hglib.error.CommandError((), 1, b"", snippet)
-        with pytest.raises(exception):
-            raise HgException.from_hglib_error(exc)
+    exc = hglib.error.CommandError((), 1, b"", snippet)
+    with pytest.raises(exception):
+        raise HgException.from_hglib_error(exc)
 
 
 def test_hgrepo_request_user(hg_clone):
@@ -498,7 +506,6 @@ def test_HgSCM_describe_local_changes(
 ):
     scm = HgSCM(str(hg_clone))
 
-    #     f"{request.node.name} <pytest@lando>",
     with scm.for_push(
         f"pytest+{request.node.name}@lando",
     ):
@@ -509,6 +516,39 @@ def test_HgSCM_describe_local_changes(
 
     assert file1.name in changes[0].files
     assert file2.name in changes[1].files
+
+
+def test_HgSCM__run_hg_autorecover(
+    hg_clone: os.PathLike,
+    request: pytest.FixtureRequest,
+    create_hg_commit: Callable,
+    caplog: pytest.LogCaptureFixture,
+):
+    hg_clone = Path(hg_clone)
+
+    scm = HgSCM(str(hg_clone))
+
+    # Create the marker of an abandoned transaction.
+    (hg_clone / ".hg/store/journal").touch()
+    # Make sure this makes a normal commit fail.
+    with pytest.raises(subprocess.CalledProcessError):
+        create_hg_commit(Path(hg_clone))
+
+    new_file = hg_clone / "file"
+    new_file.write_text(request.node.name, encoding="utf-8")
+    subprocess.run(["hg", "addremove"], cwd=str(hg_clone), check=True)
+
+    with scm.for_push("committer@example.com"):
+        scm.run_hg(["commit", "-m", "this should auto recover"])
+
+        changes = scm.describe_local_changes()
+
+    assert "Running `hg recover`" in caplog.text, (
+        "Missing log entry indicated that `hg recover` was run"
+    )
+    assert new_file.name in changes[0].files, (
+        "File should have been created after sucessful recovery"
+    )
 
 
 def _trim_variable_patch_parts(patch: str):
