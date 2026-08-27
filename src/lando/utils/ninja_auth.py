@@ -7,6 +7,7 @@ from django.http import JsonResponse
 from ninja import NinjaAPI
 from ninja.errors import HttpError
 from ninja.security import APIKeyHeader, HttpBearer
+from requests.exceptions import HTTPError
 from typing_extensions import override
 
 from lando.main.auth import AccessTokenLandoOIDCAuthenticationBackend
@@ -23,7 +24,12 @@ class AccessTokenAuth(HttpBearer):
         """Forward the authenticate request to the LandoOIDCAuthenticationBackend."""
         # The token is extracted in the LandoOIDCAuthenticationBackend, so we don't need
         # to pass it. But we need to inherit from HttpBearer for auth to work with Ninja.
-        oidc_auth = AccessTokenLandoOIDCAuthenticationBackend()
+        try:
+            oidc_auth = AccessTokenLandoOIDCAuthenticationBackend()
+        except HTTPError as exc:
+            if exc.response.status_code == 401:
+                return None
+            raise
 
         # Django-Ninja sets `request.auth` to the verified token, since
         # some APIs may have authentication without user management. Our

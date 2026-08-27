@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.contrib.auth.models import User
 from django.test import Client, override_settings
+from requests.exceptions import HTTPError
 
 from lando.environments import Environment
 
@@ -81,9 +82,14 @@ def test_authentication_no_token(client: Client):
 
 
 @pytest.mark.django_db()
-@patch("lando.utils.ninja_auth.AccessTokenAuth.authenticate")
-def test_authentication_invalid_token(mock_authenticate: MagicMock, client: Client):
-    mock_authenticate.return_value = None
+@patch("lando.utils.ninja_auth.AccessTokenLandoOIDCAuthenticationBackend")
+def test_authentication_invalid_token(mock_auth_backend: MagicMock, client: Client):
+    """401 errors from the OAuth backend should be swallowed.
+
+    The should be be treated as auth failures from this backend."""
+    response = MagicMock()
+    response.status_code = 401
+    mock_auth_backend.side_effect = HTTPError(response=response)
 
     response = client.get(
         "/auth/__userinfo__",
@@ -92,8 +98,27 @@ def test_authentication_invalid_token(mock_authenticate: MagicMock, client: Clie
         headers={"AuThOrIzAtIoN": "bEaReR invalid_token"},
     )
 
-    assert mock_authenticate.called, "Authentication backend should be called"
+    assert mock_auth_backend.called, "Authentication backend should be called"
     assert response.status_code == 401, "Invalid token should result in 401"
+
+
+@pytest.mark.django_db()
+@patch("lando.utils.ninja_auth.AccessTokenLandoOIDCAuthenticationBackend")
+def test_authentication_upstream_error(mock_auth_backend: MagicMock, client: Client):
+    """Any non-401 error from the OAuth backend is unexpected."""
+    response = MagicMock()
+    response.status_code = 403
+    mock_auth_backend.side_effect = HTTPError(response=response)
+
+    with pytest.raises(HTTPError):
+        response = client.get(
+            "/auth/__userinfo__",
+            # The value of the token doesn't actually matter, as the output is controlled by
+            # the authenticator function, which we mock to return None.
+            headers={"AuThOrIzAtIoN": "bEaReR invalid_token"},
+        )
+
+    assert mock_auth_backend.called, "Authentication backend should be called"
 
 
 @pytest.mark.django_db()
