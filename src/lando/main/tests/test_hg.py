@@ -148,8 +148,30 @@ diff --git a/test.txt b/test.txt
 +adding another line
 """.strip()
 
+PATCH_OPTION_IN_FILENAME = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+Add to a file that doesn't exist
+diff --git a/--config=alias.log=!/bin/false b/--config=alias.log=!/bin/false
+--- a/--config=alias.log=!/bin/false
++++ b/--config=alias.log=!/bin/false
+@@ -1,1 +1,2 @@
+ TEST
++This line doesn't exist
+""".strip()
 
-def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
+
+@pytest.mark.parametrize(
+    "patch,file",
+    (
+        (PATCH_WITH_CONFLICT, "not-real.txt"),
+        (PATCH_OPTION_IN_FILENAME, "--config=alias.log=!/bin/false"),
+    ),
+)
+def test_integrated_hgrepo_patch_conflict_failure(hg_clone, patch: str, file: str):
     repo = HgSCM(hg_clone.strpath)
 
     # Patches with conflicts should raise a proper PatchConflict exception,
@@ -158,7 +180,7 @@ def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
     breakdown = None
     with pytest.raises(PatchConflict):
         with repo.for_pull():
-            ph = HgPatchHelper.from_string_io(io.StringIO(PATCH_WITH_CONFLICT))
+            ph = HgPatchHelper.from_string_io(io.StringIO(patch))
             try:
                 repo.apply_patch(
                     ph.get_diff(),
@@ -171,10 +193,10 @@ def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
                 raise
 
     assert breakdown is not None, "`process_merge_conflict` should have been called."
-    assert "not-real.txt" in breakdown["rejects_paths"], (
+    assert file in breakdown["rejects_paths"], (
         "Breakdown should include the conflicted file path."
     )
-    reject_entry = breakdown["rejects_paths"]["not-real.txt"]
+    reject_entry = breakdown["rejects_paths"][file]
     assert "content" in reject_entry, (
         "Reject entry should include `.rej` content captured by `clean_repo`."
     )
