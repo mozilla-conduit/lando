@@ -86,7 +86,7 @@ def test_authentication_no_token(client: Client):
 def test_authentication_invalid_token(mock_auth_backend: MagicMock, client: Client):
     """401 errors from the OAuth backend should be swallowed.
 
-    The should be be treated as auth failures from this backend."""
+    This should be treated as auth failures from this backend."""
     response = MagicMock()
     response.status_code = 401
     mock_auth_backend.side_effect = HTTPError(response=response)
