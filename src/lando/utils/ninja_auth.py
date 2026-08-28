@@ -24,12 +24,7 @@ class AccessTokenAuth(HttpBearer):
         """Forward the authenticate request to the LandoOIDCAuthenticationBackend."""
         # The token is extracted in the LandoOIDCAuthenticationBackend, so we don't need
         # to pass it. But we need to inherit from HttpBearer for auth to work with Ninja.
-        try:
-            oidc_auth = AccessTokenLandoOIDCAuthenticationBackend()
-        except HTTPError as exc:
-            if exc.response.status_code == 401:
-                return None
-            raise
+        oidc_auth = AccessTokenLandoOIDCAuthenticationBackend()
 
         # Django-Ninja sets `request.auth` to the verified token, since
         # some APIs may have authentication without user management. Our
@@ -37,7 +32,12 @@ class AccessTokenAuth(HttpBearer):
         # the request here. Only overwrite `request.user` on success; on failure
         # leave the `AnonymousUser` set by `AuthenticationMiddleware` in place so
         # downstream code never sees `request.user` as `None`.
-        user = oidc_auth.authenticate(request)
+        try:
+            user = oidc_auth.authenticate(request)
+        except HTTPError as exc:
+            if exc.response.status_code == 401:
+                return None
+            raise
         if user:
             request.user = user
 
