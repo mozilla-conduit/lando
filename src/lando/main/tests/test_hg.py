@@ -1,6 +1,7 @@
 import io
 import os
 import re
+import socket
 import subprocess
 import textwrap
 from datetime import datetime
@@ -571,6 +572,33 @@ def test_HgSCM__run_hg_autorecover(
     assert new_file.name in changes[0].files, (
         "File should have been created after sucessful recovery"
     )
+
+
+def test_HgSCM__startup_maintenance(
+    hg_clone: os.PathLike,
+):
+    hg_clone = Path(hg_clone)
+
+    wlock = (hg_clone) / ".hg" / "wlock"
+    lock = (hg_clone) / ".hg" / "store" / "lock"
+
+    hostname = socket.gethostname()
+    # Under Linux, Mercurial adds inode information for the current process into the
+    # lock [0].
+    # [0] https://foss.heptapod.net/mercurial/mercurial-devel/-/blob/e0fae3f19ab88b63ef5bb5371ae653b76f811c76/mercurial/lock.py#L41
+    st_ino = os.stat(b"/proc/self/ns/pid").st_ino
+    pid = os.getpid()
+
+    # These locks are not stale, as they point back to this process.
+    wlock.symlink_to(f"{hostname}/{st_ino}:{pid}")
+    lock.symlink_to(f"{hostname}/{st_ino}:{pid}")
+
+    scm = HgSCM(str(hg_clone))
+    scm.startup_maintenance()
+
+    # The locks got unconditionally deleted.
+    assert not wlock.exists(), "wlock should have been deleted by startup maintenance"
+    assert not lock.exists(), "lock should have been deleted by startup maintenance"
 
 
 def _trim_variable_patch_parts(patch: str):

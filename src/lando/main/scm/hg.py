@@ -792,8 +792,22 @@ class HgSCM(AbstractSCM):
         """Perform maintenance when the worker starts.
 
         This method:
-        * nothing
+        * deletes all locks (.hg/wlock, .hg/store/lock)
+
+        WARNING: This method doesn't check if the locks are stale.
         """
+        try:
+            self._open()
+        except hglib.error.ServerError as exc:
+            raise SCMException(
+                "Failed to open hg server for startup maintenance.", "", str(exc)
+            ) from exc
+        try:
+            self.run_hg(["debuglock", "--force-free-lock", "--force-free-wlock"])
+        except HgException as exc:
+            logger.exception(exc)
+        finally:
+            self.hg_repo.close()
 
     @override
     def idle_maintenance(self) -> None:
