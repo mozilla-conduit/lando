@@ -923,7 +923,8 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_phabricator_r
     assert len(result["revisions"]) == 1, (
         f"Revisions list of unexpected length in GET /landing_jobs/{job.id} response"
     )
-    assert result["revisions"][0]["url"] == r1["uri"], (
+    # The diff_id gets appended to the query string.
+    assert result["revisions"][0]["url"].startswith(r1["uri"]), (
         "Incorrect revision URL in GET /landing_jobs/{job.id} response"
     )
 
