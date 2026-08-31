@@ -4,6 +4,7 @@ from io import StringIO
 from unittest import mock
 
 import pytest
+from django.conf import settings
 from django.contrib.messages import get_messages
 from django.urls import reverse
 from packaging.version import (
@@ -771,18 +772,18 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
 
     repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
 
-    repo_dir = tmp_path / "firefox-beta"
-    repo_dir.mkdir()
-    mach_file = repo_dir / "mach"
+
+    mach_file = tmp_path / "mach"
     mach_file.write_text(
         "#!/bin/sh\ncat <<'MACH_EOF'\n"
         + MOCK_MACH_TRY_PREAMBLE
         + json.dumps(MOCK_TRY_TASK_CONFIG)
         + "\nMACH_EOF\n"
     )
-
     mach_file.chmod(0o755)
-    repo.system_path = str(repo_dir)
+
+    # `mach_path` lookup is mocked to find the fake `mach`
+    monkeypatch.setattr(uplift_worker, "mach_path", lambda repo_path: mach_file)
 
     try_repo = repo_mc(SCMType.HG, name="try", is_try=True)
 
