@@ -7,6 +7,7 @@ from django.http import JsonResponse
 from ninja import NinjaAPI
 from ninja.errors import HttpError
 from ninja.security import APIKeyHeader, HttpBearer
+from requests.exceptions import HTTPError
 from typing_extensions import override
 
 from lando.main.auth import AccessTokenLandoOIDCAuthenticationBackend
@@ -31,7 +32,12 @@ class AccessTokenAuth(HttpBearer):
         # the request here. Only overwrite `request.user` on success; on failure
         # leave the `AnonymousUser` set by `AuthenticationMiddleware` in place so
         # downstream code never sees `request.user` as `None`.
-        user = oidc_auth.authenticate(request)
+        try:
+            user = oidc_auth.authenticate(request)
+        except HTTPError as exc:
+            if exc.response.status_code == 401:
+                return None
+            raise
         if user:
             request.user = user
 
