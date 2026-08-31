@@ -66,17 +66,17 @@ RUN cd /code && npm run build
 # Create an empty directory to store version info.
 RUN mkdir -p /code/src/lando/version
 
-# Built as the caller by `compose.yaml`, so writes to the working copy stay
-# editable on the host. Created here rather than at the top of the file so that
-# changing the ids does not invalidate the cached dependency layers above.
+# Built with the caller's uid by `compose.yaml`, so writes to the working copy
+# stay editable on the host; the group keeps a fixed id, as ownership follows the
+# uid. Declared here rather than at the top of the file so that changing the uid
+# does not invalidate the cached dependency layers above.
 ARG APP_UID=10001
-ARG APP_GID=10001
 
-RUN addgroup --gid ${APP_GID} app \
+RUN addgroup --gid 10001 app \
     && adduser \
         --disabled-password \
         --uid ${APP_UID} \
-        --gid ${APP_GID} \
+        --gid 10001 \
         --home /app \
         --gecos "app,,," \
         app

@@ -4,11 +4,10 @@ x-lando-build: &lando-build
     build:
         context: .
         args:
-            # Build the container's `app` user with the caller's ids. The `make`
-            # targets export these; set them in `.env` and rebuild if you drive
-            # `docker compose` directly and your ids are not the usual 1000.
-            APP_UID: ${UID:-1000}
-            APP_GID: ${GID:-1000}
+            # Build the container's `app` user with the caller's uid. The
+            # `make` targets export it; set it in `.env` and rebuild if you
+            # drive `docker compose` directly and your uid is not the usual 1000.
+            APP_UID: ${APP_UID:-1000}
 
 services:
     db:

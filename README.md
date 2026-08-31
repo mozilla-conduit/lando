@@ -71,10 +71,10 @@ Note that, currently, this environment file is also used by the [Conduit suite]
 when running a lando stack from the local working copy.
 
 The container writes into the bind-mounted working copy, so it runs as the user
-that owns it: `compose.yaml` builds its `app` user from `UID` and `GID`. The
-`make` targets export both, so they need no setup. If you drive `docker compose`
-directly and your ids are not the usual 1000, set them in `.env` and rebuild,
-otherwise the container cannot write to your checkout.
+that owns it: `compose.yaml` builds its `app` user with the uid from `APP_UID`.
+The `make` targets default it to your own uid, so they need no setup. If you
+drive `docker compose` directly and your uid is not the usual 1000, set it in
+`.env` and rebuild, otherwise the container cannot write to your checkout.
 
 ## Testing
 

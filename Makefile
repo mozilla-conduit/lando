@@ -5,10 +5,10 @@ ARGS_TESTS ?=
 
 # Targets like `format`, `migrations`, `upgrade-requirements` and `build-js`
 # write into the bind-mounted working copy, so the container runs as the caller.
-# `docker compose` cannot shell out for the ids, and the shell keeps `UID`/`GID`
-# to itself rather than exporting them, so pass them along here.
-export UID := $(shell id -u)
-export GID := $(shell id -g)
+# `docker compose` cannot shell out for the uid, so pass it along here. Not
+# named `UID`, which zsh reserves and refuses to let you override.
+APP_UID ?= $(shell id -u)
+export APP_UID
 
 SUITE_STAMP=.test-use-suite
 
