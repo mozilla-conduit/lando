@@ -274,9 +274,17 @@ class GitHubAPIClient:
         """List all pull requests in the repo."""
         return self._repo_get("pulls")
 
+    def list_stacks(self) -> list:
+        """List all stacks in the repo."""
+        return self._repo_get("stacks")
+
     def get_pull_request(self, pull_number: int) -> dict:
         """Get a specific pull request from the repo."""
         return self._repo_get(f"pulls/{pull_number}")
+
+    def get_stack(self, stack_number: int) -> dict:
+        """Get a specific stack from the repo."""
+        return self._repo_get(f"stacks/{stack_number}")
 
     def get_diff(self, pull_number: int) -> str:
         """Fetch a diff, given a pull request number."""
@@ -438,7 +446,34 @@ def pr_cache_method(func: Callable) -> Callable:
     return cache_method(pr_cache_key)(func)
 
 
-class PullRequest:
+class GitHubObject:
+    def __init__(self, client: GitHubAPIClient, data: dict):
+        self.client = client
+
+
+class Stack(GitHubObject):
+    """A class that parsed data return from the GitHub API for stacks."""
+
+    def __init__(self, client: GitHubAPIClient, data: dict):
+        super().__init__(client, data=data)
+
+        # Temporarily here for convenience.
+        self.data = data
+
+        # Some of these can be consolidated into the base __init__
+        self.id = data["id"]
+        self.number = data["number"]
+
+        # TODO: base / head refs
+
+    @property
+    def pull_requests(self) -> list["PullRequest"]:
+        # TODO: note that the stacks endpoint returns partial PR data, but it could
+        # be usable for display purposes as-is without having to re-fetch every PR.
+        pass
+
+
+class PullRequest(GitHubObject):
     """A class that parses data returned from the GitHub API for pull requests."""
 
     class StaleMetadataException(Exception):
@@ -493,7 +528,7 @@ class PullRequest:
         return parts[0].strip()
 
     def __init__(self, client: GitHubAPIClient, data: dict):
-        self.client = client
+        super().__init__(client, data=data)
 
         self.url = data["url"]
         self.base_ref = data["base"]["ref"]  # "target" branch name
