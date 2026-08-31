@@ -1,19 +1,16 @@
 {% extends "partials/layout.html" %}
-{% block page_title %}{{ pull_request }}{% endblock %}
+{% block page_title %}{{ stack }}{% endblock %}
 {% block main %}
-    <main id="pull-request-page" class="StackPage StackPage-gh-stack container fullhd">
-        <h1>
-            <a href="{{ pull_request.html_url }}">{{ pull_request.title }}</a> #{{ pull_request.number }} ({{ target_repo.name }}@{{ target_repo.default_branch }})
-        </h1>
+    <main id="stack-page" class="StackPage StackPage-gh-stack container fullhd">
         <p>
             <button id="post-landing-job"
                     class="button is-large is-loading post-landing-job has-text-white"
                     disabled
                     data-anonymous="{{ '0' if request.user.is_authenticated else '1' }}"
-                    data-pull-number="{{ pull_request.number }}"
-                    data-head-sha="{{ pull_request.head_sha }}"
                     data-repo-name="{{ target_repo.name }}"
-                    data-csrf-token="{{ csrf_token }}">Loading</button>
+                    data-csrf-token="{{ csrf_token }}"
+                    data-stack-number="{{ stack.number }}"
+                    data-repo-url="{{ target_repo.normalized_url }}">Loading</button>
         </p>
     </p>
     <div class="StackPage-stack">
@@ -23,6 +20,24 @@
                 Acknowledge all warnings below to continue.
             </label>
         </p>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Pull Request</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pr in stack.pull_requests %}
+                    <tr class="StackPage-pr">
+                        <td class="StackPage-pr-title">
+                            <div class="StackPage-revision-title-text">
+                                <a href="{{ pr.html_url }}">{{ pr.number }}</a>: {{ pr.title }}
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
         <table>
             <tr>
                 <th></th>
@@ -52,45 +67,45 @@
                 </td>
             </tr>
             <tr>
+                
                 <th>Branches</th>
-                <td>{{ pull_request.head_ref }} -&gt; {{ pull_request.base_ref }}</td>
+
             </tr>
             <tr>
                 <th>Repo</th>
-                <td>{{ target_repo }} ({{ pull_request.head_repo_git_url }})</td>
+
             </tr>
             <tr>
                 <th>Author</th>
-                <td>{{ pull_request.user_login }}</td>
+
             </tr>
             <tr>
                 <th>State</th>
-                <td>{{ pull_request.state }}</td>
+
             </tr>
-            <tr>
-                <th>Commit Title</th>
-                <td>
-                    <p id="commit-title">{{ pull_request.title }}</p>
-                    <p id="commit-title-error"></p>
-                </td>
-            </tr>
-            <tr>
-                <th>Commit Body</th>
-                <td>
-                    <p id="commit-body">{{ pull_request.commit_body|e }}</p>
-                    <p id="commit-body-error"></p>
-                </td>
-            </tr>
+            {% for pull_request in stack.pull_requests %}
+                <tr>
+                    <th>Pull Request: </th>
+                    <td><a href="{{ pull_request.html_url }}">{{ pull_request.number }}</a></td>
+                </tr>
+                <div class="pr-description">
+                <tr>
+                    <th>Commit Title</th>
+                    <td>
+                        <p id="commit-title">{{ pull_request.title }}</p>
+                        <p id="commit-title-error"></p>
+                    </td>   
+                </tr>
+                <tr>
+                    <th>Commit Body</th>
+                    <td>
+                        <p id="commit-body">{{ pull_request.commit_body|e }}</p>
+                        <p id="commit-body-error"></p>
+                    </td>
+                </tr>
+                </div>
+            {% endfor %}
         </table>
-        <p>
-            <button id="save-edit-pr"
-                    class="button"
-                    data-mode="saved"
-                    data-pull-number="{{ pull_request.number }}"
-                    data-repo-name="{{ target_repo.name }}"
-                    data-csrf-token="{{ csrf_token }}">Edit Commit Message</button>
-            <button id="cancel-edit-pr" class="button is-light is-hidden">Cancel</button>
-        </p>
     </div>
     <h1>Landings</h1>
     {% include "stack/partials/timeline.html" %}
