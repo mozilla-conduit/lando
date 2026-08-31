@@ -640,7 +640,7 @@ class GitSCM(AbstractSCM):
         """
 
     @override
-    def maintenance(self) -> None:
+    def idle_maintenance(self) -> None:
         """Perform various maintenance tasks while the worker is idling.
 
         Currently this method cleans up leftover `lando-<timestamp>` work

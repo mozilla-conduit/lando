@@ -465,7 +465,7 @@ class Worker(ABC):
 
         for repo_index, repo in enumerate(repos_to_maintain):
             try:
-                repo.scm.maintenance()
+                repo.scm.idle_maintenance()
             except SCMException:
                 logger.exception(f"Idle maintenance failed for {repo.name}.")
             # Update on success or failure so a broken repo doesn't get hammered

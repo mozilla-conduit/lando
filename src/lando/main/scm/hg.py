@@ -796,7 +796,7 @@ class HgSCM(AbstractSCM):
         """
 
     @override
-    def maintenance(self) -> None:
+    def idle_maintenance(self) -> None:
         """Perform various maintenance tasks while the worker is idling.
 
         Currently this method strips draft commits left over from previous

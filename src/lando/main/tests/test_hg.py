@@ -62,7 +62,7 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
             "Draft commits should persist across context exits; `maintenance` strips them."
         )
 
-    scm.maintenance()
+    scm.idle_maintenance()
 
     with scm.for_pull(), hg_clone.as_cwd():
         with pytest.raises(HgCommandError, match="no changes found"):

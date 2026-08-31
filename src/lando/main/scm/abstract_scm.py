@@ -233,7 +233,7 @@ class AbstractSCM(ABC):
         """
 
     @abstractmethod
-    def maintenance(self) -> None:
+    def idle_maintenance(self) -> None:
         """Perform various maintenance tasks while the worker is idling.
 
         Called from the worker loop during idle periods so background cleanup
