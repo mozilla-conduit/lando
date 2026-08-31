@@ -94,8 +94,7 @@ USER app
 
 # Make sure we can detect SSH signatures, even if we can't validate them. Run
 # from `/`: git fails to find a repository under `/code` in a worktree.
-WORKDIR /
-RUN git config --global gpg.ssh.allowedSignersFile /dev/null
+RUN git -C / config --global gpg.ssh.allowedSignersFile /dev/null
 
 WORKDIR /code
 
