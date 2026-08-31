@@ -178,7 +178,7 @@ class UpliftWorker(Worker):
                 )
             except SecurityBugReferenceException as e:
                 logger.warning(
-                    str(e),
+                    e,
                     extra={"job_id": job.id},
                 )
             except Exception:
@@ -378,21 +378,17 @@ class UpliftWorker(Worker):
 
     def check_uplift_bug_references(
         self, patch_helpers: list[PatchHelper]
-    ) -> tuple[str | None, set[int]]:
+    ) -> tuple[str | None, int]:
         """Check if uplift job contains references to non-public bugs.
 
-        Return the error message and set of private bug IDs when a referenced bug is not public.
+        Return the error message and BMO status code for the checked bug when a
+        referenced bug is not public.
         """
         secure_check = BugReferencesCheck()
         for patch_helper in patch_helpers:
             secure_check.next_diff(patch_helper)
-        result = secure_check.result()
 
-        if result:
-            error_message = ", ".join(result)
-            return error_message, secure_check.status_code
-
-        return None, secure_check.status_code
+        return secure_check.result(), secure_check.status_code
 
     def create_try_diff_from_json(self) -> str:
         try_config_path = (
