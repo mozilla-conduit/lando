@@ -3,9 +3,10 @@ DOCKER := $(shell which docker)
 DOCKER_COMPOSE := ${DOCKER} compose
 ARGS_TESTS ?=
 
-# The container writes into the bind-mounted working copy, so it has to run as
-# the caller. `docker compose` cannot shell out for the ids, and the shell keeps
-# `UID`/`GID` to itself rather than exporting them, so pass them along here.
+# Targets like `format`, `migrations`, `upgrade-requirements` and `build-js`
+# write into the bind-mounted working copy, so the container runs as the caller.
+# `docker compose` cannot shell out for the ids, and the shell keeps `UID`/`GID`
+# to itself rather than exporting them, so pass them along here.
 export UID := $(shell id -u)
 export GID := $(shell id -g)
 
