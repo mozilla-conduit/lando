@@ -782,9 +782,11 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     )
     mach_file.chmod(0o755)
 
-    # `mach_path` lookup is mocked to find the fake `mach`
+    # `mach_path` lookup is mocked to find the fake `mach` that is not in the git working directory
     monkeypatch.setattr(uplift_worker, "mach_path", lambda repo_path: mach_file)
 
+
+    monkeypatch.setattr(settings, "MOZBUILDS_ROOT", str(tmp_path / "mozbuilds"))
     try_repo = repo_mc(SCMType.HG, name="try", is_try=True)
 
     # Hardcode the mapping between the Git base commit to its Hg
