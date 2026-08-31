@@ -2,6 +2,7 @@ import logging
 import os
 from datetime import datetime, timedelta
 from unittest import mock
+from unittest.mock import patch
 
 import pytest
 
@@ -41,6 +42,24 @@ def test_Worker__no_SSH_PRIVATE_KEY(caplog, landing_worker_instance, scm_type):
 
     # It should complain, but continue.
     assert LandingWorker.SSH_PRIVATE_KEY_ENV_KEY in caplog.text
+
+
+@patch("lando.main.scm.GitSCM.startup_maintenance")
+@pytest.mark.django_db
+def test_Worker__startup_maintenance(
+    scm_git_startup_maintenance, landing_worker_instance
+):
+    # The worker will read the environment and try to handle the SSH_PRIVATE_KEY if
+    # present.
+    w = LandingWorker(landing_worker_instance(scm=SCMType.GIT))
+
+    # Let the runner terminate immediately after setup.
+    w.start(max_loops=-1)
+
+    # It should complain, but continue.
+    assert scm_git_startup_maintenance.call_count == len(w.enabled_repos), (
+        "Startup maintenance should have run for each enabled repo"
+    )
 
 
 @pytest.fixture

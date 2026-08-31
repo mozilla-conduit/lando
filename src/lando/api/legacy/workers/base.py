@@ -415,6 +415,20 @@ class Worker(ABC):
         self.active_repos = [repo for repo in self.enabled_repos if is_open(repo.tree)]
         logger.info(f"{len(self.active_repos)} enabled repos: {self.active_repos}")
 
+    def run_startup_maintenance(self):
+        """Call `scm.startup_maintenance` on each enabled repo."""
+
+        repos_to_maintain = self.enabled_repos
+        repo_names = [repo.name for repo in repos_to_maintain]
+        count = len(repo_names)
+        logger.info(f"Starting startup maintenance for {count} repo(s): {repo_names}")
+
+        for repo in repos_to_maintain:
+            try:
+                repo.scm.startup_maintenance()
+            except SCMException:
+                logger.exception(f"Startup maintenance failed for {repo.name}.")
+
     def run_idle_maintenance(self):
         """Call `scm.maintenance` on each enabled repo, throttled per repo.
 
@@ -614,6 +628,9 @@ class Worker(ABC):
             logger.warning(f"Will not start worker {self}.")
             return
         self._setup()
+
+        self.run_startup_maintenance()
+
         self._start(max_loops=max_loops)
 
     @staticmethod

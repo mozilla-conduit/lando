@@ -632,6 +632,14 @@ class GitSCM(AbstractSCM):
         return self.head_ref()
 
     @override
+    def startup_maintenance(self) -> None:
+        """Perform maintenance when the worker starts.
+
+        This method:
+        * does nothing
+        """
+
+    @override
     def maintenance(self) -> None:
         """Perform various maintenance tasks while the worker is idling.
 
