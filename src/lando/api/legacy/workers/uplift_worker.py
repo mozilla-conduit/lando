@@ -351,12 +351,14 @@ class UpliftWorker(Worker):
                 self.create_revisions_from_patch_helper(patch_helper)
                 for patch_helper in patch_helpers
             ]
-            try: 
+            try:
                 try_revision = self.create_try_revision(
                     job.target_repo, job.requester_email
                 )
             except ValueError:
-                logger.exception("Error creating try revision", extra={"job_id": job.id},
+                logger.exception(
+                    "Error creating try revision",
+                    extra={"job_id": job.id},
                 )
                 raise
             revisions.append(try_revision)
@@ -388,9 +390,13 @@ class UpliftWorker(Worker):
             args=["try", "fuzzy", "-q", "^build-", "--no-push", "--disable-pgo"],
             extra_env={"MOZBUILD_STATE_PATH": repo.mozbuild_state_path},
         )
-        _, _, json_text = config_contents.partition("Calculated try_task_config.json:\n")
+        _, _, json_text = config_contents.partition(
+            "Calculated try_task_config.json:\n"
+        )
         if not json_text:
-            raise ValueError("Could not find 'Calculated try_task_config.json:' marker.")
+            raise ValueError(
+                "Could not find 'Calculated try_task_config.json:' marker."
+            )
         config_json = json.dumps(json.loads(json_text), indent=4, sort_keys=True)
         config_lines = config_json.splitlines()
 

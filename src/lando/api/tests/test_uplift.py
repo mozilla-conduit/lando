@@ -79,7 +79,18 @@ Pushed via `mach try fuzzy`
 Calculated try_task_config.json:
 """
 
-MOCK_TRY_TASK_CONFIG = {"parameters": [], "version": 1}
+MOCK_TRY_TASK_CONFIG = {
+    "parameters": {
+        "optimize_target_tasks": False,
+        "try_task_config": {
+            "disable-pgo": True,
+            "env": {"TRY_SELECTOR": "fuzzy"},
+            "tasks": [],
+        },
+    },
+    "version": 2,
+}
+
 
 def test_parse_milestone_version():
     assert parse_milestone_version(MILESTONE_TEST_CONTENTS_1) == Version("84.0a1"), (
@@ -760,15 +771,15 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
 
     repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
 
-
-
     repo_dir = tmp_path / "firefox-beta"
     repo_dir.mkdir()
     mach_file = repo_dir / "mach"
     mach_file.write_text(
-        "#!/bin/sh\ncat <<'MACH_EOF'\n" + MOCK_MACH_TRY_PREAMBLE + json.dumps(MOCK_TRY_TASK_CONFIG) + "\nMACH_EOF\n"
+        "#!/bin/sh\ncat <<'MACH_EOF'\n"
+        + MOCK_MACH_TRY_PREAMBLE
+        + json.dumps(MOCK_TRY_TASK_CONFIG)
+        + "\nMACH_EOF\n"
     )
-
 
     mach_file.chmod(0o755)
     repo.system_path = str(repo_dir)
@@ -935,7 +946,9 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         )
 
         try_revision = try_job.revisions.last()
-        expected_config_json = json.dumps(MOCK_TRY_TASK_CONFIG, indent=4, sort_keys=True)
+        expected_config_json = json.dumps(
+            MOCK_TRY_TASK_CONFIG, indent=4, sort_keys=True
+        )
         expected_diff_lines = "\n".join(
             f"+{line}" for line in expected_config_json.splitlines()
         )
