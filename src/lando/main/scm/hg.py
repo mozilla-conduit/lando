@@ -827,8 +827,8 @@ class HgSCM(AbstractSCM):
             ) from exc
         try:
             self.run_hg(["strip", "--no-backup", "-r", "not public()"])
-        except HgException:
-            pass
+        except HgException as exc:
+            logger.exception(exc)
         finally:
             self.hg_repo.close()
 
