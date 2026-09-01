@@ -54,7 +54,8 @@ def test_Worker__startup_maintenance(
     # Let the runner terminate immediately after setup.
     w.start(max_loops=-1)
 
-    # It should complain, but continue.
+    assert len(w.enabled_repos) > 0, "We should have some enabled repos"
+
     assert scm_git_startup_maintenance.call_count == len(w.enabled_repos), (
         "Startup maintenance should have run for each enabled repo"
     )
