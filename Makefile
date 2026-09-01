@@ -3,6 +3,13 @@ DOCKER := $(shell which docker)
 DOCKER_COMPOSE := ${DOCKER} compose
 ARGS_TESTS ?=
 
+# Targets like `format`, `migrations`, `upgrade-requirements` and `build-js`
+# write into the bind-mounted working copy, so the container runs as the caller.
+# `docker compose` cannot shell out for the uid, so pass it along here. Not
+# named `UID`, which zsh reserves and refuses to let you override.
+APP_UID ?= $(shell id -u)
+export APP_UID
+
 SUITE_STAMP=.test-use-suite
 
 INSUITE=$(shell cat ${SUITE_STAMP} 2>/dev/null)
