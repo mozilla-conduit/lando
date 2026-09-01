@@ -27,7 +27,7 @@ from lando.settings import LANDO_USER_EMAIL, LANDO_USER_NAME
 from lando.utils.const import URL_USERINFO_RE
 from lando.utils.github import GitHub
 
-from .abstract_scm import AbstractSCM
+from .abstract_scm import AbstractSCM, ScmErrorBreakdown
 
 logger = logging.getLogger(__name__)
 
@@ -405,14 +405,16 @@ class GitSCM(AbstractSCM):
         revision_id: int,
         error_message: str,
         conflicts: dict[str, dict[str, str]] | None = None,
-    ) -> dict[str, Any]:
+    ) -> ScmErrorBreakdown:
         """Process merge conflict information captured in a PatchConflict, and return a
         parsed structure."""
 
         # A 3-way rebase conflict provides its conflicting paths and content
         # directly, since it leaves no `.rej` files for the parser below.
         if conflicts:
-            return self.breakdown_from_conflicts(pull_path, revision_id, conflicts)
+            return ScmErrorBreakdown.from_dict(
+                self.breakdown_from_conflicts(pull_path, revision_id, conflicts)
+            )
 
         breakdown = {
             "failed_paths": [],
@@ -453,7 +455,7 @@ class GitSCM(AbstractSCM):
 
             breakdown["rejects_paths"][path] = reject
 
-        return breakdown
+        return ScmErrorBreakdown.from_dict(breakdown)
 
     def breakdown_from_conflicts(
         self,
