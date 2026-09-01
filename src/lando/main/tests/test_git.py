@@ -203,7 +203,7 @@ def _list_branches(clone_path: Path) -> list[str]:
 
 
 @pytest.mark.parametrize("checked_out_branch", ["lando-2025-01-01T120000", "main"])
-def test_GitSCM_maintenance(
+def test_GitSCM_idle_maintenance(
     git_repo: Path,
     git_setup_user: Callable,
     request: pytest.FixtureRequest,

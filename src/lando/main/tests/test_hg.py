@@ -46,7 +46,7 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
         assert scm.run_hg_cmds([["status"]])
 
         # `clean_repo` clears the working directory but leaves drafts in place;
-        # stripping is `maintenance`'s job.
+        # stripping is `idle_maintenance`'s job.
         scm.clean_repo()
         assert scm.run_hg_cmds([["outgoing"]])
         assert not scm.run_hg_cmds([["status"]])
@@ -60,7 +60,7 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
             "Working directory should be clean after exiting and re-entering the context."
         )
         assert scm.run_hg_cmds([["outgoing"]]), (
-            "Draft commits should persist across context exits; `maintenance` strips them."
+            "Draft commits should persist across context exits; `idle_maintenance` strips them."
         )
 
     scm.idle_maintenance()
@@ -69,7 +69,7 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
         with pytest.raises(HgCommandError, match="no changes found"):
             scm.run_hg_cmds([["outgoing"]])
         assert not scm.run_hg_cmds([["status"]]), (
-            "Working directory should be clean after `maintenance` runs."
+            "Working directory should be clean after `idle_maintenance` runs."
         )
 
 

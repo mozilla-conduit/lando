@@ -430,7 +430,7 @@ class Worker(ABC):
                 logger.exception(f"Startup maintenance failed for {repo.name}.")
 
     def run_idle_maintenance(self):
-        """Call `scm.maintenance` on each enabled repo, throttled per repo.
+        """Call `scm.idle_maintenance` on each enabled repo, throttled per repo.
 
         Called when no job is available. Each repo is maintained at most once
         per `worker_instance.maintenance_interval_seconds` to avoid unnecessary
