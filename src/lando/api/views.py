@@ -495,18 +495,29 @@ class StacksChecksAPIView(StacksAPIView):
     def get(
         self, request: WSGIRequest, repo_name: str, stack_number: int
     ) -> JsonResponse:
-        warnings_and_blockers = {}
+        results = []
         for pull_request in self.stack.pull_requests:
             try:
-                warnings_and_blockers[pull_request.number] = generate_warnings_and_blockers(
-                    self.target_repo, pull_request, request
-                )
+                results.append({"number": pull_request.number, **generate_warnings_and_blockers( self.target_repo, pull_request, request)})
             except PullRequest.StaleMetadataException as exc:
             # The StaleMetadataException error message is safe for user consumption.
-                return JsonResponse({"errors": [str(exc)]}, status=500) 
-            if PR_BASE_BRANCH_MISMATCH_BLOCKER in warnings_and_blockers[pull_request.number]["blockers"]:
-                warnings_and_blockers[pull_request.number]["blockers"].remove(PR_BASE_BRANCH_MISMATCH_BLOCKER)
+                return JsonResponse({"errors": [str(exc)]}, status=500)
 
+
+        warnings_and_blockers = {
+        "warnings": defaultdict(list),
+        "blockers": defaultdict(list)
+            }
+        
+        for result_dict in results:
+                for warning in result_dict["warnings"]:
+                    warnings_and_blockers["warnings"][warning].append(result_dict["number"])
+
+                for blocker in result_dict["blockers"]:
+                    warnings_and_blockers["blockers"][blocker].append(result_dict["number"])
+        
+        if PR_BASE_BRANCH_MISMATCH_BLOCKER not in results[0]["blockers"]:
+            del warnings_and_blockers["blockers"][PR_BASE_BRANCH_MISMATCH_BLOCKER]
         return JsonResponse(warnings_and_blockers)
         
 class PullRequestContentAPIView(PullRequestAPIView):
