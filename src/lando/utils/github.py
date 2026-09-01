@@ -286,6 +286,12 @@ class GitHubAPIClient:
         """Get a specific stack from the repo."""
         return self._repo_get(f"stacks/{stack_number}")
 
+    def build_stack(self, stack_number: int) -> "Stack":
+        """Build a Stack object.
+        This does the necessary network requests to collect the data."""
+        data = self.get_stack(stack_number)
+        return Stack(self, data)
+
     def get_diff(self, pull_number: int) -> str:
         """Fetch a diff, given a pull request number."""
         return self._get(
