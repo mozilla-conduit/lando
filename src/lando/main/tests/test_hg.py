@@ -597,8 +597,8 @@ def test_HgSCM__startup_maintenance(
     scm.startup_maintenance()
 
     # The locks got unconditionally deleted.
-    assert not wlock.exists(), "wlock should have been deleted by startup maintenance"
-    assert not lock.exists(), "lock should have been deleted by startup maintenance"
+    assert not wlock.is_symlink(), "wlock symlink should have been deleted by startup_maintenance"
+    assert not lock.is_symlink(), "lock symlink should have been deleted by startup_maintenance"
 
 
 def _trim_variable_patch_parts(patch: str):
