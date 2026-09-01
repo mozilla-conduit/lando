@@ -49,8 +49,6 @@ def test_Worker__no_SSH_PRIVATE_KEY(caplog, landing_worker_instance, scm_type):
 def test_Worker__startup_maintenance(
     scm_git_startup_maintenance, landing_worker_instance
 ):
-    # The worker will read the environment and try to handle the SSH_PRIVATE_KEY if
-    # present.
     w = LandingWorker(landing_worker_instance(scm=SCMType.GIT))
 
     # Let the runner terminate immediately after setup.
