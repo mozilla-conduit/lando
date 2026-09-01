@@ -803,9 +803,9 @@ class HgSCM(AbstractSCM):
                 "Failed to open hg server for startup maintenance.", "", str(exc)
             ) from exc
         try:
-            self.run_hg(["debuglock", "--force-free-lock", "--force-free-wlock"])
-        except HgException as exc:
-            logger.exception(exc)
+            self.run_hg(["debuglocks", "--force-free-lock", "--force-free-wlock"])
+        # No except: a failure here should prevent us from continuing, but we want
+        # to close the connection correctly.
         finally:
             self.hg_repo.close()
 
