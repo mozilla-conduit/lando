@@ -481,7 +481,7 @@ def test_check_prevent_dot_github():
         + "`.github/workflows/workflow.yaml`."
     )
 
-    assert expected in prevent_dot_github_check.result(), (
+    assert [expected] == prevent_dot_github_check.result(), (
         "Check should disallow changes to GitHub workflows without proper commit message."
     )
 
