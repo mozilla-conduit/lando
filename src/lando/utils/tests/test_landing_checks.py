@@ -629,7 +629,7 @@ def test_check_prevent_nspr_nss_combined():
         "Revision makes changes to restricted directories: "
         "vendored NSPR directories: `nsprpub/testfile.txt`."
     )
-    assert expected in prevent_nspr_nss_check.result(), (
+    assert [expected] == prevent_nspr_nss_check.result(), (
         "Check should allow changes to NSPR with proper commit message."
     )
 
