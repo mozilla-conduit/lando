@@ -601,7 +601,7 @@ def test_check_prevent_nspr_nss_combined():
         "Revision makes changes to restricted directories: vendored NSS directories: "
         "`security/nss/testfile.txt` vendored NSPR directories: `nsprpub/testfile.txt`."
     )
-    assert expected in prevent_nspr_nss_check.result(), (
+    assert [expected] == prevent_nspr_nss_check.result(), (
         "Check should disallow changes to both NSS and NSPR without proper commit message."
     )
 
