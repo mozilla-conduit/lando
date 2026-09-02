@@ -663,7 +663,7 @@ def test_check_prevent_submodules():
     for diff in parsed_diff:
         prevent_submodules_check.next_diff(diff)
     expected = "Revision introduces a Git submodule into the repository."
-    assert expected in prevent_submodules_check.result(), (
+    assert [expected] == prevent_submodules_check.result(), (
         "Check should prevent revisions from introducing submodules."
     )
 
