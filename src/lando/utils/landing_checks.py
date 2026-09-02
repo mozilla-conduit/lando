@@ -511,7 +511,6 @@ class CommitMessagesCheck(PatchCollectionCheck):
 
         # Avoid further checks for the merge automation users.
         if author in {"ffxbld", "seabld", "tbirdbld", "cltbld"}:
-            self.commit_message_issues.extend(self.commit_message_issues)
             return
 
         # Match against [PATCH] and [PATCH n/m].
