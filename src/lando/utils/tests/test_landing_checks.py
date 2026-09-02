@@ -508,7 +508,7 @@ def test_check_prevent_hg_directory():
         prevent_hg_directory_check.next_diff(diff)
 
     expected = "Patch attempts to modify repository metadata: `.hg/hgrc`."
-    assert expected in prevent_hg_directory_check.result(), (
+    assert [expected] == prevent_hg_directory_check.result(), (
         "Check should not allow changes to .hg directory"
     )
 
