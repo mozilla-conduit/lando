@@ -850,7 +850,7 @@ def test_check_try_task_config():
     for diff in parsed_diff:
         try_task_config_check.next_diff(diff)
     expected = "Revision introduces the `try_task_config.json` file."
-    assert expected in try_task_config_check.result(), (
+    assert [expected] == try_task_config_check.result(), (
         "Check should prevent revisions from adding try_task_config.json."
     )
 
