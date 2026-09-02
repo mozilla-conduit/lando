@@ -550,7 +550,7 @@ class CommitMessagesCheck(PatchCollectionCheck):
         # Backouts and Hg tags don't need bug numbers.
         if (
             not is_backout(firstline)
-            and not is_tag(firstline)
+            and not any(pattern.search(firstline) for pattern in BUG_RES)
             and not any(re.search(pattern, firstline) for pattern in BUG_RES)
         ):
             self.commit_message_issues.append(
