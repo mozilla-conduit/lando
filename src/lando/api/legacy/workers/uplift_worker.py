@@ -321,7 +321,7 @@ class UpliftWorker(Worker):
         patch_helpers = list(scm.get_patch_helpers_for_commits(new_commits))
         result = self.check_uplift_bug_references(patch_helpers)
         if result:
-            raise ValueError(result)
+            raise ValueError(", ".join(result))
 
         try_repo = Repo.objects.get(name="try")
 
