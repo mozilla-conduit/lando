@@ -551,7 +551,6 @@ class CommitMessagesCheck(PatchCollectionCheck):
             not is_backout(firstline)
             and not is_tag(firstline)
             and not any(pattern.search(firstline) for pattern in BUG_RES)
-            and not any(re.search(pattern, firstline) for pattern in BUG_RES)
         ):
             self.commit_message_issues.append(
                 f"Revision needs 'Bug N' or 'No bug' in the commit message: {firstline}"
