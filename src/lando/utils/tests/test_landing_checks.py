@@ -416,7 +416,7 @@ def test_check_commit_message_repolocked_multiple():
     if return_string:
         expected = return_string + commit_message.partition("\n")[0]
 
-    assert expected in assessor.run_patch_collection_checks(
+    assert [expected] == assessor.run_patch_collection_checks(
         patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
     ), error_message
 
