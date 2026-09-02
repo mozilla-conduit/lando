@@ -225,7 +225,15 @@ class AbstractSCM(ABC):
         """
 
     @abstractmethod
-    def maintenance(self) -> None:
+    def startup_maintenance(self) -> None:
+        """Perform maintenance when the worker starts.
+
+        Called from the worker startup logic. This can be used to do quick cleanups such
+        as clearing stale locks.
+        """
+
+    @abstractmethod
+    def idle_maintenance(self) -> None:
         """Perform various maintenance tasks while the worker is idling.
 
         Called from the worker loop during idle periods so background cleanup

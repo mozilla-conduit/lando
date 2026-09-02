@@ -1,6 +1,7 @@
 import io
 import os
 import re
+import socket
 import subprocess
 import textwrap
 from datetime import datetime
@@ -45,7 +46,7 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
         assert scm.run_hg_cmds([["status"]])
 
         # `clean_repo` clears the working directory but leaves drafts in place;
-        # stripping is `maintenance`'s job.
+        # stripping is `idle_maintenance`'s job.
         scm.clean_repo()
         assert scm.run_hg_cmds([["outgoing"]])
         assert not scm.run_hg_cmds([["status"]])
@@ -59,16 +60,16 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
             "Working directory should be clean after exiting and re-entering the context."
         )
         assert scm.run_hg_cmds([["outgoing"]]), (
-            "Draft commits should persist across context exits; `maintenance` strips them."
+            "Draft commits should persist across context exits; `idle_maintenance` strips them."
         )
 
-    scm.maintenance()
+    scm.idle_maintenance()
 
     with scm.for_pull(), hg_clone.as_cwd():
         with pytest.raises(HgCommandError, match="no changes found"):
             scm.run_hg_cmds([["outgoing"]])
         assert not scm.run_hg_cmds([["status"]]), (
-            "Working directory should be clean after `maintenance` runs."
+            "Working directory should be clean after `idle_maintenance` runs."
         )
 
 
@@ -570,6 +571,37 @@ def test_HgSCM__run_hg_autorecover(
     )
     assert new_file.name in changes[0].files, (
         "File should have been created after sucessful recovery"
+    )
+
+
+def test_HgSCM__startup_maintenance(
+    hg_clone: os.PathLike,
+):
+    hg_clone = Path(hg_clone)
+
+    wlock = (hg_clone) / ".hg" / "wlock"
+    lock = (hg_clone) / ".hg" / "store" / "lock"
+
+    hostname = socket.gethostname()
+    # Under Linux, Mercurial adds inode information for the current process into the
+    # lock [0].
+    # [0] https://foss.heptapod.net/mercurial/mercurial-devel/-/blob/e0fae3f19ab88b63ef5bb5371ae653b76f811c76/mercurial/lock.py#L41
+    st_ino = os.stat(b"/proc/self/ns/pid").st_ino
+    pid = os.getpid()
+
+    # These locks are not stale, as they point back to this process.
+    wlock.symlink_to(f"{hostname}/{st_ino}:{pid}")
+    lock.symlink_to(f"{hostname}/{st_ino}:{pid}")
+
+    scm = HgSCM(str(hg_clone))
+    scm.startup_maintenance()
+
+    # The locks got unconditionally deleted.
+    assert not wlock.is_symlink(), (
+        "wlock symlink should have been deleted by startup_maintenance"
+    )
+    assert not lock.is_symlink(), (
+        "lock symlink should have been deleted by startup_maintenance"
     )
 
 

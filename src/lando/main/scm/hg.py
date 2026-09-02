@@ -788,7 +788,19 @@ class HgSCM(AbstractSCM):
             pass
 
     @override
-    def maintenance(self) -> None:
+    def startup_maintenance(self) -> None:
+        """Perform maintenance when the worker starts.
+
+        This method:
+        * deletes all locks (.hg/wlock, .hg/store/lock)
+
+        WARNING: This method doesn't check if the locks are stale.
+        """
+        with self.for_maintenance("startup"):
+            self.run_hg(["debuglocks", "--force-free-lock", "--force-free-wlock"])
+
+    @override
+    def idle_maintenance(self) -> None:
         """Perform various maintenance tasks while the worker is idling.
 
         Currently this method strips draft commits left over from previous
@@ -797,16 +809,31 @@ class HgSCM(AbstractSCM):
         that strips drafts; the per-job `clean_repo` calls leave them in
         place.
         """
+        with self.for_maintenance("idle"):
+            try:
+                self.run_hg(["strip", "--no-backup", "-r", "not public()"])
+            except HgException as exc:
+                logger.exception(exc)
+
+    @contextmanager
+    def for_maintenance(self, maintenance_type: str):
+        """Prepare the repo without setting any custom environment variables.
+
+        The repo's `push` method will not function inside this context manager, as the
+        request user's email address will be absent (and not needed).
+        """
         try:
             self._open()
         except hglib.error.ServerError as exc:
             raise SCMException(
-                "Failed to open hg server for maintenance.", "", str(exc)
+                f"Failed to open hg server for {maintenance_type} maintenance.",
+                "",
+                str(exc),
             ) from exc
         try:
-            self.run_hg(["strip", "--no-backup", "-r", "not public()"])
-        except HgException:
-            pass
+            yield self
+        # No except: a failure here should prevent us from continuing, but we want
+        # to close the connection correctly.
         finally:
             self.hg_repo.close()
 

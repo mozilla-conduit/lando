@@ -203,7 +203,7 @@ def _list_branches(clone_path: Path) -> list[str]:
 
 
 @pytest.mark.parametrize("checked_out_branch", ["lando-2025-01-01T120000", "main"])
-def test_GitSCM_maintenance(
+def test_GitSCM_idle_maintenance(
     git_repo: Path,
     git_setup_user: Callable,
     request: pytest.FixtureRequest,
@@ -231,7 +231,7 @@ def test_GitSCM_maintenance(
         ["git", "checkout", checked_out_branch], cwd=str(clone_path), check=True
     )
 
-    scm.maintenance()
+    scm.idle_maintenance()
 
     remaining = _list_branches(clone_path)
     assert all(not branch.startswith("lando-") for branch in remaining), (
@@ -257,7 +257,7 @@ def test_GitSCM_maintenance_noop_without_lando_branches(
 
     branches_before = _list_branches(clone_path)
 
-    scm.maintenance()
+    scm.idle_maintenance()
 
     assert _list_branches(clone_path) == branches_before, (
         "`maintenance` should be a no-op when there are no `lando-*` branches."
