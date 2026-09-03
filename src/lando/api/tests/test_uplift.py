@@ -4,6 +4,7 @@ from io import StringIO
 from unittest import mock
 
 import pytest
+from django.conf import settings
 from django.contrib.messages import get_messages
 from django.urls import reverse
 from packaging.version import (
@@ -69,6 +70,27 @@ MILESTONE_TEST_CONTENTS_2 = """
 
 105.0
 """
+MOCK_MACH_TRY_PREAMBLE = """
+Commit message:
+Fuzzy query=^build-
+
+mach try command: `./mach try fuzzy -q ^build- --no-push --disable-pgo`
+
+Pushed via `mach try fuzzy`
+Calculated try_task_config.json:
+"""
+
+MOCK_TRY_TASK_CONFIG = {
+    "parameters": {
+        "optimize_target_tasks": False,
+        "try_task_config": {
+            "disable-pgo": True,
+            "env": {"TRY_SELECTOR": "fuzzy"},
+            "tasks": [],
+        },
+    },
+    "version": 2,
+}
 
 
 def test_parse_milestone_version():
@@ -734,6 +756,7 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     monkeypatch,
     make_uplift_job_with_revisions,
     mock_uplift_email_tasks,
+    tmp_path,
 ):
     def mock_write_update_commits(commits):
         def _write_uplift_commits(job_arg, base_rev, env, output_path):
@@ -749,6 +772,19 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
 
     repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
 
+    mach_file = tmp_path / "mach"
+    mach_file.write_text(
+        "#!/bin/sh\ncat <<'MACH_EOF'\n"
+        + MOCK_MACH_TRY_PREAMBLE
+        + json.dumps(MOCK_TRY_TASK_CONFIG)
+        + "\nMACH_EOF\n"
+    )
+    mach_file.chmod(0o755)
+
+    # `mach_path` lookup is mocked to find the fake `mach` that is not in the git working directory
+    monkeypatch.setattr(uplift_worker, "mach_path", lambda repo_path: mach_file)
+
+    monkeypatch.setattr(settings, "MOZBUILDS_ROOT", str(tmp_path / "mozbuilds"))
     try_repo = repo_mc(SCMType.HG, name="try", is_try=True)
 
     # Hardcode the mapping between the Git base commit to its Hg
@@ -908,6 +944,17 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         # One revision per uplift revision, plus the try_task_config revision.
         assert try_job.revisions.count() == len(revisions) + 1, (
             "Try-push job should bundle the uplift revisions and the config revision."
+        )
+
+        try_revision = try_job.revisions.last()
+        expected_config_json = json.dumps(
+            MOCK_TRY_TASK_CONFIG, indent=4, sort_keys=True
+        )
+        expected_diff_lines = "\n".join(
+            f"+{line}" for line in expected_config_json.splitlines()
+        )
+        assert expected_diff_lines in try_revision.diff, (
+            "Try revision diff should contain the parsed `try_task_config.json` contents."
         )
 
     # Mock `moz-phab uplift` again with new created commits.
