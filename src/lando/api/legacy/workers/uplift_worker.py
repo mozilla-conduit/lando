@@ -176,10 +176,10 @@ class UpliftWorker(Worker):
                 try_job = self.create_uplift_try_push(
                     base_revision, repo.scm_type, job, scm, new_commits
                 )
-            except SecurityBugReferenceException as e:
+            except SecurityBugReferenceException as exc:
                 logger.warning(
-                    e,
-                    extra={"job_id": job.id},
+                    "Skipping try push for uplift job due to a private bug reference",
+                    extra={"job_id": job.id, "error": str(exc)},
                 )
             except Exception:
                 logger.exception(
