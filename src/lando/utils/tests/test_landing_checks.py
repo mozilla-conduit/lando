@@ -744,7 +744,6 @@ Bug 999999: Fix issue with feature X
             patch_collection_checks=[BugReferencesCheck],
             patch_checks=[],
         )
-
         assert (
             "Your commit message references bug 999999, which is currently private."
             in issues[0]

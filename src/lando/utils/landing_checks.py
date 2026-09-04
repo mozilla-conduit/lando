@@ -664,6 +664,7 @@ class BugReferencesCheck(PatchCollectionCheck):
 
     bug_ids: set[int] = field(default_factory=set)
     skip_check: bool = False
+    status_code: int | None = None
 
     def next_diff(self, patch_helper: PatchHelper):
         """Parse each diff for bug references information.
@@ -697,11 +698,11 @@ class BugReferencesCheck(PatchCollectionCheck):
         # Check a single bug to determine which error to return.
         bug_id = invalid_bugs.pop()
         try:
-            status_code = get_status_code_for_bug(bug_id)
+            self.status_code = get_status_code_for_bug(bug_id)
         except requests.exceptions.RequestException as exc:
             return [BUG_REFERENCES_BMO_ERROR_TEMPLATE.format(error=str(exc))]
 
-        if status_code == 401:
+        if self.status_code == 401:
             return [
                 (
                     f"Your commit message references bug {bug_id}, which is currently private. To avoid "
@@ -710,7 +711,7 @@ class BugReferencesCheck(PatchCollectionCheck):
                 )
             ]
 
-        if status_code == 404:
+        if self.status_code == 404:
             return [
                 (
                     f"Your commit message references bug {bug_id}, which does not exist. "
