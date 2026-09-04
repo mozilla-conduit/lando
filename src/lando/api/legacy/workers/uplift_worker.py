@@ -387,8 +387,8 @@ class UpliftWorker(Worker):
         secure_check = BugReferencesCheck()
         for patch_helper in patch_helpers:
             secure_check.next_diff(patch_helper)
-
-        return secure_check.result(), secure_check.status_code
+        error = secure_check.result()
+        return error, secure_check.status_code
 
     def create_try_diff_from_json(self) -> str:
         try_config_path = (
