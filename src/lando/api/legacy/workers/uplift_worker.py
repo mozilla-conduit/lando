@@ -328,7 +328,7 @@ class UpliftWorker(Worker):
         """Create a Try `LandingJob` for the commits landed by an uplift job."""
         patch_helpers = list(scm.get_patch_helpers_for_commits(new_commits))
         error, status_code = self.check_uplift_bug_references(patch_helpers)
-        if status_code == 401:
+        if status_code in (401, 404):
             raise SecurityBugReferenceException(
                 "Skipping try push for uplift job:\n" + error
             )
