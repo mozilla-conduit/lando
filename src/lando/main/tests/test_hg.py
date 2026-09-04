@@ -73,6 +73,16 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
         )
 
 
+def test_hg_idle_maintenance_noop(
+    hg_clone: os.PathLike, caplog: pytest.LogCaptureFixture
+):
+    scm = HgSCM(hg_clone.strpath)
+
+    scm.idle_maintenance()
+
+    assert "empty revision set" not in caplog.text
+
+
 def test_integrated_hgrepo_can_log(hg_clone):
     repo = HgSCM(hg_clone.strpath)
     with repo.for_pull():

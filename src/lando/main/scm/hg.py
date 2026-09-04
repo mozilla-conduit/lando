@@ -813,6 +813,9 @@ class HgSCM(AbstractSCM):
             try:
                 self.run_hg(["strip", "--no-backup", "-r", "not public()"])
             except HgException as exc:
+                if exc.err == "abort: empty revision set\n":
+                    # This is a noop. No need to report this.
+                    return
                 logger.exception(exc)
 
     @contextmanager
