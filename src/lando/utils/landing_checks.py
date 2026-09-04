@@ -703,17 +703,21 @@ class BugReferencesCheck(PatchCollectionCheck):
             return [BUG_REFERENCES_BMO_ERROR_TEMPLATE.format(error=str(exc))]
 
         if self.status_code == 401:
-            return (
-                f"Your commit message references bug {bug_id}, which is currently private. To avoid "
-                "disclosing the nature of this bug publicly, please remove the affected bug ID "
-                f"from the commit message. {BMO_SKIP_HINT}"
-            )
+            return [
+                (
+                    f"Your commit message references bug {bug_id}, which is currently private. To avoid "
+                    "disclosing the nature of this bug publicly, please remove the affected bug ID "
+                    f"from the commit message. {BMO_SKIP_HINT}"
+                )
+            ]
 
         if self.status_code == 404:
-            return (
-                f"Your commit message references bug {bug_id}, which does not exist. "
-                f"Please check your commit message and try again. {BMO_SKIP_HINT}"
-            )
+            return [
+                (
+                    f"Your commit message references bug {bug_id}, which does not exist. "
+                    f"Please check your commit message and try again. {BMO_SKIP_HINT}"
+                )
+            ]
 
         return [
             (

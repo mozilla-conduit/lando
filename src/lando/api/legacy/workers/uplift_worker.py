@@ -330,7 +330,7 @@ class UpliftWorker(Worker):
         error, status_code = self.check_uplift_bug_references(patch_helpers)
         if status_code in (401, 404):
             raise SecurityBugReferenceException(
-                "Skipping try push for uplift job:\n" + error
+                f"Skipping try push for uplift job:\n{', '.join(error)}"
             )
         elif error:
             raise ValueError(error)
