@@ -810,17 +810,22 @@ def test_link_assessment_links_existing_form(
     """Linking endpoint should tie an existing assessment to a revision."""
     phabdouble.user(api_key=user.profile.phabricator_api_key)
 
-    assessment = UpliftAssessment.objects.create(user=user, **CREATE_FORM_DATA)
-    url = reverse("uplift-assessment-link-page", args=[5678])
+    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+    referrer = f"/D{revision_id}"
+
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=UPLIFT_BUG_ID, **CREATE_FORM_DATA
+    )
+    url = reverse("uplift-assessment-link-page", args=[revision_id])
 
     response = authenticated_client.post(
         url,
         data={"assessment": assessment.pk},
-        HTTP_REFERER="/D5678",
+        HTTP_REFERER=referrer,
     )
 
     assert response.status_code == 302, "Successful link should redirect to referrer."
-    assert response["Location"] == "/D5678", (
+    assert response["Location"] == referrer, (
         "Linking should return to the revision page."
     )
     messages = [str(message) for message in get_messages(response.wsgi_request)]
@@ -830,7 +835,7 @@ def test_link_assessment_links_existing_form(
     ), f"Successful link should flash confirmation: {messages=}"
 
     revision_link = UpliftRevision.objects.get()
-    assert revision_link.revision_id == 5678, (
+    assert revision_link.revision_id == revision_id, (
         "Revision link should target the requested revision."
     )
     assert revision_link.assessment_id == assessment.id, (
@@ -845,7 +850,7 @@ def test_link_assessment_links_existing_form(
     assert mock_apply_async.call_count == 1, "Celery task should update Phabricator."
     _, kwargs = mock_apply_async.call_args
     task_revision_id, conduit_json_str, user_id = kwargs["args"]
-    assert task_revision_id == 5678, (
+    assert task_revision_id == revision_id, (
         "Celery task should publish the linked revision ID."
     )
     assert isinstance(conduit_json_str, str), (
@@ -862,9 +867,15 @@ def test_link_assessment_replaces_existing_form(
     """Link endpoint should flash replacement message when swapping assessments."""
     phabdouble.user(api_key=user.profile.phabricator_api_key)
 
-    previous_assessment = UpliftAssessment.objects.create(user=user, **CREATE_FORM_DATA)
+    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+    referrer = f"/D{revision_id}"
+
+    previous_assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=UPLIFT_BUG_ID, **CREATE_FORM_DATA
+    )
     replacement_assessment = UpliftAssessment.objects.create(
         user=user,
+        bug_id=UPLIFT_BUG_ID,
         # Ensure unique data to avoid accidental equality with previous form fields.
         user_impact="Affects nightly users.",
         covered_by_testing="no",
@@ -879,26 +890,26 @@ def test_link_assessment_replaces_existing_form(
 
     # Pre-link the previous assessment to the revision.
     UpliftRevision.objects.create(
-        revision_id=6789,
+        revision_id=revision_id,
         assessment=previous_assessment,
     )
 
-    url = reverse("uplift-assessment-link-page", args=[6789])
+    url = reverse("uplift-assessment-link-page", args=[revision_id])
     response = authenticated_client.post(
         url,
         data={"assessment": replacement_assessment.pk},
-        HTTP_REFERER="/D6789",
+        HTTP_REFERER=referrer,
     )
 
     assert response.status_code == 302, "Successful replacement should redirect."
-    assert response["Location"] == "/D6789", "Replacement should return to revision."
+    assert response["Location"] == referrer, "Replacement should return to revision."
     messages = [str(message) for message in get_messages(response.wsgi_request)]
     assert any(
         "Replaced linked assessment for this revision." in message
         for message in messages
     ), f"Replacement action should flash confirmation: {messages=}"
 
-    revision_link = UpliftRevision.objects.get(revision_id=6789)
+    revision_link = UpliftRevision.objects.get(revision_id=revision_id)
     assert revision_link.assessment_id == replacement_assessment.id, (
         "Revision should link to the replacement assessment."
     )
@@ -906,11 +917,38 @@ def test_link_assessment_replaces_existing_form(
     mock_apply_async.assert_called_once()
     _, kwargs = mock_apply_async.call_args
     task_revision_id, conduit_json_str, user_id = kwargs["args"]
-    assert task_revision_id == 6789, "Celery task should receive revision ID."
+    assert task_revision_id == revision_id, "Celery task should receive revision ID."
     assert user_id == user.id, "Celery task should use the requesting user's identity."
     assert isinstance(conduit_json_str, str), (
         "Celery task should receive serialized payload."
     )
+
+
+@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@pytest.mark.django_db
+def test_link_assessment_rejects_assessment_from_another_bug(
+    mock_apply_async, authenticated_client, user, phabdouble
+):
+    """A revision cannot be linked to an assessment filed against another bug."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
+    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=UPLIFT_BUG_ID + 1, **CREATE_FORM_DATA
+    )
+
+    url = reverse("uplift-assessment-link-page", args=[revision_id])
+    response = authenticated_client.post(
+        url,
+        data={"assessment": assessment.pk},
+        HTTP_REFERER=f"/D{revision_id}",
+    )
+
+    assert response.status_code == 302, "A rejected link should redirect."
+    assert UpliftRevision.objects.count() == 0, (
+        "No link should be created to an assessment for another bug."
+    )
+    mock_apply_async.assert_not_called()
 
 
 @pytest.mark.django_db

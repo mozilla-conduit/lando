@@ -28,12 +28,28 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
+class UpliftAssessmentCard:
+    """One of the bug's uplift assessments, as shown on the revision page."""
+
+    # The assessment being displayed.
+    assessment: UpliftAssessment
+
+    # Edit form pre-filled with this assessment's answers.
+    form: UpliftAssessmentForm
+
+    # Whether this is the assessment linked to the revision being viewed.
+    is_linked: bool
+
+    # Phabricator revision IDs already carrying this assessment.
+    revision_ids: Sequence[int]
+
+
+@dataclass(frozen=True, slots=True)
 class UpliftContext:
     """Container for uplift values supplied to stack templates."""
 
     requests: Sequence[UpliftSubmission]
     request_form: UpliftRequestForm
-    assessment_form: UpliftAssessmentForm | None
     assessment: UpliftAssessment | None
     assessment_link_form: LinkUpliftAssessmentForm | None
     can_create_uplift_submission: bool
@@ -44,7 +60,11 @@ class UpliftContext:
 
     # Every assessment recorded against `bug_id`, including those authored by
     # other users and those linked to revisions elsewhere in the bug.
-    bug_assessments: Sequence[UpliftAssessment]
+    bug_assessments: Sequence[UpliftAssessmentCard]
+
+    # Empty form for authoring a new assessment on the bug. `None` when the
+    # user may not submit assessments for this revision.
+    new_assessment_form: UpliftAssessmentForm | None
 
     docs_url: str
     train_api_url: str
@@ -84,25 +104,25 @@ class UpliftContext:
 
         assessment = uplift_revision.assessment if uplift_revision else None
 
-        assessment_form = None
+        bug_id = revisions[revision_phid].get("bug_id")
+
+        new_assessment_form = None
         assessment_link_form = None
 
         if cls.can_request_uplift(request, revision_repo):
-            assessment_form = cls.build_assessment_form(uplift_revision)
-            assessment_link_form = LinkUpliftAssessmentForm(user=request.user)
-
-        bug_id = revisions[revision_phid].get("bug_id")
+            new_assessment_form = UpliftAssessmentForm()
+            assessment_link_form = LinkUpliftAssessmentForm(bug_id=bug_id)
 
         return cls(
             requests=tuple(uplift_requests),
             request_form=request_form,
-            assessment_form=assessment_form,
             assessment=assessment,
             assessment_link_form=assessment_link_form,
             can_create_uplift_submission=cls.can_create_submission(request),
             revision_id=revision_id,
             bug_id=bug_id,
-            bug_assessments=tuple(assessments_for_bug(bug_id)),
+            bug_assessments=cls.build_assessment_cards(bug_id, assessment),
+            new_assessment_form=new_assessment_form,
             docs_url=UPLIFT_DOCS_URL,
             train_api_url=settings.WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL,
         )
@@ -117,14 +137,26 @@ class UpliftContext:
         )
 
     @staticmethod
-    def build_assessment_form(
-        uplift_revision: UpliftRevision | None,
-    ) -> UpliftAssessmentForm:
-        """Return the edit form for the supplied uplift revision."""
-        if uplift_revision and uplift_revision.assessment:
-            return UpliftAssessmentForm(instance=uplift_revision.assessment)
-
-        return UpliftAssessmentForm()
+    def build_assessment_cards(
+        bug_id: int | None, linked_assessment: UpliftAssessment | None
+    ) -> tuple[UpliftAssessmentCard, ...]:
+        """Return a card for each assessment recorded against the bug."""
+        return tuple(
+            UpliftAssessmentCard(
+                assessment=assessment,
+                form=UpliftAssessmentForm(instance=assessment),
+                is_linked=(
+                    linked_assessment is not None
+                    and linked_assessment.pk == assessment.pk
+                ),
+                revision_ids=[
+                    uplift_revision.revision_id
+                    for uplift_revision in assessment.revisions.all()
+                    if uplift_revision.revision_id is not None
+                ],
+            )
+            for assessment in UpliftAssessment.for_bug(bug_id)
+        )
 
     @staticmethod
     def can_create_submission(request: WSGIRequest) -> bool:
@@ -132,25 +164,6 @@ class UpliftContext:
         return (
             request.user.is_authenticated and request.user.profile.phabricator_api_key
         )
-
-
-def assessments_for_bug(bug_id: int | None) -> QuerySet:
-    """Return every uplift assessment recorded against the given bug.
-
-    Deliberately unscoped by user: several developers and release managers work
-    the same bug, and hiding each other's assessments is what drives the
-    duplicate forms this grouping exists to prevent. Reaching a revision page
-    already proves Phabricator granted access to the revision.
-    """
-    if bug_id is None:
-        return UpliftAssessment.objects.none()
-
-    return (
-        UpliftAssessment.objects.filter(bug_id=bug_id)
-        .select_related("user")
-        .prefetch_related("revisions")
-        .order_by("created_at")
-    )
 
 
 def uplift_context_for_revision(revision_id: int) -> QuerySet:

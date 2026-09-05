@@ -5,7 +5,6 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.forms.widgets import RadioSelect
-from django.utils import timezone
 
 from lando.api.legacy.validation import parse_revision_ids
 from lando.main.models import Repo, Revision
@@ -106,60 +105,24 @@ class UpliftAssessmentForm(forms.ModelForm):
 
 
 class LinkUpliftAssessmentForm(forms.Form):
-    """Form to select an existing uplift assessment owned by the user."""
+    """Form to link one of a bug's uplift assessments to a revision.
+
+    The assessment is chosen by clicking its card on the revision page rather
+    than from a drop-down, so the field is hidden and validation exists only to
+    confirm the submitted assessment belongs to the revision's bug.
+    """
 
     assessment = forms.ModelChoiceField(
-        label="Existing uplift assessment",
-        # `queryset` is defined in `__init__` as it depends on the user.
+        # `queryset` is defined in `__init__` as it depends on the bug.
         queryset=None,
         required=True,
-        help_text="Select a previous assessment to link to this revision.",
+        widget=forms.widgets.HiddenInput(),
     )
 
-    def __init__(self, *args, user: User | None = None, **kwargs):
+    def __init__(self, *args, bug_id: int | None = None, **kwargs):
         super().__init__(*args, **kwargs)
 
-        queryset = UpliftAssessment.objects.none()
-        if user is not None and user.is_authenticated:
-            queryset = (
-                UpliftAssessment.objects.filter(user=user)
-                .order_by("-updated_at")
-                .prefetch_related("revisions")
-            )
-
-        field = self.fields["assessment"]
-        field.queryset = queryset
-        field.label_from_instance = self.assessment_label
-        field.empty_label = "Select an assessment"
-
-        # Set this helper so templates can quickly check if there
-        # are any pre-existing assessments to display.
-        self.has_assessments = queryset.exists()
-
-    @staticmethod
-    def assessment_label(assessment: UpliftAssessment) -> str:
-        """Provide a useful label for the uplift assessments.
-
-        Example: "Tue, 4 November: D1234, D1235 -- reason for urgency"
-        """
-        timestamp = assessment.updated_at or assessment.created_at
-        timestamp_local = timezone.localtime(timestamp)
-
-        date_label = f"{timestamp_local.strftime('%a, %B')} {timestamp_local.day}, {timestamp_local.year}"
-
-        linked_revisions = list(
-            assessment.revisions.values_list("revision_id", flat=True)
-        )
-        if linked_revisions:
-            revisions_note = ", ".join(f"D{rev_id}" for rev_id in linked_revisions)
-        else:
-            revisions_note = "No linked revisions"
-
-        summary = assessment.user_impact.strip().replace("\n", " ")
-        if len(summary) > 80:
-            summary = f"{summary[:77]}..."
-
-        return f"#{assessment.id}: {date_label}: {revisions_note} -- {summary}"
+        self.fields["assessment"].queryset = UpliftAssessment.for_bug(bug_id)
 
 
 class UpliftAssessmentLinkForm(UpliftAssessmentForm):

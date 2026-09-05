@@ -121,6 +121,24 @@ class UpliftAssessment(BaseModel):
         default=YesNoUnknownChoices.YES,
     )
 
+    @classmethod
+    def for_bug(cls, bug_id: int | None) -> models.QuerySet:
+        """Return every uplift assessment recorded against the given bug.
+
+        Deliberately unscoped by user: several developers and release managers
+        work the same bug, and hiding each other's assessments is what drives
+        the duplicate forms this grouping exists to prevent.
+        """
+        if bug_id is None:
+            return cls.objects.none()
+
+        return (
+            cls.objects.filter(bug_id=bug_id)
+            .select_related("user")
+            .prefetch_related("revisions")
+            .order_by("created_at")
+        )
+
     def to_conduit_json(self) -> dict[str, Any]:
         """Return the assessment in Conduit API JSON format."""
         return {

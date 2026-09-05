@@ -268,14 +268,24 @@ class UpliftAssessmentLinkView(LandoView):
     """Link an existing uplift assessment to a revision."""
 
     @force_auth_refresh
-    @method_decorator(require_phabricator_api_key(optional=False, provide_client=False))
-    def post(self, request: WSGIRequest, revision_id: int) -> HttpResponse:
+    @method_decorator(require_phabricator_api_key(optional=False, provide_client=True))
+    def post(
+        self, phab: PhabricatorClient, request: WSGIRequest, revision_id: int
+    ) -> HttpResponse:
         """Link an existing uplift assessment to this revision."""
+
+        bug_id = get_bug_id_for_revision(phab, revision_id)
+
+        if bug_id is None:
+            messages.add_message(request, messages.ERROR, MISSING_BUG_NUMBER_ERROR)
+            return redirect(request.META.get("HTTP_REFERER"))
 
         uplift_revision = UpliftRevision.one_or_none(revision_id=revision_id)
         existing_assessment = uplift_revision.assessment if uplift_revision else None
 
-        link_form = LinkUpliftAssessmentForm(request.POST, user=request.user)
+        # Scoping the form to the revision's bug is what stops a revision being
+        # linked to an unrelated assessment.
+        link_form = LinkUpliftAssessmentForm(request.POST, bug_id=bug_id)
 
         if not link_form.is_valid():
             errors = [

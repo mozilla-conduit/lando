@@ -4,7 +4,7 @@ import pytest
 
 from lando.api.legacy.stacks import RevisionStack
 from lando.main.models.uplift import UpliftAssessment
-from lando.ui.uplift.context import UpliftContext, assessments_for_bug
+from lando.ui.uplift.context import UpliftContext
 
 
 @pytest.mark.django_db
@@ -104,7 +104,7 @@ def test_assessments_for_bug_includes_other_users(user, django_user_model):
     )
     UpliftAssessment.objects.create(user=user, bug_id=666, **ASSESSMENT_FIELDS)
 
-    assert list(assessments_for_bug(555)) == [mine, theirs], (
+    assert list(UpliftAssessment.for_bug(555)) == [mine, theirs], (
         "Both users' assessments for the bug should be returned, oldest first."
     )
 
@@ -114,8 +114,8 @@ def test_assessments_for_bug_is_empty_without_a_bug(user):
     """A revision with no bug number groups with nothing."""
     UpliftAssessment.objects.create(user=user, bug_id=555, **ASSESSMENT_FIELDS)
 
-    assert not assessments_for_bug(None).exists(), (
-        "`assessments_for_bug` should return nothing when the bug is unknown."
+    assert not UpliftAssessment.for_bug(None).exists(), (
+        "`for_bug` should return nothing when the bug is unknown."
     )
 
 
@@ -141,6 +141,9 @@ def test_uplift_context_exposes_the_bug_and_its_assessments(user):
     )
 
     assert context.bug_id == 777, "The revision's bug number should be exposed."
-    assert list(context.bug_assessments) == [assessment], (
+    assert [card.assessment for card in context.bug_assessments] == [assessment], (
         "The bug's existing assessment should be offered for linking."
+    )
+    assert not context.bug_assessments[0].is_linked, (
+        "An assessment not linked to this revision should not be marked as linked."
     )
