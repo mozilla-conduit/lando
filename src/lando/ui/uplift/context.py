@@ -38,6 +38,14 @@ class UpliftContext:
     assessment_link_form: LinkUpliftAssessmentForm | None
     can_create_uplift_submission: bool
     revision_id: int
+
+    # Bug the current revision references, or `None` when it has none.
+    bug_id: int | None
+
+    # Every assessment recorded against `bug_id`, including those authored by
+    # other users and those linked to revisions elsewhere in the bug.
+    bug_assessments: Sequence[UpliftAssessment]
+
     docs_url: str
     train_api_url: str
 
@@ -83,6 +91,8 @@ class UpliftContext:
             assessment_form = cls.build_assessment_form(uplift_revision)
             assessment_link_form = LinkUpliftAssessmentForm(user=request.user)
 
+        bug_id = revisions[revision_phid].get("bug_id")
+
         return cls(
             requests=tuple(uplift_requests),
             request_form=request_form,
@@ -91,6 +101,8 @@ class UpliftContext:
             assessment_link_form=assessment_link_form,
             can_create_uplift_submission=cls.can_create_submission(request),
             revision_id=revision_id,
+            bug_id=bug_id,
+            bug_assessments=tuple(assessments_for_bug(bug_id)),
             docs_url=UPLIFT_DOCS_URL,
             train_api_url=settings.WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL,
         )
@@ -120,6 +132,25 @@ class UpliftContext:
         return (
             request.user.is_authenticated and request.user.profile.phabricator_api_key
         )
+
+
+def assessments_for_bug(bug_id: int | None) -> QuerySet:
+    """Return every uplift assessment recorded against the given bug.
+
+    Deliberately unscoped by user: several developers and release managers work
+    the same bug, and hiding each other's assessments is what drives the
+    duplicate forms this grouping exists to prevent. Reaching a revision page
+    already proves Phabricator granted access to the revision.
+    """
+    if bug_id is None:
+        return UpliftAssessment.objects.none()
+
+    return (
+        UpliftAssessment.objects.filter(bug_id=bug_id)
+        .select_related("user")
+        .prefetch_related("revisions")
+        .order_by("created_at")
+    )
 
 
 def uplift_context_for_revision(revision_id: int) -> QuerySet:
