@@ -408,6 +408,25 @@ UPDATED_FORM_DATA = {
 
 
 @pytest.mark.django_db
+def test_assessments_are_grouped_by_bug_id(user):
+    """Assessments covering the same bug are retrievable as a group."""
+    first = UpliftAssessment.objects.create(user=user, bug_id=123, **CREATE_FORM_DATA)
+    second = UpliftAssessment.objects.create(user=user, bug_id=123, **CREATE_FORM_DATA)
+    other_bug = UpliftAssessment.objects.create(
+        user=user, bug_id=456, **CREATE_FORM_DATA
+    )
+
+    assessments = set(UpliftAssessment.objects.filter(bug_id=123))
+
+    assert assessments == {first, second}, (
+        "Both assessments for bug 123 should be returned when filtering on `bug_id`."
+    )
+    assert other_bug not in assessments, (
+        "An assessment for a different bug should not be returned."
+    )
+
+
+@pytest.mark.django_db
 def test_get_latest_landing_commit_id_with_null_commit_id():
     """Test that get_latest_landing_commit_id returns None when commit_id is NULL."""
     # Create a revision.
