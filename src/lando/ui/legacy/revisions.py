@@ -190,6 +190,80 @@ class UpliftAssessmentCreateOrEditView(LandoView):
         return redirect(request.META.get("HTTP_REFERER"))
 
 
+class UpliftAssessmentEditView(LandoView):
+    """Edit an existing uplift assessment from a revision page."""
+
+    @force_auth_refresh
+    @method_decorator(require_phabricator_api_key(optional=False, provide_client=True))
+    def post(
+        self,
+        phab: PhabricatorClient,
+        request: WSGIRequest,
+        revision_id: int,
+        assessment_id: int,
+    ) -> HttpResponse:
+        """Update the responses on an assessment filed against this revision's bug."""
+        bug_id = get_bug_id_for_revision(phab, revision_id)
+
+        if bug_id is None:
+            messages.add_message(request, messages.ERROR, MISSING_BUG_NUMBER_ERROR)
+            return redirect(request.META.get("HTTP_REFERER"))
+
+        # Reading the revision from Phabricator proves the requester was granted
+        # access to it, so any assessment filed against the same bug is editable
+        # from its page. The bug match is what scopes the endpoint.
+        assessment = UpliftAssessment.objects.filter(
+            id=assessment_id, bug_id=bug_id
+        ).first()
+
+        if assessment is None:
+            messages.add_message(
+                request,
+                messages.ERROR,
+                f"Uplift assessment #{assessment_id} is not filed against bug {bug_id}.",
+            )
+            return redirect(request.META.get("HTTP_REFERER"))
+
+        assessment_form = UpliftAssessmentForm(request.POST, instance=assessment)
+
+        if not assessment_form.is_valid():
+            errors = [
+                f"{field}: {', '.join(field_errors)}"
+                for field, field_errors in assessment_form.errors.items()
+            ]
+
+            for error in errors:
+                messages.add_message(request, messages.ERROR, error)
+
+            return redirect(request.META.get("HTTP_REFERER"))
+
+        with transaction.atomic():
+            assessment = assessment_form.save()
+
+        messages.add_message(
+            request,
+            messages.SUCCESS,
+            f"Uplift assessment #{assessment.id} updated.",
+        )
+
+        # Every revision carrying this assessment shows the old answers on
+        # Phabricator until it is refreshed.
+        linked_revision_ids = assessment.revisions.exclude(
+            revision_id=None
+        ).values_list("revision_id", flat=True)
+
+        for linked_revision_id in linked_revision_ids:
+            set_uplift_request_form_on_revision.apply_async(
+                args=(
+                    linked_revision_id,
+                    assessment.to_conduit_json_str(),
+                    request.user.id,
+                )
+            )
+
+        return redirect(request.META.get("HTTP_REFERER"))
+
+
 class UpliftAssessmentLinkView(LandoView):
     """Link an existing uplift assessment to a revision."""
 
