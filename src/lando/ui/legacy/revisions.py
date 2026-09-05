@@ -10,7 +10,10 @@ from django.template.response import TemplateResponse
 from django.utils.decorators import method_decorator
 
 from lando.api.legacy import api as legacy_api
-from lando.api.legacy.revisions import seed_revisions_from_phabricator
+from lando.api.legacy.revisions import (
+    get_bug_id_for_revision,
+    seed_revisions_from_phabricator,
+)
 from lando.api.legacy.validation import parse_revision_ids
 from lando.main.auth import force_auth_refresh, require_phabricator_api_key
 from lando.main.models import Profile, Repo
@@ -37,6 +40,11 @@ from lando.utils.phabricator import PhabricatorClient
 from lando.utils.tasks import set_uplift_request_form_on_revision
 
 logger = logging.getLogger(__name__)
+
+MISSING_BUG_NUMBER_ERROR = (
+    "Uplifts require a bug number. Set the bug number on this revision in "
+    "Phabricator, then try again."
+)
 
 
 class UpliftRequestView(LandoView):
@@ -74,11 +82,21 @@ class UpliftRequestView(LandoView):
             "target_selection_method"
         ]
 
+        # The tip revision is the one the request was made from, so its bug is
+        # the bug the assessment covers.
+        tip_revision_id = source_revisions[-1].revision_id
+        bug_id = get_bug_id_for_revision(phab, tip_revision_id)
+
+        if bug_id is None:
+            messages.add_message(request, messages.ERROR, MISSING_BUG_NUMBER_ERROR)
+            return redirect(request.META.get("HTTP_REFERER"))
+
         # Create DB rows for the uplift submission.
         with transaction.atomic():
             # Create the assessment form.
             assessment = uplift_request_form.save(commit=False)
             assessment.user = request.user
+            assessment.bug_id = bug_id
             assessment.save()
 
             # Create the `UpliftSubmission` to represent this
@@ -113,8 +131,10 @@ class UpliftAssessmentCreateOrEditView(LandoView):
     """Update and create uplift request assessment forms."""
 
     @force_auth_refresh
-    @method_decorator(require_phabricator_api_key(optional=False, provide_client=False))
-    def post(self, request: WSGIRequest, revision_id: int) -> HttpResponse:
+    @method_decorator(require_phabricator_api_key(optional=False, provide_client=True))
+    def post(
+        self, phab: PhabricatorClient, request: WSGIRequest, revision_id: int
+    ) -> HttpResponse:
         """Update an uplift request assessment."""
 
         uplift_revision = UpliftRevision.one_or_none(revision_id=revision_id)
@@ -136,9 +156,16 @@ class UpliftAssessmentCreateOrEditView(LandoView):
 
             return redirect(request.META.get("HTTP_REFERER"))
 
+        bug_id = get_bug_id_for_revision(phab, revision_id)
+
+        if bug_id is None:
+            messages.add_message(request, messages.ERROR, MISSING_BUG_NUMBER_ERROR)
+            return redirect(request.META.get("HTTP_REFERER"))
+
         with transaction.atomic():
             assessment = uplift_assessment_form.save(commit=False)
             assessment.user = request.user
+            assessment.bug_id = bug_id
             assessment.save()
 
             message = "Uplift assessment updated."

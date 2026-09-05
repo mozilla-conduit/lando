@@ -98,14 +98,19 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
         scm_type=SCMType.GIT, name="firefox-release", approval_required=True
     )
 
-    # Create the revisions with `456` before `123` to ensure the passed
-    # ordering in `source_revisions` is preserved instead of the
-    # default queryset ordering.
+    # The revisions must exist in Phabricator so the view can resolve the bug
+    # the assessment covers.
+    first_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+    second_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+
+    # Create the local records with the second revision before the first to
+    # ensure the passed ordering in `source_revisions` is preserved instead of
+    # the default queryset ordering.
     revisions_created = [
-        create_patch_revision(456, patch=normal_patch(1)),
-        create_patch_revision(123, patch=normal_patch(0)),
+        create_patch_revision(second_id, patch=normal_patch(1)),
+        create_patch_revision(first_id, patch=normal_patch(0)),
     ]
-    revisions_ordered = reversed(revisions_created)
+    revisions_ordered = list(reversed(revisions_created))
     url = reverse("uplift-page")
     form_data = {
         "source_revisions": [revision.revision_id for revision in revisions_ordered],
@@ -113,12 +118,13 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
     }
     form_data |= CREATE_FORM_DATA
 
-    # POST form to Lando. Use D456 as the referrer since it is the tip.
-    response = authenticated_client.post(url, data=form_data, HTTP_REFERER="/D456")
+    # POST form to Lando. Use the second revision as the referrer since it is the tip.
+    referrer = f"/D{second_id}"
+    response = authenticated_client.post(url, data=form_data, HTTP_REFERER=referrer)
 
     # Redirect + success message.
     assert response.status_code == 302, "Successful creation should return 302."
-    assert response["Location"] == "/D456", (
+    assert response["Location"] == referrer, (
         "Successful creation should redirect to tip revision."
     )
     messages = list(get_messages(response.wsgi_request))
@@ -132,6 +138,9 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
     )
     assessment = UpliftAssessment.objects.get()
     assert assessment.user_id == user.id, "New assessment should belong to the user."
+    assert assessment.bug_id == UPLIFT_BUG_ID, (
+        "New assessment should record the bug of the tip revision."
+    )
 
     # Parent request created and linked to assessment.
     assert UpliftSubmission.objects.count() == 1, (
@@ -147,8 +156,8 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
         "Uplift request should belong to the user."
     )
     assert submission.requested_revision_ids == [
-        123,
-        456,
+        first_id,
+        second_id,
     ], "Both revisions should be tracked, in the correct order, in uplift request."
     assert submission.target_selection_method == "server_rendered", (
         "Without the widget field, the submission should default to server-rendered."
@@ -179,13 +188,15 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
     for job in jobs:
         job_rev_ids = list(job.revisions.values_list("revision_id", flat=True))
         assert job_rev_ids == [
-            123,
-            456,
+            first_id,
+            second_id,
         ], "Each job should reference the requested Revision."
 
         for idx, revision in enumerate(revisions_ordered):
             thru = RevisionUpliftJob.objects.get(uplift_job=job, revision=revision)
-            assert thru.index == idx, "Single-item stack should be indexed."
+            assert thru.index == idx, (
+                "Revisions should be indexed in the submitted order."
+            )
 
 
 @pytest.mark.django_db
@@ -201,8 +212,8 @@ def test_uplift_creation_seeds_revisions_from_phabricator(
     )
 
     # Create revisions in Phabricator but not in the local database.
-    phab_rev_a = phabdouble.revision(title="Bug 1 - First patch")
-    phab_rev_b = phabdouble.revision(title="Bug 1 - Second patch")
+    phab_rev_a = phabdouble.revision(title="Bug 1 - First patch", bug_id=UPLIFT_BUG_ID)
+    phab_rev_b = phabdouble.revision(title="Bug 1 - Second patch", bug_id=UPLIFT_BUG_ID)
     rev_id_a = phab_rev_a["id"]
     rev_id_b = phab_rev_b["id"]
 
@@ -285,7 +296,8 @@ def test_uplift_creation_records_widget_target_selection(
     phabdouble.user(api_key=user.profile.phabricator_api_key)
 
     repo = repo_mc(scm_type=SCMType.GIT, name="firefox-beta", approval_required=True)
-    revision = create_patch_revision(123, patch=normal_patch(0))
+    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+    revision = create_patch_revision(revision_id, patch=normal_patch(0))
 
     url = reverse("uplift-page")
     form_data = {
@@ -295,7 +307,9 @@ def test_uplift_creation_records_widget_target_selection(
     }
     form_data |= CREATE_FORM_DATA
 
-    response = authenticated_client.post(url, data=form_data, HTTP_REFERER="/D123")
+    response = authenticated_client.post(
+        url, data=form_data, HTTP_REFERER=f"/D{revision_id}"
+    )
 
     assert response.status_code == 302, "Successful creation should return 302."
     submission = UpliftSubmission.objects.get()
@@ -394,6 +408,9 @@ CREATE_FORM_DATA = {
     "is_android_affected": "no",
 }
 
+# Bug number set on the Phabricator revisions used by the uplift view tests.
+UPLIFT_BUG_ID = 1234567
+
 UPDATED_FORM_DATA = {
     "user_impact": "Updated impact after more testing.",
     "covered_by_testing": "no",
@@ -469,14 +486,16 @@ def test_patch_assessment_creates_and_updates(
 ):
     phabdouble.user(api_key=user.profile.phabricator_api_key)
 
-    url = reverse("uplift-assessment-page", args=[1234])
+    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+    url = reverse("uplift-assessment-page", args=[revision_id])
+    referrer = f"/D{revision_id}"
 
     form = UpliftAssessmentForm(data=CREATE_FORM_DATA)
     assert form.is_valid(), f"Form was invalid: {form.errors.as_json()}"
 
     # Submit the form for a revision.
     response = authenticated_client.post(
-        url, data=CREATE_FORM_DATA, HTTP_REFERER="/D1234"
+        url, data=CREATE_FORM_DATA, HTTP_REFERER=referrer
     )
     assert response.status_code == 302, (
         "Updating assessment form should redirect back to referrer."
@@ -491,8 +510,14 @@ def test_patch_assessment_creates_and_updates(
         "`user_impact` field should match the initial value."
     )
 
+    assert response_obj.bug_id == UPLIFT_BUG_ID, (
+        "New assessment should record the bug of the revision it was created against."
+    )
+
     revision = UpliftRevision.objects.get()
-    assert revision.revision_id == 1234, "Revision ID should match initial value."
+    assert revision.revision_id == revision_id, (
+        "Revision ID should match initial value."
+    )
     assert revision.assessment == response_obj, (
         "Response object for the revision should match the queried model."
     )
@@ -502,9 +527,9 @@ def test_patch_assessment_creates_and_updates(
         "`set_uplift_request_form_on_revision` should be called."
     )
     _, kwargs = mock_apply_async.call_args
-    revision_id, conduit_json_str, user_id = kwargs["args"]
+    task_revision_id, conduit_json_str, user_id = kwargs["args"]
 
-    assert revision_id == 1234, (
+    assert task_revision_id == revision_id, (
         "Revision ID for `set_uplift_request_form_on_revision` should match expected."
     )
     assert isinstance(conduit_json_str, str), (
@@ -516,7 +541,7 @@ def test_patch_assessment_creates_and_updates(
 
     # Submit the form for a revision which already has a completed form.
     response = authenticated_client.post(
-        url, data=UPDATED_FORM_DATA, HTTP_REFERER="/D1234"
+        url, data=UPDATED_FORM_DATA, HTTP_REFERER=referrer
     )
     assert response.status_code == 302, (
         "Updating assessment form should redirect back to referrer."
@@ -541,9 +566,9 @@ def test_patch_assessment_creates_and_updates(
         "`set_uplift_request_form_on_revision` should be called."
     )
     _, kwargs = mock_apply_async.call_args
-    revision_id, conduit_json_str, user_id = kwargs["args"]
+    task_revision_id, conduit_json_str, user_id = kwargs["args"]
 
-    assert revision_id == 1234, (
+    assert task_revision_id == revision_id, (
         "Revision ID for `set_uplift_request_form_on_revision` should match expected."
     )
     assert isinstance(conduit_json_str, str), (
@@ -561,14 +586,16 @@ def test_patch_assessment_updates_in_place(
 ):
     phabdouble.user(api_key=user.profile.phabricator_api_key)
 
-    url = reverse("uplift-assessment-page", args=[1234])
+    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+    url = reverse("uplift-assessment-page", args=[revision_id])
+    referrer = f"/D{revision_id}"
 
-    authenticated_client.post(url, data=CREATE_FORM_DATA, HTTP_REFERER="/D1234")
+    authenticated_client.post(url, data=CREATE_FORM_DATA, HTTP_REFERER=referrer)
     original_assessment = UpliftAssessment.objects.get()
     original_pk = original_assessment.pk
 
     response = authenticated_client.post(
-        url, data=UPDATED_FORM_DATA, HTTP_REFERER="/D1234"
+        url, data=UPDATED_FORM_DATA, HTTP_REFERER=referrer
     )
 
     assert response.status_code == 302, "Update should redirect to referrer."
@@ -585,6 +612,75 @@ def test_patch_assessment_updates_in_place(
     )
 
     mock_apply_async.assert_called()
+
+
+@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@pytest.mark.django_db
+def test_patch_assessment_rejects_revision_without_bug(
+    mock_apply_async, authenticated_client, user, phabdouble
+):
+    """An assessment cannot be created for a revision that carries no bug number."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
+    revision_id = phabdouble.revision()["id"]
+    url = reverse("uplift-assessment-page", args=[revision_id])
+
+    response = authenticated_client.post(
+        url, data=CREATE_FORM_DATA, HTTP_REFERER=f"/D{revision_id}"
+    )
+
+    assert response.status_code == 302, "Missing bug number should redirect."
+    assert UpliftAssessment.objects.count() == 0, (
+        "No assessment should be created for a revision without a bug number."
+    )
+    assert UpliftRevision.objects.count() == 0, (
+        "No revision link should be created for a revision without a bug number."
+    )
+    mock_apply_async.assert_not_called()
+
+    flash_messages = [str(message) for message in get_messages(response.wsgi_request)]
+    assert any("require a bug number" in message for message in flash_messages), (
+        f"Should flash an error about the missing bug number: {flash_messages=}"
+    )
+
+
+@pytest.mark.django_db
+def test_uplift_creation_rejects_revision_without_bug(
+    authenticated_client, user, repo_mc, create_patch_revision, normal_patch, phabdouble
+):
+    """An uplift request is refused when the tip revision carries no bug number."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
+    repo = repo_mc(scm_type=SCMType.GIT, name="firefox-beta", approval_required=True)
+    revision_id = phabdouble.revision()["id"]
+    revision = create_patch_revision(revision_id, patch=normal_patch(0))
+
+    url = reverse("uplift-page")
+    form_data = {
+        "source_revisions": [revision.revision_id],
+        "repositories": [repo.name],
+    }
+    form_data |= CREATE_FORM_DATA
+
+    response = authenticated_client.post(
+        url, data=form_data, HTTP_REFERER=f"/D{revision_id}"
+    )
+
+    assert response.status_code == 302, "Missing bug number should redirect."
+    assert UpliftSubmission.objects.count() == 0, (
+        "No `UpliftSubmission` should be created without a bug number."
+    )
+    assert UpliftAssessment.objects.count() == 0, (
+        "No assessment should be created without a bug number."
+    )
+    assert UpliftJob.objects.count() == 0, (
+        "No uplift jobs should be queued without a bug number."
+    )
+
+    flash_messages = [str(message) for message in get_messages(response.wsgi_request)]
+    assert any("require a bug number" in message for message in flash_messages), (
+        f"Should flash an error about the missing bug number: {flash_messages=}"
+    )
 
 
 @mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
