@@ -18,7 +18,6 @@ from lando.main.models.uplift import (
     UpliftSubmission,
 )
 from lando.ui.legacy.forms import (
-    LinkUpliftAssessmentForm,
     UpliftAssessmentForm,
     UpliftRequestForm,
 )
@@ -50,8 +49,6 @@ class UpliftContext:
 
     requests: Sequence[UpliftSubmission]
     request_form: UpliftRequestForm
-    assessment: UpliftAssessment | None
-    assessment_link_form: LinkUpliftAssessmentForm | None
     can_create_uplift_submission: bool
     revision_id: int
 
@@ -102,26 +99,24 @@ class UpliftContext:
 
         uplift_requests = uplift_context_for_revision(revision_id)
 
-        assessment = uplift_revision.assessment if uplift_revision else None
+        # The assessment currently attached to this revision, if any. Its card
+        # is the one marked as linked.
+        linked_assessment = uplift_revision.assessment if uplift_revision else None
 
         bug_id = revisions[revision_phid].get("bug_id")
 
         new_assessment_form = None
-        assessment_link_form = None
 
         if cls.can_request_uplift(request, revision_repo):
             new_assessment_form = UpliftAssessmentForm()
-            assessment_link_form = LinkUpliftAssessmentForm(bug_id=bug_id)
 
         return cls(
             requests=tuple(uplift_requests),
             request_form=request_form,
-            assessment=assessment,
-            assessment_link_form=assessment_link_form,
             can_create_uplift_submission=cls.can_create_submission(request),
             revision_id=revision_id,
             bug_id=bug_id,
-            bug_assessments=cls.build_assessment_cards(bug_id, assessment),
+            bug_assessments=cls.build_assessment_cards(bug_id, linked_assessment),
             new_assessment_form=new_assessment_form,
             docs_url=UPLIFT_DOCS_URL,
             train_api_url=settings.WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL,
