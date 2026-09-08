@@ -379,3 +379,14 @@ fieldset {
     padding: 0;
     margin: 0;
 }
+
+/* Uplift assessment answers, rendered as a question/answer table on each card. */
+.uplift-assessment-question {
+    width: 30%;
+    white-space: normal;
+}
+
+.uplift-assessment-answer {
+    /* Free-text answers are authored with line breaks that should survive. */
+    white-space: pre-wrap;
+}

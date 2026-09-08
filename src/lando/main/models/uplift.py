@@ -1,4 +1,5 @@
 import json
+from dataclasses import dataclass
 from typing import Any
 
 from django.contrib.auth.models import User
@@ -51,6 +52,17 @@ class UpliftTargetSelectionMethod(models.TextChoices):
     # The server-rendered checkboxes were used directly, e.g. with JavaScript
     # disabled or when the widget failed to load.
     SERVER_RENDERED = "server_rendered", "Server-rendered"
+
+
+@dataclass(frozen=True, slots=True)
+class UpliftAssessmentAnswer:
+    """A single question from the uplift assessment form and its answer."""
+
+    # The question, worded as it appears on the form.
+    label: str
+
+    # The answer, resolved to its human-readable form for choice fields.
+    value: str
 
 
 class UpliftAssessment(BaseModel):
@@ -138,6 +150,19 @@ class UpliftAssessment(BaseModel):
             .prefetch_related("revisions")
             .order_by("created_at")
         )
+
+    def display_answers(self) -> list[UpliftAssessmentAnswer]:
+        """Return every question on the form with its answer, for display."""
+        answers = []
+
+        for name, label in self.CONDUIT_FIELDS.items():
+            # Choice fields carry a `get_<field>_display` returning the human
+            # readable label; free-text fields are shown as they were entered.
+            get_display = getattr(self, f"get_{name}_display", None)
+            value = get_display() if get_display else getattr(self, name)
+            answers.append(UpliftAssessmentAnswer(label=label, value=value))
+
+        return answers
 
     def to_conduit_json(self) -> dict[str, Any]:
         """Return the assessment in Conduit API JSON format."""

@@ -263,6 +263,21 @@ def test_stack_page_renders_the_bugs_uplift_assessment_cards(
             f"Assessment #{assessment_id} should be rendered as a card."
         )
 
+    # Every question is shown, not just the user impact, with choice fields
+    # resolved to their human-readable labels.
+    for label in UpliftAssessment.CONDUIT_FIELDS.values():
+        assert label in content, f"The card should show the {label!r} question."
+
+    assert UPLIFT_ASSESSMENT_ANSWERS["string_changes"] in content, (
+        "Answers beyond the user impact should be shown on the card."
+    )
+    # The cards must sit inside the `Uplifts` container, which is what the
+    # jQuery component hooks onto to format timestamps.
+    uplifts_container = content.index('class="Uplifts"')
+    assert uplifts_container < content.index(f"Assessment #{linked.id}"), (
+        "Assessment cards should render inside the `Uplifts` container."
+    )
+
 
 @pytest.mark.django_db(transaction=True)
 def test_stack_page_warns_when_the_revision_has_no_bug(

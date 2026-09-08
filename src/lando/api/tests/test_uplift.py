@@ -579,6 +579,30 @@ def test_patch_assessment_updates_in_place(
     mock_apply_async.assert_called()
 
 
+@pytest.mark.django_db
+def test_display_answers_resolves_choice_labels(user):
+    """Every question is returned, with choice fields in human-readable form."""
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=UPLIFT_BUG_ID, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+
+    answers = {answer.label: answer.value for answer in assessment.display_answers()}
+
+    assert set(answers) == set(UpliftAssessment.CONDUIT_FIELDS.values()), (
+        "Every question on the form should be returned for display."
+    )
+    assert answers["Code covered by automated testing?"] == "Yes", (
+        "A choice field should be shown as its label, not its stored value."
+    )
+    assert answers["Risk associated with taking this patch"] == "Low", (
+        "`risk_associated_with_patch` should be shown as its label."
+    )
+    assert (
+        answers["User impact if declined/Reason for urgency"]
+        == UPLIFT_ASSESSMENT_ANSWERS["user_impact"]
+    ), "A free-text field should be shown exactly as it was entered."
+
+
 @mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
 @pytest.mark.django_db
 def test_edit_assessment_updates_every_linked_revision(
