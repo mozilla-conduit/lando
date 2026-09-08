@@ -1,6 +1,7 @@
 import pytest
 
 from lando.api.legacy.api.transplants import LegacyAPIException
+from lando.conftest import UPLIFT_ASSESSMENT_ANSWERS
 from lando.main.models import Revision
 from lando.main.models.uplift import UpliftAssessment, UpliftRevision
 from lando.ui.legacy.stacks import (
@@ -186,19 +187,6 @@ def test_transplant_disallowed_author_requires_author_override(
         assert revision.patch_data["author_email"] == d1["authorEmail"]
 
 
-UPLIFT_ASSESSMENT_FIELDS = {
-    "user_impact": "Crashes on startup for beta users.",
-    "covered_by_testing": "yes",
-    "fix_verified_in_nightly": "yes",
-    "needs_manual_qe_testing": "no",
-    "qe_testing_reproduction_steps": "",
-    "risk_associated_with_patch": "low",
-    "risk_level_explanation": "One-line null check.",
-    "string_changes": "None.",
-    "is_android_affected": "no",
-}
-
-
 @pytest.mark.django_db(transaction=True)
 def test_stack_page_renders_the_bugs_uplift_assessment_cards(
     user,
@@ -223,17 +211,17 @@ def test_stack_page_renders_the_bugs_uplift_assessment_cards(
     # One assessment linked to this revision, one authored by a colleague and
     # linked elsewhere in the bug, and one against an unrelated bug.
     linked = UpliftAssessment.objects.create(
-        user=user, bug_id=bug_id, **UPLIFT_ASSESSMENT_FIELDS
+        user=user, bug_id=bug_id, **UPLIFT_ASSESSMENT_ANSWERS
     )
     UpliftRevision.link_revision_to_assessment(revision["id"], linked)
 
     colleagues = UpliftAssessment.objects.create(
-        user=other_user, bug_id=bug_id, **UPLIFT_ASSESSMENT_FIELDS
+        user=other_user, bug_id=bug_id, **UPLIFT_ASSESSMENT_ANSWERS
     )
     UpliftRevision.link_revision_to_assessment(other_revision["id"], colleagues)
 
     unrelated = UpliftAssessment.objects.create(
-        user=user, bug_id=bug_id + 1, **UPLIFT_ASSESSMENT_FIELDS
+        user=user, bug_id=bug_id + 1, **UPLIFT_ASSESSMENT_ANSWERS
     )
 
     response = authenticated_client.get(f"/D{revision['id']}/")

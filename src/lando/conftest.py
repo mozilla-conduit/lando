@@ -55,6 +55,33 @@ from lando.treestatus.models import Tree, TreeStatus
 # The name of the Phabricator project used to tag revisions requiring data classification.
 NEEDS_DATA_CLASSIFICATION_SLUG = "needs-data-classification"
 
+# Valid answers to every question on the uplift assessment form, usable both as
+# a POST body and as `UpliftAssessment` constructor kwargs.
+UPLIFT_ASSESSMENT_ANSWERS = {
+    "user_impact": "Initial impact description.",
+    "covered_by_testing": "yes",
+    "fix_verified_in_nightly": "no",
+    "needs_manual_qe_testing": "no",
+    "qe_testing_reproduction_steps": "",
+    "risk_associated_with_patch": "low",
+    "risk_level_explanation": "Low risk because it's well-tested.",
+    "string_changes": "No changes.",
+    "is_android_affected": "no",
+}
+
+# A second, distinct set of answers, for asserting that an edit took effect.
+UPDATED_UPLIFT_ASSESSMENT_ANSWERS = {
+    "user_impact": "Updated impact after more testing.",
+    "covered_by_testing": "no",
+    "fix_verified_in_nightly": "yes",
+    "needs_manual_qe_testing": "yes",
+    "qe_testing_reproduction_steps": "Steps go here.",
+    "risk_associated_with_patch": "medium",
+    "risk_level_explanation": "Medium risk due to timing.",
+    "string_changes": "Yes, minor updates.",
+    "is_android_affected": "yes",
+}
+
 PATCH_NORMAL_1 = r"""
 # HG changeset patch
 # User Test User <test@example.com>

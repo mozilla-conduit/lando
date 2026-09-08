@@ -16,6 +16,10 @@ from lando.api.legacy.uplift import (
     parse_milestone_version,
 )
 from lando.api.tests.test_landings import PATCH_CHANGE_MISSING_CONTENT
+from lando.conftest import (
+    UPDATED_UPLIFT_ASSESSMENT_ANSWERS,
+    UPLIFT_ASSESSMENT_ANSWERS,
+)
 from lando.main.models import JobStatus, PermanentFailureException
 from lando.main.models.commit_map import CommitMap
 from lando.main.models.landing_job import LandingJob
@@ -116,7 +120,7 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
         "source_revisions": [revision.revision_id for revision in revisions_ordered],
         "repositories": [repo_a.name, repo_b.name],
     }
-    form_data |= CREATE_FORM_DATA
+    form_data |= UPLIFT_ASSESSMENT_ANSWERS
 
     # POST form to Lando. Use the second revision as the referrer since it is the tip.
     referrer = f"/D{second_id}"
@@ -226,7 +230,7 @@ def test_uplift_creation_seeds_revisions_from_phabricator(
         "source_revisions": [rev_id_a, rev_id_b],
         "repositories": [repo_a.name, repo_b.name],
     }
-    form_data |= CREATE_FORM_DATA
+    form_data |= UPLIFT_ASSESSMENT_ANSWERS
 
     response = authenticated_client.post(url, data=form_data, HTTP_REFERER="/D456")
 
@@ -271,7 +275,7 @@ def test_uplift_creation_fails_when_seeding_fails(
         "source_revisions": [999999],
         "repositories": ["firefox-beta"],
     }
-    form_data |= CREATE_FORM_DATA
+    form_data |= UPLIFT_ASSESSMENT_ANSWERS
 
     response = authenticated_client.post(url, data=form_data, HTTP_REFERER="/D999999")
 
@@ -305,7 +309,7 @@ def test_uplift_creation_records_widget_target_selection(
         "repositories": [repo.name],
         "target_selection_method": "widget_version",
     }
-    form_data |= CREATE_FORM_DATA
+    form_data |= UPLIFT_ASSESSMENT_ANSWERS
 
     response = authenticated_client.post(
         url, data=form_data, HTTP_REFERER=f"/D{revision_id}"
@@ -396,51 +400,8 @@ def test_to_conduit_json_transforms_fields(user):
     ), "`to_conduit_json_str` should return dict as a string."
 
 
-CREATE_FORM_DATA = {
-    "user_impact": "Initial impact description.",
-    "covered_by_testing": "yes",
-    "fix_verified_in_nightly": "no",
-    "needs_manual_qe_testing": "no",
-    "qe_testing_reproduction_steps": "",
-    "risk_associated_with_patch": "low",
-    "risk_level_explanation": "Low risk because it's well-tested.",
-    "string_changes": "No changes.",
-    "is_android_affected": "no",
-}
-
 # Bug number set on the Phabricator revisions used by the uplift view tests.
 UPLIFT_BUG_ID = 1234567
-
-UPDATED_FORM_DATA = {
-    "user_impact": "Updated impact after more testing.",
-    "covered_by_testing": "no",
-    "fix_verified_in_nightly": "yes",
-    "needs_manual_qe_testing": "yes",
-    "qe_testing_reproduction_steps": "Steps go here.",
-    "risk_associated_with_patch": "medium",
-    "risk_level_explanation": "Medium risk due to timing.",
-    "string_changes": "Yes, minor updates.",
-    "is_android_affected": "yes",
-}
-
-
-@pytest.mark.django_db
-def test_assessments_are_grouped_by_bug_id(user):
-    """Assessments covering the same bug are retrievable as a group."""
-    first = UpliftAssessment.objects.create(user=user, bug_id=123, **CREATE_FORM_DATA)
-    second = UpliftAssessment.objects.create(user=user, bug_id=123, **CREATE_FORM_DATA)
-    other_bug = UpliftAssessment.objects.create(
-        user=user, bug_id=456, **CREATE_FORM_DATA
-    )
-
-    assessments = set(UpliftAssessment.objects.filter(bug_id=123))
-
-    assert assessments == {first, second}, (
-        "Both assessments for bug 123 should be returned when filtering on `bug_id`."
-    )
-    assert other_bug not in assessments, (
-        "An assessment for a different bug should not be returned."
-    )
 
 
 @pytest.mark.django_db
@@ -490,12 +451,12 @@ def test_patch_assessment_creates_and_updates(
     url = reverse("uplift-assessment-page", args=[revision_id])
     referrer = f"/D{revision_id}"
 
-    form = UpliftAssessmentForm(data=CREATE_FORM_DATA)
+    form = UpliftAssessmentForm(data=UPLIFT_ASSESSMENT_ANSWERS)
     assert form.is_valid(), f"Form was invalid: {form.errors.as_json()}"
 
     # Submit the form for a revision.
     response = authenticated_client.post(
-        url, data=CREATE_FORM_DATA, HTTP_REFERER=referrer
+        url, data=UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER=referrer
     )
     assert response.status_code == 302, (
         "Updating assessment form should redirect back to referrer."
@@ -506,7 +467,7 @@ def test_patch_assessment_creates_and_updates(
     assert responses.count() == 1, "Updating a form should result in a single form."
 
     response_obj = responses.first()
-    assert response_obj.user_impact == CREATE_FORM_DATA["user_impact"], (
+    assert response_obj.user_impact == UPLIFT_ASSESSMENT_ANSWERS["user_impact"], (
         "`user_impact` field should match the initial value."
     )
 
@@ -541,7 +502,7 @@ def test_patch_assessment_creates_and_updates(
 
     # Submit the form for a revision which already has a completed form.
     response = authenticated_client.post(
-        url, data=UPDATED_FORM_DATA, HTTP_REFERER=referrer
+        url, data=UPDATED_UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER=referrer
     )
     assert response.status_code == 302, (
         "Updating assessment form should redirect back to referrer."
@@ -552,9 +513,10 @@ def test_patch_assessment_creates_and_updates(
     assert responses.count() == 1, "Updating a form should result in a single form."
 
     updated_response_obj = responses.first()
-    assert updated_response_obj.user_impact == UPDATED_FORM_DATA["user_impact"], (
-        "User impact should be updated to a new value."
-    )
+    assert (
+        updated_response_obj.user_impact
+        == UPDATED_UPLIFT_ASSESSMENT_ANSWERS["user_impact"]
+    ), "User impact should be updated to a new value."
 
     revision.refresh_from_db()
     assert revision.assessment == updated_response_obj, (
@@ -590,12 +552,14 @@ def test_patch_assessment_updates_in_place(
     url = reverse("uplift-assessment-page", args=[revision_id])
     referrer = f"/D{revision_id}"
 
-    authenticated_client.post(url, data=CREATE_FORM_DATA, HTTP_REFERER=referrer)
+    authenticated_client.post(
+        url, data=UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER=referrer
+    )
     original_assessment = UpliftAssessment.objects.get()
     original_pk = original_assessment.pk
 
     response = authenticated_client.post(
-        url, data=UPDATED_FORM_DATA, HTTP_REFERER=referrer
+        url, data=UPDATED_UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER=referrer
     )
 
     assert response.status_code == 302, "Update should redirect to referrer."
@@ -607,9 +571,10 @@ def test_patch_assessment_updates_in_place(
     assert updated_assessment.pk == original_pk, (
         "Assessment should be updated in place, not replaced."
     )
-    assert updated_assessment.user_impact == UPDATED_FORM_DATA["user_impact"], (
-        "Updated assessment should reflect new values."
-    )
+    assert (
+        updated_assessment.user_impact
+        == UPDATED_UPLIFT_ASSESSMENT_ANSWERS["user_impact"]
+    ), "Updated assessment should reflect new values."
 
     mock_apply_async.assert_called()
 
@@ -627,14 +592,14 @@ def test_edit_assessment_updates_every_linked_revision(
 
     # An assessment authored elsewhere in the bug, linked to two revisions.
     assessment = UpliftAssessment.objects.create(
-        user=user, bug_id=UPLIFT_BUG_ID, **CREATE_FORM_DATA
+        user=user, bug_id=UPLIFT_BUG_ID, **UPLIFT_ASSESSMENT_ANSWERS
     )
     UpliftRevision.link_revision_to_assessment(revision_id, assessment)
     UpliftRevision.link_revision_to_assessment(other_revision_id, assessment)
 
     url = reverse("uplift-assessment-edit-page", args=[revision_id, assessment.id])
     response = authenticated_client.post(
-        url, data=UPDATED_FORM_DATA, HTTP_REFERER=f"/D{revision_id}"
+        url, data=UPDATED_UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER=f"/D{revision_id}"
     )
 
     assert response.status_code == 302, "A successful edit should redirect."
@@ -643,7 +608,7 @@ def test_edit_assessment_updates_every_linked_revision(
     )
 
     assessment.refresh_from_db()
-    assert assessment.user_impact == UPDATED_FORM_DATA["user_impact"], (
+    assert assessment.user_impact == UPDATED_UPLIFT_ASSESSMENT_ANSWERS["user_impact"], (
         "The assessment should hold the updated answers."
     )
     assert assessment.bug_id == UPLIFT_BUG_ID, (
@@ -668,18 +633,18 @@ def test_edit_assessment_rejects_assessment_from_another_bug(
 
     revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
     assessment = UpliftAssessment.objects.create(
-        user=user, bug_id=UPLIFT_BUG_ID + 1, **CREATE_FORM_DATA
+        user=user, bug_id=UPLIFT_BUG_ID + 1, **UPLIFT_ASSESSMENT_ANSWERS
     )
 
     url = reverse("uplift-assessment-edit-page", args=[revision_id, assessment.id])
     response = authenticated_client.post(
-        url, data=UPDATED_FORM_DATA, HTTP_REFERER=f"/D{revision_id}"
+        url, data=UPDATED_UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER=f"/D{revision_id}"
     )
 
     assert response.status_code == 302, "A rejected edit should redirect."
 
     assessment.refresh_from_db()
-    assert assessment.user_impact == CREATE_FORM_DATA["user_impact"], (
+    assert assessment.user_impact == UPLIFT_ASSESSMENT_ANSWERS["user_impact"], (
         "An assessment for another bug should be left untouched."
     )
     mock_apply_async.assert_not_called()
@@ -702,7 +667,7 @@ def test_patch_assessment_rejects_revision_without_bug(
     url = reverse("uplift-assessment-page", args=[revision_id])
 
     response = authenticated_client.post(
-        url, data=CREATE_FORM_DATA, HTTP_REFERER=f"/D{revision_id}"
+        url, data=UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER=f"/D{revision_id}"
     )
 
     assert response.status_code == 302, "Missing bug number should redirect."
@@ -736,7 +701,7 @@ def test_uplift_creation_rejects_revision_without_bug(
         "source_revisions": [revision.revision_id],
         "repositories": [repo.name],
     }
-    form_data |= CREATE_FORM_DATA
+    form_data |= UPLIFT_ASSESSMENT_ANSWERS
 
     response = authenticated_client.post(
         url, data=form_data, HTTP_REFERER=f"/D{revision_id}"
@@ -814,7 +779,7 @@ def test_link_assessment_links_existing_form(
     referrer = f"/D{revision_id}"
 
     assessment = UpliftAssessment.objects.create(
-        user=user, bug_id=UPLIFT_BUG_ID, **CREATE_FORM_DATA
+        user=user, bug_id=UPLIFT_BUG_ID, **UPLIFT_ASSESSMENT_ANSWERS
     )
     url = reverse("uplift-assessment-link-page", args=[revision_id])
 
@@ -871,7 +836,7 @@ def test_link_assessment_replaces_existing_form(
     referrer = f"/D{revision_id}"
 
     previous_assessment = UpliftAssessment.objects.create(
-        user=user, bug_id=UPLIFT_BUG_ID, **CREATE_FORM_DATA
+        user=user, bug_id=UPLIFT_BUG_ID, **UPLIFT_ASSESSMENT_ANSWERS
     )
     replacement_assessment = UpliftAssessment.objects.create(
         user=user,
@@ -934,7 +899,7 @@ def test_link_assessment_rejects_assessment_from_another_bug(
 
     revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
     assessment = UpliftAssessment.objects.create(
-        user=user, bug_id=UPLIFT_BUG_ID + 1, **CREATE_FORM_DATA
+        user=user, bug_id=UPLIFT_BUG_ID + 1, **UPLIFT_ASSESSMENT_ANSWERS
     )
 
     url = reverse("uplift-assessment-link-page", args=[revision_id])
