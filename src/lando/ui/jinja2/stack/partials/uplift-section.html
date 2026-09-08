@@ -14,138 +14,134 @@ future.
 {% endmacro %}
 <h1>Uplifts</h1>
 <div class="Uplifts">
-    {% if revision_repo and revision_repo.approval_required %}
-        {% if not uplift.bug_id %}
-            <article class="message is-warning">
-                <div class="message-body">
-                    This revision has no bug number. Uplifts are tracked per bug, so set the
-                    bug number on this revision in Phabricator before requesting an uplift.
-                </div>
-            </article>
-        {% else %}
-            <div class="block">
-                <h2 class="is-size-5">
-                    Uplift assessments for
-                    <a href="{{ uplift.bug_id|bug_url }}" target="_blank">bug {{ uplift.bug_id }}</a>
-                </h2>
-                <p class="help">
-                    One assessment covers one piece of code being uplifted. Link this revision to
-                    the assessment that describes it, or write a new one.
-                </p>
+    {% if not uplift.bug_id %}
+        <article class="message is-warning">
+            <div class="message-body">
+                This revision has no bug number. Uplifts are tracked per bug, so set the
+                bug number on this revision in Phabricator before requesting an uplift.
             </div>
-            <div class="block">
-                {% for card in uplift.bug_assessments %}
-                    <div class="box">
-                        <div class="level is-mobile">
-                            <div class="level-left">
-                                <div class="level-item">
-                                    <div>
-                                        <div class="is-size-6 has-text-weight-semibold">
-                                            Assessment #{{ card.assessment.id }}
-                                            {% if card.is_linked %}
-                                                <span class="tag is-success is-light ml-2">Linked to this revision</span>
-                                            {% endif %}
-                                        </div>
-                                        <p class="is-size-7 has-text-grey">
-                                            <time data-timestamp="{{ card.assessment.updated_at }}">{{ card.assessment.updated_at }}</time>, by {{ card.assessment.user.email }}.
-                                        </p>
+        </article>
+    {% else %}
+        <div class="block">
+            <h2 class="is-size-5">
+                Uplift assessments for
+                <a href="{{ uplift.bug_id|bug_url }}" target="_blank">bug {{ uplift.bug_id }}</a>
+            </h2>
+            <p class="help">
+                One assessment covers one piece of code being uplifted. Link this revision to
+                the assessment that describes it, or write a new one.
+            </p>
+        </div>
+        <div class="block">
+            {% for card in uplift.bug_assessments %}
+                <div class="box">
+                    <div class="level is-mobile">
+                        <div class="level-left">
+                            <div class="level-item">
+                                <div>
+                                    <div class="is-size-6 has-text-weight-semibold">
+                                        Assessment #{{ card.assessment.id }}
+                                        {% if card.is_linked %}
+                                            <span class="tag is-success is-light ml-2">Linked to this revision</span>
+                                        {% endif %}
                                     </div>
+                                    <p class="is-size-7 has-text-grey">
+                                        <time data-timestamp="{{ card.assessment.updated_at }}">{{ card.assessment.updated_at }}</time>, by {{ card.assessment.user.email }}.
+                                    </p>
                                 </div>
                             </div>
-                            <div class="level-right">
-                                <div class="level-item">
-                                    <div class="has-text-right">
-                                        <p class="is-size-7 has-text-grey">Linked revisions</p>
-                                        <div class="tags is-right">
-                                            {% for rev_id in card.revision_ids %}
-                                                {{ revision_tag(rev_id, uplift.revision_id) }}
-                                            {% else %}
-                                                <span class="is-size-7 has-text-grey">None</span>
-                                            {% endfor %}
-                                        </div>
+                        </div>
+                        <div class="level-right">
+                            <div class="level-item">
+                                <div class="has-text-right">
+                                    <p class="is-size-7 has-text-grey">Linked revisions</p>
+                                    <div class="tags is-right">
+                                        {% for rev_id in card.revision_ids %}
+                                            {{ revision_tag(rev_id, uplift.revision_id) }}
+                                        {% else %}
+                                            <span class="is-size-7 has-text-grey">None</span>
+                                        {% endfor %}
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <table class="table is-fullwidth is-narrow is-size-7 mt-3">
-                            <tbody>
-                                {% for answer in card.assessment.display_answers() %}
-                                    <tr>
-                                        <th class="uplift-assessment-question">{{ answer.label }}</th>
-                                        <td class="uplift-assessment-answer">
-                                            {%- if answer.value %}{{ answer.value }}{% else %}<span class="has-text-grey">&mdash;</span>{% endif -%}
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                        {% if uplift.new_assessment_form %}
-                            <div class="field is-grouped mt-3">
+                    </div>
+                    <table class="table is-fullwidth is-narrow is-size-7 mt-3">
+                        <tbody>
+                            {% for answer in card.assessment.display_answers() %}
+                                <tr>
+                                    <th class="uplift-assessment-question">{{ answer.label }}</th>
+                                    <td class="uplift-assessment-answer">
+                                        {%- if answer.value %}{{ answer.value }}{% else %}<span class="has-text-grey">&mdash;</span>{% endif -%}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% if uplift.new_assessment_form %}
+                        <div class="field is-grouped mt-3">
+                            <p class="control">
+                                <button class="button is-small assessment-modal-open"
+                                        data-assessment-modal="{{ card.assessment.id }}">
+                                    <span class="icon is-small">
+                                        <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
+                                    </span>
+                                    <span>Edit Uplift Assessment</span>
+                                </button>
+                            </p>
+                            {% if not card.is_linked %}
                                 <p class="control">
-                                    <button class="button is-small assessment-modal-open"
-                                            data-assessment-modal="{{ card.assessment.id }}">
-                                        <span class="icon is-small">
-                                            <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
-                                        </span>
-                                        <span>Edit Uplift Assessment</span>
-                                    </button>
+                                    <form action="{{ url('uplift-assessment-link-page', args=[uplift.revision_id]) }}"
+                                          method="post">
+                                        {{ csrf_input }}
+                                        <input type="hidden" name="assessment" value="{{ card.assessment.id }}">
+                                        <button class="button is-small is-primary">
+                                            <span class="icon is-small">
+                                                <i class="fa fa-link" aria-hidden="true"></i>
+                                            </span>
+                                            <span>Link to this revision</span>
+                                        </button>
+                                    </form>
                                 </p>
-                                {% if not card.is_linked %}
-                                    <p class="control">
-                                        <form action="{{ url('uplift-assessment-link-page', args=[uplift.revision_id]) }}"
-                                              method="post">
-                                            {{ csrf_input }}
-                                            <input type="hidden" name="assessment" value="{{ card.assessment.id }}">
-                                            <button class="button is-small is-primary">
-                                                <span class="icon is-small">
-                                                    <i class="fa fa-link" aria-hidden="true"></i>
-                                                </span>
-                                                <span>Link to this revision</span>
-                                            </button>
-                                        </form>
-                                    </p>
-                                {% endif %}
-                            </div>
-                        {% endif %}
-                    </div>
-                {% else %}
-                    <div class="notification is-warning is-light">
-                        <p>
-                            No uplift assessment has been submitted for bug {{ uplift.bug_id }} yet.
-                            Release managers need one before this patch can be approved for uplift.
-                        </p>
-                    </div>
-                {% endfor %}
-                {% if uplift.new_assessment_form %}
-                    <button class="button is-primary assessment-modal-open"
-                            data-assessment-modal="new">
-                        <span class="icon is-small">
-                            <i class="fa fa-plus" aria-hidden="true"></i>
-                        </span>
-                        <span>Create new assessment for bug {{ uplift.bug_id }}</span>
-                    </button>
-                {% endif %}
-            </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            {% else %}
+                <p class="has-text-grey mb-3">
+                    No uplift assessment has been submitted for bug {{ uplift.bug_id }} yet.
+                    Release managers need one before a patch can be approved for uplift.
+                </p>
+            {% endfor %}
             {% if uplift.new_assessment_form %}
-                {# One modal per assessment, each pre-filled with its own answers,
+                <button class="button is-primary assessment-modal-open"
+                        data-assessment-modal="new">
+                    <span class="icon is-small">
+                        <i class="fa fa-plus" aria-hidden="true"></i>
+                    </span>
+                    <span>Create new assessment for bug {{ uplift.bug_id }}</span>
+                </button>
+            {% endif %}
+        </div>
+        {% if uplift.new_assessment_form %}
+            {# One modal per assessment, each pre-filled with its own answers,
                plus one for authoring a new assessment on the bug. #}
-                {% for card in uplift.bug_assessments %}
-                    {% with assessment_form = card.form,
-                        modal_id = card.assessment.id,
-                        modal_title = "Edit Uplift Assessment #" ~ card.assessment.id,
-                        modal_action = url('uplift-assessment-edit-page', args=[uplift.revision_id, card.assessment.id]),
-                        modal_submit = "Update assessment form" %}
-                        {% include "stack/partials/uplift-assessment-modal.html" %}
-                    {% endwith %}
-                {% endfor %}
-                {% with assessment_form = uplift.new_assessment_form,
-                    modal_id = "new",
-                    modal_title = "New Uplift Assessment for Bug " ~ uplift.bug_id,
-                    modal_action = url('uplift-assessment-page', args=[uplift.revision_id]),
-                    modal_submit = "Create assessment form" %}
+            {% for card in uplift.bug_assessments %}
+                {% with assessment_form = card.form,
+                    modal_id = card.assessment.id,
+                    modal_title = "Edit Uplift Assessment #" ~ card.assessment.id,
+                    modal_action = url('uplift-assessment-edit-page', args=[uplift.revision_id, card.assessment.id]),
+                    modal_submit = "Update assessment form" %}
                     {% include "stack/partials/uplift-assessment-modal.html" %}
                 {% endwith %}
-            {% endif %}
+            {% endfor %}
+            {% with assessment_form = uplift.new_assessment_form,
+                modal_id = "new",
+                modal_title = "New Uplift Assessment for Bug " ~ uplift.bug_id,
+                modal_action = url('uplift-assessment-page', args=[uplift.revision_id]),
+                modal_submit = "Create assessment form" %}
+                {% include "stack/partials/uplift-assessment-modal.html" %}
+            {% endwith %}
         {% endif %}
     {% endif %}
     {% if uplift.requests %}

@@ -10,7 +10,6 @@ from django.db.models import Prefetch, QuerySet
 
 from lando.api.legacy.stacks import RevisionStack
 from lando.api.legacy.validation import revision_id_to_int
-from lando.main.models import Repo
 from lando.main.models.uplift import (
     UpliftAssessment,
     UpliftJob,
@@ -71,7 +70,6 @@ class UpliftContext:
         cls,
         *,
         request: WSGIRequest,
-        revision_repo: Repo | None,
         revision_id: int,
         revision_phid: str,
         revisions: dict[str, dict],
@@ -107,7 +105,7 @@ class UpliftContext:
 
         new_assessment_form = None
 
-        if cls.can_request_uplift(request, revision_repo):
+        if cls.can_author_assessment(request, bug_id):
             new_assessment_form = UpliftAssessmentForm()
 
         return cls(
@@ -123,13 +121,14 @@ class UpliftContext:
         )
 
     @staticmethod
-    def can_request_uplift(request: WSGIRequest, revision_repo: Repo | None) -> bool:
-        """Return `True` if the user should see uplift assessment forms."""
-        return (
-            request.user.is_authenticated
-            and revision_repo
-            and revision_repo.approval_required
-        )
+    def can_author_assessment(request: WSGIRequest, bug_id: int | None) -> bool:
+        """Return `True` if the user should see the uplift assessment forms.
+
+        Deliberately not gated on `approval_required`: that marks a repo as an
+        uplift *target*, so gating on it hides the assessment from the mainline
+        revision the uplift was requested from.
+        """
+        return bool(request.user.is_authenticated and bug_id)
 
     @staticmethod
     def build_assessment_cards(

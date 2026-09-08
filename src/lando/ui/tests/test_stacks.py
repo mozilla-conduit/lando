@@ -306,3 +306,44 @@ def test_stack_page_warns_when_the_revision_has_no_bug(
     assert "Create new assessment for bug" not in content, (
         "Authoring an assessment should not be offered without a bug number."
     )
+
+
+@pytest.mark.django_db(transaction=True)
+def test_stack_page_shows_assessments_on_a_non_uplift_repo(
+    user,
+    authenticated_client,
+    mocked_repo_config,
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    scm_user,
+):
+    """The revision an uplift was requested from shows the bug's assessments.
+
+    `approval_required` marks a repo as an uplift target, so gating the cards
+    on it hid the assessment from the mainline revision it was requested from.
+    """
+    bug_id = 2222222
+    phabrepo = phabdouble.repo(name="mozilla-central")
+    revision = phabdouble.revision(repo=phabrepo, bug_id=bug_id)
+
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=bug_id, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+
+    response = authenticated_client.get(f"/D{revision['id']}/")
+
+    assert response.status_code == 200, "The revision page should render."
+    assert not response.context_data["revision_repo"].approval_required, (
+        "This test is only meaningful on a repo that is not an uplift target."
+    )
+
+    cards = [
+        card.assessment.id for card in response.context_data["uplift"].bug_assessments
+    ]
+    assert cards == [assessment.id], (
+        "The bug's assessment should be shown on the mainline revision too."
+    )
+    assert f"Assessment #{assessment.id}" in response.content.decode(), (
+        "The assessment card should render on a non-uplift repo."
+    )

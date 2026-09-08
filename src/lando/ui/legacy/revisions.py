@@ -599,7 +599,6 @@ class RevisionView(LandoView):
             request=request,
             revision_id=revision_id,
             revision_phid=revision_phid,
-            revision_repo=revision_repo,
             revisions=revisions,
             stack=stack["stack"],
         )

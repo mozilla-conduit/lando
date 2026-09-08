@@ -33,7 +33,6 @@ def test_uplift_context_build_falls_back_on_stack_walk_error():
 
     context = UpliftContext.build(
         request=mock_request,
-        revision_repo=None,
         revision_id=revision_id,
         revision_phid=revision_phid,
         revisions=revisions,
@@ -65,7 +64,6 @@ def test_uplift_context_build_walks_stack_successfully():
 
     context = UpliftContext.build(
         request=mock_request,
-        revision_repo=None,
         revision_id=300,
         revision_phid="PHID-REV-c",
         revisions=revisions,
