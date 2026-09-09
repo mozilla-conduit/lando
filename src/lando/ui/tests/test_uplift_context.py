@@ -4,7 +4,13 @@ import pytest
 
 from lando.api.legacy.stacks import RevisionStack
 from lando.conftest import UPLIFT_ASSESSMENT_ANSWERS
-from lando.main.models.uplift import UpliftAssessment
+from lando.main.models import JobStatus
+from lando.main.models.uplift import (
+    UpliftAssessment,
+    UpliftJob,
+    UpliftSubmission,
+)
+from lando.main.scm import SCMType
 from lando.ui.uplift.context import UpliftContext
 
 
@@ -89,4 +95,60 @@ def test_assessments_for_bug_is_empty_without_a_bug(user):
 
     assert not UpliftAssessment.for_bug(None).exists(), (
         "`for_bug` should return nothing when the bug is unknown."
+    )
+
+
+@pytest.mark.django_db
+def test_card_carries_every_job_queued_from_its_assessment(user, repo_mc):
+    """A submission is an assessment plus jobs, so all its jobs sit on one card.
+
+    Requesting an uplift twice against the same assessment creates two
+    submissions; both sets of jobs belong on that assessment's card.
+    """
+    bug_id = 424242
+    beta = repo_mc(scm_type=SCMType.GIT, name="firefox-beta", approval_required=True)
+    release = repo_mc(
+        scm_type=SCMType.GIT, name="firefox-release", approval_required=True
+    )
+
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=bug_id, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+
+    jobs = []
+    for repo in (beta, release):
+        submission = UpliftSubmission.objects.create(
+            requested_by=user, assessment=assessment, requested_revision_ids=[100]
+        )
+        jobs.append(
+            UpliftJob.objects.create(
+                submission=submission,
+                requester_email=user.email,
+                status=JobStatus.SUBMITTED,
+                target_repo=repo,
+            )
+        )
+
+    # An unrelated assessment's job must not leak onto the card.
+    other_assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=bug_id, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    other_submission = UpliftSubmission.objects.create(
+        requested_by=user, assessment=other_assessment, requested_revision_ids=[100]
+    )
+    other_job = UpliftJob.objects.create(
+        submission=other_submission,
+        requester_email=user.email,
+        status=JobStatus.SUBMITTED,
+        target_repo=beta,
+    )
+
+    cards = UpliftContext.build_assessment_cards(bug_id, None)
+    jobs_by_assessment = {card.assessment.pk: list(card.jobs) for card in cards}
+
+    assert jobs_by_assessment[assessment.pk] == jobs, (
+        "Both submissions' jobs should appear on the assessment's card."
+    )
+    assert jobs_by_assessment[other_assessment.pk] == [other_job], (
+        "A card should only carry the jobs queued from its own assessment."
     )

@@ -2,8 +2,13 @@ import pytest
 
 from lando.api.legacy.api.transplants import LegacyAPIException
 from lando.conftest import UPLIFT_ASSESSMENT_ANSWERS
-from lando.main.models import Revision
-from lando.main.models.uplift import UpliftAssessment, UpliftRevision
+from lando.main.models import JobStatus, Repo, Revision
+from lando.main.models.uplift import (
+    UpliftAssessment,
+    UpliftJob,
+    UpliftRevision,
+    UpliftSubmission,
+)
 from lando.ui.legacy.stacks import (
     Edge,
     draw_stack_graph,
@@ -346,4 +351,57 @@ def test_stack_page_shows_assessments_on_a_non_uplift_repo(
     )
     assert f"Assessment #{assessment.id}" in response.content.decode(), (
         "The assessment card should render on a non-uplift repo."
+    )
+
+
+@pytest.mark.django_db(transaction=True)
+def test_stack_page_renders_uplift_jobs_inside_the_assessment_card(
+    user,
+    authenticated_client,
+    mocked_repo_config,
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    scm_user,
+):
+    """Job status renders on the assessment card, not in a separate section."""
+    bug_id = 3333333
+    phabrepo = phabdouble.repo(name="mozilla-uplift")
+    revision = phabdouble.revision(repo=phabrepo, bug_id=bug_id)
+
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=bug_id, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    UpliftRevision.link_revision_to_assessment(revision["id"], assessment)
+
+    target = Repo.objects.get(short_name="mozilla-uplift")
+    submission = UpliftSubmission.objects.create(
+        requested_by=user,
+        assessment=assessment,
+        requested_revision_ids=[revision["id"]],
+    )
+    job = UpliftJob.objects.create(
+        submission=submission,
+        requester_email=user.email,
+        status=JobStatus.SUBMITTED,
+        target_repo=target,
+    )
+
+    response = authenticated_client.get(f"/D{revision['id']}/")
+
+    assert response.status_code == 200, "The revision page should render."
+
+    card = response.context_data["uplift"].bug_assessments[0]
+    assert list(card.jobs) == [job], "The card should carry the assessment's job."
+
+    content = response.content.decode()
+    card_start = content.index(f"Assessment #{assessment.id}")
+    assert content.index(target.name, card_start) > card_start, (
+        "The job's target train should render within the assessment card."
+    )
+    assert f'href="/uplift/jobs/{job.id}/"' in content, (
+        "The card should link through to the job page."
+    )
+    assert "Requested revisions" not in content, (
+        "The separate uplift request section should no longer be rendered."
     )

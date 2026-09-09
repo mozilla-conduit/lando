@@ -40,7 +40,6 @@ from lando.main.scm.helpers import HgPatchHelper
 from lando.ui.legacy.forms import (
     UpliftAssessmentForm,
 )
-from lando.ui.uplift.context import uplift_context_for_revision
 
 MILESTONE_TEST_CONTENTS_1 = """
 # Holds the current milestone.
@@ -1518,37 +1517,3 @@ def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
     assert failure_args[1] == (repo.short_name or repo.name)
     assert failure_args[2], "Job URL should be included for patch failures."
     assert failure_args[3], "Failure reason should be included for patch failures."
-
-
-@pytest.mark.django_db
-def test_uplift_context_for_revision_returns_original_and_uplifted_requests(
-    repo_mc, user, create_patch_revision, normal_patch, make_uplift_job_with_revisions
-):
-    repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
-
-    revisions = [
-        create_patch_revision(0, patch=normal_patch(0)),
-        create_patch_revision(1, patch=normal_patch(1)),
-    ]
-    job = make_uplift_job_with_revisions(repo, user, revisions)
-    submission = job.submission
-
-    original_revision_id = revisions[0].revision_id
-    uplifted_revision_id = 9876
-
-    job.created_revision_ids = [uplifted_revision_id]
-    job.save(update_fields=["created_revision_ids"])
-
-    other_repo = repo_mc(SCMType.GIT, name="firefox-esr", approval_required=True)
-    other_revision = create_patch_revision(2, patch=normal_patch(2))
-    make_uplift_job_with_revisions(other_repo, user, [other_revision])
-
-    requested_qs = uplift_context_for_revision(original_revision_id)
-    uplifted_qs = uplift_context_for_revision(uplifted_revision_id)
-
-    assert list(requested_qs) == [submission], (
-        "Querying with original revision ID should find the uplift request."
-    )
-    assert list(uplifted_qs) == [submission], (
-        "Querying with uplifted revision ID should find the uplift request."
-    )
