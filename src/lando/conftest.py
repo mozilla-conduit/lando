@@ -28,7 +28,10 @@ from lando.api.legacy.stacks import (
     build_stack_graph,
     request_extended_revision_data,
 )
-from lando.api.legacy.transplants import build_stack_assessment_state
+from lando.api.legacy.transplants import (
+    LandingAssessmentState,
+    build_stack_assessment_state,
+)
 from lando.api.tests.mocks import PhabricatorDouble
 from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import (
@@ -1354,9 +1357,15 @@ def create_state(
     release_management_project,
     needs_data_classification_project,
 ):
-    """Create a `StackAssessmentState`."""
+    """Create a `StackAssessmentState`.
 
-    def create_state_handler(revision, landing_assessment=None):
+    Pass `landing_path` as a list of `(revision id, diff id)` pairs, ordered from
+    the root of the stack, to assess a landing request rather than the whole stack.
+    """
+
+    def create_state_handler(
+        revision, landing_assessment=None, landing_path=None, lando_user=None
+    ):
         phab = phabdouble.get_phabricator_client()
         supported_repos = Repo.get_mapping()
         nodes, edges = build_stack_graph(revision)
@@ -1364,6 +1373,14 @@ def create_state(
         stack = RevisionStack(set(stack_data.revisions.keys()), edges)
         relman_group_phid = release_management_project["phid"]
         data_policy_review_phid = needs_data_classification_project["phid"]
+
+        if landing_path:
+            assert not landing_assessment, (
+                "Pass either `landing_assessment` or `landing_path`, not both."
+            )
+            landing_assessment = LandingAssessmentState.from_landing_path(
+                landing_path, stack_data, lando_user
+            )
 
         return build_stack_assessment_state(
             phab,

@@ -1,5 +1,6 @@
 import logging
 from collections import Counter
+from dataclasses import dataclass
 from datetime import datetime
 from typing import (
     Any,
@@ -142,6 +143,98 @@ def get_base_revision_from_diff(diff: dict) -> str:
 def get_bugzilla_bug(revision: dict) -> Optional[int]:
     bug = PhabricatorClient.expect(revision, "fields").get("bugzilla.bug-id")
     return int(bug) if bug else None
+
+
+@dataclass(frozen=True)
+class MergeConflictStatus:
+    """The mergeability verdict Phabricator computed for a revision.
+
+    Phabricator applies the revision's diff on top of every open ancestor's diff
+    before merging, so the verdict on a revision describes landing that revision
+    together with its parents, not the revision's own patch in isolation.
+    """
+
+    # The verdict itself: `clean`, `conflict`, or `unknown` for every situation
+    # Phabricator could not decide.
+    status: str
+
+    # Phabricator's own explanation of the verdict, naming how much of the stack
+    # was applied before merging.
+    reason: Optional[str]
+
+    # The commit the stack was applied on top of before merging.
+    base_commit: Optional[str]
+
+    # The tip of the target branch the stack was merged into.
+    target_commit: Optional[str]
+
+    # The diff the check ran against, which is not necessarily the diff being
+    # landed if the revision has been updated since.
+    diff_id: Optional[int]
+
+    # When the check ran, as a UTC epoch in seconds.
+    epoch: Optional[int]
+
+    # Whether the check ran against a diff other than the revision's current
+    # active diff, in which case Phabricator has a fresh check queued.
+    is_stale: bool
+
+    @classmethod
+    def from_revision(cls, revision: dict) -> Optional["MergeConflictStatus"]:
+        """Return the verdict stored on a revision, or `None` when there is none.
+
+        The custom field is absent from `differential.revision.search` when merge
+        conflict detection is disabled, when the revision's repository is not being
+        checked, or before the first check has run.
+        """
+        value = PhabricatorClient.expect(revision, "fields").get(
+            "merge.conflict.status"
+        )
+
+        if not value or not value.get("status"):
+            return None
+
+        return cls(
+            status=value["status"],
+            reason=value.get("reason"),
+            base_commit=value.get("checkedAgainstBaseCommit"),
+            target_commit=value.get("checkedAgainstCommit"),
+            diff_id=value.get("checkedAgainstDiffID"),
+            epoch=value.get("epoch"),
+            is_stale=bool(value.get("isStale")),
+        )
+
+    @property
+    def is_conflict(self) -> bool:
+        """Is this a verdict that the landing will not merge cleanly?
+
+        Phabricator reports `unknown` for every situation it could not decide, so
+        only an explicit `conflict` is a conflict.
+        """
+        return self.status == "conflict"
+
+    def describe_check(self) -> Optional[str]:
+        """Describe the inputs the verdict was computed from.
+
+        Returns `None` when the verdict records none of the diff, base commit or
+        time, so a caller can leave the reference out entirely.
+        """
+        parts = []
+
+        if self.diff_id:
+            parts.append(f"diff {self.diff_id}")
+
+        if self.base_commit:
+            parts.append(f"base commit {self.base_commit}")
+
+        if self.epoch:
+            checked_at = PhabricatorClient.to_datetime(self.epoch)
+            parts.append(f"at {checked_at:%Y-%m-%d %H:%M UTC}")
+
+        if not parts:
+            return None
+
+        return f"Last checked {', '.join(parts)}."
 
 
 def blocker_diff_author_is_known(*, diff: dict, **kwargs) -> Optional[str]:

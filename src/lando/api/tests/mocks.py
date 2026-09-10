@@ -27,6 +27,19 @@ def conduit_method(method):
     return decorate
 
 
+def merge_conflict_status(**overrides) -> dict:
+    """Build a merge conflict status payload as Phabricator sends it."""
+    return {
+        "status": "conflict",
+        "reason": "Merged against the current target branch tip.",
+        "checkedAgainstCommit": "f" * 40,
+        "checkedAgainstBaseCommit": "a" * 40,
+        "checkedAgainstDiffID": 456,
+        "epoch": 1757001600,
+        "isStale": False,
+    } | overrides
+
+
 def validate_hunk(hunk):
     """Validate a Phabricator Diff change hunk payload
 
@@ -272,6 +285,7 @@ class PhabricatorDouble:
         title="",
         summary="",
         uplift=None,
+        merge_conflict_status=None,
     ):
         revision_id = self._new_id(self._revisions)
         phid = self._new_phid("DREV-")
@@ -305,6 +319,7 @@ class PhabricatorDouble:
             "hashes": [],
             "bugzilla.bug-id": bug_id,
             "uplift.request": uplift,
+            "merge.conflict.status": merge_conflict_status,
             "repositoryPHID": repo["phid"] if repo is not None else None,
             "fields": {
                 "repositoryPHID": repo["phid"] if repo is not None else None,
@@ -1054,6 +1069,7 @@ class PhabricatorDouble:
                     "policy": {"view": "public", "edit": "users"},
                     "bugzilla.bug-id": bug_id,
                     "uplift.request": uplift,
+                    "merge.conflict.status": i["merge.conflict.status"],
                 },
                 "attachments": {},
             }
