@@ -86,7 +86,7 @@ class PullRequestPatchHelper(PatchHelper):
     @override
     def write(self, f: io.StringIO):
         """Implement the PatchHelper interface; not relevant for GitHub PRs."""
-        raise NotImplementedError("`from_bytes_io` not implemented.")
+        raise NotImplementedError("`write` not implemented.")
 
     @override
     def parse_author_information(self) -> tuple[str, str]:

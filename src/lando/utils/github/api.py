@@ -12,7 +12,6 @@ import math
 import re
 from collections import Counter
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from itertools import count
@@ -28,8 +27,12 @@ from ..const import URL_USERINFO_RE
 logger = logging.getLogger(__name__)
 
 
-@dataclass
 class GitHubSettings:
+    """A singleton class for settings, allowing users to inject them as needed.
+
+    This class doesn't need to be instantiated.
+    """
+
     GITHUB_APP_ID: str | None = None
     GITHUB_APP_PRIVKEY: str | None = None
     HTTP_USER_AGENT: str = "Mozilla-GitHub-Util/v0.0.0-pre"
