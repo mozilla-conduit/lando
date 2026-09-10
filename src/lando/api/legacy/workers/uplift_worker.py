@@ -378,10 +378,10 @@ class UpliftWorker(Worker):
 
     def check_uplift_bug_references(
         self, patch_helpers: list[PatchHelper]
-    ) -> tuple[str | None, int]:
+    ) -> tuple[list[str], int | None]:
         """Check if uplift job contains references to non-public bugs.
 
-        Return the error message and BMO status code for the checked bug when a
+        Return the error messages and BMO status code for the checked bug when a
         referenced bug is not public.
         """
         secure_check = BugReferencesCheck()
