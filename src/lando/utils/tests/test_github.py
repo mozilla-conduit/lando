@@ -526,6 +526,26 @@ def github_api_client_pr(
     )
 
 
+def test__PullRequest__patch(
+    github_api_client_pr: GitHubAPIClient, github_pr_patch: str
+):
+    pr = github_api_client_pr.build_pull_request(1)
+
+    assert pr.patch == github_pr_patch
+
+
+def test__PullRequest__patch__stale(
+    github_api_client_pr: GitHubAPIClient, github_pr_patch: str
+):
+    pr = github_api_client_pr.build_pull_request(1)
+
+    # Make the PR's head SHA different from what the github_api_client returns.
+    pr.head_sha = pr.head_sha[::-1]
+
+    with pytest.raises(PullRequest.StaleMetadataException):
+        _ = pr.patch
+
+
 def test_PullRequestPatchHelper(github_api_client_pr: mock.Mock):
     # This should match the github_pr_response fixture.
     pr_url = "https://api.github.com/repos/mozilla-conduit/test-repo/pulls/1"

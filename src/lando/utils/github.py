@@ -628,7 +628,16 @@ class PullRequest:
 
     @property
     def patch(self) -> str:
-        return self.client.get_patch(self.number)
+        patch = self.client.get_patch(self.number)
+
+        # Re-request the PR metadata without caching.
+        pr_metadata = self.client.get_pull_request(self.number)
+        if self.head_sha != pr_metadata["head"]["sha"]:
+            raise self.StaleMetadataException(
+                "Head SHA changed while fetching patch data."
+            )
+
+        return patch
 
     @property
     def reviews_summary(self) -> dict[str, str]:
