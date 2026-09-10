@@ -333,7 +333,7 @@ class UpliftWorker(Worker):
                 f"Skipping try push for uplift job:\n{', '.join(error)}"
             )
         elif error:
-            raise ValueError(error)
+            raise ValueError(", ".join(error))
 
         try_repo = Repo.objects.get(name="try")
 
