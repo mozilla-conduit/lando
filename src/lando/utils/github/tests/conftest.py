@@ -102,7 +102,7 @@ def github_pr_response() -> str:
             -H 'Accept: application/vnd.github+json' \
             -H 'X-GitHub-Api-Version: 2022-11-28' \
             https://api.github.com/repos/mozilla-conduit/test-repo/pulls/1 \
-            > src/lando/utils/tests/data/github_api_response_pull.json
+            > src/lando/utils/github/tests/data/github_api_response_pull.json
     """
     json_data_path = BASE_DIR / "data" / "github_api_response_pull.json"
     with open(json_data_path) as f:
@@ -119,7 +119,7 @@ def github_pr_commits_response() -> str:
             -H 'Accept: application/vnd.github+json' \
             -H 'X-GitHub-Api-Version: 2022-11-28' \
             https://api.github.com/repos/mozilla-conduit/test-repo/pulls/1/commits \
-            > src/lando/utils/tests/data/github_api_response_pull_commits.json
+            > src/lando/utils/github/tests/data/github_api_response_pull_commits.json
     """
     json_data_path = BASE_DIR / "data" / "github_api_response_pull_commits.json"
     with open(json_data_path) as f:
