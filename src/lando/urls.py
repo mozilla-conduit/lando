@@ -23,6 +23,7 @@ from lando.api.legacy.api import landing_jobs
 from lando.api.uplift_api import api as uplift_api
 from lando.api.views import (
     LandingJobPullRequestAPIView,
+    LandingJobStacksAPIView,
     LegacyDiffWarningView,
     PullRequestChecksAPIView,
     PullRequestContentAPIView,
@@ -136,6 +137,11 @@ urlpatterns += [
         "api/pulls/webhook",
         PullRequestUpdateWebhook.as_view(),
         name="api-pull-request-description",
+    ),
+    path(
+        "api/stacks/<str:repo_name>/<int:stack_number>/landing_jobs",
+        LandingJobStacksAPIView.as_view(),
+        name="api-landing-job-stack",
     ),
 ]
 
