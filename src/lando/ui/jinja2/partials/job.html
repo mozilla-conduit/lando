@@ -1,44 +1,82 @@
-{% set embedded = embedded|default(True) %}
+{% if false %}
+    <!--
+  This template can be used in multiple contexts:
+
+  * In `timeline` pages: multiple jobs may be present, with shared info presented at the stack level.
+  * In Landing `job` pages: a single job, with no info anywhere else.
+  * On the `home` page: multiple jobs, but with no shared info.
+
+  Feature matrix:
+
+           Stack/Pull link | Job link | Tip title | Treestatus link
+  timeline                 |    X     |           |           X
+       job           X     |          |    X      |           X
+      home           X     |    X     |    X      |
+
+  Stacks and PR views use the `timeline` context via the timeline partial.
+  Defaults to `home`, which shows most information.
+-->
+{% endif %}
+{% set page_context = page_context|default("home") %}
 {% set has_revisions = job.revisions and job.revisions.exists() %}
+{% if has_revisions %}
+    {% set tip_revision = job.revisions|last %}
+{% endif %}
 <div class="StackPage-timeline-item">
     <div class="StackPage-timeline-itemStatus">
         <span class="{{ job|tostatusbadgeclass }}">{{ job|tostatusbadgename }}</span>
     </div>
     <div class="StackPage-timeline-itemDetail">
+        {% if has_revisions and page_context != "timeline" %}
+            <h3>{{ tip_revision }}</h3>
+        {% endif %}
         <p>
             Landing requested on <time data-timestamp="{{ job.created_at }}">{{ job.created_at }}</time>, by {{ job.requester_email }}.
         </p>
-        {% if embedded %}
+        {% if page_context != "job" %}
             <p>
                 <strong>Landing Job:</strong>
                 <a href="{{ url('jobs-page', args=[job.id]) }}">{{ job.id }}</a>
             </p>
-        {% elif has_revisions and job.is_pull_request_job %}
-            {% set top_revision = job.revisions[0] %}
-            <p>
-                <strong>Pull request:</strong>
-                <a href="{{ url('pull-request', args=[job.target_repo.name, top_revision.pull_number]) }}">{{ job.target_repo.name }}#{{ top_revision.pull_number }}</a>
-            </p>
-        {% elif has_revisions %}
-            {% set top_revision = job.revisions[0] %}
-            {% if top_revision.revision_id %}
-                <p>
-                    <strong>Stack:</strong>
-                    <a href="{{ url('revisions-page', args=[top_revision.revision_id]) }}">D{{ top_revision.revision_id }}</a>
-                </p>
-            {% endif %}
         {% endif %}
-        {% if has_revisions and not job.is_pull_request_job %}
-            <p>
-                <strong>Revisions:</strong>
-                {% for i in job.serialized_landing_path -%}
+        <p>
+            <strong>Target repository:</strong>
+            <code>{{ job.target_repo.name }}</code>
+        </p>
+        {% if has_revisions %}
+            {% if job.has_phabricator_revisions %}
+                {% if page_context != "timeline" %}
+                    <p>
+                        <strong>Stack:</strong>
+                        <a href="{{ url('revisions-page', args=[tip_revision.revision_id]) }}">D{{ tip_revision.revision_id }}</a>
+                    </p>
+                {% endif %}
+                <p>
+                    <strong>Revisions:</strong>
+                    {% for revision in job.revisions -%}
+                        {{- "" if loop.first else " ← " -}}
+                        <a id="r{{ revision.id }}" href="{{ revision.url }}">{{ revision.descriptor }}</a>
+                    {%- endfor %}
+                </p>
+            {%- elif job.is_pull_request_job %}
+                {% if page_context != "timeline" %}
+                    <p>
+                        <strong>Pull request:</strong>
+                        <a href="{{ url('pull-request', args=[job.target_repo.name, tip_revision.pull_number]) }}">{{ job.target_repo.name }}#{{ tip_revision.pull_number }}</a>
+                    </p>
+                {% endif %}
+                <strong>GitHub:</strong>
+                {% for revision in job.revisions -%}
                     {{- "" if loop.first else " ← " -}}
-                    <a href="{{ i['revision_id']|phabricator_revision_url(diff_id=i['diff_id']) }}">
-                        {{ i['revision_id'] }}
-                        {% if i['diff_id'] %}diff {{ i['diff_id'] }}{% endif %}
-                    </a>
+                    <a id="r{{ revision.id }}" href="{{ revision.url }}">{{ revision }}</a>
                 {%- endfor %}
-            </p>
+            {%- else %}
+                <strong>Revisions:</strong>
+                {% for revision in job.revisions -%}
+                    {{- "" if loop.first else " ← " -}}
+                    <a id="r{{ revision.id }}" href="{{ revision.url }}">{{ revision }}</a>
+                {%- endfor %}
+            {%- endif %}
         {% endif %}
         {% include "partials/error-breakdown.html" %}
         <div>
@@ -60,7 +98,7 @@
                         {{ treeherder_link(job.landed_treeherder_revision, job.target_repo, "Treeherder") |safe }}
                     {% endif %}
                 </p>
-            {% elif job.status.lower() == 'submitted' and treestatus and not embedded %}
+            {%- elif job.status.lower() == 'submitted' and treestatus and page_context=="job" %}
                 <div>
                     <p>
                         <strong><a href="https://firefox-source-docs.mozilla.org/testing/automated-testing/tree-closure.html"
@@ -69,18 +107,24 @@
                         {% if treestatus.reason %}({{ treestatus.reason }}){% endif %}
                     </p>
                 </div>
-            {% elif job.error %}
+            {%- elif job.error %}
                 <div class="StackPage-timeline-item-error">
                     {% if job.error_breakdown %}
                         <div>
                             <button type="button" class="is-light button toggle-content">Show raw error output</button>
                         </div>
-                        <pre class="hidden-content"><strong>Raw error output:</strong>{{ "\n" + job.error}}</pre>
+                        <div class="hidden-content">
+                            <strong>Raw error output:</strong>
+                            <pre>{{ "\n" + job.error}}</pre>
+                        </div>
                     {% else %}
-                        <pre><strong>Raw error output:</strong>{{ "\n" + job.error}}</pre>
+                        <div>
+                            <strong>Raw error output:</strong>
+                            <pre>{{ "\n" + job.error}}</pre>
+                        </div>
                     {% endif %}
                 </div>
-            {% endif %}
+            {%- endif %}
             {% if job.status in ("SUBMITTED", "DEFERRED") %}
                 <button data-landing_job_id="{{ job.id }}"
                         class="cancel-landing-job button is-small is-danger has-text-white"
