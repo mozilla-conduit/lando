@@ -1,6 +1,8 @@
 import io
 import os
 import re
+import socket
+import subprocess
 import textwrap
 from datetime import datetime
 from pathlib import Path
@@ -22,6 +24,7 @@ from lando.main.scm import (
     TreeClosed,
 )
 from lando.main.scm.helpers import HgPatchHelper
+from lando.main.scm.hg import HgRecoverNeeded
 
 
 def test_integrated_hgrepo_clean_repo(hg_clone):
@@ -43,7 +46,7 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
         assert scm.run_hg_cmds([["status"]])
 
         # `clean_repo` clears the working directory but leaves drafts in place;
-        # stripping is `maintenance`'s job.
+        # stripping is `idle_maintenance`'s job.
         scm.clean_repo()
         assert scm.run_hg_cmds([["outgoing"]])
         assert not scm.run_hg_cmds([["status"]])
@@ -57,17 +60,27 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
             "Working directory should be clean after exiting and re-entering the context."
         )
         assert scm.run_hg_cmds([["outgoing"]]), (
-            "Draft commits should persist across context exits; `maintenance` strips them."
+            "Draft commits should persist across context exits; `idle_maintenance` strips them."
         )
 
-    scm.maintenance()
+    scm.idle_maintenance()
 
     with scm.for_pull(), hg_clone.as_cwd():
         with pytest.raises(HgCommandError, match="no changes found"):
             scm.run_hg_cmds([["outgoing"]])
         assert not scm.run_hg_cmds([["status"]]), (
-            "Working directory should be clean after `maintenance` runs."
+            "Working directory should be clean after `idle_maintenance` runs."
         )
+
+
+def test_hg_idle_maintenance_noop(
+    hg_clone: os.PathLike, caplog: pytest.LogCaptureFixture
+):
+    scm = HgSCM(hg_clone.strpath)
+
+    scm.idle_maintenance()
+
+    assert "empty revision set" not in caplog.text
 
 
 def test_integrated_hgrepo_can_log(hg_clone):
@@ -146,8 +159,30 @@ diff --git a/test.txt b/test.txt
 +adding another line
 """.strip()
 
+PATCH_OPTION_IN_FILENAME = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+Add to a file that doesn't exist
+diff --git a/--config=alias.log=!/bin/false b/--config=alias.log=!/bin/false
+--- a/--config=alias.log=!/bin/false
++++ b/--config=alias.log=!/bin/false
+@@ -1,1 +1,2 @@
+ TEST
++This line doesn't exist
+""".strip()
 
-def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
+
+@pytest.mark.parametrize(
+    "patch,file",
+    (
+        (PATCH_WITH_CONFLICT, "not-real.txt"),
+        (PATCH_OPTION_IN_FILENAME, "--config=alias.log=!/bin/false"),
+    ),
+)
+def test_integrated_hgrepo_patch_conflict_failure(hg_clone, patch: str, file: str):
     repo = HgSCM(hg_clone.strpath)
 
     # Patches with conflicts should raise a proper PatchConflict exception,
@@ -156,7 +191,7 @@ def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
     breakdown = None
     with pytest.raises(PatchConflict):
         with repo.for_pull():
-            ph = HgPatchHelper.from_string_io(io.StringIO(PATCH_WITH_CONFLICT))
+            ph = HgPatchHelper.from_string_io(io.StringIO(patch))
             try:
                 repo.apply_patch(
                     ph.get_diff(),
@@ -169,10 +204,10 @@ def test_integrated_hgrepo_patch_conflict_failure(hg_clone):
                 raise
 
     assert breakdown is not None, "`process_merge_conflict` should have been called."
-    assert "not-real.txt" in breakdown["rejects_paths"], (
+    assert file in breakdown["rejects_paths"], (
         "Breakdown should include the conflicted file path."
     )
-    reject_entry = breakdown["rejects_paths"]["not-real.txt"]
+    reject_entry = breakdown["rejects_paths"][file]
     assert "content" in reject_entry, (
         "Reject entry should include `.rej` content captured by `clean_repo`."
     )
@@ -269,25 +304,31 @@ def test_HgSCM_apply_get_patch(hg_clone: Path, normal_patch: Callable):
     assert new_patch == expected_patch
 
 
-def test_hg_exceptions():
-    """Ensure the correct exception is raised if a particular snippet is present."""
-    snippet_exception_mapping = {
-        b"abort: push creates new remote head": SCMLostPushRace,
-        b"APPROVAL REQUIRED!": TreeApprovalRequired,
-        b"is CLOSED!": TreeClosed,
-        b"unresolved conflicts (see hg resolve": PatchConflict,
-        b"timed out waiting for lock held by": SCMPushTimeoutException,
-        b"abort: HTTP Error 500: Internal Server Error": SCMInternalServerError,
+@pytest.mark.parametrize(
+    "snippet,exception",
+    (
+        (b"abort: push creates new remote head", SCMLostPushRace),
+        (b"APPROVAL REQUIRED!", TreeApprovalRequired),
+        (b"is CLOSED!", TreeClosed),
+        (b"unresolved conflicts (see hg resolve", PatchConflict),
+        (b"timed out waiting for lock held by", SCMPushTimeoutException),
+        (b"abort: HTTP Error 500: Internal Server Error", SCMInternalServerError),
         (
-            b"remote: could not complete push due to pushlog operational errors; "
-            b"please retry, and file a bug if the issue persists"
-        ): SCMInternalServerError,
-    }
+            (
+                b"remote: could not complete push due to pushlog operational errors; "
+                b"please retry, and file a bug if the issue persists"
+            ),
+            SCMInternalServerError,
+        ),
+        (b"(run 'hg recover' to clean up transaction)", HgRecoverNeeded),
+    ),
+)
+def test_hg_exceptions(snippet: str, exception: Exception):
+    """Ensure the correct exception is raised if a particular snippet is present."""
 
-    for snippet, exception in snippet_exception_mapping.items():
-        exc = hglib.error.CommandError((), 1, b"", snippet)
-        with pytest.raises(exception):
-            raise HgException.from_hglib_error(exc)
+    exc = hglib.error.CommandError((), 1, b"", snippet)
+    with pytest.raises(exception):
+        raise HgException.from_hglib_error(exc)
 
 
 def test_hgrepo_request_user(hg_clone):
@@ -498,7 +539,6 @@ def test_HgSCM_describe_local_changes(
 ):
     scm = HgSCM(str(hg_clone))
 
-    #     f"{request.node.name} <pytest@lando>",
     with scm.for_push(
         f"pytest+{request.node.name}@lando",
     ):
@@ -509,6 +549,70 @@ def test_HgSCM_describe_local_changes(
 
     assert file1.name in changes[0].files
     assert file2.name in changes[1].files
+
+
+def test_HgSCM__run_hg_autorecover(
+    hg_clone: os.PathLike,
+    request: pytest.FixtureRequest,
+    create_hg_commit: Callable,
+    caplog: pytest.LogCaptureFixture,
+):
+    hg_clone = Path(hg_clone)
+
+    scm = HgSCM(str(hg_clone))
+
+    # Create the marker of an abandoned transaction.
+    (hg_clone / ".hg/store/journal").touch()
+    # Make sure this makes a normal commit fail.
+    with pytest.raises(subprocess.CalledProcessError):
+        create_hg_commit(Path(hg_clone))
+
+    new_file = hg_clone / "file"
+    new_file.write_text(request.node.name, encoding="utf-8")
+    subprocess.run(["hg", "addremove"], cwd=str(hg_clone), check=True)
+
+    with scm.for_push("committer@example.com"):
+        scm.run_hg(["commit", "-m", "this should auto recover"])
+
+        changes = scm.describe_local_changes()
+
+    assert "Running `hg recover`" in caplog.text, (
+        "Missing log entry indicated that `hg recover` was run"
+    )
+    assert new_file.name in changes[0].files, (
+        "File should have been created after sucessful recovery"
+    )
+
+
+def test_HgSCM__startup_maintenance(
+    hg_clone: os.PathLike,
+):
+    hg_clone = Path(hg_clone)
+
+    wlock = (hg_clone) / ".hg" / "wlock"
+    lock = (hg_clone) / ".hg" / "store" / "lock"
+
+    hostname = socket.gethostname()
+    # Under Linux, Mercurial adds inode information for the current process into the
+    # lock [0].
+    # [0] https://foss.heptapod.net/mercurial/mercurial-devel/-/blob/e0fae3f19ab88b63ef5bb5371ae653b76f811c76/mercurial/lock.py#L41
+    st_ino = os.stat(b"/proc/self/ns/pid").st_ino
+    pid = os.getpid()
+
+    # These locks are not stale, as they point back to this process.
+    wlock.symlink_to(f"{hostname}/{st_ino}:{pid}")
+    lock.symlink_to(f"{hostname}/{st_ino}:{pid}")
+
+    scm = HgSCM(str(hg_clone))
+    scm.startup_maintenance()
+
+    # The locks got unconditionally deleted.
+    assert not wlock.is_symlink(), (
+        "wlock symlink should have been deleted by startup_maintenance"
+    )
+    assert not lock.is_symlink(), (
+        "lock symlink should have been deleted by startup_maintenance"
+    )
 
 
 def _trim_variable_patch_parts(patch: str):

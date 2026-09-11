@@ -252,7 +252,7 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
     """Handle pull request landing jobs in the API."""
 
     def get(
-        self, request: WSGIRequest, repo_name: int, pull_number: int
+        self, request: WSGIRequest, repo_name: str, pull_number: int
     ) -> JsonResponse:
         """Return the status of a pull request based on landing job counts."""
 
@@ -279,7 +279,7 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
 
     @method_decorator(require_authenticated_user)
     def post(
-        self, request: WSGIRequest, repo_name: int, pull_number: int
+        self, request: WSGIRequest, repo_name: str, pull_number: int
     ) -> JsonResponse:
         """Create a new landing job for a pull request."""
 
@@ -323,6 +323,16 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
         if not form.is_valid():
             return JsonResponse(
                 {"errors": form.errors, "new_warnings": new_warnings}, status=400
+            )
+
+        if self.pull_request.head_sha != form.cleaned_data["head_sha"]:
+            return JsonResponse(
+                {
+                    "errors": [
+                        "The head of the Pull Request changed during submission. Please review and try again."
+                    ]
+                },
+                status=400,
             )
 
         job = LandingJob.objects.create(

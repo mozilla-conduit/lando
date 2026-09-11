@@ -321,7 +321,7 @@ class UpliftWorker(Worker):
         patch_helpers = list(scm.get_patch_helpers_for_commits(new_commits))
         result = self.check_uplift_bug_references(patch_helpers)
         if result:
-            raise ValueError(result)
+            raise ValueError(", ".join(result))
 
         try_repo = Repo.objects.get(name="try")
 
@@ -366,10 +366,8 @@ class UpliftWorker(Worker):
 
     def check_uplift_bug_references(
         self, patch_helpers: list[PatchHelper]
-    ) -> str | None:
-        """Check if uplift job contains references to non-public bugs.
-
-        Return the error message when a referenced bug is not public, and `None` otherwise."""
+    ) -> list[str]:
+        """Check if uplift job contains references to non-public bugs."""
         secure_check = BugReferencesCheck()
         for patch_helper in patch_helpers:
             secure_check.next_diff(patch_helper)

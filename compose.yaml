@@ -1,3 +1,14 @@
+# Sharing the build definition instead of an `image:` tag lets compose name the
+# image per project, so parallel checkouts do not clobber each other's builds.
+x-lando-build: &lando-build
+    build:
+        context: .
+        args:
+            # Build the container's `app` user with the caller's uid. The
+            # `make` targets export it; set it in `.env` and rebuild if you
+            # drive `docker compose` directly and your uid is not the usual 1000.
+            APP_UID: ${APP_UID:-1000}
+
 services:
     db:
         image: postgres:17
@@ -13,12 +24,9 @@ services:
             - postgres_db:/var/lib/postgresql/data
 
     lando:
-        user: ${UID}:${GID}
-        build:
-            context: .
+        <<: *lando-build
         stdin_open: true
         tty: true
-        image: lando
         command: bash -c "
             lando migrate &&
             lando collectstatic --clear --no-input &&
@@ -39,7 +47,7 @@ services:
                 condition: service_healthy
 
     hg-landing-worker:
-        image: lando
+        <<: *lando-build
         command: lando start_landing_worker hg
         environment:
             DEFAULT_GRACE_SECONDS: 10
@@ -59,7 +67,7 @@ services:
                 condition: service_healthy
 
     git-landing-worker:
-        image: lando
+        <<: *lando-build
         command: lando start_landing_worker git
         environment:
             DEFAULT_GRACE_SECONDS: 10
@@ -74,7 +82,8 @@ services:
     proxy:
         build: ./nginx
         ports:
-            - 443:443
+            # Override to run more than one checkout at once.
+            - ${LANDO_PROXY_PORT:-443}:443
         depends_on:
             - lando
         volumes:
@@ -86,7 +95,7 @@ services:
             test: ["CMD", "redis-cli", "ping"]
 
     celery:
-        image: lando
+        <<: *lando-build
         command: lando start_celery_worker
         depends_on:
             redis:

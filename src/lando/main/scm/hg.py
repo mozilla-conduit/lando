@@ -7,13 +7,16 @@ import shlex
 import subprocess
 import tempfile
 import uuid
+from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import datetime
+from functools import wraps
 from pathlib import Path
 from typing import (
     IO,
     Any,
     Self,
+    TypeVar,
 )
 
 import hglib
@@ -105,6 +108,12 @@ class HgTreeApprovalRequired(TreeApprovalRequired, HgException):
     SNIPPETS = ["APPROVAL REQUIRED!"]
 
 
+class HgRecoverNeeded(HgException):
+    """Exception thrown when `hg recover` is needed."""
+
+    SNIPPETS = ["run 'hg recover'"]
+
+
 class LostPushRace(SCMLostPushRace, HgException):
     """Exception when pushing failed due to another push happening."""
 
@@ -142,6 +151,25 @@ class HgPatchConflict(PatchConflict, HgException):
         "hunk FAILED -- saving rejects to file",
         "hunks FAILED -- saving rejects to file",
     ]
+
+
+T = TypeVar("T")
+
+
+def auto_recover(fn: Callable[..., T]) -> Callable[..., T]:
+    """Decorator automatically running `hg recover` on HgRecoverNeeded."""
+
+    @wraps(fn)
+    def wrapper(self: "HgSCM", *args, **kwargs) -> T:
+        try:
+            return fn(self, *args, **kwargs)
+        except HgRecoverNeeded:
+            logger.warning(f"Running `hg recover` in {self.path}")
+            self._run_hg(["recover"])
+
+        return fn(self, *args, **kwargs)
+
+    return wrapper
 
 
 class HgSCM(AbstractSCM):
@@ -642,17 +670,24 @@ class HgSCM(AbstractSCM):
             last_result = self.run_hg(cmd)
         return last_result
 
+    @auto_recover
     def run_hg(self, args: list[str]) -> bytes:
         """Run a single Mercurial command, and return its output.
 
-        A specific HgException will be raised on error."""
+        A specific HgException will be raised on error.
+
+        If `hg recover` is needed, it will be run automatically.
+        """
         try:
             return self._run_hg(args)
         except hglib.error.CommandError as exc:
             raise HgException.from_hglib_error(exc) from exc
 
     def _run_hg(self, args: list[str]) -> bytes:
-        """Use hglib to run a Mercurial command, and return its output."""
+        """Use hglib to run a Mercurial command, and return its output.
+
+        Do not call this method directly, use run_hg() instead.
+        """
         correlation_id = str(uuid.uuid4())
         command_string = " ".join(["hg"] + [shlex.quote(str(arg)) for arg in args])
         logger.info(
@@ -753,7 +788,19 @@ class HgSCM(AbstractSCM):
             pass
 
     @override
-    def maintenance(self) -> None:
+    def startup_maintenance(self) -> None:
+        """Perform maintenance when the worker starts.
+
+        This method:
+        * deletes all locks (.hg/wlock, .hg/store/lock)
+
+        WARNING: This method doesn't check if the locks are stale.
+        """
+        with self.for_maintenance("startup"):
+            self.run_hg(["debuglocks", "--force-free-lock", "--force-free-wlock"])
+
+    @override
+    def idle_maintenance(self) -> None:
         """Perform various maintenance tasks while the worker is idling.
 
         Currently this method strips draft commits left over from previous
@@ -762,16 +809,34 @@ class HgSCM(AbstractSCM):
         that strips drafts; the per-job `clean_repo` calls leave them in
         place.
         """
+        with self.for_maintenance("idle"):
+            try:
+                self.run_hg(["strip", "--no-backup", "-r", "not public()"])
+            except HgException as exc:
+                if exc.err.strip() == "abort: empty revision set":
+                    # This is a noop. No need to report this.
+                    return
+                logger.exception(exc)
+
+    @contextmanager
+    def for_maintenance(self, maintenance_type: str):
+        """Prepare the repo without setting any custom environment variables.
+
+        The repo's `push` method will not function inside this context manager, as the
+        request user's email address will be absent (and not needed).
+        """
         try:
             self._open()
         except hglib.error.ServerError as exc:
             raise SCMException(
-                "Failed to open hg server for maintenance.", "", str(exc)
+                f"Failed to open hg server for {maintenance_type} maintenance.",
+                "",
+                str(exc),
             ) from exc
         try:
-            self.run_hg(["strip", "--no-backup", "-r", "not public()"])
-        except HgException:
-            pass
+            yield self
+        # No except: a failure here should prevent us from continuing, but we want
+        # to close the connection correctly.
         finally:
             self.hg_repo.close()
 

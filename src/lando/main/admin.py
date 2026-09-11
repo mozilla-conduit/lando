@@ -374,6 +374,7 @@ class RepoAdmin(admin.ModelAdmin):
         gh_hmac_secret = forms.CharField(
             required=False,
             help_text="Enter a new value that will be encrypted. Enter '-' to clear.",
+            widget=forms.TextInput(attrs={"autocomplete": "off"}),
         )
 
         def save(self, *args, **kwargs) -> Repo:

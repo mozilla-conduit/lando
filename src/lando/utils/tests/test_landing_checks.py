@@ -1,10 +1,13 @@
 import io
+from typing import Callable
 from unittest.mock import patch
 
 import pytest
 import requests
 import rs_parsepatch
 
+from lando.api.tests.test_commit_message import GIT_STYLE_REVERT, HG_STYLE_BACKOUT
+from lando.main.scm import SCMType
 from lando.main.scm.helpers import (
     GitPatchHelper,
     HgPatchHelper,
@@ -142,6 +145,14 @@ def test_check_commit_message_merge_automation_bad_message():
             "'Revert to' backout syntax is accepted.",
         ),
         (
+            HG_STYLE_BACKOUT,
+            "Hg-style backout with multiple changesets is accepted.",
+        ),
+        (
+            GIT_STYLE_REVERT,
+            "Git-style revert is accepted.",
+        ),
+        (
             "Backout changesets  9e4ab3907b29, 3abc0dbbf710 due to m-oth permaorange",
             "Multiple changesets are allowed for backout syntax.",
         ),
@@ -174,74 +185,104 @@ def test_check_commit_message_valid_message(commit_message: str, error_message: 
 
 
 @pytest.mark.parametrize(
-    "commit_message,return_string,error_message",
-    [
-        (
-            "this message is missing the bug.",
-            "Revision needs 'Bug N' or 'No bug' in the commit message: ",
-            "Commit message is rejected without a bug number.",
-        ),
-        (
-            "Mass revert m-i to the last known good state",
-            "Revision needs 'Bug N' or 'No bug' in the commit message: ",
-            "Revision missing a bug number or no bug should result in a failed check.",
-        ),
-        (
-            "update revision of Add-on SDK tests to latest tip; test-only",
-            "Revision needs 'Bug N' or 'No bug' in the commit message: ",
-            "Revision missing a bug number or no bug should result in a failed check.",
-        ),
-        (
-            "Fix stupid bug in foo::bar()",
-            "Revision needs 'Bug N' or 'No bug' in the commit message: ",
-            "Commit message with 'bug' bug in improper format should result in a failed check.",
-        ),
-        (
-            "Back out Dao's push because of build bustage",
-            "Revision is a backout but commit message does not indicate backed out revisions: ",
-            "Backout should be rejected when a reference to the original patch is missing.",
-        ),
-        (
-            "Bug 100 - Foo. r?bar REPO-firefox-autoland",
-            "Revision contains 'r?' in the commit message. Please use 'r=' instead: ",
-            "Improper review specifier should be rejected.",
-        ),
-        (
-            "WIP: bug 123: this is a wip r=reviewer",
-            "Revision seems to be marked as WIP: ",
-            "WIP revisions should be rejected.",
-        ),
-        (
-            "[PATCH 1/2] first part of my git patch",
-            (
-                "Revision contains git-format-patch '[PATCH]' cruft. "
-                "Use git-format-patch -k to avoid this: "
+    "scm_type,commit_message,return_string,error_message",
+    # Can't use itertools.product without similar overhead as this,
+    # as we have more than one element in the first set.
+    tuple(
+        pytest.param(scm, *case, id=f"{scm}-{desc}")
+        for scm in (SCMType.GIT, SCMType.HG)
+        for desc, case in {
+            "nobug": (
+                "this message is missing the bug.",
+                "Revision needs 'Bug N' or 'No bug' in the commit message: ",
+                "Commit message is rejected without a bug number.",
             ),
-            "`git-format-patch` cruft should result in a failed check.",
-        ),
-        (
-            "Bug 100 - Foo. r=bar REPO-elm",
-            "Commit locked to a repo other than firefox-autoland: ",
-            "Revision with REPO- mismatch should be rejected.",
-        ),
-    ],
-    ids=(
-        "nobug",
-        "revert",
-        "update",
-        "bugword",
-        "backout",
-        "rq",
-        "wip",
-        "patch",
-        "repo",
+            "revert": (
+                "Mass revert m-i to the last known good state",
+                "Revision needs 'Bug N' or 'No bug' in the commit message: ",
+                "Revision missing a bug number or no bug should result in a failed check.",
+            ),
+            "update": (
+                "update revision of Add-on SDK tests to latest tip; test-only",
+                "Revision needs 'Bug N' or 'No bug' in the commit message: ",
+                "Revision missing a bug number or no bug should result in a failed check.",
+            ),
+            "bugword": (
+                "Fix stupid bug in foo::bar()",
+                "Revision needs 'Bug N' or 'No bug' in the commit message: ",
+                "Commit message with 'bug' bug in improper format should result in a failed check.",
+            ),
+            "backout": (
+                "Back out Dao's push because of build bustage",
+                "Revision is a backout but commit message does not indicate backed out revisions: ",
+                "Backout should be rejected when a reference to the original patch is missing.",
+            ),
+            "rq": (
+                "Bug 100 - Foo. r?bar REPO-firefox-autoland",
+                "Revision contains 'r?' in the commit message. Please use 'r=' instead: ",
+                "Improper review specifier should be rejected.",
+            ),
+            "wip": (
+                "WIP: bug 123: this is a wip r=reviewer",
+                "Revision seems to be marked as WIP: ",
+                "WIP revisions should be rejected.",
+            ),
+            "patch": (
+                "[PATCH 1/2] bug 1: first part of my git patch",
+                (
+                    "Revision contains git-format-patch '[PATCH]' cruft. "
+                    "Use git-format-patch -k to avoid this: "
+                ),
+                "`git-format-patch` cruft should result in a failed check.",
+            ),
+            "repo": (
+                "Bug 100 - Foo. r=bar REPO-elm",
+                "Commit locked to a repo other than firefox-autoland: ",
+                "Revision with REPO- mismatch should be rejected.",
+            ),
+            "diff": (
+                """\
+Bug 100 - Foo. r=bar
+
+diff --git a/b b/b
+new file mode 100644
+index 00000000..72943a16
+--- /dev/null
++++ b/b
+@@ -0,0 +1 @@
++bbb
+""",
+                "Suspected diff found in commit message. Please indent the diff if this is on purpose: ",
+                "Diff-like commit message should be rejected.",
+            ),
+        }.items()
     ),
 )
 def test_check_commit_message_invalid_message(
-    commit_message: str, return_string: str, error_message: str
+    request: pytest.FixtureRequest,
+    diff_to_git_patch: Callable,
+    scm_type: SCMType,
+    commit_message: str,
+    return_string: str,
+    error_message: str,
 ):
-    patch_helpers = [
-        HgPatchHelper.from_string_io(
+    if request.node.callspec.id == "hg-diff":
+        pytest.xfail(
+            "HgPatchHelper premptively splits patch streams on the first diff,"
+            + " allowing other checks to run over the smuggled diff as well."
+        )
+
+    if scm_type == SCMType.GIT:
+        ph = GitPatchHelper.from_string_io(
+            io.StringIO(
+                diff_to_git_patch(
+                    GIT_DIFF_FILENAME_TEMPLATE.format(filename="a"),
+                    commit_description=commit_message,
+                )
+            )
+        )
+    elif scm_type == SCMType.HG:
+        ph = HgPatchHelper.from_string_io(
             io.StringIO(
                 HG_PATCH_AUTHOR_COMMIT_MESSAGE_TEMPLATE.format(
                     author="U Ser <user@example.com>",
@@ -249,14 +290,19 @@ def test_check_commit_message_invalid_message(
                 )
             )
         )
-    ]
+    else:
+        raise Exception(f"Unknown SCM Type {scm_type=}")
+
+    patch_helpers = [ph]
     assessor = PatchCollectionAssessor(
         patch_helpers=patch_helpers, repo_name="firefox-autoland"
     )
 
-    assert assessor.run_patch_collection_checks(
+    errors = assessor.run_patch_collection_checks(
         patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
-    ) == [return_string + commit_message], error_message
+    )
+    commit_title = ph.get_commit_title()
+    assert errors == [return_string + commit_title], error_message
 
 
 @pytest.mark.parametrize("signed_disallowed", (False, True))
@@ -358,16 +404,15 @@ def test_check_commit_message_repolocked(
     ]
     assessor = PatchCollectionAssessor(patch_helpers=patch_helpers, repo_name="foo")
 
-    expected = []
-    if return_string:
-        expected = [return_string + commit_message]
+    check_issues = assessor.run_patch_collection_checks(
+        patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
+    )
 
-    assert (
-        assessor.run_patch_collection_checks(
-            patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
-        )
-        == expected
-    ), error_message
+    if return_string:
+        expected = return_string + commit_message.partition("\n")[0]
+        assert [expected] == check_issues, error_message
+    else:
+        assert not check_issues, error_message
 
 
 def test_check_commit_message_repolocked_multiple():
@@ -403,15 +448,12 @@ def test_check_commit_message_repolocked_multiple():
     ]
     assessor = PatchCollectionAssessor(patch_helpers=patch_helpers, repo_name="foo")
 
-    expected = []
+    expected = ""
     if return_string:
-        expected = [return_string + commit_message]
+        expected = return_string + commit_message.partition("\n")[0]
 
-    assert (
-        assessor.run_patch_collection_checks(
-            patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
-        )
-        == expected
+    assert [expected] == assessor.run_patch_collection_checks(
+        patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
     ), error_message
 
 
@@ -469,10 +511,13 @@ def test_check_prevent_dot_github():
     )
     for diff in parsed_diff:
         prevent_dot_github_check.next_diff(diff)
-    assert prevent_dot_github_check.result() == (
+
+    expected = (
         "Revision makes changes to restricted directories: GitHub workflows directory: "
-        "`.github/workflows/workflow.yaml`."
-    ), (
+        + "`.github/workflows/workflow.yaml`."
+    )
+
+    assert [expected] == prevent_dot_github_check.result(), (
         "Check should disallow changes to GitHub workflows without proper commit message."
     )
 
@@ -482,7 +527,7 @@ def test_check_prevent_dot_github():
     )
     for diff in parsed_diff:
         prevent_dot_github_check.next_diff(diff)
-    assert prevent_dot_github_check.result() is None, (
+    assert not prevent_dot_github_check.result(), (
         "Check should allow changes to GitHub workflows with proper commit message."
     )
 
@@ -497,10 +542,11 @@ def test_check_prevent_hg_directory():
     )
     for diff in parsed_diff:
         prevent_hg_directory_check.next_diff(diff)
-    assert (
-        prevent_hg_directory_check.result()
-        == "Patch attempts to modify repository metadata: `.hg/hgrc`"
-    ), "Check should not allow changes to .hg directory"
+
+    expected = "Patch attempts to modify repository metadata: `.hg/hgrc`."
+    assert [expected] == prevent_hg_directory_check.result(), (
+        "Check should not allow changes to .hg directory"
+    )
 
 
 def test_check_prevent_nspr_nss_missing_fields():
@@ -512,7 +558,7 @@ def test_check_prevent_nspr_nss_missing_fields():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() is None, (
+    assert not prevent_nspr_nss_check.result(), (
         "Missing commit message should result in passing check."
     )
 
@@ -527,10 +573,13 @@ def test_check_prevent_nspr_nss_nss():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() == (
+    expected = (
         "Revision makes changes to restricted directories: vendored NSS directories: "
         "`security/nss/testfile.txt`."
-    ), "Check should disallow changes to NSS without proper commit message."
+    )
+    assert [expected] == prevent_nspr_nss_check.result(), (
+        "Check should disallow changes to NSS without proper commit message."
+    )
 
     prevent_nspr_nss_check = PreventNSPRNSSCheck(
         email="testuser@mozilla.com",
@@ -538,7 +587,7 @@ def test_check_prevent_nspr_nss_nss():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() is None, (
+    assert not prevent_nspr_nss_check.result(), (
         "Check should allow changes to NSS with proper commit message."
     )
 
@@ -553,10 +602,13 @@ def test_check_prevent_nspr_nss_nspr():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() == (
+    expected = (
         "Revision makes changes to restricted directories: vendored NSPR directories: "
         "`nsprpub/testfile.txt`."
-    ), "Check should disallow changes to NSPR without proper commit message."
+    )
+    assert [expected] == prevent_nspr_nss_check.result(), (
+        "Check should disallow changes to NSPR without proper commit message."
+    )
 
     prevent_nspr_nss_check = PreventNSPRNSSCheck(
         email="testuser@mozilla.com",
@@ -564,7 +616,7 @@ def test_check_prevent_nspr_nss_nspr():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() is None, (
+    assert not prevent_nspr_nss_check.result(), (
         "Check should allow changes to NSPR with proper commit message."
     )
 
@@ -581,10 +633,11 @@ def test_check_prevent_nspr_nss_combined():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() == (
+    expected = (
         "Revision makes changes to restricted directories: vendored NSS directories: "
         "`security/nss/testfile.txt` vendored NSPR directories: `nsprpub/testfile.txt`."
-    ), (
+    )
+    assert [expected] == prevent_nspr_nss_check.result(), (
         "Check should disallow changes to both NSS and NSPR without proper commit message."
     )
 
@@ -594,10 +647,13 @@ def test_check_prevent_nspr_nss_combined():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() == (
+    expected = (
         "Revision makes changes to restricted directories: "
         "vendored NSS directories: `security/nss/testfile.txt`."
-    ), "Check should allow changes to NSPR with proper commit message."
+    )
+    assert [expected] == prevent_nspr_nss_check.result(), (
+        "Check should allow changes to NSPR with proper commit message."
+    )
 
     prevent_nspr_nss_check = PreventNSPRNSSCheck(
         email="testuser@mozilla.com",
@@ -605,10 +661,13 @@ def test_check_prevent_nspr_nss_combined():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() == (
+    expected = (
         "Revision makes changes to restricted directories: "
         "vendored NSPR directories: `nsprpub/testfile.txt`."
-    ), "Check should allow changes to NSPR with proper commit message."
+    )
+    assert [expected] == prevent_nspr_nss_check.result(), (
+        "Check should allow changes to NSPR with proper commit message."
+    )
 
     prevent_nspr_nss_check = PreventNSPRNSSCheck(
         email="testuser@mozilla.com",
@@ -616,7 +675,7 @@ def test_check_prevent_nspr_nss_combined():
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
-    assert prevent_nspr_nss_check.result() is None, (
+    assert not prevent_nspr_nss_check.result(), (
         "Check should allow changes to NSPR with proper commit message."
     )
 
@@ -629,7 +688,7 @@ def test_check_prevent_submodules():
     for diff in parsed_diff:
         prevent_submodules_check.next_diff(diff)
 
-    assert prevent_submodules_check.result() is None, (
+    assert not prevent_submodules_check.result(), (
         "Check should pass when no submodules are introduced."
     )
 
@@ -639,11 +698,10 @@ def test_check_prevent_submodules():
     prevent_submodules_check = PreventSubmodulesCheck()
     for diff in parsed_diff:
         prevent_submodules_check.next_diff(diff)
-
-    assert (
-        prevent_submodules_check.result()
-        == "Revision introduces a Git submodule into the repository."
-    ), "Check should prevent revisions from introducing submodules."
+    expected = "Revision introduces a Git submodule into the repository."
+    assert [expected] == prevent_submodules_check.result(), (
+        "Check should prevent revisions from introducing submodules."
+    )
 
 
 def test_check_bug_references_public_bugs():
@@ -817,7 +875,7 @@ def test_check_try_task_config():
     for diff in parsed_diff:
         try_task_config_check.next_diff(diff)
 
-    assert try_task_config_check.result() is None, (
+    assert not try_task_config_check.result(), (
         "Check should pass when no try_task_config.json is introduced."
     )
 
@@ -827,11 +885,10 @@ def test_check_try_task_config():
     try_task_config_check = TryTaskConfigCheck()
     for diff in parsed_diff:
         try_task_config_check.next_diff(diff)
-
-    assert (
-        try_task_config_check.result()
-        == "Revision introduces the `try_task_config.json` file."
-    ), "Check should prevent revisions from adding try_task_config.json."
+    expected = "Revision introduces the `try_task_config.json` file."
+    assert [expected] == try_task_config_check.result(), (
+        "Check should prevent revisions from adding try_task_config.json."
+    )
 
 
 def test_landing_checks_run():
@@ -847,12 +904,21 @@ def test_landing_checks_run():
         ),
         GitPatchHelper.from_string_io(
             io.StringIO(
-                # PreventNSPRNSSCheck will get triggered.
+                # Both PreventNSPRNSSCheck and PreventNSPRCheck will get triggered.
+                # For now, we only use the grouped one in the Repo. See Bug 2061086.
                 GIT_PATCH_FILENAME_TEMPLATE.format(filename="nsprpub/testfile.txt"),
             )
         ),
     ]
 
+    expected = [
+        "Revision introduces the `try_task_config.json` file.",
+        "Revision makes changes to restricted directories: vendored NSPR directories: `nsprpub/testfile.txt`.",
+        "Revision makes changes to restricted directories: vendored NSPR directories: `nsprpub/testfile.txt`.",
+        "Revision needs 'Bug N' or 'No bug' in the commit message: Change things",
+        "Revision needs 'Bug N' or 'No bug' in the commit message: Change things",
+    ]
+
     names_run = landing_checks.run([chk.name() for chk in ALL_CHECKS], patch_helpers)
 
-    assert len(names_run) == 4
+    assert names_run == expected

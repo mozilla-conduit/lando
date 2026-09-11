@@ -70,6 +70,12 @@ cannot be included in the repo. That file is listed in the `.gitignore` list.
 Note that, currently, this environment file is also used by the [Conduit suite]
 when running a lando stack from the local working copy.
 
+The container writes into the bind-mounted working copy, so it runs as the user
+that owns it: `compose.yaml` builds its `app` user with the uid from `APP_UID`.
+The `make` targets default it to your own uid, so they need no setup. If you
+drive `docker compose` directly and your uid is not the usual 1000, set it in
+`.env` and rebuild, otherwise the container cannot write to your checkout.
+
 ## Testing
 
 To run the test suite, invoke the following command:
@@ -114,6 +120,30 @@ You can instruct the system to run the tests in suite by default with
 and restore the default with
 
     make test-use-local
+
+### Working on several branches at once
+
+Each checkout runs as its own compose project, named after its directory, so
+`git worktree` checkouts can be built and tested in parallel:
+
+    git worktree add ../lando-bug-123456 -b bug-123456
+
+Building and testing in `../lando-bug-123456` produces `lando-bug-123456-*`
+images and its own database, Redis and volumes, leaving the ones belonging to
+the main checkout untouched. Projects are named from the directory, so this
+applies to `docker compose` invoked directly as much as to the `make` targets.
+Create worktrees _beside_ the repository rather than inside it, so they stay out
+of the Docker build context.
+
+Three things are worth knowing about a new checkout:
+
+- Only one checkout at a time can publish the proxy on port 443. Set
+  `LANDO_PROXY_PORT` to something else in the others.
+- The Vue bundle is built into the working copy rather than into the image, so
+  run `make build-js` before serving the frontend.
+- There is no git metadata in the Docker build context of a worktree, so the
+  image reports the `fallback_version` from `pyproject.toml` rather than a
+  version derived from the tags.
 
 ## General Tips
 

@@ -189,6 +189,26 @@ def test__PullRequest___parse_body_segments__no_delimiter(body, expected_output)
     assert output == expected_output
 
 
+def test__PullRequest__patch(
+    github_api_client_pr: GitHubAPIClient, github_pr_patch: str
+):
+    pr = github_api_client_pr.build_pull_request(1)
+
+    assert pr.patch == github_pr_patch
+
+
+def test__PullRequest__patch__stale(
+    github_api_client_pr: GitHubAPIClient, github_pr_patch: str
+):
+    pr = github_api_client_pr.build_pull_request(1)
+
+    # Make the PR's head SHA different from what the github_api_client returns.
+    pr.head_sha = pr.head_sha[::-1]
+
+    with pytest.raises(PullRequest.StaleMetadataException):
+        _ = pr.patch
+
+
 @pytest.mark.parametrize(
     "secret, payload, signature, is_valid",
     (

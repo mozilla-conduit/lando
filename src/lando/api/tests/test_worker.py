@@ -2,6 +2,7 @@ import logging
 import os
 from datetime import datetime, timedelta
 from unittest import mock
+from unittest.mock import patch
 
 import pytest
 
@@ -41,6 +42,23 @@ def test_Worker__no_SSH_PRIVATE_KEY(caplog, landing_worker_instance, scm_type):
 
     # It should complain, but continue.
     assert LandingWorker.SSH_PRIVATE_KEY_ENV_KEY in caplog.text
+
+
+@patch("lando.main.scm.GitSCM.startup_maintenance")
+@pytest.mark.django_db
+def test_Worker__startup_maintenance(
+    scm_git_startup_maintenance, landing_worker_instance
+):
+    w = LandingWorker(landing_worker_instance(scm=SCMType.GIT))
+
+    # Let the runner terminate immediately after setup.
+    w.start(max_loops=-1)
+
+    assert len(w.enabled_repos) > 0, "We should have some enabled repos"
+
+    assert scm_git_startup_maintenance.call_count == len(w.enabled_repos), (
+        "Startup maintenance should have run for each enabled repo"
+    )
 
 
 @pytest.fixture
@@ -263,7 +281,7 @@ def test_Worker_run_idle_maintenance_throttles_repeat_calls(
     landing_worker.run_idle_maintenance()
 
     for repo in repos:
-        assert repo._scm.maintenance.call_count == 1, (
+        assert repo._scm.idle_maintenance.call_count == 1, (
             "Repeat calls inside `maintenance_interval_seconds` should be throttled."
         )
 
@@ -286,7 +304,7 @@ def test_Worker_run_idle_maintenance_runs_again_after_interval(
     landing_worker.run_idle_maintenance()
 
     for repo in repos:
-        assert repo._scm.maintenance.call_count == 2, (
+        assert repo._scm.idle_maintenance.call_count == 2, (
             "`maintenance` should run again once `maintenance_interval_seconds` has elapsed."
         )
 
@@ -316,13 +334,13 @@ def test_Worker_run_idle_maintenance_stops_at_budget_and_prefers_oldest(
 
     landing_worker.run_idle_maintenance()
 
-    assert oldest_repo._scm.maintenance.call_count == 1, (
+    assert oldest_repo._scm.idle_maintenance.call_count == 1, (
         "The repo waiting longest should run first when the budget is tight."
     )
     for repo in repos:
         if repo is oldest_repo:
             continue
-        assert repo._scm.maintenance.call_count == 0, (
+        assert repo._scm.idle_maintenance.call_count == 0, (
             "Other repos should be skipped once the budget is exhausted."
         )
 
@@ -336,12 +354,12 @@ def test_Worker_run_idle_maintenance_isolates_failures(
     assert len(repos) >= 2, "Test requires at least two enabled repos."
 
     failing_repo, *healthy_repos = repos
-    failing_repo._scm.maintenance.side_effect = SCMException("boom", "", "")
+    failing_repo._scm.idle_maintenance.side_effect = SCMException("boom", "", "")
 
     landing_worker.run_idle_maintenance()
 
     for repo in healthy_repos:
-        repo._scm.maintenance.assert_called_once_with()
+        repo._scm.idle_maintenance.assert_called_once_with()
     assert f"Idle maintenance failed for {failing_repo.name}" in caplog.text, (
         "A failure in one repo's maintenance should be logged."
     )
