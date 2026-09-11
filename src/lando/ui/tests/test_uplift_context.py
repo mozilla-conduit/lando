@@ -8,6 +8,7 @@ from lando.main.models import JobStatus
 from lando.main.models.uplift import (
     UpliftAssessment,
     UpliftJob,
+    UpliftRevision,
     UpliftSubmission,
 )
 from lando.main.scm import SCMType
@@ -143,7 +144,7 @@ def test_card_carries_every_job_queued_from_its_assessment(user, repo_mc):
         target_repo=beta,
     )
 
-    cards = UpliftContext.build_assessment_cards(bug_id, None)
+    cards = UpliftContext.build_assessment_cards(bug_id, 100, None)
     jobs_by_assessment = {card.assessment.pk: list(card.jobs) for card in cards}
 
     assert jobs_by_assessment[assessment.pk] == jobs, (
@@ -151,4 +152,90 @@ def test_card_carries_every_job_queued_from_its_assessment(user, repo_mc):
     )
     assert jobs_by_assessment[other_assessment.pk] == [other_job], (
         "A card should only carry the jobs queued from its own assessment."
+    )
+
+
+@pytest.mark.django_db
+def test_assessment_with_no_bug_still_shows_on_its_revisions(user, repo_mc):
+    """Assessments predating `bug_id` stay visible without a backfill.
+
+    They have no bug to group by, so the revisions they reach are the only
+    thing keeping them on the page.
+    """
+    linked_revision_id = 100
+    requested_revision_id = 200
+    created_revision_id = 300
+    repo = repo_mc(scm_type=SCMType.GIT, name="firefox-beta", approval_required=True)
+
+    linked = UpliftAssessment.objects.create(
+        user=user, bug_id=None, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    UpliftRevision.link_revision_to_assessment(linked_revision_id, linked)
+
+    requested = UpliftAssessment.objects.create(
+        user=user, bug_id=None, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    submission = UpliftSubmission.objects.create(
+        requested_by=user,
+        assessment=requested,
+        requested_revision_ids=[requested_revision_id],
+    )
+    UpliftJob.objects.create(
+        submission=submission,
+        requester_email=user.email,
+        status=JobStatus.SUBMITTED,
+        target_repo=repo,
+        created_revision_ids=[created_revision_id],
+    )
+
+    unrelated = UpliftAssessment.objects.create(
+        user=user, bug_id=None, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+
+    for revision_id, expected in (
+        (linked_revision_id, linked),
+        (requested_revision_id, requested),
+        (created_revision_id, requested),
+    ):
+        visible = list(UpliftAssessment.visible_on_revision(None, revision_id))
+        assert visible == [expected], (
+            f"D{revision_id} should reach assessment {expected.pk} with no bug set."
+        )
+        assert unrelated not in visible, (
+            "An assessment the revision does not reach should stay hidden."
+        )
+
+
+@pytest.mark.django_db
+def test_card_lists_the_revisions_an_uplift_was_requested_for(user, repo_mc):
+    """Requesting an uplift records no revision link, so the card reads submissions.
+
+    `UpliftRequestView` only stores `requested_revision_ids`, so without this
+    the card would claim the assessment reaches no revisions at all.
+    """
+    bug_id = 515151
+    repo = repo_mc(scm_type=SCMType.GIT, name="firefox-beta", approval_required=True)
+
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=bug_id, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    submission = UpliftSubmission.objects.create(
+        requested_by=user,
+        assessment=assessment,
+        requested_revision_ids=[100, 200],
+    )
+    UpliftJob.objects.create(
+        submission=submission,
+        requester_email=user.email,
+        status=JobStatus.SUBMITTED,
+        target_repo=repo,
+    )
+
+    (card,) = UpliftContext.build_assessment_cards(bug_id, 100, None)
+
+    assert card.requested_revision_ids == [100, 200], (
+        "The card should list the revisions the uplift was requested for."
+    )
+    assert card.revision_ids == [], (
+        "Requesting an uplift does not make a revision carry the form."
     )

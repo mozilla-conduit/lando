@@ -210,17 +210,19 @@ class UpliftAssessmentEditView(LandoView):
             return redirect(request.META.get("HTTP_REFERER"))
 
         # Reading the revision from Phabricator proves the requester was granted
-        # access to it, so any assessment filed against the same bug is editable
-        # from its page. The bug match is what scopes the endpoint.
-        assessment = UpliftAssessment.objects.filter(
-            id=assessment_id, bug_id=bug_id
-        ).first()
+        # access to it, so any assessment that revision displays is editable
+        # from its page. That set is what scopes the endpoint.
+        assessment = (
+            UpliftAssessment.visible_on_revision(bug_id, revision_id)
+            .filter(id=assessment_id)
+            .first()
+        )
 
         if assessment is None:
             messages.add_message(
                 request,
                 messages.ERROR,
-                f"Uplift assessment #{assessment_id} is not filed against bug {bug_id}.",
+                f"Uplift assessment #{assessment_id} is not shown on D{revision_id}.",
             )
             return redirect(request.META.get("HTTP_REFERER"))
 
@@ -283,9 +285,11 @@ class UpliftAssessmentLinkView(LandoView):
         uplift_revision = UpliftRevision.one_or_none(revision_id=revision_id)
         existing_assessment = uplift_revision.assessment if uplift_revision else None
 
-        # Scoping the form to the revision's bug is what stops a revision being
-        # linked to an unrelated assessment.
-        link_form = LinkUpliftAssessmentForm(request.POST, bug_id=bug_id)
+        # Scoping the form to what the revision displays is what stops a
+        # revision being linked to an unrelated assessment.
+        link_form = LinkUpliftAssessmentForm(
+            request.POST, bug_id=bug_id, revision_id=revision_id
+        )
 
         if not link_form.is_valid():
             errors = [

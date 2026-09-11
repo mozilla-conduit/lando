@@ -54,7 +54,15 @@ future.
                         <div class="level-right">
                             <div class="level-item">
                                 <div class="has-text-right">
-                                    <p class="is-size-7 has-text-grey">Linked revisions</p>
+                                    {% if card.requested_revision_ids %}
+                                        <p class="is-size-7 has-text-grey">Requested for uplift</p>
+                                        <div class="tags is-right">
+                                            {% for rev_id in card.requested_revision_ids %}
+                                                {{ revision_tag(rev_id, uplift.revision_id) }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <p class="is-size-7 has-text-grey">Carrying this form</p>
                                     <div class="tags is-right">
                                         {% for rev_id in card.revision_ids %}
                                             {{ revision_tag(rev_id, uplift.revision_id) }}

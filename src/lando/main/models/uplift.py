@@ -134,6 +134,36 @@ class UpliftAssessment(BaseModel):
     )
 
     @classmethod
+    def visible_on_revision(
+        cls, bug_id: int | None, revision_id: int
+    ) -> models.QuerySet:
+        """Return the uplift assessments a revision's page should display.
+
+        The bug is the primary grouping, but assessments the revision reaches
+        directly are included too. Those recorded before `bug_id` existed have
+        no bug to group by, so this is the only way they stay visible.
+        """
+        reachable = models.Q(revisions__revision_id=revision_id) | models.Q(
+            uplift_submission__requested_revision_ids__contains=[revision_id]
+        )
+
+        # A revision an uplift job created also reaches the assessment behind it.
+        reachable |= models.Q(
+            uplift_submission__uplift_jobs__created_revision_ids__contains=[revision_id]
+        )
+
+        if bug_id is not None:
+            reachable |= models.Q(bug_id=bug_id)
+
+        return (
+            cls.objects.filter(reachable)
+            .select_related("user")
+            .prefetch_related("revisions")
+            .order_by("created_at")
+            .distinct()
+        )
+
+    @classmethod
     def for_bug(cls, bug_id: int | None) -> models.QuerySet:
         """Return every uplift assessment recorded against the given bug.
 
@@ -150,6 +180,17 @@ class UpliftAssessment(BaseModel):
             .prefetch_related("revisions")
             .order_by("created_at")
         )
+
+    def requested_revision_ids(self) -> list[int]:
+        """Return the revisions an uplift was requested for, oldest request first."""
+        requested = []
+
+        for submission in self.uplift_submission.order_by("created_at"):
+            for revision_id in submission.requested_revision_ids:
+                if revision_id not in requested:
+                    requested.append(revision_id)
+
+        return requested
 
     def display_answers(self) -> list[UpliftAssessmentAnswer]:
         """Return every question on the form with its answer, for display."""

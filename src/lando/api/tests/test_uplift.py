@@ -673,8 +673,8 @@ def test_edit_assessment_rejects_assessment_from_another_bug(
     mock_apply_async.assert_not_called()
 
     flash_messages = [str(message) for message in get_messages(response.wsgi_request)]
-    assert any("is not filed against bug" in message for message in flash_messages), (
-        f"Should flash an error about the bug mismatch: {flash_messages=}"
+    assert any("is not shown on" in message for message in flash_messages), (
+        f"Should flash an error about the assessment not being shown: {flash_messages=}"
     )
 
 

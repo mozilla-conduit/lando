@@ -105,11 +105,11 @@ class UpliftAssessmentForm(forms.ModelForm):
 
 
 class LinkUpliftAssessmentForm(forms.Form):
-    """Form to link one of a bug's uplift assessments to a revision.
+    """Form to link one of a revision's uplift assessments to it.
 
     The assessment is chosen by clicking its card on the revision page rather
     than from a drop-down, so the field is hidden and validation exists only to
-    confirm the submitted assessment belongs to the revision's bug.
+    confirm the submitted assessment is one the revision actually displays.
     """
 
     assessment = forms.ModelChoiceField(
@@ -119,10 +119,14 @@ class LinkUpliftAssessmentForm(forms.Form):
         widget=forms.widgets.HiddenInput(),
     )
 
-    def __init__(self, *args, bug_id: int | None = None, **kwargs):
+    def __init__(
+        self, *args, bug_id: int | None = None, revision_id: int = 0, **kwargs
+    ):
         super().__init__(*args, **kwargs)
 
-        self.fields["assessment"].queryset = UpliftAssessment.for_bug(bug_id)
+        self.fields["assessment"].queryset = UpliftAssessment.visible_on_revision(
+            bug_id, revision_id
+        )
 
 
 class UpliftAssessmentLinkForm(UpliftAssessmentForm):

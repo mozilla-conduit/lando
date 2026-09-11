@@ -39,6 +39,9 @@ class UpliftAssessmentCard:
     # Phabricator revision IDs already carrying this assessment.
     revision_ids: Sequence[int]
 
+    # Phabricator revision IDs an uplift was requested for.
+    requested_revision_ids: Sequence[int]
+
     # Every uplift job queued from this assessment, one per target train.
     jobs: Sequence[UpliftJob]
 
@@ -111,7 +114,9 @@ class UpliftContext:
             can_create_uplift_submission=cls.can_create_submission(request),
             revision_id=revision_id,
             bug_id=bug_id,
-            bug_assessments=cls.build_assessment_cards(bug_id, linked_assessment),
+            bug_assessments=cls.build_assessment_cards(
+                bug_id, revision_id, linked_assessment
+            ),
             new_assessment_form=new_assessment_form,
             docs_url=UPLIFT_DOCS_URL,
             train_api_url=settings.WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL,
@@ -129,10 +134,13 @@ class UpliftContext:
 
     @classmethod
     def build_assessment_cards(
-        cls, bug_id: int | None, linked_assessment: UpliftAssessment | None
+        cls,
+        bug_id: int | None,
+        revision_id: int,
+        linked_assessment: UpliftAssessment | None,
     ) -> tuple[UpliftAssessmentCard, ...]:
-        """Return a card for each assessment recorded against the bug."""
-        assessments = list(UpliftAssessment.for_bug(bug_id))
+        """Return a card for each assessment this revision should display."""
+        assessments = list(UpliftAssessment.visible_on_revision(bug_id, revision_id))
         jobs_by_assessment = cls.jobs_by_assessment(assessments)
 
         return tuple(
@@ -148,6 +156,7 @@ class UpliftContext:
                     for uplift_revision in assessment.revisions.all()
                     if uplift_revision.revision_id is not None
                 ],
+                requested_revision_ids=assessment.requested_revision_ids(),
                 jobs=jobs_by_assessment.get(assessment.pk, []),
             )
             for assessment in assessments
