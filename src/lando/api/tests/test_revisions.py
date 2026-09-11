@@ -2,6 +2,7 @@ import pytest
 
 from lando.api.legacy.api import stacks
 from lando.api.legacy.revisions import (
+    MergeConflictStatus,
     blocker_diff_author_is_known,
     ensure_revisions_from_phabricator,
     fetch_raw_diff_and_save,
@@ -10,6 +11,7 @@ from lando.api.legacy.revisions import (
     revision_needs_testing_tag,
 )
 from lando.api.legacy.transplants import warning_diff_author_is_hackbot
+from lando.api.tests.mocks import merge_conflict_status
 from lando.main.models.revision import Revision
 
 pytestmark = pytest.mark.usefixtures("docker_env_vars")
@@ -163,6 +165,68 @@ def test_get_base_revision_from_diff_handles_missing_refs():
     assert get_base_revision_from_diff({"fields": {}}) == "", (
         "`get_base_revision_from_diff` should return an empty string without refs."
     )
+
+
+def merge_conflict_revision(**overrides) -> dict:
+    """Build a revision carrying a merge conflict status payload."""
+    return {"fields": {"merge.conflict.status": merge_conflict_status(**overrides)}}
+
+
+def test_merge_conflict_status_from_revision_parses_payload():
+    """Every key Phabricator sends is carried onto the parsed verdict."""
+    status = MergeConflictStatus.from_revision(merge_conflict_revision())
+
+    assert status == MergeConflictStatus(
+        status="conflict",
+        reason="Merged against the current target branch tip.",
+        base_commit="a" * 40,
+        target_commit="f" * 40,
+        diff_id=456,
+        epoch=1757001600,
+        is_stale=False,
+    ), "`MergeConflictStatus.from_revision` should parse the Conduit payload."
+
+
+def test_merge_conflict_status_from_revision_without_field():
+    """A revision without the custom field has no verdict."""
+    assert MergeConflictStatus.from_revision({"fields": {}}) is None, (
+        "`MergeConflictStatus.from_revision` should return `None` without the field."
+    )
+
+
+def test_merge_conflict_status_from_revision_without_status():
+    """A payload that records no status is as unusable as a missing one."""
+    revision = {"fields": {"merge.conflict.status": {"epoch": 1757001600}}}
+
+    assert MergeConflictStatus.from_revision(revision) is None, (
+        "`MergeConflictStatus.from_revision` should return `None` without a status."
+    )
+
+
+@pytest.mark.parametrize(
+    "status,is_conflict",
+    (
+        ("conflict", True),
+        ("clean", False),
+        ("unknown", False),
+    ),
+)
+def test_merge_conflict_status_is_conflict(status, is_conflict):
+    """Only an explicit `conflict` verdict counts as a conflict."""
+    parsed = MergeConflictStatus.from_revision(merge_conflict_revision(status=status))
+
+    assert parsed.is_conflict is is_conflict, (
+        f"`is_conflict` should be `{is_conflict}` for a `{status}` verdict."
+    )
+
+
+def test_merge_conflict_status_describe_check():
+    """The description names the diff, base commit and time of the check."""
+    status = MergeConflictStatus.from_revision(merge_conflict_revision())
+
+    assert status.describe_check() == (
+        f"Last checked diff 456, base commit {'a' * 40}, at 2025-09-04 16:00 UTC."
+    ), "`describe_check` should name every recorded input."
 
 
 @pytest.mark.django_db
