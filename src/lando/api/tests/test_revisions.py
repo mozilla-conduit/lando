@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 
 from lando.api.legacy.api import stacks
@@ -168,7 +170,7 @@ def test_get_base_revision_from_diff_handles_missing_refs():
     )
 
 
-def merge_conflict_revision(**overrides) -> dict:
+def merge_conflict_revision(**overrides: Any) -> dict:
     """Build a revision carrying a merge conflict status payload."""
     return {"fields": {"merge.conflict.status": merge_conflict_status(**overrides)}}
 

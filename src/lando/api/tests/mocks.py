@@ -27,7 +27,7 @@ def conduit_method(method):
     return decorate
 
 
-def merge_conflict_status(**overrides) -> dict:
+def merge_conflict_status(**overrides: Any) -> dict:
     """Build a merge conflict status payload as Phabricator sends it."""
     return {
         "status": "conflict",
@@ -285,7 +285,7 @@ class PhabricatorDouble:
         title="",
         summary="",
         uplift=None,
-        merge_conflict_status=None,
+        merge_conflict_status: dict | None = None,
     ):
         revision_id = self._new_id(self._revisions)
         phid = self._new_phid("DREV-")

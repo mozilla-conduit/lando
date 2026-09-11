@@ -1415,7 +1415,9 @@ def merge_conflict_stack(
 
 
 @pytest.mark.django_db
-def test_warning_merge_conflict_warns_on_landing_tip(merge_conflict_stack: Callable):
+def test_warning_merge_conflict_warns_on_landing_tip(
+    merge_conflict_stack: Callable,
+):
     """A conflict recorded on the tip warns, since it describes the whole landing."""
     pairs, stack_state = merge_conflict_stack(tip_status=merge_conflict_status())
     (root_revision, root_diff), (tip_revision, tip_diff) = pairs
@@ -1489,7 +1491,9 @@ def test_warning_merge_conflict_no_warning_without_status(
 
 
 @pytest.mark.django_db
-def test_warning_merge_conflict_reports_a_stale_verdict(merge_conflict_stack: Callable):
+def test_warning_merge_conflict_reports_a_stale_verdict(
+    merge_conflict_stack: Callable,
+):
     """A verdict computed for an earlier diff is flagged as possibly out of date."""
     pairs, stack_state = merge_conflict_stack(
         tip_status=merge_conflict_status(isStale=True)
