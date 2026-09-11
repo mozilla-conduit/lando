@@ -252,9 +252,10 @@ class BaseJob(BaseModel):
             self.error = kwargs["message"]
 
         if action == JobAction.ABORT:
+            # Note: this warning is used for a Grafana alert.
             logger.warning(
                 f"Aborting {self} after {self.attempts} attempts.",
-                extra={"id": self.id},
+                extra={"id": self.id, "job_type": self.type},
             )
             self.error = ABORTED_ERROR_TEMPLATE.format(
                 attempts=self.attempts, message=kwargs["message"]

@@ -1,3 +1,4 @@
+import logging
 from typing import Callable
 
 import pytest
@@ -67,6 +68,31 @@ def test__models__BaseJob__abort_sets_templated_error(make_landing_job: Callable
     assert job.error == ABORTED_ERROR_TEMPLATE.format(
         attempts=3, message="the last failure"
     ), "The error should explain the abort and quote the last failure verbatim."
+
+
+@pytest.mark.django_db
+def test__models__BaseJob__abort_logs_a_warning_for_the_alert(
+    caplog: pytest.LogCaptureFixture, make_landing_job: Callable
+):
+    """A log-based metric counts the abort warnings, so they need stable fields."""
+    caplog.set_level(logging.WARNING)
+    job = make_landing_job(status=JobStatus.IN_PROGRESS, attempts=3)
+
+    job.transition_status(JobAction.ABORT, message="the last failure")
+
+    records = [
+        record
+        for record in caplog.records
+        if record.getMessage().startswith("Aborting")
+    ]
+
+    assert len(records) == 1, "Aborting a job should log a single warning."
+    assert records[0].getMessage() == f"Aborting {job} after 3 attempts.", (
+        "The warning should name the job and the number of attempts it made."
+    )
+    assert records[0].job_type == "Landing", (
+        "The warning should carry the job type as a field, for use as a metric label."
+    )
 
 
 @pytest.mark.django_db
