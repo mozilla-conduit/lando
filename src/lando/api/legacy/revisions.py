@@ -2,10 +2,12 @@ import logging
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum, unique
 from typing import (
     Any,
     NamedTuple,
     Optional,
+    Self,
 )
 
 from django.db import transaction
@@ -145,6 +147,31 @@ def get_bugzilla_bug(revision: dict) -> Optional[int]:
     return int(bug) if bug else None
 
 
+@unique
+class MergeConflictVerdict(Enum):
+    """Enumeration of verdicts Phabricator may report for a merge conflict check.
+
+    Phabricator reports `unknown` for every situation it could not decide, so any
+    verdict it adds in the future is treated as undecided until we handle it.
+    """
+
+    CLEAN = "clean"
+    CONFLICT = "conflict"
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def from_status(cls, value: str) -> Self:
+        try:
+            return cls(value)
+        except ValueError:
+            logger.warning(
+                "Unknown merge conflict verdict reported by Phabricator.",
+                extra={"status": value},
+            )
+
+        return cls.UNKNOWN
+
+
 @dataclass(frozen=True)
 class MergeConflictStatus:
     """The mergeability verdict Phabricator computed for a revision.
@@ -154,9 +181,8 @@ class MergeConflictStatus:
     together with its parents, not the revision's own patch in isolation.
     """
 
-    # The verdict itself: `clean`, `conflict`, or `unknown` for every situation
-    # Phabricator could not decide.
-    status: str
+    # The verdict itself.
+    status: MergeConflictVerdict
 
     # Phabricator's own explanation of the verdict, naming how much of the stack
     # was applied before merging.
@@ -195,7 +221,7 @@ class MergeConflictStatus:
             return None
 
         return cls(
-            status=value["status"],
+            status=MergeConflictVerdict.from_status(value["status"]),
             reason=value.get("reason"),
             base_commit=value.get("checkedAgainstBaseCommit"),
             target_commit=value.get("checkedAgainstCommit"),
@@ -211,7 +237,7 @@ class MergeConflictStatus:
         Phabricator reports `unknown` for every situation it could not decide, so
         only an explicit `conflict` is a conflict.
         """
-        return self.status == "conflict"
+        return self.status is MergeConflictVerdict.CONFLICT
 
     def describe_check(self) -> Optional[str]:
         """Describe the inputs the verdict was computed from.

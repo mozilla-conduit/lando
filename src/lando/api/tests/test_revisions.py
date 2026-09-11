@@ -3,6 +3,7 @@ import pytest
 from lando.api.legacy.api import stacks
 from lando.api.legacy.revisions import (
     MergeConflictStatus,
+    MergeConflictVerdict,
     blocker_diff_author_is_known,
     ensure_revisions_from_phabricator,
     fetch_raw_diff_and_save,
@@ -177,7 +178,7 @@ def test_merge_conflict_status_from_revision_parses_payload():
     status = MergeConflictStatus.from_revision(merge_conflict_revision())
 
     assert status == MergeConflictStatus(
-        status="conflict",
+        status=MergeConflictVerdict.CONFLICT,
         reason="Merged against the current target branch tip.",
         base_commit="a" * 40,
         target_commit="f" * 40,
@@ -204,19 +205,23 @@ def test_merge_conflict_status_from_revision_without_status():
 
 
 @pytest.mark.parametrize(
-    "status,is_conflict",
+    "status,verdict",
     (
-        ("conflict", True),
-        ("clean", False),
-        ("unknown", False),
+        ("conflict", MergeConflictVerdict.CONFLICT),
+        ("clean", MergeConflictVerdict.CLEAN),
+        ("unknown", MergeConflictVerdict.UNKNOWN),
+        ("a-verdict-lando-does-not-know", MergeConflictVerdict.UNKNOWN),
     ),
 )
-def test_merge_conflict_status_is_conflict(status, is_conflict):
+def test_merge_conflict_status_is_conflict(status: str, verdict: MergeConflictVerdict):
     """Only an explicit `conflict` verdict counts as a conflict."""
     parsed = MergeConflictStatus.from_revision(merge_conflict_revision(status=status))
 
-    assert parsed.is_conflict is is_conflict, (
-        f"`is_conflict` should be `{is_conflict}` for a `{status}` verdict."
+    assert parsed.status is verdict, (
+        f"A `{status}` payload should parse as `{verdict}`."
+    )
+    assert parsed.is_conflict is (verdict is MergeConflictVerdict.CONFLICT), (
+        f"`is_conflict` should only be `True` for a `conflict` verdict, not `{status}`."
     )
 
 
