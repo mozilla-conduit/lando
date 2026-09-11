@@ -266,6 +266,19 @@ def patches(
         # Create Revision objects from patches and associate them with the job.
         revisions = []
         for ph in patch_helpers:
+            # WARNING: As we get the commit_description and diffs from a HgPatchHelper,
+            # it is at risk of diff smuggling via the commit message.
+            #
+            # There is no way we can detect this (and indeed Git cannot do it either),
+            # as the patch is a single undelimited string of text. We only add the Diff
+            # Start Line when creating a PatchHelper from structured metadata, e.g.,
+            # from Phabricator's API.
+            #
+            # However, Try pushes and workers are at SCM Level 1, which is a low-trust
+            # environment where users can already push their own commits for testing.
+            # This makes the ability of smuggling diffs useless. Moreover, as the
+            # smuggled diff would be considered part of the patch, all other checks
+            # would also be run over it, retaining the safety they enforce.
             commit_message = ph.get_commit_description()
             diff = ph.get_diff()
 

@@ -1,4 +1,5 @@
 import io
+from typing import Callable
 from unittest.mock import patch
 
 import pytest
@@ -6,6 +7,7 @@ import requests
 import rs_parsepatch
 
 from lando.api.tests.test_commit_message import GIT_STYLE_REVERT, HG_STYLE_BACKOUT
+from lando.main.scm import SCMType
 from lando.main.scm.helpers import (
     GitPatchHelper,
     HgPatchHelper,
@@ -183,74 +185,104 @@ def test_check_commit_message_valid_message(commit_message: str, error_message: 
 
 
 @pytest.mark.parametrize(
-    "commit_message,return_string,error_message",
-    [
-        (
-            "this message is missing the bug.",
-            "Revision needs 'Bug N' or 'No bug' in the commit message: ",
-            "Commit message is rejected without a bug number.",
-        ),
-        (
-            "Mass revert m-i to the last known good state",
-            "Revision needs 'Bug N' or 'No bug' in the commit message: ",
-            "Revision missing a bug number or no bug should result in a failed check.",
-        ),
-        (
-            "update revision of Add-on SDK tests to latest tip; test-only",
-            "Revision needs 'Bug N' or 'No bug' in the commit message: ",
-            "Revision missing a bug number or no bug should result in a failed check.",
-        ),
-        (
-            "Fix stupid bug in foo::bar()",
-            "Revision needs 'Bug N' or 'No bug' in the commit message: ",
-            "Commit message with 'bug' bug in improper format should result in a failed check.",
-        ),
-        (
-            "Back out Dao's push because of build bustage",
-            "Revision is a backout but commit message does not indicate backed out revisions: ",
-            "Backout should be rejected when a reference to the original patch is missing.",
-        ),
-        (
-            "Bug 100 - Foo. r?bar REPO-firefox-autoland",
-            "Revision contains 'r?' in the commit message. Please use 'r=' instead: ",
-            "Improper review specifier should be rejected.",
-        ),
-        (
-            "WIP: bug 123: this is a wip r=reviewer",
-            "Revision seems to be marked as WIP: ",
-            "WIP revisions should be rejected.",
-        ),
-        (
-            "[PATCH 1/2] bug 1: first part of my git patch",
-            (
-                "Revision contains git-format-patch '[PATCH]' cruft. "
-                "Use git-format-patch -k to avoid this: "
+    "scm_type,commit_message,return_string,error_message",
+    # Can't use itertools.product without similar overhead as this,
+    # as we have more than one element in the first set.
+    tuple(
+        pytest.param(scm, *case, id=f"{scm}-{desc}")
+        for scm in (SCMType.GIT, SCMType.HG)
+        for desc, case in {
+            "nobug": (
+                "this message is missing the bug.",
+                "Revision needs 'Bug N' or 'No bug' in the commit message: ",
+                "Commit message is rejected without a bug number.",
             ),
-            "`git-format-patch` cruft should result in a failed check.",
-        ),
-        (
-            "Bug 100 - Foo. r=bar REPO-elm",
-            "Commit locked to a repo other than firefox-autoland: ",
-            "Revision with REPO- mismatch should be rejected.",
-        ),
-    ],
-    ids=(
-        "nobug",
-        "revert",
-        "update",
-        "bugword",
-        "backout",
-        "rq",
-        "wip",
-        "patch",
-        "repo",
+            "revert": (
+                "Mass revert m-i to the last known good state",
+                "Revision needs 'Bug N' or 'No bug' in the commit message: ",
+                "Revision missing a bug number or no bug should result in a failed check.",
+            ),
+            "update": (
+                "update revision of Add-on SDK tests to latest tip; test-only",
+                "Revision needs 'Bug N' or 'No bug' in the commit message: ",
+                "Revision missing a bug number or no bug should result in a failed check.",
+            ),
+            "bugword": (
+                "Fix stupid bug in foo::bar()",
+                "Revision needs 'Bug N' or 'No bug' in the commit message: ",
+                "Commit message with 'bug' bug in improper format should result in a failed check.",
+            ),
+            "backout": (
+                "Back out Dao's push because of build bustage",
+                "Revision is a backout but commit message does not indicate backed out revisions: ",
+                "Backout should be rejected when a reference to the original patch is missing.",
+            ),
+            "rq": (
+                "Bug 100 - Foo. r?bar REPO-firefox-autoland",
+                "Revision contains 'r?' in the commit message. Please use 'r=' instead: ",
+                "Improper review specifier should be rejected.",
+            ),
+            "wip": (
+                "WIP: bug 123: this is a wip r=reviewer",
+                "Revision seems to be marked as WIP: ",
+                "WIP revisions should be rejected.",
+            ),
+            "patch": (
+                "[PATCH 1/2] bug 1: first part of my git patch",
+                (
+                    "Revision contains git-format-patch '[PATCH]' cruft. "
+                    "Use git-format-patch -k to avoid this: "
+                ),
+                "`git-format-patch` cruft should result in a failed check.",
+            ),
+            "repo": (
+                "Bug 100 - Foo. r=bar REPO-elm",
+                "Commit locked to a repo other than firefox-autoland: ",
+                "Revision with REPO- mismatch should be rejected.",
+            ),
+            "diff": (
+                """\
+Bug 100 - Foo. r=bar
+
+diff --git a/b b/b
+new file mode 100644
+index 00000000..72943a16
+--- /dev/null
++++ b/b
+@@ -0,0 +1 @@
++bbb
+""",
+                "Suspected diff found in commit message. Please indent the diff if this is on purpose: ",
+                "Diff-like commit message should be rejected.",
+            ),
+        }.items()
     ),
 )
 def test_check_commit_message_invalid_message(
-    commit_message: str, return_string: str, error_message: str
+    request: pytest.FixtureRequest,
+    diff_to_git_patch: Callable,
+    scm_type: SCMType,
+    commit_message: str,
+    return_string: str,
+    error_message: str,
 ):
-    patch_helpers = [
-        HgPatchHelper.from_string_io(
+    if request.node.callspec.id == "hg-diff":
+        pytest.xfail(
+            "HgPatchHelper premptively splits patch streams on the first diff,"
+            + " allowing other checks to run over the smuggled diff as well."
+        )
+
+    if scm_type == SCMType.GIT:
+        ph = GitPatchHelper.from_string_io(
+            io.StringIO(
+                diff_to_git_patch(
+                    GIT_DIFF_FILENAME_TEMPLATE.format(filename="a"),
+                    commit_description=commit_message,
+                )
+            )
+        )
+    elif scm_type == SCMType.HG:
+        ph = HgPatchHelper.from_string_io(
             io.StringIO(
                 HG_PATCH_AUTHOR_COMMIT_MESSAGE_TEMPLATE.format(
                     author="U Ser <user@example.com>",
@@ -258,7 +290,10 @@ def test_check_commit_message_invalid_message(
                 )
             )
         )
-    ]
+    else:
+        raise Exception(f"Unknown SCM Type {scm_type=}")
+
+    patch_helpers = [ph]
     assessor = PatchCollectionAssessor(
         patch_helpers=patch_helpers, repo_name="firefox-autoland"
     )
@@ -266,7 +301,8 @@ def test_check_commit_message_invalid_message(
     errors = assessor.run_patch_collection_checks(
         patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
     )
-    assert errors == [return_string + commit_message], error_message
+    commit_title = ph.get_commit_title()
+    assert errors == [return_string + commit_title], error_message
 
 
 @pytest.mark.parametrize("signed_disallowed", (False, True))

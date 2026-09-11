@@ -382,7 +382,9 @@ def diff_to_git_patch() -> Callable:
     ) -> str:
         """Wrap a diff in a git patch header and footer."""
         return GIT_PATCH_TEMPLATE.format(
-            author=author, commit_description=commit_description, diff=diff.strip()
+            author=author,
+            commit_description=commit_description.strip(),
+            diff=diff.strip(),
         )
 
     return _diff_to_git_patch
