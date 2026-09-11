@@ -4,12 +4,13 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import Permission, User
 
 from lando.api.legacy.api import transplants as legacy_api_transplants
 from lando.api.legacy.transplants import (
     RevisionWarning,
     StackAssessment,
+    StackAssessmentState,
     blocker_author_planned_changes,
     blocker_prevent_nsprnss_files,
     blocker_prevent_submodules,
@@ -1362,56 +1363,61 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     assert sec_approval_project["name"] not in transplanted_patch.patch
 
 
+@pytest.fixture
 def merge_conflict_stack(
-    phabdouble, user, create_state, tip_status=None, root_status=None
-):
+    phabdouble: PhabricatorDouble, user: User, create_state: Callable
+) -> Callable:
     """Build a two revision stack and a state assessing a landing of both.
 
-    Returns the `(revision, diff)` pair for each revision in the stack, ordered
-    from the root, along with the `StackAssessmentState` for landing the whole
-    stack. The merge conflict status is set on whichever revision the caller
-    passes it for.
+    The returned callable takes the merge conflict status payload to set on the
+    tip and on the root of the stack, and returns the `(revision, diff)` pair for
+    each revision, ordered from the root, along with the `StackAssessmentState`
+    for landing the whole stack.
     """
-    repo = phabdouble.repo()
 
-    root_diff = phabdouble.diff()
-    root = phabdouble.revision(
-        diff=root_diff, repo=repo, merge_conflict_status=root_status
-    )
+    def merge_conflict_stack_handler(
+        tip_status: dict | None = None, root_status: dict | None = None
+    ) -> tuple[list[tuple[dict, dict]], StackAssessmentState]:
+        repo = phabdouble.repo()
 
-    tip_diff = phabdouble.diff()
-    tip = phabdouble.revision(
-        diff=tip_diff,
-        repo=repo,
-        depends_on=[root],
-        merge_conflict_status=tip_status,
-    )
+        root_diff = phabdouble.diff()
+        root = phabdouble.revision(
+            diff=root_diff, repo=repo, merge_conflict_status=root_status
+        )
 
-    attachments = {"reviewers": True, "reviewers-extra": True, "projects": True}
-    revisions = [
-        phabdouble.api_object_for(revision, attachments=attachments)
-        for revision in (root, tip)
-    ]
-    diffs = [
-        phabdouble.api_object_for(diff, attachments={"commits": True})
-        for diff in (root_diff, tip_diff)
-    ]
+        tip_diff = phabdouble.diff()
+        tip = phabdouble.revision(
+            diff=tip_diff,
+            repo=repo,
+            depends_on=[root],
+            merge_conflict_status=tip_status,
+        )
 
-    stack_state = create_state(
-        revisions[-1],
-        landing_path=[(root["id"], root_diff["id"]), (tip["id"], tip_diff["id"])],
-        lando_user=user,
-    )
+        attachments = {"reviewers": True, "reviewers-extra": True, "projects": True}
+        revisions = [
+            phabdouble.api_object_for(revision, attachments=attachments)
+            for revision in (root, tip)
+        ]
+        diffs = [
+            phabdouble.api_object_for(diff, attachments={"commits": True})
+            for diff in (root_diff, tip_diff)
+        ]
 
-    return list(zip(revisions, diffs, strict=True)), stack_state
+        stack_state = create_state(
+            revisions[-1],
+            landing_path=[(root["id"], root_diff["id"]), (tip["id"], tip_diff["id"])],
+            lando_user=user,
+        )
+
+        return list(zip(revisions, diffs, strict=True)), stack_state
+
+    return merge_conflict_stack_handler
 
 
 @pytest.mark.django_db
-def test_warning_merge_conflict_warns_on_landing_tip(user, phabdouble, create_state):
+def test_warning_merge_conflict_warns_on_landing_tip(merge_conflict_stack: Callable):
     """A conflict recorded on the tip warns, since it describes the whole landing."""
-    pairs, stack_state = merge_conflict_stack(
-        phabdouble, user, create_state, tip_status=merge_conflict_status()
-    )
+    pairs, stack_state = merge_conflict_stack(tip_status=merge_conflict_status())
     (root_revision, root_diff), (tip_revision, tip_diff) = pairs
 
     warning = warning_merge_conflict(tip_revision, tip_diff, stack_state)
@@ -1442,12 +1448,10 @@ def test_warning_merge_conflict_warns_on_landing_tip(user, phabdouble, create_st
 
 @pytest.mark.django_db
 def test_warning_merge_conflict_ignores_status_below_the_tip(
-    user, phabdouble, create_state
+    merge_conflict_stack: Callable,
 ):
     """A conflict recorded below the tip describes a landing nobody requested."""
-    pairs, stack_state = merge_conflict_stack(
-        phabdouble, user, create_state, root_status=merge_conflict_status()
-    )
+    pairs, stack_state = merge_conflict_stack(root_status=merge_conflict_status())
 
     assert all(
         warning_merge_conflict(revision, diff, stack_state) is None
@@ -1458,11 +1462,11 @@ def test_warning_merge_conflict_ignores_status_below_the_tip(
 @pytest.mark.django_db
 @pytest.mark.parametrize("status", ("clean", "unknown"))
 def test_warning_merge_conflict_no_warning_without_conflict(
-    user, phabdouble, create_state, status
+    merge_conflict_stack: Callable, status: str
 ):
     """Only an explicit `conflict` verdict warns."""
     pairs, stack_state = merge_conflict_stack(
-        phabdouble, user, create_state, tip_status=merge_conflict_status(status=status)
+        tip_status=merge_conflict_status(status=status)
     )
     tip_revision, tip_diff = pairs[-1]
 
@@ -1473,10 +1477,10 @@ def test_warning_merge_conflict_no_warning_without_conflict(
 
 @pytest.mark.django_db
 def test_warning_merge_conflict_no_warning_without_status(
-    user, phabdouble, create_state
+    merge_conflict_stack: Callable,
 ):
     """A revision Phabricator has not checked has nothing to warn about."""
-    pairs, stack_state = merge_conflict_stack(phabdouble, user, create_state)
+    pairs, stack_state = merge_conflict_stack()
     tip_revision, tip_diff = pairs[-1]
 
     assert warning_merge_conflict(tip_revision, tip_diff, stack_state) is None, (
@@ -1485,10 +1489,10 @@ def test_warning_merge_conflict_no_warning_without_status(
 
 
 @pytest.mark.django_db
-def test_warning_merge_conflict_reports_a_stale_verdict(user, phabdouble, create_state):
+def test_warning_merge_conflict_reports_a_stale_verdict(merge_conflict_stack: Callable):
     """A verdict computed for an earlier diff is flagged as possibly out of date."""
     pairs, stack_state = merge_conflict_stack(
-        phabdouble, user, create_state, tip_status=merge_conflict_status(isStale=True)
+        tip_status=merge_conflict_status(isStale=True)
     )
     tip_revision, tip_diff = pairs[-1]
 
@@ -1501,7 +1505,9 @@ def test_warning_merge_conflict_reports_a_stale_verdict(user, phabdouble, create
 
 
 @pytest.mark.django_db
-def test_warning_merge_conflict_without_landing_assessment(phabdouble, create_state):
+def test_warning_merge_conflict_without_landing_assessment(
+    phabdouble: PhabricatorDouble, create_state: Callable
+):
     """Assessing a whole stack rather than a landing has no tip to warn about."""
     revision = phabdouble.api_object_for(
         phabdouble.revision(merge_conflict_status=merge_conflict_status()),
@@ -1517,11 +1523,11 @@ def test_warning_merge_conflict_without_landing_assessment(phabdouble, create_st
 
 @pytest.mark.django_db(transaction=True)
 def test_dryrun_merge_conflict_warns(
-    user,
-    phabdouble,
-    mocked_repo_config,
-    release_management_project,
-    needs_data_classification_project,
+    user: User,
+    phabdouble: PhabricatorDouble,
+    mocked_repo_config: None,
+    release_management_project: dict,
+    needs_data_classification_project: dict,
 ):
     """A merge conflict on the landing tip surfaces as a warning from a dryrun."""
     repo = phabdouble.repo()
