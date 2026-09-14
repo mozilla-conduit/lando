@@ -1066,6 +1066,62 @@ def test_uplift_worker_fallback_to_patch_when_no_landing_commit_id(
     mock_failure_task.apply_async.assert_not_called()
 
 
+PATCH_ADDS_HG_DIRECTORY = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+Bug 1: add a Mercurial configuration file
+diff --git a/.hg/hgrc b/.hg/hgrc
+new file mode 100644
+--- /dev/null
++++ b/.hg/hgrc
+@@ -0,0 +1,1 @@
++[ui]
+""".lstrip()
+
+
+@pytest.mark.django_db
+def test_uplift_worker_rejects_hg_directory_before_invoking_moz_phab(
+    repo_mc,
+    user,
+    uplift_worker,
+    create_patch_revision,
+    monkeypatch,
+    make_uplift_job_with_revisions,
+    mock_uplift_email_tasks,
+):
+    """`PreventHgDirectoryCheck` blocks a patch that adds `.hg/` before `moz-phab` runs."""
+    repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
+
+    revisions = [create_patch_revision(0, patch=PATCH_ADDS_HG_DIRECTORY)]
+
+    mock_success_task, mock_failure_task = mock_uplift_email_tasks
+
+    job = make_uplift_job_with_revisions(repo, user, revisions)
+
+    # `moz-phab uplift` must never run once the check rejects the patch.
+    mock_moz_phab = mock.MagicMock()
+    monkeypatch.setattr(uplift_worker, "run_moz_phab_uplift", mock_moz_phab)
+
+    assert not uplift_worker.run_job(job), (
+        "Job should not complete when a patch adds `.hg/` metadata."
+    )
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.FAILED, (
+        "Uplift job should fail when a landing check rejects the patch."
+    )
+    assert ".hg/hgrc" in job.error, (
+        "Job error should identify the restricted `.hg/hgrc` path."
+    )
+    # `moz-phab uplift` must not run after a failed check.
+    mock_moz_phab.assert_not_called()
+    mock_success_task.apply_async.assert_not_called()
+    mock_failure_task.apply_async.assert_called()
+
+
 @pytest.mark.django_db
 def test_create_uplift_revisions_invokes_cli_and_returns_response(
     repo_mc,

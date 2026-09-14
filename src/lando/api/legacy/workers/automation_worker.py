@@ -103,12 +103,15 @@ class AutomationWorker(Worker):
                 landing_checks = LandingChecks(job.requester_email, repo.name)
                 try:
                     check_errors = landing_checks.run(repo.hooks, patch_helpers)
-                except Exception as exc:
+                except Exception:
+                    # The exception message is not recorded on the job, as job errors
+                    # are publicly visible and the message may contain sensitive
+                    # details.
                     message = "Unexpected error while performing landing checks."
                     logger.exception(message)
                     job.transition_status(
                         JobAction.FAIL,
-                        message=f"{message}\n{exc}",
+                        message=message,
                     )
                     return True  # Do not try again, this is a permanent failure.
 
