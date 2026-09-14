@@ -14,6 +14,7 @@ from lando.main.models.base import BaseModel
 from lando.main.models.jobs import BaseJob
 from lando.main.models.repo import Repo
 from lando.main.models.revision import Revision, RevisionLandingJob
+from lando.main.models.worker import Worker
 
 logger = logging.getLogger(__name__)
 
@@ -207,19 +208,21 @@ class LandingJob(BaseJob):
     @classmethod
     def job_queue_query(
         cls,
-        repositories: Iterable[str] | None = None,
+        repositories: Iterable[Repo] | None = None,
+        *,
+        worker: Worker | None = None,
         grace_seconds: int = settings.LANDING_WORKER_DEFAULT_GRACE_SECONDS,
         **kwargs,
     ) -> QuerySet:
         """Return a query which selects the queued jobs.
 
         Args:
-            repositories (iterable): A list of repository names to use when filtering
+            repositories (iterable): A list of repos to use when filtering
                 the landing job search query.
             grace_seconds (int): Ignore landing jobs that were submitted after this
                 many seconds ago.
         """
-        q = super().job_queue_query()
+        q = super().job_queue_query(worker=worker, **kwargs)
 
         if repositories:
             q = q.filter(
