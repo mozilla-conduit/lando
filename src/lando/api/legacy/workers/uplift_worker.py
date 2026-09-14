@@ -27,7 +27,7 @@ from lando.main.scm import GitSCM
 from lando.main.scm.commit import CommitData
 from lando.main.scm.helpers import PatchHelper
 from lando.try_api.api import get_commit_hash, get_commit_map
-from lando.utils.landing_checks import BugReferencesCheck
+from lando.utils.landing_checks import BugReferencesCheck, LandingChecks
 from lando.utils.tasks import (
     send_uplift_failure_email,
     send_uplift_success_email,
@@ -35,6 +35,10 @@ from lando.utils.tasks import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class SecurityBugReferenceException(Exception):
+    """Raised when a commit message references a bug that is not public."""
 
 
 class UpliftWorker(Worker):
@@ -141,6 +145,11 @@ class UpliftWorker(Worker):
             new_commits.append(new_commit)
             logger.debug(f"Created new commit {new_commit}")
 
+        # Run landing checks on the applied patches before invoking `moz-phab`.
+        # The uplift fallback applies raw patches directly, so this is the only
+        # place hooks such as `PreventHgDirectoryCheck` guard the checkout.
+        self.run_landing_checks(job, repo, scm, new_commits)
+
         # On success: create patches.
         result = self.create_uplift_revisions(
             job, user.profile.phabricator_api_key, base_revision
@@ -172,7 +181,11 @@ class UpliftWorker(Worker):
                 try_job = self.create_uplift_try_push(
                     base_revision, repo.scm_type, job, scm, new_commits
                 )
-
+            except SecurityBugReferenceException as exc:
+                logger.warning(
+                    "Skipping try push for uplift job due to a private bug reference",
+                    extra={"job_id": job.id, "error": str(exc)},
+                )
             except Exception:
                 logger.exception(
                     "Failed to create try push for uplift job.",
@@ -184,6 +197,42 @@ class UpliftWorker(Worker):
                     extra={"job_id": job.id, "try_job_id": try_job.id},
                 )
         return created_revision_ids
+
+    def run_landing_checks(
+        self,
+        job: UpliftJob,
+        repo: Repo,
+        scm: GitSCM,
+        new_commits: Iterable[CommitData],
+    ) -> None:
+        """Run the repo's landing checks on the applied uplift patches.
+
+        Fails the job when a check rejects the patches, e.g. when
+        `PreventHgDirectoryCheck` finds `.hg/` metadata in the patch.
+        """
+        if not repo.hooks_enabled:
+            logger.debug(f"Hooks disabled for {repo.name}, skipping landing checks.")
+            return
+
+        patch_helpers = scm.get_patch_helpers_for_commits(new_commits)
+        landing_checks = LandingChecks(job.requester_email, repo.name)
+        try:
+            check_errors = landing_checks.run(repo.hooks, patch_helpers)
+        except Exception as exc:
+            # The exception message is not recorded on the job, as job errors are
+            # publicly visible and the message may contain sensitive details.
+            message = "Unexpected error while performing landing checks."
+            logger.exception(message)
+            job.transition_status(JobAction.FAIL, message=message)
+            raise PermanentFailureException(message) from exc
+
+        if check_errors:
+            message = "Some checks failed before attempting to uplift:\n" + "\n".join(
+                check_errors
+            )
+            logger.warning(message)
+            job.transition_status(JobAction.FAIL, message=message)
+            raise PermanentFailureException(message)
 
     def notify_uplift_success(
         self,
@@ -319,9 +368,13 @@ class UpliftWorker(Worker):
     ) -> LandingJob:
         """Create a Try `LandingJob` for the commits landed by an uplift job."""
         patch_helpers = list(scm.get_patch_helpers_for_commits(new_commits))
-        result = self.check_uplift_bug_references(patch_helpers)
-        if result:
-            raise ValueError(", ".join(result))
+        error, status_code = self.check_uplift_bug_references(patch_helpers)
+        if status_code in (401, 404):
+            raise SecurityBugReferenceException(
+                f"Skipping try push for uplift job:\n{', '.join(error)}"
+            )
+        elif error:
+            raise ValueError(", ".join(error))
 
         try_repo = Repo.objects.get(name="try")
 
@@ -366,12 +419,17 @@ class UpliftWorker(Worker):
 
     def check_uplift_bug_references(
         self, patch_helpers: list[PatchHelper]
-    ) -> list[str]:
-        """Check if uplift job contains references to non-public bugs."""
+    ) -> tuple[list[str], int | None]:
+        """Check if uplift job contains references to non-public bugs.
+
+        Return the error messages and BMO status code for the checked bug when a
+        referenced bug is not public.
+        """
         secure_check = BugReferencesCheck()
         for patch_helper in patch_helpers:
             secure_check.next_diff(patch_helper)
-        return secure_check.result()
+        error = secure_check.result()
+        return error, secure_check.status_code
 
     def create_try_diff_from_json(self) -> str:
         try_config_path = (

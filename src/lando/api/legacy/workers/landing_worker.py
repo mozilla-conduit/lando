@@ -282,11 +282,13 @@ class LandingWorker(Worker):
             try:
                 check_errors = landing_checks.run(repo.hooks, patch_helpers)
             except Exception as exc:
+                # The exception message is not recorded on the job, as job errors are
+                # publicly visible and the message may contain sensitive details.
                 message = "Unexpected error while performing landing checks."
                 logger.exception(message)
                 job.transition_status(
                     JobAction.FAIL,
-                    message=f"{message}\n{exc}",
+                    message=message,
                 )
                 raise PermanentFailureException(message) from exc
 
