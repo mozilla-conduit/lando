@@ -4,7 +4,9 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
+import requests
 from django.contrib.auth.models import Permission
+from django.core.cache import cache
 
 from lando.api.legacy.api import transplants as legacy_api_transplants
 from lando.api.legacy.transplants import (
@@ -15,14 +17,17 @@ from lando.api.legacy.transplants import (
     blocker_prevent_submodules,
     blocker_prevent_symlinks,
     blocker_revision_data_classification,
+    blocker_security_bug_status_flags,
     blocker_try_task_config,
     blocker_uplift_approval,
     blocker_user_scm_level,
+    run_landing_checks,
     warning_multiple_authors,
     warning_not_accepted,
     warning_previously_landed,
     warning_reviews_not_current,
     warning_revision_secure,
+    warning_security_bug_status_flags_unverified,
     warning_wip_commit_message,
 )
 from lando.api.tests.mocks import PhabricatorDouble
@@ -484,6 +489,239 @@ def test_warning_revision_secure_is_not_secure(
     stack_state = create_state(revision)
 
     assert warning_revision_secure(revision, {}, stack_state) is None
+
+
+@pytest.fixture
+def security_flags_state(phabdouble, create_state):
+    """Return a factory building a stack state for a Firefox-repo revision.
+
+    The factory creates a revision on `repo_name` tied to `bug_id` and mocks the
+    BMO lookup (`uplift_get_bug`): it raises when `bmo_down`, otherwise it returns
+    ``{"bugs": bugs or []}``. Pass `secure_project` to tag the revision with the
+    Phabricator secure project. Returns a ``(revision, stack_state)`` tuple.
+    """
+
+    def build(
+        *,
+        bug_id=123,
+        bugs=None,
+        bmo_down=False,
+        secure_project=None,
+        repo_name="firefox",
+    ):
+        # `fetch_bugs` briefly caches results keyed by bug id; clear it so tests
+        # reusing the same bug id don't see a prior test's cached payload.
+        cache.clear()
+        repo = phabdouble.repo(name=repo_name)
+        projects = [secure_project] if secure_project is not None else []
+        revision = phabdouble.api_object_for(
+            phabdouble.revision(repo=repo, bug_id=bug_id, projects=projects),
+            attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+        )
+
+        if bmo_down:
+            patched = mock.patch(
+                "lando.api.legacy.bmo.uplift_get_bug",
+                side_effect=requests.exceptions.RequestException("boom"),
+            )
+        else:
+            patched = mock.patch(
+                "lando.api.legacy.bmo.uplift_get_bug",
+                return_value={"bugs": bugs if bugs is not None else []},
+            )
+
+        with patched:
+            return revision, create_state(revision)
+
+    return build
+
+
+@pytest.mark.django_db
+def test_blocker_security_flags_sec_high_unset_blocks(security_flags_state):
+    revision, stack_state = security_flags_state(
+        bugs=[
+            {
+                "id": 123,
+                "keywords": ["sec-high"],
+                "cf_status_firefox130": "affected",
+                "cf_status_firefox129": "---",
+            }
+        ],
+    )
+
+    result = blocker_security_bug_status_flags(revision, {}, stack_state)
+    assert result is not None, "an unset status flag on a sec-high bug should block"
+    assert "sec-high" in result, "the message should name the matched keyword"
+    assert "cf_status_firefox129" in result, "the unset flag should be reported"
+    assert "cf_status_firefox130" not in result, "a set flag is not missing"
+
+
+@pytest.mark.django_db
+def test_blocker_security_flags_sec_critical_message(security_flags_state):
+    revision, stack_state = security_flags_state(
+        bugs=[{"id": 123, "keywords": ["sec-critical"], "cf_status_firefox130": "---"}],
+    )
+
+    result = blocker_security_bug_status_flags(revision, {}, stack_state)
+    assert result is not None, "an unset flag on a sec-critical bug should block"
+    assert "sec-critical" in result, "a sec-critical bug must not be called sec-high"
+
+
+@pytest.mark.django_db
+def test_blocker_security_flags_all_set_passes(security_flags_state):
+    revision, stack_state = security_flags_state(
+        bugs=[
+            {
+                "id": 123,
+                "keywords": ["sec-high"],
+                "cf_status_firefox130": "affected",
+                "cf_status_firefox_esr128": "unaffected",
+            }
+        ],
+    )
+
+    assert blocker_security_bug_status_flags(revision, {}, stack_state) is None, (
+        "a bug with all status flags set should not block"
+    )
+
+
+@pytest.mark.django_db
+def test_blocker_security_flags_question_counts_as_set(security_flags_state):
+    revision, stack_state = security_flags_state(
+        bugs=[{"id": 123, "keywords": ["sec-high"], "cf_status_firefox130": "?"}],
+    )
+
+    assert blocker_security_bug_status_flags(revision, {}, stack_state) is None, (
+        "'?' is an acknowledged value and must not count as unset"
+    )
+
+
+@pytest.mark.django_db
+def test_blocker_security_flags_none_counts_as_unset(security_flags_state):
+    # BMO returns "---" for unset flags, so a None value is anomalous; err toward
+    # blocking rather than silently waving a security bug through.
+    revision, stack_state = security_flags_state(
+        bugs=[{"id": 123, "keywords": ["sec-high"], "cf_status_firefox130": None}],
+    )
+
+    result = blocker_security_bug_status_flags(revision, {}, stack_state)
+    assert result is not None, "a None flag value should be treated as unset"
+    assert "cf_status_firefox130" in result
+
+
+@pytest.mark.django_db
+def test_blocker_security_flags_non_security_bug_ignored(security_flags_state):
+    revision, stack_state = security_flags_state(
+        bugs=[{"id": 123, "keywords": ["regression"], "cf_status_firefox130": "---"}],
+    )
+
+    assert blocker_security_bug_status_flags(revision, {}, stack_state) is None, (
+        "a non-security bug is out of scope"
+    )
+
+
+@pytest.mark.django_db
+def test_blocker_security_flags_non_firefox_repo_ignored(security_flags_state):
+    revision, stack_state = security_flags_state(
+        repo_name="mozilla-central",
+        bugs=[{"id": 123, "keywords": ["sec-high"], "cf_status_firefox130": "---"}],
+    )
+
+    assert blocker_security_bug_status_flags(revision, {}, stack_state) is None, (
+        "cf_status_firefox flags don't apply to non-Firefox repos"
+    )
+
+
+@pytest.mark.django_db
+def test_blocker_security_flags_no_bug_id_ignored(security_flags_state):
+    revision, stack_state = security_flags_state(bug_id=None)
+
+    assert blocker_security_bug_status_flags(revision, {}, stack_state) is None, (
+        "a revision with no bug reference has nothing to check"
+    )
+
+
+@pytest.mark.django_db
+def test_blocker_security_flags_defers_when_bmo_down(security_flags_state):
+    revision, stack_state = security_flags_state(bmo_down=True)
+
+    assert stack_state.bugs_by_id is None
+    assert blocker_security_bug_status_flags(revision, {}, stack_state) is None, (
+        "with no BMO data the blocker defers to the warning"
+    )
+
+
+@pytest.mark.django_db
+def test_blocker_security_flags_defers_when_bug_absent(security_flags_state):
+    # BMO reachable but the bug is not in the response (e.g. restricted).
+    revision, stack_state = security_flags_state(bugs=[])
+
+    assert stack_state.bugs_by_id == {}
+    assert blocker_security_bug_status_flags(revision, {}, stack_state) is None, (
+        "a bug absent from the response defers to the warning"
+    )
+
+
+@pytest.mark.django_db
+def test_warning_security_flags_when_bmo_down(secure_project, security_flags_state):
+    revision, stack_state = security_flags_state(
+        bmo_down=True, secure_project=secure_project
+    )
+
+    warning = warning_security_bug_status_flags_unverified(revision, {}, stack_state)
+    assert warning is not None, "a secure revision should warn when BMO is unavailable"
+    assert "could not verify" in warning.details
+
+
+@pytest.mark.django_db
+def test_warning_security_flags_when_bug_absent(secure_project, security_flags_state):
+    revision, stack_state = security_flags_state(bugs=[], secure_project=secure_project)
+
+    warning = warning_security_bug_status_flags_unverified(revision, {}, stack_state)
+    assert warning is not None, "a secure bug Lando cannot read should warn"
+
+
+@pytest.mark.django_db
+def test_warning_security_flags_silent_when_not_secure(security_flags_state):
+    # BMO is down, but the revision is not tagged secure -> no warning.
+    revision, stack_state = security_flags_state(bmo_down=True)
+
+    assert (
+        warning_security_bug_status_flags_unverified(revision, {}, stack_state) is None
+    ), "non-secure revisions must not warn, to avoid confirmation-token churn"
+
+
+@pytest.mark.django_db
+def test_warning_security_flags_silent_when_data_available(
+    secure_project, security_flags_state
+):
+    revision, stack_state = security_flags_state(
+        secure_project=secure_project,
+        bugs=[
+            {"id": 123, "keywords": ["sec-high"], "cf_status_firefox130": "affected"}
+        ],
+    )
+
+    assert stack_state.bugs_by_id is not None
+    assert (
+        warning_security_bug_status_flags_unverified(revision, {}, stack_state) is None
+    ), "when the blocker can assess the bug, no warning is needed"
+
+
+@pytest.mark.django_db
+def test_security_flags_blocker_surfaces_in_assessment(security_flags_state):
+    revision, stack_state = security_flags_state(
+        bugs=[{"id": 123, "keywords": ["sec-high"], "cf_status_firefox130": "---"}],
+    )
+
+    assessment = run_landing_checks(stack_state)
+
+    assert any("missing status flags" in blocker for blocker in assessment.blockers), (
+        "the blocker should surface in the assessment"
+    )
+    assert revision["phid"] not in stack_state.landable_stack, (
+        "a blocked revision should be removed from the landable stack"
+    )
 
 
 @pytest.mark.django_db
