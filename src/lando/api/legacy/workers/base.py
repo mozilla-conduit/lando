@@ -12,7 +12,6 @@ from time import sleep
 from typing import Callable, TypeVar
 
 from celery import Task
-from django.db import transaction
 from django.db.models import Count
 from kombu.exceptions import OperationalError
 
@@ -259,8 +258,9 @@ class Worker(ABC):
             queue_size, logging.WARNING if above_threshold else logging.INFO
         )
 
-        with transaction.atomic():
-            job = self.job_type.next_job(repositories=self.active_repos).first()
+        job = self.job_type.claim_next_job(
+            worker=self.worker_instance, repositories=self.active_repos
+        )
 
         if job is None:
             self.run_idle_maintenance()
@@ -268,11 +268,6 @@ class Worker(ABC):
 
         with job.processing():
             logger.info(f"Starting {job}", extra={"id": job.id})
-
-            if job.status not in [JobStatus.SUBMITTED, JobStatus.DEFERRED]:
-                logger.warning(f"Unexpected status for {job}")
-
-            job.start_attempt()
 
             try:
                 self.last_job_finished = self.run_job(job)
