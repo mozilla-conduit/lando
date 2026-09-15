@@ -2,11 +2,9 @@ from typing import Any
 
 from django import forms
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.forms.widgets import RadioSelect
 
-from lando.api.legacy.validation import parse_revision_ids
 from lando.main.models import Repo, Revision
 from lando.main.models.uplift import (
     UpliftAssessment,
@@ -127,40 +125,6 @@ class LinkUpliftAssessmentForm(forms.Form):
         self.fields["assessment"].queryset = UpliftAssessment.visible_on_revision(
             bug_id, revision_id
         )
-
-
-class UpliftAssessmentLinkForm(UpliftAssessmentForm):
-    """Form for creating/updating an assessment and linking to multiple revisions."""
-
-    assessment = forms.ModelChoiceField(
-        queryset=UpliftAssessment.objects.none(),
-        widget=forms.widgets.HiddenInput(),
-        required=False,
-        help_text="Existing assessment to update (optional)",
-    )
-
-    revision_ids = forms.CharField(
-        widget=forms.widgets.HiddenInput(),
-        help_text="Comma-separated list of Phabricator revision IDs",
-    )
-
-    def __init__(self, *args, user: User | None = None, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # Filter queryset to only show assessments owned by the current user.
-        if user is not None and user.is_authenticated:
-            self.fields["assessment"].queryset = UpliftAssessment.objects.filter(
-                user=user
-            )
-
-    def clean_revision_ids(self) -> list[int]:
-        """Parse and validate the comma-separated revision IDs."""
-        revision_ids_str = self.cleaned_data["revision_ids"]
-
-        try:
-            return parse_revision_ids(revision_ids_str)
-        except ValueError as e:
-            raise forms.ValidationError(str(e)) from e
 
 
 class UpliftRequestForm(UpliftAssessmentForm):
