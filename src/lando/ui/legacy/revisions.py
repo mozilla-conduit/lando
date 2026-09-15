@@ -127,28 +127,51 @@ class UpliftRequestView(LandoView):
         return redirect(request.META.get("HTTP_REFERER"))
 
 
-class UpliftAssessmentCreateOrEditView(LandoView):
-    """Update and create uplift request assessment forms."""
+class UpliftAssessmentView(LandoView):
+    """Create an uplift assessment on a revision, or edit one it displays."""
 
     @force_auth_refresh
     @method_decorator(require_phabricator_api_key(optional=False, provide_client=True))
     def post(
-        self, phab: PhabricatorClient, request: WSGIRequest, revision_id: int
+        self,
+        phab: PhabricatorClient,
+        request: WSGIRequest,
+        revision_id: int,
+        assessment_id: int | None = None,
     ) -> HttpResponse:
-        """Update an uplift request assessment."""
+        """Save the uplift assessment form, creating it when no ID was given."""
+        bug_id = get_bug_id_for_revision(phab, revision_id)
 
-        uplift_revision = UpliftRevision.one_or_none(revision_id=revision_id)
-        existing_assessment = uplift_revision.assessment if uplift_revision else None
+        if bug_id is None:
+            messages.add_message(request, messages.ERROR, MISSING_BUG_NUMBER_ERROR)
+            return redirect(request.META.get("HTTP_REFERER"))
 
-        uplift_assessment_form = UpliftAssessmentForm(
-            request.POST,
-            instance=existing_assessment,
-        )
+        assessment = None
+        if assessment_id is not None:
+            # Reading the revision from Phabricator proves the requester was
+            # granted access to it, so any assessment that revision displays is
+            # editable from its page. That set is what scopes the endpoint.
+            assessment = (
+                UpliftAssessment.visible_on_revision(bug_id, revision_id)
+                .filter(id=assessment_id)
+                .first()
+            )
 
-        if not uplift_assessment_form.is_valid():
+            if assessment is None:
+                messages.add_message(
+                    request,
+                    messages.ERROR,
+                    f"Uplift assessment #{assessment_id} is not shown on "
+                    f"D{revision_id}.",
+                )
+                return redirect(request.META.get("HTTP_REFERER"))
+
+        assessment_form = UpliftAssessmentForm(request.POST, instance=assessment)
+
+        if not assessment_form.is_valid():
             errors = [
                 f"{field}: {', '.join(field_errors)}"
-                for field, field_errors in uplift_assessment_form.errors.items()
+                for field, field_errors in assessment_form.errors.items()
             ]
 
             for error in errors:
@@ -156,36 +179,42 @@ class UpliftAssessmentCreateOrEditView(LandoView):
 
             return redirect(request.META.get("HTTP_REFERER"))
 
-        bug_id = get_bug_id_for_revision(phab, revision_id)
-
-        if bug_id is None:
-            messages.add_message(request, messages.ERROR, MISSING_BUG_NUMBER_ERROR)
-            return redirect(request.META.get("HTTP_REFERER"))
+        creating = assessment is None
 
         with transaction.atomic():
-            assessment = uplift_assessment_form.save(commit=False)
-            assessment.user = request.user
-            assessment.bug_id = bug_id
+            assessment = assessment_form.save(commit=False)
+
+            if creating:
+                logger.info("Creating a new uplift assessment for bug %s.", bug_id)
+                assessment.user = request.user
+                assessment.bug_id = bug_id
+
             assessment.save()
 
-            message = "Uplift assessment updated."
-            if uplift_revision is None:
-                logger.info(
-                    f"No existing assessment for {revision_id=}, creating a new instance."
-                )
+            if creating:
                 UpliftRevision.link_revision_to_assessment(revision_id, assessment)
-                message = "Uplift assessment created."
 
-        messages.add_message(request, messages.SUCCESS, message)
-
-        # Trigger a Celery task to update the form on Phabricator.
-        set_uplift_request_form_on_revision.apply_async(
-            args=(
-                revision_id,
-                assessment.to_conduit_json_str(),
-                request.user.id,
-            )
+        messages.add_message(
+            request,
+            messages.SUCCESS,
+            f"Uplift assessment #{assessment.id} "
+            f"{'created' if creating else 'updated'}.",
         )
+
+        # Every revision carrying this assessment shows the old answers on
+        # Phabricator until it is refreshed.
+        linked_revision_ids = assessment.revisions.exclude(
+            revision_id=None
+        ).values_list("revision_id", flat=True)
+
+        for linked_revision_id in linked_revision_ids:
+            set_uplift_request_form_on_revision.apply_async(
+                args=(
+                    linked_revision_id,
+                    assessment.to_conduit_json_str(),
+                    request.user.id,
+                )
+            )
 
         return redirect(request.META.get("HTTP_REFERER"))
 

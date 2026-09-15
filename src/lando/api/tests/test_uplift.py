@@ -500,9 +500,12 @@ def test_patch_assessment_creates_and_updates(
         "User ID for `set_uplift_request_form_on_revision` should match expected."
     )
 
-    # Submit the form for a revision which already has a completed form.
+    # Editing the assessment names it explicitly; the bare URL only creates.
+    edit_url = reverse(
+        "uplift-assessment-edit-page", args=[revision_id, response_obj.id]
+    )
     response = authenticated_client.post(
-        url, data=UPDATED_UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER=referrer
+        edit_url, data=UPDATED_UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER=referrer
     )
     assert response.status_code == 302, (
         "Updating assessment form should redirect back to referrer."
@@ -558,8 +561,9 @@ def test_patch_assessment_updates_in_place(
     original_assessment = UpliftAssessment.objects.get()
     original_pk = original_assessment.pk
 
+    edit_url = reverse("uplift-assessment-edit-page", args=[revision_id, original_pk])
     response = authenticated_client.post(
-        url, data=UPDATED_UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER=referrer
+        edit_url, data=UPDATED_UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER=referrer
     )
 
     assert response.status_code == 302, "Update should redirect to referrer."
@@ -633,6 +637,82 @@ def test_display_answers_resolves_choice_labels(user):
     ), "A free-text field should be shown exactly as it was entered."
 
 
+@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@pytest.mark.django_db
+def test_edit_assessment_updates_every_linked_revision(
+    mock_apply_async, authenticated_client, user, phabdouble
+):
+    """Editing an assessment refreshes the form on all revisions carrying it."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
+    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+    other_revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+
+    # An assessment authored elsewhere in the bug, linked to two revisions.
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=UPLIFT_BUG_ID, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    UpliftRevision.link_revision_to_assessment(revision_id, assessment)
+    UpliftRevision.link_revision_to_assessment(other_revision_id, assessment)
+
+    url = reverse("uplift-assessment-edit-page", args=[revision_id, assessment.id])
+    response = authenticated_client.post(
+        url, data=UPDATED_UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER=f"/D{revision_id}"
+    )
+
+    assert response.status_code == 302, "A successful edit should redirect."
+    assert UpliftAssessment.objects.count() == 1, (
+        "Editing an assessment should not create a new one."
+    )
+
+    assessment.refresh_from_db()
+    assert assessment.user_impact == UPDATED_UPLIFT_ASSESSMENT_ANSWERS["user_impact"], (
+        "The assessment should hold the updated answers."
+    )
+    assert assessment.bug_id == UPLIFT_BUG_ID, (
+        "Editing an assessment should not change the bug it is filed against."
+    )
+
+    updated_revision_ids = sorted(
+        kwargs["args"][0] for _, kwargs in mock_apply_async.call_args_list
+    )
+    assert updated_revision_ids == sorted([revision_id, other_revision_id]), (
+        "Both revisions carrying the assessment should be refreshed on Phabricator."
+    )
+
+
+@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@pytest.mark.django_db
+def test_edit_assessment_rejects_assessment_from_another_bug(
+    mock_apply_async, authenticated_client, user, phabdouble
+):
+    """An assessment filed against a different bug cannot be edited from this page."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
+    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=UPLIFT_BUG_ID + 1, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+
+    url = reverse("uplift-assessment-edit-page", args=[revision_id, assessment.id])
+    response = authenticated_client.post(
+        url, data=UPDATED_UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER=f"/D{revision_id}"
+    )
+
+    assert response.status_code == 302, "A rejected edit should redirect."
+
+    assessment.refresh_from_db()
+    assert assessment.user_impact == UPLIFT_ASSESSMENT_ANSWERS["user_impact"], (
+        "An assessment for another bug should be left untouched."
+    )
+    mock_apply_async.assert_not_called()
+
+    flash_messages = [str(message) for message in get_messages(response.wsgi_request)]
+    assert any("is not shown on" in message for message in flash_messages), (
+        f"Should flash an error about the assessment not being shown: {flash_messages=}"
+    )
+
+
 @pytest.mark.django_db
 def test_uplift_creation_rejects_revision_without_bug(
     authenticated_client, user, repo_mc, create_patch_revision, normal_patch, phabdouble
@@ -679,7 +759,8 @@ def test_patch_assessment_form_invalid(
 ):
     phabdouble.user(api_key=user.profile.phabricator_api_key)
 
-    url = reverse("uplift-assessment-page", args=[1234])
+    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+    url = reverse("uplift-assessment-page", args=[revision_id])
 
     # Form is invalid because required fields are missing or invalid.
     invalid_data = {
@@ -696,7 +777,9 @@ def test_patch_assessment_form_invalid(
         "is_android_affected": "no",
     }
 
-    response = authenticated_client.post(url, data=invalid_data, HTTP_REFERER="/D1234")
+    response = authenticated_client.post(
+        url, data=invalid_data, HTTP_REFERER=f"/D{revision_id}"
+    )
 
     assert response.status_code == 302, "Submission should redirect on error."
     assert UpliftAssessment.objects.count() == 0, (
