@@ -6,19 +6,15 @@ from typing import Self, Sequence
 
 from django.conf import settings
 from django.core.handlers.wsgi import WSGIRequest
-from django.db.models import Prefetch, QuerySet
 
 from lando.api.legacy.stacks import RevisionStack
 from lando.api.legacy.validation import revision_id_to_int
-from lando.main.models import Repo
 from lando.main.models.uplift import (
     UpliftAssessment,
     UpliftJob,
     UpliftRevision,
-    UpliftSubmission,
 )
 from lando.ui.legacy.forms import (
-    LinkUpliftAssessmentForm,
     UpliftAssessmentForm,
     UpliftRequestForm,
 )
@@ -28,16 +24,48 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
+class UpliftAssessmentCard:
+    """One of the bug's uplift assessments, as shown on the revision page."""
+
+    # The assessment being displayed.
+    assessment: UpliftAssessment
+
+    # Edit form pre-filled with this assessment's answers.
+    form: UpliftAssessmentForm
+
+    # Whether this is the assessment linked to the revision being viewed.
+    is_linked: bool
+
+    # Phabricator revision IDs already carrying this assessment.
+    revision_ids: Sequence[int]
+
+    # Phabricator revision IDs an uplift was requested for.
+    requested_revision_ids: Sequence[int]
+
+    # Every uplift job queued from this assessment, one per target train.
+    jobs: Sequence[UpliftJob]
+
+
+@dataclass(frozen=True, slots=True)
 class UpliftContext:
     """Container for uplift values supplied to stack templates."""
 
-    requests: Sequence[UpliftSubmission]
     request_form: UpliftRequestForm
-    assessment_form: UpliftAssessmentForm | None
-    assessment: UpliftAssessment | None
-    assessment_link_form: LinkUpliftAssessmentForm | None
     can_create_uplift_submission: bool
     revision_id: int
+
+    # Bug the current revision references, or `None` when it has none.
+    bug_id: int | None
+
+    # Every assessment this revision should display: the bug's, plus any the
+    # revision reaches directly. Grouping by bug is what makes an assessment
+    # already filled out for it discoverable from here.
+    bug_assessments: Sequence[UpliftAssessmentCard]
+
+    # Empty form for authoring a new assessment on the bug. `None` when the
+    # user may not submit assessments for this revision.
+    new_assessment_form: UpliftAssessmentForm | None
+
     docs_url: str
     train_api_url: str
 
@@ -46,7 +74,6 @@ class UpliftContext:
         cls,
         *,
         request: WSGIRequest,
-        revision_repo: Repo | None,
         revision_id: int,
         revision_phid: str,
         revisions: dict[str, dict],
@@ -72,47 +99,93 @@ class UpliftContext:
         # Look for an existing `UpliftRevision` for this revision.
         uplift_revision = UpliftRevision.one_or_none(revision_id=revision_id)
 
-        uplift_requests = uplift_context_for_revision(revision_id)
+        # The assessment currently attached to this revision, if any. Its card
+        # is the one marked as linked.
+        linked_assessment = uplift_revision.assessment if uplift_revision else None
 
-        assessment = uplift_revision.assessment if uplift_revision else None
+        bug_id = revisions[revision_phid].get("bug_id")
 
-        assessment_form = None
-        assessment_link_form = None
+        new_assessment_form = None
 
-        if cls.can_request_uplift(request, revision_repo):
-            assessment_form = cls.build_assessment_form(uplift_revision)
-            assessment_link_form = LinkUpliftAssessmentForm(user=request.user)
+        if cls.can_author_assessment(request, bug_id):
+            new_assessment_form = UpliftAssessmentForm()
 
         return cls(
-            requests=tuple(uplift_requests),
             request_form=request_form,
-            assessment_form=assessment_form,
-            assessment=assessment,
-            assessment_link_form=assessment_link_form,
             can_create_uplift_submission=cls.can_create_submission(request),
             revision_id=revision_id,
+            bug_id=bug_id,
+            bug_assessments=cls.build_assessment_cards(
+                bug_id, revision_id, linked_assessment
+            ),
+            new_assessment_form=new_assessment_form,
             docs_url=UPLIFT_DOCS_URL,
             train_api_url=settings.WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL,
         )
 
     @staticmethod
-    def can_request_uplift(request: WSGIRequest, revision_repo: Repo | None) -> bool:
-        """Return `True` if the user should see uplift assessment forms."""
-        return (
-            request.user.is_authenticated
-            and revision_repo
-            and revision_repo.approval_required
+    def can_author_assessment(request: WSGIRequest, bug_id: int | None) -> bool:
+        """Return `True` if the user should see the uplift assessment forms.
+
+        Deliberately not gated on `approval_required`: that marks a repo as an
+        uplift *target*, so gating on it hides the assessment from the mainline
+        revision the uplift was requested from.
+        """
+        return bool(request.user.is_authenticated and bug_id)
+
+    @classmethod
+    def build_assessment_cards(
+        cls,
+        bug_id: int | None,
+        revision_id: int,
+        linked_assessment: UpliftAssessment | None,
+    ) -> tuple[UpliftAssessmentCard, ...]:
+        """Return a card for each assessment this revision should display."""
+        assessments = list(UpliftAssessment.visible_on_revision(bug_id, revision_id))
+        jobs_by_assessment = cls.jobs_by_assessment(assessments)
+
+        return tuple(
+            UpliftAssessmentCard(
+                assessment=assessment,
+                form=UpliftAssessmentForm(instance=assessment),
+                is_linked=(
+                    linked_assessment is not None
+                    and linked_assessment.pk == assessment.pk
+                ),
+                revision_ids=[
+                    uplift_revision.revision_id
+                    for uplift_revision in assessment.revisions.all()
+                    if uplift_revision.revision_id is not None
+                ],
+                requested_revision_ids=assessment.requested_revision_ids(),
+                jobs=jobs_by_assessment.get(assessment.pk, []),
+            )
+            for assessment in assessments
         )
 
     @staticmethod
-    def build_assessment_form(
-        uplift_revision: UpliftRevision | None,
-    ) -> UpliftAssessmentForm:
-        """Return the edit form for the supplied uplift revision."""
-        if uplift_revision and uplift_revision.assessment:
-            return UpliftAssessmentForm(instance=uplift_revision.assessment)
+    def jobs_by_assessment(
+        assessments: Sequence[UpliftAssessment],
+    ) -> dict[int, list[UpliftJob]]:
+        """Group every uplift job queued from the given assessments, by assessment.
 
-        return UpliftAssessmentForm()
+        A submission is just an assessment plus the jobs one request queued, so
+        the jobs of all of an assessment's submissions belong on its card
+        together.
+        """
+        jobs = (
+            UpliftJob.objects.filter(
+                submission__assessment__in=assessments,
+            )
+            .select_related("target_repo", "submission")
+            .order_by("id")
+        )
+
+        grouped: dict[int, list[UpliftJob]] = {}
+        for job in jobs:
+            grouped.setdefault(job.submission.assessment_id, []).append(job)
+
+        return grouped
 
     @staticmethod
     def can_create_submission(request: WSGIRequest) -> bool:
@@ -120,32 +193,3 @@ class UpliftContext:
         return (
             request.user.is_authenticated and request.user.profile.phabricator_api_key
         )
-
-
-def uplift_context_for_revision(revision_id: int) -> QuerySet:
-    """Return all UpliftSubmission objects relevant to this revision.
-
-    Relevant if:
-      - this revision was originally requested (in requested_revision_ids)
-      - this revision was created by an uplift job (UpliftJob.created_revision_ids).
-    """
-    base_qs = (
-        UpliftSubmission.objects.select_related("assessment", "requested_by")
-        .prefetch_related(
-            Prefetch(
-                "uplift_jobs",
-                queryset=UpliftJob.objects.select_related("target_repo").order_by("id"),
-            )
-        )
-        .order_by("-created_at")
-    )
-
-    # Original side: the revision was requested (e.g. D123 in requested_revision_ids).
-    original_qs = base_qs.filter(requested_revision_ids__contains=[revision_id])
-
-    # Uplifted side: the revision was produced by an uplift job.
-    uplifted_qs = base_qs.filter(
-        uplift_jobs__created_revision_ids__contains=[revision_id]
-    )
-
-    return (original_qs | uplifted_qs).distinct()

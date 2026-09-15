@@ -29,20 +29,16 @@ $.fn.stack = function () {
             $(".uplift-request-modal").removeClass("is-active");
         });
 
-        // Show the assessment edit form modal when the "Request Uplift" button is clicked.
-        $(".edit-assessment-open").on("click", function () {
-            $(".uplift-assessment-edit-modal").addClass("is-active");
+        // Open the assessment modal named by the clicked button. The page renders
+        // one modal per assessment on the bug, so the id selects between them.
+        $(".assessment-modal-open").on("click", function () {
+            let modalId = $(this).data("assessment-modal");
+            $(`.uplift-assessment-modal[data-assessment-modal="${modalId}"]`).addClass(
+                "is-active",
+            );
         });
-        $(".edit-assessment-close").on("click", function () {
-            $(".uplift-assessment-edit-modal").removeClass("is-active");
-        });
-
-        // Show the modal to link an existing uplift assessment.
-        $(".link-assessment-open").on("click", function () {
-            $(".uplift-assessment-link-modal").addClass("is-active");
-        });
-        $(".link-assessment-close").on("click", function () {
-            $(".uplift-assessment-link-modal").removeClass("is-active");
+        $(".assessment-modal-close").on("click", function () {
+            $(this).closest(".uplift-assessment-modal").removeClass("is-active");
         });
 
         // Toggle `required` on the "steps to reproduce" textarea based on

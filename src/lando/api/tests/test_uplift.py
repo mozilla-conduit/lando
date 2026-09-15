@@ -713,6 +713,33 @@ def test_edit_assessment_rejects_assessment_from_another_bug(
     )
 
 
+@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@pytest.mark.django_db
+def test_link_assessment_rejects_assessment_from_another_bug(
+    mock_apply_async, authenticated_client, user, phabdouble
+):
+    """A revision cannot be linked to an assessment filed against another bug."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
+    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=UPLIFT_BUG_ID + 1, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+
+    url = reverse("uplift-assessment-link-page", args=[revision_id])
+    response = authenticated_client.post(
+        url,
+        data={"assessment": assessment.pk},
+        HTTP_REFERER=f"/D{revision_id}",
+    )
+
+    assert response.status_code == 302, "A rejected link should redirect."
+    assert UpliftRevision.objects.count() == 0, (
+        "No link should be created to an assessment for another bug."
+    )
+    mock_apply_async.assert_not_called()
+
+
 @pytest.mark.django_db
 def test_uplift_creation_rejects_revision_without_bug(
     authenticated_client, user, repo_mc, create_patch_revision, normal_patch, phabdouble
