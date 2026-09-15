@@ -57,6 +57,11 @@ class UpliftContext:
     # Bug the current revision references, or `None` when it has none.
     bug_id: int | None
 
+    # Whether no assessment is attached to this revision yet. On an uplift
+    # target that means the form still has to be filled in or linked, which is
+    # the state developers mistake for needing "Request Uplift" again.
+    needs_assessment: bool
+
     # Every assessment this revision should display: the bug's, plus any the
     # revision reaches directly. Grouping by bug is what makes an assessment
     # already filled out for it discoverable from here.
@@ -115,6 +120,7 @@ class UpliftContext:
             can_create_uplift_submission=cls.can_create_submission(request),
             revision_id=revision_id,
             bug_id=bug_id,
+            needs_assessment=linked_assessment is None,
             bug_assessments=cls.build_assessment_cards(
                 bug_id, revision_id, linked_assessment
             ),
