@@ -25,6 +25,7 @@ from lando.api.legacy.reviews import (
     reviewer_identity,
 )
 from lando.api.legacy.revisions import (
+    MergeConflictStatus,
     blocker_diff_author_is_known,
     gather_involved_phids,
     revision_has_needs_data_classification_tag,
@@ -209,6 +210,21 @@ class StackAssessmentState:
             }
 
         return set(self.stack_data.revisions.keys())
+
+    @functools.cached_property
+    def landing_path_tip_phid(self) -> str | None:
+        """Return the PHID of the topmost revision in the requested landing path.
+
+        The landing path is ordered from the root of the stack to the revision
+        being landed, so the tip is the last entry. Returns `None` when no landing
+        is being assessed.
+        """
+        if not self.landing_assessment:
+            return None
+
+        revision, _diff = self.landing_assessment.to_land[-1]
+
+        return PhabricatorClient.expect(revision, "phid")
 
     def revision_check_pairs(self) -> list[tuple[dict, dict]]:
         """Return the appropriate list of `revision, diff` pairs for assessing.
@@ -576,6 +592,44 @@ def warning_multiple_authors(
         return f"Revision has multiple authors: {', '.join(author_usernames)}."
 
 
+@RevisionWarningCheck("Phabricator has detected a merge conflict.")
+def warning_merge_conflict(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> str | None:
+    """Warn when Phabricator found the landing does not apply to the target branch.
+
+    Phabricator merges a revision along with every open ancestor, so the verdict
+    on a revision answers whether that revision *and its parents* can land. Only
+    the tip of the requested landing path asks that question, so checking any
+    other revision would warn about a landing nobody requested.
+    """
+    if PhabricatorClient.expect(revision, "phid") != stack_state.landing_path_tip_phid:
+        return None
+
+    merge_conflict_status = MergeConflictStatus.from_revision(revision)
+    if not merge_conflict_status or not merge_conflict_status.is_conflict:
+        return None
+
+    message = (
+        "Phabricator has detected a merge conflict: this landing does not apply "
+        "cleanly to the target branch. Rebase onto the latest changes before "
+        "landing."
+    )
+
+    if description := merge_conflict_status.describe_check():
+        message = f"{message} {description}"
+
+    if merge_conflict_status.reason:
+        message = f"{message} {merge_conflict_status.reason}"
+
+    if merge_conflict_status.is_stale:
+        message = (
+            f"{message} This check ran against an earlier diff and may no longer apply."
+        )
+
+    return message
+
+
 def blocker_user_no_auth0_email(
     stack_state: StackAssessmentState,
 ) -> str | None:
@@ -940,6 +994,7 @@ WARNING_CHECKS = [
     warning_unresolved_comments,
     warning_multiple_authors,
     warning_diff_author_is_hackbot,
+    warning_merge_conflict,
 ]
 
 
