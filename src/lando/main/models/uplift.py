@@ -1,4 +1,5 @@
 import json
+from dataclasses import dataclass
 from typing import Any
 
 from django.contrib.auth.models import User
@@ -51,6 +52,17 @@ class UpliftTargetSelectionMethod(models.TextChoices):
     # The server-rendered checkboxes were used directly, e.g. with JavaScript
     # disabled or when the widget failed to load.
     SERVER_RENDERED = "server_rendered", "Server-rendered"
+
+
+@dataclass(frozen=True, slots=True)
+class UpliftAssessmentAnswer:
+    """A single question from the uplift assessment form and its answer."""
+
+    # The question, worded as it appears on the form.
+    label: str
+
+    # The answer, resolved to its human-readable form for choice fields.
+    value: str
 
 
 class UpliftAssessment(BaseModel):
@@ -120,6 +132,83 @@ class UpliftAssessment(BaseModel):
         max_length=8,
         default=YesNoUnknownChoices.YES,
     )
+
+    @classmethod
+    def visible_on_revision(
+        cls, bug_id: int | None, revision_id: int
+    ) -> models.QuerySet:
+        """Return the uplift assessments a revision's page should display.
+
+        The bug is the primary grouping, so an assessment already filled out
+        for it is discoverable from every revision on that bug rather than
+        just the one it is linked to. Assessments the revision reaches directly
+        are included too: those recorded before `bug_id` existed have no bug to
+        group by, so this is the only way they stay visible.
+        """
+        reachable = models.Q(revisions__revision_id=revision_id) | models.Q(
+            uplift_submission__requested_revision_ids__contains=[revision_id]
+        )
+
+        # A revision an uplift job created also reaches the assessment behind it.
+        reachable |= models.Q(
+            uplift_submission__uplift_jobs__created_revision_ids__contains=[revision_id]
+        )
+
+        if bug_id is not None:
+            reachable |= models.Q(bug_id=bug_id)
+
+        return (
+            cls.objects.filter(reachable)
+            .select_related("user")
+            .prefetch_related("revisions")
+            .order_by("created_at")
+            .distinct()
+        )
+
+    @classmethod
+    def for_bug(cls, bug_id: int | None) -> models.QuerySet:
+        """Return every uplift assessment recorded against the given bug.
+
+        An assessment used to be reachable only from the single revision it was
+        linked to, so a developer who had already filled one out could not see
+        it from another revision on the same bug and would fill in a second via
+        "Request Uplift", creating duplicate revisions along with it. Grouping
+        by bug is what makes the existing form discoverable. It is also
+        unscoped by user, so collaborators see the same set.
+        """
+        if bug_id is None:
+            return cls.objects.none()
+
+        return (
+            cls.objects.filter(bug_id=bug_id)
+            .select_related("user")
+            .prefetch_related("revisions")
+            .order_by("created_at")
+        )
+
+    def requested_revision_ids(self) -> list[int]:
+        """Return the revisions an uplift was requested for, oldest request first."""
+        requested = []
+
+        for submission in self.uplift_submission.order_by("created_at"):
+            for revision_id in submission.requested_revision_ids:
+                if revision_id not in requested:
+                    requested.append(revision_id)
+
+        return requested
+
+    def display_answers(self) -> list[UpliftAssessmentAnswer]:
+        """Return every question on the form with its answer, for display."""
+        answers = []
+
+        for name, label in self.CONDUIT_FIELDS.items():
+            # Choice fields carry a `get_<field>_display` returning the human
+            # readable label; free-text fields are shown as they were entered.
+            get_display = getattr(self, f"get_{name}_display", None)
+            value = get_display() if get_display else getattr(self, name)
+            answers.append(UpliftAssessmentAnswer(label=label, value=value))
+
+        return answers
 
     def to_conduit_json(self) -> dict[str, Any]:
         """Return the assessment in Conduit API JSON format."""
