@@ -189,62 +189,6 @@ def test__PullRequest___parse_body_segments__no_delimiter(body, expected_output)
     assert output == expected_output
 
 
-@pytest.fixture
-def github_api_client(
-    mock_github_fetch_token: mock.Mock,  # pyright: ignore[reportUnusedParameter]
-    mock_github_api_get: Callable,
-    mock_response: Callable,
-    monkeypatch: pytest.MonkeyPatch,
-) -> Callable:
-    def _github_api_client(
-        github_pr_response: str,
-        github_pr_commits_response: str,
-        *,
-        github_pr_list_response: str = "null",
-        github_pr_patch: str = "",
-        github_pr_diff: str = "",
-    ) -> GitHubAPIClient:
-        repo = "mozilla-conduit/test-repo"
-        client_mock = GitHubAPIClient(f"https://github.com/{repo}/")
-
-        client_mock.list_pull_request = mock.Mock(
-            return_value=json.loads(github_pr_list_response)
-        )
-
-        pr_response = json.loads(github_pr_response)
-        client_mock.get_pull_request = mock.Mock(return_value=pr_response)
-
-        # Prime the GitHub API object to fake network interaction with coherent
-        # response.
-        mock_github_api_get(
-            repo,
-            pr_response,
-            github_pr_commits_response,
-            github_pr_patch,
-            github_pr_diff,
-        )
-
-        return client_mock
-
-    return _github_api_client
-
-
-@pytest.fixture
-def github_api_client_pr(
-    github_api_client: Callable,
-    github_pr_response: str,
-    github_pr_commits_response: str,
-    github_pr_patch: str,
-    github_pr_diff: str,
-) -> mock.Mock:
-    return github_api_client(
-        github_pr_response,
-        github_pr_commits_response,
-        github_pr_patch=github_pr_patch,
-        github_pr_diff=github_pr_diff,
-    )
-
-
 def test__PullRequest__patch(
     github_api_client_pr: GitHubAPIClient, github_pr_patch: str
 ):
@@ -263,6 +207,8 @@ def test__PullRequest__patch__stale(
 
     with pytest.raises(PullRequest.StaleMetadataException):
         _ = pr.patch
+
+
 @pytest.mark.parametrize(
     "secret, payload, signature, is_valid",
     (

@@ -65,8 +65,15 @@ class PullRequestPatchHelper(PatchHelper):
         raise NotImplementedError("`from_bytes_io` not implemented.")
 
     def get_commit_description(self) -> str:
-        """Returns the commit description."""
-        return self.get_header("subject")
+        """Return the full commit description."""
+        # We can't use pr.commit_message here,
+        # as it also appends a trailer with the PR URL.
+        lines = [self._pr.title]
+
+        if self._pr.commit_body:
+            lines += ["", self._pr.commit_body]
+
+        return "\n".join(lines)
 
     @override
     def get_diff(self) -> str:
@@ -101,7 +108,7 @@ def ignore_bot_sender(post: Callable) -> Callable:
         BOT_SENDER_TYPE = "Bot"
         try:
             sender_type = json.loads(request.body)["sender"]["type"]
-        except (JSONDecodeError, KeyError, ValueError, TypeError):
+        except JSONDecodeError, KeyError, ValueError, TypeError:
             pass
         else:
             if sender_type == BOT_SENDER_TYPE:
