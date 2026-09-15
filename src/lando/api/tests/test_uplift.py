@@ -17,6 +17,10 @@ from lando.api.legacy.uplift import (
     parse_milestone_version,
 )
 from lando.api.tests.test_landings import PATCH_CHANGE_MISSING_CONTENT
+from lando.conftest import (
+    UPDATED_UPLIFT_ASSESSMENT_ANSWERS,
+    UPLIFT_ASSESSMENT_ANSWERS,
+)
 from lando.main.models import JobStatus, PermanentFailureException
 from lando.main.models.commit_map import CommitMap
 from lando.main.models.landing_job import LandingJob
@@ -112,7 +116,7 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
         "source_revisions": [revision.revision_id for revision in revisions_ordered],
         "repositories": [repo_a.name, repo_b.name],
     }
-    form_data |= CREATE_FORM_DATA
+    form_data |= UPLIFT_ASSESSMENT_ANSWERS
 
     # POST form to Lando. Use D456 as the referrer since it is the tip.
     response = authenticated_client.post(url, data=form_data, HTTP_REFERER="/D456")
@@ -216,7 +220,7 @@ def test_uplift_creation_seeds_revisions_from_phabricator(
         "source_revisions": [rev_id_a, rev_id_b],
         "repositories": [repo_a.name, repo_b.name],
     }
-    form_data |= CREATE_FORM_DATA
+    form_data |= UPLIFT_ASSESSMENT_ANSWERS
 
     response = authenticated_client.post(url, data=form_data, HTTP_REFERER="/D456")
 
@@ -261,7 +265,7 @@ def test_uplift_creation_fails_when_seeding_fails(
         "source_revisions": [999999],
         "repositories": ["firefox-beta"],
     }
-    form_data |= CREATE_FORM_DATA
+    form_data |= UPLIFT_ASSESSMENT_ANSWERS
 
     response = authenticated_client.post(url, data=form_data, HTTP_REFERER="/D999999")
 
@@ -294,7 +298,7 @@ def test_uplift_creation_records_widget_target_selection(
         "repositories": [repo.name],
         "target_selection_method": "widget_version",
     }
-    form_data |= CREATE_FORM_DATA
+    form_data |= UPLIFT_ASSESSMENT_ANSWERS
 
     response = authenticated_client.post(url, data=form_data, HTTP_REFERER="/D123")
 
@@ -383,31 +387,6 @@ def test_to_conduit_json_transforms_fields(user):
     ), "`to_conduit_json_str` should return dict as a string."
 
 
-CREATE_FORM_DATA = {
-    "user_impact": "Initial impact description.",
-    "covered_by_testing": "yes",
-    "fix_verified_in_nightly": "no",
-    "needs_manual_qe_testing": "no",
-    "qe_testing_reproduction_steps": "",
-    "risk_associated_with_patch": "low",
-    "risk_level_explanation": "Low risk because it's well-tested.",
-    "string_changes": "No changes.",
-    "is_android_affected": "no",
-}
-
-UPDATED_FORM_DATA = {
-    "user_impact": "Updated impact after more testing.",
-    "covered_by_testing": "no",
-    "fix_verified_in_nightly": "yes",
-    "needs_manual_qe_testing": "yes",
-    "qe_testing_reproduction_steps": "Steps go here.",
-    "risk_associated_with_patch": "medium",
-    "risk_level_explanation": "Medium risk due to timing.",
-    "string_changes": "Yes, minor updates.",
-    "is_android_affected": "yes",
-}
-
-
 @pytest.mark.django_db
 def test_get_latest_landing_commit_id_with_null_commit_id():
     """Test that get_latest_landing_commit_id returns None when commit_id is NULL."""
@@ -453,12 +432,12 @@ def test_patch_assessment_creates_and_updates(
 
     url = reverse("uplift-assessment-page", args=[1234])
 
-    form = UpliftAssessmentForm(data=CREATE_FORM_DATA)
+    form = UpliftAssessmentForm(data=UPLIFT_ASSESSMENT_ANSWERS)
     assert form.is_valid(), f"Form was invalid: {form.errors.as_json()}"
 
     # Submit the form for a revision.
     response = authenticated_client.post(
-        url, data=CREATE_FORM_DATA, HTTP_REFERER="/D1234"
+        url, data=UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER="/D1234"
     )
     assert response.status_code == 302, (
         "Updating assessment form should redirect back to referrer."
@@ -469,7 +448,7 @@ def test_patch_assessment_creates_and_updates(
     assert responses.count() == 1, "Updating a form should result in a single form."
 
     response_obj = responses.first()
-    assert response_obj.user_impact == CREATE_FORM_DATA["user_impact"], (
+    assert response_obj.user_impact == UPLIFT_ASSESSMENT_ANSWERS["user_impact"], (
         "`user_impact` field should match the initial value."
     )
 
@@ -498,7 +477,7 @@ def test_patch_assessment_creates_and_updates(
 
     # Submit the form for a revision which already has a completed form.
     response = authenticated_client.post(
-        url, data=UPDATED_FORM_DATA, HTTP_REFERER="/D1234"
+        url, data=UPDATED_UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER="/D1234"
     )
     assert response.status_code == 302, (
         "Updating assessment form should redirect back to referrer."
@@ -509,9 +488,10 @@ def test_patch_assessment_creates_and_updates(
     assert responses.count() == 1, "Updating a form should result in a single form."
 
     updated_response_obj = responses.first()
-    assert updated_response_obj.user_impact == UPDATED_FORM_DATA["user_impact"], (
-        "User impact should be updated to a new value."
-    )
+    assert (
+        updated_response_obj.user_impact
+        == UPDATED_UPLIFT_ASSESSMENT_ANSWERS["user_impact"]
+    ), "User impact should be updated to a new value."
 
     revision.refresh_from_db()
     assert revision.assessment == updated_response_obj, (
@@ -545,12 +525,14 @@ def test_patch_assessment_updates_in_place(
 
     url = reverse("uplift-assessment-page", args=[1234])
 
-    authenticated_client.post(url, data=CREATE_FORM_DATA, HTTP_REFERER="/D1234")
+    authenticated_client.post(
+        url, data=UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER="/D1234"
+    )
     original_assessment = UpliftAssessment.objects.get()
     original_pk = original_assessment.pk
 
     response = authenticated_client.post(
-        url, data=UPDATED_FORM_DATA, HTTP_REFERER="/D1234"
+        url, data=UPDATED_UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER="/D1234"
     )
 
     assert response.status_code == 302, "Update should redirect to referrer."
@@ -562,9 +544,10 @@ def test_patch_assessment_updates_in_place(
     assert updated_assessment.pk == original_pk, (
         "Assessment should be updated in place, not replaced."
     )
-    assert updated_assessment.user_impact == UPDATED_FORM_DATA["user_impact"], (
-        "Updated assessment should reflect new values."
-    )
+    assert (
+        updated_assessment.user_impact
+        == UPDATED_UPLIFT_ASSESSMENT_ANSWERS["user_impact"]
+    ), "Updated assessment should reflect new values."
 
     mock_apply_async.assert_called()
 
@@ -620,7 +603,7 @@ def test_link_assessment_links_existing_form(
     """Linking endpoint should tie an existing assessment to a revision."""
     phabdouble.user(api_key=user.profile.phabricator_api_key)
 
-    assessment = UpliftAssessment.objects.create(user=user, **CREATE_FORM_DATA)
+    assessment = UpliftAssessment.objects.create(user=user, **UPLIFT_ASSESSMENT_ANSWERS)
     url = reverse("uplift-assessment-link-page", args=[5678])
 
     response = authenticated_client.post(
@@ -672,7 +655,9 @@ def test_link_assessment_replaces_existing_form(
     """Link endpoint should flash replacement message when swapping assessments."""
     phabdouble.user(api_key=user.profile.phabricator_api_key)
 
-    previous_assessment = UpliftAssessment.objects.create(user=user, **CREATE_FORM_DATA)
+    previous_assessment = UpliftAssessment.objects.create(
+        user=user, **UPLIFT_ASSESSMENT_ANSWERS
+    )
     replacement_assessment = UpliftAssessment.objects.create(
         user=user,
         # Ensure unique data to avoid accidental equality with previous form fields.
