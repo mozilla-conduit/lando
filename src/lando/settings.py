@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 
 from lando.environments import Environment
+from lando.utils.github import GitHubSettings
 from lando.version import version
 
 DEBUG = os.getenv("DEBUG", "").lower() in ("true", "1")
@@ -337,6 +338,11 @@ GITHUB_APP_ID = os.getenv("GITHUB_APP_ID")
 GITHUB_APP_PRIVKEY = os.getenv("GITHUB_APP_PRIVKEY")
 
 HTTP_USER_AGENT = f"Lando/{version} ({ENVIRONMENT})"
+
+# Forward our own config to the GitHub utils'.
+GitHubSettings.GITHUB_APP_ID = GITHUB_APP_ID
+GitHubSettings.GITHUB_APP_PRIVKEY = GITHUB_APP_PRIVKEY
+GitHubSettings.HTTP_USER_AGENT = HTTP_USER_AGENT
 
 AUDITLOG_INCLUDE_ALL_MODELS = True
 AUDITLOG_EXCLUDE_TRACKING_MODELS = (
