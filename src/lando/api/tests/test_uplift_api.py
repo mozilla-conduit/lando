@@ -3,7 +3,10 @@ from unittest import mock
 
 import pytest
 
-from lando.api.tests.test_uplift import CREATE_FORM_DATA, UPDATED_FORM_DATA
+from lando.conftest import (
+    UPDATED_UPLIFT_ASSESSMENT_ANSWERS,
+    UPLIFT_ASSESSMENT_ANSWERS,
+)
 from lando.main.models.uplift import UpliftAssessment, UpliftRevision
 
 ENDPOINT_URL = "/api/uplift/assessments/link"
@@ -80,7 +83,7 @@ def test_link_revision_assessment_not_found(client, phab_header):
 @pytest.mark.django_db
 def test_link_revision_creates_new_link(mock_apply_async, client, phab_header, user):
     """Linking a new revision to an assessment should create an `UpliftRevision`."""
-    assessment = UpliftAssessment.objects.create(user=user, **CREATE_FORM_DATA)
+    assessment = UpliftAssessment.objects.create(user=user, **UPLIFT_ASSESSMENT_ANSWERS)
 
     response = client.post(
         ENDPOINT_URL,
@@ -127,8 +130,12 @@ def test_link_revision_replaces_existing_link(
     mock_apply_async, client, phab_header, user
 ):
     """Linking a revision that already has an assessment should replace it."""
-    old_assessment = UpliftAssessment.objects.create(user=user, **CREATE_FORM_DATA)
-    new_assessment = UpliftAssessment.objects.create(user=user, **UPDATED_FORM_DATA)
+    old_assessment = UpliftAssessment.objects.create(
+        user=user, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    new_assessment = UpliftAssessment.objects.create(
+        user=user, **UPDATED_UPLIFT_ASSESSMENT_ANSWERS
+    )
 
     UpliftRevision.objects.create(revision_id=6789, assessment=old_assessment)
 
