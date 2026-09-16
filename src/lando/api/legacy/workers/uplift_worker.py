@@ -453,7 +453,11 @@ class UpliftWorker(Worker):
             raise ValueError(
                 "Could not find 'Calculated try_task_config.json:' marker."
             )
-        config_json = json.dumps(json.loads(json_text), indent=4, sort_keys=True)
+        json_dict = json.loads(json_text)
+        if json_dict["try_task_config"]["tasks"] is None:
+            raise ValueError("No tasks found in try_task_config.json.")
+
+        config_json = json.dumps(json_dict, indent=4, sort_keys=True)
         config_lines = config_json.splitlines()
 
         diff_header_lines = [
