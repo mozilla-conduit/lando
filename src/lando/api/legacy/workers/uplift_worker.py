@@ -399,21 +399,22 @@ class UpliftWorker(Worker):
                 )
                 raise
 
+        try:
+            try_revision = self.create_try_revision(
+                job.target_repo, job.requester_email
+            )
+        except ValueError:
+            logger.exception(
+                "Error creating try revision",
+                extra={"job_id": job.id},
+            )
+            raise
+        
         with transaction.atomic():
             revisions = [
                 self.create_revisions_from_patch_helper(patch_helper)
                 for patch_helper in patch_helpers
             ]
-            try:
-                try_revision = self.create_try_revision(
-                    job.target_repo, job.requester_email
-                )
-            except ValueError:
-                logger.exception(
-                    "Error creating try revision",
-                    extra={"job_id": job.id},
-                )
-                raise
             revisions.append(try_revision)
             try_job = LandingJob.objects.create(
                 target_repo=try_repo,
