@@ -15,6 +15,7 @@ from collections.abc import Callable, Iterator
 from datetime import datetime
 from enum import Enum
 from itertools import count
+from typing import Any
 
 import requests
 from simple_github import AppAuth, AppInstallationAuth
@@ -493,6 +494,8 @@ class PullRequest:
 
     client: GitHubAPIClient
 
+    _data: dict[str, Any]
+
     def __repr__(self) -> str:
         return f"Pull request #{self.number} ({self.head_repo_git_url})"
 
@@ -506,8 +509,9 @@ class PullRequest:
         # Return the user-controlled portion.
         return parts[0].strip()
 
-    def __init__(self, client: GitHubAPIClient, data: dict):
+    def __init__(self, client: GitHubAPIClient, data: dict[str, Any]):
         self.client = client
+        self._data = data
 
         self.url = data["url"]
         self.base_ref = data["base"]["ref"]  # "target" branch name
