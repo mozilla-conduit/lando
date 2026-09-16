@@ -409,7 +409,7 @@ class UpliftWorker(Worker):
                 extra={"job_id": job.id},
             )
             raise
-        
+
         with transaction.atomic():
             revisions = [
                 self.create_revisions_from_patch_helper(patch_helper)
@@ -440,7 +440,7 @@ class UpliftWorker(Worker):
         error = secure_check.result()
         return error, secure_check.status_code
 
-    def create_try_diff_from_json(self, repo: Repo) -> str:
+    def create_try_task_config_diff(self, repo: Repo) -> str:
         """Create a raw diff for the `try_task_config.json` file."""
         config_contents = self.run_mach_command(
             repo_path=repo.path,
