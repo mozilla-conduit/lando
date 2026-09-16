@@ -90,7 +90,7 @@ MOCK_TRY_TASK_CONFIG = {
         "try_task_config": {
             "disable-pgo": True,
             "env": {"TRY_SELECTOR": "fuzzy"},
-            "tasks": [],
+            "tasks": ["build-apk-fenix-android-test-debug", "build-apk-fenix-debug"],
         },
     },
     "version": 2,
@@ -873,7 +873,8 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
     )
     mach_file.chmod(0o755)
 
-    # `mach_path` lookup is mocked to find the fake `mach` that is not in the git working directory
+    # `mach_path` lookup is mocked to find the fake `mach` that is not in the git
+    # working directory.
     monkeypatch.setattr(uplift_worker, "mach_path", lambda repo_path: mach_file)
 
     monkeypatch.setattr(settings, "MOZBUILDS_ROOT", str(tmp_path / "mozbuilds"))
