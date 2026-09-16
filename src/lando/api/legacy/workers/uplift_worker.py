@@ -455,7 +455,7 @@ class UpliftWorker(Worker):
                 "Could not find 'Calculated try_task_config.json:' marker."
             )
         json_dict = json.loads(json_text)
-        if json_dict["try_task_config"]["tasks"] is None:
+        if json_dict["parameters"]["try_task_config"]["tasks"] is None:
             raise ValueError("No tasks found in try_task_config.json.")
 
         config_json = json.dumps(json_dict, indent=4, sort_keys=True)
@@ -480,7 +480,7 @@ class UpliftWorker(Worker):
             "commit_message": "try_task_config",
             "timestamp": str(int(time.time())),
         }
-        raw_diff = self.create_try_diff_from_json(repo)
+        raw_diff = self.create_try_task_config_diff(repo)
         return Revision.new_from_patch(raw_diff=raw_diff, patch_data=try_patch_data)
 
     def create_revisions_from_patch_helper(self, patch_helper: PatchHelper) -> Revision:
