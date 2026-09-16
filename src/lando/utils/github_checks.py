@@ -14,7 +14,8 @@ from lando.api.legacy.bmo import (
 from lando.main.models.jobs import JobStatus
 from lando.main.models.landing_job import get_jobs_for_pull
 from lando.main.models.repo import Repo
-from lando.utils.github import GitHubAPIClient, PullRequest
+from lando.utils.github import GitHubAPIClient
+from lando.utils.github_helpers import LandoPullRequest
 from lando.utils.landing_checks import Check
 
 logger = logging.getLogger("__name__")
@@ -25,7 +26,7 @@ class PullRequestCheck(Check, ABC):
     @abstractmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -58,7 +59,7 @@ class PullRequestUserSCMLevelBlocker(PullRequestBlocker):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -87,7 +88,7 @@ class PullRequestClosedBlocker(PullRequestBlocker):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -115,7 +116,7 @@ class PullRequestDiffAuthorIsKnownBlocker(PullRequestBlocker):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -152,7 +153,7 @@ class PullRequestAuthorPlannedChangesBlocker(PullRequestBlocker):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -182,7 +183,7 @@ class PullRequestRevisionDataClassificationBlocker(PullRequestBlocker):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -214,7 +215,7 @@ class PullRequestBaseBranchDoesNotMatchTree(PullRequestBlocker):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -241,7 +242,7 @@ class PullRequestConflictWithBaseBranch(PullRequestBlocker):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -268,7 +269,7 @@ class PullRequestFailingCheck(PullRequestBlocker):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -299,7 +300,7 @@ class PullRequestSecurityBugStatusFlagsBlocker(PullRequestBlocker):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -361,7 +362,7 @@ class PullRequestBlockingReviewersWarning(PullRequestWarning):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -405,7 +406,7 @@ class PullRequestBlockingReviewsWarning(PullRequestWarning):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -443,7 +444,7 @@ class PullRequestPreviouslyLandedWarning(PullRequestWarning):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -472,7 +473,7 @@ class PullRequestNotAcceptedWarning(PullRequestWarning):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -501,7 +502,7 @@ class PullRequestReviewsNotCurrentWarning(PullRequestWarning):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -534,7 +535,7 @@ class PullRequestMissingTestingTagWarning(PullRequestWarning):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -571,7 +572,7 @@ class PullRequestWIPWarning(PullRequestWarning):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -598,7 +599,7 @@ class PullRequestUnresolvedCommentsWarning(PullRequestWarning):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -631,7 +632,7 @@ class PullRequestMultipleAuthorsWarning(PullRequestWarning):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -672,7 +673,7 @@ class PullRequestSecurityBugStatusFlagsUnverifiedWarning(PullRequestWarning):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -732,7 +733,7 @@ class PullRequestChecks:
         self._target_repo = target_repo
         self._request = request
 
-    def run(self, checks_list: list[str], pull_request: PullRequest) -> list[str]:
+    def run(self, checks_list: list[str], pull_request: LandoPullRequest) -> list[str]:
         messages = []
 
         for check in [

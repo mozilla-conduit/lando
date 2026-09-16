@@ -1,9 +1,12 @@
+"""This file contains project-independent GitHub utils.
+
+WARNING: Do not import any lando- or django-namespaced modules here.
+
+"""
+
 import asyncio
-import functools
 import hashlib
 import hmac
-import io
-import json
 import logging
 import math
 import re
@@ -12,24 +15,28 @@ from collections.abc import Callable, Iterator
 from datetime import datetime
 from enum import Enum
 from itertools import count
-from json.decoder import JSONDecodeError
+from typing import Any
 
 import requests
-from django.conf import settings
-from django.core.handlers.wsgi import WSGIRequest
-from django.http import HttpResponse
-from django.views import View
 from simple_github import AppAuth, AppInstallationAuth
-from typing_extensions import override
 
-from lando.api.legacy.bmo import BugFetchError, fetch_bugs
-from lando.api.legacy.commit_message import parse_bugs
-from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
-from lando.main.scm.helpers import PatchHelper, PatchHelperMetadata
-from lando.utils.cache import cache_method
-from lando.utils.const import URL_USERINFO_RE
+# We deliberately import those without a fully-qualified import to allow portability of
+# the file away from Lando.
+from ..cache import cache_method
+from ..const import URL_USERINFO_RE
 
 logger = logging.getLogger(__name__)
+
+
+class GitHubSettings:
+    """A singleton class for settings, allowing users to inject them as needed.
+
+    This class doesn't need to be instantiated.
+    """
+
+    GITHUB_APP_ID: str | None = None
+    GITHUB_APP_PRIVKEY: str | None = None
+    HTTP_USER_AGENT: str = "Mozilla-GitHub-Util/v0.0.0-pre"
 
 
 PR_DELIMITER = (
@@ -111,8 +118,8 @@ class GitHub:
         The app with ID GITHUB_APP_ID needs to be enabled for the target repo.
 
         """
-        app_id = settings.GITHUB_APP_ID
-        private_key = settings.GITHUB_APP_PRIVKEY
+        app_id = GitHubSettings.GITHUB_APP_ID
+        private_key = GitHubSettings.GITHUB_APP_PRIVKEY
 
         if not app_id or not private_key:
             logger.warning(
@@ -149,7 +156,7 @@ class GitHubAPI(GitHub):
         self.session.headers.update(
             {
                 "Authorization": f"Bearer {self._fetch_token()}",
-                "User-Agent": settings.HTTP_USER_AGENT,
+                "User-Agent": GitHubSettings.HTTP_USER_AGENT,
                 "Accept": "application/vnd.github+json",
                 "X-GitHub-Api-Version": "2022-11-28",
             }
@@ -481,6 +488,8 @@ class PullRequest:
 
     client: GitHubAPIClient
 
+    _data: dict[str, Any]
+
     def __repr__(self) -> str:
         return f"Pull request #{self.number} ({self.head_repo_git_url})"
 
@@ -494,8 +503,9 @@ class PullRequest:
         # Return the user-controlled portion.
         return parts[0].strip()
 
-    def __init__(self, client: GitHubAPIClient, data: dict):
+    def __init__(self, client: GitHubAPIClient, data: dict[str, Any]):
         self.client = client
+        self._data = data
 
         self.url = data["url"]
         self.base_ref = data["base"]["ref"]  # "target" branch name
@@ -612,22 +622,6 @@ class PullRequest:
         return commits
 
     @property
-    def bug_ids(self) -> set[int]:
-        """The set of Bugzilla bug numbers referenced by the PR's commit messages."""
-        bug_ids: set[int] = set()
-        for commit in self.commits:
-            bug_ids.update(parse_bugs(commit["commit"]["message"]))
-        return bug_ids
-
-    @functools.cached_property
-    def bugs_by_id(self) -> dict[int, dict] | None:
-        """BMO bug data for the PR's referenced bugs, keyed by id (`None` on failure)."""
-        try:
-            return fetch_bugs(self.bug_ids)
-        except BugFetchError:
-            return None
-
-    @property
     @pr_cache_method
     def commit_comments(self) -> list:
         """Return a list of comments on specific changes of the PR."""
@@ -659,18 +653,8 @@ class PullRequest:
 
     @property
     def reviews_summary(self) -> dict[str, str]:
-        """Get a simple dict of reviewers and the state of their review.
-
-        The reviewers GitHub usernames are mapped to nicks, if available in the
-        GITHUB_REVIEWERS_MAP ConfigurationVariable.
-        """
-        summary = {review["user"]["login"]: review["state"] for review in self.reviews}
-
-        reviewer_map = ConfigurationVariable.get(
-            ConfigurationKey.GITHUB_REVIEWERS_MAP, {}
-        )
-
-        return {reviewer_map.get(u, u): summary[u] for u in summary}
+        """Get a simple dict of reviewers and the state of their review."""
+        return {review["user"]["login"]: review["state"] for review in self.reviews}
 
     @property
     @pr_cache_method
@@ -736,86 +720,6 @@ class PullRequest:
         }
 
 
-class PullRequestPatchHelper(PatchHelper):
-    """A PatchHelper-like wrapper for GitHub pull requests.
-
-    Due to the nature of pull requests, it only implement the data-getting
-    functionality, and doesn't implement the input and output methods.
-    """
-
-    _diff: str
-
-    _author_name: str
-    _author_email: str
-    _pr: PullRequest
-
-    def __init__(self, pr: PullRequest):
-        super().__init__()
-
-        self._pr = pr
-
-        self._diff = pr.diff
-
-        author_name, author_email = self._pr.author
-
-        self.headers = {
-            "date": self._get_timestamp_from_github_timestamp(pr.updated_at),
-            "from": f"{author_name} <{author_email}>",
-            "subject": pr.title,
-        }
-
-        self.metadata = PatchHelperMetadata()
-
-    @classmethod
-    def _get_timestamp_from_github_timestamp(cls, timestamp: str) -> str:
-        timestamp_datetime = datetime.fromisoformat(timestamp)
-        return str(math.floor(timestamp_datetime.timestamp()))
-
-    @classmethod
-    def from_string_io(cls, string_io: io.StringIO) -> "PatchHelper":
-        """Implement the PatchHelper interface; not relevant for GitHub PRs."""
-        raise NotImplementedError("`from_string_io` not implemented.")
-
-    @classmethod
-    def from_bytes_io(cls, bytes_io: io.BytesIO) -> "PatchHelper":
-        """Implement the PatchHelper interface; not relevant for GitHub PRs."""
-        raise NotImplementedError("`from_bytes_io` not implemented.")
-
-    def get_commit_description(self) -> str:
-        """Return the full commit description."""
-        # We can't use pr.commit_message here,
-        # as it also appends a trailer with the PR URL.
-        lines = [self._pr.title]
-
-        if self._pr.commit_body:
-            lines += ["", self._pr.commit_body]
-
-        return "\n".join(lines)
-
-    @override
-    def get_diff(self) -> str:
-        """Return the patch diff.
-
-        WARNING: As of 2025-10-13, this doesn't include any binary data.
-        """
-        return self._diff
-
-    @override
-    def write(self, f: io.StringIO):
-        """Implement the PatchHelper interface; not relevant for GitHub PRs."""
-        raise NotImplementedError("`from_bytes_io` not implemented.")
-
-    @override
-    def parse_author_information(self) -> tuple[str, str]:
-        """Return the author name and email from the patch."""
-        return self._pr.author
-
-    @override
-    def get_timestamp(self) -> str:
-        """Return an `hg export` formatted timestamp."""
-        return self.get_header("date")
-
-
 def verify_github_signature(hmac_secret: str, payload: bytes, signature: str) -> bool:
     """Verify the provided signature of the payload using the given hmac_secret."""
     # NOTE: this was adapted from code provided in GitHub as an example.
@@ -827,22 +731,3 @@ def verify_github_signature(hmac_secret: str, payload: bytes, signature: str) ->
     )
     expected_signature = "sha256=" + hash_object.hexdigest()
     return hmac.compare_digest(expected_signature, signature)
-
-
-def ignore_bot_sender(post: Callable) -> Callable:
-    """Decorator that drops requests that originate from bots."""
-
-    @functools.wraps(post)
-    def _post(view: View, request: WSGIRequest, *args, **kwargs) -> HttpResponse:
-        """Drop the request if a bot triggered the original webhook."""
-        BOT_SENDER_TYPE = "Bot"
-        try:
-            sender_type = json.loads(request.body)["sender"]["type"]
-        except JSONDecodeError, KeyError, ValueError, TypeError:
-            pass
-        else:
-            if sender_type == BOT_SENDER_TYPE:
-                return HttpResponse(status=202)
-        return post(view, request, *args, **kwargs)
-
-    return _post
