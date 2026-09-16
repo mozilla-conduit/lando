@@ -28,6 +28,7 @@ from lando.main.models import (
 from lando.main.scm import (
     AbstractSCM,
     AutoformattingException,
+    PatchConflict,
     SCMException,
     SCMInternalServerError,
     SCMLostPushRace,
@@ -218,6 +219,34 @@ class LandingWorker(Worker):
             logger.debug(f"Rebasing stack ending at {revision} onto {landing_base}.")
             scm.rebase_onto(landing_base, rebase_base)
 
+        def apply_stack_at_base() -> bool:
+            """Reconstruct the stack at `rebase_base` and rebase it onto the target.
+
+            Returns whether the stack now sits on the landing base. A patch the
+            recorded base cannot support leaves the branch back at the landing
+            base, for the caller to apply the stack there instead.
+            """
+            logger.debug(f"Reconstructing stack at base {rebase_base}.")
+            scm.reset_to_commit(rebase_base)
+
+            for revision in job.revisions.all():
+                try:
+                    self.handle_new_commit_failures(
+                        apply_patch, repo, job, scm, revision, reraise_conflicts=True
+                    )
+                except PatchConflict:
+                    logger.warning(
+                        f"{revision} does not apply at {rebase_base}; "
+                        f"applying the stack at {landing_base} instead."
+                    )
+                    scm.reset_to_commit(landing_base, clean=True)
+                    return False
+
+            self.handle_new_commit_failures(
+                rebase_stack, repo, job, scm, job.revisions.last()
+            )
+            return True
+
         self.update_repo(repo, job, scm, job.target_commit_hash)
 
         if job.is_pull_request_job:
@@ -231,26 +260,23 @@ class LandingWorker(Worker):
         # so the final rebase performs a true 3-way merge against the correct
         # ancestor. Otherwise, apply directly onto the landing base (2-way).
         rebase_base = self.determine_rebase_base(job, scm)
-        job.landing_strategy = (
-            LandingStrategy.THREE_WAY if rebase_base else LandingStrategy.TWO_WAY
-        )
-        if rebase_base:
-            logger.debug(f"Reconstructing stack at base {rebase_base}.")
-            scm.reset_to_commit(rebase_base)
 
-        # Run through the patches one by one and try to apply them.
         logger.debug(
             f"About to land {job.revisions.count()} revisions: {job.revisions.all()} ..."
         )
-        for revision in job.revisions.all():
-            self.handle_new_commit_failures(apply_patch, repo, job, scm, revision)
 
-        # If we reconstructed at the base, rebase the stack onto the landing base
-        # to merge it against the target branch.
-        if rebase_base:
-            self.handle_new_commit_failures(
-                rebase_stack, repo, job, scm, job.revisions.last()
-            )
+        # Record the strategy before attempting it, so a failure reports the one
+        # it failed under.
+        job.landing_strategy = (
+            LandingStrategy.THREE_WAY if rebase_base else LandingStrategy.TWO_WAY
+        )
+
+        # The bases the revisions record need not agree with each other, so a
+        # reconstruction can reject a patch that applies to the landing base.
+        if not (rebase_base and apply_stack_at_base()):
+            job.landing_strategy = LandingStrategy.TWO_WAY
+            for revision in job.revisions.all():
+                self.handle_new_commit_failures(apply_patch, repo, job, scm, revision)
 
         # Record the final commit hash on each revision. Hashes change once the
         # stack is rebased, so we read them only after it reaches its final
