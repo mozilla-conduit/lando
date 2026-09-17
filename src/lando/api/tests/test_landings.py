@@ -1767,6 +1767,69 @@ def test_three_way_landing_handles_context_shift(
 
 
 @pytest.mark.django_db
+def test_three_way_landing_falls_back_when_recorded_base_is_stale(
+    repo_mc: Callable,
+    git_repo: Path,
+    caplog: pytest.LogCaptureFixture,
+    mock_phab_trigger_repo_update_apply_async: mock.Mock,
+    create_patch_revision: Callable,
+    make_landing_job: Callable,
+    get_landing_worker: Callable,
+    apply_patch: Callable,
+    three_way_base_diff: str,
+    three_way_context_shift_diff: str,
+    three_way_bottom_patch: str,
+    three_way_tip_dependent_patch: str,
+):
+    """A stack whose bottom names an older base than the revisions above it lands."""
+    base_sha = setup_three_way_repo(
+        git_repo, apply_patch, three_way_base_diff, three_way_context_shift_diff
+    )
+
+    repo = repo_mc(SCMType.GIT)
+
+    # The bottom revision was submitted before the tip's commit existed, so its
+    # base predates it; the revision above was generated afterwards and carries
+    # the tip's line as context.
+    bottom = create_patch_revision(1, patch=three_way_bottom_patch)
+    bottom.base_revision = base_sha
+    bottom.save()
+    above = create_patch_revision(2, patch=three_way_tip_dependent_patch)
+
+    job = make_landing_job(
+        revisions=[bottom, above],
+        status=JobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        target_repo=repo,
+        attempts=1,
+    )
+
+    worker = get_landing_worker(SCMType.GIT)
+    assert worker.run_job(job), "`run_job` returns `True` in both permanent states."
+    assert job.status == JobStatus.LANDED, (
+        "A stale recorded base should not fail a stack that applies at the tip."
+    )
+
+    assert f"does not apply at {base_sha}" in caplog.text, (
+        "The reconstruction should have been attempted and abandoned."
+    )
+
+    job.refresh_from_db()
+    assert job.landing_strategy == LandingStrategy.TWO_WAY, (
+        "The job should record the attempt that landed it."
+    )
+
+    landed = repo.scm.read_checkout_file("test.txt")
+    assert "line11 modified by the bottom revision" in landed, (
+        "The bottom revision should be applied."
+    )
+    assert "line4 modified by the revision above" in landed, (
+        "The revision above should be applied."
+    )
+    assert "line6 changed on tip" in landed, "The tip's change should be preserved."
+
+
+@pytest.mark.django_db
 def test_three_way_landing_conflict_reports_breakdown(
     repo_mc: Callable,
     git_repo: Path,

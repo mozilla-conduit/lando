@@ -1453,6 +1453,44 @@ def test_GitSCM_reset_to_commit(
     )
 
 
+@pytest.mark.parametrize(
+    "clean, expect_leftovers",
+    [
+        pytest.param(True, False, id="clean-removes-leftovers"),
+        pytest.param(False, True, id="default-keeps-leftovers"),
+    ],
+)
+def test_GitSCM_reset_to_commit_clean(
+    clean: bool,
+    expect_leftovers: bool,
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    """`clean` decides whether an abandoned attempt's leftovers survive the reset.
+
+    A rejected `git apply --reject` leaves `.rej` files, and `apply_patch` stages
+    with `add -A -f`, so they reach the next commit unless the reset removes them.
+    """
+    scm = clone_git_repo(git_repo, tmp_path / request.node.name, git_setup_user)
+    base_commit = scm.head_ref()
+
+    checkout = Path(scm.path)
+    (checkout / "test.txt.rej").write_text("rejected hunk\n")
+    (checkout / ".gitignore").write_text("ignored.txt\n")
+    (checkout / "ignored.txt").write_text("ignored\n")
+
+    scm.reset_to_commit(base_commit, clean=clean)
+
+    assert (checkout / "test.txt.rej").exists() is expect_leftovers, (
+        "`clean` should decide whether the reject file survives."
+    )
+    assert (checkout / "ignored.txt").exists() is expect_leftovers, (
+        "`clean` should cover ignored files, which `add -A -f` would stage."
+    )
+
+
 def test_GitSCM_rebase_onto_recovers_context_shift(
     git_repo: Path,
     git_setup_user: Callable,

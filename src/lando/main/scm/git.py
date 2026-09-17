@@ -200,9 +200,17 @@ class GitSCM(AbstractSCM):
         """Git can reconstruct a patch at its base and rebase onto the target."""
         return True
 
-    def reset_to_commit(self, commit_id: str):
-        """Hard-reset the current work branch to the given commit."""
+    def reset_to_commit(self, commit_id: str, *, clean: bool = False):
+        """Hard-reset the current work branch to the given commit.
+
+        `clean` also removes untracked and ignored files. A rejected `git apply
+        --reject` leaves its hunks behind as `.rej` files, and `apply_patch`
+        stages with `add -A -f`, which covers ignored paths too, so anything an
+        abandoned attempt left would otherwise be committed by the next one.
+        """
         self._git_run("reset", "--hard", commit_id, cwd=self.path)
+        if clean:
+            self._git_run("clean", "-fdx", cwd=self.path)
 
     @override
     def rebase_onto(self, new_base: str, upstream: str):
