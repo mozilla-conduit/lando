@@ -1370,9 +1370,9 @@ def merge_conflict_stack(
     """Build a two revision stack and a state assessing a landing of both.
 
     The returned callable takes the merge conflict status payload to set on the
-    tip and on the root of the stack, and returns the `(revision, diff)` pair for
-    each revision, ordered from the root, along with the `StackAssessmentState`
-    for landing the whole stack.
+    tip and on the root of the stack, and returns a `(revision, diff)` tuple per
+    revision, ordered from the root, along with the `StackAssessmentState` for
+    landing the whole stack.
     """
 
     def merge_conflict_stack_handler(
@@ -1419,8 +1419,10 @@ def test_warning_merge_conflict_warns_on_landing_tip(
     merge_conflict_stack: Callable, merge_conflict_status: Callable
 ):
     """A conflict recorded on the tip warns, since it describes the whole landing."""
-    pairs, stack_state = merge_conflict_stack(tip_status=merge_conflict_status())
-    (root_revision, root_diff), (tip_revision, tip_diff) = pairs
+    revision_diffs, stack_state = merge_conflict_stack(
+        tip_status=merge_conflict_status()
+    )
+    (root_revision, root_diff), (tip_revision, tip_diff) = revision_diffs
 
     warning = warning_merge_conflict(tip_revision, tip_diff, stack_state)
 
@@ -1453,11 +1455,13 @@ def test_warning_merge_conflict_ignores_status_below_the_tip(
     merge_conflict_stack: Callable, merge_conflict_status: Callable
 ):
     """A conflict recorded below the tip describes a landing nobody requested."""
-    pairs, stack_state = merge_conflict_stack(root_status=merge_conflict_status())
+    revision_diffs, stack_state = merge_conflict_stack(
+        root_status=merge_conflict_status()
+    )
 
     assert all(
         warning_merge_conflict(revision, diff, stack_state) is None
-        for revision, diff in pairs
+        for revision, diff in revision_diffs
     ), "A conflict below the landing tip should not warn."
 
 
@@ -1467,10 +1471,10 @@ def test_warning_merge_conflict_no_warning_without_conflict(
     merge_conflict_stack: Callable, merge_conflict_status: Callable, status: str
 ):
     """Only an explicit `conflict` verdict warns."""
-    pairs, stack_state = merge_conflict_stack(
+    revision_diffs, stack_state = merge_conflict_stack(
         tip_status=merge_conflict_status(status=status)
     )
-    tip_revision, tip_diff = pairs[-1]
+    tip_revision, tip_diff = revision_diffs[-1]
 
     assert warning_merge_conflict(tip_revision, tip_diff, stack_state) is None, (
         f"A `{status}` verdict should not warn."
@@ -1482,8 +1486,8 @@ def test_warning_merge_conflict_no_warning_without_status(
     merge_conflict_stack: Callable,
 ):
     """A revision Phabricator has not checked has nothing to warn about."""
-    pairs, stack_state = merge_conflict_stack()
-    tip_revision, tip_diff = pairs[-1]
+    revision_diffs, stack_state = merge_conflict_stack()
+    tip_revision, tip_diff = revision_diffs[-1]
 
     assert warning_merge_conflict(tip_revision, tip_diff, stack_state) is None, (
         "A revision without a merge conflict status should not warn."
@@ -1495,10 +1499,10 @@ def test_warning_merge_conflict_reports_a_stale_verdict(
     merge_conflict_stack: Callable, merge_conflict_status: Callable
 ):
     """A verdict computed for an earlier diff is flagged as possibly out of date."""
-    pairs, stack_state = merge_conflict_stack(
+    revision_diffs, stack_state = merge_conflict_stack(
         tip_status=merge_conflict_status(isStale=True)
     )
-    tip_revision, tip_diff = pairs[-1]
+    tip_revision, tip_diff = revision_diffs[-1]
 
     warning = warning_merge_conflict(tip_revision, tip_diff, stack_state)
 
