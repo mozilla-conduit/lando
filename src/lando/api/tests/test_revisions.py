@@ -263,6 +263,21 @@ def test_merge_conflict_status_describe_check(
     ), "`describe_check` should name every recorded input."
 
 
+def test_merge_conflict_status_describe_check_without_inputs(
+    merge_conflict_revision: Callable,
+):
+    """A verdict recording no inputs has no reference to describe."""
+    status = MergeConflictStatus.from_revision(
+        merge_conflict_revision(
+            checkedAgainstDiffID=None, checkedAgainstBaseCommit=None, epoch=None
+        )
+    )
+
+    assert status.describe_check() is None, (
+        "`describe_check` should return `None` without any recorded inputs."
+    )
+
+
 @pytest.mark.django_db
 def test_fetch_raw_diff_and_save_creates_new_revision(phabdouble):
     """Creating a new `Revision` via `fetch_raw_diff_and_save`."""
