@@ -213,11 +213,11 @@ class StackAssessmentState:
 
     @functools.cached_property
     def landing_path_tip_phid(self) -> str | None:
-        """Return the PHID of the topmost revision in the requested landing path.
+        """Return the PHID of the last revision in the requested landing path.
 
         The landing path is ordered from the root of the stack to the revision
-        being landed, so the tip is the last entry. Returns `None` when no landing
-        is being assessed.
+        being landed, so the last entry is the one every other revision merges in
+        ahead of. Returns `None` when no landing is being assessed.
         """
         if not self.landing_assessment:
             return None
@@ -596,7 +596,7 @@ def warning_multiple_authors(
 def warning_merge_conflict(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> str | None:
-    """Warn when Phabricator found the landing does not apply to the target branch.
+    """Warn when Phabricator found the patch conflicts with the target branch.
 
     Phabricator merges a revision along with every open ancestor, so the verdict
     on a revision answers whether that revision *and its parents* can land. Only
