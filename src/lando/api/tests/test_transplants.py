@@ -1489,7 +1489,13 @@ def test_warning_merge_conflict_without_landing_assessment(
     create_state: Callable,
     merge_conflict_status: Callable,
 ):
-    """Assessing a whole stack rather than a landing has no tip to warn about."""
+    """Rendering the stack page assesses every revision without a landing request.
+
+    `lando.api.legacy.api.stacks.get` builds a `StackAssessmentState` with no
+    landing assessment, so there is no landing path whose last revision the verdict
+    would describe. Every revision must stay quiet rather than warn about a landing
+    the user has not asked for.
+    """
     revision = phabdouble.api_object_for(
         phabdouble.revision(merge_conflict_status=merge_conflict_status()),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
