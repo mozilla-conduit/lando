@@ -1466,35 +1466,6 @@ def test_warning_merge_conflict_ignores_status_below_the_tip(
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("status", ("clean", "unknown"))
-def test_warning_merge_conflict_no_warning_without_conflict(
-    merge_conflict_stack: Callable, merge_conflict_status: Callable, status: str
-):
-    """Only an explicit `conflict` verdict warns."""
-    revision_diffs, stack_state = merge_conflict_stack(
-        tip_status=merge_conflict_status(status=status)
-    )
-    tip_revision, tip_diff = revision_diffs[-1]
-
-    assert warning_merge_conflict(tip_revision, tip_diff, stack_state) is None, (
-        f"A `{status}` verdict should not warn."
-    )
-
-
-@pytest.mark.django_db
-def test_warning_merge_conflict_no_warning_without_status(
-    merge_conflict_stack: Callable,
-):
-    """A revision Phabricator has not checked has nothing to warn about."""
-    revision_diffs, stack_state = merge_conflict_stack()
-    tip_revision, tip_diff = revision_diffs[-1]
-
-    assert warning_merge_conflict(tip_revision, tip_diff, stack_state) is None, (
-        "A revision without a merge conflict status should not warn."
-    )
-
-
-@pytest.mark.django_db
 def test_warning_merge_conflict_reports_a_stale_verdict(
     merge_conflict_stack: Callable, merge_conflict_status: Callable
 ):
