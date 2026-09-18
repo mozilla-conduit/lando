@@ -607,7 +607,7 @@ def warning_merge_conflict(
         return None
 
     merge_conflict_status = MergeConflictStatus.from_revision(revision)
-    if not merge_conflict_status or not merge_conflict_status.is_conflict:
+    if not merge_conflict_status or not merge_conflict_status.has_merge_conflict:
         return None
 
     message = (

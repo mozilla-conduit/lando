@@ -231,7 +231,7 @@ class MergeConflictStatus:
         )
 
     @property
-    def is_conflict(self) -> bool:
+    def has_merge_conflict(self) -> bool:
         """Is this a verdict that the landing will not merge cleanly?
 
         Phabricator reports `unknown` for every situation it could not decide, so

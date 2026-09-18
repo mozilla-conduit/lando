@@ -215,15 +215,17 @@ def test_merge_conflict_status_from_revision_without_status():
         ("a-verdict-lando-does-not-know", MergeConflictVerdict.UNKNOWN),
     ),
 )
-def test_merge_conflict_status_is_conflict(status: str, verdict: MergeConflictVerdict):
+def test_merge_conflict_status_has_merge_conflict(
+    status: str, verdict: MergeConflictVerdict
+):
     """Only an explicit `conflict` verdict counts as a conflict."""
     parsed = MergeConflictStatus.from_revision(merge_conflict_revision(status=status))
 
     assert parsed.status is verdict, (
         f"A `{status}` payload should parse as `{verdict}`."
     )
-    assert parsed.is_conflict is (verdict is MergeConflictVerdict.CONFLICT), (
-        f"`is_conflict` should only be `True` for a `conflict` verdict, not `{status}`."
+    assert parsed.has_merge_conflict is (verdict is MergeConflictVerdict.CONFLICT), (
+        f"`has_merge_conflict` should only be `True` for `conflict`, not `{status}`."
     )
 
 
