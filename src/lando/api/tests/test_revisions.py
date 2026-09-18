@@ -169,21 +169,36 @@ def test_get_base_revision_from_diff_handles_missing_refs():
     )
 
 
+# Maps each key Phabricator sends to the `MergeConflictStatus` field it lands on,
+# along with the conversion `from_revision` applies on the way.
+MERGE_CONFLICT_PAYLOAD_FIELDS = {
+    "status": ("status", MergeConflictVerdict),
+    "reason": ("reason", str),
+    "checkedAgainstBaseCommit": ("base_commit", str),
+    "checkedAgainstCommit": ("target_commit", str),
+    "checkedAgainstDiffID": ("diff_id", int),
+    "epoch": ("epoch", int),
+    "isStale": ("is_stale", bool),
+}
+
+
 def test_merge_conflict_status_from_revision_parses_payload(
     merge_conflict_revision: Callable,
 ):
     """Every key Phabricator sends is carried onto the parsed verdict."""
-    status = MergeConflictStatus.from_revision(merge_conflict_revision())
+    revision = merge_conflict_revision()
+    payload = revision["fields"]["merge.conflict.status"]
 
-    assert status == MergeConflictStatus(
-        status=MergeConflictVerdict.CONFLICT,
-        reason="Merged against the current target branch tip.",
-        base_commit="a" * 40,
-        target_commit="f" * 40,
-        diff_id=456,
-        epoch=1757001600,
-        is_stale=False,
-    ), "`MergeConflictStatus.from_revision` should parse the Conduit payload."
+    status = MergeConflictStatus.from_revision(revision)
+
+    assert payload.keys() == MERGE_CONFLICT_PAYLOAD_FIELDS.keys(), (
+        "Every key Phabricator sends should map onto a `MergeConflictStatus` field."
+    )
+
+    for key, (field, convert) in MERGE_CONFLICT_PAYLOAD_FIELDS.items():
+        assert getattr(status, field) == convert(payload[key]), (
+            f"`{key}` should be parsed onto `MergeConflictStatus.{field}`."
+        )
 
 
 def test_merge_conflict_status_from_revision_without_field():
