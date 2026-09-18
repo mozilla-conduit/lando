@@ -235,7 +235,9 @@ class MergeConflictStatus:
         """Is this a verdict that the landing will not merge cleanly?
 
         Phabricator reports `unknown` for every situation it could not decide, so
-        only an explicit `conflict` is a conflict.
+        only an explicit `conflict` is a conflict. A stale verdict is still the
+        most recent one Phabricator has, so `is_stale` qualifies a conflict rather
+        than hiding it.
         """
         return self.status is MergeConflictVerdict.CONFLICT
 

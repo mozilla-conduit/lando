@@ -229,6 +229,16 @@ def test_merge_conflict_status_has_merge_conflict(
     )
 
 
+def test_merge_conflict_status_stale_verdict_is_still_a_conflict():
+    """A stale verdict is the most recent one Phabricator has, so it still counts."""
+    status = MergeConflictStatus.from_revision(merge_conflict_revision(isStale=True))
+
+    assert status.is_stale, "An `isStale` payload should parse as a stale verdict."
+    assert status.has_merge_conflict, (
+        "A stale `conflict` verdict should still report a merge conflict."
+    )
+
+
 def test_merge_conflict_status_describe_check():
     """The description names the diff, base commit and time of the check."""
     status = MergeConflictStatus.from_revision(merge_conflict_revision())
