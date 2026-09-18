@@ -11,6 +11,7 @@ from django.core.management.base import CommandError
 from google.api_core.exceptions import NotFound
 
 from lando.headless_api.models.automation_job import AutomationAction, AutomationJob
+from lando.main.models.commit_map import CommitMap
 from lando.main.models.landing_job import AutoformatChange, LandingJob
 from lando.main.models.revision import Revision, RevisionLandingJob
 from lando.main.models.uplift import (
@@ -28,6 +29,7 @@ from lando.utils.management.commands.etl import (
     AutomationJobTransformer,
     BigQueryLoader,
     Command,
+    CommitMapTransformer,
     JsonLinesLoader,
     LandingJobTransformer,
     LogTransformer,
@@ -111,6 +113,35 @@ def test_transform_repo(make_repo):
     assert result["is_try"] is False, "`is_try` should exist and match expected value."
     assert result["automation_enabled"] is False, (
         "`automation_enabled` should exist and match expected value."
+    )
+    assert result["created_at"] is not None, (
+        "`created_at` should exist and not be `None`."
+    )
+    assert result["updated_at"] is not None, (
+        "`updated_at` should exist and not be `None`."
+    )
+
+
+@pytest.mark.django_db
+def test_transform_commit_map():
+    commit_map = CommitMap.objects.create(
+        git_hash="a" * 40,
+        hg_hash="b" * 40,
+        git_repo_name="firefox",
+    )
+
+    transformer = CommitMapTransformer()
+    result = transformer.transform(commit_map)
+
+    assert result["id"] == commit_map.id, "`id` should exist and match expected value."
+    assert result["git_hash"] == "a" * 40, (
+        "`git_hash` should exist and match expected value."
+    )
+    assert result["hg_hash"] == "b" * 40, (
+        "`hg_hash` should exist and match expected value."
+    )
+    assert result["git_repo_name"] == "firefox", (
+        "`git_repo_name` should exist and match expected value."
     )
     assert result["created_at"] is not None, (
         "`created_at` should exist and not be `None`."

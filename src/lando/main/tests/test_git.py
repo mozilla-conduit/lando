@@ -1274,6 +1274,57 @@ def test_GitSCM_add_diff_from_patches__add_remove_files_multiple_commits(
     assert diff == "", "diff should be an empty string since no files were added"
 
 
+# Bug 2059348. This is protected by the CommitMessageCheck blocker.
+@pytest.mark.xfail(
+    reason="Git itself is not immune to diffs smuggled in the commit message when dealing with plain patch files."
+)
+def test_GitSCM_add_diff_from_patches_diff_injection(
+    git_patch: Callable,
+    diff_to_git_patch: Callable,
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+
+    commit_desc = """\
+add a
+
+Some comment.
+
+diff --git a/b b/b
+new file mode 100644
+index 00000000..72943a16
+--- /dev/null
++++ b/b
+@@ -0,0 +1 @@
++bbb
+    """.strip()
+
+    diff = """\
+diff --git a/a b/a
+new file mode 100644
+index 00000000..72943a16
+--- /dev/null
++++ b/a
+@@ -0,0 +1 @@
++aaa
+""".strip()
+
+    # Normal, then diff injection.
+    patches = git_patch(0) + diff_to_git_patch(diff, commit_description=commit_desc)
+
+    diff = scm.add_diff_from_patches(patches)
+    assert "diff --git a/a b/a" in diff
+    assert "diff --git a/b b/b" not in diff, "Diff injection!"
+
+
 @pytest.mark.parametrize("has_changes", (True, False))
 def test_GitSCM_format_stack_amend_with_changes(
     has_changes: bool,

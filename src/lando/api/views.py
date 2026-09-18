@@ -32,6 +32,7 @@ from lando.main.models import (
     Revision,
     add_revisions_to_job,
 )
+from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 from lando.main.models.landing_job import get_jobs_for_pull
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.main.scm import SCMType
@@ -39,14 +40,13 @@ from lando.utils.github import (
     PR_DELIMITER,
     GitHubAPIClient,
     PullRequest,
-    PullRequestPatchHelper,
-    ignore_bot_sender,
 )
 from lando.utils.github_checks import (
     ALL_PULL_REQUEST_BLOCKERS,
     ALL_PULL_REQUEST_WARNINGS,
     PullRequestChecks,
 )
+from lando.utils.github_helpers import PullRequestPatchHelper, ignore_bot_sender
 from lando.utils.landing_checks import LandingChecks
 from lando.utils.phabricator import PHABRICATOR_API_KEY_HEADER, get_phabricator_client
 
@@ -252,7 +252,7 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
     """Handle pull request landing jobs in the API."""
 
     def get(
-        self, request: WSGIRequest, repo_name: int, pull_number: int
+        self, request: WSGIRequest, repo_name: str, pull_number: int
     ) -> JsonResponse:
         """Return the status of a pull request based on landing job counts."""
 
@@ -279,7 +279,7 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
 
     @method_decorator(require_authenticated_user)
     def post(
-        self, request: WSGIRequest, repo_name: int, pull_number: int
+        self, request: WSGIRequest, repo_name: str, pull_number: int
     ) -> JsonResponse:
         """Create a new landing job for a pull request."""
 
@@ -325,6 +325,16 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
                 {"errors": form.errors, "new_warnings": new_warnings}, status=400
             )
 
+        if self.pull_request.head_sha != form.cleaned_data["head_sha"]:
+            return JsonResponse(
+                {
+                    "errors": [
+                        "The head of the Pull Request changed during submission. Please review and try again."
+                    ]
+                },
+                status=400,
+            )
+
         job = LandingJob.objects.create(
             target_repo=self.target_repo,
             requester_email=ldap_username,
@@ -333,8 +343,13 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
         author_name, author_email = self.pull_request.author
 
         reviews_summary = self.pull_request.reviews_summary
+
+        reviewer_map = ConfigurationVariable.get(
+            ConfigurationKey.GITHUB_REVIEWERS_MAP, {}
+        )
+
         reviewers = [
-            u
+            reviewer_map.get(u, u)
             for u in reviews_summary
             if reviews_summary.get(u) == self.pull_request.Review.APPROVED
         ]

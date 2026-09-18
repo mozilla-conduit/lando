@@ -19,6 +19,7 @@ from more_itertools import chunked
 
 from lando.headless_api.models.automation_job import AutomationAction, AutomationJob
 from lando.main.models import BaseModel
+from lando.main.models.commit_map import CommitMap
 from lando.main.models.landing_job import AutoformatChange, LandingJob
 from lando.main.models.repo import Repo
 from lando.main.models.revision import Revision, RevisionLandingJob
@@ -112,6 +113,18 @@ class RepoTransformer(ModelTransformer):
         "is_phabricator_repo",
         "is_try",
         "automation_enabled",
+    )
+
+
+class CommitMapTransformer(ModelTransformer):
+    """Transformer for `CommitMap` model."""
+
+    model = CommitMap
+    table_id_env_var = "BQ_COMMIT_MAPS_TABLE_ID"
+    fields = (
+        "git_hash",
+        "hg_hash",
+        "git_repo_name",
     )
 
 
@@ -393,6 +406,7 @@ class LogTransformer(ModelTransformer):
 # All available transformers.
 TRANSFORMERS = [
     RepoTransformer(),
+    CommitMapTransformer(),
     LandingJobTransformer(),
     RevisionLandingJobTransformer(),
     RevisionTransformer(),

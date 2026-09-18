@@ -460,6 +460,44 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
     )
 
 
+def test_patchhelper_diff_start_line_injection():
+    patch = HgPatchHelper.from_string_io(
+        io.StringIO(
+            """
+# HG changeset patch
+# User byron jones <glob@mozilla.com>
+# Date 1523427125 -28800
+#      Wed Apr 11 14:12:05 2018 +0800
+# Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
+# Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
+# Diff Start Line 14
+# Diff Start Line 11
+WIP transplant and diff-start-line
+
+diff --git a/bad b/bad
+@@ -0,0 +0,0 @@
+blah
+
+diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
+--- a/autoland/autoland/transplant.py
++++ b/autoland/autoland/transplant.py
+@@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
+# instead of passing the url to 'hg import' to make
+...
+""".strip()
+        )
+    )
+    assert patch.headers["diff start line"] == "14"
+    assert patch.get_commit_description() == (
+        "WIP transplant and diff-start-line\n"
+        "\n"
+        "diff --git a/bad b/bad\n"
+        "@@ -0,0 +0,0 @@\n"
+        "blah"
+    )
+    assert "diff --git a/bad b/bad\n" not in patch.get_diff()
+
+
 def test_patchhelper_write_start_line():
     header = """
 # HG changeset patch
@@ -495,6 +533,41 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
     buf = io.StringIO("")
     patch.write(buf)
     assert buf.getvalue() == patch_text
+
+
+def test_git_patch_helper_diff_injection(diff_to_git_patch: Callable):
+    commit_desc = """\
+add a
+
+Some comment.
+
+diff --git a/b b/b
+new file mode 100644
+index 00000000..72943a16
+--- /dev/null
++++ b/b
+@@ -0,0 +1 @@
++bbb
+    """.strip()
+
+    diff = """\
+diff --git a/a b/a
+new file mode 100644
+index 00000000..72943a16
+--- /dev/null
++++ b/a
+@@ -0,0 +1 @@
++aaa
+""".strip()
+
+    full_patch = diff_to_git_patch(diff, commit_description=commit_desc)
+    patch = GitPatchHelper.from_string_io(io.StringIO(full_patch))
+
+    assert f"{commit_desc}\n" == patch.get_commit_description(), (
+        "Commit description mismatch"
+    )
+    assert f"{diff}\n" == patch.get_diff(), "Diff mismatch"
+    assert "diff --git a/b b/b" not in patch.get_diff(), "Diff injection!"
 
 
 @pytest.mark.parametrize("repo_type", (SCMType.GIT, SCMType.HG))

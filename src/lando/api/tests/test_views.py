@@ -702,3 +702,53 @@ def test__views__landing_job_pull_request_view__status(
     assert response.json() == {"status": expected_status}, (
         f"A `{job_status}` job should be reported as `{expected_status}`."
     )
+
+
+@mock.patch("lando.api.views.generate_warnings_and_blockers")
+@mock.patch("lando.api.views.GitHubAPIClient")
+@pytest.mark.django_db()
+def test__views_landing_job_pull_request_view__changed_head_sha(
+    github_api_client,
+    mock_warnings_and_blockers,
+    authenticated_client,
+    repo_mc_github_api_client,
+    repo_mc,
+):
+    repo = repo_mc(SCMType.GIT)
+    github_api_client.return_value = repo_mc_github_api_client
+
+    mock_pr = mock.MagicMock()
+    repo_mc_github_api_client.build_pull_request.return_value = mock_pr
+    mock_pr.author = ("Test Author", "test@email.com")
+    mock_pr.commit_message = "Test Commit Message"
+    mock_pr.number = 1
+    mock_pr.head_sha = "newsha"
+    mock_pr.base_sha = "bbb123"
+    mock_pr.patch = "diff --git a/abc b/def\n"
+    mock_pr.reviews_summary = {}
+
+    mock_warnings_and_blockers.return_value = {
+        "warnings": [],
+        "blockers": [],
+    }
+
+    warnings = authenticated_client.get(
+        f"/api/pulls/{repo.name}/1/checks",
+        content_type="application/json",
+    ).json()["warnings"]
+
+    response = authenticated_client.post(
+        f"/api/pulls/{repo.name}/1/landing_jobs",
+        data={
+            "head_sha": "oldsha",
+            "base_sha": "bbb123",
+            "pull_number": 1,
+            "old_warnings": warnings,
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    assert response.json()["errors"] == [
+        "The head of the Pull Request changed during submission. Please review and try again."
+    ], "Error should mention the change in PR head."

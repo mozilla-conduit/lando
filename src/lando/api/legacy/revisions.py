@@ -147,6 +147,23 @@ def get_bugzilla_bug(revision: dict) -> Optional[int]:
     return int(bug) if bug else None
 
 
+def get_bug_id_for_revision(phab: PhabricatorClient, revision_id: int) -> Optional[int]:
+    """Return the Bugzilla bug ID set on the given Phabricator revision.
+
+    Returns `None` when the revision carries no bug number, or when it cannot be
+    read from Phabricator with the requesting user's credentials.
+    """
+    logger.debug("Resolving the bug number for D%s.", revision_id)
+
+    try:
+        revisions = get_revisions_by_id(phab, [revision_id])
+    except ValueError:
+        logger.warning("Could not read D%s from Phabricator.", revision_id)
+        return None
+
+    return get_bugzilla_bug(next(iter(revisions.values())))
+
+
 @unique
 class MergeConflictVerdict(Enum):
     """Enumeration of verdicts Phabricator may report for a merge conflict check.

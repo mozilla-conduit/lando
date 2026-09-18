@@ -59,6 +59,33 @@ from lando.treestatus.models import Tree, TreeStatus
 # The name of the Phabricator project used to tag revisions requiring data classification.
 NEEDS_DATA_CLASSIFICATION_SLUG = "needs-data-classification"
 
+# Valid answers to every question on the uplift assessment form, usable both as
+# a POST body and as `UpliftAssessment` constructor kwargs.
+UPLIFT_ASSESSMENT_ANSWERS = {
+    "user_impact": "Initial impact description.",
+    "covered_by_testing": "yes",
+    "fix_verified_in_nightly": "no",
+    "needs_manual_qe_testing": "no",
+    "qe_testing_reproduction_steps": "",
+    "risk_associated_with_patch": "low",
+    "risk_level_explanation": "Low risk because it's well-tested.",
+    "string_changes": "No changes.",
+    "is_android_affected": "no",
+}
+
+# A second, distinct set of answers, for asserting that an edit took effect.
+UPDATED_UPLIFT_ASSESSMENT_ANSWERS = {
+    "user_impact": "Updated impact after more testing.",
+    "covered_by_testing": "no",
+    "fix_verified_in_nightly": "yes",
+    "needs_manual_qe_testing": "yes",
+    "qe_testing_reproduction_steps": "Steps go here.",
+    "risk_associated_with_patch": "medium",
+    "risk_level_explanation": "Medium risk due to timing.",
+    "string_changes": "Yes, minor updates.",
+    "is_android_affected": "yes",
+}
+
 PATCH_NORMAL_1 = r"""
 # HG changeset patch
 # User Test User <test@example.com>
@@ -386,7 +413,9 @@ def diff_to_git_patch() -> Callable:
     ) -> str:
         """Wrap a diff in a git patch header and footer."""
         return GIT_PATCH_TEMPLATE.format(
-            author=author, commit_description=commit_description, diff=diff.strip()
+            author=author,
+            commit_description=commit_description.strip(),
+            diff=diff.strip(),
         )
 
     return _diff_to_git_patch
@@ -982,6 +1011,21 @@ def repo_mc(
 
 
 @pytest.fixture
+def git_repo_github_push_path(
+    git_repo: pathlib.Path,
+    tmp_path: pathlib.Path,
+) -> Repo:
+    """A git `Repo` whose `push_path` is a GitHub URL distinct from its local test repo `url`."""
+    repo = git_repo_mc(
+        git_repo,
+        tmp_path,
+    )
+    repo.push_path = "https://github.com/mozilla-conduit/test-repo"
+    repo.save()
+    return repo
+
+
+@pytest.fixture
 def mock_repo_config(monkeypatch):
     def set_repo_config(config):
         monkeypatch.setattr("lando.api.legacy.repos.REPO_CONFIG", config)
@@ -1164,16 +1208,23 @@ def git_signing_key(tmp_path: Path) -> Path:
 def create_git_commit(
     request: pytest.FixtureRequest, git_signing_key: tuple[Path, str]
 ) -> Callable:
-    def _create_git_commit(clone_path: Path, signed: bool = False) -> str:
-        new_file = clone_path / str(uuid.uuid4())
-        new_file.write_text(request.node.name, encoding="utf-8")
+    def _create_git_commit(
+        clone_path: Path,
+        signed: bool = False,
+        message: str | None = None,
+        name: str | None = None,
+        content: str | None = None,
+    ) -> str:
+        new_file = clone_path / (name or str(uuid.uuid4()))
+        new_file.write_text(content or request.node.name, encoding="utf-8")
 
         subprocess.run(["git", "add", new_file.name], cwd=str(clone_path), check=True)
+        commit_message = message or f"No bug: adding {new_file} (signed: {signed})"
         commit_command = [
             "git",
             "commit",
             "-m",
-            f"No bug: adding {new_file} (signed: {signed})",
+            commit_message,
             "--author",
             f"{request.node.name} <pytest@lando>",
         ]
@@ -1792,3 +1843,20 @@ def pull_request_data(update_dict) -> Callable:
 def authenticated_client(user, user_plaintext_password, client):
     client.login(username=user.username, password=user_plaintext_password)
     return client
+
+
+@pytest.fixture
+def mock_github_pull_request() -> Callable:
+    """Build a mock pull request."""
+
+    def _mock_github_pull_request(
+        number: int, title: str, body: str = "", head_ref: str = "main"
+    ) -> mock.MagicMock:
+        pull_request = mock.MagicMock()
+        pull_request.number = number
+        pull_request.title = title
+        pull_request.body = body
+        pull_request.head_ref = head_ref
+        return pull_request
+
+    return _mock_github_pull_request
