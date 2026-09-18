@@ -2,7 +2,8 @@ import json
 
 import pytest
 
-from lando.main.models import JobStatus, LandingJob, Repo
+from lando.main.models import JobStatus, LandingJob, Repo, Revision
+from lando.main.models.landing_job import get_pull_request_last_landing_job_status
 from lando.main.scm import SCMType
 
 
@@ -183,3 +184,33 @@ def test_landing_job_acquire_job_job_queue_query(mocked_repo_config):
     assert queue_items[0].id == jobs[2].id
     assert queue_items[1].id == jobs[0].id
     assert jobs[1] not in queue_items
+
+
+@pytest.mark.parametrize(
+    "statuses, expected_status",
+    [
+        ([JobStatus.LANDED, JobStatus.FAILED], JobStatus.LANDED),
+        ([JobStatus.FAILED, JobStatus.LANDED], JobStatus.LANDED),
+        ([JobStatus.IN_PROGRESS, JobStatus.FAILED], JobStatus.IN_PROGRESS),
+        ([JobStatus.FAILED, JobStatus.IN_PROGRESS], JobStatus.IN_PROGRESS),
+        (
+            [JobStatus.FAILED, JobStatus.SUBMITTED, JobStatus.CANCELLED],
+            JobStatus.SUBMITTED,
+        ),
+        (
+            [JobStatus.CANCELLED, JobStatus.FAILED, JobStatus.SUBMITTED],
+            JobStatus.SUBMITTED,
+        ),
+    ],
+)
+@pytest.mark.django_db
+def test_get_pull_request_last_landing_job_status(statuses, expected_status, repo_mc):
+    """Test that status is not be affected by the creation order of landing jobs."""
+    # TODO:  This should probably be converted to a unit test.
+    repo = repo_mc(scm_type=SCMType.GIT)
+    for status in statuses:
+        job = LandingJob.objects.create(target_repo=repo, status=status)
+        revision = Revision.objects.create(pull_number=1)
+        job.unsorted_revisions.add(revision)
+    status = get_pull_request_last_landing_job_status(repo.name, 1)
+    assert status == expected_status
