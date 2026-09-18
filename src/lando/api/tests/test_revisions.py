@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Callable
 
 import pytest
 
@@ -14,7 +14,6 @@ from lando.api.legacy.revisions import (
     revision_needs_testing_tag,
 )
 from lando.api.legacy.transplants import warning_diff_author_is_hackbot
-from lando.api.tests.mocks import merge_conflict_status
 from lando.main.models.revision import Revision
 
 pytestmark = pytest.mark.usefixtures("docker_env_vars")
@@ -170,12 +169,9 @@ def test_get_base_revision_from_diff_handles_missing_refs():
     )
 
 
-def merge_conflict_revision(**overrides: Any) -> dict:
-    """Build a revision carrying a merge conflict status payload."""
-    return {"fields": {"merge.conflict.status": merge_conflict_status(**overrides)}}
-
-
-def test_merge_conflict_status_from_revision_parses_payload():
+def test_merge_conflict_status_from_revision_parses_payload(
+    merge_conflict_revision: Callable,
+):
     """Every key Phabricator sends is carried onto the parsed verdict."""
     status = MergeConflictStatus.from_revision(merge_conflict_revision())
 
@@ -216,7 +212,7 @@ def test_merge_conflict_status_from_revision_without_status():
     ),
 )
 def test_merge_conflict_status_has_merge_conflict(
-    status: str, verdict: MergeConflictVerdict
+    merge_conflict_revision: Callable, status: str, verdict: MergeConflictVerdict
 ):
     """Only an explicit `conflict` verdict counts as a conflict."""
     parsed = MergeConflictStatus.from_revision(merge_conflict_revision(status=status))
@@ -229,7 +225,9 @@ def test_merge_conflict_status_has_merge_conflict(
     )
 
 
-def test_merge_conflict_status_stale_verdict_is_still_a_conflict():
+def test_merge_conflict_status_stale_verdict_is_still_a_conflict(
+    merge_conflict_revision: Callable,
+):
     """A stale verdict is the most recent one Phabricator has, so it still counts."""
     status = MergeConflictStatus.from_revision(merge_conflict_revision(isStale=True))
 
@@ -239,7 +237,9 @@ def test_merge_conflict_status_stale_verdict_is_still_a_conflict():
     )
 
 
-def test_merge_conflict_status_describe_check():
+def test_merge_conflict_status_describe_check(
+    merge_conflict_revision: Callable,
+):
     """The description names the diff, base commit and time of the check."""
     status = MergeConflictStatus.from_revision(merge_conflict_revision())
 

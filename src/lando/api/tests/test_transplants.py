@@ -27,7 +27,7 @@ from lando.api.legacy.transplants import (
     warning_revision_secure,
     warning_wip_commit_message,
 )
-from lando.api.tests.mocks import PhabricatorDouble, merge_conflict_status
+from lando.api.tests.mocks import PhabricatorDouble
 from lando.main.models import (
     DiffWarning,
     DiffWarningGroup,
@@ -1416,7 +1416,7 @@ def merge_conflict_stack(
 
 @pytest.mark.django_db
 def test_warning_merge_conflict_warns_on_landing_tip(
-    merge_conflict_stack: Callable,
+    merge_conflict_stack: Callable, merge_conflict_status: Callable
 ):
     """A conflict recorded on the tip warns, since it describes the whole landing."""
     pairs, stack_state = merge_conflict_stack(tip_status=merge_conflict_status())
@@ -1450,7 +1450,7 @@ def test_warning_merge_conflict_warns_on_landing_tip(
 
 @pytest.mark.django_db
 def test_warning_merge_conflict_ignores_status_below_the_tip(
-    merge_conflict_stack: Callable,
+    merge_conflict_stack: Callable, merge_conflict_status: Callable
 ):
     """A conflict recorded below the tip describes a landing nobody requested."""
     pairs, stack_state = merge_conflict_stack(root_status=merge_conflict_status())
@@ -1464,7 +1464,7 @@ def test_warning_merge_conflict_ignores_status_below_the_tip(
 @pytest.mark.django_db
 @pytest.mark.parametrize("status", ("clean", "unknown"))
 def test_warning_merge_conflict_no_warning_without_conflict(
-    merge_conflict_stack: Callable, status: str
+    merge_conflict_stack: Callable, merge_conflict_status: Callable, status: str
 ):
     """Only an explicit `conflict` verdict warns."""
     pairs, stack_state = merge_conflict_stack(
@@ -1492,7 +1492,7 @@ def test_warning_merge_conflict_no_warning_without_status(
 
 @pytest.mark.django_db
 def test_warning_merge_conflict_reports_a_stale_verdict(
-    merge_conflict_stack: Callable,
+    merge_conflict_stack: Callable, merge_conflict_status: Callable
 ):
     """A verdict computed for an earlier diff is flagged as possibly out of date."""
     pairs, stack_state = merge_conflict_stack(
@@ -1510,7 +1510,9 @@ def test_warning_merge_conflict_reports_a_stale_verdict(
 
 @pytest.mark.django_db
 def test_warning_merge_conflict_without_landing_assessment(
-    phabdouble: PhabricatorDouble, create_state: Callable
+    phabdouble: PhabricatorDouble,
+    create_state: Callable,
+    merge_conflict_status: Callable,
 ):
     """Assessing a whole stack rather than a landing has no tip to warn about."""
     revision = phabdouble.api_object_for(
@@ -1532,6 +1534,7 @@ def test_dryrun_merge_conflict_warns(
     mocked_repo_config: None,
     release_management_project: dict,
     needs_data_classification_project: dict,
+    merge_conflict_status: Callable,
 ):
     """A merge conflict on the landing tip surfaces as a warning from a dryrun."""
     repo = phabdouble.repo()

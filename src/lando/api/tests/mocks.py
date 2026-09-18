@@ -27,19 +27,6 @@ def conduit_method(method):
     return decorate
 
 
-def merge_conflict_status(**overrides: Any) -> dict:
-    """Build a merge conflict status payload as Phabricator sends it."""
-    return {
-        "status": "conflict",
-        "reason": "Merged against the current target branch tip.",
-        "checkedAgainstCommit": "f" * 40,
-        "checkedAgainstBaseCommit": "a" * 40,
-        "checkedAgainstDiffID": 456,
-        "epoch": 1757001600,
-        "isStale": False,
-    } | overrides
-
-
 def validate_hunk(hunk):
     """Validate a Phabricator Diff change hunk payload
 

@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 from unittest import mock
 
 import pytest
@@ -146,6 +146,40 @@ def mock_uplift_email_tasks(monkeypatch):
         failure_task,
     )
     return success_task, failure_task
+
+
+@pytest.fixture
+def merge_conflict_status() -> Callable:
+    """Build a merge conflict status payload as Phabricator sends it.
+
+    Pass any key of the payload as a keyword argument to override the default.
+    """
+
+    def merge_conflict_status_handler(**overrides: Any) -> dict:
+        return {
+            "status": "conflict",
+            "reason": "Merged against the current target branch tip.",
+            "checkedAgainstCommit": "f" * 40,
+            "checkedAgainstBaseCommit": "a" * 40,
+            "checkedAgainstDiffID": 456,
+            "epoch": 1757001600,
+            "isStale": False,
+        } | overrides
+
+    return merge_conflict_status_handler
+
+
+@pytest.fixture
+def merge_conflict_revision(merge_conflict_status: Callable) -> Callable:
+    """Build a revision carrying a merge conflict status payload.
+
+    Overrides are passed through to `merge_conflict_status`.
+    """
+
+    def merge_conflict_revision_handler(**overrides: Any) -> dict:
+        return {"fields": {"merge.conflict.status": merge_conflict_status(**overrides)}}
+
+    return merge_conflict_revision_handler
 
 
 @pytest.fixture
