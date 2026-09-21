@@ -181,19 +181,26 @@ MERGE_CONFLICT_PAYLOAD_FIELDS = {
     "isStale": ("is_stale", bool),
 }
 
+# Keys Phabricator sends that Lando has no use for. `isStale` already answers the
+# only question the diff PHID would, and the base revision is named in `reason`.
+MERGE_CONFLICT_IGNORED_PAYLOAD_KEYS = {
+    "checkedAgainstDiffPHID",
+    "checkedAgainstBaseRevisionPHID",
+}
+
 
 def test_merge_conflict_status_from_revision_parses_payload(
     merge_conflict_revision: Callable,
 ):
-    """Every key Phabricator sends is carried onto the parsed verdict."""
+    """Every key Phabricator sends is either parsed or deliberately ignored."""
     revision = merge_conflict_revision()
     payload = revision["fields"]["merge.conflict.status"]
 
     status = MergeConflictStatus.from_revision(revision)
 
-    assert payload.keys() == MERGE_CONFLICT_PAYLOAD_FIELDS.keys(), (
-        "Every key Phabricator sends should map onto a `MergeConflictStatus` field."
-    )
+    assert payload.keys() == (
+        MERGE_CONFLICT_PAYLOAD_FIELDS.keys() | MERGE_CONFLICT_IGNORED_PAYLOAD_KEYS
+    ), "Every key Phabricator sends should be accounted for, parsed or ignored."
 
     for key, (field, convert) in MERGE_CONFLICT_PAYLOAD_FIELDS.items():
         assert getattr(status, field) == convert(payload[key]), (
@@ -238,6 +245,31 @@ def test_merge_conflict_status_has_merge_conflict(
     assert parsed.has_merge_conflict is (verdict is MergeConflictVerdict.CONFLICT), (
         f"`has_merge_conflict` should only be `True` for `conflict`, not `{status}`."
     )
+
+
+def test_merge_conflict_status_from_revision_parses_an_unknown_verdict(
+    merge_conflict_revision: Callable,
+):
+    """An `unknown` verdict records no commits, since no merge was performed."""
+    status = MergeConflictStatus.from_revision(
+        merge_conflict_revision(
+            status="unknown",
+            reason="Mergeability could not be determined.",
+            checkedAgainstCommit=None,
+            checkedAgainstBaseCommit=None,
+        )
+    )
+
+    assert status.status is MergeConflictVerdict.UNKNOWN, (
+        "An `unknown` payload should parse as an undecided verdict."
+    )
+    assert not status.has_merge_conflict, "An `unknown` verdict should not conflict."
+    assert status.base_commit is None and status.target_commit is None, (
+        "An `unknown` verdict should carry no commits."
+    )
+    assert status.describe_check() == (
+        "Last checked diff 456, at 2025-09-04 16:00 UTC."
+    ), "`describe_check` should name only the inputs the verdict recorded."
 
 
 def test_merge_conflict_status_stale_verdict_is_still_a_conflict(

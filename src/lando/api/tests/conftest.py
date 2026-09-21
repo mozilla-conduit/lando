@@ -152,7 +152,9 @@ def mock_uplift_email_tasks(monkeypatch):
 def merge_conflict_status() -> Callable:
     """Build a merge conflict status payload as Phabricator sends it.
 
-    Pass any key of the payload as a keyword argument to override the default.
+    Carries every key `DifferentialMergeConflictStatusField` puts in its Conduit
+    dictionary, including the two PHIDs Lando has no use for. Pass any key of the
+    payload as a keyword argument to override the default.
     """
 
     def merge_conflict_status_handler(**overrides: Any) -> dict:
@@ -161,6 +163,8 @@ def merge_conflict_status() -> Callable:
             "reason": "Merged against the current target branch tip.",
             "checkedAgainstCommit": "f" * 40,
             "checkedAgainstBaseCommit": "a" * 40,
+            "checkedAgainstBaseRevisionPHID": None,
+            "checkedAgainstDiffPHID": "PHID-DIFF-merge-conflict",
             "checkedAgainstDiffID": 456,
             "epoch": 1757001600,
             "isStale": False,
