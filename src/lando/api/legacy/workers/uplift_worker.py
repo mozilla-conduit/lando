@@ -27,7 +27,7 @@ from lando.main.scm import GitSCM
 from lando.main.scm.commit import CommitData
 from lando.main.scm.helpers import PatchHelper
 from lando.try_api.api import get_commit_hash, get_commit_map
-from lando.utils.landing_checks import BugReferencesCheck
+from lando.utils.landing_checks import BugReferencesCheck, LandingChecks
 from lando.utils.tasks import (
     send_uplift_failure_email,
     send_uplift_success_email,
@@ -145,6 +145,11 @@ class UpliftWorker(Worker):
             new_commits.append(new_commit)
             logger.debug(f"Created new commit {new_commit}")
 
+        # Run landing checks on the applied patches before invoking `moz-phab`.
+        # The uplift fallback applies raw patches directly, so this is the only
+        # place hooks such as `PreventHgDirectoryCheck` guard the checkout.
+        self.run_landing_checks(job, repo, scm, new_commits)
+
         # On success: create patches.
         result = self.create_uplift_revisions(
             job, user.profile.phabricator_api_key, base_revision
@@ -192,6 +197,42 @@ class UpliftWorker(Worker):
                     extra={"job_id": job.id, "try_job_id": try_job.id},
                 )
         return created_revision_ids
+
+    def run_landing_checks(
+        self,
+        job: UpliftJob,
+        repo: Repo,
+        scm: GitSCM,
+        new_commits: Iterable[CommitData],
+    ) -> None:
+        """Run the repo's landing checks on the applied uplift patches.
+
+        Fails the job when a check rejects the patches, e.g. when
+        `PreventHgDirectoryCheck` finds `.hg/` metadata in the patch.
+        """
+        if not repo.hooks_enabled:
+            logger.debug(f"Hooks disabled for {repo.name}, skipping landing checks.")
+            return
+
+        patch_helpers = scm.get_patch_helpers_for_commits(new_commits)
+        landing_checks = LandingChecks(job.requester_email, repo.name)
+        try:
+            check_errors = landing_checks.run(repo.hooks, patch_helpers)
+        except Exception as exc:
+            # The exception message is not recorded on the job, as job errors are
+            # publicly visible and the message may contain sensitive details.
+            message = "Unexpected error while performing landing checks."
+            logger.exception(message)
+            job.transition_status(JobAction.FAIL, message=message)
+            raise PermanentFailureException(message) from exc
+
+        if check_errors:
+            message = "Some checks failed before attempting to uplift:\n" + "\n".join(
+                check_errors
+            )
+            logger.warning(message)
+            job.transition_status(JobAction.FAIL, message=message)
+            raise PermanentFailureException(message)
 
     def notify_uplift_success(
         self,
