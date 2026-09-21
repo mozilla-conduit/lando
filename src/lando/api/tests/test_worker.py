@@ -228,6 +228,7 @@ def test_Worker_recovers_abandoned_job_on_start(
     worker_model.save()
 
     worker = LandingWorker(worker_model, with_ssh=False)
+    worker.ssh_private_key = None
     worker.notify_user_of_job_abort = mock.Mock()
     worker.start(max_loops=-1)
 
