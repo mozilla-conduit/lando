@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from lando.main.models import JobStatus, LandingJob, Repo, Worker
+from lando.main.models import JobStatus, LandingJob, Repo
 from lando.main.scm import SCMType
 
 
@@ -132,69 +132,6 @@ def test_cancel_landing_job_fails_bad_input(
     )
     job.refresh_from_db()
     assert job.status == JobStatus.SUBMITTED
-
-
-@pytest.mark.django_db
-def test_landing_job_claim_next_job_marks_owner(mocked_repo_config):
-    repo = Repo.objects.create(name="claim-repo", scm_type=SCMType.GIT)
-    worker = Worker.objects.create(name="claim-worker", scm=SCMType.GIT)
-    job = LandingJob.objects.create(
-        status=JobStatus.SUBMITTED,
-        requester_email="test@example.com",
-        target_repo=repo,
-    )
-
-    claimed = LandingJob.claim_next_job(
-        worker=worker, repositories=[repo], grace_seconds=0
-    )
-
-    assert claimed.id == job.id
-    assert claimed.status == JobStatus.IN_PROGRESS
-    assert claimed.attempts == 1
-    assert claimed.claimed_by == worker
-
-
-@pytest.mark.django_db
-def test_landing_job_claim_next_job_reclaims_own_job(mocked_repo_config):
-    repo = Repo.objects.create(name="reclaim-repo", scm_type=SCMType.GIT)
-    worker = Worker.objects.create(name="reclaim-worker", scm=SCMType.GIT)
-    job = LandingJob.objects.create(
-        status=JobStatus.IN_PROGRESS,
-        requester_email="test@example.com",
-        target_repo=repo,
-        attempts=1,
-        claimed_by=worker,
-    )
-
-    claimed = LandingJob.claim_next_job(
-        worker=worker, repositories=[repo], grace_seconds=0
-    )
-
-    assert claimed.id == job.id
-    assert claimed.attempts == 2
-    assert claimed.claimed_by == worker
-
-
-@pytest.mark.django_db
-def test_landing_job_claim_next_job_does_not_steal_another_workers_job(
-    mocked_repo_config,
-):
-    repo = Repo.objects.create(name="owned-repo", scm_type=SCMType.GIT)
-    owner = Worker.objects.create(name="owner-worker", scm=SCMType.GIT)
-    other_worker = Worker.objects.create(name="other-worker", scm=SCMType.GIT)
-    LandingJob.objects.create(
-        status=JobStatus.IN_PROGRESS,
-        requester_email="test@example.com",
-        target_repo=repo,
-        claimed_by=owner,
-    )
-
-    assert (
-        LandingJob.claim_next_job(
-            worker=other_worker, repositories=[repo], grace_seconds=0
-        )
-        is None
-    )
 
 
 @pytest.mark.django_db

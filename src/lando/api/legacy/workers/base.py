@@ -12,6 +12,7 @@ from time import sleep
 from typing import Callable, TypeVar
 
 from celery import Task
+from django.db import transaction
 from django.db.models import Count
 from kombu.exceptions import OperationalError
 
@@ -203,6 +204,24 @@ class Worker(ABC):
 
     def _setup(self):
         """Perform various setup actions."""
+        if self.worker_instance.current_job_id:
+            abandoned_job = self.job_type.objects.filter(
+                pk=self.worker_instance.current_job_id, status=JobStatus.IN_PROGRESS
+            ).first()
+            if abandoned_job:
+                logger.warning(
+                    f"Recovering {abandoned_job} abandoned by {self.worker_instance}.",
+                    extra={"id": abandoned_job.id},
+                )
+                if self.defer_or_abort(
+                    abandoned_job,
+                    "The worker stopped while processing this job.",
+                ):
+                    self.notify_user_of_job_abort(abandoned_job)
+        self.worker_instance.current_job_id = None
+        self.worker_instance.process_id = os.getpid()
+        self.worker_instance.save(update_fields=("current_job_id", "process_id"))
+
         if self.ssh_private_key:
             self._setup_ssh(self.ssh_private_key)
 
@@ -258,9 +277,14 @@ class Worker(ABC):
             queue_size, logging.WARNING if above_threshold else logging.INFO
         )
 
-        job = self.job_type.claim_next_job(
-            worker=self.worker_instance, repositories=self.active_repos
-        )
+        with transaction.atomic():
+            job = self.job_type.next_job(repositories=self.active_repos).first()
+            if job is not None:
+                if job.status not in [JobStatus.SUBMITTED, JobStatus.DEFERRED]:
+                    logger.warning(f"Unexpected status for {job}")
+                job.start_attempt()
+                self.worker_instance.current_job_id = job.id
+                self.worker_instance.save(update_fields=("current_job_id",))
 
         if job is None:
             self.run_idle_maintenance()
@@ -307,6 +331,9 @@ class Worker(ABC):
 
             if job.status == JobStatus.ABORTED:
                 self.notify_user_of_job_abort(job)
+
+        self.worker_instance.current_job_id = None
+        self.worker_instance.save(update_fields=("current_job_id",))
 
     def defer_or_abort(self, job: BaseJob, message: str) -> bool:
         """Abort `job` if it has run out of attempts, otherwise defer it.

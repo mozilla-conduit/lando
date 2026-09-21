@@ -7,16 +7,16 @@ from typing import Any, Self
 from urllib.parse import urljoin
 
 from django.conf import settings
-from django.db import models, transaction
-from django.db.models import Case, IntegerField, Q, QuerySet, When
+from django.db import models
+from django.db.models import Case, IntegerField, QuerySet, When
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.translation import gettext_lazy
 
 from lando.main.models.base import BaseModel
 from lando.main.models.commit_map import CommitMap
 from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 from lando.main.models.repo import Repo
-from lando.main.models.worker import Worker
 from lando.main.scm.consts import SCMType
 
 logger = logging.getLogger(__name__)
@@ -66,10 +66,8 @@ class JobStatus(models.TextChoices):
         For `JobStatus.SUBMITTED` jobs, higher priority items come first
         and then we order by creation time (older first).
 
-        Any `JobStatus.IN_PROGRESS` jobs are second. As there should
-        be a maximum of one (per repository), and with the assumption of a single worker
-        instance, a worker picking up an IN_PROGRESS job would mean that the job
-        previously crashed, and that the worker needs to restart processing.
+        `JobStatus.IN_PROGRESS` jobs remain visible in queue displays but are excluded
+        when a worker selects its next job.
         """
         return Case(
             When(status=cls.SUBMITTED, then=1),
@@ -174,17 +172,11 @@ class BaseJob(BaseModel):
     # Duration of job from start to finish
     duration_seconds = models.IntegerField(default=0)
 
+    started_at = models.DateTimeField(blank=True, null=True)
+    finished_at = models.DateTimeField(blank=True, null=True)
+
     # Reference to the target repo.
     target_repo = models.ForeignKey(Repo, on_delete=models.SET_NULL, null=True)
-
-    # Worker currently processing this job. Null keeps pre-migration in-progress
-    # jobs recoverable by any worker.
-    claimed_by = models.ForeignKey(
-        Worker,
-        blank=True,
-        null=True,
-        on_delete=models.SET_NULL,
-    )
 
     @property
     def human_friendly_identifier(self) -> str:
@@ -203,22 +195,18 @@ class BaseJob(BaseModel):
             yield
         finally:
             self.duration_seconds = (datetime.now() - start_time).seconds
+            if self.status in JobStatus.final() and self.finished_at is None:
+                self.finished_at = timezone.now()
             self.save()
 
     def start_attempt(self):
         """Count a new attempt at running this job and mark it as in progress."""
         self.status = JobStatus.IN_PROGRESS
         self.attempts += 1
+        self.started_at = timezone.now()
+        self.finished_at = None
         logger.debug(f"Starting attempt {self.attempts} of {self}.")
         self.save()
-
-    def claim(self, worker: Worker):
-        """Claim this job for `worker` and count a new attempt."""
-        if self.status == JobStatus.IN_PROGRESS:
-            logger.warning(f"{worker} reclaiming {self}.", extra={"id": self.id})
-
-        self.claimed_by = worker
-        self.start_attempt()
 
     def transition_status(
         self,
@@ -265,6 +253,7 @@ class BaseJob(BaseModel):
             raise ValueError(f"Missing {missing_params} params")
 
         self.status = actions[action]["status"]
+        self.finished_at = timezone.now() if self.status in JobStatus.final() else None
 
         if action in (JobAction.FAIL, JobAction.DEFER):
             self.error = kwargs["message"]
@@ -321,45 +310,17 @@ class BaseJob(BaseModel):
     @classmethod
     def next_job(
         cls,
-        repositories: Iterable[Repo] | None = None,
-        *,
-        worker: Worker | None = None,
+        repositories: Iterable[str] | None = None,
         **kwargs,
     ) -> QuerySet:
         """Return a query which selects the next job and locks the row."""
 
-        query = cls.job_queue_query(repositories=repositories, worker=worker, **kwargs)
-
-        # Returned rows should be locked for updating, this ensures the next
-        # job can be claimed.
-        return query.select_for_update(skip_locked=True, of=("self",))
-
-    @classmethod
-    def claim_next_job(
-        cls,
-        worker: Worker,
-        repositories: Iterable[Repo] | None = None,
-        **kwargs,
-    ) -> Self | None:
-        """Atomically claim the next job `worker` may run."""
-        with transaction.atomic():
-            job = cls.next_job(
-                repositories=repositories, worker=worker, **kwargs
-            ).first()
-            if job is None:
-                return None
-
-            job.claim(worker)
-            return job
-
-    @classmethod
-    def claimable_by(cls, worker: Worker) -> Q:
-        """Return jobs `worker` may claim."""
-        return (
-            Q(status__in=(JobStatus.SUBMITTED, JobStatus.DEFERRED))
-            | Q(status=JobStatus.IN_PROGRESS, claimed_by__isnull=True)
-            | Q(status=JobStatus.IN_PROGRESS, claimed_by=worker)
+        query = cls.job_queue_query(repositories=repositories, **kwargs).exclude(
+            status=JobStatus.IN_PROGRESS
         )
+
+        # Skip jobs claimed by other workers instead of waiting for their locks.
+        return query.select_for_update(skip_locked=True)
 
     @classmethod
     def queue_jobs(cls) -> list[dict[str, Any]]:
@@ -369,18 +330,14 @@ class BaseJob(BaseModel):
 
     @classmethod
     def job_queue_query(
-        cls,
-        repositories: Iterable[Repo] | None = None,
-        *,
-        worker: Worker | None = None,
-        **kwargs,
+        cls, repositories: Iterable[str] | None = None, **kwargs
     ) -> QuerySet:
         """Return a query which selects the queued jobs.
 
         The default implementation includes IN_PROGRESS jobs. See doc for ordering().
 
         Args:
-            repositories (iterable): A list of repos to use when filtering
+            repositories (iterable): A list of repository names to use when filtering
                 the landing job search query.
 
             **kwargs (dict): Additional arguments for descendent classes.
@@ -389,9 +346,6 @@ class BaseJob(BaseModel):
 
         if repositories:
             q = q.filter(target_repo__in=repositories)
-
-        if worker is not None:
-            q = q.filter(cls.claimable_by(worker))
 
         q = q.annotate(status_order=JobStatus.ordering()).order_by(
             "-status_order", "-priority", "created_at"
