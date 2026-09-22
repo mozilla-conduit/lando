@@ -188,8 +188,10 @@ class AbstractSCM(ABC):
         self,
         pull_path: str,
         revision_id: int,
+        pull_number: int,
         error_message: str,
         conflicts: dict[str, dict[str, str]] | None = None,
+        failing_commit: str | None = None,
     ) -> dict[str, Any]:
         """Process merge conflict information captured in a PatchConflict, and return a
         parsed structure.

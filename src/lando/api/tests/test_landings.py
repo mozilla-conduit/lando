@@ -867,6 +867,74 @@ def test_merge_conflict(
             assert re.match(f"{repo.pull_path}/file", fp["url"])
 
 
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "patch_numbers,expected_log_message",
+    [
+        ((1, 4), "Rejected hunk"),
+        ((5,), "already exists in index"),
+    ],
+    ids=["conflicting_hunk", "add_existing_file"],
+)
+def test_merge_conflict_pr(
+    repo_mc: Callable,
+    treestatusdouble: TreeStatusDouble,
+    mock_phab_trigger_repo_update_apply_async: mock.Mock,
+    git_patch: Callable,
+    make_landing_job: Callable,
+    caplog: pytest.LogCaptureFixture,
+    get_landing_worker: Callable,
+    create_pull_request_revision: Callable,
+    patch_numbers: tuple[int, ...],
+    expected_log_message: str,
+):
+    """A PR that cannot be applied cleanly to the target repo should fail cleanly."""
+    repo_type = SCMType.GIT
+    repo: Repo = repo_mc(repo_type)
+    repo.is_phabricator_repo = False
+    repo.pr_enabled = True
+
+    treestatusdouble.open_tree(repo.name)
+
+    revisions = [
+        create_pull_request_revision(revision_id, git_patch(patch_number))
+        for revision_id, patch_number in enumerate(patch_numbers, start=1)
+    ]
+
+    job_params = {
+        "status": JobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "target_repo": repo,
+        "attempts": 1,
+        "is_pull_request_job": True,
+    }
+    job = make_landing_job(revisions=revisions, **job_params)
+
+    worker = get_landing_worker(SCMType.GIT)
+    assert worker.run_job(job)
+    assert job.status == JobStatus.FAILED
+
+    assert expected_log_message in caplog.text
+    assert job.error_breakdown, "No error breakdown added to job"
+    assert job.error_breakdown.get("rejects_paths"), (
+        "Empty or missing reject information in error breakdown"
+    )
+    failed_paths = [p["path"] for p in job.error_breakdown["failed_paths"]]
+    assert set(failed_paths) == set(job.error_breakdown["rejects_paths"].keys()), (
+        "Mismatch between failed_paths and rejects_paths"
+    )
+    for fp in failed_paths:
+        assert job.error_breakdown["rejects_paths"][fp].get("path"), (
+            f"Empty or missing reject path for failed path {fp}"
+        )
+        assert job.error_breakdown["rejects_paths"][fp].get("content"), (
+            f"Empty or missing reject content for failed path {fp}"
+        )
+
+    for fp in job.error_breakdown["failed_paths"]:
+        assert re.match(f"{repo.pull_path}/tree", fp["url"])
+
 @pytest.mark.parametrize(
     "repo_type,failing_check_commit_type",
     # We make a cross-product of all the SCM and all the bad actions.

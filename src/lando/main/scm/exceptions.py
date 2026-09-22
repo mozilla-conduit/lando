@@ -43,13 +43,18 @@ class PatchConflict(PatchApplicationFailure):
     last touched it). It is populated by code paths, such as a 3-way rebase, that
     detect conflicts without leaving `.rej` files on disk for
     `process_merge_conflict` to parse.
+    `failing_commit_id` is the ID of the commit whose patch failed to apply.
     """
 
     def __init__(
-        self, *args: object, conflicts: dict[str, dict[str, str]] | None = None
+        self,
+        *args: object,
+        conflicts: dict[str, dict[str, str]] | None = None,
+        failing_commit_id: str | None = None,
     ):
         super().__init__(*args)
         self.conflicts = conflicts or {}
+        self.failing_commit_id = failing_commit_id
 
 
 class SCMInternalServerError(SCMException):

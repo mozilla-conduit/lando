@@ -1237,6 +1237,37 @@ def test_GitSCM_add_diff_from_patches(
     assert diff == expected_diff, "Did not generate expected diff from patches"
 
 
+def test_GitSCM_add_diff_from_patches_conflict(
+    git_patch: Callable,
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    """`add_diff_from_patches` raises `PatchConflict` when a patch does not apply."""
+    clone_path = tmp_path / request.node.name
+    clone_path.mkdir()
+
+    scm = GitSCM(str(clone_path))
+    scm.clone(str(git_repo))
+    git_setup_user(str(clone_path))
+
+    # Normal, Binary, DOS-LE, and conflicting patches. The last one rewrites a
+    # second line of `test.txt` that the first patch never added, so `git am`
+    # cannot place its hunk.
+    patches = git_patch(0) + git_patch(2) + git_patch(3) + git_patch(4)
+
+    with pytest.raises(PatchConflict) as exc_info:
+        scm.add_diff_from_patches(patches)
+
+    assert "error: patch failed: test.txt" in str(exc_info.value), (
+        "`PatchConflict` should report the path that failed to apply."
+    )
+    assert "a line that is not in the target" in str(exc_info.value), (
+        "`PatchConflict` should include the context Git was searching for."
+    )
+
+
 def test_GitSCM_add_diff_from_patches__add_remove_files_multiple_commits(
     git_repo: Path,
     git_setup_user: Callable,
@@ -1487,7 +1518,7 @@ def test_GitSCM_rebase_onto_raises_on_conflict(
     )
 
 
-def test_GitSCM_breakdown_from_conflicts_is_pure(git_repo: Path):
+def ç(git_repo: Path):
     """`breakdown_from_conflicts` builds the breakdown purely from its input.
 
     The `changeset_id` is taken from the input, not looked up in the repo: the

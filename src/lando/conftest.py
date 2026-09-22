@@ -212,6 +212,52 @@ index 0000000..f04873a
 -- 
 """  # noqa: W291, `git` adds a trailing whitespace after `--`.
 
+# A patch that conflicts with the state `PATCH_GIT_1` leaves behind, as its hunk
+# expects a second line in `test.txt` that was never added. `git am --reject`
+# cannot place the hunk, so it leaves a `test.txt.rej` file and fails.
+PATCH_GIT_CONFLICT_1 = """\
+From 9f8e7d6c5b4a39281706f5e4d3c2b1a098765432 Mon Sep 17 00:00:00 2001
+From: Py Test <pytest@lando.example.net>
+Date: Wed, 26 Nov 2025 06:30:00 +0000
+Subject: No bug: modify a line missing from the target
+
+---
+ test.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/test.txt b/test.txt
+index 45e9938..a1b2c3d 100644
+--- a/test.txt
++++ b/test.txt
+@@ -1,2 +1,2 @@
+ TEST
+-a line that is not in the target
++a line replacing one that is not in the target
+-- 
+"""  # noqa: W291, `git` adds a trailing whitespace after `--`.
+
+PATCH_GIT_CONFLICT_ADD_EXISTING_FILE = """
+From 208b07e1c6002d50f6ff54696b262e7a8c7612d7 Mon Sep 17 00:00:00 2001
+From: Py Test <pytest@lando.example.net>
+Date: Mon, 17 Aug 2026 14:35:54 -0400
+Subject: [PATCH] add a file that already exists on the target repo
+
+---
+ test.txt | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 test.txt
+
+diff --git a/test.txt b/test.txt
+new file mode 100644
+index 0000000..2ef267e
+--- /dev/null
++++ b/test.txt
+@@ -0,0 +1 @@
++some content that collides with the existing file
+--
+"""
+
+
 
 # Diffs for exercising the 3-way landing flow. They share a single `test.txt`
 # base with enough lines that a hunk's context window can be disturbed by an
@@ -423,6 +469,8 @@ def git_patch():
         PATCH_GIT_2,
         PATCH_GIT_BINARY_1,
         PATCH_GIT_DOS_LINE_ENDING,
+        PATCH_GIT_CONFLICT_1,
+        PATCH_GIT_CONFLICT_ADD_EXISTING_FILE,
     ]
 
     def _patch(number: int = 0):

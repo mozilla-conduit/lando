@@ -38,6 +38,12 @@ ENV_COMMITTER_EMAIL = "GIT_COMMITTER_EMAIL"
 
 T = TypeVar("T")
 
+FAILING_COMMIT_ID = re.compile(r"From (?P<commit_id>[A-Z,a-z,0-9]+)")
+
+def is_patch_conflict(exc: SCMException) -> bool:
+    """Return whether an `SCMException` reports a patch that failed to apply."""
+    return "error: patch" in exc.err or "already exists in index" in exc.err
+
 
 def detect_patch_conflict(fn: Callable[..., T]) -> Callable[..., T]:
     """Decorator transforming SCMExceptions to PatchConflict as appropriate."""
@@ -46,7 +52,7 @@ def detect_patch_conflict(fn: Callable[..., T]) -> Callable[..., T]:
         try:
             return fn(*args, **kwargs)
         except SCMException as exc:
-            if "error: patch" in exc.err:
+            if is_patch_conflict(exc):
                 raise PatchConflict(exc.err) from exc
 
             raise exc
@@ -67,7 +73,8 @@ class GitSCM(AbstractSCM):
     # failed)`, but this sort of negative assertion with lookahead prevents the
     # non-matching group to be captured.
     FAILED_RE = re.compile(
-        r"(?:error: ((?:while searching for):\n(?:.*\n)*?))?error: patch failed: ([^:\n]+):\d+",
+        r"(?:error: ((?:while searching for):\n(?:.*\n)*?))?"
+        r"error: (?:patch failed: )?([^:\n]+):(?:\d+| already exists in index)",
         re.MULTILINE,
     )
 
@@ -315,14 +322,39 @@ class GitSCM(AbstractSCM):
         try:
             self._git_run(*command, cwd=self.path)
         except SCMException as exc:
+            # The commit ID has to be read before `--abort` discards the `git am`
+            # state below.
+            failing_commit_id = (
+                self.get_failing_commit_id() if is_patch_conflict(exc) else None
+            )
             try:
                 # Clean up failed `git am`.
                 self._git_run("am", "--abort", cwd=self.path)
             except SCMException:
                 pass
 
-            # Re-raise the exception from the failed `git am`.
+            if failing_commit_id:
+                raise PatchConflict(
+                    exc.err, failing_commit_id=failing_commit_id
+                ) from exc
+
             raise exc
+
+    def get_failing_commit_id(self) -> str | None:
+        """Return the ID of the commit whose patch the in-progress `git am` stopped on.
+
+        Returns `None` when no commit ID is available, as is the case for patches not produced by `git format-patch`.
+        """
+        try:
+            logger.debug("Reading the patch of the failed `git am`.")
+            failing_patch = self._git_run(
+                "am", "--show-current-patch=raw", cwd=self.path
+            )
+        except SCMException:
+            logger.warning("Could not read the patch of the failed `git am`.")
+            return None
+
+        return FAILING_COMMIT_ID.match(failing_patch).group("commit_id")
 
     @override
     def get_patch(self, revision_id: str) -> str | None:
@@ -400,8 +432,10 @@ class GitSCM(AbstractSCM):
         self,
         pull_path: str,
         revision_id: int,
+        pull_number: int,
         error_message: str,
         conflicts: dict[str, dict[str, str]] | None = None,
+        failing_commit: str | None = None,
     ) -> dict[str, Any]:
         """Process merge conflict information captured in a PatchConflict, and return a
         parsed structure."""
@@ -415,6 +449,8 @@ class GitSCM(AbstractSCM):
             "failed_paths": [],
             "rejects_paths": {},
             "revision_id": revision_id,
+            "pull_number": pull_number,
+            "failing_commit": failing_commit,
         }
 
         failed_paths = self.FAILED_RE.findall(error_message)
@@ -423,7 +459,6 @@ class GitSCM(AbstractSCM):
             (path, self.last_commit_for_path(path), path_error)
             for path_error, path in failed_paths
         ]
-
         breakdown["failed_paths"] = [
             {
                 "path": path,
@@ -451,7 +486,7 @@ class GitSCM(AbstractSCM):
             breakdown["rejects_paths"][path] = reject
 
         return breakdown
-
+  
     def breakdown_from_conflicts(
         self,
         pull_path: str,
