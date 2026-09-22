@@ -30,6 +30,7 @@ from lando.api.views import (
     PullRequestUpdateWebhook,
     git2hgCommitMapView,
     hg2gitCommitMapView,
+    StacksChecksAPIView,
 )
 from lando.headless_api.api import (
     api as headless_api,
@@ -142,6 +143,11 @@ urlpatterns += [
         "api/stacks/<str:repo_name>/<int:stack_number>/landing_jobs",
         LandingJobStacksAPIView.as_view(),
         name="api-landing-job-stack",
+    ),
+    path(
+        "api/stacks/<str:repo_name>/<int:stack_number>/checks",
+        StacksChecksAPIView.as_view(),
+        name="api-pull-request-checks",
     ),
 ]
 
