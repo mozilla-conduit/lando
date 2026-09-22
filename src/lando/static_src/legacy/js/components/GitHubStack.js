@@ -9,31 +9,31 @@ function need_warnings_acknowledgements(button) {
     button.removeClass("is-loading is-danger").addClass("is-warning");
     button.html(ACKNOWLEDGE_WARNINGS_LABEL);
 }
-$.fn.gh_stack = function () {    
-        return this.each(function () {
+$.fn.gh_stack = function () {
+    return this.each(function () {
         let $gh_stack = $(this);
-                    // Simple check for time being. If the button exists, assume this is a pull request page.
+        // Simple check for time being. If the button exists, assume this is a pull request page.
         // This should be cleaned up as part of bug 1995754.
         var request_land_button = $("button.post-landing-job");
         var head_sha = request_land_button.data("head-sha");
         var repo_name = request_land_button.data("repo-name");
         var csrf_token = request_land_button.data("csrf-token");
 
-         $("#acknowledge-warnings").on("click", function () {
-                if (this.checked) {
-                    request_land_button.prop("disabled", false);
-                    request_land_button.html("Request landing despite warnings");
-                } else {
-                    need_warnings_acknowledgements(request_land_button);
-                }
-            });
-
-            if (request_land_button.data("anonymous") == 1) {
-                request_land_button.prop("disabled", true);
-                request_land_button.removeClass("is-loading").addClass("is-danger");
-                request_land_button.html("Log in to request landing");
-                return;
+        $("#acknowledge-warnings").on("click", function () {
+            if (this.checked) {
+                request_land_button.prop("disabled", false);
+                request_land_button.html("Request landing despite warnings");
+            } else {
+                need_warnings_acknowledgements(request_land_button);
             }
+        });
+
+        if (request_land_button.data("anonymous") == 1) {
+            request_land_button.prop("disabled", true);
+            request_land_button.removeClass("is-loading").addClass("is-danger");
+            request_land_button.html("Log in to request landing");
+            return;
+        }
 
         if (document.getElementById("pull-request-page")) {
             var saved_landing_state = null;
@@ -387,11 +387,11 @@ $.fn.gh_stack = function () {
                     }
 
                     if (!has_blockers && !has_warnings) {
-                    request_land_button.prop("disabled", false);
-                    request_land_button
-                        .removeClass("is-loading")
-                        .addClass("is-success");
-                    request_land_button.html("Request landing");
+                        request_land_button.prop("disabled", false);
+                        request_land_button
+                            .removeClass("is-loading")
+                            .addClass("is-success");
+                        request_land_button.html("Request landing");
                     } else if (has_blockers) {
                         request_land_button.prop("disabled", true);
                         request_land_button
@@ -403,8 +403,6 @@ $.fn.gh_stack = function () {
                         need_warnings_acknowledgements(request_land_button);
                     }
                 }
-                
-
             });
 
             request_land_button.on("click", function (e) {

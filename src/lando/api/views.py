@@ -340,8 +340,14 @@ class StacksAPIView(View, PrivateRepoPermissionMixin):
             raise
         return super().dispatch(request, repo_name, stack_number, *args, **kwargs)
 
-PR_BASE_BRANCH_MISMATCH_BLOCKER = "The base branch for this PR doesn&#x27;t match this Tree."
 
+PR_BASE_BRANCH_MISMATCH_BLOCKER = (
+    "The base branch for this PR doesn&#x27;t match this Tree."
+)
+class GitHubStacksAPIView(StacksAPIView):
+    pass
+class LandingStatusStacksAPIView(StacksAPIView):
+    pass
 class LandingJobStacksAPIView(StacksAPIView):
     def get(
         self, request: WSGIRequest, repo_name: int, stack_number: int
@@ -371,7 +377,7 @@ class LandingJobStacksAPIView(StacksAPIView):
                 break
 
         return JsonResponse({"status": status}, status=200)
-        
+
     def post(
         self, request: WSGIRequest, repo_name: str, stack_number: int
     ) -> JsonResponse:
@@ -386,9 +392,7 @@ class LandingJobStacksAPIView(StacksAPIView):
             new_warnings = warnings_and_blockers[pull_request.number]["warnings"]
             blockers = warnings_and_blockers[pull_request.number]["blockers"]
             if PR_BASE_BRANCH_MISMATCH_BLOCKER in blockers:
-                blockers.remove(
-                    PR_BASE_BRANCH_MISMATCH_BLOCKER
-                )
+                blockers.remove(PR_BASE_BRANCH_MISMATCH_BLOCKER)
 
             if blockers:
                 return JsonResponse(
@@ -426,6 +430,7 @@ class LandingJobStacksAPIView(StacksAPIView):
 
         return JsonResponse({"id": job.id}, status=201)
 
+
 class Form(forms.Form):
     """Simple form to get clean some fields."""
 
@@ -448,6 +453,7 @@ class Form(forms.Form):
     old_warnings = forms.JSONField(required=False)
     # TODO: use this for verification later, see bug 1996571.
     # base_ref = forms.CharField()
+
 
 def create_revision_from_pull_request(pull_request: PullRequest) -> Revision:
     author_name, author_email = pull_request.author
@@ -499,24 +505,30 @@ class StacksChecksAPIView(StacksAPIView):
         results = []
         for pull_request in self.stack.pull_requests:
             try:
-                results.append({"number": pull_request.number, **generate_warnings_and_blockers( self.target_repo, pull_request, request)})
+                results.append(
+                    {
+                        "number": pull_request.number,
+                        **generate_warnings_and_blockers(
+                            self.target_repo, pull_request, request
+                        ),
+                    }
+                )
             except PullRequest.StaleMetadataException as exc:
-            # The StaleMetadataException error message is safe for user consumption.
+                # The StaleMetadataException error message is safe for user consumption.
                 return JsonResponse({"errors": [str(exc)]}, status=500)
 
-
         warnings_and_blockers = {
-        "warnings": defaultdict(list),
-        "blockers": defaultdict(list)
-            }
-        
-        for result_dict in results:
-                for warning in result_dict["warnings"]:
-                    warnings_and_blockers["warnings"][warning].append(result_dict["number"])
+            "warnings": defaultdict(list),
+            "blockers": defaultdict(list),
+        }
 
-                for blocker in result_dict["blockers"]:
-                    warnings_and_blockers["blockers"][blocker].append(result_dict["number"])
-        
+        for result_dict in results:
+            for warning in result_dict["warnings"]:
+                warnings_and_blockers["warnings"][warning].append(result_dict["number"])
+
+            for blocker in result_dict["blockers"]:
+                warnings_and_blockers["blockers"][blocker].append(result_dict["number"])
+
         if PR_BASE_BRANCH_MISMATCH_BLOCKER not in results[0]["blockers"]:
             del warnings_and_blockers["blockers"][PR_BASE_BRANCH_MISMATCH_BLOCKER]
         return JsonResponse(warnings_and_blockers)

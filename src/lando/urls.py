@@ -24,6 +24,8 @@ from lando.api.uplift_api import api as uplift_api
 from lando.api.views import (
     LandingJobPullRequestAPIView,
     LandingJobStacksAPIView,
+    LandingStatusStacksAPIView,
+    GitHubStacksAPIView,
     LegacyDiffWarningView,
     PullRequestChecksAPIView,
     PullRequestContentAPIView,
@@ -150,9 +152,19 @@ urlpatterns += [
         name="api-landing-job-stack",
     ),
     path(
+        "api/stacks/<str:repo_name>/<int:stack_number>/landing_status",
+        LandingStatusStacksAPIView.as_view(),
+        name="api-landing-status-stack",
+    ),
+    path(
         "api/stacks/<str:repo_name>/<int:stack_number>/checks",
         StacksChecksAPIView.as_view(),
-        name="api-pull-request-checks",
+        name="api-stacks-checks",
+    ),
+    path(
+        "api/stacks/<str:repo_name>/<int:stack_number>/",
+        GitHubStacksAPIView.as_view(),
+        name="api-stacks",
     ),
 ]
 

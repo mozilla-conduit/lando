@@ -40,6 +40,7 @@ T = TypeVar("T")
 
 FAILING_COMMIT_ID = re.compile(r"From (?P<commit_id>[A-Z,a-z,0-9]+)")
 
+
 def is_patch_conflict(exc: SCMException) -> bool:
     """Return whether an `SCMException` reports a patch that failed to apply."""
     return "error: patch" in exc.err or "already exists in index" in exc.err
@@ -486,7 +487,7 @@ class GitSCM(AbstractSCM):
             breakdown["rejects_paths"][path] = reject
 
         return breakdown
-  
+
     def breakdown_from_conflicts(
         self,
         pull_path: str,

@@ -258,7 +258,6 @@ index 0000000..2ef267e
 """
 
 
-
 # Diffs for exercising the 3-way landing flow. They share a single `test.txt`
 # base with enough lines that a hunk's context window can be disturbed by an
 # unrelated edit a few lines away. `THREE_WAY_PATCH_DIFF` is the change a landing
@@ -1005,6 +1004,15 @@ def repo_mc(
         raise Exception(f"Unknown SCM Type {scm_type=}")
 
     return factory
+
+
+@pytest.fixture
+def repo_mc_github_api_client(repo_mc):
+    repo_mc(SCMType.GIT, name="git-repo")
+
+    mock_github_api_client = mock.MagicMock()
+    mock_github_api_client.repo_is_private = False
+    return mock_github_api_client
 
 
 @pytest.fixture

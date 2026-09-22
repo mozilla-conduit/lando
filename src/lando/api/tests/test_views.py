@@ -10,15 +10,6 @@ from lando.main.models import Repo, SCMType
 
 
 @pytest.fixture
-def repo_mc_github_api_client(repo_mc):
-    repo_mc(SCMType.GIT, name="git-repo")
-
-    mock_github_api_client = mock.MagicMock()
-    mock_github_api_client.repo_is_private = False
-    return mock_github_api_client
-
-
-@pytest.fixture
 def csrf_client(user, user_plaintext_password):
     csrf_client = Client(enforce_csrf_checks=True)
     csrf_client.login(username=user.username, password=user_plaintext_password)

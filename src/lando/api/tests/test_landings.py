@@ -867,7 +867,6 @@ def test_merge_conflict(
             assert re.match(f"{repo.pull_path}/file", fp["url"])
 
 
-
 @pytest.mark.django_db
 @pytest.mark.parametrize(
     "patch_numbers,expected_log_message",
@@ -934,6 +933,7 @@ def test_merge_conflict_pr(
 
     for fp in job.error_breakdown["failed_paths"]:
         assert re.match(f"{repo.pull_path}/tree", fp["url"])
+
 
 @pytest.mark.parametrize(
     "repo_type,failing_check_commit_type",

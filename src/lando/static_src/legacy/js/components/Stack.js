@@ -1,6 +1,5 @@
 "use strict";
 
-
 $.fn.stack = function () {
     return this.each(function () {
         let $stack = $(this);
@@ -72,6 +71,5 @@ $.fn.stack = function () {
 
         repositoryCheckboxes.on("change", updateRepositoryValidity);
         updateRepositoryValidity();
-
-    })
+    });
 };

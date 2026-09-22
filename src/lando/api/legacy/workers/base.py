@@ -416,9 +416,9 @@ class Worker(ABC):
 
             if job.is_pull_request_job:
                 message = (
-                f"Problem while applying patch {exc.failing_commit_id} in pull request {revision.pull_number}:\n\n"
-                f"{str(exc)}"
-            )
+                    f"Problem while applying patch {exc.failing_commit_id} in pull request {revision.pull_number}:\n\n"
+                    f"{str(exc)}"
+                )
             else:
                 message = (
                     f"Problem while applying patch in revision {revision.revision_id}:\n\n"
@@ -433,7 +433,7 @@ class Worker(ABC):
                 message = (
                     f"Aborting, could not apply patch buffer for {revision.pull_number}."
                     f"\n{exc}"
-                    )
+                )
             else:
                 message = (
                     f"Aborting, could not apply patch buffer for {revision.revision_id}."
