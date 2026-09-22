@@ -1,7 +1,7 @@
 {% extends "partials/layout.html" %}
 {% block page_title %}{{ pull_request }}{% endblock %}
 {% block main %}
-    <main class="StackPage container fullhd">
+    <main id="pull-request-page" class="StackPage StackPage-gh-stack container fullhd">
         <h1>
             <a href="{{ pull_request.html_url }}">{{ pull_request.title }}</a> #{{ pull_request.number }} ({{ target_repo.name }}@{{ target_repo.default_branch }})
         </h1>

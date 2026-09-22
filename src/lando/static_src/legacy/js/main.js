@@ -9,6 +9,7 @@ $(document).ready(function () {
     let $timeline = $(".StackPage-timeline");
     let $treestatus = $(".Treestatus");
     let $uplifts = $(".Uplifts");
+    let $gh_stack = $(".StackPage-gh-stack");
 
     // Initialize components
     $flashMessages.flashMessages();
@@ -16,6 +17,7 @@ $(document).ready(function () {
     $navBar.landoNavbar();
     $secRequestSubmitted.secRequestSubmitted();
     $stack.stack();
+    $gh_stack.gh_stack();
     $timeline.timeline();
     $treestatus.treestatus();
     $uplifts.uplifts();
