@@ -40,6 +40,7 @@ from lando.utils.github import (
     GitHubAPIClient,
     PullRequest,
     PullRequestPatchHelper,
+    Stack,
     ignore_bot_sender,
 )
 from lando.utils.github_checks import (
@@ -282,29 +283,6 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
     ) -> JsonResponse:
         """Create a new landing job for a pull request."""
 
-        class Form(forms.Form):
-            """Simple form to get clean some fields."""
-
-            def clean(self) -> dict[str, Any]:
-
-                cleaned_data = self.cleaned_data
-                new_warnings = cleaned_data["new_warnings"] or []
-                old_warnings = cleaned_data["old_warnings"] or []
-
-                if sorted(new_warnings) != sorted(old_warnings):
-                    self.errors["warnings"] = [
-                        "The warnings present when the request was constructed have changed. "
-                        "Please acknowledge the new warnings and try again."
-                    ]
-
-                return cleaned_data
-
-            head_sha = forms.CharField()
-            new_warnings = forms.JSONField(required=False)
-            old_warnings = forms.JSONField(required=False)
-            # TODO: use this for verification later, see bug 1996571.
-            # base_ref = forms.CharField()
-
         ldap_username = request.user.email
 
         warnings_and_blockers = generate_warnings_and_blockers(
@@ -329,38 +307,175 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
             requester_email=ldap_username,
             is_pull_request_job=True,
         )
-        author_name, author_email = self.pull_request.author
-
-        reviews_summary = self.pull_request.reviews_summary
-        reviewers = [
-            u
-            for u in reviews_summary
-            if reviews_summary.get(u) == self.pull_request.Review.APPROVED
-        ]
-        approvals = []
-
-        commit_message = replace_reviewers(
-            self.pull_request.commit_message, reviewers, approvals
+        add_revisions_to_job(
+            [create_revision_from_pull_request(self.pull_request)], job
         )
-
-        patch_data = {
-            "author_name": author_name,
-            "author_email": author_email,
-            "commit_message": commit_message,
-            "timestamp": int(datetime.now().timestamp()),
-        }
-        revision = Revision.objects.create(
-            pull_number=self.pull_request.number,
-            pull_head_sha=self.pull_request.head_sha,
-            pull_base_sha=self.pull_request.base_sha,
-            patches=self.pull_request.patch,
-            patch_data=patch_data,
-        )
-        add_revisions_to_job([revision], job)
         job.status = JobStatus.SUBMITTED
         job.save()
 
         return JsonResponse({"id": job.id}, status=201)
+
+
+class StacksAPIView(View, PrivateRepoPermissionMixin):
+    target_repo: Repo
+    client: GitHubAPIClient
+    stack: Stack
+
+    def dispatch(
+        self, request: WSGIRequest, repo_name: str, stack_number: int, *args, **kwargs
+    ) -> JsonResponse:
+        try:
+            self.target_repo = Repo.objects.get(name=repo_name)
+        except Repo.DoesNotExist as e:
+            raise Http404 from e
+
+        self.client = GitHubAPIClient(self.target_repo.url)
+        self.raise_404_if_needed(request, self.client)
+
+        try:
+            self.stack = self.client.build_stack(stack_number)
+        except HTTPError as e:
+            if e.response.status_code == 404:
+                raise Http404 from e
+            raise
+        return super().dispatch(request, repo_name, stack_number, *args, **kwargs)
+
+PR_BASE_BRANCH_MISMATCH_BLOCKER = "The base branch for this PR doesn&#x27;t match this Tree."
+
+class LandingJobStacksAPIView(StacksAPIView):
+    def get(
+        self, request: WSGIRequest, repo_name: int, stack_number: int
+    ) -> JsonResponse:
+        """Return the status of a stack based on landing job counts."""
+
+        landing_jobs = [
+            job
+            for pull_request in self.stack.pull_requests
+            for job in get_jobs_for_pull(self.target_repo, pull_request.number)
+        ]
+        landing_jobs_by_status = defaultdict(list)
+        for landing_job in landing_jobs:
+            landing_jobs_by_status[landing_job.status].append(landing_job.id)
+
+        status = None
+        # Return the first encountered status in this list.
+        for _status in [
+            JobStatus.LANDED,
+            JobStatus.CREATED,
+            JobStatus.SUBMITTED,
+            JobStatus.IN_PROGRESS,
+            JobStatus.FAILED,
+        ]:
+            if landing_jobs_by_status[_status]:
+                status = str(_status).lower()
+                break
+
+        return JsonResponse({"status": status}, status=200)
+        
+    def post(
+        self, request: WSGIRequest, repo_name: str, stack_number: int
+    ) -> JsonResponse:
+        """Create a new landing job for a stack"""
+        ldap_username = request.user.email
+
+        warnings_and_blockers = {}
+        for pull_request in self.stack.pull_requests:
+            warnings_and_blockers[pull_request.number] = generate_warnings_and_blockers(
+                self.target_repo, pull_request, request
+            )
+            new_warnings = warnings_and_blockers[pull_request.number]["warnings"]
+            blockers = warnings_and_blockers[pull_request.number]["blockers"]
+            if [PR_BASE_BRANCH_MISMATCH_BLOCKER] in blockers:
+                blockers.remove(
+                    [PR_BASE_BRANCH_MISMATCH_BLOCKER]
+                )
+
+            if blockers:
+                return JsonResponse(
+                    {"errors": blockers, "pull_request": pull_request.number},
+                    status=400,
+                )
+
+            data = json.loads(request.body)
+            data["new_warnings"] = new_warnings
+            form = Form(data)
+
+            if not form.is_valid():
+                return JsonResponse(
+                    {
+                        "errors": form.errors,
+                        "new_warnings": new_warnings,
+                        "pull_request": pull_request.number,
+                    },
+                    status=400,
+                )
+
+        job = LandingJob.objects.create(
+            target_repo=self.target_repo,
+            requester_email=ldap_username,
+            is_pull_request_job=True,
+        )
+        revisions = []
+        for pull_request in self.stack.pull_requests:
+            revisions.append(create_revision_from_pull_request(pull_request))
+
+        add_revisions_to_job(revisions, job)
+
+        job.status = JobStatus.SUBMITTED
+        job.save()
+
+        return JsonResponse({"id": job.id}, status=201)
+
+class Form(forms.Form):
+    """Simple form to get clean some fields."""
+
+    def clean(self) -> dict[str, Any]:
+
+        cleaned_data = self.cleaned_data
+        new_warnings = cleaned_data["new_warnings"] or []
+        old_warnings = cleaned_data["old_warnings"] or []
+
+        if sorted(new_warnings) != sorted(old_warnings):
+            self.errors["warnings"] = [
+                "The warnings present when the request was constructed have changed. "
+                "Please acknowledge the new warnings and try again."
+            ]
+
+        return cleaned_data
+
+    head_sha = forms.CharField()
+    new_warnings = forms.JSONField(required=False)
+    old_warnings = forms.JSONField(required=False)
+    # TODO: use this for verification later, see bug 1996571.
+    # base_ref = forms.CharField()
+
+def create_revision_from_pull_request(pull_request: PullRequest) -> Revision:
+    author_name, author_email = pull_request.author
+    reviews_summary = pull_request.reviews_summary
+    reviewers = [
+        u
+        for u in reviews_summary
+        if reviews_summary.get(u) == pull_request.Review.APPROVED
+    ]
+    approvals = []
+
+    commit_message = replace_reviewers(
+        pull_request.commit_message, reviewers, approvals
+    )
+
+    patch_data = {
+        "author_name": author_name,
+        "author_email": author_email,
+        "commit_message": commit_message,
+        "timestamp": int(datetime.now().timestamp()),
+    }
+    return Revision.objects.create(
+        pull_number=pull_request.number,
+        pull_head_sha=pull_request.head_sha,
+        pull_base_sha=pull_request.base_sha,
+        patches=pull_request.patch,
+        patch_data=patch_data,
+    )
 
 
 class PullRequestChecksAPIView(PullRequestAPIView):
