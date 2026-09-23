@@ -21,11 +21,26 @@ from lando.utils.github import PullRequest
 
 
 class LandoPullRequest(PullRequest):
-    """A PullRequest object with additional Lando-specific logic."""
+    """A PullRequest object with additional Lando-specific logic.
+
+    This object extends on the `github.PullRequest` by adding additional behaviours which
+    is not strictly GitHub-related and/or are provided by other modules in Lando.
+    """
 
     @classmethod
     def from_pr(cls, pr: PullRequest) -> Self:
-        """Build a LandoPullRequest from a PullRequest."""
+        """Build a LandoPullRequest from a PullRequest.
+
+        This allows to obtain a `LandoPullRequest` without having to rebuild it from
+        scratch. This is useful, particularly if the source `PullRequest` was provided by
+        a factory, e.g., `GitHubAPIClient.build_pull_request`:
+
+
+            client = GitHubAPIClient(target_repo.url)
+            pull_request = LandoPullRequest.from_pr(
+                client.build_pull_request(pull_number)
+            )
+        """
         return cls(pr.client, pr._data)
 
     @property
