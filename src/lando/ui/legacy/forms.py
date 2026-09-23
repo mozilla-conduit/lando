@@ -74,7 +74,9 @@ class UpliftAssessmentForm(forms.ModelForm):
 
     class Meta:
         model = UpliftAssessment
-        exclude = ["id", "user"]
+        # `bug_id` is resolved from Phabricator server-side rather than
+        # submitted, so it must never appear as a form field.
+        exclude = ["id", "user", "bug_id"]
         widgets = {
             "user_impact": forms.Textarea,
             "qe_testing_reproduction_steps": forms.Textarea,

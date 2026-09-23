@@ -272,6 +272,7 @@ class PhabricatorDouble:
         title="",
         summary="",
         uplift=None,
+        merge_conflict_status: dict | None = None,
     ):
         revision_id = self._new_id(self._revisions)
         phid = self._new_phid("DREV-")
@@ -305,6 +306,7 @@ class PhabricatorDouble:
             "hashes": [],
             "bugzilla.bug-id": bug_id,
             "uplift.request": uplift,
+            "merge.conflict.status": merge_conflict_status,
             "repositoryPHID": repo["phid"] if repo is not None else None,
             "fields": {
                 "repositoryPHID": repo["phid"] if repo is not None else None,
@@ -1054,6 +1056,7 @@ class PhabricatorDouble:
                     "policy": {"view": "public", "edit": "users"},
                     "bugzilla.bug-id": bug_id,
                     "uplift.request": uplift,
+                    "merge.conflict.status": i["merge.conflict.status"],
                 },
                 "attachments": {},
             }
