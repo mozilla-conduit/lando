@@ -15,6 +15,7 @@ from lando.main.models.profile import Profile
 from lando.main.models.repo import (
     get_default_autoformat_run_command,
     get_default_autoformat_setup_commands,
+    get_default_autolint_run_command,
 )
 from lando.main.models.revision import Revision
 from lando.main.scm import SCMType
@@ -387,6 +388,11 @@ def test__models__Repo__mozbuild_state_path():
             "autoformat_run_command",
             get_default_autoformat_run_command,
             ["format", "--fix", "--outgoing"],
+        ),
+        (
+            "autolint_run_command",
+            get_default_autolint_run_command,
+            ["lint", "--fix", "--outgoing"],
         ),
     ),
 )

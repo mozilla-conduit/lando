@@ -11,6 +11,7 @@ from django.core import mail
 
 from lando.api.legacy.workers.landing_worker import (
     AUTOFORMAT_COMMIT_MESSAGE,
+    AUTOLINT_COMMIT_MESSAGE,
     LandingWorker,
 )
 from lando.conftest import FAILING_CHECK_TYPES
@@ -28,7 +29,7 @@ from lando.main.models.configuration import (
     VariableTypeChoices,
 )
 from lando.main.models.jobs import ABORTED_ERROR_TEMPLATE, DEFAULT_MAX_JOB_ATTEMPTS
-from lando.main.scm import SCMType
+from lando.main.scm import AutoformattingException, SCMType
 from lando.main.scm.exceptions import SCMInternalServerError, TreeApprovalRequired
 from lando.main.scm.git import GitSCM
 from lando.main.scm.helpers import HgPatchHelper
@@ -192,6 +193,61 @@ new file mode 100755
 +import sys
 +sys.exit("MACH FAILED")
 +
+
+""".lstrip()
+
+PATCH_FORMATTING_AND_LINTING_PASS = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+No bug: add formatting and linting config
+
+diff --git a/.lando.ini b/.lando.ini
+new file mode 100644
+--- /dev/null
++++ b/.lando.ini
+@@ -0,0 +1,3 @@
++[autoformat]
++enabled = True
++
+diff --git a/mach b/mach
+new file mode 100755
+--- /dev/null
++++ b/mach
+@@ -0,0 +1,31 @@
++#!/usr/bin/env python3
++# This Source Code Form is subject to the terms of the Mozilla Public
++# License, v. 2.0. If a copy of the MPL was not distributed with this
++# file, You can obtain one at http://mozilla.org/MPL/2.0/.
++
++# Fake `mach` that upper-cases text on `format` and drops blank lines on `lint`.
++
++import pathlib
++import sys
++
++HERE = pathlib.Path(__file__).resolve().parent
++
++if __name__ == "__main__":
++    args = sys.argv[1:]
++    if args == ["lint", "--list"]:
++        print("eslint\nfake-lint\n\nNote that clang-tidy checks are not run.")
++        sys.exit(0)
++    if "--fail" in args:
++        sys.exit("LINT FAILED")
++    if args[0] == "lint" and ("eslint" in args or "fake-lint" not in args):
++        sys.exit("UNEXPECTED LINTERS")
++    testtxt = HERE / "test.txt"
++    if not testtxt.exists():
++        sys.exit(0)
++    content = testtxt.read_text()
++    if args[0] == "format":
++        content = content.upper()
++    elif args[0] == "lint":
++        content = "".join(line for line in content.splitlines(True) if line.strip())
++    testtxt.write_text(content)
++    sys.exit(0)
 
 """.lstrip()
 
@@ -1493,6 +1549,284 @@ def test_format_stack_runs_configured_command(repo_mc, git_landing_worker):
     assert run_mach.call_args_list == [
         mock.call(repo.path, command, extra_env=extra_env)
     ], "`format_stack` should run the repo's configured autoformat command."
+
+
+@pytest.mark.django_db
+def test_autolint_command_excludes_eslint(repo_mc, git_landing_worker):
+    """`autolint_command` selects every listed linter except eslint."""
+    repo = repo_mc(SCMType.GIT, name="test-autolint-git", autoformat_enabled=True)
+    extra_env = {"MOZBUILD_STATE_PATH": repo.mozbuild_state_path}
+    list_output = (
+        "clang-format\neslint\nruff\n\n"
+        "Note that clang-tidy checks are not run as part of this command, but "
+        "using the static-analysis command.\n"
+    )
+
+    with (
+        mock.patch.object(git_landing_worker, "mach_path", return_value="mach"),
+        mock.patch.object(
+            git_landing_worker, "run_mach_command", return_value=list_output
+        ) as run_mach,
+    ):
+        command = git_landing_worker.autolint_command(
+            repo.path, repo.autolint_run_command, extra_env=extra_env
+        )
+
+    assert run_mach.call_args_list == [
+        mock.call(repo.path, ["lint", "--list"], extra_env=extra_env)
+    ], "`autolint_command` should list the available linters."
+    assert command == [
+        "lint",
+        "--fix",
+        "--outgoing",
+        "--verbose",
+        "-l",
+        "clang-format",
+        "-l",
+        "ruff",
+    ], "`autolint_command` should select all listed linters except eslint."
+
+
+@pytest.mark.parametrize(
+    "run_command, list_output",
+    (
+        pytest.param([], "ruff\n", id="no-run-command"),
+        pytest.param(["lint", "--fix"], "eslint\n\nNote.\n", id="only-eslint"),
+    ),
+)
+@pytest.mark.django_db
+def test_autolint_command_skipped(git_landing_worker, run_command, list_output):
+    """`autolint_command` returns `None` when there is nothing to lint with."""
+    with (
+        mock.patch.object(git_landing_worker, "mach_path", return_value="mach"),
+        mock.patch.object(
+            git_landing_worker, "run_mach_command", return_value=list_output
+        ),
+    ):
+        command = git_landing_worker.autolint_command("repo", run_command)
+
+    assert command is None, "Autolinting should be skipped."
+
+
+@pytest.mark.django_db
+def test_autolint_command_list_failure(git_landing_worker):
+    """`autolint_command` raises `AutoformattingException` if listing fails."""
+    with (
+        mock.patch.object(git_landing_worker, "mach_path", return_value="mach"),
+        mock.patch.object(
+            git_landing_worker,
+            "run_mach_command",
+            side_effect=subprocess.CalledProcessError(1, "mach", output="boom"),
+        ),
+        pytest.raises(AutoformattingException),
+    ):
+        git_landing_worker.autolint_command("repo", ["lint", "--fix"])
+
+
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        SCMType.GIT,
+        SCMType.HG,
+    ],
+)
+@pytest.mark.django_db
+def test_format_and_lint_stack_success_changed(
+    repo_mc,
+    mock_phab_trigger_repo_update_apply_async,
+    create_patch_revision,
+    make_landing_job,
+    get_landing_worker,
+    repo_type: str,
+):
+    """Test formatting and linting a stack via two separate tip commits."""
+    repo = repo_mc(repo_type, autoformat_enabled=True)
+    scm = repo.scm
+
+    revisions = [
+        create_patch_revision(1, patch=PATCH_FORMATTING_AND_LINTING_PASS),
+        create_patch_revision(2, patch=PATCH_FORMATTED_1),
+        create_patch_revision(3, patch=PATCH_FORMATTED_2),
+    ]
+    job_params = {
+        "status": JobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "target_repo": repo,
+        "attempts": 1,
+    }
+    job = make_landing_job(revisions=revisions, **job_params)
+
+    worker = get_landing_worker(repo_type)
+    assert worker.run_job(job), "`run_job` should return `True` on a successful run."
+
+    new_commit_count = Commit.objects.filter(repo=repo).count()
+    assert new_commit_count == len(revisions) + 2, (
+        "Formatting and linting should each add a commit to the PushLog."
+    )
+    assert job.status == JobStatus.LANDED, (
+        "Successful landing should set `LANDED` status."
+    )
+
+    with scm.for_push(job.requester_email):
+        lint_commit = scm.describe_commit()
+        format_commit = scm.describe_commit(lint_commit.parents[0])
+        tip_content = scm.read_checkout_file("test.txt").encode("utf-8")
+
+    assert tip_content == b"TEST\nADDING ANOTHER LINE\nADD ONE MORE LINE\n", (
+        "`test.txt` should be both formatted and linted."
+    )
+    assert format_commit.desc.strip() == AUTOFORMAT_COMMIT_MESSAGE.format(
+        bugs="Bug 123"
+    ), "Autoformat commit has incorrect commit message."
+    assert lint_commit.desc.strip() == AUTOLINT_COMMIT_MESSAGE.format(bugs="Bug 123"), (
+        "Autolint commit has incorrect commit message."
+    )
+    assert job.formatted_replacements == [format_commit.hash, lint_commit.hash], (
+        "`formatted_replacements` should list the autoformat and autolint commits."
+    )
+
+    if repo_type == SCMType.GIT:
+        autoformat_changes = list(job.autoformat_changes.order_by("id"))
+        assert [change.commit_sha for change in autoformat_changes] == [
+            format_commit.hash,
+            lint_commit.hash,
+        ], "An `AutoformatChange` should be recorded for each commit."
+    else:
+        assert job.autoformat_changes.count() == 0, (
+            "Hg does not support capturing autoformat changes."
+        )
+
+
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        SCMType.GIT,
+        SCMType.HG,
+    ],
+)
+@pytest.mark.django_db
+def test_format_and_lint_single_success_changed(
+    repo_mc,
+    mock_phab_trigger_repo_update_apply_async,
+    create_patch_revision,
+    make_landing_job,
+    get_landing_worker,
+    repo_type: str,
+):
+    """Test formatting and linting a single commit via amending."""
+    repo = repo_mc(repo_type, autoformat_enabled=True)
+    scm = repo.scm
+
+    # Push the `mach` formatting and linting patch.
+    with scm.for_push("test@example.com"):
+        ph = HgPatchHelper.from_string_io(
+            io.StringIO(PATCH_FORMATTING_AND_LINTING_PASS)
+        )
+        scm.apply_patch(
+            ph.get_diff(),
+            ph.get_commit_description(),
+            ph.get_header("User"),
+            ph.get_header("Date"),
+        )
+        scm.push(repo.push_path)
+        pre_landing_tip = scm.describe_commit().hash
+
+    job_params = {
+        "status": JobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "target_repo": repo,
+        "attempts": 1,
+    }
+    job = make_landing_job(
+        revisions=[create_patch_revision(2, patch=PATCH_FORMATTED_1)], **job_params
+    )
+
+    worker = get_landing_worker(repo_type)
+    assert worker.run_job(job), "`run_job` should return `True` on a successful run."
+
+    with scm.for_push(job.requester_email):
+        tip = scm.describe_commit()
+        tip_content = scm.read_checkout_file("test.txt").encode("utf-8")
+        hash_behind_current_tip = scm.describe_commit(tip.parents[0]).hash
+
+    assert hash_behind_current_tip == pre_landing_tip, (
+        "Formatting and linting via amending should only land a single commit."
+    )
+    assert tip_content == b"TEST\nADDING ANOTHER LINE\n", (
+        "`test.txt` should be both formatted and linted."
+    )
+    assert job.formatted_replacements == [tip.hash], (
+        "`formatted_replacements` should only list the landed amended commit."
+    )
+    assert job.revisions.first().commit_id == tip.hash, (
+        "The revision should point to the landed amended commit."
+    )
+
+    if repo_type == SCMType.GIT:
+        assert [change.commit_sha for change in job.autoformat_changes.all()] == [
+            tip.hash,
+            tip.hash,
+        ], "Both `AutoformatChange` rows should reference the landed commit."
+
+
+@pytest.mark.parametrize(
+    "repo_type",
+    [
+        SCMType.GIT,
+        SCMType.HG,
+    ],
+)
+@pytest.mark.django_db
+def test_lint_patch_fail(
+    repo_mc,
+    monkeypatch,
+    create_patch_revision,
+    make_landing_job,
+    get_landing_worker,
+    repo_type: str,
+):
+    """Tests automated linting failures before landing."""
+    repo = repo_mc(
+        repo_type,
+        autoformat_enabled=True,
+        autolint_run_command=["lint", "--fix", "--fail"],
+    )
+
+    revisions = [
+        create_patch_revision(1, patch=PATCH_FORMATTING_AND_LINTING_PASS),
+        create_patch_revision(2, patch=PATCH_FORMATTED_1),
+    ]
+    job_params = {
+        "status": JobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "target_repo": repo,
+        "attempts": 1,
+    }
+    job = make_landing_job(revisions=revisions, **job_params)
+
+    mock_notify = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.landing_worker.notify_user_of_landing_failure",
+        mock_notify,
+    )
+
+    worker = get_landing_worker(repo_type)
+    assert not worker.run_job(job), (
+        "`run_job` should return `False` when autolinting fails."
+    )
+
+    assert Push.objects.filter(repo=repo).count() == 0, (
+        "The number of pushes shouldn't have changed"
+    )
+    assert job.status == JobStatus.FAILED, (
+        "Failed autolinting should set `FAILED` job status."
+    )
+    assert "Lando failed to format your patch" in job.error, (
+        "Error message is not set to show autolint caused landing failure."
+    )
+    assert mock_notify.call_count == 1, (
+        "User should be notified their landing was unsuccessful due to autolint."
+    )
 
 
 @pytest.mark.parametrize(

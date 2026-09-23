@@ -48,6 +48,15 @@ AUTOFORMAT_COMMIT_MESSAGE = """
 # ignore-this-changeset
 """.strip()
 
+AUTOLINT_COMMIT_MESSAGE = """
+{bugs}: apply lint fixes via Lando
+
+# ignore-this-changeset
+""".strip()
+
+# Linters listed by `mach lint --list` that are not run when autolinting.
+AUTOLINT_EXCLUDED_LINTERS = {"eslint"}
+
 
 @dataclass
 class AutoformatResult:
@@ -443,18 +452,39 @@ class LandingWorker(Worker):
 
         # When we only have a single commit in the stack, we amend autoformatting changes
         # into the commit. For stack sizes greater than 1, we create a new commit on
-        # top of the stack.
+        # top of the stack, one for formatting changes and one for lint fixes.
         should_amend_autoformat = len(changeset_titles) == 1
 
+        repo = job.target_repo
+        extra_env = {"MOZBUILD_STATE_PATH": repo.mozbuild_state_path}
+
         try:
-            result = self.apply_autoformatting(
-                scm,
-                landoini_config,
-                bug_ids,
-                should_amend_autoformat,
-                job.target_repo.autoformat_run_command,
-                extra_env={"MOZBUILD_STATE_PATH": job.target_repo.mozbuild_state_path},
-            )
+            results = [
+                self.apply_autoformatting(
+                    scm,
+                    landoini_config,
+                    bug_ids,
+                    should_amend_autoformat,
+                    repo.autoformat_run_command,
+                    AUTOFORMAT_COMMIT_MESSAGE,
+                    extra_env=extra_env,
+                )
+            ]
+
+            if lint_command := self.autolint_command(
+                scm.path, repo.autolint_run_command, extra_env=extra_env
+            ):
+                results.append(
+                    self.apply_autoformatting(
+                        scm,
+                        landoini_config,
+                        bug_ids,
+                        should_amend_autoformat,
+                        lint_command,
+                        AUTOLINT_COMMIT_MESSAGE,
+                        extra_env=extra_env,
+                    )
+                )
         except AutoformattingException as exc:
             message = (
                 "Lando failed to format your patch for conformity with our "
@@ -466,11 +496,24 @@ class LandingWorker(Worker):
 
             return message
 
+        results = [result for result in results if result is not None]
+        if not results:
+            return
+
+        # When amending, each step rewrites the same commit, so only the SHA of the
+        # last amend is part of the landed stack.
+        if should_amend_autoformat:
+            final_sha = results[-1].commit_sha
+            for result in results:
+                result.commit_sha = final_sha
+
         # If autoformatting added any changesets, note those in the job and record
         # the changed files and diff for later analysis.
-        if result is not None:
-            job.formatted_replacements = [result.commit_sha]
+        job.formatted_replacements = list(
+            dict.fromkeys(result.commit_sha for result in results)
+        )
 
+        for result in results:
             # `changed_files` is empty when the SCM cannot capture the changes (e.g. Hg).
             if result.changed_files:
                 AutoformatChange.objects.create(
@@ -480,14 +523,57 @@ class LandingWorker(Worker):
                     diff=result.diff,
                 )
 
-            if should_amend_autoformat:
-                # Update the `commit_id` field to reflect the new commit SHA after
-                # applying autoformatting changes.
-                revision = job.revisions.first()
-                revision.commit_id = result.commit_sha
-                revision.save()
+        if should_amend_autoformat:
+            # Update the `commit_id` field to reflect the new commit SHA after
+            # applying autoformatting changes.
+            revision = job.revisions.first()
+            revision.commit_id = results[-1].commit_sha
+            revision.save()
 
         return
+
+    def autolint_command(
+        self,
+        repo_path: str,
+        run_command: list[str],
+        extra_env: dict[str, str] | None = None,
+    ) -> list[str] | None:
+        """Return the `./mach` arg-list to apply lint fixes, or `None` to skip.
+
+        `mach lint` can't exclude linters, so we list the available linters with
+        `mach lint --list` and explicitly select all of them except those in
+        `AUTOLINT_EXCLUDED_LINTERS`. Raise `AutoformattingException` if the linters
+        can't be listed.
+        """
+        if not run_command or not self.mach_path(repo_path):
+            return None
+
+        try:
+            output = self.run_mach_command(
+                repo_path, ["lint", "--list"], extra_env=extra_env
+            )
+        except subprocess.CalledProcessError as exc:
+            logger.warning("Failed to list available linters.")
+            logger.exception(exc)
+
+            raise AutoformattingException(
+                "Failed to list available linters.",
+                details=exc.stdout,
+            )
+
+        # `mach lint --list` prints one linter name per line, followed by a blank
+        # line and a note about clang-tidy.
+        linters_output, _sep, _note = output.strip().partition("\n\n")
+        linters = [
+            linter
+            for line in linters_output.splitlines()
+            if (linter := line.strip()) and linter not in AUTOLINT_EXCLUDED_LINTERS
+        ]
+        if not linters:
+            logger.info("No linters to run - skipping autolint.")
+            return None
+
+        return run_command + [arg for linter in linters for arg in ("-l", linter)]
 
     def apply_autoformatting(
         self,
@@ -496,6 +582,7 @@ class LandingWorker(Worker):
         bug_ids: list[str],
         should_amend_autoformat: bool,
         run_command: list[str],
+        commit_message: str,
         extra_env: dict[str, str] | None = None,
     ) -> AutoformatResult | None:
         try:
@@ -520,7 +607,7 @@ class LandingWorker(Worker):
 
         try:
             commit_sha = self.commit_autoformatting_changes(
-                scm, should_amend_autoformat, bug_ids
+                scm, should_amend_autoformat, bug_ids, commit_message
             )
         except SCMException as exc:
             msg = "Failed to create an autoformat commit."
@@ -648,13 +735,18 @@ class LandingWorker(Worker):
             return mach_path
 
     def commit_autoformatting_changes(
-        self, scm: AbstractSCM, should_amend_autoformat: bool, bug_ids: list[str]
+        self,
+        scm: AbstractSCM,
+        should_amend_autoformat: bool,
+        bug_ids: list[str],
+        commit_message: str,
     ) -> str | None:
         """Call the SCM implementation to commit pending autoformatting changes.
 
         If `should_amend_autoformat` is `True`, formatting changes will be amended into
         the tip commit. Otherwise, a new commit will be created on top of the stack
-        (referencing all bugs involved in the stack).
+        using the `commit_message` template (referencing all bugs involved in the
+        stack).
 
         Return the SHA of the resulting commit, or `None` when nothing changed.
         """
@@ -663,7 +755,7 @@ class LandingWorker(Worker):
 
         # If the stack is more than a single commit, create an autoformat commit.
         bug_string = bug_list_to_commit_string(bug_ids)
-        return scm.format_stack_tip(AUTOFORMAT_COMMIT_MESSAGE.format(bugs=bug_string))
+        return scm.format_stack_tip(commit_message.format(bugs=bug_string))
 
     def bootstrap_repos(self):
         """Optional method to bootstrap repositories in the the work directory."""
