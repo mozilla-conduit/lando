@@ -1,0 +1,33 @@
+{# A modal wrapping the uplift assessment questions.
+
+Rendered once per assessment on the bug, plus once for authoring a new one, so
+the caller supplies `modal_id`, `modal_title`, `modal_action`, `modal_submit`
+and the `assessment_form` to pre-fill.
+#}
+<div class="uplift-assessment-modal modal"
+     data-assessment-modal="{{ modal_id }}">
+    <form action="{{ modal_action }}" method="post">
+        <div class="modal-background"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">{{ modal_title }}</p>
+                <button class="assessment-modal-close delete"
+                        aria-label="close"
+                        type="button"></button>
+            </header>
+            <section class="modal-card-body">
+                <fieldset>
+                    {{ csrf_input }}
+                    {% if not user_has_phabricator_token %}
+                        {% include "stack/partials/uplift-phab-api-key-warning.html" %}
+                    {% endif %}
+                    {% include "stack/partials/uplift-assessment.html" %}
+                </fieldset>
+            </section>
+            <footer class="modal-card-foot">
+                <button class="button is-primary" title="Save responses">{{ modal_submit }}</button>
+                <button class="button assessment-modal-close" type="button">Cancel</button>
+            </footer>
+        </div>
+    </form>
+</div>

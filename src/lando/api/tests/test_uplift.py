@@ -644,6 +644,30 @@ def test_assessment_with_no_bug_still_shows_on_its_revisions(user, repo_mc):
         )
 
 
+@pytest.mark.django_db
+def test_display_answers_resolves_choice_labels(user):
+    """Every question is returned, with choice fields in human-readable form."""
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=UPLIFT_BUG_ID, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+
+    answers = {answer.label: answer.value for answer in assessment.display_answers()}
+
+    assert set(answers) == set(UpliftAssessment.CONDUIT_FIELDS.values()), (
+        "Every question on the form should be returned for display."
+    )
+    assert answers["Code covered by automated testing?"] == "Yes", (
+        "A choice field should be shown as its label, not its stored value."
+    )
+    assert answers["Risk associated with taking this patch"] == "Low", (
+        "`risk_associated_with_patch` should be shown as its label."
+    )
+    assert (
+        answers["User impact if declined/Reason for urgency"]
+        == UPLIFT_ASSESSMENT_ANSWERS["user_impact"]
+    ), "A free-text field should be shown exactly as it was entered."
+
+
 @mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
 @pytest.mark.django_db
 def test_edit_assessment_updates_every_linked_revision(
@@ -718,6 +742,33 @@ def test_edit_assessment_rejects_assessment_from_another_bug(
     assert any("is not shown on" in message for message in flash_messages), (
         f"Should flash an error about the assessment not being shown: {flash_messages=}"
     )
+
+
+@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@pytest.mark.django_db
+def test_link_assessment_rejects_assessment_from_another_bug(
+    mock_apply_async, authenticated_client, user, phabdouble
+):
+    """A revision cannot be linked to an assessment filed against another bug."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
+    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=UPLIFT_BUG_ID + 1, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+
+    url = reverse("uplift-assessment-link-page", args=[revision_id])
+    response = authenticated_client.post(
+        url,
+        data={"assessment": assessment.pk},
+        HTTP_REFERER=f"/D{revision_id}",
+    )
+
+    assert response.status_code == 302, "A rejected link should redirect."
+    assert UpliftRevision.objects.count() == 0, (
+        "No link should be created to an assessment for another bug."
+    )
+    mock_apply_async.assert_not_called()
 
 
 @pytest.mark.django_db
