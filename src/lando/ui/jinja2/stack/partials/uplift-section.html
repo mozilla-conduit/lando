@@ -22,6 +22,60 @@ future.
             </div>
         </article>
     {% else %}
+        {# The revision is an uplift with no assessment attached: the state
+           developers mistake for needing "Request Uplift" a second time. #}
+        {% if revision_repo and revision_repo.approval_required and uplift.needs_assessment %}
+            <article class="message is-warning">
+                <div class="message-header">
+                    <p>This uplift revision has no assessment</p>
+                </div>
+                <div class="message-body">
+                    {% if uplift.bug_assessments %}
+                        <p class="block">
+                            Release managers need an assessment before this patch can be approved.
+                            Bug {{ uplift.bug_id }} already has one, so link this revision to it
+                            instead of answering the questions again.
+                        </p>
+                        <div class="field is-grouped is-grouped-multiline">
+                            {% for card in uplift.bug_assessments %}
+                                <p class="control">
+                                    <form action="{{ url('uplift-assessment-link-page', args=[uplift.revision_id]) }}"
+                                          method="post">
+                                        {{ csrf_input }}
+                                        <input type="hidden" name="assessment" value="{{ card.assessment.id }}">
+                                        <button class="button is-small is-primary">
+                                            <span class="icon is-small">
+                                                <i class="fa fa-link" aria-hidden="true"></i>
+                                            </span>
+                                            <span>Link assessment #{{ card.assessment.id }}</span>
+                                        </button>
+                                    </form>
+                                </p>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="block">
+                            Release managers need an assessment before this patch can be approved,
+                            and bug {{ uplift.bug_id }} does not have one yet.
+                        </p>
+                        {% if uplift.new_assessment_form %}
+                            <button class="button is-primary assessment-modal-open"
+                                    data-assessment-modal="new">
+                                <span class="icon is-small">
+                                    <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
+                                </span>
+                                <span>Complete the uplift assessment</span>
+                            </button>
+                        {% endif %}
+                    {% endif %}
+                    <p class="is-size-7 mt-3 has-text-grey-dark">
+                        This patch is already an uplift, so it does not need
+                        <strong>Request Uplift</strong> again &mdash; that button creates
+                        further revisions on another train.
+                    </p>
+                </div>
+            </article>
+        {% endif %}
         <div class="block">
             <h2 class="is-size-5">
                 Uplift assessments for
