@@ -121,6 +121,54 @@ class UpliftAssessment(BaseModel):
         default=YesNoUnknownChoices.YES,
     )
 
+    @classmethod
+    def for_bug(cls, bug_id: int | None) -> models.QuerySet:
+        """Return every uplift assessment recorded against the given bug.
+
+        An assessment used to be reachable only from the single revision it was
+        linked to, so a developer who had already filled one out could not see
+        it from another revision on the same bug and would fill in a second via
+        "Request Uplift", creating duplicate revisions along with it. Grouping
+        by bug is what makes the existing form discoverable. It is also
+        unscoped by user, so collaborators see the same set.
+        """
+        if bug_id is None:
+            return cls.objects.none()
+
+        return (
+            cls.objects.filter(bug_id=bug_id)
+            .select_related("user")
+            .prefetch_related("revisions")
+            .order_by("created_at")
+        )
+
+    @classmethod
+    def selectable_for_bug(
+        cls, bug_id: int | None, user: User | None
+    ) -> models.QuerySet:
+        """Return the assessments a user may attach to revisions on the given bug.
+
+        Every assessment already filed against the bug qualifies, as do the
+        user's own assessments from before `bug_id` existed, which have no bug to
+        match yet and would otherwise become unusable.
+        """
+        conditions = []
+
+        if bug_id is not None:
+            conditions.append(models.Q(bug_id=bug_id))
+
+        if user is not None and user.is_authenticated:
+            conditions.append(models.Q(bug_id__isnull=True, user=user))
+
+        if not conditions:
+            return cls.objects.none()
+
+        selectable = conditions[0]
+        for condition in conditions[1:]:
+            selectable |= condition
+
+        return cls.objects.filter(selectable)
+
     def to_conduit_json(self) -> dict[str, Any]:
         """Return the assessment in Conduit API JSON format."""
         return {

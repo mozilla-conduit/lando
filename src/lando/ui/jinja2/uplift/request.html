@@ -1,9 +1,9 @@
 {% extends "partials/layout.html" %}
 {% block page_title %}
     {% if assessment %}
-        Update Uplift Assessment #{{ assessment.id }}
+        Uplift Assessment #{{ assessment.id }}
     {% else %}
-        Reuse Uplift Assessment
+        Uplift Assessment for Bug {{ bug_id }}
     {% endif %}
 {% endblock %}
 {% block main %}
@@ -12,9 +12,10 @@
             <div class="content">
                 <h1 class="title">
                     {% if assessment %}
-                        Update Uplift Assessment #{{ assessment.id }}
+                        Link Uplift Assessment #{{ assessment.id }}
                     {% else %}
-                        Create Uplift Assessment
+                        Uplift Assessment for
+                        <a href="{{ bug_id|bug_url }}" target="_blank">Bug {{ bug_id }}</a>
                     {% endif %}
                 </h1>
                 {% if not user_has_phabricator_token %}
@@ -30,6 +31,46 @@
                         </li>
                     {% endfor %}
                 </ul>
+                {% if bug_assessments and not assessment %}
+                    <article class="message is-warning">
+                        <div class="message-header">
+                            <p>Bug {{ bug_id }} already has an uplift assessment</p>
+                        </div>
+                        <div class="message-body">
+                            <p class="block">
+                                Link these revisions to the existing assessment rather than
+                                answering the questions again. You can still edit its answers
+                                before saving.
+                            </p>
+                            {% for bug_assessment in bug_assessments %}
+                                <div class="box">
+                                    <p>
+                                        <strong>Assessment #{{ bug_assessment.id }}</strong>
+                                        <span class="has-text-grey is-size-7">
+                                            by {{ bug_assessment.user.email }}
+                                            {% set linked = bug_assessment.revisions.all() %}
+                                            {% if linked %}
+                                                &mdash; linked to
+                                                {% for uplift_revision in linked %}D{{ uplift_revision.revision_id }}{% if not loop.last %}, {% endif %}{% endfor %}
+                                            {% endif %}
+                                        </span>
+                                    </p>
+                                    <p class="is-size-7">{{ bug_assessment.user_impact }}</p>
+                                    <a class="button is-small is-primary"
+                                       href="{{ url('uplift-request-page') }}?revisions={{ revisions_param }}&assessment_id={{ bug_assessment.id }}">
+                                        <span class="icon is-small">
+                                            <i class="fa fa-link" aria-hidden="true"></i>
+                                        </span>
+                                        <span>Use assessment #{{ bug_assessment.id }}</span>
+                                    </a>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </article>
+                    <p class="block">
+                        <strong>Or write a new assessment for these revisions:</strong>
+                    </p>
+                {% endif %}
                 {% if existing_linked_revision_ids %}
                     <p>
                         <strong>This form is already associated with the following revision(s):</strong>
@@ -55,7 +96,7 @@
                             <div class="control">
                                 <button type="submit" class="button is-primary">
                                     {% if assessment %}
-                                        Update Assessment
+                                        Save and link revisions
                                     {% else %}
                                         Create Assessment
                                     {% endif %}

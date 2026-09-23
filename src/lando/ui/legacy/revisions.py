@@ -12,6 +12,7 @@ from django.utils.decorators import method_decorator
 from lando.api.legacy import api as legacy_api
 from lando.api.legacy.revisions import (
     get_bug_id_for_revision,
+    get_bug_id_for_stack_tips,
     seed_revisions_from_phabricator,
 )
 from lando.api.legacy.validation import parse_revision_ids
@@ -247,57 +248,40 @@ class UpliftAssessmentLinkView(LandoView):
 
 
 class UpliftAssessmentBatchLinkView(LandoView):
-    """Create/update an assessment and link it to multiple revisions."""
+    """Create or reuse an assessment and link it to the given revisions.
+
+    `moz-phab` sends developers here after creating uplift revisions. The page
+    resolves the common bug of the selected stack tips and offers assessments
+    already filed against it, so a developer can link an existing form.
+    """
 
     @method_decorator(login_required)
     @force_auth_refresh
-    def get(self, request: WSGIRequest) -> TemplateResponse:
-        """Display the uplift assessment form for linking to multiple revisions."""
-        # Get the comma-separated list of revision IDs from the query parameters.
-        revisions_str = request.GET.get("revisions", "")
-        if not revisions_str:
-            messages.add_message(
-                request,
-                messages.ERROR,
-                "No revision IDs provided. Please specify the 'revisions' parameter.",
-            )
-            return redirect("/")
-
-        # Validate the revision IDs format.
+    @method_decorator(require_phabricator_api_key(optional=True, provide_client=True))
+    def get(self, phab: PhabricatorClient, request: WSGIRequest) -> HttpResponse:
+        """Display the bug's assessments and the form for these revisions."""
         try:
-            revision_ids = parse_revision_ids(revisions_str)
-        except ValueError as e:
-            messages.add_message(
-                request,
-                messages.ERROR,
-                str(e),
-            )
+            revision_ids = parse_revision_ids(request.GET.get("revisions", ""))
+            bug_id = get_bug_id_for_stack_tips(phab, revision_ids)
+        except ValueError as exc:
+            messages.add_message(request, messages.ERROR, str(exc))
             return redirect("/")
 
-        # Check if we're updating an existing assessment.
-        assessment_id = request.GET.get("assessment_id")
         assessment_instance = None
+        assessment_id = request.GET.get("assessment_id")
 
         if assessment_id:
-            try:
-                assessment_instance = UpliftAssessment.objects.get(
-                    id=assessment_id,
-                    user=request.user,
-                )
-            except ValueError, UpliftAssessment.DoesNotExist:
-                messages.add_message(
-                    request,
-                    messages.ERROR,
-                    "Assessment not found or you don't have permission to edit it.",
-                )
+            assessment_instance = self.selected_assessment(
+                assessment_id, bug_id, request
+            )
+            if assessment_instance is None:
                 return redirect("/")
 
         logger.info(
             f"Uplift assessment batch link GET: user={request.user.id}, "
-            f"revisions={revision_ids}, assessment_id={assessment_id}"
+            f"revisions={revision_ids}, bug={bug_id}, assessment_id={assessment_id}"
         )
 
-        # Create the form with the assessment instance if updating.
         initial_data = {
             "revision_ids": ",".join(str(rev_id) for rev_id in revision_ids)
         }
@@ -308,9 +292,9 @@ class UpliftAssessmentBatchLinkView(LandoView):
             initial=initial_data,
             instance=assessment_instance,
             user=request.user,
+            bug_id=bug_id,
         )
 
-        # Get existing linked revisions if updating an assessment.
         existing_linked_revision_ids = []
         if assessment_instance:
             existing_linked_revision_ids = list(
@@ -320,6 +304,9 @@ class UpliftAssessmentBatchLinkView(LandoView):
         context = {
             "form": assessment_form,
             "revision_ids": revision_ids,
+            "revisions_param": initial_data["revision_ids"],
+            "bug_id": bug_id,
+            "bug_assessments": list(UpliftAssessment.for_bug(bug_id)),
             "existing_linked_revision_ids": existing_linked_revision_ids,
             "assessment": assessment_instance,
         }
@@ -331,33 +318,32 @@ class UpliftAssessmentBatchLinkView(LandoView):
         )
 
     @force_auth_refresh
-    @method_decorator(require_phabricator_api_key(optional=False, provide_client=False))
-    def post(self, request: WSGIRequest) -> HttpResponse:
-        """Handle form submission and link assessment to multiple revisions."""
+    @method_decorator(require_phabricator_api_key(optional=False, provide_client=True))
+    def post(self, phab: PhabricatorClient, request: WSGIRequest) -> HttpResponse:
+        """Save the assessment, filing it under the bug, and link the revisions."""
+        # The bug is resolved again rather than trusted from the page, which also
+        # confirms the requester can see every revision being linked.
+        try:
+            revision_ids = parse_revision_ids(request.POST.get("revision_ids", ""))
+            bug_id = get_bug_id_for_stack_tips(phab, revision_ids)
+        except ValueError as exc:
+            messages.add_message(request, messages.ERROR, str(exc))
+            return redirect(request.META.get("HTTP_REFERER") or "/")
 
-        # Check if we're updating an existing assessment by checking POST data.
-        # This allows us to load the instance before binding the form.
         assessment_instance = None
         assessment_id = request.POST.get("assessment")
 
         if assessment_id:
-            try:
-                assessment_instance = UpliftAssessment.objects.get(
-                    id=int(assessment_id),
-                    user=request.user,
-                )
-            except ValueError, UpliftAssessment.DoesNotExist:
-                messages.add_message(
-                    request,
-                    messages.ERROR,
-                    "Assessment not found or you don't have permission to edit it.",
-                )
+            assessment_instance = self.selected_assessment(
+                assessment_id, bug_id, request
+            )
+            if assessment_instance is None:
                 return redirect("/")
 
-        # Bind the form to POST data with the instance (if updating).
         form = UpliftAssessmentLinkForm(
             request.POST,
             user=request.user,
+            bug_id=bug_id,
             instance=assessment_instance,
         )
 
@@ -370,41 +356,47 @@ class UpliftAssessmentBatchLinkView(LandoView):
             for error in errors:
                 messages.add_message(request, messages.ERROR, error)
 
-            return redirect(request.META.get("HTTP_REFERER"))
-
-        # Get cleaned data.
-        revision_ids = form.cleaned_data["revision_ids"]
+            return redirect(request.META.get("HTTP_REFERER") or "/")
 
         logger.info(
             f"Uplift assessment batch link POST: user={request.user.id}, "
-            f"revisions={revision_ids}, assessment_id={assessment_id}"
+            f"revisions={revision_ids}, bug={bug_id}, assessment_id={assessment_id}"
         )
 
-        # Create or update assessment and link to revisions in a single transaction.
         with transaction.atomic():
             assessment = form.save(commit=False)
-            assessment.user = request.user
+
+            # A reused assessment keeps its original author.
+            if assessment_instance is None:
+                assessment.user = request.user
+
+            # New assessments, and the user's own from before `bug_id` existed,
+            # are filed under the bug so the revision page groups them.
+            if assessment.bug_id is None:
+                assessment.bug_id = bug_id
+
             assessment.save()
 
-            # Link assessment to all revisions.
             for revision_id in revision_ids:
                 UpliftRevision.link_revision_to_assessment(revision_id, assessment)
 
-        # After successful database transaction, trigger Celery tasks to update Phabricator.
-        for revision_id in revision_ids:
+        # Every revision carrying this assessment shows the old answers on
+        # Phabricator until it is refreshed, not only those just linked.
+        linked_revision_ids = assessment.revisions.exclude(
+            revision_id=None
+        ).values_list("revision_id", flat=True)
+
+        for linked_revision_id in linked_revision_ids:
             set_uplift_request_form_on_revision.apply_async(
                 args=(
-                    revision_id,
+                    linked_revision_id,
                     assessment.to_conduit_json_str(),
                     request.user.id,
                 )
             )
 
-        # Success message.
         if assessment_instance:
-            message = (
-                f"Assessment updated and linked to {len(revision_ids)} revision(s)."
-            )
+            message = f"Assessment linked to {len(revision_ids)} revision(s)."
         else:
             message = (
                 f"Assessment created and linked to {len(revision_ids)} revision(s)."
@@ -413,8 +405,24 @@ class UpliftAssessmentBatchLinkView(LandoView):
         messages.add_message(request, messages.SUCCESS, message)
         logger.info(message)
 
-        # Redirect to the first revision.
         return redirect("revisions-page", revision_id=revision_ids[0])
+
+    @staticmethod
+    def selected_assessment(
+        assessment_id: str, bug_id: int, request: WSGIRequest
+    ) -> UpliftAssessment | None:
+        """Return the assessment chosen for reuse, flashing an error if unusable."""
+        try:
+            return UpliftAssessment.selectable_for_bug(bug_id, request.user).get(
+                id=int(assessment_id)
+            )
+        except ValueError, UpliftAssessment.DoesNotExist:
+            messages.add_message(
+                request,
+                messages.ERROR,
+                f"Assessment not found, or not filed against bug {bug_id}.",
+            )
+            return None
 
 
 class RevisionView(LandoView):
