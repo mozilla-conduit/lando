@@ -9,6 +9,7 @@ from django.core.handlers.wsgi import WSGIRequest
 
 from lando.api.legacy.stacks import RevisionStack
 from lando.api.legacy.validation import revision_id_to_int
+from lando.main.models import Repo
 from lando.main.models.uplift import (
     UpliftAssessment,
     UpliftJob,
@@ -57,18 +58,23 @@ class UpliftContext:
     # Bug the current revision references, or `None` when it has none.
     bug_id: int | None
 
+    # Whether the revision is in an uplift target repo, rather than being the
+    # mainline revision an uplift is requested from.
+    is_uplift_revision: bool
+
     # Whether no assessment is attached to this revision yet. On an uplift
     # target that means the form still has to be filled in or linked, which is
     # the state developers mistake for needing "Request Uplift" again.
     needs_assessment: bool
 
-    # Every assessment this revision should display: the bug's, plus any the
-    # revision reaches directly. Grouping by bug is what makes an assessment
-    # already filled out for it discoverable from here.
+    # Every assessment this revision should display. On an uplift revision
+    # that is the bug's, plus any the revision reaches directly, so an
+    # assessment already filled out for the bug is discoverable from here. On
+    # a mainline revision it is only those uplifts were requested from.
     bug_assessments: Sequence[UpliftAssessmentCard]
 
     # Empty form for authoring a new assessment on the bug. `None` when the
-    # user may not submit assessments for this revision.
+    # user may not create, edit or link assessments on this revision.
     new_assessment_form: UpliftAssessmentForm | None
 
     docs_url: str
@@ -83,6 +89,7 @@ class UpliftContext:
         revision_phid: str,
         revisions: dict[str, dict],
         stack: RevisionStack,
+        revision_repo: Repo | None,
     ) -> Self:
         """Return a populated `UpliftContext` for the given stack view."""
         try:
@@ -109,10 +116,11 @@ class UpliftContext:
         linked_assessment = uplift_revision.assessment if uplift_revision else None
 
         bug_id = revisions[revision_phid].get("bug_id")
+        is_uplift_revision = bool(revision_repo and revision_repo.approval_required)
 
         new_assessment_form = None
 
-        if cls.can_author_assessment(request, bug_id):
+        if cls.can_author_assessment(request, bug_id, is_uplift_revision):
             new_assessment_form = UpliftAssessmentForm()
 
         return cls(
@@ -120,9 +128,10 @@ class UpliftContext:
             can_create_uplift_submission=cls.can_create_submission(request),
             revision_id=revision_id,
             bug_id=bug_id,
+            is_uplift_revision=is_uplift_revision,
             needs_assessment=linked_assessment is None,
             bug_assessments=cls.build_assessment_cards(
-                bug_id, revision_id, linked_assessment
+                bug_id, revision_id, linked_assessment, is_uplift_revision
             ),
             new_assessment_form=new_assessment_form,
             docs_url=UPLIFT_DOCS_URL,
@@ -130,14 +139,15 @@ class UpliftContext:
         )
 
     @staticmethod
-    def can_author_assessment(request: WSGIRequest, bug_id: int | None) -> bool:
+    def can_author_assessment(
+        request: WSGIRequest, bug_id: int | None, is_uplift_revision: bool
+    ) -> bool:
         """Return `True` if the user should see the uplift assessment forms.
 
-        Deliberately not gated on `approval_required`: that marks a repo as an
-        uplift *target*, so gating on it hides the assessment from the mainline
-        revision the uplift was requested from.
+        A mainline revision is not an uplift, so its assessments come from
+        "Request Uplift" rather than being written, edited or linked there.
         """
-        return bool(request.user.is_authenticated and bug_id)
+        return bool(request.user.is_authenticated and bug_id and is_uplift_revision)
 
     @classmethod
     def build_assessment_cards(
@@ -145,6 +155,7 @@ class UpliftContext:
         bug_id: int | None,
         revision_id: int,
         linked_assessment: UpliftAssessment | None,
+        is_uplift_revision: bool,
     ) -> tuple[UpliftAssessmentCard, ...]:
         """Return a card for each assessment this revision should display."""
         assessments = list(
@@ -152,6 +163,19 @@ class UpliftContext:
                 "uplift_submission"
             )
         )
+
+        requested_by_assessment = {
+            assessment.pk: assessment.requested_revision_ids()
+            for assessment in assessments
+        }
+
+        if not is_uplift_revision:
+            logger.debug("Showing only the uplifts requested from D%s.", revision_id)
+            assessments = [
+                assessment
+                for assessment in assessments
+                if revision_id in requested_by_assessment[assessment.pk]
+            ]
         jobs_by_assessment = cls.jobs_by_assessment(assessments)
 
         return tuple(
@@ -167,7 +191,7 @@ class UpliftContext:
                     for uplift_revision in assessment.revisions.all()
                     if uplift_revision.revision_id is not None
                 ],
-                requested_revision_ids=assessment.requested_revision_ids(),
+                requested_revision_ids=requested_by_assessment[assessment.pk],
                 jobs=jobs_by_assessment.get(assessment.pk, []),
             )
             for assessment in assessments

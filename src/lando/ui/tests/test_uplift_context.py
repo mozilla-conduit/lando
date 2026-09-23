@@ -44,6 +44,7 @@ def test_uplift_context_build_falls_back_on_stack_walk_error():
         revision_phid=revision_phid,
         revisions=revisions,
         stack=mock_stack,
+        revision_repo=None,
     )
 
     assert context.request_form.initial["source_revisions"] == [revision_id], (
@@ -75,6 +76,7 @@ def test_uplift_context_build_walks_stack_successfully():
         revision_phid="PHID-REV-c",
         revisions=revisions,
         stack=stack,
+        revision_repo=None,
     )
 
     assert context.request_form.initial["source_revisions"] == [
@@ -133,7 +135,9 @@ def test_card_carries_every_job_queued_from_its_assessment(
 
     # Assessments, revision links, submissions, and jobs are fetched in bulk.
     with django_assert_num_queries(4):
-        cards = UpliftContext.build_assessment_cards(bug_id, 100, None)
+        cards = UpliftContext.build_assessment_cards(
+            bug_id, 100, None, is_uplift_revision=True
+        )
     jobs_by_assessment = {card.assessment.pk: list(card.jobs) for card in cards}
 
     assert jobs_by_assessment[assessment.pk] == jobs, (
@@ -169,7 +173,9 @@ def test_card_lists_the_revisions_an_uplift_was_requested_for(user, repo_mc):
         target_repo=repo,
     )
 
-    (card,) = UpliftContext.build_assessment_cards(bug_id, 100, None)
+    (card,) = UpliftContext.build_assessment_cards(
+        bug_id, 100, None, is_uplift_revision=True
+    )
 
     assert card.requested_revision_ids == [100, 200], (
         "The card should list the revisions the uplift was requested for."
@@ -194,7 +200,9 @@ def test_cards_include_assessments_authored_by_other_users(user, django_user_mod
         user=other_user, bug_id=bug_id, **UPLIFT_ASSESSMENT_ANSWERS
     )
 
-    cards = UpliftContext.build_assessment_cards(bug_id, 100, None)
+    cards = UpliftContext.build_assessment_cards(
+        bug_id, 100, None, is_uplift_revision=True
+    )
 
     assert [card.assessment for card in cards] == [mine, theirs], (
         "Both users' assessments should be shown, oldest first."
@@ -218,7 +226,9 @@ def test_only_the_linked_assessments_card_is_marked_linked(user):
 
     cards = {
         card.assessment.pk: card
-        for card in UpliftContext.build_assessment_cards(bug_id, revision_id, linked)
+        for card in UpliftContext.build_assessment_cards(
+            bug_id, revision_id, linked, is_uplift_revision=True
+        )
     }
 
     assert cards[linked.pk].is_linked, (
@@ -233,11 +243,46 @@ def test_only_the_linked_assessments_card_is_marked_linked(user):
 
 
 @pytest.mark.django_db
-def test_authoring_an_assessment_needs_a_bug_and_a_login(user):
-    """The assessment forms are offered only to a logged-in user on a bug.
+def test_mainline_revision_shows_only_the_uplifts_requested_from_it(user):
+    """A mainline revision is not an uplift, so only its own uplift requests show.
 
-    Notably not gated on the repo being an uplift target, which would hide the
-    forms from the revision an uplift is requested from.
+    Other assessments on the bug belong to uplift revisions and would only
+    invite writing or linking an assessment where none applies.
+    """
+    bug_id = 808080
+    revision_id = 100
+
+    requested = UpliftAssessment.objects.create(
+        user=user, bug_id=bug_id, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    UpliftSubmission.objects.create(
+        requested_by=user, assessment=requested, requested_revision_ids=[revision_id]
+    )
+    UpliftAssessment.objects.create(
+        user=user, bug_id=bug_id, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+
+    mainline_cards = UpliftContext.build_assessment_cards(
+        bug_id, revision_id, None, is_uplift_revision=False
+    )
+    uplift_cards = UpliftContext.build_assessment_cards(
+        bug_id, revision_id, None, is_uplift_revision=True
+    )
+
+    assert [card.assessment for card in mainline_cards] == [requested], (
+        "A mainline revision should only show the uplift requested from it."
+    )
+    assert len(uplift_cards) == 2, (
+        "An uplift revision should show every assessment on the bug."
+    )
+
+
+@pytest.mark.django_db
+def test_authoring_an_assessment_needs_an_uplift_revision_a_bug_and_a_login(user):
+    """The assessment forms are offered only to a logged-in user on an uplift.
+
+    A mainline revision is not an uplift, so its assessments come from
+    "Request Uplift" instead.
     """
     authenticated = MagicMock()
     authenticated.user.is_authenticated = True
@@ -245,12 +290,15 @@ def test_authoring_an_assessment_needs_a_bug_and_a_login(user):
     anonymous = MagicMock()
     anonymous.user.is_authenticated = False
 
-    assert UpliftContext.can_author_assessment(authenticated, 123), (
-        "A logged-in user on a revision with a bug should get the forms."
+    assert UpliftContext.can_author_assessment(authenticated, 123, True), (
+        "A logged-in user on an uplift revision with a bug should get the forms."
     )
-    assert not UpliftContext.can_author_assessment(authenticated, None), (
+    assert not UpliftContext.can_author_assessment(authenticated, 123, False), (
+        "A mainline revision should not offer the assessment forms."
+    )
+    assert not UpliftContext.can_author_assessment(authenticated, None, True), (
         "A revision with no bug has nothing to file an assessment against."
     )
-    assert not UpliftContext.can_author_assessment(anonymous, 123), (
+    assert not UpliftContext.can_author_assessment(anonymous, 123, True), (
         "An anonymous user should not get the forms."
     )

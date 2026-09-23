@@ -81,10 +81,12 @@ future.
                 Uplift assessments for
                 <a href="{{ uplift.bug_id|bug_url }}" target="_blank">bug {{ uplift.bug_id }}</a>
             </h2>
-            <p class="help">
-                One assessment covers one piece of code being uplifted. Link this revision to
-                the assessment that describes it, or write a new one.
-            </p>
+            {% if uplift.is_uplift_revision %}
+                <p class="help">
+                    One assessment covers one piece of code being uplifted. Link this revision to
+                    the assessment that describes it, or write a new one.
+                </p>
+            {% endif %}
         </div>
         <div class="block">
             {% for card in uplift.bug_assessments %}
