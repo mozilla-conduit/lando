@@ -196,7 +196,7 @@ class LandingJob(BaseJob):
                 "author_email": r.author_email,
                 "author_name": r.author_name,
                 "commit_message": r.commit_message,
-                "url": r.url(),
+                "url": r.url,
             }
             for r in self.revisions
         ]

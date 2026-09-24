@@ -1,7 +1,9 @@
 <div class="StackPage-timeline">
     {% if landing_jobs %}
         {%- for job in landing_jobs|sort(attribute='updated_at', reverse=True) %}
-            {% include "partials/job.html" %}
+            {% with page_context = "timeline" %}
+                {% include "partials/job.html" %}
+            {% endwith %}
         {% endfor %}
     {% else %}
         <div class="StackPage-timeline-item">
