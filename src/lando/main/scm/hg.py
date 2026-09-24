@@ -23,7 +23,7 @@ import hglib
 from django.conf import settings
 from typing_extensions import override
 
-from lando.main.scm.abstract_scm import AbstractSCM
+from lando.main.scm.abstract_scm import AbstractSCM, ScmErrorBreakdown
 from lando.main.scm.commit import CommitData
 from lando.main.scm.consts import MergeStrategy, SCMType
 from lando.main.scm.exceptions import (
@@ -375,7 +375,7 @@ class HgSCM(AbstractSCM):
         revision_id: int,
         error_message: str,
         conflicts: dict[str, dict[str, str]] | None = None,
-    ) -> dict[str, Any]:
+    ) -> ScmErrorBreakdown:
         """Process merge conflict information captured in a PatchConflict, and return a
         parsed structure."""
         failed_paths, rejects_paths = self._extract_error_data(error_message)
@@ -406,7 +406,7 @@ class HgSCM(AbstractSCM):
             # Use actual path of file to store reject data, by removing
             # `.rej` extension.
             breakdown["rejects_paths"][path[:-4]] = reject
-        return breakdown
+        return ScmErrorBreakdown.from_dict(breakdown)
 
     @override
     def describe_commit(self, revision_id: str = ".") -> CommitData:
