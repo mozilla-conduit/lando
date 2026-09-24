@@ -72,6 +72,12 @@ class UpliftAssessment(BaseModel):
     # User who submitted the form.
     user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
 
+    # Bugzilla bug the assessment covers, read from the Phabricator
+    # `bugzilla.bug-id` field of the revision it was created against. Uplifts
+    # always reference a bug, so this is only null on rows that predate the
+    # field.
+    bug_id = models.IntegerField(blank=True, null=True, db_index=True)
+
     user_impact = models.TextField(blank=False)
 
     covered_by_testing = models.CharField(

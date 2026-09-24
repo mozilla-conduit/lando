@@ -12,7 +12,7 @@ from lando.utils.github_checks import (
 
 @pytest.fixture
 def make_pull_request():
-    """Return a factory building a stand-in `PullRequest` for the status-flag checks.
+    """Return a factory building a stand-in `LandoPullRequest` for the status-flag checks.
 
     `commit_messages` (a `list[str]`) determines `.bug_ids` via `parse_bugs`;
     `bugs_by_id` is exposed directly as `.bugs_by_id` (a dict, or `None` to simulate
