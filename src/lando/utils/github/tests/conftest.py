@@ -288,7 +288,7 @@ def pull_request(github_pr_response: str) -> PullRequest:
     """A real `PullRequest` built from a canned API payload, with a mock client.
 
     `PullRequest.__init__` only parses the payload (no network), so this exercises
-    the real object; the two tests below override the one property they care about.
+    the real object. Tests may override the properties they care about.
     """
     return PullRequest(mock.Mock(), json.loads(github_pr_response))
 

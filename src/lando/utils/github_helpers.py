@@ -71,9 +71,16 @@ class PullRequestPatchHelper(PatchHelper):
 
     _author_name: str
     _author_email: str
-    _pr: LandoPullRequest
+    _pr: PullRequest
 
     def __init__(self, pr: PullRequest):
+        """Create a PullRequestPatchHelper from a PullRequest.
+
+        Note: as this class doesn't currently use any logic introduced by the
+        LandoPullRequest, it is built around a simple PullRequest. While object
+        inheritance allows to build this patch helper with either PR class, the
+        superclass is sufficient.
+        """
         super().__init__()
 
         self._pr = pr
