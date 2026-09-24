@@ -656,7 +656,13 @@ class PullRequest:
     @property
     def reviews_summary(self) -> dict[str, str]:
         """Get a simple dict of reviewers and the state of their review."""
-        return {review["user"]["login"]: review["state"] for review in self.reviews}
+        # Note: reviews associated with a deleted user do not show on GitHub, but
+        # are returned in the API response as reviews not associated with a user.
+        return {
+            review["user"]["login"]: review["state"]
+            for review in self.reviews
+            if review["user"]
+        }
 
     @property
     @pr_cache_method
