@@ -661,7 +661,10 @@ class PullRequest:
     @property
     @pr_cache_method
     def reviews(self) -> list:
-        """Return a list of reviews for the PR."""
+        """Return a list of reviews for the PR.
+
+        Reviews without an associated user (deleted user / Ghost) are ignored.
+        """
         reviews = self.client.get_pull_request_reviews(self.number)
 
         if any(
@@ -673,7 +676,7 @@ class PullRequest:
                 "Reviews were added while collecting PR information."
             )
 
-        return reviews
+        return [r for r in reviews if r.get("user")]
 
     @property
     def commit_message(self) -> str:
