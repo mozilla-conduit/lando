@@ -14,7 +14,7 @@ dependencies = [
     "celery",
     "cryptography",
     "datadog",
-    "django ~= 6.0",
+    "django ~= 6.1",
     "django-auditlog",
     "django-cors-headers",
     "django-ninja",
@@ -25,7 +25,7 @@ dependencies = [
     "kombu",
     "more-itertools",
     "mots",
-    "MozPhab==2.9.0",
+    "MozPhab==2.17.0",
     "mozilla_django_oidc",
     "networkx",
     "psycopg2-binary",
@@ -35,7 +35,7 @@ dependencies = [
     "rs-parsepatch",
     "sentry-sdk",
     "setuptools-scm",
-    "simple-github >= 3.2.0",
+    "simple-github >= 3.2.1",
     "uwsgi",
 ]
 name = "lando"
@@ -66,7 +66,7 @@ lando = "lando.manage:main"
 [build-system]
 requires = [
     "setuptools>=64",
-    "setuptools_scm>=8",
+    "setuptools_scm>=10.2.1",
     "pip",
     "pip-tools",
     "wheel",
