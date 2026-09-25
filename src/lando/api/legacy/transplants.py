@@ -56,7 +56,7 @@ from lando.main.models import (
     LandingJob,
     Repo,
 )
-from lando.main.support import LegacyAPIException
+from lando.main.support import LegacyAPIException, diff_has_disallowed_author
 from lando.utils.landing_checks import (
     DiffAssessor,
     PreventNSPRNSSCheck,
@@ -630,7 +630,12 @@ def warning_unresolved_comments(
 def warning_multiple_authors(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> str | None:
-    """Warn the landing user when a revision has updates from multiple authors."""
+    """Warn the landing user when a revision has updates from multiple authors.
+
+    Diffs authored by a disallowed author (e.g. Hackbot) are ignored: their author
+    is rewritten before landing (see `warning_diff_author_is_hackbot`), so a bot
+    updating an engineer's revision does not make it a multi-author revision.
+    """
     revision_phid = PhabricatorClient.expect(revision, "phid")
 
     # Get the author PHID for each diff associated with this revision.
@@ -638,6 +643,7 @@ def warning_multiple_authors(
         PhabricatorClient.expect(diff, "fields", "authorPHID")
         for diff in stack_state.stack_data.diffs.values()
         if PhabricatorClient.expect(diff, "fields", "revisionPHID") == revision_phid
+        and not diff_has_disallowed_author(diff)
     }
 
     if len(author_phids) > 1:

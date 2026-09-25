@@ -2382,20 +2382,28 @@ def test_blocker_try_task_config_landing_state_non_try(
     ), "`try_task_config.json` should be rejected."
 
 
+@pytest.mark.parametrize(
+    "updater_usernames,expected_details",
+    [
+        (["bob"], "Revision has multiple authors: alice, bob."),
+        (["hackbot"], None),
+        (["hackbot", "bob"], "Revision has multiple authors: alice, bob."),
+    ],
+)
 @pytest.mark.django_db
-def test_warning_multiple_authors(phabdouble, mocked_repo_config, create_state):
+def test_warning_multiple_authors(
+    phabdouble, mocked_repo_config, create_state, updater_usernames, expected_details
+):
     repo = phabdouble.repo()
+    emails = {"hackbot": "hackbot@mozilla.tld"}
 
-    # Create two users.
+    # Alice authors the revision, then each updater uploads a new diff.
     alice = phabdouble.user(username="alice")
-    bob = phabdouble.user(username="bob")
-
-    # Create one revision.
     revision = phabdouble.revision(repo=repo, author=alice)
-
-    # Create multiple diffs on the revision, one from each author.
-    phabdouble.diff(revision=revision, author=alice)
-    diff2 = phabdouble.diff(revision=revision, author=bob)
+    diff = phabdouble.diff(revision=revision, author=alice)
+    for username in updater_usernames:
+        updater = phabdouble.user(username=username, email=emails.get(username))
+        diff = phabdouble.diff(revision=revision, author=updater)
 
     phab_revision = phabdouble.api_object_for(
         revision,
@@ -2404,10 +2412,9 @@ def test_warning_multiple_authors(phabdouble, mocked_repo_config, create_state):
 
     stack_state = create_state(phab_revision)
 
-    warning = warning_multiple_authors(phab_revision, diff2, stack_state)
-    assert warning is not None
-    assert warning.details == "Revision has multiple authors: alice, bob.", (
-        "Multiple authors on a revision should return a warning."
+    warning = warning_multiple_authors(phab_revision, diff, stack_state)
+    assert (warning.details if warning else None) == expected_details, (
+        "Diffs uploaded by Hackbot should not count as coming from another author."
     )
 
 
