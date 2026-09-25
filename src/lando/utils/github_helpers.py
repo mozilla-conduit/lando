@@ -7,14 +7,57 @@ import math
 from collections.abc import Callable
 from datetime import datetime
 from json.decoder import JSONDecodeError
+from typing import Self
 
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse
 from django.views import View
 from typing_extensions import override
 
+from lando.api.legacy.bmo import BugFetchError, fetch_bugs
+from lando.api.legacy.commit_message import parse_bugs
 from lando.main.scm.helpers import PatchHelper, PatchHelperMetadata
 from lando.utils.github import PullRequest
+
+
+class LandoPullRequest(PullRequest):
+    """A PullRequest object with additional Lando-specific logic.
+
+    This object extends on the `github.PullRequest` by adding additional behaviours which
+    is not strictly GitHub-related and/or are provided by other modules in Lando.
+    """
+
+    @classmethod
+    def from_pr(cls, pr: PullRequest) -> Self:
+        """Build a LandoPullRequest from a PullRequest.
+
+        This allows to obtain a `LandoPullRequest` without having to rebuild it from
+        scratch. This is useful, particularly if the source `PullRequest` was provided by
+        a factory, e.g., `GitHubAPIClient.build_pull_request`:
+
+
+            client = GitHubAPIClient(target_repo.url)
+            pull_request = LandoPullRequest.from_pr(
+                client.build_pull_request(pull_number)
+            )
+        """
+        return cls(pr.client, pr._data)
+
+    @property
+    def bug_ids(self) -> set[int]:
+        """The set of Bugzilla bug numbers referenced by the PR's commit messages."""
+        bug_ids: set[int] = set()
+        for commit in self.commits:
+            bug_ids.update(parse_bugs(commit["commit"]["message"]))
+        return bug_ids
+
+    @functools.cached_property
+    def bugs_by_id(self) -> dict[int, dict] | None:
+        """BMO bug data for the PR's referenced bugs, keyed by id (`None` on failure)."""
+        try:
+            return fetch_bugs(self.bug_ids)
+        except BugFetchError:
+            return None
 
 
 class PullRequestPatchHelper(PatchHelper):
@@ -31,6 +74,13 @@ class PullRequestPatchHelper(PatchHelper):
     _pr: PullRequest
 
     def __init__(self, pr: PullRequest):
+        """Create a PullRequestPatchHelper from a PullRequest.
+
+        Note: as this class doesn't currently use any logic introduced by the
+        LandoPullRequest, it is built around a simple PullRequest. While object
+        inheritance allows to build this patch helper with either PR class, the
+        superclass is sufficient.
+        """
         super().__init__()
 
         self._pr = pr

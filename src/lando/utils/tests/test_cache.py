@@ -1,3 +1,5 @@
+from unittest import mock
+
 import pytest
 from django.core.cache import cache
 from django.test import override_settings
@@ -51,3 +53,18 @@ def test_cache_method():
     assert cache.get("test-cache-Bob") == "Hello, Bob!", (
         "The cached value should be stored under the key function's output."
     )
+
+
+@pytest.mark.django_db
+def test_cache_method_forwards_timeout():
+    @cache_method(sample_cache_key, timeout=60)
+    def expensive_function(name: str) -> str:
+        return f"Hello, {name}!"
+
+    with mock.patch("lando.utils.cache.caches") as caches_mock:
+        backend = caches_mock.__getitem__.return_value
+        backend.has_key.return_value = False
+
+        expensive_function("Alice")
+
+        backend.set.assert_called_once_with("test-cache-Alice", "Hello, Alice!", 60)

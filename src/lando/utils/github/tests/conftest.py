@@ -7,7 +7,7 @@ from unittest import mock
 import pytest
 from requests import Response
 
-from lando.utils.github import GitHubAPIClient
+from lando.utils.github import GitHubAPIClient, PullRequest
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -281,6 +281,16 @@ def github_pr_diff() -> str:
         new file mode 100644
         index 0000000..e69de29
         """).lstrip()
+
+
+@pytest.fixture
+def pull_request(github_pr_response: str) -> PullRequest:
+    """A real `PullRequest` built from a canned API payload, with a mock client.
+
+    `PullRequest.__init__` only parses the payload (no network), so this exercises
+    the real object. Tests may override the properties they care about.
+    """
+    return PullRequest(mock.Mock(), json.loads(github_pr_response))
 
 
 @pytest.fixture

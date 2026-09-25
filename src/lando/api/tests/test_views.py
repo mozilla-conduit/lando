@@ -574,6 +574,7 @@ class TestViewsPullRequestUpdateWebHook:
 
 @mock.patch("lando.api.views.generate_warnings_and_blockers")
 @mock.patch("lando.api.views.GitHubAPIClient")
+@mock.patch("lando.api.views.LandoPullRequest")
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize(
     "warnings_1, warnings_2, expected_status, expected_response",
@@ -607,6 +608,7 @@ class TestViewsPullRequestUpdateWebHook:
     ],
 )
 def test__views_landing_job_pull_request_view__warnings(
+    mock_lando_pull_request,
     github_api_client,
     mock_warnings_and_blockers,
     authenticated_client,
@@ -621,6 +623,8 @@ def test__views_landing_job_pull_request_view__warnings(
     github_api_client.return_value = repo_mc_github_api_client
 
     mock_pr = mock.MagicMock()
+    repo_mc_github_api_client.build_pull_request.return_value = mock_pr
+    mock_lando_pull_request.from_pr.return_value = mock_pr
     mock_pr.author = ("Test Author", "test@email.com")
     mock_pr.title = "no bug: test"
     mock_pr.commit_message = "Test Commit Message"

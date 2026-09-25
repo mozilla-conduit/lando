@@ -5,10 +5,17 @@ from typing import Iterable
 from django.http import HttpRequest
 from typing_extensions import override
 
+from lando.api.legacy.bmo import (
+    missing_status_flags_message,
+    security_keyword,
+    unset_status_flags,
+    unverified_status_flags_message,
+)
 from lando.main.models.jobs import JobStatus
 from lando.main.models.landing_job import get_jobs_for_pull
 from lando.main.models.repo import Repo
-from lando.utils.github import GitHubAPIClient, PullRequest
+from lando.utils.github import GitHubAPIClient
+from lando.utils.github_helpers import LandoPullRequest
 from lando.utils.landing_checks import Check
 
 logger = logging.getLogger("__name__")
@@ -19,7 +26,7 @@ class PullRequestCheck(Check, ABC):
     @abstractmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -52,7 +59,7 @@ class PullRequestUserSCMLevelBlocker(PullRequestBlocker):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -81,7 +88,7 @@ class PullRequestClosedBlocker(PullRequestBlocker):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -109,7 +116,7 @@ class PullRequestDiffAuthorIsKnownBlocker(PullRequestBlocker):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -146,7 +153,7 @@ class PullRequestAuthorPlannedChangesBlocker(PullRequestBlocker):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -176,7 +183,7 @@ class PullRequestRevisionDataClassificationBlocker(PullRequestBlocker):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -208,7 +215,7 @@ class PullRequestBaseBranchDoesNotMatchTree(PullRequestBlocker):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -235,7 +242,7 @@ class PullRequestConflictWithBaseBranch(PullRequestBlocker):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -262,7 +269,7 @@ class PullRequestFailingCheck(PullRequestBlocker):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -274,6 +281,55 @@ class PullRequestFailingCheck(PullRequestBlocker):
             return [cls.description()]
 
         return []
+
+
+class PullRequestSecurityBugStatusFlagsBlocker(PullRequestBlocker):
+    """A referenced security bug is missing required status flags."""
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PullRequestSecurityBugStatusFlagsBlocker"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "A referenced security bug is missing required status flags."
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        pull_request: LandoPullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        # Only enforced on repos configured with a status-flag prefix (e.g. Firefox
+        # repos with `cf_status_firefox`). See bug 2055604.
+        prefix = target_repo.status_flag_prefix
+        if not prefix:
+            return []
+
+        bugs_by_id = pull_request.bugs_by_id
+        if not bugs_by_id:
+            # `None` (BMO unavailable) or `{}` (no referenced bugs); the warning
+            # check handles anything that could not be verified.
+            return []
+
+        messages = []
+        for bug_id in sorted(bugs_by_id):
+            bug = bugs_by_id[bug_id]
+            keyword = security_keyword(bug)
+            if keyword is None:
+                continue
+
+            missing_flags = unset_status_flags(bug, prefix)
+            if missing_flags:
+                messages.append(
+                    missing_status_flags_message(bug_id, keyword, missing_flags)
+                )
+
+        return messages
 
 
 #
@@ -306,7 +362,7 @@ class PullRequestBlockingReviewersWarning(PullRequestWarning):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -350,7 +406,7 @@ class PullRequestBlockingReviewsWarning(PullRequestWarning):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -388,7 +444,7 @@ class PullRequestPreviouslyLandedWarning(PullRequestWarning):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -417,7 +473,7 @@ class PullRequestNotAcceptedWarning(PullRequestWarning):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -446,7 +502,7 @@ class PullRequestReviewsNotCurrentWarning(PullRequestWarning):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -479,7 +535,7 @@ class PullRequestMissingTestingTagWarning(PullRequestWarning):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -516,7 +572,7 @@ class PullRequestWIPWarning(PullRequestWarning):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -543,7 +599,7 @@ class PullRequestUnresolvedCommentsWarning(PullRequestWarning):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -576,7 +632,7 @@ class PullRequestMultipleAuthorsWarning(PullRequestWarning):
     @classmethod
     def run(
         cls,
-        pull_request: PullRequest,
+        pull_request: LandoPullRequest,
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
@@ -598,6 +654,61 @@ class PullRequestMultipleAuthorsWarning(PullRequestWarning):
     @classmethod
     def _authors_str(cls, authors: Iterable[str]) -> str:
         return ", ".join(authors)
+
+
+class PullRequestSecurityBugStatusFlagsUnverifiedWarning(PullRequestWarning):
+    """Security bug status flags could not be verified in Bugzilla."""
+
+    @override
+    @classmethod
+    def name(cls) -> str:
+        return "PullRequestSecurityBugStatusFlagsUnverifiedWarning"
+
+    @override
+    @classmethod
+    def description(cls) -> str:
+        return "Security bug status flags could not be verified in Bugzilla."
+
+    @override
+    @classmethod
+    def run(
+        cls,
+        pull_request: LandoPullRequest,
+        target_repo: Repo,
+        request: HttpRequest,
+    ) -> list[str]:
+        """Warn when status flags for a referenced bug cannot be verified.
+
+        When `PullRequestSecurityBugStatusFlagsBlocker` cannot run — because BMO
+        was unavailable, or a referenced bug was absent from the response (e.g. a
+        restricted bug Lando's key cannot read) — we degrade to an acknowledgeable
+        warning rather than silently allowing the landing.
+
+        Unlike the Phabricator flow, GitHub has no secure-project tag to scope this
+        to security revisions, so it warns for any bug referenced by a PR to a
+        status-flag repo that could not be verified. All such bugs are collapsed
+        into a single message so a BMO outage produces one acknowledgeable warning
+        rather than one per referenced bug.
+        """
+        prefix = target_repo.status_flag_prefix
+        if not prefix:
+            return []
+
+        bug_ids = pull_request.bug_ids
+        if not bug_ids:
+            return []
+
+        bugs_by_id = pull_request.bugs_by_id
+        if bugs_by_id is None:
+            # The whole fetch failed; none of the referenced bugs could be verified.
+            unverified = bug_ids
+        else:
+            unverified = {bug_id for bug_id in bug_ids if bug_id not in bugs_by_id}
+
+        if not unverified:
+            return []
+
+        return [unverified_status_flags_message(unverified)]
 
 
 ALL_PULL_REQUEST_BLOCKERS = PullRequestBlocker.__subclasses__()
@@ -622,7 +733,7 @@ class PullRequestChecks:
         self._target_repo = target_repo
         self._request = request
 
-    def run(self, checks_list: list[str], pull_request: PullRequest) -> list[str]:
+    def run(self, checks_list: list[str], pull_request: LandoPullRequest) -> list[str]:
         messages = []
 
         for check in [

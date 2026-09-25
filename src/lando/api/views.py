@@ -47,7 +47,11 @@ from lando.utils.github_checks import (
     ALL_PULL_REQUEST_WARNINGS,
     PullRequestChecks,
 )
-from lando.utils.github_helpers import PullRequestPatchHelper, ignore_bot_sender
+from lando.utils.github_helpers import (
+    LandoPullRequest,
+    PullRequestPatchHelper,
+    ignore_bot_sender,
+)
 from lando.utils.landing_checks import LandingChecks
 from lando.utils.phabricator import PHABRICATOR_API_KEY_HEADER, get_phabricator_client
 
@@ -82,7 +86,7 @@ def phabricator_api_key_required(func: Callable) -> Callable:
 
 def generate_warnings_and_blockers(
     target_repo: Repo,
-    pull_request: PullRequest,
+    pull_request: LandoPullRequest,
     request: HttpRequest,
     do_escape: bool = True,
 ) -> dict[str, list[str]]:
@@ -262,7 +266,7 @@ class PullRequestAPIView(View, PrivateRepoPermissionMixin):
 
     target_repo: Repo
     client: GitHubAPIClient
-    pull_request: PullRequest
+    pull_request: LandoPullRequest
 
     def dispatch(
         self, request: WSGIRequest, repo_name: str, pull_number: int, *args, **kwargs
@@ -276,7 +280,9 @@ class PullRequestAPIView(View, PrivateRepoPermissionMixin):
         self.raise_404_if_needed(request, self.client)
 
         try:
-            self.pull_request = self.client.build_pull_request(pull_number)
+            self.pull_request = LandoPullRequest.from_pr(
+                self.client.build_pull_request(pull_number)
+            )
         except HTTPError as e:
             if e.response.status_code == 404:
                 raise Http404 from e
@@ -414,7 +420,7 @@ class PullRequestChecksAPIView(PullRequestAPIView):
             warnings_and_blockers = generate_warnings_and_blockers(
                 self.target_repo, self.pull_request, request
             )
-        except PullRequest.StaleMetadataException as exc:
+        except LandoPullRequest.StaleMetadataException as exc:
             # The StaleMetadataException error message is safe for user consumption.
             return JsonResponse({"errors": [str(exc)]}, status=500)
         return JsonResponse(warnings_and_blockers)
@@ -484,7 +490,7 @@ class PullRequestUpdateWebhook(View, PrivateRepoPermissionMixin):
 
         self.client = GitHubAPIClient(self.target_repo.url)
         self.raise_404_if_needed(request, self.client)
-        self.pull_request = PullRequest(self.client, pull_request_data)
+        self.pull_request = LandoPullRequest(self.client, pull_request_data)
 
         return super().dispatch(request)
 
