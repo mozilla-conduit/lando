@@ -7,18 +7,15 @@ from json.decoder import JSONDecodeError
 from typing import Any, Callable
 
 from django import forms
-from django.conf import settings
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
-from django.template.loader import render_to_string
-from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.html import escape
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from requests import HTTPError
 
-from lando.api.legacy.commit_message import parse_bugs, replace_reviewers
+from lando.api.legacy.commit_message import replace_reviewers
 from lando.main.auth import (
     PrivateRepoPermissionMixin,
     require_authenticated_user,
@@ -35,12 +32,10 @@ from lando.main.models import (
 from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 from lando.main.models.landing_job import (
     get_jobs_for_pull,
-    get_pull_request_last_landing_job_status,
 )
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
 from lando.main.scm import SCMType
 from lando.utils.github import (
-    PR_DELIMITER,
     GitHubAPIClient,
 )
 from lando.utils.github_checks import (
@@ -53,6 +48,7 @@ from lando.utils.github_helpers import (
     PullRequestPatchHelper,
     ignore_bot_sender,
 )
+from lando.utils.github_pr_description import generate_enhanced_pr_description
 from lando.utils.landing_checks import LandingChecks
 from lando.utils.phabricator import PHABRICATOR_API_KEY_HEADER, get_phabricator_client
 
@@ -114,41 +110,6 @@ def generate_warnings_and_blockers(
         blockers = [escape(blocker) for blocker in blockers]
 
     return {"warnings": warnings, "blockers": blockers}
-
-
-def generate_enhanced_pr_description(
-    pull_request: LandoPullRequest,
-    target_repo: Repo,
-    request: WSGIRequest = None,
-    template: str = "pr_description.md",
-) -> str:
-    context = {}
-    if request:
-        context.update(
-            generate_warnings_and_blockers(target_repo, pull_request, request)
-        )
-
-    context["landing_status"] = str(
-        get_pull_request_last_landing_job_status(target_repo.name, pull_request.number)
-    ).lower()
-
-    path = reverse(
-        "pull-request",
-        kwargs={
-            "repo_name": target_repo.name,
-            "number": pull_request.number,
-        },
-    )
-
-    context["lando_url"] = f"{settings.SITE_URL}{path}"
-    context["pr_delimiter"] = PR_DELIMITER
-    bugs = parse_bugs(pull_request.title)
-    context["bugs"] = bugs
-    context["title"] = pull_request.title
-    context["commit_body"] = pull_request.commit_body
-
-    rendered = render_to_string(template, context)
-    return rendered
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -425,7 +386,11 @@ class LandingJobPullRequestAPIView(PullRequestAPIView):
             request,
             template="pr_description_landing.md",
         )
-        self.client.update_pull_request_content(pull_number, description)
+
+        try:
+            self.client.update_pull_request_content(pull_number, description)
+        except Exception as e:
+            logger.exception(e)
 
         return JsonResponse({"id": job.id}, status=201)
 

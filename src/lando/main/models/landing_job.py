@@ -308,15 +308,11 @@ def add_revisions_to_job(revisions: list[Revision], job: LandingJob):
 
 
 def get_pull_request_last_landing_job_status(
-    repo_name: str, pull_number: int
+    target_repo: Repo, pull_number: int
 ) -> JobStatus | None:
-    """Return a heuristically determined status based on related jobs."""
-    # This method will return a single status that the UI can use to determine
-    # the state of a pull request.
-    target_repo = Repo.objects.get(name=repo_name)
-    landing_jobs = get_jobs_for_pull(target_repo, pull_number)
-    if landing_jobs:
-        return landing_jobs.first().status
+    """Return the last job status for a given PR."""
+    landing_job = get_jobs_for_pull(target_repo, pull_number).first()
+    return JobStatus(landing_job.status) if landing_job else None
 
 
 def get_jobs_for_pull(target_repo: Repo, pull_number: int) -> QuerySet[LandingJob]:

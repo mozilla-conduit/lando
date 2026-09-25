@@ -81,6 +81,25 @@ class LandingWorker(Worker):
             job.requester_email, job.human_friendly_identifier, job.error, job.id
         )
 
+    @staticmethod
+    def update_pull_request_description(job: LandingJob):
+        """Update the pull request description with landing status."""
+        pull_number = job.revisions.first().pull_number
+        client = GitHubAPIClient(job.target_repo.url)
+        pull_request = client.build_pull_request(pull_number)
+        description = generate_enhanced_pr_description(
+            pull_request,
+            job.target_repo,
+            template="pr_description_landing.md",
+        )
+        client.update_pull_request_content(pull_number, description)
+
+    @override
+    def post_run(self, job: LandingJob):
+        super().post_run(job)
+        if job.is_pull_request_job:
+            self.update_pull_request_description(job)
+
     @override
     def run_job(self, job: LandingJob) -> bool:
         """Run a given LandingJob and return appropriate boolean state.
@@ -96,7 +115,6 @@ class LandingWorker(Worker):
             True: The job finished processing and is in a permanent state.
             False: The job encountered a temporary failure and should be tried again.
         """
-
         repo: Repo = job.target_repo
         scm = repo.scm
 
@@ -133,20 +151,11 @@ class LandingWorker(Worker):
         job.transition_status(JobAction.LAND, commit_id=commit_id)
 
         if job.is_pull_request_job:
-            # TODO: move this to different method, and retry if needed.
-            # NOTE: This may need to happen on the revision-level when stack support is added.
             pull_number = job.revisions.first().pull_number
-            message = f"Pull request closed by commit {commit_id}"
             client = GitHubAPIClient(job.target_repo.url)
-            pull_request = client.build_pull_request(pull_number)
-            description = generate_enhanced_pr_description(
-                pull_request,
-                job.target_repo,
-                template="pr_description_landing.md",
-            )
-            client.update_pull_request_content(pull_number, description)
-            client.add_comment_to_pull_request(pull_number, message)
             client.close_pull_request(pull_number)
+            message = f"Pull request closed by commit {commit_id}"
+            client.add_comment_to_pull_request(pull_number, message)
 
         mots_path = Path(repo.path) / "mots.yaml"
         if mots_path.exists():

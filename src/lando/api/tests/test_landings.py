@@ -443,6 +443,7 @@ def test_integrated_execute_job_pull_request(
     repo: Repo = repo_mc(repo_type)
     repo.is_phabricator_repo = False
     repo.pr_enabled = True
+    repo.save()
 
     # We use git_patch(1) here, as it inserts a line in the middle of an existing file,
     # potentially triggering bug 2002094.
@@ -458,15 +459,24 @@ def test_integrated_execute_job_pull_request(
     job = make_landing_job(revisions=revisions, **job_params)
 
     worker = get_landing_worker(repo_type)
-    assert worker.run_job(job)
+    worker.worker_instance.applicable_repos.add(repo)
+    worker.refresh_active_repos()
+    worker.start(max_loops=1)
 
+    job.refresh_from_db()
     assert job.status == JobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40
 
     # 4 is the number of calls using the API client at the time of writing.
     assert len(gh_client_with_prs.mock_calls) == 4
-    assert gh_client_with_prs.mock_calls[0] == mock.call.build_pull_request(1)
-    assert gh_client_with_prs.mock_calls[1] == mock.call.update_pull_request_content(
+    assert gh_client_with_prs.mock_calls[0] == mock.call.close_pull_request(1), (
+        "Successful landing did not close PR"
+    )
+    assert gh_client_with_prs.mock_calls[1] == mock.call.add_comment_to_pull_request(
+        1, "Pull request closed by commit 93b68000bc7d3578eca658e882bfaf1e00d23c78"
+    ), "Successful landing did not add comment to PR"
+    assert gh_client_with_prs.mock_calls[2] == mock.call.build_pull_request(1)
+    assert gh_client_with_prs.mock_calls[3] == mock.call.update_pull_request_content(
         1,
         "some description\n"
         "<!--/ -+-+- DO NOT MODIFY THIS LINE - ENTER COMMIT MESSAGE ABOVE -+-+- "
@@ -478,12 +488,6 @@ def test_integrated_execute_job_pull_request(
         "\n"
         "**Landing request landed**\n",
     ), "Successful landing request did not update PR description"
-    assert gh_client_with_prs.mock_calls[2] == mock.call.add_comment_to_pull_request(
-        1, "Pull request closed by commit 93b68000bc7d3578eca658e882bfaf1e00d23c78"
-    ), "Successful landing did not add comment to PR"
-    assert gh_client_with_prs.mock_calls[3] == mock.call.close_pull_request(1), (
-        "Successful landing did not close PR"
-    )
 
 
 @pytest.mark.parametrize(

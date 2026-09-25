@@ -251,11 +251,11 @@ def test_landing_job_acquire_job_job_queue_query(mocked_repo_config):
 @pytest.mark.django_db
 def test_get_pull_request_last_landing_job_status(statuses, expected_status, repo_mc):
     repo = repo_mc(scm_type=SCMType.GIT)
-    for i, status in enumerate(statuses):
+    for status in statuses:
         job = LandingJob.objects.create(
-            target_repo=repo, status=status, is_pull_request_job=True, created_at=i
+            target_repo=repo, status=status, is_pull_request_job=True
         )
         revision = Revision.objects.create(pull_number=1)
         job.unsorted_revisions.add(revision)
-    status = get_pull_request_last_landing_job_status(repo.name, 1)
+    status = get_pull_request_last_landing_job_status(repo, 1)
     assert status == expected_status
