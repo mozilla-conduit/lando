@@ -393,3 +393,35 @@ def make_uplift_job_with_revisions() -> Callable[
         return job
 
     return _make_uplift_job_with_revisions
+
+
+@pytest.fixture
+def gh_client_with_prs(prs, client_module):
+    """Reusable fixture that provides a GitHubAPIClient and some PRs."""
+    # NOTE: this fixture does not interact at all with the GitHub API or the
+    # GitHubAPI class or other mocks. It simply mocks expected values that
+    # the GitHubAPIClient would return.
+
+    # It is intended to simplify the ability to test lando functionality
+    # by providing a high-level interface for testing GitHubAPIClient
+    # interactions. For example, to ensure that a high level method was
+    # called with the correct arguments (e.g., client.close_pull_request(1)).
+
+    mock_github_api_client = mock.MagicMock()
+    with mock.patch(client_module, return_value=mock_github_api_client):
+        mock_prs = {}
+        for pr in prs:
+            number = pr.get("number", 1)
+            title = pr.get("title", "no bug: some title")
+            commit_body = pr.get("commit_body", "some description")
+
+            mock_pull_request = mock.MagicMock()
+            mock_pull_request.number = number
+            mock_pull_request.title = title
+            mock_pull_request.commit_body = commit_body
+            mock_prs[number] = mock_pull_request
+
+        mock_github_api_client.build_pull_request.side_effect = lambda number: mock_prs[
+            number
+        ]
+        yield mock_github_api_client
