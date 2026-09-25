@@ -119,7 +119,7 @@ def generate_warnings_and_blockers(
 def generate_enhanced_pr_description(
     pull_request: LandoPullRequest,
     target_repo: Repo,
-    request: WSGIRequest = None,
+    request: WSGIRequest | None = None,
     template: str = "pr_description.md",
 ) -> str:
     context = {}
@@ -128,9 +128,12 @@ def generate_enhanced_pr_description(
             generate_warnings_and_blockers(target_repo, pull_request, request)
         )
 
-    context["landing_status"] = str(
-        get_pull_request_last_landing_job_status(target_repo.name, pull_request.number)
-    ).lower()
+    landing_status = get_pull_request_last_landing_job_status(
+        target_repo, pull_request.number
+    )
+    context["landing_status"] = (
+        landing_status.label.lower() if landing_status else "unknown"
+    )
 
     path = reverse(
         "pull-request",
