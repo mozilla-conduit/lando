@@ -27,6 +27,8 @@ class Worker(BaseModel):
     throttle_seconds = models.IntegerField(default=10)
     sleep_seconds = models.IntegerField(default=10)
     maintenance_interval_seconds = models.IntegerField(default=300)
+    current_job_id = models.PositiveBigIntegerField(blank=True, null=True)
+    process_id = models.PositiveIntegerField(blank=True, null=True)
 
     type = models.CharField(
         choices=WorkerType,
