@@ -332,6 +332,127 @@ Bug 123: modify line 8
     + THREE_WAY_PATCH_DIFF
 )
 
+# A two-revision stack whose bottom revision recorded a base predating the tip.
+# The bottom edits line 11, far enough from the tip's line 6 edit to apply
+# either side of it; the revision above carries the tip's line as context, so it
+# only applies where that edit is present.
+THREE_WAY_BOTTOM_DIFF = """\
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -8,5 +8,5 @@
+ line8
+ line9
+ line10
+-line11
++line11 modified by the bottom revision
+ line12
+"""
+
+THREE_WAY_TIP_DEPENDENT_DIFF = """\
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,7 +1,7 @@
+ line1
+ line2
+ line3
+-line4
++line4 modified by the revision above
+ line5
+ line6 changed on tip
+ line7
+"""
+
+THREE_WAY_BOTTOM_PATCH = (
+    """\
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+Bug 123: modify line 11
+"""
+    + THREE_WAY_BOTTOM_DIFF
+)
+
+THREE_WAY_TIP_DEPENDENT_PATCH = (
+    """\
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+Bug 123: modify line 4
+"""
+    + THREE_WAY_TIP_DEPENDENT_DIFF
+)
+
+# A tip commit creating a file, and a revision above the bottom editing it. At
+# the recorded base the file does not exist, which `git apply` reports as a
+# missing file, not as a failed hunk.
+THREE_WAY_NEW_FILE_DIFF = """\
+diff --git a/new.txt b/new.txt
+new file mode 100644
+--- /dev/null
++++ b/new.txt
+@@ -0,0 +1,3 @@
++new1
++new2
++new3
+"""
+
+THREE_WAY_NEW_FILE_DEPENDENT_DIFF = """\
+diff --git a/new.txt b/new.txt
+--- a/new.txt
++++ b/new.txt
+@@ -1,3 +1,3 @@
+ new1
+-new2
++new2 modified by the revision above
+ new3
+"""
+
+THREE_WAY_NEW_FILE_DEPENDENT_PATCH = (
+    """\
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+Bug 123: modify new line 2
+"""
+    + THREE_WAY_NEW_FILE_DEPENDENT_DIFF
+)
+
+# A revision whose pre-image matches neither the recorded base nor the tip: it
+# carries the tip's line 6 as context, so it rejects at the base, and edits a
+# line 5 that never existed, so it rejects at the tip too.
+THREE_WAY_UNAPPLICABLE_DIFF = """\
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -3,5 +3,5 @@
+ line3
+ line4
+-line5 edited elsewhere
++line5 modified by the revision above
+ line6 changed on tip
+ line7
+"""
+
+THREE_WAY_UNAPPLICABLE_PATCH = (
+    """\
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+Bug 123: modify line 5
+"""
+    + THREE_WAY_UNAPPLICABLE_DIFF
+)
+
 
 @pytest.fixture
 def three_way_base_diff() -> str:
@@ -361,6 +482,36 @@ def three_way_conflicting_diff() -> str:
 def three_way_patch() -> str:
     """The landing change as an Hg-formatted patch."""
     return THREE_WAY_PATCH
+
+
+@pytest.fixture
+def three_way_bottom_patch() -> str:
+    """A stack's bottom revision, applying at its recorded base and at the tip."""
+    return THREE_WAY_BOTTOM_PATCH
+
+
+@pytest.fixture
+def three_way_tip_dependent_patch() -> str:
+    """A revision above it, applying only where the tip's edit is present."""
+    return THREE_WAY_TIP_DEPENDENT_PATCH
+
+
+@pytest.fixture
+def three_way_new_file_diff() -> str:
+    """A tip commit creating `new.txt`."""
+    return THREE_WAY_NEW_FILE_DIFF
+
+
+@pytest.fixture
+def three_way_new_file_dependent_patch() -> str:
+    """A revision editing `new.txt`, applying only where the tip created it."""
+    return THREE_WAY_NEW_FILE_DEPENDENT_PATCH
+
+
+@pytest.fixture
+def three_way_unapplicable_patch() -> str:
+    """A revision applying neither at the recorded base nor at the tip."""
+    return THREE_WAY_UNAPPLICABLE_PATCH
 
 
 @pytest.fixture
