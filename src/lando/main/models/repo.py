@@ -86,6 +86,17 @@ def get_default_autoformat_run_command() -> list[str]:
     return ["format", "--fix", "--outgoing", "--verbose", "--skip-android"]
 
 
+def get_default_autolint_run_command() -> list[str]:
+    """Return the default autolint run command for a repo.
+
+    The returned list is a single `./mach` invocation (without the `./mach` prefix),
+    run against the patch stack after autoformatting to apply lint fixes. The
+    landing worker appends the linters to run to this command. Repos can override
+    this with their own command.
+    """
+    return ["lint", "--fix", "--outgoing", "--verbose"]
+
+
 def get_default_hooks() -> list[str]:
     """Returns a list of all known hook names, suitable as a default value.
 
@@ -220,6 +231,18 @@ class Repo(CryptographyMixin, BaseModel):
             "itself). Populated with the default `mach format` command on save when "
             "`autoformat_enabled` is set, unless explicitly provided; left empty "
             "otherwise."
+        ),
+    )
+    autolint_run_command = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "Command arg-list run after autoformatting to apply lint fixes to the "
+            "patch stack. The entry is a list of arguments passed to `./mach` "
+            "(without `./mach` itself), to which the landing worker appends every "
+            "linter listed by `mach lint --list` except eslint. Populated with the "
+            "default `mach lint` command on save when `autoformat_enabled` is set, "
+            "unless explicitly provided; left empty otherwise."
         ),
     )
     commit_flags = ArrayField(
@@ -418,6 +441,11 @@ class Repo(CryptographyMixin, BaseModel):
         # non-autoformat repos with an empty command.
         if self.autoformat_enabled and not self.autoformat_run_command:
             self.autoformat_run_command = get_default_autoformat_run_command()
+
+        # Populate the default lint command when autoformatting is enabled, but leave
+        # non-autoformat repos with an empty command.
+        if self.autoformat_enabled and not self.autolint_run_command:
+            self.autolint_run_command = get_default_autolint_run_command()
 
         # Append a ".git" to the URL if this is a GitHub repo and is missing the suffix.
         if self.is_github and not self.url.endswith(".git"):
