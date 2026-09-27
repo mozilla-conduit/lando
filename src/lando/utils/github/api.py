@@ -15,6 +15,7 @@ from collections.abc import Callable, Iterator
 from datetime import datetime
 from enum import Enum
 from itertools import count
+from typing import Any
 
 import requests
 from simple_github import AppAuth, AppInstallationAuth
@@ -493,6 +494,8 @@ class PullRequest:
 
     client: GitHubAPIClient
 
+    _data: dict[str, Any]
+
     def __repr__(self) -> str:
         return f"Pull request #{self.number} ({self.head_repo_git_url})"
 
@@ -506,8 +509,9 @@ class PullRequest:
         # Return the user-controlled portion.
         return parts[0].strip()
 
-    def __init__(self, client: GitHubAPIClient, data: dict):
+    def __init__(self, client: GitHubAPIClient, data: dict[str, Any]):
         self.client = client
+        self._data = data
 
         self.url = data["url"]
         self.base_ref = data["base"]["ref"]  # "target" branch name
@@ -661,7 +665,10 @@ class PullRequest:
     @property
     @pr_cache_method
     def reviews(self) -> list:
-        """Return a list of reviews for the PR."""
+        """Return a list of reviews for the PR.
+
+        Reviews without an associated user (deleted user / Ghost) are ignored.
+        """
         reviews = self.client.get_pull_request_reviews(self.number)
 
         if any(
@@ -673,7 +680,7 @@ class PullRequest:
                 "Reviews were added while collecting PR information."
             )
 
-        return reviews
+        return [r for r in reviews if r.get("user")]
 
     @property
     def commit_message(self) -> str:

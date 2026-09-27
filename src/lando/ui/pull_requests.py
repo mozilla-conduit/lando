@@ -12,6 +12,7 @@ from lando.main.models.landing_job import (
 )
 from lando.ui.views import LandoView
 from lando.utils.github import PR_DELIMITER, GitHubAPIClient
+from lando.utils.github_helpers import LandoPullRequest
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ class PullRequestView(LandoView, PrivateRepoPermissionMixin):
         self.raise_404_if_needed(request, client)
 
         try:
-            pull_request = client.build_pull_request(number)
+            pull_request = LandoPullRequest.from_pr(client.build_pull_request(number))
         except HTTPError as e:
             if e.response.status_code == 404:
                 raise Http404() from e
