@@ -41,6 +41,18 @@ ENV_COMMITTER_EMAIL = "GIT_COMMITTER_EMAIL"
 T = TypeVar("T")
 
 
+# `git apply` reports a file it cannot find or create as `error: <path>:
+# <reason>`, with no `patch failed` line; like a rejected hunk, it means the
+# patch was written against a different tree. The path is `\S+` so an unrelated
+# error ending the same way (a missing hook, an unreadable patch file) does not
+# match.
+FILE_MISMATCH_RE = re.compile(
+    r"^error: (\S+): "
+    r"(No such file or directory|already exists in working directory)$",
+    re.MULTILINE,
+)
+
+
 def detect_patch_conflict(fn: Callable[..., T]) -> Callable[..., T]:
     """Decorator transforming SCMExceptions to PatchConflict as appropriate."""
 
@@ -49,7 +61,7 @@ def detect_patch_conflict(fn: Callable[..., T]) -> Callable[..., T]:
         try:
             return fn(*args, **kwargs)
         except SCMException as exc:
-            if "error: patch" in exc.err:
+            if "error: patch" in exc.err or FILE_MISMATCH_RE.search(exc.err):
                 raise PatchConflict(exc.err) from exc
 
             raise exc
@@ -201,8 +213,15 @@ class GitSCM(AbstractSCM):
         return True
 
     def reset_to_commit(self, commit_id: str):
-        """Hard-reset the current work branch to the given commit."""
+        """Hard-reset the current work branch to the given commit.
+
+        Also removes untracked and ignored files. A rejected `git apply --reject`
+        leaves its hunks behind as `.rej` files, and `apply_patch` stages with
+        `add -A -f`, which covers ignored paths too, so anything an abandoned
+        attempt left would otherwise be committed by the next one.
+        """
         self._git_run("reset", "--hard", commit_id, cwd=self.path)
+        self._git_run("clean", "-fdx", cwd=self.path)
 
     @override
     def rebase_onto(self, new_base: str, upstream: str):
@@ -452,6 +471,22 @@ class GitSCM(AbstractSCM):
                 )
 
             breakdown["rejects_paths"][path] = reject
+
+        # A file the patch could not find or create leaves no `.rej`; git's own
+        # line is all there is to show.
+        for path, reason in FILE_MISMATCH_RE.findall(error_message):
+            revision = self.last_commit_for_path(path)
+            breakdown["failed_paths"].append(
+                {
+                    "path": path,
+                    "url": f"{pull_path}/tree/{revision}/{path}",
+                    "changeset_id": revision,
+                }
+            )
+            breakdown["rejects_paths"][path] = {
+                "path": path,
+                "content": f"Git reported this error: {path}: {reason}",
+            }
 
         return breakdown
 

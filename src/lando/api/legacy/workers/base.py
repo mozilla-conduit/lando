@@ -527,8 +527,14 @@ class Worker(ABC):
         job: BaseJob,
         scm: AbstractSCM,
         revision: Revision,
+        *,
+        reraise_conflicts: bool = False,
     ) -> T:
-        """Create revisions with job status handling."""
+        """Create revisions with job status handling.
+
+        `reraise_conflicts` leaves a `PatchConflict` to the caller rather than
+        failing the job, for a caller that has another strategy left to try.
+        """
         try:
             return create_revision_callable(revision)
         except NoDiffStartLine as exc:
@@ -545,6 +551,9 @@ class Worker(ABC):
             raise PermanentFailureException(message) from exc
 
         except PatchConflict as exc:
+            if reraise_conflicts:
+                raise
+
             breakdown = scm.process_merge_conflict(
                 repo.normalized_url,
                 revision.revision_id,

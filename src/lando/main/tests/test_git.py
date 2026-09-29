@@ -1453,6 +1453,35 @@ def test_GitSCM_reset_to_commit(
     )
 
 
+def test_GitSCM_reset_to_commit_removes_leftovers(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    """An abandoned attempt's leftovers do not survive the reset.
+
+    A rejected `git apply --reject` leaves `.rej` files, and `apply_patch` stages
+    with `add -A -f`, so they reach the next commit unless the reset removes them.
+    """
+    scm = clone_git_repo(git_repo, tmp_path / request.node.name, git_setup_user)
+    base_commit = scm.head_ref()
+
+    checkout = Path(scm.path)
+    (checkout / "test.txt.rej").write_text("rejected hunk\n")
+    (checkout / ".gitignore").write_text("ignored.txt\n")
+    (checkout / "ignored.txt").write_text("ignored\n")
+
+    scm.reset_to_commit(base_commit)
+
+    assert not (checkout / "test.txt.rej").exists(), (
+        "The reset should remove the reject file."
+    )
+    assert not (checkout / "ignored.txt").exists(), (
+        "The reset should remove ignored files, which `add -A -f` would stage."
+    )
+
+
 def test_GitSCM_rebase_onto_recovers_context_shift(
     git_repo: Path,
     git_setup_user: Callable,
@@ -1618,3 +1647,81 @@ def test_GitSCM__detect_patch_conflict(
         getattr(scm, method_name)(**method_args)
 
     assert exc_info.match("patch failed: security/manager/tools/PreloadedHPKPins.json")
+
+
+@pytest.mark.parametrize(
+    "diff, expected_error",
+    [
+        pytest.param(
+            dedent("""\
+            diff --git a/missing.txt b/missing.txt
+            --- a/missing.txt
+            +++ b/missing.txt
+            @@ -1 +1 @@
+            -old
+            +new
+            """),
+            "missing.txt: No such file or directory",
+            id="missing-file",
+        ),
+        pytest.param(
+            dedent("""\
+            diff --git a/test.txt b/test.txt
+            new file mode 100644
+            --- /dev/null
+            +++ b/test.txt
+            @@ -0,0 +1 @@
+            +new
+            """),
+            "test.txt: already exists in working directory",
+            id="existing-file",
+        ),
+    ],
+)
+def test_GitSCM_apply_patch_file_mismatch_is_conflict(
+    diff: str,
+    expected_error: str,
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    """A patch to a file the checkout lacks, or creating one it has, is a conflict.
+
+    `git apply` reports either as `error: <path>: <reason>` with no `patch
+    failed` line, and a revision touching a file created after its stack's
+    recorded base needs that classified as a conflict to reach the tip.
+    """
+    scm = clone_git_repo(git_repo, tmp_path / request.node.name, git_setup_user)
+
+    with pytest.raises(PatchConflict) as exc_info:
+        scm.apply_patch(
+            diff, "modify a mismatched file", "Test User <test@example.com>", "0 0"
+        )
+
+    assert exc_info.match(expected_error)
+
+
+def test_GitSCM_process_merge_conflict_missing_file(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    """A missing-file conflict names the file in the breakdown despite no `.rej`."""
+    scm = clone_git_repo(git_repo, tmp_path / request.node.name, git_setup_user)
+
+    conflict_message = dedent("""\
+        Problem while applying patch in revision 42:
+
+        Checking patch new.txt...
+        error: new.txt: No such file or directory""").strip()
+
+    error_breakdown = scm.process_merge_conflict("wherever", 42, conflict_message)
+
+    failed_paths = [path["path"] for path in error_breakdown["failed_paths"]]
+    assert failed_paths == ["new.txt"], "The missing file should be a failed path."
+    assert (
+        "No such file or directory"
+        in error_breakdown["rejects_paths"]["new.txt"]["content"]
+    ), "The breakdown should carry git's error for the missing file."

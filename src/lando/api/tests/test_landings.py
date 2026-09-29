@@ -1766,6 +1766,171 @@ def test_three_way_landing_handles_context_shift(
     assert revision.commit_id, "The post-rebase commit hash should be recorded."
 
 
+@pytest.mark.parametrize(
+    "tip_diff_fixture, above_patch_fixture, above_file, above_file_lines",
+    [
+        # The revision above carries a line the tip changed as context.
+        pytest.param(
+            "three_way_context_shift_diff",
+            "three_way_tip_dependent_patch",
+            "test.txt",
+            [
+                "line1",
+                "line2",
+                "line3",
+                "line4 modified by the revision above",
+                "line5",
+                "line6 changed on tip",
+                "line7",
+                "line8",
+                "line9",
+                "line10",
+                "line11 modified by the bottom revision",
+                "line12",
+            ],
+            id="context-from-tip",
+        ),
+        # The revision above edits a file the tip created, which `git apply`
+        # reports as a missing file, not as a failed hunk.
+        pytest.param(
+            "three_way_new_file_diff",
+            "three_way_new_file_dependent_patch",
+            "new.txt",
+            ["new1", "new2 modified by the revision above", "new3"],
+            id="file-created-on-tip",
+        ),
+    ],
+)
+@pytest.mark.django_db
+def test_three_way_landing_falls_back_when_recorded_base_is_stale(
+    repo_mc: Callable,
+    git_repo: Path,
+    caplog: pytest.LogCaptureFixture,
+    request: pytest.FixtureRequest,
+    mock_phab_trigger_repo_update_apply_async: mock.Mock,
+    create_patch_revision: Callable,
+    make_landing_job: Callable,
+    get_landing_worker: Callable,
+    apply_patch: Callable,
+    three_way_base_diff: str,
+    three_way_bottom_patch: str,
+    tip_diff_fixture: str,
+    above_patch_fixture: str,
+    above_file: str,
+    above_file_lines: list[str],
+):
+    """A stack whose bottom names an older base than the revisions above it lands."""
+    base_sha = setup_three_way_repo(
+        git_repo,
+        apply_patch,
+        three_way_base_diff,
+        request.getfixturevalue(tip_diff_fixture),
+    )
+
+    repo = repo_mc(SCMType.GIT)
+
+    # The bottom revision was submitted before the tip's commit existed, so its
+    # base predates it; the revision above was generated afterwards against the
+    # tip.
+    bottom = create_patch_revision(1, patch=three_way_bottom_patch)
+    bottom.base_revision = base_sha
+    bottom.save()
+    above = create_patch_revision(2, patch=request.getfixturevalue(above_patch_fixture))
+
+    job = make_landing_job(
+        revisions=[bottom, above],
+        status=JobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        target_repo=repo,
+        attempts=1,
+    )
+
+    worker = get_landing_worker(SCMType.GIT)
+    assert worker.run_job(job), "`run_job` returns `True` in both permanent states."
+    assert job.status == JobStatus.LANDED, (
+        "A stale recorded base should not fail a stack that applies at the tip."
+    )
+
+    assert f"does not apply at {base_sha}" in caplog.text, (
+        "The reconstruction should have been attempted and abandoned."
+    )
+
+    job.refresh_from_db()
+    assert job.landing_strategy == LandingStrategy.TWO_WAY, (
+        "The job should record the attempt that landed it."
+    )
+
+    bottom_file = repo.scm.read_checkout_file("test.txt")
+    assert "line11 modified by the bottom revision" in bottom_file, (
+        "The bottom revision should be applied."
+    )
+    assert repo.scm.read_checkout_file(above_file).splitlines() == above_file_lines, (
+        "The revision above should be applied over the tip's change."
+    )
+
+
+@pytest.mark.django_db
+def test_three_way_landing_fallback_conflict_reports_breakdown(
+    repo_mc: Callable,
+    git_repo: Path,
+    caplog: pytest.LogCaptureFixture,
+    mock_phab_trigger_repo_update_apply_async: mock.Mock,
+    create_patch_revision: Callable,
+    make_landing_job: Callable,
+    get_landing_worker: Callable,
+    apply_patch: Callable,
+    three_way_base_diff: str,
+    three_way_context_shift_diff: str,
+    three_way_bottom_patch: str,
+    three_way_unapplicable_patch: str,
+):
+    """A patch rejected at the recorded base and at the tip fails with a breakdown."""
+    base_sha = setup_three_way_repo(
+        git_repo, apply_patch, three_way_base_diff, three_way_context_shift_diff
+    )
+
+    repo = repo_mc(SCMType.GIT)
+
+    bottom = create_patch_revision(1, patch=three_way_bottom_patch)
+    bottom.base_revision = base_sha
+    bottom.save()
+    above = create_patch_revision(2, patch=three_way_unapplicable_patch)
+
+    job = make_landing_job(
+        revisions=[bottom, above],
+        status=JobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        target_repo=repo,
+        attempts=1,
+    )
+
+    worker = get_landing_worker(SCMType.GIT)
+    assert worker.run_job(job), "`run_job` returns `True` after a permanent failure."
+    assert job.status == JobStatus.FAILED, (
+        "A patch that applies at neither base should fail the job."
+    )
+
+    assert f"does not apply at {base_sha}" in caplog.text, (
+        "The reconstruction should have been attempted and abandoned."
+    )
+
+    job.refresh_from_db()
+    assert job.landing_strategy == LandingStrategy.TWO_WAY, (
+        "The failure should record the attempt it happened under."
+    )
+
+    assert "test.txt" in job.error, "The job error should name the rejected file."
+
+    assert job.error_breakdown, "A rejected patch should produce an error breakdown."
+    failed_paths = [path["path"] for path in job.error_breakdown["failed_paths"]]
+    assert failed_paths == ["test.txt"], (
+        "The breakdown should record the rejected path."
+    )
+    assert job.error_breakdown["rejects_paths"]["test.txt"].get("content"), (
+        "The breakdown should carry the rejected hunk for display."
+    )
+
+
 @pytest.mark.django_db
 def test_three_way_landing_conflict_reports_breakdown(
     repo_mc: Callable,
