@@ -14,7 +14,6 @@ from lando.api.legacy.projects import (
     get_data_policy_review_phid,
     get_release_managers,
     get_sec_approval_project_phid,
-    get_secure_project_phid,
 )
 from lando.api.legacy.reviews import (
     approvals_for_commit_message,
@@ -254,12 +253,11 @@ def post(phab: PhabricatorClient, user: User, data: dict) -> tuple[dict[str, int
 
     revisions = [r[0] for r in to_land]
 
-    # Reuse the users and projects fetched while building the assessment state,
-    # which cover every revision in the stack.
+    # Reuse the users, projects and secure project PHID fetched while building
+    # the assessment state, which cover every revision in the stack.
     users = stack_state.users
     projects = stack_state.projects
-
-    secure_project_phid = get_secure_project_phid(phab)
+    secure_project_phid = stack_state.secure_project_phid
 
     # Take note of any revisions that the checkin project tag must be
     # removed from.

@@ -10,7 +10,6 @@ from lando.api.legacy.projects import (
     get_data_policy_review_phid,
     get_release_managers,
     get_sec_approval_project_phid,
-    get_secure_project_phid,
 )
 from lando.api.legacy.reviews import (
     approvals_for_commit_message,
@@ -93,11 +92,11 @@ def get(phab: PhabricatorClient, revision_id: int) -> dict[str, Any]:
         name for name, repo in supported_repos.items() if repo.approval_required
     ]
 
-    # Reuse the users and projects fetched while building the assessment state.
+    # Reuse the users, projects and secure project PHID fetched while building
+    # the assessment state.
     users = stack_state.users
     projects = stack_state.projects
-
-    secure_project_phid = get_secure_project_phid(phab)
+    secure_project_phid = stack_state.secure_project_phid
     if not secure_project_phid:
         raise Exception("Could not find `#secure-revision` project on Phabricator.")
 
