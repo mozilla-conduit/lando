@@ -1,8 +1,10 @@
 import logging
 from typing import Optional
 
+from django.conf import settings
 from django.core.cache import cache
 
+from lando.utils.cache import cache_method
 from lando.utils.phabricator import PhabricatorClient, result_list_to_phid_dict
 
 logger = logging.getLogger(__name__)
@@ -62,6 +64,14 @@ def project_search(
     return result
 
 
+def _project_phid_cache_key(project_slug: str, *args, **kwargs) -> str:
+    return f"PROJECT_{project_slug}"
+
+
+@cache_method(
+    _project_phid_cache_key,
+    timeout=settings.PHABRICATOR_PROJECT_PHID_CACHE_TIMEOUT_SECONDS,
+)
 def get_project_phid(
     project_slug: str, phabricator: PhabricatorClient, allow_empty_result: bool = True
 ) -> Optional[str]:
@@ -79,11 +89,9 @@ def get_project_phid(
 
     Returns:
         A string with the project's PHID or None if the project isn't found.
+        Missing projects are not cached, so a project created later is picked up
+        on the next call.
     """
-    key = f"PROJECT_{project_slug}"
-    if cache.has_key(key):
-        return cache.get(key)
-
     project = phabricator.single(
         phabricator.call_conduit(
             "project.search", constraints={"slugs": [project_slug]}
@@ -92,9 +100,7 @@ def get_project_phid(
         none_when_empty=allow_empty_result,
     )
 
-    value = phabricator.expect(project, "phid") if project else None
-    cache.set(key, value)
-    return value
+    return phabricator.expect(project, "phid") if project else None
 
 
 def get_secure_project_phid(phabricator: PhabricatorClient) -> Optional[str]:
