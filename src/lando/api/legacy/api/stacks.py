@@ -11,7 +11,6 @@ from lando.api.legacy.projects import (
     get_release_managers,
     get_sec_approval_project_phid,
     get_secure_project_phid,
-    project_search,
 )
 from lando.api.legacy.reviews import (
     approvals_for_commit_message,
@@ -21,7 +20,6 @@ from lando.api.legacy.reviews import (
 )
 from lando.api.legacy.revisions import (
     find_title_and_summary_for_display,
-    gather_involved_phids,
     get_bugzilla_bug,
     revision_is_secure,
     serialize_author,
@@ -31,14 +29,12 @@ from lando.api.legacy.revisions import (
 from lando.api.legacy.stacks import (
     RevisionStack,
     build_stack_graph,
-    get_diffs_for_revision,
     request_extended_revision_data,
 )
 from lando.api.legacy.transplants import (
     build_stack_assessment_state,
     run_landing_checks,
 )
-from lando.api.legacy.users import user_search
 from lando.main.models import Repo
 from lando.main.models.revision import Revision
 from lando.utils.phabricator import PhabricatorClient
@@ -97,15 +93,9 @@ def get(phab: PhabricatorClient, revision_id: int) -> dict[str, Any]:
         name for name, repo in supported_repos.items() if repo.approval_required
     ]
 
-    involved_phids = set()
-    for revision in stack_data.revisions.values():
-        revision_diffs = get_diffs_for_revision(revision, stack_data.diffs)
-        involved_phids.update(gather_involved_phids(revision, revision_diffs))
-
-    involved_phids = list(involved_phids)
-
-    users = user_search(phab, involved_phids)
-    projects = project_search(phab, involved_phids)
+    # Reuse the users and projects fetched while building the assessment state.
+    users = stack_state.users
+    projects = stack_state.projects
 
     secure_project_phid = get_secure_project_phid(phab)
     if not secure_project_phid:
