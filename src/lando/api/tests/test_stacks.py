@@ -1,8 +1,11 @@
+from unittest import mock
+
 import pytest
 from django.http import Http404
 
 from lando.api.legacy.api import stacks
 from lando.api.legacy.stacks import (
+    REVISION_ATTACHMENTS,
     RevisionStack,
     build_stack_graph,
     get_landable_repos_for_revision_data,
@@ -160,6 +163,60 @@ def test_request_extended_revision_data_single_revision_with_repo(phabdouble):
     assert revision["phid"] in data.revisions
     assert diff["phid"] in data.diffs
     assert repo["phid"] in data.repositories
+
+
+def test_request_extended_revision_data_reuses_known_revisions(phabdouble):
+    phab = phabdouble.get_phabricator_client()
+
+    diff = phabdouble.diff()
+    revision = phabdouble.revision(diff=diff)
+    known_revision = phab.single(
+        phab.call_conduit(
+            "differential.revision.search",
+            constraints={"phids": [revision["phid"]]},
+            attachments=REVISION_ATTACHMENTS,
+        ),
+        "data",
+    )
+
+    with mock.patch.object(
+        phab, "call_conduit", wraps=phab.call_conduit
+    ) as call_conduit:
+        data = request_extended_revision_data(
+            phab,
+            [revision["phid"]],
+            known_revisions={revision["phid"]: known_revision},
+        )
+
+    assert data.revisions == {revision["phid"]: known_revision}
+    assert diff["phid"] in data.diffs
+    methods = [call.args[0] for call in call_conduit.call_args_list]
+    assert "differential.revision.search" not in methods, (
+        "Known revisions should not be requested again."
+    )
+
+
+def test_request_extended_revision_data_fetches_unknown_revisions(phabdouble):
+    phab = phabdouble.get_phabricator_client()
+
+    r1 = phabdouble.revision()
+    r2 = phabdouble.revision(depends_on=[r1])
+    known_revision = phab.single(
+        phab.call_conduit(
+            "differential.revision.search",
+            constraints={"phids": [r1["phid"]]},
+            attachments=REVISION_ATTACHMENTS,
+        ),
+        "data",
+    )
+
+    data = request_extended_revision_data(
+        phab,
+        [r1["phid"], r2["phid"]],
+        known_revisions={r1["phid"]: known_revision},
+    )
+
+    assert set(data.revisions) == {r1["phid"], r2["phid"]}
 
 
 def test_request_extended_revision_data_no_revisions(phabdouble):

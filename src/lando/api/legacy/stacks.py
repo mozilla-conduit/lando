@@ -48,17 +48,25 @@ def get_diffs_for_revision(revision: dict, all_diffs: dict[str, dict]) -> list[d
     ]
 
 
+# Attachments needed on revisions to build a `RevisionData`.
+REVISION_ATTACHMENTS = {"reviewers": True, "reviewers-extra": True, "projects": True}
+
 RevisionData = namedtuple("RevisionData", ("revisions", "diffs", "repositories"))
 
 
 def request_extended_revision_data(
-    phab: PhabricatorClient, revision_phids: list[str]
+    phab: PhabricatorClient,
+    revision_phids: list[str],
+    known_revisions: dict[str, dict] | None = None,
 ) -> RevisionData:
     """Return a RevisionData containing extended data for revisions.
 
     Args:
         phab: A PhabricatorClient instance.
         revision_phids: List of String PHIDs for revisions.
+        known_revisions: Optional PHID-keyed dict of revisions already fetched
+            with the attachments from `REVISION_ATTACHMENTS`. If it contains
+            all of `revision_phids`, revisions won't be requested again.
 
     Returns:
         A RevisionData containing extended data for a set of revisions.
@@ -66,7 +74,12 @@ def request_extended_revision_data(
     if not revision_phids:
         return RevisionData({}, {}, {})
 
-    revs = get_revisions_by_phid(phab, revision_phids)
+    if known_revisions and set(revision_phids) <= set(known_revisions):
+        # Avoid a round-trip when all revisions were already fetched, e.g. for
+        # single-revision stacks.
+        revs = {phid: known_revisions[phid] for phid in revision_phids}
+    else:
+        revs = get_revisions_by_phid(phab, revision_phids)
     diffs = get_diffs_by_revision_phid(phab, list(revs.keys()))
 
     repo_phids = [phab.expect(r, "fields", "repositoryPHID") for r in revs.values()] + [
@@ -99,7 +112,7 @@ def get_revisions_by_phid(
     revs = phab.call_conduit_collated(
         "differential.revision.search",
         constraints={"phids": revision_phids},
-        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+        attachments=REVISION_ATTACHMENTS,
         limit=len(revision_phids),
     )
 
@@ -121,7 +134,7 @@ def get_revisions_by_id(
     revs = phab.call_conduit_collated(
         "differential.revision.search",
         constraints={"ids": revision_ids},
-        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+        attachments=REVISION_ATTACHMENTS,
         limit=len(revision_ids),
     )
 
