@@ -10,6 +10,7 @@ from django.conf import settings
 from django.db import models
 from django.db.models import Case, IntegerField, QuerySet, When
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.translation import gettext_lazy
 
 from lando.main.models.base import BaseModel
@@ -65,10 +66,8 @@ class JobStatus(models.TextChoices):
         For `JobStatus.SUBMITTED` jobs, higher priority items come first
         and then we order by creation time (older first).
 
-        Any `JobStatus.IN_PROGRESS` jobs are second. As there should
-        be a maximum of one (per repository), and with the assumption of a single worker
-        instance, a worker picking up an IN_PROGRESS job would mean that the job
-        previously crashed, and that the worker needs to restart processing.
+        `JobStatus.IN_PROGRESS` jobs remain visible in queue displays but are excluded
+        when a worker selects its next job.
         """
         return Case(
             When(status=cls.SUBMITTED, then=1),
@@ -173,6 +172,9 @@ class BaseJob(BaseModel):
     # Duration of job from start to finish
     duration_seconds = models.IntegerField(default=0)
 
+    started_at = models.DateTimeField(blank=True, null=True)
+    finished_at = models.DateTimeField(blank=True, null=True)
+
     # Reference to the target repo.
     target_repo = models.ForeignKey(Repo, on_delete=models.SET_NULL, null=True)
 
@@ -193,12 +195,16 @@ class BaseJob(BaseModel):
             yield
         finally:
             self.duration_seconds = (datetime.now() - start_time).seconds
+            if self.status in JobStatus.final() and self.finished_at is None:
+                self.finished_at = timezone.now()
             self.save()
 
     def start_attempt(self):
         """Count a new attempt at running this job and mark it as in progress."""
         self.status = JobStatus.IN_PROGRESS
         self.attempts += 1
+        self.started_at = timezone.now()
+        self.finished_at = None
         logger.debug(f"Starting attempt {self.attempts} of {self}.")
         self.save()
 
@@ -247,6 +253,7 @@ class BaseJob(BaseModel):
             raise ValueError(f"Missing {missing_params} params")
 
         self.status = actions[action]["status"]
+        self.finished_at = timezone.now() if self.status in JobStatus.final() else None
 
         if action in (JobAction.FAIL, JobAction.DEFER):
             self.error = kwargs["message"]
@@ -308,11 +315,12 @@ class BaseJob(BaseModel):
     ) -> QuerySet:
         """Return a query which selects the next job and locks the row."""
 
-        query = cls.job_queue_query(repositories=repositories, **kwargs)
+        query = cls.job_queue_query(repositories=repositories, **kwargs).exclude(
+            status=JobStatus.IN_PROGRESS
+        )
 
-        # Returned rows should be locked for updating, this ensures the next
-        # job can be claimed.
-        return query.select_for_update()
+        # Skip jobs claimed by other workers instead of waiting for their locks.
+        return query.select_for_update(skip_locked=True)
 
     @classmethod
     def queue_jobs(cls) -> list[dict[str, Any]]:

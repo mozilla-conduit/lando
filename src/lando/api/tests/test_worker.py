@@ -1,10 +1,13 @@
 import logging
 import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from unittest import mock
 from unittest.mock import patch
 
 import pytest
+from django.db import transaction
 
 from lando.api.legacy.workers.base import (
     DEFAULT_QUEUE_SIZE_ALERT_THRESHOLD,
@@ -12,12 +15,14 @@ from lando.api.legacy.workers.base import (
     Worker,
 )
 from lando.api.legacy.workers.landing_worker import LandingWorker
-from lando.main.models import JobStatus
+from lando.main.models import JobStatus, LandingJob
+from lando.main.models import Worker as WorkerModel
 from lando.main.models.configuration import (
     ConfigurationKey,
     ConfigurationVariable,
     VariableTypeChoices,
 )
+from lando.main.models.jobs import DEFAULT_MAX_JOB_ATTEMPTS, JobAction
 from lando.main.scm import SCMType
 from lando.main.scm.exceptions import SCMException
 from lando.treestatus.models import TreeStatus
@@ -143,6 +148,100 @@ def worker_stub():
         return stub
 
     return _stub
+
+
+@pytest.mark.django_db(transaction=True)
+def test_Worker_claims_different_jobs_concurrently(
+    landing_worker_instance, make_landing_job, monkeypatch, repo_mc
+):
+    repo = repo_mc(SCMType.GIT)
+    workers = [
+        LandingWorker(
+            landing_worker_instance(name=f"worker-{index}", scm=SCMType.GIT),
+            with_ssh=False,
+        )
+        for index in range(2)
+    ]
+    make_landing_job(status=JobStatus.IN_PROGRESS, target_repo=repo)
+    jobs = [
+        make_landing_job(status=JobStatus.SUBMITTED, target_repo=repo) for _ in range(2)
+    ]
+    barrier = threading.Barrier(2)
+    original_start_attempt = LandingJob.start_attempt
+
+    def synchronized_start_attempt(job):
+        barrier.wait(timeout=10)
+        original_start_attempt(job)
+
+    monkeypatch.setattr(LandingJob, "start_attempt", synchronized_start_attempt)
+
+    claimed = []
+
+    def run_job(job):
+        assert not transaction.get_connection().in_atomic_block
+        job.refresh_from_db()
+        assert job.status == JobStatus.IN_PROGRESS
+        assert job.attempts == 1
+        assert WorkerModel.objects.filter(current_job_id=job.id).exists()
+        claimed.append(job.id)
+        job.transition_status(JobAction.LAND, commit_id=f"commit-{job.id}")
+        return True
+
+    for worker in workers:
+        worker.run_job = run_job
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(worker.loop) for worker in workers]
+        for future in futures:
+            future.result(timeout=15)
+
+    assert set(claimed) == {job.id for job in jobs}
+    for worker in workers:
+        worker.worker_instance.refresh_from_db()
+        assert worker.worker_instance.current_job_id is None
+
+
+@pytest.mark.parametrize(
+    ("attempts", "expected_status", "finished"),
+    (
+        (1, JobStatus.DEFERRED, False),
+        (DEFAULT_MAX_JOB_ATTEMPTS, JobStatus.ABORTED, True),
+    ),
+)
+@pytest.mark.django_db
+def test_Worker_recovers_abandoned_job_on_start(
+    landing_worker_instance,
+    make_landing_job,
+    repo_mc,
+    attempts,
+    expected_status,
+    finished,
+):
+    repo = repo_mc(SCMType.GIT)
+    worker_model = landing_worker_instance(name="recovery-worker", scm=SCMType.GIT)
+    job = make_landing_job(
+        status=JobStatus.IN_PROGRESS,
+        attempts=attempts,
+        target_repo=repo,
+    )
+    worker_model.current_job_id = job.id
+    worker_model.save()
+
+    worker = LandingWorker(worker_model, with_ssh=False)
+    worker.ssh_private_key = None
+    worker.notify_user_of_job_abort = mock.Mock()
+    worker.start(max_loops=-1)
+
+    job.refresh_from_db()
+    assert job.status == expected_status
+    assert job.attempts == attempts
+    assert "The worker stopped while processing this job." in job.error
+    assert (job.finished_at is not None) is finished
+    assert worker.notify_user_of_job_abort.called is finished
+
+    worker_model.refresh_from_db()
+    assert worker_model.current_job_id is None
+    assert worker_model.process_id == os.getpid()
 
 
 def test_QueueSize_totals_open_and_closed_trees():
