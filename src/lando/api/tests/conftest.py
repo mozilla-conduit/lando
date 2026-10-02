@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 from unittest import mock
@@ -393,3 +394,51 @@ def make_uplift_job_with_revisions() -> Callable[
         return job
 
     return _make_uplift_job_with_revisions
+
+
+@pytest.fixture
+def gh_client_with_prs(prs, client_module):
+    """Reusable fixture that provides a GitHubAPIClient and some PRs.
+
+    This fixture does not interact at all with the GitHub API or the
+    GitHubAPI class or other mocks. It simply mocks expected values that
+    the GitHubAPIClient would return.
+
+    It is intended to simplify the ability to test lando functionality
+    by providing a high-level interface for testing GitHubAPIClient
+    interactions. For example, to ensure that a high level method was
+    called with the correct arguments (e.g., client.close_pull_request(1)).
+    """
+
+    mock_github_api_client = mock.MagicMock()
+    with mock.patch(client_module, return_value=mock_github_api_client):
+        mock_prs = {}
+        for pr in prs:
+            defaults = {
+                "number": 1,
+                "title": "no bug: some title",
+                "commit_body": "some description",
+                "commit_message": "some message",
+                "updated_at": datetime.now().isoformat(),
+            }
+
+            mock_pull_request = mock.MagicMock()
+            for key in defaults:
+                setattr(mock_pull_request, key, defaults.get(key))
+            for key in pr:
+                setattr(mock_pull_request, key, defaults.get(key, pr[key]))
+            mock_prs[pr["number"]] = mock_pull_request
+
+            # A helper property on PullRequest fetches the diff using the client,
+            # but for the purposes of this fixture this is equivalent to the
+            # result of mock_github_api_client.get_diff.side_effect.
+            mock_pull_request.diff = mock_pull_request.patch
+
+        mock_github_api_client.build_pull_request.side_effect = lambda number: mock_prs[
+            number
+        ]
+        mock_github_api_client.get_diff.side_effect = lambda number: (
+            mock_prs[number].patch
+        )
+        mock_github_api_client.repo_is_private = False
+        yield mock_github_api_client
