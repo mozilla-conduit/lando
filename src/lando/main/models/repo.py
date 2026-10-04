@@ -98,6 +98,15 @@ def get_default_hooks() -> list[str]:
     ]
 
 
+def get_default_commit_flags() -> list[list[str]]:
+    return [
+        [
+            'DONTBUILD',
+            'Should be used only for trivial changes (typo, comment changes, documentation changes, etc.) where the risk of introducing a new bug is close to none.'
+        ],
+    ]
+
+
 class Repo(CryptographyMixin, BaseModel):
     """Represents the configuration of a particular repo."""
 
@@ -229,7 +238,13 @@ class Repo(CryptographyMixin, BaseModel):
         size=2,
         blank=True,
         null=True,
-        default=None,
+        default=get_default_commit_flags,
+        help_text=(
+            "List of commit flags that can be appended to the commit at landing time. "
+            "Each commit flag is a list of two string: the flag itself, "
+            "and a description to be shown in the UI. For example, "
+            "`['DONTBUILD', 'Should be used only for trivial changes (typo, comment changes, documentation changes, etc.) where the risk of introducing a new bug is close to none.']`"
+        ),
     )
     force_push = models.BooleanField(
         default=False,
