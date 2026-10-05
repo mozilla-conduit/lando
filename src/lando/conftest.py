@@ -723,6 +723,12 @@ new file mode 100644
 index 0000000..e69de29
 """.lstrip()
 
+PATCH_DOT_GITHUB_DIFF = """
+diff --git a/.github/workflows/.keep b/.github/workflows/.keep
+new file mode 100644
+index 0000000..e69de29
+""".lstrip()
+
 PATCH_SUBMODULE_DIFF = """
 diff --git a/.gitmodules b/.gitmodules
 new file mode 100644
@@ -756,6 +762,7 @@ def get_failing_check_diff() -> Callable:
     """
 
     diffs = {
+        "dot_github": PATCH_DOT_GITHUB_DIFF,
         "nspr": PATCH_NSPR_DIFF,
         "nss": PATCH_NSS_DIFF,
         "submodule": PATCH_SUBMODULE_DIFF,
