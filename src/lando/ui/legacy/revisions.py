@@ -421,20 +421,7 @@ class UpliftAssessmentBatchLinkView(LandoView):
             for revision_id in revision_ids:
                 UpliftRevision.link_revision_to_assessment(revision_id, assessment)
 
-        # Every revision carrying this assessment shows the old answers on
-        # Phabricator until it is refreshed, not only those just linked.
-        linked_revision_ids = assessment.revisions.exclude(
-            revision_id=None
-        ).values_list("revision_id", flat=True)
-
-        for linked_revision_id in linked_revision_ids:
-            set_uplift_request_form_on_revision.apply_async(
-                args=(
-                    linked_revision_id,
-                    assessment.to_conduit_json_str(),
-                    request.user.id,
-                )
-            )
+        self.refresh_linked_revisions(assessment, request)
 
         if assessment_instance:
             message = f"Assessment linked to {len(revision_ids)} revision(s)."
@@ -447,6 +434,26 @@ class UpliftAssessmentBatchLinkView(LandoView):
         logger.info(message)
 
         return redirect("revisions-page", revision_id=revision_ids[0])
+
+    @staticmethod
+    def refresh_linked_revisions(assessment: UpliftAssessment, request: WSGIRequest):
+        """Refresh the assessment's form on every revision carrying it.
+
+        Each of them shows the old answers on Phabricator until it is refreshed,
+        not only the revisions just linked.
+        """
+        linked_revision_ids = assessment.revisions.exclude(
+            revision_id=None
+        ).values_list("revision_id", flat=True)
+
+        for linked_revision_id in linked_revision_ids:
+            set_uplift_request_form_on_revision.apply_async(
+                args=(
+                    linked_revision_id,
+                    assessment.to_conduit_json_str(),
+                    request.user.id,
+                )
+            )
 
     @staticmethod
     def selected_assessment(
