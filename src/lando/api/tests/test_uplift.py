@@ -1642,6 +1642,9 @@ def test_batch_page_offers_the_bugs_existing_assessments(
     assert response.context_data["bug_assessments"] == [assessment], (
         "The bug's existing assessment should be offered for reuse."
     )
+    assert reverse("uplift-request-link-page") in response.content.decode(), (
+        "The existing assessment should be linkable in one click."
+    )
 
 
 @mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
@@ -1748,6 +1751,81 @@ def test_batch_page_files_the_users_legacy_assessment_under_the_bug(
     legacy.refresh_from_db()
     assert legacy.bug_id == UPLIFT_BUG_ID, (
         "The user's legacy assessment should be filed under the bug it is reused for."
+    )
+
+
+@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@pytest.mark.django_db
+def test_batch_page_links_an_existing_assessment_in_one_click(
+    mock_apply_async, authenticated_client, user, phabdouble, django_user_model
+):
+    """Linking from the batch page needs no answers and leaves the assessment as is."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+    revision_ids = [
+        phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"],
+        phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"],
+    ]
+    colleague = django_user_model.objects.create_user(
+        username="colleague", email="colleague@example.com"
+    )
+    existing = UpliftAssessment.objects.create(
+        user=colleague, bug_id=UPLIFT_BUG_ID, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+
+    response = authenticated_client.post(
+        reverse("uplift-request-link-page"),
+        data={
+            "revision_ids": ",".join(str(revision_id) for revision_id in revision_ids),
+            "assessment": existing.id,
+        },
+    )
+
+    assert response.status_code == 302, "Linking should redirect."
+    assert response.url == reverse("revisions-page", args=[revision_ids[0]]), (
+        "Linking should land on the first revision's page."
+    )
+    assert UpliftAssessment.objects.count() == 1, (
+        "Linking should not create another assessment."
+    )
+    existing.refresh_from_db()
+    assert existing.user == colleague, "A linked assessment should keep its author."
+    assert existing.user_impact == UPLIFT_ASSESSMENT_ANSWERS["user_impact"], (
+        "Linking should leave the assessment's answers unchanged."
+    )
+    assert set(
+        UpliftRevision.objects.filter(assessment=existing).values_list(
+            "revision_id", flat=True
+        )
+    ) == set(revision_ids), "Every revision should be linked to the assessment."
+    assert mock_apply_async.call_count == len(revision_ids), (
+        "The form should be set on every revision carrying the assessment."
+    )
+
+
+@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@pytest.mark.django_db
+def test_batch_page_link_rejects_an_assessment_from_another_bug(
+    mock_apply_async, authenticated_client, user, phabdouble
+):
+    """Only an assessment filed against the revisions' bug may be linked."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+    other_bug = UpliftAssessment.objects.create(
+        user=user, bug_id=UPLIFT_BUG_ID + 1, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+
+    response = authenticated_client.post(
+        reverse("uplift-request-link-page"),
+        data={"revision_ids": str(revision_id), "assessment": other_bug.id},
+    )
+
+    assert not UpliftRevision.objects.filter(revision_id=revision_id).exists(), (
+        "The revision should not be linked to another bug's assessment."
+    )
+    mock_apply_async.assert_not_called()
+    flash_messages = [str(message) for message in get_messages(response.wsgi_request)]
+    assert any("not filed against bug" in message for message in flash_messages), (
+        f"Should explain why the assessment cannot be linked: {flash_messages=}"
     )
 
 

@@ -473,6 +473,57 @@ class UpliftAssessmentBatchLinkView(LandoView):
             return None
 
 
+class UpliftAssessmentBatchLinkExistingView(LandoView):
+    """Link the given revisions to an existing assessment without editing it.
+
+    This is the one-click alternative to the batch page's form, for when the
+    bug already has an assessment that describes these revisions.
+    """
+
+    @force_auth_refresh
+    @method_decorator(require_phabricator_api_key(optional=False, provide_client=True))
+    def post(self, phab: PhabricatorClient, request: WSGIRequest) -> HttpResponse:
+        """Link the revisions to the chosen assessment."""
+        # The bug is resolved again rather than trusted from the page, which also
+        # confirms the requester can see every revision being linked.
+        try:
+            revision_ids = parse_revision_ids(request.POST.get("revision_ids", ""))
+            bug_id = get_bug_id_for_stack_tips(phab, revision_ids)
+        except ValueError as exc:
+            messages.add_message(request, messages.ERROR, str(exc))
+            return redirect(request.META.get("HTTP_REFERER") or "/")
+
+        assessment = UpliftAssessmentBatchLinkView.selected_assessment(
+            request.POST.get("assessment", ""), bug_id, request
+        )
+        if assessment is None:
+            return redirect(request.META.get("HTTP_REFERER") or "/")
+
+        logger.info(
+            f"Uplift assessment batch link existing: user={request.user.id}, "
+            f"revisions={revision_ids}, bug={bug_id}, assessment_id={assessment.id}"
+        )
+
+        with transaction.atomic():
+            # As when reusing it through the form, the user's own assessment from
+            # before `bug_id` existed is filed under the bug.
+            if assessment.bug_id is None:
+                assessment.bug_id = bug_id
+                assessment.save()
+
+            for revision_id in revision_ids:
+                UpliftRevision.link_revision_to_assessment(revision_id, assessment)
+
+        UpliftAssessmentBatchLinkView.refresh_linked_revisions(assessment, request)
+
+        message = (
+            f"Assessment #{assessment.id} linked to {len(revision_ids)} revision(s)."
+        )
+        messages.add_message(request, messages.SUCCESS, message)
+
+        return redirect("revisions-page", revision_id=revision_ids[0])
+
+
 class RevisionView(LandoView):
     @method_decorator(require_phabricator_api_key(optional=True, provide_client=True))
     def get(

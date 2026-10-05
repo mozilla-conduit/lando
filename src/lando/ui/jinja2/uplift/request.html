@@ -40,7 +40,7 @@
                             <p class="block">
                                 Link these revisions to the existing assessment rather than
                                 answering the questions again. You can still edit its answers
-                                before saving.
+                                from the revision page afterwards.
                             </p>
                             {% for bug_assessment in bug_assessments %}
                                 <div class="box">
@@ -56,13 +56,18 @@
                                         </span>
                                     </p>
                                     <p class="is-size-7">{{ bug_assessment.user_impact }}</p>
-                                    <a class="button is-small is-primary"
-                                       href="{{ url('uplift-request-page') }}?revisions={{ revisions_param }}&assessment_id={{ bug_assessment.id }}">
-                                        <span class="icon is-small">
-                                            <i class="fa fa-link" aria-hidden="true"></i>
-                                        </span>
-                                        <span>Use assessment #{{ bug_assessment.id }}</span>
-                                    </a>
+                                    <form action="{{ url('uplift-request-link-page') }}" method="post">
+                                        {{ csrf_input }}
+                                        <input type="hidden" name="revision_ids" value="{{ revisions_param }}">
+                                        <input type="hidden" name="assessment" value="{{ bug_assessment.id }}">
+                                        <button class="button is-small is-primary"
+                                                {% if not user_has_phabricator_token %}disabled{% endif %}>
+                                            <span class="icon is-small">
+                                                <i class="fa fa-link" aria-hidden="true"></i>
+                                            </span>
+                                            <span>Link assessment #{{ bug_assessment.id }}</span>
+                                        </button>
+                                    </form>
                                 </div>
                             {% endfor %}
                         </div>

@@ -81,6 +81,11 @@ urlpatterns += [
         name="uplift-request-page",
     ),
     path(
+        "uplift/request/link/",
+        revisions.UpliftAssessmentBatchLinkExistingView.as_view(),
+        name="uplift-request-link-page",
+    ),
+    path(
         "uplift/<int:revision_id>/assessment/",
         revisions.UpliftAssessmentView.as_view(),
         name="uplift-assessment-page",
