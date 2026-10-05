@@ -70,7 +70,7 @@ def _project_phid_cache_key(project_slug: str, *args, **kwargs) -> str:
 
 @cache_method(
     _project_phid_cache_key,
-    timeout=settings.PHABRICATOR_PROJECT_PHID_CACHE_TIMEOUT_SECONDS,
+    timeout=settings.PHID_CACHE_TIMEOUT,
 )
 def get_project_phid(
     project_slug: str, phabricator: PhabricatorClient, allow_empty_result: bool = True

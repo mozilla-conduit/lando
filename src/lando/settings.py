@@ -279,7 +279,7 @@ BMO_BUGS_CACHE_TIMEOUT = 60
 
 # TTL for the cache of Phabricator project PHIDs looked up by slug. PHIDs
 # never change for the lifetime of a project, so they can be cached for a long time.
-PHABRICATOR_PROJECT_PHID_CACHE_TIMEOUT_SECONDS = 24 * 60 * 60
+PHID_CACHE_TIMEOUT = 24 * 60 * 60
 
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
