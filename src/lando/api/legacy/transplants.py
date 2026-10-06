@@ -59,6 +59,7 @@ from lando.main.models import (
 from lando.main.support import LegacyAPIException, diff_has_disallowed_author
 from lando.utils.landing_checks import (
     DiffAssessor,
+    PreventDotGithubCheck,
     PreventNSPRNSSCheck,
     PreventSubmodulesCheck,
     PreventSymlinksCheck,
@@ -978,6 +979,34 @@ def blocker_prevent_nsprnss_files(
         return issues[0]
 
 
+def blocker_prevent_dot_github(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> str | None:
+    """Block revisions which contain changes to the GitHub workflows directory."""
+    repo_phid = PhabricatorClient.expect(revision, "fields", "repositoryPHID")
+    repo = stack_state.landable_repos.get(repo_phid)
+    if not repo:
+        return None
+
+    # Match the landing worker, which only runs hooks enabled on the target repo.
+    landing_repo = repo.new_target if repo.is_legacy else repo
+    if (
+        not landing_repo.hooks_enabled
+        or PreventDotGithubCheck.name() not in landing_repo.hooks
+    ):
+        return None
+
+    diff_id = PhabricatorClient.expect(diff, "id")
+    parsed_diff = stack_state.parsed_diffs[diff_id]
+
+    # `PreventDotGithubCheck` only requires inspecting the diff and the commit message.
+    title = PhabricatorClient.expect(revision, "fields", "title")
+    diff_assessor = DiffAssessor(parsed_diff=parsed_diff, commit_message=title)
+
+    if issues := diff_assessor.run_diff_checks([PreventDotGithubCheck]):
+        return issues[0]
+
+
 def blocker_prevent_submodules(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> str | None:
@@ -1079,6 +1108,7 @@ REVISION_BLOCKER_CHECKS = [
     blocker_try_task_config,
     blocker_prevent_submodules,
     blocker_prevent_nsprnss_files,
+    blocker_prevent_dot_github,
     blocker_security_bug_status_flags,
     # This check needs to be last.
     blocker_open_ancestor,
