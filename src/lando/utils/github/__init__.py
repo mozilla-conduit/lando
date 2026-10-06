@@ -10,12 +10,14 @@ from .api import (
     GitHubAPI,
     GitHubAPIClient,
     GitHubSettings,
+    GitHubTokenUnavailable,
     PullRequest,
     verify_github_signature,
 )
 
 __all__ = [
     "GitHubSettings",
+    "GitHubTokenUnavailable",
     "GitHub",
     "GitHubAPI",
     "GitHubAPIClient",

@@ -25,7 +25,7 @@ from lando.main.scm.exceptions import (
 from lando.main.scm.helpers import GitPatchHelper, PatchHelper
 from lando.settings import LANDO_USER_EMAIL, LANDO_USER_NAME
 from lando.utils.const import URL_USERINFO_RE
-from lando.utils.github import GitHub
+from lando.utils.github import GitHub, GitHubTokenUnavailable
 
 from .abstract_scm import AbstractSCM
 
@@ -94,10 +94,18 @@ class GitSCM(AbstractSCM):
 
     @staticmethod
     def authenticate_path_if_possible(url: str) -> str:
-        """Return authenticated URL if it is a GitHub URL."""
-        if GitHub.is_supported_url(url):
+        """Return authenticated URL if it is a GitHub URL.
+
+        Raises `SCMInternalServerError` when GitHub can't issue a token, so workers
+        retry the job rather than failing it.
+        """
+        if not GitHub.is_supported_url(url):
+            return url
+
+        try:
             return GitHub(url).authenticated_url
-        return url
+        except GitHubTokenUnavailable as exc:
+            raise SCMInternalServerError(str(exc), "") from exc
 
     @classmethod
     @override

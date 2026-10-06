@@ -1,6 +1,7 @@
 import json
 from unittest import mock
 
+import aiohttp
 import pytest
 
 from lando.utils.github import (
@@ -8,6 +9,8 @@ from lando.utils.github import (
     GitHub,
     GitHubAPI,
     GitHubAPIClient,
+    GitHubSettings,
+    GitHubTokenUnavailable,
     PullRequest,
     verify_github_signature,
 )
@@ -86,6 +89,78 @@ def test_github_authenticated_url_no_token(
 
     assert GitHub(url).authenticated_url == url
     assert "Couldn't obtain a token" in caplog.text
+
+
+@pytest.fixture
+def mock_installation_auth(monkeypatch: pytest.MonkeyPatch) -> mock.Mock:
+    """Configure GitHub app credentials and return the mocked installation session."""
+    monkeypatch.setattr(GitHubSettings, "GITHUB_APP_ID", "1234")
+    monkeypatch.setattr(GitHubSettings, "GITHUB_APP_PRIVKEY", "private-key")
+    monkeypatch.setattr("lando.utils.github.api.AppAuth", mock.Mock())
+
+    session = mock.Mock()
+    session.get_token = mock.AsyncMock(return_value="fresh_token")
+    session.close = mock.AsyncMock()
+    monkeypatch.setattr(
+        "lando.utils.github.api.AppInstallationAuth", mock.Mock(return_value=session)
+    )
+    return session
+
+
+def token_response_error(status: int) -> aiohttp.ClientResponseError:
+    return aiohttp.ClientResponseError(
+        mock.Mock(), (), status=status, message="GitHub error"
+    )
+
+
+def test_github_fetch_token(mock_installation_auth: mock.Mock):
+    github = GitHub("https://github.com/mozilla-firefox/firefox")
+
+    assert github._fetch_token() == "fresh_token", (
+        "`_fetch_token` should return the token issued for the installation."
+    )
+    assert mock_installation_auth.close.await_count == 1, (
+        "The installation session should be closed after issuing a token."
+    )
+
+
+@pytest.mark.parametrize(
+    "error",
+    (
+        token_response_error(500),
+        token_response_error(503),
+        aiohttp.ClientConnectionError("Connection reset"),
+        TimeoutError(),
+    ),
+)
+def test_github_fetch_token_unavailable(
+    mock_installation_auth: mock.Mock, error: Exception
+):
+    mock_installation_auth.get_token.side_effect = error
+    github = GitHub("https://github.com/mozilla-firefox/firefox")
+
+    with pytest.raises(GitHubTokenUnavailable) as exc_info:
+        github._fetch_token()
+
+    assert exc_info.value.__cause__ is error, (
+        "`GitHubTokenUnavailable` should chain the original GitHub error."
+    )
+    assert mock_installation_auth.close.await_count == 1, (
+        "The installation session should be closed when issuing a token fails."
+    )
+
+
+def test_github_fetch_token_client_error(mock_installation_auth: mock.Mock):
+    error = token_response_error(404)
+    mock_installation_auth.get_token.side_effect = error
+    github = GitHub("https://github.com/mozilla-firefox/firefox")
+
+    with pytest.raises(aiohttp.ClientResponseError) as exc_info:
+        github._fetch_token()
+
+    assert exc_info.value is error, (
+        "A 4xx from GitHub is a configuration problem, so it should not be retried."
+    )
 
 
 def test_github_api_init(mock_github_fetch_token: mock.Mock):
