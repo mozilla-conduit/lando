@@ -14,6 +14,7 @@ from lando.api.legacy.transplants import (
     StackAssessment,
     StackAssessmentState,
     blocker_author_planned_changes,
+    blocker_prevent_dot_github,
     blocker_prevent_nsprnss_files,
     blocker_prevent_submodules,
     blocker_prevent_symlinks,
@@ -43,6 +44,7 @@ from lando.main.models import (
 from lando.main.models.revision import Revision
 from lando.main.scm import SCMType
 from lando.main.support import LegacyAPIException
+from lando.utils.landing_checks import PreventDotGithubCheck
 from lando.utils.phabricator import PhabricatorRevisionStatus, ReviewerStatus
 from lando.utils.tasks import admin_remove_phab_project
 
@@ -2250,6 +2252,93 @@ def test_blocker_nsprnss_files(phabdouble, create_state, get_failing_check_diff)
         )
         == "Revision makes changes to restricted directories: vendored NSS directories: `security/nss/.keep`."
     ), "Diff with NSS changes should fail the check."
+
+
+@pytest.mark.django_db
+def test_blocker_prevent_dot_github(phabdouble, create_state, get_failing_check_diff):
+    repo = phabdouble.repo()
+
+    # Create a revision/diff pair without GitHub workflow changes.
+    revision = phabdouble.revision(repo=repo)
+    phab_revision = phabdouble.api_object_for(
+        revision,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    diff_normal = phabdouble.diff(revision=revision)
+
+    # Create a revision/diff pair with a GitHub workflow change, and title allowing it.
+    revision_allowed = phabdouble.revision(
+        repo=repo, depends_on=[revision], title="DOT_GITHUB_OVERRIDE"
+    )
+    phab_revision_allowed = phabdouble.api_object_for(
+        revision_allowed,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    diff_allowed = phabdouble.diff(
+        rawdiff=get_failing_check_diff("dot_github"), revision=revision_allowed
+    )
+
+    # Create a revision/diff pair with a GitHub workflow change.
+    revision_dot_github = phabdouble.revision(repo=repo, depends_on=[revision_allowed])
+    phab_revision_dot_github = phabdouble.api_object_for(
+        revision_dot_github,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    diff_dot_github = phabdouble.diff(
+        rawdiff=get_failing_check_diff("dot_github"), revision=revision_dot_github
+    )
+
+    stack_state = create_state(phab_revision_dot_github)
+
+    assert (
+        blocker_prevent_dot_github(
+            revision=phab_revision, diff=diff_normal, stack_state=stack_state
+        )
+        is None
+    ), "Diff without GitHub workflow changes should pass the check."
+
+    assert (
+        blocker_prevent_dot_github(
+            revision=phab_revision_allowed,
+            diff=diff_allowed,
+            stack_state=stack_state,
+        )
+        is None
+    ), "Diff with GitHub workflow changes and `DOT_GITHUB_OVERRIDE` should pass."
+
+    assert (
+        blocker_prevent_dot_github(
+            revision=phab_revision_dot_github,
+            diff=diff_dot_github,
+            stack_state=stack_state,
+        )
+        == "Revision makes changes to restricted directories: GitHub workflows "
+        "directory: `.github/workflows/.keep`."
+    ), "Diff with GitHub workflow changes and no override should fail the check."
+
+    landing_repo = stack_state.landable_repos[repo["phid"]]
+    landing_repo.hooks = [
+        hook for hook in landing_repo.hooks if hook != PreventDotGithubCheck.name()
+    ]
+    assert (
+        blocker_prevent_dot_github(
+            revision=phab_revision_dot_github,
+            diff=diff_dot_github,
+            stack_state=stack_state,
+        )
+        is None
+    ), "Check should be skipped when `PreventDotGithubCheck` is disabled on the repo."
+
+    landing_repo.hooks.append(PreventDotGithubCheck.name())
+    landing_repo.hooks_enabled = False
+    assert (
+        blocker_prevent_dot_github(
+            revision=phab_revision_dot_github,
+            diff=diff_dot_github,
+            stack_state=stack_state,
+        )
+        is None
+    ), "Check should be skipped when hooks are disabled on the repo."
 
 
 @pytest.mark.django_db
