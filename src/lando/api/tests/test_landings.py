@@ -36,6 +36,7 @@ from lando.main.scm.hg import LostPushRace
 from lando.pushlog.models.commit import Commit
 from lando.pushlog.models.push import Push
 from lando.treestatus.models import TreeStatus
+from lando.utils.github import GitHubTokenUnavailable
 
 LARGE_UTF8_THING = "😁" * 1000000
 
@@ -699,6 +700,48 @@ def test_integrated_execute_job_with_scm_internal_error(
 
     assert worker.run_job(job)
     assert job.status == JobStatus.LANDED, "Job should have landed on second run."
+
+
+@pytest.mark.django_db
+def test_github_token_unavailable_defers_job(
+    monkeypatch: pytest.MonkeyPatch,
+    repo_mc: Callable,
+    create_patch_revision: Callable,
+    make_landing_job: Callable,
+    get_landing_worker: Callable,
+):
+    """A job is deferred, not failed, when GitHub can't issue a token to fetch with."""
+    repo = repo_mc(SCMType.GIT)
+    job = make_landing_job(
+        revisions=[create_patch_revision(1)],
+        status=JobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        target_repo=repo,
+        attempts=1,
+    )
+    worker = get_landing_worker(SCMType.GIT)
+
+    with monkeypatch.context() as patch:
+        github = mock.MagicMock()
+        github.is_supported_url.return_value = True
+        type(github.return_value).authenticated_url = mock.PropertyMock(
+            side_effect=GitHubTokenUnavailable("GitHub returned 500.")
+        )
+        patch.setattr("lando.main.scm.git.GitHub", github)
+
+        assert not worker.run_job(job), (
+            "`run_job` should report a temporary failure without a token."
+        )
+
+    assert job.status == JobStatus.DEFERRED, (
+        "A token GitHub couldn't issue should defer the job for a retry."
+    )
+    assert "GitHub returned 500." in job.error, (
+        "The deferral error should quote the GitHub token failure."
+    )
+
+    assert worker.run_job(job), "`run_job` should finish once GitHub issues a token."
+    assert job.status == JobStatus.LANDED, "Job should have landed on retry."
 
 
 @pytest.mark.django_db
