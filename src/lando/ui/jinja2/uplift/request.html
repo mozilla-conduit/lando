@@ -22,7 +22,7 @@
                     {% include "stack/partials/uplift-phab-api-key-warning.html" %}
                 {% endif %}
                 <p>
-                    <strong>This form will be associated with the following revision(s):</strong>
+                    <strong>This assessment will be linked to the following revision(s):</strong>
                 </p>
                 <ul>
                     {% for rev_id in revision_ids %}
@@ -78,7 +78,7 @@
                 {% endif %}
                 {% if existing_linked_revision_ids %}
                     <p>
-                        <strong>This form is already associated with the following revision(s):</strong>
+                        <strong>This assessment is already linked to the following revision(s):</strong>
                     </p>
                     <ul>
                         {% for rev_id in existing_linked_revision_ids %}

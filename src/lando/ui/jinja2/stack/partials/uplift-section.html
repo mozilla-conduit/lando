@@ -118,7 +118,7 @@ future.
                                             {% endfor %}
                                         </div>
                                     {% endif %}
-                                    <p class="is-size-7 has-text-grey">Carrying this form</p>
+                                    <p class="is-size-7 has-text-grey">Linked revisions</p>
                                     <div class="tags is-right">
                                         {% for rev_id in card.revision_ids %}
                                             {{ revision_tag(rev_id, uplift.revision_id) }}
@@ -206,7 +206,7 @@ future.
                     modal_id = card.assessment.id,
                     modal_title = "Edit Uplift Assessment #" ~ card.assessment.id,
                     modal_action = url('uplift-assessment-edit-page', args=[uplift.revision_id, card.assessment.id]),
-                    modal_submit = "Update assessment form" %}
+                    modal_submit = "Save assessment" %}
                     {% include "stack/partials/uplift-assessment-modal.html" %}
                 {% endwith %}
             {% endfor %}
@@ -214,7 +214,7 @@ future.
                 modal_id = "new",
                 modal_title = "New Uplift Assessment for Bug " ~ uplift.bug_id,
                 modal_action = url('uplift-assessment-page', args=[uplift.revision_id]),
-                modal_submit = "Create assessment form" %}
+                modal_submit = "Create assessment" %}
                 {% include "stack/partials/uplift-assessment-modal.html" %}
             {% endwith %}
         {% endif %}
