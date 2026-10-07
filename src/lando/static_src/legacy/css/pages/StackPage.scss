@@ -390,3 +390,41 @@ fieldset {
     /* Free-text answers are authored with line breaks that should survive. */
     white-space: pre-wrap;
 }
+
+/* Checklist of what an uplift revision needs before release managers approve it. */
+.UpliftReadiness {
+    border: 1px solid $grey-lighter;
+    box-shadow: none;
+
+    &-title {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    &-item {
+        display: grid;
+        grid-template-columns: 1.75rem 13rem minmax(0, 1fr) auto;
+        gap: 0.5rem;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-top: 1px solid $white-bis;
+    }
+
+    &-label {
+        font-weight: 600;
+    }
+
+    &-value {
+        font-size: 0.85rem;
+    }
+
+    &-item.is-blocked &-label,
+    &-item.is-blocked &-value {
+        color: $grey;
+    }
+
+    &-expand {
+        padding: 0.75rem 0 0.75rem 2.25rem;
+        border-top: 1px solid $white-bis;
+    }
+}

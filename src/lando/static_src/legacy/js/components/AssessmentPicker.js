@@ -48,6 +48,15 @@ $.fn.assessmentPicker = function () {
 
         $form.on("change", ".AssessmentPicker-radio", update);
 
+        $form.on("click", ".AssessmentPicker-cancel", function () {
+            // Put the choice back on the linked assessment before closing.
+            $form
+                .find(`.AssessmentPicker-radio[value="${currentId}"]`)
+                .prop("checked", true);
+            update();
+            $form.trigger("assessmentpicker:cancel");
+        });
+
         $form.on("submit", function (event) {
             if (chosen() !== "new") {
                 return;

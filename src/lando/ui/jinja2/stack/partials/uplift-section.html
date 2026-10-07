@@ -15,83 +15,19 @@ future.
 {% endmacro %}
 <h1>Uplifts</h1>
 <div class="Uplifts">
-    {% if not uplift.bug_id %}
-        <article class="message is-warning">
-            <div class="message-header">
-                <p>This revision has no bug number</p>
+    {# An uplift revision lists what it still needs, and how to get it, first. #}
+    {% if uplift.is_uplift_revision %}
+        {% include "stack/partials/uplift-readiness.html" %}
+    {% endif %}
+    {% if uplift.bug_id %}
+        {% if uplift.bug_assessments %}
+            <div class="block">
+                <h2 class="is-size-5">
+                    Uplift assessments for
+                    <a href="{{ uplift.bug_id|bug_url }}" target="_blank">bug {{ uplift.bug_id }}</a>
+                </h2>
             </div>
-            <div class="message-body">
-                Uplifts are tracked per bug, so set the bug number on this revision in
-                Phabricator before requesting an uplift.
-            </div>
-        </article>
-    {% else %}
-        {# The revision is an uplift with no assessment attached: the state
-           developers mistake for needing "Request Uplift" a second time. #}
-        {% if revision_repo and revision_repo.approval_required and uplift.needs_assessment %}
-            <article class="message is-warning">
-                <div class="message-header">
-                    <p>This uplift revision has no assessment</p>
-                </div>
-                <div class="message-body">
-                    {% if uplift.bug_assessments %}
-                        <p class="block">
-                            Release managers need an assessment before this patch can be approved.
-                            Pick the one bug {{ uplift.bug_id }} already has that describes this
-                            patch, or create a new one.
-                        </p>
-                        {% if uplift.new_assessment_form %}
-                            <form class="AssessmentPicker-form"
-                                  action="{{ url('uplift-assessment-link-page', args=[uplift.revision_id]) }}"
-                                  method="post"
-                                  data-current-assessment=""
-                                  data-new-assessment-modal="new">
-                                {{ csrf_input }}
-                                {{ assessment_picker(uplift.bug_assessments | map(attribute="assessment") | list, uplift.bug_id) }}
-                                <div class="field mt-3">
-                                    <p class="control">
-                                        <button type="submit"
-                                                class="button is-primary AssessmentPicker-submit"
-                                                disabled>Link assessment</button>
-                                    </p>
-                                </div>
-                            </form>
-                        {% endif %}
-                    {% else %}
-                        <p class="block">
-                            Release managers need an assessment before this patch can be approved,
-                            and bug {{ uplift.bug_id }} does not have one yet.
-                        </p>
-                        {% if uplift.new_assessment_form %}
-                            <button class="button is-primary assessment-modal-open"
-                                    data-assessment-modal="new">
-                                <span class="icon is-small">
-                                    <i class="fa fa-plus" aria-hidden="true"></i>
-                                </span>
-                                <span>Create new assessment for bug {{ uplift.bug_id }}</span>
-                            </button>
-                        {% endif %}
-                    {% endif %}
-                    <p class="is-size-7 mt-3 has-text-grey-dark">
-                        This patch is already an uplift, so it does not need
-                        <strong>Request Uplift</strong> again &mdash; that button creates
-                        further revisions on another train.
-                    </p>
-                </div>
-            </article>
         {% endif %}
-        <div class="block">
-            <h2 class="is-size-5">
-                Uplift assessments for
-                <a href="{{ uplift.bug_id|bug_url }}" target="_blank">bug {{ uplift.bug_id }}</a>
-            </h2>
-            {% if uplift.is_uplift_revision %}
-                <p class="help">
-                    One assessment covers one piece of code being uplifted. Link this revision to
-                    the assessment that describes it, or create a new one.
-                </p>
-            {% endif %}
-        </div>
         <div class="block">
             {% for card in uplift.bug_assessments %}
                 <div class="box">
@@ -157,40 +93,10 @@ future.
                                     <span>Edit assessment</span>
                                 </button>
                             </p>
-                            {# An unlinked revision chooses its assessment from the picker above. #}
-                            {% if not card.is_linked and not uplift.needs_assessment %}
-                                <p class="control">
-                                    <form action="{{ url('uplift-assessment-link-page', args=[uplift.revision_id]) }}"
-                                          method="post">
-                                        {{ csrf_input }}
-                                        <input type="hidden" name="assessment" value="{{ card.assessment.id }}">
-                                        <button class="button is-small is-primary">
-                                            <span class="icon is-small">
-                                                <i class="fa fa-link" aria-hidden="true"></i>
-                                            </span>
-                                            <span>Link assessment #{{ card.assessment.id }}</span>
-                                        </button>
-                                    </form>
-                                </p>
-                            {% endif %}
                         </div>
                     {% endif %}
                 </div>
-            {% else %}
-                <p class="has-text-grey mb-3">
-                    No uplift assessment has been submitted for bug {{ uplift.bug_id }} yet.
-                    Release managers need one before a patch can be approved for uplift.
-                </p>
             {% endfor %}
-            {% if uplift.new_assessment_form and not uplift.needs_assessment %}
-                <button class="button is-primary assessment-modal-open"
-                        data-assessment-modal="new">
-                    <span class="icon is-small">
-                        <i class="fa fa-plus" aria-hidden="true"></i>
-                    </span>
-                    <span>Create new assessment for bug {{ uplift.bug_id }}</span>
-                </button>
-            {% endif %}
         </div>
         {% if uplift.new_assessment_form %}
             {# One modal per assessment, each pre-filled with its own answers,

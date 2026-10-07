@@ -7,10 +7,11 @@ from django.urls import reverse
 
 from lando.api.legacy.stacks import RevisionStack
 from lando.conftest import UPLIFT_ASSESSMENT_ANSWERS
-from lando.main.models.uplift import UpliftAssessment
+from lando.main.models.uplift import UpliftAssessment, UpliftRevision
 from lando.ui.uplift.context import UpliftContext
 
 REVISION_PHID = "PHID-REV-uplift"
+REVISION_URL = "https://phabricator.test/D4219"
 
 
 class ElementCollector(HTMLParser):
@@ -48,7 +49,13 @@ def render_uplift_section(
         request=request,
         revision_id=revision_id,
         revision_phid=REVISION_PHID,
-        revisions={REVISION_PHID: {"id": f"D{revision_id}", "bug_id": bug_id}},
+        revisions={
+            REVISION_PHID: {
+                "id": f"D{revision_id}",
+                "bug_id": bug_id,
+                "url": REVISION_URL,
+            }
+        },
         stack=RevisionStack({REVISION_PHID}, set()),
         revision_repo=revision_repo,
     )
@@ -100,4 +107,103 @@ def test_unlinked_uplift_revision_asks_for_its_assessment_once(rf, user):
     )
     assert "Create new assessment for bug" not in html, (
         "Creating should be the picker's `None of these` answer, not a button."
+    )
+    assert "hidden" not in elements(html, "li", id="uplift-assessment-picker")[0], (
+        "With nothing linked, choosing an assessment is the open task."
+    )
+
+
+def create_assessments(user, bug_id: int, count: int) -> list[UpliftAssessment]:
+    """Create `count` assessments filed against `bug_id`."""
+    return [
+        UpliftAssessment.objects.create(
+            user=user, bug_id=bug_id, **UPLIFT_ASSESSMENT_ANSWERS
+        )
+        for assessment_number in range(count)
+    ]
+
+
+@pytest.mark.django_db
+def test_linked_uplift_revision_changes_its_assessment_behind_one_button(rf, user):
+    """A linked revision shows its assessment, with the picker behind `Change`."""
+    bug_id = 1601002
+    revision_id = 4218
+    linked, other = create_assessments(user, bug_id, 2)
+    UpliftRevision.link_revision_to_assessment(revision_id, linked)
+
+    html = render_uplift_section(rf, user, revision_id, bug_id)
+
+    toggles = elements(
+        html, "button", **{"class": "button is-small UpliftReadiness-toggle"}
+    )
+    assert len(toggles) == 1, "The assessment item should have one `Change` button."
+    assert "hidden" in elements(html, "li", id="uplift-assessment-picker")[0], (
+        "The picker should stay closed until the user asks to change."
+    )
+    checked = [
+        radio["value"]
+        for radio in elements(html, "input", type="radio", name="assessment")
+        if "checked" in radio
+    ]
+    assert checked == [str(linked.id)], (
+        "The picker should start on the assessment already linked."
+    )
+    assert "Link assessment #" not in html, (
+        "Other assessments should not carry their own link buttons."
+    )
+    assert "Create new assessment for bug" not in html, (
+        "Creating should be reached through `Change`, not a separate button."
+    )
+
+
+@pytest.mark.django_db
+def test_uplift_revision_without_assessments_offers_to_create_one(rf, user):
+    """With no assessment on the bug, the checklist item creates the first one."""
+    html = render_uplift_section(rf, user, 4224, 1601004)
+
+    assert not elements(html, "form", **{"class": "AssessmentPicker-form"}), (
+        "There is nothing to pick from, so there should be no picker."
+    )
+    assert elements(
+        html,
+        "button",
+        **{
+            "class": "button is-small is-primary assessment-modal-open",
+            "data-assessment-modal": "new",
+        },
+    ), "The assessment item should open the new-assessment modal."
+
+
+@pytest.mark.django_db
+def test_uplift_revision_without_a_bug_points_to_phabricator(rf, user):
+    """A missing bug number is the first fix, and is made in Phabricator."""
+    html = render_uplift_section(rf, user, 4225, None)
+
+    links = elements(html, "a", href=REVISION_URL)
+    assert links, "The bug number item should link to the revision in Phabricator."
+    assert "Needs a bug number first." in html, (
+        "The assessment item should wait on the bug number."
+    )
+    assert "Uplift assessments for" not in html, (
+        "Without a bug there are no assessments to list."
+    )
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("linked", [True, False])
+def test_uplift_revision_no_longer_warns_off_request_uplift(rf, user, linked):
+    """The checklist replaces the warning that the revision needs no new uplift."""
+    bug_id = 1601002
+    revision_id = 4219
+    (assessment,) = create_assessments(user, bug_id, 1)
+    if linked:
+        UpliftRevision.link_revision_to_assessment(revision_id, assessment)
+
+    html = render_uplift_section(rf, user, revision_id, bug_id)
+
+    assert "does not need" not in html, (
+        "The `Request Uplift` warning should be gone from the uplift section."
+    )
+    assert "Before release managers can approve D4219" in html, (
+        "The checklist should lead the uplift section."
     )

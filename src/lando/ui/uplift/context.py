@@ -58,6 +58,9 @@ class UpliftContext:
     # Bug the current revision references, or `None` when it has none.
     bug_id: int | None
 
+    # The revision's Phabricator URL, where a missing bug number is set.
+    revision_url: str | None
+
     # Whether the revision is in an uplift target repo, rather than being the
     # mainline revision an uplift is requested from.
     is_uplift_revision: bool
@@ -79,6 +82,11 @@ class UpliftContext:
 
     docs_url: str
     train_api_url: str
+
+    @property
+    def linked_card(self) -> UpliftAssessmentCard | None:
+        """Return the card of the assessment linked to this revision, if any."""
+        return next((card for card in self.bug_assessments if card.is_linked), None)
 
     @classmethod
     def build(
@@ -128,6 +136,7 @@ class UpliftContext:
             can_create_uplift_submission=cls.can_create_submission(request),
             revision_id=revision_id,
             bug_id=bug_id,
+            revision_url=revisions[revision_phid].get("url"),
             is_uplift_revision=is_uplift_revision,
             needs_assessment=linked_assessment is None,
             bug_assessments=cls.build_assessment_cards(

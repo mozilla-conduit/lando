@@ -1,0 +1,139 @@
+{# What an uplift revision still needs before release managers can approve it.
+
+Each item carries its own fix, so the page has one place that answers "what's
+left?". The assessment item hosts the assessment picker: open when nothing is
+linked yet, and behind "Change" once something is.
+#}
+{% from "stack/partials/uplift-assessment-picker.html" import assessment_picker %}
+{% macro readiness_icon(status) %}
+    <span class="icon">
+        {% if status == "done" %}
+            <i class="fa fa-check-circle fa-lg has-text-success" aria-hidden="true"></i>
+        {% elif status == "todo" %}
+            <i class="fa fa-exclamation-circle fa-lg has-text-warning"
+               aria-hidden="true"></i>
+        {% else %}
+            <i class="fa fa-circle-o fa-lg has-text-grey-light" aria-hidden="true"></i>
+        {% endif %}
+    </span>
+{% endmacro %}
+{% set linked_card = uplift.linked_card %}
+{% set offers_picker = uplift.bug_id and uplift.bug_assessments and uplift.new_assessment_form %}
+<div class="box UpliftReadiness">
+    <p class="UpliftReadiness-title">Before release managers can approve D{{ uplift.revision_id }}</p>
+    <ul class="UpliftReadiness-list">
+        {% if uplift.bug_id %}
+            <li class="UpliftReadiness-item is-done">
+                {{ readiness_icon("done") }}
+                <span class="UpliftReadiness-label">Bug number</span>
+                <span class="UpliftReadiness-value">
+                    <a href="{{ uplift.bug_id|bug_url }}" target="_blank">Bug {{ uplift.bug_id }}</a>
+                </span>
+            </li>
+        {% else %}
+            <li class="UpliftReadiness-item is-todo">
+                {{ readiness_icon("todo") }}
+                <span class="UpliftReadiness-label">Bug number</span>
+                <span class="UpliftReadiness-value">Missing. Uplifts are tracked per bug, so set it on this revision in Phabricator.</span>
+                {% if uplift.revision_url %}
+                    <span class="UpliftReadiness-fix">
+                        <a class="button is-small is-primary"
+                           href="{{ uplift.revision_url }}"
+                           target="_blank">
+                            <span>Set it in Phabricator</span>
+                            <span class="icon is-small"><i class="fa fa-external-link" aria-hidden="true"></i></span>
+                        </a>
+                    </span>
+                {% endif %}
+            </li>
+        {% endif %}
+        {% if not uplift.bug_id %}
+            <li class="UpliftReadiness-item is-blocked">
+                {{ readiness_icon("blocked") }}
+                <span class="UpliftReadiness-label">Uplift assessment</span>
+                <span class="UpliftReadiness-value">Needs a bug number first.</span>
+            </li>
+        {% elif linked_card %}
+            <li class="UpliftReadiness-item is-done">
+                {{ readiness_icon("done") }}
+                <span class="UpliftReadiness-label">Uplift assessment</span>
+                <span class="UpliftReadiness-value">#{{ linked_card.assessment.id }} · {{ linked_card.assessment.user_impact | truncate(90) }}</span>
+                {% if offers_picker %}
+                    <span class="UpliftReadiness-fix">
+                        <button type="button"
+                                class="button is-small UpliftReadiness-toggle"
+                                aria-expanded="false"
+                                aria-controls="uplift-assessment-picker">
+                            <span class="icon is-small"><i class="fa fa-exchange" aria-hidden="true"></i></span>
+                            <span>Change</span>
+                        </button>
+                    </span>
+                {% endif %}
+            </li>
+        {% elif uplift.bug_assessments %}
+            <li class="UpliftReadiness-item is-todo">
+                {{ readiness_icon("todo") }}
+                <span class="UpliftReadiness-label">Uplift assessment</span>
+                <span class="UpliftReadiness-value">
+                    Not linked. Bug {{ uplift.bug_id }} has {{ uplift.bug_assessments | length }}
+                    {{ "assessment" if uplift.bug_assessments | length == 1 else "assessments" }};
+                    pick the one that describes this patch, or create a new one.
+                </span>
+            </li>
+        {% else %}
+            <li class="UpliftReadiness-item is-todo">
+                {{ readiness_icon("todo") }}
+                <span class="UpliftReadiness-label">Uplift assessment</span>
+                <span class="UpliftReadiness-value">Bug {{ uplift.bug_id }} doesn't have one yet.</span>
+                {% if uplift.new_assessment_form %}
+                    <span class="UpliftReadiness-fix">
+                        <button type="button"
+                                class="button is-small is-primary assessment-modal-open"
+                                data-assessment-modal="new">
+                            <span class="icon is-small"><i class="fa fa-plus" aria-hidden="true"></i></span>
+                            <span>Create new assessment</span>
+                        </button>
+                    </span>
+                {% endif %}
+            </li>
+        {% endif %}
+        {% if offers_picker %}
+            {% set current_id = linked_card.assessment.id if linked_card else None %}
+            <li class="UpliftReadiness-expand"
+                id="uplift-assessment-picker"
+                {% if linked_card %}hidden{% endif %}>
+                <form class="AssessmentPicker-form"
+                      action="{{ url('uplift-assessment-link-page', args=[uplift.revision_id]) }}"
+                      method="post"
+                      data-current-assessment="{{ current_id or '' }}"
+                      data-new-assessment-modal="new">
+                    {{ csrf_input }}
+                    {{ assessment_picker(uplift.bug_assessments | map(attribute="assessment") | list, uplift.bug_id, current_id) }}
+                    <div class="field is-grouped mt-3">
+                        <p class="control">
+                            <button type="submit"
+                                    class="button is-primary AssessmentPicker-submit"
+                                    disabled>Link assessment</button>
+                        </p>
+                        {% if linked_card %}
+                            <p class="control">
+                                <button type="button" class="button AssessmentPicker-cancel">Cancel</button>
+                            </p>
+                        {% endif %}
+                    </div>
+                </form>
+            </li>
+        {% endif %}
+        <li class="UpliftReadiness-item is-waiting">
+            {{ readiness_icon("waiting") }}
+            <span class="UpliftReadiness-label">Release manager approval</span>
+            <span class="UpliftReadiness-value">
+                {% if uplift.bug_id and linked_card %}
+                    Release managers review D{{ uplift.revision_id }} in Phabricator.
+                {% else %}
+                    Waits for the steps above.
+                {% endif %}
+            </span>
+        </li>
+    </ul>
+</div>

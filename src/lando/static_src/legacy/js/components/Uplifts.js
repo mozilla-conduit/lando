@@ -10,6 +10,25 @@ $.fn.uplifts = function () {
         // Ensure all toggle content is hidden on page load.
         $uplifts.find(".uplift-toggle-content").hide();
 
+        // Show or hide the assessment picker behind the checklist's "Change".
+        $uplifts.on("click", ".UpliftReadiness-toggle", function () {
+            let $toggle = $(this);
+            let expanded = $toggle.attr("aria-expanded") === "true";
+
+            $(`#${$toggle.attr("aria-controls")}`).prop("hidden", expanded);
+            $toggle.attr("aria-expanded", String(!expanded));
+        });
+
+        // Cancelling a change closes the picker it was made in.
+        $uplifts.on("assessmentpicker:cancel", ".AssessmentPicker-form", function () {
+            let $expand = $(this).closest(".UpliftReadiness-expand");
+
+            $expand.prop("hidden", true);
+            $uplifts
+                .find(`.UpliftReadiness-toggle[aria-controls="${$expand.attr("id")}"]`)
+                .attr("aria-expanded", "false");
+        });
+
         // Handle toggle for error details and command sections.
         $uplifts.on("click", ".uplift-toggle", function (e) {
             e.preventDefault();
