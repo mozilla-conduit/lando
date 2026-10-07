@@ -150,4 +150,42 @@ describe("$.fn.assessmentPicker", () => {
             "The switch can be submitted again.",
         ).toBe(false);
     });
+
+    test("reveals the new-assessment form for `None of these`", () => {
+        document.body.innerHTML = `
+            <form class="AssessmentPicker-form" data-current-assessment="" data-new-assessment-reveal="#new-assessment">
+                <div class="AssessmentPicker-choice">
+                    <input class="AssessmentPicker-radio" type="radio" name="assessment" value="4">
+                </div>
+                <div class="AssessmentPicker-choice">
+                    <input class="AssessmentPicker-radio" type="radio" name="assessment" value="new">
+                </div>
+                <div class="AssessmentPicker-actions">
+                    <button type="submit" class="AssessmentPicker-submit">Link assessment</button>
+                </div>
+            </form>
+            <form id="new-assessment" hidden></form>
+        `;
+        $(".AssessmentPicker-form").assessmentPicker();
+
+        choose("new");
+
+        expect($("#new-assessment").prop("hidden"), "The questions appear.").toBe(
+            false,
+        );
+        expect(
+            $(".AssessmentPicker-actions").prop("hidden"),
+            "The link button steps aside for the form's own.",
+        ).toBe(true);
+
+        choose("4");
+
+        expect($("#new-assessment").prop("hidden"), "The questions go away.").toBe(
+            true,
+        );
+        expect(
+            $(".AssessmentPicker-actions").prop("hidden"),
+            "The link button comes back.",
+        ).toBe(false);
+    });
 });

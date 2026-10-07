@@ -42,6 +42,7 @@ from lando.main.scm.helpers import HgPatchHelper
 from lando.ui.legacy.forms import (
     UpliftAssessmentForm,
 )
+from lando.ui.tests.markup import elements
 
 MILESTONE_TEST_CONTENTS_1 = """
 # Holds the current milestone.
@@ -1647,38 +1648,58 @@ def test_batch_page_offers_the_bugs_existing_assessments(
     )
 
 
-@pytest.mark.parametrize(
-    "assessment_count,expected_heading",
-    [
-        (1, f"Bug {UPLIFT_BUG_ID} already has an uplift assessment"),
-        (2, f"Bug {UPLIFT_BUG_ID} already has 2 uplift assessments"),
-    ],
-)
 @pytest.mark.django_db
-def test_batch_page_counts_the_bugs_existing_assessments(
-    authenticated_client, user, phabdouble, assessment_count, expected_heading
+def test_batch_page_asks_which_assessment_before_showing_the_questions(
+    authenticated_client, user, phabdouble
 ):
-    """The existing-assessments heading agrees with how many assessments are listed."""
+    """With assessments to reuse, the questions wait for `None of these`."""
     phabdouble.user(api_key=user.profile.phabricator_api_key)
     revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
-    for assessment_number in range(assessment_count):
+    first, second = (
         UpliftAssessment.objects.create(
-            user=user,
-            bug_id=UPLIFT_BUG_ID,
-            **{
-                **UPLIFT_ASSESSMENT_ANSWERS,
-                "user_impact": f"Impact of assessment {assessment_number}.",
-            },
+            user=user, bug_id=UPLIFT_BUG_ID, **UPLIFT_ASSESSMENT_ANSWERS
         )
+        for assessment_number in range(2)
+    )
 
-    response = authenticated_client.get(
+    html = authenticated_client.get(
         reverse("uplift-request-page"), {"revisions": str(revision_id)}
+    ).content.decode()
+
+    (picker,) = elements(html, "form", **{"class": "AssessmentPicker-form"})
+    assert picker["action"] == reverse("uplift-request-link-page"), (
+        "Choosing an existing assessment should link it without editing it."
+    )
+    choices = [
+        radio["value"]
+        for radio in elements(html, "input", type="radio", name="assessment")
+    ]
+    assert choices == [str(first.id), str(second.id), "new"], (
+        "Each assessment should be a choice, followed by `None of these`."
+    )
+    (questions,) = elements(html, "form", id="new-assessment")
+    assert "hidden" in questions, (
+        "The questions should stay hidden until `None of these` is chosen."
     )
 
-    assert expected_heading in response.content.decode(), (
-        f"The heading should read `{expected_heading}` for {assessment_count} "
-        "existing assessment(s)."
+
+@pytest.mark.django_db
+def test_batch_page_shows_the_questions_when_there_is_nothing_to_reuse(
+    authenticated_client, user, phabdouble
+):
+    """Without assessments on the bug, the page is just the questions."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+
+    html = authenticated_client.get(
+        reverse("uplift-request-page"), {"revisions": str(revision_id)}
+    ).content.decode()
+
+    assert not elements(html, "form", **{"class": "AssessmentPicker-form"}), (
+        "There is nothing to pick from, so there should be no picker."
     )
+    (questions,) = elements(html, "form", id="new-assessment")
+    assert "hidden" not in questions, "The questions should be shown straight away."
 
 
 @mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")

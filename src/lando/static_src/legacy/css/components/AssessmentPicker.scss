@@ -51,3 +51,9 @@
         }
     }
 }
+
+/* The new-assessment form, revealed when the picker's "None of these" is chosen. */
+.AssessmentPicker-reveal {
+    border-left: 3px solid $blue;
+    box-shadow: none;
+}

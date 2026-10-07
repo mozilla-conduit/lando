@@ -1,4 +1,5 @@
 {% extends "partials/layout.html" %}
+{% from "stack/partials/uplift-assessment-picker.html" import assessment_picker %}
 {% block page_title %}
     {% if assessment %}
         Uplift assessment #{{ assessment.id }}
@@ -31,56 +32,30 @@
                         </li>
                     {% endfor %}
                 </ul>
-                {% if bug_assessments and not assessment %}
-                    {# Existing assessments save the user from answering again, so this
-                       is offered as information rather than a warning. #}
-                    <article class="message is-info">
-                        <div class="message-header">
-                            {% if bug_assessments|length == 1 %}
-                                <p>Bug {{ bug_id }} already has an uplift assessment</p>
-                            {% else %}
-                                <p>Bug {{ bug_id }} already has {{ bug_assessments|length }} uplift assessments</p>
-                            {% endif %}
-                        </div>
-                        <div class="message-body">
-                            <p class="block">
-                                Link these revisions to an existing assessment rather than
-                                answering the questions again. You can still edit its answers
-                                from the revision page afterwards.
-                            </p>
-                            {% for bug_assessment in bug_assessments %}
-                                <div class="box">
-                                    <p>
-                                        <strong>Assessment #{{ bug_assessment.id }}</strong>
-                                        <span class="has-text-grey is-size-7">
-                                            by {{ bug_assessment.user.email }}
-                                            {% set linked = bug_assessment.revisions.all() %}
-                                            {% if linked %}
-                                                &mdash; linked to
-                                                {% for uplift_revision in linked %}D{{ uplift_revision.revision_id }}{% if not loop.last %}, {% endif %}{% endfor %}
-                                            {% endif %}
-                                        </span>
-                                    </p>
-                                    <p class="is-size-7">{{ bug_assessment.user_impact }}</p>
-                                    <form action="{{ url('uplift-request-link-page') }}" method="post">
-                                        {{ csrf_input }}
-                                        <input type="hidden" name="revision_ids" value="{{ revisions_param }}">
-                                        <input type="hidden" name="assessment" value="{{ bug_assessment.id }}">
-                                        <button class="button is-small is-primary"
-                                                {% if not user_has_phabricator_token %}disabled{% endif %}>
-                                            <span class="icon is-small">
-                                                <i class="fa fa-link" aria-hidden="true"></i>
-                                            </span>
-                                            <span>Link assessment #{{ bug_assessment.id }}</span>
-                                        </button>
-                                    </form>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    </article>
-                    <p class="block">
-                        <strong>Or create a new assessment for these revisions:</strong>
-                    </p>
+                {% set offers_picker = bug_assessments and not assessment %}
+                {% if offers_picker %}
+                    <h2 class="is-size-5">Which assessment describes these revisions?</h2>
+                    <form class="AssessmentPicker-form"
+                          action="{{ url('uplift-request-link-page') }}"
+                          method="post"
+                          data-current-assessment=""
+                          data-new-assessment-reveal="#new-assessment">
+                        {{ csrf_input }}
+                        <input type="hidden" name="revision_ids" value="{{ revisions_param }}">
+                        <fieldset {% if not user_has_phabricator_token %}disabled{% endif %}>
+                            {{ assessment_picker(bug_assessments, bug_id) }}
+                            <div class="field is-grouped mt-3 AssessmentPicker-actions">
+                                <p class="control">
+                                    <button type="submit"
+                                            class="button is-primary AssessmentPicker-submit"
+                                            disabled>Link assessment</button>
+                                </p>
+                                <p class="control">
+                                    <a href="/" class="button is-light">Cancel</a>
+                                </p>
+                            </div>
+                        </fieldset>
+                    </form>
                 {% endif %}
                 {% if existing_linked_revision_ids %}
                     <p>
@@ -94,8 +69,14 @@
                         {% endfor %}
                     </ul>
                 {% endif %}
-                <form method="post" action="">
+                {# With existing assessments to choose from, the questions only appear
+                   once the user picks "None of these". #}
+                <form id="new-assessment"
+                      method="post"
+                      action=""
+                      {% if offers_picker %}class="box AssessmentPicker-reveal" hidden{% endif %}>
                     {{ csrf_input }}
+                    {% if offers_picker %}<p class="has-text-weight-semibold">New assessment for bug {{ bug_id }}</p>{% endif %}
                     {# Hidden fields. #}
                     {{ form.assessment }}
                     {{ form.revision_ids }}

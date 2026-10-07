@@ -19,14 +19,16 @@ function assessmentPickerLabel(choice, currentId) {
 
 // Drive a form wrapping the `assessment_picker` macro: keep its single submit
 // button labelled for the chosen assessment, send "None of these" to the
-// new-assessment modal instead of the link endpoint the form posts to, and
-// confirm before moving a revision off the assessment it is linked to.
+// new-assessment modal or reveal the new-assessment form instead of posting to
+// the link endpoint, and confirm before moving a revision off the assessment it
+// is linked to.
 $.fn.assessmentPicker = function () {
     return this.each(function () {
         let $form = $(this);
         let $submit = $form.find(".AssessmentPicker-submit");
         let currentId = String($form.data("current-assessment") || "");
         let newModal = $form.data("new-assessment-modal");
+        let $newReveal = $($form.data("new-assessment-reveal") || []);
         let revisionId = $form.data("revision-id");
 
         function chosen() {
@@ -48,6 +50,14 @@ $.fn.assessmentPicker = function () {
 
             $submit.text(assessmentPickerLabel(choice, currentId));
             $submit.prop("disabled", !choice || choice === currentId);
+
+            // A revealed form has its own submit button, so the link one steps aside.
+            if ($newReveal.length) {
+                $newReveal.prop("hidden", choice !== "new");
+                $form
+                    .find(".AssessmentPicker-actions")
+                    .prop("hidden", choice === "new");
+            }
         }
 
         $form.on("change", ".AssessmentPicker-radio", update);
