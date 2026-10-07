@@ -161,7 +161,7 @@ future.
                                     <span class="icon is-small">
                                         <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
                                     </span>
-                                    <span>Edit Uplift Assessment</span>
+                                    <span>Edit assessment</span>
                                 </button>
                             </p>
                             {% if not card.is_linked %}
@@ -204,7 +204,7 @@ future.
             {% for card in uplift.bug_assessments %}
                 {% with assessment_form = card.form,
                     modal_id = card.assessment.id,
-                    modal_title = "Edit Uplift Assessment #" ~ card.assessment.id,
+                    modal_title = "Edit uplift assessment #" ~ card.assessment.id,
                     modal_action = url('uplift-assessment-edit-page', args=[uplift.revision_id, card.assessment.id]),
                     modal_submit = "Save assessment" %}
                     {% include "stack/partials/uplift-assessment-modal.html" %}
@@ -212,7 +212,7 @@ future.
             {% endfor %}
             {% with assessment_form = uplift.new_assessment_form,
                 modal_id = "new",
-                modal_title = "New Uplift Assessment for Bug " ~ uplift.bug_id,
+                modal_title = "New uplift assessment for bug " ~ uplift.bug_id,
                 modal_action = url('uplift-assessment-page', args=[uplift.revision_id]),
                 modal_submit = "Create assessment" %}
                 {% include "stack/partials/uplift-assessment-modal.html" %}

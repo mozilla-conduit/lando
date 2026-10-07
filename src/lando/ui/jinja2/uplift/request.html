@@ -1,9 +1,9 @@
 {% extends "partials/layout.html" %}
 {% block page_title %}
     {% if assessment %}
-        Uplift Assessment #{{ assessment.id }}
+        Uplift assessment #{{ assessment.id }}
     {% else %}
-        Uplift Assessment for Bug {{ bug_id }}
+        Uplift assessment for bug {{ bug_id }}
     {% endif %}
 {% endblock %}
 {% block main %}
@@ -12,10 +12,10 @@
             <div class="content">
                 <h1 class="title">
                     {% if assessment %}
-                        Link Uplift Assessment #{{ assessment.id }}
+                        Link uplift assessment #{{ assessment.id }}
                     {% else %}
-                        Uplift Assessment for
-                        <a href="{{ bug_id|bug_url }}" target="_blank">Bug {{ bug_id }}</a>
+                        Uplift assessment for
+                        <a href="{{ bug_id|bug_url }}" target="_blank">bug {{ bug_id }}</a>
                     {% endif %}
                 </h1>
                 {% if not user_has_phabricator_token %}
@@ -103,7 +103,7 @@
                                     {% if assessment %}
                                         Save and link revisions
                                     {% else %}
-                                        Create Assessment
+                                        Create assessment
                                     {% endif %}
                                 </button>
                             </div>
