@@ -1,0 +1,53 @@
+@import "../colors";
+
+/* The `assessment_picker` macro: one radio per assessment, then "None of these". */
+.AssessmentPicker {
+    .AssessmentPicker-choice {
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.5rem;
+        border: 1px solid $grey-lighter;
+        box-shadow: none;
+
+        &.is-selected {
+            border-color: $blue;
+            box-shadow: 0 0 0 1px $blue inset;
+        }
+    }
+
+    &-label {
+        display: flex;
+        gap: 0.6rem;
+        align-items: baseline;
+        cursor: pointer;
+    }
+
+    &-summary {
+        margin-left: 1.55rem;
+        margin-top: 0.2rem;
+
+        p + p,
+        details {
+            margin-top: 0.2rem;
+        }
+
+        summary {
+            cursor: pointer;
+        }
+    }
+
+    &-or {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        color: $grey;
+        font-size: 0.8rem;
+        margin: 0.5rem 0;
+
+        &::before,
+        &::after {
+            content: "";
+            flex: 1;
+            border-top: 1px solid rgba($black, 0.12);
+        }
+    }
+}

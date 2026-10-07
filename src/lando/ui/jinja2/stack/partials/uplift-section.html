@@ -4,6 +4,7 @@ At the moment, this only includes a reference to the uplift request
 assessment for the stack, but will include more details in the
 future.
 #}
+{% from "stack/partials/uplift-assessment-picker.html" import assessment_answers, assessment_picker %}
 {% macro revision_tag(rev_id, current_revision_id) %}
     {% if rev_id == current_revision_id %}
         <span class="tag is-rounded is-primary">D{{ rev_id }}</span>
@@ -36,26 +37,26 @@ future.
                     {% if uplift.bug_assessments %}
                         <p class="block">
                             Release managers need an assessment before this patch can be approved.
-                            Bug {{ uplift.bug_id }} already has one, so link this revision to it
-                            instead of answering the questions again.
+                            Pick the one bug {{ uplift.bug_id }} already has that describes this
+                            patch, or create a new one.
                         </p>
-                        <div class="field is-grouped is-grouped-multiline">
-                            {% for card in uplift.bug_assessments %}
-                                <p class="control">
-                                    <form action="{{ url('uplift-assessment-link-page', args=[uplift.revision_id]) }}"
-                                          method="post">
-                                        {{ csrf_input }}
-                                        <input type="hidden" name="assessment" value="{{ card.assessment.id }}">
-                                        <button class="button is-small is-primary">
-                                            <span class="icon is-small">
-                                                <i class="fa fa-link" aria-hidden="true"></i>
-                                            </span>
-                                            <span>Link assessment #{{ card.assessment.id }}</span>
-                                        </button>
-                                    </form>
-                                </p>
-                            {% endfor %}
-                        </div>
+                        {% if uplift.new_assessment_form %}
+                            <form class="AssessmentPicker-form"
+                                  action="{{ url('uplift-assessment-link-page', args=[uplift.revision_id]) }}"
+                                  method="post"
+                                  data-current-assessment=""
+                                  data-new-assessment-modal="new">
+                                {{ csrf_input }}
+                                {{ assessment_picker(uplift.bug_assessments | map(attribute="assessment") | list, uplift.bug_id) }}
+                                <div class="field mt-3">
+                                    <p class="control">
+                                        <button type="submit"
+                                                class="button is-primary AssessmentPicker-submit"
+                                                disabled>Link assessment</button>
+                                    </p>
+                                </div>
+                            </form>
+                        {% endif %}
                     {% else %}
                         <p class="block">
                             Release managers need an assessment before this patch can be approved,
@@ -133,18 +134,7 @@ future.
                             </div>
                         </div>
                     </div>
-                    <table class="table is-fullwidth is-narrow is-size-7 mt-3">
-                        <tbody>
-                            {% for answer in card.assessment.display_answers() %}
-                                <tr>
-                                    <th class="uplift-assessment-question">{{ answer.label }}</th>
-                                    <td class="uplift-assessment-answer">
-                                        {%- if answer.value %}{{ answer.value }}{% else %}<span class="has-text-grey">&mdash;</span>{% endif -%}
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                    {{ assessment_answers(card.assessment) }}
                     {# Uplift jobs queued from this assessment, one per target train. #}
                     <div class="content">
                         {% for job in card.jobs %}
@@ -167,7 +157,8 @@ future.
                                     <span>Edit assessment</span>
                                 </button>
                             </p>
-                            {% if not card.is_linked %}
+                            {# An unlinked revision chooses its assessment from the picker above. #}
+                            {% if not card.is_linked and not uplift.needs_assessment %}
                                 <p class="control">
                                     <form action="{{ url('uplift-assessment-link-page', args=[uplift.revision_id]) }}"
                                           method="post">
@@ -191,7 +182,7 @@ future.
                     Release managers need one before a patch can be approved for uplift.
                 </p>
             {% endfor %}
-            {% if uplift.new_assessment_form %}
+            {% if uplift.new_assessment_form and not uplift.needs_assessment %}
                 <button class="button is-primary assessment-modal-open"
                         data-assessment-modal="new">
                     <span class="icon is-small">

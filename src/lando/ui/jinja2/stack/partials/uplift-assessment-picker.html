@@ -1,0 +1,78 @@
+{# Macros for choosing one of a bug's uplift assessments.
+
+`assessment_picker` asks "which assessment describes this patch?" as a single
+question: one radio per assessment, then "None of these" for writing a new
+one. Callers wrap it in a form posting the `assessment` field, so linking and
+creating share one submit button. See `AssessmentPicker.js` for its behaviour.
+#}
+{% macro assessment_answers(assessment) %}
+    <table class="table is-fullwidth is-narrow is-size-7 mt-2">
+        <tbody>
+            {% for answer in assessment.display_answers() %}
+                <tr>
+                    <th class="uplift-assessment-question">{{ answer.label }}</th>
+                    <td class="uplift-assessment-answer">
+                        {%- if answer.value %}{{ answer.value }}{% else %}<span class="has-text-grey">&mdash;</span>{% endif -%}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endmacro %}
+{% macro assessment_picker(assessments, bug_id, current_id=None) %}
+    <div class="AssessmentPicker"
+         role="radiogroup"
+         aria-label="Uplift assessment">
+        {% for assessment in assessments %}
+            {% set linked_ids = assessment.revisions.all() | map(attribute="revision_id") | reject("none") | list %}
+            <div class="box AssessmentPicker-choice{% if assessment.id == current_id %} is-selected{% endif %}">
+                <label class="AssessmentPicker-label">
+                    <input class="AssessmentPicker-radio"
+                           type="radio"
+                           name="assessment"
+                           value="{{ assessment.id }}"
+                           {% if assessment.id == current_id %}checked{% endif %}>
+                    <span>
+                        <strong>Assessment #{{ assessment.id }}</strong>
+                        {% if assessment.id == current_id %}<span class="tag is-success is-light ml-1">Linked now</span>{% endif %}
+                        <span class="is-size-7 has-text-grey ml-1">
+                            by {{ assessment.user.email }} ·
+                            {% if linked_ids %}
+                                linked to {% for linked_id in linked_ids %}D{{ linked_id }}{% if not loop.last %}, {% endif %}{% endfor %}
+                            {% else %}
+                                not linked to any revision
+                            {% endif %}
+                        </span>
+                    </span>
+                </label>
+                <div class="AssessmentPicker-summary is-size-7">
+                    <p>
+                        <strong>User impact:</strong> {{ assessment.user_impact | truncate(200) }}
+                    </p>
+                    <p>
+                        <strong>Risk:</strong> {{ assessment.get_risk_associated_with_patch_display() }} ·
+                        <strong>Tests:</strong> {{ assessment.get_covered_by_testing_display() }} ·
+                        <strong>Verified in Nightly:</strong> {{ assessment.get_fix_verified_in_nightly_display() }}
+                    </p>
+                    <details>
+                        <summary>Show all answers</summary>
+                        {{ assessment_answers(assessment) }}
+                    </details>
+                </div>
+            </div>
+        {% endfor %}
+        <div class="AssessmentPicker-or" aria-hidden="true">or</div>
+        <div class="box AssessmentPicker-choice">
+            <label class="AssessmentPicker-label">
+                <input class="AssessmentPicker-radio"
+                       type="radio"
+                       name="assessment"
+                       value="new">
+                <span>
+                    <strong>None of these</strong>
+                    <span class="is-size-7 has-text-grey ml-1">create a new assessment for bug {{ bug_id }}</span>
+                </span>
+            </label>
+        </div>
+    </div>
+{% endmacro %}
