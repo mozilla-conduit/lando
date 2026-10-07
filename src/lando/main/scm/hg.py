@@ -288,6 +288,7 @@ class HgSCM(AbstractSCM):
                 self._run_hg_import(import_cmd, f_diff)
             except HgPatchConflict as exc:
                 logger.info("import failed", exc_info=exc)
+                self._collect_rejects()
                 raise exc
 
             if re.match("^[0-9]+$", commit_date):
@@ -750,10 +751,16 @@ class HgSCM(AbstractSCM):
         The repo is potentially left in a dirty state, but there is an unconditional
         cleanup step at the start of update_repo.
         """
-        # Read `.rej` file contents into memory before closing.
-        self.rejects_content = self.read_rejects_files()
-
+        self._collect_rejects()
         self.hg_repo.close()
+
+    def _collect_rejects(self):
+        """ Read `.rej` file contents into memory.
+
+        They may be deleted by subsequent cleanups, so we need to keep them somewhere
+        safe.
+        """
+        self.rejects_content = self.read_rejects_files()
 
     def read_rejects_files(self) -> dict[str, str]:
         """Read all `.rej` files in the repo and return their contents.
