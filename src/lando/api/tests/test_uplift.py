@@ -1647,6 +1647,40 @@ def test_batch_page_offers_the_bugs_existing_assessments(
     )
 
 
+@pytest.mark.parametrize(
+    "assessment_count,expected_heading",
+    [
+        (1, f"Bug {UPLIFT_BUG_ID} already has an uplift assessment"),
+        (2, f"Bug {UPLIFT_BUG_ID} already has 2 uplift assessments"),
+    ],
+)
+@pytest.mark.django_db
+def test_batch_page_counts_the_bugs_existing_assessments(
+    authenticated_client, user, phabdouble, assessment_count, expected_heading
+):
+    """The existing-assessments heading agrees with how many assessments are listed."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+    for assessment_number in range(assessment_count):
+        UpliftAssessment.objects.create(
+            user=user,
+            bug_id=UPLIFT_BUG_ID,
+            **{
+                **UPLIFT_ASSESSMENT_ANSWERS,
+                "user_impact": f"Impact of assessment {assessment_number}.",
+            },
+        )
+
+    response = authenticated_client.get(
+        reverse("uplift-request-page"), {"revisions": str(revision_id)}
+    )
+
+    assert expected_heading in response.content.decode(), (
+        f"The heading should read `{expected_heading}` for {assessment_count} "
+        "existing assessment(s)."
+    )
+
+
 @mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
 @pytest.mark.django_db
 def test_batch_page_files_a_new_assessment_under_the_bug(
