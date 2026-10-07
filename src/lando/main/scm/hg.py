@@ -288,7 +288,6 @@ class HgSCM(AbstractSCM):
                 self._run_hg_import(import_cmd, f_diff)
             except HgPatchConflict as exc:
                 logger.info("import failed", exc_info=exc)
-                self.clean_repo()
                 raise exc
 
             if re.match("^[0-9]+$", commit_date):
@@ -491,7 +490,7 @@ class HgSCM(AbstractSCM):
             yield self
         finally:
             del os.environ[REQUEST_USER_ENV_VAR]
-            self._clean_and_close()
+            self._close()
 
     @contextmanager
     @override
@@ -505,7 +504,7 @@ class HgSCM(AbstractSCM):
         try:
             yield self
         finally:
-            self._clean_and_close()
+            self._close()
 
     @override
     def head_ref(self) -> str:
@@ -745,12 +744,15 @@ class HgSCM(AbstractSCM):
         """Reformat the object's config, to a list of strings suitable for hglib"""
         return ["{}={}".format(k, v) for k, v in self.config.items() if v is not None]
 
-    def _clean_and_close(self):
-        """Perform closing activities when exiting any context managers."""
-        try:
-            self.clean_repo()
-        except Exception as e:
-            logger.exception(e)
+    def _close(self):
+        """Perform closing activities when exiting any context managers.
+
+        The repo is potentially left in a dirty state, but there is an unconditional
+        cleanup step at the start of update_repo.
+        """
+        # Read `.rej` file contents into memory before closing.
+        self.rejects_content = self.read_rejects_files()
+
         self.hg_repo.close()
 
     def read_rejects_files(self) -> dict[str, str]:
@@ -774,9 +776,6 @@ class HgSCM(AbstractSCM):
 
         `attributes_override` is ignored.
         """
-        # Read `.rej` file contents into memory before cleaning removes them.
-        self.rejects_content = self.read_rejects_files()
-
         # Clean working directory.
         try:
             self.run_hg(["--quiet", "revert", "--no-backup", "--all"])
