@@ -106,6 +106,7 @@ linked yet, and behind "Change" once something is.
                       action="{{ url('uplift-assessment-link-page', args=[uplift.revision_id]) }}"
                       method="post"
                       data-current-assessment="{{ current_id or '' }}"
+                      data-revision-id="{{ uplift.revision_id }}"
                       data-new-assessment-modal="new">
                     {{ csrf_input }}
                     {{ assessment_picker(uplift.bug_assessments | map(attribute="assessment") | list, uplift.bug_id, current_id) }}

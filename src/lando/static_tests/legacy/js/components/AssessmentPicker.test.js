@@ -5,7 +5,7 @@ import "@static_src/legacy/js/components/AssessmentPicker";
 // Render a picker form with assessments #4 and #5, optionally linked to one.
 function renderPicker(currentId = "") {
     document.body.innerHTML = `
-        <form class="AssessmentPicker-form" data-current-assessment="${currentId}" data-new-assessment-modal="new">
+        <form class="AssessmentPicker-form" data-current-assessment="${currentId}" data-revision-id="4218" data-new-assessment-modal="new">
             <div class="AssessmentPicker-choice">
                 <input class="AssessmentPicker-radio" type="radio" name="assessment" value="4"${currentId === "4" ? " checked" : ""}>
             </div>
@@ -97,5 +97,57 @@ describe("$.fn.assessmentPicker", () => {
             ),
             "The new-assessment modal opens.",
         ).toBe(true);
+    });
+
+    test("links straight away when nothing is linked yet", () => {
+        renderPicker();
+        let submit = vi
+            .spyOn(HTMLFormElement.prototype, "submit")
+            .mockImplementation(() => {});
+        choose("5");
+
+        $(".AssessmentPicker-form").trigger("submit");
+
+        expect(submit, "The link is posted without asking.").toHaveBeenCalledTimes(1);
+        expect($(".AssessmentPicker-confirm").length, "Nothing is moved.").toBe(0);
+        submit.mockRestore();
+    });
+
+    test("confirms before switching away from the linked assessment", () => {
+        renderPicker("4");
+        let submit = vi
+            .spyOn(HTMLFormElement.prototype, "submit")
+            .mockImplementation(() => {});
+        choose("5");
+
+        let submitEvent = $.Event("submit");
+        $(".AssessmentPicker-form").trigger(submitEvent);
+
+        expect(submitEvent.isDefaultPrevented(), "The switch waits.").toBe(true);
+        expect(
+            $(".AssessmentPicker-confirm-question").text(),
+            "The question names both assessments.",
+        ).toBe("Move D4218 from #4 to #5?");
+
+        $(".AssessmentPicker-confirm-move").trigger("click");
+
+        expect(submit, "Confirming posts the switch.").toHaveBeenCalledTimes(1);
+        submit.mockRestore();
+    });
+
+    test("cancelling the confirmation keeps the form as it was", () => {
+        renderPicker("4");
+        choose("5");
+        $(".AssessmentPicker-form").trigger($.Event("submit"));
+
+        $(".AssessmentPicker-confirm-cancel").trigger("click");
+
+        expect($(".AssessmentPicker-confirm").length, "The question goes away.").toBe(
+            0,
+        );
+        expect(
+            $(".AssessmentPicker-submit").prop("disabled"),
+            "The switch can be submitted again.",
+        ).toBe(false);
     });
 });

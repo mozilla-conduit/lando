@@ -18,14 +18,16 @@ function assessmentPickerLabel(choice, currentId) {
 }
 
 // Drive a form wrapping the `assessment_picker` macro: keep its single submit
-// button labelled for the chosen assessment, and send "None of these" to the
-// new-assessment modal instead of the link endpoint the form posts to.
+// button labelled for the chosen assessment, send "None of these" to the
+// new-assessment modal instead of the link endpoint the form posts to, and
+// confirm before moving a revision off the assessment it is linked to.
 $.fn.assessmentPicker = function () {
     return this.each(function () {
         let $form = $(this);
         let $submit = $form.find(".AssessmentPicker-submit");
         let currentId = String($form.data("current-assessment") || "");
         let newModal = $form.data("new-assessment-modal");
+        let revisionId = $form.data("revision-id");
 
         function chosen() {
             return $form.find(".AssessmentPicker-radio:checked").val() || "";
@@ -33,6 +35,8 @@ $.fn.assessmentPicker = function () {
 
         function update() {
             let choice = chosen();
+
+            $form.find(".AssessmentPicker-confirm").remove();
 
             $form.find(".AssessmentPicker-choice").each(function () {
                 let $choice = $(this);
@@ -57,15 +61,50 @@ $.fn.assessmentPicker = function () {
             $form.trigger("assessmentpicker:cancel");
         });
 
-        $form.on("submit", function (event) {
-            if (chosen() !== "new") {
-                return;
-            }
+        // Ask before switching, since the previous assessment loses this revision.
+        function confirmSwitch(choice) {
+            let $confirm = $(`
+                <article class="message is-warning AssessmentPicker-confirm mt-3">
+                    <div class="message-body">
+                        <p class="AssessmentPicker-confirm-question has-text-weight-semibold"></p>
+                        <p class="AssessmentPicker-confirm-detail is-size-7"></p>
+                        <div class="buttons mt-2">
+                            <button type="button" class="button is-small is-warning AssessmentPicker-confirm-move"></button>
+                            <button type="button" class="button is-small AssessmentPicker-confirm-cancel">Cancel</button>
+                        </div>
+                    </div>
+                </article>
+            `);
+            $confirm
+                .find(".AssessmentPicker-confirm-question")
+                .text(`Move D${revisionId} from #${currentId} to #${choice}?`);
+            $confirm
+                .find(".AssessmentPicker-confirm-detail")
+                .text(`#${currentId} will no longer cover D${revisionId}.`);
+            $confirm.find(".AssessmentPicker-confirm-move").text(`Move to #${choice}`);
 
-            event.preventDefault();
-            $(`.uplift-assessment-modal[data-assessment-modal="${newModal}"]`).addClass(
-                "is-active",
-            );
+            $submit.prop("disabled", true);
+            $form.append($confirm);
+        }
+
+        $form.on("click", ".AssessmentPicker-confirm-move", function () {
+            $form.get(0).submit();
+        });
+
+        $form.on("click", ".AssessmentPicker-confirm-cancel", update);
+
+        $form.on("submit", function (event) {
+            let choice = chosen();
+
+            if (choice === "new") {
+                event.preventDefault();
+                $(
+                    `.uplift-assessment-modal[data-assessment-modal="${newModal}"]`,
+                ).addClass("is-active");
+            } else if (currentId && choice !== currentId) {
+                event.preventDefault();
+                confirmSwitch(choice);
+            }
         });
 
         update();
