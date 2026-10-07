@@ -7,7 +7,11 @@ from django.urls import reverse
 
 from lando.api.legacy.stacks import RevisionStack
 from lando.conftest import UPLIFT_ASSESSMENT_ANSWERS
-from lando.main.models.uplift import UpliftAssessment, UpliftRevision
+from lando.main.models.uplift import (
+    UpliftAssessment,
+    UpliftRevision,
+    UpliftSubmission,
+)
 from lando.ui.uplift.context import UpliftContext
 
 REVISION_PHID = "PHID-REV-uplift"
@@ -35,6 +39,11 @@ def elements(html: str, tag: str, **attributes: str) -> list[dict]:
         if element_tag == tag
         and all(attrs.get(name) == value for name, value in attributes.items())
     ]
+
+
+def squashed(html: str) -> str:
+    """Return `html` with each run of whitespace collapsed to one space."""
+    return " ".join(html.split())
 
 
 def render_uplift_section(
@@ -207,3 +216,59 @@ def test_uplift_revision_no_longer_warns_off_request_uplift(rf, user, linked):
     assert "Before release managers can approve D4219" in html, (
         "The checklist should lead the uplift section."
     )
+
+
+@pytest.mark.django_db
+def test_linked_uplift_revision_shows_only_its_own_assessment_in_full(rf, user):
+    """The linked assessment gets the card; the bug's others fold under it."""
+    bug_id = 1601002
+    revision_id = 4218
+    linked, other = create_assessments(user, bug_id, 2)
+    UpliftRevision.link_revision_to_assessment(revision_id, linked)
+    UpliftRevision.link_revision_to_assessment(4221, linked)
+
+    html = render_uplift_section(rf, user, revision_id, bug_id)
+
+    assert len(elements(html, "div", **{"class": "box"})) == 1, (
+        "Only the linked assessment should be shown as a full card."
+    )
+    assert "1 other assessment for bug 1601002" in squashed(html), (
+        "The bug's other assessment should be folded under the linked one."
+    )
+    assert "Edits also apply to D4221." in squashed(html), (
+        "Editing a shared assessment should say which revisions it changes."
+    )
+
+
+@pytest.mark.django_db
+def test_unlinked_uplift_revision_shows_no_cards_beside_the_picker(rf, user):
+    """The picker already lists every assessment, so no cards repeat them."""
+    create_assessments(user, 1601002, 2)
+
+    html = render_uplift_section(rf, user, 4219, 1601002)
+
+    assert not elements(html, "div", **{"class": "box"}), (
+        "An unlinked revision should not repeat the picker's assessments as cards."
+    )
+    assert "UpliftOthers" not in html, "There is no linked assessment to fold under."
+
+
+@pytest.mark.django_db
+def test_mainline_revision_shows_every_uplift_requested_from_it(rf, user):
+    """A mainline revision has no checklist, and shows each requested uplift."""
+    bug_id = 1601002
+    revision_id = 4215
+    (requested,) = create_assessments(user, bug_id, 1)
+    UpliftSubmission.objects.create(
+        requested_by=user, assessment=requested, requested_revision_ids=[revision_id]
+    )
+
+    html = render_uplift_section(rf, user, revision_id, bug_id, uplift_repo=False)
+
+    assert "Before release managers can approve" not in html, (
+        "A mainline revision is not approved for uplift, so it has no checklist."
+    )
+    assert len(elements(html, "div", **{"class": "box"})) == 1, (
+        "The uplift requested from the revision should be shown as a card."
+    )
+    assert "Uplift assessments for" in html, "The cards should name their bug."

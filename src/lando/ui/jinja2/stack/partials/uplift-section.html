@@ -20,7 +20,8 @@ future.
         {% include "stack/partials/uplift-readiness.html" %}
     {% endif %}
     {% if uplift.bug_id %}
-        {% if uplift.bug_assessments %}
+        {# The checklist already names the bug on an uplift revision. #}
+        {% if uplift.bug_assessments and not uplift.is_uplift_revision %}
             <div class="block">
                 <h2 class="is-size-5">
                     Uplift assessments for
@@ -29,7 +30,7 @@ future.
             </div>
         {% endif %}
         <div class="block">
-            {% for card in uplift.bug_assessments %}
+            {% for card in uplift.shown_cards %}
                 <div class="box">
                     <div class="level is-mobile">
                         <div class="level-left">
@@ -70,7 +71,34 @@ future.
                             </div>
                         </div>
                     </div>
-                    {{ assessment_answers(card.assessment) }}
+                    <p class="is-size-7 mt-3">
+                        <strong>User impact:</strong> {{ card.assessment.user_impact | truncate(200) }}
+                        <strong class="ml-2">Risk:</strong> {{ card.assessment.get_risk_associated_with_patch_display() }}
+                    </p>
+                    <details class="mt-2">
+                        <summary class="is-size-7">Show all answers</summary>
+                        {{ assessment_answers(card.assessment) }}
+                        {% if uplift.new_assessment_form %}
+                            {% set also_linked = card.revision_ids | reject("equalto", uplift.revision_id) | list %}
+                            <div class="field is-grouped is-align-items-center">
+                                <p class="control">
+                                    <button class="button is-small assessment-modal-open"
+                                            data-assessment-modal="{{ card.assessment.id }}">
+                                        <span class="icon is-small">
+                                            <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
+                                        </span>
+                                        <span>Edit assessment</span>
+                                    </button>
+                                </p>
+                                {% if also_linked %}
+                                    <p class="help">
+                                        Edits also apply to
+                                        {% for linked_id in also_linked %}D{{ linked_id }}{% if not loop.last %}, {% endif %}{% endfor %}.
+                                    </p>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </details>
                     {# Uplift jobs queued from this assessment, one per target train. #}
                     <div class="content">
                         {% for job in card.jobs %}
@@ -82,26 +110,35 @@ future.
                             <p class="has-text-grey">No uplift jobs have been queued from this assessment yet.</p>
                         {% endfor %}
                     </div>
-                    {% if uplift.new_assessment_form %}
-                        <div class="field is-grouped mt-3">
-                            <p class="control">
-                                <button class="button is-small assessment-modal-open"
-                                        data-assessment-modal="{{ card.assessment.id }}">
-                                    <span class="icon is-small">
-                                        <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
-                                    </span>
-                                    <span>Edit assessment</span>
-                                </button>
-                            </p>
-                        </div>
-                    {% endif %}
                 </div>
             {% endfor %}
         </div>
+        {% if uplift.collapsed_cards %}
+            <details class="block UpliftOthers">
+                <summary>
+                    {{ uplift.collapsed_cards | length }} other
+                    {{ "assessment" if uplift.collapsed_cards | length == 1 else "assessments" }}
+                    for bug {{ uplift.bug_id }}
+                </summary>
+                {% for card in uplift.collapsed_cards %}
+                    <div class="UpliftOthers-row">
+                        <strong>#{{ card.assessment.id }}</strong>
+                        <span class="is-size-7">{{ card.assessment.user_impact | truncate(120) }}</span>
+                        <span class="is-size-7 has-text-grey">
+                            {% if card.revision_ids %}
+                                linked to {% for linked_id in card.revision_ids %}D{{ linked_id }}{% if not loop.last %}, {% endif %}{% endfor %}
+                            {% else %}
+                                not linked to any revision
+                            {% endif %}
+                        </span>
+                    </div>
+                {% endfor %}
+            </details>
+        {% endif %}
         {% if uplift.new_assessment_form %}
             {# One modal per assessment, each pre-filled with its own answers,
                plus one for authoring a new assessment on the bug. #}
-            {% for card in uplift.bug_assessments %}
+            {% for card in uplift.shown_cards %}
                 {% with assessment_form = card.form,
                     modal_id = card.assessment.id,
                     modal_title = "Edit uplift assessment #" ~ card.assessment.id,

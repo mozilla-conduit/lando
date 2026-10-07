@@ -88,6 +88,26 @@ class UpliftContext:
         """Return the card of the assessment linked to this revision, if any."""
         return next((card for card in self.bug_assessments if card.is_linked), None)
 
+    @property
+    def shown_cards(self) -> tuple[UpliftAssessmentCard, ...]:
+        """Return the cards shown in full.
+
+        An uplift revision shows only the assessment linked to it; the picker
+        lists the rest. A mainline revision shows every uplift requested from it.
+        """
+        if not self.is_uplift_revision:
+            return tuple(self.bug_assessments)
+
+        return (self.linked_card,) if self.linked_card else ()
+
+    @property
+    def collapsed_cards(self) -> tuple[UpliftAssessmentCard, ...]:
+        """Return the bug's other assessments, folded under the linked one."""
+        if not self.is_uplift_revision or self.linked_card is None:
+            return ()
+
+        return tuple(card for card in self.bug_assessments if not card.is_linked)
+
     @classmethod
     def build(
         cls,

@@ -428,3 +428,19 @@ fieldset {
         border-top: 1px solid $white-bis;
     }
 }
+
+/* The bug's other assessments, folded under the one linked to this revision. */
+.UpliftOthers {
+    summary {
+        cursor: pointer;
+        color: $blue;
+    }
+
+    &-row {
+        display: flex;
+        gap: 0.75rem;
+        align-items: baseline;
+        padding: 0.4rem 0;
+        border-bottom: 1px solid $white-bis;
+    }
+}
