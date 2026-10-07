@@ -16,9 +16,12 @@ future.
 <div class="Uplifts">
     {% if not uplift.bug_id %}
         <article class="message is-warning">
+            <div class="message-header">
+                <p>This revision has no bug number</p>
+            </div>
             <div class="message-body">
-                This revision has no bug number. Uplifts are tracked per bug, so set the
-                bug number on this revision in Phabricator before requesting an uplift.
+                Uplifts are tracked per bug, so set the bug number on this revision in
+                Phabricator before requesting an uplift.
             </div>
         </article>
     {% else %}
