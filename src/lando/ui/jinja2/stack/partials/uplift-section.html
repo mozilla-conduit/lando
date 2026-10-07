@@ -32,45 +32,21 @@ future.
         <div class="block">
             {% for card in uplift.shown_cards %}
                 <div class="box">
-                    <div class="level is-mobile">
-                        <div class="level-left">
-                            <div class="level-item">
-                                <div>
-                                    <div class="is-size-6 has-text-weight-semibold">
-                                        Assessment #{{ card.assessment.id }}
-                                        {% if card.is_linked %}
-                                            <span class="tag is-success is-light ml-2">Linked to this revision</span>
-                                        {% endif %}
-                                    </div>
-                                    <p class="is-size-7 has-text-grey">
-                                        <time data-timestamp="{{ card.assessment.updated_at }}">{{ card.assessment.updated_at }}</time>, by {{ card.assessment.user.email }}.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="level-right">
-                            <div class="level-item">
-                                <div class="has-text-right">
-                                    {% if card.requested_revision_ids %}
-                                        <p class="is-size-7 has-text-grey">Requested for uplift</p>
-                                        <div class="tags is-right">
-                                            {% for rev_id in card.requested_revision_ids %}
-                                                {{ revision_tag(rev_id, uplift.revision_id) }}
-                                            {% endfor %}
-                                        </div>
-                                    {% endif %}
-                                    <p class="is-size-7 has-text-grey">Linked revisions</p>
-                                    <div class="tags is-right">
-                                        {% for rev_id in card.revision_ids %}
-                                            {{ revision_tag(rev_id, uplift.revision_id) }}
-                                        {% else %}
-                                            <span class="is-size-7 has-text-grey">None</span>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="is-size-6 has-text-weight-semibold">
+                        Assessment #{{ card.assessment.id }}
+                        {% if card.is_linked %}
+                            <span class="tag is-success is-light ml-2">Linked to this revision</span>
+                        {% endif %}
                     </div>
+                    <p class="is-size-7 has-text-grey">
+                        <time data-timestamp="{{ card.assessment.updated_at }}">{{ card.assessment.updated_at }}</time>, by {{ card.assessment.user.email }}.
+                        {% if card.requested_revision_ids %}
+                            Requested for uplift from
+                            {% for rev_id in card.requested_revision_ids %}
+                                {{ revision_tag(rev_id, uplift.revision_id) }}
+                            {% endfor %}
+                        {% endif %}
+                    </p>
                     <p class="is-size-7 mt-3">
                         <strong>User impact:</strong> {{ card.assessment.user_impact | truncate(200) }}
                         <strong class="ml-2">Risk:</strong> {{ card.assessment.get_risk_associated_with_patch_display() }}
@@ -99,17 +75,7 @@ future.
                             </div>
                         {% endif %}
                     </details>
-                    {# Uplift jobs queued from this assessment, one per target train. #}
-                    <div class="content">
-                        {% for job in card.jobs %}
-                            {% if not loop.first %}
-                                <hr>
-                            {% endif %}
-                            {% include "stack/partials/uplift-job.html" %}
-                        {% else %}
-                            <p class="has-text-grey">No uplift jobs have been queued from this assessment yet.</p>
-                        {% endfor %}
-                    </div>
+                    {% include "stack/partials/uplift-trains.html" %}
                 </div>
             {% endfor %}
         </div>

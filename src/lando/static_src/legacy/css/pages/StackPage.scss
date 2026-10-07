@@ -457,3 +457,14 @@ fieldset {
         border-bottom: 1px solid $white-bis;
     }
 }
+
+/* The stacks carrying an assessment, one row per train. */
+.UpliftTrains {
+    td {
+        vertical-align: middle;
+    }
+
+    .tag.is-rounded {
+        vertical-align: middle;
+    }
+}

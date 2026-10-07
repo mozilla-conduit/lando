@@ -7,7 +7,7 @@ from typing import Self, Sequence
 from django.conf import settings
 from django.core.handlers.wsgi import WSGIRequest
 
-from lando.api.legacy.stacks import RevisionStack
+from lando.api.legacy.stacks import RevisionStack, get_revisions_by_id
 from lando.api.legacy.validation import revision_id_to_int
 from lando.main.models import Repo
 from lando.main.models.uplift import (
@@ -20,8 +20,29 @@ from lando.ui.legacy.forms import (
     UpliftRequestForm,
 )
 from lando.utils.const import UPLIFT_DOCS_URL
+from lando.utils.phabricator import PhabricatorAPIException, PhabricatorClient
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class UpliftTrainRow:
+    """One revision stack carrying an assessment, as a row of its card's table."""
+
+    # Name of the train the stack targets, or `None` when it is not known.
+    train: str | None
+
+    # Phabricator ID of the stack's tip, or `None` when a job created nothing.
+    tip_revision_id: int | None
+
+    # The Lando job that created the stack, or `None` for one made outside Lando.
+    job: UpliftJob | None = None
+
+    # Phabricator status of a stack made outside Lando, ie `needs-review`.
+    status_value: str | None = None
+
+    # Human-readable Phabricator status of a stack made outside Lando.
+    status_name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +66,10 @@ class UpliftAssessmentCard:
 
     # Every uplift job queued from this assessment, one per target train.
     jobs: Sequence[UpliftJob]
+
+    # Each stack carrying this assessment, by train: one per job, then each
+    # stack linked from outside Lando.
+    train_rows: Sequence[UpliftTrainRow]
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,6 +143,7 @@ class UpliftContext:
         revisions: dict[str, dict],
         stack: RevisionStack,
         revision_repo: Repo | None,
+        phab: PhabricatorClient | None = None,
     ) -> Self:
         """Return a populated `UpliftContext` for the given stack view."""
         try:
@@ -160,7 +186,7 @@ class UpliftContext:
             is_uplift_revision=is_uplift_revision,
             needs_assessment=linked_assessment is None,
             bug_assessments=cls.build_assessment_cards(
-                bug_id, revision_id, linked_assessment, is_uplift_revision
+                bug_id, revision_id, linked_assessment, is_uplift_revision, phab=phab
             ),
             new_assessment_form=new_assessment_form,
             docs_url=UPLIFT_DOCS_URL,
@@ -185,8 +211,13 @@ class UpliftContext:
         revision_id: int,
         linked_assessment: UpliftAssessment | None,
         is_uplift_revision: bool,
+        phab: PhabricatorClient | None = None,
     ) -> tuple[UpliftAssessmentCard, ...]:
-        """Return a card for each assessment this revision should display."""
+        """Return a card for each assessment this revision should display.
+
+        `phab` looks up the trains of stacks linked from outside Lando; without
+        it their train is shown as unknown.
+        """
         assessments = list(
             UpliftAssessment.visible_on_revision(bug_id, revision_id).prefetch_related(
                 "uplift_submission"
@@ -207,6 +238,42 @@ class UpliftContext:
             ]
         jobs_by_assessment = cls.jobs_by_assessment(assessments)
 
+        revision_ids_by_assessment = {
+            assessment.pk: [
+                uplift_revision.revision_id
+                for uplift_revision in assessment.revisions.all()
+                if uplift_revision.revision_id is not None
+            ]
+            for assessment in assessments
+        }
+
+        # Revisions a job created are described by that job; the rest were
+        # linked from outside Lando, so only Phabricator knows their train.
+        created_by_assessment = {
+            assessment.pk: {
+                created_id
+                for job in jobs_by_assessment.get(assessment.pk, [])
+                for created_id in job.created_revision_ids
+            }
+            for assessment in assessments
+        }
+        outside_ids_by_assessment = {
+            assessment.pk: [
+                linked_id
+                for linked_id in revision_ids_by_assessment[assessment.pk]
+                if linked_id not in created_by_assessment[assessment.pk]
+            ]
+            for assessment in assessments
+        }
+        outside_rows = cls.describe_stacks_outside_lando(
+            phab,
+            {
+                linked_id
+                for outside_ids in outside_ids_by_assessment.values()
+                for linked_id in outside_ids
+            },
+        )
+
         return tuple(
             UpliftAssessmentCard(
                 assessment=assessment,
@@ -215,16 +282,93 @@ class UpliftContext:
                     linked_assessment is not None
                     and linked_assessment.pk == assessment.pk
                 ),
-                revision_ids=[
-                    uplift_revision.revision_id
-                    for uplift_revision in assessment.revisions.all()
-                    if uplift_revision.revision_id is not None
-                ],
+                revision_ids=revision_ids_by_assessment[assessment.pk],
                 requested_revision_ids=requested_by_assessment[assessment.pk],
                 jobs=jobs_by_assessment.get(assessment.pk, []),
+                train_rows=[
+                    UpliftTrainRow(
+                        train=job.target_repo.name,
+                        tip_revision_id=(
+                            job.created_revision_ids[-1]
+                            if job.created_revision_ids
+                            else None
+                        ),
+                        job=job,
+                    )
+                    for job in jobs_by_assessment.get(assessment.pk, [])
+                ]
+                + [
+                    outside_rows.get(
+                        linked_id,
+                        UpliftTrainRow(train=None, tip_revision_id=linked_id),
+                    )
+                    for linked_id in sorted(outside_ids_by_assessment[assessment.pk])
+                ],
             )
             for assessment in assessments
         )
+
+    @staticmethod
+    def describe_stacks_outside_lando(
+        phab: PhabricatorClient | None, revision_ids: set[int]
+    ) -> dict[int, UpliftTrainRow]:
+        """Return a train row for each stack tip no Lando job created.
+
+        Lando only records which assessment such a stack carries, so its train
+        and status come from Phabricator. A failed lookup leaves them unknown.
+        """
+        if phab is None or not revision_ids:
+            return {}
+
+        logger.debug("Looking up the trains of %s in Phabricator.", revision_ids)
+        try:
+            revisions = get_revisions_by_id(phab, sorted(revision_ids))
+            repo_phids = sorted(
+                {
+                    revision["fields"]["repositoryPHID"]
+                    for revision in revisions.values()
+                    if revision["fields"].get("repositoryPHID")
+                }
+            )
+            repositories = (
+                phab.call_conduit(
+                    "diffusion.repository.search",
+                    constraints={"phids": repo_phids},
+                    limit=len(repo_phids),
+                )["data"]
+                if repo_phids
+                else []
+            )
+        except PhabricatorAPIException, ValueError:
+            logger.warning(
+                "Could not look up the trains of %s.", revision_ids, exc_info=True
+            )
+            return {}
+
+        short_names = {
+            repository["phid"]: repository["fields"]["shortName"]
+            for repository in repositories
+        }
+
+        # Name a train the way Lando's jobs do, falling back to Phabricator's.
+        lando_names = dict(
+            Repo.objects.filter(short_name__in=short_names.values()).values_list(
+                "short_name", "name"
+            )
+        )
+
+        rows = {}
+        for revision in revisions.values():
+            short_name = short_names.get(revision["fields"].get("repositoryPHID"))
+            status = revision["fields"]["status"]
+            rows[revision["id"]] = UpliftTrainRow(
+                train=lando_names.get(short_name, short_name),
+                tip_revision_id=revision["id"],
+                status_value=status["value"],
+                status_name=status["name"],
+            )
+
+        return rows
 
     @staticmethod
     def jobs_by_assessment(

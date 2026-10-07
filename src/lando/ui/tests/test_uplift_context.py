@@ -12,7 +12,8 @@ from lando.main.models.uplift import (
     UpliftSubmission,
 )
 from lando.main.scm import SCMType
-from lando.ui.uplift.context import UpliftContext
+from lando.ui.uplift.context import UpliftContext, UpliftTrainRow
+from lando.utils.phabricator import PhabricatorRevisionStatus
 
 
 @pytest.mark.django_db
@@ -301,4 +302,97 @@ def test_authoring_an_assessment_needs_an_uplift_revision_a_bug_and_a_login(user
     )
     assert not UpliftContext.can_author_assessment(anonymous, 123, True), (
         "An anonymous user should not get the forms."
+    )
+
+
+@pytest.mark.django_db
+def test_train_rows_describe_each_stack_by_train(user, repo_mc, phabdouble):
+    """A card has a row per job, then a row per stack linked from outside Lando.
+
+    Lando only records which assessment a hand-linked stack carries, so its
+    train and status come from Phabricator.
+    """
+    bug_id = 909090
+    beta = repo_mc(scm_type=SCMType.GIT, name="firefox-beta", approval_required=True)
+    release = repo_mc(
+        scm_type=SCMType.GIT, name="firefox-release", approval_required=True
+    )
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=bug_id, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    submission = UpliftSubmission.objects.create(
+        requested_by=user, assessment=assessment, requested_revision_ids=[100]
+    )
+    job = UpliftJob.objects.create(
+        submission=submission,
+        requester_email=user.email,
+        status=JobStatus.LANDED,
+        target_repo=beta,
+        created_revision_ids=[301, 302],
+    )
+    UpliftRevision.link_revision_to_assessment(302, assessment)
+
+    outside = phabdouble.revision(
+        repo=phabdouble.repo(name=release.short_name),
+        status=PhabricatorRevisionStatus.NEEDS_REVIEW,
+        bug_id=bug_id,
+    )
+    UpliftRevision.link_revision_to_assessment(outside["id"], assessment)
+
+    (card,) = UpliftContext.build_assessment_cards(
+        bug_id,
+        outside["id"],
+        assessment,
+        is_uplift_revision=True,
+        phab=phabdouble.get_phabricator_client(),
+    )
+
+    assert card.train_rows == [
+        UpliftTrainRow(train=beta.name, tip_revision_id=302, job=job),
+        UpliftTrainRow(
+            train=release.name,
+            tip_revision_id=outside["id"],
+            status_value="needs-review",
+            status_name="Needs Review",
+        ),
+    ], "Each stack should be listed under its train, with the job's tip first."
+
+
+@pytest.mark.django_db
+def test_train_rows_leave_the_train_unknown_without_phabricator(user):
+    """A hand-linked stack Phabricator cannot describe keeps an unknown train."""
+    bug_id = 919191
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=bug_id, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    UpliftRevision.link_revision_to_assessment(555, assessment)
+
+    (card,) = UpliftContext.build_assessment_cards(
+        bug_id, 555, assessment, is_uplift_revision=True
+    )
+
+    assert card.train_rows == [UpliftTrainRow(train=None, tip_revision_id=555)], (
+        "Without a Phabricator lookup the stack should still be listed."
+    )
+
+
+@pytest.mark.django_db
+def test_train_lookup_failure_does_not_break_the_page(user, phabdouble):
+    """A revision Phabricator does not return leaves its train unknown."""
+    bug_id = 929292
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=bug_id, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    UpliftRevision.link_revision_to_assessment(99999, assessment)
+
+    (card,) = UpliftContext.build_assessment_cards(
+        bug_id,
+        99999,
+        assessment,
+        is_uplift_revision=True,
+        phab=phabdouble.get_phabricator_client(),
+    )
+
+    assert card.train_rows == [UpliftTrainRow(train=None, tip_revision_id=99999)], (
+        "A failed lookup should fall back to an unknown train."
     )

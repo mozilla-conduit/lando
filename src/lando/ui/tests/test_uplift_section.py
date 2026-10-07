@@ -244,3 +244,23 @@ def test_mainline_revision_shows_every_uplift_requested_from_it(rf, user):
         "The uplift requested from the revision should be shown as a card."
     )
     assert "Uplift assessments for" in html, "The cards should name their bug."
+
+
+@pytest.mark.django_db
+def test_linked_card_lists_its_stacks_by_train(rf, user):
+    """The linked card names each stack by its tip, highlighting this revision's."""
+    bug_id = 1601002
+    revision_id = 4218
+    (linked,) = create_assessments(user, bug_id, 1)
+    UpliftRevision.link_revision_to_assessment(revision_id, linked)
+
+    html = render_uplift_section(rf, user, revision_id, bug_id)
+
+    assert "Stack tip" in html, "The table should name each stack by its tip."
+    assert elements(html, "span", **{"class": "tag is-rounded is-primary"}), (
+        "This revision's own stack tip should be highlighted."
+    )
+    assert "this page" not in html, "The highlight alone should mark this revision."
+    assert "Linked revisions" not in html, (
+        "The train table replaces the cluster of linked revision pills."
+    )

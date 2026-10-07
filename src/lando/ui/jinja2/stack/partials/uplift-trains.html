@@ -1,0 +1,75 @@
+{# The stacks carrying `card`'s assessment, one row per train.
+
+A stack is either created by one of the assessment's Lando jobs, or made outside
+Lando and linked to it; `UpliftContext` looks up the train of the latter.
+#}
+<table class="table is-fullwidth is-narrow is-size-7 mt-3 UpliftTrains">
+    <thead>
+        <tr>
+            <th>Train</th>
+            <th>Stack tip</th>
+            <th>How it got here</th>
+            <th>Status</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in card.train_rows %}
+            <tr>
+                <td class="has-text-weight-semibold">{{ row.train or "Unknown" }}</td>
+                <td>
+                    {% if row.tip_revision_id %}
+                        {{ revision_tag(row.tip_revision_id, uplift.revision_id) }}
+                    {% else %}
+                        <span class="has-text-grey">&mdash;</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if row.job %}
+                        Created by a Lando job
+                        {% if row.job.submission.requested_revision_ids %}
+                            from
+                            {% for rev_id in row.job.submission.requested_revision_ids %}D{{ rev_id }}{% if not loop.last %}, {% endif %}{% endfor %}
+                        {% endif %}
+                    {% else %}
+                        Submitted outside Lando
+                    {% endif %}
+                </td>
+                <td>
+                    {% if row.job %}
+                        {% set icon_class = row.job|uplift_status_icon_class %}
+                        <span class="tag is-rounded has-text-white {{ row.job|uplift_status_tag_class }}">
+                            {% if icon_class %}
+                                <span class="icon is-small"><i class="{{ icon_class }}" aria-hidden="true"></i></span>
+                            {% endif %}
+                        </span>
+                        {{ row.job|uplift_status_label }}
+                    {% elif row.status_name %}
+                        <span class="{{ row.status_value|revision_status_to_badge_class }}">{{ row.status_name }}</span>
+                    {% else %}
+                        <span class="has-text-grey">Unknown</span>
+                    {% endif %}
+                </td>
+                <td class="has-text-right">
+                    {% if row.job %}
+                        <a class="button is-small is-light"
+                           href="{{ url('uplift-jobs-page', args=[row.job.id]) }}">View job</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% if row.job and row.job.error %}
+                <tr>
+                    <td colspan="5">
+                        {% with job = row.job %}
+                            {% include "stack/partials/uplift-job-error.html" %}
+                        {% endwith %}
+                    </td>
+                </tr>
+            {% endif %}
+        {% else %}
+            <tr>
+                <td colspan="5" class="has-text-grey">No uplift jobs or revisions carry this assessment yet.</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
