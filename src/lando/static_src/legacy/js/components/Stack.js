@@ -22,8 +22,25 @@ $.fn.stack = function () {
         });
 
         // Show the uplift request form modal when the "Request Uplift" button is clicked.
-        $(".uplift-request-open").on("click", function () {
+        // On an uplift revision it is a link in the "More" menu, so keep it from
+        // following its `#` target.
+        $(".uplift-request-open").on("click", function (e) {
+            e.preventDefault();
             $(".uplift-request-modal").addClass("is-active");
+        });
+
+        // Toggle the "More" menu holding the actions this revision rarely needs.
+        $(".StackPage-moreActions-trigger").on("click", function (e) {
+            e.stopPropagation();
+            let $menu = $(this).closest(".StackPage-moreActions");
+            $menu.toggleClass("is-active");
+            $(this).attr("aria-expanded", String($menu.hasClass("is-active")));
+        });
+        $(document).on("click", function () {
+            $(".StackPage-moreActions.is-active")
+                .removeClass("is-active")
+                .find(".StackPage-moreActions-trigger")
+                .attr("aria-expanded", "false");
         });
         $(".uplift-request-close").on("click", function () {
             $(".uplift-request-modal").removeClass("is-active");

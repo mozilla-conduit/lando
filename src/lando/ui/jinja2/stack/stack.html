@@ -92,11 +92,38 @@
                     <div class="StackPage-actions-headline">Preview Landing</div>
                 </button>
             {% endif %}
-            {% if user_is_authenticated %}
+            {% if user_is_authenticated and uplift.is_uplift_revision %}
+                {# This revision is already an uplift, so uplifting it again is rarely
+                   the next step; the checklist above says what is. #}
+                <div class="dropdown is-right is-up StackPage-moreActions">
+                    <div class="dropdown-trigger">
+                        <button type="button"
+                                class="StackPage-moreActions-trigger"
+                                aria-haspopup="true"
+                                aria-expanded="false"
+                                aria-controls="stack-more-actions">
+                            <span>More</span>
+                            <span class="icon is-small"><i class="fa fa-angle-up" aria-hidden="true"></i></span>
+                        </button>
+                    </div>
+                    <div class="dropdown-menu" id="stack-more-actions" role="menu">
+                        <div class="dropdown-content">
+                            <a class="dropdown-item uplift-request-open" href="#" role="menuitem">
+                                <span class="icon is-small"><i class="fa fa-arrow-circle-up" aria-hidden="true"></i></span>
+                                <span>Uplift to another train…</span>
+                            </a>
+                            <div class="dropdown-item">
+                                <p class="is-size-7 has-text-grey">
+                                    Creates more revisions. D{{ uplift.revision_id }} doesn't need this to be approved.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% elif user_is_authenticated %}
                 <button class="button uplift-request-open is-normal">
                     <span class="icon"><i class="fa fa-arrow-circle-up"></i></span>
-                    <div class="StackPage-actions-headline">
-                    Request Uplift</span>
+                    <span class="StackPage-actions-headline">Request Uplift</span>
                 </button>
             {% endif %}
         </div>
