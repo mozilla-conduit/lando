@@ -755,7 +755,7 @@ class HgSCM(AbstractSCM):
         self.hg_repo.close()
 
     def _collect_rejects(self):
-        """ Read `.rej` file contents into memory.
+        """Read `.rej` file contents into memory.
 
         They may be deleted by subsequent cleanups, so we need to keep them somewhere
         safe.
