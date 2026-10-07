@@ -57,3 +57,10 @@
     border-left: 3px solid $blue;
     box-shadow: none;
 }
+
+/* Bulma's `.box` and `.field` set `display`, which would otherwise override
+   the `hidden` attribute the picker toggles on these. */
+.AssessmentPicker-actions[hidden],
+.AssessmentPicker-reveal[hidden] {
+    display: none;
+}
