@@ -635,7 +635,7 @@ class GitSCM(AbstractSCM):
         self,
         pull_path: str,
         target_cset: str | None = None,
-        attributes_override: str = "",
+        attributes_override: str | None = None,
     ) -> str:
         """Update the repository to the specified changeset.
 
