@@ -65,7 +65,7 @@ lando = "lando.manage:main"
 
 [build-system]
 requires = [
-    "setuptools>=64",
+    "setuptools>=84.0.0",
     "setuptools_scm>=8",
     "pip",
     "pip-tools",
