@@ -19,7 +19,8 @@ linked yet, and behind "Change" once something is.
 {% endmacro %}
 {% set linked_card = uplift.linked_card %}
 {% set offers_picker = uplift.bug_id and uplift.bug_assessments and uplift.new_assessment_form %}
-<div class="box UpliftReadiness{% if uplift.is_ready_for_review %} is-ready{% endif %}">
+{# The linked assessment's card hangs off the bottom of the checklist. #}
+<div class="box UpliftReadiness{% if uplift.is_ready_for_review %} is-ready{% endif %}{% if linked_card %} has-card{% endif %}">
     {# The headline names the state, so it reads at a glance. #}
     <p class="UpliftReadiness-title">
         {% if not uplift.bug_id %}

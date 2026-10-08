@@ -499,3 +499,27 @@ fieldset {
         vertical-align: middle;
     }
 }
+
+/* An assessment's card, flat like the checklist it sits under. */
+.UpliftAssessmentCard {
+    border: 1px solid $grey-lighter;
+    box-shadow: none;
+}
+
+/* On an uplift revision, the linked assessment's card is the checklist's
+   detail, so the two share one border. */
+.UpliftReadiness.has-card {
+    margin-bottom: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+
+    + .block > .UpliftAssessmentCard {
+        border-top: 0;
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+    }
+
+    &.is-ready + .block > .UpliftAssessmentCard {
+        border-color: #a6d7a8;
+    }
+}

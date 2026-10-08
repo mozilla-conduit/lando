@@ -213,7 +213,7 @@ def test_linked_uplift_revision_shows_only_its_own_assessment_in_full(rf, user):
 
     html = render_uplift_section(rf, user, revision_id, bug_id)
 
-    assert len(elements(html, "div", **{"class": "box"})) == 1, (
+    assert len(elements(html, "div", **{"class": "box UpliftAssessmentCard"})) == 1, (
         "Only the linked assessment should be shown as a full card."
     )
     assert "1 other assessment for bug 1601002" in squashed(html), (
@@ -231,7 +231,7 @@ def test_unlinked_uplift_revision_shows_no_cards_beside_the_picker(rf, user):
 
     html = render_uplift_section(rf, user, 4219, 1601002)
 
-    assert not elements(html, "div", **{"class": "box"}), (
+    assert not elements(html, "div", **{"class": "box UpliftAssessmentCard"}), (
         "An unlinked revision should not repeat the picker's assessments as cards."
     )
     assert "UpliftOthers" not in html, "There is no linked assessment to fold under."
@@ -252,7 +252,7 @@ def test_mainline_revision_shows_every_uplift_requested_from_it(rf, user):
     assert "UpliftReadiness" not in html, (
         "A mainline revision is not approved for uplift, so it has no checklist."
     )
-    assert len(elements(html, "div", **{"class": "box"})) == 1, (
+    assert len(elements(html, "div", **{"class": "box UpliftAssessmentCard"})) == 1, (
         "The uplift requested from the revision should be shown as a card."
     )
     assert "Uplift assessments for" in html, "The cards should name their bug."
@@ -390,3 +390,18 @@ def test_checklist_folds_away_when_nothing_is_left(rf, user, linked):
     else:
         assert "hidden" not in items, "Items with work left should stay open."
         assert not toggles, "There is nothing to fold while work is left."
+
+
+@pytest.mark.django_db
+def test_linked_card_hangs_off_the_checklist(rf, user):
+    """On an uplift revision the linked card is the checklist's detail."""
+    bug_id = 1601002
+    revision_id = 4218
+    (linked,) = create_assessments(user, bug_id, 1)
+    UpliftRevision.link_revision_to_assessment(revision_id, linked)
+
+    html = render_uplift_section(rf, user, revision_id, bug_id)
+
+    assert 'class="box UpliftReadiness is-ready has-card"' in html, (
+        "The checklist should know a card hangs off it."
+    )
