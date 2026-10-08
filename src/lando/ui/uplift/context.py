@@ -9,7 +9,11 @@ from django.conf import settings
 from django.core.handlers.wsgi import WSGIRequest
 
 from lando.api.legacy.projects import RELMAN_PROJECT_SLUG, get_project_phid
-from lando.api.legacy.stacks import RevisionStack, get_revisions_by_id
+from lando.api.legacy.stacks import (
+    RevisionStack,
+    get_diffs_by_phid,
+    get_revisions_by_id,
+)
 from lando.api.legacy.validation import revision_id_to_int
 from lando.main.models import JobStatus, Repo
 from lando.main.models.uplift import (
@@ -17,6 +21,7 @@ from lando.main.models.uplift import (
     UpliftJob,
     UpliftRevision,
 )
+from lando.main.support import diff_has_disallowed_author
 from lando.ui.legacy.forms import (
     UpliftAssessmentForm,
     UpliftRequestForm,
@@ -40,6 +45,11 @@ class UpliftTrainOutcome(Enum):
     IN_PROGRESS = ("In progress", "warning", "fa-clock-o")
     QUEUED = ("Queued", "", "fa-hourglass-start")
     CANCELLED = ("Cancelled", "", "fa-ban")
+    CONFLICT_RESOLVED_BY_HACKBOT = (
+        "Conflict resolved by hackbot",
+        "positive",
+        "fa-check",
+    )
     SUBMITTED_WITH_MOZ_PHAB = ("Submitted with moz-phab", "neutral", "fa-terminal")
     SUBMITTED_OUTSIDE_LANDO = (
         "Submitted outside Lando",
@@ -473,6 +483,18 @@ class UpliftContext:
                 if repo_phids
                 else []
             )
+
+            # The latest diff's commit author says whether hackbot submitted it.
+            diffs = get_diffs_by_phid(
+                phab,
+                sorted(
+                    {
+                        revision["fields"]["diffPHID"]
+                        for revision in revisions.values()
+                        if revision["fields"].get("diffPHID")
+                    }
+                ),
+            )
         except PhabricatorAPIException, ValueError:
             logger.warning(
                 "Could not look up the trains of %s.", revision_ids, exc_info=True
@@ -494,10 +516,20 @@ class UpliftContext:
         rows = {}
         for revision in revisions.values():
             short_name = short_names.get(revision["fields"].get("repositoryPHID"))
+            diff = diffs.get(revision["fields"].get("diffPHID"))
+
+            # `DISALLOWED_AUTHOR_EMAILS` is how Lando recognises hackbot's commits,
+            # and hackbot submits uplift stacks to resolve a job's merge conflict.
+            by_hackbot = diff is not None and diff_has_disallowed_author(diff)
+
             rows[revision["id"]] = UpliftTrainRow(
                 train=lando_names.get(short_name, short_name),
                 tip_revision_id=revision["id"],
-                outcome=UpliftTrainOutcome.SUBMITTED_WITH_MOZ_PHAB,
+                outcome=(
+                    UpliftTrainOutcome.CONFLICT_RESOLVED_BY_HACKBOT
+                    if by_hackbot
+                    else UpliftTrainOutcome.SUBMITTED_WITH_MOZ_PHAB
+                ),
             )
 
         return rows

@@ -387,6 +387,53 @@ def test_train_groups_show_every_stack_under_its_train(user, repo_mc, phabdouble
     ), "Each train should list its job, then the stack submitted outside Lando."
 
 
+@pytest.mark.django_db
+def test_train_groups_tell_hackbot_apart_by_its_commits(user, phabdouble):
+    """A stack whose commits hackbot authored reads as hackbot's conflict fix."""
+    bug_id = 939393
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=bug_id, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    hackbot_diff = phabdouble.diff(
+        commits=[
+            {
+                "identifier": "1" * 40,
+                "tree": None,
+                "parents": ["2" * 40],
+                "author": {
+                    "name": "Hackbot",
+                    "email": "hackbot@mozilla.tld",
+                    "raw": "Hackbot <hackbot@mozilla.tld>",
+                    "epoch": 1524854743,
+                },
+                "message": "Resolve the merge conflict.",
+            }
+        ]
+    )
+    by_hackbot = phabdouble.revision(diff=hackbot_diff, bug_id=bug_id)
+    by_developer = phabdouble.revision(bug_id=bug_id)
+    for revision in (by_hackbot, by_developer):
+        UpliftRevision.link_revision_to_assessment(revision["id"], assessment)
+
+    (card,) = UpliftContext.build_assessment_cards(
+        bug_id,
+        by_developer["id"],
+        assessment,
+        is_uplift_revision=True,
+        phab=phabdouble.get_phabricator_client(),
+    )
+
+    outcomes = {
+        row.tip_revision_id: row.outcome
+        for group in card.train_groups
+        for row in group.rows
+    }
+    assert outcomes == {
+        by_hackbot["id"]: UpliftTrainOutcome.CONFLICT_RESOLVED_BY_HACKBOT,
+        by_developer["id"]: UpliftTrainOutcome.SUBMITTED_WITH_MOZ_PHAB,
+    }, "Hackbot's stack should be told apart from a developer's."
+
+
 @pytest.mark.parametrize(
     "status,error_breakdown,expected",
     [
