@@ -12,8 +12,12 @@ from lando.main.models.uplift import (
     UpliftSubmission,
 )
 from lando.main.scm import SCMType
-from lando.ui.uplift.context import UpliftContext, UpliftTrainRow
-from lando.utils.phabricator import PhabricatorRevisionStatus
+from lando.ui.uplift.context import (
+    UpliftContext,
+    UpliftTrainGroup,
+    UpliftTrainOutcome,
+    UpliftTrainRow,
+)
 
 
 @pytest.mark.django_db
@@ -306,11 +310,11 @@ def test_authoring_an_assessment_needs_an_uplift_revision_a_bug_and_a_login(user
 
 
 @pytest.mark.django_db
-def test_train_rows_describe_each_stack_by_train(user, repo_mc, phabdouble):
-    """A card has a row per job, then a row per stack linked from outside Lando.
+def test_train_groups_show_every_stack_under_its_train(user, repo_mc, phabdouble):
+    """A card groups its stacks by train: the train's jobs, then hand-made stacks.
 
-    Lando only records which assessment a hand-linked stack carries, so its
-    train and status come from Phabricator.
+    A failed job and the stack later submitted to resolve it are not linked in
+    Lando's data, so they sit together under their train rather than paired.
     """
     bug_id = 909090
     beta = repo_mc(scm_type=SCMType.GIT, name="firefox-beta", approval_required=True)
@@ -323,43 +327,88 @@ def test_train_rows_describe_each_stack_by_train(user, repo_mc, phabdouble):
     submission = UpliftSubmission.objects.create(
         requested_by=user, assessment=assessment, requested_revision_ids=[100]
     )
-    job = UpliftJob.objects.create(
+    created = UpliftJob.objects.create(
         submission=submission,
         requester_email=user.email,
         status=JobStatus.LANDED,
         target_repo=beta,
         created_revision_ids=[301, 302],
     )
+    conflicted = UpliftJob.objects.create(
+        submission=submission,
+        requester_email=user.email,
+        status=JobStatus.FAILED,
+        target_repo=release,
+        error_breakdown={"failed_paths": [{"path": "file.txt"}]},
+    )
     UpliftRevision.link_revision_to_assessment(302, assessment)
 
-    outside = phabdouble.revision(
-        repo=phabdouble.repo(name=release.short_name),
-        status=PhabricatorRevisionStatus.NEEDS_REVIEW,
-        bug_id=bug_id,
+    resolution = phabdouble.revision(
+        repo=phabdouble.repo(name=release.short_name), bug_id=bug_id
     )
-    UpliftRevision.link_revision_to_assessment(outside["id"], assessment)
+    UpliftRevision.link_revision_to_assessment(resolution["id"], assessment)
 
     (card,) = UpliftContext.build_assessment_cards(
         bug_id,
-        outside["id"],
+        resolution["id"],
         assessment,
         is_uplift_revision=True,
         phab=phabdouble.get_phabricator_client(),
     )
 
-    assert card.train_rows == [
-        UpliftTrainRow(train=beta.name, tip_revision_id=302, job=job),
-        UpliftTrainRow(
-            train=release.name,
-            tip_revision_id=outside["id"],
-            status_value="needs-review",
-            status_name="Needs Review",
+    assert card.train_groups == (
+        UpliftTrainGroup(
+            train=beta.name,
+            rows=(
+                UpliftTrainRow(
+                    train=beta.name,
+                    tip_revision_id=302,
+                    outcome=UpliftTrainOutcome.CREATED_BY_LANDO,
+                    job=created,
+                ),
+            ),
         ),
-    ], "Each stack should be listed under its train, with the job's tip first."
+        UpliftTrainGroup(
+            train=release.name,
+            rows=(
+                UpliftTrainRow(
+                    train=release.name,
+                    tip_revision_id=None,
+                    outcome=UpliftTrainOutcome.MERGE_CONFLICT,
+                    job=conflicted,
+                ),
+                UpliftTrainRow(
+                    train=release.name,
+                    tip_revision_id=resolution["id"],
+                    outcome=UpliftTrainOutcome.SUBMITTED_WITH_MOZ_PHAB,
+                ),
+            ),
+        ),
+    ), "Each train should list its job, then the stack submitted outside Lando."
+
+
+@pytest.mark.parametrize(
+    "status,error_breakdown,expected",
+    [
+        (JobStatus.LANDED, {}, UpliftTrainOutcome.CREATED_BY_LANDO),
+        (JobStatus.FAILED, {"failed_paths": []}, UpliftTrainOutcome.MERGE_CONFLICT),
+        (JobStatus.FAILED, {}, UpliftTrainOutcome.FAILED),
+        (JobStatus.IN_PROGRESS, {}, UpliftTrainOutcome.IN_PROGRESS),
+        (JobStatus.SUBMITTED, {}, UpliftTrainOutcome.QUEUED),
+        (JobStatus.ABORTED, {}, UpliftTrainOutcome.CANCELLED),
+    ],
+)
+def test_job_outcome_follows_its_status(status, error_breakdown, expected):
+    """A job's row says what became of it, telling merge conflicts apart."""
+    job = MagicMock(status=status, error_breakdown=error_breakdown)
+
+    assert UpliftTrainOutcome.for_job(job) == expected, (
+        f"A `{status}` job should read `{expected.label}`."
+    )
 
 
 @pytest.mark.django_db
-def test_train_rows_leave_the_train_unknown_without_phabricator(user):
+def test_train_groups_leave_the_train_unknown_without_phabricator(user):
     """A hand-linked stack Phabricator cannot describe keeps an unknown train."""
     bug_id = 919191
     assessment = UpliftAssessment.objects.create(
@@ -371,9 +420,18 @@ def test_train_rows_leave_the_train_unknown_without_phabricator(user):
         bug_id, 555, assessment, is_uplift_revision=True
     )
 
-    assert card.train_rows == [UpliftTrainRow(train=None, tip_revision_id=555)], (
-        "Without a Phabricator lookup the stack should still be listed."
-    )
+    assert card.train_groups == (
+        UpliftTrainGroup(
+            train=None,
+            rows=(
+                UpliftTrainRow(
+                    train=None,
+                    tip_revision_id=555,
+                    outcome=UpliftTrainOutcome.SUBMITTED_OUTSIDE_LANDO,
+                ),
+            ),
+        ),
+    ), "Without a Phabricator lookup the stack should still be listed."
 
 
 @pytest.mark.django_db
@@ -393,8 +451,10 @@ def test_train_lookup_failure_does_not_break_the_page(user, phabdouble):
         phab=phabdouble.get_phabricator_client(),
     )
 
-    assert card.train_rows == [UpliftTrainRow(train=None, tip_revision_id=99999)], (
-        "A failed lookup should fall back to an unknown train."
+    (group,) = card.train_groups
+    assert group.train is None, "A failed lookup should fall back to an unknown train."
+    assert group.rows[0].outcome == UpliftTrainOutcome.SUBMITTED_OUTSIDE_LANDO, (
+        "A stack Phabricator could not describe was still submitted outside Lando."
     )
 
 

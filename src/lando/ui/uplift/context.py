@@ -2,6 +2,7 @@
 
 import logging
 from dataclasses import dataclass
+from enum import Enum
 from typing import Self, Sequence
 
 from django.conf import settings
@@ -10,7 +11,7 @@ from django.core.handlers.wsgi import WSGIRequest
 from lando.api.legacy.projects import RELMAN_PROJECT_SLUG, get_project_phid
 from lando.api.legacy.stacks import RevisionStack, get_revisions_by_id
 from lando.api.legacy.validation import revision_id_to_int
-from lando.main.models import Repo
+from lando.main.models import JobStatus, Repo
 from lando.main.models.uplift import (
     UpliftAssessment,
     UpliftJob,
@@ -26,9 +27,56 @@ from lando.utils.phabricator import PhabricatorAPIException, PhabricatorClient
 logger = logging.getLogger(__name__)
 
 
+class UpliftTrainOutcome(Enum):
+    """What became of one stack carrying an assessment, as its card shows it.
+
+    Each value is the outcome's label, its Lando `Badge` modifier and its
+    Font Awesome icon.
+    """
+
+    CREATED_BY_LANDO = ("Created by Lando", "positive", "fa-check")
+    MERGE_CONFLICT = ("Merge conflict", "negative", "fa-times")
+    FAILED = ("Failed", "negative", "fa-exclamation-triangle")
+    IN_PROGRESS = ("In progress", "warning", "fa-clock-o")
+    QUEUED = ("Queued", "", "fa-hourglass-start")
+    CANCELLED = ("Cancelled", "", "fa-ban")
+    SUBMITTED_WITH_MOZ_PHAB = ("Submitted with moz-phab", "neutral", "fa-terminal")
+    SUBMITTED_OUTSIDE_LANDO = (
+        "Submitted outside Lando",
+        "neutral",
+        "fa-question-circle",
+    )
+
+    @property
+    def label(self) -> str:
+        return self.value[0]
+
+    @property
+    def badge_class(self) -> str:
+        return f"Badge Badge--{self.value[1]}" if self.value[1] else "Badge"
+
+    @property
+    def icon(self) -> str:
+        return self.value[2]
+
+    @classmethod
+    def for_job(cls, job: UpliftJob) -> Self:
+        """Return the outcome of the stack `job` was queued to create."""
+        if job.status == JobStatus.LANDED:
+            return cls.CREATED_BY_LANDO
+        if job.status == JobStatus.FAILED:
+            # Only a merge conflict fills in the breakdown of failed paths.
+            return cls.MERGE_CONFLICT if job.error_breakdown else cls.FAILED
+        if job.status == JobStatus.IN_PROGRESS:
+            return cls.IN_PROGRESS
+        if job.status in (JobStatus.CANCELLED, JobStatus.ABORTED):
+            return cls.CANCELLED
+        return cls.QUEUED
+
+
 @dataclass(frozen=True, slots=True)
 class UpliftTrainRow:
-    """One revision stack carrying an assessment, as a row of its card's table."""
+    """One stack carrying an assessment, as a row of its card's train table."""
 
     # Name of the train the stack targets, or `None` when it is not known.
     train: str | None
@@ -36,14 +84,22 @@ class UpliftTrainRow:
     # Phabricator ID of the stack's tip, or `None` when a job created nothing.
     tip_revision_id: int | None
 
-    # The Lando job that created the stack, or `None` for one made outside Lando.
+    # What became of the stack.
+    outcome: UpliftTrainOutcome
+
+    # The Lando job behind the stack, or `None` for one made outside Lando.
     job: UpliftJob | None = None
 
-    # Phabricator status of a stack made outside Lando, ie `needs-review`.
-    status_value: str | None = None
 
-    # Human-readable Phabricator status of a stack made outside Lando.
-    status_name: str | None = None
+@dataclass(frozen=True, slots=True)
+class UpliftTrainGroup:
+    """Every stack carrying an assessment for one train."""
+
+    # Name of the train, or `None` for stacks whose train is not known.
+    train: str | None
+
+    # The train's stacks: its jobs first, then those made outside Lando.
+    rows: Sequence[UpliftTrainRow]
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,9 +124,9 @@ class UpliftAssessmentCard:
     # Every uplift job queued from this assessment, one per target train.
     jobs: Sequence[UpliftJob]
 
-    # Each stack carrying this assessment, by train: one per job, then each
-    # stack linked from outside Lando.
-    train_rows: Sequence[UpliftTrainRow]
+    # The stacks carrying this assessment, grouped by train in the order the
+    # trains first appear.
+    train_groups: Sequence[UpliftTrainGroup]
 
 
 @dataclass(frozen=True, slots=True)
@@ -336,27 +392,54 @@ class UpliftContext:
                 revision_ids=revision_ids_by_assessment[assessment.pk],
                 requested_revision_ids=requested_by_assessment[assessment.pk],
                 jobs=jobs_by_assessment.get(assessment.pk, []),
-                train_rows=[
-                    UpliftTrainRow(
-                        train=job.target_repo.name,
-                        tip_revision_id=(
-                            job.created_revision_ids[-1]
-                            if job.created_revision_ids
-                            else None
-                        ),
-                        job=job,
-                    )
-                    for job in jobs_by_assessment.get(assessment.pk, [])
-                ]
-                + [
-                    outside_rows.get(
-                        linked_id,
-                        UpliftTrainRow(train=None, tip_revision_id=linked_id),
-                    )
-                    for linked_id in sorted(outside_ids_by_assessment[assessment.pk])
-                ],
+                train_groups=cls.group_by_train(
+                    [
+                        UpliftTrainRow(
+                            train=job.target_repo.name,
+                            tip_revision_id=(
+                                job.created_revision_ids[-1]
+                                if job.created_revision_ids
+                                else None
+                            ),
+                            outcome=UpliftTrainOutcome.for_job(job),
+                            job=job,
+                        )
+                        for job in jobs_by_assessment.get(assessment.pk, [])
+                    ]
+                    + [
+                        outside_rows.get(
+                            linked_id,
+                            UpliftTrainRow(
+                                train=None,
+                                tip_revision_id=linked_id,
+                                outcome=UpliftTrainOutcome.SUBMITTED_OUTSIDE_LANDO,
+                            ),
+                        )
+                        for linked_id in sorted(
+                            outside_ids_by_assessment[assessment.pk]
+                        )
+                    ]
+                ),
             )
             for assessment in assessments
+        )
+
+    @staticmethod
+    def group_by_train(
+        rows: Sequence[UpliftTrainRow],
+    ) -> tuple[UpliftTrainGroup, ...]:
+        """Group `rows` by train, in the order the trains first appear.
+
+        A failed job and the stack later submitted to resolve it are not linked
+        in Lando's data, so they are shown together by train, not paired.
+        """
+        rows_by_train: dict[str | None, list[UpliftTrainRow]] = {}
+        for row in rows:
+            rows_by_train.setdefault(row.train, []).append(row)
+
+        return tuple(
+            UpliftTrainGroup(train=train, rows=tuple(train_rows))
+            for train, train_rows in rows_by_train.items()
         )
 
     @staticmethod
@@ -366,7 +449,7 @@ class UpliftContext:
         """Return a train row for each stack tip no Lando job created.
 
         Lando only records which assessment such a stack carries, so its train
-        and status come from Phabricator. A failed lookup leaves them unknown.
+        comes from Phabricator. A failed lookup leaves it unknown.
         """
         if phab is None or not revision_ids:
             return {}
@@ -411,12 +494,10 @@ class UpliftContext:
         rows = {}
         for revision in revisions.values():
             short_name = short_names.get(revision["fields"].get("repositoryPHID"))
-            status = revision["fields"]["status"]
             rows[revision["id"]] = UpliftTrainRow(
                 train=lando_names.get(short_name, short_name),
                 tip_revision_id=revision["id"],
-                status_value=status["value"],
-                status_name=status["name"],
+                outcome=UpliftTrainOutcome.SUBMITTED_WITH_MOZ_PHAB,
             )
 
         return rows

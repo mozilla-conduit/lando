@@ -273,6 +273,9 @@ def test_linked_card_lists_its_stacks_by_train(rf, user):
         "This revision's own stack tip should be highlighted."
     )
     assert "this page" not in html, "The highlight alone should mark this revision."
+    assert "Submitted outside Lando" in squashed(html), (
+        "A stack with no job behind it should say it was made outside Lando."
+    )
     assert "Linked revisions" not in html, (
         "The train table replaces the cluster of linked revision pills."
     )

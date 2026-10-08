@@ -489,7 +489,7 @@ fieldset {
     }
 }
 
-/* The stacks carrying an assessment, one row per train. */
+/* The stacks carrying an assessment, grouped by train. */
 .UpliftTrains {
     td {
         vertical-align: middle;
@@ -497,6 +497,10 @@ fieldset {
 
     .tag.is-rounded {
         vertical-align: middle;
+    }
+
+    tbody tr.UpliftTrains-groupStart:not(:first-child) td {
+        border-top: 2px solid $grey-lighter;
     }
 }
 
