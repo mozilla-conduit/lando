@@ -816,8 +816,8 @@ class HgSCM(AbstractSCM):
         place.
         """
         with self.for_maintenance("idle"):
+            self.clean_repo()
             try:
-                self.clean_repo()
                 self.run_hg(["strip", "--no-backup", "-r", "not public()"])
             except HgException as exc:
                 if exc.err.strip() == "abort: empty revision set":
