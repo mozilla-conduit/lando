@@ -264,3 +264,6 @@ def test_linked_card_lists_its_stacks_by_train(rf, user):
     assert "Linked revisions" not in html, (
         "The train table replaces the cluster of linked revision pills."
     )
+    assert "Linked to this revision" not in html, (
+        "The checklist already marks the linked assessment, so the card should not."
+    )

@@ -32,12 +32,8 @@ future.
         <div class="block">
             {% for card in uplift.shown_cards %}
                 <div class="box">
-                    <div class="is-size-6 has-text-weight-semibold">
-                        Assessment #{{ card.assessment.id }}
-                        {% if card.is_linked %}
-                            <span class="tag is-success is-light ml-2">Linked to this revision</span>
-                        {% endif %}
-                    </div>
+                    {# The checklist's assessment item already says this one is linked. #}
+                    <div class="is-size-6 has-text-weight-semibold">Assessment #{{ card.assessment.id }}</div>
                     <p class="is-size-7 has-text-grey">
                         <time data-timestamp="{{ card.assessment.updated_at }}">{{ card.assessment.updated_at }}</time>, by {{ card.assessment.user.email }}.
                         {% if card.requested_revision_ids %}
