@@ -46,13 +46,11 @@ creating share one submit button. See `AssessmentPicker.js` for its behaviour.
                     </span>
                 </label>
                 <div class="AssessmentPicker-summary is-size-7">
-                    <p>
-                        <strong>User impact:</strong> {{ assessment.user_impact | truncate(200) }}
-                    </p>
-                    <p>
-                        <strong>Risk:</strong> {{ assessment.get_risk_associated_with_patch_display() }} ·
-                        <strong>Tests:</strong> {{ assessment.get_covered_by_testing_display() }} ·
-                        <strong>Verified in Nightly:</strong> {{ assessment.get_fix_verified_in_nightly_display() }}
+                    <p class="AssessmentPicker-facts">
+                        <span><strong>User impact:</strong> {{ assessment.user_impact | truncate(200) }}</span>
+                        <span><strong>Risk:</strong> {{ assessment.get_risk_associated_with_patch_display() }}</span>
+                        <span><strong>Tests:</strong> {{ assessment.get_covered_by_testing_display() }}</span>
+                        <span><strong>Verified in Nightly:</strong> {{ assessment.get_fix_verified_in_nightly_display() }}</span>
                     </p>
                     <details>
                         <summary>Show all answers</summary>

@@ -92,6 +92,9 @@ def test_unlinked_uplift_revision_asks_for_its_assessment_once(rf, user):
     assert "hidden" not in elements(html, "li", id="uplift-assessment-picker")[0], (
         "With nothing linked, choosing an assessment is the open task."
     )
+    assert len(elements(html, "p", **{"class": "AssessmentPicker-facts"})) == 2, (
+        "Each assessment's distinguishing answers should share one line."
+    )
 
 
 def create_assessments(user, bug_id: int, count: int) -> list[UpliftAssessment]:
