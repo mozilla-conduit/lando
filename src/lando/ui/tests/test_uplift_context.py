@@ -396,3 +396,27 @@ def test_train_lookup_failure_does_not_break_the_page(user, phabdouble):
     assert card.train_rows == [UpliftTrainRow(train=None, tip_revision_id=99999)], (
         "A failed lookup should fall back to an unknown train."
     )
+
+
+@pytest.mark.django_db
+def test_relman_review_status_finds_the_groups_review(
+    phabdouble, release_management_project
+):
+    """Only the release-managers group's review counts, not other reviewers'."""
+    phab = phabdouble.get_phabricator_client()
+    revision = {
+        "reviewers": [
+            {"phid": "PHID-USER-someone", "status": "accepted"},
+            {"phid": release_management_project["phid"], "status": "blocking"},
+        ]
+    }
+
+    assert UpliftContext.relman_review_status(phab, revision) == "blocking", (
+        "The group's own review status should be returned."
+    )
+    assert UpliftContext.relman_review_status(phab, {"reviewers": []}) is None, (
+        "A revision the group does not review should have no status."
+    )
+    assert UpliftContext.relman_review_status(None, revision) is None, (
+        "Without Phabricator the group cannot be identified."
+    )

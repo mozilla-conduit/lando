@@ -19,7 +19,14 @@ REVISION_URL = "https://phabricator.test/D4219"
 
 
 def render_uplift_section(
-    rf, user, revision_id: int, bug_id: int | None, *, uplift_repo: bool = True
+    rf,
+    user,
+    revision_id: int,
+    bug_id: int | None,
+    *,
+    uplift_repo: bool = True,
+    phab=None,
+    reviewers: list[dict] | None = None,
 ) -> str:
     """Render the revision page's uplift section as `user` would see it."""
     request = rf.get(f"/D{revision_id}/")
@@ -35,10 +42,12 @@ def render_uplift_section(
                 "id": f"D{revision_id}",
                 "bug_id": bug_id,
                 "url": REVISION_URL,
+                "reviewers": reviewers or [],
             }
         },
         stack=RevisionStack({REVISION_PHID}, set()),
         revision_repo=revision_repo,
+        phab=phab,
     )
 
     template = engines["jinja2"].get_template("stack/partials/uplift-section.html")
@@ -269,4 +278,42 @@ def test_linked_card_lists_its_stacks_by_train(rf, user):
     )
     assert "Linked to this revision" not in html, (
         "The checklist already marks the linked assessment, so the card should not."
+    )
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "review,expected",
+    [
+        (None, "release-managers will be added as a reviewer on Phabricator."),
+        ("blocking", "Waiting for release-managers to accept D4218 in Phabricator."),
+        ("rejected", "release-managers requested changes to D4218 in Phabricator."),
+        ("accepted", "Accepted by release-managers."),
+    ],
+)
+def test_approval_item_reads_the_release_managers_review(
+    rf, user, phabdouble, release_management_project, review, expected
+):
+    """The approval item agrees with the landing check on the group's review."""
+    bug_id = 1601002
+    revision_id = 4218
+    (linked,) = create_assessments(user, bug_id, 1)
+    UpliftRevision.link_revision_to_assessment(revision_id, linked)
+    reviewers = (
+        [{"phid": release_management_project["phid"], "status": review}]
+        if review
+        else []
+    )
+
+    html = render_uplift_section(
+        rf,
+        user,
+        revision_id,
+        bug_id,
+        phab=phabdouble.get_phabricator_client(),
+        reviewers=reviewers,
+    )
+
+    assert expected in squashed(html), (
+        f"A `{review}` release-managers review should read `{expected}`."
     )

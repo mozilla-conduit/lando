@@ -125,16 +125,38 @@ linked yet, and behind "Change" once something is.
                 </form>
             </li>
         {% endif %}
-        <li class="UpliftReadiness-item is-waiting">
-            {{ readiness_icon("waiting") }}
-            <span class="UpliftReadiness-label">Release manager approval</span>
-            <span class="UpliftReadiness-value">
-                {% if uplift.bug_id and linked_card %}
-                    Release managers review D{{ uplift.revision_id }} in Phabricator.
-                {% else %}
-                    Waits for the steps above.
-                {% endif %}
-            </span>
-        </li>
+        {# Mirrors `blocker_uplift_approval`, which blocks landing until the
+           release-managers group accepts. #}
+        {% if not (uplift.bug_id and linked_card) %}
+            <li class="UpliftReadiness-item is-waiting">
+                {{ readiness_icon("waiting") }}
+                <span class="UpliftReadiness-label">Release manager approval</span>
+                <span class="UpliftReadiness-value">Waits for the steps above.</span>
+            </li>
+        {% elif uplift.relman_review == "accepted" %}
+            <li class="UpliftReadiness-item is-done">
+                {{ readiness_icon("done") }}
+                <span class="UpliftReadiness-label">Release manager approval</span>
+                <span class="UpliftReadiness-value">Accepted by release-managers.</span>
+            </li>
+        {% elif uplift.relman_review == "rejected" %}
+            <li class="UpliftReadiness-item is-todo">
+                {{ readiness_icon("todo") }}
+                <span class="UpliftReadiness-label">Release manager approval</span>
+                <span class="UpliftReadiness-value">release-managers requested changes to D{{ uplift.revision_id }} in Phabricator.</span>
+            </li>
+        {% elif uplift.relman_review %}
+            <li class="UpliftReadiness-item is-waiting">
+                {{ readiness_icon("waiting") }}
+                <span class="UpliftReadiness-label">Release manager approval</span>
+                <span class="UpliftReadiness-value">Waiting for release-managers to accept D{{ uplift.revision_id }} in Phabricator.</span>
+            </li>
+        {% else %}
+            <li class="UpliftReadiness-item is-waiting">
+                {{ readiness_icon("waiting") }}
+                <span class="UpliftReadiness-label">Release manager approval</span>
+                <span class="UpliftReadiness-value">release-managers will be added as a reviewer on Phabricator.</span>
+            </li>
+        {% endif %}
     </ul>
 </div>

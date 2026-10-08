@@ -7,6 +7,7 @@ from typing import Self, Sequence
 from django.conf import settings
 from django.core.handlers.wsgi import WSGIRequest
 
+from lando.api.legacy.projects import RELMAN_PROJECT_SLUG, get_project_phid
 from lando.api.legacy.stacks import RevisionStack, get_revisions_by_id
 from lando.api.legacy.validation import revision_id_to_int
 from lando.main.models import Repo
@@ -89,6 +90,10 @@ class UpliftContext:
     # Whether the revision is in an uplift target repo, rather than being the
     # mainline revision an uplift is requested from.
     is_uplift_revision: bool
+
+    # The release-managers group's review status on this uplift revision, ie
+    # `accepted`, or `None` while the group is not a reviewer.
+    relman_review: str | None
 
     # Whether no assessment is attached to this revision yet. On an uplift
     # target that means the form still has to be filled in or linked, which is
@@ -184,6 +189,11 @@ class UpliftContext:
             bug_id=bug_id,
             revision_url=revisions[revision_phid].get("url"),
             is_uplift_revision=is_uplift_revision,
+            relman_review=(
+                cls.relman_review_status(phab, revisions[revision_phid])
+                if is_uplift_revision
+                else None
+            ),
             needs_assessment=linked_assessment is None,
             bug_assessments=cls.build_assessment_cards(
                 bug_id, revision_id, linked_assessment, is_uplift_revision, phab=phab
@@ -191,6 +201,36 @@ class UpliftContext:
             new_assessment_form=new_assessment_form,
             docs_url=UPLIFT_DOCS_URL,
             train_api_url=settings.WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL,
+        )
+
+    @staticmethod
+    def relman_review_status(
+        phab: PhabricatorClient | None, revision: dict
+    ) -> str | None:
+        """Return the release-managers group's review status on `revision`.
+
+        Phabricator adds the group as a reviewer once the uplift request form is
+        set, and landing stays blocked until it accepts. Returns `None` while the
+        group is not a reviewer, or when it cannot be looked up.
+        """
+        if phab is None:
+            return None
+
+        try:
+            relman_phid = get_project_phid(RELMAN_PROJECT_SLUG, phab)
+        except PhabricatorAPIException:
+            logger.warning(
+                "Could not look up the release-managers group.", exc_info=True
+            )
+            return None
+
+        return next(
+            (
+                reviewer["status"]
+                for reviewer in revision.get("reviewers", [])
+                if reviewer["phid"] == relman_phid
+            ),
+            None,
         )
 
     @staticmethod
