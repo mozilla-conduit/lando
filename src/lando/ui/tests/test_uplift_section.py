@@ -197,7 +197,7 @@ def test_uplift_revision_no_longer_warns_off_request_uplift(rf, user, linked):
     assert "does not need" not in html, (
         "The `Request Uplift` warning should be gone from the uplift section."
     )
-    assert "Before release managers can approve D4219" in html, (
+    assert 'class="box UpliftReadiness' in html, (
         "The checklist should lead the uplift section."
     )
 
@@ -249,7 +249,7 @@ def test_mainline_revision_shows_every_uplift_requested_from_it(rf, user):
 
     html = render_uplift_section(rf, user, revision_id, bug_id, uplift_repo=False)
 
-    assert "Before release managers can approve" not in html, (
+    assert "UpliftReadiness" not in html, (
         "A mainline revision is not approved for uplift, so it has no checklist."
     )
     assert len(elements(html, "div", **{"class": "box"})) == 1, (
@@ -317,3 +317,54 @@ def test_approval_item_reads_the_release_managers_review(
     assert expected in squashed(html), (
         f"A `{review}` release-managers review should read `{expected}`."
     )
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "revision_id,bug_id,linked,review,expected",
+    [
+        (4225, None, False, None, "D4225 needs a bug number"),
+        (4219, 1601002, False, None, "D4219 needs an uplift assessment"),
+        (
+            4218,
+            1601002,
+            True,
+            "rejected",
+            "release-managers requested changes to D4218",
+        ),
+        (4218, 1601002, True, "blocking", "D4218 is ready for release manager review"),
+        (4218, 1601002, True, "accepted", "D4218 is approved for uplift"),
+    ],
+)
+def test_checklist_headline_names_the_state(
+    rf,
+    user,
+    phabdouble,
+    release_management_project,
+    revision_id,
+    bug_id,
+    linked,
+    review,
+    expected,
+):
+    """The checklist's headline says what is left, or that nothing is."""
+    if bug_id:
+        (assessment,) = create_assessments(user, bug_id, 1)
+        if linked:
+            UpliftRevision.link_revision_to_assessment(revision_id, assessment)
+    reviewers = (
+        [{"phid": release_management_project["phid"], "status": review}]
+        if review
+        else []
+    )
+
+    html = render_uplift_section(
+        rf,
+        user,
+        revision_id,
+        bug_id,
+        phab=phabdouble.get_phabricator_client(),
+        reviewers=reviewers,
+    )
+
+    assert expected in squashed(html), f"The headline should read `{expected}`."

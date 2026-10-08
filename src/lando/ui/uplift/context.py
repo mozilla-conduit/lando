@@ -119,6 +119,17 @@ class UpliftContext:
         return next((card for card in self.bug_assessments if card.is_linked), None)
 
     @property
+    def is_ready_for_review(self) -> bool:
+        """Return `True` when nothing is left for the developer to do.
+
+        That is a bug number and a linked assessment, with release-managers not
+        having asked for changes.
+        """
+        return bool(
+            self.bug_id and self.linked_card and self.relman_review != "rejected"
+        )
+
+    @property
     def shown_cards(self) -> tuple[UpliftAssessmentCard, ...]:
         """Return the cards shown in full.
 

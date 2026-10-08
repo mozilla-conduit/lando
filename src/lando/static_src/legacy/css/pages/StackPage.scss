@@ -409,7 +409,16 @@ fieldset {
     border: 1px solid $grey-lighter;
     box-shadow: none;
 
+    &.is-ready {
+        border-color: #a6d7a8;
+        background: #f6fbf6;
+    }
+
     &-title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1.05rem;
         font-weight: 600;
         margin-bottom: 0.5rem;
     }

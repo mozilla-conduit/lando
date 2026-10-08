@@ -19,8 +19,26 @@ linked yet, and behind "Change" once something is.
 {% endmacro %}
 {% set linked_card = uplift.linked_card %}
 {% set offers_picker = uplift.bug_id and uplift.bug_assessments and uplift.new_assessment_form %}
-<div class="box UpliftReadiness">
-    <p class="UpliftReadiness-title">Before release managers can approve D{{ uplift.revision_id }}</p>
+<div class="box UpliftReadiness{% if uplift.is_ready_for_review %} is-ready{% endif %}">
+    {# The headline names the state, so it reads at a glance. #}
+    <p class="UpliftReadiness-title">
+        {% if not uplift.bug_id %}
+            {{ readiness_icon("todo") }}
+            <span>D{{ uplift.revision_id }} needs a bug number</span>
+        {% elif not linked_card %}
+            {{ readiness_icon("todo") }}
+            <span>D{{ uplift.revision_id }} needs an uplift assessment</span>
+        {% elif uplift.relman_review == "rejected" %}
+            {{ readiness_icon("todo") }}
+            <span>release-managers requested changes to D{{ uplift.revision_id }}</span>
+        {% elif uplift.relman_review == "accepted" %}
+            {{ readiness_icon("done") }}
+            <span>D{{ uplift.revision_id }} is approved for uplift</span>
+        {% else %}
+            {{ readiness_icon("done") }}
+            <span>D{{ uplift.revision_id }} is ready for release manager review</span>
+        {% endif %}
+    </p>
     <ul class="UpliftReadiness-list">
         {% if uplift.bug_id %}
             <li class="UpliftReadiness-item is-done">
