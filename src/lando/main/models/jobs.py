@@ -66,8 +66,9 @@ class JobStatus(models.TextChoices):
         For `JobStatus.SUBMITTED` jobs, higher priority items come first
         and then we order by creation time (older first).
 
-        `JobStatus.IN_PROGRESS` jobs remain visible in queue displays but are excluded
-        when a worker selects its next job.
+        `JobStatus.IN_PROGRESS` jobs remain eligible for uplift and automation
+        workers to recover interrupted jobs. Landing workers exclude them when
+        selecting their next job and recover their recorded job on startup.
         """
         return Case(
             When(status=cls.SUBMITTED, then=1),
@@ -315,12 +316,8 @@ class BaseJob(BaseModel):
     ) -> QuerySet:
         """Return a query which selects the next job and locks the row."""
 
-        query = cls.job_queue_query(repositories=repositories, **kwargs).exclude(
-            status=JobStatus.IN_PROGRESS
-        )
-
-        # Skip jobs claimed by other workers instead of waiting for their locks.
-        return query.select_for_update(skip_locked=True)
+        query = cls.job_queue_query(repositories=repositories, **kwargs)
+        return query.select_for_update()
 
     @classmethod
     def queue_jobs(cls) -> list[dict[str, Any]]:
