@@ -64,4 +64,31 @@ describe("$.fn.uplifts checklist", () => {
             "The toggle reports it is closed.",
         ).toBe("false");
     });
+
+    test("the checklist toggle relabels itself", () => {
+        document.body.innerHTML = `
+            <div class="Uplifts">
+                <button type="button" class="UpliftReadiness-toggle" aria-expanded="false" aria-controls="uplift-readiness-items" data-label-expanded="Hide checklist" data-label-collapsed="Show checklist">Show checklist</button>
+                <ul id="uplift-readiness-items" hidden></ul>
+            </div>
+        `;
+        $(".Uplifts").uplifts();
+
+        $(".UpliftReadiness-toggle").trigger("click");
+
+        expect($("#uplift-readiness-items").prop("hidden"), "The items show.").toBe(
+            false,
+        );
+        expect(
+            $(".UpliftReadiness-toggle").text(),
+            "The label offers to hide them.",
+        ).toBe("Hide checklist");
+
+        $(".UpliftReadiness-toggle").trigger("click");
+
+        expect(
+            $(".UpliftReadiness-toggle").text(),
+            "The label offers to show them.",
+        ).toBe("Show checklist");
+    });
 });

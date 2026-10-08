@@ -368,3 +368,25 @@ def test_checklist_headline_names_the_state(
     )
 
     assert expected in squashed(html), f"The headline should read `{expected}`."
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("linked", [True, False])
+def test_checklist_folds_away_when_nothing_is_left(rf, user, linked):
+    """A ready revision's checklist collapses to its headline and a toggle."""
+    bug_id = 1601002
+    revision_id = 4218
+    (assessment,) = create_assessments(user, bug_id, 1)
+    if linked:
+        UpliftRevision.link_revision_to_assessment(revision_id, assessment)
+
+    html = render_uplift_section(rf, user, revision_id, bug_id)
+
+    (items,) = elements(html, "ul", id="uplift-readiness-items")
+    toggles = elements(html, "button", **{"aria-controls": "uplift-readiness-items"})
+    if linked:
+        assert "hidden" in items, "A ready revision's items should start folded."
+        assert toggles, "A toggle should bring the folded items back."
+    else:
+        assert "hidden" not in items, "Items with work left should stay open."
+        assert not toggles, "There is nothing to fold while work is left."

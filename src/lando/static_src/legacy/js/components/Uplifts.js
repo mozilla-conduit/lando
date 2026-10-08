@@ -10,13 +10,19 @@ $.fn.uplifts = function () {
         // Ensure all toggle content is hidden on page load.
         $uplifts.find(".uplift-toggle-content").hide();
 
-        // Show or hide the assessment picker behind the checklist's "Change".
+        // Show or hide what a checklist toggle controls: the assessment picker
+        // behind "Change", or the items of a checklist with nothing left to do.
         $uplifts.on("click", ".UpliftReadiness-toggle", function () {
             let $toggle = $(this);
             let expanded = $toggle.attr("aria-expanded") === "true";
 
             $(`#${$toggle.attr("aria-controls")}`).prop("hidden", expanded);
             $toggle.attr("aria-expanded", String(!expanded));
+
+            let label = $toggle.data(expanded ? "label-collapsed" : "label-expanded");
+            if (label) {
+                $toggle.text(label);
+            }
         });
 
         // Cancelling a change closes the picker it was made in.

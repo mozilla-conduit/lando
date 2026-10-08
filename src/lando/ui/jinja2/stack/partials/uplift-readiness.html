@@ -38,8 +38,20 @@ linked yet, and behind "Change" once something is.
             {{ readiness_icon("done") }}
             <span>D{{ uplift.revision_id }} is ready for release manager review</span>
         {% endif %}
+        {# With nothing left to do, the items fold away behind one toggle. #}
+        {% if uplift.is_ready_for_review %}
+            <span class="UpliftReadiness-facts">Bug {{ uplift.bug_id }} · Assessment #{{ linked_card.assessment.id }}</span>
+            <button type="button"
+                    class="button is-small is-ghost UpliftReadiness-toggle UpliftReadiness-itemsToggle"
+                    aria-expanded="false"
+                    aria-controls="uplift-readiness-items"
+                    data-label-expanded="Hide checklist"
+                    data-label-collapsed="Show checklist">Show checklist</button>
+        {% endif %}
     </p>
-    <ul class="UpliftReadiness-list">
+    <ul class="UpliftReadiness-list"
+        id="uplift-readiness-items"
+        {% if uplift.is_ready_for_review %}hidden{% endif %}>
         {% if uplift.bug_id %}
             <li class="UpliftReadiness-item is-done">
                 {{ readiness_icon("done") }}

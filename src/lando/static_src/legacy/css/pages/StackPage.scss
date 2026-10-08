@@ -412,6 +412,28 @@ fieldset {
     &.is-ready {
         border-color: #a6d7a8;
         background: #f6fbf6;
+
+        .UpliftReadiness-title {
+            margin-bottom: 0;
+        }
+
+        .UpliftReadiness-list {
+            margin-top: 0.5rem;
+        }
+    }
+
+    &-facts {
+        font-size: 0.85rem;
+        font-weight: normal;
+        color: $grey;
+    }
+
+    &-itemsToggle {
+        margin-left: auto;
+    }
+
+    &-list[hidden] {
+        display: none;
     }
 
     &-title {
