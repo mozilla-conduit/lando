@@ -21,8 +21,7 @@
               href="{{ static_url }}assets/images/logo/bird_64.png">
         <link rel="stylesheet" href="https://code.cdn.mozilla.net/fonts/fira.css">
         {% compress css file vendor %}
-            <link type="text/css"
-                  href="{{ static_url }}font-awesome/css/font-awesome.min.css"
+            <link href="{{ static_url }}font-awesome/css/font-awesome.min.css"
                   rel="stylesheet"
                   media="screen">
         {% endcompress %}
@@ -65,41 +64,24 @@
                   media="screen">
         {% endcompress %}
         {% compress js file vendor %}
-            <script src="{{ static_url }}jquery/jquery.min.js"
-                    type="text/javascript"
-                    charset="utf-8"></script>
+            <script src="{{ static_url }}jquery/jquery.min.js" charset="utf-8"></script>
         {% endcompress %}
         {% compress js file main %}
-            <script src="{{ static_url }}legacy/js/main.js"
-                    type="text/javascript"
-                    charset="utf-8"></script>
-            <script src="{{ static_url }}legacy/js/utils/formatTime.js"
-                    type="text/javascript"
-                    charset="utf-8"></script>
+            <script src="{{ static_url }}legacy/js/main.js" charset="utf-8"></script>
+            <script src="{{ static_url }}legacy/js/utils/formatTime.js" charset="utf-8"></script>
             <script src="{{ static_url }}legacy/js/components/FlashMessages.js"
-                    type="text/javascript"
                     charset="utf-8"></script>
             <script src="{{ static_url }}legacy/js/components/LandingPreview.js"
-                    type="text/javascript"
                     charset="utf-8"></script>
-            <script src="{{ static_url }}legacy/js/components/Navbar.js"
-                    type="text/javascript"
-                    charset="utf-8"></script>
+            <script src="{{ static_url }}legacy/js/components/Navbar.js" charset="utf-8"></script>
             <script src="{{ static_url }}legacy/js/components/RequestSubmitted.js"
-                    type="text/javascript"
                     charset="utf-8"></script>
-            <script src="{{ static_url }}legacy/js/components/Stack.js"
-                    type="text/javascript"
-                    charset="utf-8"></script>
+            <script src="{{ static_url }}legacy/js/components/Stack.js" charset="utf-8"></script>
             <script src="{{ static_url }}legacy/js/components/Timeline.js"
-                    type="text/javascript"
                     charset="utf-8"></script>
             <script src="{{ static_url }}legacy/js/components/Treestatus.js"
-                    type="text/javascript"
                     charset="utf-8"></script>
-            <script src="{{ static_url }}legacy/js/components/Uplifts.js"
-                    type="text/javascript"
-                    charset="utf-8"></script>
+            <script src="{{ static_url }}legacy/js/components/Uplifts.js" charset="utf-8"></script>
         {% endcompress %}
     </head>
     <body>
