@@ -607,6 +607,7 @@ class RevisionView(LandoView):
             revision_repo=revision_repo,
             revisions=revisions,
             stack=stack["stack"],
+            phab=phab,
         )
 
         # Hackbot check
