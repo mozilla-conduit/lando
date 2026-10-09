@@ -88,6 +88,9 @@ addopts = ["--cov", "--cov-report", "html", "--no-migrations"]
 [tool.djlint]
 profile = "jinja"
 
+# Allow a blank line to separate macros and other blocks.
+max_blank_lines = 1
+
 # Avoid templating coverage reports.
 extend_exclude = "htmlcov/.*"
 
