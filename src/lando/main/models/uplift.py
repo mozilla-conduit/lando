@@ -121,6 +121,47 @@ class UpliftAssessment(BaseModel):
         default=YesNoUnknownChoices.YES,
     )
 
+    @classmethod
+    def visible_on_revision(
+        cls, bug_id: int | None, revision_id: int
+    ) -> models.QuerySet:
+        """Return the uplift assessments a revision's page should display.
+
+        That is every assessment on the revision's bug, plus those the revision
+        reaches directly, which is how assessments from before `bug_id` existed
+        stay visible.
+        """
+        reachable = models.Q(revisions__revision_id=revision_id) | models.Q(
+            uplift_submission__requested_revision_ids__contains=[revision_id]
+        )
+
+        # A revision an uplift job created also reaches the assessment behind it.
+        reachable |= models.Q(
+            uplift_submission__uplift_jobs__created_revision_ids__contains=[revision_id]
+        )
+
+        if bug_id is not None:
+            reachable |= models.Q(bug_id=bug_id)
+
+        return (
+            cls.objects.filter(reachable)
+            .select_related("user")
+            .prefetch_related("revisions")
+            .order_by("created_at")
+            .distinct()
+        )
+
+    @classmethod
+    def selectable_for_bug(cls, bug_id: int, user: User) -> models.QuerySet:
+        """Return the assessments a user may attach to revisions on the given bug.
+
+        That is every assessment filed against the bug, plus the user's own from
+        before `bug_id` existed, which have no bug to match yet.
+        """
+        return cls.objects.filter(
+            models.Q(bug_id=bug_id) | models.Q(bug_id__isnull=True, user=user)
+        )
+
     def to_conduit_json(self) -> dict[str, Any]:
         """Return the assessment in Conduit API JSON format."""
         return {
