@@ -103,48 +103,6 @@ def tostatusbadgename(landing_job: LandingJob) -> str:
     return mapping.get(landing_job.status.lower(), landing_job.status.capitalize())
 
 
-def uplift_status_tag_class(job: UpliftJob) -> str:
-    try:
-        status = JobStatus(job.status)
-    except ValueError:
-        status = None
-
-    if status == JobStatus.LANDED:
-        return "is-success"
-    if status in (JobStatus.FAILED, JobStatus.ABORTED):
-        return "is-danger"
-    if status == JobStatus.IN_PROGRESS:
-        return "is-info"
-    if status == JobStatus.DEFERRED:
-        return "is-warning"
-    return "is-light"
-
-
-def uplift_status_icon_class(job: UpliftJob) -> str:
-    try:
-        status = JobStatus(job.status)
-    except ValueError:
-        status = None
-
-    if status == JobStatus.LANDED:
-        return "fa fa-check"
-    if status == JobStatus.FAILED:
-        return "fa fa-times"
-    if status == JobStatus.IN_PROGRESS:
-        return "fa fa-clock-o"
-    if status == JobStatus.DEFERRED:
-        return "fa fa-history"
-    if status == JobStatus.CREATED:
-        return "fa fa-file-o"
-    if status == JobStatus.SUBMITTED:
-        return "fa fa-hourglass-start"
-    if status == JobStatus.CANCELLED:
-        return "fa fa-ban"
-    if status == JobStatus.ABORTED:
-        return "fa fa-exclamation-triangle"
-    return ""
-
-
 def uplift_status_label(job: UpliftJob) -> str | Markup:
     try:
         status = JobStatus(job.status)
@@ -495,9 +453,7 @@ def environment(**options) -> Environment:
             "static": static,
             "tostatusbadgeclass": tostatusbadgeclass,
             "tostatusbadgename": tostatusbadgename,
-            "uplift_status_icon_class": uplift_status_icon_class,
             "uplift_status_label": uplift_status_label,
-            "uplift_status_tag_class": uplift_status_tag_class,
             "build_manual_uplift_instructions": build_manual_uplift_instructions,
             "tree_category_to_display": tree_category_to_display,
             "treestatus_to_status_badge_class": treestatus_to_status_badge_class,

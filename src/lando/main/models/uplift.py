@@ -184,6 +184,20 @@ class UpliftAssessment(BaseModel):
             models.Q(bug_id=bug_id) | models.Q(bug_id__isnull=True, user=user)
         )
 
+    def requested_revision_ids(self) -> list[int]:
+        """Return the revisions an uplift was requested for, oldest request first."""
+        requested = []
+
+        # Sort in memory so a prefetched relation does not issue another query.
+        for submission in sorted(
+            self.uplift_submission.all(), key=lambda submission: submission.created_at
+        ):
+            for revision_id in submission.requested_revision_ids:
+                if revision_id not in requested:
+                    requested.append(revision_id)
+
+        return requested
+
     def display_answers(self) -> list[UpliftAssessmentAnswer]:
         """Return every question on the form with its answer, for display."""
         answers = []

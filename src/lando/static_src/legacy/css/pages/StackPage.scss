@@ -390,3 +390,18 @@ fieldset {
     /* Free-text answers are authored with line breaks that should survive. */
     white-space: pre-wrap;
 }
+
+/* The stacks carrying an assessment, grouped by train. */
+.UpliftTrains {
+    td {
+        vertical-align: middle;
+    }
+
+    .tag.is-rounded {
+        vertical-align: middle;
+    }
+
+    tbody tr.UpliftTrains-groupStart:not(:first-child) td {
+        border-top: 2px solid $grey-lighter;
+    }
+}
