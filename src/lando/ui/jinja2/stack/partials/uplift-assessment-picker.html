@@ -17,20 +17,22 @@ per assessment, then "None of these". See `AssessmentPicker.js` for its behaviou
         </tbody>
     </table>
 {% endmacro %}
-{% macro assessment_picker(assessments, bug_id) %}
+{% macro assessment_picker(assessments, bug_id, current_id=None) %}
     <div class="AssessmentPicker"
          role="radiogroup"
          aria-label="Uplift assessment">
         {% for assessment in assessments %}
             {% set linked_ids = assessment.revisions.all() | map(attribute="revision_id") | reject("none") | list %}
-            <div class="box AssessmentPicker-choice">
+            <div class="box AssessmentPicker-choice{% if assessment.id == current_id %} is-selected{% endif %}">
                 <label class="AssessmentPicker-label">
                     <input class="AssessmentPicker-radio"
                            type="radio"
                            name="assessment"
-                           value="{{ assessment.id }}">
+                           value="{{ assessment.id }}"
+                           {% if assessment.id == current_id %}checked{% endif %}>
                     <span>
                         <strong>Assessment #{{ assessment.id }}</strong>
+                        {% if assessment.id == current_id %}<span class="tag is-success is-light ml-1">Linked now</span>{% endif %}
                         <span class="is-size-7 has-text-grey ml-1">
                             by {{ assessment.user.email }} ·
                             {% if linked_ids %}

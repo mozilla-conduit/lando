@@ -14,112 +14,14 @@ future.
     {% endif %}
 {% endmacro %}
 <h1>Uplifts</h1>
-{% if uplift.is_uplift_revision %}
-    <div class="block">
-        <div class="block">
-            <div class="columns is-mobile is-vcentered is-multiline">
-                {% if uplift.new_assessment_form %}
-                    <div class="column is-narrow">
-                        <button class="button is-primary assessment-modal-open"
-                                data-assessment-modal="{{ uplift.linked_card.assessment.id if uplift.linked_card else 'new' }}">
-                            <span class="icon is-small">
-                                <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
-                            </span>
-                            <span>
-                                {% if uplift.linked_card %}
-                                    Edit Uplift Assessment
-                                {% else %}
-                                    Submit Uplift Assessment
-                                {% endif %}
-                            </span>
-                        </button>
-                    </div>
-                {% endif %}
-                {% if uplift.assessment_link_form %}
-                    <div class="column is-narrow">
-                        <button class="button is-light link-assessment-open"
-                                {% if not uplift.assessment_link_form.has_assessments %}disabled{% endif %}
-                                title="{% if not uplift.assessment_link_form.has_assessments %}You have no previous uplift assessments to reuse{% endif %}">
-                            <span class="icon is-small">
-                                <i class="fa fa-link" aria-hidden="true"></i>
-                            </span>
-                            <span>
-                                {% if uplift.linked_card %}
-                                    Change Assessment
-                                {% else %}
-                                    Reuse Previous Assessment
-                                {% endif %}
-                            </span>
-                        </button>
-                    </div>
-                {% endif %}
-                <div class="column">
-                    {% if uplift.linked_card %}
-                        <span class="has-text-success">
-                            <span class="icon is-small">
-                                <i class="fa fa-check-circle" aria-hidden="true"></i>
-                            </span>
-                            <span>Uplift assessment #{{ uplift.linked_card.assessment.id }} submitted for this revision.</span>
-                        </span>
-                    {% else %}
-                        <span class="has-text-grey">
-                            <span class="icon is-small">
-                                <i class="fa fa-exclamation-circle" aria-hidden="true"></i>
-                            </span>
-                            <span>No uplift assessment submitted yet.</span>
-                        </span>
-                    {% endif %}
-                </div>
-            </div>
-            {% if uplift.assessment_link_form and not uplift.assessment_link_form.has_assessments %}
-                <p class="has-text-grey is-size-7 mt-2">You have no previous uplift assessments to reuse for this account.</p>
-            {% endif %}
-        </div>
-    </div>
-    {% if uplift.assessment_link_form %}
-        <div class="uplift-assessment-link-modal modal">
-            <form action="{{ url('uplift-assessment-link-page', args=[uplift.revision_id]) }}"
-                  method="post">
-                <div class="modal-background"></div>
-                <div class="modal-card">
-                    <header class="modal-card-head">
-                        <p class="modal-card-title">Reuse Previous Assessment</p>
-                        <button class="link-assessment-close delete" aria-label="close" type="button"></button>
-                    </header>
-                    <section class="modal-card-body">
-                        {{ csrf_input }}
-                        <p class="block">
-                            Reuse a previous uplift assessment for this revision so you do not have to re-enter the same answers.
-                            Choose the matching assessment you submitted earlier; you can still edit it after reusing if details changed.
-                        </p>
-                        <div class="field">
-                            <label class="label"
-                                   for="{{ uplift.assessment_link_form.assessment.id_for_label }}">
-                                Existing uplift assessment
-                            </label>
-                            <div class="control">
-                                <div class="select is-fullwidth">{{ uplift.assessment_link_form.assessment }}</div>
-                            </div>
-                            {% if uplift.assessment_link_form.assessment.help_text %}
-                                <p class="help">{{ uplift.assessment_link_form.assessment.help_text }}</p>
-                            {% endif %}
-                        </div>
-                    </section>
-                    <footer class="modal-card-foot">
-                        <button class="button is-primary"
-                                {% if not uplift.assessment_link_form.has_assessments %}disabled{% endif %}>
-                            Reuse assessment
-                        </button>
-                        <button class="button link-assessment-close" type="button">Cancel</button>
-                    </footer>
-                </div>
-            </form>
-        </div>
+<div class="Uplifts">
+    {# An uplift revision lists what it still needs, and how to get it, first. #}
+    {% if uplift.is_uplift_revision %}
+        {% include "stack/partials/uplift-readiness.html" %}
     {% endif %}
-{% endif %}
-{% if uplift.bug_id %}
-    <div class="Uplifts">
-        {% if uplift.bug_assessments %}
+    {% if uplift.bug_id %}
+        {# The checklist already names the bug on an uplift revision. #}
+        {% if uplift.bug_assessments and not uplift.is_uplift_revision %}
             <div class="block">
                 <h2 class="is-size-5">
                     Uplift assessments for
@@ -128,7 +30,7 @@ future.
             </div>
         {% endif %}
         <div class="block">
-            {% for card in uplift.bug_assessments %}
+            {% for card in uplift.shown_cards %}
                 <div class="box UpliftAssessmentCard">
                     <div class="is-size-6 has-text-weight-semibold">Assessment #{{ card.assessment.id }}</div>
                     <p class="is-size-7 has-text-grey">
@@ -147,11 +49,53 @@ future.
                     <details class="mt-2">
                         <summary class="is-size-7">Show all answers</summary>
                         {{ assessment_answers(card.assessment) }}
+                        {% if uplift.new_assessment_form and card.is_linked %}
+                            {% set also_linked = card.revision_ids | reject("equalto", uplift.revision_id) | list %}
+                            <div class="field is-grouped is-align-items-center">
+                                <p class="control">
+                                    <button class="button is-small assessment-modal-open"
+                                            data-assessment-modal="{{ card.assessment.id }}">
+                                        <span class="icon is-small">
+                                            <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
+                                        </span>
+                                        <span>Edit assessment</span>
+                                    </button>
+                                </p>
+                                {% if also_linked %}
+                                    <p class="help">
+                                        Edits also apply to
+                                        {% for linked_id in also_linked %}D{{ linked_id }}{% if not loop.last %}, {% endif %}{% endfor %}.
+                                    </p>
+                                {% endif %}
+                            </div>
+                        {% endif %}
                     </details>
                     {% include "stack/partials/uplift-trains.html" %}
                 </div>
             {% endfor %}
         </div>
+        {% if uplift.collapsed_cards %}
+            <details class="block UpliftOthers">
+                <summary>
+                    {{ uplift.collapsed_cards | length }} other
+                    {{ "assessment" if uplift.collapsed_cards | length == 1 else "assessments" }}
+                    for bug {{ uplift.bug_id }}
+                </summary>
+                {% for card in uplift.collapsed_cards %}
+                    <div class="UpliftOthers-row">
+                        <strong>#{{ card.assessment.id }}</strong>
+                        <span class="is-size-7">{{ card.assessment.user_impact | truncate(120) }}</span>
+                        <span class="is-size-7 has-text-grey">
+                            {% if card.revision_ids %}
+                                linked to {% for linked_id in card.revision_ids %}D{{ linked_id }}{% if not loop.last %}, {% endif %}{% endfor %}
+                            {% else %}
+                                not linked to any revision
+                            {% endif %}
+                        </span>
+                    </div>
+                {% endfor %}
+            </details>
+        {% endif %}
         {% if uplift.new_assessment_form %}
             {# One modal for editing the linked assessment, pre-filled with its
                answers, plus one for authoring a new assessment on the bug. #}
@@ -172,5 +116,5 @@ future.
                 {% include "stack/partials/uplift-assessment-modal.html" %}
             {% endwith %}
         {% endif %}
-    </div>
-{% endif %}
+    {% endif %}
+</div>
