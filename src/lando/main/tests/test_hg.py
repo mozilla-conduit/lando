@@ -56,6 +56,9 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
         assert scm.run_hg_cmds([["status"]])
 
     with scm.for_pull():
+        assert not scm.run_hg_cmds([["status"]]), (
+            "Working directory should be clean after exiting and re-entering the context."
+        )
         assert scm.run_hg_cmds([["outgoing"]]), (
             "Draft commits should persist across context exits; `idle_maintenance` strips them."
         )
@@ -184,7 +187,7 @@ def test_integrated_hgrepo_patch_conflict_failure(hg_clone, patch: str, file: st
 
     # Patches with conflicts should raise a proper PatchConflict exception,
     # and `process_merge_conflict` should include `.rej` file content that
-    # was captured in-memory on patch application failure.
+    # was captured in-memory by `clean_repo`.
     breakdown = None
     with pytest.raises(PatchConflict):
         with repo.for_pull():
@@ -206,7 +209,7 @@ def test_integrated_hgrepo_patch_conflict_failure(hg_clone, patch: str, file: st
     )
     reject_entry = breakdown["rejects_paths"][file]
     assert "content" in reject_entry, (
-        "Reject entry should include `.rej` content captured on patch application failure"
+        "Reject entry should include `.rej` content captured by `clean_repo`."
     )
     assert reject_entry["content"], "Reject content should not be empty."
 
