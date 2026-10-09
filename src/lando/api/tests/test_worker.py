@@ -1,23 +1,33 @@
 import logging
 import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from unittest import mock
 from unittest.mock import patch
 
 import pytest
+from django.contrib import admin
+from django.db import connections, transaction
 
+from lando.api.legacy.workers.automation_worker import AutomationWorker
 from lando.api.legacy.workers.base import (
     DEFAULT_QUEUE_SIZE_ALERT_THRESHOLD,
     QueueSize,
     Worker,
 )
 from lando.api.legacy.workers.landing_worker import LandingWorker
-from lando.main.models import JobStatus
+from lando.api.legacy.workers.uplift_worker import UpliftWorker
+from lando.main.admin import WorkerAdmin
+from lando.main.models import JobStatus, LandingJob
+from lando.main.models import Worker as WorkerModel
 from lando.main.models.configuration import (
     ConfigurationKey,
     ConfigurationVariable,
     VariableTypeChoices,
 )
+from lando.main.models.jobs import DEFAULT_MAX_JOB_ATTEMPTS, JobAction
+from lando.main.models.uplift import UpliftAssessment, UpliftSubmission
 from lando.main.scm import SCMType
 from lando.main.scm.exceptions import SCMException
 from lando.treestatus.models import TreeStatus
@@ -143,6 +153,242 @@ def worker_stub():
         return stub
 
     return _stub
+
+
+@pytest.mark.django_db(transaction=True)
+def test_Worker_claims_different_jobs_concurrently(
+    landing_worker_instance, make_landing_job, monkeypatch, repo_mc
+):
+    repo = repo_mc(SCMType.GIT)
+    workers = [
+        LandingWorker(
+            landing_worker_instance(name=f"worker-{index}", scm=SCMType.GIT),
+            with_ssh=False,
+        )
+        for index in range(2)
+    ]
+    make_landing_job(status=JobStatus.IN_PROGRESS, target_repo=repo)
+    jobs = [
+        make_landing_job(status=JobStatus.SUBMITTED, target_repo=repo) for _ in range(2)
+    ]
+    barrier = threading.Barrier(2)
+    original_start_attempt = LandingJob.start_attempt
+
+    def synchronized_start_attempt(job):
+        barrier.wait(timeout=10)
+        original_start_attempt(job)
+
+    monkeypatch.setattr(LandingJob, "start_attempt", synchronized_start_attempt)
+
+    claimed = []
+
+    def run_job(job):
+        assert not transaction.get_connection().in_atomic_block
+        job.refresh_from_db()
+        assert job.status == JobStatus.IN_PROGRESS
+        assert job.attempts == 1
+        assert WorkerModel.objects.filter(current_job_id=job.id).exists()
+        claimed.append(job.id)
+        job.transition_status(JobAction.LAND, commit_id=f"commit-{job.id}")
+        return True
+
+    for worker in workers:
+        worker.run_job = run_job
+
+    def run_loop(worker):
+        try:
+            worker.loop()
+        finally:
+            connections.close_all()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(run_loop, worker) for worker in workers]
+        for future in futures:
+            future.result(timeout=15)
+
+    assert set(claimed) == {job.id for job in jobs}
+    for worker in workers:
+        worker.worker_instance.refresh_from_db()
+        assert worker.worker_instance.current_job_id is None
+
+
+@pytest.mark.parametrize(
+    ("retry", "status", "attempts", "expected_status"),
+    (
+        (False, JobStatus.IN_PROGRESS, 1, JobStatus.FAILED),
+        (False, JobStatus.IN_PROGRESS, DEFAULT_MAX_JOB_ATTEMPTS, JobStatus.FAILED),
+        (True, JobStatus.IN_PROGRESS, 1, JobStatus.DEFERRED),
+        (True, JobStatus.IN_PROGRESS, DEFAULT_MAX_JOB_ATTEMPTS, JobStatus.ABORTED),
+        (False, JobStatus.LANDED, 1, JobStatus.LANDED),
+        (True, JobStatus.LANDED, 1, JobStatus.LANDED),
+    ),
+)
+@pytest.mark.django_db
+def test_Worker_recovers_abandoned_job_on_start(
+    landing_worker_instance,
+    make_landing_job,
+    repo_mc,
+    retry,
+    status,
+    attempts,
+    expected_status,
+):
+    repo = repo_mc(SCMType.GIT)
+    worker_model = landing_worker_instance(name="recovery-worker", scm=SCMType.GIT)
+    assert worker_model.retry_interrupted_jobs is False
+    worker_model.retry_interrupted_jobs = retry
+    job = make_landing_job(
+        status=status,
+        attempts=attempts,
+        target_repo=repo,
+    )
+    if status == JobStatus.LANDED:
+        job.transition_status(JobAction.LAND, commit_id="landed-commit")
+    original_finished_at = job.finished_at
+    worker_model.current_job = job
+    worker_model.save()
+
+    worker = LandingWorker(worker_model, with_ssh=False)
+    worker.ssh_private_key = None
+    worker.notify_user_of_job_abort = mock.Mock()
+    worker.notify_user_of_landing_failure = mock.Mock()
+    worker.start(max_loops=-1)
+
+    job.refresh_from_db()
+    assert job.status == expected_status
+    assert job.attempts == attempts
+    if status == JobStatus.IN_PROGRESS:
+        assert "The worker stopped while processing this job." in job.error
+        assert (job.finished_at is not None) == (expected_status in JobStatus.final())
+    else:
+        assert job.finished_at == original_finished_at
+        assert job.error == ""
+    if expected_status == JobStatus.ABORTED:
+        worker.notify_user_of_job_abort.assert_called_once_with(job)
+    else:
+        worker.notify_user_of_job_abort.assert_not_called()
+    if expected_status == JobStatus.FAILED:
+        worker.notify_user_of_landing_failure.assert_called_once_with(job)
+    else:
+        worker.notify_user_of_landing_failure.assert_not_called()
+
+    worker_model.refresh_from_db()
+    assert worker_model.current_job_id is None
+    assert worker_model.process_id == os.getpid()
+
+
+@pytest.mark.parametrize("retry", (False, True))
+@pytest.mark.django_db
+def test_Worker_fails_caught_unexpected_error(
+    landing_worker_instance, make_landing_job, repo_mc, retry, caplog
+):
+    repo = repo_mc(SCMType.GIT)
+    worker_model = landing_worker_instance(
+        name="error-worker", scm=SCMType.GIT, retry_interrupted_jobs=retry
+    )
+    job = make_landing_job(status=JobStatus.SUBMITTED, target_repo=repo)
+    worker = LandingWorker(worker_model, with_ssh=False)
+    worker.notify_user_of_landing_failure = mock.Mock()
+    worker.apply_and_push = mock.Mock(
+        side_effect=RuntimeError("private exception detail")
+    )
+
+    with mock.patch("lando.api.legacy.workers.landing_worker.PushLogForRepo"):
+        worker.loop()
+
+    worker.apply_and_push.assert_called_once()
+    job.refresh_from_db()
+    assert job.status == JobStatus.FAILED
+    assert job.attempts == 1
+    assert job.finished_at is not None
+    assert "unexpected error" in job.error.lower()
+    assert "private exception detail" not in job.error
+    assert "private exception detail" in caplog.text
+    worker.notify_user_of_landing_failure.assert_called_once_with(job)
+    worker_model.refresh_from_db()
+    assert worker_model.current_job is None
+
+
+@pytest.mark.parametrize("delete_job", (False, True))
+@pytest.mark.django_db
+def test_Worker_starts_without_current_job(
+    landing_worker_instance, make_landing_job, delete_job
+):
+    worker_model = landing_worker_instance(name="idle-worker", scm=SCMType.GIT)
+    if delete_job:
+        job = make_landing_job(status=JobStatus.IN_PROGRESS)
+        worker_model.current_job = job
+        worker_model.save()
+        job.delete()
+        worker_model.refresh_from_db()
+    assert worker_model.current_job is None
+    worker = LandingWorker(worker_model, with_ssh=False)
+    worker.ssh_private_key = None
+    worker.notify_user_of_landing_failure = mock.Mock()
+    worker.notify_user_of_job_abort = mock.Mock()
+    worker.start(max_loops=-1)
+    worker.notify_user_of_landing_failure.assert_not_called()
+    worker.notify_user_of_job_abort.assert_not_called()
+
+
+@pytest.mark.parametrize("worker_class", (AutomationWorker, UpliftWorker))
+@pytest.mark.django_db(transaction=True)
+def test_Worker_other_job_types_recover_through_queue(
+    worker_class, landing_worker_instance, repo_mc, admin_user
+):
+    repo = repo_mc(SCMType.GIT)
+    worker_model = landing_worker_instance(
+        name="other-worker", scm=SCMType.GIT, type=worker_class.worker_type
+    )
+    params = {}
+    if worker_class is UpliftWorker:
+        params["submission"] = UpliftSubmission.objects.create(
+            requested_by=admin_user,
+            assessment=UpliftAssessment.objects.create(user=admin_user),
+        )
+    job = worker_class.job_type.objects.create(
+        status=JobStatus.IN_PROGRESS, attempts=1, target_repo=repo, **params
+    )
+    landing_job = LandingJob.objects.create(pk=job.pk, status=JobStatus.IN_PROGRESS)
+    worker = worker_class(worker_model, with_ssh=False)
+    worker.ssh_private_key = None
+    worker._setup()
+    job.refresh_from_db()
+    assert job.status == JobStatus.IN_PROGRESS
+    original_start_attempt = job.__class__.start_attempt
+
+    def start_attempt(selected_job):
+        assert not transaction.get_connection().in_atomic_block
+        original_start_attempt(selected_job)
+
+    def run_job(selected_job):
+        assert selected_job.pk == job.pk
+        assert selected_job.attempts == 2
+        worker_model.refresh_from_db()
+        assert worker_model.current_job is None
+        selected_job.transition_status(JobAction.LAND, commit_id="completed")
+        return True
+
+    worker.run_job = run_job
+    with mock.patch.object(job.__class__, "start_attempt", start_attempt):
+        worker.loop()
+    job.refresh_from_db()
+    assert job.status == JobStatus.LANDED
+    landing_job.refresh_from_db()
+    assert landing_job.status == JobStatus.IN_PROGRESS
+    worker_model.refresh_from_db()
+    assert worker_model.current_job is None
+
+
+@pytest.mark.django_db
+def test_Worker_retry_setting_is_editable_in_admin(rf, admin_user):
+    request = rf.get("/")
+    request.user = admin_user
+    form = WorkerAdmin(WorkerModel, admin.site).get_form(request)
+    field = form.base_fields["retry_interrupted_jobs"]
+    assert field.initial is False
+    assert not field.disabled
+    assert "current_job" not in form.base_fields
 
 
 def test_QueueSize_totals_open_and_closed_trees():

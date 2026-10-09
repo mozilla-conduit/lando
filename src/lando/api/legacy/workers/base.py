@@ -206,6 +206,9 @@ class Worker(ABC):
 
     def _setup(self):
         """Perform various setup actions."""
+        self.worker_instance.process_id = os.getpid()
+        self.worker_instance.save(update_fields=("process_id",))
+
         if self.ssh_private_key:
             self._setup_ssh(self.ssh_private_key)
 
@@ -261,8 +264,15 @@ class Worker(ABC):
             queue_size, logging.WARNING if above_threshold else logging.INFO
         )
 
+        is_landing_worker = self.worker_type == WorkerType.LANDING
         with transaction.atomic():
             job = self.job_type.next_job(repositories=self.active_repos).first()
+            if job is not None and is_landing_worker:
+                if job.status not in [JobStatus.SUBMITTED, JobStatus.DEFERRED]:
+                    logger.warning(f"Unexpected status for {job}")
+                job.start_attempt()
+                self.worker_instance.current_job = job
+                self.worker_instance.save(update_fields=("current_job",))
 
         if job is None:
             self.run_idle_maintenance()
@@ -271,10 +281,10 @@ class Worker(ABC):
         with job.processing():
             logger.info(f"Starting {job}", extra={"id": job.id})
 
-            if job.status not in [JobStatus.SUBMITTED, JobStatus.DEFERRED]:
-                logger.warning(f"Unexpected status for {job}")
-
-            job.start_attempt()
+            if not is_landing_worker:
+                if job.status not in [JobStatus.SUBMITTED, JobStatus.DEFERRED]:
+                    logger.warning(f"Unexpected status for {job}")
+                job.start_attempt()
 
             try:
                 self.last_job_finished = self.run_job(job)
@@ -314,6 +324,10 @@ class Worker(ABC):
 
             if job.status == JobStatus.ABORTED:
                 self.notify_user_of_job_abort(job)
+
+        if is_landing_worker:
+            self.worker_instance.current_job = None
+            self.worker_instance.save(update_fields=("current_job",))
 
     def defer_or_abort(self, job: BaseJob, message: str) -> bool:
         """Abort `job` if it has run out of attempts, otherwise defer it.
