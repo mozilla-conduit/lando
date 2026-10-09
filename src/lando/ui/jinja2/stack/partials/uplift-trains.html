@@ -1,0 +1,57 @@
+{# The stacks carrying `card`'s assessment, grouped by train: those its Lando
+jobs created, then those made outside Lando and linked to it. #}
+<table class="table is-fullwidth is-narrow is-size-7 mt-3 UpliftTrains">
+    <thead>
+        <tr>
+            <th>Train</th>
+            <th>Stack tip</th>
+            <th>Status</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for group in card.train_groups %}
+            {% for row in group.rows %}
+                <tr {% if loop.first %}class="UpliftTrains-groupStart"{% endif %}>
+                    <td class="has-text-weight-semibold">{% if loop.first %}{{ group.train or "Unknown train" }}{% endif %}</td>
+                    <td>
+                        {% if row.tip_revision_id %}
+                            {{ revision_tag(row.tip_revision_id, uplift.revision_id) }}
+                        {% else %}
+                            <span class="has-text-grey">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="{{ row.outcome.badge_class }}"
+                              {% if row.job %}title="{{ row.job|uplift_status_label|striptags }}"{% endif %}>
+                            <span class="icon is-small">
+                                <i class="fa {{ row.outcome.icon }}" aria-hidden="true"></i>
+                            </span>
+                            {{ row.outcome.label }}
+                        </span>
+                    </td>
+                    <td class="has-text-right">
+                        {% if row.job %}
+                            <a class="button is-small is-light"
+                               href="{{ url('uplift-jobs-page', args=[row.job.id]) }}">View job</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% if row.job and row.job.error %}
+                    <tr>
+                        <td></td>
+                        <td colspan="3">
+                            {% with job = row.job %}
+                                {% include "stack/partials/uplift-job-error.html" %}
+                            {% endwith %}
+                        </td>
+                    </tr>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            <tr>
+                <td colspan="4" class="has-text-grey">No uplift jobs or revisions carry this assessment yet.</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
