@@ -291,9 +291,9 @@ class GitHubAPIClient:
         result = self._api.patch(path, *args, **kwargs)
         return result.json()
 
-#
-# COMMITS
-#
+    #
+    # COMMITS
+    #
     def get_commit_checks(self, full_sha: str) -> list[dict[str, Any]]:
         """Return a list of checks on the give commit."""
         checks = self._repo_get(f"commits/{full_sha}/check-runs")
