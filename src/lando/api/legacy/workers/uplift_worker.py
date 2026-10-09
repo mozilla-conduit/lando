@@ -6,7 +6,6 @@ import tempfile
 import time
 from typing import Iterable
 
-from django.conf import settings
 from django.db import transaction
 from typing_extensions import override
 
@@ -400,12 +399,22 @@ class UpliftWorker(Worker):
                 )
                 raise
 
+        try:
+            try_revision = self.create_try_revision(
+                job.target_repo, job.requester_email
+            )
+        except ValueError:
+            logger.exception(
+                "Error creating try revision",
+                extra={"job_id": job.id},
+            )
+            raise
+
         with transaction.atomic():
             revisions = [
                 self.create_revisions_from_patch_helper(patch_helper)
                 for patch_helper in patch_helpers
             ]
-            try_revision = self.create_try_revision(job.requester_email)
             revisions.append(try_revision)
             try_job = LandingJob.objects.create(
                 target_repo=try_repo,
@@ -431,12 +440,27 @@ class UpliftWorker(Worker):
         error = secure_check.result()
         return error, secure_check.status_code
 
-    def create_try_diff_from_json(self) -> str:
-        try_config_path = (
-            settings.BASE_DIR / "api" / "legacy" / "workers" / "try_task_config.json"
+    def create_try_task_config_diff(self, repo: Repo) -> str:
+        """Create a raw diff for the `try_task_config.json` file."""
+        config_contents = self.run_mach_command(
+            repo_path=repo.path,
+            args=["try", "fuzzy", "-q", "^build-", "--no-push", "--disable-pgo"],
+            extra_env={"MOZBUILD_STATE_PATH": repo.mozbuild_state_path},
         )
-        config_contents = try_config_path.read_text()
-        config_lines = config_contents.splitlines()
+        _, _, json_text = config_contents.partition(
+            "Calculated try_task_config.json:\n"
+        )
+        if not json_text:
+            raise ValueError(
+                "Could not find 'Calculated try_task_config.json:' marker."
+            )
+        json_dict = json.loads(json_text)
+        if json_dict["parameters"]["try_task_config"]["tasks"] is None:
+            raise ValueError("No tasks found in try_task_config.json.")
+
+        config_json = json.dumps(json_dict, indent=4, sort_keys=True)
+        config_lines = config_json.splitlines()
+
         diff_header_lines = [
             "diff --git a/try_task_config.json b/try_task_config.json",
             "new file mode 100644",
@@ -448,7 +472,7 @@ class UpliftWorker(Worker):
         raw_diff = "\n".join(diff_header_lines + added_lines) + "\n"
         return raw_diff
 
-    def create_try_revision(self, requester_email: str) -> Revision:
+    def create_try_revision(self, repo: Repo, requester_email: str) -> Revision:
         """Build the `Revision` carrying the `try_task_config.json` change."""
         try_patch_data = {
             "author_name": "Lando",
@@ -456,7 +480,7 @@ class UpliftWorker(Worker):
             "commit_message": "try_task_config",
             "timestamp": str(int(time.time())),
         }
-        raw_diff = self.create_try_diff_from_json()
+        raw_diff = self.create_try_task_config_diff(repo)
         return Revision.new_from_patch(raw_diff=raw_diff, patch_data=try_patch_data)
 
     def create_revisions_from_patch_helper(self, patch_helper: PatchHelper) -> Revision:
