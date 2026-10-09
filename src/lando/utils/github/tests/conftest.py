@@ -114,6 +114,7 @@ def create_mock_pull_request(
     Currently, the following methods are supported:
     * GitHubAPIClient.get_diff (pull number parameter is ignored)
     * GitHubAPIClient.get_patch (pull number parameter is ignored)
+    * GitHubAPIClient.get_commit_checks (commit sha is ignored)
     * GitHubAPIClient.get_pull_request (parameters are ignored)
     * GitHubAPIClient.get_pull_request_commits (pull number parameter is ignored)
     * GitHubAPIClient.get_pull_request_commits_comments (pull number parameter is ignored)
@@ -133,6 +134,7 @@ def create_mock_pull_request(
         commit_message: str = "Test Commit Message",
         commits: list[dict[str, Any]] | None = None,
         commits_comments: list[dict[str, Any]] | None = None,
+        commit_checks: list[dict[str, Any]] | None = None,
         head_ref: str = "some-branch",
         head_sha: str = DEFAULT_COMMIT_SHA,
         is_draft: bool = False,
@@ -191,6 +193,10 @@ def create_mock_pull_request(
                 author_email=author[1],
             )
         ]
+
+        mock_github_api_client.get_commit_checks = mock.Mock()
+        mock_github_api_client.get_commit_checks.return_value = commit_checks or []
+
         mock_github_api_client.get_pull_request_commits = mock.Mock()
         mock_github_api_client.get_pull_request_commits.return_value = commits
 
