@@ -134,6 +134,14 @@
     &-subtitle {
         font-size: 0.8rem;
     }
+
+    /* The "More" menu is secondary, unlike the green action buttons beside it. */
+    .StackPage-moreActions-trigger {
+        background: #fff;
+        color: inherit;
+        border: 1px solid $grey-lighter;
+        min-width: 7rem;
+    }
 }
 
 .StackPage-landing-info {
