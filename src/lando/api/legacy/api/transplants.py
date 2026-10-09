@@ -28,6 +28,7 @@ from lando.api.legacy.revisions import (
     revision_is_secure,
 )
 from lando.api.legacy.stacks import (
+    REVISION_ATTACHMENTS,
     RevisionStack,
     build_stack_graph,
     request_extended_revision_data,
@@ -95,17 +96,20 @@ def _choose_middle_revision_from_path(path: list[tuple[int, int]]) -> int:
     return path[len(path) // 2][0]
 
 
-def _find_stack_from_landing_path(
+def _get_middle_revision_from_landing_path(
     phab: PhabricatorClient, landing_path: list[tuple[int, int]]
-) -> tuple[set[str], set[tuple[str, str]]]:
+) -> dict:
+    """Return the middle (or only) revision from the landing path."""
     a_revision_id = _choose_middle_revision_from_path(landing_path)
     revision = phab.call_conduit(
-        "differential.revision.search", constraints={"ids": [a_revision_id]}
+        "differential.revision.search",
+        constraints={"ids": [a_revision_id]},
+        attachments=REVISION_ATTACHMENTS,
     )
     revision = phab.single(revision, "data", none_when_empty=True)
     if revision is None:
         raise LegacyAPIException(404, "Stack Not Found")
-    return build_stack_graph(revision)
+    return revision
 
 
 def dryrun(phab: PhabricatorClient, user: User, data: dict) -> dict[str, Any]:
@@ -125,8 +129,11 @@ def dryrun(phab: PhabricatorClient, user: User, data: dict) -> dict[str, Any]:
     supported_repos = Repo.get_mapping()
 
     relman_group_phid = phab.expect(release_managers, "phid")
-    nodes, edges = _find_stack_from_landing_path(phab, landing_path)
-    stack_data = request_extended_revision_data(phab, list(nodes))
+    revision = _get_middle_revision_from_landing_path(phab, landing_path)
+    nodes, edges = build_stack_graph(revision)
+    stack_data = request_extended_revision_data(
+        phab, list(nodes), fetched_revision=revision
+    )
     stack = RevisionStack(set(stack_data.revisions.keys()), edges)
     landing_assessment = LandingAssessmentState.from_landing_path(
         landing_path, stack_data, user
@@ -178,8 +185,11 @@ def post(phab: PhabricatorClient, user: User, data: dict) -> tuple[dict[str, int
 
     supported_repos = Repo.get_mapping()
 
-    nodes, edges = _find_stack_from_landing_path(phab, landing_path)
-    stack_data = request_extended_revision_data(phab, list(nodes))
+    revision = _get_middle_revision_from_landing_path(phab, landing_path)
+    nodes, edges = build_stack_graph(revision)
+    stack_data = request_extended_revision_data(
+        phab, list(nodes), fetched_revision=revision
+    )
     stack = RevisionStack(set(stack_data.revisions.keys()), edges)
 
     landing_assessment = LandingAssessmentState.from_landing_path(
