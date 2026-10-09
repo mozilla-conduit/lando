@@ -35,7 +35,7 @@
                     {{- "" if loop.first else " ← " -}}
                     <a href="{{ i['revision_id']|phabricator_revision_url(diff_id=i['diff_id']) }}">
                         {{ i['revision_id'] }}
-                        {% if i['diff_id'] %}diff {{ i['diff_id'] }}{% endif %}
+                        {% if i["diff_id"] %}diff {{ i['diff_id'] }}{% endif %}
                     </a>
                 {%- endfor %}
             </p>
@@ -50,7 +50,7 @@
             <p>
                 <strong>Last update:</strong> <time data-timestamp="{{ job.updated_at }}">{{ job.updated_at }}</time>
             </p>
-            {% if job.status.lower() == 'landed' and job.landed_commit_id %}
+            {% if job.status.lower() == "landed" and job.landed_commit_id %}
                 <p>
                     <strong>Result:</strong> {{ job.landed_commit_id|escape_html|linkify_transplant_details(job) |safe }} on {{ job.target_repo }}
                 </p>
@@ -60,7 +60,7 @@
                         {{ treeherder_link(job.landed_treeherder_revision, job.target_repo, "Treeherder") |safe }}
                     {% endif %}
                 </p>
-            {% elif job.status.lower() == 'submitted' and treestatus and not embedded %}
+            {% elif job.status.lower() == "submitted" and treestatus and not embedded %}
                 <div>
                     <p>
                         <strong><a href="https://firefox-source-docs.mozilla.org/testing/automated-testing/tree-closure.html"

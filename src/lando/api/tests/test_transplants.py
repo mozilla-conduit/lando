@@ -4,25 +4,33 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
-from django.contrib.auth.models import Permission
+import requests
+from django.contrib.auth.models import Permission, User
+from django.core.cache import cache
 
 from lando.api.legacy.api import transplants as legacy_api_transplants
 from lando.api.legacy.transplants import (
     RevisionWarning,
     StackAssessment,
+    StackAssessmentState,
     blocker_author_planned_changes,
+    blocker_prevent_dot_github,
     blocker_prevent_nsprnss_files,
     blocker_prevent_submodules,
     blocker_prevent_symlinks,
     blocker_revision_data_classification,
+    blocker_security_bug_status_flags,
     blocker_try_task_config,
     blocker_uplift_approval,
     blocker_user_scm_level,
+    run_landing_checks,
+    warning_merge_conflict,
     warning_multiple_authors,
     warning_not_accepted,
     warning_previously_landed,
     warning_reviews_not_current,
     warning_revision_secure,
+    warning_security_bug_status_flags_unverified,
     warning_wip_commit_message,
 )
 from lando.api.tests.mocks import PhabricatorDouble
@@ -36,6 +44,7 @@ from lando.main.models import (
 from lando.main.models.revision import Revision
 from lando.main.scm import SCMType
 from lando.main.support import LegacyAPIException
+from lando.utils.landing_checks import PreventDotGithubCheck
 from lando.utils.phabricator import PhabricatorRevisionStatus, ReviewerStatus
 from lando.utils.tasks import admin_remove_phab_project
 
@@ -484,6 +493,239 @@ def test_warning_revision_secure_is_not_secure(
     stack_state = create_state(revision)
 
     assert warning_revision_secure(revision, {}, stack_state) is None
+
+
+@pytest.fixture
+def security_flags_state(phabdouble, create_state):
+    """Return a factory building a stack state for a Firefox-repo revision.
+
+    The factory creates a revision on `repo_name` tied to `bug_id` and mocks the
+    BMO lookup (`uplift_get_bug`): it raises when `bmo_down`, otherwise it returns
+    ``{"bugs": bugs or []}``. Pass `secure_project` to tag the revision with the
+    Phabricator secure project. Returns a ``(revision, stack_state)`` tuple.
+    """
+
+    def build(
+        *,
+        bug_id=123,
+        bugs=None,
+        bmo_down=False,
+        secure_project=None,
+        repo_name="firefox",
+    ):
+        # `fetch_bugs` briefly caches results keyed by bug id; clear it so tests
+        # reusing the same bug id don't see a prior test's cached payload.
+        cache.clear()
+        repo = phabdouble.repo(name=repo_name)
+        projects = [secure_project] if secure_project is not None else []
+        revision = phabdouble.api_object_for(
+            phabdouble.revision(repo=repo, bug_id=bug_id, projects=projects),
+            attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+        )
+
+        if bmo_down:
+            patched = mock.patch(
+                "lando.api.legacy.bmo.uplift_get_bug",
+                side_effect=requests.exceptions.RequestException("boom"),
+            )
+        else:
+            patched = mock.patch(
+                "lando.api.legacy.bmo.uplift_get_bug",
+                return_value={"bugs": bugs if bugs is not None else []},
+            )
+
+        with patched:
+            return revision, create_state(revision)
+
+    return build
+
+
+@pytest.mark.django_db
+def test_blocker_security_flags_sec_high_unset_blocks(security_flags_state):
+    revision, stack_state = security_flags_state(
+        bugs=[
+            {
+                "id": 123,
+                "keywords": ["sec-high"],
+                "cf_status_firefox130": "affected",
+                "cf_status_firefox129": "---",
+            }
+        ],
+    )
+
+    result = blocker_security_bug_status_flags(revision, {}, stack_state)
+    assert result is not None, "an unset status flag on a sec-high bug should block"
+    assert "sec-high" in result, "the message should name the matched keyword"
+    assert "cf_status_firefox129" in result, "the unset flag should be reported"
+    assert "cf_status_firefox130" not in result, "a set flag is not missing"
+
+
+@pytest.mark.django_db
+def test_blocker_security_flags_sec_critical_message(security_flags_state):
+    revision, stack_state = security_flags_state(
+        bugs=[{"id": 123, "keywords": ["sec-critical"], "cf_status_firefox130": "---"}],
+    )
+
+    result = blocker_security_bug_status_flags(revision, {}, stack_state)
+    assert result is not None, "an unset flag on a sec-critical bug should block"
+    assert "sec-critical" in result, "a sec-critical bug must not be called sec-high"
+
+
+@pytest.mark.django_db
+def test_blocker_security_flags_all_set_passes(security_flags_state):
+    revision, stack_state = security_flags_state(
+        bugs=[
+            {
+                "id": 123,
+                "keywords": ["sec-high"],
+                "cf_status_firefox130": "affected",
+                "cf_status_firefox_esr128": "unaffected",
+            }
+        ],
+    )
+
+    assert blocker_security_bug_status_flags(revision, {}, stack_state) is None, (
+        "a bug with all status flags set should not block"
+    )
+
+
+@pytest.mark.django_db
+def test_blocker_security_flags_question_counts_as_set(security_flags_state):
+    revision, stack_state = security_flags_state(
+        bugs=[{"id": 123, "keywords": ["sec-high"], "cf_status_firefox130": "?"}],
+    )
+
+    assert blocker_security_bug_status_flags(revision, {}, stack_state) is None, (
+        "'?' is an acknowledged value and must not count as unset"
+    )
+
+
+@pytest.mark.django_db
+def test_blocker_security_flags_none_counts_as_unset(security_flags_state):
+    # BMO returns "---" for unset flags, so a None value is anomalous; err toward
+    # blocking rather than silently waving a security bug through.
+    revision, stack_state = security_flags_state(
+        bugs=[{"id": 123, "keywords": ["sec-high"], "cf_status_firefox130": None}],
+    )
+
+    result = blocker_security_bug_status_flags(revision, {}, stack_state)
+    assert result is not None, "a None flag value should be treated as unset"
+    assert "cf_status_firefox130" in result
+
+
+@pytest.mark.django_db
+def test_blocker_security_flags_non_security_bug_ignored(security_flags_state):
+    revision, stack_state = security_flags_state(
+        bugs=[{"id": 123, "keywords": ["regression"], "cf_status_firefox130": "---"}],
+    )
+
+    assert blocker_security_bug_status_flags(revision, {}, stack_state) is None, (
+        "a non-security bug is out of scope"
+    )
+
+
+@pytest.mark.django_db
+def test_blocker_security_flags_non_firefox_repo_ignored(security_flags_state):
+    revision, stack_state = security_flags_state(
+        repo_name="mozilla-central",
+        bugs=[{"id": 123, "keywords": ["sec-high"], "cf_status_firefox130": "---"}],
+    )
+
+    assert blocker_security_bug_status_flags(revision, {}, stack_state) is None, (
+        "cf_status_firefox flags don't apply to non-Firefox repos"
+    )
+
+
+@pytest.mark.django_db
+def test_blocker_security_flags_no_bug_id_ignored(security_flags_state):
+    revision, stack_state = security_flags_state(bug_id=None)
+
+    assert blocker_security_bug_status_flags(revision, {}, stack_state) is None, (
+        "a revision with no bug reference has nothing to check"
+    )
+
+
+@pytest.mark.django_db
+def test_blocker_security_flags_defers_when_bmo_down(security_flags_state):
+    revision, stack_state = security_flags_state(bmo_down=True)
+
+    assert stack_state.bugs_by_id is None
+    assert blocker_security_bug_status_flags(revision, {}, stack_state) is None, (
+        "with no BMO data the blocker defers to the warning"
+    )
+
+
+@pytest.mark.django_db
+def test_blocker_security_flags_defers_when_bug_absent(security_flags_state):
+    # BMO reachable but the bug is not in the response (e.g. restricted).
+    revision, stack_state = security_flags_state(bugs=[])
+
+    assert stack_state.bugs_by_id == {}
+    assert blocker_security_bug_status_flags(revision, {}, stack_state) is None, (
+        "a bug absent from the response defers to the warning"
+    )
+
+
+@pytest.mark.django_db
+def test_warning_security_flags_when_bmo_down(secure_project, security_flags_state):
+    revision, stack_state = security_flags_state(
+        bmo_down=True, secure_project=secure_project
+    )
+
+    warning = warning_security_bug_status_flags_unverified(revision, {}, stack_state)
+    assert warning is not None, "a secure revision should warn when BMO is unavailable"
+    assert "could not verify" in warning.details
+
+
+@pytest.mark.django_db
+def test_warning_security_flags_when_bug_absent(secure_project, security_flags_state):
+    revision, stack_state = security_flags_state(bugs=[], secure_project=secure_project)
+
+    warning = warning_security_bug_status_flags_unverified(revision, {}, stack_state)
+    assert warning is not None, "a secure bug Lando cannot read should warn"
+
+
+@pytest.mark.django_db
+def test_warning_security_flags_silent_when_not_secure(security_flags_state):
+    # BMO is down, but the revision is not tagged secure -> no warning.
+    revision, stack_state = security_flags_state(bmo_down=True)
+
+    assert (
+        warning_security_bug_status_flags_unverified(revision, {}, stack_state) is None
+    ), "non-secure revisions must not warn, to avoid confirmation-token churn"
+
+
+@pytest.mark.django_db
+def test_warning_security_flags_silent_when_data_available(
+    secure_project, security_flags_state
+):
+    revision, stack_state = security_flags_state(
+        secure_project=secure_project,
+        bugs=[
+            {"id": 123, "keywords": ["sec-high"], "cf_status_firefox130": "affected"}
+        ],
+    )
+
+    assert stack_state.bugs_by_id is not None
+    assert (
+        warning_security_bug_status_flags_unverified(revision, {}, stack_state) is None
+    ), "when the blocker can assess the bug, no warning is needed"
+
+
+@pytest.mark.django_db
+def test_security_flags_blocker_surfaces_in_assessment(security_flags_state):
+    revision, stack_state = security_flags_state(
+        bugs=[{"id": 123, "keywords": ["sec-high"], "cf_status_firefox130": "---"}],
+    )
+
+    assessment = run_landing_checks(stack_state)
+
+    assert any("missing status flags" in blocker for blocker in assessment.blockers), (
+        "the blocker should surface in the assessment"
+    )
+    assert revision["phid"] not in stack_state.landable_stack, (
+        "a blocked revision should be removed from the landable stack"
+    )
 
 
 @pytest.mark.django_db
@@ -1361,6 +1603,192 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     assert sec_approval_project["name"] not in transplanted_patch.patch
 
 
+@pytest.fixture
+def merge_conflict_stack(
+    phabdouble: PhabricatorDouble, user: User, create_state: Callable
+) -> Callable:
+    """Build a two revision stack and a state assessing a landing of both.
+
+    The returned callable takes the merge conflict status payload to set on the
+    tip and on the root of the stack, and returns a `(revision, diff)` tuple per
+    revision, ordered from the root, along with the `StackAssessmentState` for
+    landing the whole stack.
+    """
+
+    def merge_conflict_stack_handler(
+        tip_status: dict | None = None, root_status: dict | None = None
+    ) -> tuple[list[tuple[dict, dict]], StackAssessmentState]:
+        repo = phabdouble.repo()
+
+        root_diff = phabdouble.diff()
+        root = phabdouble.revision(
+            diff=root_diff, repo=repo, merge_conflict_status=root_status
+        )
+
+        tip_diff = phabdouble.diff()
+        tip = phabdouble.revision(
+            diff=tip_diff,
+            repo=repo,
+            depends_on=[root],
+            merge_conflict_status=tip_status,
+        )
+
+        attachments = {"reviewers": True, "reviewers-extra": True, "projects": True}
+        revisions = [
+            phabdouble.api_object_for(revision, attachments=attachments)
+            for revision in (root, tip)
+        ]
+        diffs = [
+            phabdouble.api_object_for(diff, attachments={"commits": True})
+            for diff in (root_diff, tip_diff)
+        ]
+
+        stack_state = create_state(
+            revisions[-1],
+            landing_path=[(root["id"], root_diff["id"]), (tip["id"], tip_diff["id"])],
+            lando_user=user,
+        )
+
+        return list(zip(revisions, diffs, strict=True)), stack_state
+
+    return merge_conflict_stack_handler
+
+
+@pytest.mark.django_db
+def test_warning_merge_conflict_warns_on_landing_tip(
+    merge_conflict_stack: Callable, merge_conflict_status: Callable
+):
+    """A conflict recorded on the tip warns, since it describes the whole landing."""
+    revision_diffs, stack_state = merge_conflict_stack(
+        tip_status=merge_conflict_status()
+    )
+    (root_revision, root_diff), (tip_revision, tip_diff) = revision_diffs
+
+    warning = warning_merge_conflict(tip_revision, tip_diff, stack_state)
+
+    assert warning is not None, (
+        "A conflict on the landing tip should produce a warning."
+    )
+    assert warning.display == "Phabricator has detected a merge conflict.", (
+        "The warning should be displayed as a merge conflict."
+    )
+    assert "diff 456" in warning.details, (
+        "The warning should name the diff the check ran against."
+    )
+    assert f"base commit {'a' * 40}" in warning.details, (
+        "The warning should name the base commit the check ran against."
+    )
+    assert "2025-09-04 16:00 UTC" in warning.details, (
+        "The warning should name the time the check last ran."
+    )
+    assert "may no longer apply" not in warning.details, (
+        "A fresh verdict should not be reported as out of date."
+    )
+
+    assert warning_merge_conflict(root_revision, root_diff, stack_state) is None, (
+        "A revision below the landing tip should not warn."
+    )
+
+
+@pytest.mark.django_db
+def test_warning_merge_conflict_ignores_status_below_the_tip(
+    merge_conflict_stack: Callable, merge_conflict_status: Callable
+):
+    """A conflict recorded below the tip describes a landing nobody requested."""
+    revision_diffs, stack_state = merge_conflict_stack(
+        root_status=merge_conflict_status()
+    )
+
+    assert all(
+        warning_merge_conflict(revision, diff, stack_state) is None
+        for revision, diff in revision_diffs
+    ), "A conflict below the landing tip should not warn."
+
+
+@pytest.mark.django_db
+def test_warning_merge_conflict_reports_a_stale_verdict(
+    merge_conflict_stack: Callable, merge_conflict_status: Callable
+):
+    """A verdict computed for an earlier diff is flagged as possibly out of date."""
+    revision_diffs, stack_state = merge_conflict_stack(
+        tip_status=merge_conflict_status(isStale=True)
+    )
+    tip_revision, tip_diff = revision_diffs[-1]
+
+    warning = warning_merge_conflict(tip_revision, tip_diff, stack_state)
+
+    assert warning is not None, "A stale conflict should still warn."
+    assert "may no longer apply" in warning.details, (
+        "The warning should say a stale verdict may be out of date."
+    )
+
+
+@pytest.mark.django_db
+def test_warning_merge_conflict_without_landing_assessment(
+    phabdouble: PhabricatorDouble,
+    create_state: Callable,
+    merge_conflict_status: Callable,
+):
+    """Rendering the stack page assesses every revision without a landing request.
+
+    `lando.api.legacy.api.stacks.get` builds a `StackAssessmentState` with no
+    landing assessment, so there is no landing path whose last revision the verdict
+    would describe. Every revision must stay quiet rather than warn about a landing
+    the user has not asked for.
+    """
+    revision = phabdouble.api_object_for(
+        phabdouble.revision(merge_conflict_status=merge_conflict_status()),
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+
+    stack_state = create_state(revision)
+
+    assert warning_merge_conflict(revision, {}, stack_state) is None, (
+        "A stack assessment with no landing path should not warn."
+    )
+
+
+@pytest.mark.django_db(transaction=True)
+def test_dryrun_merge_conflict_warns(
+    user: User,
+    phabdouble: PhabricatorDouble,
+    mocked_repo_config: None,
+    release_management_project: dict,
+    needs_data_classification_project: dict,
+    merge_conflict_status: Callable,
+):
+    """A merge conflict on the landing tip surfaces as a warning from a dryrun."""
+    repo = phabdouble.repo()
+
+    root_diff = phabdouble.diff()
+    root = phabdouble.revision(diff=root_diff, repo=repo)
+
+    tip_diff = phabdouble.diff()
+    tip = phabdouble.revision(
+        diff=tip_diff,
+        repo=repo,
+        depends_on=[root],
+        merge_conflict_status=merge_conflict_status(),
+    )
+
+    result = legacy_api_transplants.dryrun(
+        phabdouble.get_phabricator_client(),
+        user,
+        {
+            "landing_path": [
+                {"revision_id": "D{}".format(root["id"]), "diff_id": root_diff["id"]},
+                {"revision_id": "D{}".format(tip["id"]), "diff_id": tip_diff["id"]},
+            ]
+        },
+    )
+
+    displays = [warning["display"] for warning in result["warnings"]]
+
+    assert "Phabricator has detected a merge conflict." in displays, (
+        "A dryrun should warn about a merge conflict detected by Phabricator."
+    )
+
+
 @pytest.mark.django_db
 def test_warning_wip_commit_message(phabdouble, create_state):
     revision = phabdouble.api_object_for(
@@ -1827,6 +2255,93 @@ def test_blocker_nsprnss_files(phabdouble, create_state, get_failing_check_diff)
 
 
 @pytest.mark.django_db
+def test_blocker_prevent_dot_github(phabdouble, create_state, get_failing_check_diff):
+    repo = phabdouble.repo()
+
+    # Create a revision/diff pair without GitHub workflow changes.
+    revision = phabdouble.revision(repo=repo)
+    phab_revision = phabdouble.api_object_for(
+        revision,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    diff_normal = phabdouble.diff(revision=revision)
+
+    # Create a revision/diff pair with a GitHub workflow change, and title allowing it.
+    revision_allowed = phabdouble.revision(
+        repo=repo, depends_on=[revision], title="DOT_GITHUB_OVERRIDE"
+    )
+    phab_revision_allowed = phabdouble.api_object_for(
+        revision_allowed,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    diff_allowed = phabdouble.diff(
+        rawdiff=get_failing_check_diff("dot_github"), revision=revision_allowed
+    )
+
+    # Create a revision/diff pair with a GitHub workflow change.
+    revision_dot_github = phabdouble.revision(repo=repo, depends_on=[revision_allowed])
+    phab_revision_dot_github = phabdouble.api_object_for(
+        revision_dot_github,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    diff_dot_github = phabdouble.diff(
+        rawdiff=get_failing_check_diff("dot_github"), revision=revision_dot_github
+    )
+
+    stack_state = create_state(phab_revision_dot_github)
+
+    assert (
+        blocker_prevent_dot_github(
+            revision=phab_revision, diff=diff_normal, stack_state=stack_state
+        )
+        is None
+    ), "Diff without GitHub workflow changes should pass the check."
+
+    assert (
+        blocker_prevent_dot_github(
+            revision=phab_revision_allowed,
+            diff=diff_allowed,
+            stack_state=stack_state,
+        )
+        is None
+    ), "Diff with GitHub workflow changes and `DOT_GITHUB_OVERRIDE` should pass."
+
+    assert (
+        blocker_prevent_dot_github(
+            revision=phab_revision_dot_github,
+            diff=diff_dot_github,
+            stack_state=stack_state,
+        )
+        == "Revision makes changes to restricted directories: GitHub workflows "
+        "directory: `.github/workflows/.keep`."
+    ), "Diff with GitHub workflow changes and no override should fail the check."
+
+    landing_repo = stack_state.landable_repos[repo["phid"]]
+    landing_repo.hooks = [
+        hook for hook in landing_repo.hooks if hook != PreventDotGithubCheck.name()
+    ]
+    assert (
+        blocker_prevent_dot_github(
+            revision=phab_revision_dot_github,
+            diff=diff_dot_github,
+            stack_state=stack_state,
+        )
+        is None
+    ), "Check should be skipped when `PreventDotGithubCheck` is disabled on the repo."
+
+    landing_repo.hooks.append(PreventDotGithubCheck.name())
+    landing_repo.hooks_enabled = False
+    assert (
+        blocker_prevent_dot_github(
+            revision=phab_revision_dot_github,
+            diff=diff_dot_github,
+            stack_state=stack_state,
+        )
+        is None
+    ), "Check should be skipped when hooks are disabled on the repo."
+
+
+@pytest.mark.django_db
 def test_blocker_prevent_submodules(phabdouble, create_state, get_failing_check_diff):
     repo = phabdouble.repo()
 
@@ -1956,20 +2471,28 @@ def test_blocker_try_task_config_landing_state_non_try(
     ), "`try_task_config.json` should be rejected."
 
 
+@pytest.mark.parametrize(
+    "updater_usernames,expected_details",
+    [
+        (["bob"], "Revision has multiple authors: alice, bob."),
+        (["hackbot"], None),
+        (["hackbot", "bob"], "Revision has multiple authors: alice, bob."),
+    ],
+)
 @pytest.mark.django_db
-def test_warning_multiple_authors(phabdouble, mocked_repo_config, create_state):
+def test_warning_multiple_authors(
+    phabdouble, mocked_repo_config, create_state, updater_usernames, expected_details
+):
     repo = phabdouble.repo()
+    emails = {"hackbot": "hackbot@mozilla.tld"}
 
-    # Create two users.
+    # Alice authors the revision, then each updater uploads a new diff.
     alice = phabdouble.user(username="alice")
-    bob = phabdouble.user(username="bob")
-
-    # Create one revision.
     revision = phabdouble.revision(repo=repo, author=alice)
-
-    # Create multiple diffs on the revision, one from each author.
-    phabdouble.diff(revision=revision, author=alice)
-    diff2 = phabdouble.diff(revision=revision, author=bob)
+    diff = phabdouble.diff(revision=revision, author=alice)
+    for username in updater_usernames:
+        updater = phabdouble.user(username=username, email=emails.get(username))
+        diff = phabdouble.diff(revision=revision, author=updater)
 
     phab_revision = phabdouble.api_object_for(
         revision,
@@ -1978,10 +2501,9 @@ def test_warning_multiple_authors(phabdouble, mocked_repo_config, create_state):
 
     stack_state = create_state(phab_revision)
 
-    warning = warning_multiple_authors(phab_revision, diff2, stack_state)
-    assert warning is not None
-    assert warning.details == "Revision has multiple authors: alice, bob.", (
-        "Multiple authors on a revision should return a warning."
+    warning = warning_multiple_authors(phab_revision, diff, stack_state)
+    assert (warning.details if warning else None) == expected_details, (
+        "Diffs uploaded by Hackbot should not count as coming from another author."
     )
 
 

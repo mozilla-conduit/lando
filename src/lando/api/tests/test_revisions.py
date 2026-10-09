@@ -1,7 +1,11 @@
+from typing import Callable
+
 import pytest
 
 from lando.api.legacy.api import stacks
 from lando.api.legacy.revisions import (
+    MergeConflictStatus,
+    MergeConflictVerdict,
     blocker_diff_author_is_known,
     ensure_revisions_from_phabricator,
     fetch_raw_diff_and_save,
@@ -162,6 +166,147 @@ def test_get_base_revision_from_diff_handles_missing_refs():
     """An empty string is returned when no refs are present."""
     assert get_base_revision_from_diff({"fields": {}}) == "", (
         "`get_base_revision_from_diff` should return an empty string without refs."
+    )
+
+
+# Maps each key Phabricator sends to the `MergeConflictStatus` field it lands on,
+# along with the conversion `from_revision` applies on the way.
+MERGE_CONFLICT_PAYLOAD_FIELDS = {
+    "status": ("status", MergeConflictVerdict),
+    "reason": ("reason", str),
+    "checkedAgainstBaseCommit": ("base_commit", str),
+    "checkedAgainstCommit": ("target_commit", str),
+    "checkedAgainstDiffID": ("diff_id", int),
+    "epoch": ("epoch", int),
+    "isStale": ("is_stale", bool),
+}
+
+# Keys Phabricator sends that Lando has no use for. `isStale` already answers the
+# only question the diff PHID would, and the base revision is named in `reason`.
+MERGE_CONFLICT_IGNORED_PAYLOAD_KEYS = {
+    "checkedAgainstDiffPHID",
+    "checkedAgainstBaseRevisionPHID",
+}
+
+
+def test_merge_conflict_status_from_revision_parses_payload(
+    merge_conflict_revision: Callable,
+):
+    """Every key Phabricator sends is either parsed or deliberately ignored."""
+    revision = merge_conflict_revision()
+    payload = revision["fields"]["merge.conflict.status"]
+
+    status = MergeConflictStatus.from_revision(revision)
+
+    assert payload.keys() == (
+        MERGE_CONFLICT_PAYLOAD_FIELDS.keys() | MERGE_CONFLICT_IGNORED_PAYLOAD_KEYS
+    ), "Every key Phabricator sends should be accounted for, parsed or ignored."
+
+    for key, (field, convert) in MERGE_CONFLICT_PAYLOAD_FIELDS.items():
+        assert getattr(status, field) == convert(payload[key]), (
+            f"`{key}` should be parsed onto `MergeConflictStatus.{field}`."
+        )
+
+
+def test_merge_conflict_status_from_revision_without_field():
+    """A revision without the custom field has no verdict."""
+    assert MergeConflictStatus.from_revision({"fields": {}}) is None, (
+        "`MergeConflictStatus.from_revision` should return `None` without the field."
+    )
+
+
+def test_merge_conflict_status_from_revision_without_status():
+    """A payload that records no status is as unusable as a missing one."""
+    revision = {"fields": {"merge.conflict.status": {"epoch": 1757001600}}}
+
+    assert MergeConflictStatus.from_revision(revision) is None, (
+        "`MergeConflictStatus.from_revision` should return `None` without a status."
+    )
+
+
+@pytest.mark.parametrize(
+    "status,verdict",
+    (
+        ("conflict", MergeConflictVerdict.CONFLICT),
+        ("clean", MergeConflictVerdict.CLEAN),
+        ("unknown", MergeConflictVerdict.UNKNOWN),
+        ("a-verdict-lando-does-not-know", MergeConflictVerdict.UNKNOWN),
+    ),
+)
+def test_merge_conflict_status_has_merge_conflict(
+    merge_conflict_revision: Callable, status: str, verdict: MergeConflictVerdict
+):
+    """Only an explicit `conflict` verdict counts as a conflict."""
+    parsed = MergeConflictStatus.from_revision(merge_conflict_revision(status=status))
+
+    assert parsed.status is verdict, (
+        f"A `{status}` payload should parse as `{verdict}`."
+    )
+    assert parsed.has_merge_conflict is (verdict is MergeConflictVerdict.CONFLICT), (
+        f"`has_merge_conflict` should only be `True` for `conflict`, not `{status}`."
+    )
+
+
+def test_merge_conflict_status_from_revision_parses_an_unknown_verdict(
+    merge_conflict_revision: Callable,
+):
+    """An `unknown` verdict records no commits, since no merge was performed."""
+    status = MergeConflictStatus.from_revision(
+        merge_conflict_revision(
+            status="unknown",
+            reason="Mergeability could not be determined.",
+            checkedAgainstCommit=None,
+            checkedAgainstBaseCommit=None,
+        )
+    )
+
+    assert status.status is MergeConflictVerdict.UNKNOWN, (
+        "An `unknown` payload should parse as an undecided verdict."
+    )
+    assert not status.has_merge_conflict, "An `unknown` verdict should not conflict."
+    assert status.base_commit is None and status.target_commit is None, (
+        "An `unknown` verdict should carry no commits."
+    )
+    assert status.describe_check() == (
+        "Last checked diff 456, at 2025-09-04 16:00 UTC."
+    ), "`describe_check` should name only the inputs the verdict recorded."
+
+
+def test_merge_conflict_status_stale_verdict_is_still_a_conflict(
+    merge_conflict_revision: Callable,
+):
+    """A stale verdict is the most recent one Phabricator has, so it still counts."""
+    status = MergeConflictStatus.from_revision(merge_conflict_revision(isStale=True))
+
+    assert status.is_stale, "An `isStale` payload should parse as a stale verdict."
+    assert status.has_merge_conflict, (
+        "A stale `conflict` verdict should still report a merge conflict."
+    )
+
+
+def test_merge_conflict_status_describe_check(
+    merge_conflict_revision: Callable,
+):
+    """The description names the diff, base commit and time of the check."""
+    status = MergeConflictStatus.from_revision(merge_conflict_revision())
+
+    assert status.describe_check() == (
+        f"Last checked diff 456, base commit {'a' * 40}, at 2025-09-04 16:00 UTC."
+    ), "`describe_check` should name every recorded input."
+
+
+def test_merge_conflict_status_describe_check_without_inputs(
+    merge_conflict_revision: Callable,
+):
+    """A verdict recording no inputs has no reference to describe."""
+    status = MergeConflictStatus.from_revision(
+        merge_conflict_revision(
+            checkedAgainstDiffID=None, checkedAgainstBaseCommit=None, epoch=None
+        )
+    )
+
+    assert status.describe_check() is None, (
+        "`describe_check` should return `None` without any recorded inputs."
     )
 
 

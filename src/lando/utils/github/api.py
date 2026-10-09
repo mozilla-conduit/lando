@@ -15,7 +15,9 @@ from collections.abc import Callable, Iterator
 from datetime import datetime
 from enum import Enum
 from itertools import count
+from typing import Any
 
+import aiohttp
 import requests
 from simple_github import AppAuth, AppInstallationAuth
 
@@ -25,6 +27,10 @@ from ..cache import cache_method
 from ..const import URL_USERINFO_RE
 
 logger = logging.getLogger(__name__)
+
+
+class GitHubTokenUnavailable(Exception):
+    """GitHub failed to issue an installation token, in a way worth retrying."""
 
 
 class GitHubSettings:
@@ -116,6 +122,8 @@ class GitHub:
 
         The app with ID GITHUB_APP_ID needs to be enabled for the target repo.
 
+        Raises `GitHubTokenUnavailable` when GitHub errors or can't be reached, as
+        such failures usually resolve themselves.
         """
         app_id = GitHubSettings.GITHUB_APP_ID
         private_key = GitHubSettings.GITHUB_APP_PRIVKEY
@@ -133,12 +141,24 @@ class GitHub:
         session = AppInstallationAuth(
             app_auth, self.repo_owner, repositories=[self.repo_name]
         )
-        return asyncio.run(self._async_get_token(session))
+        try:
+            return asyncio.run(self._async_get_token(session))
+        except aiohttp.ClientResponseError as exc:
+            if exc.status < 500:
+                raise
+            raise GitHubTokenUnavailable(
+                f"GitHub returned {exc.status} when issuing a token for {self.repo_url}."
+            ) from exc
+        except (aiohttp.ClientConnectionError, asyncio.TimeoutError) as exc:
+            raise GitHubTokenUnavailable(
+                f"Could not reach GitHub to issue a token for {self.repo_url}."
+            ) from exc
 
     async def _async_get_token(self, session: AppInstallationAuth) -> str:
-        token = await session.get_token()
-        await session.close()
-        return token
+        try:
+            return await session.get_token()
+        finally:
+            await session.close()
 
 
 class GitHubAPI(GitHub):
@@ -493,6 +513,8 @@ class PullRequest:
 
     client: GitHubAPIClient
 
+    _data: dict[str, Any]
+
     def __repr__(self) -> str:
         return f"Pull request #{self.number} ({self.head_repo_git_url})"
 
@@ -506,8 +528,9 @@ class PullRequest:
         # Return the user-controlled portion.
         return parts[0].strip()
 
-    def __init__(self, client: GitHubAPIClient, data: dict):
+    def __init__(self, client: GitHubAPIClient, data: dict[str, Any]):
         self.client = client
+        self._data = data
 
         self.url = data["url"]
         self.base_ref = data["base"]["ref"]  # "target" branch name
@@ -661,7 +684,10 @@ class PullRequest:
     @property
     @pr_cache_method
     def reviews(self) -> list:
-        """Return a list of reviews for the PR."""
+        """Return a list of reviews for the PR.
+
+        Reviews without an associated user (deleted user / Ghost) are ignored.
+        """
         reviews = self.client.get_pull_request_reviews(self.number)
 
         if any(
@@ -673,7 +699,7 @@ class PullRequest:
                 "Reviews were added while collecting PR information."
             )
 
-        return reviews
+        return [r for r in reviews if r.get("user")]
 
     @property
     def commit_message(self) -> str:

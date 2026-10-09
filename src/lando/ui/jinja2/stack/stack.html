@@ -45,7 +45,7 @@
                                 <div class="StackPage-revision-graph-container">{% include "stack/partials/graph-drawing.html" %}</div>
                             </td>
                             <td class="StackPage-revision-bug">
-                                {% if revision['bug_id'] is not none %}
+                                {% if revision["bug_id"] is not none %}
                                     <a href="{{ revision['bug_id']|bug_url }}">{{ revision['bug_id'] }}</a>
                                 {% else %}
                                     -
@@ -58,7 +58,7 @@
                                 </div>
                             </td>
                             <td class="StackPage-revision-reviewers">
-                                {% with reviewers=revision['reviewers'] %}
+                                {% with reviewers=revision["reviewers"] %}
                                     {% include "stack/partials/revision-reviewers.html" %}
                                 {% endwith %}
                             </td>

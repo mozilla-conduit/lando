@@ -168,7 +168,10 @@ class PatchHelper(ABC):
         if isinstance(name, bytes):
             name = name.decode("utf-8")
 
-        return self.headers.get(name.lower())
+        header = self.headers.get(name.lower())
+        if header and "--" in header:
+            raise ValueError("Invalid characters found in header")
+        return header
 
     def set_header(self, name: bytes | str, value: str):
         """Set the header `name` to `value`."""

@@ -1,10 +1,13 @@
 import logging
 from collections import Counter
+from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum, unique
 from typing import (
     Any,
     NamedTuple,
     Optional,
+    Self,
 )
 
 from django.db import transaction
@@ -159,6 +162,124 @@ def get_bug_id_for_revision(phab: PhabricatorClient, revision_id: int) -> Option
         return None
 
     return get_bugzilla_bug(next(iter(revisions.values())))
+
+
+@unique
+class MergeConflictVerdict(Enum):
+    """Enumeration of verdicts Phabricator may report for a merge conflict check.
+
+    Phabricator reports `unknown` for every situation it could not decide, so any
+    verdict it adds in the future is treated as undecided until we handle it.
+    """
+
+    CLEAN = "clean"
+    CONFLICT = "conflict"
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def from_status(cls, value: str) -> Self:
+        try:
+            return cls(value)
+        except ValueError:
+            logger.warning(
+                "Unknown merge conflict verdict reported by Phabricator.",
+                extra={"status": value},
+            )
+
+        return cls.UNKNOWN
+
+
+@dataclass(frozen=True)
+class MergeConflictStatus:
+    """The mergeability verdict Phabricator computed for a revision.
+
+    Phabricator applies the revision's diff on top of every open ancestor's diff
+    before merging, so the verdict on a revision describes landing that revision
+    together with its parents, not the revision's own patch in isolation.
+    """
+
+    # The verdict itself.
+    status: MergeConflictVerdict
+
+    # Phabricator's own explanation of the verdict, naming how much of the stack
+    # was applied before merging.
+    reason: Optional[str]
+
+    # The commit the stack was applied on top of before merging.
+    base_commit: Optional[str]
+
+    # The tip of the target branch the stack was merged into.
+    target_commit: Optional[str]
+
+    # The diff the check ran against, which is not necessarily the diff being
+    # landed if the revision has been updated since.
+    diff_id: Optional[int]
+
+    # When the check ran, as a UTC epoch in seconds.
+    epoch: Optional[int]
+
+    # Whether the check ran against a diff other than the revision's current
+    # active diff, in which case Phabricator has a fresh check queued.
+    is_stale: bool
+
+    @classmethod
+    def from_revision(cls, revision: dict) -> Optional["MergeConflictStatus"]:
+        """Return the verdict stored on a revision, or `None` when there is none.
+
+        The custom field is absent from `differential.revision.search` when merge
+        conflict detection is disabled, when the revision's repository is not being
+        checked, or before the first check has run.
+        """
+        value = PhabricatorClient.expect(revision, "fields").get(
+            "merge.conflict.status"
+        )
+
+        if not value or not value.get("status"):
+            return None
+
+        return cls(
+            status=MergeConflictVerdict.from_status(value["status"]),
+            reason=value.get("reason"),
+            base_commit=value.get("checkedAgainstBaseCommit"),
+            target_commit=value.get("checkedAgainstCommit"),
+            diff_id=value.get("checkedAgainstDiffID"),
+            epoch=value.get("epoch"),
+            is_stale=bool(value.get("isStale")),
+        )
+
+    @property
+    def has_merge_conflict(self) -> bool:
+        """Is this a verdict that the landing will not merge cleanly?
+
+        Phabricator reports `unknown` for every situation it could not decide, so
+        only an explicit `conflict` is a conflict. A stale verdict is still the
+        most recent one Phabricator has, so `is_stale` qualifies a conflict rather
+        than hiding it.
+        """
+        return self.status is MergeConflictVerdict.CONFLICT
+
+    def describe_check(self) -> Optional[str]:
+        """Describe the inputs the verdict was computed from.
+
+        Returns `None` when the verdict records none of the diff, base commit or
+        time, so a caller can leave the reference out entirely.
+        """
+        parts = []
+
+        if self.diff_id:
+            parts.append(f"diff {self.diff_id}")
+
+        if self.base_commit:
+            parts.append(f"base commit {self.base_commit}")
+
+        if self.epoch:
+            checked_at = PhabricatorClient.to_datetime(self.epoch)
+            parts.append(f"at {checked_at:%Y-%m-%d %H:%M UTC}")
+
+        if not parts:
+            return None
+
+        return f"Last checked {', '.join(parts)}."
 
 
 def blocker_diff_author_is_known(*, diff: dict, **kwargs) -> Optional[str]:

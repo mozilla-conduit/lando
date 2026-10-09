@@ -7,6 +7,7 @@ from unittest import mock
 import pytest
 
 from lando.main.scm.consts import SCMType
+from lando.main.scm.exceptions import SCMTokenUnavailable
 from lando.main.scm.git import GitSCM
 from lando.main.scm.helpers import (
     GitPatchHelper,
@@ -16,6 +17,7 @@ from lando.main.scm.helpers import (
     parse_git_author_information,
 )
 from lando.main.scm.hg import HgSCM
+from lando.utils.github import GitHubTokenUnavailable
 
 GIT_DIFF_FROM_REVISION = r"""diff --git a/hello.c b/hello.c
 --- a/hello.c   Fri Aug 26 01:21:28 2005 -0700
@@ -869,3 +871,19 @@ def test_GitSCM__authenticate_path_if_possible(github, is_supported_url, url, re
     assert github.is_supported_url.call_count == 1
     github.is_supported_url.assert_called_with(url)
     assert authenticated_url == result
+
+
+@mock.patch("lando.utils.github.GitHub._fetch_token")
+def test_GitSCM__authenticate_path_if_possible_token_unavailable(fetch_token):
+    error = GitHubTokenUnavailable("GitHub returned 500 when issuing a token.")
+    fetch_token.side_effect = error
+
+    with pytest.raises(SCMTokenUnavailable) as exc_info:
+        GitSCM.authenticate_path_if_possible(
+            "https://github.com/mozilla-firefox/firefox"
+        )
+
+    assert exc_info.value.__cause__ is error, (
+        "A token GitHub couldn't issue should surface as a retryable "
+        "`SCMTokenUnavailable`."
+    )

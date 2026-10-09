@@ -38,6 +38,7 @@ from lando.main.scm.exceptions import (
     PatchConflict,
     SCMException,
     SCMInternalServerError,
+    SCMTokenUnavailable,
     TreeApprovalRequired,
     TreeClosed,
 )
@@ -49,9 +50,10 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 # Failures which are expected to be resolved without anyone looking at the job, e.g.
-# by a sheriff reopening the tree. Jobs deferred for these reasons are retried
-# indefinitely, rather than being aborted after `BaseJob.max_attempts` attempts.
-NON_ABORTABLE_FAILURES = (TreeClosed, TreeApprovalRequired)
+# by a sheriff reopening the tree or GitHub recovering. Jobs deferred for these
+# reasons are retried indefinitely, rather than being aborted after
+# `BaseJob.max_attempts` attempts.
+NON_ABORTABLE_FAILURES = (TreeClosed, TreeApprovalRequired, SCMTokenUnavailable)
 
 # Queue size above which a worker logs a queue size warning, used when
 # `ConfigurationKey.WORKER_QUEUE_SIZE_ALERT_THRESHOLD` is unset.
@@ -515,6 +517,17 @@ class Worker(ABC):
                 target_cset=target_cset,
                 attributes_override=repo.attributes_override,
             )
+        except NON_ABORTABLE_FAILURES as e:
+            message = (
+                f"`Temporary error ({e.__class__}) "
+                f"encountered while pulling from {repo_pull_info}: {e}"
+            )
+            logger.exception(message)
+
+            # The failure resolves without anyone looking at this job, so keep
+            # deferring it rather than ever giving up on it.
+            job.transition_status(JobAction.DEFER, message=message)
+            raise TemporaryFailureException(message) from e
         except SCMInternalServerError as e:
             message = (
                 f"`Temporary error ({e.__class__}) "
@@ -541,8 +554,14 @@ class Worker(ABC):
         job: BaseJob,
         scm: AbstractSCM,
         revision: Revision,
+        *,
+        reraise_conflicts: bool = False,
     ) -> T:
-        """Create revisions with job status handling."""
+        """Create revisions with job status handling.
+
+        `reraise_conflicts` leaves a `PatchConflict` to the caller rather than
+        failing the job, for a caller that has another strategy left to try.
+        """
         try:
             return create_revision_callable(revision)
         except NoDiffStartLine as exc:
@@ -559,6 +578,9 @@ class Worker(ABC):
             raise PermanentFailureException(message) from exc
 
         except PatchConflict as exc:
+            if reraise_conflicts:
+                raise
+
             breakdown = scm.process_merge_conflict(
                 repo.normalized_url,
                 revision.revision_id,

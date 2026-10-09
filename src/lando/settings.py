@@ -268,6 +268,19 @@ OIDC_RP_SCOPES = "openid lando profile email"
 BUGZILLA_URL = os.getenv("BUGZILLA_URL", "http://bmo.test")
 BUGZILLA_API_KEY = os.getenv("BUGZILLA_API_KEY", "")
 
+# Timeout (seconds) for BMO REST requests, so a hung connection can't tie up a web
+# worker indefinitely.
+BMO_REQUEST_TIMEOUT = 10
+
+# TTL (seconds) for the cache of BMO bug data backing the security status-flag
+# checks. Kept short because status flags are mutable and a blocked user will set
+# them and immediately retry.
+BMO_BUGS_CACHE_TIMEOUT = 60
+
+# TTL for the cache of Phabricator project PHIDs looked up by slug. PHIDs
+# never change for the lifetime of a project, so they can be cached for a long time.
+PHID_CACHE_TIMEOUT = 24 * 60 * 60
+
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
     "lando.main.auth.LandoOIDCAuthenticationBackend",

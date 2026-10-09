@@ -13,6 +13,14 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.cache import cache
 
+from lando.api.legacy.bmo import (
+    BugFetchError,
+    fetch_bugs,
+    missing_status_flags_message,
+    security_keyword,
+    unset_status_flags,
+    unverified_status_flags_message,
+)
 from lando.api.legacy.projects import (
     get_secure_project_phid,
     get_testing_policy_phid,
@@ -25,8 +33,10 @@ from lando.api.legacy.reviews import (
     reviewer_identity,
 )
 from lando.api.legacy.revisions import (
+    MergeConflictStatus,
     blocker_diff_author_is_known,
     gather_involved_phids,
+    get_bugzilla_bug,
     revision_has_needs_data_classification_tag,
     revision_is_secure,
     revision_needs_testing_tag,
@@ -46,9 +56,10 @@ from lando.main.models import (
     LandingJob,
     Repo,
 )
-from lando.main.support import LegacyAPIException
+from lando.main.support import LegacyAPIException, diff_has_disallowed_author
 from lando.utils.landing_checks import (
     DiffAssessor,
+    PreventDotGithubCheck,
     PreventNSPRNSSCheck,
     PreventSubmodulesCheck,
     PreventSymlinksCheck,
@@ -139,6 +150,7 @@ class StackAssessmentState:
     secure_project_phid: str
     testing_tag_project_phids: list[str]
     testing_policy_phid: str
+    bugs_by_id: dict[int, dict] | None = None
 
     # State required for assessing landing requests.
     landing_assessment: LandingAssessmentState | None = None
@@ -160,12 +172,15 @@ class StackAssessmentState:
         secure_project_phid: str,
         testing_tag_project_phids: list[str],
         testing_policy_phid: str,
+        bugs_by_id: dict[int, dict] | None = None,
         landing_assessment: LandingAssessmentState | None = None,
     ) -> Self:
         """Build a `StackAssessmentState` from passed arguments.
 
         Build any fields that are shared between checks but are derived from
-        existing fields.
+        existing fields. External data (Phabricator lookups, the BMO bug fetch)
+        is performed by `build_stack_assessment_state` and passed in, keeping this
+        constructor free of network IO and trivially mockable.
         """
         # Create a copy of the stack so that revisions that are blocked from landing
         # can be removed from it when running landing checks. After all checks have run
@@ -198,6 +213,7 @@ class StackAssessmentState:
             testing_tag_project_phids=testing_tag_project_phids,
             testing_policy_phid=testing_policy_phid,
             landing_assessment=landing_assessment,
+            bugs_by_id=bugs_by_id,
         )
 
     def assessment_blocking_pairs(self) -> set[str]:
@@ -209,6 +225,21 @@ class StackAssessmentState:
             }
 
         return set(self.stack_data.revisions.keys())
+
+    @functools.cached_property
+    def landing_path_tip_phid(self) -> str | None:
+        """Return the PHID of the last revision in the requested landing path.
+
+        The landing path is ordered from the root of the stack to the revision
+        being landed, so the last entry is the one every other revision merges in
+        ahead of. Returns `None` when no landing is being assessed.
+        """
+        if not self.landing_assessment:
+            return None
+
+        revision, _diff = self.landing_assessment.to_land[-1]
+
+        return PhabricatorClient.expect(revision, "phid")
 
     def revision_check_pairs(self) -> list[tuple[dict, dict]]:
         """Return the appropriate list of `revision, diff` pairs for assessing.
@@ -497,6 +528,50 @@ def warning_revision_secure(
     )
 
 
+def status_flag_prefix_for_revision(
+    revision: dict, stack_state: StackAssessmentState
+) -> str:
+    """Return the status-flag prefix configured on the revision's target repo.
+
+    An empty string means the security status-flag check is disabled for that repo
+    (or the repo is unknown). Only repos with a `status_flag_prefix` set (e.g.
+    Firefox repos with `cf_status_firefox`) are subject to it.
+    """
+    repo = stack_state.get_repo_for_revision(revision)
+    return repo.status_flag_prefix if repo else ""
+
+
+@RevisionWarningCheck("Security bug status flags could not be verified in Bugzilla.")
+def warning_security_bug_status_flags_unverified(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> str | None:
+    """Warn when status flags cannot be verified for a secure revision.
+
+    When `blocker_security_bug_status_flags` cannot run — because BMO was
+    unavailable, or because the referenced bug was absent from the BMO response
+    (e.g. a restricted bug Lando's key cannot read) — we degrade to an
+    acknowledgeable warning rather than silently allowing the landing.
+
+    Scoped to repos requiring status flags and to secure revisions.
+    """
+    if not status_flag_prefix_for_revision(revision, stack_state):
+        return None
+
+    if stack_state.secure_project_phid is None or not revision_is_secure(
+        revision, stack_state.secure_project_phid
+    ):
+        return None
+
+    bug_id = get_bugzilla_bug(revision)
+    if bug_id is None:
+        return None
+
+    if stack_state.bugs_by_id is not None and bug_id in stack_state.bugs_by_id:
+        return None
+
+    return unverified_status_flags_message([bug_id])
+
+
 @RevisionWarningCheck("Revision is missing a Testing Policy Project Tag.")
 def warning_revision_missing_testing_tag(
     revision: dict, diff: dict, stack_state: StackAssessmentState
@@ -556,7 +631,12 @@ def warning_unresolved_comments(
 def warning_multiple_authors(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> str | None:
-    """Warn the landing user when a revision has updates from multiple authors."""
+    """Warn the landing user when a revision has updates from multiple authors.
+
+    Diffs authored by a disallowed author (e.g. Hackbot) are ignored: their author
+    is rewritten before landing (see `warning_diff_author_is_hackbot`), so a bot
+    updating an engineer's revision does not make it a multi-author revision.
+    """
     revision_phid = PhabricatorClient.expect(revision, "phid")
 
     # Get the author PHID for each diff associated with this revision.
@@ -564,6 +644,7 @@ def warning_multiple_authors(
         PhabricatorClient.expect(diff, "fields", "authorPHID")
         for diff in stack_state.stack_data.diffs.values()
         if PhabricatorClient.expect(diff, "fields", "revisionPHID") == revision_phid
+        and not diff_has_disallowed_author(diff)
     }
 
     if len(author_phids) > 1:
@@ -574,6 +655,44 @@ def warning_multiple_authors(
             for author_phid in author_phids
         )
         return f"Revision has multiple authors: {', '.join(author_usernames)}."
+
+
+@RevisionWarningCheck("Phabricator has detected a merge conflict.")
+def warning_merge_conflict(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> str | None:
+    """Warn when Phabricator found the patch conflicts with the target branch.
+
+    Phabricator merges a revision along with every open ancestor, so the verdict
+    on a revision answers whether that revision *and its parents* can land. Only
+    the tip of the requested landing path asks that question, so checking any
+    other revision would warn about a landing nobody requested.
+    """
+    if PhabricatorClient.expect(revision, "phid") != stack_state.landing_path_tip_phid:
+        return None
+
+    merge_conflict_status = MergeConflictStatus.from_revision(revision)
+    if not merge_conflict_status or not merge_conflict_status.has_merge_conflict:
+        return None
+
+    message = (
+        "Phabricator has detected a merge conflict: this landing does not apply "
+        "cleanly to the target branch. Rebase onto the latest changes before "
+        "landing."
+    )
+
+    if description := merge_conflict_status.describe_check():
+        message = f"{message} {description}"
+
+    if merge_conflict_status.reason:
+        message = f"{message} {merge_conflict_status.reason}"
+
+    if merge_conflict_status.is_stale:
+        message = (
+            f"{message} This check ran against an earlier diff and may no longer apply."
+        )
+
+    return message
 
 
 def blocker_user_no_auth0_email(
@@ -860,6 +979,34 @@ def blocker_prevent_nsprnss_files(
         return issues[0]
 
 
+def blocker_prevent_dot_github(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> str | None:
+    """Block revisions which contain changes to the GitHub workflows directory."""
+    repo_phid = PhabricatorClient.expect(revision, "fields", "repositoryPHID")
+    repo = stack_state.landable_repos.get(repo_phid)
+    if not repo:
+        return None
+
+    # Match the landing worker, which only runs hooks enabled on the target repo.
+    landing_repo = repo.new_target if repo.is_legacy else repo
+    if (
+        not landing_repo.hooks_enabled
+        or PreventDotGithubCheck.name() not in landing_repo.hooks
+    ):
+        return None
+
+    diff_id = PhabricatorClient.expect(diff, "id")
+    parsed_diff = stack_state.parsed_diffs[diff_id]
+
+    # `PreventDotGithubCheck` only requires inspecting the diff and the commit message.
+    title = PhabricatorClient.expect(revision, "fields", "title")
+    diff_assessor = DiffAssessor(parsed_diff=parsed_diff, commit_message=title)
+
+    if issues := diff_assessor.run_diff_checks([PreventDotGithubCheck]):
+        return issues[0]
+
+
 def blocker_prevent_submodules(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> str | None:
@@ -901,6 +1048,43 @@ def blocker_try_task_config(
         return issues[0]
 
 
+def blocker_security_bug_status_flags(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> str | None:
+    """Block sec-critical/sec-high revisions whose status flags are unset.
+
+    Scoped to repos with a `status_flag_prefix` configured. When BMO data was
+    unavailable, or the bug was absent from the response, this returns `None` and
+    defers to `warning_security_bug_status_flags_unverified`.
+    """
+    prefix = status_flag_prefix_for_revision(revision, stack_state)
+    if not prefix:
+        return None
+
+    if stack_state.bugs_by_id is None:
+        # BMO data was unavailable; the warning check handles this.
+        return None
+
+    bug_id = get_bugzilla_bug(revision)
+    if bug_id is None:
+        return None
+
+    bug = stack_state.bugs_by_id.get(bug_id)
+    if bug is None:
+        # Bug absent from the BMO response; the warning check handles this.
+        return None
+
+    keyword = security_keyword(bug)
+    if keyword is None:
+        return None
+
+    missing_flags = unset_status_flags(bug, prefix)
+    if not missing_flags:
+        return None
+
+    return missing_status_flags_message(bug_id, keyword, missing_flags)
+
+
 STACK_BLOCKER_CHECKS = [
     # This check needs to be first.
     blocker_stack_landing_path_valid,
@@ -924,6 +1108,8 @@ REVISION_BLOCKER_CHECKS = [
     blocker_try_task_config,
     blocker_prevent_submodules,
     blocker_prevent_nsprnss_files,
+    blocker_prevent_dot_github,
+    blocker_security_bug_status_flags,
     # This check needs to be last.
     blocker_open_ancestor,
 ]
@@ -940,6 +1126,8 @@ WARNING_CHECKS = [
     warning_unresolved_comments,
     warning_multiple_authors,
     warning_diff_author_is_hackbot,
+    warning_merge_conflict,
+    warning_security_bug_status_flags_unverified,
 ]
 
 
@@ -1056,6 +1244,45 @@ def get_parsed_diffs(
     }
 
 
+def fetch_bugs_for_stack(
+    stack_data: RevisionData, supported_repos: dict[str, Repo]
+) -> dict[int, dict] | None:
+    """Fetch BMO bug data for every bug referenced by the stack, keyed by bug id.
+
+    Returns the mapping (empty if the stack references no bugs), or `None` if the
+    fetch failed (`bmo.fetch_bugs` raised `BugFetchError`), in which case the
+    security status-flag checks degrade to an acknowledgeable warning rather than
+    500ing the stack page.
+
+    Skips the BMO round-trip entirely when no repo targeted by the stack has a
+    `status_flag_prefix` configured (e.g. Thunderbird/NSS), so those assessments
+    don't pay for an uncached BMO request.
+    """
+    requires_status_flags = False
+    for revision in stack_data.revisions.values():
+        repo_phid = PhabricatorClient.expect(revision, "fields", "repositoryPHID")
+        phab_repo = stack_data.repositories.get(repo_phid)
+        if not phab_repo:
+            continue
+        repo = supported_repos.get(phab_repo["fields"]["shortName"])
+        if repo and repo.status_flag_prefix:
+            requires_status_flags = True
+            break
+
+    if not requires_status_flags:
+        return {}
+
+    bug_ids = {
+        bug_id
+        for revision in stack_data.revisions.values()
+        if (bug_id := get_bugzilla_bug(revision)) is not None
+    }
+    try:
+        return fetch_bugs(bug_ids)
+    except BugFetchError:
+        return None
+
+
 def build_stack_assessment_state(
     phab: PhabricatorClient,
     supported_repos: dict[str, Repo],
@@ -1088,6 +1315,8 @@ def build_stack_assessment_state(
     testing_tag_project_phids = get_testing_tag_project_phids(phab)
     testing_policy_phid = get_testing_policy_phid(phab)
 
+    bugs_by_id = fetch_bugs_for_stack(stack_data, supported_repos)
+
     stack_state = StackAssessmentState.from_assessment(
         phab=phab,
         stack_data=stack_data,
@@ -1103,6 +1332,7 @@ def build_stack_assessment_state(
         secure_project_phid=secure_project_phid,
         testing_tag_project_phids=testing_tag_project_phids,
         testing_policy_phid=testing_policy_phid,
+        bugs_by_id=bugs_by_id,
         landing_assessment=landing_assessment,
     )
     return stack_state
