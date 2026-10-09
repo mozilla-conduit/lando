@@ -1,0 +1,70 @@
+@import "../colors";
+
+/* The `assessment_picker` macro: one radio per assessment, then "None of these". */
+.AssessmentPicker {
+    .AssessmentPicker-choice {
+        padding: 0.5rem 0.75rem;
+        margin-bottom: 0.35rem;
+        border: 1px solid $grey-lighter;
+        box-shadow: none;
+
+        &.is-selected {
+            border-color: $blue;
+            box-shadow: 0 0 0 1px $blue inset;
+        }
+    }
+
+    &-label {
+        display: flex;
+        gap: 0.6rem;
+        align-items: baseline;
+        cursor: pointer;
+    }
+
+    &-summary {
+        margin-left: 1.55rem;
+        margin-top: 0.1rem;
+        line-height: 1.4;
+
+        summary {
+            cursor: pointer;
+        }
+    }
+
+    /* The answers that tell assessments apart, on one line. Lando's paragraph
+       margin would otherwise space it off "Show all answers". */
+    &-facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0 0.9rem;
+        margin-bottom: 0;
+    }
+
+    &-or {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        color: $grey;
+        font-size: 0.8rem;
+        margin: 0.5rem 0;
+
+        &::before,
+        &::after {
+            content: "";
+            flex: 1;
+            border-top: 1px solid rgba($black, 0.12);
+        }
+    }
+}
+
+/* The new-assessment form, revealed when the picker's "None of these" is chosen. */
+.AssessmentPicker-reveal {
+    border-left: 3px solid $blue;
+    box-shadow: none;
+}
+
+/* Bulma's `.box` and `.field` set `display`, which overrides `hidden`. */
+.AssessmentPicker-actions[hidden],
+.AssessmentPicker-reveal[hidden] {
+    display: none;
+}
