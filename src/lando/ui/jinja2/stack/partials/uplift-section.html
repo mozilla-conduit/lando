@@ -76,7 +76,8 @@ future.
     </div>
     {% if uplift.assessment_form %}
         <div class="uplift-assessment-edit-modal modal">
-            <form action="{{ url('uplift-assessment-page', args=[uplift.revision_id]) }}"
+            {# Editing names the assessment explicitly; the bare URL creates one. #}
+            <form action="{% if uplift.assessment %}{{ url('uplift-assessment-edit-page', args=[uplift.revision_id, uplift.assessment.id]) }}{% else %}{{ url('uplift-assessment-page', args=[uplift.revision_id]) }}{% endif %}"
                   method="post">
                 <div class="modal-background"></div>
                 <div class="modal-card">

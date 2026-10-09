@@ -12,6 +12,7 @@ from packaging.version import (
 )
 
 from lando.api.legacy.commit_message import parse_bugs
+from lando.api.legacy.revisions import get_bug_id_for_stack_tips
 from lando.api.legacy.uplift import (
     create_uplift_bug_update_payload,
     parse_milestone_version,
@@ -500,19 +501,25 @@ def test_patch_assessment_creates_and_updates(
         "User ID for `set_uplift_request_form_on_revision` should match expected."
     )
 
-    # Submit the form for a revision which already has a completed form.
+    # Editing the assessment names it explicitly; the bare URL only creates.
+    edit_url = reverse(
+        "uplift-assessment-edit-page", args=[revision_id, response_obj.id]
+    )
     response = authenticated_client.post(
-        url, data=UPDATED_UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER=referrer
+        edit_url, data=UPDATED_UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER=referrer
     )
     assert response.status_code == 302, (
         "Updating assessment form should redirect back to referrer."
     )
 
-    # Check that a new response was created.
+    # Check that the existing response was updated in place.
     responses = UpliftAssessment.objects.all()
     assert responses.count() == 1, "Updating a form should result in a single form."
 
     updated_response_obj = responses.first()
+    assert updated_response_obj.pk == response_obj.pk, (
+        "Assessment should be updated in place, not replaced."
+    )
     assert (
         updated_response_obj.user_impact
         == UPDATED_UPLIFT_ASSESSMENT_ANSWERS["user_impact"]
@@ -543,44 +550,6 @@ def test_patch_assessment_creates_and_updates(
 
 @mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
 @pytest.mark.django_db
-def test_patch_assessment_updates_in_place(
-    mock_apply_async, authenticated_client, user, phabdouble
-):
-    phabdouble.user(api_key=user.profile.phabricator_api_key)
-
-    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
-    url = reverse("uplift-assessment-page", args=[revision_id])
-    referrer = f"/D{revision_id}"
-
-    authenticated_client.post(
-        url, data=UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER=referrer
-    )
-    original_assessment = UpliftAssessment.objects.get()
-    original_pk = original_assessment.pk
-
-    response = authenticated_client.post(
-        url, data=UPDATED_UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER=referrer
-    )
-
-    assert response.status_code == 302, "Update should redirect to referrer."
-    assert UpliftAssessment.objects.count() == 1, (
-        "Assessment update should not create additional rows."
-    )
-
-    updated_assessment = UpliftAssessment.objects.get()
-    assert updated_assessment.pk == original_pk, (
-        "Assessment should be updated in place, not replaced."
-    )
-    assert (
-        updated_assessment.user_impact
-        == UPDATED_UPLIFT_ASSESSMENT_ANSWERS["user_impact"]
-    ), "Updated assessment should reflect new values."
-
-    mock_apply_async.assert_called()
-
-
-@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
-@pytest.mark.django_db
 def test_patch_assessment_rejects_revision_without_bug(
     mock_apply_async, authenticated_client, user, phabdouble
 ):
@@ -606,6 +575,123 @@ def test_patch_assessment_rejects_revision_without_bug(
     flash_messages = [str(message) for message in get_messages(response.wsgi_request)]
     assert any("require a bug number" in message for message in flash_messages), (
         f"Should flash an error about the missing bug number: {flash_messages=}"
+    )
+
+
+@pytest.mark.django_db
+def test_assessment_with_no_bug_still_shows_on_its_revisions(user, repo_mc):
+    """Assessments predating `bug_id` stay visible through the revisions they reach."""
+    linked_revision_id = 100
+    requested_revision_id = 200
+    created_revision_id = 300
+    repo = repo_mc(scm_type=SCMType.GIT, name="firefox-beta", approval_required=True)
+
+    linked = UpliftAssessment.objects.create(
+        user=user, bug_id=None, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    UpliftRevision.link_revision_to_assessment(linked_revision_id, linked)
+
+    requested = UpliftAssessment.objects.create(
+        user=user, bug_id=None, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    submission = UpliftSubmission.objects.create(
+        requested_by=user,
+        assessment=requested,
+        requested_revision_ids=[requested_revision_id],
+    )
+    UpliftJob.objects.create(
+        submission=submission,
+        requester_email=user.email,
+        status=JobStatus.SUBMITTED,
+        target_repo=repo,
+        created_revision_ids=[created_revision_id],
+    )
+
+    unrelated = UpliftAssessment.objects.create(
+        user=user, bug_id=None, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+
+    for revision_id, expected in (
+        (linked_revision_id, linked),
+        (requested_revision_id, requested),
+        (created_revision_id, requested),
+    ):
+        visible = list(UpliftAssessment.visible_on_revision(None, revision_id))
+        assert visible == [expected], (
+            f"D{revision_id} should reach assessment {expected.pk} with no bug set."
+        )
+        assert unrelated not in visible, (
+            "An assessment the revision does not reach should stay hidden."
+        )
+
+
+@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@pytest.mark.django_db
+def test_edit_assessment_updates_every_linked_revision(
+    mock_apply_async, authenticated_client, user, phabdouble
+):
+    """Editing an assessment refreshes the form on all revisions carrying it."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
+    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+    other_revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+
+    # An assessment authored elsewhere in the bug, linked to two revisions.
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=UPLIFT_BUG_ID, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    UpliftRevision.link_revision_to_assessment(revision_id, assessment)
+    UpliftRevision.link_revision_to_assessment(other_revision_id, assessment)
+
+    url = reverse("uplift-assessment-edit-page", args=[revision_id, assessment.id])
+    response = authenticated_client.post(
+        url, data=UPDATED_UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER=f"/D{revision_id}"
+    )
+
+    assert response.status_code == 302, "A successful edit should redirect."
+
+    assessment.refresh_from_db()
+    assert assessment.bug_id == UPLIFT_BUG_ID, (
+        "Editing an assessment should not change the bug it is filed against."
+    )
+
+    updated_revision_ids = sorted(
+        kwargs["args"][0] for _, kwargs in mock_apply_async.call_args_list
+    )
+    assert updated_revision_ids == sorted([revision_id, other_revision_id]), (
+        "Both revisions carrying the assessment should be refreshed on Phabricator."
+    )
+
+
+@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@pytest.mark.django_db
+def test_edit_assessment_rejects_assessment_from_another_bug(
+    mock_apply_async, authenticated_client, user, phabdouble
+):
+    """An assessment filed against a different bug cannot be edited from this page."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
+    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=UPLIFT_BUG_ID + 1, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+
+    url = reverse("uplift-assessment-edit-page", args=[revision_id, assessment.id])
+    response = authenticated_client.post(
+        url, data=UPDATED_UPLIFT_ASSESSMENT_ANSWERS, HTTP_REFERER=f"/D{revision_id}"
+    )
+
+    assert response.status_code == 302, "A rejected edit should redirect."
+
+    assessment.refresh_from_db()
+    assert assessment.user_impact == UPLIFT_ASSESSMENT_ANSWERS["user_impact"], (
+        "An assessment for another bug should be left untouched."
+    )
+    mock_apply_async.assert_not_called()
+
+    flash_messages = [str(message) for message in get_messages(response.wsgi_request)]
+    assert any("is not shown on" in message for message in flash_messages), (
+        f"Should flash an error about the assessment not being shown: {flash_messages=}"
     )
 
 
@@ -655,7 +741,8 @@ def test_patch_assessment_form_invalid(
 ):
     phabdouble.user(api_key=user.profile.phabricator_api_key)
 
-    url = reverse("uplift-assessment-page", args=[1234])
+    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+    url = reverse("uplift-assessment-page", args=[revision_id])
 
     # Form is invalid because required fields are missing or invalid.
     invalid_data = {
@@ -672,7 +759,9 @@ def test_patch_assessment_form_invalid(
         "is_android_affected": "no",
     }
 
-    response = authenticated_client.post(url, data=invalid_data, HTTP_REFERER="/D1234")
+    response = authenticated_client.post(
+        url, data=invalid_data, HTTP_REFERER=f"/D{revision_id}"
+    )
 
     assert response.status_code == 302, "Submission should redirect on error."
     assert UpliftAssessment.objects.count() == 0, (
@@ -1453,3 +1542,172 @@ def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
     assert failure_args[1] == (repo.short_name or repo.name)
     assert failure_args[2], "Job URL should be included for patch failures."
     assert failure_args[3], "Failure reason should be included for patch failures."
+
+
+def test_assessment_bug_uses_selected_tips_with_gaps(phabdouble):
+    """Omitted intermediate revisions preserve ancestry; omitted tips are ignored."""
+    root = phabdouble.revision(bug_id=UPLIFT_BUG_ID + 1)
+    middle = phabdouble.revision(depends_on=[root])
+    selected_tip = phabdouble.revision(bug_id=UPLIFT_BUG_ID, depends_on=[middle])
+    phabdouble.revision(bug_id=UPLIFT_BUG_ID + 2, depends_on=[selected_tip])
+
+    assert (
+        get_bug_id_for_stack_tips(
+            phabdouble.get_phabricator_client(), [selected_tip["id"], root["id"]]
+        )
+        == UPLIFT_BUG_ID
+    ), "Only the selected tip's bug should be used, not its ancestors' or descendants'."
+
+
+@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@pytest.mark.django_db
+def test_batch_page_files_a_new_assessment_under_the_bug(
+    mock_apply_async, authenticated_client, user, phabdouble
+):
+    """Mixed-bug stacks sharing a tip bug can be assessed and linked together."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+    first_root = phabdouble.revision(bug_id=UPLIFT_BUG_ID + 1)
+    first_tip = phabdouble.revision(bug_id=UPLIFT_BUG_ID, depends_on=[first_root])
+    second_root = phabdouble.revision(bug_id=None)
+    second_tip = phabdouble.revision(bug_id=UPLIFT_BUG_ID, depends_on=[second_root])
+    # Selection order must not decide which revisions are tips.
+    revision_ids = [
+        first_tip["id"],
+        second_root["id"],
+        second_tip["id"],
+        first_root["id"],
+    ]
+    revisions_param = ",".join(str(revision_id) for revision_id in revision_ids)
+
+    response = authenticated_client.get(
+        reverse("uplift-request-page"), {"revisions": revisions_param}
+    )
+    assert response.status_code == 200, "Mixed-bug stacks should load the batch page."
+    assert response.context_data["bug_id"] == UPLIFT_BUG_ID, (
+        "The page should resolve the bug shared by the stack tips."
+    )
+
+    response = authenticated_client.post(
+        reverse("uplift-request-page"),
+        data={
+            "revision_ids": revisions_param,
+            **UPLIFT_ASSESSMENT_ANSWERS,
+        },
+    )
+
+    assert response.status_code == 302, "A successful submission should redirect."
+    assessment = UpliftAssessment.objects.get()
+    assert assessment.bug_id == UPLIFT_BUG_ID, (
+        "The new assessment should be filed under the stack tips' common bug."
+    )
+    assert sorted(assessment.revisions.values_list("revision_id", flat=True)) == sorted(
+        revision_ids
+    ), "Every revision should be linked to the assessment."
+
+
+@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@pytest.mark.django_db
+def test_batch_page_links_an_existing_assessment_without_duplicating(
+    mock_apply_async, authenticated_client, user, phabdouble, django_user_model
+):
+    """Reusing a colleague's assessment links it without creating another."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+    colleague = django_user_model.objects.create_user(
+        username="colleague", email="colleague@example.com"
+    )
+    existing = UpliftAssessment.objects.create(
+        user=colleague, bug_id=UPLIFT_BUG_ID, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+
+    authenticated_client.post(
+        reverse("uplift-request-page"),
+        data={
+            "revision_ids": str(revision_id),
+            "assessment": existing.id,
+            **UPLIFT_ASSESSMENT_ANSWERS,
+        },
+    )
+
+    assert UpliftAssessment.objects.count() == 1, (
+        "Reusing an assessment should not create a new one."
+    )
+    existing.refresh_from_db()
+    assert existing.user == colleague, "A reused assessment should keep its author."
+    assert UpliftRevision.objects.get(revision_id=revision_id).assessment == existing, (
+        "The revision should be linked to the reused assessment."
+    )
+
+
+@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@pytest.mark.django_db
+def test_batch_page_files_the_users_legacy_assessment_under_the_bug(
+    mock_apply_async, authenticated_client, user, phabdouble
+):
+    """Reusing an assessment from before `bug_id` existed files it under the bug."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+    legacy = UpliftAssessment.objects.create(
+        user=user, bug_id=None, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+
+    authenticated_client.post(
+        reverse("uplift-request-page"),
+        data={
+            "revision_ids": str(revision_id),
+            "assessment": legacy.id,
+            **UPLIFT_ASSESSMENT_ANSWERS,
+        },
+    )
+
+    legacy.refresh_from_db()
+    assert legacy.bug_id == UPLIFT_BUG_ID, (
+        "The user's legacy assessment should be filed under the bug it is reused for."
+    )
+
+
+@pytest.mark.parametrize(
+    "tip_bug_id,expected_error",
+    [
+        (UPLIFT_BUG_ID + 1, "stack tips span more than one bug"),
+        (None, "stack tips require a bug number"),
+    ],
+)
+@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@pytest.mark.django_db
+def test_batch_page_requires_stack_tips_to_share_a_bug(
+    mock_apply_async, authenticated_client, user, phabdouble, tip_bug_id, expected_error
+):
+    """Every selected tip needs the same bug, including branches of one stack."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+    root = phabdouble.revision(bug_id=UPLIFT_BUG_ID)
+    revision_ids = [
+        root["id"],
+        phabdouble.revision(bug_id=UPLIFT_BUG_ID, depends_on=[root])["id"],
+        phabdouble.revision(bug_id=tip_bug_id, depends_on=[root])["id"],
+    ]
+    revisions_param = ",".join(str(revision_id) for revision_id in revision_ids)
+
+    response = authenticated_client.get(
+        reverse("uplift-request-page"), {"revisions": revisions_param}
+    )
+    assert response.status_code == 302, "An invalid batch should redirect."
+
+    response = authenticated_client.post(
+        reverse("uplift-request-page"),
+        data={
+            "revision_ids": revisions_param,
+            **UPLIFT_ASSESSMENT_ANSWERS,
+        },
+    )
+
+    assert response.status_code == 302, "A refused submission should redirect."
+    assert UpliftAssessment.objects.count() == 0, (
+        "No assessment should be created when the stack tips lack a common bug."
+    )
+    assert UpliftRevision.objects.count() == 0, "No revision should be linked."
+    flash_messages = [str(message) for message in get_messages(response.wsgi_request)]
+    mock_apply_async.assert_not_called()
+    assert any(expected_error in message for message in flash_messages), (
+        f"Should explain why the tips cannot share an assessment: {flash_messages=}"
+    )
