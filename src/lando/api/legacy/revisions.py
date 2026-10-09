@@ -10,9 +10,12 @@ from typing import (
     Self,
 )
 
+import networkx as nx
 from django.db import transaction
 
 from lando.api.legacy.stacks import (
+    RevisionStack,
+    build_stack_graph,
     get_diffs_by_phid,
     get_revisions_by_id,
 )
@@ -280,6 +283,66 @@ class MergeConflictStatus:
             return None
 
         return f"Last checked {', '.join(parts)}."
+
+
+def get_bug_id_for_stack_tips(phab: PhabricatorClient, revision_ids: list[int]) -> int:
+    """Return the Bugzilla bug shared by the tips of the selected revision stacks.
+
+    A tip is a selected revision with no selected descendants; as in automated
+    uplift, only tips need a bug. Raises `ValueError` when a revision cannot be
+    read, or the tips don't share exactly one bug.
+    """
+    logger.debug("Resolving the bug number for %s.", revision_ids)
+
+    try:
+        revisions = get_revisions_by_id(phab, revision_ids)
+    except ValueError as exc:
+        raise ValueError(
+            "One or more revisions could not be found on Phabricator: "
+            f"{', '.join(f'D{revision_id}' for revision_id in revision_ids)}."
+        ) from exc
+
+    nodes = set(revisions)
+    edges = set()
+    for revision in revisions.values():
+        stack_nodes, stack_edges = build_stack_graph(revision)
+        nodes.update(stack_nodes)
+        edges.update(stack_edges)
+
+    stack = RevisionStack(nodes, edges)
+    # Keep the full graph so selected revisions remain connected through omitted
+    # ancestors. Unselected descendants do not determine the batch's tips.
+    ancestors = {
+        ancestor for phid in revisions for ancestor in nx.ancestors(stack, phid)
+    }
+    tips = revisions.keys() - ancestors
+
+    bug_by_tip = {
+        PhabricatorClient.expect(revisions[phid], "id"): get_bugzilla_bug(
+            revisions[phid]
+        )
+        for phid in tips
+    }
+
+    missing = sorted(
+        revision_id for revision_id, bug_id in bug_by_tip.items() if bug_id is None
+    )
+    if missing:
+        raise ValueError(
+            "Uplift stack tips require a bug number, but "
+            f"{', '.join(f'D{revision_id}' for revision_id in missing)} has none. "
+            "Set it in Phabricator, then try again."
+        )
+
+    bug_ids = set(bug_by_tip.values())
+    if len(bug_ids) > 1:
+        raise ValueError(
+            "The selected stack tips span more than one bug "
+            f"({', '.join(str(bug_id) for bug_id in sorted(bug_ids))}). "
+            "Complete an assessment for each bug's revisions separately."
+        )
+
+    return bug_ids.pop()
 
 
 def blocker_diff_author_is_known(*, diff: dict, **kwargs) -> Optional[str]:
