@@ -9,7 +9,11 @@ from django.conf import settings
 from django.core.handlers.wsgi import WSGIRequest
 from django.db.models import Prefetch
 
-from lando.api.legacy.stacks import RevisionStack
+from lando.api.legacy.stacks import (
+    RevisionStack,
+    get_diffs_by_phid,
+    get_revisions_by_id,
+)
 from lando.api.legacy.validation import revision_id_to_int
 from lando.main.models import JobStatus, Repo
 from lando.main.models.uplift import (
@@ -17,12 +21,14 @@ from lando.main.models.uplift import (
     UpliftJob,
     UpliftRevision,
 )
+from lando.main.support import diff_has_disallowed_author
 from lando.ui.legacy.forms import (
     LinkUpliftAssessmentForm,
     UpliftAssessmentForm,
     UpliftRequestForm,
 )
 from lando.utils.const import UPLIFT_DOCS_URL
+from lando.utils.phabricator import PhabricatorAPIException, PhabricatorClient
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +42,12 @@ class UpliftTrainOutcome(Enum):
     IN_PROGRESS = ("In progress", "warning", "fa-clock-o")
     QUEUED = ("Queued", "", "fa-hourglass-start")
     CANCELLED = ("Cancelled", "", "fa-ban")
+    CONFLICT_RESOLVED_BY_HACKBOT = (
+        "Conflict resolved by hackbot",
+        "positive",
+        "fa-check",
+    )
+    SUBMITTED_WITH_MOZ_PHAB = ("Submitted with moz-phab", "neutral", "fa-terminal")
     SUBMITTED_OUTSIDE_LANDO = (
         "Submitted outside Lando",
         "neutral",
@@ -157,6 +169,7 @@ class UpliftContext:
         revision_phid: str,
         revisions: dict[str, dict],
         stack: RevisionStack,
+        phab: PhabricatorClient | None = None,
     ) -> Self:
         """Return a populated `UpliftContext` for the given stack view."""
         try:
@@ -200,7 +213,7 @@ class UpliftContext:
             bug_id=bug_id,
             is_uplift_revision=is_uplift_revision,
             bug_assessments=cls.build_assessment_cards(
-                bug_id, revision_id, linked_assessment, is_uplift_revision
+                bug_id, revision_id, linked_assessment, is_uplift_revision, phab=phab
             ),
             new_assessment_form=new_assessment_form,
             docs_url=UPLIFT_DOCS_URL,
@@ -225,8 +238,13 @@ class UpliftContext:
         revision_id: int,
         linked_assessment: UpliftAssessment | None,
         is_uplift_revision: bool,
+        phab: PhabricatorClient | None = None,
     ) -> tuple[UpliftAssessmentCard, ...]:
-        """Return a card for each assessment this revision should display."""
+        """Return a card for each assessment this revision should display.
+
+        `phab` looks up the trains of stacks linked from outside Lando; without
+        it their train is shown as unknown.
+        """
         assessments = list(
             UpliftAssessment.visible_on_revision(bug_id, revision_id).prefetch_related(
                 Prefetch(
@@ -268,7 +286,7 @@ class UpliftContext:
         }
 
         # Revisions a job created are described by that job; the rest were
-        # linked from outside Lando, so Lando does not know their train.
+        # linked from outside Lando, so only Phabricator knows their train.
         outside_ids_by_assessment = {
             assessment.pk: sorted(
                 set(revision_ids_by_assessment[assessment.pk])
@@ -280,6 +298,14 @@ class UpliftContext:
             )
             for assessment in assessments
         }
+        outside_rows = cls.describe_stacks_outside_lando(
+            phab,
+            {
+                linked_id
+                for outside_ids in outside_ids_by_assessment.values()
+                for linked_id in outside_ids
+            },
+        )
 
         return tuple(
             UpliftAssessmentCard(
@@ -299,10 +325,13 @@ class UpliftContext:
                         for job in jobs_by_assessment[assessment.pk]
                     ]
                     + [
-                        UpliftTrainRow(
-                            train=None,
-                            tip_revision_id=linked_id,
-                            outcome=UpliftTrainOutcome.SUBMITTED_OUTSIDE_LANDO,
+                        outside_rows.get(
+                            linked_id,
+                            UpliftTrainRow(
+                                train=None,
+                                tip_revision_id=linked_id,
+                                outcome=UpliftTrainOutcome.SUBMITTED_OUTSIDE_LANDO,
+                            ),
                         )
                         for linked_id in outside_ids_by_assessment[assessment.pk]
                     ]
@@ -330,6 +359,87 @@ class UpliftContext:
         )
 
     @staticmethod
+    def describe_stacks_outside_lando(
+        phab: PhabricatorClient | None, revision_ids: set[int]
+    ) -> dict[int, UpliftTrainRow]:
+        """Return a train row for each stack tip no Lando job created.
+
+        Lando only records which assessment such a stack carries, so its train
+        comes from Phabricator. A failed lookup leaves it unknown.
+        """
+        if phab is None or not revision_ids:
+            return {}
+
+        logger.debug("Looking up the trains of %s in Phabricator.", revision_ids)
+        try:
+            revisions = get_revisions_by_id(phab, sorted(revision_ids))
+            repo_phids = sorted(
+                {
+                    revision["fields"]["repositoryPHID"]
+                    for revision in revisions.values()
+                    if revision["fields"].get("repositoryPHID")
+                }
+            )
+            repositories = (
+                phab.call_conduit(
+                    "diffusion.repository.search",
+                    constraints={"phids": repo_phids},
+                    limit=len(repo_phids),
+                )["data"]
+                if repo_phids
+                else []
+            )
+
+            # The latest diff's commit author says whether hackbot submitted it.
+            diffs = get_diffs_by_phid(
+                phab,
+                sorted(
+                    {
+                        revision["fields"]["diffPHID"]
+                        for revision in revisions.values()
+                        if revision["fields"].get("diffPHID")
+                    }
+                ),
+            )
+        except PhabricatorAPIException, ValueError:
+            logger.warning(
+                "Could not look up the trains of %s.", revision_ids, exc_info=True
+            )
+            return {}
+
+        short_names = {
+            repository["phid"]: repository["fields"]["shortName"]
+            for repository in repositories
+        }
+
+        # Name a train the way Lando's jobs do, falling back to Phabricator's.
+        lando_names = dict(
+            Repo.objects.filter(short_name__in=short_names.values()).values_list(
+                "short_name", "name"
+            )
+        )
+
+        rows = {}
+        for revision in revisions.values():
+            short_name = short_names.get(revision["fields"].get("repositoryPHID"))
+            diff = diffs.get(revision["fields"].get("diffPHID"))
+
+            # `DISALLOWED_AUTHOR_EMAILS` is how Lando recognises hackbot's commits,
+            # and hackbot submits uplift stacks to resolve a job's merge conflict.
+            by_hackbot = diff is not None and diff_has_disallowed_author(diff)
+
+            rows[revision["id"]] = UpliftTrainRow(
+                train=lando_names.get(short_name, short_name),
+                tip_revision_id=revision["id"],
+                outcome=(
+                    UpliftTrainOutcome.CONFLICT_RESOLVED_BY_HACKBOT
+                    if by_hackbot
+                    else UpliftTrainOutcome.SUBMITTED_WITH_MOZ_PHAB
+                ),
+            )
+
+        return rows
+
     def can_create_submission(request: WSGIRequest) -> bool:
         """Return `True` when the user can submit uplift jobs."""
         return (

@@ -276,8 +276,8 @@ def test_mainline_revision_shows_only_the_uplifts_requested_from_it(user):
 
 
 @pytest.mark.django_db
-def test_train_groups_list_each_jobs_stack_under_its_train(user, repo_mc):
-    """A card groups its jobs by train, then lists the stacks linked by hand.
+def test_train_groups_list_each_jobs_stack_under_its_train(user, repo_mc, phabdouble):
+    """A card groups its jobs by train, then the stacks linked from outside Lando.
 
     A revision a job created is that job's stack tip, so linking it to the
     assessment does not list it a second time.
@@ -300,10 +300,17 @@ def test_train_groups_list_each_jobs_stack_under_its_train(user, repo_mc):
         error_breakdown={"failed_paths": [{"path": "file.txt"}]},
     )
     UpliftRevision.link_revision_to_assessment(302, assessment)
-    UpliftRevision.link_revision_to_assessment(555, assessment)
+    resolution = phabdouble.revision(
+        repo=phabdouble.repo(name=release.short_name), bug_id=bug_id
+    )
+    UpliftRevision.link_revision_to_assessment(resolution["id"], assessment)
 
     (card,) = UpliftContext.build_assessment_cards(
-        bug_id, 302, assessment, is_uplift_revision=True
+        bug_id,
+        302,
+        assessment,
+        is_uplift_revision=True,
+        phab=phabdouble.get_phabricator_client(),
     )
 
     assert card.train_groups == (
@@ -327,19 +334,14 @@ def test_train_groups_list_each_jobs_stack_under_its_train(user, repo_mc):
                     outcome=UpliftTrainOutcome.MERGE_CONFLICT,
                     job=conflicted,
                 ),
-            ),
-        ),
-        UpliftTrainGroup(
-            train=None,
-            rows=(
                 UpliftTrainRow(
-                    train=None,
-                    tip_revision_id=555,
-                    outcome=UpliftTrainOutcome.SUBMITTED_OUTSIDE_LANDO,
+                    train=release.name,
+                    tip_revision_id=resolution["id"],
+                    outcome=UpliftTrainOutcome.SUBMITTED_WITH_MOZ_PHAB,
                 ),
             ),
         ),
-    ), "Each train should list its job, and the hand-linked stack its own row."
+    ), "Each train should list its job, then the stack submitted outside Lando."
 
 
 @pytest.mark.parametrize(
@@ -387,3 +389,84 @@ def test_authoring_an_assessment_needs_an_uplift_revision_a_bug_and_a_login(user
     assert not UpliftContext.can_author_assessment(anonymous, 123, True), (
         "An anonymous user should not get the forms."
     )
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("with_phabricator", [False, True])
+def test_train_stays_unknown_when_phabricator_cannot_say(
+    user, phabdouble, with_phabricator
+):
+    """A hand-linked stack keeps an unknown train without a lookup, or if it fails."""
+    bug_id = 929292
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=bug_id, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    UpliftRevision.link_revision_to_assessment(99999, assessment)
+
+    (card,) = UpliftContext.build_assessment_cards(
+        bug_id,
+        99999,
+        assessment,
+        is_uplift_revision=True,
+        phab=phabdouble.get_phabricator_client() if with_phabricator else None,
+    )
+
+    assert card.train_groups == (
+        UpliftTrainGroup(
+            train=None,
+            rows=(
+                UpliftTrainRow(
+                    train=None,
+                    tip_revision_id=99999,
+                    outcome=UpliftTrainOutcome.SUBMITTED_OUTSIDE_LANDO,
+                ),
+            ),
+        ),
+    ), "The stack should still be listed, under an unknown train."
+
+
+@pytest.mark.django_db
+def test_train_groups_tell_hackbot_apart_by_its_commits(user, phabdouble):
+    """A stack whose commits hackbot authored reads as hackbot's conflict fix."""
+    bug_id = 939393
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=bug_id, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    hackbot_diff = phabdouble.diff(
+        commits=[
+            {
+                "identifier": "1" * 40,
+                "tree": None,
+                "parents": ["2" * 40],
+                "author": {
+                    "name": "Hackbot",
+                    "email": "hackbot@mozilla.tld",
+                    "raw": "Hackbot <hackbot@mozilla.tld>",
+                    "epoch": 1524854743,
+                },
+                "message": "Resolve the merge conflict.",
+            }
+        ]
+    )
+    by_hackbot = phabdouble.revision(diff=hackbot_diff, bug_id=bug_id)
+    by_developer = phabdouble.revision(bug_id=bug_id)
+    for revision in (by_hackbot, by_developer):
+        UpliftRevision.link_revision_to_assessment(revision["id"], assessment)
+
+    (card,) = UpliftContext.build_assessment_cards(
+        bug_id,
+        by_developer["id"],
+        assessment,
+        is_uplift_revision=True,
+        phab=phabdouble.get_phabricator_client(),
+    )
+
+    outcomes = {
+        row.tip_revision_id: row.outcome
+        for group in card.train_groups
+        for row in group.rows
+    }
+    assert outcomes == {
+        by_hackbot["id"]: UpliftTrainOutcome.CONFLICT_RESOLVED_BY_HACKBOT,
+        by_developer["id"]: UpliftTrainOutcome.SUBMITTED_WITH_MOZ_PHAB,
+    }, "Hackbot's stack should be told apart from a developer's."
