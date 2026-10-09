@@ -9,6 +9,7 @@ from django.conf import settings
 from django.core.handlers.wsgi import WSGIRequest
 from django.db.models import Prefetch
 
+from lando.api.legacy.projects import RELMAN_PROJECT_SLUG, get_project_phid
 from lando.api.legacy.stacks import (
     RevisionStack,
     get_diffs_by_phid,
@@ -23,7 +24,6 @@ from lando.main.models.uplift import (
 )
 from lando.main.support import diff_has_disallowed_author
 from lando.ui.legacy.forms import (
-    LinkUpliftAssessmentForm,
     UpliftAssessmentForm,
     UpliftRequestForm,
 )
@@ -132,7 +132,6 @@ class UpliftContext:
     """Container for uplift values supplied to stack templates."""
 
     request_form: UpliftRequestForm
-    assessment_link_form: LinkUpliftAssessmentForm | None
     can_create_uplift_submission: bool
     revision_id: int
 
@@ -142,6 +141,10 @@ class UpliftContext:
     # Whether the revision is in an uplift target repo, rather than being the
     # mainline revision an uplift is requested from.
     is_uplift_revision: bool
+
+    # The release-managers group's review status on this uplift revision, ie
+    # `accepted`, or `None` while the group is not a reviewer.
+    relman_review: str | None
 
     # Every assessment this revision should display: the bug's, plus any the
     # revision reaches directly, or on a mainline revision only its uplifts.
@@ -158,6 +161,33 @@ class UpliftContext:
     def linked_card(self) -> UpliftAssessmentCard | None:
         """Return the card of the assessment linked to this revision, if any."""
         return next((card for card in self.bug_assessments if card.is_linked), None)
+
+    @property
+    def is_ready_for_review(self) -> bool:
+        """Return `True` with a bug and an assessment, and no changes requested."""
+        return bool(
+            self.bug_id and self.linked_card and self.relman_review != "rejected"
+        )
+
+    @property
+    def shown_cards(self) -> tuple[UpliftAssessmentCard, ...]:
+        """Return the cards shown in full.
+
+        An uplift revision shows only the assessment linked to it; the picker
+        lists the rest. A mainline revision shows every uplift requested from it.
+        """
+        if not self.is_uplift_revision:
+            return tuple(self.bug_assessments)
+
+        return (self.linked_card,) if self.linked_card else ()
+
+    @property
+    def collapsed_cards(self) -> tuple[UpliftAssessmentCard, ...]:
+        """Return the bug's other assessments, folded under the linked one."""
+        if not self.is_uplift_revision or self.linked_card is None:
+            return ()
+
+        return tuple(card for card in self.bug_assessments if not card.is_linked)
 
     @classmethod
     def build(
@@ -199,25 +229,57 @@ class UpliftContext:
         is_uplift_revision = bool(revision_repo and revision_repo.approval_required)
 
         new_assessment_form = None
-        assessment_link_form = None
 
         if cls.can_author_assessment(request, bug_id, is_uplift_revision):
             new_assessment_form = UpliftAssessmentForm()
-            assessment_link_form = LinkUpliftAssessmentForm(user=request.user)
 
         return cls(
             request_form=request_form,
-            assessment_link_form=assessment_link_form,
             can_create_uplift_submission=cls.can_create_submission(request),
             revision_id=revision_id,
             bug_id=bug_id,
             is_uplift_revision=is_uplift_revision,
+            relman_review=(
+                cls.relman_review_status(phab, revisions[revision_phid])
+                if is_uplift_revision
+                else None
+            ),
             bug_assessments=cls.build_assessment_cards(
                 bug_id, revision_id, linked_assessment, is_uplift_revision, phab=phab
             ),
             new_assessment_form=new_assessment_form,
             docs_url=UPLIFT_DOCS_URL,
             train_api_url=settings.WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL,
+        )
+
+    @staticmethod
+    def relman_review_status(
+        phab: PhabricatorClient | None, revision: dict
+    ) -> str | None:
+        """Return the release-managers group's review status on `revision`.
+
+        Phabricator adds the group as a reviewer once the uplift request form is
+        set, and landing stays blocked until it accepts. Returns `None` while the
+        group is not a reviewer, or when it cannot be looked up.
+        """
+        if phab is None:
+            return None
+
+        try:
+            relman_phid = get_project_phid(RELMAN_PROJECT_SLUG, phab)
+        except PhabricatorAPIException:
+            logger.warning(
+                "Could not look up the release-managers group.", exc_info=True
+            )
+            return None
+
+        return next(
+            (
+                reviewer["status"]
+                for reviewer in revision.get("reviewers", [])
+                if reviewer["phid"] == relman_phid
+            ),
+            None,
         )
 
     @staticmethod

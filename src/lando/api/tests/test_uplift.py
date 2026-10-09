@@ -695,6 +695,47 @@ def test_edit_assessment_rejects_assessment_from_another_bug(
     )
 
 
+@pytest.mark.parametrize(
+    "revision_bug_id,assessment_bug_id,expected_error",
+    [
+        (UPLIFT_BUG_ID, UPLIFT_BUG_ID + 1, "Select a valid choice"),
+        (None, UPLIFT_BUG_ID, "require a bug number"),
+    ],
+)
+@mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
+@pytest.mark.django_db
+def test_link_assessment_rejects_assessments_the_revision_does_not_display(
+    mock_apply_async,
+    authenticated_client,
+    user,
+    phabdouble,
+    revision_bug_id,
+    assessment_bug_id,
+    expected_error,
+):
+    """A revision can only be linked to an assessment filed against its own bug."""
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
+    revision_id = phabdouble.revision(bug_id=revision_bug_id)["id"]
+    assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=assessment_bug_id, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+
+    response = authenticated_client.post(
+        reverse("uplift-assessment-link-page", args=[revision_id]),
+        data={"assessment": assessment.pk},
+        HTTP_REFERER=f"/D{revision_id}",
+    )
+
+    assert response.status_code == 302, "A rejected link should redirect."
+    assert UpliftRevision.objects.count() == 0, "No link should be created."
+    mock_apply_async.assert_not_called()
+    flash_messages = [str(message) for message in get_messages(response.wsgi_request)]
+    assert any(expected_error in message for message in flash_messages), (
+        f"Should explain why the link was refused: {flash_messages=}"
+    )
+
+
 @pytest.mark.django_db
 def test_uplift_creation_rejects_revision_without_bug(
     authenticated_client, user, repo_mc, create_patch_revision, normal_patch, phabdouble

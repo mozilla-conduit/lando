@@ -391,6 +391,79 @@ fieldset {
     white-space: pre-wrap;
 }
 
+/* The uplift checklist, and the assessment cards under it, are flat. */
+.UpliftReadiness,
+.UpliftAssessmentCard {
+    border: 1px solid $grey-lighter;
+    box-shadow: none;
+}
+
+/* Checklist of what an uplift revision needs before release managers approve it. */
+.UpliftReadiness {
+    &.is-ready {
+        border-color: #a6d7a8;
+        background: #f6fbf6;
+    }
+
+    &-facts {
+        font-size: 0.85rem;
+        font-weight: normal;
+        color: $grey;
+    }
+
+    &-title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1.05rem;
+        font-weight: 600;
+        margin-bottom: 0;
+    }
+
+    &-list {
+        margin-top: 0.5rem;
+    }
+
+    &-item {
+        display: grid;
+        grid-template-columns: 1.75rem 13rem minmax(0, 1fr) auto;
+        gap: 0.5rem;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-top: 1px solid $white-bis;
+    }
+
+    &-value {
+        font-size: 0.85rem;
+    }
+
+    &-item.is-blocked &-label,
+    &-item.is-blocked &-value {
+        color: $grey;
+    }
+
+    &-expand {
+        padding: 0.75rem 0 0.75rem 2.25rem;
+        border-top: 1px solid $white-bis;
+    }
+}
+
+/* The bug's other assessments, folded under the one linked to this revision. */
+.UpliftOthers {
+    summary {
+        cursor: pointer;
+        color: $blue;
+    }
+
+    &-row {
+        display: flex;
+        gap: 0.75rem;
+        align-items: baseline;
+        padding: 0.4rem 0;
+        border-bottom: 1px solid $white-bis;
+    }
+}
+
 /* The stacks carrying an assessment, grouped by train. */
 .UpliftTrains {
     td {
@@ -403,5 +476,23 @@ fieldset {
 
     tbody tr.UpliftTrains-groupStart:not(:first-child) td {
         border-top: 2px solid $grey-lighter;
+    }
+}
+
+/* On an uplift revision, the linked assessment's card is the checklist's
+   detail, so the two share one border. */
+.UpliftReadiness.has-card {
+    margin-bottom: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+
+    + .block > .UpliftAssessmentCard {
+        border-top: 0;
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+    }
+
+    &.is-ready + .block > .UpliftAssessmentCard {
+        border-color: #a6d7a8;
     }
 }

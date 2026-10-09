@@ -22,9 +22,9 @@ Most uplift failures are due to merge conflicts. To resolve:
 2. Resolve any merge conflicts locally
 3. Submit a new uplift request using `moz-phab uplift`
 
-Once you have created a new uplift Phabricator revision, you can use the
-"Reuse Previous Assessment" button to reuse your previously submitted
-uplift assessment form with the new revision.
+Once you have created a new uplift Phabricator revision, open its Lando
+page and pick your previously submitted uplift assessment in the
+checklist under "Uplifts" to reuse it with the new revision.
 
 For detailed step-by-step instructions, see {UPLIFT_DOCS_URL}
 
