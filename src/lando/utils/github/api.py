@@ -300,9 +300,9 @@ class GitHubAPIClient:
 
         return checks.get("check_runs", [])
 
-#
-# PULL REQUESTS
-#
+    #
+    # PULL REQUESTS
+    #
 
     def build_pull_request(self, pull_number: int) -> "PullRequest":
         """Build a PullRequest object.
