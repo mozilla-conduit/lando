@@ -14,7 +14,7 @@
                 {% if revision_repo and revision_repo.approval_required %}
                     <article class="message is-warning">
                         <div class="message-header">
-                            <p>Action Creates New Phabricator Revisions</p>
+                            <p>This action creates new Phabricator revisions</p>
                         </div>
                         <div class="message-body">
                             Submitting this uplift request queues jobs for every selected repository
@@ -27,7 +27,7 @@
                 {% endif %}
                 <p class="block">
                     Select the repositories you wish to uplift to and complete the
-                    <strong>Uplift Assessment Form</strong> below. Lando will check your patch
+                    <strong>uplift assessment</strong> below. Lando will check your patch
                     for merge conflicts and create new uplift revisions in Phabricator if they
                     apply cleanly. You will be notified of merge conflicts which must be resolved
                     manually and submitted with <code>moz-phab</code>.
@@ -93,7 +93,7 @@
                     <div id="uplift-train-messages"></div>
                     <hr>
                     <div class="field">
-                        <label class="label">Uplift Assessment</label>
+                        <label class="label">Uplift assessment</label>
                         <p class="help">
                             Your responses will be saved to Lando and can be referenced when
                             manually creating uplift revisions for this patch in the future.
