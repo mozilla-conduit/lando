@@ -315,7 +315,9 @@ class UpliftAssessmentBatchLinkView(LandoView):
         context = {
             "form": assessment_form,
             "revision_ids": revision_ids,
+            "revisions_param": initial_data["revision_ids"],
             "bug_id": bug_id,
+            "bug_assessments": list(UpliftAssessment.for_bug(bug_id)),
             "existing_linked_revision_ids": existing_linked_revision_ids,
             "assessment": assessment_instance,
         }
@@ -433,6 +435,56 @@ class UpliftAssessmentBatchLinkView(LandoView):
                 f"Assessment not found, or not filed against bug {bug_id}.",
             )
             return None
+
+
+class UpliftAssessmentBatchLinkExistingView(LandoView):
+    """Link the given revisions to an existing assessment without editing it.
+
+    This is the batch page's one-click alternative to its form, for when the bug
+    already has an assessment that describes these revisions.
+    """
+
+    @force_auth_refresh
+    @method_decorator(require_phabricator_api_key(optional=False, provide_client=True))
+    def post(self, phab: PhabricatorClient, request: WSGIRequest) -> HttpResponse:
+        """Link the revisions to the chosen assessment."""
+        resolved = UpliftAssessmentBatchLinkView.resolve_revisions(
+            phab, request, request.POST.get("revision_ids")
+        )
+        if resolved is None:
+            return redirect(request.META.get("HTTP_REFERER") or "/")
+        revision_ids, bug_id = resolved
+
+        assessment = UpliftAssessmentBatchLinkView.selected_assessment(
+            request.POST.get("assessment", ""), bug_id, request
+        )
+        if assessment is None:
+            return redirect(request.META.get("HTTP_REFERER") or "/")
+
+        logger.info(
+            f"Uplift assessment batch link existing: user={request.user.id}, "
+            f"revisions={revision_ids}, bug={bug_id}, assessment_id={assessment.id}"
+        )
+
+        with transaction.atomic():
+            # As when reusing it through the form, the user's own assessment from
+            # before `bug_id` existed is filed under the bug.
+            if assessment.bug_id is None:
+                assessment.bug_id = bug_id
+                assessment.save()
+
+            for revision_id in revision_ids:
+                UpliftRevision.link_revision_to_assessment(revision_id, assessment)
+
+        refresh_linked_revisions(assessment, request)
+
+        messages.add_message(
+            request,
+            messages.SUCCESS,
+            f"Assessment #{assessment.id} linked to {len(revision_ids)} revision(s).",
+        )
+
+        return redirect("revisions-page", revision_id=revision_ids[0])
 
 
 def refresh_linked_revisions(assessment: UpliftAssessment, request: WSGIRequest):
