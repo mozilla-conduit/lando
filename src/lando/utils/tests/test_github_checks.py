@@ -1,13 +1,20 @@
+import json
 from collections.abc import Callable
 from unittest import mock
 
 import pytest
 
 from lando.api.legacy.commit_message import parse_bugs
-from lando.main.models import Repo
+from lando.main.models import (
+    ConfigurationKey,
+    ConfigurationVariable,
+    Repo,
+    VariableTypeChoices,
+)
 from lando.main.scm import SCMType
 from lando.utils.github_checks import (
     PullRequestBlockingReviewsWarning,
+    PullRequestFailingCheck,
     PullRequestSecurityBugStatusFlagsBlocker,
     PullRequestSecurityBugStatusFlagsUnverifiedWarning,
 )
@@ -28,6 +35,8 @@ def make_pull_request():
         *,
         commit_messages: list[str] | None = None,
         bugs_by_id: dict | None = None,
+        checks: list[dict] | None = None,
+        mergeable_state: LandoPullRequest.Mergeability = LandoPullRequest.Mergeability.CLEAN,
         reviews: dict | None = None,
     ) -> mock.Mock:
         commit_messages = commit_messages or ["No bug - do a thing"]
@@ -37,10 +46,23 @@ def make_pull_request():
             bug_ids.update(parse_bugs(message))
 
         return mock.Mock(
-            spec_set=["Review", "bug_ids", "bugs_by_id", "reviews"],
+            spec_set=[
+                "CheckConclusion",
+                "Mergeability",
+                "Review",
+                "bug_ids",
+                "bugs_by_id",
+                "checks",
+                "mergeable_state",
+                "reviews",
+            ],
+            CheckConclusion=LandoPullRequest.CheckConclusion,
+            Mergeability=LandoPullRequest.Mergeability,
             Review=LandoPullRequest.Review,
             bug_ids=bug_ids,
             bugs_by_id=bugs_by_id,
+            checks=checks or [],
+            mergeable_state=mergeable_state,
             reviews=reviews or [],
         )
 
@@ -143,6 +165,52 @@ def test_blocking_reviews_warning(make_pull_request):
     assert PullRequestBlockingReviewsWarning().run(pr, mock.Mock(), mock.Mock()) == [
         "Has a review intended to block landing. (empty body)… (https://github.test/org/repo/pull/1#pullrequestreview-5)"
     ]
+
+
+@pytest.mark.parametrize(
+    "conclusion,failed",
+    (
+        (LandoPullRequest.CheckConclusion.ACTION_REQUIRED, True),
+        (LandoPullRequest.CheckConclusion.CANCELLED, True),
+        (LandoPullRequest.CheckConclusion.FAILURE, True),
+        (LandoPullRequest.CheckConclusion.NEUTRAL, False),
+        (LandoPullRequest.CheckConclusion.SUCCESS, False),
+        (LandoPullRequest.CheckConclusion.SKIPPED, False),
+        (LandoPullRequest.CheckConclusion.STALE, True),
+        (LandoPullRequest.CheckConclusion.TIMED_OUT, False),
+    ),
+)
+@pytest.mark.django_db
+def test_pull_request_failing_check(
+    make_pull_request: Callable,
+    conclusion: LandoPullRequest.CheckConclusion,
+    failed: bool,
+):
+    check_name = "some-check"
+
+    pr = make_pull_request(
+        mergeable_state=LandoPullRequest.Mergeability.UNSTABLE,
+        checks=[{"name": check_name, "conclusion": conclusion}],
+    )
+
+    assert len(PullRequestFailingCheck().run(pr, mock.Mock(), mock.Mock())) == (
+        1 if failed else 0
+    ), f"Incorrect check warning state for {conclusion}"
+
+    pr.mergeable_state = LandoPullRequest.Mergeability.CLEAN
+    assert len(PullRequestFailingCheck().run(pr, mock.Mock(), mock.Mock())) == 0, (
+        "Clean PR should never warn"
+    )
+
+    ConfigurationVariable.set(
+        ConfigurationKey.GITHUB_CHECKS_LIST,
+        VariableTypeChoices.JSON,
+        json.dumps({"skip": [check_name]}),
+    )
+    pr.mergeable_state = LandoPullRequest.Mergeability.UNSTABLE
+    assert len(PullRequestFailingCheck().run(pr, mock.Mock(), mock.Mock())) == 0, (
+        "Skipped check should never warn"
+    )
 
 
 @pytest.fixture

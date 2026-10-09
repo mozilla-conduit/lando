@@ -11,6 +11,7 @@ from lando.api.legacy.bmo import (
     unset_status_flags,
     unverified_status_flags_message,
 )
+from lando.main.models import ConfigurationKey, ConfigurationVariable
 from lando.main.models.jobs import JobStatus
 from lando.main.models.landing_job import get_jobs_for_pull
 from lando.main.models.repo import Repo
@@ -263,7 +264,7 @@ class PullRequestFailingCheck(PullRequestBlocker):
     @override
     @classmethod
     def description(cls) -> str:
-        return "This Pull Request has some failing checks."
+        return "This Pull Request has some failing checks"
 
     @override
     @classmethod
@@ -273,13 +274,21 @@ class PullRequestFailingCheck(PullRequestBlocker):
         target_repo: Repo,
         request: HttpRequest,
     ) -> list[str]:
-        # If we need more details on which tests are failing, we could use the commit
-        # statuses endpoint instead [0].
-        #
-        # [0] https://docs.github.com/en/rest/commits/statuses?apiVersion=2022-11-28
-        if pull_request.mergeable_state == pull_request.Mergeability.UNSTABLE:
-            return [cls.description()]
+        if pull_request.mergeable_state != pull_request.Mergeability.UNSTABLE:
+            return []
 
+        check_skiplist = ConfigurationVariable.get(
+            ConfigurationKey.GITHUB_CHECKS_LIST, {}
+        ).get("skip", [])
+        if failing_checks := [
+            c.get("name")
+            for c in pull_request.checks
+            if pull_request.CheckConclusion.is_error(c.get("conclusion"))
+            and c.get("name") not in check_skiplist
+        ]:
+            return [f"{cls.description()}: {', '.join(failing_checks)}."]
+
+        # If all the failing checks were in the skiplist, we're good.
         return []
 
 
