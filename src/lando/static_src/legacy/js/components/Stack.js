@@ -41,14 +41,6 @@ $.fn.stack = function () {
             $(this).closest(".uplift-assessment-modal").removeClass("is-active");
         });
 
-        // Show the modal to link an existing uplift assessment.
-        $(".link-assessment-open").on("click", function () {
-            $(".uplift-assessment-link-modal").addClass("is-active");
-        });
-        $(".link-assessment-close").on("click", function () {
-            $(".uplift-assessment-link-modal").removeClass("is-active");
-        });
-
         // Toggle `required` on the "steps to reproduce" textarea based on
         // whether "Needs manual QE testing?" is set to "Yes".
         function updateQeStepsRequired(form) {

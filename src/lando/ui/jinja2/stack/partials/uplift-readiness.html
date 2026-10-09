@@ -1,0 +1,151 @@
+{# What an uplift revision still needs before release managers can approve it.
+
+Each item carries its own fix, and the assessment item hosts the assessment
+picker: open while nothing is linked, and behind "Change" once something is.
+#}
+{% from "stack/partials/uplift-assessment-picker.html" import assessment_picker %}
+{% macro readiness_icon(status) %}
+    <span class="icon">
+        {% if status == "done" %}
+            <i class="fa fa-check-circle fa-lg has-text-success" aria-hidden="true"></i>
+        {% elif status == "todo" %}
+            <i class="fa fa-exclamation-circle fa-lg has-text-warning"
+               aria-hidden="true"></i>
+        {% else %}
+            <i class="fa fa-circle-o fa-lg has-text-grey-light" aria-hidden="true"></i>
+        {% endif %}
+    </span>
+{% endmacro %}
+{# One checklist item; a `call` block supplies its fix, if it has one. #}
+{% macro readiness_item(status, label, value) %}
+    <li class="UpliftReadiness-item is-{{ status }}">
+        {{ readiness_icon(status) }}
+        <span class="UpliftReadiness-label has-text-weight-semibold">{{ label }}</span>
+        <span class="UpliftReadiness-value">{{ value }}</span>
+        {% set fix = caller() if caller else "" %}
+        {% if fix | trim %}<span class="UpliftReadiness-fix">{{ fix }}</span>{% endif %}
+    </li>
+{% endmacro %}
+{% set linked_card = uplift.linked_card %}
+{% set offers_picker = uplift.bug_id and uplift.bug_assessments and uplift.new_assessment_form %}
+{# The linked assessment's card hangs off the bottom of the checklist. #}
+<div class="box UpliftReadiness{% if uplift.is_ready_for_review %} is-ready{% endif %}{% if linked_card %} has-card{% endif %}">
+    {# The headline names the state, so it reads at a glance. #}
+    <p class="UpliftReadiness-title">
+        {{ readiness_icon("done" if uplift.is_ready_for_review else "todo") }}
+        {% if not uplift.bug_id %}
+            <span>D{{ uplift.revision_id }} needs a bug number</span>
+        {% elif not linked_card %}
+            <span>D{{ uplift.revision_id }} needs an uplift assessment</span>
+        {% elif uplift.relman_review == "rejected" %}
+            <span>release-managers requested changes to D{{ uplift.revision_id }}</span>
+        {% elif uplift.relman_review == "accepted" %}
+            <span>D{{ uplift.revision_id }} is approved for uplift</span>
+        {% else %}
+            <span>D{{ uplift.revision_id }} is ready for release manager review</span>
+        {% endif %}
+        {# With nothing left to do, the items fold away behind one toggle. #}
+        {% if uplift.is_ready_for_review %}
+            <span class="UpliftReadiness-facts">Bug {{ uplift.bug_id }} · Assessment #{{ linked_card.assessment.id }}</span>
+            <button type="button"
+                    class="button is-small is-ghost ml-auto UpliftReadiness-toggle"
+                    aria-expanded="false"
+                    aria-controls="uplift-readiness-items"
+                    data-label-expanded="Hide checklist"
+                    data-label-collapsed="Show checklist">Show checklist</button>
+        {% endif %}
+    </p>
+    <ul class="UpliftReadiness-list"
+        id="uplift-readiness-items"
+        {% if uplift.is_ready_for_review %}hidden{% endif %}>
+        {% if uplift.bug_id %}
+            {% set bug_link %}
+                <a href="{{ uplift.bug_id|bug_url }}" target="_blank">Bug {{ uplift.bug_id }}</a>
+            {% endset %}
+            {{ readiness_item("done", "Bug number", bug_link) }}
+        {% else %}
+            {% call readiness_item("todo", "Bug number", "Missing. Uplifts are tracked per bug, so set it on this revision in Phabricator.") %}
+                <a class="button is-small is-primary"
+                   href="{{ uplift.revision_id|phabricator_revision_url }}"
+                   target="_blank">
+                    <span>Set it in Phabricator</span>
+                    <span class="icon is-small"><i class="fa fa-external-link" aria-hidden="true"></i></span>
+                </a>
+            {% endcall %}
+        {% endif %}
+        {% if not uplift.bug_id %}
+            {{ readiness_item('blocked', 'Uplift assessment', 'Needs a bug number first.') }}
+        {% elif linked_card %}
+            {% call readiness_item("done", "Uplift assessment", "#" ~ linked_card.assessment.id ~ " · " ~ linked_card.assessment.user_impact | truncate(90)) %}
+                {% if offers_picker %}
+                    <button type="button"
+                            class="button is-small UpliftReadiness-toggle"
+                            aria-expanded="false"
+                            aria-controls="uplift-assessment-picker">
+                        <span class="icon is-small"><i class="fa fa-exchange" aria-hidden="true"></i></span>
+                        <span>Change</span>
+                    </button>
+                {% endif %}
+            {% endcall %}
+        {% elif uplift.bug_assessments %}
+            {% set count = uplift.bug_assessments | length %}
+            {% set not_linked %}
+                Not linked. Bug {{ uplift.bug_id }} has {{ count }} {{ "assessment" if count == 1 else "assessments" }}{% if offers_picker %}; pick the one that describes this patch, or create a new one{% endif %}.
+            {% endset %}
+            {{ readiness_item("todo", "Uplift assessment", not_linked) }}
+        {% else %}
+            {% call readiness_item("todo", "Uplift assessment", "Bug " ~ uplift.bug_id ~ " doesn't have one yet.") %}
+                {% if uplift.new_assessment_form %}
+                    <button type="button"
+                            class="button is-small is-primary assessment-modal-open"
+                            data-assessment-modal="new">
+                        <span class="icon is-small"><i class="fa fa-plus" aria-hidden="true"></i></span>
+                        <span>Create new assessment</span>
+                    </button>
+                {% endif %}
+            {% endcall %}
+        {% endif %}
+        {% if offers_picker %}
+            {% set current_id = linked_card.assessment.id if linked_card else None %}
+            <li class="UpliftReadiness-expand"
+                id="uplift-assessment-picker"
+                {% if linked_card %}hidden{% endif %}>
+                <form class="AssessmentPicker-form"
+                      action="{{ url('uplift-assessment-link-page', args=[uplift.revision_id]) }}"
+                      method="post"
+                      data-current-assessment="{{ current_id or '' }}"
+                      data-revision-id="{{ uplift.revision_id }}"
+                      data-new-assessment-modal="new">
+                    {{ csrf_input }}
+                    {{ assessment_picker(uplift.bug_assessments | map(attribute="assessment") | list, uplift.bug_id, current_id) }}
+                    <div class="field is-grouped mt-3">
+                        <p class="control">
+                            <button type="submit"
+                                    class="button is-primary AssessmentPicker-submit"
+                                    disabled>Link assessment</button>
+                        </p>
+                        {% if linked_card %}
+                            <p class="control">
+                                <button type="button" class="button AssessmentPicker-cancel">Cancel</button>
+                            </p>
+                        {% endif %}
+                    </div>
+                </form>
+            </li>
+        {% endif %}
+        {# Mirrors `blocker_uplift_approval`, which blocks landing until the
+           release-managers group accepts. #}
+        {% set approval = "Release manager approval" %}
+        {% if not (uplift.bug_id and linked_card) %}
+            {{ readiness_item("waiting", approval, "Waits for the steps above.") }}
+        {% elif uplift.relman_review == "accepted" %}
+            {{ readiness_item("done", approval, "Accepted by release-managers.") }}
+        {% elif uplift.relman_review == "rejected" %}
+            {{ readiness_item("todo", approval, "release-managers requested changes to D" ~ uplift.revision_id ~ " in Phabricator.") }}
+        {% elif uplift.relman_review %}
+            {{ readiness_item("waiting", approval, "Waiting for release-managers to accept D" ~ uplift.revision_id ~ " in Phabricator.") }}
+        {% else %}
+            {{ readiness_item("waiting", approval, "release-managers will be added as a reviewer on Phabricator.") }}
+        {% endif %}
+    </ul>
+</div>
