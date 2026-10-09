@@ -288,6 +288,7 @@ class HgSCM(AbstractSCM):
                 self._run_hg_import(import_cmd, f_diff)
             except HgPatchConflict as exc:
                 logger.info("import failed", exc_info=exc)
+                self._collect_rejects()
                 raise exc
 
             if re.match("^[0-9]+$", commit_date):
@@ -760,8 +761,6 @@ class HgSCM(AbstractSCM):
         safe.
         """
         self.rejects_content = self.read_rejects_files()
-
-        self.hg_repo.close()
 
     def read_rejects_files(self) -> dict[str, str]:
         """Read all `.rej` files in the repo and return their contents.
