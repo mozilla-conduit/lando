@@ -33,6 +33,12 @@ def wrap_filenames(filenames: list[str]) -> str:
 class Check(ABC):
     """A base class for checks, providing human-friendly identification attributes."""
 
+    # Indicate whether this check is run when creating a landing
+    # request, or just before a push. In the former case, it may skip reporting of
+    # issues that may be automatically fixable when preparing the commits for a push
+    # (e.g., r? in commit message).
+    is_push: bool = True
+
     @classmethod
     @abstractmethod
     def name(cls) -> str:
@@ -362,6 +368,7 @@ class DiffAssessor:
     author: str | None = None
     email: str | None = None
     commit_message: str | None = None
+    is_push: bool = True
 
     def run_diff_checks(self, patch_checks: list[type[PatchCheck]]) -> list[str]:
         """Execute the set of checks on the diffs."""
@@ -369,6 +376,7 @@ class DiffAssessor:
 
         checks = [
             check(
+                is_push=self.is_push,
                 author=self.author,
                 commit_message=self.commit_message,
                 email=self.email,
@@ -472,7 +480,8 @@ class CommitMessagesCheck(PatchCollectionCheck):
                     f"Commit locked to a repo other than {self.repo_name}: {firstline}"
                 )
 
-        if INVALID_REVIEW_FLAG_RE.search(firstline):
+        # Only assert the absence of r? in blocking mode.
+        if self.is_push and INVALID_REVIEW_FLAG_RE.search(firstline):
             self.commit_message_issues.append(
                 f"Revision contains 'r?' in the commit message. Please use 'r=' instead: {firstline}"
             )
@@ -695,17 +704,25 @@ class PatchCollectionAssessor:
         self,
         patch_collection_checks: list[type[PatchCollectionCheck]],
         patch_checks: list[type[PatchCheck]],
+        is_push: bool = True,
     ) -> list[str]:
         """Execute the set of checks on the diffs, returning a list of issues.
 
         `patch_collection_checks` specifies the collection-wide checks to run on the
         `patch_helpers`. `patch_checks` specifies the checks to run on individual
         patches.
+
+        `is_push` indicates that all issues should be reported, rather than only
+        those which cannot be automatically fixed (e.g., `r?` in commit message).
         """
         issues = []
 
         checks = [
-            check(self.push_user_email, self.repo_name)
+            check(
+                is_push=is_push,
+                push_user_email=self.push_user_email,
+                repo_name=self.repo_name,
+            )
             for check in patch_collection_checks
         ]
 
@@ -739,15 +756,13 @@ ALL_COMMIT_CHECKS = PatchCheck.__subclasses__()
 ALL_CHECKS = ALL_COMMIT_CHECKS + ALL_STACK_CHECKS
 
 
+@dataclass
 class LandingChecks:
     """Utility class to run landing checks (a.k.a. hooks) on a list of commits."""
 
     requester_email: str
     repo_name: str
-
-    def __init__(self, requester_email: str, repo_name: str):
-        self.requester_email = requester_email
-        self.repo_name = repo_name
+    is_push: bool = True
 
     def run(
         self,
@@ -780,5 +795,7 @@ class LandingChecks:
             repo_name=self.repo_name,
         )
         return assessor.run_patch_collection_checks(
-            patch_collection_checks=stack_checks, patch_checks=commit_checks
+            patch_collection_checks=stack_checks,
+            patch_checks=commit_checks,
+            is_push=self.is_push,
         )
