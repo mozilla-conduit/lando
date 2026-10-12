@@ -287,11 +287,7 @@ class HgSCM(AbstractSCM):
             # Also, Apply the patch, with file rename detection (similarity).
             # Using 95 as the similarity to match automv's default.
             import_cmd = (
-                [
-                    "import",
-                    "-s",
-                    "95",
-                ]
+                ["import", "-s", "95"]
                 + ["--date", commit_date]
                 + ["--user", commit_author]
                 + ["--logfile", f_msg.name]
