@@ -1100,20 +1100,20 @@ frozenlist==1.8.0 \
     # via
     #   aiohttp
     #   aiosignal
-glean-parser==17.3.0 \
-    --hash=sha256:84d975d40333e97d9f6e0ce0f22db4e1e3d8e088b2da678e34cc7ab3361f071d \
-    --hash=sha256:f70fb4496436068f81ef786029a1b369f61ae2f9327eeb2fa50335dba59ee214
+glean-parser==20.2.0 \
+    --hash=sha256:08fec387c5d2a683a43152d6994200946e6f06973cc905b7c87617fb2d57b0c5 \
+    --hash=sha256:1d5196d2978b767dbbed77dc98a9747148ecb24a84bd957a5eb47d334ae07187
     # via glean-sdk
-glean-sdk==65.2.3 \
-    --hash=sha256:182eaa29eba7096c751353eac8faec1916ea6b81445ea688874b732d45727b7a \
-    --hash=sha256:263d1a91f1048261013f11a78073d5e1b9d17f29065f9ef7e296dc995f2f846a \
-    --hash=sha256:38b90604ae9f55fc522e67b47989ed547ccd35d7dbb871b5f78caffedc9cbae0 \
-    --hash=sha256:45d61656d4eead892cdc2cac7d8b2ba1185a9520a0ca50e8326e8a6c2566519e \
-    --hash=sha256:70920c20bbf393da807933056e85575598078f8124c44c68257df195b5d8d5f4 \
-    --hash=sha256:9e603dc7fca2b6cd739a3a31195d4d564db542de5571d7afbd33a7ca8fb8fdde \
-    --hash=sha256:e8d17d1851b688b242c9de51c9125b41cd87a30a788a2a26be6cdf00e628d1be \
-    --hash=sha256:f8346bd5938218906ad572ab82c5fd4468481dda6a2ba41e5fbe67c9383bbcf9 \
-    --hash=sha256:fdb39d22e2a6c095ec8990b71b2eb833cbde4a807e8032a4ae218a2983eb23bd
+glean-sdk==68.0.1 \
+    --hash=sha256:17b51da16b6047e6d82edc322f8b9a90d9a9f6123792bda1da866ecf98177326 \
+    --hash=sha256:3bad6bd8c4fc42b15188fa68874b7cfc19435395715128af9a35f24ef825a67e \
+    --hash=sha256:711006e82011d54fe28af93444e8dd56128b1ec6f3191b2a8d1d907cb8fdd86a \
+    --hash=sha256:76f5cb307a6b6b050ba9979df729dc83b74266de1b4bd9d9863ab52d86df56f4 \
+    --hash=sha256:814edfc899c397690129e747c1477966f854621c12cc3dd248016098a07d407e \
+    --hash=sha256:853a7b5e1ae045e41bf135da7d2a61dd1e4721f483c5e049c1cc4a9a0ebf6d3c \
+    --hash=sha256:87286d2f0127acf73bbef58c70fc7d1bf1cd14df4c2a2ac340d024e532ddcc88 \
+    --hash=sha256:db984a5fb3d4eb32cf3cb2258ed5834ca252695e7196c20cdaa6ac79ac93f18c \
+    --hash=sha256:e2ea97bbddf9a44efc963ad6cf4971c1c9bb30fc91a7f818edcc9786b8821e9f
     # via mozphab
 google-api-core[grpc]==2.41.0 \
     --hash=sha256:1f3d626b7a8022dda8deef200b845057231ddc7cbf0d999026bdf61ba38d7fdf \
@@ -1479,9 +1479,9 @@ mozilla-django-oidc==5.0.2 \
     --hash=sha256:4e953dcd963c036daaa2ac42b5bb6ea89a1c6ea7be0387c2022a59aca2f83043 \
     --hash=sha256:965a3533b0e299288cdf38ec2f8b550217c302ffe78ce5bd0b2d2f4bc436878b
     # via lando (pyproject.toml)
-mozphab==2.9.0 \
-    --hash=sha256:24a724e66a4341cfaa8a68d24c15a3f29146a98ecd79b56f12f182c76060d6e3 \
-    --hash=sha256:850156c847bdd81a4066404e3af8f54667f7367432c55370a5a7dce39cfef6e4
+mozphab==2.21.0 \
+    --hash=sha256:7ce21589740c9db0f0e17f548d5b09ba1b2d5fc8c0a0dcb9e2654109f7b2fcc7 \
+    --hash=sha256:d770fd79d66e77c87a3665d920c82ff7ed47426a4bb5b8b22bfd382ddd903fbd
     # via lando (pyproject.toml)
 multidict==6.9.1 \
     --hash=sha256:006c4478de0a1876f4834e14255776286f09b9846b505fe63f67f9d173a9487c \
@@ -2826,6 +2826,7 @@ urllib3==2.8.0 \
     --hash=sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3 \
     --hash=sha256:63bf2ead4c879426ebf22ef2a781eeb4aa3b4ae798a0435506f8687fd5bb9b63
     # via
+    #   mozphab
     #   requests
     #   sentry-sdk
 uwsgi==2.0.31 \

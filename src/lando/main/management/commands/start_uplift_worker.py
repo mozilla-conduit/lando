@@ -15,6 +15,7 @@ MOZ_PHAB_CONFIG_CONTENT = """
 [ui]
 no_ansi = False
 hyperlinks = False
+open_browser = False
 
 [vcs]
 safe_mode = False
@@ -30,6 +31,7 @@ command_path =
 auto_submit = True
 always_blocking = False
 warn_untracked = True
+review_queue_reminder_frequency = 0
 
 [patch]
 apply_to = base
