@@ -177,14 +177,20 @@ class UpliftAssessmentLinkForm(UpliftAssessmentForm):
         help_text="Comma-separated list of Phabricator revision IDs",
     )
 
-    def __init__(self, *args, user: User | None = None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        user: User | None = None,
+        bug_id: int | None = None,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
 
-        # Filter queryset to only show assessments owned by the current user.
-        if user is not None and user.is_authenticated:
-            self.fields["assessment"].queryset = UpliftAssessment.objects.filter(
-                user=user
-            )
+        # Any assessment on the bug may be reused, not just the user's own, so a
+        # developer is steered to the form a colleague already filled in.
+        self.fields["assessment"].queryset = UpliftAssessment.selectable_for_bug(
+            bug_id, user
+        )
 
     def clean_revision_ids(self) -> list[int]:
         """Parse and validate the comma-separated revision IDs."""
