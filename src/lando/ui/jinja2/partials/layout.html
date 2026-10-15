@@ -39,6 +39,10 @@
                   rel="stylesheet"
                   media="screen">
             <link type="text/x-scss"
+                  href="{{ static_url }}legacy/css/components/AssessmentPicker.scss"
+                  rel="stylesheet"
+                  media="screen">
+            <link type="text/x-scss"
                   href="{{ static_url }}legacy/css/components/Badge.scss"
                   rel="stylesheet"
                   media="screen">
@@ -69,6 +73,8 @@
         {% compress js file main %}
             <script src="{{ static_url }}legacy/js/main.js" charset="utf-8"></script>
             <script src="{{ static_url }}legacy/js/utils/formatTime.js" charset="utf-8"></script>
+            <script src="{{ static_url }}legacy/js/components/AssessmentPicker.js"
+                    charset="utf-8"></script>
             <script src="{{ static_url }}legacy/js/components/FlashMessages.js"
                     charset="utf-8"></script>
             <script src="{{ static_url }}legacy/js/components/LandingPreview.js"

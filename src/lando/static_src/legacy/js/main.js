@@ -1,6 +1,7 @@
 "use strict";
 
 $(document).ready(function () {
+    let $assessmentPickers = $(".AssessmentPicker-form");
     let $flashMessages = $(".FlashMessages");
     let $landingPreview = $(".StackPage-landingPreview");
     let $navBar = $(".Navbar");
@@ -11,6 +12,7 @@ $(document).ready(function () {
     let $uplifts = $(".Uplifts");
 
     // Initialize components
+    $assessmentPickers.assessmentPicker();
     $flashMessages.flashMessages();
     $landingPreview.landingPreview();
     $navBar.landoNavbar();
