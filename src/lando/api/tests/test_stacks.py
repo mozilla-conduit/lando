@@ -1,3 +1,5 @@
+from unittest import mock
+
 import pytest
 from django.http import Http404
 
@@ -6,6 +8,7 @@ from lando.api.legacy.stacks import (
     RevisionStack,
     build_stack_graph,
     get_landable_repos_for_revision_data,
+    get_revisions_by_phid,
     request_extended_revision_data,
 )
 from lando.api.legacy.transplants import (
@@ -160,6 +163,55 @@ def test_request_extended_revision_data_single_revision_with_repo(phabdouble):
     assert revision["phid"] in data.revisions
     assert diff["phid"] in data.diffs
     assert repo["phid"] in data.repositories
+
+
+def test_request_extended_revision_data_reuses_fetched_revision(phabdouble):
+    phab = phabdouble.get_phabricator_client()
+
+    diff = phabdouble.diff()
+    revision = phabdouble.revision(diff=diff)
+    fetched_revision = get_revisions_by_phid(phab, [revision["phid"]])[revision["phid"]]
+
+    with mock.patch.object(
+        phab, "call_conduit", wraps=phab.call_conduit
+    ) as call_conduit:
+        data = request_extended_revision_data(
+            phab, [revision["phid"]], fetched_revision=fetched_revision
+        )
+
+        assert data.revisions == {revision["phid"]: fetched_revision}
+        assert diff["phid"] in data.diffs
+        methods = [call.args[0] for call in call_conduit.call_args_list]
+        assert "differential.revision.search" not in methods, (
+            "The fetched revision should not be requested again."
+        )
+
+
+def test_request_extended_revision_data_multiple_revisions_ignores_fetched_revision(
+    phabdouble,
+):
+    phab = phabdouble.get_phabricator_client()
+
+    r1 = phabdouble.revision()
+    r2 = phabdouble.revision(depends_on=[r1])
+    fetched_revision = get_revisions_by_phid(phab, [r1["phid"]])[r1["phid"]]
+
+    with mock.patch.object(
+        phab, "call_conduit", wraps=phab.call_conduit
+    ) as call_conduit:
+        data = request_extended_revision_data(
+            phab, [r1["phid"], r2["phid"]], fetched_revision=fetched_revision
+        )
+
+        assert set(data.revisions) == {r1["phid"], r2["phid"]}
+        revision_searches = [
+            call.kwargs["constraints"]["phids"]
+            for call in call_conduit.call_args_list
+            if call.args[0] == "differential.revision.search"
+        ]
+        assert revision_searches == [[r1["phid"], r2["phid"]]], (
+            "All revisions of a multi-revision stack should be requested."
+        )
 
 
 def test_request_extended_revision_data_no_revisions(phabdouble):

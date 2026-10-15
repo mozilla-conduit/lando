@@ -26,6 +26,7 @@ from lando.api.legacy.revisions import (
     serialize_status,
 )
 from lando.api.legacy.stacks import (
+    REVISION_ATTACHMENTS,
     RevisionStack,
     build_stack_graph,
     request_extended_revision_data,
@@ -50,7 +51,9 @@ def get(phab: PhabricatorClient, revision_id: int) -> dict[str, Any]:
         revision_id: (int) ID of the revision in 'D{number}' format
     """
     revision = phab.call_conduit(
-        "differential.revision.search", constraints={"ids": [revision_id]}
+        "differential.revision.search",
+        constraints={"ids": [revision_id]},
+        attachments=REVISION_ATTACHMENTS,
     )
     revision = phab.single(revision, "data", none_when_empty=True)
     if revision is None:
@@ -58,7 +61,9 @@ def get(phab: PhabricatorClient, revision_id: int) -> dict[str, Any]:
 
     nodes, edges = build_stack_graph(revision)
     try:
-        stack_data = request_extended_revision_data(phab, list(nodes))
+        stack_data = request_extended_revision_data(
+            phab, list(nodes), fetched_revision=revision
+        )
     except ValueError:
         raise Http404(HTTP_404_STRING)
 
