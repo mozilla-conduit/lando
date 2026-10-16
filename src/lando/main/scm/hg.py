@@ -265,8 +265,6 @@ class HgSCM(AbstractSCM):
         self, diff: str, commit_description: str, commit_author: str, commit_date: str
     ):
         """Apply the given patch to the current repository."""
-        # Import the diff to apply the changes then commit separately to
-        # ensure correct parsing of the commit message.
         f_msg = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+", suffix="msg")
         f_diff = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+", suffix="diff")
         with f_msg, f_diff:
