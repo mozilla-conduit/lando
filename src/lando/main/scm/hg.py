@@ -275,7 +275,7 @@ class HgSCM(AbstractSCM):
             f_diff.write(diff)
             f_diff.flush()
 
-            if re.match("^[0-9]+$", commit_date):
+            if commit_date.isdecimal():
                 # If the commit_date is a unix timestamp, convert to Hg internal format.
                 commit_date = f"{commit_date} 0"
 
