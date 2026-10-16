@@ -56,6 +56,10 @@ class SCMInternalServerError(SCMException):
     """Exception when pulling changes from the upstream repo fails."""
 
 
+class SCMTokenUnavailable(SCMInternalServerError):
+    """Exception when the upstream repo host fails to issue a token to authenticate."""
+
+
 class SCMLostPushRace(SCMException):
     """Exception when pushing failed due to another push happening."""
 

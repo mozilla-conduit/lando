@@ -265,8 +265,6 @@ class HgSCM(AbstractSCM):
         self, diff: str, commit_description: str, commit_author: str, commit_date: str
     ):
         """Apply the given patch to the current repository."""
-        # Import the diff to apply the changes then commit separately to
-        # ensure correct parsing of the commit message.
         f_msg = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+", suffix="msg")
         f_diff = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+", suffix="diff")
         with f_msg, f_diff:
@@ -275,6 +273,10 @@ class HgSCM(AbstractSCM):
             f_diff.write(diff)
             f_diff.flush()
 
+            if commit_date.isdecimal():
+                # If the commit_date is a unix timestamp, convert to Hg internal format.
+                commit_date = f"{commit_date} 0"
+
             # NOTE: Using `hg import` here is less than ideal because
             # it does not use a 3-way merge. It would be better
             # to use `hg import --exact` then `hg rebase`, however we
@@ -282,7 +284,12 @@ class HgSCM(AbstractSCM):
             # in the local repo.
             # Also, Apply the patch, with file rename detection (similarity).
             # Using 95 as the similarity to match automv's default.
-            import_cmd = ["import", "-s", "95", "--no-commit"]
+            import_cmd = (
+                ["import", "-s", "95"]
+                + ["--date", commit_date]
+                + ["--user", commit_author]
+                + ["--logfile", f_msg.name]
+            )
 
             try:
                 self._run_hg_import(import_cmd, f_diff)
@@ -290,17 +297,6 @@ class HgSCM(AbstractSCM):
                 logger.info("import failed", exc_info=exc)
                 self._collect_rejects()
                 raise exc
-
-            if re.match("^[0-9]+$", commit_date):
-                # If the commit_date is a unix timestamp, convert to Hg internal format.
-                commit_date = f"{commit_date} 0"
-
-            self.run_hg(
-                ["commit"]
-                + ["--date", commit_date]
-                + ["--user", commit_author]
-                + ["--logfile", f_msg.name]
-            )
 
     @override
     def apply_patch_git(self, patch_bytes: bytes):

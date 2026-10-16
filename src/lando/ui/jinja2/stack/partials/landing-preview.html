@@ -1,7 +1,7 @@
 {% if dryrun is none %}
     <h3 class="StackPage-landingPreview-sectionLabel">Landing is Blocked</h3>
     <div class="StackPage-landingPreview-section StackPage-landingPreview-blocker">Reason for blockage is unknown</div>
-{% elif dryrun['blocker'] or dryrun['blockers'] %}
+{% elif dryrun["blocker"] or dryrun["blockers"] %}
     {% set blocker = dryrun['blockers'][0] if 'blockers' in dryrun else dryrun['blocker'] %}
     <h3 class="StackPage-landingPreview-sectionLabel">Landing is Blocked</h3>
     <div class="StackPage-landingPreview-section StackPage-landingPreview-blocker">
@@ -59,7 +59,7 @@
                         - commit author
                         <strong>
                             {{ revision['diff']['author']['name'] or 'Unknown' }}
-                            {% if revision['diff']['author']['email'] %}&lt;{{ revision['diff']['author']['email'] }}&gt;{% endif %}
+                            {% if revision["diff"]["author"]["email"] %}&lt;{{ revision['diff']['author']['email'] }}&gt;{% endif %}
                         </strong>
                     </div>
                     <button class="StackPage-landingPreview-expand button"></button>
@@ -95,7 +95,7 @@
     {% endif %}
     <h3 class="StackPage-landingPreview-sectionLabel">Warnings:</h3>
     <div class="StackPage-landingPreview-section StackPage-landingPreview-warnings">
-        {% if dryrun['warnings'] %}
+        {% if dryrun["warnings"] %}
             <ul class="StackPage-landingPreview-warningsList">
                 {% for warning in dryrun['warnings'] %}
                     <li class="StackPage-landingPreview-warning">
@@ -105,7 +105,7 @@
                             [
                             {% for instance in warning['instances'] %}
                                 {{
-                                ", " if not loop.first else ""
+                                    ", " if not loop.first else ""
                                 }}{{ instance['revision_id'] | linkify_phabricator_revision_ids | safe }}
                             {% endfor %}
                             ]

@@ -14,6 +14,7 @@ from lando.main.scm.exceptions import (
     SCMInternalServerError,
     SCMLostPushRace,
     SCMPushTimeoutException,
+    SCMTokenUnavailable,
     TreeApprovalRequired,
     TreeClosed,
 )
@@ -50,6 +51,7 @@ __all__ = [
     "SCMInternalServerError",
     "SCMLostPushRace",
     "SCMPushTimeoutException",
+    "SCMTokenUnavailable",
     "TreeApprovalRequired",
     "TreeClosed",
     # git

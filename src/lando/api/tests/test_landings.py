@@ -745,6 +745,48 @@ def test_github_token_unavailable_defers_job(
 
 
 @pytest.mark.django_db
+def test_github_token_unavailable_does_not_abort_job(
+    monkeypatch: pytest.MonkeyPatch,
+    repo_mc: Callable,
+    create_patch_revision: Callable,
+    make_landing_job: Callable,
+    get_landing_worker: Callable,
+):
+    """A job keeps deferring past its attempts while GitHub can't issue a token."""
+    repo = repo_mc(SCMType.GIT)
+    job = make_landing_job(
+        revisions=[create_patch_revision(1)],
+        status=JobStatus.SUBMITTED,
+        requester_email="test@example.com",
+        target_repo=repo,
+    )
+
+    # The worker loop fetches its own `Repo` instance, so the mock goes on the
+    # imported `GitHub` class rather than an instance.
+    github = mock.MagicMock()
+    github.is_supported_url.return_value = True
+    type(github.return_value).authenticated_url = mock.PropertyMock(
+        side_effect=GitHubTokenUnavailable("GitHub returned 500.")
+    )
+    monkeypatch.setattr("lando.main.scm.git.GitHub", github)
+
+    worker = get_landing_worker(SCMType.GIT)
+    worker.worker_instance.applicable_repos.add(repo)
+    worker.refresh_active_repos()
+
+    worker.start(max_loops=DEFAULT_MAX_JOB_ATTEMPTS + 1)
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.DEFERRED, (
+        "A job deferred because GitHub can't issue a token should never be aborted."
+    )
+    assert not job.has_attempts_remaining(), (
+        "A token GitHub can't issue should keep deferring past the job's attempts."
+    )
+    assert not mail.outbox, "No abort notification should be sent."
+
+
+@pytest.mark.django_db
 def test_aborted_job_notifies_requester(
     monkeypatch: pytest.MonkeyPatch,
     repo_mc: Callable,
