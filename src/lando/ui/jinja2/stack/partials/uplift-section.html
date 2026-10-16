@@ -4,6 +4,7 @@ At the moment, this only includes a reference to the uplift request
 assessment for the stack, but will include more details in the
 future.
 #}
+{% from "stack/partials/uplift-assessment-picker.html" import assessment_answers %}
 {% macro revision_tag(rev_id, current_revision_id) %}
     {% if rev_id == current_revision_id %}
         <span class="tag is-rounded is-primary">D{{ rev_id }}</span>
@@ -13,18 +14,19 @@ future.
     {% endif %}
 {% endmacro %}
 <h1>Uplifts</h1>
-{% if revision_repo and revision_repo.approval_required %}
+{% if uplift.is_uplift_revision %}
     <div class="block">
         <div class="block">
             <div class="columns is-mobile is-vcentered is-multiline">
-                {% if uplift.assessment_form %}
+                {% if uplift.new_assessment_form %}
                     <div class="column is-narrow">
-                        <button class="button is-primary edit-assessment-open">
+                        <button class="button is-primary assessment-modal-open"
+                                data-assessment-modal="{{ uplift.linked_card.assessment.id if uplift.linked_card else 'new' }}">
                             <span class="icon is-small">
                                 <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
                             </span>
                             <span>
-                                {% if uplift.assessment %}
+                                {% if uplift.linked_card %}
                                     Edit Uplift Assessment
                                 {% else %}
                                     Submit Uplift Assessment
@@ -42,7 +44,7 @@ future.
                                 <i class="fa fa-link" aria-hidden="true"></i>
                             </span>
                             <span>
-                                {% if uplift.assessment %}
+                                {% if uplift.linked_card %}
                                     Change Assessment
                                 {% else %}
                                     Reuse Previous Assessment
@@ -52,12 +54,12 @@ future.
                     </div>
                 {% endif %}
                 <div class="column">
-                    {% if uplift.assessment %}
+                    {% if uplift.linked_card %}
                         <span class="has-text-success">
                             <span class="icon is-small">
                                 <i class="fa fa-check-circle" aria-hidden="true"></i>
                             </span>
-                            <span>Uplift assessment #{{ uplift.assessment.id }} submitted for this revision.</span>
+                            <span>Uplift assessment #{{ uplift.linked_card.assessment.id }} submitted for this revision.</span>
                         </span>
                     {% else %}
                         <span class="has-text-grey">
@@ -74,41 +76,6 @@ future.
             {% endif %}
         </div>
     </div>
-    {% if uplift.assessment_form %}
-        <div class="uplift-assessment-edit-modal modal">
-            {# Editing names the assessment explicitly; the bare URL creates one. #}
-            <form action="{% if uplift.assessment %}{{ url('uplift-assessment-edit-page', args=[uplift.revision_id, uplift.assessment.id]) }}{% else %}{{ url('uplift-assessment-page', args=[uplift.revision_id]) }}{% endif %}"
-                  method="post">
-                <div class="modal-background"></div>
-                <div class="modal-card">
-                    <header class="modal-card-head">
-                        <p class="modal-card-title">
-                            {% if uplift.assessment %}
-                                Edit Uplift Assessment #{{ uplift.assessment.id }}
-                            {% else %}
-                                Submit Uplift Assessment
-                            {% endif %}
-                        </p>
-                        <button class="edit-assessment-close delete" aria-label="close" type="button"></button>
-                    </header>
-                    <section class="modal-card-body">
-                        <fieldset>
-                            {{ csrf_input }}
-                            {% if not user_has_phabricator_token %}
-                                {% include "stack/partials/uplift-phab-api-key-warning.html" %}
-                            {% endif %}
-                            {% with assessment_form = uplift.assessment_form %}
-                                {% include "stack/partials/uplift-assessment.html" %}
-                            {% endwith %}
-                        </fieldset>
-                    </section>
-                    <footer class="modal-card-foot">
-                        <button class="button is-primary" title="Save responses">Update assessment form</button>
-                    </footer>
-                </div>
-            </form>
-        </div>
-    {% endif %}
     {% if uplift.assessment_link_form %}
         <div class="uplift-assessment-link-modal modal">
             <form action="{{ url('uplift-assessment-link-page', args=[uplift.revision_id]) }}"
@@ -150,149 +117,60 @@ future.
         </div>
     {% endif %}
 {% endif %}
-{% if uplift.requests %}
+{% if uplift.bug_id %}
     <div class="Uplifts">
-        {% for uplift_request in uplift.requests %}
-            <div class="box">
-                <div class="level is-mobile">
-                    <div class="level-left">
-                        <div class="level-item">
-                            <div>
-                                <div class="is-size-6 has-text-weight-semibold">Uplift request</div>
-                                <p class="is-size-7 has-text-grey">
-                                    <time data-timestamp="{{ uplift_request.created_at }}">{{ uplift_request.created_at }}</time>, by {{ uplift_request.requested_by.email }}.
-                                    {% if uplift_request.assessment %}
-                                        <br>
-                                        Assessment #{{ uplift_request.assessment.id }}
-                                    {% endif %}
-                                </p>
-                                <div class="mt-1">
-                                    <a class="button is-small is-light"
-                                       target="_blank"
-                                       href="{{ uplift.docs_url }}">
-                                        <span class="icon is-small">
-                                            <i class="fa fa-question-circle"></i>
-                                        </span>
-                                        <span>Help</span>
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="level-right">
-                        <div class="level-item">
-                            <div class="has-text-right">
-                                <p class="is-size-7 has-text-grey">Requested revisions</p>
-                                <div class="tags is-right">
-                                    {% for rev_id in uplift_request.requested_revision_ids %}{{ revision_tag(rev_id, uplift.revision_id) }}{% endfor %}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {# Jobs list. #}
-                <div class="content">
-                    {% for job in uplift_request.uplift_jobs.all() %}
-                        {% if not loop.first %}<hr>{% endif %}
-                        <article class="media">
-                            {% set tag_class = job|uplift_status_tag_class %}
-                            {% set icon_class = job|uplift_status_icon_class %}
-                            {% set status_label = job|uplift_status_label %}
-                            <figure class="media-left">
-                                <span class="tag is-rounded has-text-white {{ tag_class }}">
-                                    {% if icon_class %}
-                                        <span class="icon is-small">
-                                            <i class="{{ icon_class }}" aria-hidden="true"></i>
-                                        </span>
-                                    {% endif %}
-                                </span>
-                            </figure>
-                            <div class="media-content">
-                                <div class="columns is-mobile is-vcentered is-multiline">
-                                    <div class="column">
-                                        <div class="is-size-6">{{ job.target_repo.name }}</div>
-                                        <div class="content">
-                                            <p>
-                                                <strong>{{ status_label }}</strong>
-                                            </p>
-                                            {% if job.error %}
-                                                <div>
-                                                    <button type="button"
-                                                            class="button is-small is-light uplift-toggle"
-                                                            data-toggle-target="error-{{ job.id }}"
-                                                            aria-expanded="false"
-                                                            aria-controls="error-content-{{ job.id }}">
-                                                        Show error details
-                                                    </button>
-                                                    <button type="button"
-                                                            class="button is-small is-light uplift-toggle ml-2"
-                                                            data-toggle-target="command-{{ job.id }}"
-                                                            aria-expanded="false"
-                                                            aria-controls="command-content-{{ job.id }}">
-                                                        Show resolution steps
-                                                    </button>
-                                                </div>
-                                                <div class="uplift-toggle-content hidden-content"
-                                                     id="error-content-{{ job.id }}"
-                                                     data-toggle-id="error-{{ job.id }}">
-                                                    {% include "partials/error-breakdown.html" %}
-                                                    <pre><strong>Raw error output:</strong>{{ "\n" + job.error }}</pre>
-                                                    <button type="button"
-                                                            class="button is-small is-light uplift-toggle"
-                                                            data-toggle-target="error-{{ job.id }}"
-                                                            aria-expanded="true"
-                                                            aria-controls="error-content-{{ job.id }}">
-                                                        Hide error details
-                                                    </button>
-                                                </div>
-                                                <div class="uplift-toggle-content hidden-content"
-                                                     id="command-content-{{ job.id }}"
-                                                     data-toggle-id="command-{{ job.id }}">
-                                                    <div class="notification is-info is-light mt-3">
-                                                        <p class="has-text-weight-semibold">
-                                                            <span class="icon is-small">
-                                                                <i class="fa fa-terminal"></i>
-                                                            </span>
-                                                            To manually resolve conflicts and submit your uplift:
-                                                        </p>
-                                                        <pre class="mt-2"><code>{{ job|build_manual_uplift_instructions }}</code></pre>
-                                                        <p class="is-size-7 mt-2 has-text-grey-dark">
-                                                            Run these commands from your Firefox checkout. Resolve any merge conflicts during the patch application process, then submit with <code>moz-phab uplift</code>.
-                                                        </p>
-                                                        <p class="is-size-7 mt-2 has-text-grey-dark">
-                                                            <strong>Note:</strong> These commands assume your official Firefox remote is named <code>origin</code>. If you use a different remote name, adjust the commands accordingly.
-                                                        </p>
-                                                    </div>
-                                                    <button type="button"
-                                                            class="button is-small is-light uplift-toggle"
-                                                            data-toggle-target="command-{{ job.id }}"
-                                                            aria-expanded="true"
-                                                            aria-controls="command-content-{{ job.id }}">
-                                                        Hide resolution steps
-                                                    </button>
-                                                </div>
-                                            {% endif %}
-                                            {% if job.created_revision_ids %}
-                                                <div class="content">
-                                                    <div class="tags">
-                                                        {% for rev_id in job.created_revision_ids %}{{ revision_tag(rev_id, uplift.revision_id) }}{% endfor %}
-                                                    </div>
-                                                </div>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                    <div class="column is-narrow has-text-right">
-                                        <a class="button is-small is-light"
-                                           href="{{ url('uplift-jobs-page', args=[job.id]) }}">View job</a>
-                                    </div>
-                                </div>
-                            </div>
-                        </article>
-                    {% else %}
-                        <p class="has-text-grey">No jobs found for this request.</p>
-                    {% endfor %}
-                </div>
+        {% if uplift.bug_assessments %}
+            <div class="block">
+                <h2 class="is-size-5">
+                    Uplift assessments for
+                    <a href="{{ uplift.bug_id|bug_url }}" target="_blank">bug {{ uplift.bug_id }}</a>
+                </h2>
             </div>
-        {% endfor %}
+        {% endif %}
+        <div class="block">
+            {% for card in uplift.bug_assessments %}
+                <div class="box UpliftAssessmentCard">
+                    <div class="is-size-6 has-text-weight-semibold">Assessment #{{ card.assessment.id }}</div>
+                    <p class="is-size-7 has-text-grey">
+                        <time data-timestamp="{{ card.assessment.updated_at }}">{{ card.assessment.updated_at }}</time>, by {{ card.assessment.user.email }}.
+                        {% if card.requested_revision_ids %}
+                            Requested for uplift from
+                            {% for rev_id in card.requested_revision_ids %}
+                                {{ revision_tag(rev_id, uplift.revision_id) }}
+                            {% endfor %}
+                        {% endif %}
+                    </p>
+                    <p class="is-size-7 mt-3">
+                        <strong>User impact:</strong> {{ card.assessment.user_impact | truncate(200) }}
+                        <strong class="ml-2">Risk:</strong> {{ card.assessment.get_risk_associated_with_patch_display() }}
+                    </p>
+                    <details class="mt-2">
+                        <summary class="is-size-7">Show all answers</summary>
+                        {{ assessment_answers(card.assessment) }}
+                    </details>
+                    {% include "stack/partials/uplift-trains.html" %}
+                </div>
+            {% endfor %}
+        </div>
+        {% if uplift.new_assessment_form %}
+            {# One modal for editing the linked assessment, pre-filled with its
+               answers, plus one for authoring a new assessment on the bug. #}
+            {% if uplift.linked_card %}
+                {% with assessment_form = uplift.linked_card.form,
+                    modal_id = uplift.linked_card.assessment.id,
+                    modal_title = "Edit uplift assessment #" ~ uplift.linked_card.assessment.id,
+                    modal_action = url("uplift-assessment-edit-page", args=[uplift.revision_id, uplift.linked_card.assessment.id]),
+                    modal_submit = "Save assessment" %}
+                    {% include "stack/partials/uplift-assessment-modal.html" %}
+                {% endwith %}
+            {% endif %}
+            {% with assessment_form = uplift.new_assessment_form,
+                modal_id = "new",
+                modal_title = "New uplift assessment for bug " ~ uplift.bug_id,
+                modal_action = url("uplift-assessment-page", args=[uplift.revision_id]),
+                modal_submit = "Create assessment" %}
+                {% include "stack/partials/uplift-assessment-modal.html" %}
+            {% endwith %}
+        {% endif %}
     </div>
 {% endif %}
