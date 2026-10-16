@@ -470,3 +470,27 @@ def test_train_groups_tell_hackbot_apart_by_its_commits(user, phabdouble):
         by_hackbot["id"]: UpliftTrainOutcome.CONFLICT_RESOLVED_BY_HACKBOT,
         by_developer["id"]: UpliftTrainOutcome.SUBMITTED_WITH_MOZ_PHAB,
     }, "Hackbot's stack should be told apart from a developer's."
+
+
+@pytest.mark.django_db
+def test_relman_review_status_finds_the_groups_review(
+    phabdouble, release_management_project
+):
+    """Only the release-managers group's review counts, not other reviewers'."""
+    phab = phabdouble.get_phabricator_client()
+    revision = {
+        "reviewers": [
+            {"phid": "PHID-USER-someone", "status": "accepted"},
+            {"phid": release_management_project["phid"], "status": "blocking"},
+        ]
+    }
+
+    assert UpliftContext.relman_review_status(phab, revision) == "blocking", (
+        "The group's own review status should be returned."
+    )
+    assert UpliftContext.relman_review_status(phab, {"reviewers": []}) is None, (
+        "A revision the group does not review should have no status."
+    )
+    assert UpliftContext.relman_review_status(None, revision) is None, (
+        "Without Phabricator the group cannot be identified."
+    )
