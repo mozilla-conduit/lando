@@ -70,6 +70,25 @@ class LandingWorker(Worker):
 
     worker_type = WorkerType.LANDING
 
+    @override
+    def _setup(self):
+        job = self.worker_instance.current_job
+        if job is not None and job.status == JobStatus.IN_PROGRESS:
+            logger.warning(
+                f"Recovering {job} abandoned by {self.worker_instance}.",
+                extra={"id": job.id},
+            )
+            message = "The worker stopped while processing this job."
+            if self.worker_instance.retry_interrupted_jobs:
+                if self.defer_or_abort(job, message):
+                    self.notify_user_of_job_abort(job)
+            else:
+                job.transition_status(JobAction.FAIL, message=message)
+                self.notify_user_of_landing_failure(job)
+        self.worker_instance.current_job = None
+        self.worker_instance.save(update_fields=("current_job",))
+        super()._setup()
+
     @staticmethod
     def notify_user_of_landing_failure(job: LandingJob):
         """Wrapper around notify_user_of_landing_failure for convenience.
@@ -126,6 +145,10 @@ class LandingWorker(Worker):
                 return job.status == JobStatus.ABORTED
             except Exception as e:
                 logger.exception(e)
+                job.transition_status(
+                    JobAction.FAIL,
+                    message="An unexpected error occurred while processing this job. This has been logged.",
+                )
                 self.notify_user_of_landing_failure(job)
                 return True
 

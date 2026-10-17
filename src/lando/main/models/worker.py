@@ -4,6 +4,7 @@ from django.db import ProgrammingError, models
 from django.utils.translation import gettext_lazy
 
 from lando.main.models.base import BaseModel
+from lando.main.models.landing_job import LandingJob
 from lando.main.models.repo import Repo
 from lando.main.scm import SCMType
 
@@ -27,6 +28,17 @@ class Worker(BaseModel):
     throttle_seconds = models.IntegerField(default=10)
     sleep_seconds = models.IntegerField(default=10)
     maintenance_interval_seconds = models.IntegerField(default=300)
+    current_job = models.ForeignKey(
+        LandingJob, blank=True, null=True, on_delete=models.SET_NULL
+    )
+    retry_interrupted_jobs = models.BooleanField(
+        default=False,
+        help_text=(
+            "Retry interrupted landing jobs when this worker restarts. "
+            "May repeat a push completed before the worker crashed."
+        ),
+    )
+    process_id = models.PositiveIntegerField(blank=True, null=True)
 
     type = models.CharField(
         choices=WorkerType,
