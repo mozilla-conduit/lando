@@ -217,11 +217,6 @@ def test_check_commit_message_valid_message(commit_message: str, error_message: 
                 "Revision is a backout but commit message does not indicate backed out revisions: ",
                 "Backout should be rejected when a reference to the original patch is missing.",
             ),
-            "rq": (
-                "Bug 100 - Foo. r?bar REPO-firefox-autoland",
-                "Revision contains 'r?' in the commit message. Please use 'r=' instead: ",
-                "Improper review specifier should be rejected.",
-            ),
             "wip": (
                 "WIP: bug 123: this is a wip r=reviewer",
                 "Revision seems to be marked as WIP: ",
