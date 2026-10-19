@@ -134,6 +134,20 @@
     &-subtitle {
         font-size: 0.8rem;
     }
+
+    /* The "More" menu is secondary, unlike the green action buttons beside it. */
+    .StackPage-moreActions-trigger {
+        background: #fff;
+        color: inherit;
+        border: 1px solid $grey-lighter;
+        min-width: 7rem;
+    }
+
+    /* The help text is part of its menu item, but wraps on its own line. */
+    .StackPage-moreActions-help {
+        display: block;
+        white-space: normal;
+    }
 }
 
 .StackPage-landing-info {
