@@ -3,6 +3,7 @@
 import logging
 import os
 import re
+import socket
 import subprocess
 from abc import ABC, abstractmethod
 from collections import defaultdict
@@ -206,8 +207,8 @@ class Worker(ABC):
 
     def _setup(self):
         """Perform various setup actions."""
-        self.worker_instance.process_id = os.getpid()
-        self.worker_instance.save(update_fields=("process_id",))
+        self.worker_instance.hostname = socket.gethostname()
+        self.worker_instance.save(update_fields=("hostname",))
 
         if self.ssh_private_key:
             self._setup_ssh(self.ssh_private_key)
@@ -235,6 +236,14 @@ class Worker(ABC):
             loops += 1
 
         logger.info(f"{self} exited after {loops} loops.")
+
+    def pre_job(self, job: BaseJob) -> bool:
+        """Run setup while the job is locked; return whether its attempt started."""
+        return False
+
+    def post_job(self, job: BaseJob) -> None:
+        """Run bookkeeping after job processing has been saved."""
+        return
 
     def loop(self):
         """Fetch jobs and processes them.
@@ -264,15 +273,10 @@ class Worker(ABC):
             queue_size, logging.WARNING if above_threshold else logging.INFO
         )
 
-        is_landing_worker = self.worker_type == WorkerType.LANDING
         with transaction.atomic():
             job = self.job_type.next_job(repositories=self.active_repos).first()
-            if job is not None and is_landing_worker:
-                if job.status not in [JobStatus.SUBMITTED, JobStatus.DEFERRED]:
-                    logger.warning(f"Unexpected status for {job}")
-                job.start_attempt()
-                self.worker_instance.current_job = job
-                self.worker_instance.save(update_fields=("current_job",))
+            if job is not None:
+                attempt_started = self.pre_job(job)
 
         if job is None:
             self.run_idle_maintenance()
@@ -281,7 +285,7 @@ class Worker(ABC):
         with job.processing():
             logger.info(f"Starting {job}", extra={"id": job.id})
 
-            if not is_landing_worker:
+            if not attempt_started:
                 if job.status not in [JobStatus.SUBMITTED, JobStatus.DEFERRED]:
                     logger.warning(f"Unexpected status for {job}")
                 job.start_attempt()
@@ -325,9 +329,7 @@ class Worker(ABC):
             if job.status == JobStatus.ABORTED:
                 self.notify_user_of_job_abort(job)
 
-        if is_landing_worker:
-            self.worker_instance.current_job = None
-            self.worker_instance.save(update_fields=("current_job",))
+        self.post_job(job)
 
     def defer_or_abort(self, job: BaseJob, message: str) -> bool:
         """Abort `job` if it has run out of attempts, otherwise defer it.

@@ -28,9 +28,7 @@ class Worker(BaseModel):
     throttle_seconds = models.IntegerField(default=10)
     sleep_seconds = models.IntegerField(default=10)
     maintenance_interval_seconds = models.IntegerField(default=300)
-    current_job = models.ForeignKey(
-        LandingJob, blank=True, null=True, on_delete=models.SET_NULL
-    )
+    current_job = models.ForeignKey(LandingJob, null=True, on_delete=models.SET_NULL)
     retry_interrupted_jobs = models.BooleanField(
         default=False,
         help_text=(
@@ -38,7 +36,7 @@ class Worker(BaseModel):
             "May repeat a push completed before the worker crashed."
         ),
     )
-    process_id = models.PositiveIntegerField(blank=True, null=True)
+    hostname = models.CharField(max_length=255, blank=True, default="")
 
     type = models.CharField(
         choices=WorkerType,

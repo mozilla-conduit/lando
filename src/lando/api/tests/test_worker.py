@@ -1,5 +1,6 @@
 import logging
 import os
+import socket
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
@@ -274,7 +275,43 @@ def test_Worker_recovers_abandoned_job_on_start(
 
     worker_model.refresh_from_db()
     assert worker_model.current_job_id is None
-    assert worker_model.process_id == os.getpid()
+    assert worker_model.hostname == socket.gethostname()
+
+
+@pytest.mark.parametrize("retry", (False, True))
+@pytest.mark.django_db
+def test_Worker_preserves_abandoned_job_when_setup_fails(
+    landing_worker_instance, make_landing_job, retry
+):
+    job = make_landing_job(status=JobStatus.IN_PROGRESS, attempts=1)
+    worker_model = landing_worker_instance(
+        name="setup-failure-worker",
+        scm=SCMType.GIT,
+        current_job=job,
+        retry_interrupted_jobs=retry,
+    )
+    worker = LandingWorker(worker_model, with_ssh=False)
+    worker.ssh_private_key = "test-key"
+    worker.notify_user_of_job_abort = mock.Mock()
+    worker.notify_user_of_landing_failure = mock.Mock()
+
+    with (
+        mock.patch.object(
+            worker, "_setup_ssh", side_effect=RuntimeError("SSH setup failed")
+        ),
+        pytest.raises(RuntimeError, match="SSH setup failed"),
+    ):
+        worker.start(max_loops=-1)
+
+    job.refresh_from_db()
+    worker_model.refresh_from_db()
+    assert job.status == JobStatus.IN_PROGRESS
+    assert job.attempts == 1
+    assert job.error == ""
+    assert job.finished_at is None
+    assert worker_model.current_job_id == job.id
+    worker.notify_user_of_job_abort.assert_not_called()
+    worker.notify_user_of_landing_failure.assert_not_called()
 
 
 @pytest.mark.parametrize("retry", (False, True))
@@ -302,6 +339,7 @@ def test_Worker_fails_caught_unexpected_error(
     assert job.attempts == 1
     assert job.finished_at is not None
     assert "unexpected error" in job.error.lower()
+    assert "while applying or pushing patches" in job.error
     assert "private exception detail" not in job.error
     assert "private exception detail" in caplog.text
     worker.notify_user_of_landing_failure.assert_called_once_with(job)

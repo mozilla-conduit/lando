@@ -72,6 +72,7 @@ class LandingWorker(Worker):
 
     @override
     def _setup(self):
+        super()._setup()
         job = self.worker_instance.current_job
         if job is not None and job.status == JobStatus.IN_PROGRESS:
             logger.warning(
@@ -87,7 +88,20 @@ class LandingWorker(Worker):
                 self.notify_user_of_landing_failure(job)
         self.worker_instance.current_job = None
         self.worker_instance.save(update_fields=("current_job",))
-        super()._setup()
+
+    @override
+    def pre_job(self, job: LandingJob) -> bool:
+        if job.status not in [JobStatus.SUBMITTED, JobStatus.DEFERRED]:
+            logger.warning(f"Unexpected status for {job}")
+        job.start_attempt()
+        self.worker_instance.current_job = job
+        self.worker_instance.save(update_fields=("current_job",))
+        return True
+
+    @override
+    def post_job(self, job: LandingJob) -> None:
+        self.worker_instance.current_job = None
+        self.worker_instance.save(update_fields=("current_job",))
 
     @staticmethod
     def notify_user_of_landing_failure(job: LandingJob):
@@ -147,7 +161,7 @@ class LandingWorker(Worker):
                 logger.exception(e)
                 job.transition_status(
                     JobAction.FAIL,
-                    message="An unexpected error occurred while processing this job. This has been logged.",
+                    message="An unexpected error occurred while applying or pushing patches for this job. This has been logged.",
                 )
                 self.notify_user_of_landing_failure(job)
                 return True
