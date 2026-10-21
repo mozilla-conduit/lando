@@ -13,7 +13,6 @@ from lando.api.legacy.bmo import (
 )
 from lando.api.legacy.commit_message import (
     BUG_RES,
-    INVALID_REVIEW_FLAG_RE,
     RE_DIFF,
     REPO_FLAG_RE,
     is_backout,
@@ -530,11 +529,6 @@ class CommitMessagesCheck(PatchCollectionCheck):
                 self.commit_message_issues.append(
                     f"Commit locked to a repo other than {self.repo_name}: {firstline}"
                 )
-
-        if INVALID_REVIEW_FLAG_RE.search(firstline):
-            self.commit_message_issues.append(
-                f"Revision contains 'r?' in the commit message. Please use 'r=' instead: {firstline}"
-            )
 
         if firstline.lower().startswith("wip:"):
             self.commit_message_issues.append(

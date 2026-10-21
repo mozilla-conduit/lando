@@ -55,7 +55,6 @@ BUG_RES = [
         r"no bug",
     ]
 ]
-INVALID_REVIEW_FLAG_RE = re.compile(r"[\s.;]r\?(?:\w|$)")
 
 ADD_TAG_RE = re.compile(r"^add(ed|ing)? tag", re.I)
 
