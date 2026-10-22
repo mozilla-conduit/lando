@@ -112,6 +112,11 @@ class Worker(ABC):
             bool: Whether the job succeeded.
         """
 
+    def post_run(self, job: BaseJob) -> bool:
+        """Perform actions after run_job, as needed."""
+        if job.status == JobStatus.ABORTED:
+            self.notify_user_of_job_abort(job)
+
     def bootstrap_repos(self):
         """Optional method to bootstrap repositories in the the work directory."""
         return
@@ -242,6 +247,8 @@ class Worker(ABC):
         Basic error-handling and job-status management is performed for temporary,
         permanent, and unexpected exceptions not handled by the concrete implementation's
         `run_job()`.
+
+        Any additional work that is based on the job status can be performed in `post_run()`.
         """
         logger.debug(f"{len(self.enabled_repos)} enabled repos: {self.enabled_repos}")
 
@@ -311,9 +318,11 @@ class Worker(ABC):
                     f"Finished processing {job}",
                     extra={"id": job.id},
                 )
-
-            if job.status == JobStatus.ABORTED:
-                self.notify_user_of_job_abort(job)
+            finally:
+                try:
+                    self.post_run(job)
+                except Exception as e:
+                    logger.exception(e)
 
     def defer_or_abort(self, job: BaseJob, message: str) -> bool:
         """Abort `job` if it has run out of attempts, otherwise defer it.

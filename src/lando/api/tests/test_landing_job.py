@@ -1,25 +1,81 @@
 import json
+from unittest import mock
 
 import pytest
 
-from lando.main.models import JobStatus, LandingJob, Repo
+from lando.main.models import JobStatus, LandingJob, Repo, Revision
+from lando.main.models.landing_job import get_pull_request_last_landing_job_status
 from lando.main.scm import SCMType
 
 
 @pytest.fixture
 def landing_job(repo_mc):
-    def _landing_job(status, requester_email="tuser@example.com"):
+    def _landing_job(
+        status,
+        requester_email="tuser@example.com",
+        is_pull_request_job=False,
+        pull_number=None,
+    ):
         job = LandingJob(
             status=status,
             revision_to_diff_id={},
             revision_order=[],
             requester_email=requester_email,
             target_repo=repo_mc(scm_type=SCMType.GIT),
+            is_pull_request_job=is_pull_request_job,
         )
         job.save()
+        if is_pull_request_job and pull_number:
+            revision = Revision.objects.create(pull_number=pull_number)
+            job.unsorted_revisions.add(revision)
         return job
 
     return _landing_job
+
+
+@pytest.mark.parametrize(
+    "prs,client_module",
+    (
+        (
+            [{"number": 1}],
+            "lando.api.legacy.api.landing_jobs.GitHubAPIClient",
+        ),
+    ),
+)
+@pytest.mark.django_db
+def test_cancel_pr_landing_job_cancels_when_submitted(
+    gh_client_with_prs, authenticated_client, user, landing_job, prs
+):
+    """Test happy path; cancelling a PR job that has not started yet."""
+    for pr in prs:
+        job = landing_job(
+            JobStatus.SUBMITTED,
+            requester_email=user.email,
+            is_pull_request_job=True,
+            pull_number=pr["number"],
+        )
+    response = authenticated_client.put(
+        f"/landing_jobs/{job.id}/",
+        json.dumps({"status": JobStatus.CANCELLED.value}),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == job.id
+    job.refresh_from_db()
+    assert job.status == JobStatus.CANCELLED
+    assert len(gh_client_with_prs.mock_calls) == 2
+    assert gh_client_with_prs.mock_calls[0] == mock.call.build_pull_request(1)
+    assert gh_client_with_prs.mock_calls[1] == mock.call.update_pull_request_content(
+        1,
+        "some description\n"
+        "<!--/ -+-+- DO NOT MODIFY THIS LINE - ENTER COMMIT MESSAGE ABOVE -+-+- /-->\n"
+        "\n"
+        "---\n"
+        "\n"
+        "Lando: [link](https://lando.test/pulls/mozilla-central-git/1/)\n"
+        "\n"
+        "**Landing request cancelled**\n",
+    )
 
 
 @pytest.mark.django_db
@@ -183,3 +239,23 @@ def test_landing_job_acquire_job_job_queue_query(mocked_repo_config):
     assert queue_items[0].id == jobs[2].id
     assert queue_items[1].id == jobs[0].id
     assert jobs[1] not in queue_items
+
+
+@pytest.mark.parametrize(
+    "statuses, expected_status",
+    [
+        ([JobStatus.FAILED, JobStatus.LANDED], JobStatus.LANDED),
+        ([JobStatus.CANCELLED, JobStatus.FAILED], JobStatus.FAILED),
+    ],
+)
+@pytest.mark.django_db
+def test_get_pull_request_last_landing_job_status(statuses, expected_status, repo_mc):
+    repo = repo_mc(scm_type=SCMType.GIT)
+    for status in statuses:
+        job = LandingJob.objects.create(
+            target_repo=repo, status=status, is_pull_request_job=True
+        )
+        revision = Revision.objects.create(pull_number=1)
+        job.unsorted_revisions.add(revision)
+    status = get_pull_request_last_landing_job_status(repo, 1)
+    assert status == expected_status
