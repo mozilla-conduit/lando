@@ -124,7 +124,7 @@ class Repo(CryptographyMixin, BaseModel):
         )
         PreventNSPRNSSCheck = (
             "PreventNSPRNSSCheck",
-            "Prevent changes to vendored NSPR directories.",
+            "Prevent changes to vendored NSPR and NSS directories.",
         )
         PreventSignedCommitsCheck = (
             "PreventSignedCommitsCheck",

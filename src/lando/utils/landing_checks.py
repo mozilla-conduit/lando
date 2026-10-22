@@ -124,7 +124,13 @@ class PreventPathCheckMixin(ABC):
             return_error_message.append(f"{self.error_cause_details}:")
             return_error_message.append(wrap_filenames(self.disallowed_changes))
 
-        return f"{' '.join(return_error_message)}."
+        error = (
+            f"{' '.join(return_error_message)}. "
+            + "To push this commit anyway and ignore this warning, "
+            + f"include {self.override_commit_message} in your commit message."
+        )
+
+        return error
 
     def next_diff(self, diff: dict):
         """Pass the next `rs_parsepatch` diff `dict` into the check."""
@@ -183,7 +189,7 @@ class PreventNSPRCheck(PreventPathCheckMixin, PatchCheck):
     @override
     @classmethod
     def name(cls) -> str:
-        return "PreventNSSPRCheck"
+        return "PreventNSPRCheck"
 
     @override
     @classmethod
@@ -231,7 +237,7 @@ class PreventNSPRNSSCheck(PatchCheck):
     @override
     @classmethod
     def description(cls) -> str:
-        return "Prevent changes to vendored NSPR directories."
+        return "Prevent changes to vendored NSPR and NSS directories."
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -257,6 +263,8 @@ class PreventNSPRNSSCheck(PatchCheck):
             )
 
         if self._prevent_nspr_check.disallowed_changes:
+            if self._prevent_nss_check.disallowed_changes:
+                return_error_message[-1] += ";"
             return_error_message.append(
                 self._prevent_nspr_check.build_error_message()
                 .removeprefix(f"{self._prevent_nspr_check.BASE_ERROR_MESSAGE} ")

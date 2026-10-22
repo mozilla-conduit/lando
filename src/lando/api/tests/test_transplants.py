@@ -2235,22 +2235,26 @@ def test_blocker_nsprnss_files(phabdouble, create_state, get_failing_check_diff)
         is None
     ), "Diff with explicit NSS changes should pass the check."
 
-    assert (
-        blocker_prevent_nsprnss_files(
-            revision=phab_revision_nspr,
-            diff=diff_nspr,
-            stack_state=stack_state,
-        )
-        == "Revision makes changes to restricted directories: vendored NSPR directories: `nsprpub/.keep`."
+    assert blocker_prevent_nsprnss_files(
+        revision=phab_revision_nspr,
+        diff=diff_nspr,
+        stack_state=stack_state,
+    ) == (
+        "Revision makes changes to restricted directories: "
+        + "vendored NSPR directories: `nsprpub/.keep`. "
+        + "To push this commit anyway and ignore this warning, "
+        + "include UPGRADE_NSPR_RELEASE in your commit message."
     ), "Diff with NSPR changes should fail the check."
 
-    assert (
-        blocker_prevent_nsprnss_files(
-            revision=phab_revision_nss,
-            diff=diff_nss,
-            stack_state=stack_state,
-        )
-        == "Revision makes changes to restricted directories: vendored NSS directories: `security/nss/.keep`."
+    assert blocker_prevent_nsprnss_files(
+        revision=phab_revision_nss,
+        diff=diff_nss,
+        stack_state=stack_state,
+    ) == (
+        "Revision makes changes to restricted directories: "
+        + "vendored NSS directories: `security/nss/.keep`. "
+        + "To push this commit anyway and ignore this warning, "
+        + "include UPGRADE_NSS_RELEASE in your commit message."
     ), "Diff with NSS changes should fail the check."
 
 
@@ -2306,14 +2310,15 @@ def test_blocker_prevent_dot_github(phabdouble, create_state, get_failing_check_
         is None
     ), "Diff with GitHub workflow changes and `DOT_GITHUB_OVERRIDE` should pass."
 
-    assert (
-        blocker_prevent_dot_github(
-            revision=phab_revision_dot_github,
-            diff=diff_dot_github,
-            stack_state=stack_state,
-        )
-        == "Revision makes changes to restricted directories: GitHub workflows "
-        "directory: `.github/workflows/.keep`."
+    assert blocker_prevent_dot_github(
+        revision=phab_revision_dot_github,
+        diff=diff_dot_github,
+        stack_state=stack_state,
+    ) == (
+        "Revision makes changes to restricted directories: "
+        + "GitHub workflows directory: `.github/workflows/.keep`. "
+        + "To push this commit anyway and ignore this warning, "
+        + "include DOT_GITHUB_OVERRIDE in your commit message."
     ), "Diff with GitHub workflow changes and no override should fail the check."
 
     landing_repo = stack_state.landable_repos[repo["phid"]]
