@@ -60,7 +60,8 @@ from lando.main.support import LegacyAPIException, diff_has_disallowed_author
 from lando.utils.landing_checks import (
     DiffAssessor,
     PreventDotGithubCheck,
-    PreventNSPRNSSCheck,
+    PreventNSPRCheck,
+    PreventNSSCheck,
     PreventSubmodulesCheck,
     PreventSymlinksCheck,
     TryTaskConfigCheck,
@@ -971,11 +972,11 @@ def blocker_prevent_nsprnss_files(
     diff_id = PhabricatorClient.expect(diff, "id")
     parsed_diff = stack_state.parsed_diffs[diff_id]
 
-    # `PreventNSPRNSSCheck` only requires inspecting the diff and the commit message.
+    # `Prevent[NSPR|NSS]Check` only requires inspecting the diff and the commit message.
     title = PhabricatorClient.expect(revision, "fields", "title")
     diff_assessor = DiffAssessor(parsed_diff=parsed_diff, commit_message=title)
 
-    if issues := diff_assessor.run_diff_checks([PreventNSPRNSSCheck]):
+    if issues := diff_assessor.run_diff_checks([PreventNSPRCheck, PreventNSSCheck]):
         return issues[0]
 
 
