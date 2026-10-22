@@ -122,9 +122,17 @@ class Repo(CryptographyMixin, BaseModel):
             "PreventHgDirectoryCheck",
             "Prevent patches from modifying .hg/ directory.",
         )
+        PreventNSPRCheck = (
+            "PreventNSPRCheck",
+            "Prevent changes to vendored NSPR directories.",
+        )
         PreventNSPRNSSCheck = (
             "PreventNSPRNSSCheck",
             "Prevent changes to vendored NSPR and NSS directories.",
+        )
+        PreventNSSCheck = (
+            "PreventNSSCheck",
+            "Prevent changes to vendored NSS directories.",
         )
         PreventSignedCommitsCheck = (
             "PreventSignedCommitsCheck",
