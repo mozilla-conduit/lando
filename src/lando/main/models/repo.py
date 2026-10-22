@@ -19,7 +19,9 @@ from lando.main.scm import (
 from lando.utils.landing_checks import (
     BugReferencesCheck,
     CommitMessagesCheck,
+    PreventNSPRCheck,
     PreventNSPRNSSCheck,
+    PreventNSSCheck,
     TryTaskConfigCheck,
     WPTSyncCheck,
 )
@@ -565,7 +567,9 @@ TRY_HOOKS = list(
     # Set difference takes precedence over set union.
     set(get_default_hooks())
     - {CommitMessagesCheck.name()}
+    - {PreventNSPRCheck.name()}
     - {PreventNSPRNSSCheck.name()}
+    - {PreventNSSCheck.name()}
     - {TryTaskConfigCheck.name()}
     - {WPTSyncCheck.name()}
     | {BugReferencesCheck.name()}
