@@ -1192,9 +1192,9 @@ google-auth[pyopenssl]==2.62.0 \
     #   google-cloud-bigquery
     #   google-cloud-core
     #   google-cloud-storage
-google-cloud-bigquery==3.46.1 \
-    --hash=sha256:c5564a58fc3c99b003cd334a8f302c6224bd34cb55c87476a3c445be1d00538b \
-    --hash=sha256:ee0e73d06a624c26445458e75f04deed894ed50a0c46bdc876f30c50e05ec6c2
+google-cloud-bigquery==3.46.2 \
+    --hash=sha256:5e9a4e15f778cc00ee88167de9934a4c1bbb7fc20058e8f573f2bfdaf0d99052 \
+    --hash=sha256:a87e2e8026133e709deab9ebf537a6a2eee3fbcf4befa334a2f9f6164435b331
     # via lando (pyproject.toml)
 google-cloud-core==2.8.0 \
     --hash=sha256:365f8e4518ae81c8101b8dea5fc1c32a960badedb8b511f19db2843cbbd285d2 \
@@ -1202,9 +1202,9 @@ google-cloud-core==2.8.0 \
     # via
     #   google-cloud-bigquery
     #   google-cloud-storage
-google-cloud-storage==3.17.0 \
-    --hash=sha256:0b89283fccf84745bae75bbefdbda8393e5323471071a2ba24ab437407141171 \
-    --hash=sha256:4373aa6328e070c31c97aa236f1600a239dfd3c85e5870cdf3dc2a928dfe0bca
+google-cloud-storage==3.17.1 \
+    --hash=sha256:287c7919d7bcda710eae6f6b60c756e89140475d9a4daec01b6174e737488ca8 \
+    --hash=sha256:b24df37900f5e0a93518bd7d3a2a7b7b48d8a1e72add8eb57d53a38b8b2b0640
     # via django-storages
 google-crc32c==1.9.0 \
     --hash=sha256:0568b17ed90ac596f29400d99e243fd0cc6276766183def888d1bf8d1dc13827 \
@@ -1541,9 +1541,9 @@ mozilla-django-oidc==5.0.2 \
     --hash=sha256:4e953dcd963c036daaa2ac42b5bb6ea89a1c6ea7be0387c2022a59aca2f83043 \
     --hash=sha256:965a3533b0e299288cdf38ec2f8b550217c302ffe78ce5bd0b2d2f4bc436878b
     # via lando (pyproject.toml)
-mozphab==2.21.0 \
-    --hash=sha256:7ce21589740c9db0f0e17f548d5b09ba1b2d5fc8c0a0dcb9e2654109f7b2fcc7 \
-    --hash=sha256:d770fd79d66e77c87a3665d920c82ff7ed47426a4bb5b8b22bfd382ddd903fbd
+mozphab==2.23.0 \
+    --hash=sha256:0a3c13569fa488cdd8b5f44d492f47f071d2ab0922515086960afc89684fb78d \
+    --hash=sha256:1877cb763a94b167ae79dca000a30ebcf049881ae9da19112e411e53883b7f20
     # via lando (pyproject.toml)
 multidict==7.1.0 \
     --hash=sha256:0179698c3c913eb64f32397083747fad20ed0f0a2b7469a08cd1a8a95d14d90e \
@@ -1749,9 +1749,9 @@ pip-tools==7.6.2 \
     --hash=sha256:04dbe0e25f3b60fbdeee17d0590dac7fe20039876aa410a946fc54dc926c09ba \
     --hash=sha256:f37eb4b736859c2c30230e50977312c61918b7ef931071ff7811fd067715c25f
     # via lando (pyproject.toml::build-system.requires)
-platformdirs==4.13.0 \
-    --hash=sha256:1aa0b0d3f224c1f07c295121e312a5a24a180d6ae5a8425ea1784b3e3863e9c0 \
-    --hash=sha256:3dbcf4cd708f21cf876c4eaa90e58412bc4f033d87143f41b1493ff77c25b7e1
+platformdirs==4.13.5 \
+    --hash=sha256:05831adf87d392760f4b5c3a0a95579ab5a10b18b9b9bd43680dcb47544788a0 \
+    --hash=sha256:53d3ec4280b815c1e0b02edad7f9ee8fda1ba9c0865dd9c2e6e63849ce82fc1e
     # via glean-parser
 pluggy==1.7.0 \
     --hash=sha256:7dd7b0d8832ba3cb632c306926ded123429211b83641b35dc5c41ad2d34f9bec \
@@ -2844,29 +2844,29 @@ rsa==4.9.1 \
     --hash=sha256:68635866661c6836b8d39430f97a996acbd61bfa49406748ea243539fe239762 \
     --hash=sha256:e7bdbfdb5497da4c07dfd35530e1a902659db6ff241e39d9953cad06ebd0ae75
     # via python-jose
-ruamel-yaml==0.17.21 \
-    --hash=sha256:742b35d3d665023981bd6d16b3d24248ce5df75fdb4e2924e93a05c1f8b61ca7 \
-    --hash=sha256:8b7ce697a2f212752a35c1ac414471dc16c424c9573be4926b56ff3f5d23b7af
+ruamel-yaml==0.19.1 \
+    --hash=sha256:27592957fedf6e0b62f281e96effd28043345e0e66001f97683aa9a40c667c93 \
+    --hash=sha256:53eb66cd27849eff968ebf8f0bf61f46cdac2da1d1f3576dd4ccee9b25c31993
     # via mots
-ruff==0.17.0 \
-    --hash=sha256:0e271826af9a20d18c6cfae8c51e82959167c24859686ddd3eb9a7f0842ce81e \
-    --hash=sha256:13ee90156522998c3037059d8f66885c8adeeaf7643bdce2caceee196ecd23e0 \
-    --hash=sha256:3d8cc360e666d1914e47b0777c6906d70cf18891a55532bd0a16844195d70859 \
-    --hash=sha256:3d8e4a002a94cd9d0dc48b51dc69d807a172b5b9bf2b668e656424dc5b55ead1 \
-    --hash=sha256:5cd03240d8208a557c2a9655a5cb07ebe36aa6bb35065f97d48c1f6adef5a322 \
-    --hash=sha256:5e50aa5b84decd9fe5b0bb0e6f71c3b592f1767ed09faa4b7207d933961e35cd \
-    --hash=sha256:5f0ca4a40f81403689c04f12966e22f44e329ae362072d8f1587b7bda87f603b \
-    --hash=sha256:7bb08489e234876fa2da67ae3ea938e9a2156da80293e0e4365abd6973d98329 \
-    --hash=sha256:864b6c1acb6b0bccf94b5a3938a1531fd09aaca5e5659a2e7bf0f3cf2a685540 \
-    --hash=sha256:8ab76bcda86dfd28e13776cb5de3c7bcdcf1ae3d37ed761113d1a5a415dc134c \
-    --hash=sha256:a330178bdffc4205dbf3bda11d93e059e388fd6546f8cdd304501a9160363c0d \
-    --hash=sha256:bc73e7c133e82d55b5f15897b2a442d72c0cb4a0c886c46801ce3c247150b60c \
-    --hash=sha256:c0b8a60c06a218c337e1161638d34757f83449243e2db161483ddf948e53ad14 \
-    --hash=sha256:c154c73ff43f9854395e24cac507af13078962e53d2b511605058d22af1fdb88 \
-    --hash=sha256:c3f268baf004aea944f040623327119527ea231af15f7fb7890e82cea0679589 \
-    --hash=sha256:cbf7149e0927dc3295d5d64679a4765576eef71b00782b2ae969ef82274d6bb9 \
-    --hash=sha256:d66de796b726c4801e05fa99a2a8d7a780e107be222486c304ab61765561e866 \
-    --hash=sha256:db4f74c533403ab70fe4007873f6ae0c9f94a8b03158cf48d78788e47cdbe399
+ruff==0.17.1 \
+    --hash=sha256:056c5d5fa0ac790051ae165d7035c7bf956d02de2db557f2e9b31d877a505fca \
+    --hash=sha256:1796c41eafec66f4635125dd1e074a7aa27b8d20c187d484360acf11d247fc4a \
+    --hash=sha256:1de0030a8aa78c65c5fecb84b2e5c390ac684c0452875a02afc7c083d49a496a \
+    --hash=sha256:29b454f18ca3eeaf37fbf140841dcf27d36109e29dee9aae8acecb68c26c6f74 \
+    --hash=sha256:42400b9a6ff8515ff27796f07f92e0195be011c86e81e381606f58ea5502fef4 \
+    --hash=sha256:4c0d6cb5f8fbac77eec9af49f4fc0eaf856b05545e372b0694d24b4e76b1c640 \
+    --hash=sha256:5bb796c5112e9fb9527f2ef2faa0a130d6312d19de92bcfaddd70dbb2d41020f \
+    --hash=sha256:5df76f16580fab58d0f6c98a3ac254a4abceb7b2489b8b678335869cff77b3d7 \
+    --hash=sha256:684154861a819bf1f433669d2a0ce9c3e54677c65b8ebb866cc2a7ec86345785 \
+    --hash=sha256:78beced4a3c94dfedbee4b999b95b6a27b35820fdc0afbacc6d37a8da26c1cd1 \
+    --hash=sha256:7feefc63921202894f0e158b0e32f45a5950d70a7fb693ccb9264816c25b1c05 \
+    --hash=sha256:80e53b0e5faa3c5667f035daaa032893ae42b7cfe708c886d39ed131e54688ab \
+    --hash=sha256:872e03dd231744d6c5ec5c8af6be52b71323fc6ee096e4c8b34d9f844ee3b978 \
+    --hash=sha256:8eadb09a788010be29c895418bdfa513e4e1c65e64b94e5b19e4cd381f6cc7fb \
+    --hash=sha256:8f9aa5b5bd5fa1937803ea609c8f153b8de39bf3e0e149897ae34b0c5b52f467 \
+    --hash=sha256:a6ef98e51de8ef38082f90653ceeb84944bd7673783eea13e1647c5b9b064189 \
+    --hash=sha256:bd8f5a55b10f371642eacd0e8665a42a8b97da15c9a7187c79e697b77b5e0ce4 \
+    --hash=sha256:ce05e6f3973611d9550a600e04bb531061e368baba31610eb57c1509a8f21a0a
     # via lando (pyproject.toml)
 semver==3.1.0 \
     --hash=sha256:14bc073439513d7773662a338f4db9829cf16c12b74b9568e2d2689975fbd7fc \

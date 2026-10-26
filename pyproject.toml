@@ -26,7 +26,7 @@ dependencies = [
     "kombu",
     "more-itertools",
     "mots",
-    "MozPhab==2.21.0",
+    "MozPhab==2.23.0",
     "mozilla_django_oidc",
     "networkx",
     "psycopg2-binary",
