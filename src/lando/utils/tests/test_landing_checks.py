@@ -184,6 +184,7 @@ def test_check_commit_message_valid_message(commit_message: str, error_message: 
     ), error_message
 
 
+# XXX: Compare to the get_failing_check_commit_reason fixture.
 @pytest.mark.parametrize(
     "scm_type,commit_message,return_string,error_message",
     # Can't use itertools.product without similar overhead as this,

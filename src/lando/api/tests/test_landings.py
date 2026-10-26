@@ -1096,7 +1096,7 @@ def test_merge_conflict(
         itertools.product(
             [SCMType.HG, SCMType.GIT],
             # All of FAILING_CHECK_TYPES, except for wpt
-            [check_type for check_type in FAILING_CHECK_TYPES if check_type != "wpt"],
+            FAILING_CHECK_TYPES,
         )
     ),
 )
