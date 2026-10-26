@@ -3,13 +3,17 @@ import hmac
 import json
 from typing import Callable
 from unittest import mock
+from unittest.mock import PropertyMock
 
 import pytest
 from django.test import Client
+from django.utils.html import escape
 
+from lando.conftest import FAILING_CHECK_TYPES
 from lando.main.models import JobStatus, Repo, SCMType
 from lando.main.models.landing_job import LandingJob, add_revisions_to_job
 from lando.main.models.revision import Revision
+from lando.utils.github_helpers import LandoPullRequest
 from src.lando.utils.github.tests.conftest import DEFAULT_COMMIT_SHA
 
 
@@ -751,3 +755,313 @@ def test__views_landing_job_pull_request_view__changed_head_sha(
     assert response.json()["errors"] == [
         "The head of the Pull Request changed during submission. Please review and try again."
     ], "Error should mention the change in PR head."
+
+
+@pytest.mark.parametrize(
+    "failing_check_commit_type",
+    FAILING_CHECK_TYPES,
+)
+@mock.patch("lando.api.views.GitHubAPIClient")
+@pytest.mark.django_db()
+def test__views__landing_job_pull_request_view__checks__standard(
+    github_api_client: mock.Mock,
+    repo_mc: Callable,
+    authenticated_client: mock.Mock,
+    repo_mc_github_api_client: mock.Mock,
+    failing_check_commit_type: str,
+    get_failing_check_commit_reason: Callable,
+    get_failing_check_diff: Callable,
+    diff_to_git_patch: Callable,
+    parse_user_email: Callable,
+    create_mock_pull_request: Callable,
+):
+    repo = repo_mc(SCMType.GIT, hooks_to_disable=["PreventNSPRNSSCheck"])
+    github_api_client.return_value = repo_mc_github_api_client
+
+    disallowed_revision, reason = get_failing_check_commit_reason(
+        failing_check_commit_type
+    )
+
+    patch = diff_to_git_patch(
+        get_failing_check_diff(failing_check_commit_type),
+        commit_description=disallowed_revision["commitmsg"],
+        author=disallowed_revision["author"],
+    )
+
+    mock_pr = create_mock_pull_request(
+        repo_mc_github_api_client,
+        author=parse_user_email(disallowed_revision["author"]),
+        commit_message=disallowed_revision["commitmsg"],
+        patch=patch,
+    )
+
+    checks = authenticated_client.get(
+        f"/api/pulls/{repo.name}/{mock_pr.number}/checks",
+        content_type="application/json",
+    ).json()
+
+    blockers = checks["blockers"]
+    assert len(blockers) == 1, "Unexpected number of blockers found"
+    assert escape(reason) in blockers[0], "Expected blocker reason not found"
+
+
+@pytest.mark.parametrize(
+    "check_type, check, ,reason",
+    (
+        (
+            "blocker",
+            None,
+            None,
+        ),
+        (
+            "blocker",
+            "author-name-missing",
+            "Commit does not have proper author information.",
+        ),
+        (
+            "blocker",
+            "author-email-missing",
+            "Commit does not have proper author information.",
+        ),
+        (
+            "blocker",
+            "label-data-classification",
+            "Revision makes changes to data collection and should "
+            + "have its data classification assessed before landing. ",
+        ),
+        (
+            "blocker",
+            "pr-closed",
+            "Revision is closed.",
+        ),
+        (
+            "blocker",
+            "pr-conflicts",
+            "This Pull Request has conflicts that must be resolved.",
+        ),
+        (
+            "blocker",
+            "pr-failing-checks",
+            "This Pull Request has some failing checks.",
+        ),
+        (
+            "blocker",
+            "pr-is-draft",
+            "The author has indicated they are planning changes to this revision.",
+        ),
+        (
+            "blocker",
+            "sec-bug-status-flag",
+            "is missing status flags",
+        ),
+        (
+            "blocker",
+            "wrong-branch",
+            "The base branch for this PR doesn't match this Tree.",
+        ),
+        (
+            "warning",
+            None,
+            None,
+        ),
+        (
+            "warning",
+            "author-multiple",
+            "Pull request has multiple authors.",
+        ),
+        (
+            "warning",
+            "has-previously-landed",
+            "Has previously landed.",
+        ),
+        (
+            "warning",
+            "label-no-testing",
+            "Pull request is missing a Testing Policy Project Tag.",
+        ),
+        ("warning", "review-not-accepted", "Is not Accepted."),
+        (
+            "warning",
+            "review-blocking",
+            "Has a review intended to block landing.",
+        ),
+        (
+            "warning",
+            "review-blocking-empty-body",
+            "Has a review intended to block landing.",
+        ),
+        (
+            "warning",
+            "review-blocking",
+            "Has a review intended to block landing.",
+        ),
+        (
+            "warning",
+            "review-missing",
+            "Is missing reviews from requested reviewers. Individuals: ",
+        ),
+        (
+            "warning",
+            "review-missing-team",
+            "Is missing reviews from requested reviewers. Teams: ",
+        ),
+        ("warning", "review-stale", "No reviewer has accepted the current diff."),
+        (
+            "warning",
+            "sec-bug-status-flag-unverified",
+            "Lando could not verify the status flags",
+        ),
+        (
+            "warning",
+            "unresolved-comment",
+            "Pull request has unresolved comments.",
+        ),
+    ),
+)
+@mock.patch("lando.api.views.GitHubAPIClient")
+@mock.patch("lando.api.views.LandoPullRequest.bug_ids", new_callable=PropertyMock)
+@mock.patch("lando.api.views.LandoPullRequest.bugs_by_id", new_callable=PropertyMock)
+@mock.patch("lando.utils.github_checks.get_jobs_for_pull")
+@pytest.mark.django_db()
+def test__views__landing_job_pull_request_view__checks__prs(
+    mock_get_jobs_for_pull: mock.Mock,
+    mock_pr_bugs_by_id: mock.Mock,
+    mock_pr_bug_ids: mock.Mock,
+    github_api_client: mock.Mock,
+    repo_mc: Callable,
+    authenticated_client: mock.Mock,
+    repo_mc_github_api_client: mock.Mock,
+    get_failing_check_commit_reason: Callable,
+    get_failing_check_diff: Callable,
+    diff_to_git_patch: Callable,
+    parse_user_email: Callable,
+    create_mock_pull_request_commit: Callable,
+    create_mock_pull_request_review: Callable,
+    create_mock_pull_request: Callable,
+    check_type: str,
+    check: str,
+    reason: str,
+):
+    failing_check_commit_type = "valid"
+    valid_revision, _ = get_failing_check_commit_reason(failing_check_commit_type)
+
+    repo = repo_mc(SCMType.GIT, status_flag_prefix="cf_status_test")
+    github_api_client.return_value = repo_mc_github_api_client
+
+    patch = diff_to_git_patch(
+        get_failing_check_diff(failing_check_commit_type),
+        commit_description=valid_revision["commitmsg"],
+        author=valid_revision["author"],
+    )
+
+    author = parse_user_email(valid_revision["author"])
+    head_commit_sha = DEFAULT_COMMIT_SHA
+    pr_date = "2024-04-30T12:30:00+00:00"  # "2026-10-28T15:45:09+11:00"
+
+    pr_options = {
+        "labels": [{"name": "testing-something"}],  # "needs-data-classification"],
+        "reviews": [create_mock_pull_request_review()],
+        "updated_at": pr_date,
+    }
+
+    if check is None:
+        pass
+    elif check == "author-multiple":
+        pr_options["commits"] = [
+            create_mock_pull_request_commit(
+                sha="ccc123",
+                author_name="other author",
+                author_email="other@example.com",
+            ),
+            create_mock_pull_request_commit(),
+        ]
+
+    elif check == "author-name-missing":
+        author = (None, author[1])
+    elif check == "author-email-missing":
+        author = (author[0], None)
+    elif check == "has-previously-landed":
+        job = mock.Mock()
+        job.status = JobStatus.LANDED
+        mock_get_jobs_for_pull.return_value = [job]
+    elif check == "label-data-classification":
+        pr_options["labels"] += [{"name": "needs-data-classification"}]
+    elif check == "label-no-testing":
+        pr_options["labels"] = []
+    elif check == "pr-closed":
+        pr_options["state"] = LandoPullRequest.State.CLOSED
+    elif check == "pr-conflicts":
+        pr_options["mergeable_state"] = LandoPullRequest.Mergeability.DIRTY
+    elif check == "pr-failing-checks":
+        pr_options["mergeable_state"] = LandoPullRequest.Mergeability.UNSTABLE
+    elif check == "pr-wip":
+        valid_revision["commitmsg"] = "wip: " + valid_revision["commitmsg"]
+    elif check == "pr-is-draft":
+        pr_options["is_draft"] = True
+    elif check == "review-blocking":
+        pr_options["reviews"][0]["state"] = LandoPullRequest.Review.CHANGES_REQUESTED
+    elif check == "review-blocking-empty-body":
+        pr_options["reviews"][0]["state"] = LandoPullRequest.Review.CHANGES_REQUESTED
+        pr_options["reviews"][0]["body"] = ""
+    elif check == "review-missing":
+        pr_options["requested_reviewers"] = [
+            {"html_url": "reviewer-alice-url", "id": "alice", "login": "alice"}
+        ]
+    elif check == "review-missing-team":
+        pr_options["requested_teams"] = [
+            {
+                "description": "review-team description",
+                "html_url": "rewiew-team-url",
+                "id": "review-team",
+                "name": "review-team",
+                "slug": "review-team",
+            }
+        ]
+    elif check == "review-not-accepted":
+        pr_options["reviews"] = []
+    elif check == "review-stale":
+        pr_options["reviews"][0]["commit_id"] = "bbb123"
+    elif check == "sec-bug-status-flag":
+        mock_pr_bugs_by_id.return_value = {
+            1: {"keywords": ["sec-high"], "cf_status_test_1": "---"}
+        }
+    elif check == "sec-bug-status-flag-unverified":
+        mock_pr_bug_ids.return_value = [1]
+        mock_pr_bugs_by_id.return_value = None
+    elif check == "unresolved-comment":
+        pr_options["commits_comments"] = [
+            {
+                "body": "some unresolved comment",
+                "is_resolved": False,
+                "updated_at": pr_date,
+                "url": "some-comment-url",
+            }
+        ]
+    elif check == "wrong-branch":
+        pr_options["base_ref"] = "wrong-branch"
+    else:
+        raise Exception(f"Unknown {check_type}: {check}")
+
+    mock_pr = create_mock_pull_request(
+        repo_mc_github_api_client,
+        author=author,
+        commit_message=valid_revision["commitmsg"],
+        patch=patch,
+        head_sha=head_commit_sha,
+        **pr_options,
+    )
+
+    checks = authenticated_client.get(
+        f"/api/pulls/{repo.name}/{mock_pr.number}/checks",
+        content_type="application/json",
+    ).json()
+
+    ck = checks[check_type + "s"]
+    if reason is None:
+        assert len(ck) == 0, f"No {check_type}s were expected"
+    else:
+        assert len(ck) == 1, f"Unexpected number of {check_type} found"
+        assert escape(reason) in ck[0], f"Expected {check_type} reason not found"
+
+    other = "blockers" if check_type == "warning" else "warnings"
+    assert len(checks[other]) == 0, f"No {other} were expected for {check_type} test"
