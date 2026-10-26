@@ -577,9 +577,7 @@ def test_check_prevent_nspr_nss_nss():
         prevent_nspr_nss_check.next_diff(diff)
     expected = (
         "Revision makes changes to restricted directories: "
-        + "vendored NSS directories: `security/nss/testfile.txt`. "
-        + "To push this commit anyway and ignore this warning, "
-        + "include UPGRADE_NSS_RELEASE in your commit message."
+        + "vendored NSS directories: `security/nss/testfile.txt`."
     )
     assert [expected] == prevent_nspr_nss_check.result(), (
         "Check should disallow changes to NSS without proper commit message."
@@ -608,9 +606,7 @@ def test_check_prevent_nspr_nss_nspr():
         prevent_nspr_nss_check.next_diff(diff)
     expected = (
         "Revision makes changes to restricted directories: "
-        + "vendored NSPR directories: `nsprpub/testfile.txt`. "
-        + "To push this commit anyway and ignore this warning, "
-        + "include UPGRADE_NSPR_RELEASE in your commit message."
+        + "vendored NSPR directories: `nsprpub/testfile.txt`."
     )
     assert [expected] == prevent_nspr_nss_check.result(), (
         "Check should disallow changes to NSPR without proper commit message."
@@ -641,12 +637,8 @@ def test_check_prevent_nspr_nss_combined():
         prevent_nspr_nss_check.next_diff(diff)
     expected = (
         "Revision makes changes to restricted directories: "
-        + "vendored NSS directories: `security/nss/testfile.txt`. "
-        + "To push this commit anyway and ignore this warning, "
-        + "include UPGRADE_NSS_RELEASE in your commit message; "
-        + "vendored NSPR directories: `nsprpub/testfile.txt`. "
-        + "To push this commit anyway and ignore this warning, "
-        + "include UPGRADE_NSPR_RELEASE in your commit message."
+        + "vendored NSS directories: `security/nss/testfile.txt`; "
+        + "vendored NSPR directories: `nsprpub/testfile.txt`."
     )
     assert [expected] == prevent_nspr_nss_check.result(), (
         "Check should disallow changes to both NSS and NSPR without proper commit message. "
@@ -660,9 +652,7 @@ def test_check_prevent_nspr_nss_combined():
         prevent_nspr_nss_check.next_diff(diff)
     expected = (
         "Revision makes changes to restricted directories: "
-        + "vendored NSS directories: `security/nss/testfile.txt`. "
-        + "To push this commit anyway and ignore this warning, "
-        + "include UPGRADE_NSS_RELEASE in your commit message."
+        + "vendored NSS directories: `security/nss/testfile.txt`."
     )
     assert [expected] == prevent_nspr_nss_check.result(), (
         "Check should allow changes to NSPR with proper commit message."
@@ -676,9 +666,7 @@ def test_check_prevent_nspr_nss_combined():
         prevent_nspr_nss_check.next_diff(diff)
     expected = (
         "Revision makes changes to restricted directories: "
-        + "vendored NSPR directories: `nsprpub/testfile.txt`. "
-        + "To push this commit anyway and ignore this warning, "
-        + "include UPGRADE_NSPR_RELEASE in your commit message."
+        + "vendored NSPR directories: `nsprpub/testfile.txt`."
     )
     assert [expected] == prevent_nspr_nss_check.result(), (
         "Check should allow changes to NSPR with proper commit message."
@@ -929,15 +917,11 @@ def test_landing_checks_run():
         "Revision introduces the `try_task_config.json` file.",
         (
             "Revision makes changes to restricted directories: "
-            + "vendored NSPR directories: `nsprpub/testfile.txt`. "
-            + "To push this commit anyway and ignore this warning, "
-            + "include UPGRADE_NSPR_RELEASE in your commit message."
+            + "vendored NSPR directories: `nsprpub/testfile.txt`."
         ),
         (
             "Revision makes changes to restricted directories: "
-            + "vendored NSPR directories: `nsprpub/testfile.txt`. "
-            + "To push this commit anyway and ignore this warning, "
-            + "include UPGRADE_NSPR_RELEASE in your commit message."
+            + "vendored NSPR directories: `nsprpub/testfile.txt`."
         ),
         "Revision needs 'Bug N' or 'No bug' in the commit message: Change things",
         "Revision needs 'Bug N' or 'No bug' in the commit message: Change things",

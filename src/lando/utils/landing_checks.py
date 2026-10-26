@@ -89,6 +89,9 @@ class PreventPathCheckMixin(ABC):
         a basic error string to show before the list of matching files (no colon
         needed)
 
+    show_hint: strings
+        whether to include a hint about the override_commit_message in the error message
+
 
     In addition, the following attribute needs to be set on instances inheriting from
     this Mixin.
@@ -101,6 +104,7 @@ class PreventPathCheckMixin(ABC):
     paths: list[re.Pattern]
     override_commit_message: str
     error_cause_details: str
+    show_hint: bool = False
 
     disallowed_changes: list[str] = field(init=False)
 
@@ -124,11 +128,12 @@ class PreventPathCheckMixin(ABC):
             return_error_message.append(f"{self.error_cause_details}:")
             return_error_message.append(wrap_filenames(self.disallowed_changes))
 
-        error = (
-            f"{' '.join(return_error_message)}. "
-            + "To push this commit anyway and ignore this warning, "
-            + f"include {self.override_commit_message} in your commit message."
-        )
+        error = f"{' '.join(return_error_message)}."
+        if self.show_hint:
+            error += (
+                " To push this commit anyway and ignore this warning, "
+                + f"include {self.override_commit_message} in your commit message."
+            )
 
         return error
 
@@ -164,6 +169,7 @@ class PreventDotGithubCheck(PreventPathCheckMixin, PatchCheck):
     ]
     override_commit_message = "DOT_GITHUB_OVERRIDE"
     error_cause_details = "GitHub workflows directory"
+    show_hint = True
 
     @override
     @classmethod

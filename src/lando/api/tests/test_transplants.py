@@ -2241,9 +2241,7 @@ def test_blocker_nsprnss_files(phabdouble, create_state, get_failing_check_diff)
         stack_state=stack_state,
     ) == (
         "Revision makes changes to restricted directories: "
-        + "vendored NSPR directories: `nsprpub/.keep`. "
-        + "To push this commit anyway and ignore this warning, "
-        + "include UPGRADE_NSPR_RELEASE in your commit message."
+        + "vendored NSPR directories: `nsprpub/.keep`."
     ), "Diff with NSPR changes should fail the check."
 
     assert blocker_prevent_nsprnss_files(
@@ -2252,9 +2250,7 @@ def test_blocker_nsprnss_files(phabdouble, create_state, get_failing_check_diff)
         stack_state=stack_state,
     ) == (
         "Revision makes changes to restricted directories: "
-        + "vendored NSS directories: `security/nss/.keep`. "
-        + "To push this commit anyway and ignore this warning, "
-        + "include UPGRADE_NSS_RELEASE in your commit message."
+        + "vendored NSS directories: `security/nss/.keep`."
     ), "Diff with NSS changes should fail the check."
 
 
