@@ -782,6 +782,10 @@ def test__views__landing_job_pull_request_view__checks__standard(
         failing_check_commit_type
     )
 
+    if failing_check_commit_type == "rq":
+        # r? should be allowed through checks.
+        reason = None
+
     patch = diff_to_git_patch(
         get_failing_check_diff(failing_check_commit_type),
         commit_description=disallowed_revision["commitmsg"],
@@ -801,8 +805,11 @@ def test__views__landing_job_pull_request_view__checks__standard(
     ).json()
 
     blockers = checks["blockers"]
-    assert len(blockers) == 1, "Unexpected number of blockers found"
-    assert escape(reason) in blockers[0], "Expected blocker reason not found"
+    if not reason:
+        assert len(blockers) == 0, "Unexpected number of blockers found"
+    else:
+        assert len(blockers) == 1, "Unexpected number of blockers found"
+        assert escape(reason) in blockers[0], "Expected blocker reason not found"
 
 
 @pytest.mark.parametrize(
