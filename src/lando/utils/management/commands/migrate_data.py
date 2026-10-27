@@ -240,7 +240,7 @@ class Command(BaseCommand):
 
         repo_names = ", ".join(repo.name for repo in repos_with_hook)
         self._get_confirmation(
-            ask_confirm, "Setting status_flag_prefix for: ", repo_names
+            ask_confirm, "Updating NSPR and NSS hooks for: ", repo_names
         )
 
         for repo in repos_with_hook:
