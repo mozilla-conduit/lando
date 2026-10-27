@@ -89,6 +89,9 @@ class PreventPathCheckMixin(ABC):
         a basic error string to show before the list of matching files (no colon
         needed)
 
+    show_hint: bool
+        whether to include a hint about the override_commit_message in the error message
+
 
     In addition, the following attribute needs to be set on instances inheriting from
     this Mixin.
@@ -101,6 +104,7 @@ class PreventPathCheckMixin(ABC):
     paths: list[re.Pattern]
     override_commit_message: str
     error_cause_details: str
+    show_hint: bool = False
 
     disallowed_changes: list[str] = field(init=False)
 
@@ -124,7 +128,14 @@ class PreventPathCheckMixin(ABC):
             return_error_message.append(f"{self.error_cause_details}:")
             return_error_message.append(wrap_filenames(self.disallowed_changes))
 
-        return f"{' '.join(return_error_message)}."
+        error = f"{' '.join(return_error_message)}."
+        if self.show_hint:
+            error += (
+                " To push this commit anyway and bypass this check, "
+                + f"include {self.override_commit_message} in your commit message."
+            )
+
+        return error
 
     def next_diff(self, diff: dict):
         """Pass the next `rs_parsepatch` diff `dict` into the check."""
@@ -158,6 +169,7 @@ class PreventDotGithubCheck(PreventPathCheckMixin, PatchCheck):
     ]
     override_commit_message = "DOT_GITHUB_OVERRIDE"
     error_cause_details = "GitHub workflows directory"
+    show_hint = True
 
     @override
     @classmethod
@@ -183,7 +195,7 @@ class PreventNSPRCheck(PreventPathCheckMixin, PatchCheck):
     @override
     @classmethod
     def name(cls) -> str:
-        return "PreventNSSPRCheck"
+        return "PreventNSPRCheck"
 
     @override
     @classmethod
@@ -231,7 +243,7 @@ class PreventNSPRNSSCheck(PatchCheck):
     @override
     @classmethod
     def description(cls) -> str:
-        return "Prevent changes to vendored NSPR directories."
+        return "Prevent changes to vendored NSPR and NSS directories."
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -257,6 +269,8 @@ class PreventNSPRNSSCheck(PatchCheck):
             )
 
         if self._prevent_nspr_check.disallowed_changes:
+            if self._prevent_nss_check.disallowed_changes:
+                return_error_message[-1] += ";"
             return_error_message.append(
                 self._prevent_nspr_check.build_error_message()
                 .removeprefix(f"{self._prevent_nspr_check.BASE_ERROR_MESSAGE} ")

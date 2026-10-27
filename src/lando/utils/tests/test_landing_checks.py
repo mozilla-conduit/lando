@@ -513,8 +513,10 @@ def test_check_prevent_dot_github():
         prevent_dot_github_check.next_diff(diff)
 
     expected = (
-        "Revision makes changes to restricted directories: GitHub workflows directory: "
-        + "`.github/workflows/workflow.yaml`."
+        "Revision makes changes to restricted directories: "
+        + "GitHub workflows directory: `.github/workflows/workflow.yaml`. "
+        + "To push this commit anyway and bypass this check, "
+        + "include DOT_GITHUB_OVERRIDE in your commit message."
     )
 
     assert [expected] == prevent_dot_github_check.result(), (
@@ -574,8 +576,8 @@ def test_check_prevent_nspr_nss_nss():
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
     expected = (
-        "Revision makes changes to restricted directories: vendored NSS directories: "
-        "`security/nss/testfile.txt`."
+        "Revision makes changes to restricted directories: "
+        + "vendored NSS directories: `security/nss/testfile.txt`."
     )
     assert [expected] == prevent_nspr_nss_check.result(), (
         "Check should disallow changes to NSS without proper commit message."
@@ -603,8 +605,8 @@ def test_check_prevent_nspr_nss_nspr():
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
     expected = (
-        "Revision makes changes to restricted directories: vendored NSPR directories: "
-        "`nsprpub/testfile.txt`."
+        "Revision makes changes to restricted directories: "
+        + "vendored NSPR directories: `nsprpub/testfile.txt`."
     )
     assert [expected] == prevent_nspr_nss_check.result(), (
         "Check should disallow changes to NSPR without proper commit message."
@@ -634,8 +636,9 @@ def test_check_prevent_nspr_nss_combined():
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
     expected = (
-        "Revision makes changes to restricted directories: vendored NSS directories: "
-        "`security/nss/testfile.txt` vendored NSPR directories: `nsprpub/testfile.txt`."
+        "Revision makes changes to restricted directories: "
+        + "vendored NSS directories: `security/nss/testfile.txt`; "
+        + "vendored NSPR directories: `nsprpub/testfile.txt`."
     )
     assert [expected] == prevent_nspr_nss_check.result(), (
         "Check should disallow changes to both NSS and NSPR without proper commit message."
@@ -649,7 +652,7 @@ def test_check_prevent_nspr_nss_combined():
         prevent_nspr_nss_check.next_diff(diff)
     expected = (
         "Revision makes changes to restricted directories: "
-        "vendored NSS directories: `security/nss/testfile.txt`."
+        + "vendored NSS directories: `security/nss/testfile.txt`."
     )
     assert [expected] == prevent_nspr_nss_check.result(), (
         "Check should allow changes to NSPR with proper commit message."
@@ -663,7 +666,7 @@ def test_check_prevent_nspr_nss_combined():
         prevent_nspr_nss_check.next_diff(diff)
     expected = (
         "Revision makes changes to restricted directories: "
-        "vendored NSPR directories: `nsprpub/testfile.txt`."
+        + "vendored NSPR directories: `nsprpub/testfile.txt`."
     )
     assert [expected] == prevent_nspr_nss_check.result(), (
         "Check should allow changes to NSPR with proper commit message."
@@ -912,8 +915,14 @@ def test_landing_checks_run():
 
     expected = [
         "Revision introduces the `try_task_config.json` file.",
-        "Revision makes changes to restricted directories: vendored NSPR directories: `nsprpub/testfile.txt`.",
-        "Revision makes changes to restricted directories: vendored NSPR directories: `nsprpub/testfile.txt`.",
+        (
+            "Revision makes changes to restricted directories: "
+            + "vendored NSPR directories: `nsprpub/testfile.txt`."
+        ),
+        (
+            "Revision makes changes to restricted directories: "
+            + "vendored NSPR directories: `nsprpub/testfile.txt`."
+        ),
         "Revision needs 'Bug N' or 'No bug' in the commit message: Change things",
         "Revision needs 'Bug N' or 'No bug' in the commit message: Change things",
     ]

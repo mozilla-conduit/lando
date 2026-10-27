@@ -25,8 +25,8 @@ endif
 # Keeping `##` markers aligned in this file will ensure the output is aligned, too.
 .PHONY: help
 help: ## show this message and exit
-	@$(DOCKER) --version
-	@$(DOCKER_COMPOSE) version
+	@${DOCKER} --version
+	@${DOCKER_COMPOSE} version
 	@echo "usage: make <target>"
 	@echo
 	@echo "target is one of:"
@@ -34,11 +34,11 @@ help: ## show this message and exit
 
 .PHONY: add-requirements
 add-requirements: ## update requirements.txt with new requirements
-	$(BASE_COMMAND) lando generate_requirements
+	${BASE_COMMAND} lando generate_requirements
 
 .PHONY: attach
 attach: ## attach for debugging (ctrl-p ctrl-q to detach)
-ifeq ($(INSUITE), 1)
+ifeq (${INSUITE}, 1)
 	-@docker attach suite-lando-1 ||:
 else
 	-@${DOCKER_COMPOSE} attach lando ||:
@@ -46,14 +46,14 @@ endif
 
 .PHONY: build
 build: ## build the container images
-	$(DOCKER_COMPOSE) build
+	${DOCKER_COMPOSE} build
 
 .PHONY: format
 format: ## run ruff and djLint on source code
-	$(BASE_COMMAND) lando format
+	${BASE_COMMAND} lando format
 .PHONY: migrations
 migrations: ## generates migration files to reflect model changes in the database
-	$(BASE_COMMAND) lando makemigrations
+	${BASE_COMMAND} lando makemigrations
 
 .PHONY: test
 test: ## run the Python and JavaScript test suites
@@ -61,15 +61,15 @@ test: test-py test-js
 
 .PHONY: test-js
 test-js: ## run the JavaScript test suite (Vitest)
-	$(BASE_COMMAND) npm test
+	${BASE_COMMAND} npm test
 
 .PHONY: build-js
 build-js: ## build the Vue frontend bundle (output dir set by `build.outDir` in vite.config.ts)
-	$(BASE_COMMAND) npm run build
+	${BASE_COMMAND} npm run build
 
 .PHONY: test-py
 test-py: ##run the Python test suite
-	$(BASE_COMMAND) lando tests $(ARGS_TESTS)
+	${BASE_COMMAND} lando tests -- ${ARGS_TESTS}
 
 .PHONY: test-use-local
 test-use-local: ## run the testsuite using the local environment
@@ -83,9 +83,9 @@ test-use-suite: ## run the testsuite using the conduit-suite environment
 upgrade-npm-packages: ## update package-lock.json
 	# npm >= 11.x has support for min-release-age=7 in `.npmrc`,
 	# but we are still on 10.x from bookworm.
-	$(BASE_COMMAND) npm install --before="$(shell date -I -d '7 days ago')"
+	${BASE_COMMAND} npm install --before="$(shell date -I -d '7 days ago')"
 
 .PHONY: upgrade-requirements
 upgrade-requirements: UPGRADE_ARGS=--upgrade
 upgrade-requirements: ## upgrade packages in requirements.txt. Pass `UPGRADE_ARGS=` to the `make` call to only regenerate the file without upgrades. `--no-cooldown` Is also available.
-	$(BASE_COMMAND) lando generate_requirements $(UPGRADE_ARGS)
+	${BASE_COMMAND} lando generate_requirements ${UPGRADE_ARGS}
