@@ -515,7 +515,7 @@ def test_check_prevent_dot_github():
     expected = (
         "Revision makes changes to restricted directories: "
         + "GitHub workflows directory: `.github/workflows/workflow.yaml`. "
-        + "To push this commit anyway and ignore this warning, "
+        + "To push this commit anyway and bypass this check, "
         + "include DOT_GITHUB_OVERRIDE in your commit message."
     )
 
