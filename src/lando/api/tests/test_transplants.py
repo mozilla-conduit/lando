@@ -2313,7 +2313,7 @@ def test_blocker_prevent_dot_github(phabdouble, create_state, get_failing_check_
     ) == (
         "Revision makes changes to restricted directories: "
         + "GitHub workflows directory: `.github/workflows/.keep`. "
-        + "To push this commit anyway and ignore this warning, "
+        + "To push this commit anyway and bypass this check, "
         + "include DOT_GITHUB_OVERRIDE in your commit message."
     ), "Diff with GitHub workflow changes and no override should fail the check."
 
