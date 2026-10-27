@@ -641,7 +641,7 @@ def test_check_prevent_nspr_nss_combined():
         + "vendored NSPR directories: `nsprpub/testfile.txt`."
     )
     assert [expected] == prevent_nspr_nss_check.result(), (
-        "Check should disallow changes to both NSS and NSPR without proper commit message. "
+        "Check should disallow changes to both NSS and NSPR without proper commit message."
     )
 
     prevent_nspr_nss_check = PreventNSPRNSSCheck(
