@@ -89,7 +89,7 @@ class PreventPathCheckMixin(ABC):
         a basic error string to show before the list of matching files (no colon
         needed)
 
-    show_hint: strings
+    show_hint: bool
         whether to include a hint about the override_commit_message in the error message
 
 
