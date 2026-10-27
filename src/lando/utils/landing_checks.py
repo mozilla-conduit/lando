@@ -131,7 +131,7 @@ class PreventPathCheckMixin(ABC):
         error = f"{' '.join(return_error_message)}."
         if self.show_hint:
             error += (
-                " To push this commit anyway and ignore this warning, "
+                " To push this commit anyway and bypass this check, "
                 + f"include {self.override_commit_message} in your commit message."
             )
 
