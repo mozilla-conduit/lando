@@ -19,7 +19,9 @@ from lando.main.scm import (
 from lando.utils.landing_checks import (
     BugReferencesCheck,
     CommitMessagesCheck,
+    PreventNSPRCheck,
     PreventNSPRNSSCheck,
+    PreventNSSCheck,
     TryTaskConfigCheck,
     WPTSyncCheck,
 )
@@ -122,9 +124,17 @@ class Repo(CryptographyMixin, BaseModel):
             "PreventHgDirectoryCheck",
             "Prevent patches from modifying .hg/ directory.",
         )
+        PreventNSPRCheck = (
+            "PreventNSPRCheck",
+            "Prevent changes to vendored NSPR directories.",
+        )
         PreventNSPRNSSCheck = (
             "PreventNSPRNSSCheck",
             "Prevent changes to vendored NSPR and NSS directories.",
+        )
+        PreventNSSCheck = (
+            "PreventNSSCheck",
+            "Prevent changes to vendored NSS directories.",
         )
         PreventSignedCommitsCheck = (
             "PreventSignedCommitsCheck",
@@ -557,7 +567,9 @@ TRY_HOOKS = list(
     # Set difference takes precedence over set union.
     set(get_default_hooks())
     - {CommitMessagesCheck.name()}
+    - {PreventNSPRCheck.name()}
     - {PreventNSPRNSSCheck.name()}
+    - {PreventNSSCheck.name()}
     - {TryTaskConfigCheck.name()}
     - {WPTSyncCheck.name()}
     | {BugReferencesCheck.name()}
