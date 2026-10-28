@@ -1,8 +1,11 @@
+import datetime
 import json
+from collections import defaultdict
 from pathlib import Path
 from textwrap import dedent
-from typing import Callable
+from typing import Any, Callable
 from unittest import mock
+from unittest.mock import Mock
 
 import pytest
 from requests import Response
@@ -11,6 +14,10 @@ from lando.utils.github import GitHubAPIClient, PullRequest
 
 BASE_DIR = Path(__file__).resolve().parent
 
+#
+# High-level Object fixtures
+#
+
 
 @pytest.fixture
 def mock_github_fetch_token(monkeypatch: pytest.MonkeyPatch) -> mock.Mock:
@@ -18,6 +25,97 @@ def mock_github_fetch_token(monkeypatch: pytest.MonkeyPatch) -> mock.Mock:
     mock_fetch_token.return_value = "mock_token"
     monkeypatch.setattr("lando.utils.github.GitHub._fetch_token", mock_fetch_token)
     return mock_fetch_token
+
+
+@pytest.fixture
+@mock.patch("lando.utils.github.api.GitHubAPI")
+def repo_mc_github_api_client(_mock_github_api: Mock):
+    mock_github_api_client = mock.MagicMock(
+        wraps=GitHubAPIClient("https://github.example.com/org/repo")
+    )
+    mock_github_api_client.repo_is_private = False
+    return mock_github_api_client
+
+
+@pytest.fixture
+def create_mock_pull_request() -> Callable:
+    """Fixture to attach a partially mocked PullRequest to a mock GitHubAPIClient.
+
+    Currently, the following methods are supported:
+    * GitHubAPIClient.build_pull_request (parameters are ignored)
+    * GitHubAPIClient.get_pull_request_commits (pull number parameter is ignored)
+
+    CAVEAT: This only supports a single PR.
+
+    """
+
+    def _create_mock_pull_request(
+        mock_github_api_client: Mock,
+        number: int = 1,
+        *,
+        author: tuple[str, str] = ("Test Author", "test@email.com"),
+        commit_message: str = "Test Commit Message",
+        head_sha: str = "aaa123",
+        base_sha: str = "bbb123",
+        patch: str = "diff --git a/abc b/def\n",
+        reviews: dict[str, Any] | None = None,
+        commits: list[dict[str, Any]] | None = None,
+        updated_at: datetime.datetime | None = None,
+    ) -> Mock:
+        updated_at = (
+            updated_at
+            or datetime.datetime(
+                2024, 4, 30, 12, 30, 00, tzinfo=datetime.UTC
+            ).isoformat()
+        )
+
+        # The _data is reused by LandoPullRequest.from_pr(),
+        # so we need to create it here.
+
+        # For data not specified by the mock, provide an infinitely nesting defaultdict.
+        def nested_defaultdict():
+            return defaultdict(nested_defaultdict)
+
+        data = nested_defaultdict()
+        data["number"] = number
+        data["url"] = f"https://github.example.com/org/repo/pull/{number}"
+        data["head"]["sha"] = head_sha
+        data["base"]["sha"] = base_sha
+        data["title"], _, data["body"] = commit_message.partition("\n")
+        data["updated_at"] = updated_at
+
+        mock_pr = PullRequest(mock_github_api_client, data)
+
+        mock_github_api_client.get_pull_request = Mock()
+        mock_github_api_client.get_pull_request.return_value = data
+
+        mock_github_api_client.get_patch = Mock()
+        mock_github_api_client.get_patch.return_value = patch
+        mock_github_api_client.get_diff = Mock()
+        mock_github_api_client.get_diff.return_value = patch
+
+        mock_github_api_client.get_pull_request_reviews = Mock()
+        mock_github_api_client.get_pull_request_reviews.return_value = reviews or {}
+
+        mock_github_api_client.build_pull_request.return_value = mock_pr
+        mock_pr.client = mock_github_api_client
+
+        commits = commits or [
+            {
+                "sha": head_sha,
+                "commit": {"committer": {"login": author[0], "date": updated_at}},
+            }
+        ]
+        mock_github_api_client.get_pull_request_commits.return_value = commits
+
+        return mock_pr
+
+    return _create_mock_pull_request
+
+
+#
+# Low-level HTTP fixtures
+#
 
 
 @pytest.fixture
@@ -311,7 +409,7 @@ def github_api_client(
         repo = "mozilla-conduit/test-repo"
         client_mock = GitHubAPIClient(f"https://github.com/{repo}/")
 
-        client_mock.list_pull_request = mock.Mock(
+        client_mock.list_pull_requests = mock.Mock(
             return_value=json.loads(github_pr_list_response)
         )
 

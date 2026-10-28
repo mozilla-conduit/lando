@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+from typing import Callable
 from unittest import mock
 
 import pytest
@@ -9,13 +10,6 @@ from django.test import Client
 from lando.main.models import JobStatus, Repo, SCMType
 from lando.main.models.landing_job import LandingJob, add_revisions_to_job
 from lando.main.models.revision import Revision
-
-
-@pytest.fixture
-def repo_mc_github_api_client():
-    mock_github_api_client = mock.MagicMock()
-    mock_github_api_client.repo_is_private = False
-    return mock_github_api_client
 
 
 @pytest.fixture
@@ -616,6 +610,7 @@ def test__views_landing_job_pull_request_view__warnings(
     mock_lando_pull_request,
     github_api_client,
     mock_warnings_and_blockers,
+    create_mock_pull_request,
     authenticated_client,
     repo_mc_github_api_client,
     repo_mc,
@@ -627,16 +622,8 @@ def test__views_landing_job_pull_request_view__warnings(
     repo = repo_mc(SCMType.GIT)
     github_api_client.return_value = repo_mc_github_api_client
 
-    mock_pr = mock.MagicMock()
-    repo_mc_github_api_client.build_pull_request.return_value = mock_pr
+    mock_pr = create_mock_pull_request(repo_mc_github_api_client)
     mock_lando_pull_request.from_pr.return_value = mock_pr
-    mock_pr.author = ("Test Author", "test@email.com")
-    mock_pr.commit_message = "Test Commit Message"
-    mock_pr.number = 1
-    mock_pr.head_sha = "aaa123"
-    mock_pr.base_sha = "bbb123"
-    mock_pr.patch = "diff --git a/abc b/def\n"
-    mock_pr.reviews_summary = {}
 
     mock_warnings_and_blockers.return_value = {
         "warnings": warnings_1,
@@ -685,9 +672,10 @@ def test__views_landing_job_pull_request_view__warnings(
 )
 def test__views__landing_job_pull_request_view__status(
     github_api_client,
+    repo_mc,
     client,
     repo_mc_github_api_client,
-    repo_mc,
+    create_mock_pull_request,
     job_status,
     expected_status,
 ):
@@ -695,6 +683,7 @@ def test__views__landing_job_pull_request_view__status(
     repo = repo_mc(SCMType.GIT)
     github_api_client.return_value = repo_mc_github_api_client
 
+    create_mock_pull_request(repo_mc_github_api_client, number=1)
     pull_number = 1
     repo_mc_github_api_client.build_pull_request.return_value = mock.MagicMock(
         number=pull_number
@@ -720,20 +709,13 @@ def test__views_landing_job_pull_request_view__changed_head_sha(
     mock_warnings_and_blockers,
     authenticated_client,
     repo_mc_github_api_client,
-    repo_mc,
+    repo_mc: Callable,
+    create_mock_pull_request: Callable,
 ):
     repo = repo_mc(SCMType.GIT)
     github_api_client.return_value = repo_mc_github_api_client
 
-    mock_pr = mock.MagicMock()
-    repo_mc_github_api_client.build_pull_request.return_value = mock_pr
-    mock_pr.author = ("Test Author", "test@email.com")
-    mock_pr.commit_message = "Test Commit Message"
-    mock_pr.number = 1
-    mock_pr.head_sha = "newsha"
-    mock_pr.base_sha = "bbb123"
-    mock_pr.patch = "diff --git a/abc b/def\n"
-    mock_pr.reviews_summary = {}
+    create_mock_pull_request(repo_mc_github_api_client, head_sha="newsha")
 
     mock_warnings_and_blockers.return_value = {
         "warnings": [],
