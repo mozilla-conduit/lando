@@ -103,7 +103,13 @@ def create_mock_pull_request() -> Callable:
         commits = commits or [
             {
                 "sha": head_sha,
-                "commit": {"committer": {"login": author[0], "date": updated_at}},
+                "commit": {
+                    "committer": {
+                        "name": author[0],
+                        "email": author[1],
+                        "date": updated_at,
+                    }
+                },
             }
         ]
         mock_github_api_client.get_pull_request_commits.return_value = commits
