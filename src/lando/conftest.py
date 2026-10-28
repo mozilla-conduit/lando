@@ -884,7 +884,7 @@ def get_failing_check_commit_reason(get_failing_check_diff) -> Callable:
 
 @pytest.fixture
 def parse_user_email() -> Callable:
-    def _parse_user_email(author_string: str) -> str:
+    def _parse_user_email(author_string: str) -> tuple[str, str]:
         """Split username from email address in a git author string."""
         author_match = re.search(r"([^<]+)\s+<([^>]*@[^>]*)>", author_string)
         if not author_match:
