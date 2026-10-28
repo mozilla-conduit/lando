@@ -12,9 +12,7 @@ from lando.main.models.revision import Revision
 
 
 @pytest.fixture
-def repo_mc_github_api_client(repo_mc):
-    repo_mc(SCMType.GIT, name="git-repo")
-
+def repo_mc_github_api_client():
     mock_github_api_client = mock.MagicMock()
     mock_github_api_client.repo_is_private = False
     return mock_github_api_client
@@ -224,6 +222,7 @@ def test__views__pull_request_api_view__private_repo(github_api_client, client):
 )
 def test__views__pull_request_content_api_view(
     github_api_client,
+    repo_mc,
     authenticated_client,
     repo_mc_github_api_client,
     payload,
@@ -231,7 +230,7 @@ def test__views__pull_request_content_api_view(
     expected_response,
 ):
     """Test PullRequestContentAPIView validation and success responses."""
-
+    repo = repo_mc(SCMType.GIT, name="git-repo")
     github_api_client.return_value = repo_mc_github_api_client
 
     mock_pull_request = mock.MagicMock()
@@ -240,7 +239,7 @@ def test__views__pull_request_content_api_view(
     repo_mc_github_api_client.update_pull_request_content.return_value = payload
 
     result = authenticated_client.put(
-        "/api/pulls/git-repo/100",
+        f"/api/pulls/{repo.name}/100",
         data=payload,
         content_type="application/json",
     )
@@ -258,14 +257,19 @@ def test__views__pull_request_content_api_view(
 @mock.patch("lando.api.views.GitHubAPIClient")
 @pytest.mark.django_db(transaction=True)
 def test__views__pull_request_content_api_view__unauthenticated(
-    github_api_client, client, repo_mc_github_api_client
+    github_api_client,
+    repo_mc,
+    client,
+    repo_mc_github_api_client,
+    create_mock_pull_request,
 ):
     """An anonymous PUT should be rejected by the auth decorator."""
-
+    repo = repo_mc(SCMType.GIT, name="git-repo")
     github_api_client.return_value = repo_mc_github_api_client
+    mock_pr = create_mock_pull_request(repo_mc_github_api_client)
 
     result = client.put(
-        "/api/pulls/git-repo/100",
+        f"/api/pulls/{repo.name}/{mock_pr.number}",
         data={"title": "Valid New Title", "body": "Valid New Body"},
         content_type="application/json",
     )
@@ -278,13 +282,14 @@ def test__views__pull_request_content_api_view__unauthenticated(
 @mock.patch("lando.api.views.GitHubAPIClient")
 @pytest.mark.django_db(transaction=True)
 def test__views__pull_request_content_api_view__missing_csrf_token(
-    github_api_client, csrf_client, repo_mc_github_api_client
+    github_api_client, repo_mc, csrf_client, repo_mc_github_api_client
 ):
     """An authenticated PUT without a CSRF token should be rejected."""
+    repo = repo_mc(SCMType.GIT, name="git-repo")
     github_api_client.return_value = repo_mc_github_api_client
 
     result = csrf_client.put(
-        "/api/pulls/git-repo/100",
+        f"/api/pulls/{repo.name}/100",
         data={"title": "Valid New Title", "body": "Valid New Body"},
         content_type="application/json",
     )
