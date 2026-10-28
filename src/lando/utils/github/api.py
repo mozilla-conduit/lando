@@ -15,7 +15,7 @@ from collections.abc import Callable, Iterator
 from datetime import datetime
 from enum import Enum
 from itertools import count
-from typing import Any
+from typing import Any, Self
 
 import aiohttp
 import requests
@@ -291,13 +291,6 @@ class GitHubAPIClient:
         result = self._api.patch(path, *args, **kwargs)
         return result.json()
 
-    def build_pull_request(self, pull_number: int) -> "PullRequest":
-        """Build a PullRequest object.
-
-        This does the necessary network requests to collect the data."""
-        data = self.get_pull_request(pull_number)
-        return PullRequest(self, data)
-
     def list_pull_requests(self) -> list:
         """List all pull requests in the repo."""
         return self._repo_get("pulls")
@@ -517,6 +510,11 @@ class PullRequest:
 
     def __repr__(self) -> str:
         return f"Pull request #{self.number} ({self.head_repo_git_url})"
+
+    @classmethod
+    def fetch(cls, client: GitHubAPIClient, number: int) -> Self:
+        """Fetch pull request `number` from GitHub as an instance of `cls`."""
+        return cls(client, client.get_pull_request(number))
 
     @staticmethod
     def _parse_body_segments(body: str) -> tuple[str, str]:
