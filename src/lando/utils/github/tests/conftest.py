@@ -43,7 +43,11 @@ def create_mock_pull_request() -> Callable:
 
     Currently, the following methods are supported:
     * GitHubAPIClient.build_pull_request (parameters are ignored)
+    * GitHubAPIClient.get_diff (pull number parameter is ignored)
+    * GitHubAPIClient.get_patch (pull number parameter is ignored)
+    * GitHubAPIClient.get_pull_request (parameters are ignored)
     * GitHubAPIClient.get_pull_request_commits (pull number parameter is ignored)
+    * GitHubAPIClient.get_pull_request_reviews (pull number parameter is ignored)
 
     CAVEAT: This only supports a single PR.
 
@@ -54,12 +58,21 @@ def create_mock_pull_request() -> Callable:
         number: int = 1,
         *,
         author: tuple[str, str] = ("Test Author", "test@email.com"),
-        commit_message: str = "Test Commit Message",
-        head_sha: str = "aaa123",
+        base_ref: str = "main",
         base_sha: str = "bbb123",
-        patch: str = "diff --git a/abc b/def\n",
-        reviews: dict[str, Any] | None = None,
+        commit_message: str = "Test Commit Message",
         commits: list[dict[str, Any]] | None = None,
+        commits_comments: list[dict[str, Any]] | None = None,
+        head_ref: str = "some-branch",
+        head_sha: str = "aaa123",
+        is_draft: bool = False,
+        labels: list[dict[str, Any]] | None = None,
+        mergeable_state: PullRequest.Mergeability = PullRequest.Mergeability.CLEAN,
+        patch: str = "diff --git a/abc b/def\n",
+        reviews: list[dict[str, Any]] | None = None,
+        requested_reviewers: list[dict[str, Any]] | None = None,
+        requested_teams: list[dict[str, Any]] | None = None,
+        state: PullRequest.State = PullRequest.State.OPEN,
         updated_at: str | None = None,
     ) -> Mock:
         updated_at = (
@@ -77,42 +90,69 @@ def create_mock_pull_request() -> Callable:
             return defaultdict(nested_defaultdict)
 
         data = nested_defaultdict()
-        data["number"] = number
-        data["url"] = f"https://github.example.com/org/repo/pull/{number}"
-        data["head"]["sha"] = head_sha
+        data["base"]["ref"] = base_ref
         data["base"]["sha"] = base_sha
+        data["head"]["ref"] = head_ref
+        data["head"]["sha"] = head_sha
+        data["draft"] = is_draft
+        data["labels"] = labels or [{"name": "some-label"}]
+        data["mergeable_state"] = mergeable_state
+        data["number"] = number
         data["title"], _, data["body"] = commit_message.partition("\n")
+        data["requested_reviewers"] = requested_reviewers or []
+        data["requested_teams"] = requested_teams or []
+        data["state"] = state
         data["updated_at"] = updated_at
+        data["url"] = f"https://github.example.com/org/repo/pull/{number}"
 
         mock_pr = PullRequest(mock_github_api_client, data)
 
         mock_github_api_client.get_pull_request = Mock()
         mock_github_api_client.get_pull_request.return_value = data
 
-        mock_github_api_client.get_patch = Mock()
-        mock_github_api_client.get_patch.return_value = patch
         mock_github_api_client.get_diff = Mock()
         mock_github_api_client.get_diff.return_value = patch
+        mock_github_api_client.get_patch = Mock()
+        mock_github_api_client.get_patch.return_value = patch
+
+        commit_author = {
+            "date": updated_at,
+            "email": author[1],
+            "name": author[0],
+        }
+        commits = commits or [
+            {
+                "commit": {
+                    "author": commit_author,
+                    "committer": commit_author,
+                    "message": commit_message,
+                },
+                "html_url": "some-commit-url",
+                "sha": head_sha,
+            }
+        ]
+        mock_github_api_client.get_pull_request_commits = Mock()
+        mock_github_api_client.get_pull_request_commits.return_value = commits
+
+        mock_github_api_client.get_pull_request_commits_comments = Mock()
+        mock_github_api_client.get_pull_request_commits_comments.return_value = (
+            commits_comments or []
+        )
 
         mock_github_api_client.get_pull_request_reviews = Mock()
-        mock_github_api_client.get_pull_request_reviews.return_value = reviews or {}
+        mock_github_api_client.get_pull_request_reviews.return_value = reviews or [
+            {
+                "body": "Review comment",
+                "html_url": "some-url",
+                "commit_id": head_sha,
+                "state": PullRequest.Review.DISMISSED,
+                "submitted_at": updated_at,
+                "user": {"login": "some-reviewer"},
+            }
+        ]
 
         mock_github_api_client.build_pull_request.return_value = mock_pr
         mock_pr.client = mock_github_api_client
-
-        commits = commits or [
-            {
-                "sha": head_sha,
-                "commit": {
-                    "committer": {
-                        "name": author[0],
-                        "email": author[1],
-                        "date": updated_at,
-                    }
-                },
-            }
-        ]
-        mock_github_api_client.get_pull_request_commits.return_value = commits
 
         return mock_pr
 
