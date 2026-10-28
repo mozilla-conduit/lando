@@ -60,7 +60,7 @@ def create_mock_pull_request() -> Callable:
         patch: str = "diff --git a/abc b/def\n",
         reviews: dict[str, Any] | None = None,
         commits: list[dict[str, Any]] | None = None,
-        updated_at: datetime.datetime | None = None,
+        updated_at: str | None = None,
     ) -> Mock:
         updated_at = (
             updated_at
