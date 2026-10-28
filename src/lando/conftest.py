@@ -883,15 +883,23 @@ def get_failing_check_commit_reason(get_failing_check_diff) -> Callable:
 
 
 @pytest.fixture
-def extract_email() -> Callable:
-    def _extract_email(author_string: str) -> str:
-        """Extract the email address from a string containing it between angle brackets."""
-        author_match = re.search("<([^>]*@[^>]*)>", author_string)
+def parse_user_email() -> Callable:
+    def _parse_user_email(author_string: str) -> str:
+        """Split username from email address in a git author string."""
+        author_match = re.search(r"([^<]+)\s+<([^>]*@[^>]*)>", author_string)
         if not author_match:
             raise AssertionError(f"Can't parse email from `{author_string}`")
 
-        author_email = author_match[1]
-        return author_email
+        return author_match.groups()
+
+    return _parse_user_email
+
+
+@pytest.fixture
+def extract_email(parse_user_email: Callable) -> Callable:
+    def _extract_email(author_string: str) -> str:
+        """Extract the email address from a string containing it between angle brackets."""
+        return parse_user_email(author_string)[1]
 
     return _extract_email
 
