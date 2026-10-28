@@ -479,6 +479,13 @@ class PullRequestNotAcceptedWarning(PullRequestWarning):
     ) -> list[str]:
         reviews = pull_request.reviews
 
+        if any(
+            review["state"] == pull_request.Review.CHANGES_REQUESTED
+            for review in reviews
+        ):
+            # This is captured by PullRequestBlockingReviewsWarning.
+            return []
+
         if any(review["state"] == pull_request.Review.APPROVED for review in reviews):
             return []
 
@@ -507,6 +514,19 @@ class PullRequestReviewsNotCurrentWarning(PullRequestWarning):
         request: HttpRequest,
     ) -> list[str]:
         reviews = pull_request.reviews
+
+        if any(
+            review["state"] == pull_request.Review.CHANGES_REQUESTED
+            for review in reviews
+        ):
+            # This is captured by PullRequestBlockingReviewsWarning.
+            return []
+
+        if not any(
+            review["state"] == pull_request.Review.APPROVED for review in reviews
+        ):
+            # This is captured by PullRequestNotAcceptedWarning.
+            return []
 
         if pull_request.head_sha in [
             review["commit_id"]
