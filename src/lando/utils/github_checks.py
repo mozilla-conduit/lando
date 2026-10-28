@@ -575,33 +575,6 @@ class PullRequestMissingTestingTagWarning(PullRequestWarning):
         return []
 
 
-class PullRequestWIPWarning(PullRequestWarning):
-    """Pull request is marked as WIP."""
-
-    @override
-    @classmethod
-    def name(cls) -> str:
-        return "PullRequestWIPWarning"
-
-    @override
-    @classmethod
-    def description(cls) -> str:
-        return "Pull request is marked as WIP."
-
-    @override
-    @classmethod
-    def run(
-        cls,
-        pull_request: LandoPullRequest,
-        target_repo: Repo,
-        request: HttpRequest,
-    ) -> list[str]:
-        if pull_request.title.lower().startswith("wip:"):
-            return [cls.description()]
-
-        return []
-
-
 class PullRequestUnresolvedCommentsWarning(PullRequestWarning):
     """Pull request has unresolved comments."""
 
