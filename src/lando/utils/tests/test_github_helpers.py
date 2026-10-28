@@ -6,13 +6,27 @@ from lando.utils.github import PullRequest
 from lando.utils.github_helpers import LandoPullRequest, PullRequestPatchHelper
 
 
+def test_LandoPullRequest(github_api_client_pr: mock.Mock):
+    # This should match the github_pr_response fixture.
+    pr_url = "https://api.github.com/repos/mozilla-conduit/test-repo/pulls/1"
+
+    pr = github_api_client_pr.build_pull_request(1)
+    lpr = LandoPullRequest.from_pr(pr)
+
+    assert pr == lpr, "LandoPullRequest.from_pr returned a different object"
+    assert isinstance(lpr, LandoPullRequest), "Coerced PR is not of the expected type"
+
+    assert lpr.url == pr_url, "Coerced PR URL is different"
+
+    for method in ["bug_ids", "bugs_by_id"]:
+        assert hasattr(lpr, method), "Coerced PR is missing additional methods"
+
+
 def test_PullRequestPatchHelper(github_api_client_pr: mock.Mock):
     # This should match the github_pr_response fixture.
     pr_url = "https://api.github.com/repos/mozilla-conduit/test-repo/pulls/1"
 
     pr = LandoPullRequest.from_pr(github_api_client_pr.build_pull_request(1))
-
-    assert pr.url == pr_url
 
     # Serialisation
     serialised_pr = pr.serialize()

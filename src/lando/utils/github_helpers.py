@@ -24,24 +24,23 @@ class LandoPullRequest(PullRequest):
     """A PullRequest object with additional Lando-specific logic.
 
     This object extends on the `github.PullRequest` by adding additional behaviours which
-    is not strictly GitHub-related and/or are provided by other modules in Lando.
+    are not strictly GitHub-related and/or are provided by other modules in Lando.
     """
 
     @classmethod
     def from_pr(cls, pr: PullRequest) -> Self:
-        """Build a LandoPullRequest from a PullRequest.
+        """Coerce a PullRequest into a LandoPullRequest.
 
-        This allows to obtain a `LandoPullRequest` without having to rebuild it from
-        scratch. This is useful, particularly if the source `PullRequest` was provided by
-        a factory, e.g., `GitHubAPIClient.build_pull_request`:
-
+        (!) This actually modifies the original object, and returns it.
 
             client = GitHubAPIClient(target_repo.url)
             pull_request = LandoPullRequest.from_pr(
                 client.build_pull_request(pull_number)
             )
         """
-        return cls(pr.client, pr._data)
+        pr.__class__ = LandoPullRequest
+        # We play fast and loose with types, and pyrefly isn't tracking.
+        return pr  # type: ignore[bad-return]
 
     @property
     def bug_ids(self) -> set[int]:
