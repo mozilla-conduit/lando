@@ -86,6 +86,9 @@ where = ["src"]
 DJANGO_SETTINGS_MODULE = "lando.test_settings"
 addopts = ["--cov", "--cov-context=test", "--cov-report", "html", "--no-migrations"]
 
+[tool.coverage.html]
+show_contexts = true
+
 [tool.djlint]
 profile = "jinja"
 
