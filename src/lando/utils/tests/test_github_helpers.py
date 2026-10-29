@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import pytest
@@ -10,9 +11,7 @@ def test_PullRequestPatchHelper(github_api_client_pr: mock.Mock):
     # This should match the github_pr_response fixture.
     pr_url = "https://api.github.com/repos/mozilla-conduit/test-repo/pulls/1"
 
-    pr = LandoPullRequest.from_pr(github_api_client_pr.build_pull_request(1))
-
-    assert pr.url == pr_url
+    pr = LandoPullRequest.fetch(github_api_client_pr, 1)
 
     # Serialisation
     serialised_pr = pr.serialize()
@@ -42,8 +41,12 @@ def test_PullRequestPatchHelper(github_api_client_pr: mock.Mock):
 
 
 @pytest.fixture
-def lando_pull_request(pull_request: PullRequest):
-    return LandoPullRequest.from_pr(pull_request)
+def lando_pull_request(github_pr_response: str) -> PullRequest:
+    """A real `PullRequest` built from a canned API payload, with a mock client.
+
+    Similar to the github.pull_request fixture.
+    """
+    return LandoPullRequest(mock.Mock(), json.loads(github_pr_response))
 
 
 def test_pull_request_bug_ids(lando_pull_request: LandoPullRequest):

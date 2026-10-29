@@ -25,7 +25,8 @@ from lando.main.scm import (
 )
 from lando.main.scm.abstract_scm import AbstractSCM
 from lando.pushlog.pushlog import PushLogForRepo
-from lando.utils.github import GitHubAPIClient, PullRequest
+from lando.utils.github import GitHubAPIClient
+from lando.utils.github_helpers import LandoPullRequest
 from lando.utils.landing_checks import LandingChecks
 from lando.utils.tasks import phab_trigger_repo_update
 
@@ -214,7 +215,7 @@ def find_reverted_prs(
     revert_commit: CommitData,
     scm: AbstractSCM,
     github_client: GitHubAPIClient,
-) -> list[PullRequest]:
+) -> list[LandoPullRequest]:
     """Return PR numbers named in a revert commit that should be commented on."""
     original_commits = {
         commit_hash: scm.describe_commit(commit_hash).desc
@@ -231,10 +232,10 @@ def get_reverted_pr(
     original_commit_message: str,
     original_commit_hash: str,
     github_client: GitHubAPIClient,
-) -> PullRequest | None:
+) -> LandoPullRequest | None:
     """Return the PR to comment on for one reverted commit, or `None` to skip it."""
 
-    pr_url_data = PullRequest.parse_pr_url(original_commit_message)
+    pr_url_data = LandoPullRequest.parse_pr_url(original_commit_message)
     if not pr_url_data:
         logger.debug(
             f"Skipping commit {original_commit_hash}: reverted commit has no "
@@ -257,7 +258,7 @@ def get_reverted_pr(
         return None
 
     try:
-        pr_to_revert = github_client.build_pull_request(pr_number)
+        pr_to_revert = LandoPullRequest.fetch(github_client, pr_number)
     except Exception:
         logger.exception(
             f"Skipping commit {original_commit_hash}: PR #{pr_number} could not "
@@ -267,7 +268,7 @@ def get_reverted_pr(
     return pr_to_revert
 
 
-def comment_on_reverted_prs(reverted_prs: list[PullRequest], commit_hash: str):
+def comment_on_reverted_prs(reverted_prs: list[LandoPullRequest], commit_hash: str):
     """Post a 'has been reverted' comment on each reverted pull request."""
     for pr in reverted_prs:
         pr.add_comment(

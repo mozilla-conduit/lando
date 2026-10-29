@@ -1,8 +1,11 @@
+import datetime
 import json
+from collections import defaultdict
 from pathlib import Path
 from textwrap import dedent
-from typing import Callable
+from typing import Any, Callable
 from unittest import mock
+from unittest.mock import Mock
 
 import pytest
 from requests import Response
@@ -11,6 +14,10 @@ from lando.utils.github import GitHubAPIClient, PullRequest
 
 BASE_DIR = Path(__file__).resolve().parent
 
+#
+# High-level Object fixtures
+#
+
 
 @pytest.fixture
 def mock_github_fetch_token(monkeypatch: pytest.MonkeyPatch) -> mock.Mock:
@@ -18,6 +25,180 @@ def mock_github_fetch_token(monkeypatch: pytest.MonkeyPatch) -> mock.Mock:
     mock_fetch_token.return_value = "mock_token"
     monkeypatch.setattr("lando.utils.github.GitHub._fetch_token", mock_fetch_token)
     return mock_fetch_token
+
+
+@pytest.fixture
+@mock.patch("lando.utils.github.api.GitHubAPI")
+def repo_mc_github_api_client(_mock_github_api: Mock):
+    mock_github_api_client = mock.MagicMock(
+        wraps=GitHubAPIClient("https://github.example.com/org/repo")
+    )
+    mock_github_api_client.repo_is_private = False
+    return mock_github_api_client
+
+
+DEFAULT_COMMIT_SHA = "aaa123"
+DEFAULT_PR_DATE = datetime.datetime(
+    2024, 4, 30, 12, 30, 00, tzinfo=datetime.UTC
+).isoformat()
+
+
+@pytest.fixture
+def create_mock_pull_request_commit() -> Callable:
+    def _create_mock_pull_request_commit(
+        *,
+        sha: str = DEFAULT_COMMIT_SHA,
+        commit_message: str = "No bug - commit message",
+        date: str = DEFAULT_PR_DATE,
+        author_name: str = "commit author",
+        author_email: str = "author@example.com",
+        html_url="some-commit-url",
+    ) -> dict[str, Any]:
+        commit_author = {
+            "date": date,
+            "email": author_email,
+            "name": author_name,
+        }
+        return {
+            "commit": {
+                "author": commit_author,
+                "committer": commit_author,
+                "message": commit_message,
+            },
+            "html_url": "some-commit-url",
+            "sha": sha,
+        }
+
+    return _create_mock_pull_request_commit
+
+
+@pytest.fixture
+def create_mock_pull_request_review() -> Callable:
+    def _create_mock_pull_request_review(
+        *,
+        body: str = "Review comment for warning",
+        commit_id: str = DEFAULT_COMMIT_SHA,
+        html_url: str = "some-review-url",
+        state: str = PullRequest.Review.APPROVED,
+        submitted_at: str = DEFAULT_PR_DATE,
+        reviewer: str = "some-reviewer",
+    ) -> dict[str, Any]:
+        return {
+            "body": body,
+            "commit_id": commit_id,
+            "html_url": html_url,
+            "state": state,
+            "submitted_at": submitted_at,
+            "user": {"login": reviewer},
+        }
+
+    return _create_mock_pull_request_review
+
+
+@pytest.fixture
+def create_mock_pull_request(
+    create_mock_pull_request_commit: Callable,
+    create_mock_pull_request_review: Callable,
+) -> Callable:
+    """Fixture to attach a partially mocked PullRequest to a mock GitHubAPIClient.
+
+    Currently, the following methods are supported:
+    * GitHubAPIClient.get_diff (pull number parameter is ignored)
+    * GitHubAPIClient.get_patch (pull number parameter is ignored)
+    * GitHubAPIClient.get_pull_request (parameters are ignored)
+    * GitHubAPIClient.get_pull_request_commits (pull number parameter is ignored)
+    * GitHubAPIClient.get_pull_request_reviews (pull number parameter is ignored)
+
+    CAVEAT: This only supports a single PR.
+
+    """
+
+    def _create_mock_pull_request(
+        mock_github_api_client: Mock,
+        number: int = 1,
+        *,
+        author: tuple[str, str] = ("Test Author", "test@email.com"),
+        base_ref: str = "main",
+        base_sha: str = "bbb123",
+        commit_message: str = "Test Commit Message",
+        commits: list[dict[str, Any]] | None = None,
+        commits_comments: list[dict[str, Any]] | None = None,
+        head_ref: str = "some-branch",
+        head_sha: str = DEFAULT_COMMIT_SHA,
+        is_draft: bool = False,
+        labels: list[dict[str, Any]] | None = None,
+        mergeable_state: PullRequest.Mergeability = PullRequest.Mergeability.CLEAN,
+        patch: str = "diff --git a/abc b/def\n",
+        reviews: list[dict[str, Any]] | None = None,
+        requested_reviewers: list[dict[str, Any]] | None = None,
+        requested_teams: list[dict[str, Any]] | None = None,
+        state: PullRequest.State = PullRequest.State.OPEN,
+        updated_at: str | None = None,
+    ) -> Mock:
+        updated_at = updated_at or DEFAULT_PR_DATE
+
+        # For data not specified by the mock, provide an infinitely nesting defaultdict.
+        def nested_defaultdict():
+            return defaultdict(nested_defaultdict)
+
+        data = nested_defaultdict()
+        data["base"]["ref"] = base_ref
+        data["base"]["sha"] = base_sha
+        data["head"]["ref"] = head_ref
+        data["head"]["sha"] = head_sha
+        data["draft"] = is_draft
+        data["labels"] = labels or [{"name": "some-label"}]
+        data["mergeable_state"] = mergeable_state
+        data["number"] = number
+        data["title"], _, data["body"] = commit_message.partition("\n")
+        data["requested_reviewers"] = requested_reviewers or []
+        data["requested_teams"] = requested_teams or []
+        data["state"] = state
+        data["updated_at"] = updated_at
+        data["url"] = f"https://github.example.com/org/repo/pull/{number}"
+
+        mock_pr = PullRequest(mock_github_api_client, data)
+
+        mock_github_api_client.get_pull_request = Mock()
+        mock_github_api_client.get_pull_request.return_value = data
+
+        mock_github_api_client.get_diff = Mock()
+        mock_github_api_client.get_diff.return_value = patch
+        mock_github_api_client.get_patch = Mock()
+        mock_github_api_client.get_patch.return_value = patch
+
+        commits = commits or [
+            create_mock_pull_request_commit(
+                sha=head_sha,
+                commit_message=commit_message,
+                date=updated_at,
+                author_name=author[0],
+                author_email=author[1],
+            )
+        ]
+        mock_github_api_client.get_pull_request_commits = Mock()
+        mock_github_api_client.get_pull_request_commits.return_value = commits
+
+        mock_github_api_client.get_pull_request_commits_comments = Mock()
+        mock_github_api_client.get_pull_request_commits_comments.return_value = (
+            commits_comments or []
+        )
+
+        mock_github_api_client.get_pull_request_reviews = Mock()
+        mock_github_api_client.get_pull_request_reviews.return_value = reviews or [
+            create_mock_pull_request_review(state=PullRequest.Review.DISMISSED)
+        ]
+
+        mock_pr.client = mock_github_api_client
+
+        return mock_pr
+
+    return _create_mock_pull_request
+
+
+#
+# Low-level HTTP fixtures
+#
 
 
 @pytest.fixture
@@ -311,7 +492,7 @@ def github_api_client(
         repo = "mozilla-conduit/test-repo"
         client_mock = GitHubAPIClient(f"https://github.com/{repo}/")
 
-        client_mock.list_pull_request = mock.Mock(
+        client_mock.list_pull_requests = mock.Mock(
             return_value=json.loads(github_pr_list_response)
         )
 

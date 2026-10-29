@@ -38,7 +38,7 @@ class PullRequestView(LandoView, PrivateRepoPermissionMixin):
         self.raise_404_if_needed(request, client)
 
         try:
-            pull_request = LandoPullRequest.from_pr(client.build_pull_request(number))
+            pull_request = LandoPullRequest.fetch(client, number)
         except HTTPError as e:
             if e.response.status_code == 404:
                 raise Http404() from e
