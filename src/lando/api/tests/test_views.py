@@ -172,11 +172,11 @@ def test__views__pull_request_api_view__private_repo(github_api_client, client):
         scm_type=SCMType.GIT,
     )
 
-    response = client.get(f"/api/pulls/{repo.name}/1/landing_jobs")
+    response = client.get(f"/api/pulls/{repo.name}/100/landing_jobs")
     assert response.status_code == 404
 
     mock_github_api_client.repo_is_private = False
-    response = client.get(f"/api/pulls/{repo.name}/1/landing_jobs")
+    response = client.get(f"/api/pulls/{repo.name}/100/landing_jobs")
     assert response.status_code == 200
 
 
@@ -632,7 +632,7 @@ def test__views_landing_job_pull_request_view__warnings(
     }
 
     old_warnings = authenticated_client.get(
-        f"/api/pulls/{repo.name}/1/checks",
+        f"/api/pulls/{repo.name}/{mock_pr.number}/checks",
         content_type="application/json",
     ).json()["warnings"]
 
@@ -642,7 +642,7 @@ def test__views_landing_job_pull_request_view__warnings(
     }
 
     response = authenticated_client.post(
-        f"/api/pulls/{repo.name}/1/landing_jobs",
+        f"/api/pulls/{repo.name}/{mock_pr.number}/landing_jobs",
         data={
             "head_sha": DEFAULT_COMMIT_SHA,
             "base_sha": "bbb123",
@@ -684,18 +684,18 @@ def test__views__landing_job_pull_request_view__status(
     repo = repo_mc(SCMType.GIT)
     github_api_client.return_value = repo_mc_github_api_client
 
-    create_mock_pull_request(repo_mc_github_api_client, number=1)
-    pull_number = 1
+    mock_pr = create_mock_pull_request(repo_mc_github_api_client)
+    mock_pr.number = 1
     repo_mc_github_api_client.build_pull_request.return_value = mock.MagicMock(
-        number=pull_number
+        number=mock_pr.number
     )
 
     job = LandingJob.objects.create(
         target_repo=repo, status=job_status, is_pull_request_job=True
     )
-    add_revisions_to_job([Revision.objects.create(pull_number=pull_number)], job)
+    add_revisions_to_job([Revision.objects.create(pull_number=mock_pr.number)], job)
 
-    response = client.get(f"/api/pulls/{repo.name}/{pull_number}/landing_jobs")
+    response = client.get(f"/api/pulls/{repo.name}/{mock_pr.number}/landing_jobs")
 
     assert response.json() == {"status": expected_status}, (
         f"A `{job_status}` job should be reported as `{expected_status}`."
@@ -716,7 +716,7 @@ def test__views_landing_job_pull_request_view__changed_head_sha(
     repo = repo_mc(SCMType.GIT)
     github_api_client.return_value = repo_mc_github_api_client
 
-    create_mock_pull_request(repo_mc_github_api_client, head_sha="newsha")
+    mock_pr = create_mock_pull_request(repo_mc_github_api_client, head_sha="newsha")
 
     mock_warnings_and_blockers.return_value = {
         "warnings": [],
@@ -724,12 +724,12 @@ def test__views_landing_job_pull_request_view__changed_head_sha(
     }
 
     warnings = authenticated_client.get(
-        f"/api/pulls/{repo.name}/1/checks",
+        f"/api/pulls/{repo.name}/{mock_pr.number}/checks",
         content_type="application/json",
     ).json()["warnings"]
 
     response = authenticated_client.post(
-        f"/api/pulls/{repo.name}/1/landing_jobs",
+        f"/api/pulls/{repo.name}/{mock_pr.number}/landing_jobs",
         data={
             "head_sha": "oldsha",
             "base_sha": "bbb123",
