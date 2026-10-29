@@ -10,6 +10,7 @@ from django.test import Client
 from lando.main.models import JobStatus, Repo, SCMType
 from lando.main.models.landing_job import LandingJob, add_revisions_to_job
 from lando.main.models.revision import Revision
+from src.lando.utils.github.tests.conftest import DEFAULT_COMMIT_SHA
 
 
 @pytest.fixture
