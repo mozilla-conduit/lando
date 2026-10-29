@@ -1,6 +1,5 @@
 import pytest
 
-from lando.api.legacy.api.transplants import LegacyAPIException
 from lando.main.models import Revision
 from lando.ui.legacy.stacks import (
     Edge,
@@ -149,12 +148,12 @@ def test_transplant_disallowed_author_requires_author_override(
         assert form.fields["author_email"].initial is None
 
         data["confirmation_token"] = context_data["dryrun"]["confirmation_token"]
-        with pytest.raises(LegacyAPIException) as e:
-            authenticated_client.post(f"/D{r1['id']}/", data=data)
-        assert e.value.args == (
-            400,
-            "Mailbox values should be present if and only if disallowed authors are present.",
-        )
+        response = authenticated_client.post(f"/D{r1['id']}/", data=data)
+        assert response.status_code == 302
+        messages = [str(m) for m in response.wsgi_request._messages]
+        assert messages == [
+            "Mailbox values should be present if and only if disallowed authors are present."
+        ]
 
         # Associate Lando user with the phabricator user and try again.
         user.profile.phabricator_phid = r1["authorPHID"]
