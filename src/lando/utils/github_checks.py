@@ -479,6 +479,13 @@ class PullRequestNotAcceptedWarning(PullRequestWarning):
     ) -> list[str]:
         reviews = pull_request.reviews
 
+        if any(
+            review["state"] == pull_request.Review.CHANGES_REQUESTED
+            for review in reviews
+        ):
+            # This is captured by PullRequestBlockingReviewsWarning.
+            return []
+
         if any(review["state"] == pull_request.Review.APPROVED for review in reviews):
             return []
 
@@ -507,6 +514,19 @@ class PullRequestReviewsNotCurrentWarning(PullRequestWarning):
         request: HttpRequest,
     ) -> list[str]:
         reviews = pull_request.reviews
+
+        if any(
+            review["state"] == pull_request.Review.CHANGES_REQUESTED
+            for review in reviews
+        ):
+            # This is captured by PullRequestBlockingReviewsWarning.
+            return []
+
+        if not any(
+            review["state"] == pull_request.Review.APPROVED for review in reviews
+        ):
+            # This is captured by PullRequestNotAcceptedWarning.
+            return []
 
         if pull_request.head_sha in [
             review["commit_id"]
@@ -550,33 +570,6 @@ class PullRequestMissingTestingTagWarning(PullRequestWarning):
             )
             != 1
         ):
-            return [cls.description()]
-
-        return []
-
-
-class PullRequestWIPWarning(PullRequestWarning):
-    """Pull request is marked as WIP."""
-
-    @override
-    @classmethod
-    def name(cls) -> str:
-        return "PullRequestWIPWarning"
-
-    @override
-    @classmethod
-    def description(cls) -> str:
-        return "Pull request is marked as WIP."
-
-    @override
-    @classmethod
-    def run(
-        cls,
-        pull_request: LandoPullRequest,
-        target_repo: Repo,
-        request: HttpRequest,
-    ) -> list[str]:
-        if pull_request.title.lower().startswith("wip:"):
             return [cls.description()]
 
         return []
