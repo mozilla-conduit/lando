@@ -45,6 +45,9 @@ class AutomationWorker(Worker):
     worker_type = WorkerType.AUTOMATION
 
     def skip_checks(self, job: AutomationJob, new_commits: list[CommitData]) -> bool:
+        # Revert subjects copy the original, which may contain `a=release`.
+        if job.actions.filter(action_type=ActionTypeChoices.REVERT).exists():
+            return False
         return (
             job.has_one_action
             and job.actions.first().action_type == ActionTypeChoices.MERGE_ONTO
