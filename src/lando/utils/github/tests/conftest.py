@@ -103,7 +103,6 @@ def create_mock_pull_request(
     """Fixture to attach a partially mocked PullRequest to a mock GitHubAPIClient.
 
     Currently, the following methods are supported:
-    * GitHubAPIClient.build_pull_request (parameters are ignored)
     * GitHubAPIClient.get_diff (pull number parameter is ignored)
     * GitHubAPIClient.get_patch (pull number parameter is ignored)
     * GitHubAPIClient.get_pull_request (parameters are ignored)
@@ -190,7 +189,6 @@ def create_mock_pull_request(
             create_mock_pull_request_review(state=PullRequest.Review.DISMISSED)
         ]
 
-        mock_github_api_client.build_pull_request.return_value = mock_pr
         mock_pr.client = mock_github_api_client
 
         return mock_pr

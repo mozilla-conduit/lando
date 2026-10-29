@@ -2222,8 +2222,10 @@ def test_is_revert_commit(description, is_revert, make_scm_commit):
 
 
 @mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
+@mock.patch("lando.api.legacy.workers.automation_worker.LandoPullRequest.fetch")
 @pytest.mark.django_db
 def test_comment_on_reverted_pr_single_revert(
+    mock_lpr_fetch,
     github_api_client,
     client,
     git_repo_github_push_path,
@@ -2245,7 +2247,7 @@ def test_comment_on_reverted_pr_single_revert(
     mock_pr = mock_github_pull_request(
         number=1, title="Bug 1234 - add a line", body="test description"
     )
-    mock_github_api_client.build_pull_request.return_value = mock_pr
+    mock_lpr_fetch.return_value = mock_pr
     mock_github_api_client.repo_owner = "mozilla-conduit"
     mock_github_api_client.repo_name = "test-repo"
 
@@ -2287,8 +2289,10 @@ def test_comment_on_reverted_pr_single_revert(
 
 
 @mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
+@mock.patch("lando.api.legacy.workers.automation_worker.LandoPullRequest.fetch")
 @pytest.mark.django_db
 def test_comment_on_reverted_prs_multiple_reverts_in_one_commit(
+    mock_lpr_fetch,
     github_api_client,
     client,
     git_repo_github_push_path,
@@ -2317,9 +2321,7 @@ def test_comment_on_reverted_prs_multiple_reverts_in_one_commit(
     pr_2 = mock_github_pull_request(number=2, title="Bug 5678 - add another line")
 
     prs_by_number = {"1": pr_1, "2": pr_2}
-    mock_github_api_client.build_pull_request.side_effect = lambda pr_number: (
-        prs_by_number[pr_number]
-    )
+    mock_lpr_fetch.side_effect = lambda _client, pr_number: prs_by_number[pr_number]
 
     commit_message_1 = "Bug 1234 - add a line\n\ntest description\nPull request: https://github.com/mozilla-conduit/test-repo/pull/1"
     create_git_commit(
@@ -2377,8 +2379,10 @@ def test_comment_on_reverted_prs_multiple_reverts_in_one_commit(
 
 
 @mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
+@mock.patch("lando.api.legacy.workers.automation_worker.LandoPullRequest.fetch")
 @pytest.mark.django_db
 def test_comment_on_reverted_pr_among_non_revert_commits(
+    mock_lpr_fetch,
     github_api_client,
     client,
     git_repo_github_push_path,
@@ -2403,9 +2407,7 @@ def test_comment_on_reverted_pr_among_non_revert_commits(
     pr_3 = mock_github_pull_request(number=3, title="Bug 91011 - add a third line")
 
     prs_by_number = {"1": mock_pr, "2": pr_2, "3": pr_3}
-    mock_github_api_client.build_pull_request.side_effect = lambda pr_number: (
-        prs_by_number[pr_number]
-    )
+    mock_lpr_fetch.side_effect = lambda _client, pr_number: prs_by_number[pr_number]
     mock_github_api_client.repo_owner = "mozilla-conduit"
     mock_github_api_client.repo_name = "test-repo"
 

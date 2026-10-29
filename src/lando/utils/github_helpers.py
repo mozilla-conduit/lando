@@ -7,7 +7,6 @@ import math
 from collections.abc import Callable
 from datetime import datetime
 from json.decoder import JSONDecodeError
-from typing import Self
 
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse
@@ -26,21 +25,6 @@ class LandoPullRequest(PullRequest):
     This object extends on the `github.PullRequest` by adding additional behaviours which
     are not strictly GitHub-related and/or are provided by other modules in Lando.
     """
-
-    @classmethod
-    def from_pr(cls, pr: PullRequest) -> Self:
-        """Coerce a PullRequest into a LandoPullRequest.
-
-        (!) This actually modifies the original object, and returns it.
-
-            client = GitHubAPIClient(target_repo.url)
-            pull_request = LandoPullRequest.from_pr(
-                client.build_pull_request(pull_number)
-            )
-        """
-        pr.__class__ = LandoPullRequest
-        # We play fast and loose with types, and pyrefly isn't tracking.
-        return pr  # type: ignore[bad-return]
 
     @property
     def bug_ids(self) -> set[int]:

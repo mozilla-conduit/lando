@@ -192,7 +192,7 @@ def test_api_client_build_pr(
     github_api_client.get_patch = mock.MagicMock()
     github_api_client.get_patch.return_value = github_pr_patch
 
-    pr = github_api_client.build_pull_request(1)
+    pr = PullRequest.fetch(github_api_client, 1)
 
     assert github_api_client.get_pull_request.call_count == 1
     assert pr.number == 1
@@ -267,7 +267,7 @@ def test__PullRequest___parse_body_segments__no_delimiter(body, expected_output)
 def test__PullRequest__patch(
     github_api_client_pr: GitHubAPIClient, github_pr_patch: str
 ):
-    pr = github_api_client_pr.build_pull_request(1)
+    pr = PullRequest.fetch(github_api_client_pr, 1)
 
     assert pr.patch == github_pr_patch
 
@@ -275,7 +275,7 @@ def test__PullRequest__patch(
 def test__PullRequest__patch__stale(
     github_api_client_pr: GitHubAPIClient, github_pr_patch: str
 ):
-    pr = github_api_client_pr.build_pull_request(1)
+    pr = PullRequest.fetch(github_api_client_pr, 1)
 
     # Make the PR's head SHA different from what the github_api_client returns.
     pr.head_sha = pr.head_sha[::-1]

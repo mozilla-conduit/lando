@@ -155,15 +155,17 @@ def test__views__phabricator_auth_backend_invalid_token(
 
 
 @mock.patch("lando.api.views.GitHubAPIClient")
+@mock.patch("lando.api.views.LandoPullRequest")
 @pytest.mark.django_db(transaction=True)
-def test__views__pull_request_api_view__private_repo(github_api_client, client):
+def test__views__pull_request_api_view__private_repo(
+    mock_lpr_fetch, github_api_client, client
+):
 
     mock_github_api_client = mock.MagicMock()
     mock_pr = mock.MagicMock()
 
-    mock_github_api_client.repo_is_private = True
-    mock_github_api_client.build_pull_request.return_value = mock_pr
-
+    mock_lpr_fetch.return_value = mock_pr
+    mock_pr.client = mock_github_api_client
     github_api_client.return_value = mock_github_api_client
 
     repo = Repo.objects.create(
@@ -172,6 +174,7 @@ def test__views__pull_request_api_view__private_repo(github_api_client, client):
         scm_type=SCMType.GIT,
     )
 
+    mock_github_api_client.repo_is_private = True
     response = client.get(f"/api/pulls/{repo.name}/100/landing_jobs")
     assert response.status_code == 404
 
@@ -181,6 +184,7 @@ def test__views__pull_request_api_view__private_repo(github_api_client, client):
 
 
 @mock.patch("lando.api.views.GitHubAPIClient")
+@mock.patch("lando.api.views.LandoPullRequest")
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize(
     "payload, expected_status, expected_response",
@@ -216,6 +220,7 @@ def test__views__pull_request_api_view__private_repo(github_api_client, client):
     ],
 )
 def test__views__pull_request_content_api_view(
+    mock_lpr_fetch,
     github_api_client,
     repo_mc,
     authenticated_client,
@@ -230,7 +235,7 @@ def test__views__pull_request_content_api_view(
 
     mock_pull_request = mock.MagicMock()
 
-    repo_mc_github_api_client.build_pull_request.return_value = mock_pull_request
+    mock_lpr_fetch.return_value = mock_pull_request
     repo_mc_github_api_client.update_pull_request_content.return_value = payload
 
     result = authenticated_client.put(
@@ -574,7 +579,7 @@ class TestViewsPullRequestUpdateWebHook:
 
 @mock.patch("lando.api.views.generate_warnings_and_blockers")
 @mock.patch("lando.api.views.GitHubAPIClient")
-@mock.patch("lando.api.views.LandoPullRequest")
+@mock.patch("lando.api.views.LandoPullRequest.fetch")
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize(
     "warnings_1, warnings_2, expected_status, expected_response",
@@ -608,7 +613,7 @@ class TestViewsPullRequestUpdateWebHook:
     ],
 )
 def test__views_landing_job_pull_request_view__warnings(
-    mock_lando_pull_request,
+    mock_lpr_fetch,
     github_api_client,
     mock_warnings_and_blockers,
     create_mock_pull_request,
@@ -624,7 +629,7 @@ def test__views_landing_job_pull_request_view__warnings(
     github_api_client.return_value = repo_mc_github_api_client
 
     mock_pr = create_mock_pull_request(repo_mc_github_api_client)
-    mock_lando_pull_request.from_pr.return_value = mock_pr
+    mock_lpr_fetch.return_value = mock_pr
 
     mock_warnings_and_blockers.return_value = {
         "warnings": warnings_1,
@@ -661,6 +666,7 @@ def test__views_landing_job_pull_request_view__warnings(
 
 
 @mock.patch("lando.api.views.GitHubAPIClient")
+@mock.patch("lando.api.views.LandoPullRequest.fetch")
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize(
     "job_status,expected_status",
@@ -672,6 +678,7 @@ def test__views_landing_job_pull_request_view__warnings(
     ],
 )
 def test__views__landing_job_pull_request_view__status(
+    mock_lpr_fetch,
     github_api_client,
     repo_mc,
     client,
@@ -686,9 +693,7 @@ def test__views__landing_job_pull_request_view__status(
 
     mock_pr = create_mock_pull_request(repo_mc_github_api_client)
     mock_pr.number = 1
-    repo_mc_github_api_client.build_pull_request.return_value = mock.MagicMock(
-        number=mock_pr.number
-    )
+    mock_lpr_fetch.return_value = mock.MagicMock(number=mock_pr.number)
 
     job = LandingJob.objects.create(
         target_repo=repo, status=job_status, is_pull_request_job=True
@@ -704,8 +709,10 @@ def test__views__landing_job_pull_request_view__status(
 
 @mock.patch("lando.api.views.generate_warnings_and_blockers")
 @mock.patch("lando.api.views.GitHubAPIClient")
+@mock.patch("lando.api.views.LandoPullRequest.fetch")
 @pytest.mark.django_db()
 def test__views_landing_job_pull_request_view__changed_head_sha(
+    mock_lpr_fetch,
     github_api_client,
     mock_warnings_and_blockers,
     authenticated_client,
@@ -717,6 +724,7 @@ def test__views_landing_job_pull_request_view__changed_head_sha(
     github_api_client.return_value = repo_mc_github_api_client
 
     mock_pr = create_mock_pull_request(repo_mc_github_api_client, head_sha="newsha")
+    mock_lpr_fetch.return_value = mock_pr
 
     mock_warnings_and_blockers.return_value = {
         "warnings": [],
