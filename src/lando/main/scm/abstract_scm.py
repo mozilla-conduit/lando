@@ -119,6 +119,15 @@ class AbstractSCM(ABC):
     def cherry_pick_commit(self, commit_id: str):
         """Cherry-pick the specified commit onto the current branch."""
 
+    def revert_commit(self, commit_id: str):
+        """Back out one non-root, non-merge ancestor of HEAD.
+
+        Restore the original checkout on failure. Not supported by all SCMs.
+        """
+        raise NotImplementedError(
+            f"`revert_commit` is not implemented for {self.scm_name()}."
+        )
+
     @property
     def supports_3way_apply(self) -> bool:
         """Whether this SCM can reconstruct a patch at its base then rebase.
