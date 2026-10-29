@@ -643,7 +643,7 @@ def test__views_landing_job_pull_request_view__warnings(
     response = authenticated_client.post(
         f"/api/pulls/{repo.name}/1/landing_jobs",
         data={
-            "head_sha": "aaa123",
+            "head_sha": DEFAULT_COMMIT_SHA,
             "base_sha": "bbb123",
             "pull_number": 1,
             "old_warnings": old_warnings,
