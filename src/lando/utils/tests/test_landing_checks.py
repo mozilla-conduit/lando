@@ -184,6 +184,7 @@ def test_check_commit_message_valid_message(commit_message: str, error_message: 
     ), error_message
 
 
+# XXX: Compare to the get_failing_check_commit_reason fixture.
 @pytest.mark.parametrize(
     "scm_type,commit_message,return_string,error_message",
     # Can't use itertools.product without similar overhead as this,
@@ -303,6 +304,31 @@ def test_check_commit_message_invalid_message(
     )
     commit_title = ph.get_commit_title()
     assert errors == [return_string + commit_title], error_message
+
+
+def test_check_commit_message_non_blocker(diff_to_git_patch):
+    commit_message = "Bug 100 - Foo. r?bar REPO-firefox-autoland"
+
+    ph = GitPatchHelper.from_string_io(
+        io.StringIO(
+            diff_to_git_patch(
+                GIT_DIFF_FILENAME_TEMPLATE.format(filename="a"),
+                commit_description=commit_message,
+            )
+        )
+    )
+
+    patch_helpers = [ph]
+    assessor = PatchCollectionAssessor(
+        patch_helpers=patch_helpers, repo_name="firefox-autoland"
+    )
+
+    errors = assessor.run_patch_collection_checks(
+        patch_collection_checks=[CommitMessagesCheck], patch_checks=[], is_blocker=False
+    )
+    assert errors == [], (
+        "No error should be raised for an r? commit message in non-blocker mode"
+    )
 
 
 @pytest.mark.parametrize("signed_disallowed", (False, True))
