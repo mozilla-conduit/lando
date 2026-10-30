@@ -8,7 +8,6 @@ from lando.main.models.commit_map import CommitMap
 from lando.main.models.repo import SHIPPING, Repo
 from lando.utils.landing_checks import (
     PreventNSPRCheck,
-    PreventNSPRNSSCheck,
     PreventNSSCheck,
 )
 
@@ -230,7 +229,7 @@ class Command(BaseCommand):
     ):
         repos = Repo.objects.all()
 
-        repos_with_hook = [r for r in repos if PreventNSPRNSSCheck.name() in r.hooks]
+        repos_with_hook = [r for r in repos if "PreventNSPRNSSCheck" in r.hooks]
 
         if not repos_with_hook:
             self.stdout.write(
@@ -244,7 +243,7 @@ class Command(BaseCommand):
         )
 
         for repo in repos_with_hook:
-            repo.hooks.remove(PreventNSPRNSSCheck.name())
+            repo.hooks.remove("PreventNSPRNSSCheck")
             repo.hooks.extend([PreventNSPRCheck.name(), PreventNSSCheck.name()])
             repo.save()
             self.stdout.write(f"{repo.name} ", ending="")
