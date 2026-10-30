@@ -227,7 +227,6 @@ class Command(BaseCommand):
     def migrate_6_bug2084864_deprecate_combined_PreventNSPRNSSCheck(
         self, ask_confirm: bool = True
     ):
-
         repos = Repo.objects.all()
 
         repos_with_hook = [r for r in repos if "PreventNSPRNSSCheck" in r.hooks]
