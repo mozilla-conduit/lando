@@ -805,7 +805,7 @@ def get_failing_check_commit_reason(get_failing_check_diff) -> Callable:
             },
             "Revision needs 'Bug N' or 'No bug' in the commit message: commit message without bug info",
         ),
-        # PreventNSPRNSSCheck
+        # PreventNSPRCheck
         "nspr": (
             {
                 "author": "Test User <test@example.com>",
@@ -814,7 +814,7 @@ def get_failing_check_commit_reason(get_failing_check_diff) -> Callable:
             },
             "Revision makes changes to restricted directories:",
         ),
-        # PreventNSPRNSSCheck
+        # PreventNSSCheck
         "nss": (
             {
                 "author": "Test User <test@example.com>",

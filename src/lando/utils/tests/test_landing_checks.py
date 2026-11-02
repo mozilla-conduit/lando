@@ -17,10 +17,12 @@ from lando.utils.landing_checks import (
     BugReferencesCheck,
     CommitMessagesCheck,
     LandingChecks,
+    PatchCheck,
     PatchCollectionAssessor,
     PreventDotGithubCheck,
     PreventHgDirectoryCheck,
-    PreventNSPRNSSCheck,
+    PreventNSPRCheck,
+    PreventNSSCheck,
     PreventSignedCommitsCheck,
     PreventSubmodulesCheck,
     TryTaskConfigCheck,
@@ -551,11 +553,21 @@ def test_check_prevent_hg_directory():
     )
 
 
-def test_check_prevent_nspr_nss_missing_fields():
+@pytest.mark.parametrize(
+    "check_class,filename",
+    (
+        (PreventNSPRCheck, "nsprpub/testfile.txt"),
+        (PreventNSSCheck, "security/nss/testfile.txt"),
+    ),
+)
+def test_check_prevent_nspr_nss_missing_fields(
+    check_class: type[PatchCheck], filename: str
+):
     parsed_diff = rs_parsepatch.get_diffs(
-        GIT_DIFF_FILENAME_TEMPLATE.format(filename="security/nss/testfile.txt")
+        GIT_DIFF_FILENAME_TEMPLATE.format(filename=filename)
     )
-    prevent_nspr_nss_check = PreventNSPRNSSCheck(
+
+    prevent_nspr_nss_check = check_class(
         email="testuser@mozilla.com",
     )
     for diff in parsed_diff:
@@ -565,11 +577,23 @@ def test_check_prevent_nspr_nss_missing_fields():
     )
 
 
-def test_check_prevent_nspr_nss_nss():
+@pytest.mark.parametrize(
+    "check_class,filename,dir_type,commit_message_override",
+    (
+        (PreventNSPRCheck, "nsprpub/testfile.txt", "NSPR", "UPGRADE_NSPR_RELEASE"),
+        (PreventNSSCheck, "security/nss/testfile.txt", "NSS", "UPGRADE_NSS_RELEASE"),
+    ),
+)
+def test_check_prevent_nspr_nss(
+    check_class: type[PatchCheck],
+    filename: str,
+    dir_type: str,
+    commit_message_override: str,
+):
     parsed_diff = rs_parsepatch.get_diffs(
-        GIT_DIFF_FILENAME_TEMPLATE.format(filename="security/nss/testfile.txt")
+        GIT_DIFF_FILENAME_TEMPLATE.format(filename=filename)
     )
-    prevent_nspr_nss_check = PreventNSPRNSSCheck(
+    prevent_nspr_nss_check = check_class(
         email="testuser@mozilla.com",
         commit_message=COMMIT_MESSAGE,
     )
@@ -577,109 +601,20 @@ def test_check_prevent_nspr_nss_nss():
         prevent_nspr_nss_check.next_diff(diff)
     expected = (
         "Revision makes changes to restricted directories: "
-        + "vendored NSS directories: `security/nss/testfile.txt`."
+        + f"vendored {dir_type} directories: `{filename}`."
     )
     assert [expected] == prevent_nspr_nss_check.result(), (
-        "Check should disallow changes to NSS without proper commit message."
+        f"Check should disallow changes to {dir_type} without proper commit message."
     )
 
-    prevent_nspr_nss_check = PreventNSPRNSSCheck(
+    prevent_nspr_nss_check = check_class(
         email="testuser@mozilla.com",
-        commit_message="bug 123: upgrade NSS UPGRADE_NSS_RELEASE",
+        commit_message=f"bug 123: upgrade {dir_type} {commit_message_override}",
     )
     for diff in parsed_diff:
         prevent_nspr_nss_check.next_diff(diff)
     assert not prevent_nspr_nss_check.result(), (
-        "Check should allow changes to NSS with proper commit message."
-    )
-
-
-def test_check_prevent_nspr_nss_nspr():
-    parsed_diff = rs_parsepatch.get_diffs(
-        GIT_DIFF_FILENAME_TEMPLATE.format(filename="nsprpub/testfile.txt")
-    )
-    prevent_nspr_nss_check = PreventNSPRNSSCheck(
-        email="testuser@mozilla.com",
-        commit_message=COMMIT_MESSAGE,
-    )
-    for diff in parsed_diff:
-        prevent_nspr_nss_check.next_diff(diff)
-    expected = (
-        "Revision makes changes to restricted directories: "
-        + "vendored NSPR directories: `nsprpub/testfile.txt`."
-    )
-    assert [expected] == prevent_nspr_nss_check.result(), (
-        "Check should disallow changes to NSPR without proper commit message."
-    )
-
-    prevent_nspr_nss_check = PreventNSPRNSSCheck(
-        email="testuser@mozilla.com",
-        commit_message="bug 123: upgrade NSS UPGRADE_NSPR_RELEASE",
-    )
-    for diff in parsed_diff:
-        prevent_nspr_nss_check.next_diff(diff)
-    assert not prevent_nspr_nss_check.result(), (
-        "Check should allow changes to NSPR with proper commit message."
-    )
-
-
-def test_check_prevent_nspr_nss_combined():
-    nspr_patch = GIT_DIFF_FILENAME_TEMPLATE.format(filename="nsprpub/testfile.txt")
-    nss_patch = GIT_DIFF_FILENAME_TEMPLATE.format(filename="security/nss/testfile.txt")
-    combined_patch = "\n".join((nspr_patch, nss_patch))
-
-    parsed_diff = rs_parsepatch.get_diffs(combined_patch)
-    prevent_nspr_nss_check = PreventNSPRNSSCheck(
-        email="testuser@mozilla.com",
-        commit_message=COMMIT_MESSAGE,
-    )
-    for diff in parsed_diff:
-        prevent_nspr_nss_check.next_diff(diff)
-    expected = (
-        "Revision makes changes to restricted directories: "
-        + "vendored NSS directories: `security/nss/testfile.txt`; "
-        + "vendored NSPR directories: `nsprpub/testfile.txt`."
-    )
-    assert [expected] == prevent_nspr_nss_check.result(), (
-        "Check should disallow changes to both NSS and NSPR without proper commit message."
-    )
-
-    prevent_nspr_nss_check = PreventNSPRNSSCheck(
-        email="testuser@mozilla.com",
-        commit_message="bug 123: upgrade NSS UPGRADE_NSPR_RELEASE",
-    )
-    for diff in parsed_diff:
-        prevent_nspr_nss_check.next_diff(diff)
-    expected = (
-        "Revision makes changes to restricted directories: "
-        + "vendored NSS directories: `security/nss/testfile.txt`."
-    )
-    assert [expected] == prevent_nspr_nss_check.result(), (
-        "Check should allow changes to NSPR with proper commit message."
-    )
-
-    prevent_nspr_nss_check = PreventNSPRNSSCheck(
-        email="testuser@mozilla.com",
-        commit_message="bug 123: upgrade NSS UPGRADE_NSS_RELEASE",
-    )
-    for diff in parsed_diff:
-        prevent_nspr_nss_check.next_diff(diff)
-    expected = (
-        "Revision makes changes to restricted directories: "
-        + "vendored NSPR directories: `nsprpub/testfile.txt`."
-    )
-    assert [expected] == prevent_nspr_nss_check.result(), (
-        "Check should allow changes to NSPR with proper commit message."
-    )
-
-    prevent_nspr_nss_check = PreventNSPRNSSCheck(
-        email="testuser@mozilla.com",
-        commit_message="bug 123: upgrade NSS UPGRADE_NSS_RELEASE UPGRADE_NSPR_RELEASE",
-    )
-    for diff in parsed_diff:
-        prevent_nspr_nss_check.next_diff(diff)
-    assert not prevent_nspr_nss_check.result(), (
-        "Check should allow changes to NSPR with proper commit message."
+        f"Check should allow changes to {dir_type} with proper commit message."
     )
 
 
@@ -906,8 +841,6 @@ def test_landing_checks_run():
         ),
         GitPatchHelper.from_string_io(
             io.StringIO(
-                # Both PreventNSPRNSSCheck and PreventNSPRCheck will get triggered.
-                # For now, we only use the grouped one in the Repo. See Bug 2061086.
                 GIT_PATCH_FILENAME_TEMPLATE.format(filename="nsprpub/testfile.txt"),
             )
         ),
@@ -915,10 +848,6 @@ def test_landing_checks_run():
 
     expected = [
         "Revision introduces the `try_task_config.json` file.",
-        (
-            "Revision makes changes to restricted directories: "
-            + "vendored NSPR directories: `nsprpub/testfile.txt`."
-        ),
         (
             "Revision makes changes to restricted directories: "
             + "vendored NSPR directories: `nsprpub/testfile.txt`."
