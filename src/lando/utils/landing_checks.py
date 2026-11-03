@@ -581,6 +581,21 @@ class WPTSyncCheck(PatchCollectionCheck):
         ]
 
 
+def check_bug_references(
+    patch_helpers: list[PatchHelper],
+) -> tuple[list[str], int | None]:
+    """Check if patches contains references to non-public bugs.
+
+    Return the error messages and BMO status code for the checked bug when a
+    referenced bug is not public.
+    """
+    secure_check = BugReferencesCheck()
+    for patch_helper in patch_helpers:
+        secure_check.next_diff(patch_helper)
+    error = secure_check.result()
+    return error, secure_check.status_code
+
+
 BMO_SKIP_HINT = "Use `SKIP_BMO_CHECK` in your commit message to push anyway."
 
 BUG_REFERENCES_BMO_ERROR_TEMPLATE = (

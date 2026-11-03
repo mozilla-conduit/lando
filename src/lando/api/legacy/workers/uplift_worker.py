@@ -27,7 +27,7 @@ from lando.main.scm import GitSCM
 from lando.main.scm.commit import CommitData
 from lando.main.scm.helpers import PatchHelper
 from lando.try_api.api import get_commit_hash, get_commit_map
-from lando.utils.landing_checks import BugReferencesCheck, LandingChecks
+from lando.utils.landing_checks import LandingChecks, check_bug_references
 from lando.utils.tasks import (
     send_uplift_failure_email,
     send_uplift_success_email,
@@ -368,8 +368,8 @@ class UpliftWorker(Worker):
     ) -> LandingJob:
         """Create a Try `LandingJob` for the commits landed by an uplift job."""
         patch_helpers = list(scm.get_patch_helpers_for_commits(new_commits))
-        error, status_code = self.check_uplift_bug_references(patch_helpers)
-        if status_code in (401, 404):
+        error, status_code = check_bug_references(patch_helpers)
+        if status_code in (401, 403, 404):
             raise SecurityBugReferenceException(
                 f"Skipping try push for uplift job:\n{', '.join(error)}"
             )
@@ -416,20 +416,6 @@ class UpliftWorker(Worker):
             add_revisions_to_job(revisions, try_job)
             try_job.save()
         return try_job
-
-    def check_uplift_bug_references(
-        self, patch_helpers: list[PatchHelper]
-    ) -> tuple[list[str], int | None]:
-        """Check if uplift job contains references to non-public bugs.
-
-        Return the error messages and BMO status code for the checked bug when a
-        referenced bug is not public.
-        """
-        secure_check = BugReferencesCheck()
-        for patch_helper in patch_helpers:
-            secure_check.next_diff(patch_helper)
-        error = secure_check.result()
-        return error, secure_check.status_code
 
     def create_try_diff_from_json(self) -> str:
         try_config_path = (

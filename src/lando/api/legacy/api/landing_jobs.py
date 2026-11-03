@@ -10,6 +10,7 @@ from django.views import View
 from lando.main.auth import require_authenticated_user
 from lando.main.models import JobAction, JobStatus, LandingJob
 from lando.utils.exceptions import NotFoundProblemException
+from lando.utils.landing_checks import check_bug_references
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,17 @@ class LandingJobApiView(View):
             )
             return JsonResponse(exc.to_response(), status=404)
 
-        return JsonResponse(job.to_dict())
+        job_dict = job.to_dict()
+        if job.status != JobStatus.LANDED:
+            patch_helpers = [revision.patch_helper for revision in job.revisions]
+
+            status_code = check_bug_references(patch_helpers)[1]
+            if status_code in (401, 403, 404):
+                if "error" in job_dict:
+                    del job_dict["error"]
+                if "revisions" in job_dict:
+                    del job_dict["revisions"]
+        return JsonResponse(job_dict)
 
     @method_decorator(require_authenticated_user)
     def put(self, request: WSGIRequest, job_id: int) -> JsonResponse:

@@ -1,4 +1,5 @@
 import json
+from unittest import mock
 
 import pytest
 
@@ -8,8 +9,9 @@ from lando.main.scm import SCMType
 
 @pytest.fixture
 def landing_job(repo_mc):
-    def _landing_job(status, requester_email="tuser@example.com"):
+    def _landing_job(status, requester_email="tuser@example.com", error: str = ""):
         job = LandingJob(
+            error=error,
             status=status,
             revision_to_diff_id={},
             revision_order=[],
@@ -183,3 +185,61 @@ def test_landing_job_acquire_job_job_queue_query(mocked_repo_config):
     assert queue_items[0].id == jobs[2].id
     assert queue_items[1].id == jobs[0].id
     assert jobs[1] not in queue_items
+
+
+@pytest.mark.parametrize(
+    "job_status, error",
+    [
+        (JobStatus.LANDED, ""),
+        (JobStatus.CANCELLED, "Problem while applying patch in revision..."),
+    ],
+)
+@pytest.mark.django_db
+def test_landing_job_hides_unlanded_secure_revision_data(
+    authenticated_client,
+    user,
+    landing_job,
+    monkeypatch,
+    create_patch_revision,
+    job_status,
+    error,
+):
+    job = landing_job(
+        job_status,
+        requester_email=user.email,
+        error=error,
+    )
+    revision = create_patch_revision(1)
+    job.add_revisions([revision])
+    job.save()
+
+    mock_bug_search = mock.MagicMock()
+    mock_status_code = mock.MagicMock()
+    if job_status == JobStatus.LANDED:
+        mock_bug_search.return_value = {revision.diff_id}
+        mock_status_code.return_value = 200
+    else:
+        mock_bug_search.return_value = set()
+        mock_status_code.return_value = 401
+    monkeypatch.setattr(
+        "lando.utils.landing_checks.get_status_code_for_bug",
+        mock_status_code,
+    )
+    monkeypatch.setattr("lando.utils.landing_checks.search_bugs", mock_bug_search)
+
+    response = authenticated_client.get(f"/landing_jobs/{job.id}/").json()
+
+    if job_status == JobStatus.LANDED:
+        assert response["error"] == job.error
+        assert response["revisions"] == job.to_dict()["revisions"]
+
+    else:
+        # Confirm the landing job has the error and revisions in the database,
+        # but the endpoint response does not include them for a secure revision.
+
+        assert job.error == error
+        assert job.revisions.count() == 1
+        assert revision in job.revisions.all()
+
+        assert "error" not in response
+        assert "revisions" not in response
