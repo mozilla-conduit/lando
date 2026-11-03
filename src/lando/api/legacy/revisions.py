@@ -1,4 +1,5 @@
 import logging
+import re
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
@@ -26,6 +27,8 @@ from lando.utils.phabricator import (
 )
 
 logger = logging.getLogger(__name__)
+
+FULL_COMMIT_HASH_RE = re.compile(r"\A[0-9a-f]{40}\Z")
 
 
 class CommitDescription(NamedTuple):
@@ -142,6 +145,25 @@ def get_base_revision_from_diff(diff: dict) -> str:
     for ref in refs:
         if ref.get("type") == "base":
             return ref.get("identifier", "")
+    return ""
+
+
+def get_first_public_parent_from_diff(diff: dict) -> str:
+    """Return the first public ancestor `moz-phab` recorded for a diff.
+
+    `moz-phab` stores it as a `firstPublicParent` key in the diff's
+    `local:commits` property, which Phabricator reports on each commit of the
+    `commits` attachment. Returns the empty string when the diff records no
+    usable hash.
+    """
+
+    commits = PhabricatorClient.expect(diff, "attachments", "commits", "commits")
+    if not commits:
+        return ""
+
+    if first_public_parent := commits[0].get("firstPublicParent"):
+        if FULL_COMMIT_HASH_RE.match(first_public_parent):
+            return first_public_parent
     return ""
 
 
@@ -486,6 +508,7 @@ def fetch_raw_diff_and_save(
     diff_id = PhabricatorClient.expect(diff, "id")
     author_name, author_email = mailbox or select_diff_author(diff)
     base_revision = get_base_revision_from_diff(diff)
+    first_public_parent = get_first_public_parent_from_diff(diff)
 
     logger.debug("Fetching raw diff for D%s (diff %s).", revision_id, diff_id)
     raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff_id)
@@ -500,7 +523,11 @@ def fetch_raw_diff_and_save(
     with transaction.atomic():
         revision, created = Revision.objects.update_or_create(
             revision_id=revision_id,
-            defaults={"diff_id": diff_id, "base_revision": base_revision},
+            defaults={
+                "diff_id": diff_id,
+                "base_revision": base_revision,
+                "first_public_parent": first_public_parent,
+            },
         )
         revision.set_patch(raw_diff, patch_data)
         revision.save()
