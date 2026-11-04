@@ -348,7 +348,7 @@ TRY_TASK_CONFIG_DIFF_SNIPPET = """
             True,
             "abc123",
             False,
-            "a*40",
+            "a"*40,
             False,
             None,
             id="base-and-parent-missing",
@@ -1838,7 +1838,7 @@ def setup_three_way_repo(
             LandingStrategy.THREE_WAY,
             id="with-parent-recovers",
         ),
-        # Without either, the worker applies a the tip with a 2-way apply, which the
+        # Without either, the worker applies at the tip with a 2-way apply, which the
         # context shift defeats.
         pytest.param(
             False,

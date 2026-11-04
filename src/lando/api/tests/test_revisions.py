@@ -174,7 +174,15 @@ def commits_attachment(first_public_parent: str | None) -> list[dict]:
 
 @pytest.mark.parametrize(
     "first_public_parent,expected",
-    [("a" * 40, "a" * 40), (None, ""), ("not-a-hash", "")],
+    [
+        pytest.param("a" * 40, "a" * 40, id="happy-path"),
+        pytest.param(None, "", id="no-hash"),
+        pytest.param("not-a-hash", "", id="invalid-hash"),
+        pytest.param("A" * 40, "", id="uppercase-hash"),
+        pytest.param("a" * 39, "", id="hash-too-short"),
+        pytest.param("a" * 41, "", id="hash-too-long"),
+        pytest.param("a" * 40 + "\n", "", id="hash-with-newline"),
+    ],
 )
 def test_get_first_public_parent_from_diff_returns_first_ancestor_identifier(
     phabdouble, first_public_parent, expected
@@ -185,8 +193,8 @@ def test_get_first_public_parent_from_diff_returns_first_ancestor_identifier(
         attachments={"commits": True},
     )
     assert get_first_public_parent_from_diff(diff) == expected, (
-        "`get_first_public_parent_from_diff` should return the firstPublicParent"
-        "ref identifier if it exists. Else, it sould return an empty string."
+        "`get_first_public_parent_from_diff` should return the firstPublicParent "
+        "ref identifier if it exists. Else, it should return an empty string."
     )
 
 
@@ -383,11 +391,11 @@ def test_fetch_raw_diff_and_save_creates_new_revision(phabdouble):
     )
 
     assert revision.first_public_parent, (
-        "`first_public_parent` should be populated from the firstPublicParent key"
+        "`first_public_parent` should be populated from the firstPublicParent key "
         "of the local:commits diff property."
     )
     assert revision.first_public_parent == get_first_public_parent_from_diff(diff), (
-        "`first_public_parent` should be set from the firstPublicParent key"
+        "`first_public_parent` should be set from the firstPublicParent key "
         "of the local:commits diff property."
     )
 
