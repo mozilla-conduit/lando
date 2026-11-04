@@ -33,6 +33,12 @@ def wrap_filenames(filenames: list[str]) -> str:
 class Check(ABC):
     """A base class for checks, providing human-friendly identification attributes."""
 
+    # Indicate whether this check is run when creating a landing
+    # request, or just before a push. In the former case, it may skip reporting of
+    # issues that may be automatically fixable when preparing the commits for a push
+    # (e.g., r? in commit message).
+    is_push: bool = True
+
     @classmethod
     @abstractmethod
     def name(cls) -> str:
@@ -225,79 +231,6 @@ class PreventNSSCheck(PreventPathCheckMixin, PatchCheck):
 
 
 @dataclass
-class PreventNSPRNSSCheck(PatchCheck):
-    """Prevent changes to vendored NSPR and NSS directories.
-
-    This is a backward-compatible façade wrapping the PreventNSPRCheck and
-    PreventNSSCheck blockers.
-    """
-
-    _prevent_nspr_check: PreventNSPRCheck = field(init=False)
-    _prevent_nss_check: PreventNSSCheck = field(init=False)
-
-    @override
-    @classmethod
-    def name(cls) -> str:
-        return "PreventNSPRNSSCheck"
-
-    @override
-    @classmethod
-    def description(cls) -> str:
-        return "Prevent changes to vendored NSPR and NSS directories."
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self._prevent_nspr_check = PreventNSPRCheck(*args, **kwargs)
-        self._prevent_nss_check = PreventNSSCheck(*args, **kwargs)
-
-    def build_prevent_nspr_nss_error_message(self) -> str:
-        """Build the `check_prevent_nspr_nss` error message.
-
-        Assumes at least one of `nss_disallowed_changes` or `nspr_disallowed_changes`
-        are non-empty lists.
-        """
-
-        # Build the error message.
-        return_error_message = [PreventPathCheckMixin.BASE_ERROR_MESSAGE]
-
-        if self._prevent_nss_check.disallowed_changes:
-            return_error_message.append(
-                self._prevent_nss_check.build_error_message()
-                .removeprefix(f"{self._prevent_nss_check.BASE_ERROR_MESSAGE} ")
-                .removesuffix(".")
-            )
-
-        if self._prevent_nspr_check.disallowed_changes:
-            if self._prevent_nss_check.disallowed_changes:
-                return_error_message[-1] += ";"
-            return_error_message.append(
-                self._prevent_nspr_check.build_error_message()
-                .removeprefix(f"{self._prevent_nspr_check.BASE_ERROR_MESSAGE} ")
-                .removesuffix(".")
-            )
-
-        return f"{' '.join(return_error_message)}."
-
-    def next_diff(self, diff: dict):
-        """Pass the next `rs_parsepatch` diff `dict` into the check."""
-
-        self._prevent_nspr_check.next_diff(diff)
-        self._prevent_nss_check.next_diff(diff)
-
-    def result(self) -> list[str]:
-        """Calculate and return the result of the check."""
-        if (
-            not self._prevent_nspr_check.disallowed_changes
-            and not self._prevent_nss_check.disallowed_changes
-        ):
-            # Return early if no disallowed changes were found.
-            return []
-
-        return [self.build_prevent_nspr_nss_error_message()]
-
-
-@dataclass
 class PreventSubmodulesCheck(PatchCheck):
     """Prevent introduction of Git submodules into the repository."""
 
@@ -435,6 +368,7 @@ class DiffAssessor:
     author: str | None = None
     email: str | None = None
     commit_message: str | None = None
+    is_push: bool = True
 
     def run_diff_checks(self, patch_checks: list[type[PatchCheck]]) -> list[str]:
         """Execute the set of checks on the diffs."""
@@ -442,6 +376,7 @@ class DiffAssessor:
 
         checks = [
             check(
+                is_push=self.is_push,
                 author=self.author,
                 commit_message=self.commit_message,
                 email=self.email,
@@ -545,7 +480,8 @@ class CommitMessagesCheck(PatchCollectionCheck):
                     f"Commit locked to a repo other than {self.repo_name}: {firstline}"
                 )
 
-        if INVALID_REVIEW_FLAG_RE.search(firstline):
+        # Only assert the absence of r? in blocking mode.
+        if self.is_push and INVALID_REVIEW_FLAG_RE.search(firstline):
             self.commit_message_issues.append(
                 f"Revision contains 'r?' in the commit message. Please use 'r=' instead: {firstline}"
             )
@@ -654,6 +590,21 @@ class WPTSyncCheck(PatchCollectionCheck):
         ]
 
 
+def check_bug_references(
+    patch_helpers: list[PatchHelper],
+) -> tuple[list[str], int | None]:
+    """Check if patches contains references to non-public bugs.
+
+    Return the error messages and BMO status code for the checked bug when a
+    referenced bug is not public.
+    """
+    secure_check = BugReferencesCheck()
+    for patch_helper in patch_helpers:
+        secure_check.next_diff(patch_helper)
+    error = secure_check.result()
+    return error, secure_check.status_code
+
+
 BMO_SKIP_HINT = "Use `SKIP_BMO_CHECK` in your commit message to push anyway."
 
 BUG_REFERENCES_BMO_ERROR_TEMPLATE = (
@@ -753,17 +704,25 @@ class PatchCollectionAssessor:
         self,
         patch_collection_checks: list[type[PatchCollectionCheck]],
         patch_checks: list[type[PatchCheck]],
+        is_push: bool = True,
     ) -> list[str]:
         """Execute the set of checks on the diffs, returning a list of issues.
 
         `patch_collection_checks` specifies the collection-wide checks to run on the
         `patch_helpers`. `patch_checks` specifies the checks to run on individual
         patches.
+
+        `is_push` indicates that all issues should be reported, rather than only
+        those which cannot be automatically fixed (e.g., `r?` in commit message).
         """
         issues = []
 
         checks = [
-            check(self.push_user_email, self.repo_name)
+            check(
+                is_push=is_push,
+                push_user_email=self.push_user_email,
+                repo_name=self.repo_name,
+            )
             for check in patch_collection_checks
         ]
 
@@ -797,15 +756,13 @@ ALL_COMMIT_CHECKS = PatchCheck.__subclasses__()
 ALL_CHECKS = ALL_COMMIT_CHECKS + ALL_STACK_CHECKS
 
 
+@dataclass
 class LandingChecks:
     """Utility class to run landing checks (a.k.a. hooks) on a list of commits."""
 
     requester_email: str
     repo_name: str
-
-    def __init__(self, requester_email: str, repo_name: str):
-        self.requester_email = requester_email
-        self.repo_name = repo_name
+    is_push: bool = True
 
     def run(
         self,
@@ -838,5 +795,7 @@ class LandingChecks:
             repo_name=self.repo_name,
         )
         return assessor.run_patch_collection_checks(
-            patch_collection_checks=stack_checks, patch_checks=commit_checks
+            patch_collection_checks=stack_checks,
+            patch_checks=commit_checks,
+            is_push=self.is_push,
         )

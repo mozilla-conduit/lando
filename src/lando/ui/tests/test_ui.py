@@ -8,7 +8,7 @@ from django.test import Client
 
 from lando import test_settings as settings
 from lando.main import scm
-from lando.main.models import JobStatus, LandingJob
+from lando.main.models import JobStatus, LandingJob, Revision
 from lando.main.models.commit_map import CommitMap
 from lando.main.scm import SCMType
 from lando.treestatus.models import TreeStatus
@@ -295,3 +295,40 @@ def test_landing_no_revision_no_redirect(
     assert response.status_code == 200, (
         "Landing job view without revision should render without a redirect"
     )
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("is_phabricator", [False, True])
+def test_landing_job_revision_links(
+    client: Client,
+    repo_mc: Callable,
+    make_landing_job: Callable,
+    is_phabricator: bool,
+):
+    repo = repo_mc(SCMType.GIT, is_try=not is_phabricator)
+    revisions = [
+        Revision.objects.create(
+            revision_id=revision_id if is_phabricator else None,
+            diff_id=revision_id + 10 if is_phabricator else None,
+        )
+        for revision_id in (123, 456)
+    ]
+    job = make_landing_job(
+        target_repo=repo, status=JobStatus.LANDED, revisions=revisions
+    )
+    job.set_landed_revision_diffs()
+
+    response = client.get(f"/landings/{job.id}/", follow=True)
+
+    assert response.status_code == 200
+    if is_phabricator:
+        for revision in revisions:
+            assert (
+                f"{settings.PHABRICATOR_URL}/D{revision.revision_id}?id={revision.diff_id}"
+                in response.text
+            )
+    else:
+        assert not response.redirect_chain
+        assert f"{settings.PHABRICATOR_URL}/D" not in response.text
+        for revision in revisions:
+            assert f'<span id="r{revision.id}">{revision.id}</span>' in response.text

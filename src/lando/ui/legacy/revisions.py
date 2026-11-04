@@ -25,7 +25,10 @@ from lando.main.models.uplift import (
     UpliftRevision,
     UpliftSubmission,
 )
-from lando.main.support import get_revisions_with_disallowed_authors
+from lando.main.support import (
+    LegacyAPIException,
+    get_revisions_with_disallowed_authors,
+)
 from lando.treestatus.utils import get_tree_by_name
 from lando.ui.legacy.forms import (
     LinkUpliftAssessmentForm,
@@ -713,11 +716,15 @@ class RevisionView(LandoView):
             form.cleaned_data["flags"] = (
                 form.cleaned_data["flags"] if form.cleaned_data["flags"] else []
             )
-            legacy_api.transplants.post(phab, request.user, data=form.cleaned_data)
-            # We don't actually need any of the data from the
-            # the submission. As long as an exception wasn't
-            # raised we're successful.
-            return redirect("revisions-page", revision_id=revision_id)
+            try:
+                legacy_api.transplants.post(phab, request.user, data=form.cleaned_data)
+            except LegacyAPIException as exc:
+                errors.append(exc.detail)
+            else:
+                # We don't actually need any of the data from the
+                # the submission. As long as an exception wasn't
+                # raised we're successful.
+                return redirect("revisions-page", revision_id=revision_id)
 
         if form.errors:
             errors += [

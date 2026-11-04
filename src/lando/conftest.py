@@ -15,6 +15,7 @@ import requests
 from django.conf import settings
 from django.contrib.auth.models import Group, Permission, User
 from django.contrib.contenttypes.models import ContentType
+from django.test import Client
 from requests.models import HTTPError
 
 from lando.api.legacy.projects import (
@@ -742,9 +743,11 @@ index 0000000..4c39732
 """
 
 FAILING_CHECK_TYPES = [
+    "dot_github",
     "nobug",
     "nspr",
     "nss",
+    "rq",
     "submodule",
     "symlink",
     "try_task_config",
@@ -765,6 +768,7 @@ def get_failing_check_diff() -> Callable:
         "dot_github": PATCH_DOT_GITHUB_DIFF,
         "nspr": PATCH_NSPR_DIFF,
         "nss": PATCH_NSS_DIFF,
+        "rq": PATCH_DIFF,
         "submodule": PATCH_SUBMODULE_DIFF,
         "symlink": PATCH_SYMLINK_DIFF,
         "try_task_config": PATCH_TRY_TASK_CONFIG_DIFF,
@@ -794,8 +798,21 @@ def get_failing_check_commit_reason(get_failing_check_diff) -> Callable:
     See FAILING_CHECK_TYPES for the list of commit types available for request.
 
     For convenience, a "valid" case is also available.
+
+    See also: the parameters to
+    src/lando/utils/tests/test_landing_checks.py:test_check_commit_message_invalid_message,
+    which share a lot of similarities, and may benefit from being unified at some point.
     """
     commit_reasons = {
+        # PreventDotGithubCheck
+        "dot_github": (
+            {
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit message without bug info",
+                # diff should get added by the test using get_failing_check_diff
+            },
+            "Revision makes changes to restricted directories: GitHub workflows directory: `.github/workflows/.keep`.",
+        ),
         # CommitMessagesCheck
         "nobug": (
             {
@@ -805,7 +822,7 @@ def get_failing_check_commit_reason(get_failing_check_diff) -> Callable:
             },
             "Revision needs 'Bug N' or 'No bug' in the commit message: commit message without bug info",
         ),
-        # PreventNSPRNSSCheck
+        # PreventNSPRCheck
         "nspr": (
             {
                 "author": "Test User <test@example.com>",
@@ -814,7 +831,7 @@ def get_failing_check_commit_reason(get_failing_check_diff) -> Callable:
             },
             "Revision makes changes to restricted directories:",
         ),
-        # PreventNSPRNSSCheck
+        # PreventNSSCheck
         "nss": (
             {
                 "author": "Test User <test@example.com>",
@@ -831,6 +848,15 @@ def get_failing_check_commit_reason(get_failing_check_diff) -> Callable:
                 # diff should get added by the test using get_failing_check_diff
             },
             "Revision introduces a Git submodule into the repository.",
+        ),
+        # CommitMessagesCheck with is_push = True
+        "rq": (
+            {
+                "author": "Test User <test@example.com>",
+                "commitmsg": "Bug 100 - Foo. r?bar",
+                # diff should get added by the test using get_failing_check_diff
+            },
+            "Revision contains 'r?' in the commit message. Please use 'r=' instead: ",
         ),
         # PreventSymlinksCheck
         "symlink": (
@@ -883,15 +909,23 @@ def get_failing_check_commit_reason(get_failing_check_diff) -> Callable:
 
 
 @pytest.fixture
-def extract_email() -> Callable:
-    def _extract_email(author_string: str) -> str:
-        """Extract the email address from a string containing it between angle brackets."""
-        author_match = re.search("<([^>]*@[^>]*)>", author_string)
+def parse_user_email() -> Callable:
+    def _parse_user_email(author_string: str) -> tuple[str, str]:
+        """Split username from email address in a git author string."""
+        author_match = re.search(r"([^<]+)\s+<([^>]*@[^>]*)>", author_string)
         if not author_match:
             raise AssertionError(f"Can't parse email from `{author_string}`")
 
-        author_email = author_match[1]
-        return author_email
+        return author_match.groups()
+
+    return _parse_user_email
+
+
+@pytest.fixture
+def extract_email(parse_user_email: Callable) -> Callable:
+    def _extract_email(author_string: str) -> str:
+        """Extract the email address from a string containing it between angle brackets."""
+        return parse_user_email(author_string)[1]
 
     return _extract_email
 
@@ -2008,7 +2042,9 @@ def pull_request_data(update_dict) -> Callable:
 
 
 @pytest.fixture
-def authenticated_client(user, user_plaintext_password, client):
+def authenticated_client(
+    user: User, user_plaintext_password: str, client: Client
+) -> Client:
     client.login(username=user.username, password=user_plaintext_password)
     return client
 

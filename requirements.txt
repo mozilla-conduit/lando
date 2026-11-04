@@ -1257,9 +1257,9 @@ gql[aiohttp,requests]==4.4.0 \
     --hash=sha256:150ffd909a8814f14c9ca19ec9410afd572443253789d57e7efd6b92cc24d8f7 \
     --hash=sha256:e54fe470d51347ceb46a04fc88c5553695d2d8c86b05bef13aeee8b8f2d5f61a
     # via simple-github
-graphql-core==3.3.0 \
-    --hash=sha256:d37fac6ef4dfc3eaa5daa59dcb498d7cbb118439d240993c68fddc4cb1bade44 \
-    --hash=sha256:fd3424e88af3f3211931c6ff96350f1cd9069cf0f1a31b9972899e35d39136b5
+graphql-core==3.3.1 \
+    --hash=sha256:43ebcd0d9a0662a71b1a2f6562ba863d253057ec11cbc45835b2e2683a0a3770 \
+    --hash=sha256:8d9b6f95fb66b58b260904cf9e191f422782620533ec8fa0c96ab941b6659a2a
     # via gql
 grpcio==1.84.0 \
     --hash=sha256:026d757df86c5b7a41de8200b9a2cda454aaa5004cb0c7e3374c66eb82f61499 \
@@ -1992,9 +1992,9 @@ psycopg2-binary==2.9.13 \
     --hash=sha256:f818161d2302b3b3e9c75d5a1d0a5c5679e92e45cfec6432b9d5432dde5ff1f1 \
     --hash=sha256:feb7b1856f6ca805cc0e08739858f6cdfed8ce903390126af30343c62899a389
     # via lando (pyproject.toml)
-pyasn1==0.6.4 \
-    --hash=sha256:9c447d8431c947fe4c8febc4ed9e760bc29011a5b01e5c74b67025bd9fb8ce81 \
-    --hash=sha256:deda9277cfd454080ec40b207fb6df82206a3a2688735233cdcd8d3d565f088b
+pyasn1==0.6.5 \
+    --hash=sha256:4017b0fce125096b8573b39c989fdb1a4b19cf761e683398184550fea0e66587 \
+    --hash=sha256:6b11616a6bcf3a40e635f082bb232fa57b5e0dd7f517bd7ddd69ec3794508a47
     # via
     #   pyasn1-modules
     #   python-jose
