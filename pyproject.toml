@@ -84,10 +84,7 @@ where = ["src"]
 
 [tool.pytest]
 DJANGO_SETTINGS_MODULE = "lando.test_settings"
-addopts = ["--cov", "--cov-context=test", "--cov-report", "html", "--no-migrations"]
-
-[tool.coverage.html]
-show_contexts = true
+addopts = ["--cov", "--cov-report", "html", "--no-migrations"]
 
 [tool.djlint]
 profile = "jinja"
