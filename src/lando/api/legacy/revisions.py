@@ -28,7 +28,7 @@ from lando.utils.phabricator import (
 
 logger = logging.getLogger(__name__)
 
-FULL_COMMIT_HASH_RE = re.compile(r"\A[0-9a-f]{40}\Z")
+FULL_COMMIT_HASH_RE = re.compile(r"[0-9a-f]{40}")
 
 
 class CommitDescription(NamedTuple):
@@ -162,7 +162,7 @@ def get_first_public_parent_from_diff(diff: dict) -> str:
         return ""
 
     if first_public_parent := commits[0].get("firstPublicParent"):
-        if FULL_COMMIT_HASH_RE.match(first_public_parent):
+        if FULL_COMMIT_HASH_RE.fullmatch(first_public_parent):
             return first_public_parent
     return ""
 

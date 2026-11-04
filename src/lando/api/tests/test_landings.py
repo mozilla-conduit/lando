@@ -348,7 +348,7 @@ TRY_TASK_CONFIG_DIFF_SNIPPET = """
             True,
             "abc123",
             False,
-            "a"*40,
+            "a" * 40,
             False,
             None,
             id="base-and-parent-missing",
