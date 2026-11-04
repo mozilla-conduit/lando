@@ -134,11 +134,6 @@ class JobResponse(Schema):
     response={201: JobResponse, 400: ProblemDetail},
     openapi_extra={
         "responses": {
-            200: {
-                # XXX: This should not happen, but NinjaAPI doesn't let us disable this.
-                "description": "Not used.",
-                "content": None,
-            },
             201: {
                 "description": "Push was submitted successfully.",
                 "content": {"application/json": {"schema": JobResponse.json_schema()}},
