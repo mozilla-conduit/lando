@@ -15,6 +15,7 @@ import requests
 from django.conf import settings
 from django.contrib.auth.models import Group, Permission, User
 from django.contrib.contenttypes.models import ContentType
+from django.test import Client
 from requests.models import HTTPError
 
 from lando.api.legacy.projects import (
@@ -883,15 +884,23 @@ def get_failing_check_commit_reason(get_failing_check_diff) -> Callable:
 
 
 @pytest.fixture
-def extract_email() -> Callable:
-    def _extract_email(author_string: str) -> str:
-        """Extract the email address from a string containing it between angle brackets."""
-        author_match = re.search("<([^>]*@[^>]*)>", author_string)
+def parse_user_email() -> Callable:
+    def _parse_user_email(author_string: str) -> tuple[str, str]:
+        """Split username from email address in a git author string."""
+        author_match = re.search(r"([^<]+)\s+<([^>]*@[^>]*)>", author_string)
         if not author_match:
             raise AssertionError(f"Can't parse email from `{author_string}`")
 
-        author_email = author_match[1]
-        return author_email
+        return author_match.groups()
+
+    return _parse_user_email
+
+
+@pytest.fixture
+def extract_email(parse_user_email: Callable) -> Callable:
+    def _extract_email(author_string: str) -> str:
+        """Extract the email address from a string containing it between angle brackets."""
+        return parse_user_email(author_string)[1]
 
     return _extract_email
 
@@ -2008,7 +2017,9 @@ def pull_request_data(update_dict) -> Callable:
 
 
 @pytest.fixture
-def authenticated_client(user, user_plaintext_password, client):
+def authenticated_client(
+    user: User, user_plaintext_password: str, client: Client
+) -> Client:
     client.login(username=user.username, password=user_plaintext_password)
     return client
 
