@@ -424,13 +424,23 @@ class LandingWorker(Worker):
             return None
 
         base = first_revision.base_revision
-        if not base or not scm.commit_exists(base):
-            logger.debug(
-                f"Base revision {base!r} not available in repo; applying at tip."
-            )
-            return None
+        if base and scm.commit_exists(base):
+            return base
 
-        return base
+        logger.debug(
+            f"Base revision {base!r} is not available in repo; "
+            "trying the first public parent."
+        )
+
+        first_public_parent = first_revision.first_public_parent
+        if first_public_parent and scm.commit_exists(first_public_parent):
+            return first_public_parent
+
+        logger.debug(
+            f"First public parent {first_public_parent!r} is not available in repo "
+            "either; applying at tip."
+        )
+        return None
 
     def record_landed_commit_ids(
         self, job: LandingJob, scm: AbstractSCM, landing_base: str

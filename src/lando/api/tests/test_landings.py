@@ -303,22 +303,60 @@ TRY_TASK_CONFIG_DIFF_SNIPPET = """
 
 
 @pytest.mark.parametrize(
-    "worker_enabled, target_commit_hash, supports_3way, base_revision, base_exists, expected",
+    "worker_enabled, target_commit_hash, supports_3way, base_revision, base_exists, first_public_parent, first_public_parent_exists, expected",
     [
         # The worker flag gates the whole flow.
-        pytest.param(False, "", True, "abc123", True, None, id="worker-disabled"),
+        pytest.param(
+            False, "", True, "abc123", True, "a" * 40, True, None, id="worker-disabled"
+        ),
         # A known target commit short-circuits before consulting the SCM.
         pytest.param(
-            True, "deadbeef", True, "abc123", True, None, id="target-commit-hash"
+            True,
+            "deadbeef",
+            True,
+            "abc123",
+            True,
+            "a" * 40,
+            True,
+            None,
+            id="target-commit-hash",
         ),
         # An SCM that can't rebase always applies at the tip.
-        pytest.param(True, "", False, "abc123", True, None, id="scm-unsupported"),
+        pytest.param(
+            True, "", False, "abc123", True, "a" * 40, True, None, id="scm-unsupported"
+        ),
         # The recorded base is used when it exists in the repo.
-        pytest.param(True, "", True, "abc123", True, "abc123", id="base-present"),
-        # A recorded base missing from the repo falls back to the tip.
-        pytest.param(True, "", True, "abc123", False, None, id="base-missing"),
-        # No recorded base means there is nothing to reconstruct onto.
-        pytest.param(True, "", True, "", False, None, id="no-recorded-base"),
+        pytest.param(
+            True, "", True, "abc123", True, "a" * 40, True, "abc123", id="base-present"
+        ),
+        # A recorded base missing from the repo falls back to the first public parent.
+        pytest.param(
+            True,
+            "",
+            True,
+            "abc123",
+            False,
+            "a" * 40,
+            True,
+            "a" * 40,
+            id="base-missing-parent-present",
+        ),
+        # A recorded base missing and a recorded first public parent missing from the repo falls back to the tip.
+        pytest.param(
+            True,
+            "",
+            True,
+            "abc123",
+            False,
+            "a" * 40,
+            False,
+            None,
+            id="base-and-parent-missing",
+        ),
+        # No recorded base and no recorded public parent means there is nothing to reconstruct onto.
+        pytest.param(
+            True, "", True, "", False, "", False, None, id="no-recorded-base-or-parent"
+        ),
     ],
 )
 @pytest.mark.django_db
@@ -329,16 +367,23 @@ def test_determine_rebase_base(
     supports_3way: bool,
     base_revision: str,
     base_exists: bool,
+    first_public_parent: str,
+    first_public_parent_exists: bool,
     expected: str | None,
 ):
     """`determine_rebase_base` returns the base only when every condition holds."""
     git_landing_worker.worker_instance.three_way_merge_enabled = worker_enabled
     job = mock.Mock(target_commit_hash=target_commit_hash)
-    job.revisions.first.return_value = mock.Mock(base_revision=base_revision)
+    job.revisions.first.return_value = mock.Mock(
+        base_revision=base_revision, first_public_parent=first_public_parent
+    )
     scm = mock.Mock()
     # `supports_3way_apply` is a property, so assign the value directly.
     scm.supports_3way_apply = supports_3way
-    scm.commit_exists.return_value = base_exists
+    scm.commit_exists.side_effect = lambda commit_hash: {
+        base_revision: base_exists,
+        first_public_parent: first_public_parent_exists,
+    }.get(commit_hash, False)
 
     assert git_landing_worker.determine_rebase_base(job, scm) == expected, (
         "`determine_rebase_base` should only return a base when all conditions hold."
@@ -1772,29 +1817,42 @@ def setup_three_way_repo(
 
 
 @pytest.mark.parametrize(
-    "provide_base, expected_status, expected_strategy",
+    "provide_base, provide_parent, expected_status, expected_strategy",
     [
         # With the base available, the worker reconstructs and rebases, so the
         # context shift is recovered and the landing succeeds.
         pytest.param(
             True,
+            False,
             JobStatus.LANDED,
             LandingStrategy.THREE_WAY,
             id="with-base-recovers",
         ),
-        # Without it, the worker applies at the tip with a 2-way apply, which the
+        # When the base is absent but the first public parent is available,
+        # the worker reconstructs and rebases, so the context shift is recovered
+        # and the landing succeeds.
+        pytest.param(
+            False,
+            True,
+            JobStatus.LANDED,
+            LandingStrategy.THREE_WAY,
+            id="with-parent-recovers",
+        ),
+        # Without either, the worker applies at the tip with a 2-way apply, which the
         # context shift defeats.
         pytest.param(
             False,
+            False,
             JobStatus.FAILED,
             LandingStrategy.TWO_WAY,
-            id="without-base-fails",
+            id="without-base-or-parent-fails",
         ),
     ],
 )
 @pytest.mark.django_db
 def test_three_way_landing_handles_context_shift(
     provide_base: bool,
+    provide_parent: bool,
     expected_status: str,
     expected_strategy: str,
     repo_mc: Callable,
@@ -1818,6 +1876,11 @@ def test_three_way_landing_handles_context_shift(
     revision = create_patch_revision(1, patch=three_way_patch)
     if provide_base:
         revision.base_revision = base_sha
+        revision.save()
+
+    if provide_parent:
+        revision.base_revision = "a" * 40
+        revision.first_public_parent = base_sha
         revision.save()
 
     job = make_landing_job(
