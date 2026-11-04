@@ -743,9 +743,11 @@ index 0000000..4c39732
 """
 
 FAILING_CHECK_TYPES = [
+    "dot_github",
     "nobug",
     "nspr",
     "nss",
+    "rq",
     "submodule",
     "symlink",
     "try_task_config",
@@ -766,6 +768,7 @@ def get_failing_check_diff() -> Callable:
         "dot_github": PATCH_DOT_GITHUB_DIFF,
         "nspr": PATCH_NSPR_DIFF,
         "nss": PATCH_NSS_DIFF,
+        "rq": PATCH_DIFF,
         "submodule": PATCH_SUBMODULE_DIFF,
         "symlink": PATCH_SYMLINK_DIFF,
         "try_task_config": PATCH_TRY_TASK_CONFIG_DIFF,
@@ -795,8 +798,21 @@ def get_failing_check_commit_reason(get_failing_check_diff) -> Callable:
     See FAILING_CHECK_TYPES for the list of commit types available for request.
 
     For convenience, a "valid" case is also available.
+
+    See also: the parameters to
+    src/lando/utils/tests/test_landing_checks.py:test_check_commit_message_invalid_message,
+    which share a lot of similarities, and may benefit from being unified at some point.
     """
     commit_reasons = {
+        # PreventDotGithubCheck
+        "dot_github": (
+            {
+                "author": "Test User <test@example.com>",
+                "commitmsg": "No bug: commit message without bug info",
+                # diff should get added by the test using get_failing_check_diff
+            },
+            "Revision makes changes to restricted directories: GitHub workflows directory: `.github/workflows/.keep`.",
+        ),
         # CommitMessagesCheck
         "nobug": (
             {
@@ -832,6 +848,15 @@ def get_failing_check_commit_reason(get_failing_check_diff) -> Callable:
                 # diff should get added by the test using get_failing_check_diff
             },
             "Revision introduces a Git submodule into the repository.",
+        ),
+        # CommitMessagesCheck with is_push = True
+        "rq": (
+            {
+                "author": "Test User <test@example.com>",
+                "commitmsg": "Bug 100 - Foo. r?bar",
+                # diff should get added by the test using get_failing_check_diff
+            },
+            "Revision contains 'r?' in the commit message. Please use 'r=' instead: ",
         ),
         # PreventSymlinksCheck
         "symlink": (
