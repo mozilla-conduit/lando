@@ -1,5 +1,8 @@
 name: Build and test
 
+permissions:
+    contents: read
+
 on:
     push:
         branches:
@@ -10,11 +13,13 @@ on:
     workflow_dispatch:
 
 jobs:
-    build-and-run-tests:
+    test-py:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
-            - name: Test
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - name: Python tests
               run: make test-py
             - name: Save coverage report
               uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -25,8 +30,10 @@ jobs:
     test-js:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
-            - name: Test
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - name: Javascript tests
               run: make test-js
 
     upload-coverage:
