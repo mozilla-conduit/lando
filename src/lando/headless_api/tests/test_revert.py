@@ -3,11 +3,12 @@ from unittest import mock
 import pytest
 from pydantic import ValidationError
 
-from lando.headless_api.api import HACKBOT_EMAIL, resolve_action
+from lando.headless_api.api import resolve_action
 from lando.headless_api.models.automation_job import AutomationAction, AutomationJob
 from lando.main.models import JobStatus, Repo
 from lando.main.models.profile import SCM_ALLOW_DIRECT_PUSH
 from lando.main.scm import SCMType
+from lando.settings import HACKBOT_EMAIL
 
 
 def revert_action(**kwargs):

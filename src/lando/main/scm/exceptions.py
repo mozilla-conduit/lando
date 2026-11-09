@@ -59,6 +59,10 @@ class PatchConflict(PatchApplicationFailure):
         self.conflict_diff = conflict_diff
 
 
+class CommitNotFound(SCMException):
+    """Exception when a revision does not identify a commit."""
+
+
 class SCMInternalServerError(SCMException):
     """Exception when pulling changes from the upstream repo fails."""
 
