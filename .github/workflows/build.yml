@@ -1,5 +1,8 @@
 name: Build and test
 
+permissions:
+    contents: read
+
 on:
     push:
         branches:
@@ -10,16 +13,41 @@ on:
     workflow_dispatch:
 
 jobs:
-    build-and-run-tests:
+    test-py:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
-            - name: Test
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - name: Python tests
               run: make test-py
+            - name: Save coverage report
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              with:
+                  name: coverage.xml
+                  path: coverage.xml
 
     test-js:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
-            - name: Test
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - name: Javascript tests
               run: make test-js
+
+    upload-coverage:
+        needs: test-py
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - name: Download coverage report
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+              with:
+                  name: coverage.xml
+            - name: Upload coverage to Codecov
+              uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+              with:
+                  token: ${{ secrets.CODECOV_TOKEN }}

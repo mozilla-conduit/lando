@@ -8,6 +8,8 @@ env
 staticfiles
 .test-use-suite
 .coverage*
+coverage.xml
+html_cov
 node_modules
 
 # Built Vue frontend bundle (produced by `make build-js`).
