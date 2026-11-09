@@ -36,6 +36,11 @@ from lando.headless_api.models.automation_job import (
 )
 from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import JobStatus
+from lando.main.models.configuration import (
+    ConfigurationKey,
+    ConfigurationVariable,
+    VariableTypeChoices,
+)
 from lando.main.models.repo import Repo
 from lando.main.scm import PatchConflict, SCMType
 from lando.main.scm.abstract_scm import AbstractSCM
@@ -535,7 +540,16 @@ def automation_worker(landing_worker_instance):
 @pytest.mark.django_db
 @pytest.mark.parametrize(
     "outcome",
-    ["success", "multiple", "partial", "invalid", "conflict", "failed-check"],
+    [
+        "success",
+        "multiple",
+        "partial",
+        "invalid",
+        "conflict",
+        "failed-check",
+        "too-old",
+        "too-old-allowed",
+    ],
 )
 @mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient")
 def test_automation_revert_request(
@@ -547,6 +561,7 @@ def test_automation_revert_request(
     automation_worker,
     mock_phab_trigger_repo_update_apply_async,
     create_git_commit,
+    monkeypatch,
 ):
     user, token = headless_user
     user.email = "hackbot@mozilla.tld"
@@ -554,6 +569,15 @@ def test_automation_revert_request(
     user.user_permissions.clear()
     repo = repo_mc(SCMType.GIT, name="ff-test-dev")
     seed = Path(repo.pull_path)
+
+    if outcome == "too-old-allowed":
+        ConfigurationVariable.set(
+            ConfigurationKey.HACKBOT_REVERT_MAX_AGE_HOURS,
+            VariableTypeChoices.INT,
+            str(100 * 365 * 24),
+        )
+    elif outcome != "too-old":
+        monkeypatch.setenv("GIT_COMMITTER_DATE", datetime.datetime.now().isoformat())
 
     def commit(content):
         create_git_commit(
@@ -598,7 +622,7 @@ def test_automation_revert_request(
     head = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=seed, text=True
     ).strip()
-    if outcome in ("success", "multiple"):
+    if outcome in ("success", "multiple", "too-old-allowed"):
         assert job.status == JobStatus.LANDED, job.error
         assert head == job.landed_commit_id
         assert head != original
@@ -618,6 +642,8 @@ def test_automation_revert_request(
     else:
         assert job.status == JobStatus.FAILED, job.error
         assert head == original
+        if outcome == "too-old":
+            assert "ago" in job.error
         if outcome == "failed-check":
             checks.assert_called_once()
         else:

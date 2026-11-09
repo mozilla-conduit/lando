@@ -23,6 +23,7 @@ from lando.headless_api.models.automation_job import (
 )
 from lando.headless_api.models.tokens import API_TOKEN_PREFIX_LENGTH, ApiToken
 from lando.main.models import JobAction, JobStatus, Repo
+from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 from lando.main.scm import (
     AbstractSCM,
     MergeStrategy,
@@ -36,6 +37,8 @@ from lando.main.scm.helpers import (
 )
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_HACKBOT_REVERT_MAX_AGE_HOURS = 24
 
 
 def reject_cli_flags(value: str) -> str:
@@ -325,8 +328,14 @@ class RevertAction(ActionSchema):
     def process(
         self, job: AutomationJob, repo: Repo, scm: AbstractSCM, index: int
     ) -> bool:
+        max_age_hours = ConfigurationVariable.get(
+            ConfigurationKey.HACKBOT_REVERT_MAX_AGE_HOURS,
+            DEFAULT_HACKBOT_REVERT_MAX_AGE_HOURS,
+        )
         try:
-            scm.revert_commit(self.commit)
+            scm.revert_commit(
+                self.commit, max_age=datetime.timedelta(hours=max_age_hours)
+            )
         except PatchConflict as exc:
             raise AutomationActionException(
                 message=f"Conflict while reverting commit {self.commit}, action #{index}.",

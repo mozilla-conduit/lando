@@ -1,4 +1,5 @@
 import subprocess
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -103,3 +104,14 @@ def test_git_revert_conflict(git_repo, commit_file):
     assert "backout-test" in raised.value.conflicts
     scm.reset_to_commit(original)
     scm.revert_commit(original)
+
+
+def test_git_revert_max_age(git_repo, commit_file, monkeypatch):
+    scm = GitSCM(str(git_repo))
+    old = commit_file(git_repo, "old")
+    with pytest.raises(ValueError, match="ago"):
+        scm.revert_commit(old, max_age=timedelta(hours=24))
+    monkeypatch.setenv("GIT_COMMITTER_DATE", datetime.now().isoformat())
+    recent = commit_file(git_repo, "recent")
+    scm.revert_commit(recent, max_age=timedelta(hours=24))
+    assert scm.describe_commit().reverted_commit_hashes() == [recent]
