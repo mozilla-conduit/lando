@@ -546,6 +546,7 @@ def test_automation_revert_request(
     repo_mc,
     automation_worker,
     mock_phab_trigger_repo_update_apply_async,
+    create_git_commit,
 ):
     user, token = headless_user
     user.email = "hackbot@mozilla.tld"
@@ -555,10 +556,11 @@ def test_automation_revert_request(
     seed = Path(repo.pull_path)
 
     def commit(content):
-        (seed / "backout-test").write_text(content)
-        subprocess.run(["git", "add", "backout-test"], cwd=seed, check=True)
-        subprocess.run(
-            ["git", "commit", "-m", "Bug 123 - Startup change"], cwd=seed, check=True
+        create_git_commit(
+            seed,
+            message="Bug 123 - Startup change",
+            name="backout-test",
+            content=content,
         )
         return subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=seed, text=True

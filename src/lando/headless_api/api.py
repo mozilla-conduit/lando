@@ -5,6 +5,7 @@ import logging
 from io import StringIO
 from typing import Annotated, Literal
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.handlers.wsgi import WSGIRequest
 from django.db import transaction
@@ -26,6 +27,7 @@ from lando.main.scm import (
     AbstractSCM,
     MergeStrategy,
     PatchConflict,
+    SCMException,
     SCMType,
 )
 from lando.main.scm.helpers import (
@@ -34,10 +36,6 @@ from lando.main.scm.helpers import (
 )
 
 logger = logging.getLogger(__name__)
-
-# shortcut: Hackbot-only rollout, replace with scoped permissions when access expands.
-HACKBOT_EMAIL = "hackbot@mozilla.tld"
-HACKBOT_REVERT_REPOS = {"firefox-autoland", "ff-test-stage", "ff-test-dev"}
 
 
 def reject_cli_flags(value: str) -> str:
@@ -315,7 +313,10 @@ class RevertAction(ActionSchema):
     ]
 
     def permission_error(self, user: User, repo: Repo) -> str | None:
-        if user.email == HACKBOT_EMAIL and repo.name in HACKBOT_REVERT_REPOS:
+        if (
+            user.email == settings.HACKBOT_EMAIL
+            and repo.name in settings.HACKBOT_REVERT_REPOS
+        ):
             return None
         return (
             f"User {user.email} is not allowed to revert commits on repo {repo.name}."
@@ -332,9 +333,9 @@ class RevertAction(ActionSchema):
                 job_action=JobAction.FAIL,
                 is_fatal=False,
             ) from exc
-        except Exception as exc:
+        except (SCMException, ValueError) as exc:
             raise AutomationActionException(
-                message=f"Could not revert commit {self.commit}, action #{index}. It must be a non-root, non-merge commit on the target branch with changes to revert.",
+                message=f"Could not revert commit {self.commit}, action #{index}: {exc}",
                 job_action=JobAction.FAIL,
                 is_fatal=False,
             ) from exc
@@ -469,7 +470,7 @@ def post_repo_actions(
     ]
     if operation.relbranch is not None:
         errors.append(automation_permission_error(request.user, repo))
-    if error := next(filter(None, errors), None):
+    if error := "\n".join(dict.fromkeys(filter(None, errors))):
         logger.info(
             error,
             extra={"user": request.user.email, "token": request.auth.token_prefix},

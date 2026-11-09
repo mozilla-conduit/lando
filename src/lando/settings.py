@@ -370,4 +370,7 @@ AUDITLOG_EXCLUDE_TRACKING_FIELDS = (
     "updated_at",
 )
 
-DISALLOWED_AUTHOR_EMAILS = ("hackbot@mozilla.tld",)
+HACKBOT_EMAIL = "hackbot@mozilla.tld"
+HACKBOT_REVERT_REPOS = {"firefox-autoland", "ff-test-stage", "ff-test-dev"}
+
+DISALLOWED_AUTHOR_EMAILS = (HACKBOT_EMAIL,)

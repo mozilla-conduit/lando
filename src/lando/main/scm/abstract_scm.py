@@ -120,10 +120,7 @@ class AbstractSCM(ABC):
         """Cherry-pick the specified commit onto the current branch."""
 
     def revert_commit(self, commit_id: str):
-        """Back out one non-root, non-merge ancestor of HEAD.
-
-        Restore the original checkout on failure. Not supported by all SCMs.
-        """
+        """Back out one non-root, non-merge ancestor of HEAD. Not supported by all SCMs."""
         raise NotImplementedError(
             f"`revert_commit` is not implemented for {self.scm_name()}."
         )

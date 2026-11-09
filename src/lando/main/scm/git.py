@@ -17,6 +17,7 @@ from typing_extensions import override
 from lando.main.scm.commit import CommitData
 from lando.main.scm.consts import MergeStrategy, SCMType
 from lando.main.scm.exceptions import (
+    CommitNotFound,
     PatchConflict,
     SCMException,
     SCMInternalServerError,
@@ -58,12 +59,20 @@ def detect_patch_conflict(fn: Callable[..., T]) -> Callable[..., T]:
     """Decorator transforming SCMExceptions to PatchConflict as appropriate."""
 
     @wraps(fn)
-    def wrapper(*args, **kwargs) -> T:
+    def wrapper(self: "GitSCM", *args, **kwargs) -> T:
         try:
-            return fn(*args, **kwargs)
+            return fn(self, *args, **kwargs)
         except SCMException as exc:
-            if "error: patch" in exc.err or FILE_MISMATCH_RE.search(exc.err):
-                raise PatchConflict(exc.err) from exc
+            try:
+                conflicts = self.collect_conflicts()
+            except SCMException:
+                conflicts = {}
+            if (
+                conflicts
+                or "error: patch" in exc.err
+                or FILE_MISMATCH_RE.search(exc.err)
+            ):
+                raise PatchConflict(exc.err, conflicts=conflicts) from exc
 
             raise exc
 
@@ -216,30 +225,20 @@ class GitSCM(AbstractSCM):
         self._git_run("cherry-pick", commit_id, cwd=self.path)
 
     @override
+    @detect_patch_conflict
     def revert_commit(self, commit_id: str):
-        if not re.fullmatch(r"[0-9a-fA-F]{40}", commit_id):
-            raise ValueError("A full Git commit SHA is required.")
         if not self.commit_exists(commit_id):
-            raise ValueError("The target must identify a Git commit.")
-        original_head = self.head_ref()
+            raise CommitNotFound(f"{commit_id} is not a commit.", "")
         commit = self.describe_commit(commit_id)
         if len(commit.parents) != 1:
-            raise ValueError("Root and merge commits cannot be reverted.")
-        self._git_run(
-            "merge-base", "--is-ancestor", commit.hash, original_head, cwd=self.path
-        )
+            raise ValueError(f"Root and merge commits cannot be reverted: {commit_id}.")
         try:
-            self._git_run("revert", "--no-edit", commit.hash, cwd=self.path)
-        except Exception as exc:
-            try:
-                conflicts = self.collect_conflicts()
-            finally:
-                self.reset_to_commit(original_head)
-            if conflicts:
-                raise PatchConflict(
-                    f"Conflict while reverting {commit.hash}.", conflicts=conflicts
-                ) from exc
-            raise
+            self._git_run(
+                "merge-base", "--is-ancestor", commit.hash, "HEAD", cwd=self.path
+            )
+        except SCMException as exc:
+            raise ValueError(f"{commit_id} is not on the target branch.") from exc
+        self._git_run("revert", "--no-edit", commit.hash, cwd=self.path)
 
     @property
     @override
