@@ -7,7 +7,7 @@ import tempfile
 import uuid
 from collections.abc import Callable
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from pathlib import Path
 from typing import Any, TypeVar
@@ -226,7 +226,7 @@ class GitSCM(AbstractSCM):
 
     @override
     @detect_patch_conflict
-    def revert_commit(self, commit_id: str):
+    def revert_commit(self, commit_id: str, max_age: timedelta | None = None):
         if not self.commit_exists(commit_id):
             raise CommitNotFound(f"{commit_id} is not a commit.", "")
         commit = self.describe_commit(commit_id)
@@ -238,6 +238,20 @@ class GitSCM(AbstractSCM):
             )
         except SCMException as exc:
             raise ValueError(f"{commit_id} is not on the target branch.") from exc
+        if max_age is not None:
+            committed_at = datetime.fromtimestamp(
+                int(
+                    self._git_run(
+                        "show", "-s", "--format=%ct", commit.hash, cwd=self.path
+                    )
+                ),
+                tz=timezone.utc,
+            )
+            if committed_at < datetime.now(timezone.utc) - max_age:
+                raise ValueError(
+                    f"{commit_id} was committed at {committed_at.isoformat()}, "
+                    f"more than {max_age} ago."
+                )
         self._git_run("revert", "--no-edit", commit.hash, cwd=self.path)
 
     @property
