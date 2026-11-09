@@ -15,6 +15,7 @@ from mozilla_django_oidc.auth import OIDCAuthenticationBackend
 
 # requests is a transitive dependency of mozilla-django-oidc.
 from lando.environments import Environment
+from lando.main.models import Repo
 from lando.main.models.profile import Profile, filter_claims
 from lando.utils.github import GitHubAPIClient, verify_github_signature
 from lando.utils.phabricator import PhabricatorClient
@@ -34,6 +35,29 @@ def user_is_conduit_admin(user: User) -> bool:
         and user.is_staff
         and user.groups.filter(name=CONDUIT_ADMIN_GROUP_NAME).exists()
     )
+
+
+# class GitHubSecretAuthenticationBackend(BaseBackend):
+#     """Authenticate a user based on a GitHub secret."""
+
+
+#     def authenticate(self, request: WSGIRequest, repo: Repo) -> User | None:
+#         signature = request.headers.get("X-Hub-Signature-256")
+#         if not signature or not repo.gh_hmac_secret:
+#             return None
+
+#         if not verify_github_signature(repo.gh_hmac_secret, request.body, signature):
+#             return None
+
+#         try:
+#             return User.objects.get(username=settings.GITHUB_WEBHOOK_USERNAME)
+#         except User.DoesNotExist:
+#             logger.warning(
+#                 "GitHub webhook secret authentication failed: "
+#                 "user `%s` does not exist.",
+#                 settings.GITHUB_WEBHOOK_USERNAME,
+#             )
+#             return None
 
 
 class PhabricatorTokenAuthenticationBackend(BaseBackend):
@@ -348,9 +372,22 @@ class PrivateRepoPermissionMixin:
     """Provide a helper method to check permissions for private repos."""
 
     @staticmethod
-    def raise_404_if_needed(request: HttpResponse, client: GitHubAPIClient):
+    def raise_404_if_needed(
+        request: HttpResponse, client: GitHubAPIClient, repo: Repo | None = None
+    ):
         """Check client repo and request user for correct permissions."""
         if client.repo_is_private and not request.user.has_perm(
             "main.can_view_private_repos"
         ):
+            signature = request.headers.get("X-Hub-Signature-256")
+
+            if (
+                repo
+                and signature
+                and repo.gh_hmac_secret
+                and verify_github_signature(
+                    repo.gh_hmac_secret, request.body, signature
+                )
+            ):
+                return
             raise Http404()
