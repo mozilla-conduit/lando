@@ -564,15 +564,18 @@ def test_automation_revert_request(
     monkeypatch,
 ):
     user, token = headless_user
-    user.email = "hackbot@mozilla.tld"
-    user.save()
-    user.user_permissions.clear()
+    user.user_permissions.set([Permission.objects.get(codename="can_revert_commits")])
+    ConfigurationVariable.set(
+        ConfigurationKey.REVERT_ALLOWED_REPOS,
+        VariableTypeChoices.JSON,
+        json.dumps(["ff-test-dev"]),
+    )
     repo = repo_mc(SCMType.GIT, name="ff-test-dev")
     seed = Path(repo.pull_path)
 
     if outcome == "too-old-allowed":
         ConfigurationVariable.set(
-            ConfigurationKey.HACKBOT_REVERT_MAX_AGE_HOURS,
+            ConfigurationKey.REVERT_MAX_AGE_HOURS,
             VariableTypeChoices.INT,
             str(100 * 365 * 24),
         )

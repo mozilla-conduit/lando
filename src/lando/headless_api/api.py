@@ -5,7 +5,6 @@ import logging
 from io import StringIO
 from typing import Annotated, Literal
 
-from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.handlers.wsgi import WSGIRequest
 from django.db import transaction
@@ -38,7 +37,7 @@ from lando.main.scm.helpers import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_HACKBOT_REVERT_MAX_AGE_HOURS = 24
+DEFAULT_REVERT_MAX_AGE_HOURS = 24
 
 
 def reject_cli_flags(value: str) -> str:
@@ -316,10 +315,7 @@ class RevertAction(ActionSchema):
     ]
 
     def permission_error(self, user: User, repo: Repo) -> str | None:
-        if (
-            user.email == settings.HACKBOT_EMAIL
-            and repo.name in settings.HACKBOT_REVERT_REPOS
-        ):
+        if repo.user_can_revert(user):
             return None
         return (
             f"User {user.email} is not allowed to revert commits on repo {repo.name}."
@@ -329,8 +325,8 @@ class RevertAction(ActionSchema):
         self, job: AutomationJob, repo: Repo, scm: AbstractSCM, index: int
     ) -> bool:
         max_age_hours = ConfigurationVariable.get(
-            ConfigurationKey.HACKBOT_REVERT_MAX_AGE_HOURS,
-            DEFAULT_HACKBOT_REVERT_MAX_AGE_HOURS,
+            ConfigurationKey.REVERT_MAX_AGE_HOURS,
+            DEFAULT_REVERT_MAX_AGE_HOURS,
         )
         try:
             scm.revert_commit(
