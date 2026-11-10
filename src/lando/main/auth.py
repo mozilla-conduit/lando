@@ -36,30 +36,6 @@ def user_is_conduit_admin(user: User) -> bool:
         and user.groups.filter(name=CONDUIT_ADMIN_GROUP_NAME).exists()
     )
 
-
-# class GitHubSecretAuthenticationBackend(BaseBackend):
-#     """Authenticate a user based on a GitHub secret."""
-
-
-#     def authenticate(self, request: WSGIRequest, repo: Repo) -> User | None:
-#         signature = request.headers.get("X-Hub-Signature-256")
-#         if not signature or not repo.gh_hmac_secret:
-#             return None
-
-#         if not verify_github_signature(repo.gh_hmac_secret, request.body, signature):
-#             return None
-
-#         try:
-#             return User.objects.get(username=settings.GITHUB_WEBHOOK_USERNAME)
-#         except User.DoesNotExist:
-#             logger.warning(
-#                 "GitHub webhook secret authentication failed: "
-#                 "user `%s` does not exist.",
-#                 settings.GITHUB_WEBHOOK_USERNAME,
-#             )
-#             return None
-
-
 class PhabricatorTokenAuthenticationBackend(BaseBackend):
     """Authenticate a user based on their Phabricator PHID and token."""
 
