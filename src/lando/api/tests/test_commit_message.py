@@ -284,8 +284,8 @@ This reverts commit e3f81fcb94c16422e2643009af485d88647fdfd8
             (["41f80b316d60"], []),
         ),
         (
-            "Backout changesets  9e4ab3907b29, 3abc0dbbf710 due to m-oth permaorange",
-            (["9e4ab3907b29", "3abc0dbbf710"], []),
+            "Backout changesets  9e4ab3907b29 ,  3abc0dbbf710   0ad05f727323 and 6de5c1264abc due to m-oth permaorange",
+            (["9e4ab3907b29", "3abc0dbbf710", "0ad05f727323", "6de5c1264abc"], []),
         ),
         (
             HG_STYLE_BACKOUT,
