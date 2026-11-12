@@ -10,6 +10,7 @@ from lando.api.legacy.revisions import (
     ensure_revisions_from_phabricator,
     fetch_raw_diff_and_save,
     get_base_revision_from_diff,
+    get_first_public_parent_from_diff,
     revision_is_secure,
     revision_needs_testing_tag,
 )
@@ -143,6 +144,57 @@ def test_repo_does_not_have_testing_policy(phabdouble):
     revision = phabdouble.revision(projects=[], repo=repo)
     assert not revision_needs_testing_tag(
         revision, repo, ["testing-tag-phid"], "testing-policy-phid"
+    )
+
+
+def commits_attachment(first_public_parent: str | None) -> list[dict]:
+    """Return a `commits` attachment entry recording `first_public_parent`.
+
+    Passing `None` omits the key entirely, as diffs submitted before bug 2068637
+    do.
+    """
+    commit = {
+        "identifier": "abc123",
+        "tree": None,
+        "parents": [],
+        "author": {
+            "name": "Test User",
+            "email": "test@example.com",
+            "raw": "Test User <test@example.com>",
+            "epoch": 0,
+        },
+        "message": "Bug 1 - Test commit",
+    }
+
+    if first_public_parent is not None:
+        commit["firstPublicParent"] = first_public_parent
+
+    return [commit]
+
+
+@pytest.mark.parametrize(
+    "first_public_parent,expected",
+    [
+        pytest.param("a" * 40, "a" * 40, id="happy-path"),
+        pytest.param(None, "", id="no-hash"),
+        pytest.param("not-a-hash", "", id="invalid-hash"),
+        pytest.param("A" * 40, "", id="uppercase-hash"),
+        pytest.param("a" * 39, "", id="hash-too-short"),
+        pytest.param("a" * 41, "", id="hash-too-long"),
+        pytest.param("a" * 40 + "\n", "", id="hash-with-newline"),
+    ],
+)
+def test_get_first_public_parent_from_diff_returns_first_ancestor_identifier(
+    phabdouble, first_public_parent, expected
+):
+    """The `firstPublicParent` ref identifier is returned when present."""
+    diff = phabdouble.api_object_for(
+        phabdouble.diff(commits=commits_attachment(first_public_parent)),
+        attachments={"commits": True},
+    )
+    assert get_first_public_parent_from_diff(diff) == expected, (
+        "`get_first_public_parent_from_diff` should return the firstPublicParent "
+        "ref identifier if it exists. Else, it should return an empty string."
     )
 
 
@@ -316,7 +368,8 @@ def test_fetch_raw_diff_and_save_creates_new_revision(phabdouble):
     phab_revision = phabdouble.revision(title="Bug 1 - Test commit")
     phab = phabdouble.get_phabricator_client()
     diff = phabdouble.api_object_for(
-        phabdouble.diff(revision=phab_revision), attachments={"commits": True}
+        phabdouble.diff(revision=phab_revision, commits=commits_attachment("a" * 40)),
+        attachments={"commits": True},
     )
 
     revision = fetch_raw_diff_and_save(
@@ -335,6 +388,15 @@ def test_fetch_raw_diff_and_save_creates_new_revision(phabdouble):
     )
     assert revision.base_revision, (
         "`base_revision` should be populated from the default diff base ref."
+    )
+
+    assert revision.first_public_parent, (
+        "`first_public_parent` should be populated from the firstPublicParent key "
+        "of the local:commits diff property."
+    )
+    assert revision.first_public_parent == get_first_public_parent_from_diff(diff), (
+        "`first_public_parent` should be set from the firstPublicParent key "
+        "of the local:commits diff property."
     )
 
 
