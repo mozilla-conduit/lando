@@ -30,7 +30,9 @@ from lando.main.models.uplift import HackbotResolution, UpliftJob, UpliftRevisio
 from lando.main.scm import GitSCM
 from lando.main.scm.commit import CommitData
 from lando.main.scm.exceptions import (
+    PatchApplicationFailure,
     PatchConflict,
+    SCMException,
 )
 from lando.main.scm.helpers import PatchHelper
 from lando.try_api.api import get_commit_hash, get_commit_map
@@ -121,7 +123,11 @@ class UpliftWorker(Worker):
 
         # Update to the latest commit in the target train.
         base_revision = self.update_repo(repo, job, scm, target_cset=None)
-        new_commits = self.apply_uplift_revisions(job, repo, scm, base_revision)
+        resolution = job.hackbot_resolution
+        if resolution and resolution.patch:
+            new_commits = self.apply_hackbot_resolution(resolution, scm, base_revision)
+        else:
+            new_commits = self.apply_uplift_revisions(job, repo, scm, base_revision)
 
         # Run landing checks on the applied patches before invoking `moz-phab`.
         # The uplift fallback applies raw patches directly, so this is the only
@@ -250,6 +256,81 @@ class UpliftWorker(Worker):
             logger.debug(f"Created new commit {new_commit}")
 
         return new_commits
+
+    def apply_hackbot_resolution(
+        self, resolution: HackbotResolution, scm: GitSCM, base_revision: str
+    ) -> list[CommitData]:
+        """Apply Hackbot's resolved patch on top of `base_revision`.
+
+        Hackbot resolved the conflict against `resolution.base_commit`, so the patch
+        is applied there and rebased onto `base_revision`, absorbing anything that
+        landed on the train while Hackbot worked.
+        """
+        job = resolution.job
+        logger.debug(f"Applying Hackbot's resolution onto {resolution.base_commit}.")
+        scm.reset_to_commit(resolution.base_commit)
+        try:
+            scm.apply_patch_git(resolution.patch.encode("utf-8"))
+            resolution.resolution_diff = self.hackbot_resolution_diff(resolution, scm)
+            resolution.save()
+
+            if base_revision != resolution.base_commit:
+                logger.debug(f"Rebasing Hackbot's resolution onto {base_revision}.")
+                scm.rebase_onto(base_revision, resolution.base_commit)
+        except (PatchApplicationFailure, SCMException) as exc:
+            message = f"Lando could not apply the resolution from Hackbot:\n\n{exc}"
+            logger.exception(message, extra={"job_id": job.id})
+            job.transition_status(JobAction.FAIL, message=message)
+            raise PermanentFailureException(message) from exc
+
+        new_commits = scm.describe_local_changes(base_cset=base_revision)
+        logger.debug(f"Created new commits {new_commits} from Hackbot's resolution.")
+        return new_commits
+
+    def hackbot_resolution_diff(
+        self, resolution: HackbotResolution, scm: GitSCM
+    ) -> str:
+        """Return how Hackbot's resolution changed the conflicted tree, as a diff.
+
+        Must run while Hackbot's commits sit on `resolution.base_commit`, one per
+        revision, so the commit before the conflicting revision's is the one the
+        conflict was hit on. Returns an empty string when the tree can't be rebuilt.
+        """
+        job = resolution.job
+        resolved_commits = scm.describe_local_changes(base_cset=resolution.base_commit)
+        conflict_index = resolution.conflict_revision_index
+        if (
+            not resolution.conflict_diff
+            or conflict_index is None
+            or len(resolved_commits) != job.revisions.count()
+        ):
+            logger.warning(
+                "Could not match Hackbot's commits to the conflicting revision.",
+                extra={"job_id": job.id, "conflict_index": conflict_index},
+            )
+            return ""
+
+        conflict_parent = (
+            resolved_commits[conflict_index - 1].hash
+            if conflict_index
+            else resolution.base_commit
+        )
+        logger.debug(
+            f"Comparing the conflicted tree on {conflict_parent} to Hackbot's."
+        )
+        try:
+            return scm.diff_from_patched_tree(
+                conflict_parent,
+                resolution.conflict_diff,
+                resolved_commits[conflict_index].hash,
+            )
+        except SCMException:
+            logger.warning(
+                "Could not rebuild the conflicted tree to compare with Hackbot's.",
+                extra={"job_id": job.id},
+                exc_info=True,
+            )
+            return ""
 
     def hand_off_conflict_to_hackbot(
         self,
@@ -461,8 +542,15 @@ class UpliftWorker(Worker):
     ) -> None:
         """Invoke `moz-phab uplift` for the given job and capture the output."""
         target_repo = job.target_repo
-        try:
-            subprocess.run(
+        resolution = job.hackbot_resolution
+        with tempfile.NamedTemporaryFile(
+            encoding="utf-8", mode="w+", suffix=".diff"
+        ) as conflict_diff_file:
+            conflict_diff_file.write(resolution.conflict_diff if resolution else "")
+            conflict_diff_file.flush()
+
+            self.invoke_moz_phab_uplift(
+                job,
                 [
                     "moz-phab",
                     "uplift",
@@ -473,11 +561,57 @@ class UpliftWorker(Worker):
                     "--no-rebase",
                     "--output-file",
                     output_path,
+                    *self.moz_phab_merge_conflict_args(
+                        job, conflict_diff_file.name, base_revision
+                    ),
                     "--train",
                     target_repo.short_name,
                     base_revision,
                     "HEAD",
                 ],
+                env,
+            )
+
+    def moz_phab_merge_conflict_args(
+        self, job: UpliftJob, conflict_diff_path: str, base_revision: str
+    ) -> list[str]:
+        """Return the `moz-phab uplift` arguments that post the job's merge conflict.
+
+        `moz-phab` posts the conflicted tree at `conflict_diff_path` as the first
+        diff of the conflicting revision's uplift, before Hackbot's resolution, so
+        the two can be compared on Phabricator.
+        """
+        resolution = job.hackbot_resolution
+        if not resolution or not resolution.patch or not resolution.conflict_diff:
+            return []
+
+        resolved_commits = GitSCM(job.target_repo.system_path).describe_local_changes(
+            base_cset=base_revision
+        )
+        conflict_index = resolution.conflict_revision_index
+        if conflict_index is None or len(resolved_commits) != job.revisions.count():
+            logger.warning(
+                "Not posting the merge conflict, as Hackbot's commits don't match "
+                "the job's revisions.",
+                extra={"job_id": job.id, "conflict_index": conflict_index},
+            )
+            return []
+
+        return [
+            "--merge-conflict",
+            conflict_diff_path,
+            "--merge-conflict-commit",
+            resolved_commits[conflict_index].hash,
+        ]
+
+    def invoke_moz_phab_uplift(
+        self, job: UpliftJob, command: list[str], env: dict[str, str]
+    ) -> None:
+        """Run a `moz-phab uplift` command, failing the job if it errors."""
+        target_repo = job.target_repo
+        try:
+            subprocess.run(
+                command,
                 capture_output=True,
                 check=True,
                 cwd=target_repo.system_path,

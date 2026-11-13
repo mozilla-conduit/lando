@@ -1,7 +1,9 @@
 import json
 import logging
 import subprocess
+from collections.abc import Callable
 from io import StringIO
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -1496,6 +1498,72 @@ def test_run_moz_phab_uplift_invokes_subprocess_with_expected_args(
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize(
+    "resolved_commit_count,expect_merge_conflict",
+    (
+        (1, True),
+        (2, False),
+    ),
+)
+def test_run_moz_phab_uplift_passes_the_merge_conflict_of_a_resolved_job(
+    repo_mc,
+    user,
+    uplift_worker,
+    create_patch_revision,
+    make_uplift_job_with_revisions,
+    make_hackbot_resolution,
+    monkeypatch,
+    tmp_path,
+    resolved_commit_count: int,
+    expect_merge_conflict: bool,
+):
+    repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
+    revision = create_patch_revision(1)
+    job = make_uplift_job_with_revisions(repo, user, [revision])
+    make_hackbot_resolution(
+        job,
+        revision,
+        conflict_diff=CONFLICT_DIFF,
+        patch="From 1234 Mon Sep 17 00:00:00 2001\n",
+    )
+
+    resolved_commits = [
+        mock.MagicMock(hash=f"{index}" * 40) for index in range(resolved_commit_count)
+    ]
+    describe_local_changes = mock.MagicMock(return_value=resolved_commits)
+    monkeypatch.setattr(GitSCM, "describe_local_changes", describe_local_changes)
+
+    offered_conflict_diffs = []
+
+    def run_moz_phab(command, **kwargs):
+        if "--merge-conflict" in command:
+            conflict_diff_path = command[command.index("--merge-conflict") + 1]
+            offered_conflict_diffs.append(Path(conflict_diff_path).read_text())
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    fake_run = mock.MagicMock(side_effect=run_moz_phab)
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    uplift_worker.run_moz_phab_uplift(job, "abcd1234", {}, str(tmp_path / "out.json"))
+
+    describe_local_changes.assert_called_once_with(base_cset="abcd1234")
+    command = fake_run.call_args.args[0]
+    if not expect_merge_conflict:
+        assert "--merge-conflict" not in command, (
+            "The merge conflict should be left out when Hackbot's commits don't "
+            "match the job's revisions."
+        )
+        return
+
+    assert offered_conflict_diffs == [CONFLICT_DIFF], (
+        "The conflicted tree should be passed to `moz-phab uplift` as a diff file."
+    )
+    assert command[command.index("--merge-conflict-commit") + 1] == "0" * 40, (
+        "The merge conflict should go on the conflicting revision's commit."
+    )
+
+
+@pytest.mark.django_db
 def test_uplift_worker_mozphab_failure_marks_failed(
     repo_mc,
     user,
@@ -1828,6 +1896,195 @@ def test_uplift_worker_fails_conflict_without_a_conflicted_tree(
         "fail the job."
     )
     start_resolution.assert_not_called()
+    mock_failure_task.apply_async.assert_called_once()
+
+
+DIFF_MISSING_CONTENT = """diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,1 @@
+-LINE THAT IS NOT HERE
++adding different line
+"""
+
+
+def git_output(repo_path, *args: str) -> str:
+    return subprocess.run(
+        ["git", *args], cwd=repo_path, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+@pytest.fixture
+def resubmitted_hackbot_job(
+    repo_mc,
+    git_repo,
+    user,
+    create_patch_revision,
+    normal_patch,
+    make_uplift_job_with_revisions,
+    make_hackbot_resolution,
+    diff_to_git_patch,
+) -> Callable[[str], UpliftJob]:
+    """Build an uplift job resubmitted with a Hackbot resolution of `diff`."""
+
+    def make_resubmitted_job(diff: str | None = None) -> UpliftJob:
+        repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
+        revision = create_patch_revision(1, patch=normal_patch(0))
+        job = make_uplift_job_with_revisions(repo, user, [revision])
+        make_hackbot_resolution(
+            job,
+            revision,
+            base_commit=git_output(git_repo, "rev-parse", "HEAD"),
+            run_id=HACKBOT_RUN_ID,
+            patch=diff_to_git_patch(
+                diff or revision.diff,
+                commit_description=revision.commit_message,
+                author="Dev Eloper <dev@mozilla.example>",
+            )
+            + "\n",
+        )
+        return job
+
+    return make_resubmitted_job
+
+
+@pytest.mark.django_db
+def test_uplift_worker_applies_hackbot_resolution_onto_moved_tip(
+    git_repo,
+    uplift_worker,
+    monkeypatch,
+    mock_uplift_email_tasks,
+    resubmitted_hackbot_job,
+):
+    job = resubmitted_hackbot_job()
+
+    # The train moves on while Hackbot resolves the conflict.
+    (git_repo / "drift.txt").write_text("drift\n")
+    git_output(git_repo, "add", "drift.txt")
+    git_output(git_repo, "commit", "-m", "Bug 2: land something else on the train")
+    moved_tip = git_output(git_repo, "rev-parse", "HEAD")
+
+    uplift_base_revisions = []
+
+    def write_uplift_commits(job_arg, base_revision, env, output_path):
+        uplift_base_revisions.append(base_revision)
+        with open(output_path, "w", encoding="utf-8") as output_file:
+            json.dump({"commits": [{"rev_id": 7000}]}, output_file)
+
+    monkeypatch.setattr(uplift_worker, "run_moz_phab_uplift", write_uplift_commits)
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.uplift_worker.set_uplift_request_form_on_revision",
+        mock.MagicMock(),
+    )
+    cherry_pick_commit = mock.MagicMock()
+    monkeypatch.setattr(GitSCM, "cherry_pick_commit", cherry_pick_commit)
+
+    assert uplift_worker.run_job(job), "Applying the resolution should succeed."
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.LANDED, "The uplift should be created."
+    assert job.created_revision_ids == [7000], "The new revision should be recorded."
+    assert uplift_base_revisions == [moved_tip], (
+        "`moz-phab uplift` should run from the train's current tip."
+    )
+    cherry_pick_commit.assert_not_called()
+
+    checkout = job.target_repo.system_path
+    assert git_output(checkout, "rev-parse", "HEAD~1") == moved_tip, (
+        "The resolution should be rebased onto the train's current tip."
+    )
+    assert git_output(checkout, "log", "-1", "--format=%an <%ae>") == (
+        "Dev Eloper <dev@mozilla.example>"
+    ), "The resolution should keep the author from Hackbot's patch."
+    assert "adding another line" in (Path(checkout) / "test.txt").read_text(), (
+        "The resolution's change should be in the checkout."
+    )
+
+
+# The conflicted `test.txt`, as `GitSCM.conflicted_tree_diff` would capture it when
+# `normal_patch(0)` conflicts on the seeded repository.
+SEEDED_REPO_CONFLICT_DIFF = """\
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1 +1,5 @@
+ TEST
++<<<<<<< HEAD
++=======
++adding another line
++>>>>>>> 1234567 (Bug 35: add another line)
+"""
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "conflict_diff,expect_resolution_diff",
+    (
+        (SEEDED_REPO_CONFLICT_DIFF, True),
+        ("", False),
+    ),
+)
+def test_uplift_worker_records_how_hackbot_resolved_the_conflict(
+    uplift_worker,
+    monkeypatch,
+    mock_uplift_email_tasks,
+    resubmitted_hackbot_job,
+    conflict_diff: str,
+    expect_resolution_diff: bool,
+):
+    job = resubmitted_hackbot_job()
+    resolution = job.hackbot_resolution
+    resolution.conflict_diff = conflict_diff
+    resolution.save()
+
+    def write_uplift_commits(job_arg, base_revision, env, output_path):
+        with open(output_path, "w", encoding="utf-8") as output_file:
+            json.dump({"commits": [{"rev_id": 7000}]}, output_file)
+
+    monkeypatch.setattr(uplift_worker, "run_moz_phab_uplift", write_uplift_commits)
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.uplift_worker.set_uplift_request_form_on_revision",
+        mock.MagicMock(),
+    )
+
+    assert uplift_worker.run_job(job), "Applying the resolution should succeed."
+
+    resolution.refresh_from_db()
+    if not expect_resolution_diff:
+        assert resolution.resolution_diff == "", (
+            "Without the conflicted tree, no comparison can be made."
+        )
+        return
+
+    assert "-<<<<<<< HEAD" in resolution.resolution_diff, (
+        "The resolution diff should show Hackbot removing the conflict markers."
+    )
+    assert "\n adding another line\n" in resolution.resolution_diff, (
+        "Lines the conflict and the resolution share should only be context."
+    )
+
+
+@pytest.mark.django_db
+def test_uplift_worker_fails_when_hackbot_resolution_does_not_apply(
+    uplift_worker,
+    monkeypatch,
+    mock_uplift_email_tasks,
+    resubmitted_hackbot_job,
+):
+    job = resubmitted_hackbot_job(DIFF_MISSING_CONTENT)
+
+    run_moz_phab_uplift = mock.MagicMock()
+    monkeypatch.setattr(uplift_worker, "run_moz_phab_uplift", run_moz_phab_uplift)
+    _mock_success_task, mock_failure_task = mock_uplift_email_tasks
+
+    assert not uplift_worker.run_job(job), "The job should not complete."
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.FAILED, "A resolution that won't apply should fail."
+    assert job.error.startswith("Lando could not apply the resolution from Hackbot"), (
+        "The error should say the Hackbot resolution failed to apply."
+    )
+    run_moz_phab_uplift.assert_not_called()
     mock_failure_task.apply_async.assert_called_once()
 
 
