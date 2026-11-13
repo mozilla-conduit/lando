@@ -85,6 +85,9 @@ class UpliftRequestView(LandoView):
         target_selection_method = uplift_request_form.cleaned_data[
             "target_selection_method"
         ]
+        resolve_conflicts_with_ai = uplift_request_form.cleaned_data.get(
+            "resolve_conflicts_with_ai", False
+        )
 
         # The tip revision is the one the request was made from, so its bug is
         # the bug the assessment covers.
@@ -112,6 +115,7 @@ class UpliftRequestView(LandoView):
                     revision.revision_id for revision in source_revisions
                 ],
                 target_selection_method=target_selection_method,
+                resolve_conflicts_with_ai=resolve_conflicts_with_ai,
             )
 
             # Create `UpliftJob`s and associate with this request.

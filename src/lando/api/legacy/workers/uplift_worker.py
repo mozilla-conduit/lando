@@ -105,12 +105,14 @@ class UpliftWorker(Worker):
             )
             return False
 
+        resolution = job.hackbot_resolution
         self.notify_uplift_success(
             repo.name,
             job_url,
             user.email,
             created_revision_ids,
             requested_revision_ids,
+            resolution.uplift_revision_ids if resolution else [],
         )
         return True
 
@@ -539,8 +541,13 @@ class UpliftWorker(Worker):
         recipient_email: str,
         created_revision_ids: list[int],
         requested_revision_ids: list[int],
+        ai_change_revision_ids: list[int],
     ) -> None:
-        """Send an uplift success notification email."""
+        """Send an uplift success notification email.
+
+        `ai_change_revision_ids` are the created revisions whose AI change needs
+        approval, which the email asks the requester to get.
+        """
         self.call_task(
             send_uplift_success_email,
             recipient_email,
@@ -548,6 +555,7 @@ class UpliftWorker(Worker):
             job_url,
             created_revision_ids,
             requested_revision_ids,
+            ai_change_revision_ids,
         )
 
     def notify_uplift_failure(

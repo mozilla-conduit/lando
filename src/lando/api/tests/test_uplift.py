@@ -48,6 +48,7 @@ from lando.main.scm.git import GitSCM
 from lando.main.scm.helpers import HgPatchHelper
 from lando.ui.legacy.forms import (
     UpliftAssessmentForm,
+    UpliftRequestForm,
 )
 from lando.utils import hackbot
 
@@ -328,6 +329,71 @@ def test_uplift_creation_records_widget_target_selection(
     submission = UpliftSubmission.objects.get()
     assert submission.target_selection_method == "widget_version", (
         "The widget-supplied selection method should be recorded on the submission."
+    )
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "posted_opt_in,hackbot_enabled,expected_opt_in",
+    (
+        ({"resolve_conflicts_with_ai": "on"}, True, True),
+        ({}, True, False),
+        ({"resolve_conflicts_with_ai": "on"}, False, False),
+    ),
+)
+def test_uplift_creation_records_ai_conflict_resolution_opt_in(
+    authenticated_client,
+    user,
+    repo_mc,
+    create_patch_revision,
+    normal_patch,
+    phabdouble,
+    request,
+    posted_opt_in: dict,
+    hackbot_enabled: bool,
+    expected_opt_in: bool,
+):
+    if hackbot_enabled:
+        request.getfixturevalue("hackbot_uplift_enabled")
+
+    phabdouble.user(api_key=user.profile.phabricator_api_key)
+
+    repo = repo_mc(scm_type=SCMType.GIT, name="firefox-beta", approval_required=True)
+    revision_id = phabdouble.revision(bug_id=UPLIFT_BUG_ID)["id"]
+    revision = create_patch_revision(revision_id, patch=normal_patch(0))
+
+    form_data = {
+        "source_revisions": [revision.revision_id],
+        "repositories": [repo.name],
+    }
+    form_data |= UPLIFT_ASSESSMENT_ANSWERS | posted_opt_in
+
+    response = authenticated_client.post(
+        reverse("uplift-page"), data=form_data, HTTP_REFERER=f"/D{revision_id}"
+    )
+
+    assert response.status_code == 302, "Successful creation should return 302."
+    assert (
+        UpliftSubmission.objects.get().resolve_conflicts_with_ai is expected_opt_in
+    ), (
+        "The submission should record the opt-in only while "
+        "`UPLIFT_HACKBOT_ENABLED` is set."
+    )
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("hackbot_enabled", (True, False))
+def test_uplift_request_form_offers_ai_conflict_resolution_when_enabled(
+    request, hackbot_enabled: bool
+):
+    if hackbot_enabled:
+        request.getfixturevalue("hackbot_uplift_enabled")
+
+    assert (
+        "resolve_conflicts_with_ai" in UpliftRequestForm().fields
+    ) is hackbot_enabled, (
+        "`UpliftRequestForm` should offer the Hackbot opt-in only while "
+        "`UPLIFT_HACKBOT_ENABLED` is set."
     )
 
 
@@ -1176,6 +1242,7 @@ def test_uplift_worker_applies_patches_and_creates_uplift_revision_success_git(
         5000,
         5001,
     ], "Revision identifiers should be in the correct order."
+    assert args[5] == [], "Without Hackbot, no revision should need AI approval."
     assert mock_task.apply_async.call_count == 2, (
         "Celery task should be dispatched on each successful run."
     )
@@ -2083,6 +2150,10 @@ def test_uplift_worker_records_how_hackbot_resolved_the_conflict(
     resolution.refresh_from_db()
     assert resolution.uplift_revision_ids == [7000], (
         "The resolution should record which revision needs the approval."
+    )
+    mock_success_task, _mock_failure_task = mock_uplift_email_tasks
+    assert mock_success_task.apply_async.call_args.kwargs["args"][5] == [7000], (
+        "The success email should list the revisions needing approval."
     )
     details = request["details"]
     assert details.startswith(
