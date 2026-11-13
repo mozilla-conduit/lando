@@ -91,6 +91,31 @@
                     {# The train-selector widget teleports its guidance messages here,
                        so they render below the version/repository selection. #}
                     <div id="uplift-train-messages"></div>
+                    {% if "resolve_conflicts_with_ai" in uplift.request_form.fields %}
+                        {# Set the opt-in apart from the trains, so it doesn't read as one of them. #}
+                        <hr>
+                        <div class="field UpliftHackbotOptIn">
+                            {# The checkbox sits inside the button, so the button toggles it
+                               and still shows whether it's ticked. #}
+                            <label class="button UpliftHackbotOptIn-button">
+                                {{ uplift.request_form.resolve_conflicts_with_ai }}
+                                <span class="icon">
+                                    <i class="fa fa-magic"></i>
+                                </span>
+                                <span>{{ uplift.request_form.resolve_conflicts_with_ai.label }}</span>
+                            </label>
+                            <details class="mt-2">
+                                <summary class="is-size-7">More about Hackbot resolving conflicts</summary>
+                                <p class="help">
+                                    If a patch does not apply cleanly, Hackbot will try to resolve the
+                                    conflict and Lando will create the uplift revisions from its
+                                    resolution. The uplift can't land until anyone, including you,
+                                    checks the resolution and uses "Approve AI Change" on each
+                                    revision Hackbot changed in Phabricator.
+                                </p>
+                            </details>
+                        </div>
+                    {% endif %}
                     <hr>
                     <div class="field">
                         <label class="label">Uplift assessment</label>

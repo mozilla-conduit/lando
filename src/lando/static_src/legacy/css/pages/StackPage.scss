@@ -478,6 +478,28 @@ fieldset {
     }
 }
 
+/* The Hackbot opt-in on the uplift form: a button wrapping its checkbox, which
+   highlights while ticked, with the workflow's details folded underneath. */
+.UpliftHackbotOptIn {
+    &-button {
+        gap: 0.5rem;
+
+        input[type="checkbox"] {
+            margin: 0;
+        }
+
+        &:has(input:checked) {
+            border-color: $blue;
+            background-color: rgba($blue, 0.08);
+        }
+    }
+
+    summary {
+        cursor: pointer;
+        color: $blue;
+    }
+}
+
 /* The stacks carrying an assessment, grouped by train. */
 .UpliftTrains {
     td {
