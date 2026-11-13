@@ -8,6 +8,7 @@ from django.db import models
 from lando.main.models import BaseModel
 from lando.main.models.jobs import BaseJob, JobStatus
 from lando.main.models.revision import Revision
+from lando.utils.hackbot import UpliftResult
 
 # Yes/No constants for re-use in `TextChoices`, since `Enum`
 # can't be subclassed.
@@ -277,6 +278,10 @@ class UpliftSubmission(BaseModel):
         default=UpliftTargetSelectionMethod.SERVER_RENDERED,
     )
 
+    # Whether a merge conflict should be handed to Hackbot to resolve, rather
+    # than failing the job.
+    resolve_conflicts_with_ai = models.BooleanField(default=False)
+
 
 class RevisionUpliftJob(BaseModel):
     """Through model to map revisions to uplift jobs."""
@@ -342,6 +347,17 @@ class UpliftJob(BaseJob):
         return self.unsorted_revisions.all().order_by("revisionupliftjob__index")
 
     @property
+    def hackbot_resolution(self) -> HackbotResolution | None:
+        """Return the latest Hackbot resolution of this job's merge conflict, if any."""
+        return self.hackbot_resolutions.order_by("-created_at", "-id").first()
+
+    @property
+    def has_hackbot_resolution(self) -> bool:
+        """Return `True` when Hackbot has resolved this job's merge conflict."""
+        resolution = self.hackbot_resolution
+        return resolution is not None and bool(resolution.patch)
+
+    @property
     def has_created_revisions(self) -> bool:
         """Return True when the job landed and recorded created revisions."""
         try:
@@ -349,3 +365,63 @@ class UpliftJob(BaseJob):
         except ValueError:
             return False
         return status == JobStatus.LANDED and bool(self.created_revision_ids)
+
+
+class HackbotResolution(BaseModel):
+    """A Hackbot run resolving an uplift job's merge conflict, and what came of it.
+
+    A job waiting on Hackbot waits on its latest resolution, and a retried job keeps
+    one resolution per attempt.
+    """
+
+    # The uplift job whose merge conflict Hackbot is resolving.
+    job = models.ForeignKey(
+        UpliftJob, on_delete=models.CASCADE, related_name="hackbot_resolutions"
+    )
+
+    # The job's revision whose patch conflicted.
+    conflict_revision = models.ForeignKey(
+        Revision, on_delete=models.CASCADE, related_name="+"
+    )
+
+    # The target train commit the uplift was applied onto when it conflicted,
+    # which pins the commit Hackbot resolves the conflict against.
+    base_commit = models.CharField(max_length=40)
+
+    # The conflicted tree, with conflict markers, as a unified diff against the
+    # commit the conflicting revision was applied onto: `base_commit` plus any
+    # earlier revisions of the job, kept to compare with Hackbot's resolution.
+    conflict_diff = models.TextField(blank=True, default="")
+
+    # The Hackbot run resolving the conflict.
+    run_id = models.UUIDField(unique=True)
+
+    # The `findings` Hackbot reported for the run, an `UpliftResult`.
+    findings = models.JSONField(blank=True, default=dict)
+
+    # The `git format-patch` mbox Hackbot produced with the conflict resolved.
+    patch = models.TextField(blank=True, default="")
+
+    # How Hackbot's resolution changed the conflicted tree, as a unified diff from
+    # the tree with conflict markers to the resolved one.
+    resolution_diff = models.TextField(blank=True, default="")
+
+    # The uplift revisions that may hold the resolution, which need approval before
+    # they can land: the conflicting revision's uplift and every one after it.
+    uplift_revision_ids = models.JSONField(blank=True, default=list)
+
+    def __str__(self) -> str:
+        return f"HackbotResolution {self.id} of {self.job} [{self.run_id}]"
+
+    @property
+    def result(self) -> UpliftResult:
+        """Return the findings Hackbot reported, parsed."""
+        return UpliftResult.from_json(self.findings)
+
+    @property
+    def conflict_revision_index(self) -> int | None:
+        """Return the position of the conflicting revision in the job's revisions."""
+        for index, revision in enumerate(self.job.revisions):
+            if revision.id == self.conflict_revision_id:
+                return index
+        return None

@@ -110,3 +110,28 @@ def test__models__BaseJob__max_attempts_configuration(make_landing_job: Callable
     assert job.max_attempts == 2, (
         "`MAX_JOB_ATTEMPTS` should be used instead of the default."
     )
+
+
+@pytest.mark.django_db
+def test__models__BaseJob__wait_leaves_the_queue(make_landing_job: Callable):
+    """A waiting job is not picked up again until it is resubmitted."""
+    job = make_landing_job(status=JobStatus.IN_PROGRESS)
+
+    job.transition_status(JobAction.WAIT)
+
+    assert job.status == JobStatus.WAITING, "`WAIT` should move the job to `WAITING`."
+    assert JobStatus.WAITING not in JobStatus.pending(), (
+        "`WAITING` must not be pending, or a worker would pick the job up."
+    )
+    assert not LandingJob.next_job().filter(id=job.id).exists(), (
+        "A waiting job should not be offered to a worker."
+    )
+
+    job.transition_status(JobAction.RESUBMIT)
+
+    assert job.status == JobStatus.SUBMITTED, (
+        "`RESUBMIT` should put the job back in the queue."
+    )
+    assert LandingJob.next_job().filter(id=job.id).exists(), (
+        "A resubmitted job should be offered to a worker."
+    )
