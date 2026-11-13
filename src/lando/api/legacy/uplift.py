@@ -11,10 +11,15 @@ from packaging.version import (
 )
 
 from lando.api.legacy import bmo
+from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 
 logger = logging.getLogger(__name__)
 
 UPLIFT_BUG_UPDATE_RETRIES = 3
+
+# The longest resolution diff posted to Phabricator, so a sprawling resolution
+# can't produce unreadable details.
+MAX_RESOLUTION_DIFF_LENGTH = 100_000
 
 
 def parse_milestone_version(milestone_contents: str) -> Version:
@@ -110,3 +115,47 @@ def update_bugs_for_uplift(
                 )
 
                 time.sleep(1.0 * i)
+
+
+def is_uplift_resolution_enabled() -> bool:
+    """Return `True` when uplift merge conflicts may be handed to Hackbot.
+
+    Off unless the `UPLIFT_HACKBOT_ENABLED` configuration variable is set, so the
+    whole workflow can be switched off without a deploy.
+    """
+    return ConfigurationVariable.get(ConfigurationKey.UPLIFT_HACKBOT_ENABLED, False)
+
+
+def format_resolution_details(
+    revision_id: int, train: str, resolution_diff: str
+) -> str:
+    """Return the Remarkup details of a merge conflict's AI change approval request.
+
+    `resolution_diff` shows the conflicted files, conflict markers included,
+    changing into Hackbot's resolution, so a reviewer can check each choice it made.
+    """
+    lines = [
+        f"Hackbot resolved a merge conflict when Lando uplifted D{revision_id} "
+        f"to `{train}`.",
+    ]
+
+    if not resolution_diff:
+        lines += [
+            "",
+            "Lando could not rebuild the conflicted files to show how Hackbot "
+            "resolved them.",
+        ]
+        return "\n".join(lines)
+
+    truncated = len(resolution_diff) > MAX_RESOLUTION_DIFF_LENGTH
+    lines += [
+        "",
+        "How Hackbot changed the conflicted files, conflict markers included:",
+        "",
+        "```lang=diff, lines=40",
+        resolution_diff[:MAX_RESOLUTION_DIFF_LENGTH].rstrip("\n"),
+        "```",
+    ]
+    if truncated:
+        lines += ["", "The diff was too long to show in full, so it was truncated."]
+    return "\n".join(lines)

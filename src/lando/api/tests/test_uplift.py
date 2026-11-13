@@ -14,7 +14,9 @@ from packaging.version import (
 from lando.api.legacy.commit_message import parse_bugs
 from lando.api.legacy.revisions import get_bug_id_for_stack_tips
 from lando.api.legacy.uplift import (
+    MAX_RESOLUTION_DIFF_LENGTH,
     create_uplift_bug_update_payload,
+    format_resolution_details,
     parse_milestone_version,
 )
 from lando.api.tests.test_landings import PATCH_CHANGE_MISSING_CONTENT
@@ -1874,4 +1876,50 @@ def test_batch_page_offers_the_bugs_existing_assessments(
     assert response.status_code == 200, "The batch page should load."
     assert response.context_data["bug_assessments"] == [assessment], (
         "The bug's existing assessment should be offered for reuse."
+    )
+
+
+RESOLUTION_DIFF = """\
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,5 +1,2 @@
+ TEST
+-<<<<<<< HEAD
+-=======
+ adding another line
+->>>>>>> 1234567 (Bug 35: add another line)
+"""
+
+
+def test_format_resolution_details_shows_the_diff():
+    details = format_resolution_details(1234, "firefox-beta", RESOLUTION_DIFF)
+
+    assert details.startswith(
+        "Hackbot resolved a merge conflict when Lando uplifted D1234 to `firefox-beta`."
+    ), "The details should name the original revision and the train."
+    assert f"```lang=diff, lines=40\n{RESOLUTION_DIFF}```" in details, (
+        "The resolution diff should be in a highlighted, scrolling code block."
+    )
+
+
+def test_format_resolution_details_without_diff():
+    details = format_resolution_details(1234, "firefox-beta", "")
+
+    assert "```" not in details, "No code block should be posted without a diff."
+    assert "Lando could not rebuild the conflicted files" in details, (
+        "The details should say why the resolution isn't shown."
+    )
+
+
+def test_format_resolution_details_truncates_long_diffs():
+    long_diff = RESOLUTION_DIFF + "+more\n" * MAX_RESOLUTION_DIFF_LENGTH
+
+    details = format_resolution_details(1234, "firefox-beta", long_diff)
+
+    assert len(details) < MAX_RESOLUTION_DIFF_LENGTH + 1000, (
+        "The diff should be cut to `MAX_RESOLUTION_DIFF_LENGTH`."
+    )
+    assert details.endswith("so it was truncated."), (
+        "The details should say the diff was truncated."
     )
