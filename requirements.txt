@@ -1192,6 +1192,7 @@ google-auth[pyopenssl]==2.62.0 \
     #   google-cloud-bigquery
     #   google-cloud-core
     #   google-cloud-storage
+    #   lando (pyproject.toml)
 google-cloud-bigquery==3.46.1 \
     --hash=sha256:c5564a58fc3c99b003cd334a8f302c6224bd34cb55c87476a3c445be1d00538b \
     --hash=sha256:ee0e73d06a624c26445458e75f04deed894ed50a0c46bdc876f30c50e05ec6c2

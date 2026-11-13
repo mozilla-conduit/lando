@@ -455,6 +455,18 @@ Bug 123: modify line 5
 )
 
 
+# The ID token every test's Hackbot requests carry, unless the test sets an API key.
+HACKBOT_ID_TOKEN = "hackbot-id-token"
+
+
+@pytest.fixture(autouse=True)
+def hackbot_id_token(monkeypatch: pytest.MonkeyPatch) -> mock.Mock:
+    """Stub out Google ID token fetches, so no test calls the metadata server."""
+    fetch_id_token = mock.Mock(return_value=HACKBOT_ID_TOKEN)
+    monkeypatch.setattr("google.oauth2.id_token.fetch_id_token", fetch_id_token)
+    return fetch_id_token
+
+
 @pytest.fixture
 def three_way_base_diff() -> str:
     """A diff replacing the seeded `test.txt` with a multi-line base."""

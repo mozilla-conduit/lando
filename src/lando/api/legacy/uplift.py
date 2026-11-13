@@ -11,10 +11,15 @@ from packaging.version import (
 )
 
 from lando.api.legacy import bmo
+from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 
 logger = logging.getLogger(__name__)
 
 UPLIFT_BUG_UPDATE_RETRIES = 3
+
+# The longest resolution diff posted to Phabricator, to keep a revision's details
+# reasonably sized. The revision's own diff always holds the full change.
+MAX_RESOLUTION_DIFF_LENGTH = 100_000
 
 
 def parse_milestone_version(milestone_contents: str) -> Version:
@@ -110,3 +115,62 @@ def update_bugs_for_uplift(
                 )
 
                 time.sleep(1.0 * i)
+
+
+def is_uplift_resolution_enabled() -> bool:
+    """Return `True` when uplift merge conflicts may be handed to Hackbot.
+
+    Off unless the `UPLIFT_HACKBOT_ENABLED` configuration variable is set, so the
+    whole workflow can be switched off without a deploy.
+    """
+    return ConfigurationVariable.get(ConfigurationKey.UPLIFT_HACKBOT_ENABLED, False)
+
+
+def format_resolution_details(
+    revision_id: int, train: str, resolution_diff: str
+) -> str:
+    """Return the Remarkup details of a merge conflict's AI change approval request.
+
+    The details describe what happened to this revision in Lando's words, so they
+    read apart from Hackbot's own summary. `resolution_diff` shows the conflicted
+    files, conflict markers included, changing into Hackbot's resolution, so a
+    reviewer can check each choice it made.
+    """
+    conflicted_paths = ", ".join(
+        f"`{path}`" for path in resolution_diff_paths(resolution_diff)
+    )
+    location = f" in {conflicted_paths}" if conflicted_paths else ""
+    lines = [
+        f"Lando hit a merge conflict{location} when uplifting D{revision_id} to "
+        f"`{train}`, and Hackbot resolved it.",
+    ]
+
+    if not resolution_diff:
+        lines += [
+            "",
+            "Lando could not rebuild the conflicted files to show how Hackbot "
+            "resolved them.",
+        ]
+        return "\n".join(lines)
+
+    truncated = len(resolution_diff) > MAX_RESOLUTION_DIFF_LENGTH
+    lines += [
+        "",
+        "How Hackbot changed the conflicted files, conflict markers included:",
+        "",
+        "```lang=diff, lines=40",
+        resolution_diff[:MAX_RESOLUTION_DIFF_LENGTH].rstrip("\n"),
+        "```",
+    ]
+    if truncated:
+        lines += ["", "The diff was too long to show in full, so it was truncated."]
+    return "\n".join(lines)
+
+
+def resolution_diff_paths(resolution_diff: str) -> list[str]:
+    """Return the files a resolution diff changes, in the order it lists them."""
+    return [
+        line.split(" b/", 1)[1]
+        for line in resolution_diff.splitlines()
+        if line.startswith("diff --git a/") and " b/" in line
+    ]
