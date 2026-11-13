@@ -5,6 +5,7 @@ from io import StringIO
 from unittest import mock
 
 import pytest
+import requests
 from django.contrib.messages import get_messages
 from django.urls import reverse
 from packaging.version import (
@@ -39,11 +40,13 @@ from lando.main.models.uplift import (
     YesNoUnknownChoices,
 )
 from lando.main.scm import SCMType
+from lando.main.scm.exceptions import PatchConflict
 from lando.main.scm.git import GitSCM
 from lando.main.scm.helpers import HgPatchHelper
 from lando.ui.legacy.forms import (
     UpliftAssessmentForm,
 )
+from lando.utils import hackbot
 
 MILESTONE_TEST_CONTENTS_1 = """
 # Holds the current milestone.
@@ -1588,6 +1591,244 @@ def test_uplift_worker_apply_patch_invalid_patch_raises_and_does_not_land(
     assert failure_args[1] == (repo.short_name or repo.name)
     assert failure_args[2], "Job URL should be included for patch failures."
     assert failure_args[3], "Failure reason should be included for patch failures."
+
+
+HACKBOT_RUN_ID = "0b6c1f4e-6c1a-4bd4-9a77-3c1d1f3f4d10"
+
+CONFLICT_DIFF = """diff --git a/README b/README
+--- a/README
++++ b/README
+@@ -1 +1,5 @@
++<<<<<<< HEAD
+ tip
++=======
++uplift
++>>>>>>> 1234567 (Uplift me)
+"""
+
+
+@pytest.fixture
+def conflict_on_second_revision(monkeypatch: pytest.MonkeyPatch):
+    """Make `GitSCM.apply_patch` conflict on the second revision of a job."""
+    original_apply_patch = GitSCM.apply_patch
+    applied_diffs = []
+
+    def apply_patch_conflicting(scm: GitSCM, diff: str, *args, **kwargs):
+        applied_diffs.append(diff)
+        if len(applied_diffs) == 2:
+            raise PatchConflict(
+                "Cherry-picking 1234567 failed with conflicts in: README",
+                conflicts={"README": {"content": CONFLICT_DIFF, "changeset_id": "abc"}},
+                conflict_diff=CONFLICT_DIFF,
+            )
+        return original_apply_patch(scm, diff, *args, **kwargs)
+
+    monkeypatch.setattr(GitSCM, "apply_patch", apply_patch_conflicting)
+
+
+@pytest.mark.django_db
+def test_uplift_worker_hands_conflict_to_hackbot_when_opted_in(
+    repo_mc,
+    user,
+    uplift_worker,
+    create_patch_revision,
+    normal_patch,
+    monkeypatch,
+    make_uplift_job_with_revisions,
+    mock_uplift_email_tasks,
+    conflict_on_second_revision,
+    hackbot_uplift_enabled,
+):
+    repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
+    revisions = [
+        create_patch_revision(1, patch=normal_patch(0)),
+        create_patch_revision(2, patch=normal_patch(1)),
+    ]
+    job = make_uplift_job_with_revisions(repo, user, revisions)
+    job.submission.resolve_conflicts_with_ai = True
+    job.submission.save()
+
+    start_resolution = mock.MagicMock(
+        return_value=hackbot.RunRef(
+            run_id=HACKBOT_RUN_ID, agent="uplift-resolve", status="pending"
+        )
+    )
+    monkeypatch.setattr(hackbot, "start_uplift_resolution", start_resolution)
+    poll_task = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.uplift_worker.poll_hackbot_resolution", poll_task
+    )
+    run_moz_phab_uplift = mock.MagicMock()
+    monkeypatch.setattr(uplift_worker, "run_moz_phab_uplift", run_moz_phab_uplift)
+    mock_success_task, mock_failure_task = mock_uplift_email_tasks
+
+    assert uplift_worker.run_job(job), (
+        "Handing a conflict to Hackbot should finish the worker's part of the job."
+    )
+
+    job.refresh_from_db()
+    resolution = job.hackbot_resolution
+    assert job.status == JobStatus.WAITING, "The job should wait on Hackbot."
+    assert str(resolution.run_id) == HACKBOT_RUN_ID, (
+        "The Hackbot run ID should be saved for polling."
+    )
+    assert resolution.conflict_revision == revisions[1], (
+        "The resolution should record which revision conflicted."
+    )
+    assert len(resolution.base_commit) == 40, (
+        "The commit the uplift was applied onto should be saved."
+    )
+    assert resolution.conflict_diff == CONFLICT_DIFF, (
+        "The conflicted tree's diff should be saved to compare with the resolution."
+    )
+    assert job.error_breakdown["revision_id"] == 2, (
+        "The breakdown should still describe the conflict."
+    )
+    poll_task.apply_async.assert_called_once_with(args=(resolution.id,))
+
+    inputs = start_resolution.call_args.args[0]
+    assert inputs.to_json() == {
+        "target_branch": repo.default_branch,
+        "target_commit": resolution.base_commit,
+        "sources": (
+            {"kind": "phabricator", "revision_id": 1, "diff_id": 1},
+            {"kind": "phabricator", "revision_id": 2, "diff_id": 2},
+        ),
+    }, "Every revision of the job should be sent, pinned to its diff and base."
+    assert start_resolution.call_args.kwargs["on_behalf_of"] == user.email, (
+        "The run should be requested on behalf of the uplift requester."
+    )
+
+    run_moz_phab_uplift.assert_not_called()
+    mock_success_task.apply_async.assert_not_called()
+    mock_failure_task.apply_async.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_uplift_worker_fails_conflict_when_hackbot_cannot_start(
+    repo_mc,
+    user,
+    uplift_worker,
+    create_patch_revision,
+    normal_patch,
+    monkeypatch,
+    make_uplift_job_with_revisions,
+    mock_uplift_email_tasks,
+    conflict_on_second_revision,
+    hackbot_uplift_enabled,
+):
+    repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
+    revisions = [
+        create_patch_revision(1, patch=normal_patch(0)),
+        create_patch_revision(2, patch=normal_patch(1)),
+    ]
+    job = make_uplift_job_with_revisions(repo, user, revisions)
+    job.submission.resolve_conflicts_with_ai = True
+    job.submission.save()
+
+    monkeypatch.setattr(
+        hackbot,
+        "start_uplift_resolution",
+        mock.MagicMock(side_effect=requests.ConnectionError("Hackbot is down")),
+    )
+    _mock_success_task, mock_failure_task = mock_uplift_email_tasks
+
+    assert not uplift_worker.run_job(job), "The job should not complete."
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.FAILED, (
+        "A conflict Hackbot cannot be asked about should fail the job as before."
+    )
+    assert job.error_breakdown["revision_id"] == 2, (
+        "The failed job should still carry the merge conflict breakdown."
+    )
+    assert not job.hackbot_resolutions.exists(), "No Hackbot run should be recorded."
+    mock_failure_task.apply_async.assert_called_once()
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "opted_in,hackbot_enabled",
+    (
+        (False, True),
+        (True, False),
+    ),
+)
+def test_uplift_worker_fails_conflict_without_opt_in_or_config(
+    repo_mc,
+    user,
+    uplift_worker,
+    create_patch_revision,
+    normal_patch,
+    monkeypatch,
+    make_uplift_job_with_revisions,
+    mock_uplift_email_tasks,
+    conflict_on_second_revision,
+    request,
+    opted_in: bool,
+    hackbot_enabled: bool,
+):
+    if hackbot_enabled:
+        request.getfixturevalue("hackbot_uplift_enabled")
+
+    repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
+    revisions = [
+        create_patch_revision(1, patch=normal_patch(0)),
+        create_patch_revision(2, patch=normal_patch(1)),
+    ]
+    job = make_uplift_job_with_revisions(repo, user, revisions)
+    job.submission.resolve_conflicts_with_ai = opted_in
+    job.submission.save()
+
+    start_resolution = mock.MagicMock()
+    monkeypatch.setattr(hackbot, "start_uplift_resolution", start_resolution)
+
+    assert not uplift_worker.run_job(job), "The job should not complete."
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.FAILED, (
+        "Without both the opt-in and `UPLIFT_HACKBOT_ENABLED`, a merge conflict "
+        "should fail the job."
+    )
+    start_resolution.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_uplift_worker_fails_conflict_without_a_conflicted_tree(
+    repo_mc,
+    user,
+    uplift_worker,
+    create_patch_revision,
+    normal_patch,
+    monkeypatch,
+    make_uplift_job_with_revisions,
+    mock_uplift_email_tasks,
+    hackbot_uplift_enabled,
+):
+    repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
+    revision = create_patch_revision(1, patch=normal_patch(0))
+    job = make_uplift_job_with_revisions(repo, user, [revision])
+    job.submission.resolve_conflicts_with_ai = True
+    job.submission.save()
+
+    monkeypatch.setattr(
+        GitSCM,
+        "apply_patch",
+        mock.MagicMock(side_effect=PatchConflict("error: patch failed: README:1")),
+    )
+    start_resolution = mock.MagicMock()
+    monkeypatch.setattr(hackbot, "start_uplift_resolution", start_resolution)
+    _mock_success_task, mock_failure_task = mock_uplift_email_tasks
+
+    assert not uplift_worker.run_job(job), "The job should not complete."
+
+    job.refresh_from_db()
+    assert job.status == JobStatus.FAILED, (
+        "A conflict with no conflicted tree to compare a resolution with should "
+        "fail the job."
+    )
+    start_resolution.assert_not_called()
+    mock_failure_task.apply_async.assert_called_once()
 
 
 def test_assessment_bug_uses_selected_tips_with_gaps(phabdouble):
