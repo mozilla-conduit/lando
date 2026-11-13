@@ -19,6 +19,7 @@ from lando.api.legacy.revisions import get_bug_id_for_stack_tips
 from lando.api.legacy.uplift import (
     MAX_RESOLUTION_DIFF_LENGTH,
     create_uplift_bug_update_payload,
+    format_later_revision_details,
     format_resolution_details,
     parse_milestone_version,
 )
@@ -1948,6 +1949,17 @@ def resubmitted_hackbot_job(
     return make_resubmitted_job
 
 
+@pytest.fixture
+def mock_request_approval_task(monkeypatch: pytest.MonkeyPatch) -> mock.MagicMock:
+    """Replace the task requesting approval of an AI change on Phabricator."""
+    request_approval_task = mock.MagicMock()
+    monkeypatch.setattr(
+        "lando.api.legacy.workers.uplift_worker.request_ai_change_approval",
+        request_approval_task,
+    )
+    return request_approval_task
+
+
 @pytest.mark.django_db
 def test_uplift_worker_applies_hackbot_resolution_onto_moved_tip(
     git_repo,
@@ -1955,6 +1967,7 @@ def test_uplift_worker_applies_hackbot_resolution_onto_moved_tip(
     monkeypatch,
     mock_uplift_email_tasks,
     resubmitted_hackbot_job,
+    mock_request_approval_task,
 ):
     job = resubmitted_hackbot_job()
 
@@ -2029,6 +2042,7 @@ def test_uplift_worker_records_how_hackbot_resolved_the_conflict(
     monkeypatch,
     mock_uplift_email_tasks,
     resubmitted_hackbot_job,
+    mock_request_approval_task,
     conflict_diff: str,
     expect_resolution_diff: bool,
 ):
@@ -2039,7 +2053,17 @@ def test_uplift_worker_records_how_hackbot_resolved_the_conflict(
 
     def write_uplift_commits(job_arg, base_revision, env, output_path):
         with open(output_path, "w", encoding="utf-8") as output_file:
-            json.dump({"commits": [{"rev_id": 7000}]}, output_file)
+            json.dump(
+                {
+                    "commits": [{"rev_id": 7000}],
+                    "merge_conflict": {
+                        "rev_id": 7000,
+                        "diff_id": 50,
+                        "resolution_diff_id": 51,
+                    },
+                },
+                output_file,
+            )
 
     monkeypatch.setattr(uplift_worker, "run_moz_phab_uplift", write_uplift_commits)
     monkeypatch.setattr(
@@ -2049,12 +2073,34 @@ def test_uplift_worker_records_how_hackbot_resolved_the_conflict(
 
     assert uplift_worker.run_job(job), "Applying the resolution should succeed."
 
+    job.refresh_from_db()
+    revision_id, request = mock_request_approval_task.apply_async.call_args.kwargs[
+        "args"
+    ]
+    assert revision_id == 7000, (
+        "Approval should be requested on the new uplift revision."
+    )
     resolution.refresh_from_db()
+    assert resolution.uplift_revision_ids == [7000], (
+        "The resolution should record which revision needs the approval."
+    )
+    details = request["details"]
+    assert details.startswith(
+        "Hackbot resolved a merge conflict when Lando uplifted D1 to `firefox-beta`."
+    ), "The request's details should name the revision that conflicted."
+
     if not expect_resolution_diff:
         assert resolution.resolution_diff == "", (
             "Without the conflicted tree, no comparison can be made."
         )
+        assert "Lando could not rebuild the conflicted files" in details, (
+            "The details should say why the resolution can't be shown."
+        )
         return
+
+    assert resolution.resolution_diff in details, (
+        "The details should show how Hackbot resolved the conflict."
+    )
 
     assert "-<<<<<<< HEAD" in resolution.resolution_diff, (
         "The resolution diff should show Hackbot removing the conflict markers."
@@ -2062,6 +2108,111 @@ def test_uplift_worker_records_how_hackbot_resolved_the_conflict(
     assert "\n adding another line\n" in resolution.resolution_diff, (
         "Lines the conflict and the resolution share should only be context."
     )
+
+
+@pytest.mark.django_db
+def test_uplift_worker_requests_approval_of_the_resolution(
+    repo_mc,
+    user,
+    uplift_worker,
+    create_patch_revision,
+    normal_patch,
+    make_uplift_job_with_revisions,
+    make_hackbot_resolution,
+    mock_request_approval_task,
+):
+    repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
+    revisions = [
+        create_patch_revision(1, patch=normal_patch(0)),
+        create_patch_revision(2, patch=normal_patch(1)),
+        create_patch_revision(3, patch=normal_patch(2)),
+    ]
+    job = make_uplift_job_with_revisions(repo, user, revisions)
+    resolution = make_hackbot_resolution(
+        job,
+        revisions[1],
+        findings={"summary": "Kept both sides.", "confidence": "high"},
+    )
+
+    uplift_worker.request_hackbot_resolution_approval(
+        resolution,
+        [7000, 7001, 7002],
+        {"rev_id": "7001", "diff_id": 50, "resolution_diff_id": 51},
+    )
+
+    requests_by_revision = dict(
+        call.kwargs["args"]
+        for call in mock_request_approval_task.apply_async.call_args_list
+    )
+    assert resolution.uplift_revision_ids == [7001, 7002], (
+        "The conflicting revision and every one after it may hold Hackbot's "
+        "resolution, so each should need approval."
+    )
+    assert list(requests_by_revision) == [7001, 7002], (
+        "Approval should be requested on every revision that may hold the resolution."
+    )
+    assert requests_by_revision[7001] == {
+        "kind": "merge-conflict",
+        "changeDiffID": 51,
+        "baseDiffID": 50,
+        "summary": "Kept both sides.",
+        "confidence": "high",
+        "details": format_resolution_details(2, "firefox-beta", ""),
+    }, "The request should compare the conflict diff with the resolution diff."
+    assert requests_by_revision[7002] == {
+        "kind": "merge-conflict",
+        "summary": "Kept both sides.",
+        "confidence": "high",
+        "details": format_later_revision_details(2, "firefox-beta"),
+    }, "A later revision's request has no diffs to compare, so uses its active diff."
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "created_revision_ids,expected_revision_ids",
+    (
+        ([7000, 7001], [7000, 7001]),
+        ([7000, 7001, 7002], [7000, 7001, 7002]),
+    ),
+)
+def test_uplift_worker_requests_approval_without_a_merge_conflict(
+    repo_mc,
+    user,
+    uplift_worker,
+    create_patch_revision,
+    normal_patch,
+    make_uplift_job_with_revisions,
+    make_hackbot_resolution,
+    mock_request_approval_task,
+    created_revision_ids: list[int],
+    expected_revision_ids: list[int],
+):
+    repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
+    revisions = [
+        create_patch_revision(1, patch=normal_patch(0)),
+        create_patch_revision(2, patch=normal_patch(1)),
+    ]
+    job = make_uplift_job_with_revisions(repo, user, revisions)
+    resolution = make_hackbot_resolution(job, revisions[0])
+
+    uplift_worker.request_hackbot_resolution_approval(
+        resolution, created_revision_ids, None
+    )
+
+    requests_by_revision = dict(
+        call.kwargs["args"]
+        for call in mock_request_approval_task.apply_async.call_args_list
+    )
+    assert resolution.uplift_revision_ids == expected_revision_ids, (
+        "Every revision from the conflict on should need approval, or all of them "
+        "when the revisions don't match one to one."
+    )
+    assert list(requests_by_revision) == expected_revision_ids, (
+        "Approval should be requested on every revision that may hold the resolution."
+    )
+    assert not any(
+        "changeDiffID" in request for request in requests_by_revision.values()
+    ), "Without a merge conflict diff, each request should use the active diff."
 
 
 @pytest.mark.django_db

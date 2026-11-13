@@ -12,6 +12,8 @@ from django.db import transaction
 from typing_extensions import override
 
 from lando.api.legacy.uplift import (
+    format_later_revision_details,
+    format_resolution_details,
     is_uplift_resolution_enabled,
 )
 from lando.api.legacy.workers.base import Worker
@@ -40,6 +42,7 @@ from lando.utils import hackbot
 from lando.utils.landing_checks import LandingChecks, check_bug_references
 from lando.utils.tasks import (
     poll_hackbot_resolution,
+    request_ai_change_approval,
     send_uplift_failure_email,
     send_uplift_success_email,
     set_uplift_request_form_on_revision,
@@ -155,6 +158,11 @@ class UpliftWorker(Worker):
             submission.assessment.to_conduit_json_str(),
             user.id,
         )
+
+        if resolution and resolution.patch:
+            self.request_hackbot_resolution_approval(
+                resolution, created_revision_ids, result.get("merge_conflict")
+            )
 
         job.created_revision_ids = created_revision_ids
         # `LANDED` is the same as "success".
@@ -331,6 +339,75 @@ class UpliftWorker(Worker):
                 exc_info=True,
             )
             return ""
+
+    def request_hackbot_resolution_approval(
+        self,
+        resolution: HackbotResolution,
+        created_revision_ids: list[int],
+        merge_conflict: dict | None,
+    ):
+        """Ask for approval of Hackbot's resolution on every uplift revision it may hold.
+
+        `merge_conflict` is what `moz-phab uplift` reported about the conflict diff
+        it posted, so the request on that revision compares the two. Other requests
+        have no diff to compare with, and are made on each revision's active diff.
+        """
+        job = resolution.job
+        revision_ids = self.hackbot_resolution_revision_ids(
+            resolution, created_revision_ids
+        )
+        resolution.uplift_revision_ids = revision_ids
+        resolution.save()
+
+        result = resolution.result
+        conflict_revision_id = resolution.conflict_revision.revision_id
+        for revision_id in revision_ids:
+            if revision_id == revision_ids[0]:
+                details = format_resolution_details(
+                    conflict_revision_id,
+                    job.target_repo.name,
+                    resolution.resolution_diff,
+                )
+            else:
+                details = format_later_revision_details(
+                    conflict_revision_id, job.target_repo.name
+                )
+
+            request = {
+                "kind": "merge-conflict",
+                "summary": result.summary or None,
+                "confidence": result.confidence,
+                "details": details,
+            }
+            if merge_conflict and int(merge_conflict["rev_id"]) == revision_id:
+                request["changeDiffID"] = merge_conflict["resolution_diff_id"]
+                request["baseDiffID"] = merge_conflict["diff_id"]
+
+            logger.debug(
+                f"Requesting approval of Hackbot's resolution on D{revision_id}."
+            )
+            self.call_task(request_ai_change_approval, revision_id, request)
+
+    def hackbot_resolution_revision_ids(
+        self, resolution: HackbotResolution, created_revision_ids: list[int]
+    ) -> list[int]:
+        """Return the uplift revisions that may hold Hackbot's resolution.
+
+        Hackbot resolves the whole stack, so the conflicting revision and every one
+        after it may hold its changes. When the uplift's revisions don't match the
+        job's one to one, all of them are returned.
+        """
+        job = resolution.job
+        conflict_index = resolution.conflict_revision_index
+        if conflict_index is None or len(created_revision_ids) != job.revisions.count():
+            logger.warning(
+                "Could not match the uplift's revisions to the job's, so requesting "
+                "approval of Hackbot's resolution on all of them.",
+                extra={"job_id": job.id, "conflict_index": conflict_index},
+            )
+            return created_revision_ids
+
+        return created_revision_ids[conflict_index:]
 
     def hand_off_conflict_to_hackbot(
         self,
