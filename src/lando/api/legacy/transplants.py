@@ -56,6 +56,7 @@ from lando.main.models import (
     LandingJob,
     Repo,
 )
+from lando.main.models.uplift import HackbotResolution
 from lando.main.support import LegacyAPIException, diff_has_disallowed_author
 from lando.utils.landing_checks import (
     DiffAssessor,
@@ -918,6 +919,41 @@ def blocker_uplift_approval(
     return None
 
 
+def blocker_ai_change_not_approved(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> str | None:
+    """Check that an AI change in the revision was approved on Phabricator.
+
+    Phabricator reports the approval state. A revision Lando knows holds Hackbot's
+    resolution is blocked even without a request, so a lost request can't let it land.
+    """
+    ai_change = revision["fields"].get("aiChange") or {}
+    status = ai_change.get("status", "none")
+
+    if status == "pending" and ai_change.get("kind") == "merge-conflict":
+        return (
+            "Hackbot resolved a merge conflict in this revision. Check the "
+            'resolution, then use "Approve AI Change" on Phabricator.'
+        )
+
+    if status == "pending":
+        return (
+            "This revision has an AI change waiting for approval. Check it, then "
+            'use "Approve AI Change" on Phabricator.'
+        )
+
+    is_hackbot_resolution = HackbotResolution.objects.filter(
+        uplift_revision_ids__contains=[revision["id"]]
+    ).exists()
+    if status == "none" and is_hackbot_resolution:
+        return (
+            "Hackbot resolved a merge conflict in this revision, but Lando could "
+            "not request approval of the resolution on Phabricator."
+        )
+
+    return None
+
+
 def blocker_revision_data_classification(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> str | None:
@@ -1103,6 +1139,7 @@ REVISION_BLOCKER_CHECKS = [
     blocker_author_planned_changes,
     blocker_diff_author_is_known,
     blocker_uplift_approval,
+    blocker_ai_change_not_approved,
     blocker_revision_data_classification,
     # Diff-based checks.
     blocker_prevent_symlinks,

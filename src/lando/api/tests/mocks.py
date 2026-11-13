@@ -139,6 +139,19 @@ def get_stack(phid, phabdouble):
     return dict(stack_graph)
 
 
+# The `aiChange` search field of a revision with no AI change to approve.
+NO_AI_CHANGE = {
+    "status": "none",
+    "kind": None,
+    "changeDiffID": None,
+    "baseDiffID": None,
+    "requesterPHID": None,
+    "requestEpoch": None,
+    "approverPHID": None,
+    "approvalEpoch": None,
+}
+
+
 class PhabricatorDouble:
     """Phabricator test double.
 
@@ -273,6 +286,7 @@ class PhabricatorDouble:
         summary="",
         uplift=None,
         merge_conflict_status: dict | None = None,
+        ai_change: dict | None = None,
     ):
         revision_id = self._new_id(self._revisions)
         phid = self._new_phid("DREV-")
@@ -307,6 +321,7 @@ class PhabricatorDouble:
             "bugzilla.bug-id": bug_id,
             "uplift.request": uplift,
             "merge.conflict.status": merge_conflict_status,
+            "aiChange": {**NO_AI_CHANGE, **(ai_change or {})},
             "repositoryPHID": repo["phid"] if repo is not None else None,
             "fields": {
                 "repositoryPHID": repo["phid"] if repo is not None else None,
@@ -1061,6 +1076,7 @@ class PhabricatorDouble:
                     "bugzilla.bug-id": bug_id,
                     "uplift.request": uplift,
                     "merge.conflict.status": i["merge.conflict.status"],
+                    "aiChange": i["aiChange"],
                 },
                 "attachments": {},
             }
@@ -1195,6 +1211,7 @@ class PhabricatorDouble:
             "phabricator:auditors",
             "bugzilla.bug-id",
             "uplift.request",
+            "ai-change.request",
             "comment",
         ]
 

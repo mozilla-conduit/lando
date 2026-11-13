@@ -347,6 +347,47 @@ def set_uplift_request_form_on_revision(
     )
 
 
+@celery_app.task(
+    autoretry_for=(IOError, PhabricatorCommunicationException),
+    default_retry_delay=20,
+    acks_late=True,
+    ignore_result=True,
+    # Retry 3 times every 2 seconds.
+    max_retries=3 * 20,
+)
+def request_ai_change_approval(revision_id: int, request: dict):
+    """Ask for approval of an AI change in `D<revision_id>`.
+
+    Lando sends the request as its own automation user, so Phabricator records it
+    as automation rather than as the uplift requester. A request without a
+    `changeDiffID` is made on the revision's active diff.
+    """
+    logger.debug(f"Requesting approval of an AI change on {revision_id=}.")
+    phab = PhabricatorClient(
+        settings.PHABRICATOR_URL,
+        settings.PHABRICATOR_ADMIN_API_KEY,
+    )
+    if "changeDiffID" not in request:
+        logger.debug(f"Looking up the active diff of {revision_id=}.")
+        revision = phab.single(
+            phab.call_conduit(
+                "differential.revision.search", constraints={"ids": [revision_id]}
+            ),
+            "data",
+        )
+        request = {
+            **request,
+            "changeDiffID": phab.expect(revision, "fields", "diffID"),
+        }
+
+    phab.call_conduit(
+        "differential.revision.edit",
+        objectIdentifier=revision_id,
+        transactions=[{"type": "ai-change.request", "value": request}],
+    )
+    logger.info(f"Lando requested approval of an AI change on {revision_id=}.")
+
+
 @celery_app.task(ignore_result=True, acks_late=True)
 def poll_hackbot_resolution(resolution_id: int):
     """Check on a Hackbot resolution's run, re-queueing itself until the run finishes.

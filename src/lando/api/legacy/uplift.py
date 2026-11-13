@@ -159,3 +159,16 @@ def format_resolution_details(
     if truncated:
         lines += ["", "The diff was too long to show in full, so it was truncated."]
     return "\n".join(lines)
+
+
+def format_later_revision_details(revision_id: int, train: str) -> str:
+    """Return the Remarkup details of an approval request after the conflicting revision.
+
+    Hackbot resolves the whole stack at once, so a revision after the conflicting
+    one may hold its changes too, but Lando has no conflicted tree to compare it with.
+    """
+    return (
+        f"Hackbot resolved a merge conflict when Lando uplifted D{revision_id} "
+        f"to `{train}`, and may have changed this later revision of the stack too. "
+        "Compare it with the revision it uplifts."
+    )
