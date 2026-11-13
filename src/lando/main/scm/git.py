@@ -210,10 +210,36 @@ class GitSCM(AbstractSCM):
                 self._git_run(*c, cwd=self.path)
 
     @override
-    @detect_patch_conflict
     def cherry_pick_commit(self, commit_id: str):
-        """Use `git cherry-pick` to apply the commit to the current branch."""
-        self._git_run("cherry-pick", commit_id, cwd=self.path)
+        """Use `git cherry-pick` to apply the commit to the current branch.
+
+        `git cherry-pick` already three-way merges, so it only fails on a true
+        conflict. Capture the conflicting paths before aborting and raise
+        `PatchConflict`, mirroring `rebase_onto`: without this the caller sees a
+        bare `SCMException` with no breakdown, and the cherry-pick is left in
+        progress for the next job's `clean_repo` to tidy up.
+        """
+        try:
+            self._git_run("cherry-pick", commit_id, cwd=self.path)
+        except SCMException as exc:
+            # Capture the conflict details before aborting discards the index.
+            conflicts = self.collect_conflicts()
+
+            try:
+                self._git_run("cherry-pick", "--abort", cwd=self.path)
+            except SCMException:
+                # There may be no cherry-pick in progress to abort; ignore.
+                pass
+
+            if conflicts:
+                paths = ", ".join(conflicts)
+                raise PatchConflict(
+                    f"Cherry-picking {commit_id} failed with conflicts in: "
+                    f"{paths}\n\n{exc.out}",
+                    conflicts=conflicts,
+                ) from exc
+
+            raise exc
 
     @property
     @override
@@ -496,6 +522,12 @@ class GitSCM(AbstractSCM):
                 "path": path,
                 "content": f"Git reported this error: {path}: {reason}",
             }
+
+        if error_message and not breakdown["failed_paths"]:
+            logger.warning(
+                "Could not parse any failed paths from a merge conflict.",
+                extra={"revision_id": revision_id, "error_message": error_message},
+            )
 
         return breakdown
 
