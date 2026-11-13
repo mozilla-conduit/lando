@@ -5,6 +5,7 @@ import logging
 from io import StringIO
 from typing import Annotated, Literal
 
+from django.contrib.auth.models import User
 from django.core.handlers.wsgi import WSGIRequest
 from django.db import transaction
 from ninja import (
@@ -21,10 +22,12 @@ from lando.headless_api.models.automation_job import (
 )
 from lando.headless_api.models.tokens import API_TOKEN_PREFIX_LENGTH, ApiToken
 from lando.main.models import JobAction, JobStatus, Repo
+from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 from lando.main.scm import (
     AbstractSCM,
     MergeStrategy,
     PatchConflict,
+    SCMException,
     SCMType,
 )
 from lando.main.scm.helpers import (
@@ -33,6 +36,8 @@ from lando.main.scm.helpers import (
 )
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_REVERT_MAX_AGE_HOURS = 24
 
 
 def reject_cli_flags(value: str) -> str:
@@ -93,7 +98,22 @@ class AutomationActionException(Exception):
         self.is_fatal = is_fatal
 
 
-class AddCommitAction(Schema):
+def automation_permission_error(user: User, repo: Repo) -> str | None:
+    """Return why `user` may not use automation on `repo`, or `None` if allowed."""
+    if repo.user_can_use_automation(user):
+        return None
+    return f"User {user.email} is not allowed to use this API for repo {repo.name}. Missing permission: {repo.required_automation_permission}."
+
+
+class ActionSchema(Schema):
+    """Base for automation actions."""
+
+    def permission_error(self, user: User, repo: Repo) -> str | None:
+        """Return why `user` may not run this action on `repo`, or `None` if allowed."""
+        return automation_permission_error(user, repo)
+
+
+class AddCommitAction(ActionSchema):
     """Create a new commit the given patch content."""
 
     action: Literal["add-commit"]
@@ -179,7 +199,7 @@ class AddCommitAction(Schema):
         return True
 
 
-class AddCommitBase64Action(Schema):
+class AddCommitBase64Action(ActionSchema):
     """Create a new commit from the given base64 patch content."""
 
     action: Literal["add-commit-base64"]
@@ -212,7 +232,7 @@ class AddCommitBase64Action(Schema):
         return True
 
 
-class CreateCommitAction(Schema):
+class CreateCommitAction(ActionSchema):
     """Create a new commit from a diff and metadata."""
 
     action: Literal["create-commit"]
@@ -250,7 +270,7 @@ class CreateCommitAction(Schema):
         return True
 
 
-class MergeOntoAction(Schema):
+class MergeOntoAction(ActionSchema):
     """Merge the current branch into the target commit."""
 
     action: Literal["merge-onto"]
@@ -286,7 +306,48 @@ class MergeOntoAction(Schema):
         return True
 
 
-class TagAction(Schema):
+class RevertAction(ActionSchema):
+    """Generate a backout of one commit already on the target branch."""
+
+    action: Literal["revert"]
+    commit: Annotated[
+        str, Field(min_length=40, max_length=40, pattern=r"^[0-9a-fA-F]{40}$")
+    ]
+
+    def permission_error(self, user: User, repo: Repo) -> str | None:
+        if repo.user_can_revert(user):
+            return None
+        return (
+            f"User {user.email} is not allowed to revert commits on repo {repo.name}."
+        )
+
+    def process(
+        self, job: AutomationJob, repo: Repo, scm: AbstractSCM, index: int
+    ) -> bool:
+        max_age_hours = ConfigurationVariable.get(
+            ConfigurationKey.REVERT_MAX_AGE_HOURS,
+            DEFAULT_REVERT_MAX_AGE_HOURS,
+        )
+        try:
+            scm.revert_commit(
+                self.commit, max_age=datetime.timedelta(hours=max_age_hours)
+            )
+        except PatchConflict as exc:
+            raise AutomationActionException(
+                message=f"Conflict while reverting commit {self.commit}, action #{index}.",
+                job_action=JobAction.FAIL,
+                is_fatal=False,
+            ) from exc
+        except (SCMException, ValueError) as exc:
+            raise AutomationActionException(
+                message=f"Could not revert commit {self.commit}, action #{index}: {exc}",
+                job_action=JobAction.FAIL,
+                is_fatal=False,
+            ) from exc
+        return True
+
+
+class TagAction(ActionSchema):
     """Create a new tag with the given name."""
 
     action: Literal["tag"]
@@ -308,7 +369,7 @@ class TagAction(Schema):
         return True
 
 
-class AddBranchAction(Schema):
+class AddBranchAction(ActionSchema):
     """Create a new branch at the given commit."""
 
     action: Literal["add-branch"]
@@ -329,6 +390,7 @@ Action = (
     | MergeOntoAction
     | AddBranchAction
     | TagAction
+    | RevertAction
 )
 
 ActionAdapter = TypeAdapter(Action)
@@ -408,8 +470,12 @@ def post_repo_actions(
         )
         return 400, {"details": error}
 
-    if not repo.user_can_use_automation(request.user):
-        error = f"User {request.user.email} is not allowed to use this API for repo {repo_name}. Missing permission: {repo.required_automation_permission}."
+    errors = [
+        action.permission_error(request.user, repo) for action in operation.actions
+    ]
+    if operation.relbranch is not None:
+        errors.append(automation_permission_error(request.user, repo))
+    if error := "\n".join(dict.fromkeys(filter(None, errors))):
         logger.info(
             error,
             extra={"user": request.user.email, "token": request.auth.token_prefix},

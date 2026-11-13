@@ -35,6 +35,8 @@ SCM_LEVEL_3 = SCM_PERMISSIONS_MAP["SCM_LEVEL_3"]
 SCM_NSS = SCM_PERMISSIONS_MAP["SCM_NSS"]
 SCM_VERSIONCONTROL = SCM_PERMISSIONS_MAP["SCM_VERSIONCONTROL"]
 
+CAN_REVERT_COMMITS = "main.can_revert_commits"
+
 
 def filter_claims(claims: dict) -> dict:
     """Return only necessary info in the provided dict."""
@@ -64,6 +66,7 @@ class Profile(CryptographyMixin, BaseModel):
     class Meta:
         permissions = SCM_PERMISSIONS + (
             ("can_view_private_repos", "CAN_VIEW_PRIVATE_REPOS"),
+            ("can_revert_commits", "CAN_REVERT_COMMITS"),
         )
 
     user = models.OneToOneField(User, null=True, on_delete=models.SET_NULL)

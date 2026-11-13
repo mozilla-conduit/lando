@@ -11,6 +11,8 @@ from django.core.validators import RegexValidator
 from django.db import models
 
 from lando.main.models.base import BaseModel, CryptographyMixin
+from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
+from lando.main.models.profile import CAN_REVERT_COMMITS
 from lando.main.scm import (
     SCM_IMPLEMENTATIONS,
     AbstractSCM,
@@ -517,6 +519,14 @@ class Repo(CryptographyMixin, BaseModel):
         """
         return self._user_has_direct_permission(
             user, str(self.required_automation_permission)
+        )
+
+    def user_can_revert(self, user: User) -> bool:
+        """Test that the user may revert commits on this repo."""
+        return self._user_has_direct_permission(
+            user, CAN_REVERT_COMMITS
+        ) and self.name in ConfigurationVariable.get(
+            ConfigurationKey.REVERT_ALLOWED_REPOS, []
         )
 
     def _user_has_direct_permission(self, user: User, permission: str) -> bool:

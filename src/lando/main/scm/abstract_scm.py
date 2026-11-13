@@ -3,6 +3,7 @@ import random
 import string
 from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager
+from datetime import timedelta
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -118,6 +119,15 @@ class AbstractSCM(ABC):
     @abstractmethod
     def cherry_pick_commit(self, commit_id: str):
         """Cherry-pick the specified commit onto the current branch."""
+
+    def revert_commit(self, commit_id: str, max_age: timedelta | None = None):
+        """Back out one non-root, non-merge ancestor of HEAD, committed within `max_age`.
+
+        Not supported by all SCMs.
+        """
+        raise NotImplementedError(
+            f"`revert_commit` is not implemented for {self.scm_name()}."
+        )
 
     @property
     def supports_3way_apply(self) -> bool:
