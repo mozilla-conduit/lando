@@ -455,6 +455,10 @@ class PhabricatorDouble:
 
         self._diff_refs += refs
 
+        # Copy the commits, so setting their author below can't change the default
+        # `commits` that later calls share.
+        commits = deepcopy(commits)
+
         author_name, author_email = None, None
         # Propagate a provided author to all commits,
         # or get the first commit author as
