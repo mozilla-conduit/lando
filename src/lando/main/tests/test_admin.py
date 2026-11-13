@@ -3,10 +3,15 @@ from django.contrib import admin
 
 from lando.headless_api.admin import AutomationJobAdmin
 from lando.headless_api.models.automation_job import AutomationJob
-from lando.main.admin import LandingJobAdmin, RepoAdmin, UpliftJobAdmin
+from lando.main.admin import (
+    HackbotResolutionAdmin,
+    LandingJobAdmin,
+    RepoAdmin,
+    UpliftJobAdmin,
+)
 from lando.main.models.landing_job import LandingJob
 from lando.main.models.repo import SCMType
-from lando.main.models.uplift import UpliftJob
+from lando.main.models.uplift import HackbotResolution, UpliftJob
 
 
 @pytest.mark.parametrize(
@@ -39,3 +44,24 @@ def test_RepoAdmin__form__clear_gh_hmac_secret(repo_mc):
     assert test_form.is_valid()
     test_form.save()
     assert repo.gh_hmac_secret == ""
+
+
+def test_HackbotResolutionAdmin_is_read_only(rf):
+    request = rf.get("/admin/")
+    resolution_admin = admin.site.get_model_admin(HackbotResolution)
+
+    assert isinstance(resolution_admin, HackbotResolutionAdmin), (
+        "`HackbotResolution` should be registered with `HackbotResolutionAdmin`."
+    )
+    assert not resolution_admin.has_add_permission(request), (
+        "Resolutions should not be addable from the admin."
+    )
+    assert not resolution_admin.has_change_permission(request), (
+        "Resolutions should not be editable from the admin."
+    )
+    assert not resolution_admin.has_delete_permission(request), (
+        "Resolutions should not be deletable from the admin."
+    )
+    assert {"patch", "conflict_diff", "resolution_diff"}.isdisjoint(
+        resolution_admin.list_display
+    ), "The large patch and diffs should only be shown on the detail page."
