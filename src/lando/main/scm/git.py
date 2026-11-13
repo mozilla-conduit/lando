@@ -70,6 +70,10 @@ def detect_patch_conflict(fn: Callable[..., T]) -> Callable[..., T]:
     return wrapper
 
 
+# Enough lines of context for `git diff` to include every line of a changed file.
+FULL_CONTEXT_LINES = 2**31 - 1
+
+
 class GitSCM(AbstractSCM):
     """An implementation of the AbstractVCS for Git, for use by the Repo and LandingWorkers."""
 
@@ -224,6 +228,7 @@ class GitSCM(AbstractSCM):
         except SCMException as exc:
             # Capture the conflict details before aborting discards the index.
             conflicts = self.collect_conflicts()
+            conflict_diff = self.conflicted_tree_diff() if conflicts else ""
 
             try:
                 self._git_run("cherry-pick", "--abort", cwd=self.path)
@@ -237,6 +242,7 @@ class GitSCM(AbstractSCM):
                     f"Cherry-picking {commit_id} failed with conflicts in: "
                     f"{paths}\n\n{exc.out}",
                     conflicts=conflicts,
+                    conflict_diff=conflict_diff,
                 ) from exc
 
             raise exc
@@ -317,6 +323,43 @@ class GitSCM(AbstractSCM):
             }
 
         return conflicts
+
+    def conflicted_tree_diff(self) -> str:
+        """Return the in-progress merge as a full-context unified diff against `HEAD`.
+
+        Diffing the working tree against `HEAD`, rather than the index, yields a
+        plain unified diff with the conflict markers in it instead of a combined
+        `diff --cc`, so it can be posted as a diff in its own right. Phabricator
+        compares diffs by their text, so whole files keep that comparison readable.
+        """
+        return self._git_run(
+            "diff",
+            f"--unified={FULL_CONTEXT_LINES}",
+            "HEAD",
+            cwd=self.path,
+            rstrip=False,
+        )
+
+    def diff_from_patched_tree(
+        self, commit_id: str, patch: str, other_commit_id: str
+    ) -> str:
+        """Return the diff from `commit_id` with `patch` applied to `other_commit_id`.
+
+        The patch is applied to a throwaway index, so neither the working tree nor
+        the checkout's index is touched.
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            env = {"GIT_INDEX_FILE": str(Path(tmp_dir) / "index")}
+            patch_path = Path(tmp_dir) / "patch.diff"
+            patch_path.write_text(patch, encoding="utf-8")
+
+            self._git_run("read-tree", commit_id, cwd=self.path, env=env)
+            self._git_run("apply", "--cached", str(patch_path), cwd=self.path, env=env)
+            patched_tree = self._git_run("write-tree", cwd=self.path, env=env)
+
+        return self._git_run(
+            "diff", patched_tree, other_commit_id, cwd=self.path, rstrip=False
+        )
 
     @override
     @detect_patch_conflict
@@ -825,7 +868,13 @@ class GitSCM(AbstractSCM):
         return True
 
     @classmethod
-    def _git_run(cls, *args, cwd: str | None = None, rstrip: bool = True) -> str:
+    def _git_run(
+        cls,
+        *args,
+        cwd: str | None = None,
+        rstrip: bool = True,
+        env: dict[str, str] | None = None,
+    ) -> str:
         """Run a git command and return full output.
 
         Parameters:
@@ -835,6 +884,9 @@ class GitSCM(AbstractSCM):
 
         cwd: str
             Optional path to work in, default to '/'
+
+        env: dict[str, str]
+            Optional environment variables to set on top of the defaults
 
         Returns:
             str: the standard output of the command
@@ -855,7 +907,7 @@ class GitSCM(AbstractSCM):
         )
 
         result = subprocess.run(
-            command, cwd=path, capture_output=True, env=cls._git_env()
+            command, cwd=path, capture_output=True, env=cls._git_env() | (env or {})
         )
 
         try:

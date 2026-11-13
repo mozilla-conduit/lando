@@ -43,13 +43,20 @@ class PatchConflict(PatchApplicationFailure):
     last touched it). It is populated by code paths, such as a 3-way rebase, that
     detect conflicts without leaving `.rej` files on disk for
     `process_merge_conflict` to parse.
+
+    `conflict_diff` is the whole conflicted tree, conflict markers included, as a
+    unified diff against the commit being applied onto.
     """
 
     def __init__(
-        self, *args: object, conflicts: dict[str, dict[str, str]] | None = None
+        self,
+        *args: object,
+        conflicts: dict[str, dict[str, str]] | None = None,
+        conflict_diff: str = "",
     ):
         super().__init__(*args)
         self.conflicts = conflicts or {}
+        self.conflict_diff = conflict_diff
 
 
 class SCMInternalServerError(SCMException):

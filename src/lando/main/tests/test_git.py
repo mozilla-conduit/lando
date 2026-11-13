@@ -1827,12 +1827,90 @@ def test_GitSCM_cherry_pick_commit_raises_on_conflict(
         "Captured conflict should include the changeset that last touched the path."
     )
 
+    conflict_diff = exc_info.value.conflict_diff
+    assert conflict_diff.startswith("diff --git a/test.txt b/test.txt"), (
+        "`conflict_diff` should be a plain unified diff, not a combined `diff --cc`."
+    )
+    assert "+<<<<<<<" in conflict_diff, (
+        "`conflict_diff` should add the conflict markers to the file."
+    )
+    assert "\n line1\n" in conflict_diff, (
+        "`conflict_diff` should carry the whole file, not just the conflict's context."
+    )
+
     git_dir = clone_path / ".git"
     assert not (git_dir / "CHERRY_PICK_HEAD").exists(), (
         "A conflicting cherry-pick should be aborted, leaving no cherry-pick state."
     )
     assert scm.head_ref() == target_tip, (
         "Aborting should leave the work branch back on the target tip."
+    )
+
+
+RESOLVED_CONFLICT_DIFF = """\
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -5,7 +5,7 @@
+ line5
+ line6
+ line7
+-line8 changed on tip
++line8 changed on tip and modified by patch
+ line9
+ line10
+ line11
+"""
+
+
+def test_GitSCM_diff_from_patched_tree_shows_conflict_resolution(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+    apply_patch: Callable,
+    three_way_base_diff: str,
+    three_way_conflicting_diff: str,
+    three_way_patch_diff: str,
+):
+    """`diff_from_patched_tree` compares a conflicted tree with its resolution."""
+    clone_path = tmp_path / request.node.name
+    scm = clone_git_repo(git_repo, clone_path, git_setup_user)
+
+    apply_patch(scm, three_way_base_diff, "Add base content")
+    base_commit = scm.head_ref()
+
+    apply_patch(scm, three_way_patch_diff, "Apply the patch")
+    patch_commit = scm.head_ref()
+
+    scm.reset_to_commit(base_commit)
+    apply_patch(scm, three_way_conflicting_diff, "Change the patched line on target")
+    target_tip = scm.head_ref()
+
+    with pytest.raises(PatchConflict) as exc_info:
+        scm.cherry_pick_commit(patch_commit)
+
+    apply_patch(scm, RESOLVED_CONFLICT_DIFF, "Resolve the conflict")
+    resolved_commit = scm.head_ref()
+
+    resolution_diff = scm.diff_from_patched_tree(
+        target_tip, exc_info.value.conflict_diff, resolved_commit
+    )
+
+    assert "-<<<<<<<" in resolution_diff, (
+        "The resolution diff should remove the conflict markers."
+    )
+    assert "-line8 modified by patch" in resolution_diff, (
+        "The resolution diff should drop the conflicting side it replaced."
+    )
+    assert "+line8 changed on tip and modified by patch" in resolution_diff, (
+        "The resolution diff should add the resolved line."
+    )
+    assert scm.head_ref() == resolved_commit, (
+        "`diff_from_patched_tree` should leave the work branch where it was."
+    )
+    assert not scm._git_run("status", "--porcelain", cwd=scm.path), (
+        "`diff_from_patched_tree` should not touch the working tree or index."
     )
 
 
