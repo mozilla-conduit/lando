@@ -298,6 +298,13 @@ PHABRICATOR_URL = os.getenv("PHABRICATOR_URL", "http://phabricator.test")
 PHABRICATOR_ADMIN_API_KEY = os.getenv("PHABRICATOR_ADMIN_API_KEY", "")
 PHABRICATOR_UNPRIVILEGED_API_KEY = os.getenv("PHABRICATOR_UNPRIVILEGED_API_KEY", "")
 
+HACKBOT_URL = os.getenv("HACKBOT_URL", "http://hackbot.test")
+HACKBOT_API_TOKEN = os.getenv("HACKBOT_API_TOKEN", "")
+
+# Timeout (seconds) for Hackbot API requests, so a hung connection can't tie up a
+# Celery worker indefinitely.
+HACKBOT_REQUEST_TIMEOUT = 30
+
 TREEHERDER_URL = os.getenv("TREEHERDER_URL", "https://treeherder.mozilla.org")
 
 # Endpoint providing release-train guidance for the uplift target selector. The
