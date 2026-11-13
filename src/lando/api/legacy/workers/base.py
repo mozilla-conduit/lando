@@ -9,7 +9,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from time import sleep
-from typing import Callable, TypeVar
+from typing import Callable, NoReturn, TypeVar
 
 from celery import Task
 from django.db import transaction
@@ -567,21 +567,7 @@ class Worker(ABC):
             if reraise_conflicts:
                 raise
 
-            breakdown = scm.process_merge_conflict(
-                repo.normalized_url,
-                revision.revision_id,
-                str(exc),
-                conflicts=exc.conflicts,
-            )
-            job.error_breakdown = breakdown
-
-            message = (
-                f"Problem while applying patch in revision {revision.revision_id}:\n\n"
-                f"{str(exc)}"
-            )
-            logger.exception(message)
-            job.transition_status(JobAction.FAIL, message=message)
-            raise PermanentFailureException(message) from exc
+            self.fail_on_patch_conflict(repo, job, scm, revision, exc)
         except Exception as exc:
             message = (
                 f"Aborting, could not apply patch buffer for {revision.revision_id}."
@@ -593,6 +579,30 @@ class Worker(ABC):
                 message=message,
             )
             raise PermanentFailureException(message) from exc
+
+    def fail_on_patch_conflict(
+        self,
+        repo: Repo,
+        job: BaseJob,
+        scm: AbstractSCM,
+        revision: Revision,
+        conflict: PatchConflict,
+    ) -> NoReturn:
+        """Fail the job on a merge conflict, recording the conflict's breakdown."""
+        job.error_breakdown = scm.process_merge_conflict(
+            repo.normalized_url,
+            revision.revision_id,
+            str(conflict),
+            conflicts=conflict.conflicts,
+        )
+
+        message = (
+            f"Problem while applying patch in revision {revision.revision_id}:\n\n"
+            f"{str(conflict)}"
+        )
+        logger.exception(message)
+        job.transition_status(JobAction.FAIL, message=message)
+        raise PermanentFailureException(message) from conflict
 
     @staticmethod
     def notify_user_of_bug_update_failure(job: BaseJob):

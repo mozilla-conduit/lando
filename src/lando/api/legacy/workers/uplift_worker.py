@@ -6,10 +6,14 @@ import tempfile
 import time
 from typing import Iterable
 
+import requests
 from django.conf import settings
 from django.db import transaction
 from typing_extensions import override
 
+from lando.api.legacy.uplift import (
+    is_uplift_resolution_enabled,
+)
 from lando.api.legacy.workers.base import Worker
 from lando.main.models import (
     JobAction,
@@ -22,13 +26,18 @@ from lando.main.models import (
 from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 from lando.main.models.landing_job import LandingJob, add_revisions_to_job
 from lando.main.models.repo import Repo
-from lando.main.models.uplift import UpliftJob, UpliftRevision
+from lando.main.models.uplift import HackbotResolution, UpliftJob, UpliftRevision
 from lando.main.scm import GitSCM
 from lando.main.scm.commit import CommitData
+from lando.main.scm.exceptions import (
+    PatchConflict,
+)
 from lando.main.scm.helpers import PatchHelper
 from lando.try_api.api import get_commit_hash, get_commit_map
+from lando.utils import hackbot
 from lando.utils.landing_checks import LandingChecks, check_bug_references
 from lando.utils.tasks import (
+    poll_hackbot_resolution,
     send_uplift_failure_email,
     send_uplift_success_email,
     set_uplift_request_form_on_revision,
@@ -39,6 +48,10 @@ logger = logging.getLogger(__name__)
 
 class SecurityBugReferenceException(Exception):
     """Raised when a commit message references a bug that is not public."""
+
+
+class ConflictHandedToHackbotException(Exception):
+    """Raised when a merge conflict has been handed to Hackbot to resolve."""
 
 
 class UpliftWorker(Worker):
@@ -70,6 +83,10 @@ class UpliftWorker(Worker):
 
         try:
             created_revision_ids = self.apply_and_uplift(job)
+        except ConflictHandedToHackbotException:
+            # The job is waiting on Hackbot, not failed, so there is nothing to
+            # notify the user about yet.
+            return True
         except TemporaryFailureException:
             return False
         except PermanentFailureException:
@@ -97,38 +114,6 @@ class UpliftWorker(Worker):
 
         Returns an ordered list of created revision IDs.
         """
-
-        def apply_uplift_revision(revision: Revision):
-            """Apply revision to the current branch.
-
-            Cherry-pick a commit to the tip of the target train,
-            or apply patches as fallback.
-            """
-            commit_id = revision.get_latest_landing_commit_id()
-
-            if commit_id and scm.commit_exists(commit_id):
-                logger.debug(f"Cherry-picking {revision} with commit_id: {commit_id}")
-                try:
-                    scm.cherry_pick_commit(commit_id)
-                    return
-                except NotImplementedError:
-                    logger.debug(
-                        "Cherry-pick not supported for this SCM type. "
-                        "Falling back to applying patch."
-                    )
-            else:
-                logger.debug(
-                    f"No landing commit found for {revision}. "
-                    f"Falling back to applying patch."
-                )
-
-            scm.apply_patch(
-                revision.diff,
-                revision.commit_message,
-                revision.author,
-                revision.timestamp,
-            )
-
         repo = job.target_repo
         submission = job.submission
         user = submission.requested_by
@@ -136,14 +121,7 @@ class UpliftWorker(Worker):
 
         # Update to the latest commit in the target train.
         base_revision = self.update_repo(repo, job, scm, target_cset=None)
-        new_commits = []
-        for uplift_revision in job.revisions.all():
-            self.handle_new_commit_failures(
-                apply_uplift_revision, repo, job, scm, uplift_revision
-            )
-            new_commit = scm.describe_commit()
-            new_commits.append(new_commit)
-            logger.debug(f"Created new commit {new_commit}")
+        new_commits = self.apply_uplift_revisions(job, repo, scm, base_revision)
 
         # Run landing checks on the applied patches before invoking `moz-phab`.
         # The uplift fallback applies raw patches directly, so this is the only
@@ -197,6 +175,168 @@ class UpliftWorker(Worker):
                     extra={"job_id": job.id, "try_job_id": try_job.id},
                 )
         return created_revision_ids
+
+    def apply_uplift_revisions(
+        self, job: UpliftJob, repo: Repo, scm: GitSCM, base_revision: str
+    ) -> list[CommitData]:
+        """Apply each of the job's revisions on top of `base_revision`.
+
+        A merge conflict is handed to Hackbot when the requester opted in and
+        `UPLIFT_HACKBOT_ENABLED` is set, and fails the job otherwise. A conflict
+        without a conflicted tree to compare the resolution with also fails the job.
+        """
+
+        def apply_uplift_revision(revision: Revision):
+            """Apply revision to the current branch.
+
+            Cherry-pick a commit to the tip of the target train,
+            or apply patches as fallback.
+            """
+            commit_id = revision.get_latest_landing_commit_id()
+
+            if commit_id and scm.commit_exists(commit_id):
+                logger.debug(f"Cherry-picking {revision} with commit_id: {commit_id}")
+                try:
+                    scm.cherry_pick_commit(commit_id)
+                    return
+                except NotImplementedError:
+                    logger.debug(
+                        "Cherry-pick not supported for this SCM type. "
+                        "Falling back to applying patch."
+                    )
+            else:
+                logger.debug(
+                    f"No landing commit found for {revision}. "
+                    f"Falling back to applying patch."
+                )
+
+            scm.apply_patch(
+                revision.diff,
+                revision.commit_message,
+                revision.author,
+                revision.timestamp,
+            )
+
+        resolve_conflicts_with_ai = (
+            job.submission.resolve_conflicts_with_ai and is_uplift_resolution_enabled()
+        )
+
+        new_commits = []
+        for uplift_revision in job.revisions.all():
+            try:
+                self.handle_new_commit_failures(
+                    apply_uplift_revision,
+                    repo,
+                    job,
+                    scm,
+                    uplift_revision,
+                    reraise_conflicts=resolve_conflicts_with_ai,
+                )
+            except PatchConflict as exc:
+                if not exc.conflict_diff:
+                    logger.debug(
+                        "Not handing the merge conflict to Hackbot, as there's no "
+                        "conflicted tree to compare its resolution with."
+                    )
+                    self.fail_on_patch_conflict(repo, job, scm, uplift_revision, exc)
+
+                self.hand_off_conflict_to_hackbot(
+                    job, repo, scm, uplift_revision, base_revision, exc
+                )
+                raise ConflictHandedToHackbotException() from exc
+
+            new_commit = scm.describe_commit()
+            new_commits.append(new_commit)
+            logger.debug(f"Created new commit {new_commit}")
+
+        return new_commits
+
+    def hand_off_conflict_to_hackbot(
+        self,
+        job: UpliftJob,
+        repo: Repo,
+        scm: GitSCM,
+        revision: Revision,
+        base_revision: str,
+        conflict: PatchConflict,
+    ):
+        """Record a merge conflict on the job and ask Hackbot to resolve it.
+
+        The job waits on Hackbot outside the queue until polling finds the run
+        finished and either resubmits or fails it. Starting the run only queues
+        it on Hackbot's side, so the worker does not wait on the agent itself.
+        """
+        job.error_breakdown = scm.process_merge_conflict(
+            repo.normalized_url,
+            revision.revision_id,
+            str(conflict),
+            conflicts=conflict.conflicts,
+        )
+        message = (
+            f"Problem while applying patch in revision {revision.revision_id}:\n\n"
+            f"{conflict}"
+        )
+
+        logger.info(
+            f"Handing a merge conflict in {revision} to Hackbot.",
+            extra={"job_id": job.id},
+        )
+        try:
+            run = hackbot.start_uplift_resolution(
+                self.hackbot_uplift_inputs(job, scm, base_revision),
+                on_behalf_of=job.submission.requested_by.email,
+                dedupe_key=f"lando-uplift-job-{job.id}-attempt-{job.attempts}",
+            )
+        except requests.RequestException as exc:
+            logger.exception(
+                "Could not start a Hackbot run, failing on the merge conflict.",
+                extra={"job_id": job.id},
+            )
+            job.transition_status(JobAction.FAIL, message=message)
+            raise PermanentFailureException(message) from exc
+
+        job.error = message
+        job.transition_status(JobAction.WAIT)
+        resolution = HackbotResolution.objects.create(
+            job=job,
+            conflict_revision=revision,
+            base_commit=base_revision,
+            conflict_diff=conflict.conflict_diff,
+            run_id=run.run_id,
+        )
+        logger.info(
+            f"Started Hackbot run {run.run_id} for {job}.",
+            extra={"job_id": job.id, "hackbot_run_id": run.run_id},
+        )
+        self.call_task(poll_hackbot_resolution, resolution.id)
+
+    def hackbot_uplift_inputs(
+        self, job: UpliftJob, scm: GitSCM, base_revision: str
+    ) -> hackbot.UpliftInputs:
+        """Build the inputs for a Hackbot `uplift-resolve` run of this job.
+
+        A revision Lando would cherry-pick is sent as its landed commit, so the
+        agent repeats the same cherry-pick. Any other revision is sent as its
+        Phabricator diff, pinned to the diff Lando would have applied.
+        """
+        sources = []
+        for revision in job.revisions.all():
+            commit_id = revision.get_latest_landing_commit_id()
+            if commit_id and scm.commit_exists(commit_id):
+                sources.append(hackbot.UpliftSource.from_commit(commit_id))
+            else:
+                sources.append(
+                    hackbot.UpliftSource.from_diff(
+                        revision.revision_id, revision.diff_id
+                    )
+                )
+
+        return hackbot.UpliftInputs(
+            target_branch=job.target_repo.default_branch,
+            target_commit=base_revision,
+            sources=tuple(sources),
+            bug_id=job.submission.assessment.bug_id,
+        )
 
     def run_landing_checks(
         self,

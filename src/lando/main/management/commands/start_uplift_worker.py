@@ -8,6 +8,7 @@ from lando.api.legacy.workers.uplift_worker import UpliftWorker
 from lando.main.management.commands.start_worker import (
     Command as StartWorkerCommand,
 )
+from lando.utils.tasks import requeue_hackbot_resolution_polls
 
 logger = logging.getLogger(__name__)
 
@@ -79,8 +80,9 @@ class Command(StartWorkerCommand):
         logger.info("moz-phab config installed successfully.")
 
     def handle(self, name: str, **options):
-        """Set up moz-phab config before starting the worker."""
+        """Set up moz-phab config, and resume polling Hackbot, before starting."""
         self.setup_moz_phab_config()
+        requeue_hackbot_resolution_polls()
         super().handle(name, **options)
 
     def verify_moz_phab_config(self, dest_config: Path):

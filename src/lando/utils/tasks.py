@@ -1,11 +1,15 @@
 import logging
 import smtplib
 import ssl
+from datetime import timedelta
 from typing import Optional
 
+import requests
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core import mail
+from django.db import transaction
+from django.utils import timezone
 
 from lando.api.legacy.email import (
     make_failure_email,
@@ -13,6 +17,9 @@ from lando.api.legacy.email import (
     make_uplift_failure_email,
     make_uplift_success_email,
 )
+from lando.main.models.jobs import JobAction, JobStatus
+from lando.main.models.uplift import HackbotResolution, UpliftJob
+from lando.utils import hackbot
 from lando.utils.celery import app as celery_app
 from lando.utils.phabricator import (
     PhabricatorClient,
@@ -20,6 +27,12 @@ from lando.utils.phabricator import (
 )
 
 logger = logging.getLogger(__name__)
+
+# How long an uplift job may wait on a Hackbot run before Lando gives up on it.
+HACKBOT_RUN_TIMEOUT = timedelta(hours=24)
+
+# Seconds between polls of a Hackbot run, until Hackbot can notify Lando itself.
+HACKBOT_POLL_INTERVAL = 60
 
 
 @celery_app.task
@@ -332,3 +345,147 @@ def set_uplift_request_form_on_revision(
     logging.info(
         f"Uplift request assessment updated on Phabricator by {user.email} for {revision_id=}."
     )
+
+
+@celery_app.task(ignore_result=True, acks_late=True)
+def poll_hackbot_resolution(resolution_id: int):
+    """Check on a Hackbot resolution's run, re-queueing itself until the run finishes.
+
+    Each waiting job has its own chain of polls, which ends once its run finishes,
+    so nothing runs while no job is waiting. A Hackbot webhook will replace this.
+    The job fails once `HACKBOT_RUN_TIMEOUT` passes, even if Hackbot can't be reached.
+    """
+    resolution = (
+        HackbotResolution.objects.select_related("job").filter(pk=resolution_id).first()
+    )
+    if resolution is None or resolution.job.status != JobStatus.WAITING:
+        logger.info(f"Stopped polling Hackbot resolution {resolution_id}.")
+        return
+
+    try:
+        finished = check_hackbot_resolution(resolution)
+    except requests.RequestException:
+        logger.exception(
+            f"Could not poll the Hackbot run for {resolution}, trying again.",
+            extra={
+                "job_id": resolution.job_id,
+                "hackbot_run_id": str(resolution.run_id),
+            },
+        )
+        finished = False
+
+    if finished:
+        return
+
+    if timezone.now() - resolution.created_at > HACKBOT_RUN_TIMEOUT:
+        fail_hackbot_resolution(resolution, "Hackbot did not finish in time.")
+        return
+
+    poll_hackbot_resolution.apply_async(
+        args=(resolution_id,), countdown=HACKBOT_POLL_INTERVAL
+    )
+
+
+def requeue_hackbot_resolution_polls():
+    """Start polling again for every job waiting on Hackbot.
+
+    A chain of polls ends if a Celery worker loses its task, so the uplift worker
+    calls this as it starts. A duplicate chain stops once its job stops waiting.
+    """
+    for job in UpliftJob.objects.filter(status=JobStatus.WAITING):
+        resolution = job.hackbot_resolution
+        if resolution is not None:
+            logger.info(f"Polling Hackbot again for {resolution}.")
+            poll_hackbot_resolution.apply_async(args=(resolution.id,))
+
+
+def check_hackbot_resolution(resolution: HackbotResolution) -> bool:
+    """Resubmit or fail the resolution's job once its run finishes.
+
+    Returns whether the run finished, so polling can stop.
+    """
+    job = resolution.job
+    logger.debug(f"Polling Hackbot run {resolution.run_id} for {job}.")
+    run = hackbot.get_run(str(resolution.run_id))
+
+    if not run.is_finished:
+        return False
+
+    resolution.findings = run.findings
+    if not run.succeeded:
+        fail_hackbot_resolution(
+            resolution, f"The Hackbot run ended with: {run.error or run.status}"
+        )
+        return True
+
+    result = resolution.result
+    if not result.resolved:
+        problems = ", ".join(result.unresolved + result.verification_failures)
+        fail_hackbot_resolution(
+            resolution, f"Hackbot left conflicts unresolved: {problems or 'unknown'}"
+        )
+        return True
+
+    logger.debug(f"Downloading the resolved patch for {job}.")
+    resolution.patch = hackbot.get_artifact(
+        str(resolution.run_id), hackbot.PATCH_ARTIFACT
+    )
+    with transaction.atomic():
+        job = lock_waiting_job(resolution)
+        if job is None:
+            return True
+        resolution.save()
+        job.transition_status(JobAction.RESUBMIT)
+    logger.info(
+        f"Resubmitted {job} with Hackbot's resolution.",
+        extra={"job_id": job.id, "hackbot_run_id": str(resolution.run_id)},
+    )
+    return True
+
+
+def fail_hackbot_resolution(resolution: HackbotResolution, reason: str):
+    """Fail an uplift job whose merge conflict Hackbot did not resolve.
+
+    The job keeps the merge conflict recorded when it was handed off, so the
+    user is left with the same breakdown as a job that never tried Hackbot.
+    """
+    with transaction.atomic():
+        job = lock_waiting_job(resolution)
+        if job is None:
+            return
+        logger.warning(
+            f"Hackbot did not resolve the merge conflict for {job}: {reason}",
+            extra={"job_id": job.id, "hackbot_run_id": str(resolution.run_id)},
+        )
+        resolution.save()
+        job.transition_status(
+            JobAction.FAIL,
+            message=f"{reason}\n\n{job.error}",
+        )
+    send_uplift_failure_email.apply_async(
+        args=(
+            job.submission.requested_by.email,
+            job.target_repo.name,
+            job.url(),
+            job.error,
+            job.submission.requested_revision_ids,
+        )
+    )
+
+
+def lock_waiting_job(resolution: HackbotResolution) -> UpliftJob | None:
+    """Lock the resolution's job, returning it only if it's still waiting on Hackbot.
+
+    Polls of the same job can overlap, so each re-reads the job under a lock before
+    moving it on, rather than saving a stale copy over a newer status.
+    """
+    job = UpliftJob.objects.select_for_update().get(pk=resolution.job_id)
+    if job.status != JobStatus.WAITING:
+        logger.info(
+            f"Not moving {job} on, as it is no longer waiting on Hackbot.",
+            extra={"job_id": job.id, "hackbot_run_id": str(resolution.run_id)},
+        )
+        return None
+
+    resolution.job = job
+    return job
