@@ -78,3 +78,22 @@ def test_make_uplift_success_email():
 
     assert email.subject == "Lando: Uplift for firefox-esr succeeded (D456)"
     assert email.body == SUCCESS_EXPECTED_BODY
+
+
+def test_make_uplift_success_email_asks_for_ai_change_approval():
+    email = make_uplift_success_email(
+        "user@example.com",
+        "firefox-esr",
+        "https://lando/jobs/123",
+        [1234, 5678],
+        [123, 456],
+        [5678],
+    )
+
+    assert (
+        "Hackbot resolved a merge conflict in this uplift. The uplift can't land "
+        'until\nsomeone checks the resolution and uses "Approve AI Change" in '
+        "Phabricator on:\n- D5678\n\nYou can review the full job details"
+    ) in email.body, (
+        "The email should list the revisions whose AI change needs approval."
+    )

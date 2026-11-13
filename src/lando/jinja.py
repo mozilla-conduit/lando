@@ -109,8 +109,20 @@ def uplift_status_label(job: UpliftJob) -> str | Markup:
     except ValueError:
         return ""
 
+    if status == JobStatus.LANDED and job.has_hackbot_resolution:
+        return (
+            "Hackbot resolved a merge conflict; uplift revisions created, and the "
+            'resolution needs "Approve AI Change" on Phabricator before landing'
+        )
+
     if status == JobStatus.LANDED:
         return "Requested revisions apply cleanly to uplift branch; uplift revisions created"
+
+    if status == JobStatus.WAITING:
+        return (
+            "Hackbot is resolving a merge conflict; Lando will create the uplift "
+            "revisions from its resolution"
+        )
 
     if status == JobStatus.FAILED and job.error_breakdown:
         return Markup(

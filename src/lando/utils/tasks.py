@@ -228,6 +228,7 @@ def send_uplift_success_email(
     job_url: str,
     created_revision_ids: list[int],
     requested_revision_ids: list[int],
+    ai_change_revision_ids: list[int] | None = None,
 ):
     """Notify a user that an uplift job succeeded."""
     if not recipient_email:
@@ -243,6 +244,7 @@ def send_uplift_success_email(
                     job_url,
                     created_revision_ids,
                     requested_revision_ids,
+                    ai_change_revision_ids,
                 )
             ]
         )

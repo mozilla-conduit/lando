@@ -128,11 +128,19 @@ Requested revisions:
 
 Lando created the following revisions:
 {created_revision_lines}
-
+{ai_change_section}
 You can review the full job details at {job_url}.
 
 Thank you for keeping the uplift train moving!
 """.strip()
+
+# Starts with a newline so it sits after a blank line when filled in, and leaves
+# no extra blank line when empty.
+UPLIFT_AI_CHANGE_EMAIL_SECTION = """
+Hackbot resolved a merge conflict in this uplift. The uplift can't land until
+someone checks the resolution and uses "Approve AI Change" in Phabricator on:
+{ai_change_revision_lines}
+"""
 
 
 def make_uplift_failure_email(
@@ -183,10 +191,22 @@ def make_uplift_success_email(
     job_url: str,
     created_revision_ids: list[int],
     requested_revision_ids: list[int],
+    ai_change_revision_ids: list[int] | None = None,
 ) -> EmailMessage:
-    """Build an uplift success email."""
+    """Build an uplift success email.
+
+    `ai_change_revision_ids` are the created revisions holding Hackbot's resolution
+    of a merge conflict, which need approval on Phabricator before they can land.
+    """
     requested_revision_lines = format_revision_id_lines(requested_revision_ids)
     created_revision_lines = format_revision_id_lines(created_revision_ids)
+    ai_change_section = (
+        UPLIFT_AI_CHANGE_EMAIL_SECTION.format(
+            ai_change_revision_lines=format_revision_id_lines(ai_change_revision_ids)
+        )
+        if ai_change_revision_ids
+        else ""
+    )
 
     # Get the tip revision for the subject line.
     subject_suffix = (
@@ -198,6 +218,7 @@ def make_uplift_success_email(
         job_url=job_url,
         created_revision_lines=created_revision_lines,
         requested_revision_lines=requested_revision_lines,
+        ai_change_section=ai_change_section,
     )
 
     msg = EmailMessage(

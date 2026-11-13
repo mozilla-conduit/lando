@@ -6,6 +6,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.forms.widgets import RadioSelect
 
+from lando.api.legacy.uplift import is_uplift_resolution_enabled
 from lando.api.legacy.validation import parse_revision_ids
 from lando.main.models import Repo, Revision
 from lando.main.models.uplift import (
@@ -180,12 +181,22 @@ class UpliftRequestForm(UpliftAssessmentForm):
         required=False,
     )
 
+    # Opt in to Hackbot resolving any merge conflicts, rather than failing.
+    resolve_conflicts_with_ai = forms.BooleanField(
+        label="Ask Hackbot to resolve merge conflicts",
+        required=False,
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         # Set the rendered value of the repository to the
         # name, instead of the default `__str__` representation.
         self.fields["repositories"].label_from_instance = lambda repo: repo.name
+
+        # Without the field, the form neither renders nor accepts the opt-in.
+        if not is_uplift_resolution_enabled():
+            del self.fields["resolve_conflicts_with_ai"]
 
     def clean_target_selection_method(self) -> str:
         """Default an absent selection method to the server-rendered fallback."""
