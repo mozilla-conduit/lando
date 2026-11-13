@@ -57,6 +57,10 @@ class JobStatus(models.TextChoices):
     # A job which kept hitting temporary failures and was given up on, so it
     # would stop blocking the queue for its repository.
     ABORTED = "ABORTED", gettext_lazy("Aborted")
+    # A job paused until some condition is met, such as an AI agent responding.
+    # It's in neither `pending()` nor `final()`, so no worker picks it up. Each job
+    # type describes what it's waiting for in its own models.
+    WAITING = "WAITING", gettext_lazy("Waiting")
 
     @classmethod
     def ordering(cls) -> Case:
@@ -79,6 +83,7 @@ class JobStatus(models.TextChoices):
             When(status=cls.CANCELLED, then=6),
             When(status=cls.ABORTED, then=7),
             When(status=cls.CREATED, then=8),
+            When(status=cls.WAITING, then=9),
             default=0,
             output_field=IntegerField(),
         )
@@ -121,6 +126,12 @@ class JobAction(enum.Enum):
 
     # Complete the job.
     SUCCESS = "SUCCESS"
+
+    # Pause the job, outside the queue, until some condition is met.
+    WAIT = "WAIT"
+
+    # Put the job back in the queue for a worker to pick up again.
+    RESUBMIT = "RESUBMIT"
 
 
 class BaseJob(BaseModel):
@@ -235,6 +246,14 @@ class BaseJob(BaseModel):
             JobAction.CANCEL: {
                 "required_params": [],
                 "status": JobStatus.CANCELLED,
+            },
+            JobAction.WAIT: {
+                "required_params": [],
+                "status": JobStatus.WAITING,
+            },
+            JobAction.RESUBMIT: {
+                "required_params": [],
+                "status": JobStatus.SUBMITTED,
             },
         }
 
