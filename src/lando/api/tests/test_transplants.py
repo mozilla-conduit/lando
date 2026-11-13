@@ -2508,6 +2508,18 @@ def test_warning_multiple_authors(
     )
 
 
+@pytest.mark.django_db
+def test_phabdouble_diff_author_does_not_change_later_diffs(phabdouble):
+    hackbot = phabdouble.user(username="hackbot", email="hackbot@mozilla.tld")
+    phabdouble.diff(author=hackbot)
+
+    later_diff = phabdouble.diff()
+
+    assert later_diff["commits"][0]["author"]["email"] == "mcote@mozilla.com", (
+        "A diff's `author` shouldn't leak into the default commits of later diffs."
+    )
+
+
 @pytest.mark.django_db(transaction=True)
 def test_diffwarnings_aggregation(
     user,
