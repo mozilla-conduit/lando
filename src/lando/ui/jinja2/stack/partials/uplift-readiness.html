@@ -42,6 +42,8 @@ picker: open while nothing is linked, and behind "Change" once something is.
             <span>D{{ uplift.revision_id }} needs an uplift assessment</span>
         {% elif uplift.relman_review == "rejected" %}
             <span>release-managers requested changes to D{{ uplift.revision_id }}</span>
+        {% elif uplift.ai_change_status == "pending" %}
+            <span>Hackbot's resolution in D{{ uplift.revision_id }} needs approval</span>
         {% elif uplift.relman_review == "accepted" %}
             <span>D{{ uplift.revision_id }} is approved for uplift</span>
         {% else %}
@@ -135,6 +137,13 @@ picker: open while nothing is linked, and behind "Change" once something is.
                     </div>
                 </form>
             </li>
+        {% endif %}
+        {# Mirrors `blocker_ai_change_not_approved`, which blocks landing until
+           someone approves Hackbot's merge conflict resolution. #}
+        {% if uplift.ai_change_status == "pending" %}
+            {{ readiness_item("todo", "Hackbot's resolution", 'Hackbot resolved a merge conflict in D' ~ uplift.revision_id ~ '. Check the resolution, then use "Approve AI Change" in Phabricator.') }}
+        {% elif uplift.ai_change_status == "approved" %}
+            {{ readiness_item('done', "Hackbot's resolution", 'Approved in Phabricator.') }}
         {% endif %}
         {# Mirrors `blocker_uplift_approval`, which blocks landing until the
            release-managers group accepts. #}

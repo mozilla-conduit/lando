@@ -186,6 +186,7 @@ def get(phab: PhabricatorClient, revision_id: int) -> dict[str, Any]:
                 "reviewers": serialize_reviewers(reviewers, users, projects, diff_phid),
                 "is_secure": secure,
                 "is_using_secure_commit_message": commit_description.sanitized,
+                "ai_change": phab_revision["fields"].get("aiChange") or {},
                 "lando_revision": (
                     lando_revision.serialize() if lando_revision else None
                 ),
