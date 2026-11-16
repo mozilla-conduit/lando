@@ -40,93 +40,86 @@ def test_revert_validation(data):
         resolve_action(revert_action(**data))
 
 
-def post_revert(
-    client,
-    headless_user,
-    operation,
-    repo_name,
-    can_revert=True,
-    allowed_repos=("firefox-autoland",),
-    enabled=True,
-    automation=False,
-):
-    user, token = headless_user
-    if not automation:
-        user.user_permissions.clear()
-    if can_revert:
-        user.user_permissions.add(Permission.objects.get(codename="can_revert_commits"))
-    if allowed_repos is not None:
-        ConfigurationVariable.set(
-            ConfigurationKey.REVERT_ALLOWED_REPOS,
-            VariableTypeChoices.JSON,
-            json.dumps(list(allowed_repos)),
+@pytest.fixture
+def revert_setup(headless_user):
+    """Configure revert access for the headless user and return its token."""
+
+    def _revert_setup(
+        repo_name,
+        *,
+        can_revert=True,
+        allowed_repos=("firefox-autoland",),
+        enabled=True,
+        automation=False,
+    ):
+        user, token = headless_user
+        if not automation:
+            user.user_permissions.clear()
+        if can_revert:
+            user.user_permissions.add(
+                Permission.objects.get(codename="can_revert_commits")
+            )
+        if allowed_repos is not None:
+            ConfigurationVariable.set(
+                ConfigurationKey.REVERT_ALLOWED_REPOS,
+                VariableTypeChoices.JSON,
+                json.dumps(list(allowed_repos)),
+            )
+        Repo.objects.create(
+            name=repo_name,
+            scm_type=SCMType.GIT,
+            automation_enabled=enabled,
+            required_automation_permission=SCM_ALLOW_DIRECT_PUSH,
         )
-    Repo.objects.create(
-        name=repo_name,
-        scm_type=SCMType.GIT,
-        automation_enabled=enabled,
-        required_automation_permission=SCM_ALLOW_DIRECT_PUSH,
-    )
+        return token
+
+    return _revert_setup
+
+
+def post(client, repo_name, token, operation):
     return client.post(
         f"/api/repo/{repo_name}",
         data=operation,
         content_type="application/json",
         headers={"Authorization": f"Bearer {token}"},
-    ), token
+    )
 
 
 @pytest.mark.django_db
 @pytest.mark.parametrize(
-    "repo_name,can_revert,allowed_repos,enabled,expected",
-    [
-        ("firefox-autoland", True, ("firefox-autoland",), True, 202),
-        ("firefox-autoland", True, ("ff-test-dev", "firefox-autoland"), True, 202),
-        ("firefox-main", True, ("firefox-autoland",), True, 403),
-        ("firefox-autoland", False, ("firefox-autoland",), True, 403),
-        ("firefox-autoland", True, None, True, 403),
-        ("firefox-autoland", True, (), True, 403),
-        ("firefox-autoland", True, ("firefox-autoland",), False, 400),
-    ],
+    "allowed_repos",
+    [("firefox-autoland",), ("ff-test-dev", "firefox-autoland")],
 )
-def test_revert_authorization(
-    client, headless_user, repo_name, can_revert, allowed_repos, enabled, expected
-):
-    response, token = post_revert(
-        client,
-        headless_user,
-        {"actions": [revert_action(), revert_action(commit="b" * 40)]},
-        repo_name,
-        can_revert,
-        allowed_repos,
-        enabled,
+def test_revert_authorized(client, revert_setup, allowed_repos):
+    token = revert_setup("firefox-autoland", allowed_repos=allowed_repos)
+    actions = [revert_action(), revert_action(commit="b" * 40)]
+    response = post(client, "firefox-autoland", token, {"actions": actions})
+    assert response.status_code == 202, response.content
+    job = AutomationJob.objects.get()
+    assert [action.data for action in job.actions.order_by("order")] == actions
+    job_response = client.get(
+        f"/api/job/{job.id}", headers={"Authorization": f"Bearer {token}"}
     )
-    assert response.status_code == expected, response.content
-    assert AutomationJob.objects.count() == (expected == 202)
-    if expected == 202:
-        job = AutomationJob.objects.get()
-        assert [action.data for action in job.actions.order_by("order")] == [
-            revert_action(),
-            revert_action(commit="b" * 40),
-        ]
-        assert (
-            client.get(
-                f"/api/job/{job.id}", headers={"Authorization": f"Bearer {token}"}
-            ).status_code
-            == 200
-        )
+    assert job_response.status_code == 200
 
 
 @pytest.mark.django_db
-def test_revert_automation_permission_is_not_enough(client, headless_user):
-    response, _token = post_revert(
-        client,
-        headless_user,
-        {"actions": [revert_action()]},
-        "firefox-autoland",
-        can_revert=False,
-        automation=True,
-    )
-    assert response.status_code == 403, response.content
+@pytest.mark.parametrize(
+    "repo_name,setup,expected",
+    [
+        ("firefox-main", {}, 403),
+        ("firefox-autoland", {"can_revert": False}, 403),
+        ("firefox-autoland", {"can_revert": False, "automation": True}, 403),
+        ("firefox-autoland", {"allowed_repos": None}, 403),
+        ("firefox-autoland", {"allowed_repos": ()}, 403),
+        ("firefox-autoland", {"enabled": False}, 400),
+    ],
+)
+def test_revert_unauthorized(client, revert_setup, repo_name, setup, expected):
+    token = revert_setup(repo_name, **setup)
+    response = post(client, repo_name, token, {"actions": [revert_action()]})
+    assert response.status_code == expected, response.content
+    assert not AutomationJob.objects.exists()
 
 
 @pytest.mark.django_db
@@ -138,8 +131,9 @@ def test_revert_automation_permission_is_not_enough(client, headless_user):
         {"actions": [revert_action()], "relbranch": {"branch_name": "other"}},
     ],
 )
-def test_revert_rejects_other_operations(client, headless_user, operation):
-    response, _token = post_revert(client, headless_user, operation, "firefox-autoland")
+def test_revert_rejects_other_operations(client, revert_setup, operation):
+    token = revert_setup("firefox-autoland")
+    response = post(client, "firefox-autoland", token, operation)
     assert response.status_code == 403, response.content
     assert not AutomationJob.objects.exists()
 

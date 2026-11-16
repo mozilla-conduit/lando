@@ -5,7 +5,6 @@ import logging
 from io import StringIO
 from typing import Annotated, Literal
 
-from django.contrib.auth.models import User
 from django.core.handlers.wsgi import WSGIRequest
 from django.db import transaction
 from ninja import (
@@ -98,22 +97,7 @@ class AutomationActionException(Exception):
         self.is_fatal = is_fatal
 
 
-def automation_permission_error(user: User, repo: Repo) -> str | None:
-    """Return why `user` may not use automation on `repo`, or `None` if allowed."""
-    if repo.user_can_use_automation(user):
-        return None
-    return f"User {user.email} is not allowed to use this API for repo {repo.name}. Missing permission: {repo.required_automation_permission}."
-
-
-class ActionSchema(Schema):
-    """Base for automation actions."""
-
-    def permission_error(self, user: User, repo: Repo) -> str | None:
-        """Return why `user` may not run this action on `repo`, or `None` if allowed."""
-        return automation_permission_error(user, repo)
-
-
-class AddCommitAction(ActionSchema):
+class AddCommitAction(Schema):
     """Create a new commit the given patch content."""
 
     action: Literal["add-commit"]
@@ -199,7 +183,7 @@ class AddCommitAction(ActionSchema):
         return True
 
 
-class AddCommitBase64Action(ActionSchema):
+class AddCommitBase64Action(Schema):
     """Create a new commit from the given base64 patch content."""
 
     action: Literal["add-commit-base64"]
@@ -232,7 +216,7 @@ class AddCommitBase64Action(ActionSchema):
         return True
 
 
-class CreateCommitAction(ActionSchema):
+class CreateCommitAction(Schema):
     """Create a new commit from a diff and metadata."""
 
     action: Literal["create-commit"]
@@ -270,7 +254,7 @@ class CreateCommitAction(ActionSchema):
         return True
 
 
-class MergeOntoAction(ActionSchema):
+class MergeOntoAction(Schema):
     """Merge the current branch into the target commit."""
 
     action: Literal["merge-onto"]
@@ -306,20 +290,13 @@ class MergeOntoAction(ActionSchema):
         return True
 
 
-class RevertAction(ActionSchema):
+class RevertAction(Schema):
     """Generate a backout of one commit already on the target branch."""
 
     action: Literal["revert"]
     commit: Annotated[
         str, Field(min_length=40, max_length=40, pattern=r"^[0-9a-fA-F]{40}$")
     ]
-
-    def permission_error(self, user: User, repo: Repo) -> str | None:
-        if repo.user_can_revert(user):
-            return None
-        return (
-            f"User {user.email} is not allowed to revert commits on repo {repo.name}."
-        )
 
     def process(
         self, job: AutomationJob, repo: Repo, scm: AbstractSCM, index: int
@@ -347,7 +324,7 @@ class RevertAction(ActionSchema):
         return True
 
 
-class TagAction(ActionSchema):
+class TagAction(Schema):
     """Create a new tag with the given name."""
 
     action: Literal["tag"]
@@ -369,7 +346,7 @@ class TagAction(ActionSchema):
         return True
 
 
-class AddBranchAction(ActionSchema):
+class AddBranchAction(Schema):
     """Create a new branch at the given commit."""
 
     action: Literal["add-branch"]
@@ -470,12 +447,21 @@ def post_repo_actions(
         )
         return 400, {"details": error}
 
-    errors = [
-        action.permission_error(request.user, repo) for action in operation.actions
-    ]
-    if operation.relbranch is not None:
-        errors.append(automation_permission_error(request.user, repo))
-    if error := "\n".join(dict.fromkeys(filter(None, errors))):
+    reverts = [a for a in operation.actions if isinstance(a, RevertAction)]
+    needs_automation = (
+        len(reverts) < len(operation.actions) or operation.relbranch is not None
+    )
+    errors = []
+    if needs_automation and not repo.user_can_use_automation(request.user):
+        errors.append(
+            f"User {request.user.email} is not allowed to use this API for repo {repo_name}. Missing permission: {repo.required_automation_permission}."
+        )
+    if reverts and not repo.user_can_revert(request.user):
+        errors.append(
+            f"User {request.user.email} is not allowed to revert commits on repo {repo_name}."
+        )
+    if errors:
+        error = "\n".join(errors)
         logger.info(
             error,
             extra={"user": request.user.email, "token": request.auth.token_prefix},
