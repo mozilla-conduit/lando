@@ -1,3 +1,6 @@
+from unittest import mock
+from urllib.parse import parse_qs, urlparse
+
 import pytest
 from django.contrib.auth.models import AnonymousUser, Group, User
 from django.urls import reverse
@@ -89,4 +92,37 @@ def test_oidc_failed_silent_refresh_then_failed_login_does_not_loop(client):
     response = client.get(callback_url, {"error": "login_required"})
     assert response["Location"] == "/", (
         "A failed interactive login should not restart login."
+    )
+
+
+@pytest.mark.django_db
+def test_oidc_expired_session_returns_to_page_after_login(client):
+    user = User.objects.create_user("testuser")
+    client.force_login(user, backend="lando.main.auth.LandoOIDCAuthenticationBackend")
+    session = client.session
+    session["oidc_id_token_expiration"] = 0
+    session.save()
+
+    response = client.get("/D1234/?tab=stack")
+    query = parse_qs(urlparse(response["Location"]).query)
+    assert query.get("prompt") == ["none"], (
+        "An expired session should start a silent refresh."
+    )
+
+    response = client.get(
+        reverse("oidc_authentication_callback"),
+        {"error": "login_required", "state": query["state"][0]},
+    )
+    response = client.get(response["Location"])
+    query = parse_qs(urlparse(response["Location"]).query)
+    assert "prompt" not in query, "The retry should be an interactive login."
+
+    user.backend = "lando.main.auth.LandoOIDCAuthenticationBackend"
+    with mock.patch("mozilla_django_oidc.views.auth.authenticate", return_value=user):
+        response = client.get(
+            reverse("oidc_authentication_callback"),
+            {"code": "code", "state": query["state"][0]},
+        )
+    assert response["Location"] == "/D1234/?tab=stack", (
+        "A successful login should return to the originally requested page."
     )
