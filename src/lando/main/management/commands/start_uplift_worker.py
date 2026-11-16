@@ -53,6 +53,9 @@ report_to_sentry = True
 
 [telemetry]
 enabled = True
+
+[profiler]
+enabled = False
 """.lstrip()
 
 
