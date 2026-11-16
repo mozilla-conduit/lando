@@ -9,9 +9,12 @@ from django.contrib.auth.backends import BaseBackend
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied, SuspiciousOperation
 from django.core.handlers.wsgi import WSGIRequest
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, HttpResponseRedirect
+from django.urls import reverse
+from django.utils.http import urlencode
 from django.views import View
 from mozilla_django_oidc.auth import OIDCAuthenticationBackend
+from mozilla_django_oidc.views import OIDCAuthenticationCallbackView
 
 # requests is a transitive dependency of mozilla-django-oidc.
 from lando.environments import Environment
@@ -204,6 +207,41 @@ class AccessTokenLandoOIDCAuthenticationBackend(LandoOIDCAuthenticationBackend):
                     return None
 
         return None
+
+
+class LandoOIDCAuthenticationCallbackView(OIDCAuthenticationCallbackView):
+    """OIDC callback that keeps the user on their page when a silent refresh fails.
+
+    The `SessionRefresh` middleware re-authenticates with `prompt=none` once the ID
+    token expires. If the provider session has also expired, the provider returns one
+    of these errors, and the stock callback logs the user out (which clears
+    `oidc_login_next`) and redirects to `/`. Instead, start an interactive login that
+    returns to the page the user requested.
+    """
+
+    SILENT_AUTH_ERRORS = {
+        "login_required",
+        "interaction_required",
+        "consent_required",
+        "account_selection_required",
+    }
+
+    def get(self, request: WSGIRequest) -> HttpResponse:
+        next_url = request.session.get("oidc_login_next")
+        # `SessionRefresh` only runs for authenticated users, and the failure logs
+        # them out, so an interactive login that fails falls through to `/`.
+        was_refreshing = request.user.is_authenticated
+        response = super().get(request)
+
+        if (
+            was_refreshing
+            and request.GET.get("error") in self.SILENT_AUTH_ERRORS
+            and next_url
+        ):
+            login_url = reverse("oidc_authentication_init")
+            return HttpResponseRedirect(f"{login_url}?{urlencode({'next': next_url})}")
+
+        return response
 
 
 def require_authenticated_user(f: Callable) -> Callable:
