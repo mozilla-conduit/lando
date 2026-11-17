@@ -1,5 +1,21 @@
 version: 2
 updates:
+    - package-ecosystem: "docker"
+      commit-message:
+          prefix: Bug 1976221 - deps(docker)
+      cooldown:
+          default-days: 7
+      directory: "/"
+      schedule:
+          interval: monthly
+    - package-ecosystem: "github-actions"
+      commit-message:
+          prefix: Bug 1976221 - deps(workflows)
+      cooldown:
+          default-days: 7
+      directory: "/"
+      schedule:
+          interval: monthly
     - package-ecosystem: pip
       allow:
           - dependency-type: all
