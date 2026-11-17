@@ -785,7 +785,7 @@ class HgSCM(AbstractSCM):
         except HgException:
             pass
         try:
-            self.run_hg(["purge"])
+            self.run_hg(["purge", "--all"])
         except HgException:
             pass
 
