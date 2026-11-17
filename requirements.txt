@@ -2832,13 +2832,20 @@ rpds-py==2026.9.1 \
     # via
     #   jsonschema
     #   referencing
-rs-parsepatch==0.4.6 \
-    --hash=sha256:5a0fd2b857dd9fe5ee987540f675220e5088e7bec16f2ffa8a12968b9c1a040f \
-    --hash=sha256:892259ef2c6feacddcdee5d56b92ef698249d261efbc3a8df4a6e5bcc90e61e1 \
-    --hash=sha256:b3a1269b5b54d90c0346f4959eab996c12d315bfd7a7d46f366205b89fd44536 \
-    --hash=sha256:b4b6559077643f63c79f0c30de4815ee5f5226fa3d1f140ca64b778d7a127edc \
-    --hash=sha256:c7be548dfb16dafa7fc2b2cc304d319a70631332c55a5175d859dfda6daeb9c6 \
-    --hash=sha256:d9b13521edce9c6f176ecb07c437789a610697033239507b8bea7a7d1cf6c55b
+rs-parsepatch==0.4.7 \
+    --hash=sha256:35d30738a56264e13b8fdafae12ef3d16f18f255db430564e60c447bf0242069 \
+    --hash=sha256:48bc38a4a2ffc3ea703a89553376b8e55683f049de9efc7668ccb76a61f36d2c \
+    --hash=sha256:5381429eef7eec4f0b4266bfaf6fb54ae5a60bad6b1f5fe177286c435bd0ccfc \
+    --hash=sha256:64e71c565f4a6eaa340295c102fc7c1596a21d71f29bbd636203f0a4a99db95f \
+    --hash=sha256:697faa3b3e7c11d8024072714f3adddfed43fd7330a17bfdbd51225b2aa39b95 \
+    --hash=sha256:74ba2ac4d3429b23a5c6efcab83dbb2bbc592f7309b34339b9f52ec04251bec9 \
+    --hash=sha256:81bafd2d1067489349d12e5dc8bd0f22f1aef293d7df87488bae61ce0bff3bee \
+    --hash=sha256:a1865ec86cb7b200f7013e7cbe41f9307aa46e3d5d34be95a2e1ce36bb15aa9f \
+    --hash=sha256:a32cf9e643dd078410fae1404c9da543d6125707ca96a892125cdc03c18a6fcc \
+    --hash=sha256:caf9c1a1aed25badb455cadaa2195d1ba0c7b29b7b850bf2a8751a71cb889ca6 \
+    --hash=sha256:d3573d98fb8d22eccc8b1200412d91228e5c093862eda2fca9ac78a4227c4bf5 \
+    --hash=sha256:e46be5c4d454d2eeebfbc544e6f1cf1a45085e71af0c9938cc668cbc294d1f0b \
+    --hash=sha256:fa4c03991a1c345f69f3cfc64884bcfbb117dc6409d7b74e7f23f2b7c24ec6c6
     # via lando (pyproject.toml)
 rsa==4.9.1 \
     --hash=sha256:68635866661c6836b8d39430f97a996acbd61bfa49406748ea243539fe239762 \

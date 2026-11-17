@@ -14,6 +14,8 @@ from lando.main.models.commit_map import CommitMap
 from lando.main.models.jobs import JobStatus
 from lando.main.models.landing_job import LandingJob
 from lando.main.models.repo import Repo
+from lando.main.tests.test_scm_helpers import GIT_FORMATPATCH_BINARY
+from lando.try_api.api import find_diff_header_for_offset
 
 
 @pytest.fixture
@@ -286,6 +288,97 @@ def test_try_api_patches_invalid_data(
     else:
         assert rj["title"] == "Invalid patch data"
         assert rj["detail"].startswith("Invalid patch data for patch 1")
+
+
+@pytest.mark.parametrize(
+    "diff,header",
+    (
+        (b"diff --git a/a b/a\n+\xff\n", "diff --git a/a b/a"),
+        (
+            b"diff --git a/a b/a\n+x\ndiff --git a/b b/b\n+\xff\n",
+            "diff --git a/b b/b",
+        ),
+        (
+            b"diff --git a/a b/a\n+diff --git a/x b/x \xff\n",
+            "diff --git a/a b/a",
+        ),
+        (b"diff --git a/f\xe9 b/f\xe9\n+x\n", "diff --git a/f\\xe9 b/f\\xe9"),
+        (b"diff --git a/a b/a\r\n+\xff\r\n", "diff --git a/a b/a"),
+        (
+            "diff --git a/a b b/a b\n".encode() + b"+\xff\n",
+            "diff --git a/a b b/a b",
+        ),
+        (b"+\xff\n", "+\\xff"),
+    ),
+)
+def test_find_diff_header_for_offset(diff: bytes, header: str):
+    text = diff.decode("utf-8", errors="surrogateescape")
+    with pytest.raises(UnicodeEncodeError) as exc:
+        text.encode("utf-8")
+
+    assert find_diff_header_for_offset(text, exc.value.start) == header
+
+
+PUBLICSUFFIXES = (
+    "mobile/android/android-components/components/lib/publicsuffixlist/"
+    "src/main/assets/publicsuffixes"
+)
+NON_UTF8_DIFF_DETAIL = (
+    "Patch 0 has non UTF-8 bytes in its diff "
+    f"(diff --git a/{PUBLICSUFFIXES} b/{PUBLICSUFFIXES}). "
+    "If they are in the file's contents, add `<path> binary` to "
+    "`.git/info/attributes` so Git sends the file as a binary patch, then resubmit."
+)
+
+
+@pytest.mark.django_db()
+@pytest.mark.parametrize(
+    "patch_bytes,detail",
+    (
+        (GIT_FORMATPATCH_BINARY, NON_UTF8_DIFF_DETAIL),
+        (
+            GIT_FORMATPATCH_BINARY.replace(b"\n---\n", b"\ncaf\xe9\n---\n", 1),
+            "Patch 0 has non UTF-8 bytes in its commit message.",
+        ),
+    ),
+)
+def test_try_api_patches_non_utf8(
+    mock_authenticate_builder: Callable,
+    mocked_repo_config_try: Mock,
+    scm_user: Callable,
+    commit_maps: list[CommitMap],
+    client_post: Callable,
+    patch_bytes: bytes,
+    detail: str,
+):
+    user = scm_user([Permission.objects.get(codename="scm_level_1")], "password")
+    mock_authenticate = mock_authenticate_builder(user)
+
+    for map in commit_maps:
+        map.git_repo_name = "firefox"
+        map.save()
+
+    request_payload = {
+        "base_commit": commit_maps[0].git_hash,
+        "base_commit_vcs": "git",
+        "patches": [base64.b64encode(patch_bytes).decode()],
+        "patch_format": "git-format-patch",
+    }
+
+    response = client_post(
+        "/api/try/patches",
+        data=json.dumps(request_payload),
+        headers={"AuThOrIzAtIoN": "bEaReR token success"},
+    )
+
+    assert mock_authenticate.called, "Authentication backend should be called"
+    assert response.status_code == 400, (
+        f"Request to Try API with non UTF-8 patch data should result in 400: {response.text}"
+    )
+
+    rj = response.json()
+    assert rj["title"] == "Unsupported patch data"
+    assert rj["detail"] == detail
 
 
 @pytest.mark.django_db()
