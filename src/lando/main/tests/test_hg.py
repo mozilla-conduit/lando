@@ -45,9 +45,14 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
         new_file.write("Extra data", mode="a")
         assert scm.run_hg_cmds([["status"]])
 
+        hg_clone.join(".hgignore").write("syntax: glob\n*.orig\n", mode="w+")
+        ignored_file = hg_clone.join("new-file.txt.orig")
+        ignored_file.write("text", mode="w+")
+
         # `clean_repo` clears the working directory but leaves drafts in place;
         # stripping is `idle_maintenance`'s job.
         scm.clean_repo()
+        assert not ignored_file.exists()
         assert scm.run_hg_cmds([["outgoing"]])
         assert not scm.run_hg_cmds([["status"]])
 
