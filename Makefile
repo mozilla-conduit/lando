@@ -17,7 +17,7 @@ INSUITE=$(shell cat ${SUITE_STAMP} 2>/dev/null)
 ifeq (${INSUITE}, 1)
 	BASE_COMMAND := docker exec -ti suite-lando-1
 else
-	BASE_COMMAND := ${DOCKER_COMPOSE} run --volume ./coverage.xml:/app/coverage.xml --rm lando
+	BASE_COMMAND := ${DOCKER_COMPOSE} run --volume ./coverage.xml:/app/coverage.xml -e CI=$${CI} --rm lando
 endif
 
 # This target needs to be the first in the file, so it's called by default.
