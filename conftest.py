@@ -15,7 +15,7 @@ def pytest_xdist_auto_num_workers(config: pytest.Config) -> int | None:
     """
     keep_free_cores = 4
 
-    if os.getenv("CI", False) == "1":
+    if os.getenv("CI") == "true":
         # Fallback to built-in methods.
         return None
 
