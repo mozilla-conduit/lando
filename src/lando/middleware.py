@@ -136,7 +136,8 @@ class MaintenanceModeMiddleware:
                         "in_maintenance": True,
                         "maintenance_message": maintenance_message,
                     },
-                )
+                ),
+                status=503,
             )
 
         return self.get_response(request)
