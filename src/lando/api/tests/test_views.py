@@ -579,6 +579,139 @@ class TestViewsPullRequestUpdateWebHook:
         assert response.status_code == 202
         assert mock_github_api_client.update_pull_request_body.call_count == 0
 
+    @mock.patch("lando.api.views.generate_warnings_and_blockers")
+    @mock.patch("lando.api.views.GitHubAPIClient")
+    @pytest.mark.django_db(transaction=True)
+    def test__views__pull_request_update_webhook_private_repo(
+        self,
+        github_api_client,
+        generate_warnings_and_blockers,
+        body,
+        expected_body,
+        client,
+        webhook_gh_client,
+        hmac_headers,
+        webhook_content,
+    ):
+        """"""
+        content = webhook_content(overrides={"pull_request": {"body": body}})
+        mock_github_api_client = webhook_gh_client(github_api_client)
+        mock_github_api_client.repo_is_private = True
+        generate_warnings_and_blockers.return_value = {
+            "warnings": [],
+            "blockers": [],
+        }
+
+        response = client.post(
+            "/api/pulls/webhook",
+            content,
+            content_type="application/json",
+            headers=hmac_headers(body=content),
+        )
+        assert response.status_code == 200, (
+            "A private repo webhook request signed with the correct secret should return a 200."
+        )
+
+    @mock.patch("lando.api.views.GitHubAPIClient")
+    @pytest.mark.django_db(transaction=True)
+    def test__views__pull_request_update_webhook_private_repo_wrong_secret(
+        self,
+        github_api_client,
+        body,
+        expected_body,
+        client,
+        webhook_gh_client,
+        hmac_headers,
+        webhook_content,
+    ):
+        """Test that a private repo webhook request signed with the wrong secret returns a 404."""
+
+        content = webhook_content(overrides={"pull_request": {"body": body}})
+        mock_github_api_client = webhook_gh_client(github_api_client)
+        mock_github_api_client.repo_is_private = True
+        wrong_signature = hmac.new(
+            b"wrong secret", json.dumps(content).encode("utf-8"), hashlib.sha256
+        ).hexdigest()
+
+        response = client.post(
+            "/api/pulls/webhook",
+            content,
+            content_type="application/json",
+            headers=hmac_headers(signature=f"sha256={wrong_signature}"),
+        )
+
+        assert response.status_code == 404, (
+            "A private repo webhook request signed with the wrong secret should return a 404."
+        )
+        assert mock_github_api_client.update_pull_request_content.call_count == 0, (
+            "The PR should not be updated when the signature is invalid."
+        )
+
+    @mock.patch("lando.api.views.GitHubAPIClient")
+    @pytest.mark.django_db(transaction=True)
+    def test__views__pull_request_update_webhook_private_repo_no_signature(
+        self,
+        github_api_client,
+        body,
+        expected_body,
+        client,
+        webhook_gh_client,
+        hmac_headers,
+        webhook_content,
+    ):
+        """Test that a private repo webhook request with no signature returns a 404."""
+        content = webhook_content(overrides={"pull_request": {"body": body}})
+        mock_github_api_client = webhook_gh_client(github_api_client)
+        mock_github_api_client.repo_is_private = True
+
+        response = client.post(
+            "/api/pulls/webhook",
+            content,
+            content_type="application/json",
+            headers={},
+        )
+
+        assert response.status_code == 404, (
+            "A private repo webhook request missing a signature should return a 404."
+        )
+        assert mock_github_api_client.update_pull_request_content.call_count == 0, (
+            "The PR should not be updated when the signature is invalid."
+        )
+
+    @mock.patch("lando.api.views.GitHubAPIClient")
+    @pytest.mark.django_db(transaction=True)
+    def test__views__pull_request_update_webhook_private_repo_no_secret(
+        self,
+        github_api_client,
+        body,
+        expected_body,
+        client,
+        webhook_gh_client,
+        hmac_headers,
+        webhook_content,
+    ):
+        """Test that a private repo with no HMAC secret rejects signatures made with an empty key."""
+        content = webhook_content(overrides={"pull_request": {"body": body}})
+        mock_github_api_client = webhook_gh_client(github_api_client)
+        mock_github_api_client.repo_is_private = True
+        repo = Repo.objects.get(name="git-repo")
+        repo.clear_gh_hmac_secret()
+        repo.save()
+        empty_key_signature = hmac.new(
+            b"", json.dumps(content).encode("utf-8"), hashlib.sha256
+        ).hexdigest()
+
+        response = client.post(
+            "/api/pulls/webhook",
+            content,
+            content_type="application/json",
+            headers=hmac_headers(signature=f"sha256={empty_key_signature}"),
+        )
+
+        assert response.status_code == 404, (
+            "A private repo with no HMAC secret should reject signatures made with an empty key."
+        )
+
 
 @mock.patch("lando.api.views.generate_warnings_and_blockers")
 @mock.patch("lando.api.views.GitHubAPIClient")
