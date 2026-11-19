@@ -7,6 +7,7 @@ from lando.api.legacy.commit_message import parse_bugs
 from lando.main.models import Repo
 from lando.main.scm import SCMType
 from lando.utils.github_checks import (
+    PullRequestBlockingReviewsWarning,
     PullRequestSecurityBugStatusFlagsBlocker,
     PullRequestSecurityBugStatusFlagsUnverifiedWarning,
 )
@@ -27,6 +28,7 @@ def make_pull_request():
         *,
         commit_messages: list[str] | None = None,
         bugs_by_id: dict | None = None,
+        reviews: dict | None = None,
     ) -> mock.Mock:
         commit_messages = commit_messages or ["No bug - do a thing"]
 
@@ -35,9 +37,11 @@ def make_pull_request():
             bug_ids.update(parse_bugs(message))
 
         return mock.Mock(
-            spec_set=["bug_ids", "bugs_by_id"],
+            spec_set=["Review", "bug_ids", "bugs_by_id", "reviews"],
+            Review=LandoPullRequest.Review,
             bug_ids=bug_ids,
             bugs_by_id=bugs_by_id,
+            reviews=reviews or [],
         )
 
     return factory
@@ -52,6 +56,93 @@ class _NoAccess:
 
     def __getattr__(self, name):
         raise AssertionError(f"unexpected access to pull_request.{name}")
+
+
+def test_blocking_reviews_warning(make_pull_request):
+    pr = make_pull_request(
+        reviews=[
+            {
+                "id": 1,
+                "node_id": "a",
+                "user": {
+                    "login": "user1",
+                },
+                "body": "r-\nPlease change the thing.",
+                "state": "CHANGES_REQUESTED",
+                "html_url": "https://github.test/org/repo/pull/1#pullrequestreview-1",
+                "submitted_at": "2026-11-17T00:00:00Z",
+                "commit_id": "a" * 40,
+            },
+            {
+                "id": 2,
+                "node_id": "b",
+                "user": {
+                    "login": "user2",
+                },
+                "body": "comment",
+                "state": "COMMENTED",
+                "html_url": "https://github.test/org/repo/pull/1#pullrequestreview-2",
+                "submitted_at": "2026-11-18T00:00:00Z",
+                "commit_id": "a" * 40,
+            },
+            {
+                "id": 3,
+                "node_id": "c",
+                "user": {
+                    "login": "user3",
+                },
+                "body": "r+",
+                "state": "APPROVED",
+                "html_url": "https://github.test/org/repo/pull/1#pullrequestreview-3",
+                "submitted_at": "2026-11-19T00:00:00Z",
+                "commit_id": "a" * 40,
+            },
+        ]
+    )
+
+    assert PullRequestBlockingReviewsWarning().run(pr, mock.Mock(), mock.Mock()) == [
+        "Has a review intended to block landing. r-… (https://github.test/org/repo/pull/1#pullrequestreview-1)"
+    ], "Should be warned by any CHANGES_REQUESTED review"
+
+    pr.reviews.append(
+        {
+            "id": 4,
+            "node_id": "d",
+            "user": {
+                "login": "user1",
+            },
+            "body": "r+",
+            "state": "APPROVED",
+            "html_url": "https://github.test/org/repo/pull/1#pullrequestreview-4",
+            "submitted_at": "2026-11-20T00:00:00Z",
+            "commit_id": "b" * 40,
+        },
+    )
+
+    assert (
+        PullRequestBlockingReviewsWarning().run(pr, mock.Mock(), mock.Mock()) == []
+    ), (
+        "Should be unwarned by a later APPROVED review by a previously change-requesting user"
+    )
+
+    pr.reviews.append(
+        {
+            "id": 5,
+            "node_id": "d",
+            "user": {
+                "login": "user3",
+            },
+            "body": "",
+            "state": "CHANGES_REQUESTED",
+            "html_url": "https://github.test/org/repo/pull/1#pullrequestreview-5",
+            "submitted_at": "2026-11-21T00:00:00Z",
+            "commit_id": "b" * 40,
+        },
+    )
+
+    assert PullRequestBlockingReviewsWarning().run(pr, mock.Mock(), mock.Mock()) == [
+        "Has a review intended to block landing. (empty body)… (https://github.test/org/repo/pull/1#pullrequestreview-5)"
+    ]
 
 
 @pytest.fixture
