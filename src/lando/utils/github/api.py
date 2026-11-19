@@ -602,7 +602,11 @@ class PullRequest:
 
     @property
     def diff(self) -> str:
-        return self.client.get_diff(self.number)
+        diff = self.client.get_diff(self.number)
+
+        self._assert_pr_unchanged("diff")
+
+        return diff
 
     @property
     @pr_cache_method
@@ -665,14 +669,28 @@ class PullRequest:
     def patch(self) -> str:
         patch = self.client.get_patch(self.number)
 
-        # Re-request the PR metadata without caching.
-        pr_metadata = self.client.get_pull_request(self.number)
-        if self.head_sha != pr_metadata["head"]["sha"]:
-            raise self.StaleMetadataException(
-                "Head SHA changed while fetching patch data."
-            )
+        self._assert_pr_unchanged("patch")
 
         return patch
+
+    def _assert_pr_unchanged(self, data_type: str):
+        """Re-request the PR metadata without caching, and compare to local data.
+
+        Currently comparing:
+        * updated_at
+        * head_sha
+        """
+        pr_metadata = self.client.get_pull_request(self.number)
+        if self.client.convert_timestamp_from_github(
+            pr_metadata["updated_at"]
+        ) != self.client.convert_timestamp_from_github(self.updated_at):
+            raise self.StaleMetadataException(
+                f"PR changed while collecting {data_type} data."
+            )
+        if self.head_sha != pr_metadata["head"]["sha"]:
+            raise self.StaleMetadataException(
+                f"Head SHA changed while fetching {data_type} data."
+            )
 
     @property
     def reviews_summary(self) -> dict[str, str]:

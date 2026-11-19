@@ -84,8 +84,7 @@ BACKOUT_MULTI_ONELINE_RE = re.compile(
     BACKOUT_KEYWORD
     + r"\s+"
     + CHANGESETS_KEYWORD
-    + r"?\s*"
-    + r"(?P<nodes>(?:(?:\s+|and|,)+"
+    + r"(?P<nodes>(?:(?:\s+|\s+and\s+|\s*,\s*)"
     + SHORT_NODE
     + r")+)",
     re.I,

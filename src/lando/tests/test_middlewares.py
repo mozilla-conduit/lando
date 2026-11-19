@@ -64,9 +64,15 @@ def test_maintenance_mode_exceptions(
         assert "maintenance" not in response.content.decode(), (
             f"`{path}` should not return the maintenance page during maintenance."
         )
+        assert response.status_code != 503, (
+            f"`{path}` should not return a 503 status code during maintenance."
+        )
     else:
         assert "maintenance" in response.content.decode(), (
             f"`{path}` should return the maintenance page during maintenance."
+        )
+        assert response.status_code == 503, (
+            f"`{path}` should return a 503 status code during maintenance."
         )
 
 
