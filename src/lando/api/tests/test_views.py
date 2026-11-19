@@ -848,7 +848,7 @@ def test__views__landing_job_pull_request_view__checks__standard(
         (
             "blocker",
             "pr-failing-checks",
-            "This Pull Request has some failing checks.",
+            "This Pull Request has some failing checks: some-check.",
         ),
         (
             "blocker",
@@ -1010,6 +1010,12 @@ def test__views__landing_job_pull_request_view__checks__prs(
 
     elif check == "pr-failing-checks":
         pr_options["mergeable_state"] = LandoPullRequest.Mergeability.UNSTABLE
+        pr_options["commit_checks"] = [
+            {
+                "name": "some-check",
+                "conclusion": "failure",
+            }
+        ]
 
     elif check == "pr-is-draft":
         pr_options["is_draft"] = True
