@@ -1,13 +1,16 @@
+from collections.abc import Callable
 from unittest import mock
 
 import pytest
 
 from lando.api.legacy.commit_message import parse_bugs
+from lando.main.models import Repo
 from lando.main.scm import SCMType
 from lando.utils.github_checks import (
     PullRequestSecurityBugStatusFlagsBlocker,
     PullRequestSecurityBugStatusFlagsUnverifiedWarning,
 )
+from lando.utils.github_helpers import LandoPullRequest
 
 
 @pytest.fixture
@@ -20,10 +23,17 @@ def make_pull_request():
     restricted to those two attributes so an unexpected access fails loudly.
     """
 
-    def factory(commit_messages: list[str], bugs_by_id: dict | None) -> mock.Mock:
+    def factory(
+        *,
+        commit_messages: list[str] | None = None,
+        bugs_by_id: dict | None = None,
+    ) -> mock.Mock:
+        commit_messages = commit_messages or ["No bug - do a thing"]
+
         bug_ids: set[int] = set()
         for message in commit_messages:
             bug_ids.update(parse_bugs(message))
+
         return mock.Mock(
             spec_set=["bug_ids", "bugs_by_id"],
             bug_ids=bug_ids,
@@ -45,7 +55,7 @@ class _NoAccess:
 
 
 @pytest.fixture
-def sec_flag_repo(repo_mc):
+def sec_flag_repo(repo_mc) -> Repo:
     """A Firefox-like repo with the security status-flag check enabled."""
     return repo_mc(SCMType.GIT, status_flag_prefix="cf_status_firefox")
 
@@ -67,7 +77,9 @@ def _run_warning(pull_request, target_repo):
 
 
 @pytest.mark.django_db
-def test_sec_flag_blocker_sec_high_unset_blocks(make_pull_request, sec_flag_repo):
+def test_sec_flag_blocker_sec_high_unset_blocks(
+    make_pull_request: Callable, sec_flag_repo: Repo
+):
     bugs = {
         123: {
             "id": 123,
@@ -76,7 +88,10 @@ def test_sec_flag_blocker_sec_high_unset_blocks(make_pull_request, sec_flag_repo
             "cf_status_firefox129": "---",
         }
     }
-    result = _run_blocker(make_pull_request(["Bug 123: fix"], bugs), sec_flag_repo)
+    result = _run_blocker(
+        make_pull_request(commit_messages=["Bug 123: fix"], bugs_by_id=bugs),
+        sec_flag_repo,
+    )
     assert len(result) == 1
     assert "sec-high" in result[0]
     assert "cf_status_firefox129" in result[0]
@@ -84,16 +99,23 @@ def test_sec_flag_blocker_sec_high_unset_blocks(make_pull_request, sec_flag_repo
 
 
 @pytest.mark.django_db
-def test_sec_flag_blocker_sec_critical_message(make_pull_request, sec_flag_repo):
+def test_sec_flag_blocker_sec_critical_message(
+    make_pull_request: Callable, sec_flag_repo: Repo
+):
     bugs = {
         123: {"id": 123, "keywords": ["sec-critical"], "cf_status_firefox130": "---"}
     }
-    result = _run_blocker(make_pull_request(["Bug 123: fix"], bugs), sec_flag_repo)
+    result = _run_blocker(
+        make_pull_request(commit_messages=["Bug 123: fix"], bugs_by_id=bugs),
+        sec_flag_repo,
+    )
     assert result and "sec-critical" in result[0]
 
 
 @pytest.mark.django_db
-def test_sec_flag_blocker_all_set_passes(make_pull_request, sec_flag_repo):
+def test_sec_flag_blocker_all_set_passes(
+    make_pull_request: Callable, sec_flag_repo: Repo
+):
     bugs = {
         123: {
             "id": 123,
@@ -102,26 +124,53 @@ def test_sec_flag_blocker_all_set_passes(make_pull_request, sec_flag_repo):
             "cf_status_firefox_esr128": "unaffected",
         }
     }
-    assert _run_blocker(make_pull_request(["Bug 123: fix"], bugs), sec_flag_repo) == []
+    assert (
+        _run_blocker(
+            make_pull_request(commit_messages=["Bug 123: fix"], bugs_by_id=bugs),
+            sec_flag_repo,
+        )
+        == []
+    )
 
 
 @pytest.mark.django_db
-def test_sec_flag_blocker_question_counts_as_set(make_pull_request, sec_flag_repo):
+def test_sec_flag_blocker_question_counts_as_set(
+    make_pull_request: Callable, sec_flag_repo: Repo
+):
     bugs = {123: {"id": 123, "keywords": ["sec-high"], "cf_status_firefox130": "?"}}
-    assert _run_blocker(make_pull_request(["Bug 123: fix"], bugs), sec_flag_repo) == []
+    assert (
+        _run_blocker(
+            make_pull_request(commit_messages=["Bug 123: fix"], bugs_by_id=bugs),
+            sec_flag_repo,
+        )
+        == []
+    )
 
 
 @pytest.mark.django_db
-def test_sec_flag_blocker_none_counts_as_unset(make_pull_request, sec_flag_repo):
+def test_sec_flag_blocker_none_counts_as_unset(
+    make_pull_request: Callable, sec_flag_repo: Repo
+):
     bugs = {123: {"id": 123, "keywords": ["sec-high"], "cf_status_firefox130": None}}
-    result = _run_blocker(make_pull_request(["Bug 123: fix"], bugs), sec_flag_repo)
+    result = _run_blocker(
+        make_pull_request(commit_messages=["Bug 123: fix"], bugs_by_id=bugs),
+        sec_flag_repo,
+    )
     assert result and "cf_status_firefox130" in result[0]
 
 
 @pytest.mark.django_db
-def test_sec_flag_blocker_non_security_bug_ignored(make_pull_request, sec_flag_repo):
+def test_sec_flag_blocker_non_security_bug_ignored(
+    make_pull_request: Callable, sec_flag_repo: Repo
+):
     bugs = {123: {"id": 123, "keywords": ["regression"], "cf_status_firefox130": "---"}}
-    assert _run_blocker(make_pull_request(["Bug 123: fix"], bugs), sec_flag_repo) == []
+    assert (
+        _run_blocker(
+            make_pull_request(commit_messages=["Bug 123: fix"], bugs_by_id=bugs),
+            sec_flag_repo,
+        )
+        == []
+    )
 
 
 @pytest.mark.django_db
@@ -131,54 +180,87 @@ def test_sec_flag_blocker_repo_without_prefix_short_circuits(no_prefix_repo):
 
 
 @pytest.mark.django_db
-def test_sec_flag_blocker_no_bug_reference_ignored(make_pull_request, sec_flag_repo):
-    assert _run_blocker(make_pull_request(["No bug: cleanup"], {}), sec_flag_repo) == []
+def test_sec_flag_blocker_no_bug_reference_ignored(
+    make_pull_request: Callable, sec_flag_repo: Repo
+):
+    assert (
+        _run_blocker(
+            make_pull_request(commit_messages=["No bug: cleanup"], bugs_by_id={}),
+            sec_flag_repo,
+        )
+        == []
+    )
 
 
 @pytest.mark.django_db
-def test_sec_flag_blocker_defers_when_bmo_unavailable(make_pull_request, sec_flag_repo):
-    assert _run_blocker(make_pull_request(["Bug 123: fix"], None), sec_flag_repo) == []
+def test_sec_flag_blocker_defers_when_bmo_unavailable(
+    make_pull_request: Callable, sec_flag_repo: Repo
+):
+    assert (
+        _run_blocker(make_pull_request(commit_messages=["Bug 123: fix"]), sec_flag_repo)
+        == []
+    )
 
 
 @pytest.mark.django_db
-def test_sec_flag_blocker_defers_when_bug_absent(make_pull_request, sec_flag_repo):
-    assert _run_blocker(make_pull_request(["Bug 123: fix"], {}), sec_flag_repo) == []
+def test_sec_flag_blocker_defers_when_bug_absent(
+    make_pull_request: Callable, sec_flag_repo: Repo
+):
+    assert (
+        _run_blocker(
+            make_pull_request(commit_messages=["Bug 123: fix"], bugs_by_id={}),
+            sec_flag_repo,
+        )
+        == []
+    )
 
 
 @pytest.mark.django_db
 def test_sec_flag_blocker_reports_only_the_failing_bug(
-    make_pull_request, sec_flag_repo
+    make_pull_request: Callable, sec_flag_repo: Repo
 ):
     bugs = {
         1: {"id": 1, "keywords": ["sec-high"], "cf_status_firefox130": "affected"},
         2: {"id": 2, "keywords": ["sec-critical"], "cf_status_firefox130": "---"},
     }
-    result = _run_blocker(make_pull_request(["Bug 1, bug 2: fix"], bugs), sec_flag_repo)
+    result = _run_blocker(
+        make_pull_request(commit_messages=["Bug 1, bug 2: fix"], bugs_by_id=bugs),
+        sec_flag_repo,
+    )
     assert len(result) == 1
     assert "Bug 2" in result[0]
 
 
 @pytest.mark.django_db
-def test_sec_flag_warning_when_bmo_unavailable(make_pull_request, sec_flag_repo):
-    result = _run_warning(make_pull_request(["Bug 123: fix"], None), sec_flag_repo)
+def test_sec_flag_warning_when_bmo_unavailable(
+    make_pull_request: Callable, sec_flag_repo: Repo
+):
+    result = _run_warning(
+        make_pull_request(commit_messages=["Bug 123: fix"]), sec_flag_repo
+    )
     assert len(result) == 1
     assert "could not verify" in result[0]
     assert "123" in result[0]
 
 
 @pytest.mark.django_db
-def test_sec_flag_warning_when_bug_absent(make_pull_request, sec_flag_repo):
-    result = _run_warning(make_pull_request(["Bug 123: fix"], {}), sec_flag_repo)
+def test_sec_flag_warning_when_bug_absent(
+    make_pull_request: Callable, sec_flag_repo: Repo
+):
+    result = _run_warning(
+        make_pull_request(commit_messages=["Bug 123: fix"], bugs_by_id={}),
+        sec_flag_repo,
+    )
     assert result and "could not verify" in result[0]
 
 
 @pytest.mark.django_db
 def test_sec_flag_warning_collapses_multiple_unverified_bugs(
-    make_pull_request, sec_flag_repo
+    make_pull_request: Callable, sec_flag_repo: Repo
 ):
     # A BMO outage must produce a single warning listing every referenced bug id.
     result = _run_warning(
-        make_pull_request(["Bug 1, bug 2, bug 3: fix"], None), sec_flag_repo
+        make_pull_request(commit_messages=["Bug 1, bug 2, bug 3: fix"]), sec_flag_repo
     )
     assert len(result) == 1
     for bug_id in ("1", "2", "3"):
@@ -186,11 +268,19 @@ def test_sec_flag_warning_collapses_multiple_unverified_bugs(
 
 
 @pytest.mark.django_db
-def test_sec_flag_warning_silent_when_data_available(make_pull_request, sec_flag_repo):
+def test_sec_flag_warning_silent_when_data_available(
+    make_pull_request: Callable, sec_flag_repo: Repo
+):
     bugs = {
         123: {"id": 123, "keywords": ["sec-high"], "cf_status_firefox130": "affected"}
     }
-    assert _run_warning(make_pull_request(["Bug 123: fix"], bugs), sec_flag_repo) == []
+    assert (
+        _run_warning(
+            make_pull_request(commit_messages=["Bug 123: fix"], bugs_by_id=bugs),
+            sec_flag_repo,
+        )
+        == []
+    )
 
 
 @pytest.mark.django_db
@@ -199,7 +289,12 @@ def test_sec_flag_warning_repo_without_prefix_short_circuits(no_prefix_repo):
 
 
 @pytest.mark.django_db
-def test_sec_flag_warning_no_bug_reference_ignored(make_pull_request, sec_flag_repo):
+def test_sec_flag_warning_no_bug_reference_ignored(
+    make_pull_request: Callable, sec_flag_repo: Repo
+):
     assert (
-        _run_warning(make_pull_request(["No bug: cleanup"], None), sec_flag_repo) == []
+        _run_warning(
+            make_pull_request(commit_messages=["No bug: cleanup"]), sec_flag_repo
+        )
+        == []
     )
