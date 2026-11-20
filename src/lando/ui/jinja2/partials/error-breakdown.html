@@ -6,6 +6,9 @@ Expected variables:
 {% if job.error_breakdown %}
     {% set tree = job.target_repo.short_name|default("Repo " + job.target_repo.name) %}
     {% set rejects_paths = job.error_breakdown.rejects_paths %}
+    {% if job.error_breakdown.note %}
+        <p class="notification is-warning is-light">{{ job.error_breakdown.note }}</p>
+    {% endif %}
     <p>
         {% if job.is_pull_request_job %}
             {% set top_revision = job.revisions[0] %}
