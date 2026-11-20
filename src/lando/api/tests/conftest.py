@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 from pathlib import Path
 from typing import Any, Callable
 from unittest import mock
@@ -23,7 +24,13 @@ from lando.api.legacy.workers.uplift_worker import (
     UpliftWorker,
 )
 from lando.main.models import JobStatus, Repo, Revision
+from lando.main.models.configuration import (
+    ConfigurationKey,
+    ConfigurationVariable,
+    VariableTypeChoices,
+)
 from lando.main.models.uplift import (
+    HackbotResolution,
     RevisionUpliftJob,
     UpliftAssessment,
     UpliftJob,
@@ -131,6 +138,30 @@ def request_mocker():
     """Yield a requests Mocker for response factories."""
     with requests_mock.mock() as m:
         yield m
+
+
+@pytest.fixture
+def make_hackbot_resolution() -> Callable[..., HackbotResolution]:
+    """Return a factory recording a Hackbot resolution of a job's conflicting revision."""
+
+    def make_resolution(
+        job: UpliftJob, conflict_revision: Revision, **fields
+    ) -> HackbotResolution:
+        fields.setdefault("base_commit", "0" * 40)
+        fields.setdefault("run_id", uuid.uuid4())
+        return HackbotResolution.objects.create(
+            job=job, conflict_revision=conflict_revision, **fields
+        )
+
+    return make_resolution
+
+
+@pytest.fixture
+def hackbot_uplift_enabled():
+    """Turn on handing uplift merge conflicts to Hackbot."""
+    ConfigurationVariable.set(
+        ConfigurationKey.UPLIFT_HACKBOT_ENABLED, VariableTypeChoices.BOOL, "1"
+    )
 
 
 @pytest.fixture
