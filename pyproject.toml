@@ -82,6 +82,9 @@ fallback_version = "2.0.0.dev0"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.coverage.html]
+show_contexts = true
+
 [tool.pytest]
 DJANGO_SETTINGS_MODULE = "lando.test_settings"
 addopts = ["--cov", "--cov-context=test", "--cov-report=html", "--cov-report=xml", "--no-migrations"]
