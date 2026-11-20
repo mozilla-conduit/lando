@@ -21,6 +21,7 @@ dependencies = [
     "django-ninja",
     "django-storages[google]",
     "django_compressor",
+    "google-auth",
     "google-cloud-bigquery",
     "jinja2",
     "kombu",
