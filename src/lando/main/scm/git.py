@@ -210,10 +210,48 @@ class GitSCM(AbstractSCM):
                 self._git_run(*c, cwd=self.path)
 
     @override
-    @detect_patch_conflict
     def cherry_pick_commit(self, commit_id: str):
-        """Use `git cherry-pick` to apply the commit to the current branch."""
-        self._git_run("cherry-pick", commit_id, cwd=self.path)
+        """Use `git cherry-pick` to apply the commit to the current branch.
+
+        `git cherry-pick` three-way merges, so a conflict is a true conflict.
+        Capture the conflicting paths and raise `PatchConflict`, mirroring
+        `rebase_onto`. Any cherry-pick left in progress is aborted, so the
+        checkout is back on its previous `HEAD` whatever the failure.
+        """
+        try:
+            self._git_run("cherry-pick", commit_id, cwd=self.path)
+        except SCMException as exc:
+            # Capture the conflict details before aborting discards the index.
+            conflicts = self.collect_conflicts()
+
+            if self.is_cherry_pick_in_progress():
+                logger.debug(f"Aborting the failed cherry-pick of {commit_id}.")
+                self._git_run("cherry-pick", "--abort", cwd=self.path)
+
+            if conflicts:
+                paths = ", ".join(conflicts)
+                raise PatchConflict(
+                    f"Cherry-picking {commit_id} failed with conflicts in: "
+                    f"{paths}\n\n{exc.out}",
+                    conflicts=conflicts,
+                ) from exc
+
+            raise exc
+
+    def is_cherry_pick_in_progress(self) -> bool:
+        """Return `True` when a stopped cherry-pick has left `CHERRY_PICK_HEAD` behind.
+
+        A cherry-pick stops on a conflict or when the picked commit turns out empty,
+        but not when `git cherry-pick` fails before starting, e.g. on a bad revision.
+        """
+        try:
+            self._git_run(
+                "rev-parse", "--quiet", "--verify", "CHERRY_PICK_HEAD", cwd=self.path
+            )
+        except SCMException:
+            return False
+
+        return True
 
     @property
     @override
