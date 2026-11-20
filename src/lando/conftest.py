@@ -1452,6 +1452,19 @@ def create_git_commit(
 
 
 @pytest.fixture
+def create_git_commit_sha(create_git_commit: Callable) -> Callable:
+    """Like `create_git_commit`, but return the SHA of the new commit."""
+
+    def _create_git_commit_sha(clone_path: Path, **kwargs) -> str:
+        create_git_commit(clone_path, **kwargs)
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=clone_path, text=True
+        ).strip()
+
+    return _create_git_commit_sha
+
+
+@pytest.fixture
 def create_hg_commit(request: pytest.FixtureRequest) -> Callable:
     def _create_hg_commit(clone_path: Path) -> str:
         new_file = clone_path / str(uuid.uuid4())

@@ -36,6 +36,11 @@ from lando.headless_api.models.automation_job import (
 )
 from lando.headless_api.models.tokens import ApiToken
 from lando.main.models import JobStatus
+from lando.main.models.configuration import (
+    ConfigurationKey,
+    ConfigurationVariable,
+    VariableTypeChoices,
+)
 from lando.main.models.repo import Repo
 from lando.main.scm import PatchConflict, SCMType
 from lando.main.scm.abstract_scm import AbstractSCM
@@ -530,6 +535,172 @@ def automation_worker(landing_worker_instance):
         scm=SCMType.GIT,
     )
     return AutomationWorker(worker)
+
+
+@pytest.fixture
+def revert_repo(headless_user, repo_mc, monkeypatch):
+    user, _token = headless_user
+    user.user_permissions.set([Permission.objects.get(codename="can_revert_commits")])
+    ConfigurationVariable.set(
+        ConfigurationKey.REVERT_ALLOWED_REPOS,
+        VariableTypeChoices.JSON,
+        json.dumps(["ff-test-dev"]),
+    )
+    monkeypatch.setenv("GIT_COMMITTER_DATE", datetime.datetime.now().isoformat())
+    return repo_mc(SCMType.GIT, name="ff-test-dev")
+
+
+@pytest.fixture
+def commit_contents(revert_repo, create_git_commit_sha):
+    """Commit each content to `backout-test` in turn, returning the SHAs."""
+
+    def _commit_contents(contents: list[str]) -> list[str]:
+        return [
+            create_git_commit_sha(
+                Path(revert_repo.pull_path),
+                message="Bug 123 - Startup change",
+                name="backout-test",
+                content=content,
+            )
+            for content in contents
+        ]
+
+    return _commit_contents
+
+
+@pytest.fixture
+def run_revert_job(
+    client,
+    headless_user,
+    revert_repo,
+    automation_worker,
+    mock_phab_trigger_repo_update_apply_async,
+):
+    """Submit reverts of `targets` and run the job, returning it and the checks mock."""
+    _user, token = headless_user
+
+    def _run_revert_job(targets: list[str], check_errors: tuple[str, ...] = ()):
+        response = client.post(
+            f"/api/repo/{revert_repo.name}",
+            data={"actions": [{"action": "revert", "commit": t} for t in targets]},
+            content_type="application/json",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 202, response.content
+        job = AutomationJob.objects.get(id=response.json()["job_id"])
+        automation_worker.worker_instance.applicable_repos.add(revert_repo)
+        with (
+            mock.patch("lando.api.legacy.workers.automation_worker.GitHubAPIClient"),
+            mock.patch(
+                "lando.api.legacy.workers.automation_worker.LandingChecks.run",
+                return_value=list(check_errors),
+            ) as checks,
+        ):
+            assert automation_worker.run_job(job)
+        job.refresh_from_db()
+        return job, checks
+
+    return _run_revert_job
+
+
+def seed_head(repo: Repo) -> str:
+    return subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=repo.pull_path, text=True
+    ).strip()
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "contents,revert,expected_file",
+    [
+        (["base\n", "broken\n"], [1], "base\n"),
+        (["base\n", "broken\n", "later change\n"], [2, 1], "base\n"),
+    ],
+)
+def test_automation_revert_lands(
+    revert_repo, commit_contents, run_revert_job, contents, revert, expected_file
+):
+    shas = commit_contents(contents)
+    job, checks = run_revert_job([shas[i] for i in revert])
+    assert job.status == JobStatus.LANDED, job.error
+    head = seed_head(revert_repo)
+    assert head == job.landed_commit_id
+    scm = job.target_repo.scm
+    reverted = []
+    commit = head
+    for _ in revert:
+        commit_data = scm.describe_commit(commit)
+        reverted.append(commit_data.reverted_commit_hashes())
+        commit = commit_data.parents[0]
+    assert reverted == [[shas[i]] for i in reversed(revert)]
+    assert (
+        subprocess.check_output(
+            ["git", "show", "HEAD:backout-test"], cwd=revert_repo.pull_path, text=True
+        )
+        == expected_file
+    )
+    checks.assert_called_once()
+    assert Push.objects.filter(repo=revert_repo).exists()
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "contents,revert,check_errors,checks_called",
+    [
+        (["base\n", "broken\n"], ["0" * 40], (), False),
+        (["base\n", "broken\n", "later change\n"], [2, "0" * 40], (), False),
+        (["base\n", "broken\n", "later change\n"], [1], (), False),
+        (["base\n", "broken\n"], [1], ("Blocked",), True),
+    ],
+)
+def test_automation_revert_fails(
+    revert_repo,
+    commit_contents,
+    run_revert_job,
+    contents,
+    revert,
+    check_errors,
+    checks_called,
+):
+    shas = commit_contents(contents)
+    original = seed_head(revert_repo)
+    targets = [shas[r] if isinstance(r, int) else r for r in revert]
+    job, checks = run_revert_job(targets, check_errors)
+    assert job.status == JobStatus.FAILED, job.error
+    assert seed_head(revert_repo) == original
+    assert checks.called == checks_called
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "commit_age_hours,max_age_hours,expected_status,expected_error",
+    [
+        (0, 24, JobStatus.LANDED, ""),
+        (48, 24, JobStatus.FAILED, "ago"),
+        (48, 72, JobStatus.LANDED, ""),
+    ],
+)
+def test_automation_revert_max_age(
+    revert_repo,
+    commit_contents,
+    run_revert_job,
+    monkeypatch,
+    commit_age_hours,
+    max_age_hours,
+    expected_status,
+    expected_error,
+):
+    commit_date = datetime.datetime.now() - datetime.timedelta(hours=commit_age_hours)
+    monkeypatch.setenv("GIT_COMMITTER_DATE", commit_date.isoformat())
+    ConfigurationVariable.set(
+        ConfigurationKey.REVERT_MAX_AGE_HOURS,
+        VariableTypeChoices.INT,
+        str(max_age_hours),
+    )
+    shas = commit_contents(["base\n", "broken\n"])
+    job, _checks = run_revert_job([shas[1]])
+    assert job.status == expected_status, job.error
+    assert expected_error in job.error
 
 
 @pytest.mark.django_db
