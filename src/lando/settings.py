@@ -260,6 +260,7 @@ OIDC_REDIRECT_REQUIRE_HTTPS = True
 LOGOUT_REDIRECT_URL = "/"
 LOGIN_REDIRECT_URL = "/"
 LOGIN_URL = "/oidc/authenticate"
+OIDC_CALLBACK_CLASS = "lando.main.auth.LandoOIDCAuthenticationCallbackView"
 
 OIDC_RP_CLIENT_ID = os.getenv("OIDC_RP_CLIENT_ID")
 OIDC_RP_CLIENT_SECRET = os.getenv("OIDC_RP_CLIENT_SECRET")
