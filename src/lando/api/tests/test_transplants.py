@@ -13,6 +13,7 @@ from lando.api.legacy.transplants import (
     RevisionWarning,
     StackAssessment,
     StackAssessmentState,
+    blocker_ai_change_not_approved,
     blocker_author_planned_changes,
     blocker_prevent_dot_github,
     blocker_prevent_nsprnss_files,
@@ -2026,6 +2027,73 @@ def test_relman_approval_status(
             "The release-managers group did not accept the stack: you need to wait "
             "for a group approval from release-managers, or request a new review."
         )
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "ai_change,hackbot_resolution,expected",
+    (
+        ({"status": "none"}, False, None),
+        ({"status": "approved", "kind": "merge-conflict"}, True, None),
+        ({"status": "lapsed", "kind": "merge-conflict"}, True, None),
+        (
+            {"status": "pending", "kind": "merge-conflict"},
+            True,
+            "Hackbot resolved a merge conflict in this revision. Check the "
+            'resolution, then use "Approve AI Change" on Phabricator.',
+        ),
+        (
+            {"status": "pending", "kind": "requested-edit"},
+            False,
+            "This revision has an AI change waiting for approval. Check it, then "
+            'use "Approve AI Change" on Phabricator.',
+        ),
+        (
+            {"status": "none"},
+            True,
+            "Hackbot resolved a merge conflict in this revision, but Lando could "
+            "not request approval of the resolution on Phabricator.",
+        ),
+    ),
+)
+def test_blocker_ai_change_not_approved(
+    phabdouble,
+    create_state,
+    user,
+    repo_mc,
+    create_patch_revision,
+    normal_patch,
+    make_uplift_job_with_revisions,
+    make_hackbot_resolution,
+    ai_change: dict,
+    hackbot_resolution: bool,
+    expected: str | None,
+):
+    revision = phabdouble.revision(ai_change=ai_change)
+    phab_revision = phabdouble.api_object_for(
+        revision,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    if hackbot_resolution:
+        uplift_revision = create_patch_revision(1, patch=normal_patch(0))
+        job = make_uplift_job_with_revisions(
+            repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True),
+            user,
+            [uplift_revision],
+        )
+        make_hackbot_resolution(
+            job, uplift_revision, uplift_revision_ids=[9999, revision["id"]]
+        )
+
+    assert (
+        blocker_ai_change_not_approved(
+            revision=phab_revision, diff={}, stack_state=create_state(phab_revision)
+        )
+        == expected
+    ), (
+        "An AI change should block landing while it's pending, or when Lando "
+        "recorded one but Phabricator has no request."
+    )
 
 
 @pytest.mark.django_db

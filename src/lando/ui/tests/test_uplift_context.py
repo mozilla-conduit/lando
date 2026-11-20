@@ -494,3 +494,55 @@ def test_relman_review_status_finds_the_groups_review(
     assert UpliftContext.relman_review_status(None, revision) is None, (
         "Without Phabricator the group cannot be identified."
     )
+
+
+@pytest.mark.parametrize(
+    "ai_change,expected_status",
+    (
+        ({"status": "pending", "kind": "merge-conflict"}, "pending"),
+        ({"status": "approved", "kind": "merge-conflict"}, "approved"),
+        ({"status": "lapsed", "kind": "merge-conflict"}, None),
+        ({"status": "none", "kind": None}, None),
+        ({"status": "pending", "kind": "requested-edit"}, None),
+        ({}, None),
+    ),
+)
+def test_merge_conflict_ai_change_status(ai_change: dict, expected_status: str | None):
+    revision = {"ai_change": ai_change}
+
+    assert UpliftContext.merge_conflict_ai_change_status(revision) == expected_status, (
+        "Only a pending or approved merge-conflict AI change should show in the "
+        "uplift checklist."
+    )
+
+
+@pytest.mark.parametrize(
+    "ai_change_status,relman_review,expected_ready",
+    (
+        (None, "accepted", True),
+        ("approved", "accepted", True),
+        ("pending", "accepted", False),
+        ("pending", None, False),
+    ),
+)
+def test_is_ready_for_review_waits_for_hackbot_approval(
+    ai_change_status: str | None, relman_review: str | None, expected_ready: bool
+):
+    context = UpliftContext(
+        request_form=MagicMock(),
+        can_create_uplift_submission=True,
+        revision_id=1,
+        bug_id=1601001,
+        is_uplift_revision=True,
+        relman_review=relman_review,
+        ai_change_status=ai_change_status,
+        bug_assessments=[MagicMock(is_linked=True)],
+        new_assessment_form=None,
+        docs_url="",
+        train_api_url="",
+    )
+
+    assert context.is_ready_for_review is expected_ready, (
+        "A Hackbot resolution still pending approval should keep the checklist "
+        "open, even once release-managers accept."
+    )

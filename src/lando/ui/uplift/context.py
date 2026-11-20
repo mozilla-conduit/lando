@@ -146,6 +146,11 @@ class UpliftContext:
     # `accepted`, or `None` while the group is not a reviewer.
     relman_review: str | None
 
+    # Whether Hackbot's merge conflict resolution on this uplift revision is
+    # `pending` approval or `approved` on Phabricator, or `None` when there is no
+    # such resolution to approve or a newer diff lapsed it.
+    ai_change_status: str | None
+
     # Every assessment this revision should display: the bug's, plus any the
     # revision reaches directly, or on a mainline revision only its uplifts.
     bug_assessments: Sequence[UpliftAssessmentCard]
@@ -164,9 +169,16 @@ class UpliftContext:
 
     @property
     def is_ready_for_review(self) -> bool:
-        """Return `True` with a bug and an assessment, and no changes requested."""
+        """Return `True` with a bug and an assessment, and nothing left to do.
+
+        Nothing left means release-managers haven't requested changes, and no
+        Hackbot resolution is still waiting to be approved.
+        """
         return bool(
-            self.bug_id and self.linked_card and self.relman_review != "rejected"
+            self.bug_id
+            and self.linked_card
+            and self.relman_review != "rejected"
+            and self.ai_change_status != "pending"
         )
 
     @property
@@ -244,6 +256,11 @@ class UpliftContext:
                 if is_uplift_revision
                 else None
             ),
+            ai_change_status=(
+                cls.merge_conflict_ai_change_status(revisions[revision_phid])
+                if is_uplift_revision
+                else None
+            ),
             bug_assessments=cls.build_assessment_cards(
                 bug_id, revision_id, linked_assessment, is_uplift_revision, phab=phab
             ),
@@ -281,6 +298,21 @@ class UpliftContext:
             ),
             None,
         )
+
+    @staticmethod
+    def merge_conflict_ai_change_status(revision: dict) -> str | None:
+        """Return whether Hackbot's resolution on `revision` awaits approval.
+
+        Mirrors `blocker_ai_change_not_approved`: only a merge-conflict AI change
+        that is `pending` or `approved` is reported, since a lapsed one no longer
+        needs approval.
+        """
+        ai_change = revision.get("ai_change") or {}
+        if ai_change.get("kind") != "merge-conflict":
+            return None
+
+        status = ai_change.get("status")
+        return status if status in ("pending", "approved") else None
 
     @staticmethod
     def can_author_assessment(

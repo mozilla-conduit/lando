@@ -885,6 +885,29 @@ def test_integrated_stack_endpoint_simple(
 
 
 @pytest.mark.django_db
+def test_integrated_stack_endpoint_includes_ai_change(
+    user,
+    phabdouble,
+    mocked_repo_config,
+    release_management_project,
+    needs_data_classification_project,
+    sec_approval_project,
+    secure_project,
+):
+    repo = phabdouble.repo()
+    revision = phabdouble.revision(
+        repo=repo, ai_change={"status": "pending", "kind": "merge-conflict"}
+    )
+
+    result = stacks.get(phabdouble.get_phabricator_client(), revision["id"])
+
+    ai_change = result["revisions"][0]["ai_change"]
+    assert (ai_change["status"], ai_change["kind"]) == ("pending", "merge-conflict"), (
+        "Each revision should carry its `aiChange` state, for the uplift checklist."
+    )
+
+
+@pytest.mark.django_db
 def test_integrated_stack_endpoint_repos(
     user,
     phabdouble,
