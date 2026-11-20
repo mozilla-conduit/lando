@@ -83,6 +83,18 @@ def get_commit_hash(
         raise ValueError(error) from exc
 
 
+def find_diff_header_for_offset(diff: str, offset: int) -> str:
+    """Return the `diff --git` line of the file that holds `offset` in `diff`."""
+    file_start = diff.rfind("\ndiff --git ", 0, offset) + 1
+    return (
+        diff[file_start:]
+        .split("\n", 1)[0]
+        .rstrip("\r")
+        .encode("utf-8", errors="surrogateescape")
+        .decode("utf-8", errors="backslashreplace")
+    )
+
+
 class PatchesRequest(Schema):
     """Provide the content of the push for submission to Lando."""
 
@@ -224,6 +236,29 @@ def patches(
             raise BadRequestProblemException(
                 title="Invalid patch data",
                 detail=f"Invalid patch data for patch {patch_no}",
+            ) from exc
+
+        try:
+            ph.get_commit_description().encode("utf-8")
+        except UnicodeEncodeError as exc:
+            raise BadRequestProblemException(
+                title="Unsupported patch data",
+                detail=f"Patch {patch_no} has non UTF-8 bytes in its commit message.",
+            ) from exc
+
+        diff = ph.get_diff()
+        try:
+            diff.encode("utf-8")
+        except UnicodeEncodeError as exc:
+            file_header = find_diff_header_for_offset(diff, exc.start)
+            raise BadRequestProblemException(
+                title="Unsupported patch data",
+                detail=(
+                    f"Patch {patch_no} has non UTF-8 bytes in its diff "
+                    f"({file_header}). If they are in the file's contents, add "
+                    "`<path> binary` to `.git/info/attributes` so Git sends the "
+                    "file as a binary patch, then resubmit."
+                ),
             ) from exc
 
         patch_helpers.append(ph)

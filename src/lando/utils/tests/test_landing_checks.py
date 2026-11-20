@@ -12,6 +12,7 @@ from lando.main.scm.helpers import (
     GitPatchHelper,
     HgPatchHelper,
 )
+from lando.main.tests.test_scm_helpers import GIT_FORMATPATCH_BINARY
 from lando.utils.landing_checks import (
     ALL_CHECKS,
     BugReferencesCheck,
@@ -886,3 +887,12 @@ def test_landing_checks_run():
     names_run = landing_checks.run([chk.name() for chk in ALL_CHECKS], patch_helpers)
 
     assert names_run == expected
+
+
+def test_landing_checks_run_non_utf8():
+    landing_checks = LandingChecks("user@example.com", "some-repo")
+    patch_helpers = [GitPatchHelper.from_bytes_io(io.BytesIO(GIT_FORMATPATCH_BINARY))]
+
+    errors = landing_checks.run([TryTaskConfigCheck.name()], patch_helpers)
+
+    assert errors == []
