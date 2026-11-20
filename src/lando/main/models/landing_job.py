@@ -11,7 +11,7 @@ from mots.config import FileConfig
 from mots.directory import Directory
 
 from lando.main.models.base import BaseModel
-from lando.main.models.jobs import BaseJob
+from lando.main.models.jobs import BaseJob, JobStatus
 from lando.main.models.repo import Repo
 from lando.main.models.revision import Revision, RevisionLandingJob
 
@@ -203,6 +203,16 @@ class LandingJob(BaseJob):
         job_dict["url"] = f"{settings.SITE_URL}/landings/{self.id}"
 
         return job_dict
+
+    @classmethod
+    def next_job(cls, repositories: Iterable[str] | None = None, **kwargs) -> QuerySet:
+        """Select an unclaimed landing job, skipping rows locked by other workers."""
+        return (
+            super()
+            .next_job(repositories=repositories, **kwargs)
+            .exclude(status=JobStatus.IN_PROGRESS)
+            .select_for_update(skip_locked=True)
+        )
 
     @classmethod
     def job_queue_query(
