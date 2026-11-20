@@ -293,7 +293,7 @@ class GitSCM(AbstractSCM):
         if committed_at < datetime.now(timezone.utc) - max_age:
             raise ValueError(
                 f"{commit_id} was committed at {committed_at.isoformat()}, "
-                f"more than {max_age} ago."
+                f"more than {max_age.total_seconds() / 3600:g} hours ago."
             )
         self._git_run("revert", "--no-edit", commit.hash, cwd=self.path)
 

@@ -123,6 +123,7 @@ def test_revert_unauthorized(client, revert_setup, repo_name, setup, expected):
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize("automation", [False, True])
 @pytest.mark.parametrize(
     "operation",
     [
@@ -131,10 +132,11 @@ def test_revert_unauthorized(client, revert_setup, repo_name, setup, expected):
         {"actions": [revert_action()], "relbranch": {"branch_name": "other"}},
     ],
 )
-def test_revert_rejects_other_operations(client, revert_setup, operation):
-    token = revert_setup("firefox-autoland")
+def test_revert_rejects_other_operations(client, revert_setup, operation, automation):
+    token = revert_setup("firefox-autoland", automation=automation)
     response = post(client, "firefox-autoland", token, operation)
-    assert response.status_code == 403, response.content
+    assert response.status_code == 400, response.content
+    assert "cannot be combined" in response.json()["details"]
     assert not AutomationJob.objects.exists()
 
 

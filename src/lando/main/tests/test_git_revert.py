@@ -127,7 +127,7 @@ def test_git_revert_conflict(git_repo, commit_file):
 
 def test_git_revert_older_than_max_age(git_repo, commit_file):
     target = commit_file(git_repo, "broken")
-    with pytest.raises(ValueError, match="ago"):
+    with pytest.raises(ValueError, match="more than 24 hours ago"):
         GitSCM(str(git_repo)).revert_commit(target, DAY)
 
 
