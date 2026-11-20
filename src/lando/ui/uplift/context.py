@@ -40,6 +40,7 @@ class UpliftTrainOutcome(Enum):
     MERGE_CONFLICT = ("Merge conflict", "negative", "fa-times")
     FAILED = ("Failed", "negative", "fa-exclamation-triangle")
     IN_PROGRESS = ("In progress", "warning", "fa-clock-o")
+    WAITING_ON_HACKBOT = ("Hackbot resolving conflict", "warning", "fa-magic")
     QUEUED = ("Queued", "", "fa-hourglass-start")
     CANCELLED = ("Cancelled", "", "fa-ban")
     CONFLICT_RESOLVED_BY_HACKBOT = (
@@ -64,12 +65,16 @@ class UpliftTrainOutcome(Enum):
     def for_job(cls, job: UpliftJob) -> Self:
         """Return the outcome of the stack `job` was queued to create."""
         if job.status == JobStatus.LANDED:
+            if job.has_hackbot_resolution:
+                return cls.CONFLICT_RESOLVED_BY_HACKBOT
             return cls.CREATED_BY_LANDO
         if job.status == JobStatus.FAILED:
             # Only a merge conflict fills in the breakdown of failed paths.
             return cls.MERGE_CONFLICT if job.error_breakdown else cls.FAILED
         if job.status == JobStatus.IN_PROGRESS:
             return cls.IN_PROGRESS
+        if job.status == JobStatus.WAITING:
+            return cls.WAITING_ON_HACKBOT
         if job.status in (JobStatus.CANCELLED, JobStatus.ABORTED):
             return cls.CANCELLED
         return cls.QUEUED
