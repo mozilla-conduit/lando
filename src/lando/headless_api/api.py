@@ -447,21 +447,24 @@ def post_repo_actions(
         )
         return 400, {"details": error}
 
-    reverts = [a for a in operation.actions if isinstance(a, RevertAction)]
-    needs_automation = (
-        len(reverts) < len(operation.actions) or operation.relbranch is not None
-    )
-    errors = []
-    if needs_automation and not repo.user_can_use_automation(request.user):
-        errors.append(
-            f"User {request.user.email} is not allowed to use this API for repo {repo_name}. Missing permission: {repo.required_automation_permission}."
+    is_revert = [isinstance(action, RevertAction) for action in operation.actions]
+    if all(is_revert) and operation.relbranch is None:
+        if not repo.user_can_revert(request.user):
+            error = f"User {request.user.email} is not allowed to revert commits on repo {repo_name}."
+            logger.info(
+                error,
+                extra={"user": request.user.email, "token": request.auth.token_prefix},
+            )
+            return 403, {"details": error}
+    elif any(is_revert):
+        error = "Revert actions cannot be combined with other actions or a relbranch."
+        logger.info(
+            error,
+            extra={"user": request.user.email, "token": request.auth.token_prefix},
         )
-    if reverts and not repo.user_can_revert(request.user):
-        errors.append(
-            f"User {request.user.email} is not allowed to revert commits on repo {repo_name}."
-        )
-    if errors:
-        error = "\n".join(errors)
+        return 400, {"details": error}
+    elif not repo.user_can_use_automation(request.user):
+        error = f"User {request.user.email} is not allowed to use this API for repo {repo_name}. Missing permission: {repo.required_automation_permission}."
         logger.info(
             error,
             extra={"user": request.user.email, "token": request.auth.token_prefix},
