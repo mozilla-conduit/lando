@@ -15,6 +15,7 @@ from lando.jinja import (
     phabricator_revision_url,
     repo_branch_url,
     repo_path,
+    tostatusbadgeclass,
 )
 from lando.main.models import JobStatus, LandingJob, Repo, SCMType
 from lando.main.models.revision import Revision, RevisionLandingJob
@@ -275,6 +276,23 @@ def test_repo_path(repo_url, path):
 )
 def test_repo_branch_url(repo, path):
     assert path == repo_branch_url(repo)
+
+
+@pytest.mark.parametrize(
+    "status,badge_class",
+    (
+        (JobStatus.SUBMITTED, "Badge Badge--warning"),
+        (JobStatus.IN_PROGRESS, "Badge Badge--warning"),
+        # Deferred jobs are retried, so they are a warning rather than an error.
+        (JobStatus.DEFERRED, "Badge Badge--warning"),
+        (JobStatus.LANDED, "Badge Badge--positive"),
+        (JobStatus.FAILED, "Badge Badge--negative"),
+        (JobStatus.ABORTED, "Badge Badge--negative"),
+    ),
+)
+def test_tostatusbadgeclass(status, badge_class):
+    # Only the status is read, so a model instance (and the database) isn't needed.
+    assert tostatusbadgeclass(LandingJob(status=status)) == badge_class
 
 
 def test_revision_url__integer():
