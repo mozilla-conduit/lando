@@ -300,6 +300,14 @@ PHABRICATOR_UNPRIVILEGED_API_KEY = os.getenv("PHABRICATOR_UNPRIVILEGED_API_KEY",
 
 TREEHERDER_URL = os.getenv("TREEHERDER_URL", "https://treeherder.mozilla.org")
 
+# Credentials of a Taskcluster client with `queue:cancel-task:<scheduler>/*` for the
+# Try repositories, used to cancel the tasks of Try pushes on behalf of their authors.
+TASKCLUSTER_ROOT_URL = os.getenv(
+    "TASKCLUSTER_ROOT_URL", "https://firefox-ci-tc.services.mozilla.com"
+)
+TASKCLUSTER_CLIENT_ID = os.getenv("TASKCLUSTER_CLIENT_ID", "")
+TASKCLUSTER_ACCESS_TOKEN = os.getenv("TASKCLUSTER_ACCESS_TOKEN", "")
+
 # Endpoint providing release-train guidance for the uplift target selector. The
 # browser fetches this directly. Defaults to the whattrainisitnow.com production
 # endpoint.

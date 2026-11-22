@@ -29,6 +29,8 @@ from lando.utils.exceptions import (
 )
 from lando.utils.landing_checks import LandingChecks
 from lando.utils.ninja_auth import AccessTokenAuth
+from lando.utils.taskcluster import TaskclusterClient
+from lando.utils.tasks import cancel_try_push_tasks
 
 logger = logging.getLogger(__name__)
 
@@ -330,6 +332,88 @@ def patches(
     return 201, JobResponse(
         id=try_job.id,
     )
+
+
+class CancelPushResponse(Schema):
+    """Response schema for a Try push cancellation request."""
+
+    job_id: Annotated[int, Field(description="The ID of the job that pushed.")]
+    revision: Annotated[str, Field(description="The full revision of the push.")]
+
+
+CommitId = Annotated[
+    str,
+    StringConstraints(min_length=12, max_length=40, pattern=r"^[0-9a-f]+$"),
+]
+
+
+@api.post(
+    "/pushes/{revision}/cancel",
+    summary="Cancel the pending and running tasks of one of your Try pushes.",
+    url_name="api-cancel-push",
+    response={
+        202: CancelPushResponse,
+        400: ProblemDetail,
+        404: ProblemDetail,
+        503: ProblemDetail,
+    },
+)
+def cancel_push(request: WSGIRequest, revision: CommitId) -> tuple[int, Schema]:
+    """Cancel the unresolved Taskcluster tasks of a Try push made by the user.
+
+    `revision` is the commit ID of the push, as shown in Treeherder, or a prefix of it
+    of at least 12 characters. The cancellation runs in the background.
+    """
+    if not TaskclusterClient.is_configured():
+        status = 503
+        return status, ProblemDetail(
+            title="Cancellation unavailable",
+            detail="Lando is not configured to cancel Taskcluster tasks.",
+            status=status,
+        )
+
+    jobs = list(
+        LandingJob.objects.filter(
+            target_repo__is_try=True,
+            status=JobStatus.LANDED,
+            requester_email=request.user.email,
+            landed_commit_id__startswith=revision,
+        ).select_related("target_repo")[:2]
+    )
+    if not jobs:
+        status = 404
+        return status, ProblemDetail(
+            title="Push not found",
+            detail=f"No Try push of yours matches {revision}.",
+            status=status,
+        )
+    if len(jobs) > 1:
+        status = 400
+        return status, ProblemDetail(
+            title="Ambiguous revision",
+            detail=f"{revision} matches several of your Try pushes; use a longer prefix.",
+            status=status,
+        )
+
+    job = jobs[0]
+    if not job.target_repo.user_can_push(request.user):
+        raise PermissionDenied(
+            f"Missing permissions: {job.target_repo.required_permission}"
+        )
+
+    push_revision = job.landed_treeherder_revision
+    if not push_revision:
+        status = 404
+        return status, ProblemDetail(
+            title="Push revision unknown",
+            detail=f"Could not determine the Treeherder revision of job {job.id}.",
+            status=status,
+        )
+
+    cancel_try_push_tasks.apply_async(
+        args=(job.target_repo.name, push_revision, request.user.email)
+    )
+    return 202, CancelPushResponse(job_id=job.id, revision=push_revision)
 
 
 #

@@ -584,3 +584,137 @@ def test_try_api_patches_m2m_auth_invalid_token(
 
     assert mock_authenticate.called, "Authentication backend should be called"
     assert response.status_code == 401, "Invalid token to Try API should result in 401"
+
+
+#
+# PUSH CANCELLATION TESTS
+#
+
+
+@pytest.fixture
+def landed_try_job(mocked_repo_config_try: Mock) -> Callable:
+    def _make(requester_email: str, commit_id: str = "a" * 40) -> LandingJob:
+        return LandingJob.objects.create(
+            target_repo=Repo.objects.get(name="try"),
+            requester_email=requester_email,
+            status=JobStatus.LANDED,
+            landed_commit_id=commit_id,
+        )
+
+    return _make
+
+
+@pytest.fixture
+def mock_cancel_task(monkeypatch: pytest.MonkeyPatch, settings) -> MagicMock:
+    settings.TASKCLUSTER_CLIENT_ID = "project/lando/cancel"
+    settings.TASKCLUSTER_ACCESS_TOKEN = "secret"
+    mock = MagicMock()
+    monkeypatch.setattr("lando.try_api.api.cancel_try_push_tasks.apply_async", mock)
+    return mock
+
+
+@pytest.mark.django_db()
+@pytest.mark.parametrize("revision", ("a" * 40, "a" * 12))
+def test_try_api_cancel_push_success(
+    mock_authenticate_builder: Callable,
+    scm_user: Callable,
+    client_post: Callable,
+    landed_try_job: Callable,
+    mock_cancel_task: MagicMock,
+    revision: str,
+):
+    user = scm_user([Permission.objects.get(codename="scm_level_1")], "password")
+    mock_authenticate_builder(user)
+    job = landed_try_job(user.email)
+
+    response = client_post(f"/api/try/pushes/{revision}/cancel", data="{}")
+
+    assert response.status_code == 202, response.text
+    assert response.json() == {"job_id": job.id, "revision": "a" * 40}
+    mock_cancel_task.assert_called_once_with(args=("try", "a" * 40, user.email))
+
+
+@pytest.mark.django_db()
+def test_try_api_cancel_push_other_user(
+    mock_authenticate_builder: Callable,
+    scm_user: Callable,
+    client_post: Callable,
+    landed_try_job: Callable,
+    mock_cancel_task: MagicMock,
+):
+    user = scm_user([Permission.objects.get(codename="scm_level_1")], "password")
+    mock_authenticate_builder(user)
+    landed_try_job("someone-else@example.org")
+
+    response = client_post(f"/api/try/pushes/{'a' * 40}/cancel", data="{}")
+
+    assert response.status_code == 404, response.text
+    assert not mock_cancel_task.called
+
+
+@pytest.mark.django_db()
+def test_try_api_cancel_push_ambiguous(
+    mock_authenticate_builder: Callable,
+    scm_user: Callable,
+    client_post: Callable,
+    landed_try_job: Callable,
+    mock_cancel_task: MagicMock,
+):
+    user = scm_user([Permission.objects.get(codename="scm_level_1")], "password")
+    mock_authenticate_builder(user)
+    landed_try_job(user.email, "a" * 40)
+    landed_try_job(user.email, "a" * 39 + "b")
+
+    response = client_post(f"/api/try/pushes/{'a' * 12}/cancel", data="{}")
+
+    assert response.status_code == 400, response.text
+    assert not mock_cancel_task.called
+
+
+@pytest.mark.django_db()
+@pytest.mark.parametrize("revision", ("a" * 11, "g" * 40, "A" * 40))
+def test_try_api_cancel_push_invalid_revision(
+    mock_authenticate_builder: Callable,
+    scm_user: Callable,
+    client_post: Callable,
+    mock_cancel_task: MagicMock,
+    revision: str,
+):
+    user = scm_user([Permission.objects.get(codename="scm_level_1")], "password")
+    mock_authenticate_builder(user)
+
+    response = client_post(f"/api/try/pushes/{revision}/cancel", data="{}")
+
+    assert response.status_code in (400, 422), response.text
+    assert not mock_cancel_task.called
+
+
+@pytest.mark.django_db()
+def test_try_api_cancel_push_not_configured(
+    mock_authenticate_builder: Callable,
+    scm_user: Callable,
+    client_post: Callable,
+    landed_try_job: Callable,
+    settings,
+):
+    settings.TASKCLUSTER_CLIENT_ID = ""
+    settings.TASKCLUSTER_ACCESS_TOKEN = ""
+    user = scm_user([Permission.objects.get(codename="scm_level_1")], "password")
+    mock_authenticate_builder(user)
+    landed_try_job(user.email)
+
+    response = client_post(f"/api/try/pushes/{'a' * 40}/cancel", data="{}")
+
+    assert response.status_code == 503, response.text
+
+
+@pytest.mark.django_db()
+def test_try_api_cancel_push_unauthenticated(
+    mock_authenticate_builder: Callable,
+    client_post: Callable,
+):
+    mock_authenticate_builder(None)
+
+    response = client_post(f"/api/try/pushes/{'a' * 40}/cancel", data="{}")
+
+    assert response.status_code == 401

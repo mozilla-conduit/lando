@@ -1,8 +1,10 @@
 import logging
 import smtplib
 import ssl
+from concurrent import futures
 from typing import Optional
 
+import requests
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core import mail
@@ -18,6 +20,7 @@ from lando.utils.phabricator import (
     PhabricatorClient,
     PhabricatorCommunicationException,
 )
+from lando.utils.taskcluster import DecisionTaskNotFoundError, TaskclusterClient
 
 logger = logging.getLogger(__name__)
 
@@ -332,3 +335,30 @@ def set_uplift_request_form_on_revision(
     logging.info(
         f"Uplift request assessment updated on Phabricator by {user.email} for {revision_id=}."
     )
+
+
+@celery_app.task(
+    # The decision task is only indexed once it completes, so keep retrying for a
+    # while after the push.
+    autoretry_for=(DecisionTaskNotFoundError, requests.RequestException),
+    default_retry_delay=60,
+    max_retries=45,
+    acks_late=True,
+    ignore_result=True,
+)
+def cancel_try_push_tasks(repo_name: str, revision: str, requester_email: str):
+    """Cancel all unresolved Taskcluster tasks of a Try push."""
+    tc = TaskclusterClient()
+    task_group_id = tc.find_decision_task(repo_name, revision)
+    task_ids = tc.list_unresolved_tasks(task_group_id)
+    logger.info(
+        f"Cancelling {len(task_ids)} tasks of {repo_name} push {revision} "
+        f"(task group {task_group_id}) for {requester_email}"
+    )
+
+    with futures.ThreadPoolExecutor(16) as executor:
+        results = list(executor.map(tc.cancel_task, task_ids))
+
+    past_deadline = results.count(False)
+    if past_deadline:
+        logger.info(f"{past_deadline} tasks were past their deadline")
