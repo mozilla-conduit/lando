@@ -327,6 +327,13 @@ PULSE_QUEUE = os.getenv("PULSE_QUEUE", "queue/suite/git-hg-sync")
 PULSE_ROUTING_KEY = os.getenv("PULSE_ROUTING_KEY", "gitpushes")
 PULSE_SSL = os.getenv("PULSE_SSL", True)
 
+# Number of parallel workers Git uses to update the working tree (`checkout.workers`).
+# Git only parallelises checkouts that touch at least 100 files, so small landings are
+# unaffected. A value below 1 uses one worker per logical core, and 1 restores Git's
+# sequential default. Lower it explicitly where the CPU count Git sees is larger than
+# the CPU quota available to the worker (e.g. containers with CPU limits).
+GIT_CHECKOUT_WORKERS = int(os.getenv("GIT_CHECKOUT_WORKERS", "-1"))
+
 LANDO_USER_NAME = os.getenv("LANDO_USER_NAME", "Lando")
 LANDO_USER_EMAIL = os.getenv("LANDO_USER_EMAIL", "lando@lando.test")
 

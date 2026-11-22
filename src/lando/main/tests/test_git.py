@@ -1725,3 +1725,33 @@ def test_GitSCM_process_merge_conflict_missing_file(
         "No such file or directory"
         in error_breakdown["rejects_paths"]["new.txt"]["content"]
     ), "The breakdown should carry git's error for the missing file."
+
+
+@pytest.mark.parametrize("workers", [-1, 1, 4])
+def test_GitSCM_git_run_sets_checkout_workers(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch, workers: int
+):
+    monkeypatch.setattr("lando.main.scm.git.GIT_CHECKOUT_WORKERS", workers)
+
+    # The value reaches git commands run in an existing repository, whose own config
+    # doesn't set it.
+    configured = GitSCM._git_run(
+        "config", "--get", "checkout.workers", cwd=str(git_repo)
+    )
+    assert configured == str(workers)
+
+
+def test_GitSCM_git_env_keeps_existing_git_config(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", "core.abbrev")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", "12")
+    monkeypatch.setattr("lando.main.scm.git.GIT_CHECKOUT_WORKERS", 3)
+
+    env = GitSCM._git_env()
+
+    assert env["GIT_CONFIG_COUNT"] == "2"
+    assert (env["GIT_CONFIG_KEY_0"], env["GIT_CONFIG_VALUE_0"]) == ("core.abbrev", "12")
+    assert (env["GIT_CONFIG_KEY_1"], env["GIT_CONFIG_VALUE_1"]) == (
+        "checkout.workers",
+        "3",
+    )

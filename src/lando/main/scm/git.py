@@ -24,7 +24,7 @@ from lando.main.scm.exceptions import (
     TagAlreadyPresentException,
 )
 from lando.main.scm.helpers import GitPatchHelper, PatchHelper
-from lando.settings import LANDO_USER_EMAIL, LANDO_USER_NAME
+from lando.settings import GIT_CHECKOUT_WORKERS, LANDO_USER_EMAIL, LANDO_USER_NAME
 from lando.utils.const import URL_USERINFO_RE
 from lando.utils.github import GitHub, GitHubTokenUnavailable
 
@@ -867,6 +867,14 @@ class GitSCM(AbstractSCM):
     def _git_env(cls) -> dict[str, str]:
         env = os.environ.copy()
         env.update(cls.DEFAULT_ENV)
+
+        # Pass `checkout.workers` through the environment rather than the repository
+        # config, so that it also applies to repositories cloned before this existed.
+        # Append to any `GIT_CONFIG_COUNT` entries already present in the environment.
+        count = int(env.get("GIT_CONFIG_COUNT") or 0)
+        env[f"GIT_CONFIG_KEY_{count}"] = "checkout.workers"
+        env[f"GIT_CONFIG_VALUE_{count}"] = str(GIT_CHECKOUT_WORKERS)
+        env["GIT_CONFIG_COUNT"] = str(count + 1)
         return env
 
     def get_current_branch(self) -> str:
