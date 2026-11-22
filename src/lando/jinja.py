@@ -39,6 +39,7 @@ def tostatusbadgeclass(landing_job: LandingJob) -> str:
         "aborted": "Badge Badge--negative",
         "submitted": "Badge Badge--warning",
         "in_progress": "Badge Badge--warning",
+        "deferred": "Badge Badge--warning",
         "landed": "Badge Badge--positive",
         "failed": "Badge Badge--negative",
     }
