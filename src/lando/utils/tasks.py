@@ -10,6 +10,8 @@ from django.core import mail
 from lando.api.legacy.email import (
     make_failure_email,
     make_job_aborted_email,
+    make_pull_request_uplift_failure_email,
+    make_pull_request_uplift_success_email,
     make_uplift_failure_email,
     make_uplift_success_email,
 )
@@ -172,6 +174,8 @@ def send_uplift_failure_email(
     job_url: str,
     reason: str,
     requested_revision_ids: list[int],
+    pull_request_url: str | None = None,
+    pull_request_number: int | None = None,
 ):
     """Notify a user that an uplift job failed.
 
@@ -181,23 +185,35 @@ def send_uplift_failure_email(
         job_url: URL to view the job details.
         reason: Error message describing why the uplift failed.
         requested_revision_ids: List of Phabricator revision IDs that were being uplifted.
+        pull_request_url: Lando URL of the pull request being uplifted, if any.
+        pull_request_number: Number of the pull request being uplifted, if any.
     """
     if not recipient_email:
         logger.info("Skipping uplift failure email because recipient email is empty")
         return
 
-    with mail.get_connection() as connection:
-        connection.send_messages(
-            [
-                make_uplift_failure_email(
-                    recipient_email,
-                    repo_name,
-                    job_url,
-                    reason,
-                    requested_revision_ids,
-                )
-            ]
+    if pull_request_url and pull_request_number is not None:
+        logger.debug("Building the pull request uplift failure email.")
+        email = make_pull_request_uplift_failure_email(
+            recipient_email,
+            repo_name,
+            job_url,
+            reason,
+            pull_request_url,
+            pull_request_number,
         )
+    else:
+        logger.debug("Building the Phabricator uplift failure email.")
+        email = make_uplift_failure_email(
+            recipient_email,
+            repo_name,
+            job_url,
+            reason,
+            requested_revision_ids,
+        )
+
+    with mail.get_connection() as connection:
+        connection.send_messages([email])
 
     logger.info("Uplift failure email sent to %s", recipient_email)
 
@@ -215,24 +231,40 @@ def send_uplift_success_email(
     job_url: str,
     created_revision_ids: list[int],
     requested_revision_ids: list[int],
+    pull_request_url: str | None = None,
+    pull_request_number: int | None = None,
 ):
-    """Notify a user that an uplift job succeeded."""
+    """Notify a user that an uplift job succeeded.
+
+    Pull request uplifts get their own email, since they have no requested
+    Phabricator revisions to list.
+    """
     if not recipient_email:
         logger.info("Skipping uplift success email because recipient email is empty")
         return
 
-    with mail.get_connection() as connection:
-        connection.send_messages(
-            [
-                make_uplift_success_email(
-                    recipient_email,
-                    repo_name,
-                    job_url,
-                    created_revision_ids,
-                    requested_revision_ids,
-                )
-            ]
+    if pull_request_url and pull_request_number is not None:
+        logger.debug("Building the pull request uplift success email.")
+        email = make_pull_request_uplift_success_email(
+            recipient_email,
+            repo_name,
+            job_url,
+            created_revision_ids,
+            pull_request_url,
+            pull_request_number,
         )
+    else:
+        logger.debug("Building the Phabricator uplift success email.")
+        email = make_uplift_success_email(
+            recipient_email,
+            repo_name,
+            job_url,
+            created_revision_ids,
+            requested_revision_ids,
+        )
+
+    with mail.get_connection() as connection:
+        connection.send_messages([email])
 
     logger.info("Uplift success email sent to %s", recipient_email)
 

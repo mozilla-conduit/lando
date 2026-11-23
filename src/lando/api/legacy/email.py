@@ -120,6 +120,38 @@ Reason for failure:
 {{reason}}
 """.strip()
 
+PULL_REQUEST_UPLIFT_FAILURE_EMAIL_TEMPLATE = f"""
+Your uplift request for {{repo_name}} did not complete successfully.
+
+WHAT TO DO NEXT:
+
+Visit your pull request page (PR #{{pull_request_number}}) to see clear resolution instructions:
+{{pull_request_url}}
+
+Under "Uplifts", click the "Show resolution steps" button to see the exact
+commands you need to run to resolve merge conflicts and submit your uplift.
+
+HOW TO RESOLVE:
+
+Most uplift failures are due to merge conflicts. To resolve:
+1. Pull the latest changes for {{repo_name}}
+2. Apply the commits from your pull request and resolve any merge conflicts locally
+3. Submit a new uplift request using `moz-phab uplift`
+
+Once you have created a new uplift Phabricator revision, open its Lando
+page and pick your previously submitted uplift assessment in the
+checklist under "Uplifts" to reuse it with the new revision.
+
+For detailed step-by-step instructions, see {UPLIFT_DOCS_URL}
+
+TECHNICAL DETAILS:
+
+Job details: {{job_url}}
+
+Reason for failure:
+{{reason}}
+""".strip()
+
 UPLIFT_SUCCESS_EMAIL_TEMPLATE = """
 Your uplift request for {repo_name} finished successfully.
 
@@ -127,6 +159,20 @@ Requested revisions:
 {requested_revision_lines}
 
 Lando created the following revisions:
+{created_revision_lines}
+
+You can review the full job details at {job_url}.
+
+Thank you for keeping the uplift train moving!
+""".strip()
+
+PULL_REQUEST_UPLIFT_SUCCESS_EMAIL_TEMPLATE = """
+Your uplift request for {repo_name} finished successfully.
+
+Requested pull request:
+- PR #{pull_request_number}: {pull_request_url}
+
+Lando created the following Phabricator revisions:
 {created_revision_lines}
 
 You can review the full job details at {job_url}.
@@ -142,7 +188,7 @@ def make_uplift_failure_email(
     reason: str,
     requested_revision_ids: list[int],
 ) -> EmailMessage:
-    """Build an uplift failure email.
+    """Build an uplift failure email for a Phabricator stack.
 
     Args:
         recipient_email: Email address to send the failure notification to.
@@ -177,6 +223,39 @@ def make_uplift_failure_email(
     return msg
 
 
+def make_pull_request_uplift_failure_email(
+    recipient_email: str,
+    repo_name: str,
+    job_url: str,
+    reason: str,
+    pull_request_url: str,
+    pull_request_number: int,
+) -> EmailMessage:
+    """Build an uplift failure email for a pull request.
+
+    Args:
+        recipient_email: Email address to send the failure notification to.
+        repo_name: Name of the target repository (e.g., "firefox-beta").
+        job_url: URL to view the job details.
+        reason: Error message describing why the uplift failed.
+        pull_request_url: Lando URL of the pull request that was being uplifted.
+        pull_request_number: Number of the pull request that was being uplifted.
+    """
+    body = PULL_REQUEST_UPLIFT_FAILURE_EMAIL_TEMPLATE.format(
+        repo_name=repo_name,
+        job_url=job_url,
+        reason=reason,
+        pull_request_number=pull_request_number,
+        pull_request_url=pull_request_url,
+    )
+
+    return EmailMessage(
+        subject=f"Lando: Uplift for {repo_name} failed (PR #{pull_request_number})",
+        body=body,
+        to=[recipient_email],
+    )
+
+
 def make_uplift_success_email(
     recipient_email: str,
     repo_name: str,
@@ -184,14 +263,9 @@ def make_uplift_success_email(
     created_revision_ids: list[int],
     requested_revision_ids: list[int],
 ) -> EmailMessage:
-    """Build an uplift success email."""
+    """Build an uplift success email for a Phabricator stack."""
     requested_revision_lines = format_revision_id_lines(requested_revision_ids)
     created_revision_lines = format_revision_id_lines(created_revision_ids)
-
-    # Get the tip revision for the subject line.
-    subject_suffix = (
-        f" (D{requested_revision_ids[-1]})" if requested_revision_ids else ""
-    )
 
     body = UPLIFT_SUCCESS_EMAIL_TEMPLATE.format(
         repo_name=repo_name,
@@ -201,11 +275,44 @@ def make_uplift_success_email(
     )
 
     msg = EmailMessage(
-        subject=f"Lando: Uplift for {repo_name} succeeded{subject_suffix}",
+        subject=f"Lando: Uplift for {repo_name} succeeded (D{requested_revision_ids[-1]})",
         body=body,
         to=[recipient_email],
     )
     return msg
+
+
+def make_pull_request_uplift_success_email(
+    recipient_email: str,
+    repo_name: str,
+    job_url: str,
+    created_revision_ids: list[int],
+    pull_request_url: str,
+    pull_request_number: int,
+) -> EmailMessage:
+    """Build an uplift success email for a pull request.
+
+    Args:
+        recipient_email: Email address to send the success notification to.
+        repo_name: Name of the target repository (e.g., "firefox-beta").
+        job_url: URL to view the job details.
+        created_revision_ids: Phabricator revision IDs that `moz-phab uplift` created.
+        pull_request_url: Lando URL of the pull request that was uplifted.
+        pull_request_number: Number of the pull request that was uplifted.
+    """
+    body = PULL_REQUEST_UPLIFT_SUCCESS_EMAIL_TEMPLATE.format(
+        repo_name=repo_name,
+        job_url=job_url,
+        pull_request_number=pull_request_number,
+        pull_request_url=pull_request_url,
+        created_revision_lines=format_revision_id_lines(created_revision_ids),
+    )
+
+    return EmailMessage(
+        subject=f"Lando: Uplift for {repo_name} succeeded (PR #{pull_request_number})",
+        body=body,
+        to=[recipient_email],
+    )
 
 
 def format_revision_id_lines(revision_ids: list[int]) -> str:

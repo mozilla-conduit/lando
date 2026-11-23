@@ -67,6 +67,8 @@ class UpliftWorker(Worker):
         job_url = job.url()
 
         requested_revision_ids = submission.requested_revision_ids
+        pull_request_url = submission.pull_request_url
+        pull_request_number = submission.source_pull_number
 
         try:
             created_revision_ids = self.apply_and_uplift(job)
@@ -74,12 +76,24 @@ class UpliftWorker(Worker):
             return False
         except PermanentFailureException:
             self.notify_uplift_failure(
-                job, repo.name, job_url, user.email, requested_revision_ids
+                job,
+                repo.name,
+                job_url,
+                user.email,
+                requested_revision_ids,
+                pull_request_url,
+                pull_request_number,
             )
             return False
         except Exception:  # pragma: no cover - defensive catch
             self.notify_uplift_failure(
-                job, repo.name, job_url, user.email, requested_revision_ids
+                job,
+                repo.name,
+                job_url,
+                user.email,
+                requested_revision_ids,
+                pull_request_url,
+                pull_request_number,
             )
             return False
 
@@ -89,6 +103,8 @@ class UpliftWorker(Worker):
             user.email,
             created_revision_ids,
             requested_revision_ids,
+            pull_request_url,
+            pull_request_number,
         )
         return True
 
@@ -241,6 +257,8 @@ class UpliftWorker(Worker):
         recipient_email: str,
         created_revision_ids: list[int],
         requested_revision_ids: list[int],
+        pull_request_url: str | None = None,
+        pull_request_number: int | None = None,
     ) -> None:
         """Send an uplift success notification email."""
         self.call_task(
@@ -250,6 +268,8 @@ class UpliftWorker(Worker):
             job_url,
             created_revision_ids,
             requested_revision_ids,
+            pull_request_url,
+            pull_request_number,
         )
 
     def notify_uplift_failure(
@@ -259,6 +279,8 @@ class UpliftWorker(Worker):
         job_url: str,
         recipient_email: str,
         requested_revision_ids: list[int],
+        pull_request_url: str | None = None,
+        pull_request_number: int | None = None,
     ) -> None:
         """Send an uplift failure notification email.
 
@@ -267,8 +289,9 @@ class UpliftWorker(Worker):
             repo_label: Human-readable repository name.
             job_url: URL to view job details.
             recipient_email: Email address to send notification to.
-            reason: Error message describing the failure.
             requested_revision_ids: List of Phabricator revision IDs that were being uplifted.
+            pull_request_url: Lando URL of the pull request being uplifted, if any.
+            pull_request_number: Number of the pull request being uplifted, if any.
         """
         self.call_task(
             send_uplift_failure_email,
@@ -277,6 +300,8 @@ class UpliftWorker(Worker):
             job_url,
             job.error,
             requested_revision_ids,
+            pull_request_url,
+            pull_request_number,
         )
 
     def create_uplift_revisions(
