@@ -168,6 +168,31 @@ class UpliftAssessment(BaseModel):
         )
 
     @classmethod
+    def visible_on_pull_request(
+        cls, bug_id: int | None, repo: Repo, pull_number: int
+    ) -> models.QuerySet:
+        """Return the uplift assessments a pull request's page should display.
+
+        That is every assessment on the pull request's bug, plus those submitted
+        for uplift from the pull request itself.
+        """
+        reachable = models.Q(
+            uplift_submission__source_repo=repo,
+            uplift_submission__source_pull_number=pull_number,
+        )
+
+        if bug_id is not None:
+            reachable |= models.Q(bug_id=bug_id)
+
+        return (
+            cls.objects.filter(reachable)
+            .select_related("user")
+            .prefetch_related("revisions")
+            .order_by("created_at")
+            .distinct()
+        )
+
+    @classmethod
     def for_bug(cls, bug_id: int) -> models.QuerySet:
         """Return every uplift assessment filed against the given bug, whoever wrote it."""
         return (

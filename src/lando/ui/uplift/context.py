@@ -9,6 +9,7 @@ from django.conf import settings
 from django.core.handlers.wsgi import WSGIRequest
 from django.db.models import Prefetch
 
+from lando.api.legacy.commit_message import parse_bugs
 from lando.api.legacy.projects import RELMAN_PROJECT_SLUG, get_project_phid
 from lando.api.legacy.stacks import (
     RevisionStack,
@@ -21,16 +22,28 @@ from lando.main.models.uplift import (
     UpliftAssessment,
     UpliftJob,
     UpliftRevision,
+    UpliftSubmission,
 )
 from lando.main.support import diff_has_disallowed_author
 from lando.ui.legacy.forms import (
+    BaseUpliftRequestForm,
     UpliftAssessmentForm,
     UpliftRequestForm,
 )
 from lando.utils.const import UPLIFT_DOCS_URL
+from lando.utils.github_helpers import LandoPullRequest
 from lando.utils.phabricator import PhabricatorAPIException, PhabricatorClient
 
 logger = logging.getLogger(__name__)
+
+# Relations every assessment card reads, fetched up front to avoid a query per card.
+ASSESSMENT_CARD_PREFETCHES = (
+    Prefetch(
+        "uplift_submission__uplift_jobs",
+        queryset=UpliftJob.objects.select_related("target_repo"),
+    ),
+    "uplift_submission__source_repo",
+)
 
 
 class UpliftTrainOutcome(Enum):
@@ -122,6 +135,9 @@ class UpliftAssessmentCard:
     # Phabricator revision IDs an uplift was requested for.
     requested_revision_ids: Sequence[int]
 
+    # Submissions that requested this uplift from a GitHub pull request.
+    requested_pull_requests: Sequence[UpliftSubmission]
+
     # The stacks carrying this assessment, grouped by train in the order the
     # trains first appear.
     train_groups: Sequence[UpliftTrainGroup]
@@ -131,9 +147,11 @@ class UpliftAssessmentCard:
 class UpliftContext:
     """Container for uplift values supplied to stack templates."""
 
-    request_form: UpliftRequestForm
+    request_form: BaseUpliftRequestForm
     can_create_uplift_submission: bool
-    revision_id: int
+
+    # Phabricator ID of the revision being viewed, or `None` on a pull request page.
+    revision_id: int | None
 
     # Bug the current revision references, or `None` when it has none.
     bug_id: int | None
@@ -156,6 +174,10 @@ class UpliftContext:
 
     docs_url: str
     train_api_url: str
+
+    # The pull request being viewed and its repo, or `None` on a revision page.
+    source_pull_request: LandoPullRequest | None = None
+    source_repo: Repo | None = None
 
     @property
     def linked_card(self) -> UpliftAssessmentCard | None:
@@ -245,7 +267,9 @@ class UpliftContext:
                 else None
             ),
             bug_assessments=cls.build_assessment_cards(
-                bug_id, revision_id, linked_assessment, is_uplift_revision, phab=phab
+                cls.assessments_for_revision(bug_id, revision_id, is_uplift_revision),
+                linked_assessment,
+                phab=phab,
             ),
             new_assessment_form=new_assessment_form,
             docs_url=UPLIFT_DOCS_URL,
@@ -294,36 +318,100 @@ class UpliftContext:
         return bool(request.user.is_authenticated and bug_id and is_uplift_revision)
 
     @classmethod
+    def build_for_pull_request(
+        cls,
+        *,
+        request: WSGIRequest,
+        repo: Repo,
+        pull_request: LandoPullRequest,
+        phab: PhabricatorClient | None = None,
+    ) -> Self:
+        """Return a populated `UpliftContext` for a pull request page.
+
+        A pull request is treated like a mainline revision: it is where an uplift is
+        requested, while the uplift revision that release managers approve is created
+        on Phabricator by `moz-phab uplift`. So the readiness checklist and the
+        assessment forms, which only apply to uplift revisions, stay hidden.
+        """
+        bugs = parse_bugs(pull_request.title)
+        bug_id = bugs[0] if bugs else None
+
+        return cls(
+            request_form=BaseUpliftRequestForm(),
+            can_create_uplift_submission=cls.can_create_submission(request),
+            revision_id=None,
+            bug_id=bug_id,
+            is_uplift_revision=False,
+            relman_review=None,
+            bug_assessments=cls.build_assessment_cards(
+                cls.assessments_for_pull_request(bug_id, repo, pull_request.number),
+                linked_assessment=None,
+                phab=phab,
+            ),
+            new_assessment_form=None,
+            docs_url=UPLIFT_DOCS_URL,
+            train_api_url=settings.WHATTRAINISITNOW_UPLIFT_TRAIN_API_URL,
+            source_pull_request=pull_request,
+            source_repo=repo,
+        )
+
+    @staticmethod
+    def assessments_for_revision(
+        bug_id: int | None, revision_id: int, is_uplift_revision: bool
+    ) -> list[UpliftAssessment]:
+        """Return the assessments a revision page shows.
+
+        An uplift revision shows its bug's assessments; a mainline revision shows
+        only the uplifts requested from it.
+        """
+        assessments = list(
+            UpliftAssessment.visible_on_revision(bug_id, revision_id).prefetch_related(
+                *ASSESSMENT_CARD_PREFETCHES
+            )
+        )
+
+        if is_uplift_revision:
+            return assessments
+
+        logger.debug("Showing only the uplifts requested from D%s.", revision_id)
+        return [
+            assessment
+            for assessment in assessments
+            if revision_id in assessment.requested_revision_ids()
+        ]
+
+    @staticmethod
+    def assessments_for_pull_request(
+        bug_id: int | None, repo: Repo, pull_number: int
+    ) -> list[UpliftAssessment]:
+        """Return the uplifts requested from a pull request, for its page."""
+        logger.debug(
+            "Showing only the uplifts requested from %s#%s.", repo, pull_number
+        )
+        return [
+            assessment
+            for assessment in UpliftAssessment.visible_on_pull_request(
+                bug_id, repo, pull_number
+            ).prefetch_related(*ASSESSMENT_CARD_PREFETCHES)
+            if any(
+                submission.source_repo_id == repo.id
+                and submission.source_pull_number == pull_number
+                for submission in assessment.uplift_submission.all()
+            )
+        ]
+
+    @classmethod
     def build_assessment_cards(
         cls,
-        bug_id: int | None,
-        revision_id: int,
+        assessments: Sequence[UpliftAssessment],
         linked_assessment: UpliftAssessment | None,
-        is_uplift_revision: bool,
         phab: PhabricatorClient | None = None,
     ) -> tuple[UpliftAssessmentCard, ...]:
-        """Return a card for each assessment this revision should display.
+        """Return a card for each of `assessments`.
 
         `phab` looks up the trains of stacks linked from outside Lando; without
         it their train is shown as unknown.
         """
-        assessments = list(
-            UpliftAssessment.visible_on_revision(bug_id, revision_id).prefetch_related(
-                Prefetch(
-                    "uplift_submission__uplift_jobs",
-                    queryset=UpliftJob.objects.select_related("target_repo"),
-                )
-            )
-        )
-
-        if not is_uplift_revision:
-            logger.debug("Showing only the uplifts requested from D%s.", revision_id)
-            assessments = [
-                assessment
-                for assessment in assessments
-                if revision_id in assessment.requested_revision_ids()
-            ]
-
         # A submission is just an assessment plus the jobs one request queued, so
         # the jobs of all of an assessment's submissions belong on its card.
         jobs_by_assessment = {
@@ -376,6 +464,11 @@ class UpliftContext:
                 is_linked=assessment == linked_assessment,
                 revision_ids=revision_ids_by_assessment[assessment.pk],
                 requested_revision_ids=assessment.requested_revision_ids(),
+                requested_pull_requests=[
+                    submission
+                    for submission in assessment.uplift_submission.all()
+                    if submission.is_pull_request_submission
+                ],
                 train_groups=cls.group_by_train(
                     [
                         UpliftTrainRow(

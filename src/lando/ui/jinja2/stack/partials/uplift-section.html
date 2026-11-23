@@ -13,6 +13,16 @@ future.
            href="{{ url('revisions-page', args=[rev_id]) }}">D{{ rev_id }}</a>
     {% endif %}
 {% endmacro %}
+{# A tag for the pull request `submission` came from, highlighted on that pull request's own page. #}
+{% macro pull_request_tag(submission, uplift) %}
+    {% set label = submission.source_repo.name ~ "#" ~ submission.source_pull_number %}
+    {% if uplift.source_pull_request and submission.source_repo == uplift.source_repo and submission.source_pull_number == uplift.source_pull_request.number %}
+        <span class="tag is-rounded is-primary">{{ label }}</span>
+    {% else %}
+        <a class="tag is-rounded is-primary is-light"
+           href="{{ submission.pull_request_url }}">{{ label }}</a>
+    {% endif %}
+{% endmacro %}
 <h1>Uplifts</h1>
 <div class="Uplifts">
     {# An uplift revision lists what it still needs, and how to get it, first. #}
@@ -39,6 +49,12 @@ future.
                             Requested for uplift from
                             {% for rev_id in card.requested_revision_ids %}
                                 {{ revision_tag(rev_id, uplift.revision_id) }}
+                            {% endfor %}
+                        {% endif %}
+                        {% if card.requested_pull_requests %}
+                            Requested for uplift from
+                            {% for submission in card.requested_pull_requests %}
+                                {{ pull_request_tag(submission, uplift) }}
                             {% endfor %}
                         {% endif %}
                     </p>
