@@ -1,13 +1,16 @@
 <div class="uplift-request-modal modal">
-    <form action="{{ url('uplift-page') }}" method="post">
+    <form {% if uplift.source_pull_request %} data-submit-url="{{ url('github-uplift-request', args=[uplift.source_repo.name, uplift.source_pull_request.number]) }}" data-csrf-token="{{ csrf_token }}" {% else %} action="{{ url('uplift-page') }}" method="post" {% endif %}>
         <div class="modal-background"></div>
         <div class="modal-card">
-            {{ csrf_input }}
+            {% if not uplift.source_pull_request %}{{ csrf_input }}{% endif %}
             <header class="modal-card-head">
                 <p class="modal-card-title">Request uplift</p>
                 <button class="uplift-request-close delete" aria-label="close" type="button"></button>
             </header>
             <section class="modal-card-body">
+                {% if uplift.source_pull_request %}
+                    <div class="uplift-request-errors notification is-danger is-light is-hidden"></div>
+                {% endif %}
                 {% if not user_has_phabricator_token %}
                     {% include "stack/partials/uplift-phab-api-key-warning.html" %}
                 {% endif %}
@@ -44,7 +47,16 @@
                     </a>
                 </div>
                 <fieldset {% if not uplift.can_create_uplift_submission %}disabled{% endif %}>
-                    {% set requested_revision_ids = uplift.request_form.source_revisions.value() or [] %}
+                    {% if uplift.source_pull_request %}
+                        <div class="field">
+                            <label class="label">Pull request to uplift</label>
+                            <div class="control">
+                                <strong>#{{ uplift.source_pull_request.number }}</strong> — {{ uplift.source_pull_request.title }}
+                            </div>
+                        </div>
+                    {% else %}
+                        {% set requested_revision_ids = uplift.request_form.source_revisions.value() or [] %}
+                    {% endif %}
                     {% if requested_revision_ids %}
                         <div class="field">
                             <label class="label">Revisions to uplift</label>
@@ -105,9 +117,9 @@
                 </fieldset>
             </section>
             <footer class="modal-card-foot">
-                <button class="button is-success has-text-white"
+                <button class="uplift-request-submit button is-success has-text-white"
                         {% if not uplift.can_create_uplift_submission %}disabled{% endif %}
-                        title="{% if not uplift.can_create_uplift_submission %}Requesting uplift is blocked. See the error messages above for more detail.{% else %}Create Phabricator review requests for the selected patch stack to land in the specified uplift train.{% endif %}">
+                        title="{% if not uplift.can_create_uplift_submission %}Requesting uplift is blocked. See the error messages above for more detail.{% else %}Create Phabricator review requests for {{ 'this pull request' if uplift.source_pull_request else 'the selected patch stack' }} to land in the specified uplift train.{% endif %}">
                     Create uplift request
                 </button>
             </footer>

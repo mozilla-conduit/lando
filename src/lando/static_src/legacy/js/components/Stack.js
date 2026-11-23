@@ -11,6 +11,98 @@ function need_warnings_acknowledgements(button) {
     button.html(ACKNOWLEDGE_WARNINGS_LABEL);
 }
 
+// Submit the uplift modal's form as JSON when it names a `data-submit-url`, as it
+// does on a pull request page, and show any errors the API returns in the modal.
+function setup_pull_request_uplift_form() {
+    var uplift_form = $(".uplift-request-modal form[data-submit-url]");
+    if (!uplift_form.length) {
+        return;
+    }
+
+    var submit_button = uplift_form.find(".uplift-request-submit");
+    var submit_url = uplift_form.data("submit-url");
+    var csrf_token = uplift_form.data("csrf-token");
+
+    // The browser only fires `submit` once the form's own validation passes.
+    uplift_form.on("submit", function (event) {
+        event.preventDefault();
+        hide_uplift_errors(uplift_form);
+        submit_button.addClass("is-loading").prop("disabled", true);
+
+        fetch(submit_url, {
+            method: "POST",
+            body: JSON.stringify(serialize_uplift_form(uplift_form)),
+            headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrf_token,
+            },
+        })
+            .then(async (response) => {
+                if (response.status == 201) {
+                    window.location.reload();
+                    return;
+                }
+
+                var messages = ["An unknown error occurred."];
+                if (response.status == 400) {
+                    messages = uplift_error_messages(await response.json());
+                }
+                show_uplift_errors(uplift_form, messages);
+                submit_button.removeClass("is-loading").prop("disabled", false);
+            })
+            .catch(() => {
+                show_uplift_errors(uplift_form, ["An unknown error occurred."]);
+                submit_button.removeClass("is-loading").prop("disabled", false);
+            });
+    });
+}
+
+// Collect the uplift form's fields into the JSON body the uplift API expects.
+// `repositories` is a list, since several trains can be checked at once.
+function serialize_uplift_form(uplift_form) {
+    var data = { repositories: [] };
+    for (var [name, value] of new FormData(uplift_form[0])) {
+        if (name === "repositories") {
+            data.repositories.push(value);
+        } else {
+            data[name] = value;
+        }
+    }
+    return data;
+}
+
+// Turn an uplift API error response into messages, formatting field errors as
+// `field: error` like the stack page's flash messages.
+function uplift_error_messages(result) {
+    if (result.error) {
+        return [result.error];
+    }
+
+    var messages = [];
+    for (var [field, field_errors] of Object.entries(result.errors || {})) {
+        messages.push(`${field}: ${field_errors.join(", ")}`);
+    }
+    return messages.length ? messages : ["An unknown error occurred."];
+}
+
+function show_uplift_errors(uplift_form, messages) {
+    var errors = uplift_form.find(".uplift-request-errors");
+    var list = $("<ul>");
+    for (var message of messages) {
+        // Use `text` so error content is never interpreted as HTML.
+        list.append($("<li>").text(message));
+    }
+    errors.empty().append(list).removeClass("is-hidden");
+
+    // Errors sit at the top of the modal, which is scrolled to the submit button.
+    uplift_form.find(".modal-card-body").scrollTop(0);
+}
+
+function hide_uplift_errors(uplift_form) {
+    uplift_form.find(".uplift-request-errors").addClass("is-hidden").empty();
+}
+
 $.fn.stack = function () {
     return this.each(function () {
         let $stack = $(this);
@@ -114,6 +206,10 @@ $.fn.stack = function () {
         if (is_pull_request_page) {
             var saved_landing_state = null;
             var pull_request_button = $("button.post-landing-job");
+
+            // The uplift modal is only rendered for logged-in users, so set it up
+            // before the anonymous check below returns early.
+            setup_pull_request_uplift_form();
             $("#save-edit-pr").prop("disabled", true);
             $("#acknowledge-warnings").on("click", function () {
                 if (this.checked) {

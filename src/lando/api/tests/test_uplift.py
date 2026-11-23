@@ -13,9 +13,7 @@ from packaging.version import (
 )
 
 from lando.api.legacy.commit_message import parse_bugs
-from lando.api.legacy.revisions import (
-    get_bug_id_for_stack_tips,
-)
+from lando.api.legacy.revisions import get_bug_id_for_stack_tips
 from lando.api.legacy.uplift import (
     create_uplift_bug_update_payload,
     parse_milestone_version,
