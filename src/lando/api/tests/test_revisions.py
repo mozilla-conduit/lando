@@ -1,4 +1,5 @@
 from typing import Callable
+from unittest import mock
 
 import pytest
 
@@ -7,6 +8,7 @@ from lando.api.legacy.revisions import (
     MergeConflictStatus,
     MergeConflictVerdict,
     blocker_diff_author_is_known,
+    ensure_revision_from_github,
     ensure_revisions_from_phabricator,
     fetch_raw_diff_and_save,
     get_base_revision_from_diff,
@@ -16,6 +18,7 @@ from lando.api.legacy.revisions import (
 )
 from lando.api.legacy.transplants import warning_diff_author_is_hackbot
 from lando.main.models.revision import Revision
+from lando.utils.github import PullRequest
 
 pytestmark = pytest.mark.usefixtures("docker_env_vars")
 
@@ -464,3 +467,212 @@ def test_ensure_revisions_from_phabricator_raises_on_missing_revision(phabdouble
 
     with pytest.raises(ValueError, match="not found on Phabricator"):
         ensure_revisions_from_phabricator(phab, [999999])
+
+
+def set_mock_pull_request_diff(
+    mock_pr: mock.MagicMock, diff: str | Exception
+) -> mock.PropertyMock:
+    """Give `mock_pr` a `diff` property, returning it so tests can count fetches.
+
+    An exception for `diff` makes reading the property raise it, like a stale PR.
+    """
+    if isinstance(diff, Exception):
+        diff_property = mock.PropertyMock(side_effect=diff)
+    else:
+        diff_property = mock.PropertyMock(return_value=diff)
+    type(mock_pr).diff = diff_property
+    return diff_property
+
+
+@pytest.mark.django_db
+def test_ensure_revision_from_github_reuses_matching_snapshot(
+    mock_github_pull_request, github_pr_diff
+):
+    """A `Revision` seeded from the same head SHA is reused as-is."""
+    mock_pr = mock_github_pull_request(number=1, title="title")
+    diff_property = set_mock_pull_request_diff(mock_pr, github_pr_diff)
+
+    snapshot = Revision.objects.create(
+        pull_number=mock_pr.number,
+        pull_head_sha=mock_pr.head_sha,
+        pull_base_sha=mock_pr.base_sha,
+        patch_data={
+            "author_name": "User",
+            "author_email": "user@example.com",
+            "commit_message": mock_pr.commit_message,
+            "timestamp": "1761017419",
+        },
+    )
+    snapshot.set_patch(github_pr_diff)
+    snapshot.save()
+
+    revision = ensure_revision_from_github(mock_pr)
+
+    assert revision.pk == snapshot.pk, (
+        "The existing snapshot for this head SHA should be reused."
+    )
+    assert Revision.objects.count() == 1, "No new `Revision` should be created."
+    assert diff_property.call_count == 0, "GitHub should not be queried for a diff."
+
+
+@pytest.mark.django_db
+def test_ensure_revision_from_github_ignores_stale_snapshot(
+    mock_github_pull_request, github_pr_diff
+):
+    """A `Revision` for an older head SHA of the same PR is not reused."""
+    mock_pr = mock_github_pull_request(number=1, title="title")
+    diff_property = set_mock_pull_request_diff(mock_pr, github_pr_diff)
+
+    stale = Revision.objects.create(
+        pull_number=mock_pr.number,
+        pull_head_sha="ccc123",
+        pull_base_sha=mock_pr.base_sha,
+        patch="stale patch",
+    )
+
+    revision = ensure_revision_from_github(mock_pr)
+
+    assert revision.pk != stale.pk, (
+        "A snapshot of an outdated head SHA should not be reused."
+    )
+    assert revision.pull_head_sha == mock_pr.head_sha, (
+        "The new `Revision` should track the current head SHA."
+    )
+    assert diff_property.call_count == 1, (
+        "The current head's diff should be fetched from GitHub."
+    )
+
+
+@pytest.mark.django_db
+def test_ensure_revision_from_github_creates_from_github(
+    mock_github_pull_request, github_pr_diff
+):
+    """With no local `Revision`, one is seeded from the GitHub diff."""
+    mock_pr = mock_github_pull_request(number=1, title="title")
+    diff_property = set_mock_pull_request_diff(mock_pr, github_pr_diff)
+
+    revision = ensure_revision_from_github(mock_pr)
+
+    author_name, author_email = mock_pr.author
+
+    assert Revision.objects.count() == 1, "Exactly one `Revision` should be created."
+    assert revision.pull_number == mock_pr.number, (
+        "`pull_number` should match the pull request."
+    )
+    assert revision.pull_head_sha == mock_pr.head_sha, (
+        "`pull_head_sha` should match the pull request."
+    )
+    assert revision.pull_base_sha == mock_pr.base_sha, (
+        "`pull_base_sha` should match the pull request."
+    )
+    assert revision.patch_data["author_name"] == author_name, (
+        "`author_name` should come from the pull request author."
+    )
+    assert revision.patch_data["author_email"] == author_email, (
+        "`author_email` should come from the pull request author."
+    )
+    assert revision.patch_data["commit_message"] == mock_pr.commit_message, (
+        "`commit_message` should come from the pull request."
+    )
+    assert github_pr_diff in revision.patch, (
+        "The patch should contain the diff fetched from GitHub."
+    )
+    assert diff_property.call_count == 1, "The diff should be fetched once."
+
+
+@pytest.mark.django_db
+def test_ensure_revision_from_github_seeds_once_per_head_sha(
+    mock_github_pull_request, github_pr_diff
+):
+    """Seeding the same pull request state twice reuses the first `Revision`."""
+    mock_pr = mock_github_pull_request(number=1, title="title")
+    diff_property = set_mock_pull_request_diff(mock_pr, github_pr_diff)
+
+    first = ensure_revision_from_github(mock_pr)
+    second = ensure_revision_from_github(mock_pr)
+
+    assert first.pk == second.pk, "The second call should reuse the first `Revision`."
+    assert Revision.objects.count() == 1, "Only one `Revision` should exist."
+    assert diff_property.call_count == 1, (
+        "The second call should not fetch the diff again."
+    )
+
+
+@pytest.mark.django_db
+def test_ensure_revision_from_github_fills_patch_of_unlanded_landing_revision(
+    mock_github_pull_request, github_pr_diff, diff_to_git_patch
+):
+    """A reused `Revision` from an unfinished pull request landing gets a `patch`.
+
+    The landing endpoint only stores the raw `patches` on a revision, and fills `patch` in when
+    the landing worker lands it. An uplift worker applies `patch`, so reusing such
+    a `Revision` unchanged will fail with "Failed to parse headers from patch". In such a case,`ensure_revision_from_github` should seed from github.
+    """
+    mock_pr = mock_github_pull_request(number=1, title="title")
+    diff_property = set_mock_pull_request_diff(mock_pr, github_pr_diff)
+
+    landing_patch_data = {
+        "author_name": "Landing Author",
+        "author_email": "landing@example.com",
+        "commit_message": "Bug 1 - title r=reviewer",
+        "timestamp": "1761017419",
+    }
+    raw_patches = diff_to_git_patch(github_pr_diff)
+    landing_revision = Revision.objects.create(
+        pull_number=mock_pr.number,
+        pull_head_sha=mock_pr.head_sha,
+        pull_base_sha=mock_pr.base_sha,
+        patches=raw_patches,
+        patch_data=landing_patch_data,
+    )
+
+    revision = ensure_revision_from_github(mock_pr)
+
+    assert revision.pk == landing_revision.pk, (
+        "The landing endpoint's `Revision` should be reused."
+    )
+    assert Revision.objects.count() == 1, "No new `Revision` should be created."
+    assert github_pr_diff.strip() in revision.diff, (
+        "The reused `Revision` should have a parseable `patch` with the GitHub diff."
+    )
+    assert revision.patch_data == landing_patch_data, (
+        "The landing endpoint's commit metadata should be kept."
+    )
+    assert revision.patches == raw_patches, (
+        "The raw `patches` should be kept for the landing worker."
+    )
+
+    assert diff_property.call_count == 1, "The diff should be fetched once."
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("has_landing_revision", [False, True])
+def test_ensure_revision_from_github_saves_nothing_when_pull_request_changes(
+    mock_github_pull_request, diff_to_git_patch, github_pr_diff, has_landing_revision
+):
+    """A pull request that changes while its diff is fetched saves nothing."""
+    mock_pr = mock_github_pull_request(number=1, title="title")
+    set_mock_pull_request_diff(
+        mock_pr, PullRequest.StaleMetadataException("Head SHA changed.")
+    )
+
+    landing_revision = None
+    if has_landing_revision:
+        landing_revision = Revision.objects.create(
+            pull_number=mock_pr.number,
+            pull_head_sha=mock_pr.head_sha,
+            pull_base_sha=mock_pr.base_sha,
+            patches=diff_to_git_patch(github_pr_diff),
+        )
+
+    with pytest.raises(PullRequest.StaleMetadataException):
+        ensure_revision_from_github(mock_pr)
+
+    assert Revision.objects.count() == (1 if has_landing_revision else 0), (
+        "No new `Revision` should be created."
+    )
+    if landing_revision:
+        landing_revision.refresh_from_db()
+        assert not landing_revision.patch, (
+            "The existing revision's `patch` should be left empty."
+        )

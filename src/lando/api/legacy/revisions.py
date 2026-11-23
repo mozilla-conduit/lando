@@ -21,6 +21,7 @@ from lando.api.legacy.stacks import (
     get_revisions_by_id,
 )
 from lando.main.models import Revision
+from lando.utils.github import PullRequest
 from lando.utils.phabricator import (
     PhabricatorClient,
     PhabricatorRevisionStatus,
@@ -533,6 +534,78 @@ def fetch_raw_diff_and_save(
         revision.save()
 
     logger.debug("Saved Revision D%s with diff %s.", revision_id, diff_id)
+    return revision
+
+
+def ensure_revision_from_github(pull_request: PullRequest) -> Revision:
+    """Ensure a `Revision` record exists for a GitHub pull request.
+
+    If a `Revision` already exists for the pull request, it is returned, with its
+    `patch` filled in from GitHub if it has none. Otherwise, the pull request's
+    diff is fetched from GitHub and a new `Revision` is created and returned.
+    """
+    existing = Revision.objects.filter(
+        pull_number=pull_request.number,
+        pull_head_sha=pull_request.head_sha,
+        pull_base_sha=pull_request.base_sha,
+    ).first()
+
+    if existing and existing.patch:
+        logger.debug(
+            "Revisions for PR #%s already exist locally(%s -> %s).",
+            pull_request.number,
+            pull_request.base_sha,
+            pull_request.head_sha,
+        )
+        return existing
+
+    if existing:
+        # The landing endpoint stores only the raw `patches` until the landing
+        # worker lands them, but uplift workers apply `patch`. Its commit metadata
+        # is kept, and the landing worker rebuilds `patch` when it lands.
+        logger.debug(
+            "Revision for PR #%s has no patch yet. Fetching its diff from GitHub.",
+            pull_request.number,
+        )
+        # `PullRequest.diff` checks the pull request did not change while fetching it.
+        existing.set_patch(pull_request.diff)
+        # Only write `patch`, so a landing worker saving the revision is not undone.
+        existing.save(update_fields=["patch"])
+        return existing
+
+    logger.debug(
+        "Revisions not found locally. Fetching diff for PR #%s (%s -> %s) from GitHub.",
+        pull_request.number,
+        pull_request.base_sha,
+        pull_request.head_sha,
+    )
+
+    diff = pull_request.diff
+    author_name, author_email = pull_request.author
+    patch_data = {
+        "author_name": author_name or "",
+        "author_email": author_email or "",
+        "commit_message": pull_request.commit_message or "",
+        "timestamp": str(int(datetime.now().timestamp())),
+    }
+
+    # `commit_id` stays unset: it records the landed commit, which an unlanded
+    # pull request does not have yet.
+    with transaction.atomic():
+        revision = Revision.objects.create(
+            pull_number=pull_request.number,
+            pull_head_sha=pull_request.head_sha,
+            pull_base_sha=pull_request.base_sha,
+        )
+        revision.set_patch(diff, patch_data)
+        revision.save()
+
+    logger.debug(
+        "Created new Revision for PR #%s (%s -> %s).",
+        pull_request.number,
+        pull_request.base_sha,
+        pull_request.head_sha,
+    )
     return revision
 
 
