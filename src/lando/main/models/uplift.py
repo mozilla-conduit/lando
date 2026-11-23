@@ -1,12 +1,16 @@
 import json
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urljoin
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import models
+from django.urls import reverse
 
 from lando.main.models import BaseModel
 from lando.main.models.jobs import BaseJob, JobStatus
+from lando.main.models.repo import Repo
 from lando.main.models.revision import Revision
 
 # Yes/No constants for re-use in `TextChoices`, since `Enum`
@@ -276,6 +280,40 @@ class UpliftSubmission(BaseModel):
         choices=UpliftTargetSelectionMethod.choices,
         default=UpliftTargetSelectionMethod.SERVER_RENDERED,
     )
+
+    # The repo the pull request lives in, for submissions sourced from a pull
+    # request. `None` for Phabricator-sourced submissions.
+    source_repo = models.ForeignKey(
+        Repo,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="uplift_submissions",
+    )
+
+    # The pull request the uplift was requested from. Paired with `source_repo`,
+    # since a pull number alone is ambiguous across repos.
+    source_pull_number = models.IntegerField(null=True, blank=True)
+
+    @property
+    def is_pull_request_submission(self) -> bool:
+        """Return `True` when this submission was requested from a pull request."""
+        return self.source_pull_number is not None
+
+    @property
+    def pull_request_url(self) -> str | None:
+        """Return the Lando page URL of the source pull request, if there is one."""
+        if not self.is_pull_request_submission or self.source_repo is None:
+            return None
+
+        path = reverse(
+            "pull-request",
+            kwargs={
+                "repo_name": self.source_repo.name,
+                "number": self.source_pull_number,
+            },
+        )
+        return urljoin(settings.SITE_URL, path)
 
 
 class RevisionUpliftJob(BaseModel):
