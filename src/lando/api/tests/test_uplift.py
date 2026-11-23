@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 import subprocess
@@ -12,7 +13,9 @@ from packaging.version import (
 )
 
 from lando.api.legacy.commit_message import parse_bugs
-from lando.api.legacy.revisions import get_bug_id_for_stack_tips
+from lando.api.legacy.revisions import (
+    get_bug_id_for_stack_tips,
+)
 from lando.api.legacy.uplift import (
     create_uplift_bug_update_payload,
     parse_milestone_version,
@@ -202,6 +205,162 @@ def test_uplift_creation_uses_existing_revisions_and_links_jobs(
             assert thru.index == idx, (
                 "Revisions should be indexed in the submitted order."
             )
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "existing_revision_kind",
+    [
+        pytest.param(None, id="no-existing-revision"),
+        pytest.param("with-patch", id="existing-revision-with-patch"),
+        pytest.param("patches-only", id="existing-unlanded-revision"),
+    ],
+)
+@mock.patch("lando.api.views.GitHubAPIClient")
+def test_github_uplift_creation(
+    github_api_client,
+    authenticated_client,
+    repo_mc,
+    repo_mc_github_api_client,
+    create_mock_pull_request,
+    create_pull_request_revision,
+    existing_revision_kind,
+):
+    """A pull request uplift request creates a submission and a job per train.
+
+    The jobs use the pull request's `Revision`: a new one seeded from GitHub, an
+    earlier one reused as-is, or one from an unfinished landing, which only has raw
+    `patches`, reused with its `patch` filled in from GitHub.
+    """
+    repo = repo_mc(SCMType.GIT)
+    github_api_client.return_value = repo_mc_github_api_client
+
+    repo_a = repo_mc(scm_type=SCMType.GIT, name="firefox-beta", approval_required=True)
+    repo_b = repo_mc(
+        scm_type=SCMType.GIT, name="firefox-release", approval_required=True
+    )
+
+    pull_request = create_mock_pull_request(
+        repo_mc_github_api_client,
+        commit_message="Bug 1 - test patch",
+        author=("Test Author", "test@email.com"),
+    )
+
+    existing_revision = None
+    if existing_revision_kind is not None:
+        # `create_pull_request_revision` stores only raw `patches`, like the
+        # pull request landing endpoint before its job lands.
+        existing_revision = create_pull_request_revision(
+            pull_request.number,
+            head_sha=pull_request.head_sha,
+            base_sha=pull_request.base_sha,
+        )
+    if existing_revision_kind == "with-patch":
+        existing_revision.set_patch("diff --git a/abc b/def\n")
+        existing_revision.save()
+    existing_patch_data = existing_revision.patch_data if existing_revision else None
+
+    form_data = {"repositories": [repo_a.name, repo_b.name]} | UPLIFT_ASSESSMENT_ANSWERS
+
+    response = authenticated_client.post(
+        f"/api/pulls/{repo.name}/{pull_request.number}/uplift",
+        data=json.dumps(form_data),
+        content_type="application/json",
+    )
+
+    assert response.status_code == 201, "Successful creation should return 201."
+
+    revision = Revision.objects.get(pull_number=pull_request.number)
+    assert revision.patch, "The revision should have a `patch` for the uplift worker."
+
+    if existing_revision_kind is None:
+        repo_mc_github_api_client.get_diff.assert_called_once_with(pull_request.number)
+        assert revision.patch_data["author_name"] == "Test Author", (
+            "The seeded revision's author should come from the pull request."
+        )
+        assert revision.patch_data["author_email"] == "test@email.com", (
+            "The seeded revision's author email should come from the pull request."
+        )
+    else:
+        assert revision.pk == existing_revision.pk, (
+            "The existing revision should be reused instead of creating a new one."
+        )
+        assert revision.patch_data == existing_patch_data, (
+            "The existing revision's commit metadata should be kept."
+        )
+
+    if existing_revision_kind == "with-patch":
+        repo_mc_github_api_client.get_diff.assert_not_called()
+    elif existing_revision_kind == "patches-only":
+        repo_mc_github_api_client.get_diff.assert_called_once_with(pull_request.number)
+
+    submission = UpliftSubmission.objects.get()
+    assert submission.source_repo == repo, (
+        "The submission should record the pull request's repo."
+    )
+    assert submission.source_pull_number == pull_request.number, (
+        "The submission should record the pull request's number."
+    )
+    assert submission.assessment.bug_id == 1, (
+        "The assessment's bug should be parsed from the pull request title."
+    )
+
+    assert UpliftJob.objects.count() == 2, "Two uplift jobs should be created."
+    for job in UpliftJob.objects.all():
+        assert list(job.revisions) == [revision], (
+            "Each job should use the pull request's revision."
+        )
+
+    flash_messages = [str(message) for message in get_messages(response.wsgi_request)]
+    assert "Uplift request queued." in flash_messages, (
+        "A success message should be queued for the page reload."
+    )
+
+
+@pytest.mark.django_db
+@mock.patch("lando.api.views.GitHubAPIClient")
+def test_github_uplift_creation_fails_when_pull_request_changes(
+    github_api_client,
+    authenticated_client,
+    repo_mc,
+    repo_mc_github_api_client,
+    create_mock_pull_request,
+):
+    """A pull request pushed to mid-request is rejected, and nothing is saved."""
+    repo = repo_mc(SCMType.GIT)
+    github_api_client.return_value = repo_mc_github_api_client
+    train = repo_mc(scm_type=SCMType.GIT, name="firefox-beta", approval_required=True)
+
+    pull_request = create_mock_pull_request(
+        repo_mc_github_api_client, commit_message="Bug 1 - test patch"
+    )
+
+    # The view loads the pull request first; the re-check after fetching the diff
+    # then sees a new head commit, as if someone pushed in between.
+    pull_request_data = repo_mc_github_api_client.get_pull_request.return_value
+    pushed_data = copy.deepcopy(pull_request_data)
+    pushed_data["head"]["sha"] = "ddd456"
+    repo_mc_github_api_client.get_pull_request.side_effect = [
+        pull_request_data,
+        pushed_data,
+    ]
+
+    form_data = {"repositories": [train.name]} | UPLIFT_ASSESSMENT_ANSWERS
+    response = authenticated_client.post(
+        f"/api/pulls/{repo.name}/{pull_request.number}/uplift",
+        data=json.dumps(form_data),
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400, "A changed pull request should be rejected."
+    assert "changed while the uplift was being requested" in response.json()["error"], (
+        "The error should tell the user to reload and try again."
+    )
+    assert not Revision.objects.filter(pull_number=pull_request.number).exists(), (
+        "No `Revision` should be saved for the outdated pull request."
+    )
+    assert not UpliftSubmission.objects.exists(), "No submission should be created."
+    assert not UpliftJob.objects.exists(), "No uplift jobs should be created."
 
 
 @pytest.mark.django_db
