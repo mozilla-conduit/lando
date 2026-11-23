@@ -158,14 +158,9 @@ class UpliftAssessmentLinkForm(UpliftAssessmentForm):
             raise forms.ValidationError(str(e)) from e
 
 
-class UpliftRequestForm(UpliftAssessmentForm):
-    """Form used to request uplift of a stack."""
+class BaseUpliftRequestForm(UpliftAssessmentForm):
+    "Form used to request uplift of a stack"
 
-    source_revisions = forms.ModelMultipleChoiceField(
-        queryset=Revision.objects.all(),
-        to_field_name="revision_id",
-        widget=forms.CheckboxSelectMultiple(),
-    )
     repositories = forms.ModelMultipleChoiceField(
         queryset=Repo.objects.filter(approval_required=True).order_by("name"),
         widget=forms.CheckboxSelectMultiple(),
@@ -193,6 +188,16 @@ class UpliftRequestForm(UpliftAssessmentForm):
             self.cleaned_data.get("target_selection_method")
             or UpliftTargetSelectionMethod.SERVER_RENDERED
         )
+
+
+class UpliftRequestForm(BaseUpliftRequestForm):
+    """Form used to request uplift of a phabricator stack."""
+
+    source_revisions = forms.ModelMultipleChoiceField(
+        queryset=Revision.objects.all(),
+        to_field_name="revision_id",
+        widget=forms.CheckboxSelectMultiple(),
+    )
 
     def clean_source_revisions(self) -> list[Revision]:
         """Return source revisions in the same order they were submitted."""

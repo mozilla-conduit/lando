@@ -27,6 +27,7 @@ from lando.api.views import (
     PullRequestChecksAPIView,
     PullRequestContentAPIView,
     PullRequestUpdateWebhook,
+    UpliftRequestGitHubView,
     git2hgCommitMapView,
     hg2gitCommitMapView,
 )
@@ -146,6 +147,11 @@ urlpatterns += [
         "api/pulls/webhook",
         PullRequestUpdateWebhook.as_view(),
         name="api-pull-request-description",
+    ),
+    path(
+        "api/pulls/<str:repo_name>/<int:pull_number>/uplift",
+        UpliftRequestGitHubView.as_view(),
+        name="github-uplift-request",
     ),
 ]
 

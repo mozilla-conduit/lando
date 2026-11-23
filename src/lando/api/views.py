@@ -8,7 +8,9 @@ from typing import Any, Callable
 
 from django import forms
 from django.conf import settings
+from django.contrib import messages
 from django.core.handlers.wsgi import WSGIRequest
+from django.db import transaction
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -19,6 +21,7 @@ from django.views.decorators.csrf import csrf_exempt
 from requests import HTTPError
 
 from lando.api.legacy.commit_message import parse_bugs, replace_reviewers
+from lando.api.legacy.revisions import ensure_revision_from_github
 from lando.main.auth import (
     PrivateRepoPermissionMixin,
     require_authenticated_user,
@@ -30,15 +33,19 @@ from lando.main.models import (
     LandingJob,
     Repo,
     Revision,
+    UpliftJob,
     add_revisions_to_job,
 )
 from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 from lando.main.models.landing_job import get_jobs_for_pull
 from lando.main.models.revision import DiffWarning, DiffWarningStatus
+from lando.main.models.uplift import UpliftSubmission
 from lando.main.scm import SCMType
+from lando.ui.legacy.forms import BaseUpliftRequestForm
 from lando.utils.github import (
     PR_DELIMITER,
     GitHubAPIClient,
+    PullRequest,
 )
 from lando.utils.github_checks import (
     ALL_PULL_REQUEST_BLOCKERS,
@@ -54,6 +61,16 @@ from lando.utils.landing_checks import LandingChecks
 from lando.utils.phabricator import PHABRICATOR_API_KEY_HEADER, get_phabricator_client
 
 logger = logging.getLogger(__name__)
+
+PULL_REQUEST_CHANGED_ERROR_GITHUB = (
+    "The pull request changed while the uplift was being requested. Reload the "
+    "page and try again."
+)
+
+MISSING_BUG_NUMBER_ERROR_GITHUB = (
+    "Uplifts require a bug number. Set the bug number on this pull request in "
+    "GitHub, then try again."
+)
 
 
 class APIView(View):
@@ -499,3 +516,74 @@ class PullRequestUpdateWebhook(View, PrivateRepoPermissionMixin):
         rendered = render_to_string("pr_description.md", context)
         self.client.update_pull_request_content(self.pull_request.number, rendered)
         return JsonResponse({"status": "success"})
+
+
+class UpliftRequestGitHubView(PullRequestAPIView):
+    """
+    Handle uplift requests from GitHub pull requests.
+    """
+
+    @method_decorator(require_authenticated_user)
+    def post(
+        self, request: WSGIRequest, repo_name: str, pull_number: int
+    ) -> JsonResponse:
+        """Create a new uplift submission and associated jobs for a pull request."""
+        try:
+            revision = ensure_revision_from_github(self.pull_request)
+        except PullRequest.StaleMetadataException:
+            logger.warning("PR #%s changed while requesting its uplift.", pull_number)
+            return JsonResponse(
+                {"error": PULL_REQUEST_CHANGED_ERROR_GITHUB}, status=400
+            )
+        except ValueError as exc:
+            logger.exception("Could not seed a revision for PR #%s.", pull_number)
+            return JsonResponse({"error": str(exc)}, status=400)
+
+        uplift_request_form = BaseUpliftRequestForm(json.loads(request.body))
+
+        if not uplift_request_form.is_valid():
+            return JsonResponse({"errors": uplift_request_form.errors}, status=400)
+
+        repositories = uplift_request_form.cleaned_data["repositories"]
+        target_selection_method = uplift_request_form.cleaned_data[
+            "target_selection_method"
+        ]
+
+        if bugs := parse_bugs(self.pull_request.title):
+            bug_id = bugs[0]
+        else:
+            return JsonResponse({"error": MISSING_BUG_NUMBER_ERROR_GITHUB}, status=400)
+
+        # Create DB rows for the uplift submission.
+        with transaction.atomic():
+            # Create the assessment form.
+            assessment = uplift_request_form.save(commit=False)
+            assessment.user = request.user
+            assessment.bug_id = bug_id
+            assessment.save()
+
+            # Create the `UpliftSubmission` to represent this
+            # form submission and tie jobs together.
+            uplift_request = UpliftSubmission.objects.create(
+                requested_by=request.user,
+                assessment=assessment,
+                requested_revision_ids=[],
+                target_selection_method=target_selection_method,
+                source_repo=self.target_repo,
+                source_pull_number=self.pull_request.number,
+            )
+
+            # Create `UpliftJob`s and associate with this request.
+            for repo in repositories:
+                job = UpliftJob.objects.create(
+                    submission=uplift_request,
+                    requester_email=request.user.email,
+                    status=JobStatus.SUBMITTED,
+                    target_repo=repo,
+                )
+                job.add_revisions([revision])
+                job.save()
+
+        messages.add_message(request, messages.SUCCESS, "Uplift request queued.")
+
+        return JsonResponse({"id": job.id}, status=201)
