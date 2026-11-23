@@ -358,6 +358,16 @@ class UpliftJob(BaseJob):
         Revision, through=RevisionUpliftJob, related_name="uplift_jobs"
     )
 
+    @property
+    def is_pull_request_job(self) -> bool:
+        """Return `True` when this job uplifts a pull request."""
+        return self.submission.is_pull_request_submission
+
+    @property
+    def pull_request_repo(self) -> Repo | None:
+        """Return the repo the uplifted pull request lives in, if there is one."""
+        return self.submission.source_repo
+
     def add_revisions(self, revisions: list[Revision]):
         """Associate a list of revisions with job."""
         for revision in revisions:

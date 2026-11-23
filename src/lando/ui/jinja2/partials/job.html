@@ -15,9 +15,11 @@
             </p>
         {% elif has_revisions and job.is_pull_request_job %}
             {% set top_revision = job.revisions[0] %}
+            {# Uplift jobs target a train, so link the pull request in its own repo. #}
+            {% set pull_request_repo = job.pull_request_repo or job.target_repo %}
             <p>
                 <strong>Pull request:</strong>
-                <a href="{{ url('pull-request', args=[job.target_repo.name, top_revision.pull_number]) }}">{{ job.target_repo.name }}#{{ top_revision.pull_number }}</a>
+                <a href="{{ url('pull-request', args=[pull_request_repo.name, top_revision.pull_number]) }}">{{ pull_request_repo.name }}#{{ top_revision.pull_number }}</a>
             </p>
         {% elif has_revisions %}
             {% set top_revision = job.revisions[0] %}

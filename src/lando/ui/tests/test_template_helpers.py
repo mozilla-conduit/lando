@@ -411,3 +411,62 @@ def test_build_manual_uplift_instructions_no_landing_commit(user):
     assert result == expected, (
         "Revisions without landing commits should use `moz-phab patch`."
     )
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("landed", [False, True])
+def test_build_manual_uplift_instructions_pull_request(user, landed):
+    """Pull request uplifts fetch and cherry-pick the PR, or its landed commit."""
+    train_repo = Repo.objects.create(
+        name="firefox-beta",
+        short_name="beta",
+        default_branch="beta",
+        url="https://github.com/mozilla/gecko-dev",
+        scm_type=SCMType.GIT,
+    )
+    source_repo = Repo.objects.create(
+        name="firefox-autoland",
+        url="https://github.com/mozilla/gecko-dev",
+        scm_type=SCMType.GIT,
+    )
+
+    revision = Revision.objects.create(
+        pull_number=1, pull_base_sha="base111", pull_head_sha="head222"
+    )
+    if landed:
+        RevisionLandingJob.objects.create(revision=revision, commit_id="landed333")
+
+    assessment = UpliftAssessment.objects.create(
+        user=user,
+        user_impact="Test impact",
+        risk_level_explanation="Low risk",
+        string_changes="None",
+    )
+    submission = UpliftSubmission.objects.create(
+        requested_by=user,
+        assessment=assessment,
+        source_repo=source_repo,
+        source_pull_number=1,
+    )
+    job = UpliftJob.objects.create(
+        target_repo=train_repo, status=JobStatus.FAILED, submission=submission
+    )
+    job.add_revisions([revision])
+
+    result = build_manual_uplift_instructions(job)
+
+    if landed:
+        apply_lines = "git cherry-pick landed333\n"
+    else:
+        apply_lines = "git fetch origin pull/1/head\ngit cherry-pick base111..head222\n"
+    expected = (
+        "git fetch origin\n"
+        "git switch -c uplift-beta-PR1 origin/beta\n"
+        f"{apply_lines}"
+        f"moz-phab uplift --train beta --assessment-id {assessment.id}"
+    )
+
+    assert result == expected, (
+        "A landed pull request should be cherry-picked by commit, "
+        "and an unlanded one by its fetched commit range."
+    )
