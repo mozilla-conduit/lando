@@ -93,7 +93,21 @@
         </p>
     </div>
     {% include "stack/partials/uplift-section.html" %}
+    {% if user_is_authenticated %}
+        <div class="StackPage-actions">
+            <button class="button uplift-request-open is-normal">
+                <span class="icon"><i class="fa fa-arrow-circle-up"></i></span>
+                <span class="StackPage-actions-headline">Request Uplift</span>
+            </button>
+        </div>
+        {% include "stack/partials/uplift-form.html" %}
+    {% endif %}
     <h1>Landings</h1>
     {% include "stack/partials/timeline.html" %}
     </main>
+{% endblock %}
+{% block scripts %}
+    {% if user_is_authenticated %}
+        <script src="{{ static_url }}uplift.js" type="module" charset="utf-8"></script>
+    {% endif %}
 {% endblock %}
