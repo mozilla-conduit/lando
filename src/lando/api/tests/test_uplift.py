@@ -787,6 +787,56 @@ def test_assessment_with_no_bug_still_shows_on_its_revisions(user, repo_mc):
         )
 
 
+@pytest.mark.django_db
+def test_assessment_visible_on_pull_request(user, repo_mc):
+    """A pull request reaches assessments submitted from it and those on its bug."""
+    source_repo = repo_mc(scm_type=SCMType.GIT, name="firefox-autoland")
+    other_repo = repo_mc(scm_type=SCMType.GIT, name="firefox-other")
+    pull_number = 342
+
+    submitted = UpliftAssessment.objects.create(
+        user=user, bug_id=None, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    UpliftSubmission.objects.create(
+        requested_by=user,
+        assessment=submitted,
+        source_repo=source_repo,
+        source_pull_number=pull_number,
+    )
+
+    on_bug = UpliftAssessment.objects.create(
+        user=user, bug_id=1, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+
+    # Same pull number in a different repo is a different pull request.
+    other_repo_assessment = UpliftAssessment.objects.create(
+        user=user, bug_id=None, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    UpliftSubmission.objects.create(
+        requested_by=user,
+        assessment=other_repo_assessment,
+        source_repo=other_repo,
+        source_pull_number=pull_number,
+    )
+
+    visible = list(
+        UpliftAssessment.visible_on_pull_request(None, source_repo, pull_number)
+    )
+    assert visible == [submitted], (
+        "Without a bug, only the assessment submitted from the pull request shows."
+    )
+
+    visible = list(
+        UpliftAssessment.visible_on_pull_request(1, source_repo, pull_number)
+    )
+    assert visible == [submitted, on_bug], (
+        "With a bug, the bug's assessments should also show, oldest first."
+    )
+    assert other_repo_assessment not in visible, (
+        "A pull request with the same number in another repo should stay hidden."
+    )
+
+
 @mock.patch("lando.ui.legacy.revisions.set_uplift_request_form_on_revision.apply_async")
 @pytest.mark.django_db
 def test_edit_assessment_updates_every_linked_revision(

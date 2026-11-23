@@ -4,7 +4,9 @@ jobs created, then those made outside Lando and linked to it. #}
     <thead>
         <tr>
             <th>Train</th>
-            <th>Stack tip</th>
+            {% if card.requested_revision_ids %}
+                <th>Stack tip</th>
+            {% endif %}
             <th>Status</th>
             <th></th>
         </tr>
@@ -14,13 +16,15 @@ jobs created, then those made outside Lando and linked to it. #}
             {% for row in group.rows %}
                 <tr {% if loop.first %}class="UpliftTrains-groupStart"{% endif %}>
                     <td class="has-text-weight-semibold">{% if loop.first %}{{ group.train or "Unknown train" }}{% endif %}</td>
-                    <td>
-                        {% if row.tip_revision_id %}
-                            {{ revision_tag(row.tip_revision_id, uplift.revision_id) }}
-                        {% else %}
-                            <span class="has-text-grey">—</span>
-                        {% endif %}
-                    </td>
+                    {% if card.requested_revision_ids %}
+                        <td>
+                            {% if row.tip_revision_id %}
+                                {{ revision_tag(row.tip_revision_id, uplift.revision_id) }}
+                            {% else %}
+                                <span class="has-text-grey">—</span>
+                            {% endif %}
+                        </td>
+                    {% endif %}
                     <td>
                         <span class="{{ row.outcome.badge_class }}"
                               {% if row.job %}title="{{ row.job|uplift_status_label|striptags }}"{% endif %}>

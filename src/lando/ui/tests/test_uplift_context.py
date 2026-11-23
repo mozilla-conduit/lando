@@ -139,7 +139,7 @@ def test_card_carries_every_job_queued_from_its_assessment(
     # Assessments, revision links, submissions, and jobs are fetched in bulk.
     with django_assert_num_queries(4):
         cards = UpliftContext.build_assessment_cards(
-            bug_id, 100, None, is_uplift_revision=True
+            UpliftContext.assessments_for_revision(bug_id, 100, True), None
         )
     jobs_by_assessment = {
         card.assessment.pk: [
@@ -172,7 +172,7 @@ def test_card_lists_the_revisions_an_uplift_was_requested_for(user):
     )
 
     (card,) = UpliftContext.build_assessment_cards(
-        bug_id, 100, None, is_uplift_revision=True
+        UpliftContext.assessments_for_revision(bug_id, 100, True), None
     )
 
     assert card.requested_revision_ids == [100, 200], (
@@ -199,7 +199,7 @@ def test_cards_include_assessments_authored_by_other_users(user, django_user_mod
     )
 
     cards = UpliftContext.build_assessment_cards(
-        bug_id, 100, None, is_uplift_revision=True
+        UpliftContext.assessments_for_revision(bug_id, 100, True), None
     )
 
     assert [card.assessment for card in cards] == [mine, theirs], (
@@ -225,7 +225,7 @@ def test_only_the_linked_assessments_card_is_marked_linked(user):
     cards = {
         card.assessment.pk: card
         for card in UpliftContext.build_assessment_cards(
-            bug_id, revision_id, linked, is_uplift_revision=True
+            UpliftContext.assessments_for_revision(bug_id, revision_id, True), linked
         )
     }
 
@@ -261,10 +261,10 @@ def test_mainline_revision_shows_only_the_uplifts_requested_from_it(user):
     )
 
     mainline_cards = UpliftContext.build_assessment_cards(
-        bug_id, revision_id, None, is_uplift_revision=False
+        UpliftContext.assessments_for_revision(bug_id, revision_id, False), None
     )
     uplift_cards = UpliftContext.build_assessment_cards(
-        bug_id, revision_id, None, is_uplift_revision=True
+        UpliftContext.assessments_for_revision(bug_id, revision_id, True), None
     )
 
     assert [card.assessment for card in mainline_cards] == [requested], (
@@ -306,10 +306,8 @@ def test_train_groups_list_each_jobs_stack_under_its_train(user, repo_mc, phabdo
     UpliftRevision.link_revision_to_assessment(resolution["id"], assessment)
 
     (card,) = UpliftContext.build_assessment_cards(
-        bug_id,
-        302,
+        UpliftContext.assessments_for_revision(bug_id, 302, True),
         assessment,
-        is_uplift_revision=True,
         phab=phabdouble.get_phabricator_client(),
     )
 
@@ -404,10 +402,8 @@ def test_train_stays_unknown_when_phabricator_cannot_say(
     UpliftRevision.link_revision_to_assessment(99999, assessment)
 
     (card,) = UpliftContext.build_assessment_cards(
-        bug_id,
-        99999,
+        UpliftContext.assessments_for_revision(bug_id, 99999, True),
         assessment,
-        is_uplift_revision=True,
         phab=phabdouble.get_phabricator_client() if with_phabricator else None,
     )
 
@@ -454,10 +450,8 @@ def test_train_groups_tell_hackbot_apart_by_its_commits(user, phabdouble):
         UpliftRevision.link_revision_to_assessment(revision["id"], assessment)
 
     (card,) = UpliftContext.build_assessment_cards(
-        bug_id,
-        by_developer["id"],
+        UpliftContext.assessments_for_revision(bug_id, by_developer["id"], True),
         assessment,
-        is_uplift_revision=True,
         phab=phabdouble.get_phabricator_client(),
     )
 
@@ -493,4 +487,80 @@ def test_relman_review_status_finds_the_groups_review(
     )
     assert UpliftContext.relman_review_status(None, revision) is None, (
         "Without Phabricator the group cannot be identified."
+    )
+
+
+@pytest.mark.django_db
+def test_pull_request_context_shows_only_the_uplifts_requested_from_it(
+    user, repo_mc, rf
+):
+    """A pull request page shows the uplifts requested from that pull request.
+
+    Like a mainline revision, other assessments on the bug and those requested
+    from other pull requests stay hidden.
+    """
+    bug_id = 909090
+    source_repo = repo_mc(SCMType.GIT, name="firefox-autoland")
+    other_repo = repo_mc(SCMType.GIT, name="firefox-other")
+
+    requested = UpliftAssessment.objects.create(
+        user=user, bug_id=bug_id, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    UpliftSubmission.objects.create(
+        requested_by=user,
+        assessment=requested,
+        source_repo=source_repo,
+        source_pull_number=342,
+    )
+
+    # Same number in another repo, and a bug assessment from a Phabricator stack.
+    other_pull_request = UpliftAssessment.objects.create(
+        user=user, bug_id=bug_id, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    UpliftSubmission.objects.create(
+        requested_by=user,
+        assessment=other_pull_request,
+        source_repo=other_repo,
+        source_pull_number=342,
+    )
+    phabricator_request = UpliftAssessment.objects.create(
+        user=user, bug_id=bug_id, **UPLIFT_ASSESSMENT_ANSWERS
+    )
+    UpliftSubmission.objects.create(
+        requested_by=user,
+        assessment=phabricator_request,
+        requested_revision_ids=[100],
+    )
+
+    pull_request = MagicMock(number=342, title=f"Bug {bug_id} - Fix the thing")
+    request = rf.get("/")
+    request.user = user
+
+    context = UpliftContext.build_for_pull_request(
+        request=request, repo=source_repo, pull_request=pull_request
+    )
+
+    assert context.bug_id == bug_id, "The bug should be parsed from the title."
+    assert not context.is_uplift_revision, (
+        "A pull request is the source of an uplift, never an uplift itself."
+    )
+    assert context.revision_id is None, (
+        "A pull request page has no Phabricator revision."
+    )
+    assert context.new_assessment_form is None, (
+        "Assessments are not written or linked from a pull request page."
+    )
+    assert [card.assessment for card in context.shown_cards] == [requested], (
+        "Only the uplift requested from this pull request should show."
+    )
+
+    (card,) = context.shown_cards
+    assert [
+        (submission.source_repo, submission.source_pull_number)
+        for submission in card.requested_pull_requests
+    ] == [(source_repo, 342)], (
+        "The card should name the pull request the uplift was requested from."
+    )
+    assert card.requested_revision_ids == [], (
+        "A pull request uplift requests no Phabricator revisions."
     )

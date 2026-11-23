@@ -10,9 +10,11 @@ from lando.main.models import Repo
 from lando.main.models.landing_job import (
     get_jobs_for_pull,
 )
+from lando.ui.uplift.context import UpliftContext
 from lando.ui.views import LandoView
 from lando.utils.github import PR_DELIMITER, GitHubAPIClient
 from lando.utils.github_helpers import LandoPullRequest
+from lando.utils.phabricator import get_phabricator_client
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +48,18 @@ class PullRequestView(LandoView, PrivateRepoPermissionMixin):
 
         landing_jobs = get_jobs_for_pull(target_repo, number)
 
+        uplift = UpliftContext.build_for_pull_request(
+            request=request,
+            repo=target_repo,
+            pull_request=pull_request,
+            phab=get_phabricator_client(),
+        )
+
         context = {
             "target_repo": target_repo,
             "pull_request": pull_request,
             "landing_jobs": landing_jobs,
+            "uplift": uplift,
             "pr_delimiter": PR_DELIMITER,
         }
 
