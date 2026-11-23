@@ -143,6 +143,8 @@ def build_manual_uplift_instructions(job: UpliftJob) -> str:
     # Generate a suggested branch name.
     if revisions and revisions[0].revision_id:
         branch_name = f"uplift-{train}-D{revisions[0].revision_id}"
+    elif revisions and revisions[0].pull_number:
+        branch_name = f"uplift-{train}-PR{revisions[0].pull_number}"
     else:
         branch_name = f"uplift-{train}-<revision>"
 
@@ -157,6 +159,15 @@ def build_manual_uplift_instructions(job: UpliftJob) -> str:
             landing_commit_id = revision.get_latest_landing_commit_id()
             if landing_commit_id:
                 instructions.append(f"git cherry-pick {landing_commit_id}")
+            elif revision.pull_number:
+                # An unlanded pull request is fetched from GitHub, then its
+                # commits (those after the base) are cherry-picked.
+                instructions.append(
+                    f"git fetch origin pull/{revision.pull_number}/head"
+                )
+                instructions.append(
+                    f"git cherry-pick {revision.pull_base_sha}..{revision.pull_head_sha}"
+                )
             else:
                 instructions.append(
                     f"moz-phab patch D{revision.revision_id} --apply-to here"
