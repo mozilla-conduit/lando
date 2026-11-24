@@ -10,6 +10,7 @@ from lando.utils.cache import cache_method
 logger = logging.getLogger(__name__)
 
 SECURITY_KEYWORDS = ("sec-critical", "sec-high")
+TICK_TOCK_KEYWORD = "tick-tock"
 UNSET_STATUS_FLAG_VALUES = ("", "---")
 
 
@@ -22,16 +23,37 @@ class BugFetchError(Exception):
     """
 
 
-def security_keyword(bug: dict) -> str | None:
-    """Return the bug's sec-critical/sec-high keyword, or `None` if it has neither.
+def security_keyword(
+    bug: dict, keywords: Iterable[str] = SECURITY_KEYWORDS
+) -> str | None:
+    """Return the first of `keywords` present on the bug, or `None` if none are.
 
-    When both are somehow present, `sec-critical` takes precedence.
+    Defaults to the sec-critical/sec-high keywords, where `sec-critical` takes
+    precedence when both are somehow present.
     """
-    keywords = set(bug.get("keywords", []))
-    for keyword in SECURITY_KEYWORDS:
-        if keyword in keywords:
+    bug_keywords = set(bug.get("keywords", []))
+    for keyword in keywords:
+        if keyword in bug_keywords:
             return keyword
     return None
+
+
+def is_tick_tock(bug: dict) -> bool:
+    """Return whether the bug has the tick-tock keyword."""
+    return security_keyword(bug, (TICK_TOCK_KEYWORD,)) is not None
+
+
+def held_for_security_team(
+    bugs_by_id: dict[int, dict] | None, bug_ids: set[int]
+) -> bool:
+    """Return whether a landing must wait for the security team.
+
+    Fails closed: holds when BMO data could not be fetched (`None`), when BMO omits
+    any of `bug_ids` (so its keywords are unknown), or when any bug is tick-tock.
+    """
+    if bugs_by_id is None or bug_ids - set(bugs_by_id):
+        return True
+    return any(is_tick_tock(bug) for bug in bugs_by_id.values())
 
 
 def unset_status_flags(bug: dict, prefix: str) -> list[str]:

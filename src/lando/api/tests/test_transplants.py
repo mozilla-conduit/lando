@@ -73,7 +73,12 @@ def test_dryrun_no_warnings_or_blockers(
         },
     )
 
-    expected_json = {"confirmation_token": None, "warnings": [], "blocker": None}
+    expected_json = {
+        "confirmation_token": None,
+        "warnings": [],
+        "blocker": None,
+        "tick_tock": False,
+    }
     assert result == expected_json
 
 
@@ -899,6 +904,50 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     assert job.status == JobStatus.SUBMITTED
     assert job.landed_phabricator_revisions == {1: 1, 2: 2, 3: 3}
     assert job.priority == 0, "Incorrect job priority"
+
+
+@pytest.mark.parametrize(
+    "repo_name, expected_status",
+    [
+        ("firefox", JobStatus.CREATED),
+        ("mozilla-central", JobStatus.SUBMITTED),
+    ],
+)
+@pytest.mark.django_db(transaction=True)
+@mock.patch("lando.api.legacy.transplants.fetch_bugs_for_stack")
+def test_integrated_transplant_tick_tock_bug_held_on_status_flag_repos(
+    mock_fetch_bugs_for_stack,
+    repo_name,
+    expected_status,
+    app,
+    user,
+    phabdouble,
+    release_management_project,
+    needs_data_classification_project,
+    register_codefreeze_uri,
+    mocked_repo_config,
+):
+    mock_fetch_bugs_for_stack.return_value = {
+        123: {"id": 123, "keywords": ["tick-tock"]}
+    }
+    phabrepo = phabdouble.repo(name=repo_name)
+    reviewer = phabdouble.user(username="reviewer")
+
+    d1 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=phabrepo, bug_id=123)
+    phabdouble.reviewer(r1, reviewer)
+
+    result, status_code = legacy_api_transplants.post(
+        phabdouble.get_phabricator_client(),
+        user,
+        {
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]},
+            ]
+        },
+    )
+    assert status_code == 202
+    assert LandingJob.objects.get(pk=result["id"]).status == expected_status
 
 
 @pytest.mark.django_db(transaction=True)
