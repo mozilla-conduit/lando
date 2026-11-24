@@ -1,5 +1,7 @@
 "use strict";
 
+const TICK_TOCK_LABEL = "Queue for later landing by the security team";
+
 $.fn.landingPreview = function () {
     return this.each(function () {
         let $landingPreview = $(this);
@@ -49,7 +51,10 @@ $.fn.landingPreview = function () {
                 $landButton.text("Acknowledge warnings to land");
             } else {
                 $landButton.attr({ disabled: false });
-                if ($landButton.data("target-scm-type") === "git") {
+                if ($landButton.data("tick-tock")) {
+                    $landButton.addClass("is-success has-text-white");
+                    $landButton.text(TICK_TOCK_LABEL);
+                } else if ($landButton.data("target-scm-type") === "git") {
                     $landButton.text(
                         "Land to " +
                             $landButton.data("target-repo") +
