@@ -20,9 +20,12 @@ Expected variables:
             conflicts:
         {% endif %}
     </p>
-    <p>
-        (Hint: try rebasing your changes on the latest commits from <code>{{ tree }}</code> and re-submitting.)
-    </p>
+    {# Hackbot is resolving a waiting job's conflict, so there's nothing to rebase yet. #}
+    {% if job.status != "WAITING" %}
+        <p>
+            (Hint: try rebasing your changes on the latest commits from <code>{{ tree }}</code> and re-submitting.)
+        </p>
+    {% endif %}
     <div class="content">
         <ul>
             {% for path in job.error_breakdown.failed_paths if path.path in rejects_paths %}

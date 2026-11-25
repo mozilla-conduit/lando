@@ -44,6 +44,13 @@
                 {%- endfor %}
             </p>
         {% endif %}
+        {% if job.status == "WAITING" %}
+            {# The conflict below is what Hackbot is working on, not a failure. #}
+            <p class="notification is-info is-light">
+                Hackbot is resolving this merge conflict. Lando will create the uplift revisions from its
+                resolution, which needs "Approve AI Change" in Phabricator before landing.
+            </p>
+        {% endif %}
         {% include "partials/error-breakdown.html" %}
         <div>
             {% if job.duration|default(None) %}
@@ -73,7 +80,7 @@
                         {% if treestatus.reason %}({{ treestatus.reason }}){% endif %}
                     </p>
                 </div>
-            {% elif job.error %}
+            {% elif job.error and job.status != "WAITING" %}
                 <div class="StackPage-timeline-item-error">
                     {% if job.error_breakdown %}
                         <div>

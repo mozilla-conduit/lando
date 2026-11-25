@@ -39,6 +39,8 @@ def tostatusbadgeclass(landing_job: LandingJob) -> str:
         "aborted": "Badge Badge--negative",
         "submitted": "Badge Badge--warning",
         "in_progress": "Badge Badge--warning",
+        # An uplift job waiting on Hackbot is still in progress, not failed.
+        "waiting": "Badge Badge--warning",
         "landed": "Badge Badge--positive",
         "failed": "Badge Badge--negative",
     }
@@ -97,6 +99,7 @@ def tostatusbadgename(landing_job: LandingJob) -> str:
         "aborted": "Aborted",
         "submitted": "Landing queued",
         "in_progress": "In progress",
+        "waiting": "Waiting on Hackbot",
         "landed": "Successfully landed",
         "failed": "Failed to land",
     }
@@ -109,8 +112,20 @@ def uplift_status_label(job: UpliftJob) -> str | Markup:
     except ValueError:
         return ""
 
+    if status == JobStatus.LANDED and job.has_hackbot_resolution:
+        return (
+            "Hackbot resolved a merge conflict; uplift revisions created, and the "
+            'resolution needs "Approve AI Change" on Phabricator before landing'
+        )
+
     if status == JobStatus.LANDED:
         return "Requested revisions apply cleanly to uplift branch; uplift revisions created"
+
+    if status == JobStatus.WAITING:
+        return (
+            "Hackbot is resolving a merge conflict; Lando will create the uplift "
+            "revisions from its resolution"
+        )
 
     if status == JobStatus.FAILED and job.error_breakdown:
         return Markup(

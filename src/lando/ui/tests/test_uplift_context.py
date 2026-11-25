@@ -4,6 +4,7 @@ import pytest
 
 from lando.api.legacy.stacks import RevisionStack
 from lando.conftest import UPLIFT_ASSESSMENT_ANSWERS
+from lando.jinja import tostatusbadgeclass, tostatusbadgename, uplift_status_label
 from lando.main.models import JobStatus
 from lando.main.models.uplift import (
     UpliftAssessment,
@@ -345,19 +346,32 @@ def test_train_groups_list_each_jobs_stack_under_its_train(user, repo_mc, phabdo
 
 
 @pytest.mark.parametrize(
-    "status,error_breakdown,expected",
+    "status,error_breakdown,has_hackbot_resolution,expected",
     [
-        (JobStatus.LANDED, {}, UpliftTrainOutcome.CREATED_BY_LANDO),
-        (JobStatus.FAILED, {"failed_paths": []}, UpliftTrainOutcome.MERGE_CONFLICT),
-        (JobStatus.FAILED, {}, UpliftTrainOutcome.FAILED),
-        (JobStatus.IN_PROGRESS, {}, UpliftTrainOutcome.IN_PROGRESS),
-        (JobStatus.SUBMITTED, {}, UpliftTrainOutcome.QUEUED),
-        (JobStatus.ABORTED, {}, UpliftTrainOutcome.CANCELLED),
+        (JobStatus.LANDED, {}, False, UpliftTrainOutcome.CREATED_BY_LANDO),
+        (JobStatus.LANDED, {}, True, UpliftTrainOutcome.CONFLICT_RESOLVED_BY_HACKBOT),
+        (
+            JobStatus.FAILED,
+            {"failed_paths": []},
+            False,
+            UpliftTrainOutcome.MERGE_CONFLICT,
+        ),
+        (JobStatus.FAILED, {}, False, UpliftTrainOutcome.FAILED),
+        (JobStatus.IN_PROGRESS, {}, False, UpliftTrainOutcome.IN_PROGRESS),
+        (JobStatus.WAITING, {}, False, UpliftTrainOutcome.WAITING_ON_HACKBOT),
+        (JobStatus.SUBMITTED, {}, False, UpliftTrainOutcome.QUEUED),
+        (JobStatus.ABORTED, {}, False, UpliftTrainOutcome.CANCELLED),
     ],
 )
-def test_job_outcome_follows_its_status(status, error_breakdown, expected):
+def test_job_outcome_follows_its_status(
+    status, error_breakdown, has_hackbot_resolution, expected
+):
     """A job's row says what became of it, telling merge conflicts apart."""
-    job = MagicMock(status=status, error_breakdown=error_breakdown)
+    job = MagicMock(
+        status=status,
+        error_breakdown=error_breakdown,
+        has_hackbot_resolution=has_hackbot_resolution,
+    )
 
     assert UpliftTrainOutcome.for_job(job) == expected, (
         f"A `{status}` job should read `{expected.label}`."
@@ -545,4 +559,50 @@ def test_is_ready_for_review_waits_for_hackbot_approval(
     assert context.is_ready_for_review is expected_ready, (
         "A Hackbot resolution still pending approval should keep the checklist "
         "open, even once release-managers accept."
+    )
+
+
+@pytest.mark.parametrize(
+    "status,has_hackbot_resolution,expected",
+    [
+        (
+            JobStatus.WAITING,
+            False,
+            "Hackbot is resolving a merge conflict; Lando will create the uplift "
+            "revisions from its resolution",
+        ),
+        (
+            JobStatus.LANDED,
+            True,
+            "Hackbot resolved a merge conflict; uplift revisions created, and the "
+            'resolution needs "Approve AI Change" on Phabricator before landing',
+        ),
+        (
+            JobStatus.LANDED,
+            False,
+            "Requested revisions apply cleanly to uplift branch; uplift revisions "
+            "created",
+        ),
+    ],
+)
+def test_uplift_status_label_describes_hackbot_resolutions(
+    status, has_hackbot_resolution, expected
+):
+    job = MagicMock(
+        status=status, error_breakdown={}, has_hackbot_resolution=has_hackbot_resolution
+    )
+
+    assert uplift_status_label(job) == expected, (
+        f"A `{status}` job's label should say what Hackbot did, if anything."
+    )
+
+
+def test_waiting_job_badge_reads_as_in_progress():
+    job = MagicMock(status=JobStatus.WAITING)
+
+    assert tostatusbadgeclass(job) == "Badge Badge--warning", (
+        "A job waiting on Hackbot should look in progress, not failed."
+    )
+    assert tostatusbadgename(job) == "Waiting on Hackbot", (
+        "A waiting job's badge should say what it's waiting on."
     )
