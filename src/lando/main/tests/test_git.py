@@ -16,6 +16,7 @@ from lando.main.scm.consts import MergeStrategy
 from lando.main.scm.exceptions import (
     PatchConflict,
     SCMException,
+    SCMInternalServerError,
     TagAlreadyPresentException,
 )
 from lando.main.scm.git import GitSCM
@@ -1725,3 +1726,172 @@ def test_GitSCM_process_merge_conflict_missing_file(
         "No such file or directory"
         in error_breakdown["rejects_paths"]["new.txt"]["content"]
     ), "The breakdown should carry git's error for the missing file."
+
+
+def test_GitSCM_cherry_pick_commit_recovers_context_shift(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+    apply_patch: Callable,
+    three_way_base_diff: str,
+    three_way_context_shift_diff: str,
+    three_way_patch_diff: str,
+):
+    """`cherry_pick_commit` 3-way merges across an unrelated context shift."""
+    scm = clone_git_repo(git_repo, tmp_path / request.node.name, git_setup_user)
+
+    apply_patch(scm, three_way_base_diff, "Add base content")
+    base_commit = scm.head_ref()
+
+    # The commit to uplift changes line 8.
+    apply_patch(scm, three_way_patch_diff, "Apply the patch")
+    patch_commit = scm.head_ref()
+
+    # The target branch changes an unrelated line, shifting context.
+    scm.reset_to_commit(base_commit)
+    apply_patch(scm, three_way_context_shift_diff, "Shift context on target")
+
+    scm.cherry_pick_commit(patch_commit)
+
+    merged = scm.read_checkout_file("test.txt")
+    assert "line6 changed on tip" in merged, (
+        "The target branch's change should survive the cherry-pick."
+    )
+    assert "line8 modified by patch" in merged, (
+        "The uplifted commit's change should survive the cherry-pick."
+    )
+
+
+def test_GitSCM_cherry_pick_commit_raises_on_conflict(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+    apply_patch: Callable,
+    three_way_base_diff: str,
+    three_way_conflicting_diff: str,
+    three_way_patch_diff: str,
+):
+    """`cherry_pick_commit` raises `PatchConflict` and aborts on a true conflict.
+
+    This is the uplift path: a failed `git cherry-pick` has to carry its
+    conflicts so `process_merge_conflict` can build an `error_breakdown`.
+    """
+    clone_path = tmp_path / request.node.name
+    scm = clone_git_repo(git_repo, clone_path, git_setup_user)
+
+    apply_patch(scm, three_way_base_diff, "Add base content")
+    base_commit = scm.head_ref()
+
+    apply_patch(scm, three_way_patch_diff, "Apply the patch")
+    patch_commit = scm.head_ref()
+
+    # The target branch changes the same line, so nothing can merge cleanly.
+    scm.reset_to_commit(base_commit)
+    apply_patch(scm, three_way_conflicting_diff, "Change the patched line on target")
+    target_tip = scm.head_ref()
+
+    with pytest.raises(PatchConflict) as exc_info:
+        scm.cherry_pick_commit(patch_commit)
+
+    conflicts = exc_info.value.conflicts
+    assert list(conflicts) == ["test.txt"], (
+        "`PatchConflict.conflicts` should record only the conflicting path."
+    )
+
+    content_lines = conflicts["test.txt"]["content"].splitlines()
+    conflict_start = content_lines.index("++<<<<<<< HEAD")
+    assert content_lines[conflict_start : conflict_start + 4] == [
+        "++<<<<<<< HEAD",
+        " +line8 changed on tip",
+        "++=======",
+        "+ line8 modified by patch",
+    ], "Captured conflict content should show both sides of the conflicting line."
+    assert content_lines[conflict_start + 4].startswith("++>>>>>>> "), (
+        "Captured conflict content should end the conflict with the picked commit."
+    )
+    assert content_lines[conflict_start + 4].endswith("(Apply the patch)"), (
+        "The closing conflict marker should name the picked commit."
+    )
+    assert conflicts["test.txt"]["changeset_id"] == target_tip, (
+        "Captured conflict should name the target commit that last touched the path."
+    )
+
+    git_dir = clone_path / ".git"
+    assert not (git_dir / "CHERRY_PICK_HEAD").exists(), (
+        "A conflicting cherry-pick should be aborted, leaving no cherry-pick state."
+    )
+    assert scm.head_ref() == target_tip, (
+        "Aborting should leave the work branch back on the target tip."
+    )
+
+
+def test_GitSCM_cherry_pick_commit_reraises_non_conflict_failure(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+):
+    """A cherry-pick that fails for any other reason is not reported as a conflict.
+
+    An unknown commit leaves no unmerged paths, so `collect_conflicts` finds
+    nothing and the original `SCMException` is re-raised rather than being
+    dressed up as a merge conflict the developer could resolve.
+    """
+    scm = clone_git_repo(git_repo, tmp_path / request.node.name, git_setup_user)
+
+    with pytest.raises(SCMInternalServerError) as exc_info:
+        scm.cherry_pick_commit("0000000000000000000000000000000000000000")
+
+    assert type(exc_info.value) is SCMInternalServerError, (
+        "A missing commit should re-raise `_git_run`'s error, not `PatchConflict`."
+    )
+    assert "bad object" in str(exc_info.value), (
+        "The original `git cherry-pick` error should be re-raised."
+    )
+
+
+def test_GitSCM_cherry_pick_commit_aborts_empty_cherry_pick(
+    git_repo: Path,
+    git_setup_user: Callable,
+    request: pytest.FixtureRequest,
+    tmp_path: Path,
+    apply_patch: Callable,
+    three_way_base_diff: str,
+    three_way_patch_diff: str,
+):
+    """An already-applied commit stops the cherry-pick without conflicts.
+
+    The cherry-pick is still in progress, so it is aborted before the original
+    `SCMException` is re-raised.
+    """
+    clone_path = tmp_path / request.node.name
+    scm = clone_git_repo(git_repo, clone_path, git_setup_user)
+
+    apply_patch(scm, three_way_base_diff, "Add base content")
+    base_commit = scm.head_ref()
+
+    apply_patch(scm, three_way_patch_diff, "Apply the patch")
+    patch_commit = scm.head_ref()
+
+    # The target branch already has the same change, so the pick comes out empty.
+    scm.reset_to_commit(base_commit)
+    apply_patch(scm, three_way_patch_diff, "Apply the patch on target")
+    target_tip = scm.head_ref()
+
+    with pytest.raises(SCMInternalServerError) as exc_info:
+        scm.cherry_pick_commit(patch_commit)
+
+    assert type(exc_info.value) is SCMInternalServerError, (
+        "An empty cherry-pick should re-raise `_git_run`'s error, not `PatchConflict`."
+    )
+    assert "cherry-pick is now empty" in str(exc_info.value), (
+        "The original `git cherry-pick` error should be re-raised."
+    )
+    assert not (clone_path / ".git" / "CHERRY_PICK_HEAD").exists(), (
+        "An empty cherry-pick should be aborted, leaving no cherry-pick state."
+    )
+    assert scm.head_ref() == target_tip, (
+        "Aborting should leave the work branch back on the target tip."
+    )
