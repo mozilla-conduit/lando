@@ -30,6 +30,7 @@ from lando.main.models import (
     UpliftSubmission,
     Worker,
 )
+from lando.main.models.uplift import HackbotResolution
 
 admin.site.site_title = gettext_lazy("Lando Admin")
 admin.site.site_header = gettext_lazy("Lando Administration")
@@ -446,6 +447,37 @@ class RepoAdmin(admin.ModelAdmin):
         return bool(instance.gh_hmac_secret)
 
 
+class HackbotResolutionAdmin(ReadOnlyModelAdmin):
+    """Show Hackbot's resolutions of uplift merge conflicts, which are never edited."""
+
+    model = HackbotResolution
+    list_display = (
+        "id",
+        "job",
+        "job__status",
+        "run_id",
+        "conflict_revision",
+        "created_at",
+    )
+    list_filter = ("job__status", "job__target_repo__name")
+    search_fields = ("run_id", "job__id", "conflict_revision__revision_id")
+    # The patch and diffs are shown on the detail page but kept out of
+    # `list_display`, since they may be large.
+    fields = (
+        "job",
+        "conflict_revision",
+        "run_id",
+        "base_commit",
+        "findings",
+        "uplift_revision_ids",
+        "conflict_diff",
+        "patch",
+        "resolution_diff",
+        "created_at",
+        "updated_at",
+    )
+
+
 class AutoformatChangeAdmin(admin.ModelAdmin):
     model = AutoformatChange
     list_display = (
@@ -669,6 +701,7 @@ admin.site.register(ConfigurationVariable, ConfigurationVariableAdmin)
 admin.site.register(UpliftAssessment, UpliftAssessmentAdmin)
 admin.site.register(UpliftRevision, UpliftRevisionAdmin)
 admin.site.register(UpliftSubmission, UpliftSubmissionAdmin)
+admin.site.register(HackbotResolution, HackbotResolutionAdmin)
 admin.site.register(Profile, admin.ModelAdmin)
 admin.site.unregister(User)
 admin.site.register(User, CustomUserAdmin)
