@@ -157,6 +157,11 @@ urlpatterns += [
         name="landing-jobs",
     ),
     path(
+        "api/revision_landings/",
+        landing_jobs.RevisionLandingsView.as_view(),
+        name="revision-landings",
+    ),
+    path(
         "D<int:revision_id>/landings/<int:job_id>/",
         jobs.LandingJobView.as_view(),
         name="revision-jobs-page",

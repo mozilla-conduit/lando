@@ -7,10 +7,13 @@ from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
 
-from lando.main.auth import require_authenticated_user
+from lando.api.legacy import api as legacy_api
+from lando.main.auth import require_authenticated_user, require_phabricator_api_key
 from lando.main.models import JobAction, JobStatus, LandingJob
+from lando.main.support import LegacyAPIException
 from lando.utils.exceptions import NotFoundProblemException
 from lando.utils.landing_checks import check_bug_references
+from lando.utils.phabricator import PhabricatorClient
 
 logger = logging.getLogger(__name__)
 
@@ -118,3 +121,43 @@ class LandingJobApiView(View):
                     ]
                 }
                 return JsonResponse(data, status=400)
+
+
+class RevisionLandingsView(View):
+    @method_decorator(require_phabricator_api_key(optional=True, provide_client=True))
+    def get(
+        self,
+        phab: PhabricatorClient,
+        request: WSGIRequest,
+    ) -> JsonResponse:
+        """Return the landing jobs for each requested revision."""
+        revision_ids = request.GET.get("revision_ids", "").split(",")
+
+        landing_jobs_by_revision_id = {}
+        for revision_id in revision_ids:
+            if not revision_id.isdigit():
+                logger.debug(f"Rejecting non-integer revision ID {revision_id!r}.")
+                return JsonResponse(
+                    {
+                        "detail": "Revision IDs must be integers.",
+                        "revision_id": revision_id,
+                    },
+                    status=400,
+                )
+
+            try:
+                landing_jobs = legacy_api.transplants.get_list(phab, f"D{revision_id}")
+            except LegacyAPIException as exc:
+                logger.debug(f"Fetching jobs for revision {revision_id} failed.")
+                return JsonResponse(
+                    {**exc.json_detail, "revision_id": revision_id}, status=exc.status
+                )
+
+            landing_jobs_by_revision_id[revision_id] = [
+                {"landing_job_id": landing_job.id, "status": landing_job.status}
+                for landing_job in landing_jobs
+            ]
+
+        return JsonResponse(
+            {"landing_jobs_by_revision_id": landing_jobs_by_revision_id}, status=200
+        )
