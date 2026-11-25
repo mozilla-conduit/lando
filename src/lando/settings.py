@@ -298,6 +298,17 @@ PHABRICATOR_URL = os.getenv("PHABRICATOR_URL", "http://phabricator.test")
 PHABRICATOR_ADMIN_API_KEY = os.getenv("PHABRICATOR_ADMIN_API_KEY", "")
 PHABRICATOR_UNPRIVILEGED_API_KEY = os.getenv("PHABRICATOR_UNPRIVILEGED_API_KEY", "")
 
+HACKBOT_URL = os.getenv("HACKBOT_URL", "http://hackbot.test")
+# Authenticate to Hackbot with this API key when set, as in local development.
+# Otherwise, Lando sends a Google ID token for its service account, which Hackbot
+# accepts when its `HACKBOT_API_URL` equals `HACKBOT_OIDC_AUDIENCE`.
+HACKBOT_API_TOKEN = os.getenv("HACKBOT_API_TOKEN", "")
+HACKBOT_OIDC_AUDIENCE = os.getenv("HACKBOT_OIDC_AUDIENCE", HACKBOT_URL)
+
+# Timeout (seconds) for Hackbot API requests, so a hung connection can't tie up a
+# Celery worker indefinitely.
+HACKBOT_REQUEST_TIMEOUT = 30
+
 TREEHERDER_URL = os.getenv("TREEHERDER_URL", "https://treeherder.mozilla.org")
 
 # Endpoint providing release-train guidance for the uplift target selector. The
