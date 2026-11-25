@@ -40,7 +40,11 @@ def test_user_is_conduit_admin_anonymous():
 @pytest.mark.parametrize(
     "logged_in,error,expected_location",
     (
-        (True, "login_required", "/oidc/authenticate/?next=%2FD1234%2F%3Ftab%3Dstack"),
+        (
+            True,
+            "login_required",
+            "/oidc/authenticate/?next=%2FD1234%2F%3Fquery_string%3Dtest",
+        ),
         (True, "access_denied", "/"),
         # A failed interactive login must not restart login, or it could loop.
         (False, "login_required", "/"),
@@ -53,7 +57,7 @@ def test_oidc_callback_failed_silent_refresh_returns_to_page(
     if logged_in:
         client.force_login(User.objects.create_user("testuser"))
     session = client.session
-    session["oidc_login_next"] = "/D1234/?tab=stack"
+    session["oidc_login_next"] = "/D1234/?query_string=test"
     session["oidc_states"] = {"some-state": {"nonce": "n", "code_verifier": None}}
     session.save()
 
@@ -103,7 +107,7 @@ def test_oidc_expired_session_returns_to_page_after_login(client):
     session["oidc_id_token_expiration"] = 0
     session.save()
 
-    response = client.get("/D1234/?tab=stack")
+    response = client.get("/D1234/?query_string=test")
     query = parse_qs(urlparse(response["Location"]).query)
     assert query.get("prompt") == ["none"], (
         "An expired session should start a silent refresh."
@@ -123,6 +127,6 @@ def test_oidc_expired_session_returns_to_page_after_login(client):
             reverse("oidc_authentication_callback"),
             {"code": "code", "state": query["state"][0]},
         )
-    assert response["Location"] == "/D1234/?tab=stack", (
+    assert response["Location"] == "/D1234/?query_string=test", (
         "A successful login should return to the originally requested page."
     )

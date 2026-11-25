@@ -227,21 +227,24 @@ class LandoOIDCAuthenticationCallbackView(OIDCAuthenticationCallbackView):
     }
 
     def get(self, request: WSGIRequest) -> HttpResponse:
-        next_url = request.session.get("oidc_login_next")
-        # `SessionRefresh` only runs for authenticated users, and the failure logs
-        # them out, so an interactive login that fails falls through to `/`.
-        was_refreshing = request.user.is_authenticated
-        response = super().get(request)
+        # A failed callback logs the user out, which clears the session.
+        self.next_url = request.session.get("oidc_login_next")
+        self.was_authenticated = request.user.is_authenticated
+        return super().get(request)
 
+    def login_failure(self) -> HttpResponse:
+        # `SessionRefresh` only runs for authenticated users. An interactive login
+        # that fails starts logged out, so it falls through to `/` and can't loop.
         if (
-            was_refreshing
-            and request.GET.get("error") in self.SILENT_AUTH_ERRORS
-            and next_url
+            self.was_authenticated
+            and self.request.GET.get("error") in self.SILENT_AUTH_ERRORS
+            and self.next_url
         ):
             login_url = reverse("oidc_authentication_init")
-            return HttpResponseRedirect(f"{login_url}?{urlencode({'next': next_url})}")
-
-        return response
+            return HttpResponseRedirect(
+                f"{login_url}?{urlencode({'next': self.next_url})}"
+            )
+        return super().login_failure()
 
 
 def require_authenticated_user(f: Callable) -> Callable:

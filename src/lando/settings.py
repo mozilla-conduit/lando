@@ -260,6 +260,7 @@ OIDC_REDIRECT_REQUIRE_HTTPS = True
 LOGOUT_REDIRECT_URL = "/"
 LOGIN_REDIRECT_URL = "/"
 LOGIN_URL = "/oidc/authenticate"
+# Used by mozilla-django-oidc in place of its default OIDC callback view.
 OIDC_CALLBACK_CLASS = "lando.main.auth.LandoOIDCAuthenticationCallbackView"
 
 OIDC_RP_CLIENT_ID = os.getenv("OIDC_RP_CLIENT_ID")
