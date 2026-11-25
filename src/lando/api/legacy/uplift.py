@@ -174,3 +174,17 @@ def resolution_diff_paths(resolution_diff: str) -> list[str]:
         for line in resolution_diff.splitlines()
         if line.startswith("diff --git a/") and " b/" in line
     ]
+
+
+def format_later_revision_details(revision_id: int, train: str) -> str:
+    """Return the Remarkup details of an approval request after the conflicting revision.
+
+    Hackbot resolves the whole stack at once, so a revision after the conflicting
+    one may hold its changes too, but Lando has no conflicted tree to compare it with.
+    The details lead with what happened to this revision, in Lando's words.
+    """
+    return (
+        "Lando didn't hit a conflict on this revision, but Hackbot resolved the "
+        f"stack's merge conflict in D{revision_id} when uplifting to `{train}`, and "
+        "may have changed this revision too. Compare it with the revision it uplifts."
+    )
