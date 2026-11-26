@@ -5,12 +5,14 @@ from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
+from django.db.models import Exists, Model, OuterRef, QuerySet
 from django.db.models import Field as DbField
-from django.db.models import Model
 from django.forms import CheckboxSelectMultiple, MultipleChoiceField
 from django.forms import Field as FormField
 from django.http import HttpRequest
 from django.urls import reverse
+from django.utils.html import format_html_join
+from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy
 
 from lando.main.models import (
@@ -242,19 +244,44 @@ class LandingJobAdmin(JobAdmin):
         return summary
 
 
+class UsedHackbotFilter(admin.SimpleListFilter):
+    """Filter uplift jobs by whether their merge conflict was handed to Hackbot."""
+
+    title = "used Hackbot"
+    parameter_name = "used_hackbot"
+
+    def lookups(
+        self, request: HttpRequest, model_admin: admin.ModelAdmin
+    ) -> tuple[tuple[str, str], ...]:
+        return (("yes", "Yes"), ("no", "No"))
+
+    def queryset(self, request: HttpRequest, queryset: QuerySet) -> QuerySet:
+        if self.value() == "yes":
+            return queryset.filter(used_hackbot=True)
+        if self.value() == "no":
+            return queryset.filter(used_hackbot=False)
+        return queryset
+
+
 class UpliftJobAdmin(JobAdmin):
     model = UpliftJob
     list_display = (
         "id",
         "revisions_summary",
         "status",
+        "used_hackbot",
         "target_repo__name",
         "submission_user",
         "created_at",
         "requester_email",
         "duration_seconds",
     )
-    list_filter = ("status", "target_repo__name", "submission__requested_by")
+    list_filter = (
+        "status",
+        UsedHackbotFilter,
+        "target_repo__name",
+        "submission__requested_by",
+    )
     inlines = (RevisionUpliftJobInline,)
     fields = (
         "status",
@@ -266,6 +293,7 @@ class UpliftJobAdmin(JobAdmin):
         "submission",
         "target_repo",
         "created_revision_ids",
+        "hackbot_resolution_links",
         "landed_commit_id",
         "created_at",
         "updated_at",
@@ -273,6 +301,7 @@ class UpliftJobAdmin(JobAdmin):
     readonly_fields = JobAdmin.readonly_fields + (
         "submission",
         "created_revision_ids",
+        "hackbot_resolution_links",
         "created_at",
         "updated_at",
     )
@@ -281,6 +310,43 @@ class UpliftJobAdmin(JobAdmin):
         "unsorted_revisions__revision_id",
         "created_revision_ids",
     )
+
+    def get_queryset(self, request: HttpRequest) -> QuerySet:
+        """Annotate whether each job used Hackbot, for the list column and filter."""
+        return (
+            super()
+            .get_queryset(request)
+            .annotate(
+                used_hackbot=Exists(
+                    HackbotResolution.objects.filter(job=OuterRef("pk"))
+                )
+            )
+        )
+
+    @admin.display(description="Hackbot", boolean=True, ordering="used_hackbot")
+    def used_hackbot(self, instance: UpliftJob) -> bool:
+        """Return `True` when the job's merge conflict was handed to Hackbot."""
+        return instance.used_hackbot
+
+    @admin.display(description="Hackbot resolutions")
+    def hackbot_resolution_links(self, instance: UpliftJob) -> str:
+        """Link to each of the job's Hackbot resolutions, latest first."""
+        resolutions = instance.hackbot_resolutions.order_by("-created_at", "-id")
+        if not resolutions:
+            return "-"
+        return format_html_join(
+            mark_safe("<br>"),
+            '<a href="{}">{}</a>',
+            (
+                (
+                    reverse(
+                        "admin:main_hackbotresolution_change", args=(resolution.pk,)
+                    ),
+                    f"Resolution {resolution.pk} (run {resolution.run_id})",
+                )
+                for resolution in resolutions
+            ),
+        )
 
     @admin.display(description="Requester", ordering="submission__requested_by__email")
     def submission_user(self, instance: UpliftJob) -> str:
@@ -639,11 +705,12 @@ class UpliftSubmissionAdmin(admin.ModelAdmin):
         "id",
         "user_email",
         "requested_revision_summary",
+        "resolve_conflicts_with_ai",
         "job_count",
         "created_at",
         "updated_at",
     )
-    list_filter = ("created_at",)
+    list_filter = ("resolve_conflicts_with_ai", "created_at")
     search_fields = ("requested_by__email", "requested_revision_ids")
     readonly_fields = ("created_at", "updated_at")
     inlines = (UpliftJobInline,)
