@@ -21,10 +21,12 @@ from lando.headless_api.models.automation_job import (
 )
 from lando.headless_api.models.tokens import API_TOKEN_PREFIX_LENGTH, ApiToken
 from lando.main.models import JobAction, JobStatus, Repo
+from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
 from lando.main.scm import (
     AbstractSCM,
     MergeStrategy,
     PatchConflict,
+    SCMException,
     SCMType,
 )
 from lando.main.scm.helpers import (
@@ -33,6 +35,8 @@ from lando.main.scm.helpers import (
 )
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_REVERT_MAX_AGE_HOURS = 24
 
 
 def reject_cli_flags(value: str) -> str:
@@ -286,6 +290,40 @@ class MergeOntoAction(Schema):
         return True
 
 
+class RevertAction(Schema):
+    """Generate a backout of one commit already on the target branch."""
+
+    action: Literal["revert"]
+    commit: Annotated[
+        str, Field(min_length=40, max_length=40, pattern=r"^[0-9a-fA-F]{40}$")
+    ]
+
+    def process(
+        self, job: AutomationJob, repo: Repo, scm: AbstractSCM, index: int
+    ) -> bool:
+        max_age_hours = ConfigurationVariable.get(
+            ConfigurationKey.REVERT_MAX_AGE_HOURS,
+            DEFAULT_REVERT_MAX_AGE_HOURS,
+        )
+        try:
+            scm.revert_commit(
+                self.commit, max_age=datetime.timedelta(hours=max_age_hours)
+            )
+        except PatchConflict as exc:
+            raise AutomationActionException(
+                message=f"Conflict while reverting commit {self.commit}, action #{index}.",
+                job_action=JobAction.FAIL,
+                is_fatal=False,
+            ) from exc
+        except (SCMException, ValueError) as exc:
+            raise AutomationActionException(
+                message=f"Could not revert commit {self.commit}, action #{index}: {exc}",
+                job_action=JobAction.FAIL,
+                is_fatal=False,
+            ) from exc
+        return True
+
+
 class TagAction(Schema):
     """Create a new tag with the given name."""
 
@@ -329,6 +367,7 @@ Action = (
     | MergeOntoAction
     | AddBranchAction
     | TagAction
+    | RevertAction
 )
 
 ActionAdapter = TypeAdapter(Action)
@@ -408,7 +447,30 @@ def post_repo_actions(
         )
         return 400, {"details": error}
 
-    if not repo.user_can_use_automation(request.user):
+    is_revert = [isinstance(action, RevertAction) for action in operation.actions]
+    if any(is_revert):
+        if not repo.user_can_revert(request.user):
+            error = f"User {request.user.email} is not allowed to revert commits on repo {repo_name}."
+            logger.info(
+                error,
+                extra={"user": request.user.email, "token": request.auth.token_prefix},
+            )
+            return 403, {"details": error}
+        elif operation.relbranch is not None:
+            error = "Revert actions cannot be combined with a relbranch."
+            logger.info(
+                error,
+                extra={"user": request.user.email, "token": request.auth.token_prefix},
+            )
+            return 400, {"details": error}
+        elif not all(is_revert):
+            error = "Revert actions cannot be combined with other actions."
+            logger.info(
+                error,
+                extra={"user": request.user.email, "token": request.auth.token_prefix},
+            )
+            return 400, {"details": error}
+    elif not repo.user_can_use_automation(request.user):
         error = f"User {request.user.email} is not allowed to use this API for repo {repo_name}. Missing permission: {repo.required_automation_permission}."
         logger.info(
             error,

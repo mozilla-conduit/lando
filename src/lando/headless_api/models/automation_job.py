@@ -82,6 +82,7 @@ class ActionTypeChoices(models.TextChoices):
     CREATE_COMMIT = "create-commit", gettext_lazy("Create commit")
     TAG = "tag", gettext_lazy("Tag")
     MERGE_ONTO = "merge-onto", gettext_lazy("Merge onto")
+    REVERT = "revert", gettext_lazy("Revert commit")
 
 
 class AutomationAction(BaseModel):
