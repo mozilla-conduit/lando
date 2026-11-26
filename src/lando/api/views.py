@@ -461,7 +461,7 @@ class PullRequestUpdateWebhook(View, PrivateRepoPermissionMixin):
             raise Http404 from e
 
         self.client = GitHubAPIClient(self.target_repo.url)
-        self.raise_404_if_needed(request, self.client)
+        self.raise_404_if_needed(request, self.client, self.target_repo)
         self.pull_request = LandoPullRequest(self.client, pull_request_data)
 
         return super().dispatch(request)
