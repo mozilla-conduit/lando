@@ -6,7 +6,6 @@ import kombu
 from django.conf import settings
 from django.contrib.auth.models import User
 
-from lando.api.legacy.api.stacks import HTTP_404_STRING
 from lando.api.legacy.commit_message import format_commit_message
 from lando.api.legacy.projects import (
     CHECKIN_PROJ_SLUG,
@@ -41,7 +40,6 @@ from lando.api.legacy.transplants import (
 )
 from lando.api.legacy.validation import (
     parse_landing_path,
-    revision_id_to_int,
 )
 from lando.main.models import (
     SHIPPING,
@@ -385,26 +383,3 @@ def post(phab: PhabricatorClient, user: User, data: dict) -> tuple[dict[str, int
             pass
 
     return {"id": job.id}, 202
-
-
-def get_list(phab: PhabricatorClient, stack_revision_id: str) -> list[LandingJob]:
-    """Return a list of landing jobs related to the revision."""
-    revision_id_int = revision_id_to_int(stack_revision_id)
-
-    revision = phab.call_conduit(
-        "differential.revision.search", constraints={"ids": [revision_id_int]}
-    )
-    revision = phab.single(revision, "data", none_when_empty=True)
-    if revision is None:
-        raise LegacyAPIException(404, HTTP_404_STRING)
-    nodes, edges = build_stack_graph(revision)
-    revision_phids = list(nodes)
-    revs = phab.call_conduit_collated(
-        "differential.revision.search",
-        constraints={"phids": revision_phids},
-        limit=len(revision_phids),
-    )
-
-    rev_ids = [phab.expect(r, "id") for r in phab.expect(revs, "data")]
-
-    return LandingJob.revisions_query(rev_ids).all()
