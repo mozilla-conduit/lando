@@ -636,22 +636,33 @@ def create_pull_request_revision(git_patch: Callable):
 
     git_patch_0 = git_patch(0)
 
-    def _create_pull_request_revision(number: int, patches: str = git_patch_0):
+    def _create_pull_request_revision(
+        number: int,
+        patches: str = git_patch_0,
+        commit_message: str | None = None,
+        head_sha: str | None = None,
+        base_sha: str | None = None,
+    ):
         """Create revision number `number`, with patch text `patch`.
 
         `patch` will default to the first git patch fixture if unspecified. However,
         if explicitly set to None, the `git_patch` fixture will be used to get
-        normal patch number `number-1`."""
+        normal patch number `number-1`. `head_sha` and `base_sha` stay unset unless
+        given, matching a revision created before its pull request was fetched."""
         if not patches:
             patches = git_patch(number - 1)
+        if commit_message is None:
+            commit_message = f"No bug - commit message for PR {number}"
         revision = Revision()
         revision.pull_number = number
+        revision.pull_head_sha = head_sha
+        revision.pull_base_sha = base_sha
         # XXX: We use static metadata for now. In the future, we may want to extract dynamic
         # metadata from the `patches` passed to the fixture.
         revision.patch_data = {
             "author_name": "create_pull_request_revision",
             "author_email": "create_pull_request_revision@pytest",
-            "commit_message": f"No bug - commit message for PR {number}",
+            "commit_message": commit_message,
             "timestamp": f"{1764132923 + number}",
         }
         # We set the _patches_ as the concatenation of all requested patches, as can be
@@ -2079,13 +2090,26 @@ def mock_github_pull_request() -> Callable:
     """Build a mock pull request."""
 
     def _mock_github_pull_request(
-        number: int, title: str, body: str = "", head_ref: str = "main"
+        number: int,
+        title: str,
+        body: str = "",
+        head_ref: str = "main",
+        head_sha: str = "aaa123",
+        base_sha: str = "bbb123",
+        author: tuple[str, str] = ("Test Author", "test@email.com"),
     ) -> mock.MagicMock:
         pull_request = mock.MagicMock()
         pull_request.number = number
         pull_request.title = title
         pull_request.body = body
         pull_request.head_ref = head_ref
+        pull_request.head_sha = head_sha
+        pull_request.base_sha = base_sha
+        pull_request.author = author
+        pull_request.commit_message = title + body
+        pull_request.author_name = author[0]
+        pull_request.author_email = author[1]
+        pull_request.commit_id = "a" * 40
         return pull_request
 
     return _mock_github_pull_request
