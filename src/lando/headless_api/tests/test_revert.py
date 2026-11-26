@@ -76,7 +76,7 @@ def revert_setup(headless_user):
     return _revert_setup
 
 
-def post(client, repo_name, token, operation):
+def post_repo_actions(client, repo_name, token, operation):
     return client.post(
         f"/api/repo/{repo_name}",
         data=operation,
@@ -93,7 +93,9 @@ def post(client, repo_name, token, operation):
 def test_revert_authorized(client, revert_setup, allowed_repos):
     token = revert_setup("firefox-autoland", allowed_repos=allowed_repos)
     actions = [revert_action(), revert_action(commit="b" * 40)]
-    response = post(client, "firefox-autoland", token, {"actions": actions})
+    response = post_repo_actions(
+        client, "firefox-autoland", token, {"actions": actions}
+    )
     assert response.status_code == 202, response.content
     job = AutomationJob.objects.get()
     assert [action.data for action in job.actions.order_by("order")] == actions
@@ -117,7 +119,9 @@ def test_revert_authorized(client, revert_setup, allowed_repos):
 )
 def test_revert_unauthorized(client, revert_setup, repo_name, setup, expected):
     token = revert_setup(repo_name, **setup)
-    response = post(client, repo_name, token, {"actions": [revert_action()]})
+    response = post_repo_actions(
+        client, repo_name, token, {"actions": [revert_action()]}
+    )
     assert response.status_code == expected, response.content
     assert not AutomationJob.objects.exists()
 
@@ -134,7 +138,7 @@ def test_revert_unauthorized(client, revert_setup, repo_name, setup, expected):
 )
 def test_revert_rejects_other_operations(client, revert_setup, operation, automation):
     token = revert_setup("firefox-autoland", automation=automation)
-    response = post(client, "firefox-autoland", token, operation)
+    response = post_repo_actions(client, "firefox-autoland", token, operation)
     assert response.status_code == 400, response.content
     assert "cannot be combined" in response.json()["details"]
     assert not AutomationJob.objects.exists()

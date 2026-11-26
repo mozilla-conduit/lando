@@ -15,23 +15,15 @@ def git(repo, *args):
     return subprocess.check_output(["git", *args], cwd=repo, text=True).strip()
 
 
-@pytest.fixture
-def commit_file(create_git_commit_sha):
-    def _commit_file(repo, content):
-        return create_git_commit_sha(
-            repo,
-            message="Bug 123 - Break startup",
-            name="backout-test",
-            content=content,
-        )
-
-    return _commit_file
-
-
-def test_git_revert(git_repo, commit_file):
+def test_git_revert(git_repo, create_git_commit_sha):
     scm = GitSCM(str(git_repo))
     base_tree = git(git_repo, "rev-parse", "HEAD^{tree}")
-    target = commit_file(git_repo, "broken")
+    target = create_git_commit_sha(
+        git_repo,
+        message="Bug 123 - Break startup",
+        name="backout-test",
+        content="broken",
+    )
     with scm.for_push("hackbot@mozilla.tld"):
         scm.revert_commit(target.upper(), CENTURY)
     assert git(git_repo, "rev-parse", "HEAD^{tree}") == base_tree
@@ -72,10 +64,10 @@ def test_git_revert(git_repo, commit_file):
     ],
 )
 def test_git_revert_rejects_invalid_targets(
-    git_repo, commit_file, setup, target_args, exception
+    git_repo, create_git_commit_sha, setup, target_args, exception
 ):
     scm = GitSCM(str(git_repo))
-    commit_file(git_repo, "broken")
+    create_git_commit_sha(git_repo, name="backout-test", content="broken")
     for command in setup:
         git(git_repo, *command)
     target = git(git_repo, *target_args)
@@ -93,40 +85,53 @@ def test_git_revert_rejects_invalid_targets(
         ([["revert", "--no-edit", "HEAD"]], "HEAD~1"),
     ],
 )
-def test_git_revert_nothing_to_revert(git_repo, commit_file, setup, target_rev):
+def test_git_revert_nothing_to_revert(
+    git_repo, create_git_commit_sha, setup, target_rev
+):
     scm = GitSCM(str(git_repo))
-    commit_file(git_repo, "broken")
+    create_git_commit_sha(git_repo, name="backout-test", content="broken")
     for command in setup:
         git(git_repo, *command)
     target = git(git_repo, "rev-parse", target_rev)
     original = scm.head_ref()
-    with pytest.raises(SCMException):
+    with pytest.raises(SCMException) as raised:
         scm.revert_commit(target, CENTURY)
+    assert "nothing to commit" in raised.value.out, (
+        "Reverting a commit with no changes left to undo should fail because there is nothing to commit."
+    )
     scm.reset_to_commit(original)
-    next_target = commit_file(git_repo, "next")
+    next_target = create_git_commit_sha(git_repo, name="backout-test", content="next")
     scm.revert_commit(next_target, CENTURY)
-    assert scm.describe_commit().reverted_commit_hashes() == [next_target]
+    assert scm.describe_commit().reverted_commit_hashes() == [next_target], (
+        "The repo should still accept a revert after a failed one."
+    )
     assert git(git_repo, "rev-parse", "HEAD^{tree}") == git(
         git_repo, "rev-parse", f"{original}^{{tree}}"
-    )
+    ), "Reverting the new commit should restore the previous tree."
 
 
-def test_git_revert_conflict(git_repo, commit_file):
+def test_git_revert_conflict(git_repo, create_git_commit_sha):
     scm = GitSCM(str(git_repo))
-    commit_file(git_repo, "base\n")
-    target = commit_file(git_repo, "broken\n")
-    original = commit_file(git_repo, "subsequent change\n")
+    create_git_commit_sha(git_repo, name="backout-test", content="base\n")
+    target = create_git_commit_sha(git_repo, name="backout-test", content="broken\n")
+    original = create_git_commit_sha(
+        git_repo, name="backout-test", content="subsequent change\n"
+    )
     with pytest.raises(PatchConflict) as raised:
         scm.revert_commit(target, CENTURY)
     assert "backout-test" in raised.value.conflicts
     scm.reset_to_commit(original)
     scm.revert_commit(original, CENTURY)
-    assert scm.describe_commit().reverted_commit_hashes() == [original]
-    assert (git_repo / "backout-test").read_text() == "broken\n"
+    assert scm.describe_commit().reverted_commit_hashes() == [original], (
+        "The repo should still accept a revert after a conflicting one."
+    )
+    assert (git_repo / "backout-test").read_text() == "broken\n", (
+        "Reverting the latest commit should restore the previous file content."
+    )
 
 
-def test_git_revert_older_than_max_age(git_repo, commit_file):
-    target = commit_file(git_repo, "broken")
+def test_git_revert_older_than_max_age(git_repo, create_git_commit_sha):
+    target = create_git_commit_sha(git_repo, name="backout-test", content="broken")
     with pytest.raises(ValueError, match="more than 24 hours ago"):
         GitSCM(str(git_repo)).revert_commit(target, DAY)
 
@@ -139,10 +144,10 @@ def test_git_revert_older_than_max_age(git_repo, commit_file):
     ],
 )
 def test_git_revert_within_max_age(
-    git_repo, commit_file, monkeypatch, commit_age, max_age
+    git_repo, create_git_commit_sha, monkeypatch, commit_age, max_age
 ):
     monkeypatch.setenv("GIT_COMMITTER_DATE", (datetime.now() - commit_age).isoformat())
     scm = GitSCM(str(git_repo))
-    target = commit_file(git_repo, "broken")
+    target = create_git_commit_sha(git_repo, name="backout-test", content="broken")
     scm.revert_commit(target, max_age)
     assert scm.describe_commit().reverted_commit_hashes() == [target]

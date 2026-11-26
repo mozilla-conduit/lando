@@ -273,17 +273,20 @@ class GitSCM(AbstractSCM):
     @override
     @detect_patch_conflict
     def revert_commit(self, commit_id: str, max_age: timedelta):
+        """Use `git revert` to back out one commit committed within `max_age`."""
         if not self.commit_exists(commit_id):
             raise CommitNotFound(f"{commit_id} is not a commit.", "")
         commit = self.describe_commit(commit_id)
         if len(commit.parents) != 1:
-            raise ValueError(f"Root and merge commits cannot be reverted: {commit_id}.")
+            raise ValueError(
+                f"Root and merge commits cannot be reverted: {commit.hash}."
+            )
         try:
             self._git_run(
                 "merge-base", "--is-ancestor", commit.hash, "HEAD", cwd=self.path
             )
         except SCMException as exc:
-            raise ValueError(f"{commit_id} is not on the target branch.") from exc
+            raise ValueError(f"{commit.hash} is not on the target branch.") from exc
         committed_at = datetime.fromtimestamp(
             int(
                 self._git_run("show", "-s", "--format=%ct", commit.hash, cwd=self.path)
@@ -292,7 +295,7 @@ class GitSCM(AbstractSCM):
         )
         if committed_at < datetime.now(timezone.utc) - max_age:
             raise ValueError(
-                f"{commit_id} was committed at {committed_at.isoformat()}, "
+                f"{commit.hash} was committed at {committed_at.isoformat()}, "
                 f"more than {max_age.total_seconds() / 3600:g} hours ago."
             )
         self._git_run("revert", "--no-edit", commit.hash, cwd=self.path)
