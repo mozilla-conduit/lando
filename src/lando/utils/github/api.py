@@ -291,6 +291,19 @@ class GitHubAPIClient:
         result = self._api.patch(path, *args, **kwargs)
         return result.json()
 
+    #
+    # COMMITS
+    #
+    def get_commit_checks(self, full_sha: str) -> list[dict[str, Any]]:
+        """Return a list of checks on the given commit."""
+        checks = self._repo_get(f"commits/{full_sha}/check-runs")
+
+        return checks.get("check_runs", [])
+
+    #
+    # PULL REQUESTS
+    #
+
     def list_pull_requests(self) -> list:
         """List all pull requests in the repo."""
         return self._repo_get("pulls")
@@ -471,6 +484,26 @@ class PullRequest:
     class StaleMetadataException(Exception):
         pass
 
+    class CheckConclusion(str, Enum):
+        ACTION_REQUIRED = "action_required"
+        CANCELLED = "cancelled"
+        FAILURE = "failure"
+        NEUTRAL = "neutral"
+        SUCCESS = "success"
+        SKIPPED = "skipped"
+        STALE = "stale"
+        TIMED_OUT = "timed_out"
+
+        @classmethod
+        def is_error(cls, conclusion: Self) -> bool:
+            return conclusion in (
+                cls.ACTION_REQUIRED,
+                cls.CANCELLED,
+                cls.FAILURE,
+                cls.STALE,
+                cls.TIMED_OUT,
+            )
+
     class Mergeability(str, Enum):
         """Mergeability of a PR.
 
@@ -647,6 +680,12 @@ class PullRequest:
             )
 
         return commits
+
+    @property
+    # Not cached, as the checks may change separately from the PR's state.
+    def checks(self) -> list[dict[str, Any]]:
+        """Return the checks on the head commit of the PR."""
+        return self.client.get_commit_checks(self.head_sha)
 
     @property
     @pr_cache_method
