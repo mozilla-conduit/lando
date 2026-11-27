@@ -415,9 +415,8 @@ class PullRequestBlockingReviewsWarning(PullRequestWarning):
         messages = []
 
         # Keep only the last review for each user.
-        # This assumes that GitHub returns reviews in chronological order of submission.
         reviews_by_user = {}
-        for review in reviews:
+        for review in sorted(reviews, key=lambda r: r["submitted_at"]):
             reviews_by_user[review["user"]["login"]] = review
 
         for review in reviews_by_user.values():
