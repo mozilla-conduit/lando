@@ -21,6 +21,18 @@ from lando.main.models.uplift import UpliftJob
 MAX_ATTEMPTS = 3
 
 
+@pytest.mark.django_db
+def test__models__BaseJob__attempt_timestamps(make_landing_job: Callable):
+    job = make_landing_job(status=JobStatus.SUBMITTED)
+
+    job.start_attempt()
+    assert job.started_at is not None
+    assert job.finished_at is None
+
+    job.transition_status(JobAction.FAIL, message="failed")
+    assert job.finished_at is not None
+
+
 @pytest.mark.parametrize(
     "job_class,expected_path",
     (

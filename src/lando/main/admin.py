@@ -552,6 +552,7 @@ class WorkerAdmin(admin.ModelAdmin):
     )
     inlines = (WorkerReposInline,)
     readonly_fields = (
+        "current_job",
         "created_at",
         "updated_at",
     )
