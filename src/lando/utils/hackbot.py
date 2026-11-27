@@ -162,6 +162,11 @@ class RunDoc:
         return self.status == SUCCEEDED_RUN_STATUS
 
 
+def run_console_url(run_id: str) -> str:
+    """Return the page of a run in the Hackbot console, which needs a Mozilla login."""
+    return f"{settings.HACKBOT_CONSOLE_URL.rstrip('/')}/runs/{run_id}"
+
+
 class HackbotClient:
     """A client for the Hackbot API."""
 

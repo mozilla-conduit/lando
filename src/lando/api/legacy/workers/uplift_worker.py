@@ -12,9 +12,12 @@ from django.db import transaction
 from typing_extensions import override
 
 from lando.api.legacy.uplift import (
+    MAX_AI_CHANGE_SUMMARY_BYTES,
+    format_hackbot_run_link,
     format_later_revision_details,
     format_resolution_details,
     is_uplift_resolution_enabled,
+    truncate_to_bytes,
 )
 from lando.api.legacy.workers.base import Worker
 from lando.main.models import (
@@ -378,13 +381,24 @@ class UpliftWorker(Worker):
         resolution.save()
 
         result = resolution.result
+        summary = truncate_to_bytes(result.summary, MAX_AI_CHANGE_SUMMARY_BYTES)
+        if summary != result.summary:
+            logger.debug(
+                f"Truncated Hackbot's {len(result.summary.encode('utf-8'))}-byte "
+                "summary to fit Phabricator's limit."
+            )
         conflict_revision_id = resolution.conflict_revision.revision_id
         for revision_id in revision_ids:
+            has_comparison = (
+                merge_conflict is not None
+                and int(merge_conflict["rev_id"]) == revision_id
+            )
             if revision_id == revision_ids[0]:
                 details = format_resolution_details(
                     conflict_revision_id,
                     job.target_repo.name,
                     resolution.resolution_diff,
+                    has_comparison,
                 )
             else:
                 details = format_later_revision_details(
@@ -393,11 +407,11 @@ class UpliftWorker(Worker):
 
             request = {
                 "kind": "merge-conflict",
-                "summary": result.summary or None,
+                "summary": summary or None,
                 "confidence": result.confidence,
-                "details": details,
+                "details": format_hackbot_run_link(details, str(resolution.run_id)),
             }
-            if merge_conflict and int(merge_conflict["rev_id"]) == revision_id:
+            if has_comparison:
                 request["changeDiffID"] = merge_conflict["resolution_diff_id"]
                 request["baseDiffID"] = merge_conflict["diff_id"]
 

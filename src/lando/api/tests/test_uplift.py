@@ -9,6 +9,7 @@ from unittest import mock
 import pytest
 import requests
 from django.contrib.messages import get_messages
+from django.test import override_settings
 from django.urls import reverse
 from packaging.version import (
     Version,
@@ -17,11 +18,13 @@ from packaging.version import (
 from lando.api.legacy.commit_message import parse_bugs
 from lando.api.legacy.revisions import get_bug_id_for_stack_tips
 from lando.api.legacy.uplift import (
-    MAX_RESOLUTION_DIFF_LENGTH,
+    MAX_AI_CHANGE_SUMMARY_BYTES,
     create_uplift_bug_update_payload,
+    format_hackbot_run_link,
     format_later_revision_details,
     format_resolution_details,
     parse_milestone_version,
+    truncate_to_bytes,
 )
 from lando.api.legacy.workers.uplift_worker import HACKBOT_SKIPPED_NO_CONFLICTED_TREE
 from lando.api.tests.test_landings import PATCH_CHANGE_MISSING_CONTENT
@@ -2222,13 +2225,10 @@ def test_uplift_worker_records_how_hackbot_resolved_the_conflict(
         assert resolution.resolution_diff == "", (
             "Without the conflicted tree, no comparison can be made."
         )
-        assert "Lando could not rebuild the conflicted files" in details, (
-            "The details should say why the resolution can't be shown."
-        )
         return
 
-    assert resolution.resolution_diff in details, (
-        "The details should show how Hackbot resolved the conflict."
+    assert resolution.resolution_diff not in details, (
+        "The resolution diff should be left to the diff comparison, not repeated."
     )
 
     assert "-<<<<<<< HEAD" in resolution.resolution_diff, (
@@ -2286,14 +2286,52 @@ def test_uplift_worker_requests_approval_of_the_resolution(
         "baseDiffID": 50,
         "summary": "Kept both sides.",
         "confidence": "high",
-        "details": format_resolution_details(2, "firefox-beta", ""),
+        "details": format_hackbot_run_link(
+            format_resolution_details(2, "firefox-beta", "", has_comparison=True),
+            str(resolution.run_id),
+        ),
     }, "The request should compare the conflict diff with the resolution diff."
     assert requests_by_revision[7002] == {
         "kind": "merge-conflict",
         "summary": "Kept both sides.",
         "confidence": "high",
-        "details": format_later_revision_details(2, "firefox-beta"),
+        "details": format_hackbot_run_link(
+            format_later_revision_details(2, "firefox-beta"), str(resolution.run_id)
+        ),
     }, "A later revision's request has no diffs to compare, so uses its active diff."
+
+
+@pytest.mark.django_db
+def test_uplift_worker_truncates_a_long_summary_in_approval_requests(
+    repo_mc,
+    user,
+    uplift_worker,
+    create_patch_revision,
+    normal_patch,
+    make_uplift_job_with_revisions,
+    make_hackbot_resolution,
+    mock_request_approval_task,
+):
+    """Job 7186: a summary over Phabricator's limit is trimmed, not rejected."""
+    repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
+    revision = create_patch_revision(1, patch=normal_patch(0))
+    job = make_uplift_job_with_revisions(repo, user, [revision])
+    long_summary = "Kept both sides. " * 2000
+    resolution = make_hackbot_resolution(
+        job, revision, findings={"summary": long_summary, "confidence": "medium"}
+    )
+
+    uplift_worker.request_hackbot_resolution_approval(resolution, [7000], None)
+
+    (call,) = mock_request_approval_task.apply_async.call_args_list
+    revision_id, request = call.kwargs["args"]
+    assert len(request["summary"].encode("utf-8")) <= MAX_AI_CHANGE_SUMMARY_BYTES, (
+        "The summary should fit Phabricator's `summary` limit."
+    )
+    assert request["summary"].endswith("…"), "A cut summary should end in an ellipsis."
+    assert resolution.result.summary == long_summary, (
+        "The resolution should keep Hackbot's full summary."
+    )
 
 
 @pytest.mark.django_db
@@ -2670,15 +2708,20 @@ diff --git a/test.txt b/test.txt
 """
 
 
-def test_format_resolution_details_shows_the_diff():
-    details = format_resolution_details(1234, "firefox-beta", RESOLUTION_DIFF)
+def test_format_resolution_details_points_at_the_comparison():
+    details = format_resolution_details(
+        1234, "firefox-beta", RESOLUTION_DIFF, has_comparison=True
+    )
 
     assert details.startswith(
         "Lando hit a merge conflict in `test.txt` when uplifting D1234 to "
         "`firefox-beta`, and Hackbot resolved it."
     ), "The details should name the conflicted files, the revision and the train."
-    assert f"```lang=diff, lines=40\n{RESOLUTION_DIFF}```" in details, (
-        "The resolution diff should be in a highlighted, scrolling code block."
+    assert "The diff comparison shows how Hackbot changed" in details, (
+        "The details should point at the diff comparison for the change itself."
+    )
+    assert "```" not in details and "<<<<<<<" not in details, (
+        "The resolution diff should be left to the diff comparison, not repeated."
     )
 
 
@@ -2693,26 +2736,42 @@ def test_format_later_revision_details_says_this_revision_did_not_conflict():
     )
 
 
-def test_format_resolution_details_without_diff():
-    details = format_resolution_details(1234, "firefox-beta", "")
+def test_format_resolution_details_without_a_comparison():
+    details = format_resolution_details(1234, "firefox-beta", "", has_comparison=False)
 
-    assert "```" not in details, "No code block should be posted without a diff."
     assert details.startswith(
         "Lando hit a merge conflict when uplifting D1234 to `firefox-beta`"
-    ), "Without a diff, the details can't name the conflicted files."
-    assert "Lando could not rebuild the conflicted files" in details, (
-        "The details should say why the resolution isn't shown."
+    ), "Without a resolution diff, the details can't name the conflicted files."
+    assert "there is no diff comparison" in details, (
+        "The details should say why there's no comparison to review."
     )
 
 
-def test_format_resolution_details_truncates_long_diffs():
-    long_diff = RESOLUTION_DIFF + "+more\n" * MAX_RESOLUTION_DIFF_LENGTH
+@pytest.mark.parametrize(
+    "text,max_bytes,expected",
+    (
+        ("short", 10, "short"),
+        ("exactly10!", 10, "exactly10!"),
+        ("a" * 20, 10, "a" * 7 + "…"),
+        # `«` is two bytes, so a cut through it drops the whole character.
+        ("aaaaaa«bbb", 10, "aaaaaa…"),
+        ("words and    more", 15, "words and…"),
+    ),
+)
+def test_truncate_to_bytes(text, max_bytes, expected):
+    truncated = truncate_to_bytes(text, max_bytes)
 
-    details = format_resolution_details(1234, "firefox-beta", long_diff)
+    assert truncated == expected, f"`truncate_to_bytes` should return {expected!r}."
+    assert len(truncated.encode("utf-8")) <= max_bytes, (
+        "The result should fit in `max_bytes` of UTF-8."
+    )
 
-    assert len(details) < MAX_RESOLUTION_DIFF_LENGTH + 1000, (
-        "The diff should be cut to `MAX_RESOLUTION_DIFF_LENGTH`."
-    )
-    assert details.endswith("so it was truncated."), (
-        "The details should say the diff was truncated."
-    )
+
+@override_settings(HACKBOT_CONSOLE_URL="https://hackbot.example/")
+def test_format_hackbot_run_link():
+    details = format_hackbot_run_link("Lando hit a merge conflict.", "run-1")
+
+    assert details == (
+        "Lando hit a merge conflict.\n\nHackbot's full summary and log are on "
+        "[[https://hackbot.example/runs/run-1 | its run]]."
+    ), "The details should end with a Remarkup link to the run in the console."
