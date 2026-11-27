@@ -1106,3 +1106,219 @@ def test__views__landing_job_pull_request_view__checks__prs(
 
     other = "blockers" if check_type == "warning" else "warnings"
     assert len(checks[other]) == 0, f"No {other} were expected for {check_type} test"
+
+
+class TestBatchSubmitAPIView:
+    @pytest.mark.parametrize("check", (1, 0))
+    @pytest.mark.django_db()
+    def test__BatchSubmitAPIView__post__happy_path(self, check, client):
+        job_1 = LandingJob.objects.create()
+        job_2 = LandingJob.objects.create()
+
+        add_revisions_to_job(
+            [
+                Revision.objects.create(revision_id=1),
+                Revision.objects.create(revision_id=2),
+            ],
+            job_1,
+        )
+
+        add_revisions_to_job(
+            [
+                Revision.objects.create(revision_id=4),
+                Revision.objects.create(revision_id=5),
+                Revision.objects.create(revision_id=6),
+            ],
+            job_2,
+        )
+
+        input_data = {"stacks": [["D1", "D2"], ["D4", "D5", "D6"]], "check": check}
+
+        response = client.post(
+            "/api/batch-submit",
+            input_data,
+            content_type="application/json",
+        )
+
+        if check == 1:
+            assert response.status_code == 200
+            assert response.json() == {"result": "Would submit 2 jobs."}
+        else:
+            assert response.status_code == 200
+
+            batch_id = response.json()["batch_id"]
+            assert batch_id == 1
+
+            job_1.refresh_from_db()
+            job_2.refresh_from_db()
+
+            assert job_1.status == JobStatus.SUBMITTED
+            assert job_2.status == JobStatus.SUBMITTED
+            assert job_1.priority == 1000
+            assert job_2.priority == 1001
+
+    @pytest.mark.parametrize("check", (1, 0))
+    @pytest.mark.django_db()
+    def test__BatchSubmitAPIView__post__missing_landing_job(self, check, client):
+        job_1 = LandingJob.objects.create()
+
+        add_revisions_to_job(
+            [
+                Revision.objects.create(revision_id=1),
+                Revision.objects.create(revision_id=2),
+            ],
+            job_1,
+        )
+
+        input_data = {"stacks": [["D1", "D2"], ["D4", "D5", "D6"]], "check": check}
+
+        response = client.post(
+            "/api/batch-submit",
+            input_data,
+            content_type="application/json",
+        )
+
+        assert response.status_code == 400
+        assert response.json() == {
+            "__all__": [
+                "Landing job for stack [4, 5, 6] does not exist or has incorrect status."
+            ]
+        }
+
+    @pytest.mark.parametrize("check", (1, 0))
+    @pytest.mark.django_db()
+    def test__BatchSubmitAPIView__post__missing_revision(self, check, client):
+        job_1 = LandingJob.objects.create()
+
+        add_revisions_to_job(
+            [
+                Revision.objects.create(revision_id=1),
+            ],
+            job_1,
+        )
+
+        input_data = {"stacks": [["D1", "D2"]], "check": check}
+
+        response = client.post(
+            "/api/batch-submit",
+            input_data,
+            content_type="application/json",
+        )
+
+        assert response.status_code == 400
+        assert response.json() == {
+            "__all__": [
+                "Provided stack does not match job. Expected: [1, 2] but got [1]."
+            ]
+        }
+
+    @pytest.mark.parametrize("check", (1, 0))
+    @pytest.mark.django_db()
+    def test__BatchSubmitAPIView__post__multiple_jobs(self, check, client):
+        job_1 = LandingJob.objects.create()
+        job_2 = LandingJob.objects.create()
+
+        revision = Revision.objects.create(revision_id=1)
+
+        add_revisions_to_job(
+            [revision],
+            job_1,
+        )
+
+        add_revisions_to_job(
+            [revision],
+            job_2,
+        )
+
+        input_data = {"stacks": [["D1", "D2"]], "check": check}
+
+        response = client.post(
+            "/api/batch-submit",
+            input_data,
+            content_type="application/json",
+        )
+
+        assert response.status_code == 400
+        assert response.json() == {"__all__": ["Multiple jobs found for [1, 2]"]}
+
+    @pytest.mark.parametrize("check", (1, 0))
+    @pytest.mark.django_db()
+    def test__BatchSubmitAPIView__post__job_has_wrong_status(self, check, client):
+        job_1 = LandingJob.objects.create(status=JobStatus.SUBMITTED)
+        job_2 = LandingJob.objects.create(status=JobStatus.SUBMITTED)
+
+        revision = Revision.objects.create(revision_id=1)
+
+        add_revisions_to_job(
+            [revision],
+            job_1,
+        )
+
+        add_revisions_to_job(
+            [revision],
+            job_2,
+        )
+
+        input_data = {"stacks": [["D1", "D2"]], "check": check}
+
+        response = client.post(
+            "/api/batch-submit",
+            input_data,
+            content_type="application/json",
+        )
+
+        assert response.status_code == 400
+        assert response.json() == {
+            "__all__": [
+                "Landing job for stack [1, 2] does not exist or has incorrect status."
+            ]
+        }
+
+    @pytest.mark.django_db()
+    def test__BatchSubmitAPIView__get(self, client):
+        job_1 = LandingJob.objects.create()
+        job_2 = LandingJob.objects.create()
+
+        add_revisions_to_job(
+            [
+                Revision.objects.create(revision_id=1),
+                Revision.objects.create(revision_id=2),
+            ],
+            job_1,
+        )
+
+        add_revisions_to_job(
+            [
+                Revision.objects.create(revision_id=4),
+                Revision.objects.create(revision_id=5),
+                Revision.objects.create(revision_id=6),
+            ],
+            job_2,
+        )
+
+        input_data = {"stacks": [["D1", "D2"], ["D4", "D5", "D6"]], "check": 0}
+
+        response = client.post(
+            "/api/batch-submit",
+            input_data,
+            content_type="application/json",
+        )
+
+        batch_id = response.json()["batch_id"]
+
+        response = client.get(
+            f"/api/batch-submit/{batch_id}",
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "batch_id": batch_id,
+            "landing_jobs": [
+                {"id": job_1.id, "status": "SUBMITTED", "revision_ids": ["D1", "D2"]},
+                {
+                    "id": job_2.id,
+                    "status": "SUBMITTED",
+                    "revision_ids": ["D4", "D5", "D6"],
+                },
+            ],
+        }

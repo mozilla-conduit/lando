@@ -9,6 +9,8 @@ from typing import Any, Callable
 from django import forms
 from django.conf import settings
 from django.core.handlers.wsgi import WSGIRequest
+from django.db import transaction
+from django.forms import ValidationError
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -26,7 +28,9 @@ from lando.main.auth import (
 )
 from lando.main.models import (
     CommitMap,
+    JobAction,
     JobStatus,
+    LandingBatch,
     LandingJob,
     Repo,
     Revision,
@@ -499,3 +503,106 @@ class PullRequestUpdateWebhook(View, PrivateRepoPermissionMixin):
         rendered = render_to_string("pr_description.md", context)
         self.client.update_pull_request_content(self.pull_request.number, rendered)
         return JsonResponse({"status": "success"})
+
+
+class BatchSubmitAPIView(APIView):
+    def get(self, request: WSGIRequest, batch_id: int, *args, **kwargs) -> JsonResponse:
+        """Return a given batch's landing job statuses and list of revision IDs."""
+        batch = LandingBatch.objects.get(pk=batch_id)
+        landing_jobs = batch.landing_jobs.all()
+        data = {
+            "batch_id": batch.id,
+            "landing_jobs": [
+                {
+                    "id": job.id,
+                    "status": job.status,
+                    "revision_ids": [
+                        f"D{revision_id}"
+                        for revision_id in job.revisions.all().values_list(
+                            "revision_id", flat=True
+                        )
+                    ],
+                }
+                for job in landing_jobs
+            ],
+        }
+        return JsonResponse(data)
+
+    def post(self, request: WSGIRequest, *args, **kwargs) -> JsonResponse:
+        """Given a list of stacks, submit their respective landing jobs.
+
+        If `check` parameter is passed as True, only checks if landing jobs can
+        be submitted (i.e., perform a "dry run").
+
+        """
+
+        class Form(forms.Form):
+            stacks = forms.JSONField()
+            check = forms.BooleanField(required=False)
+
+            def clean(self) -> dict[str, Any]:
+                stacks = self.cleaned_data["stacks"]
+                if not stacks:
+                    raise ValidationError("'stacks' is a required key.")
+                if not isinstance(stacks, list):
+                    raise ValidationError("'stacks' must be a list.")
+                for i in range(len(stacks)):
+                    stack = stacks[i]
+                    if not stack:
+                        raise ValidationError("Stack can not be empty.")
+                    if not all(isinstance(revision, str) for revision in stack):
+                        # TODO: validate that all these are of the correct form (Dnnn...)
+                        raise ValidationError("Stack must consist of integers.")
+                    stack = [int(entry.lstrip("D")) for entry in stack]
+                    stacks[i] = stack
+                landing_jobs = []
+                for stack in stacks:
+                    # TODO: parse all validation errors and return in errors dict.
+                    try:
+                        job = LandingJob.objects.get(
+                            status=JobStatus.CREATED,
+                            unsorted_revisions__revision_id=stack[0],
+                        )
+                    except LandingJob.MultipleObjectsReturned:
+                        raise ValidationError(f"Multiple jobs found for {stack}")
+                    except LandingJob.DoesNotExist:
+                        raise ValidationError(
+                            f"Landing job for stack {stack} does not exist or has incorrect status."
+                        )
+
+                    revision_ids = list(
+                        job.revisions.values_list("revision_id", flat=True)
+                    )
+                    if revision_ids != stack:
+                        raise ValidationError(
+                            f"Provided stack does not match job. Expected: {stack} but got {revision_ids}."
+                        )
+
+                    if job.status != JobStatus.CREATED:
+                        raise ValidationError(
+                            f"Unexpected job status encountered for job {job.id} ({job.status})."
+                        )
+
+                    landing_jobs.append(job)
+
+                del self.cleaned_data["stacks"]
+                self.cleaned_data["landing_jobs"] = landing_jobs
+                return self.cleaned_data
+
+        form = Form(json.loads(request.body))
+        if not form.is_valid():
+            return JsonResponse(form.errors, status=400)
+
+        data = form.cleaned_data
+        if data["check"]:
+            return JsonResponse(
+                {"result": f"Would submit {len(data['landing_jobs'])} jobs."}
+            )
+        else:
+            with transaction.atomic():
+                batch = LandingBatch.objects.create()
+                for i, job in enumerate(data["landing_jobs"]):
+                    job.batch = batch
+                    job.priority = batch.PRIORITY_NAMESPACE + i
+                    job.transition_status(JobAction.SUBMIT)
+            return JsonResponse({"batch_id": batch.id})

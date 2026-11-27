@@ -109,6 +109,9 @@ class JobAction(enum.Enum):
     Actions affect the status and other fields on the LandingJob object.
     """
 
+    # Submit the job.
+    SUBMIT = "SUBMIT"
+
     # Complete the job and land a revision in a repository.
     LAND = "LAND"
 
@@ -227,6 +230,10 @@ class BaseJob(BaseModel):
                 `commit_id`.
         """
         actions = {
+            JobAction.SUBMIT: {
+                "required_params": [],
+                "status": JobStatus.SUBMITTED,
+            },
             JobAction.LAND: {
                 "required_params": ["commit_id"],
                 "status": JobStatus.LANDED,

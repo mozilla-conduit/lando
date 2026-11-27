@@ -25,6 +25,12 @@ class LandingStrategy(models.TextChoices):
     TWO_WAY = "TWO_WAY", "2-way apply (applied at the target tip)"
 
 
+class LandingBatch(BaseModel):
+    # Minimum priority to start job at in a batch.
+    PRIORITY_NAMESPACE = 1000
+    pass
+
+
 class LandingJob(BaseJob):
     """A landing job for Phabricator revisions."""
 
@@ -81,6 +87,15 @@ class LandingJob(BaseJob):
         related_name="handover_jobs",
     )
     is_handed_over = models.BooleanField(null=True, blank=True)
+
+    batch = models.ForeignKey(
+        LandingBatch,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="landing_jobs",
+        help_text="Groups landing jobs by batch for reference.",
+    )
 
     @property
     def landed_phabricator_revisions(self) -> dict:
