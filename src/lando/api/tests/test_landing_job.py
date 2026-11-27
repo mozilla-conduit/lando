@@ -243,3 +243,42 @@ def test_landing_job_hides_unlanded_secure_revision_data(
 
         assert "error" not in response
         assert "revisions" not in response
+
+
+@pytest.mark.django_db(transaction=True)
+def test_revision_landings_view_returns_jobs_by_revision(
+    client, phabdouble, make_landing_job, repo_mc
+):
+    """Test happy path; the view lists each requested revision's landing jobs."""
+    target_repo = repo_mc(SCMType.GIT)
+    first_diff = phabdouble.diff()
+    first_revision = phabdouble.revision(diff=first_diff, repo=phabdouble.repo())
+    first_job = make_landing_job(
+        landing_path=[(first_revision["id"], first_diff["id"])],
+        target_repo=target_repo,
+        status=JobStatus.LANDED,
+    )
+    second_diff = phabdouble.diff()
+    second_revision = phabdouble.revision(diff=second_diff, repo=phabdouble.repo())
+    second_job = make_landing_job(
+        landing_path=[(second_revision["id"], second_diff["id"])],
+        target_repo=target_repo,
+        status=JobStatus.SUBMITTED,
+    )
+
+    response = client.get(
+        "/api/revision_landings/",
+        {"revision_ids": f"{first_revision['id']},{second_revision['id']}"},
+    )
+
+    assert response.status_code == 200, "The view should respond with `200`."
+    assert response.json() == {
+        "landing_jobs_by_revision_id": {
+            str(first_revision["id"]): [
+                {"landing_job_id": first_job.id, "status": JobStatus.LANDED.value}
+            ],
+            str(second_revision["id"]): [
+                {"landing_job_id": second_job.id, "status": JobStatus.SUBMITTED.value}
+            ],
+        }
+    }, "The response should map each revision ID to its landing job and status."
