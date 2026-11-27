@@ -147,6 +147,7 @@
                             {{ form.confirmation_token }}
                             {{ form.flags }}
                             <button class="StackPage-landingPreview-land button"
+                                    data-tick-tock="{{ 'true' if dryrun and dryrun['tick_tock'] else 'false' }}"
                                     data-target-repo="{{ target_repo.url|repo_path }}"
                                     data-target-scm-type="{{ target_repo.scm_type }}"
                                     data-target-branch="{{ target_repo.default_branch }}"
