@@ -2,7 +2,7 @@
 FROM node:20-slim AS node
 
 # Copy Rust from official image to avoid running third-party install scripts.
-FROM rust:1.84-slim AS rust
+FROM rust:1.100-slim AS rust
 
 FROM python:3.15-trixie
 
