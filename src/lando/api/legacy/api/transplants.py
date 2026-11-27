@@ -7,6 +7,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 
 from lando.api.legacy.api.stacks import HTTP_404_STRING
+from lando.api.legacy.bmo import held_for_security_team
 from lando.api.legacy.commit_message import format_commit_message
 from lando.api.legacy.projects import (
     CHECKIN_PROJ_SLUG,
@@ -29,6 +30,7 @@ from lando.api.legacy.revisions import (
 )
 from lando.api.legacy.stacks import (
     REVISION_ATTACHMENTS,
+    RevisionData,
     RevisionStack,
     build_stack_graph,
     request_extended_revision_data,
@@ -112,6 +114,15 @@ def _get_middle_revision_from_landing_path(
     return revision
 
 
+def _stack_bug_ids(stack_data: RevisionData) -> set[int]:
+    """Return the Bugzilla bug ids referenced by the stack's revisions."""
+    return {
+        bug_id
+        for revision in stack_data.revisions.values()
+        if (bug_id := get_bugzilla_bug(revision)) is not None
+    }
+
+
 def dryrun(phab: PhabricatorClient, user: User, data: dict) -> dict[str, Any]:
     """Perform a dryrun of a landing to check for warnings and blockers."""
     landing_path = _parse_transplant_request(data)["landing_path"]
@@ -150,7 +161,15 @@ def dryrun(phab: PhabricatorClient, user: User, data: dict) -> dict[str, Any]:
     assessment = run_landing_checks(stack_state)
 
     # NOTE: we should switch to returning the `StackAssessment` directly.
-    return assessment.to_dict()
+    result = assessment.to_dict()
+    landing_repo = landing_assessment.landing_repo
+    held = False
+    if landing_repo and user.is_authenticated and landing_repo.user_can_push(user):
+        held = bool(landing_repo.status_flag_prefix) and held_for_security_team(
+            stack_state.bugs_by_id, _stack_bug_ids(stack_data)
+        )
+    result["tick_tock"] = held
+    return result
 
 
 def post(phab: PhabricatorClient, user: User, data: dict) -> tuple[dict[str, int], int]:
@@ -365,7 +384,12 @@ def post(phab: PhabricatorClient, user: User, data: dict) -> tuple[dict[str, int
         revision.save()
 
     # Submit landing job.
-    job.status = JobStatus.SUBMITTED
+    # Tick-tock bugs are landed later by the security team, so the job stays CREATED.
+    held = landing_repo.status_flag_prefix and held_for_security_team(
+        stack_state.bugs_by_id, _stack_bug_ids(stack_data)
+    )
+    if not held:
+        job.status = JobStatus.SUBMITTED
     job.set_landed_revision_diffs()
     job.save()
 
