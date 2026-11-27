@@ -22,6 +22,7 @@ from django.urls import include, path, re_path
 from lando.api.legacy.api import landing_jobs
 from lando.api.uplift_api import api as uplift_api
 from lando.api.views import (
+    BatchSubmitAPIView,
     LandingJobPullRequestAPIView,
     LegacyDiffWarningView,
     PullRequestChecksAPIView,
@@ -146,6 +147,19 @@ urlpatterns += [
         "api/pulls/webhook",
         PullRequestUpdateWebhook.as_view(),
         name="api-pull-request-description",
+    ),
+]
+
+urlpatterns += [
+    path(
+        "api/batch-submit",
+        BatchSubmitAPIView.as_view(),
+        name="batch-submit",
+    ),
+    path(
+        "api/batch-submit/<int:batch_id>",
+        BatchSubmitAPIView.as_view(),
+        name="batch-get",
     ),
 ]
 
