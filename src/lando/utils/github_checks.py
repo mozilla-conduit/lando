@@ -414,14 +414,19 @@ class PullRequestBlockingReviewsWarning(PullRequestWarning):
 
         messages = []
 
-        for review in reviews:
+        # Keep only the last review for each user.
+        reviews_by_user = {}
+        for review in sorted(reviews, key=lambda r: r["submitted_at"]):
+            reviews_by_user[review["user"]["login"]] = review
+
+        for review in reviews_by_user.values():
             if review["state"] == pull_request.Review.CHANGES_REQUESTED:
                 try:
                     review_title = review["body"].splitlines()[0]
                 except IndexError:
                     review_title = "(empty body)"
                 messages.append(
-                    f"{cls.description()} {review_title}… {review['html_url']})"
+                    f"{cls.description()} {review_title}… ({review['html_url']})"
                 )
 
         return messages
