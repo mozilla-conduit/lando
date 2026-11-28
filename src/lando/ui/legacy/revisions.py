@@ -17,7 +17,7 @@ from lando.api.legacy.revisions import (
 )
 from lando.api.legacy.validation import parse_revision_ids
 from lando.main.auth import force_auth_refresh, require_phabricator_api_key
-from lando.main.models import Profile, Repo
+from lando.main.models import LandingJob, Profile, Repo
 from lando.main.models.jobs import JobStatus
 from lando.main.models.uplift import (
     UpliftAssessment,
@@ -561,7 +561,9 @@ class RevisionView(LandoView):
             )
 
         # Request all previous landing jobs for the stack.
-        landing_jobs = legacy_api.transplants.get_list(phab, f"D{revision_id}")
+        landing_jobs = LandingJob.revisions_query(
+            r["id"].removeprefix("D") for r in stack["revisions"]
+        ).all()
 
         # The revision may appear in many `landable_paths`` if it has
         # multiple children, or any of its landable descendents have

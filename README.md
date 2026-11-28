@@ -76,6 +76,16 @@ The `make` targets default it to your own uid, so they need no setup. If you
 drive `docker compose` directly and your uid is not the usual 1000, set it in
 `.env` and rebuild, otherwise the container cannot write to your checkout.
 
+### Pointing Lando at a remote Phabricator instance
+
+It is may be useful to use real data from Phabricator when debugging some issues.
+
+By setting `PHABRICATOR_URL=https://phabricator.services.mozilla.com/`, and
+`PHABRICATOR_UNPRIVILEGED_API_KEY` to a Conduit API key for an account on that
+instance, Lando can interact and process revisions from production data. This
+is useful, for example, to render real stack pages, or investigate issues which
+only impact a specific subset of revisions.
+
 ## Testing
 
 To run the test suite, invoke the following command:
