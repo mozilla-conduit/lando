@@ -12,14 +12,14 @@ from packaging.version import (
 
 from lando.api.legacy import bmo
 from lando.main.models.configuration import ConfigurationKey, ConfigurationVariable
+from lando.utils import hackbot
 
 logger = logging.getLogger(__name__)
 
 UPLIFT_BUG_UPDATE_RETRIES = 3
 
-# The longest resolution diff posted to Phabricator, to keep a revision's details
-# reasonably sized. The revision's own diff always holds the full change.
-MAX_RESOLUTION_DIFF_LENGTH = 100_000
+# Phabricator rejects an AI change request whose `summary` is longer than this.
+MAX_AI_CHANGE_SUMMARY_BYTES = 32768
 
 
 def parse_milestone_version(milestone_contents: str) -> Version:
@@ -127,14 +127,13 @@ def is_uplift_resolution_enabled() -> bool:
 
 
 def format_resolution_details(
-    revision_id: int, train: str, resolution_diff: str
+    revision_id: int, train: str, resolution_diff: str, has_comparison: bool
 ) -> str:
     """Return the Remarkup details of a merge conflict's AI change approval request.
 
     The details describe what happened to this revision in Lando's words, so they
-    read apart from Hackbot's own summary. `resolution_diff` shows the conflicted
-    files, conflict markers included, changing into Hackbot's resolution, so a
-    reviewer can check each choice it made.
+    read apart from Hackbot's own summary. The diff comparison the request links
+    to, from the conflicted files to Hackbot's resolution, shows the change itself.
     """
     conflicted_paths = ", ".join(
         f"`{path}`" for path in resolution_diff_paths(resolution_diff)
@@ -143,28 +142,39 @@ def format_resolution_details(
     lines = [
         f"Lando hit a merge conflict{location} when uplifting D{revision_id} to "
         f"`{train}`, and Hackbot resolved it.",
-    ]
-
-    if not resolution_diff:
-        lines += [
-            "",
-            "Lando could not rebuild the conflicted files to show how Hackbot "
-            "resolved them.",
-        ]
-        return "\n".join(lines)
-
-    truncated = len(resolution_diff) > MAX_RESOLUTION_DIFF_LENGTH
-    lines += [
         "",
-        "How Hackbot changed the conflicted files, conflict markers included:",
-        "",
-        "```lang=diff, lines=40",
-        resolution_diff[:MAX_RESOLUTION_DIFF_LENGTH].rstrip("\n"),
-        "```",
     ]
-    if truncated:
-        lines += ["", "The diff was too long to show in full, so it was truncated."]
+    if has_comparison:
+        lines.append(
+            "The diff comparison shows how Hackbot changed the conflicted files, "
+            "conflict markers included."
+        )
+    else:
+        lines.append(
+            "Lando could not post the conflicted files, so there is no diff "
+            "comparison showing how Hackbot resolved them."
+        )
     return "\n".join(lines)
+
+
+def truncate_to_bytes(text: str, max_bytes: int) -> str:
+    """Return `text` cut to at most `max_bytes` of UTF-8, ending in "…" when cut."""
+    encoded = text.encode("utf-8")
+    if len(encoded) <= max_bytes:
+        return text
+
+    ellipsis = "…"
+    kept = encoded[: max_bytes - len(ellipsis.encode("utf-8"))]
+    # Dropping a partial character at the cut keeps the result valid UTF-8.
+    return kept.decode("utf-8", errors="ignore").rstrip() + ellipsis
+
+
+def format_hackbot_run_link(details: str, run_id: str) -> str:
+    """Return `details` with a Remarkup link to the Hackbot run's full summary."""
+    return (
+        f"{details}\n\nHackbot's full summary and log are on "
+        f"[[{hackbot.run_console_url(run_id)} | its run]]."
+    )
 
 
 def resolution_diff_paths(resolution_diff: str) -> list[str]:
