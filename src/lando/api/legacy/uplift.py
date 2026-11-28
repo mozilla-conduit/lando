@@ -170,7 +170,7 @@ def truncate_to_bytes(text: str, max_bytes: int) -> str:
 
 
 def format_hackbot_run_link(details: str, run_id: str) -> str:
-    """Return `details` with a link to the Hackbot run, which has the full summary."""
+    """Return `details` with a Remarkup link to the Hackbot run's full summary."""
     return (
         f"{details}\n\nHackbot's full summary and log are on "
         f"[[{hackbot.run_console_url(run_id)} | its run]]."

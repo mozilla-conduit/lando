@@ -164,7 +164,7 @@ class RunDoc:
 
 def run_console_url(run_id: str) -> str:
     """Return the page of a run in the Hackbot console, which needs a Mozilla login."""
-    return f"{settings.HACKBOT_CONSOLE_URL.rstrip('/')}/runs/{run_id}"
+    return f"{settings.HACKBOT_CONSOLE_URL}/runs/{run_id}"
 
 
 class HackbotClient:

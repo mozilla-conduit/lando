@@ -2312,7 +2312,7 @@ def test_uplift_worker_truncates_a_long_summary_in_approval_requests(
     make_hackbot_resolution,
     mock_request_approval_task,
 ):
-    """Job 7186: a summary over Phabricator's limit is trimmed, not rejected."""
+    """Bug 2098365: a summary over Phabricator's limit is trimmed, not rejected."""
     repo = repo_mc(SCMType.GIT, name="firefox-beta", approval_required=True)
     revision = create_patch_revision(1, patch=normal_patch(0))
     job = make_uplift_job_with_revisions(repo, user, [revision])
@@ -2323,8 +2323,10 @@ def test_uplift_worker_truncates_a_long_summary_in_approval_requests(
 
     uplift_worker.request_hackbot_resolution_approval(resolution, [7000], None)
 
-    (call,) = mock_request_approval_task.apply_async.call_args_list
-    revision_id, request = call.kwargs["args"]
+    mock_request_approval_task.apply_async.assert_called_once()
+    revision_id, request = mock_request_approval_task.apply_async.call_args.kwargs[
+        "args"
+    ]
     assert len(request["summary"].encode("utf-8")) <= MAX_AI_CHANGE_SUMMARY_BYTES, (
         "The summary should fit Phabricator's `summary` limit."
     )
@@ -2767,7 +2769,7 @@ def test_truncate_to_bytes(text, max_bytes, expected):
     )
 
 
-@override_settings(HACKBOT_CONSOLE_URL="https://hackbot.example/")
+@override_settings(HACKBOT_CONSOLE_URL="https://hackbot.example")
 def test_format_hackbot_run_link():
     details = format_hackbot_run_link("Lando hit a merge conflict.", "run-1")
 

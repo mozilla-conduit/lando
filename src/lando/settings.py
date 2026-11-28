@@ -298,7 +298,7 @@ PHABRICATOR_URL = os.getenv("PHABRICATOR_URL", "http://phabricator.test")
 PHABRICATOR_ADMIN_API_KEY = os.getenv("PHABRICATOR_ADMIN_API_KEY", "")
 PHABRICATOR_UNPRIVILEGED_API_KEY = os.getenv("PHABRICATOR_UNPRIVILEGED_API_KEY", "")
 
-HACKBOT_URL = os.getenv("HACKBOT_URL", "http://hackbot.test")
+HACKBOT_URL = os.getenv("HACKBOT_URL", "http://api.hackbot.test")
 # Authenticate to Hackbot with this API key when set, as in local development.
 # Otherwise, Lando sends a Google ID token for its service account, which Hackbot
 # accepts when its `HACKBOT_API_URL` equals `HACKBOT_OIDC_AUDIENCE`.
