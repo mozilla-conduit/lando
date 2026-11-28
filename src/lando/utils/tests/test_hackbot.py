@@ -177,6 +177,30 @@ def test_get_artifact_downloads_from_signed_url():
     )
 
 
+def test_get_artifact_decodes_utf8_without_a_charset():
+    """Bug 2051452: a patch served as `text/x-patch` without a charset keeps its UTF-8."""
+    signed_url = "https://storage.test/changes.patch?signature=abc"
+    patch = "     //   \u00ab reason \u00bb).\n"
+
+    with requests_mock.mock() as mocker:
+        mocker.get(
+            f"{settings.HACKBOT_URL}/runs/{RUN_ID}/artifacts/{PATCH_ARTIFACT}",
+            json={"url": signed_url},
+        )
+        mocker.get(
+            signed_url,
+            content=patch.encode("utf-8"),
+            headers={"Content-Type": "text/x-patch"},
+        )
+
+        contents = HackbotClient().get_artifact(RUN_ID, PATCH_ARTIFACT)
+
+    assert contents == patch, (
+        "The artifact should be decoded as UTF-8, not the ISO-8859-1 `requests` "
+        "assumes for `text/*` responses without a charset."
+    )
+
+
 def test_client_sends_requests_to_its_own_url():
     with requests_mock.mock() as mocker:
         mocker.get(

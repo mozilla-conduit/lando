@@ -251,6 +251,7 @@ class HackbotClient:
 
         Hackbot hands back a short-lived signed URL rather than the artifact
         itself, so this fetches the URL and then downloads from it straight away.
+        Artifacts are decoded as UTF-8, since storage serves them without a charset.
         """
         logger.debug(f"Fetching a download URL for {artifact_path} of run {run_id}.")
         download_url = self.get(f"runs/{run_id}/artifacts/{artifact_path}").json()[
@@ -264,4 +265,4 @@ class HackbotClient:
             timeout=settings.HACKBOT_REQUEST_TIMEOUT,
         )
         response.raise_for_status()
-        return response.text
+        return response.content.decode("utf-8")
