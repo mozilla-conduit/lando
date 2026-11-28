@@ -11,6 +11,7 @@ from lando.main.admin import (
     LandingJobAdmin,
     RepoAdmin,
     UpliftJobAdmin,
+    UsedHackbotChoices,
     UsedHackbotFilter,
 )
 from lando.main.models import JobStatus, Revision
@@ -134,7 +135,10 @@ def test_UpliftJobAdmin_flags_and_filters_jobs_that_used_hackbot(rf, make_uplift
         "The Hackbot flag should be shown in the uplift job list."
     )
 
-    for value, expected in (("yes", hackbot_job), ("no", clean_job)):
+    for value, expected in (
+        (UsedHackbotChoices.YES, hackbot_job),
+        (UsedHackbotChoices.NO, clean_job),
+    ):
         job_filter = UsedHackbotFilter(
             request, {"used_hackbot": [value]}, UpliftJob, job_admin
         )

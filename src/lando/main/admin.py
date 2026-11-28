@@ -5,7 +5,7 @@ from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
-from django.db.models import Exists, Model, OuterRef, QuerySet
+from django.db.models import Exists, Model, OuterRef, QuerySet, TextChoices
 from django.db.models import Field as DbField
 from django.forms import CheckboxSelectMultiple, MultipleChoiceField
 from django.forms import Field as FormField
@@ -244,6 +244,13 @@ class LandingJobAdmin(JobAdmin):
         return summary
 
 
+class UsedHackbotChoices(TextChoices):
+    """The choices of `UsedHackbotFilter`."""
+
+    YES = "yes", "Yes"
+    NO = "no", "No"
+
+
 class UsedHackbotFilter(admin.SimpleListFilter):
     """Filter uplift jobs by whether their merge conflict was handed to Hackbot."""
 
@@ -252,13 +259,13 @@ class UsedHackbotFilter(admin.SimpleListFilter):
 
     def lookups(
         self, request: HttpRequest, model_admin: admin.ModelAdmin
-    ) -> tuple[tuple[str, str], ...]:
-        return (("yes", "Yes"), ("no", "No"))
+    ) -> list[tuple[str, str]]:
+        return UsedHackbotChoices.choices
 
     def queryset(self, request: HttpRequest, queryset: QuerySet) -> QuerySet:
-        if self.value() == "yes":
+        if self.value() == UsedHackbotChoices.YES:
             return queryset.filter(used_hackbot=True)
-        if self.value() == "no":
+        if self.value() == UsedHackbotChoices.NO:
             return queryset.filter(used_hackbot=False)
         return queryset
 
